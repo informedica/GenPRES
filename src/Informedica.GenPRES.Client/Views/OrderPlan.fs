@@ -286,11 +286,7 @@ module OrderPlan =
             | OrderPlanView.Changing _
             | OrderPlanView.NoPatient -> true
 
-        let fieldTexts =
-            {|
-                pickValue = Terms.``Pick a value`` |> getTerm "kies een waarde"
-                pickMedian = Terms.``Pick the median`` |> getTerm "naar mediaan"
-            |}
+        let fieldTexts = ViewHelpers.quantityFieldTexts getTerm
 
         // the quantity field a cell steps, its commands sent into the row's own context, as the
         // order dialog builds the same field
@@ -425,7 +421,7 @@ module OrderPlan =
                 |> box
                 {|
                     field = "frequency"
-                    headerName = Terms.``Order Frequency`` |> getTerm "Frequentie"
+                    headerName = Terms.``Order Plan Frequency`` |> getTerm "Frequentie"
                     width = 150
                     filterable = false
                     sortable = false

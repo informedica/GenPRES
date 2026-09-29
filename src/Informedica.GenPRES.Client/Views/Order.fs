@@ -937,13 +937,7 @@ module Order =
 
         // the component and the item selects are the dialog's own, never a request; the dialog
         // always has one of each, so neither can be cleared
-        // what an empty value shows while there are values to pick from, and what a click on a
-        // range does
-        let texts =
-            {|
-                pickValue = Terms.``Pick a value`` |> getTerm "kies een waarde"
-                pickMedian = Terms.``Pick the median`` |> getTerm "naar mediaan"
-            |}
+        let texts = ViewHelpers.quantityFieldTexts getTerm
 
         let pick = ViewHelpers.orderFixed texts false false
 

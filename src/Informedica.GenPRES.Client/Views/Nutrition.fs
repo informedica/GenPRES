@@ -946,13 +946,7 @@ module Nutrition =
             React.useElmish (init ctx, update updateOrderScenario resetOrderScenario stepper shownOrder, [| box ctx |])
 
         let isOrderLoading = props.isRecalculating
-        // what an empty value shows while there are values to pick from, and what a click on a
-        // range does
-        let texts =
-            {|
-                pickValue = Terms.``Pick a value`` |> getTerm "kies een waarde"
-                pickMedian = Terms.``Pick the median`` |> getTerm "naar mediaan"
-            |}
+        let texts = ViewHelpers.quantityFieldTexts getTerm
 
         let select = ViewHelpers.orderSelect texts true isOrderLoading
         // a value only shown has nothing for a cross to clear
