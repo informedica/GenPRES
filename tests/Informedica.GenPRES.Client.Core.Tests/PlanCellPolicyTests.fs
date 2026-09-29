@@ -13,8 +13,28 @@ module PlanCellPolicyTests =
     let solvedVar = QuantityModePolicyTests.solvedVar
     let unsolvedVar = QuantityModePolicyTests.unsolvedVar
 
+    /// A solved order variable holding one value of its own, so a mapping to the wrong variable
+    /// shows.
+    let solvedAt (v: decimal) =
+        QuantityModePolicyTests.variable None None None (Some [| v |])
+        |> QuantityModePolicyTests.withIncr
+
+    let frequency = solvedAt 3m
+    let doseQuantity = solvedAt 5m
+    let doseRate = solvedAt 7m
+    let orderableQuantity = solvedAt 11m
+
+    /// The order with the variables the columns show set apart.
+    let distinct (ord: Order) =
+        { ord with
+            Order.Schedule.Frequency = frequency
+            Order.Orderable.Dose.Quantity = doseQuantity
+            Order.Orderable.Dose.Rate = doseRate
+            Order.Orderable.OrderableQuantity = orderableQuantity
+        }
+
     /// A solved discontinuous order with one component.
-    let discontinuous = QuantityModePolicyTests.order [ solvedVar ] solvedVar
+    let discontinuous = QuantityModePolicyTests.order [ solvedVar ] solvedVar |> distinct
 
     /// The order with its schedule set by f; every schedule flag is cleared first.
     let scheduled (f: Schedule -> Schedule) (ord: Order) =
@@ -47,10 +67,14 @@ module PlanCellPolicyTests =
 
     let planOf ctx = Shared.Models.OrderPlan.create patient [| ctx |]
 
-    /// The field a cell of the order steps, if any.
+    /// The field and the order variable a cell of the order steps, if any.
     let stepsOf (ord: Order) column =
         let ctx = contextOf ord
-        stepable (planOf ctx) ctx column |> Option.map fst
+        stepable (planOf ctx) ctx column
+
+    let steppingFrequency = Some(QuantityModePolicy.Field.Frequency, frequency)
+    let steppingDoseQuantity = Some(QuantityModePolicy.Field.DoseQuantity, doseQuantity)
+    let steppingDoseRate = Some(QuantityModePolicy.Field.DoseRate, doseRate)
 
 
     [<Tests>]
@@ -63,25 +87,19 @@ module PlanCellPolicyTests =
                     [
                         for name, ord, column, exp in
                             [
-                                "discontinuous",
-                                discontinuous,
-                                Column.Frequency,
-                                Some QuantityModePolicy.Field.Frequency
-                                "discontinuous",
-                                discontinuous,
-                                Column.Solution,
-                                Some QuantityModePolicy.Field.DoseQuantity
-                                "timed", timed, Column.Frequency, Some QuantityModePolicy.Field.Frequency
-                                "timed", timed, Column.Solution, Some QuantityModePolicy.Field.DoseQuantity
+                                "discontinuous", discontinuous, Column.Frequency, steppingFrequency
+                                "discontinuous", discontinuous, Column.Solution, steppingDoseQuantity
+                                "timed", timed, Column.Frequency, steppingFrequency
+                                "timed", timed, Column.Solution, steppingDoseQuantity
                                 "once", once, Column.Frequency, None
-                                "once", once, Column.Solution, Some QuantityModePolicy.Field.DoseQuantity
+                                "once", once, Column.Solution, steppingDoseQuantity
                                 "once timed", onceTimed, Column.Frequency, None
-                                "once timed", onceTimed, Column.Solution, Some QuantityModePolicy.Field.DoseQuantity
-                                "continuous", continuous, Column.Frequency, Some QuantityModePolicy.Field.DoseRate
+                                "once timed", onceTimed, Column.Solution, steppingDoseQuantity
+                                "continuous", continuous, Column.Frequency, steppingDoseRate
                                 "continuous", continuous, Column.Solution, None
                             ] do
-                            test $"the %A{column} column of a %s{name} order steps %A{exp}" {
-                                fieldOf column ord |> Option.map fst |> Expect.equal "as the schedule says" exp
+                            test $"the %A{column} column of a %s{name} order steps %A{exp |> Option.map fst}" {
+                                fieldOf column ord |> Expect.equal "the field and its own variable" exp
                             }
 
                         for column in [ Column.Medication; Column.Route; Column.Quantity; Column.Dose ] do
@@ -98,21 +116,16 @@ module PlanCellPolicyTests =
                         test "a solved discontinuous order steps its frequency and its dose quantity" {
                             [ Column.Frequency; Column.Solution ]
                             |> List.map (stepsOf discontinuous)
-                            |> Expect.equal
-                                "both open a field"
-                                [
-                                    Some QuantityModePolicy.Field.Frequency
-                                    Some QuantityModePolicy.Field.DoseQuantity
-                                ]
+                            |> Expect.equal "both open a field" [ steppingFrequency; steppingDoseQuantity ]
                         }
 
                         test "a solved continuous order steps its rate" {
                             stepsOf continuous Column.Frequency
-                            |> Expect.equal "the rate opens a field" (Some QuantityModePolicy.Field.DoseRate)
+                            |> Expect.equal "the rate opens a field" steppingDoseRate
                         }
 
                         test "an unsolved order steps nothing" {
-                            let unsolved = QuantityModePolicyTests.order [ solvedVar ] unsolvedVar
+                            let unsolved = { discontinuous with Order.Orderable.Dose.Quantity = unsolvedVar }
 
                             [ Column.Frequency; Column.Solution ]
                             |> List.choose (stepsOf unsolved)
@@ -120,14 +133,14 @@ module PlanCellPolicyTests =
                         }
 
                         test "a solved order with two components steps its dose quantity" {
-                            let two = QuantityModePolicyTests.order [ solvedVar; solvedVar ] solvedVar
+                            let two = QuantityModePolicyTests.order [ solvedVar; solvedVar ] solvedVar |> distinct
 
                             stepsOf two Column.Solution
-                            |> Expect.equal "every component is solved" (Some QuantityModePolicy.Field.DoseQuantity)
+                            |> Expect.equal "every component is solved" steppingDoseQuantity
                         }
 
                         test "an order with a component unsolved does not step its dose quantity" {
-                            let two = QuantityModePolicyTests.order [ solvedVar; unsolvedVar ] solvedVar
+                            let two = QuantityModePolicyTests.order [ solvedVar; unsolvedVar ] solvedVar |> distinct
 
                             stepsOf two Column.Solution
                             |> Expect.isNone "the dose quantity waits for the components"
@@ -140,8 +153,7 @@ module PlanCellPolicyTests =
                                 }
 
                             stepable (planOf ctx) ctx Column.Frequency
-                            |> Option.map fst
-                            |> Expect.equal "the rule applies to every row" (Some QuantityModePolicy.Field.Frequency)
+                            |> Expect.equal "the rule applies to every row" steppingFrequency
                         }
 
                         test "a locked context steps nothing" {
