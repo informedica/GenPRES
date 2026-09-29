@@ -124,6 +124,7 @@ module OrderScenario =
             UseRenalRule = ren
             RenalRule = rrl
             ProductsIds = ids
+            Picks = Some []
         }
 
 
@@ -222,6 +223,7 @@ module OrderScenario =
                 UseRenalRule: bool
                 RenalRule: string option
                 ProductsIds: string[]
+                Picks: string[] option
             }
 
 
@@ -267,6 +269,7 @@ module OrderScenario =
                 UseRenalRule = sc.UseRenalRule
                 RenalRule = sc.RenalRule
                 ProductsIds = sc.ProductsIds
+                Picks = sc.Picks |> Option.map List.toArray
             }
 
 
@@ -327,6 +330,7 @@ module OrderScenario =
                                 UseRenalRule = dto.UseRenalRule
                                 RenalRule = dto.RenalRule
                                 ProductsIds = dto.ProductsIds |> DtoResult.orEmpty
+                                Picks = dto.Picks |> Option.map (DtoResult.orEmpty >> Array.toList)
                             }
                     | errors, _, _, _, _, _ -> Error errors
                 )
@@ -1002,6 +1006,46 @@ Scenarios: {scenarios}
             |> updateFilterIfOneScenario
 
 
+    /// The scenario after a change from the dialog. A variable the user picked that arrives
+    /// cleared is reopened, the picks made before it kept; any other change, and a reopen that
+    /// fails to solve, is solved as it is.
+    let updateScenarioOrder (logger: Logger) (ctx: OrderContext) =
+        let reopened =
+            ctx.Scenarios
+            |> Array.tryExactlyOne
+            |> Option.bind (fun sc ->
+                sc.Picks
+                |> Option.bind (fun picks -> sc.Order |> OrderReopen.reopen logger picks)
+                |> Option.bind Result.toOption
+                |> Option.map (fun (ord, picks) ->
+                    { sc with
+                        Order = ord
+                        Picks = Some picks
+                    }
+                )
+            )
+
+        match reopened with
+        | Some sc ->
+            { ctx with Scenarios = [| sc |> OrderScenario.setOrderTableFormat |] }
+            |> updateFilterIfOneScenario
+        | None -> ctx |> processScenarioOrder logger SolveOrder
+
+
+    /// The scenarios with their picks mapped; a scenario whose picks are unknown keeps them so.
+    let mapPicks (f: string list -> string list) (ctx: OrderContext) =
+        { ctx with
+            Scenarios =
+                ctx.Scenarios
+                |> Array.map (fun sc -> { sc with Picks = sc.Picks |> Option.map f })
+        }
+
+
+    /// The scenarios after a reset: nothing picked, also for a scenario whose picks were unknown.
+    let resetPicks (ctx: OrderContext) =
+        { ctx with Scenarios = ctx.Scenarios |> Array.map (fun sc -> { sc with Picks = Some [] }) }
+
+
     /// The message a refusal has been until now, kept for the message-list contract.
     let noDoseRulesMessage = "Geen doseerregels gevonden voor het geselecteerde filter"
 
@@ -1098,12 +1142,16 @@ Scenarios: {scenarios}
     /// The command evaluated, as an outcome. The two commands that look the rules up can be
     /// refused; every other command is evaluated as it is.
     let evaluateOutcome (start: System.DateTime) logger provider cmd : Result<Outcome<Command>, Message list> =
-        // Helper to process property commands when there's exactly one scenario with an order
+        // Helper to process property commands when there's exactly one scenario with an order;
+        // a step is a pick of the variable it moves
         let processPropertyCmd ctx propCmd wrapResult =
             match ctx.Scenarios |> Array.tryExactlyOne with
-            | Some _ ->
-                ctx
-                |> processScenarioOrder logger (fun o -> ChangeProperty(o, propCmd))
+            | Some sc ->
+                let stepped = ctx |> processScenarioOrder logger (fun o -> ChangeProperty(o, propCmd))
+
+                match stepped.Scenarios |> Array.tryExactlyOne with
+                | Some after -> stepped |> mapPicks (OrderReopen.afterStep propCmd sc.Order after.Order)
+                | None -> stepped
                 |> wrapResult
                 |> Evaluated
                 |> Ok
@@ -1127,15 +1175,11 @@ Scenarios: {scenarios}
             |> SelectOrderScenario
             |> Evaluated
             |> Ok
-        | UpdateOrderScenario ctx ->
-            ctx
-            |> processScenarioOrder logger SolveOrder
-            |> UpdateOrderScenario
-            |> Evaluated
-            |> Ok
+        | UpdateOrderScenario ctx -> ctx |> updateScenarioOrder logger |> UpdateOrderScenario |> Evaluated |> Ok
         | ResetOrderScenario ctx ->
             ctx
             |> processScenarioOrder logger ReCalcValues
+            |> resetPicks
             |> ResetOrderScenario
             |> Evaluated
             |> Ok

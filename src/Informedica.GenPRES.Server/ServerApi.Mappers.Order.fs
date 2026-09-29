@@ -55,7 +55,10 @@ module Mappers =
 
             dto.Name <- var.Name
 
-            if var.IsNonZeroPositive && var.Incr.IsNone then
+            // a variable the client cleared goes as the mark alone, the bounds it kept left out, so
+            // that it reaches the domain unrestricted also when it has an increment; the solver
+            // marks only a variable without bounds, so a mark beside bounds is a clear
+            if var.IsNonZeroPositive then
                 dto.IsNonZeroPositive <- true
 
             else

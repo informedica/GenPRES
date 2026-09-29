@@ -15,6 +15,7 @@
     <Compile Include="EquationMapping.fs" />
     <Compile Include="Order.fs" />
     <Compile Include="OrderProcessor.fs" />
+    <Compile Include="OrderReopen.fs" />
     <Compile Include="Totals.fs" />
     <Compile Include="Dtos.fs" />
     <Compile Include="Medication.fs" />

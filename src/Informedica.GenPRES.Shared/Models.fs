@@ -1877,6 +1877,7 @@ module Models =
                 UseRenalRule = rr
                 RenalRule = rn
                 ProductIds = ids
+                Picks = Some [||]
             }
 
 

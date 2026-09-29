@@ -110,9 +110,9 @@ value the user picked and a value the solver derived look the same.
 - **For the filter fields, the client remembers who chose a field**, the user or the field's
   one-option choice, to tell a held field from a field with one option. Rejected: the memory is
   lost on a reload, and #1033 makes the difference disappear instead.
-- **Reopening moves to the dropdown arrow, the cross keeps emptying; the order carries which
-  variables the user constrained; the server reopens a cleared variable by a reset that keeps
-  the others; each filter list is computed without the field's own choice (#1033).** Chosen. It
+- **Reopening moves to the dropdown arrow, the cross keeps emptying; the scenario carries the
+  variables the user picked, in order; the server reopens a cleared pick by a reset that keeps
+  the picks made before it; each filter list is computed without the field's own choice (#1033).** Chosen. It
   includes the third approach: a value the solver derived offers neither cross nor arrow.
 
 ## Chosen approach
@@ -121,22 +121,20 @@ The arrow of an order field the user narrowed clears that field's own choice and
 the server returns. A filter field needs no clearing: its list already holds the options it could
 take. The cross is offered only for emptying.
 
-On the server a cleared variable of a solved order is reopened, not solved again: the order is
-reset, every other variable the user constrained gets its value back, and the order is solved.
-The order carries which variables the user constrained, as a flag on the order variable: set by
-the client on a pick and by the server on a step, cleared by the clear and by the reset. An order
-without the flag, stored before it existed, reads as unknown, and unknown is treated as
-constrained, in the field and in the reopen alike: the field offers the arrow, and the reopen
-gives an unknown value back as it gives a flagged one, so no choice of the user is lost. On such
-an order the values the solver derived are unknown too and are given back with the rest, so the
-reopen may bring back one value only, as a clear does today; it opens the list once the order
-has been built again after this change. So on such an order the arrow can make a round trip
-without showing another choice. That is accepted: the plan store holds development and test data
-only, so no order in use is stored before the flag. Treating only the fields the dialog lets the
-user pick as constrained would reopen these orders too, at the cost of a guess about who chose;
-it is not worth it for test data. A value the server
-chose by default when the order was first built is not flagged, and the reopen chooses it again
-the same way; only the cleared variable is left open.
+On the server a cleared variable the user picked is reopened, not solved again: the order is
+reset, the picks made before the cleared one get their values back, and the order is solved.
+Picks made after it were made given its old value, and are dropped: on amphotericin the mL dose
+picked after the mg dose pins the mg dose, so putting it back would reopen the mg dose to one
+value. A look loses nothing by this, since closing the list without a pick restores the order
+as it was; only a new pick in the reopened field lets the later picks go.
+
+The order scenario carries the names of the variables the user picked, in the order picked: the
+client adds a name on a pick, the server on a step, a reopen keeps the picks before the cleared
+one, and a reset empties the list. A variable in the list is one the user constrained; one not in
+it the solver derived or the server chose. A scenario without the list, stored before it existed,
+reads as unknown: its fields offer the arrow, and a clear on it is solved as today, so it may
+bring back one value only. That is accepted: the plan store holds development and test data
+only, so no order in use is stored before the list.
 
 A filter list is computed with every other choice in force but without the field's own (#1033).
 A chosen filter field then shows the options it could take, so it opens as any list does and no
@@ -178,18 +176,14 @@ The reset stays the way to discard every change at once.
 ## Confidence
 
 Medium. The split of reopening and emptying is clear and each row of the table follows from it,
-and the reopen by reset is shown to work on two fixtures. Less certain: whether the reopen holds
-on the continuous and timed fixtures, where the rate and the time take part, and whether the
-default choices of the first build can be made again after the reset (step 2 probes every
-fixture first); whether an extra field on the domain order variable survives every solve and
-step (from a read, only `OrderVariable.create`, `createNew` and `Dto.fromDto` build a fresh
-record, the rest copies; step 2 tests it); whether the filter lists of #1033 stay fast enough
+and the reopen by reset with the earlier picks is shown to work on every fixture with a choice
+(step 2's probe). Less certain: whether the filter lists of #1033 stay fast enough
 with one filter pass per field (step 4 measures it); and how the controlled open state of MUI's `Select`
 behaves while a request is under way (step 3 checks it in the browser).
 
 ## Steps
 
-One pull request per step, in this order. The order carries the flag before the order fields
+One pull request per step, in this order. The scenario carries the picks before the order fields
 change, so no order field ever offers an arrow on a value the solver determined, and the arrow
 never opens a list of one.
 
@@ -199,9 +193,10 @@ scripts and migrated by the maintainer; only the Client project is edited direct
 ### 1. Field decision: cross and arrow per field kind
 
 A script `src/Informedica.GenPRES.Client.Core/Scripts/FieldOpenPolicy.fsx` with a pure decision
-per field kind: whether it offers the cross, and what its arrow does, one of the four cases named
-in the table (`Open`, `ReopenCleared`, `BackToRange`, `NoArrow`). `ReopenCleared` is for order
-variables only.
+per field kind: whether it offers the cross, and what its arrow does (`Open`, `ReopenCleared`,
+`NoArrow`); `ReopenCleared` is for order variables only. Whether a range comes back cannot be told
+at the click, since a picked range value and a picked list value both hold one value, so a second
+decision, `reopened`, takes it once the answer lands: no values, no list.
 
 The field kinds are an order variable, a filter field and an entry field. An order variable is
 given its number of values, its mode from `QuantityModePolicy.decide` and whether the user
@@ -210,9 +205,10 @@ constrained it: yes, no or unknown, with unknown decided as yes. A filter field 
 
 A second decision covers a list closed without a pick: restore the previous value. The restore
 is a transition of the machines that hold the order shown: `OrderContextMachine` for the
-workbench, and `OrderPlanMachine` for an order of the plan opened in the dialog. It puts the kept
-context back and drops the answer to the clear by its request, whether that answer is still in
-flight or already pending.
+workbench, and `OrderPlanMachine` for an order of the plan opened in the dialog. A `Reopen` sends
+the clear and keeps the state before it; a `Restore` puts that state back. The state kept has
+nothing under way, so the answer to the clear finds no request to land on; a reopen while a
+request is under way keeps nothing.
 
 In the plan the clear goes out as a `Navigate` command, which marks the plan as changed
 (`PlanWorkPolicy.afterCommand`), and the mark is what the guard against leaving unsigned work
@@ -223,43 +219,51 @@ Expecto tests for every row of the table, for a click while a request is under w
 nothing, for the restore before and after the answer to the clear has landed, and for a restore
 in a plan as signed, which leaves it as signed.
 
-### 2. The order carries the user's choices, and a cleared variable is reopened (#1195)
+### 2. The scenario carries the user's picks, and a cleared pick is reopened (#1195)
 
-In a GenORDER script over the fixtures of `tests/Informedica.GenORDER.Tests/Scenarios.fs`:
+**The probe, done.** Over the fixtures of `tests/Informedica.GenORDER.Tests/Scenarios.fs`, with
+the pipeline the server runs (`CalcMinMax`, `CalcValues`, then `SolveOrder` per pick), picking
+each field that still had a choice, then for each pick: cleared and solved, and reset with the
+other picks put back and solved (`Scripts/ReopenProbe.fsx`).
 
-- **The probe first, on every fixture.** Pick, solve, clear one variable, solve: one value back.
-  Reset, pick the others again, solve: the list back with the other picks kept. The table above
-  is the expected shape; the continuous and timed fixtures add the rate and the time to it. The
-  probe also checks which values the first build chose by default, and that they can be chosen
-  again after the reset. If a fixture does not reopen by reset, the step stops and the plan is
-  revised.
-- **The flag.** A field on `OrderVariable` in `Types.fs`: whether the user constrained the
-  variable. Set by the server on every step command (`ChangeProperty`), cleared by the reset
-  (`ReCalcValues`) and by a clear. An option: absent is unknown. Carried by `OrderVariable.Dto`
-  and mapped both ways, so it reaches the order the plan store keeps. The store's JSON structure
-  version (`ServerApi.SqlAdapters.fs`, written and read as 2) goes to 3; a row of structure 2
-  upgrades with the flag absent, so a stored order reads as unknown and its fields keep the
-  arrow. Tested: the flag survives the solve and every step command over the fixtures, and a
-  structure 2 row reads back with the flag absent.
-- **The reopen.** In `OrderProcessor.processPipeline`, the cleared-order step of `SolveOrder`
-  becomes: reset the order as `ReCalcValues` does, set the value of every variable whose flag is
-  set or unknown back to what it was, make the default choices of the first build again for every
-  variable but the cleared ones, solve. The step is taken when any variable arrives cleared; which
-  one does not change the result, since a cleared variable has lost its flag. No new command. The
-  six-variable pattern and the warning for a clear it does not recognise go, since every variable
-  is reopened the same way. Tested over the fixtures with the counts of the table, and over the
-  same fixtures with every flag unknown: every value but the cleared one comes back.
-- **The contract.** A `bool option` on `OrderVariable` in `Shared/Types.fs`, set by `setOvar (Some _)`
-  in `Shared/Models.fs` and cleared by `setOvar None`, mapped both ways in
-  `ServerApi.Mappers.Order.fs`, with the round trip `toDto >> fromDto = id` tested over the
-  fixtures.
+| Fixture | Picks, in order | Cleared, solved | Reset, other picks back | Reset, earlier picks back |
+| --- | --- | --- | --- | --- |
+| paracetamol suppository | frequency, item dose | 1 each | frequency 2, item dose 3 | frequency 2, item dose 3 |
+| paracetamol drink | frequency | 1 | 2 | 2 |
+| cotrimoxazole | none: every field one value | | | |
+| amphotericin | item dose (mg), orderable dose (mL) | 1 each | mg dose **1**, mL dose 120 | mg dose 7, mL dose 120 |
+| morphine continuous | rate | 22: a plain clear already reopens | 22 | 22 |
+| full medication | frequency | 0: a range | 0 | 0 |
+
+The first build chose no single value by default on any fixture, so there is nothing to choose
+again after the reset. Only amphotericin tells the two rules apart, and there only the earlier
+picks reopen the field; that is the rule taken.
+
+**The reopen** (`Scripts/Reopen.fsx`, 9 tests over the fixtures): `OrderReopen.reopen` takes the
+picks and the order as it arrived. When a picked variable is cleared, it resets the order
+(`ReCalcValues`), gives the picks before the cleared one their values back from the order as it
+arrived (`Order.fromOrdVars`), solves (`SolveOrder`), and returns the order with the earlier
+picks as the picks left. Otherwise it returns nothing, and the order is solved as today.
+`OrderReopen.add` puts a pick at the end, moving one picked before; `OrderReopen.steppedBy` names
+the variable a step command moves.
+
+**The wiring, at migration:**
+
+- GenORDER: a `Picks: string list option` on `OrderScenario` and its DTO. In
+  `Api.evaluateOutcome`, `UpdateOrderScenario` reopens when `OrderReopen.reopen` applies and
+  solves as today otherwise; a step command adds `steppedBy` to the picks; `ResetOrderScenario`
+  empties them.
+- Contract: `Picks: string[] option` on `OrderScenario` in `Shared/Types.fs`, mapped both ways in
+  the server's scenario mapper. The client adds the variable's name on a pick; that is step 3.
+- The store: the JSON structure version (`ServerApi.SqlAdapters.fs`) goes from 2 to 3; a row of
+  structure 2 upgrades as it is, the list absent, so it reads as unknown.
 - **The mark of a clear.** Today a clear reaches GenORDER as unrestricted only when the variable
   has no increment. The mapper forwards the mark on its own, whatever the increment, so that a
   cleared range field is cleared too. That is safe: the solver marks only a variable that holds
   no bounds, so a mark beside an increment comes from a client clear alone. Tested: a range that
   was not cleared and a marked variable from the server pass through unchanged.
 
-Because the flag comes back with the order, the same fields offer the arrow after a reopen of
+Because the picks come back with the scenario, the same fields offer the arrow after a reopen of
 the dialog and a reload of the plan.
 
 ### 3. Order fields: the arrow reopens, the cross goes (#1034)
@@ -275,7 +279,8 @@ the dialog and a reload of the plan.
 - `Components/QuantityField.fs` passes the action through; a range field with a value picked or
   stepped gets `BackToRange`.
 - `Views/ViewHelpers.fs`: `orderField` no longer takes `canClear` nor sets `hasClear`, and takes
-  the flag of step 2 into the decision of step 1; a value the solver determined draws as fixed.
+  the picks of step 2 into the decision of step 1; a value the solver determined draws as fixed.
+  A pick adds the variable's name to the scenario's picks.
 - `Views/Order.fs` and `Views/Nutrition.fs`: on the arrow, keep the order shown and send the
   field's existing change message with `None`, such as `ChangeSubstanceDoseQuantity None` or
   `ChangeFrequency None`; the server reopens it as step 2 says. On a close without a pick,
@@ -304,10 +309,8 @@ A comment on #1034, #1195 and #1193 with the answer and the pull requests; the a
 
 1. The script's tests pass in FSI.
 2. The GenORDER script's tests pass: on every fixture a pick, a clear and a solve give one value
-   back, and a clear through the new step gives the list back with the other picks kept and the
-   default choices made again; the flag survives the solve and the steps; the contract round
-   trip holds; a stored plan of structure 2 reads with the flag unknown, and a reopen on it
-   keeps every other value. `dotnet run
+   back, and a reopen gives the list back with the earlier picks kept and the later ones gone;
+   the contract round trip holds; a stored plan of structure 2 reads with the picks unknown. `dotnet run
    servertests`; `dotnet fsi scripts/CheckDependencyRule.fsx`. In the browser, on the
    paracetamol suppository with a dose and a frequency picked: the cross on the dose brings the
    dose list back and keeps the frequency.
