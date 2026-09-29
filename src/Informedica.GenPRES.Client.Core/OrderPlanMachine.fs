@@ -422,6 +422,11 @@ module OrderPlanState =
         | _ -> None
 
 
+    /// Whether an answer to request is the one the plan waits for. An answer to a request an
+    /// open or a recalculation has since replaced is not, and the machine drops it.
+    let awaits (request: string) (state: OrderPlanState) = landing request state.InFlight |> Option.isSome
+
+
     /// The request stage: each intent becomes a request under the given id or an effect. A call
     /// while a request is under way is dropped, except a dialog command, which waits; an open or a
     /// recalculation replaces both.

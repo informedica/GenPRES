@@ -1026,3 +1026,26 @@ let argueTests =
                 |> Expect.isTrue "admitted while idle"
             }
         ]
+
+
+[<Tests>]
+let awaitsTests =
+    testList
+        "OrderPlanState.awaits"
+        [
+            test "the request under way is awaited" {
+                recalculating one None "r-1" (OrderPlanCommand.Recalculate one)
+                |> OrderPlanState.awaits "r-1"
+                |> Expect.isTrue "the answer to r-1 lands"
+            }
+
+            test "a request since replaced is not awaited" {
+                recalculating one None "r-2" (OrderPlanCommand.Recalculate one)
+                |> OrderPlanState.awaits "r-1"
+                |> Expect.isFalse "the answer to r-1 is dropped"
+            }
+
+            test "nothing is awaited while no request is under way" {
+                shown |> OrderPlanState.awaits "r-1" |> Expect.isFalse "no request under way"
+            }
+        ]

@@ -88,6 +88,9 @@ module private Elmish =
             Formulary: Deferred<Formulary>
             Parenteralia: Deferred<Parenteralia>
             Interactions: Deferred<DrugInteraction[]>
+            // the number of the interaction check under way; an answer to an earlier check is
+            // dropped, so it can neither replace the rows nor clear the error of a later one
+            InteractionCheck: int
             InteractionDrugNames: Deferred<string[]>
             // the drug names are asked again on a failure, three times
             DrugNameRetries: int
@@ -176,7 +179,7 @@ module private Elmish =
         | LoadParenteralia of ApiResponse<Parenteralia>
 
         | CheckInteractions of string list
-        | LoadInteractionsResult of ApiResponse<Api.InteractionResponse>
+        | LoadInteractionsResult of check: int * ApiResponse<Api.InteractionResponse>
         | LoadInteractionDrugNames of ApiResponse<Api.InteractionResponse>
 
         | UpdateLanguage of Localization.Locales
@@ -624,6 +627,7 @@ module private Elmish =
                     Formulary = HasNotStartedYet
                     Parenteralia = HasNotStartedYet
                     Interactions = HasNotStartedYet
+                    InteractionCheck = 0
                     InteractionDrugNames = HasNotStartedYet
                     DrugNameRetries = 0
                     ServerStatus = HasNotStartedYet
@@ -1284,12 +1288,17 @@ module private Elmish =
         | LoadReloadResult(token, Finished _) when token <> state.Admin.AuthToken -> state, Cmd.none
 
         | ListLogFiles ->
-            let token = state.Admin.AuthToken
+            match state.Admin.LogFiles with
+            // one listing at a time, so an earlier answer cannot clear the error of a later one
+            | InProgress
+            | Refreshing _ -> state, Cmd.none
+            | _ ->
+                let token = state.Admin.AuthToken
 
-            // the table shown stays until the answer
-            { state with Admin.LogFiles = state.Admin.LogFiles |> Deferred.refresh },
-            Api.AdminCommand.ListLogFiles token
-            |> createAdminMsg (fun result -> LoadLogFilesResult(token, result))
+                // the table shown stays until the answer
+                { state with Admin.LogFiles = state.Admin.LogFiles |> Deferred.refresh },
+                Api.AdminCommand.ListLogFiles token
+                |> createAdminMsg (fun result -> LoadLogFilesResult(token, result))
 
         | LoadLogFilesResult(_, Finished(Ok resp)) ->
             applyAdmin state resp |> clearError ServerErrorPolicy.ErrorSource.LogFiles
@@ -1627,11 +1636,19 @@ module private Elmish =
         // what the Session is told rides on the reply; the plan goes to the machine under the
         // request it answers
         | OrderPlanAnswered(request, answer) ->
+            // only the answer the plan waits for clears the plan's error: a late answer to a
+            // request since replaced is dropped by the machine and says nothing of the one under way
+            let clear =
+                if state.Lanes.OrderPlan |> OrderPlanState.awaits request then
+                    clearError ServerErrorPolicy.ErrorSource.OrderPlan
+                else
+                    id
+
             processApiMsg
                 state
                 answer
                 (fun state plan -> state, Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Answered(request, Ok plan))))
-            |> clearError ServerErrorPolicy.ErrorSource.OrderPlan
+            |> clear
 
         // asked again over the formulary shown, which stays shown until the answer; a second
         // request while one runs is dropped
@@ -1751,18 +1768,33 @@ module private Elmish =
                 ]
 
         | CheckInteractions drugs ->
+            // every check, the empty one too, ends the checks before it
+            let check = state.Fetches.InteractionCheck + 1
+
             if drugs.Length < 2 then
-                { withdrawInteractionsNotice state with Fetches.Interactions = HasNotStartedYet }, Cmd.none
+                { withdrawInteractionsNotice state with
+                    Fetches.Interactions = HasNotStartedYet
+                    Fetches.InteractionCheck = check
+                },
+                Cmd.none
             else
                 // the rows shown stay until the answer
-                { state with Fetches.Interactions = state.Fetches.Interactions |> Deferred.refresh },
+                { state with
+                    Fetches.Interactions = state.Fetches.Interactions |> Deferred.refresh
+                    Fetches.InteractionCheck = check
+                },
                 Api.InteractionCommand.CheckInteractions drugs
-                |> createApiMsg serverApi.processInteraction (tokenOf state.Lanes.Session) LoadInteractionsResult
+                |> createApiMsg
+                    serverApi.processInteraction
+                    (tokenOf state.Lanes.Session)
+                    (fun result -> LoadInteractionsResult(check, result))
 
-        | LoadInteractionsResult(Finished(Ok msg)) ->
+        | LoadInteractionsResult(check, Finished _) when check <> state.Fetches.InteractionCheck -> state, Cmd.none
+
+        | LoadInteractionsResult(_, Finished(Ok msg)) ->
             processApiMsg state msg applyInteraction
             |> clearError ServerErrorPolicy.ErrorSource.Interactions
-        | LoadInteractionsResult(Finished(Error err)) ->
+        | LoadInteractionsResult(_, Finished(Error err)) ->
             ({ state with Fetches.Interactions = HasNotStartedYet }, Cmd.none)
             |> processError ServerErrorPolicy.ErrorSource.Interactions err
         | LoadInteractionsResult _ -> state, Cmd.none
