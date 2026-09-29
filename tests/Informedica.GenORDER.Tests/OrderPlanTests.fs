@@ -983,3 +983,27 @@ let argumentationTests =
                 | Error e -> failtest $"{e}"
             }
         ]
+
+
+[<Tests>]
+let keepTests =
+    testList
+        "OrderContext.keep"
+        [
+            test "a filter field keeps its choice while its list holds it, else the one option, else none" {
+                [| "a"; "b" |] |> OrderContext.keep (Some "a") |> Expect.equal "kept" (Some "a")
+                [| "b"; "c" |]
+                |> OrderContext.keep (Some "a")
+                |> Expect.isNone "dropped, more options"
+                [| "b" |]
+                |> OrderContext.keep (Some "a")
+                |> Expect.equal "the one option" (Some "b")
+                [| "b" |]
+                |> OrderContext.keep None
+                |> Expect.equal "the one option, none chosen" (Some "b")
+                [| "a"; "b" |]
+                |> OrderContext.keep None
+                |> Expect.isNone "none chosen, several options"
+                [||] |> OrderContext.keep (Some "a") |> Expect.isNone "nothing to keep"
+            }
+        ]
