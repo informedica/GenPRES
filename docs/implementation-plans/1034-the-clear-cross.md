@@ -126,7 +126,11 @@ reset, every other variable the user constrained gets its value back, and the or
 The order carries which variables the user constrained, as a flag on the order variable: set by
 the client on a pick and by the server on a step, cleared by the clear and by the reset. An order
 without the flag, stored before it existed, reads as unknown, and unknown is treated as
-constrained: the field offers the arrow, and at worst opens a list of one. A value the server
+constrained, in the field and in the reopen alike: the field offers the arrow, and the reopen
+gives an unknown value back as it gives a flagged one, so no choice of the user is lost. On such
+an order the values the solver derived are unknown too and are given back with the rest, so the
+reopen may bring back one value only, as a clear does today; it opens the list once the order
+has been built again after this change. A value the server
 chose by default when the order was first built is not flagged, and the reopen chooses it again
 the same way; only the cleared variable is left open.
 
@@ -206,8 +210,14 @@ workbench, and `OrderPlanMachine` for an order of the plan opened in the dialog.
 context back and drops the answer to the clear by its request, whether that answer is still in
 flight or already pending.
 
+In the plan the clear goes out as a `Navigate` command, which marks the plan as changed
+(`PlanWorkPolicy.afterCommand`), and the mark is what the guard against leaving unsigned work
+reads. So the plan machine keeps the plan's work state with the context at the click, and the
+restore puts both back: a look at the list leaves a plan that was as signed as signed.
+
 Expecto tests for every row of the table, for a click while a request is under way, which does
-nothing, and for the restore before and after the answer to the clear has landed.
+nothing, for the restore before and after the answer to the clear has landed, and for a restore
+in a plan as signed, which leaves it as signed.
 
 ### 2. The order carries the user's choices, and a cleared variable is reopened (#1195)
 
@@ -228,12 +238,13 @@ In a GenORDER script over the fixtures of `tests/Informedica.GenORDER.Tests/Scen
   arrow. Tested: the flag survives the solve and every step command over the fixtures, and a
   structure 2 row reads back with the flag absent.
 - **The reopen.** In `OrderProcessor.processPipeline`, the cleared-order step of `SolveOrder`
-  becomes: reset the order as `ReCalcValues` does, set the value of every variable the flag
-  marks back to what it was, make the default choices of the first build again for every
+  becomes: reset the order as `ReCalcValues` does, set the value of every variable whose flag is
+  set or unknown back to what it was, make the default choices of the first build again for every
   variable but the cleared ones, solve. The step is taken when any variable arrives cleared; which
   one does not change the result, since a cleared variable has lost its flag. No new command. The
   six-variable pattern and the warning for a clear it does not recognise go, since every variable
-  is reopened the same way. Tested over the fixtures with the counts of the table.
+  is reopened the same way. Tested over the fixtures with the counts of the table, and over the
+  same fixtures with every flag unknown: every value but the cleared one comes back.
 - **The contract.** A `bool option` on `OrderVariable` in `Shared/Types.fs`, set by `setOvar (Some _)`
   in `Shared/Models.fs` and cleared by `setOvar None`, mapped both ways in
   `ServerApi.Mappers.Order.fs`, with the round trip `toDto >> fromDto = id` tested over the
@@ -291,7 +302,8 @@ A comment on #1034, #1195 and #1193 with the answer and the pull requests; the a
 2. The GenORDER script's tests pass: on every fixture a pick, a clear and a solve give one value
    back, and a clear through the new step gives the list back with the other picks kept and the
    default choices made again; the flag survives the solve and the steps; the contract round
-   trip holds; a stored plan of structure 2 reads with the flag unknown. `dotnet run
+   trip holds; a stored plan of structure 2 reads with the flag unknown, and a reopen on it
+   keeps every other value. `dotnet run
    servertests`; `dotnet fsi scripts/CheckDependencyRule.fsx`. In the browser, on the
    paracetamol suppository with a dose and a frequency picked: the cross on the dose brings the
    dose list back and keeps the frequency.
@@ -302,6 +314,8 @@ A comment on #1034, #1195 and #1193 with the answer and the pull requests; the a
      order stays solved; another pick takes;
    - Escape while the list still waits for the answer brings the dose back, and the late answer
      changes nothing;
+   - in a plan just opened or signed, the arrow on an order's dose and Escape leave the plan
+     unchanged: leaving the page asks nothing;
    - a value the solver determined has no arrow, and the arrows are the same after a reopen of
      the dialog and a reload of the plan;
    - a stepped dose rate: the arrow puts the range back, the stepper still works.
