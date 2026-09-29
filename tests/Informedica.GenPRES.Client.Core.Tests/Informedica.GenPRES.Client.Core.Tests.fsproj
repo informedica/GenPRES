@@ -42,6 +42,7 @@
     <!-- policies over the contract alone, whose tests read the order plan machine's fixtures -->
     <Compile Include="ArgumentationPolicyTests.fs" />
     <Compile Include="PlanContextPolicyTests.fs" />
+    <Compile Include="PlanCellPolicyTests.fs" />
 
     <Compile Include="Main.fs" />
   </ItemGroup>
