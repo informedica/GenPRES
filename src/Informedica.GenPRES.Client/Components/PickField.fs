@@ -66,10 +66,19 @@ module PickField =
 
         let chosen = props.selected |> Option.defaultValue ""
 
+        let trace event effects =
+            StepTrail.event
+                "Field"
+                $"%s{event} %s{props.label}"
+                effects
+                (SimpleSelect.fieldState props.selected props.options.Length false)
+
         React.useEffect (
             (fun () ->
                 match only with
-                | Some key when props.selected <> Some key && props.enabled -> props.onChange (Some key)
+                | Some key when props.selected <> Some key && props.enabled ->
+                    trace "autoPick" [ "onChange" ]
+                    props.onChange (Some key)
                 | _ -> ()
             ),
             [| box (only |> Option.defaultValue ""); box chosen; box props.enabled |]
@@ -92,9 +101,14 @@ module PickField =
         // what it offers is a field that lies. A field with nothing to choose takes neither.
         let updateSelected value =
             match value with
-            | None when hasClear -> props.onChange None
-            | Some _ when PickPolicy.acceptsChange pick || isHeld -> props.onChange value
-            | _ -> ()
+            | None when hasClear ->
+                trace "clear" [ "onChange none" ]
+                props.onChange None
+            | Some _ when PickPolicy.acceptsChange pick || isHeld ->
+                trace "pick" [ "onChange" ]
+                props.onChange value
+            | None -> trace "clear" [ "dropped" ]
+            | Some _ -> trace "pick" [ "dropped" ]
 
         match props.shape with
         | Shape.Scroll ->

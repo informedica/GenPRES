@@ -11,6 +11,14 @@ module SimpleSelect =
     open Feliz
 
 
+    /// A field's state for the trail: whether it holds a value and what it lists; never the value.
+    let fieldState (selected: string option) (listed: int) (reopening: bool) =
+        let held = if selected.IsSome then "picked" else "none"
+        let list = if listed = 0 then "range" else string listed
+        let reopen = if reopening then " reopening" else ""
+        $"%s{held} of %s{list}%s{reopen}"
+
+
     [<JSX.Component>]
     let View
         (props:
@@ -87,10 +95,25 @@ module SimpleSelect =
 
         let clear = fun _ -> None |> props.updateSelected
 
+        let trace event effects =
+            StepTrail.event
+                "Field"
+                $"%s{event} %s{props.label}"
+                effects
+                (fieldState props.selected listed reopening.current)
+
         let handleOpen =
             fun _ ->
                 match props.reopen with
-                | Some _ when props.isLoading || props.busy -> ()
+                | Some _ when props.isLoading || props.busy ->
+                    trace
+                        "open"
+                        [
+                            (if props.isLoading then
+                                 "blocked loading"
+                             else
+                                 "blocked busy")
+                        ]
                 | Some reopen ->
                     reopening.current <- true
                     sawLoading.current <- false
@@ -107,6 +130,7 @@ module SimpleSelect =
                 setWaiting false
 
                 if reopening.current then
+                    trace "close" [ "restore" ]
                     reopening.current <- false
                     props.restore ()
 
@@ -121,9 +145,10 @@ module SimpleSelect =
 
                         match FieldOpenPolicy.reopened listed with
                         | FieldOpenPolicy.Reopened.NoList ->
+                            trace "reopened" [ "NoList" ]
                             reopening.current <- false
                             setOpen false
-                        | FieldOpenPolicy.Reopened.ShowList -> ()
+                        | FieldOpenPolicy.Reopened.ShowList -> trace "reopened" [ "ShowList" ]
             ),
             [| box props.isLoading; box listed |]
         )

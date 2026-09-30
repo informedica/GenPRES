@@ -163,19 +163,31 @@ module ViewHelpers =
 
             let offer = FieldOpenPolicy.orderVariable values policyMode constrained (not (disabled || isEmpty))
 
+            let trace event effects =
+                StepTrail.event
+                    "Field"
+                    $"%s{event} %s{lbl}"
+                    effects
+                    (Components.SimpleSelect.fieldState shown values false)
+
             let reopenField =
                 match offer.Arrow, reopen with
                 | FieldOpenPolicy.Arrow.ReopenCleared, Some r ->
                     Some(fun () ->
+                        trace "open" [ "reopen" ]
                         r.reopening ()
                         updateSelected None
                     )
                 | _ -> None
 
+            let onChange (value: string option) =
+                trace (if value.IsSome then "pick" else "clear") [ "onChange" ]
+                updateSelected value
+
             // no field is the lead yet: which one the user starts from is the server's to say
             Components.QuantityField.View
                 {|
-                    onChange = if isEmpty then ignore else updateSelected
+                    onChange = if isEmpty then ignore else onChange
                     label = lbl
                     selected = shown
                     values = xs

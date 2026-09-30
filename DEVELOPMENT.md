@@ -636,6 +636,18 @@ before the dialog's own line.
 #24 13:33:20.116 Order UpdateOrderScenario 4cfe91b6 -> CallUpdate 4cfe91b6 | cmp paracetamol item paracetamol
 ```
 
+A pick field records what happened when the user acted on it, as a line of machine `Field` named by
+the field's label: a pick or a clear with `onChange` or `dropped`, an auto-pick of a single option,
+an arrow `open` that reopens, an open `blocked loading` or `blocked busy`, a `close` that restores,
+and the `reopened` decision, `NoList` or `ShowList`. The state says whether the field holds a value
+and what it lists, `picked of 5`, `none of range`, and `reopening` while a reopen is under way; it
+never shows the value, since a field can hold the department.
+
+```text
+#25 13:33:24.002 Field open dosering -> reopen | picked of 4
+#28 13:33:24.310 Field reopened dosering -> ShowList | none of 4 reopening
+```
+
 A context with one scenario shows that scenario: its short order id, its component and its picks,
 each with its value when the order holds one (`paracetamol.dos_qty=240 mg`), `open` otherwise.
 

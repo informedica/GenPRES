@@ -62,6 +62,21 @@ let record (describe: int -> DateTime -> Trail.Step) =
         lines <- lines |> Trail.append size line
 
 
+/// Records a step described by the caller: machine, message, effects, state. The caller keeps the
+/// text free of a key, an identity, a PIN or a token.
+let event (machine: string) (msg: string) (effects: string list) (state: string) =
+    record (fun no at ->
+        {
+            Trail.Step.No = no
+            At = at
+            Machine = machine
+            Msg = msg
+            Effects = effects
+            State = state
+        }
+    )
+
+
 /// The lines kept, oldest first.
 let text () = lines |> String.concat "\n"
 
@@ -74,6 +89,9 @@ let confirmDemo (_: bool) = ()
 
 
 let record (_: int -> DateTime -> Trail.Step) = ()
+
+
+let event (_: string) (_: string) (_: string list) (_: string) = ()
 
 
 let text () = ""
