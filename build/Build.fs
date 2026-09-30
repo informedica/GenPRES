@@ -415,12 +415,9 @@ Target.create
 Target.create "CheckVersions" (fun _ -> run dotnet [ "fsi"; "scripts/CheckSolutionVersions.fsx" ] ".")
 
 
-// The full localization, tab separated, as the Localization sheet should read: every case of the
-// Terms union with the translations the local snapshot holds, the missing ones as empty cells.
-// It prints and does not write the snapshot; `dotnet fsi scripts/LocalizationUpdate.fsx` does.
-Target.create
-    "Localization"
-    (fun _ -> run dotnet [ "fsi"; "scripts/LocalizationUpdate.fsx"; "--dry-run"; "--print" ] ".")
+// The localization file checked against the Terms union (every case has a row, every locale a
+// column, every cell filled), then its rows, tab separated, to paste over the Localization sheet.
+Target.create "Localization" (fun _ -> run dotnet [ "fsi"; "scripts/CheckLocalization.fsx"; "--print" ] ".")
 
 
 // The whole suite through `dotnet test`, with its own output rather than the per-assembly
