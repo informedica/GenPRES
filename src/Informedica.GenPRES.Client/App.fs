@@ -1847,6 +1847,129 @@ module private Elmish =
 
 open Elmish
 
+#if DEBUG
+open Elmish.Debug
+open Thoth.Json
+
+
+/// GENPRES_LOG as Vite read it at start-up, from the environment or the repository .env.
+[<Emit("__GENPRES_LOG__")>]
+let private genpresLog: string = jsNative
+
+
+/// GENPRES_PROD as Vite read it at start-up, from the environment or the repository .env.
+[<Emit("__GENPRES_PROD__")>]
+let private genpresProd: string = jsNative
+
+
+/// Logging is on for the levels the server logs at, d, i, w and e; unset or 0 is off.
+let isLogging (log: string) =
+    match log.Trim().ToLowerInvariant() with
+    | "d"
+    | "i"
+    | "w"
+    | "e" -> true
+    | _ -> false
+
+
+/// Production is GENPRES_PROD=1, as the server reads it.
+let isProduction (prod: string) = prod.Trim() = "1"
+
+
+/// A state may be traced only once the server has said it serves the demo data: never before the settings
+/// arrive, and never against production.
+let private isTraceable (state: State) =
+    match state.Fetches.Settings with
+    | Resolved settings
+    | Refreshing settings -> settings.IsDemo
+    | HasNotStartedYet
+    | InProgress -> false
+
+
+/// What the trace shows in place of the admin password.
+let redacted = "***"
+
+
+/// The message as the trace records it, with the admin password redacted: a development password may be the one
+/// a production server takes. The admin token stays, because a demo server signs it under its own mode, so it
+/// never opens a production server.
+let private redactMsg (msg: Msg) =
+    match msg with
+    | Login _ -> Login redacted
+    | _ -> msg
+
+
+/// The console trace, silent while the state is not traceable.
+let private consoleTrace (msg: Msg) (state: State) _ =
+    if isTraceable state then
+        Browser.Dom.console.log ("New message:", redactMsg msg)
+        Browser.Dom.console.log ("Updated state:", state)
+
+
+/// A connection to the Redux DevTools extension that passes nothing on while the state is not traceable: the
+/// deflater hands it None for such a state. The history starts with the first traceable state, and every
+/// message it passes on is redacted.
+let private gatedConnection (inner: Fable.Import.RemoteDev.Connection) =
+    let mutable started = false
+
+    { new Fable.Import.RemoteDev.Connection with
+        member _.init(_, _) = ()
+        member _.subscribe listener = inner.subscribe listener
+        member _.unsubscribe = inner.unsubscribe
+        member _.error e = inner.error e
+
+        member _.send(msg, state) =
+            match unbox<obj option> state with
+            | None -> ()
+            | Some json when not started ->
+                started <- true
+                inner.init (json, None)
+            | Some json -> inner.send (unbox<Msg> msg |> redactMsg |> box, json)
+    }
+
+
+/// The Redux DevTools debugger over the gated connection, with the coders the debugger itself uses.
+let private withGatedDebugger (program: Program<unit, State, Msg, unit>) =
+    let coders = Extra.empty |> Extra.withDecimal |> Extra.withInt64 |> Extra.withUInt64
+
+    let encoder = Encode.Auto.generateEncoder<State>(extra = coders)
+    let decoder = Decode.Auto.generateDecoder<State>(extra = coders)
+
+    let deflate (state: State) =
+        if isTraceable state then Some(encoder state) else None
+        |> box
+
+    let inflate (json: obj) =
+        match Decode.fromValue "$" decoder json with
+        | Ok state -> state
+        | Error err -> invalidOp err
+
+    try
+        let connection =
+            Debugger.connectViaExtension<Msg>(Fable.Import.RemoteDev.ExtensionOptions())
+            |> gatedConnection
+        program |> Program.withDebuggerUsing deflate inflate connection
+    with ex ->
+        Browser.Dom.console.error ("[ELMISH DEBUGGER] continuing without the debugger", ex.Message)
+        program
+#endif
+
+
+/// The app as an Elmish program. A debug build with GENPRES_LOG on and GENPRES_PROD not 1 traces every message
+/// and the new state to the console, and hands the history to the Redux DevTools browser extension, for
+/// development testing only. It records nothing until the server settings confirm the demo data, so it never
+/// runs against production; a release build records nothing at all.
+let private program () =
+    let program = Program.mkProgram init update (fun _ _ -> ())
+#if DEBUG
+    if isLogging genpresLog && not (isProduction genpresProd) then
+        program |> Program.withTrace consoleTrace |> withGatedDebugger
+    else
+        program
+#else
+    program
+#endif
+
 
 type private ConcreteAppEnv
     (state: State, dispatch: Msg -> unit, bm: Deferred<Intervention list>, cm: Deferred<Intervention list>)
@@ -2068,7 +2191,7 @@ let private mobile: obj = jsNative
 // for Vite Hot Reload to work
 [<JSX.Component>]
 let View () =
-    let state, dispatch = React.useElmish (init, update, [||])
+    let state, dispatch = React.useElmish (program, [||])
     let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
 
     // the browser asks before it leaves the page (back, a closed tab, a reload) while there is

@@ -67,6 +67,9 @@ type AdminPort =
     {
         // GENPRES_PASSWORD; None when unset, empty or whitespace, so every check fails closed
         secret: unit -> string option
+        // not GENPRES_PROD: the mode the admin tokens are signed under, so that a token of a demo or
+        // development server never opens a production server that shares its password
+        demo: bool
         now: unit -> System.DateTimeOffset
         listLogFiles: unit -> Async<Result<LogFileInfo[], string[]>>
         analyzeLogFile: string -> Async<Result<string, string[]>>

@@ -30,21 +30,30 @@ module AdminCommand =
             CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes password, Encoding.UTF8.GetBytes expected)
 
 
-    /// base64(expiresAt:nonce).base64(hmacsha256(secret, expiresAt:nonce)); empty without a
+    /// The key a token is signed with: the secret under the mode of the server, demo or production, so that a
+    /// token a demo or development server issued never verifies on a production server that shares its password,
+    /// nor the other way round.
+    let tokenKey (demo: bool) (secret: string) =
+        let mode = if demo then "demo" else "production"
+        Encoding.UTF8.GetBytes $"genpres-admin-token:%s{mode}:%s{secret}"
+
+
+    /// base64(expiresAt:nonce).base64(hmacsha256(tokenKey, expiresAt:nonce)); empty without a
     /// secret, so that nothing signed with an empty key can ever verify.
-    let generateToken (secret: string option) (now: DateTimeOffset) =
+    let generateToken (demo: bool) (secret: string option) (now: DateTimeOffset) =
         match nonBlank secret with
         | None -> ""
         | Some secret ->
             let expiresAt = now.Add(tokenLifetime).ToUnixTimeSeconds()
             let nonce = RandomNumberGenerator.GetBytes 32 |> Convert.ToBase64String
             let payload = Encoding.UTF8.GetBytes $"%d{expiresAt}:%s{nonce}"
-            use hmac = new HMACSHA256(Encoding.UTF8.GetBytes secret)
+            use hmac = new HMACSHA256(tokenKey demo secret)
             let signature = hmac.ComputeHash payload
             $"%s{Convert.ToBase64String payload}.%s{Convert.ToBase64String signature}"
 
 
-    let validateToken (secret: string option) (now: DateTimeOffset) (token: string) =
+    /// A token verifies only under the secret and the mode it was signed with, and only until it expires.
+    let validateToken (demo: bool) (secret: string option) (now: DateTimeOffset) (token: string) =
         match nonBlank secret with
         | None -> false
         | Some secret ->
@@ -56,7 +65,7 @@ module AdminCommand =
                     try
                         let payload = Convert.FromBase64String payload
                         let provided = Convert.FromBase64String signature
-                        use hmac = new HMACSHA256(Encoding.UTF8.GetBytes secret)
+                        use hmac = new HMACSHA256(tokenKey demo secret)
                         let expected = hmac.ComputeHash payload
 
                         CryptographicOperations.FixedTimeEquals(provided, expected)
@@ -80,7 +89,7 @@ module AdminCommand =
         let admin = env.admin
 
         let withToken token (run: unit -> Async<Result<AdminResponse, string[]>>) =
-            if validateToken (admin.secret ()) (admin.now ()) token then
+            if validateToken admin.demo (admin.secret ()) (admin.now ()) token then
                 run ()
             else
                 async { return Error [| "Invalid token" |] }
@@ -92,7 +101,7 @@ module AdminCommand =
 
                 return
                     if validatePassword secret password then
-                        Ok(AdminResponse.PasswordValidated(true, generateToken secret (admin.now ())))
+                        Ok(AdminResponse.PasswordValidated(true, generateToken admin.demo secret (admin.now ())))
                     else
                         Ok(AdminResponse.PasswordValidated(false, ""))
             }

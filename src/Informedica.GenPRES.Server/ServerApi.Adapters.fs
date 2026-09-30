@@ -318,6 +318,7 @@ module Adapters =
                         fun () ->
                             Informedica.Utils.Lib.Env.getItem "GENPRES_PASSWORD"
                             |> Option.filter String.notEmpty
+                    demo = demo
                     now = fun () -> DateTimeOffset.UtcNow
                     listLogFiles =
                         fun () ->

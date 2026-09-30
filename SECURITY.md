@@ -129,19 +129,20 @@ We handle reports in order of severity: the more severe the issue, the higher it
 
 2. **Authentication & token handling**
    - Admin password compared with `CryptographicOperations.FixedTimeEquals` (constant-time, no per-character timing leak), once, at `AdminCommand.ValidatePassword`
-   - Every other admin operation (`ListLogFiles`, `AnalyzeLogFile`, `ReloadResources`) is gated by the short-lived HMAC-SHA256 token (1-hour TTL) that exchange issued; signature verification uses `FixedTimeEquals`; the password never travels again
+   - Every other admin operation (`ListLogFiles`, `AnalyzeLogFile`, `ReloadResources`) is gated by the short-lived HMAC-SHA256 token (1-hour TTL) that exchange issued, signed under the server's mode, so a token of a demo or development server never verifies on a production server that shares its password; signature verification uses `FixedTimeEquals`; the password never travels again
    - Auth token kept in browser memory only — never persisted to `localStorage` / `sessionStorage`; cleared on logout
    - Server fails closed: when `GENPRES_PASSWORD` is unset (or empty / whitespace) all admin operations are rejected
-   - **Production password policy enforced at startup**: when `GENPRES_PROD=1`, the server refuses to bind any HTTP listener if `GENPRES_PASSWORD` is missing, empty, whitespace-only, or shorter than 16 characters. Operators must inject a CSPRNG-generated value (e.g. `openssl rand -base64 32`)
+   - **Production password policy enforced at startup**: when `GENPRES_PROD=1`, the server refuses to bind any HTTP listener if `GENPRES_PASSWORD` is shorter than 16 characters. A missing, empty or whitespace-only password starts the server with every admin operation disabled and prints a warning. Operators must inject a CSPRNG-generated value (e.g. `openssl rand -base64 32`)
 
 3. **Logging**
    - Calculation operations and requests logged (operational logging)
    - Error conditions recorded
-   - *There is no user-attributable audit trail yet: GenPRES has no per-user identity. A tamper-evident audit trail is a §7.2 remediation item, see [security review F1](docs/security/2026-04-10-security-review.md#f1--no-tamper-evident-audit-trail)*
+   - Debug logging (`GENPRES_LOG=d`) and debug mode (`GENPRES_DEBUG=1`) refuse the start in production (`GENPRES_PROD=1`)
+   - *The audit of who did what is the `audit_entry` table of the session store ([ADR-0007](docs/adr/0007-session-persistence.md)): every launch, Session opening and ending, signature committed or refused, failed PIN entry and PIN change, written in the same transaction as the act. It is built on the SQLite store in demo mode only, and nothing reads it back yet (#824). It is not tamper-evident; a tamper-evident audit trail is a §7.2 remediation item, see [security review F1](docs/security/2026-04-10-security-review.md#f1--no-tamper-evident-audit-trail)*
 
 4. **Data Privacy**
-   - Stateless session design (no persistent patient data)
-   - Minimal data retention
+   - Patient data is persisted by the session store ([ADR-0007](docs/adr/0007-session-persistence.md)) and in the log files. The store keeps the signed order plan versions with the patient they were signed on (name and date of birth included), the EHR data each Session opened on, and the weight, height and gestational age measured in a Session. It runs on SQLite in demo and development only; a production server refuses `GENPRES_DB_CONNECTION`, and until the scope decision (#580) refuses every launch, Session and signature. The order log holds age, weight and the order; handle `data/logs` as patient data
+   - *No retention limit yet: every store table is insert-only and no row is ever deleted. The retention period, and the legal basis for keeping what the audit records, are open questions of plan 516, to be answered before a production engine holds the store*
    - GDPR-compliant data handling
    - Secure communication channels
    - **Secrets redacted in startup banner**: `GENPRES_URL_ID` is masked to its last-5 characters prefixed with `***`; `GENPRES_PASSWORD` is shown only as `***` or `NOT SET`. The full proprietary Sheet ID never reaches logs, screenshots, or bug reports
