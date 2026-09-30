@@ -616,10 +616,24 @@ state, changes nothing: the debugger renders a state through the program it wrap
 `React.useElmish` renders through its own hook, which it adds after the debugger. To replay a
 sequence, feed the messages to the state machines in FSI.
 
+Beside it runs a readable trail of the state machines: every step of the session, signing, order
+context and order plan machines as one line, with the message, the effects it produced and the state
+it reached, logged to the console and kept as the last 500 lines.
+
+```text
+#21 13:33:18.498 OrderContext Reopen UpdateOrderScenario workbench ... 4cfe91b6 -> CallContext UpdateOrderScenario workbench 4cfe91b6 | Changing workbench awaits 4cfe91b6 kept
+```
+
+`genpresTrail()` in the browser console returns the lines as text, and `copy(genpresTrail())` puts
+them on the clipboard in Chrome, to paste into an issue or a conversation. Ids and request ids show
+their first 8 characters, enough to find the request in the server log. A line shows a patient as age
+and weight, and never a patient's identity, a user's name, a PIN, a code, a token, a url, an error
+text or the argumentation. The trail is written by the `Trail` module in Client.Core.
+
 It never runs against production, by two independent checks:
 
 - Vite reads `GENPRES_LOG` and `GENPRES_PROD` at start-up, from the environment or the repository
-  `.env`; with `GENPRES_PROD=1` the trace and the debugger are not switched on. A change needs a
+  `.env`; with `GENPRES_PROD=1` the trace, the debugger and the trail are not switched on. A change needs a
   restart of `dotnet run`
 - At runtime nothing is recorded until the server settings arrive and say the server runs on the
   demo data; a server started with `GENPRES_PROD=1` never says so, whatever Vite read
