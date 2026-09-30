@@ -1,5 +1,5 @@
 ---
-last_commit_released: e01baa5b1c46e67bc83197c4594f06064b11e75f
+last_commit_released: 0add03f7018a2d3c5a866615f45553f8450f6b54
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,14 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.42 - 2026-09-30
+
+### 🐞 Bug Fixes
+
+* *(mcp)* Height in filter options, refusals as tool errors ([e48a66fc](https://github.com/informedica/GenPRES/commit/e48a66fc53daca52bb788ef9ba6d96383a3cc920))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/e01baa5b1c46e67bc83197c4594f06064b11e75f..0add03f7018a2d3c5a866615f45553f8450f6b54)</small></strong>
 
 ## 0.1.2-alpha.41 - 2026-09-30
 
