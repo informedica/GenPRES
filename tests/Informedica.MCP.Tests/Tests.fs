@@ -179,6 +179,20 @@ module Tests =
                         |> Expect.isError "should refuse without evaluating"
                     }
 
+                    test "getFilterOptions refuses before touching the provider when the input is no patient" {
+                        {
+                            Generic = Some "paracetamol"
+                            Indication = None
+                            Route = None
+                            Form = None
+                            AgeMonths = None
+                            WeightKg = Some 12.0
+                            HeightCm = None
+                        }
+                        |> getFilterOptions unusedProvider
+                        |> Expect.isError "should refuse without building the options"
+                    }
+
                     test "getOrderScenarios refuses before touching the provider when the input is no patient" {
                         { emptyInput with
                             AgeMonths = None
@@ -253,7 +267,7 @@ module Tests =
 
         /// A provider that answers the departments and no rule at all, so an evaluation that
         /// passes the guards is refused by the domain for lack of rules and by nothing else.
-        let private emptyRules: IResourceProvider =
+        let emptyRules: IResourceProvider =
             { new IResourceProvider with
                 member _.Get(key: ResourceKey<'T>) : 'T =
                     if key.Name = Keys.departments.Name then
@@ -386,6 +400,66 @@ module Tests =
                         |> evaluateOrderContext emptyRules
                         |> Result.mapError (fun msg -> msg.Contains "Unknown department")
                         |> Expect.equal "refused for lack of rules, not for the department" (Error false)
+                    }
+
+                    test "evaluateOrderContext names the evaluation when the rules refuse it" {
+                        measured
+                        |> evaluateOrderContext emptyRules
+                        |> Result.mapError _.StartsWith("Failed to evaluate order context: ")
+                        |> Expect.equal "the evaluation refusal keeps its prefix" (Error true)
+                    }
+
+                    test "applyFilters sets each of the four filters on its own field" {
+                        let input =
+                            { measured with
+                                Generic = Some "paracetamol"
+                                Indication = Some "pijn"
+                                Route = Some "oraal"
+                                Form = Some "drank"
+                            }
+
+                        let filter =
+                            input
+                            |> buildPatient departmentsOnly
+                            |> OrderContext.create OrderLogging.noOp emptyRules
+                            |> applyFilters input
+                            |> _.Filter
+
+                        (filter.Generic, filter.Indication, filter.Route, filter.Form)
+                        |> Expect.equal
+                            "each filter on its own field"
+                            (Some "paracetamol", Some "pijn", Some "oraal", Some "drank")
+                    }
+
+                    test "applyFilters leaves out the filters the input does not name" {
+                        let ctx =
+                            measured
+                            |> buildPatient departmentsOnly
+                            |> OrderContext.create OrderLogging.noOp emptyRules
+
+                        let filter = ctx |> applyFilters { measured with Generic = None } |> _.Filter
+
+                        (filter.Generic, filter.Indication, filter.Route, filter.Form)
+                        |> Expect.equal
+                            "as the fresh context has them"
+                            (ctx.Filter.Generic, ctx.Filter.Indication, ctx.Filter.Route, ctx.Filter.Form)
+                    }
+
+                    test "getFilterOptions with a weight and a height and no age reaches the rules" {
+                        // no rule at all is loaded, so every option list is empty: an answer, not a
+                        // refusal, which proves both measures passed the guard and reached the provider
+                        {
+                            Generic = Some "paracetamol"
+                            Indication = None
+                            Route = None
+                            Form = None
+                            AgeMonths = None
+                            WeightKg = Some 12.0
+                            HeightCm = Some 86.0
+                        }
+                        |> getFilterOptions emptyRules
+                        |> Result.map (fun o -> o.Generics, o.Routes, o.Indications, o.Forms, o.DoseTypes)
+                        |> Expect.equal "the options, all empty" (Ok([||], [||], [||], [||], [||]))
                     }
 
                     test "evaluateOrderContext refuses an unknown department before reading any rule" {
@@ -537,6 +611,96 @@ module Tests =
                 ]
 
 
+    module ToJsonResultTests =
+
+        open ModelContextProtocol.Protocol
+
+        let textOfResult (r: CallToolResult) =
+            r.Content
+            |> Seq.map (fun c -> (c :?> TextContentBlock).Text)
+            |> String.concat ""
+
+        let isErrorOf (r: CallToolResult) = r.IsError |> Option.ofNullable |> Option.defaultValue false
+
+        let tests =
+            testList
+                "toJsonResult"
+                [
+                    test "an Ok value is JSON text and no failure" {
+                        let r = McpHelpers.toJsonResult (Ok {| Generic = "paracetamol" |})
+
+                        r |> isErrorOf |> Expect.isFalse "an answer is not flagged"
+
+                        r
+                        |> textOfResult
+                        |> Expect.stringContains "the value is serialized" "paracetamol"
+                    }
+
+                    test "an Error is its message and flagged as a failure" {
+                        let r = McpHelpers.toJsonResult (Result<int, string>.Error "no age")
+
+                        r |> isErrorOf |> Expect.isTrue "a refusal is flagged"
+
+                        r |> textOfResult |> Expect.equal "the message is the text" "no age"
+                    }
+                ]
+
+
+    module FilterOptionsToolTests =
+
+        open System
+        open ToJsonResultTests
+
+        let private noRules = CheckDepartmentTests.emptyRules
+
+        let tests =
+            testList
+                "get_order_context_filter_options"
+                [
+                    test "a weight and a height and no age answer with options" {
+                        GenOrderMcpTools.SetProvider noRules
+
+                        let r =
+                            GenOrderMcpTools.GetFilterOptions(
+                                "paracetamol",
+                                null,
+                                null,
+                                null,
+                                Nullable(),
+                                Nullable 12.0,
+                                Nullable 86.0
+                            )
+
+                        r |> isErrorOf |> Expect.isFalse "an answer is not flagged"
+
+                        r
+                        |> textOfResult
+                        |> Expect.stringContains "the options are serialized" "\"Generics\""
+                    }
+
+                    test "a weight without a height or an age is refused, naming the height" {
+                        GenOrderMcpTools.SetProvider noRules
+
+                        let r =
+                            GenOrderMcpTools.GetFilterOptions(
+                                "paracetamol",
+                                null,
+                                null,
+                                null,
+                                Nullable(),
+                                Nullable 12.0,
+                                Nullable()
+                            )
+
+                        r |> isErrorOf |> Expect.isTrue "a refusal is flagged"
+
+                        r
+                        |> textOfResult
+                        |> Expect.stringContains "the refusal names the missing measure" "HeightCm"
+                    }
+                ]
+
+
     [<Tests>]
     let tests =
         testList
@@ -547,4 +711,6 @@ module Tests =
                 GenOrderToolsTests.tests
                 CheckDepartmentTests.tests
                 EstimateTests.tests
+                ToJsonResultTests.tests
+                FilterOptionsToolTests.tests
             ]
