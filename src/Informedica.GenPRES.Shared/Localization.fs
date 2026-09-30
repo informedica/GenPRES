@@ -182,6 +182,10 @@ type Terms =
     // what needs a patient on a page that works without one, said with what is missing
     | ``Patient Needed Dose Check``
     | ``Patient Needed Plan Medication``
+    // what a patient's calculations go on without, said on every page that calculates: the
+    // age, and the gestational age of a patient younger than 28 weeks
+    | ``Patient Age unknown``
+    | ``Patient Gestational age unknown``
     // Shared UI terms
     | Print
     | ``Not Configured``
