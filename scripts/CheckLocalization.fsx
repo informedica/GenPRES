@@ -1,7 +1,7 @@
 // Checks that the localization file covers the Terms union.
 //
-// The terms and their translations live in data/localization/GenPRES - Localization -
-// Localization.tsv, tab separated, the shape of the Google "Localization" sheet: the header
+// The terms and their translations live in data/localization/localization.tsv, tab separated,
+// the shape of the Google "Localization" sheet: the header
 // row Term, English, Dutch, French, German, Spanish, Italian, then one row per term with the
 // term key in the first column. That file is the source; the sheet is what it is pasted into.
 //
@@ -184,12 +184,7 @@ let repoRoot (start: string) =
 
 /// The localization file.
 let localizationPath () =
-    Path.Combine(
-        repoRoot __SOURCE_DIRECTORY__,
-        "data",
-        "localization",
-        "GenPRES - Localization - Localization.tsv"
-    )
+    Path.Combine(repoRoot __SOURCE_DIRECTORY__, "data", "localization", "localization.tsv")
 
 
 let readLocalization (path: string) =
