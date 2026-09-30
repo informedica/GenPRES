@@ -298,6 +298,13 @@ module Interactions =
         let deleteLabel = Terms.``Delete`` |> getTerm "Verwijder"
         let onClickClear = fun _ -> ClearManualDrugs |> dispatch
 
+        let patientNotice =
+            Components.PatientNotice.View
+                {|
+                    appEnv = props.appEnv
+                    needs = PatientReadiness.Needs.PlanMedication
+                |}
+
         let sxTitle = {| fontSize = 14 |}
 
         let sxChips =
@@ -325,6 +332,7 @@ module Interactions =
         import Divider from '@mui/material/Divider';
 
         <Box>
+            {patientNotice}
             <Card>
                 <CardContent>
                     <Stack direction="column" spacing={3}>

@@ -94,6 +94,13 @@ module Parenteralia =
         let select = ViewHelpers.filterSelect busy
         let autoComplete = ViewHelpers.autoComplete busy
 
+        let patientNotice =
+            Components.PatientNotice.View
+                {|
+                    appEnv = props.appEnv
+                    needs = PatientReadiness.Needs.DoseCheck
+                |}
+
         let progress = ViewHelpers.progressOrEmpty parenteralia
 
         let stackDirection = if isMobile then "column" else "row"
@@ -196,6 +203,7 @@ module Parenteralia =
         import Typography from '@mui/material/Typography';
 
         <Box sx={ {| height = "100%" |} }>
+                {patientNotice}
                 {content}
                 {progress}
         </Box>

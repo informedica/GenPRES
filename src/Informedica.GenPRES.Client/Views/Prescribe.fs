@@ -167,56 +167,17 @@ module Prescribe =
 
         let autoComplete = ViewHelpers.autoComplete isAnythingLoading
 
-        // a patient without an age loses every dose rule with an age bound, silently, since a
-        // value that is missing never matches a bounded range; one with an age but no weight
-        // and height, measured or estimated, has nothing for the rules to gate on and is
-        // refused. Said here, above the selects, while it holds.
-        let missingDimension =
-            match draft with
-            | Some dto when dto |> Patient.validate |> Result.isOk ->
-                if dto.Age.IsNone then
-                    Terms.``Prescribe Age unknown``
-                    |> getTerm "Leeftijd onbekend: alleen doseerregels zonder leeftijdsgrens worden getoond"
-                    |> Some
-                else
-                    // the estimate comes per table, and a measured value per field, so one can
-                    // be there without the other: the notice names what is missing
-                    match dto |> Patient.getWeight, dto |> Patient.getHeight with
-                    | Some _, Some _ -> None
-                    | None, None ->
-                        Terms.``Prescribe Weight and height unknown``
-                        |> getTerm "Gewicht en lengte onbekend: voer ze in, er is geen schatting"
-                        |> Some
-                    | None, Some _ ->
-                        Terms.``Prescribe Weight unknown``
-                        |> getTerm "Gewicht onbekend: voer het in, er is geen schatting"
-                        |> Some
-                    | Some _, None ->
-                        Terms.``Prescribe Height unknown``
-                        |> getTerm "Lengte onbekend: voer die in, er is geen schatting"
-                        |> Some
-            | _ -> None
+        // what the patient data misses for the dose rules, said above the selects while it
+        // holds: no patient yet, or one without a weight or a height, measured or estimated, or
+        // without an age, which loses every dose rule with an age bound
+        let notice =
+            Components.PatientNotice.View
+                {|
+                    appEnv = props.appEnv
+                    needs = PatientReadiness.Needs.Calculation
+                |}
 
         let noticeSx = {| margin = 1 |}
-
-        let notice =
-            match missingDimension with
-            | None -> null
-            | Some text ->
-                let notice =
-                    Components.Notice.View
-                        {|
-                            kind = Components.Notice.Kind.Info
-                            title = None
-                            message = text
-                            action = None
-                            onClose = None
-                        |}
-
-                JSX.jsx
-                    $"""
-                <Box sx={noticeSx}>{notice}</Box>
-                """
 
         // the server refused the picks: no dose can be shown, and the page says why, with the
         // picks kept above it for the user to change. A patient without a weight or a height
@@ -244,20 +205,6 @@ module Prescribe =
                     <Box sx={noticeSx}>{notice}</Box>
                     """
             | _ -> null
-
-        let progress =
-            match orderContext with
-            | OrderContextView.NoPatient ->
-                Components.Notice.View
-                    {|
-                        kind = Components.Notice.Kind.Empty
-                        title = None
-                        message = Terms.``Patient enter patient data`` |> getTerm "Voer eerst patient gegevens in"
-                        action = None
-                        onClose = None
-                    |}
-            | _ -> null
-
 
         let displayScenario (pr: OrderContext) med (sc: OrderScenario) =
             if med |> Option.isNone then
@@ -442,7 +389,6 @@ module Prescribe =
                     <Card sx={ {| padding = 0 |} }>
                         <CardContent sx={ {| padding = 0 |} }>
                             {content}
-                            {progress}
                         </CardContent>
                         <CardActions>
                             <Button
@@ -754,7 +700,6 @@ module Prescribe =
                 {notice}
                 {refusalNotice}
                 {cards}
-                {progress}
             </Box>
             {orderDialog}
         </div>
