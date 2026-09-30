@@ -220,12 +220,12 @@ Common variants:
 | File | `GENPRES_LOG` | `GENPRES_PROD` | `GENPRES_DEBUG` | Purpose |
 |---|---|---|---|---|
 | `debug.sh` | `i` | `0` | `1` | Local development against the demo data |
-| `debugprod.sh` | `d` | `1` | `1` | Production data, debug logging; clear `data/logs` first |
-| `infoprod.sh` | `i` | `1` | `1` | Production data, info logging; clear `data/logs` first |
 | `logprod.sh` | `i` | `1` | `0` | Production data, info logging, debug off |
 | `prod.sh` | `0` | `1` | `0` | Mirrors a real production launch |
 
-Production modes need a real `GENPRES_URL_ID` in `.env`. To clear the logs first:
+Production modes need a real `GENPRES_URL_ID` in `.env`, and never debug: with `GENPRES_PROD=1`
+the server refuses to start with `GENPRES_LOG=d` or `GENPRES_DEBUG=1`, see
+[Debugging in production](#debugging-in-production). To clear the logs first:
 
 ```bash
 mkdir -p ./data/logs && rm -rf ./data/logs/*
@@ -547,9 +547,9 @@ Put a `git worktree` **next to** the main checkout, not inside it: the root reso
 
 ```bash
 GENPRES_URL_ID=<your-url-id>   # Google Sheets data URL ID (required; .env.example ships the demo ID)
-GENPRES_LOG=i                  # Logging level: 0=off, d=debug, i=info, w=warning, e=error
+GENPRES_LOG=i                  # Logging level: 0=off, d=debug, i=info, w=warning, e=error; d refuses the start with GENPRES_PROD=1
 GENPRES_PROD=0                 # 0=demo (safe default), 1=production data
-GENPRES_DEBUG=1                # Debug mode: 0=off, 1=on
+GENPRES_DEBUG=1                # Debug mode: 0=off, 1=on; 1 refuses the start with GENPRES_PROD=1
 GENPRES_LANG=nl                # Default UI language: en, nl, fr, de, es, it
 GENPRES_PASSWORD=<password>    # Admin password, see policy below
 GENPRES_ROOT=<path>            # Directory holding data/; unset resolves from .env, then data/zindex, then cwd
@@ -575,9 +575,17 @@ server refuse to start. An `la=` URL parameter and a language the user picks bot
   operations disabled and prints a warning. A password shorter than 16 characters refuses the start.
   Generate one with `openssl rand -base64 32` and inject it via a secret store.
 
+#### Debugging in production
+
+Debugging is for development against the demo data only. With `GENPRES_PROD=1` the server refuses to
+start with `GENPRES_LOG=d` or `GENPRES_DEBUG=1`: the debug level writes the solver trace, with the
+patient data, to the order log and slows every calculation. Production logs at `i`, `w` or `e`, or
+not at all; those levels stay allowed, because the log files are the only record of how a dose was
+calculated. The client trace keeps to the same rule, see [The client trace](#the-client-trace).
+
 Never reuse a development password in production. Never commit a real password.
 
-#### Request logging: clientIP retention and the audit trail
+#### Request logging: clientIP retention, and the log files beside the audit trail
 
 With `GENPRES_LOG` set, the request log writes the caller's `clientIP` in full to `data/logs`. This
 is deliberate: GenPRES is reached only through a hospital's launch sequence, so the address is the
@@ -585,8 +593,17 @@ hospital's gateway rather than a person's device, and an administrator needs it 
 incident with a launching site. Revisit this if GenPRES is ever exposed where an untrusted client can
 reach it directly.
 
-The same files are the medico-legal audit trail. When investigating a reported dosing discrepancy,
-start from the `data/logs/genpres_*.log` file for that time window.
+The log files are not the audit trail. The audit of who did what is the `audit_entry` table of the
+session store ([ADR-0007](docs/adr/0007-session-persistence.md)): every launch, Session opening and
+ending, signature committed or refused, failed PIN entry and PIN change, written in the same
+transaction as the act, beside the signed order plan versions in `order_plan`. It is built on the
+SQLite store in demo mode only: a production server refuses launches, Sessions and signatures until
+the scope decision (#580), the in-memory store audits nothing, and nothing reads the table back yet
+(#824).
+
+The log files record how a dose was calculated, which the store does not hold. When investigating a
+reported dosing discrepancy, start from the signed order plan version in the store where there is
+one, and from the `data/logs/genpres_order_*.log` file for that time window for the calculation.
 
 #### The log files
 
@@ -621,11 +638,20 @@ a change to the bridge, the sinks or the formatters.
 A debug build of the client (`dotnet run`, where Fable runs in watch mode) with `GENPRES_LOG` on at
 the level `d`, `i`, `w` or `e` traces every Elmish message and the new state to the browser console,
 and hands the history to the [Redux DevTools](https://github.com/reduxjs/redux-devtools) browser
-extension: message by message, with time travel and export as JSON. Vite reads `GENPRES_LOG` at
-start-up, from the environment or the repository `.env`, so a change needs a restart of `dotnet run`.
-A release build (`Bundle`, `ClientBuild`) leaves the trace and the debugger out entirely. The state
-holds the patient, so use test patients only. The debugger (Fable.Elmish.Debugger) needs the npm
-package `jsan`, a development dependency of the client.
+extension: message by message, with time travel and export as JSON. It is for development against
+the demo data only, and the messages and the state it records hold passwords, tokens and PINs.
+
+It never runs against production, by two independent checks:
+
+- Vite reads `GENPRES_LOG` and `GENPRES_PROD` at start-up, from the environment or the repository
+  `.env`; with `GENPRES_PROD=1` the trace and the debugger are not switched on. A change needs a
+  restart of `dotnet run`
+- At runtime nothing is recorded until the server settings arrive and say the server runs on the
+  demo data; a server started with `GENPRES_PROD=1` never says so, whatever Vite read
+
+A release build (`Bundle`, `ClientBuild`) leaves the trace and the debugger out entirely. The
+debugger (Fable.Elmish.Debugger) needs the npm package `jsan`, a development dependency of the
+client.
 
 #### How It Works
 
