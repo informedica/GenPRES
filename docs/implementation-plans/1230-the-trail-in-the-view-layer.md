@@ -111,12 +111,16 @@ it carries, the call it makes (`CallUpdate`, `CallReopen`, `CallReset`, `CallSte
 component, and its picks each with its value when the order holds one value for it, `open`
 otherwise; `unknown` when the scenario does not say. Several scenarios stay a count.
 
-`SimpleSelect` and `PickField` record what a handler did at the moment the user acted, as a line
-of machine `Field` named by the field's label: an open that reopens, lists, or is blocked while
-loading or busy; a pick; a clear; a close that restores; the reopened decision; a change the
-field dropped; an auto-pick of a single option. The state reads `picked of 5`, `none of 5` or
-`none of range`, and `reopening` while a reopen is under way, never the picked key: `PickField`
-also serves the department, which the trail must not show.
+A pick field records what happened at the moment the user acted, as a line of machine `Field`
+named by the field's label. The outcome of a pick or a clear is recorded once, by the owner of
+the acceptance decision, after it is taken: `PickField` for a filter field, whichever shape it
+renders, a scrolling list or a type-to-filter field; `ViewHelpers.orderField` for an order field,
+whose arrow also clears the value it reopens. `SimpleSelect` records only what its own refs know:
+an open blocked while loading or busy, a close that restores, and the reopened decision. So a
+pick a field drops reads as one line, `dropped`, and a pick in a type-to-filter field reads the
+same as a pick in a list. The state reads `picked of 5`, `none of 5` or `none of range`, and
+`reopening` while a reopen is under way, never the picked key: `PickField` also serves the
+department, which the trail must not show.
 
 The rules of #1224 hold for every new line: a debug build only, `GENPRES_LOG` on, nothing before
 the demo data is confirmed, nothing in a release build, the last 500 lines in memory, and never a
@@ -186,13 +190,23 @@ Expecto tests are migrated into `TrailTests.fs` over the reflection-built scenar
 
 ### 5. The events of a pick field
 
-In `Components/SimpleSelect.fs` a `trace` over `StepTrail.event "Field"` with the label, called
-from `handleOpen` (`reopen`, `list`, `blocked loading`, `blocked busy`), `handleChange`
-(`updateSelected`, `updateSelected none`), `clear`, `handleClose` only when a reopen is under way
-(`restore`), and the reopened effect in its decision branch (`NoList`, `ShowList`). In
-`Components/PickField.fs` the dropped branch of `updateSelected` (`dropped`) and the auto-pick
-effect when it fires (`autoPick`). A plain close, an accepted change and every policy at render
-stay unrecorded. DEVELOPMENT.md gains a `Field` line and the rule that a line never shows the key.
+Three sites, each through `StepTrail.event "Field"` with the field's label:
+
+- `Components/PickField.fs`, in `updateSelected`, after the decision, for both shapes: `pick`
+  with `onChange` or `dropped`, `clear` with `onChange none` or `dropped`; and the auto-pick
+  effect when it fires, `autoPick` with `onChange`. A type-to-filter field's pick reaches this
+  function through `Autocomplete`, so it needs no line of its own.
+- `Views/ViewHelpers.fs`, in `orderField`: the `onChange` handed to the field, `pick` with
+  `onChange`, or `clear` with `onChange none`; and the reopen closure, `open` with `reopen`. An
+  empty field, whose change is ignored, records nothing.
+- `Components/SimpleSelect.fs`, what only its refs know: `handleOpen` when it is blocked
+  (`blocked loading`, `blocked busy`), `handleClose` only when a reopen is under way (`restore`),
+  and the reopened effect in its decision branch (`reopened` with `NoList` or `ShowList`). Its
+  `handleChange` and `clear` record nothing, since the owner of the decision does.
+
+A plain open or close, the gender field of the patient panel, the drug field of the interaction
+check and every policy at render stay unrecorded. DEVELOPMENT.md gains a `Field` line and the
+rule that a line never shows the key.
 
 ## Verification, per step
 
@@ -209,9 +223,10 @@ stay unrecorded. DEVELOPMENT.md gains a `Field` line and the rule that a line ne
    tests/Informedica.GenPRES.Client.Core.Tests/` passes, the secrets check and "a line never
    breaks" included. In the browser, the `Answered` line of a context with one scenario shows its
    picks with their values.
-5. Fable and Vite as above. In the browser: an open, a pick, a clear, an escape after a reopen
-   and a change on a held field each give a `Field` line; no line holds the department name or a
-   picked key. Reproducing #1220 (1) with the trail on: the `Order` line's call, the order context
+5. Fable and Vite as above. In the browser: a pick in a list, a pick in a type-to-filter field,
+   a clear, an arrow reopen, an escape after a reopen and a change on a held field each give one
+   `Field` line, a dropped pick reads `dropped` and nothing else; no line holds the department
+   name or a picked key. Reproducing #1220 (1) with the trail on: the `Order` line's call, the order context
    `Command` and the `Answered` line with the scenario's picks show where the pick is lost.
 
 ## As built
