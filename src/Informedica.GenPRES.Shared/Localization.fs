@@ -179,6 +179,9 @@ type Terms =
     | ``Patient Context Held``
     | ``Patient Context Held Remove``
     | ``Patient Context Held Refresh``
+    // what needs a patient on a page that works without one, said with what is missing
+    | ``Patient Needed Dose Check``
+    | ``Patient Needed Plan Medication``
     // Shared UI terms
     | Print
     | ``Not Configured``

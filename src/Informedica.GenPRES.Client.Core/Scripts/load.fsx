@@ -8,6 +8,7 @@
 #load "../LanguagePolicy.fs"
 #load "../OrderContextRefusalPolicy.fs"
 #load "../PatientDraftPolicy.fs"
+#load "../PatientReadiness.fs"
 #load "../PickPolicy.fs"
 #load "../SeverityReasonPolicy.fs"
 #load "../ArgumentationPolicy.fs"
