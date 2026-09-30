@@ -234,3 +234,4 @@ rule that a line never shows the key.
 | Step | PR | Landed |
 |------|----|--------|
 | plan | [#1231](https://github.com/informedica/GenPRES/pull/1231) | this document |
+| 1 | [#1232](https://github.com/informedica/GenPRES/pull/1232) | `StepTrail` as a Client module after `Global.fs`; the App confirms the demo data to it; a release build compiles it as no-ops. `event` waits for step 5, with the describers that keep its text safe (review) |
