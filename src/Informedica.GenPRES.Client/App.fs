@@ -1886,15 +1886,46 @@ let private isTraceable (state: State) =
     | InProgress -> false
 
 
+/// What the trace shows in place of the admin password and the admin token.
+let redacted = "***"
+
+
+/// The message as the trace records it, with the admin password and the admin token redacted: the server signs
+/// the token with the password, so either opens the admin commands of every server that shares the password.
+let private redactMsg (msg: Msg) =
+    let answer (result: AdminResult) =
+        match result with
+        | Finished(Ok(Api.AdminResponse.PasswordValidated(isValid, _))) ->
+            Finished(Ok(Api.AdminResponse.PasswordValidated(isValid, redacted)))
+        | _ -> result
+
+    match msg with
+    | Login _ -> Login redacted
+    | LoadLoginResult(attempt, result) -> LoadLoginResult(attempt, answer result)
+    | LoadLogFilesResult(_, result) -> LoadLogFilesResult(redacted, result)
+    | LoadLogAnalysisResult(_, result) -> LoadLogAnalysisResult(redacted, result)
+    | LoadReloadResult(_, result) -> LoadReloadResult(redacted, result)
+    | _ -> msg
+
+
+/// The state as the trace records it, with the admin token redacted; no token stays empty.
+let private redactState (state: State) =
+    if state.Admin.AuthToken = "" then
+        state
+    else
+        { state with Admin.AuthToken = redacted }
+
+
 /// The console trace, silent while the state is not traceable.
 let private consoleTrace (msg: Msg) (state: State) _ =
     if isTraceable state then
-        Browser.Dom.console.log ("New message:", msg)
-        Browser.Dom.console.log ("Updated state:", state)
+        Browser.Dom.console.log ("New message:", redactMsg msg)
+        Browser.Dom.console.log ("Updated state:", redactState state)
 
 
 /// A connection to the Redux DevTools extension that passes nothing on while the state is not traceable: the
-/// deflater hands it None for such a state. The history starts with the first traceable state.
+/// deflater hands it None for such a state. The history starts with the first traceable state, and every
+/// message it passes on is redacted.
 let private gatedConnection (inner: Fable.Import.RemoteDev.Connection) =
     let mutable started = false
 
@@ -1910,7 +1941,7 @@ let private gatedConnection (inner: Fable.Import.RemoteDev.Connection) =
             | Some json when not started ->
                 started <- true
                 inner.init (json, None)
-            | Some json -> inner.send (msg, json)
+            | Some json -> inner.send (unbox<Msg> msg |> redactMsg |> box, json)
     }
 
 
@@ -1922,7 +1953,10 @@ let private withGatedDebugger (program: Program<unit, State, Msg, unit>) =
     let decoder = Decode.Auto.generateDecoder<State>(extra = coders)
 
     let deflate (state: State) =
-        if isTraceable state then Some(encoder state) else None
+        if isTraceable state then
+            Some(state |> redactState |> encoder)
+        else
+            None
         |> box
 
     let inflate (json: obj) =
