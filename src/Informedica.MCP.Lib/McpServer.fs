@@ -23,6 +23,17 @@ module McpHelpers =
 
     let toJson obj = JsonConvert.SerializeObject(obj, Formatting.Indented)
 
+    /// A tool result holding the text, flagged as a failure when isError is true, so the client and the
+    /// logging filter can tell a refusal from an answer.
+    let textResult (isError: bool) (text: string) : CallToolResult =
+        CallToolResult(Content = [| TextContentBlock(Text = text) :> ContentBlock |], IsError = isError)
+
+    /// An Ok value as JSON text; an Error message as plain text with IsError set.
+    let toJsonResult (result: Result<'a, string>) : CallToolResult =
+        match result with
+        | Ok value -> value |> toJson |> textResult false
+        | Error msg -> msg |> textResult true
+
     let optStr (s: string) = if s |> String.isNullOrWhiteSpace then None else Some s
 
     let optFloat (v: Nullable<float>) = if v.HasValue then Some v.Value else None
@@ -140,7 +151,7 @@ type GenOrderMcpTools() =
 
 
     [<McpServerTool(Name = "get_order_context_filter_options")>]
-    [<Description("Return available filter options (generics, routes, indications, forms, dose types) for a patient. This is the primary discovery tool: call this first to learn what medications are available.")>]
+    [<Description("Return available filter options (generics, routes, indications, forms, dose types) for a patient. This is the primary discovery tool: call this first to learn what medications are available. A patient needs an age, or both weightKg and heightCm; with an age alone the weight and height are estimated from it. Without either the tool returns an error.")>]
     static member GetFilterOptions
         (
             [<Description("Generic drug name to pre-filter on")>] generic: string,
@@ -148,7 +159,8 @@ type GenOrderMcpTools() =
             [<Description("Administration route to pre-filter on")>] route: string,
             [<Description("Drug form to pre-filter on")>] form: string,
             [<Description("Patient age in months")>] ageMonths: Nullable<float>,
-            [<Description("Patient body weight in kg")>] weightKg: Nullable<float>
+            [<Description("Patient body weight in kg")>] weightKg: Nullable<float>,
+            [<Description("Patient height in cm. Estimated from the age when omitted.")>] heightCm: Nullable<float>
         )
         =
         let input: GenOrderTools.FilterOptionsInput =
@@ -159,10 +171,11 @@ type GenOrderMcpTools() =
                 Form = McpHelpers.optStr form
                 AgeMonths = McpHelpers.optFloat ageMonths
                 WeightKg = McpHelpers.optFloat weightKg
+                HeightCm = McpHelpers.optFloat heightCm
             }
 
         GenOrderTools.getFilterOptions GenOrderMcpTools.Provider input
-        |> McpHelpers.toJson
+        |> McpHelpers.toJsonResult
 
     [<McpServerTool(Name = "get_dose_rules_for_context")>]
     [<Description("Return dose rules matching a filter — a lightweight alternative to creating a full order context when only rule metadata is needed")>]
@@ -233,9 +246,8 @@ type GenOrderMcpTools() =
                 Form = McpHelpers.optStr form
             }
 
-        match GenOrderTools.createOrderContext GenOrderMcpTools.Provider input with
-        | Ok summary -> McpHelpers.toJson summary
-        | Error msg -> McpHelpers.toJson {| Error = msg |}
+        GenOrderTools.createOrderContext GenOrderMcpTools.Provider input
+        |> McpHelpers.toJsonResult
 
     [<McpServerTool(Name = "get_order_scenarios")>]
     [<Description("Return a summary of all available order scenarios for a patient with optional pre-filters. Each scenario represents one valid way to prescribe the medication. A patient needs an age, or both weightKg and heightCm; with an age alone the weight and height are estimated from it, as the web client does. Without either the tool returns an error rather than scenarios.")>]
@@ -266,9 +278,8 @@ type GenOrderMcpTools() =
                 Form = McpHelpers.optStr form
             }
 
-        match GenOrderTools.getOrderScenarios GenOrderMcpTools.Provider input with
-        | Ok scenarios -> McpHelpers.toJson scenarios
-        | Error msg -> McpHelpers.toJson {| Error = msg |}
+        GenOrderTools.getOrderScenarios GenOrderMcpTools.Provider input
+        |> McpHelpers.toJsonResult
 
 
 /// The tool-call logging filter: wraps every `tools/call` request the SDK dispatches, whichever
