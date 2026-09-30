@@ -631,7 +631,9 @@ age, gestational age, weight, height and gender, an estimated weight or height m
 never a patient's identity, department or location, a user's name, a PIN, a code, a token, a url, an
 error text or the argumentation. The department and a filter seeded from the url can hold free text,
 so a seed shows only how many picks it carries, and a line break in any text becomes a space. The
-trail is written by the `Trail` module in Client.Core.
+lines are described by the `Trail` module in Client.Core and recorded by the `StepTrail` module in
+the Client, compiled before the views and components, which record through it too; the App tells
+it when the settings have confirmed the demo data.
 
 It never runs against production, by two independent checks:
 
