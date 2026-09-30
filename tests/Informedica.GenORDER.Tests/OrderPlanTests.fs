@@ -755,6 +755,34 @@ let rulesTests =
                 ctx.Scenarios |> Expect.isEmpty "afresh: no scenarios"
             }
 
+            test "the rules match a patient without a department with the default, one with a department with its own" {
+                let provider = NoRules()
+
+                { EvaluateFixtures.child with Department = None }
+                |> OrderContext.matchedDepartment provider
+                |> Expect.equal "the default" (Some Resources.Departments.defaultDepartment)
+
+                { EvaluateFixtures.child with Department = Some "NEO" }
+                |> OrderContext.matchedDepartment provider
+                |> Expect.equal "its own" (Some "NEO")
+            }
+
+            test "the context afresh keeps the patient's department: none stays none, and the lists are the rules'" {
+                let fresh =
+                    { EvaluateFixtures.child with Department = None }
+                    |> OrderContext.create OrderLogging.noOp (NoRules())
+
+                fresh.Patient.Department |> Expect.equal "still no department" None
+                fresh.Filter.Forms |> Expect.isEmpty "no rules, no forms"
+                fresh.Scenarios |> Expect.isEmpty "no scenarios"
+
+                let own =
+                    { EvaluateFixtures.child with Department = Some "NEO" }
+                    |> OrderContext.create OrderLogging.noOp (NoRules())
+
+                own.Patient.Department |> Expect.equal "its own department" (Some "NEO")
+            }
+
             test "made afresh, the context keeps its argumentation" {
                 let held =
                     { EvaluateFixtures.pcmContext with

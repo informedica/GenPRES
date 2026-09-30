@@ -622,10 +622,26 @@ module OrderContext =
     module Prescription = Order.Schedule
 
 
+    /// The department the rules match a patient with: its own, or the provider's default. The
+    /// default applies to the matching only and never to the patient.
+    let matchedDepartment (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) (pat: Patient) =
+        pat.Department
+        |> Informedica.GenForm.Lib.Resources.Departments.forPatient (
+            provider.Get Informedica.GenForm.Lib.Resources.Keys.departments
+        )
+
+
+    /// The context afresh for a patient: the pick lists read for the patient as the rules match
+    /// it, so that a patient without a department is offered what the default department's rules
+    /// offer, as the evaluation does. Read for the patient as sent, the lists lacked every rule
+    /// whose reconstitution names a department, and the reconcile dropped a form the evaluation
+    /// had offered. The patient itself keeps the department it has.
     let create logger provider (pat: Patient) =
         let pat = { pat with Weight = pat.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram) }
 
-        let prs = pat |> getPrescriptionRules logger provider
+        let prs =
+            { pat with Department = pat |> matchedDepartment provider }
+            |> getPrescriptionRules logger provider
 
         let filter =
             {
@@ -684,11 +700,7 @@ module OrderContext =
         =
         {
             Location = ctx.Patient.Location
-            Department =
-                ctx.Patient.Department
-                |> Informedica.GenForm.Lib.Resources.Departments.forPatient (
-                    provider.Get Informedica.GenForm.Lib.Resources.Keys.departments
-                )
+            Department = ctx.Patient |> matchedDepartment provider
             Age = ctx.Patient.Age
             GestAge = ctx.Patient.GestAge
             PMAge = ctx.Patient.PMAge
