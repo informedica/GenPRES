@@ -712,6 +712,141 @@ type NoRules() =
         member _.GetResourceInfo() = raise (System.NotImplementedException())
 
 
+/// A provider whose load failed: nothing registered, so every keyed read raises, and the rules
+/// read empty.
+type NotLoaded() =
+    inherit NoRules()
+
+    interface Resources.IResourceProvider with
+        member _.Get(_: Resources.ResourceKey<'T>) : 'T = raise (System.Collections.Generic.KeyNotFoundException())
+
+
+/// One dose rule built from a data row as the loader builds them, for the department it names:
+/// paracetamol for a fever, once, rectally, on ICK. The row narrows to no form: the rule takes
+/// its form from the one product attached, a suppository.
+module RuleFixtures =
+
+    let private emptyGeneric: GenericData =
+        {
+            Name = ""
+            Form = ""
+            Brand = ""
+            GPKs = [||]
+            HPKs = [||]
+        }
+
+    let private emptyLimit: DoseLimitData =
+        {
+            CmpBased = false
+            Component = ""
+            Substance = ""
+            DoseUnit = ""
+            MinQty = None
+            MaxQty = None
+            MinQtyAdj = None
+            MaxQtyAdj = None
+            MinPerTime = None
+            MaxPerTime = None
+            MinPerTimeAdj = None
+            MaxPerTimeAdj = None
+            MinRate = None
+            MaxRate = None
+            MinRateAdj = None
+            MaxRateAdj = None
+        }
+
+    let private emptySchedule: ScheduleData =
+        {
+            DoseType = "once"
+            DoseText = ""
+            Freqs = [||]
+            AdjustUnit = ""
+            FreqUnit = ""
+            RateUnit = ""
+            MinTime = None
+            MaxTime = None
+            TimeUnit = ""
+            MinInt = None
+            MaxInt = None
+            IntUnit = ""
+            MinDur = None
+            MaxDur = None
+            DurUnit = ""
+            DoseLimitData = emptyLimit
+        }
+
+    let private emptyCategory: PatientCategoryData =
+        {
+            Location = ""
+            Dep = ""
+            IsAdult = false
+            Gender = AnyGender
+            MinAge = None
+            MaxAge = None
+            MinWeight = None
+            MaxWeight = None
+            MinBSA = None
+            MaxBSA = None
+            MinGestAge = None
+            MaxGestAge = None
+            MinPMAge = None
+            MaxPMAge = None
+        }
+
+    /// The row: the department in its patient category.
+    let row (department: string) : DoseRuleData =
+        {
+            RowId = ""
+            RuleId = ""
+            GrpId = ""
+            SortNo = 1
+            Source = "FTK"
+            SourceText = ""
+            Generic = { emptyGeneric with Name = "paracetamol" }
+            Indication = "koorts"
+            Route = "RECTAAL"
+            PatientText = ""
+            Patient = { emptyCategory with Dep = department }
+            ScheduleText = ""
+            ScheduleData =
+                { emptySchedule with
+                    DoseLimitData =
+                        { emptyLimit with
+                            Component = "paracetamol"
+                            Substance = "paracetamol"
+                            DoseUnit = "mg"
+                            MaxQty = Some(BigRational.FromInt 100)
+                        }
+                }
+            Validated = None
+            FreqCheck = None
+            DoseCheck = None
+        }
+
+    let private routeMapping: RouteMapping[] =
+        [|
+            {
+                Long = "RECTAAL"
+                Short = "rect"
+            }
+        |]
+
+    /// The one product: a paracetamol suppository, given rectally.
+    let private suppository = Product.create "paracetamol" "zetpil" "RECTAAL" [| "paracetamol" |]
+
+    /// The dose rules the loader builds from the rows, with the suppository to attach.
+    let rules (rows: DoseRuleData[]) =
+        DoseRuleLoader.fromData routeMapping [||] [| suppository |] rows |> fst
+
+
+/// A provider holding the dose rules given and nothing else, naming the default department.
+type RulesOf(rules: DoseRule[]) =
+    inherit NoRules()
+
+    interface Resources.IResourceProvider with
+        member _.GetDoseRules() = rules
+
+
 /// The rules for a patient without a department: the lookup runs on the context as held,
 /// where it used to answer a context made afresh and no rules.
 let rulesTests =
@@ -781,6 +916,58 @@ let rulesTests =
                     |> OrderContext.create OrderLogging.noOp (NoRules())
 
                 own.Patient.Department |> Expect.equal "its own department" (Some "NEO")
+            }
+
+            test
+                "a rule for the default department is offered to a patient without one, and its form survives the reconcile" {
+                let rules = RuleFixtures.rules [| RuleFixtures.row Resources.Departments.defaultDepartment |]
+                rules |> Expect.isNonEmpty "the fixture builds a rule"
+
+                let provider = RulesOf rules
+                let patient = { EvaluateFixtures.child with Department = None }
+                let fresh = patient |> OrderContext.create OrderLogging.noOp provider
+
+                fresh.Filter.Forms |> Expect.equal "the rule's form is offered" [| "zetpil" |]
+                fresh.Filter.Generics
+                |> Expect.equal "the rule's generic is offered" [| "paracetamol" |]
+                fresh.Patient.Department |> Expect.equal "the patient keeps no department" None
+
+                let held =
+                    { fresh with
+                        Filter =
+                            { fresh.Filter with
+                                Form = Some "zetpil"
+                                Generic = Some "paracetamol"
+                            }
+                    }
+
+                let reconciled = held |> OrderContext.reconcile OrderLogging.noOp provider
+
+                Filter.dropped held.Filter reconciled.Filter |> Expect.isFalse "no pick dropped"
+                reconciled.Filter.Form |> Expect.equal "the form kept" (Some "zetpil")
+                reconciled.Filter.Forms |> Expect.equal "the form alone" [| "zetpil" |]
+            }
+
+            test "a rule for another department is not offered to a patient without one" {
+                let rules = RuleFixtures.rules [| RuleFixtures.row "NEO" |]
+                let fresh =
+                    { EvaluateFixtures.child with Department = None }
+                    |> OrderContext.create OrderLogging.noOp (RulesOf rules)
+
+                fresh.Filter.Forms |> Expect.isEmpty "not for the default department"
+            }
+
+            test "a provider whose load failed answers an empty context and keeps the patient's department" {
+                let fresh =
+                    { EvaluateFixtures.child with Department = None }
+                    |> OrderContext.create OrderLogging.noOp (NotLoaded())
+
+                fresh.Filter.Forms |> Expect.isEmpty "no forms"
+                fresh.Patient.Department |> Expect.equal "still no department" None
+
+                { EvaluateFixtures.child with Department = Some "NEO" }
+                |> OrderContext.matchedDepartment (NotLoaded())
+                |> Expect.equal "its own department stands" (Some "NEO")
             }
 
             test "made afresh, the context keeps its argumentation" {

@@ -623,12 +623,17 @@ module OrderContext =
 
 
     /// The department the rules match a patient with: its own, or the provider's default. The
-    /// default applies to the matching only and never to the patient.
+    /// default applies to the matching only and never to the patient. A provider whose load
+    /// failed registers no departments; the patient's own then stands, so that the lookup
+    /// answers the empty rules such a provider holds instead of raising.
     let matchedDepartment (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) (pat: Patient) =
-        pat.Department
-        |> Informedica.GenForm.Lib.Resources.Departments.forPatient (
-            provider.Get Informedica.GenForm.Lib.Resources.Keys.departments
-        )
+        try
+            pat.Department
+            |> Informedica.GenForm.Lib.Resources.Departments.forPatient (
+                provider.Get Informedica.GenForm.Lib.Resources.Keys.departments
+            )
+        with :? System.Collections.Generic.KeyNotFoundException ->
+            pat.Department
 
 
     /// The context afresh for a patient: the pick lists read for the patient as the rules match
