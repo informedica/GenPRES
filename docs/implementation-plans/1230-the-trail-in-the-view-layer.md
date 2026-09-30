@@ -238,3 +238,16 @@ rule that a line never shows the key.
 | 2 | [#1233](https://github.com/informedica/GenPRES/pull/1233) | the dose dialog's steps as `Order` lines, recorded by a wrapper around its `useElmish` update; the machine line a step calls is numbered before the dialog's own line |
 | 3 | [#1234](https://github.com/informedica/GenPRES/pull/1234) | the nutrition slot's steps as `Nutrition` lines, a component field with its component; and the fix from the review of #1233: a component quantity step of the dialog without a component selected records no call |
 | 4 | [#1236](https://github.com/informedica/GenPRES/pull/1236) | `Trail.Part.pickName`, `pick` and `scenario`; a context with one scenario shows its picks with their values; script migrated with 12 tests and removed |
+| 5 | [#1238](https://github.com/informedica/GenPRES/pull/1238) | `Field` lines from `PickField`, `orderField` and `SimpleSelect`; `StepTrail.event` returns with them |
+
+### Deviations from the text above
+
+- **`StepTrail.event` landed with step 5, not step 1.** The review of #1232 asked for a safeguard
+  on an entry that takes plain text and had no caller yet; it came back with the field describers
+  that keep its text to a label, an outcome and a count.
+- **Step 3 carried a fix for step 2.** A component quantity step of the dose dialog makes no call
+  when no component is selected; its line said `CallStep` until the review of #1233.
+- **The nutrition slot's state reads `selected`, not `cmp`.** Beside a step that names the
+  component it acts on, `cmp` read as the stepped component (review of #1234).
+- **The trail found two defects on the way**: #1235, a form the server offers and refuses when
+  chosen; #1237, the reopened decision of a field taken twice, first on stale values.
