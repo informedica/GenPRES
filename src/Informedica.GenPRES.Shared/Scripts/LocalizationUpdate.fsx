@@ -1,0 +1,412 @@
+// Regenerates the localization snapshot from the Terms union.
+//
+// Every UI label is a case of `Terms` in `Localization.fs`; the translations live in the Google
+// "Localization" sheet, and `data/localization/GenPRES - Localization - Localization.tsv` is a
+// snapshot of that sheet. This script brings the snapshot in step with the union:
+//
+//   - existing rows are kept unchanged, in their current order;
+//   - a case without a row is appended with empty translation cells, so the missing translations
+//     show up as gaps in the sheet;
+//   - a row whose term is no longer a case is reported on stderr and dropped, unless
+//     `--keep-stale` is given.
+//
+// The header row is kept as it is. The output overwrites the snapshot; the git diff is the review,
+// and the added rows are pasted into the sheet.
+//
+// Run from this directory:
+//
+//   dotnet fsi LocalizationUpdate.fsx               write the snapshot and print the summary
+//   dotnet fsi LocalizationUpdate.fsx --dry-run     print the summary only
+//   dotnet fsi LocalizationUpdate.fsx --keep-stale  keep rows whose term left the union
+//   dotnet fsi LocalizationUpdate.fsx --test        run the tests of the pure update
+//
+// Through the FSI MCP server, after `#I "<this directory>"`, loading the script runs the same
+// main with the server's arguments; call `run` and `runTests` by hand for the other modes.
+
+#I __SOURCE_DIRECTORY__
+#r "nuget: Expecto, 10.2.3"
+
+#load "../Types.fs"
+#load "../Utils.fs"
+#load "../Localization.fs"
+
+open System
+open System.IO
+open Microsoft.FSharp.Reflection
+open Shared
+
+
+/// One row of the snapshot: the term key, then one cell per header column after Term.
+type Row =
+    {
+        Term: string
+        Cells: string list
+    }
+
+
+/// The snapshot as read from the file: the header cells and the rows below it.
+type Snapshot =
+    {
+        Header: string list
+        Rows: Row list
+    }
+
+
+/// What one update did, next to the rows it produced.
+type Update =
+    {
+        Snapshot: Snapshot
+        /// The term keys appended, in the order of the union.
+        Added: string list
+        /// The rows whose term is no longer a case, dropped or kept.
+        Stale: Row list
+        /// Per header column after Term, the number of empty cells in the result.
+        EmptyCells: (string * int) list
+    }
+
+
+/// Whether a row whose term left the union is kept in the result or dropped.
+[<RequireQualifiedAccess>]
+type StaleRows =
+    | Drop
+    | Keep
+
+
+/// The case names of the Terms union, in declaration order, as `getTerm` looks them up.
+let termKeys () : string list =
+    FSharpType.GetUnionCases typeof<Terms>
+    |> Array.map (fun c -> c.Name.Trim())
+    |> Array.toList
+
+
+/// Fails on a cell that the tab separated shape cannot carry.
+let checkCell (term: string) (cell: string) =
+    if cell.Contains '\t' || cell.Contains '\n' || cell.Contains '\r' then
+        invalidOp $"the row for term '%s{term}' holds a tab or a line break"
+
+
+/// Parses the lines of a snapshot. The first line is the header; every other line has to have
+/// the same number of cells, and a line may not repeat a term.
+let parse (lines: string list) : Snapshot =
+    match lines with
+    | [] -> invalidOp "the snapshot is empty"
+    | header :: rest ->
+        let header = header.Split '\t' |> Array.toList
+
+        match header with
+        | "Term" :: _ -> ()
+        | _ -> invalidOp "the first column of the header is not 'Term'"
+
+        let rows =
+            rest
+            |> List.filter (String.IsNullOrEmpty >> not)
+            |> List.mapi (fun i line ->
+                let cells = line.Split '\t' |> Array.toList
+
+                if cells.Length <> header.Length then
+                    invalidOp
+                        $"line %i{i + 2} has %i{cells.Length} cells, the header has %i{header.Length}"
+
+                {
+                    Term = cells.Head.Trim()
+                    Cells = cells.Tail
+                }
+            )
+
+        let dupes =
+            rows
+            |> List.countBy _.Term
+            |> List.filter (fun (_, n) -> n > 1)
+            |> List.map fst
+
+        if not dupes.IsEmpty then
+            invalidOp $"""the snapshot repeats the terms: %s{String.Join(", ", dupes)}"""
+
+        {
+            Header = header
+            Rows = rows
+        }
+
+
+/// Brings the snapshot in step with the term keys: rows kept in order, missing terms appended
+/// with empty cells, stale rows dropped or kept.
+let update (stale: StaleRows) (terms: string list) (snapshot: Snapshot) : Update =
+    let termSet = Set.ofList terms
+    let present = snapshot.Rows |> List.map _.Term |> Set.ofList
+    let width = snapshot.Header.Length - 1
+    let empty = List.replicate width ""
+
+    let staleRows = snapshot.Rows |> List.filter (fun r -> termSet.Contains r.Term |> not)
+
+    let kept =
+        match stale with
+        | StaleRows.Keep -> snapshot.Rows
+        | StaleRows.Drop -> snapshot.Rows |> List.filter (fun r -> termSet.Contains r.Term)
+
+    let added = terms |> List.filter (present.Contains >> not)
+
+    let rows =
+        kept
+        @ (added
+           |> List.map (fun t ->
+               {
+                   Term = t
+                   Cells = empty
+               }
+           ))
+
+    for r in rows do
+        checkCell r.Term r.Term
+
+        for c in r.Cells do
+            checkCell r.Term c
+
+    let emptyCells =
+        snapshot.Header.Tail
+        |> List.mapi (fun i name ->
+            name, rows |> List.filter (fun r -> String.IsNullOrWhiteSpace r.Cells[i]) |> List.length
+        )
+
+    {
+        Snapshot =
+            { snapshot with
+                Rows = rows
+            }
+        Added = added
+        Stale = staleRows
+        EmptyCells = emptyCells
+    }
+
+
+/// The lines of a snapshot, tab separated, no quoting.
+let toLines (snapshot: Snapshot) : string list =
+    (snapshot.Header |> String.concat "\t")
+    :: (snapshot.Rows |> List.map (fun r -> r.Term :: r.Cells |> String.concat "\t"))
+
+
+/// The repository root: the first directory upward from `start` holding GenPRES.sln.
+let repoRoot (start: string) =
+    let rec go (dir: DirectoryInfo) =
+        if isNull dir then
+            invalidOp $"no GenPRES.sln found upward from %s{start}"
+        elif File.Exists(Path.Combine(dir.FullName, "GenPRES.sln")) then
+            dir.FullName
+        else
+            go dir.Parent
+
+    go (DirectoryInfo start)
+
+
+/// The snapshot file.
+let snapshotPath () =
+    Path.Combine(
+        repoRoot __SOURCE_DIRECTORY__,
+        "data",
+        "localization",
+        "GenPRES - Localization - Localization.tsv"
+    )
+
+
+let readSnapshot (path: string) =
+    File.ReadAllLines path |> Array.toList |> parse
+
+
+/// UTF-8 without a byte order mark, LF line ends, one trailing newline, as the sheet export.
+let writeSnapshot (path: string) (snapshot: Snapshot) =
+    let text = (toLines snapshot |> String.concat "\n") + "\n"
+    File.WriteAllText(path, text, Text.UTF8Encoding false)
+
+
+/// Reads the snapshot, updates it from the union, writes it back unless `dryRun`, and prints
+/// the summary. Stale rows go to stderr.
+let run (stale: StaleRows) (dryRun: bool) =
+    let path = snapshotPath ()
+    let terms = termKeys ()
+    let before = readSnapshot path
+    let result = update stale terms before
+
+    for r in result.Stale do
+        let verb =
+            match stale with
+            | StaleRows.Drop -> "dropped"
+            | StaleRows.Keep -> "kept"
+
+        eprintfn $"stale row %s{verb}: %s{r.Term}"
+
+    if not dryRun then
+        writeSnapshot path result.Snapshot
+
+    printfn $"terms in the union: %i{terms.Length}"
+    printfn $"rows before: %i{before.Rows.Length}, after: %i{result.Snapshot.Rows.Length}"
+    printfn $"rows added: %i{result.Added.Length}"
+
+    for t in result.Added do
+        printfn $"  + %s{t}"
+
+    let staleVerb =
+        match stale with
+        | StaleRows.Drop -> "dropped"
+        | StaleRows.Keep -> "kept"
+
+    printfn $"rows stale (%s{staleVerb}): %i{result.Stale.Length}"
+    printfn "empty cells per locale:"
+
+    for name, n in result.EmptyCells do
+        printfn $"  %s{name}: %i{n}"
+
+    if dryRun then
+        printfn "dry run: the snapshot was not written"
+    else
+        printfn $"written: %s{path}"
+
+    result
+
+
+// ── Tests ─────────────────────────────────────────────────────────────────────────────────────
+
+open Expecto
+open Expecto.Flip
+
+
+let row term cells = { Term = term; Cells = cells }
+
+
+let header = [ "Term"; "English"; "Dutch" ]
+
+
+let tests =
+    testList
+        "LocalizationUpdate"
+        [
+            test "parse reads the header and the rows" {
+                [ "Term\tEnglish\tDutch"; "A\ta\t"; "B\tb\tbb" ]
+                |> parse
+                |> Expect.equal
+                    "header and two rows"
+                    {
+                        Header = header
+                        Rows = [ row "A" [ "a"; "" ]; row "B" [ "b"; "bb" ] ]
+                    }
+            }
+
+            test "parse skips empty lines" {
+                [ "Term\tEnglish\tDutch"; "A\ta\t"; "" ]
+                |> parse
+                |> _.Rows
+                |> List.length
+                |> Expect.equal "one row" 1
+            }
+
+            test "parse fails on a header without Term" {
+                (fun () -> [ "Key\tEnglish" ] |> parse |> ignore)
+                |> Expect.throws "not Term"
+            }
+
+            test "parse fails on a row with the wrong number of cells" {
+                (fun () -> [ "Term\tEnglish\tDutch"; "A\ta" ] |> parse |> ignore)
+                |> Expect.throws "two cells, three headers"
+            }
+
+            test "parse fails on a repeated term" {
+                (fun () -> [ "Term\tEnglish"; "A\ta"; "A\tb" ] |> parse |> ignore)
+                |> Expect.throws "A twice"
+            }
+
+            test "update keeps existing rows unchanged and in order" {
+                let snapshot = { Header = header; Rows = [ row "B" [ "b"; "" ]; row "A" [ "a"; "aa" ] ] }
+
+                (update StaleRows.Drop [ "A"; "B" ] snapshot).Snapshot.Rows
+                |> Expect.equal "same rows, same order" snapshot.Rows
+            }
+
+            test "update appends missing terms in union order with empty cells" {
+                let snapshot = { Header = header; Rows = [ row "B" [ "b"; "" ] ] }
+                let result = update StaleRows.Drop [ "C"; "B"; "A" ] snapshot
+
+                result.Added |> Expect.equal "C then A" [ "C"; "A" ]
+
+                result.Snapshot.Rows
+                |> Expect.equal "B kept, C and A appended" [ row "B" [ "b"; "" ]; row "C" [ ""; "" ]; row "A" [ ""; "" ] ]
+            }
+
+            test "update drops a stale row and reports it" {
+                let snapshot = { Header = header; Rows = [ row "A" [ "a"; "" ]; row "Old" [ "o"; "" ] ] }
+                let result = update StaleRows.Drop [ "A" ] snapshot
+
+                result.Stale |> Expect.equal "Old is stale" [ row "Old" [ "o"; "" ] ]
+                result.Snapshot.Rows |> Expect.equal "Old dropped" [ row "A" [ "a"; "" ] ]
+            }
+
+            test "update keeps a stale row on Keep and still reports it" {
+                let snapshot = { Header = header; Rows = [ row "A" [ "a"; "" ]; row "Old" [ "o"; "" ] ] }
+                let result = update StaleRows.Keep [ "A" ] snapshot
+
+                result.Stale |> Expect.equal "Old is stale" [ row "Old" [ "o"; "" ] ]
+                result.Snapshot.Rows |> Expect.equal "Old kept" snapshot.Rows
+            }
+
+            test "update counts the empty cells per locale" {
+                let snapshot = { Header = header; Rows = [ row "A" [ "a"; "" ]; row "B" [ ""; " " ] ] }
+
+                (update StaleRows.Drop [ "A"; "B"; "C" ] snapshot).EmptyCells
+                |> Expect.equal "English 2 of 3, Dutch 3 of 3" [ "English", 2; "Dutch", 3 ]
+            }
+
+            test "update fails on a cell with a tab or a line break" {
+                for bad in [ "a\tb"; "a\nb"; "a\rb" ] do
+                    let snapshot = { Header = header; Rows = [ row "A" [ bad; "" ] ] }
+
+                    (fun () -> update StaleRows.Drop [ "A" ] snapshot |> ignore)
+                    |> Expect.throws $"%A{bad} refused"
+            }
+
+            test "update is idempotent" {
+                let snapshot = { Header = header; Rows = [ row "B" [ "b"; "" ]; row "Old" [ "o"; "" ] ] }
+                let terms = [ "A"; "B" ]
+                let once = (update StaleRows.Drop terms snapshot).Snapshot
+                let twice = update StaleRows.Drop terms once
+
+                twice.Snapshot |> Expect.equal "same snapshot" once
+                twice.Added |> Expect.isEmpty "nothing added"
+                twice.Stale |> Expect.isEmpty "nothing stale"
+            }
+
+            test "toLines and parse round trip" {
+                let snapshot = { Header = header; Rows = [ row "A" [ "a"; "" ]; row "B" [ ""; "bb" ] ] }
+
+                snapshot |> toLines |> parse |> Expect.equal "same snapshot" snapshot
+            }
+
+            test "every term key is a non-empty trimmed name" {
+                termKeys ()
+                |> List.iter (fun t ->
+                    t |> Expect.isNotEmpty "not empty"
+                    t.Trim() |> Expect.equal "trimmed" t
+                )
+            }
+
+            test "the union holds no repeated term key" {
+                termKeys () |> List.distinct |> List.length
+                |> Expect.equal "all distinct" (termKeys () |> List.length)
+            }
+        ]
+
+
+let runTests () =
+    runTestsWithCLIArgs [] [||] tests
+
+
+// ── Main ──────────────────────────────────────────────────────────────────────────────────────
+
+let args = fsi.CommandLineArgs |> Array.skip 1 |> Array.toList
+
+if args |> List.contains "--test" then
+    runTests () |> ignore
+else
+    let stale =
+        if args |> List.contains "--keep-stale" then
+            StaleRows.Keep
+        else
+            StaleRows.Drop
+
+    run stale (args |> List.contains "--dry-run") |> ignore
