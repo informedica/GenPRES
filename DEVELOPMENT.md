@@ -189,9 +189,8 @@ suggestion" bypasses the local hook) would otherwise fail the run. `--dry-run` c
 
 ### Helper Shell Scripts
 
-Two scripts are tracked; the rest are optional recipes for your own working copy. The opt-in
-`.gitignore` keeps local scripts untracked. Every script starts with `#!/usr/bin/env bash`, runs from
-the repository root (except `benchmark/run.sh`), and needs `chmod +x` once.
+Two scripts are tracked. Each starts with `#!/usr/bin/env bash`, runs from the repository root
+(except `benchmark/run.sh`), and needs `chmod +x` once.
 
 #### Tracked scripts (in the repo)
 
@@ -200,40 +199,7 @@ the repository root (except `benchmark/run.sh`), and needs `chmod +x` once.
 - **`.husky/scripts/format-staged.sh`**: called by the pre-commit hook. Runs Fantomas on the staged
   F# files and re-stages the output. See [CONTRIBUTING.md](CONTRIBUTING.md#code-formatting-pre-commit-hook).
 
-#### Optional local scripts (not in the repo)
-
-Run-mode wrappers source `.env` and then export overrides, which win over `.env`:
-
-```bash
-#!/usr/bin/env bash
-set -a; source .env; set +a
-
-export GENPRES_LOG=i
-export GENPRES_PROD=0
-export GENPRES_DEBUG=1
-
-dotnet run
-```
-
-Common variants:
-
-| File | `GENPRES_LOG` | `GENPRES_PROD` | `GENPRES_DEBUG` | Purpose |
-|---|---|---|---|---|
-| `debug.sh` | `i` | `0` | `1` | Local development against the demo data |
-| `logprod.sh` | `i` | `1` | `0` | Production data, info logging, debug off |
-| `prod.sh` | `0` | `1` | `0` | Mirrors a real production launch |
-
-Production modes need a real `GENPRES_URL_ID` in `.env`, and never debug: with `GENPRES_PROD=1`
-the server refuses to start with `GENPRES_LOG=d` or `GENPRES_DEBUG=1`, see
-[Debugging in production](#debugging-in-production). To clear the logs first:
-
-```bash
-mkdir -p ./data/logs && rm -rf ./data/logs/*
-```
-
-If a local script should become standard, add a `!` allow-line for it to `.gitignore` in the same PR.
-
-##### Docker wrappers
+#### Docker wrappers
 
 The `DockerBuild` and `DockerRun` targets work from any shell.
 
@@ -639,7 +605,10 @@ A debug build of the client (`dotnet run`, where Fable runs in watch mode) with 
 the level `d`, `i`, `w` or `e` traces every Elmish message and the new state to the browser console,
 and hands the history to the [Redux DevTools](https://github.com/reduxjs/redux-devtools) browser
 extension: message by message, with time travel and export as JSON. It is for development against
-the demo data only, and the messages and the state it records hold passwords, tokens and PINs.
+the demo data only. It shows the admin password and the admin token as `***`: the server signs the
+token with the password, so either would open the admin commands of every server sharing that
+password. The PINs and the Session tokens it records are issued by the development server and its
+stand-ins, and work nowhere else.
 
 It never runs against production, by two independent checks:
 
