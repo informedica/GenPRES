@@ -19,15 +19,23 @@ let empty = Models.Patient.empty
 let aged = Models.Patient.setYear (Some "5") None
 
 
+/// An age of ten weeks, nothing else: younger than 28 weeks, so the gestational age matters.
+let infant = Models.Patient.setWeek (Some "10") None
+
+
 let withWeight (p: Patient option) = p |> Models.Patient.setWeight (Some "18000")
 
 
 let withHeight (p: Patient option) = p |> Models.Patient.setHeight (Some "110")
 
 
-/// An age with the weight and the height estimated, as the App fills them in.
-let estimated =
-    aged
+let withGestationalAge (p: Patient option) = p |> Models.Patient.setGAWeek (Some "36")
+
+
+/// The weight and the height estimated, as the App fills them in from the age. Applied last,
+/// since a setter blanks the estimates as the panel's edit does.
+let estimated (p: Patient option) =
+    p
     |> Option.map (fun p ->
         { p with
             Weight = { p.Weight with Estimated = Some 18000<gram> }
@@ -36,19 +44,7 @@ let estimated =
     )
 
 
-let readinesses =
-    [
-        Readiness.NoData
-        Readiness.NoPatient
-        Readiness.NoWeightAndHeight
-        Readiness.NoWeight
-        Readiness.NoHeight
-        Readiness.NoAge
-        Readiness.Complete
-    ]
-
-
-let needs = [ Needs.Weight; Needs.DoseRules; Needs.DoseCheck; Needs.PlanMedication ]
+let needs = [ Needs.Calculation; Needs.DoseCheck; Needs.PlanMedication ]
 
 
 [<Tests>]
@@ -82,30 +78,41 @@ let tests =
                         |> Expect.equal "no age, no height" Readiness.NoPatient
                     }
 
-                    test "a draft with a weight and a height and no age has no age" {
+                    test "a draft with a weight and a height and no age is a patient missing the age" {
                         None
                         |> withWeight
                         |> withHeight
                         |> readiness
-                        |> Expect.equal "a patient by its measurements" Readiness.NoAge
+                        |> Expect.equal "a patient by its measurements" (Readiness.Patient [ Missing.Age ])
                     }
 
-                    test "an age alone has no weight and no height" {
+                    test "an age alone misses the weight and the height" {
                         aged
                         |> readiness
-                        |> Expect.equal "nothing to estimate from yet" Readiness.NoWeightAndHeight
+                        |> Expect.equal
+                            "nothing to estimate from yet"
+                            (Readiness.Patient [ Missing.Weight; Missing.Height ])
                     }
 
-                    test "an age with a measured height has no weight" {
-                        aged |> withHeight |> readiness |> Expect.equal "the weight" Readiness.NoWeight
+                    test "an age with a measured height misses the weight" {
+                        aged
+                        |> withHeight
+                        |> readiness
+                        |> Expect.equal "the weight" (Readiness.Patient [ Missing.Weight ])
                     }
 
-                    test "an age with a measured weight has no height" {
-                        aged |> withWeight |> readiness |> Expect.equal "the height" Readiness.NoHeight
+                    test "an age with a measured weight misses the height" {
+                        aged
+                        |> withWeight
+                        |> readiness
+                        |> Expect.equal "the height" (Readiness.Patient [ Missing.Height ])
                     }
 
                     test "an age with both estimated is complete" {
-                        estimated |> readiness |> Expect.equal "estimates count" Readiness.Complete
+                        aged
+                        |> estimated
+                        |> readiness
+                        |> Expect.equal "estimates count" (Readiness.Patient [])
                     }
 
                     test "an age with both measured is complete" {
@@ -113,15 +120,47 @@ let tests =
                         |> withWeight
                         |> withHeight
                         |> readiness
-                        |> Expect.equal "measured" Readiness.Complete
+                        |> Expect.equal "measured" (Readiness.Patient [])
                     }
 
-                    test "a cleared weight over an estimate stays no weight" {
+                    test "a cleared weight over an estimate misses the weight and the height again" {
                         // the setter blanks the estimates, as the panel's edit does
-                        estimated
+                        aged
+                        |> estimated
                         |> Models.Patient.setWeight None
                         |> readiness
-                        |> Expect.equal "no estimate stands in" Readiness.NoWeightAndHeight
+                        |> Expect.equal "no estimate stands in" (Readiness.Patient [ Missing.Weight; Missing.Height ])
+                    }
+
+                    test "a patient younger than 28 weeks misses the gestational age" {
+                        infant
+                        |> estimated
+                        |> readiness
+                        |> Expect.equal "ten weeks, no gestational age" (Readiness.Patient [ Missing.GestationalAge ])
+                    }
+
+                    test "a patient younger than 28 weeks with a gestational age is complete" {
+                        infant
+                        |> withGestationalAge
+                        |> estimated
+                        |> readiness
+                        |> Expect.equal "complete" (Readiness.Patient [])
+                    }
+
+                    test "a patient of 28 weeks or older needs no gestational age" {
+                        for draft in [ Models.Patient.setWeek (Some "28") None; aged ] do
+                            draft
+                            |> estimated
+                            |> readiness
+                            |> Expect.equal $"%A{draft |> Option.map _.Age}" (Readiness.Patient [])
+                    }
+
+                    test "what is missing is said in one order: age, weight, height, gestational age" {
+                        infant
+                        |> readiness
+                        |> Expect.equal
+                            "weight, height, then gestational age"
+                            (Readiness.Patient [ Missing.Weight; Missing.Height; Missing.GestationalAge ])
                     }
                 ]
 
@@ -129,7 +168,15 @@ let tests =
                 "canCalculate"
                 [
                     test "agrees with the draft policy for every fixture" {
-                        for draft in [ None; Some empty; aged; aged |> withWeight; None |> withWeight; estimated ] do
+                        for draft in
+                            [
+                                None
+                                Some empty
+                                aged
+                                aged |> withWeight
+                                None |> withWeight
+                                aged |> estimated
+                            ] do
                             draft
                             |> canCalculate
                             |> Expect.equal $"%A{draft}" (draft |> PatientDraftPolicy.canCalculate)
@@ -151,11 +198,14 @@ let tests =
                         |> Expect.equal "the minimum" (Some Terms.``Patient enter age or weight and height``)
                     }
 
-                    test "a patient misses nothing" {
-                        for r in
-                            readinesses
-                            |> List.filter (fun r -> r <> Readiness.NoData && r <> Readiness.NoPatient) do
-                            r |> missing |> Expect.isNone $"%A{r}"
+                    test "a patient misses nothing to be one, whatever its calculations miss" {
+                        for m in
+                            [
+                                []
+                                [ Missing.Age ]
+                                [ Missing.Weight; Missing.Height; Missing.GestationalAge ]
+                            ] do
+                            Readiness.Patient m |> missing |> Expect.isNone $"%A{m}"
                     }
                 ]
 
@@ -191,43 +241,36 @@ let tests =
                                 ])
                     }
 
-                    test "a page that browses says nothing once there is a patient" {
+                    test "a page that browses says nothing once there is a patient, whatever it misses" {
                         for n in [ Needs.DoseCheck; Needs.PlanMedication ] do
-                            for r in readinesses |> List.filter (missing >> Option.isNone) do
-                                r |> notice n |> Expect.isNone $"%A{n} %A{r}"
+                            for m in [ []; [ Missing.Age ]; [ Missing.Weight; Missing.Height ] ] do
+                                Readiness.Patient m |> notice n |> Expect.isNone $"%A{n} %A{m}"
                     }
 
-                    test "the dose rules name the missing dimension" {
-                        let expected r =
-                            match r with
-                            | Readiness.NoWeightAndHeight -> Terms.``Prescribe Weight and height unknown``
-                            | Readiness.NoWeight -> Terms.``Prescribe Weight unknown``
-                            | Readiness.NoHeight -> Terms.``Prescribe Height unknown``
-                            | _ -> Terms.``Prescribe Age unknown``
-
-                        for r in
+                    test "a page that calculates names every missing dimension, weight and height as one" {
+                        let cases =
                             [
-                                Readiness.NoWeightAndHeight
-                                Readiness.NoWeight
-                                Readiness.NoHeight
-                                Readiness.NoAge
-                            ] do
-                            r |> notice Needs.DoseRules |> Expect.equal $"%A{r}" (Some [ expected r ])
-                    }
+                                [ Missing.Age ], [ Terms.``Patient Age unknown`` ]
+                                [ Missing.Weight; Missing.Height ], [ Terms.``Prescribe Weight and height unknown`` ]
+                                [ Missing.Weight ], [ Terms.``Prescribe Weight unknown`` ]
+                                [ Missing.Height ], [ Terms.``Prescribe Height unknown`` ]
+                                [ Missing.GestationalAge ], [ Terms.``Patient Gestational age unknown`` ]
+                                [ Missing.Weight; Missing.Height; Missing.GestationalAge ],
+                                [
+                                    Terms.``Prescribe Weight and height unknown``
+                                    Terms.``Patient Gestational age unknown``
+                                ]
+                            ]
 
-                    test "the weight pages ask for the weight only" {
-                        for r in [ Readiness.NoWeightAndHeight; Readiness.NoWeight ] do
-                            r
-                            |> notice Needs.Weight
-                            |> Expect.equal $"%A{r}" (Some [ Terms.``Prescribe Weight unknown`` ])
-
-                        for r in [ Readiness.NoHeight; Readiness.NoAge ] do
-                            r |> notice Needs.Weight |> Expect.isNone $"%A{r}"
+                        for m, expected in cases do
+                            Readiness.Patient m
+                            |> notice Needs.Calculation
+                            |> Expect.equal $"%A{m}" (Some expected)
                     }
 
                     test "a complete patient gets no notice on any page" {
                         for n in needs do
-                            Readiness.Complete |> notice n |> Expect.isNone $"%A{n}"
+                            Readiness.Patient [] |> notice n |> Expect.isNone $"%A{n}"
                     }
                 ]
 
@@ -235,13 +278,17 @@ let tests =
                 "english and message"
                 [
                     test "every term a notice can name has an English sentence" {
+                        let allMissing = [ Missing.Age; Missing.Weight; Missing.Height; Missing.GestationalAge ]
+
                         let terms =
                             [
                                 for n in needs do
-                                    for r in readinesses do
+                                    for r in [ Readiness.NoData; Readiness.NoPatient; Readiness.Patient allMissing ] do
                                         match r |> notice n with
                                         | Some x -> yield! x
                                         | None -> ()
+                                yield! sentences [ Missing.Weight ]
+                                yield! sentences [ Missing.Height ]
                             ]
                             |> List.distinct
 
