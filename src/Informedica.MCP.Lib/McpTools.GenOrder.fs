@@ -38,6 +38,7 @@ module GenOrderTools =
             Form: string option
             AgeMonths: float option
             WeightKg: float option
+            HeightCm: float option
         }
 
     type DoseRulesForContextInput =
@@ -188,22 +189,15 @@ module GenOrderTools =
 
     // ── Tool handler functions ──────────────────────────────────────────────
 
-    let getFilterOptions (provider: IResourceProvider) (input: FilterOptionsInput) : FilterOptionsOutput =
-        let patient =
-            buildPatient
-                provider
-                {
-                    AgeMonths = input.AgeMonths
-                    WeightKg = input.WeightKg
-                    HeightCm = None
-                    Sex = None
-                    Department = None
-                    Generic = input.Generic
-                    Indication = input.Indication
-                    Route = input.Route
-                    Form = input.Form
-                }
-
+    /// The filter options for a patient already built and checked, so a caller that has just validated one
+    /// (createOrderContext) asks for the options of the same patient, without a second check. The patient
+    /// fields of the input are not read.
+    let filterOptionsFor
+        (provider: IResourceProvider)
+        (patient: Patient.Patient)
+        (input: FilterOptionsInput)
+        : FilterOptionsOutput
+        =
         let filter: DoseFilter =
             {
                 Generic = input.Generic
@@ -329,15 +323,14 @@ module GenOrderTools =
           tables are not loaded, or hold no row for them. Give %s{names}."
 
 
-    /// The order context for the input's patient and filter selection, evaluated against the
-    /// given provider. Requires an age or both measures (see requireAgeOrMeasures), and
-    /// then a department the rules know, if one is given (see checkDepartment); shared by
-    /// createOrderContext and getOrderScenarios so the guards and the patient/filter/evaluate
-    /// pipeline exist in exactly one place.
-    let evaluateOrderContext
+    /// The patient of the input, checked: an age or both measures (see requireAgeOrMeasures), a department
+    /// the rules know if one is given (see checkDepartment), and, after the estimate, both a weight and a
+    /// height. The rules would silently answer nothing for less, so the caller is told which measure to give.
+    /// Returns the input with the department as the rules spell it, next to the patient built from it.
+    let validPatient
         (provider: IResourceProvider)
         (input: CreateOrderContextInput)
-        : Result<OrderContext, string>
+        : Result<CreateOrderContextInput * Patient.Patient, string>
         =
         input
         |> requireAgeOrMeasures
@@ -348,29 +341,7 @@ module GenOrderTools =
             // the estimate can leave a measure blank, the tables not loaded or without a row for
             // the age and sex; the rules would then answer nothing, so the caller is told which
             match patient.Weight, patient.Height with
-            | Some _, Some _ ->
-                OrderContext.create OrderLogging.noOp provider patient
-                |> (fun c ->
-                    match input.Generic with
-                    | Some g -> c |> OrderContext.setFilterGeneric g
-                    | None -> c
-                )
-                |> (fun c ->
-                    match input.Indication with
-                    | Some i -> c |> OrderContext.setFilterIndication i
-                    | None -> c
-                )
-                |> (fun c ->
-                    match input.Route with
-                    | Some r -> c |> OrderContext.setFilterRoute r
-                    | None -> c
-                )
-                |> (fun c ->
-                    match input.Form with
-                    | Some f -> c |> OrderContext.setFilterForm f
-                    | None -> c
-                )
-                |> Ok
+            | Some _, Some _ -> Ok(input, patient)
             | w, h ->
                 [
                     if w.IsNone then
@@ -381,12 +352,59 @@ module GenOrderTools =
                 |> noEstimate
                 |> Error
         )
-        |> Result.bind (fun ctx ->
-            OrderContext.UpdateOrderContext ctx
-            |> OrderContext.evaluate System.DateTime.UtcNow OrderLogging.noOp provider
-            |> Result.mapError (fun e -> $"Failed to evaluate order context: {e}")
-        )
-        |> Result.map OrderContext.Command.get
+
+
+    /// The filter options for the patient of the input, refused when the input is no patient
+    /// (see validPatient). The tool wrapper of filterOptionsFor.
+    let getFilterOptions
+        (provider: IResourceProvider)
+        (input: FilterOptionsInput)
+        : Result<FilterOptionsOutput, string>
+        =
+        {
+            AgeMonths = input.AgeMonths
+            WeightKg = input.WeightKg
+            HeightCm = input.HeightCm
+            Sex = None
+            Department = None
+            Generic = input.Generic
+            Indication = input.Indication
+            Route = input.Route
+            Form = input.Form
+        }
+        |> validPatient provider
+        |> Result.map (fun (_, patient) -> filterOptionsFor provider patient input)
+
+
+    /// The context with each filter the input names set, and each one it leaves out untouched.
+    let applyFilters (input: CreateOrderContextInput) (ctx: OrderContext) : OrderContext =
+        // foldBack applies a setter when its filter is Some and passes the context through on None
+        ctx
+        |> Option.foldBack OrderContext.setFilterGeneric input.Generic
+        |> Option.foldBack OrderContext.setFilterIndication input.Indication
+        |> Option.foldBack OrderContext.setFilterRoute input.Route
+        |> Option.foldBack OrderContext.setFilterForm input.Form
+
+
+    /// The order context for the input's patient and filter selection, evaluated against the given provider.
+    /// The patient is checked by validPatient; shared by createOrderContext and getOrderScenarios so the
+    /// guards and the patient/filter/evaluate pipeline exist in exactly one place.
+    let evaluateOrderContext
+        (provider: IResourceProvider)
+        (input: CreateOrderContextInput)
+        : Result<OrderContext, string>
+        =
+        match validPatient provider input with
+        | Error e -> Error e
+        | Ok(input, patient) ->
+            let ctx = OrderContext.create OrderLogging.noOp provider patient |> applyFilters input
+
+            match
+                OrderContext.UpdateOrderContext ctx
+                |> OrderContext.evaluate System.DateTime.UtcNow OrderLogging.noOp provider
+            with
+            | Error e -> Error $"Failed to evaluate order context: {e}"
+            | Ok result -> Ok(OrderContext.Command.get result)
 
 
     let createOrderContext
@@ -398,8 +416,9 @@ module GenOrderTools =
         |> evaluateOrderContext provider
         |> Result.map (fun result ->
             let filterOpts =
-                getFilterOptions
+                filterOptionsFor
                     provider
+                    result.Patient
                     {
                         Generic = result.Filter.Generic
                         Indication = result.Filter.Indication
@@ -407,6 +426,7 @@ module GenOrderTools =
                         Form = result.Filter.Form
                         AgeMonths = input.AgeMonths
                         WeightKg = input.WeightKg
+                        HeightCm = input.HeightCm
                     }
 
             {
