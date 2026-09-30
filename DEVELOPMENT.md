@@ -624,11 +624,12 @@ it reached, logged to the console and kept as the last 500 lines.
 #21 13:33:18.498 OrderContext Reopen UpdateOrderScenario workbench ... 4cfe91b6 -> CallContext UpdateOrderScenario workbench 4cfe91b6 | Changing workbench awaits 4cfe91b6 kept
 ```
 
-The dose dialog runs an Elmish program of its own, and each of its steps is a line of machine
-`Order`: the message with the field it moves and the value or the step it carries, the call it
-makes (`CallUpdate`, `CallReopen`, `CallReset`, `CallStep`, or the `UpdateOrderScenario` message it
-queues), and the component and item selected. The dialog calls the App from inside its step, so the
-machine line that call produces is numbered before the dialog's own line.
+The dose dialog and the nutrition slot each run an Elmish program of their own, and each of their
+steps is a line of machine `Order` or `Nutrition`: the message with the field it moves and the
+value or the step it carries, the call it makes (`CallUpdate`, `CallReopen`, `CallReset`,
+`CallStep`, or the `UpdateOrderScenario` message it queues), and the component and item selected.
+The dialog calls the App from inside its step, so the machine line that call produces is numbered
+before the dialog's own line.
 
 ```text
 #22 13:33:20.114 Order ChangeSubstanceRate 2 field substRate -> ofMsg UpdateOrderScenario | cmp paracetamol item paracetamol

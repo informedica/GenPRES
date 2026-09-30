@@ -280,6 +280,146 @@ module Nutrition =
     open Elmish
 
 
+    /// What a message does: change a value, step it, send or reset the order, or change the slot alone.
+    [<RequireQualifiedAccess>]
+    type private Kind =
+        | Local
+        | Change
+        | Step of string
+        | Update
+        | Reset
+
+
+    let private kindOf msg =
+        match msg with
+        | ChangeComponent _ -> Kind.Local
+        | UpdateOrderScenario _ -> Kind.Update
+        | ResetOrderScenario -> Kind.Reset
+        | SetMinDoseRateProperty
+        | SetMinDoseQuantityProperty
+        | SetMinComponentQuantityProperty _
+        | SetMinFrequencyProperty -> Kind.Step "min"
+        | DecreaseDoseRateProperty _
+        | DecreaseDoseQuantityProperty _
+        | DecreaseComponentQuantityProperty _
+        | DecreaseFrequencyProperty -> Kind.Step "dec"
+        | SetMedianDoseRateProperty
+        | SetMedianDoseQuantityProperty
+        | SetMedianComponentQuantityProperty _
+        | SetMedianFrequencyProperty -> Kind.Step "med"
+        | IncreaseDoseRateProperty _
+        | IncreaseDoseQuantityProperty _
+        | IncreaseComponentQuantityProperty _
+        | IncreaseFrequencyProperty -> Kind.Step "inc"
+        | SetMaxDoseRateProperty
+        | SetMaxDoseQuantityProperty
+        | SetMaxComponentQuantityProperty _
+        | SetMaxFrequencyProperty -> Kind.Step "max"
+        | _ -> Kind.Change
+
+
+    /// The field a message moves, a component field with its component.
+    let private fieldOf msg =
+        match msg with
+        | ChangeComponentOrderableQuantity(cmp, _)
+        | SetMinComponentQuantityProperty cmp
+        | DecreaseComponentQuantityProperty(cmp, _, _)
+        | SetMedianComponentQuantityProperty cmp
+        | IncreaseComponentQuantityProperty(cmp, _, _)
+        | SetMaxComponentQuantityProperty cmp -> Some $"compOrdQty %s{cmp}"
+        | ChangeComponentDoseQuantityAdjust(cmp, _) -> Some $"compDoseQtyAdj %s{cmp}"
+        | ChangeOrderableDoseRate _
+        | SetMinDoseRateProperty
+        | DecreaseDoseRateProperty _
+        | SetMedianDoseRateProperty
+        | IncreaseDoseRateProperty _
+        | SetMaxDoseRateProperty -> Some "ordDoseRate"
+        | ChangeOrderableDoseQuantity _
+        | SetMinDoseQuantityProperty
+        | DecreaseDoseQuantityProperty _
+        | SetMedianDoseQuantityProperty
+        | IncreaseDoseQuantityProperty _
+        | SetMaxDoseQuantityProperty -> Some "ordDoseQty"
+        | ChangeOrderableQuantity _ -> Some "ordQty"
+        | ChangeFrequency _
+        | SetMinFrequencyProperty
+        | DecreaseFrequencyProperty
+        | SetMedianFrequencyProperty
+        | IncreaseFrequencyProperty
+        | SetMaxFrequencyProperty -> Some "frequency"
+        | ChangeComponent _
+        | UpdateOrderScenario _
+        | ResetOrderScenario -> None
+
+
+    /// The message for the trail: its case, what it carries, and its field.
+    let private describeMsg msg =
+        let value (s: string option) = s |> Option.defaultValue "none"
+
+        let steps (n: int, useCalc: bool) = if useCalc then $"%i{n} calc" else $"%i{n}"
+
+        let case =
+            match msg with
+            | ChangeComponent s -> $"ChangeComponent %s{value s}"
+            | ChangeComponentOrderableQuantity(_, s) -> $"ChangeComponentOrderableQuantity %s{value s}"
+            | ChangeComponentDoseQuantityAdjust(_, s) -> $"ChangeComponentDoseQuantityAdjust %s{value s}"
+            | ChangeOrderableDoseRate s -> $"ChangeOrderableDoseRate %s{value s}"
+            | ChangeOrderableQuantity s -> $"ChangeOrderableQuantity %s{value s}"
+            | ChangeFrequency s -> $"ChangeFrequency %s{value s}"
+            | ChangeOrderableDoseQuantity s -> $"ChangeOrderableDoseQuantity %s{value s}"
+            | UpdateOrderScenario ord -> $"UpdateOrderScenario %s{Trail.Part.shortId ord.Id}"
+            | ResetOrderScenario -> "ResetOrderScenario"
+            | DecreaseDoseRateProperty(n, uc) -> $"DecreaseDoseRateProperty %s{steps (n, uc)}"
+            | IncreaseDoseRateProperty(n, uc) -> $"IncreaseDoseRateProperty %s{steps (n, uc)}"
+            | SetMinDoseRateProperty -> "SetMinDoseRateProperty"
+            | SetMaxDoseRateProperty -> "SetMaxDoseRateProperty"
+            | SetMedianDoseRateProperty -> "SetMedianDoseRateProperty"
+            | DecreaseDoseQuantityProperty(n, uc) -> $"DecreaseDoseQuantityProperty %s{steps (n, uc)}"
+            | IncreaseDoseQuantityProperty(n, uc) -> $"IncreaseDoseQuantityProperty %s{steps (n, uc)}"
+            | SetMinDoseQuantityProperty -> "SetMinDoseQuantityProperty"
+            | SetMaxDoseQuantityProperty -> "SetMaxDoseQuantityProperty"
+            | SetMedianDoseQuantityProperty -> "SetMedianDoseQuantityProperty"
+            | DecreaseComponentQuantityProperty(_, n, uc) -> $"DecreaseComponentQuantityProperty %s{steps (n, uc)}"
+            | IncreaseComponentQuantityProperty(_, n, uc) -> $"IncreaseComponentQuantityProperty %s{steps (n, uc)}"
+            | SetMinComponentQuantityProperty _ -> "SetMinComponentQuantityProperty"
+            | SetMaxComponentQuantityProperty _ -> "SetMaxComponentQuantityProperty"
+            | SetMedianComponentQuantityProperty _ -> "SetMedianComponentQuantityProperty"
+            | DecreaseFrequencyProperty -> "DecreaseFrequencyProperty"
+            | IncreaseFrequencyProperty -> "IncreaseFrequencyProperty"
+            | SetMinFrequencyProperty -> "SetMinFrequencyProperty"
+            | SetMaxFrequencyProperty -> "SetMaxFrequencyProperty"
+            | SetMedianFrequencyProperty -> "SetMedianFrequencyProperty"
+
+        match fieldOf msg with
+        | Some field -> $"%s{case} field %s{field}"
+        | None -> case
+
+
+    /// The call a message makes, given the order shown and whether a reopen is under way.
+    let private effectsOf (shown: Order option) (reopening: bool) msg =
+        let shownId = shown |> Option.map (_.Id >> Trail.Part.shortId)
+
+        match kindOf msg, shownId with
+        | Kind.Local, _ -> []
+        | Kind.Update, _ ->
+            match msg with
+            | UpdateOrderScenario ord ->
+                let call = if reopening then "CallReopen" else "CallUpdate"
+                [ $"%s{call} %s{Trail.Part.shortId ord.Id}" ]
+            | _ -> []
+        | _, None -> []
+        | Kind.Reset, Some id -> [ $"CallReset %s{id}" ]
+        | Kind.Change, Some _ -> [ "ofMsg UpdateOrderScenario" ]
+        | Kind.Step step, Some _ ->
+            let field = fieldOf msg |> Option.defaultValue "?"
+            [ $"CallStep %s{field} %s{step}" ]
+
+
+    let private describeState (state: State) =
+        let cmp = state.SelectedComponent |> Option.defaultValue "none"
+        $"cmp %s{cmp}"
+
+
     let private halfSize =
         {|
             xs = 12
@@ -959,8 +1099,18 @@ module Nutrition =
         // the order shown: the one scenario's of the slot's context
         let shownOrder = ctx.Scenarios |> Array.tryExactlyOne |> Option.map _.Order
 
-        let state, dispatch =
-            React.useElmish (init ctx, update updateOrderScenario resetOrderScenario stepper shownOrder, [| box ctx |])
+        // the reopen flag is read before the update, which resets it
+        let updateTraced msg state =
+            let reopen = reopening.current
+            let next, cmd = update updateOrderScenario resetOrderScenario stepper shownOrder msg state
+
+            StepTrail.record (fun no at ->
+                Trail.step "Nutrition" describeMsg id describeState no at msg (next, effectsOf shownOrder reopen msg)
+            )
+
+            next, cmd
+
+        let state, dispatch = React.useElmish (init ctx, updateTraced, [| box ctx |])
 
         let isOrderLoading = props.isRecalculating
         let texts = ViewHelpers.quantityFieldTexts getTerm
