@@ -1892,7 +1892,7 @@ let redacted = "***"
 
 /// The message as the trace records it, with the admin password redacted: a development password may be the one
 /// a production server takes. The admin token stays, because a demo server signs it under its own mode, so it
-/// never opens a production server, and time travel in the debugger keeps a usable token.
+/// never opens a production server.
 let private redactMsg (msg: Msg) =
     match msg with
     | Login _ -> Login redacted

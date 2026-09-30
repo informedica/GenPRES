@@ -604,12 +604,17 @@ a change to the bridge, the sinks or the formatters.
 A debug build of the client (`dotnet run`, where Fable runs in watch mode) with `GENPRES_LOG` on at
 the level `d`, `i`, `w` or `e` traces every Elmish message and the new state to the browser console,
 and hands the history to the [Redux DevTools](https://github.com/reduxjs/redux-devtools) browser
-extension: message by message, with time travel and export as JSON. It is for development against
-the demo data only. It shows the admin password as `***`, because a development password may be the
-one a production server takes. The admin token it records is signed under the server's mode, so a
-token of a demo or development server never opens a production server, even one that shares the
-password. The PINs and the Session tokens it records are issued by the development server and its
-stand-ins, and work nowhere else.
+extension: message by message, with the state and the diff at every step and export as JSON. It is
+for development against the demo data only. It shows the admin password as `***`, because a
+development password may be the one a production server takes. The admin token it records is signed
+under the server's mode, so a token of a demo or development server never opens a production server,
+even one that shares the password. The PINs and the Session tokens it records are issued by the
+development server and its stand-ins, and work nowhere else.
+
+The history is for looking, not for going back. Jump, and every other DevTools action that sets the
+state, changes nothing: the debugger renders a state through the program it wrapped, and the app's
+`React.useElmish` renders through its own hook, which it adds after the debugger. To replay a
+sequence, feed the messages to the state machines in FSI.
 
 It never runs against production, by two independent checks:
 
