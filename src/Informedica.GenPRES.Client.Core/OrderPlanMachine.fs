@@ -428,6 +428,19 @@ module OrderPlanState =
         | OrderPlanCart.Opened(_, tp), None -> OrderPlanView.Settled(tp, state.Selected)
 
 
+    /// The request id the state waits on; None while no request is under way.
+    let inFlightRequest (state: OrderPlanState) = state.InFlight |> Option.map snd
+
+
+    /// The dialog command waiting on the answer under way, with its own request id; None while none
+    /// waits.
+    let pendingCommand (state: OrderPlanState) = state.Pending
+
+
+    /// Whether the plan before a reopen is kept, to be put back when its list closes without a pick.
+    let isKept (state: OrderPlanState) = state.Kept.IsSome
+
+
     /// The command sent, when the answer names the request under way; None otherwise, so an
     /// answer lands only on its own request.
     let landing (request: string) (inFlight: (OrderPlanCommand * string) option) =

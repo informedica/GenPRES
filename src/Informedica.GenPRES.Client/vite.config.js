@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import Inspect from "vite-plugin-inspect"
 
@@ -6,9 +6,20 @@ const proxyPort = process.env.SERVER_PROXY_PORT || "8085";
 const proxyTarget = "http://localhost:" + proxyPort;
 console.log("proxying to", proxyTarget);
 
+// GENPRES_LOG and GENPRES_PROD from the environment or the repository .env; a debug build of the
+// client turns its Elmish trace and debugger on only when the server logs too, and never against
+// production data
+const repoEnv = loadEnv("", "../..", "GENPRES_");
+const genpresLog = process.env.GENPRES_LOG ?? repoEnv.GENPRES_LOG ?? "";
+const genpresProd = process.env.GENPRES_PROD ?? repoEnv.GENPRES_PROD ?? "";
+
 // https://vite.dev/config/
 export default defineConfig({
   base : "./",
+  define: {
+    __GENPRES_LOG__: JSON.stringify(genpresLog),
+    __GENPRES_PROD__: JSON.stringify(genpresProd)
+  },
   build: {
     outDir: "../../deploy/public",
     chunkSizeWarningLimit: 1000

@@ -120,7 +120,7 @@ itself.
   include Debug.
 - `docs(logging): close #416 Phase 2 policy items (clientIP retention, audit trail)` — decided and
   documented in DEVELOPMENT.md's ["Request logging: clientIP retention and the audit
-  trail"](../../DEVELOPMENT.md#request-logging-clientip-retention-and-the-audit-trail): log
+  trail"](../../DEVELOPMENT.md#request-logging-clientip-retention-and-the-log-files-beside-the-audit-trail): log
   `clientIP` in full (GenPRES is only reached through the hospital launch sequence, so it is
   practically always an institutional gateway address), and the same structured events make the
   medico-legal audit trail queryable instead of grep-through-a-flat-file.

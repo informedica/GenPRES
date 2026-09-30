@@ -1158,6 +1158,19 @@ module private Elmish =
         { state with Ui.Snackbar = Snackbar.shown message "warning" }
 
 
+#if DEBUG
+    /// A state may be traced only once the server has said it serves the demo data: never before the
+    /// settings arrive, and never against production. The trail keeps the same gate through
+    /// StepTrail.confirmDemo.
+    let isTraceable (state: State) =
+        match state.Fetches.Settings with
+        | Resolved settings
+        | Refreshing settings -> settings.IsDemo
+        | HasNotStartedYet
+        | InProgress -> false
+#endif
+
+
     let update (msg: Msg) (state: State) =
         // a token the server no longer takes (expired, or a restart): the login is over
         let tokenError source err (state, cmd) =
@@ -1228,6 +1241,8 @@ module private Elmish =
         | LoadSettings Started -> { state with Fetches.Settings = InProgress }, loadSettings
 
         | LoadSettings(Finished(Ok settings)) ->
+            StepTrail.confirmDemo settings.IsDemo
+
             // the server default counts until the url or the User chooses; a choice made while
             // the settings were in flight wins (LanguagePolicy.onServerDefault)
             { state with
@@ -1240,6 +1255,7 @@ module private Elmish =
         | LoadSettings(Finished(Error err)) ->
             // no settings: the client keeps its own defaults, which is what it did before
             Logging.error "cannot load the server settings" err
+            StepTrail.confirmDemo false
             { state with Fetches.Settings = HasNotStartedYet }, Cmd.none
 
         | Login password ->
@@ -1462,6 +1478,7 @@ module private Elmish =
 
         | SessionMsg msg ->
             let session, effects = SessionState.transition msg state.Lanes.Session
+            StepTrail.record (fun no at -> Trail.session no at msg (session, effects))
 
             // a failed close is reported only when it was this session's close: a CloseFailed
             // that arrives after a newer launch superseded the Closing session is dropped by
@@ -1490,6 +1507,11 @@ module private Elmish =
                 match SessionState.view session with
                 | SessionView.Open _ -> state.Lanes.Signing
                 | _ -> SigningState.idle
+            // the reset happens outside the signing machine, so the trail records it here
+            match SessionState.view session, SigningState.view state.Lanes.Signing with
+            | SessionView.Open _, _
+            | _, SigningView.Idle -> ()
+            | _ -> StepTrail.record (fun no at -> Trail.signingReset no at "the session is no longer open" signing)
 
             { state with
                 Lanes.Session = session
@@ -1499,6 +1521,7 @@ module private Elmish =
 
         | SigningMsg msg ->
             let signing, effects = SigningState.transition msg state.Lanes.Signing
+            StepTrail.record (fun no at -> Trail.signing no at msg (signing, effects))
 
             { state with Lanes.Signing = signing } |> runEffects applySigningEffect effects
 
@@ -1612,6 +1635,7 @@ module private Elmish =
                 | _ -> state
 
             let workbench, effects = OrderContextState.transition msg state.Lanes.OrderContext
+            StepTrail.record (fun no at -> Trail.orderContext no at msg (workbench, effects))
 
             { state with Lanes.OrderContext = workbench }
             |> runEffects applyOrderContextEffect effects
@@ -1630,6 +1654,7 @@ module private Elmish =
             // a change from a page is dropped while a signature is under way
             let plan, effects =
                 OrderPlanState.transitionWhile (SigningState.view state.Lanes.Signing) msg state.Lanes.OrderPlan
+            StepTrail.record (fun no at -> Trail.orderPlan no at msg (plan, effects))
 
             { state with Lanes.OrderPlan = plan } |> runEffects applyOrderPlanEffect effects
 
@@ -1846,6 +1871,97 @@ module private Elmish =
 
 
 open Elmish
+
+#if DEBUG
+open Elmish.Debug
+open Thoth.Json
+
+
+/// What the trace shows in place of the admin password.
+let redacted = "***"
+
+
+/// The message as the trace records it, with the admin password redacted: a development password may be the one
+/// a production server takes. The admin token stays, because a demo server signs it under its own mode, so it
+/// never opens a production server.
+let private redactMsg (msg: Msg) =
+    match msg with
+    | Login _ -> Login redacted
+    | _ -> msg
+
+
+/// The console trace, silent while the state is not traceable.
+let private consoleTrace (msg: Msg) (state: State) _ =
+    if isTraceable state then
+        Browser.Dom.console.log ("New message:", redactMsg msg)
+        Browser.Dom.console.log ("Updated state:", state)
+
+
+/// A connection to the Redux DevTools extension that passes nothing on while the state is not traceable: the
+/// deflater hands it None for such a state. The history starts with the first traceable state, and every
+/// message it passes on is redacted.
+let private gatedConnection (inner: Fable.Import.RemoteDev.Connection) =
+    let mutable started = false
+
+    { new Fable.Import.RemoteDev.Connection with
+        member _.init(_, _) = ()
+        member _.subscribe listener = inner.subscribe listener
+        member _.unsubscribe = inner.unsubscribe
+        member _.error e = inner.error e
+
+        member _.send(msg, state) =
+            match unbox<obj option> state with
+            | None -> ()
+            | Some json when not started ->
+                started <- true
+                inner.init (json, None)
+            | Some json -> inner.send (unbox<Msg> msg |> redactMsg |> box, json)
+    }
+
+
+/// The Redux DevTools debugger over the gated connection, with the coders the debugger itself uses.
+let private withGatedDebugger (program: Program<unit, State, Msg, unit>) =
+    let coders = Extra.empty |> Extra.withDecimal |> Extra.withInt64 |> Extra.withUInt64
+
+    let encoder = Encode.Auto.generateEncoder<State>(extra = coders)
+    let decoder = Decode.Auto.generateDecoder<State>(extra = coders)
+
+    let deflate (state: State) =
+        if isTraceable state then Some(encoder state) else None
+        |> box
+
+    let inflate (json: obj) =
+        match Decode.fromValue "$" decoder json with
+        | Ok state -> state
+        | Error err -> invalidOp err
+
+    try
+        let connection =
+            Debugger.connectViaExtension<Msg>(Fable.Import.RemoteDev.ExtensionOptions())
+            |> gatedConnection
+        program |> Program.withDebuggerUsing deflate inflate connection
+    with ex ->
+        Browser.Dom.console.error ("[ELMISH DEBUGGER] continuing without the debugger", ex.Message)
+        program
+#endif
+
+
+/// The app as an Elmish program. A debug build with GENPRES_LOG on and GENPRES_PROD not 1 traces every message
+/// and the new state to the console, hands the history to the Redux DevTools browser extension, and keeps the
+/// readable trail of the machine steps, which window.genpresTrail() returns as text; for development testing
+/// only. It records nothing until the server settings confirm the demo data, so it never runs against
+/// production; a release build records nothing at all.
+let private program () =
+    let program = Program.mkProgram init update (fun _ _ -> ())
+#if DEBUG
+    if StepTrail.isTraceOn () then
+        window?genpresTrail <- StepTrail.text
+        program |> Program.withTrace consoleTrace |> withGatedDebugger
+    else
+        program
+#else
+    program
+#endif
 
 
 type private ConcreteAppEnv
@@ -2068,7 +2184,7 @@ let private mobile: obj = jsNative
 // for Vite Hot Reload to work
 [<JSX.Component>]
 let View () =
-    let state, dispatch = React.useElmish (init, update, [||])
+    let state, dispatch = React.useElmish (program, [||])
     let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
 
     // the browser asks before it leaves the page (back, a closed tab, a reload) while there is

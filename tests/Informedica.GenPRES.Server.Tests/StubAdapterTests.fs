@@ -139,6 +139,7 @@ module StubAdapters =
     let adminNone: AdminPort =
         {
             secret = fun () -> None
+            demo = true
             now = fun () -> DateTimeOffset.UtcNow
             listLogFiles = fun () -> async { return Ok [||] }
             analyzeLogFile = fun _ -> async { return Ok "" }
@@ -4889,6 +4890,7 @@ module AdminTests =
         reloads,
         {
             secret = fun () -> secret
+            demo = true
             now = fun () -> now
             listLogFiles =
                 fun () ->
@@ -4944,7 +4946,7 @@ module AdminTests =
                     let _, admin = adminPort secret t0
                     let token = tokenOf (envWith admin)
                     token |> Expect.isNotEmpty "a token"
-                    AdminCommand.validateToken secret t0 token |> Expect.isTrue "verifies"
+                    AdminCommand.validateToken true secret t0 token |> Expect.isTrue "verifies"
                 }
 
                 test "a wrong password: not valid, no token" {
@@ -4961,8 +4963,9 @@ module AdminTests =
                         run (envWith admin) (AdminCommand.ValidatePassword "")
                         |> Expect.equal "refused" (Ok(AdminResponse.PasswordValidated(false, "")))
 
-                        AdminCommand.generateToken none t0 |> Expect.equal "no token" ""
-                        AdminCommand.validateToken none t0 "" |> Expect.isFalse "empty never verifies"
+                        AdminCommand.generateToken true none t0 |> Expect.equal "no token" ""
+                        AdminCommand.validateToken true none t0 ""
+                        |> Expect.isFalse "empty never verifies"
                 }
 
                 test "a valid token lists, analyzes and reloads" {
@@ -5014,10 +5017,10 @@ module AdminTests =
                     let _, admin = adminPort secret t0
                     let token = tokenOf (envWith admin)
 
-                    AdminCommand.validateToken secret (t0.Add AdminCommand.tokenLifetime) token
+                    AdminCommand.validateToken true secret (t0.Add AdminCommand.tokenLifetime) token
                     |> Expect.isTrue "at the hour"
 
-                    AdminCommand.validateToken secret (t0.Add(AdminCommand.tokenLifetime).AddSeconds 1.0) token
+                    AdminCommand.validateToken true secret (t0.Add(AdminCommand.tokenLifetime).AddSeconds 1.0) token
                     |> Expect.isFalse "past it"
                 }
 
@@ -5027,6 +5030,34 @@ module AdminTests =
 
                     run (envWith admin) (AdminCommand.ReloadResources(tokenOf (envWith other)))
                     |> Expect.equal "refused" (Error [| "Invalid token" |])
+                }
+
+                test "a token of a demo server is refused by a production server with the same password" {
+                    let reloads, demo = adminPort secret t0
+                    let production = { demo with demo = false }
+
+                    run (envWith production) (AdminCommand.ReloadResources(tokenOf (envWith demo)))
+                    |> Expect.equal "refused" (Error [| "Invalid token" |])
+
+                    reloads.Value |> Expect.equal "nothing reloaded" 0
+                }
+
+                test "a token of a production server is refused by a demo server with the same password" {
+                    let reloads, demo = adminPort secret t0
+                    let production = { demo with demo = false }
+
+                    run (envWith demo) (AdminCommand.ReloadResources(tokenOf (envWith production)))
+                    |> Expect.equal "refused" (Error [| "Invalid token" |])
+
+                    reloads.Value |> Expect.equal "nothing reloaded" 0
+                }
+
+                test "a token verifies only under the mode it was signed in" {
+                    for signedDemo, checkedDemo, exp in
+                        [ true, true, true; false, false, true; true, false, false; false, true, false ] do
+                        AdminCommand.generateToken signedDemo secret t0
+                        |> AdminCommand.validateToken checkedDemo secret t0
+                        |> Expect.equal $"signed demo=%b{signedDemo}, checked demo=%b{checkedDemo}" exp
                 }
 
                 test "a failing reload answers the port's error" {

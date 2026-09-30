@@ -189,9 +189,8 @@ suggestion" bypasses the local hook) would otherwise fail the run. `--dry-run` c
 
 ### Helper Shell Scripts
 
-Two scripts are tracked; the rest are optional recipes for your own working copy. The opt-in
-`.gitignore` keeps local scripts untracked. Every script starts with `#!/usr/bin/env bash`, runs from
-the repository root (except `benchmark/run.sh`), and needs `chmod +x` once.
+Two scripts are tracked. Each starts with `#!/usr/bin/env bash`, runs from the repository root
+(except `benchmark/run.sh`), and needs `chmod +x` once.
 
 #### Tracked scripts (in the repo)
 
@@ -200,40 +199,7 @@ the repository root (except `benchmark/run.sh`), and needs `chmod +x` once.
 - **`.husky/scripts/format-staged.sh`**: called by the pre-commit hook. Runs Fantomas on the staged
   F# files and re-stages the output. See [CONTRIBUTING.md](CONTRIBUTING.md#code-formatting-pre-commit-hook).
 
-#### Optional local scripts (not in the repo)
-
-Run-mode wrappers source `.env` and then export overrides, which win over `.env`:
-
-```bash
-#!/usr/bin/env bash
-set -a; source .env; set +a
-
-export GENPRES_LOG=i
-export GENPRES_PROD=0
-export GENPRES_DEBUG=1
-
-dotnet run
-```
-
-Common variants:
-
-| File | `GENPRES_LOG` | `GENPRES_PROD` | `GENPRES_DEBUG` | Purpose |
-|---|---|---|---|---|
-| `debug.sh` | `i` | `0` | `1` | Local development against the demo data |
-| `debugprod.sh` | `d` | `1` | `1` | Production data, debug logging; clear `data/logs` first |
-| `infoprod.sh` | `i` | `1` | `1` | Production data, info logging; clear `data/logs` first |
-| `logprod.sh` | `i` | `1` | `0` | Production data, info logging, debug off |
-| `prod.sh` | `0` | `1` | `0` | Mirrors a real production launch |
-
-Production modes need a real `GENPRES_URL_ID` in `.env`. To clear the logs first:
-
-```bash
-mkdir -p ./data/logs && rm -rf ./data/logs/*
-```
-
-If a local script should become standard, add a `!` allow-line for it to `.gitignore` in the same PR.
-
-##### Docker wrappers
+#### Docker wrappers
 
 The `DockerBuild` and `DockerRun` targets work from any shell.
 
@@ -547,9 +513,9 @@ Put a `git worktree` **next to** the main checkout, not inside it: the root reso
 
 ```bash
 GENPRES_URL_ID=<your-url-id>   # Google Sheets data URL ID (required; .env.example ships the demo ID)
-GENPRES_LOG=i                  # Logging level: 0=off, d=debug, i=info, w=warning, e=error
+GENPRES_LOG=i                  # Logging level: 0=off, d=debug, i=info, w=warning, e=error; d refuses the start with GENPRES_PROD=1
 GENPRES_PROD=0                 # 0=demo (safe default), 1=production data
-GENPRES_DEBUG=1                # Debug mode: 0=off, 1=on
+GENPRES_DEBUG=1                # Debug mode: 0=off, 1=on; 1 refuses the start with GENPRES_PROD=1
 GENPRES_LANG=nl                # Default UI language: en, nl, fr, de, es, it
 GENPRES_PASSWORD=<password>    # Admin password, see policy below
 GENPRES_ROOT=<path>            # Directory holding data/; unset resolves from .env, then data/zindex, then cwd
@@ -575,9 +541,17 @@ server refuse to start. An `la=` URL parameter and a language the user picks bot
   operations disabled and prints a warning. A password shorter than 16 characters refuses the start.
   Generate one with `openssl rand -base64 32` and inject it via a secret store.
 
+#### Debugging in production
+
+Debugging is for development against the demo data only. With `GENPRES_PROD=1` the server refuses to
+start with `GENPRES_LOG=d` or `GENPRES_DEBUG=1`: the debug level writes the solver trace, with the
+patient data, to the order log and slows every calculation. Production logs at `i`, `w` or `e`, or
+not at all; those levels stay allowed, because the log files are the only record of how a dose was
+calculated. The client trace keeps to the same rule, see [The client trace](#the-client-trace).
+
 Never reuse a development password in production. Never commit a real password.
 
-#### Request logging: clientIP retention and the audit trail
+#### Request logging: clientIP retention, and the log files beside the audit trail
 
 With `GENPRES_LOG` set, the request log writes the caller's `clientIP` in full to `data/logs`. This
 is deliberate: GenPRES is reached only through a hospital's launch sequence, so the address is the
@@ -585,8 +559,17 @@ hospital's gateway rather than a person's device, and an administrator needs it 
 incident with a launching site. Revisit this if GenPRES is ever exposed where an untrusted client can
 reach it directly.
 
-The same files are the medico-legal audit trail. When investigating a reported dosing discrepancy,
-start from the `data/logs/genpres_*.log` file for that time window.
+The log files are not the audit trail. The audit of who did what is the `audit_entry` table of the
+session store ([ADR-0007](docs/adr/0007-session-persistence.md)): every launch, Session opening and
+ending, signature committed or refused, failed PIN entry and PIN change, written in the same
+transaction as the act, beside the signed order plan versions in `order_plan`. It is built on the
+SQLite store in demo mode only: a production server refuses launches, Sessions and signatures until
+the scope decision (#580), the in-memory store audits nothing, and nothing reads the table back yet
+(#824).
+
+The log files record how a dose was calculated, which the store does not hold. When investigating a
+reported dosing discrepancy, start from the signed order plan version in the store where there is
+one, and from the `data/logs/genpres_order_*.log` file for that time window for the calculation.
 
 #### The log files
 
@@ -615,6 +598,81 @@ so `GENPRES_LOG=d` is for diagnosing one case, not for production load. The admi
 these files and refuses one over 50 MB. The order log holds patient data; handle `data/logs` as such.
 `src/Informedica.GenPRES.Server/Scripts/LoggingPerf.fsx` measures the cost of logging; rerun it after
 a change to the bridge, the sinks or the formatters.
+
+#### The client trace
+
+A debug build of the client (`dotnet run`, where Fable runs in watch mode) with `GENPRES_LOG` on at
+the level `d`, `i`, `w` or `e` traces every Elmish message and the new state to the browser console,
+and hands the history to the [Redux DevTools](https://github.com/reduxjs/redux-devtools) browser
+extension: message by message, with the state and the diff at every step and export as JSON. It is
+for development against the demo data only. It shows the admin password as `***`, because a
+development password may be the one a production server takes. The admin token it records is signed
+under the server's mode, so a token of a demo or development server never opens a production server,
+even one that shares the password. The PINs and the Session tokens it records are issued by the
+development server and its stand-ins, and work nowhere else.
+
+The history is for looking, not for going back. Jump, and every other DevTools action that sets the
+state, changes nothing: the debugger renders a state through the program it wrapped, and the app's
+`React.useElmish` renders through its own hook, which it adds after the debugger. To replay a
+sequence, feed the messages to the state machines in FSI.
+
+Beside it runs a readable trail of the state machines: every step of the session, signing, order
+context and order plan machines as one line, with the message, the effects it produced and the state
+it reached, logged to the console and kept as the last 500 lines.
+
+```text
+#21 13:33:18.498 OrderContext Reopen UpdateOrderScenario workbench ... 4cfe91b6 -> CallContext UpdateOrderScenario workbench 4cfe91b6 | Changing workbench awaits 4cfe91b6 kept
+```
+
+The dose dialog and the nutrition slot each run an Elmish program of their own, and each of their
+steps is a line of machine `Order` or `Nutrition`: the message with the field it moves and the
+value or the step it carries, the call it makes (`CallUpdate`, `CallReopen`, `CallReset`,
+`CallStep`, or the `UpdateOrderScenario` message it queues), and the component and item selected.
+The dialog calls the App from inside its step, so the machine line that call produces is numbered
+before the dialog's own line.
+
+```text
+#22 13:33:20.114 Order ChangeSubstanceRate 2 field substRate -> ofMsg UpdateOrderScenario | cmp paracetamol item paracetamol
+#24 13:33:20.116 Order UpdateOrderScenario 4cfe91b6 -> CallUpdate 4cfe91b6 | cmp paracetamol item paracetamol
+```
+
+A pick field records what happened when the user acted on it, as a line of machine `Field` named by
+the field's label: a pick or a clear with `onChange` or `dropped`, an auto-pick of a single option,
+an arrow `open` that reopens, an open `blocked loading` or `blocked busy`, a `close` that restores,
+and the `reopened` decision, `NoList` or `ShowList`. The state says whether the field holds a value
+and what it lists, `picked of 5`, `none of range`, and `reopening` while a reopen is under way; it
+never shows the value, since a field can hold the department.
+
+```text
+#25 13:33:24.002 Field open dosering -> reopen | picked of 4
+#28 13:33:24.310 Field reopened dosering -> ShowList | none of 4 reopening
+```
+
+A context with one scenario shows that scenario: its short order id, its component and its picks,
+each with its value when the order holds one (`paracetamol.dos_qty=240 mg`), `open` otherwise.
+
+`genpresTrail()` in the browser console returns the lines as text, and `copy(genpresTrail())` puts
+them on the clipboard in Chrome, to paste into an issue or a conversation. Ids and request ids show
+their first 8 characters, enough to find the request in the server log. A line shows a patient by
+age, gestational age, weight, height and gender, an estimated weight or height marked `est`, and
+never a patient's identity, department or location, a user's name, a PIN, a code, a token, a url, an
+error text or the argumentation. The department and a filter seeded from the url can hold free text,
+so a seed shows only how many picks it carries, and a line break in any text becomes a space. The
+lines are described by the `Trail` module in Client.Core and recorded by the `StepTrail` module in
+the Client, compiled before the views and components so that they can record through it; the App
+tells it when the settings have confirmed the demo data.
+
+It never runs against production, by two independent checks:
+
+- Vite reads `GENPRES_LOG` and `GENPRES_PROD` at start-up, from the environment or the repository
+  `.env`; with `GENPRES_PROD=1` the trace, the debugger and the trail are not switched on. A change needs a
+  restart of `dotnet run`
+- At runtime nothing is recorded until the server settings arrive and say the server runs on the
+  demo data; a server started with `GENPRES_PROD=1` never says so, whatever Vite read
+
+A release build (`Bundle`, `ClientBuild`) leaves the trace and the debugger out entirely. The
+debugger (Fable.Elmish.Debugger) needs the npm package `jsan`, a development dependency of the
+client.
 
 #### How It Works
 

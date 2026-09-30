@@ -43,6 +43,9 @@
     <!-- the order machines -->
     <Compile Include="OrderPlanMachine.fs" />
     <Compile Include="OrderContextMachine.fs" />
+
+    <!-- the readable trail of the machines, for development -->
+    <Compile Include="Trail.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.GenPRES.Shared\Informedica.GenPRES.Shared.fsproj" />

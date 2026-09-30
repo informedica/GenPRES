@@ -8,6 +8,7 @@
     <Compile Include="Extensions.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Global.fs" />
+    <Compile Include="StepTrail.fs" />
     <Compile Include="Keys.fs" />
     <Compile Include="AppEnv.fs" />
     <Compile Include="MUI.fs" />

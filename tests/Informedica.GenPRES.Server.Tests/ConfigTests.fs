@@ -433,6 +433,82 @@ let sessionIdleTests =
         ]
 
 
+let productionDebugTests =
+    let settings (m: Map<string, string>) = Config.fromEnv (fun key -> m |> Map.tryFind key)
+
+    let sixteen = String.replicate 16 "x"
+
+    testList
+        "validateProductionDebug"
+        [
+            testList
+                "demo accepts every level and debug mode"
+                [
+                    for log in [ "0"; "d"; "i"; "w"; "e" ] do
+                        for debug in [ "0"; "1" ] do
+                            test $"GENPRES_LOG=%s{log}, GENPRES_DEBUG=%s{debug}" {
+                                Config.validateProductionDebug false log debug |> Expect.equal "Ok" (Ok())
+                            }
+                ]
+
+            testList
+                "production accepts the levels that keep the calculation record"
+                [
+                    for log in [ "0"; "i"; "w"; "e" ] do
+                        test $"GENPRES_LOG=%s{log}" {
+                            Config.validateProductionDebug true log "0" |> Expect.equal "Ok" (Ok())
+                        }
+                ]
+
+            testList
+                "production refuses debug logging, whatever the case or the spaces"
+                [
+                    for log in [ "d"; "D"; " d " ] do
+                        test $"GENPRES_LOG='%s{log}'" {
+                            match Config.validateProductionDebug true log "0" with
+                            | Error msg -> msg |> Expect.stringContains "names the setting" "GENPRES_LOG=d"
+                            | Ok() -> failtest "expected Error"
+                        }
+                ]
+
+            test "production refuses debug mode" {
+                match Config.validateProductionDebug true "i" "1" with
+                | Error msg -> msg |> Expect.stringContains "names the setting" "GENPRES_DEBUG=1"
+                | Ok() -> failtest "expected Error"
+            }
+
+            test "the start-up refuses production with debug logging, before anything else is checked" {
+                match
+                    Map
+                        [
+                            "GENPRES_PROD", "1"
+                            "GENPRES_URL_ID", "sheet-id"
+                            "GENPRES_PASSWORD", sixteen
+                            "GENPRES_LOG", "d"
+                        ]
+                    |> settings
+                    |> Config.validateStartup
+                with
+                | Error msg -> msg |> Expect.stringContains "names the setting" "GENPRES_LOG=d"
+                | Ok _ -> failtest "expected Error"
+            }
+
+            test "the start-up accepts production with info logging and debug mode off" {
+                Map
+                    [
+                        "GENPRES_PROD", "1"
+                        "GENPRES_URL_ID", "sheet-id"
+                        "GENPRES_PASSWORD", sixteen
+                        "GENPRES_LOG", "i"
+                        "GENPRES_DEBUG", "0"
+                    ]
+                |> settings
+                |> Config.validateStartup
+                |> Expect.equal "Ok with the url id" (Ok(startup "sheet-id"))
+            }
+        ]
+
+
 [<Tests>]
 let tests =
     testList
@@ -445,4 +521,5 @@ let tests =
             fromEnvTests
             languageTests
             sessionIdleTests
+            productionDebugTests
         ]
