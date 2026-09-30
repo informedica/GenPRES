@@ -1158,6 +1158,72 @@ module private Elmish =
         { state with Ui.Snackbar = Snackbar.shown message "warning" }
 
 
+#if DEBUG
+    /// GENPRES_LOG as Vite read it at start-up, from the environment or the repository .env.
+    [<Emit("__GENPRES_LOG__")>]
+    let genpresLog: string = jsNative
+
+
+    /// GENPRES_PROD as Vite read it at start-up, from the environment or the repository .env.
+    [<Emit("__GENPRES_PROD__")>]
+    let genpresProd: string = jsNative
+
+
+    /// Logging is on for the levels the server logs at, d, i, w and e; unset or 0 is off.
+    let isLogging (log: string) =
+        match log.Trim().ToLowerInvariant() with
+        | "d"
+        | "i"
+        | "w"
+        | "e" -> true
+        | _ -> false
+
+
+    /// Production is GENPRES_PROD=1, as the server reads it.
+    let isProduction (prod: string) = prod.Trim() = "1"
+
+
+    /// The trace and the trail are on in a debug build with logging on, and never with GENPRES_PROD=1.
+    let isTraceOn () = isLogging genpresLog && not (isProduction genpresProd)
+
+
+    /// A state may be traced only once the server has said it serves the demo data: never before the
+    /// settings arrive, and never against production.
+    let isTraceable (state: State) =
+        match state.Fetches.Settings with
+        | Resolved settings
+        | Refreshing settings -> settings.IsDemo
+        | HasNotStartedYet
+        | InProgress -> false
+
+
+    /// The readable trail of the machine steps, for development testing only: every step of the session,
+    /// signing, order context and order plan machines as one line, logged to the console and kept in memory,
+    /// under the same gate as the trace.
+    module StepTrail =
+
+        /// How many lines the trail keeps.
+        let size = 500
+
+        let mutable private lines: string list = []
+
+        let mutable private count = 0
+
+
+        /// Records the step as the next line and logs it, while the trace is on and the state traceable.
+        let record (state: State) (describe: int -> DateTime -> Trail.Step) =
+            if isTraceOn () && isTraceable state then
+                count <- count + 1
+                let line = describe count DateTime.Now |> Trail.format
+                Browser.Dom.console.log line
+                lines <- lines |> Trail.append size line
+
+
+        /// The lines kept, oldest first, one per line.
+        let text () = lines |> String.concat "\n"
+#endif
+
+
     let update (msg: Msg) (state: State) =
         // a token the server no longer takes (expired, or a restart): the login is over
         let tokenError source err (state, cmd) =
@@ -1462,6 +1528,9 @@ module private Elmish =
 
         | SessionMsg msg ->
             let session, effects = SessionState.transition msg state.Lanes.Session
+#if DEBUG
+            StepTrail.record state (fun no at -> Trail.session no at msg (session, effects))
+#endif
 
             // a failed close is reported only when it was this session's close: a CloseFailed
             // that arrives after a newer launch superseded the Closing session is dropped by
@@ -1490,6 +1559,14 @@ module private Elmish =
                 match SessionState.view session with
                 | SessionView.Open _ -> state.Lanes.Signing
                 | _ -> SigningState.idle
+#if DEBUG
+            // the reset happens outside the signing machine, so the trail records it here
+            match SessionState.view session, SigningState.view state.Lanes.Signing with
+            | SessionView.Open _, _
+            | _, SigningView.Idle -> ()
+            | _ ->
+                StepTrail.record state (fun no at -> Trail.signingReset no at "the session is no longer open" signing)
+#endif
 
             { state with
                 Lanes.Session = session
@@ -1499,6 +1576,9 @@ module private Elmish =
 
         | SigningMsg msg ->
             let signing, effects = SigningState.transition msg state.Lanes.Signing
+#if DEBUG
+            StepTrail.record state (fun no at -> Trail.signing no at msg (signing, effects))
+#endif
 
             { state with Lanes.Signing = signing } |> runEffects applySigningEffect effects
 
@@ -1612,6 +1692,9 @@ module private Elmish =
                 | _ -> state
 
             let workbench, effects = OrderContextState.transition msg state.Lanes.OrderContext
+#if DEBUG
+            StepTrail.record state (fun no at -> Trail.orderContext no at msg (workbench, effects))
+#endif
 
             { state with Lanes.OrderContext = workbench }
             |> runEffects applyOrderContextEffect effects
@@ -1630,6 +1713,9 @@ module private Elmish =
             // a change from a page is dropped while a signature is under way
             let plan, effects =
                 OrderPlanState.transitionWhile (SigningState.view state.Lanes.Signing) msg state.Lanes.OrderPlan
+#if DEBUG
+            StepTrail.record state (fun no at -> Trail.orderPlan no at msg (plan, effects))
+#endif
 
             { state with Lanes.OrderPlan = plan } |> runEffects applyOrderPlanEffect effects
 
@@ -1852,40 +1938,6 @@ open Elmish.Debug
 open Thoth.Json
 
 
-/// GENPRES_LOG as Vite read it at start-up, from the environment or the repository .env.
-[<Emit("__GENPRES_LOG__")>]
-let private genpresLog: string = jsNative
-
-
-/// GENPRES_PROD as Vite read it at start-up, from the environment or the repository .env.
-[<Emit("__GENPRES_PROD__")>]
-let private genpresProd: string = jsNative
-
-
-/// Logging is on for the levels the server logs at, d, i, w and e; unset or 0 is off.
-let isLogging (log: string) =
-    match log.Trim().ToLowerInvariant() with
-    | "d"
-    | "i"
-    | "w"
-    | "e" -> true
-    | _ -> false
-
-
-/// Production is GENPRES_PROD=1, as the server reads it.
-let isProduction (prod: string) = prod.Trim() = "1"
-
-
-/// A state may be traced only once the server has said it serves the demo data: never before the settings
-/// arrive, and never against production.
-let private isTraceable (state: State) =
-    match state.Fetches.Settings with
-    | Resolved settings
-    | Refreshing settings -> settings.IsDemo
-    | HasNotStartedYet
-    | InProgress -> false
-
-
 /// What the trace shows in place of the admin password.
 let redacted = "***"
 
@@ -1956,13 +2008,15 @@ let private withGatedDebugger (program: Program<unit, State, Msg, unit>) =
 
 
 /// The app as an Elmish program. A debug build with GENPRES_LOG on and GENPRES_PROD not 1 traces every message
-/// and the new state to the console, and hands the history to the Redux DevTools browser extension, for
-/// development testing only. It records nothing until the server settings confirm the demo data, so it never
-/// runs against production; a release build records nothing at all.
+/// and the new state to the console, hands the history to the Redux DevTools browser extension, and keeps the
+/// readable trail of the machine steps, which window.genpresTrail() returns as text; for development testing
+/// only. It records nothing until the server settings confirm the demo data, so it never runs against
+/// production; a release build records nothing at all.
 let private program () =
     let program = Program.mkProgram init update (fun _ _ -> ())
 #if DEBUG
-    if isLogging genpresLog && not (isProduction genpresProd) then
+    if isTraceOn () then
+        window?genpresTrail <- StepTrail.text
         program |> Program.withTrace consoleTrace |> withGatedDebugger
     else
         program

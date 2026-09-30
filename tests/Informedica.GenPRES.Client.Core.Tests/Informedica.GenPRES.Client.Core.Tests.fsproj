@@ -47,6 +47,9 @@
     <Compile Include="PlanContextPolicyTests.fs" />
     <Compile Include="PlanCellPolicyTests.fs" />
 
+    <!-- the readable trail of the machines -->
+    <Compile Include="TrailTests.fs" />
+
     <Compile Include="Main.fs" />
   </ItemGroup>
 
