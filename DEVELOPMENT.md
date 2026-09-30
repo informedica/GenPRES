@@ -624,6 +624,17 @@ it reached, logged to the console and kept as the last 500 lines.
 #21 13:33:18.498 OrderContext Reopen UpdateOrderScenario workbench ... 4cfe91b6 -> CallContext UpdateOrderScenario workbench 4cfe91b6 | Changing workbench awaits 4cfe91b6 kept
 ```
 
+The dose dialog runs an Elmish program of its own, and each of its steps is a line of machine
+`Order`: the message with the field it moves and the value or the step it carries, the call it
+makes (`CallUpdate`, `CallReopen`, `CallReset`, `CallStep`, or the `UpdateOrderScenario` message it
+queues), and the component and item selected. The dialog calls the App from inside its step, so the
+machine line that call produces is numbered before the dialog's own line.
+
+```text
+#22 13:33:20.114 Order ChangeSubstanceRate 2 field substRate -> ofMsg UpdateOrderScenario | cmp paracetamol item paracetamol
+#24 13:33:20.116 Order UpdateOrderScenario 4cfe91b6 -> CallUpdate 4cfe91b6 | cmp paracetamol item paracetamol
+```
+
 `genpresTrail()` in the browser console returns the lines as text, and `copy(genpresTrail())` puts
 them on the clipboard in Chrome, to paste into an issue or a conversation. Ids and request ids show
 their first 8 characters, enough to find the request in the server log. A line shows a patient by
