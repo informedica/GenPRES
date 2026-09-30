@@ -13,12 +13,15 @@
 // The header row is kept as it is. The output overwrites the snapshot; the git diff is the review,
 // and the added rows are pasted into the sheet.
 //
-// Run from this directory:
+// Run from the repository root or from this directory:
 //
-//   dotnet fsi LocalizationUpdate.fsx               write the snapshot and print the summary
-//   dotnet fsi LocalizationUpdate.fsx --dry-run     print the summary only
-//   dotnet fsi LocalizationUpdate.fsx --keep-stale  keep rows whose term left the union
-//   dotnet fsi LocalizationUpdate.fsx --test        run the tests of the pure update
+//   dotnet fsi scripts/LocalizationUpdate.fsx               write the snapshot, print the summary
+//   dotnet fsi scripts/LocalizationUpdate.fsx --dry-run     print the summary only
+//   dotnet fsi scripts/LocalizationUpdate.fsx --keep-stale  keep rows whose term left the union
+//   dotnet fsi scripts/LocalizationUpdate.fsx --print       the full TSV on stdout, the summary
+//                                                           on stderr: pipe it to pbcopy and
+//                                                           paste it over the sheet
+//   dotnet fsi scripts/LocalizationUpdate.fsx --test        run the tests of the pure update
 //
 // Through the FSI MCP server, after `#I "<this directory>"`, loading the script runs the same
 // main with the server's arguments; call `run` and `runTests` by hand for the other modes.
@@ -26,9 +29,9 @@
 #I __SOURCE_DIRECTORY__
 #r "nuget: Expecto, 10.2.3"
 
-#load "../Types.fs"
-#load "../Utils.fs"
-#load "../Localization.fs"
+#load "../src/Informedica.GenPRES.Shared/Types.fs"
+#load "../src/Informedica.GenPRES.Shared/Utils.fs"
+#load "../src/Informedica.GenPRES.Shared/Localization.fs"
 
 open System
 open System.IO
@@ -217,47 +220,62 @@ let writeSnapshot (path: string) (snapshot: Snapshot) =
     File.WriteAllText(path, text, Text.UTF8Encoding false)
 
 
+/// Where the summary goes: stdout, or stderr when stdout carries the TSV.
+[<RequireQualifiedAccess>]
+type Output =
+    | Summary
+    | Tsv
+
+
 /// Reads the snapshot, updates it from the union, writes it back unless `dryRun`, and prints
-/// the summary. Stale rows go to stderr.
-let run (stale: StaleRows) (dryRun: bool) =
+/// the summary. With `Output.Tsv` the full updated TSV goes to stdout, header first, and the
+/// summary to stderr, so the output can be piped and pasted over the sheet. Stale rows go to
+/// stderr either way.
+let run (stale: StaleRows) (dryRun: bool) (output: Output) =
     let path = snapshotPath ()
     let terms = termKeys ()
     let before = readSnapshot path
     let result = update stale terms before
 
-    for r in result.Stale do
-        let verb =
-            match stale with
-            | StaleRows.Drop -> "dropped"
-            | StaleRows.Keep -> "kept"
-
-        eprintfn $"stale row %s{verb}: %s{r.Term}"
-
-    if not dryRun then
-        writeSnapshot path result.Snapshot
-
-    printfn $"terms in the union: %i{terms.Length}"
-    printfn $"rows before: %i{before.Rows.Length}, after: %i{result.Snapshot.Rows.Length}"
-    printfn $"rows added: %i{result.Added.Length}"
-
-    for t in result.Added do
-        printfn $"  + %s{t}"
+    let say (s: string) =
+        match output with
+        | Output.Summary -> printfn $"%s{s}"
+        | Output.Tsv -> eprintfn $"%s{s}"
 
     let staleVerb =
         match stale with
         | StaleRows.Drop -> "dropped"
         | StaleRows.Keep -> "kept"
 
-    printfn $"rows stale (%s{staleVerb}): %i{result.Stale.Length}"
-    printfn "empty cells per locale:"
+    for r in result.Stale do
+        eprintfn $"stale row %s{staleVerb}: %s{r.Term}"
+
+    if not dryRun then
+        writeSnapshot path result.Snapshot
+
+    say $"terms in the union: %i{terms.Length}"
+    say $"rows before: %i{before.Rows.Length}, after: %i{result.Snapshot.Rows.Length}"
+    say $"rows added: %i{result.Added.Length}"
+
+    for t in result.Added do
+        say $"  + %s{t}"
+
+    say $"rows stale (%s{staleVerb}): %i{result.Stale.Length}"
+    say "empty cells per locale:"
 
     for name, n in result.EmptyCells do
-        printfn $"  %s{name}: %i{n}"
+        say $"  %s{name}: %i{n}"
 
     if dryRun then
-        printfn "dry run: the snapshot was not written"
+        say "dry run: the snapshot was not written"
     else
-        printfn $"written: %s{path}"
+        say $"written: %s{path}"
+
+    match output with
+    | Output.Summary -> ()
+    | Output.Tsv ->
+        for line in toLines result.Snapshot do
+            printfn $"%s{line}"
 
     result
 
@@ -409,4 +427,10 @@ else
         else
             StaleRows.Drop
 
-    run stale (args |> List.contains "--dry-run") |> ignore
+    let output =
+        if args |> List.contains "--print" then
+            Output.Tsv
+        else
+            Output.Summary
+
+    run stale (args |> List.contains "--dry-run") output |> ignore
