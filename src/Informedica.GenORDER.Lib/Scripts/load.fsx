@@ -39,7 +39,8 @@ fsi.AddPrinter<System.DateTime> _.ToShortDateString()
 #load "../Nutrition.fs"
 #load "../Patient.fs"
 #load "../OrderLogging.fs"
-#load "../Api.fs"
+#load "../Formulary.fs"
+#load "../OrderContext.fs"
 *)
 
 
