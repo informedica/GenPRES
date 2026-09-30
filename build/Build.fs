@@ -415,6 +415,14 @@ Target.create
 Target.create "CheckVersions" (fun _ -> run dotnet [ "fsi"; "scripts/CheckSolutionVersions.fsx" ] ".")
 
 
+// The full localization, tab separated, as the Localization sheet should read: every case of the
+// Terms union with the translations the local snapshot holds, the missing ones as empty cells.
+// It prints and does not write the snapshot; `dotnet fsi scripts/LocalizationUpdate.fsx` does.
+Target.create
+    "Localization"
+    (fun _ -> run dotnet [ "fsi"; "scripts/LocalizationUpdate.fsx"; "--dry-run"; "--print" ] ".")
+
+
 // The whole suite through `dotnet test`, with its own output rather than the per-assembly
 // summary ServerTests prints. It used to start the Vite dev server after the tests, which
 // never returns, so the target ran the tests and then hung; nothing could call it.

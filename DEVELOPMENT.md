@@ -84,6 +84,7 @@ support but excluded from the solution build, so `dotnet build GenPRES.sln` neve
 | `dotnet run DebugTests` | Run every test project one at a time with per-test output and no parallelism; stops at the first failing assembly. Set `CI=true` without the G-Standaard files under `data/zindex` |
 | `dotnet run TestHeadless` | Run the suite through plain `dotnet test` |
 | `dotnet run CheckVersions` | Verify every built DLL's version matches the root `Directory.Build.props` |
+| `dotnet run Localization` | Print the full localization as tab separated rows: every `Terms` case with the translations of the local snapshot, to paste over the Localization sheet. Prints only; `dotnet fsi scripts/LocalizationUpdate.fsx` updates the snapshot |
 | `dotnet run Format` | Format all F# source with Fantomas |
 | `dotnet run MarkdownLint` | Lint the Markdown files |
 | `dotnet run ApiDocs` | Build the fsdocs API reference into `./output/`. Set `FSDOCS_ROOT` to the site base URL |
@@ -97,7 +98,7 @@ support but excluded from the solution build, so `dotnet build GenPRES.sln` neve
 Clean ──► RestoreClient ──► Bundle
 Clean ──► RestoreClient ──► ClientBuild
 
-ServerBuild, BenchmarkBuild, ApiDocs, ApiDocsWatch   (no prerequisites)
+ServerBuild, BenchmarkBuild, ApiDocs, ApiDocsWatch, Localization   (no prerequisites)
 
 Build ──► Run
 RestoreClient ──► Run
