@@ -1886,41 +1886,24 @@ let private isTraceable (state: State) =
     | InProgress -> false
 
 
-/// What the trace shows in place of the admin password and the admin token.
+/// What the trace shows in place of the admin password.
 let redacted = "***"
 
 
-/// The message as the trace records it, with the admin password and the admin token redacted: the server signs
-/// the token with the password, so either opens the admin commands of every server that shares the password.
+/// The message as the trace records it, with the admin password redacted: a development password may be the one
+/// a production server takes. The admin token stays, because a demo server signs it under its own mode, so it
+/// never opens a production server, and time travel in the debugger keeps a usable token.
 let private redactMsg (msg: Msg) =
-    let answer (result: AdminResult) =
-        match result with
-        | Finished(Ok(Api.AdminResponse.PasswordValidated(isValid, _))) ->
-            Finished(Ok(Api.AdminResponse.PasswordValidated(isValid, redacted)))
-        | _ -> result
-
     match msg with
     | Login _ -> Login redacted
-    | LoadLoginResult(attempt, result) -> LoadLoginResult(attempt, answer result)
-    | LoadLogFilesResult(_, result) -> LoadLogFilesResult(redacted, result)
-    | LoadLogAnalysisResult(_, result) -> LoadLogAnalysisResult(redacted, result)
-    | LoadReloadResult(_, result) -> LoadReloadResult(redacted, result)
     | _ -> msg
-
-
-/// The state as the trace records it, with the admin token redacted; no token stays empty.
-let private redactState (state: State) =
-    if state.Admin.AuthToken = "" then
-        state
-    else
-        { state with Admin.AuthToken = redacted }
 
 
 /// The console trace, silent while the state is not traceable.
 let private consoleTrace (msg: Msg) (state: State) _ =
     if isTraceable state then
         Browser.Dom.console.log ("New message:", redactMsg msg)
-        Browser.Dom.console.log ("Updated state:", redactState state)
+        Browser.Dom.console.log ("Updated state:", state)
 
 
 /// A connection to the Redux DevTools extension that passes nothing on while the state is not traceable: the
@@ -1953,10 +1936,7 @@ let private withGatedDebugger (program: Program<unit, State, Msg, unit>) =
     let decoder = Decode.Auto.generateDecoder<State>(extra = coders)
 
     let deflate (state: State) =
-        if isTraceable state then
-            Some(state |> redactState |> encoder)
-        else
-            None
+        if isTraceable state then Some(encoder state) else None
         |> box
 
     let inflate (json: obj) =

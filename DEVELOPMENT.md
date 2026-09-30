@@ -605,8 +605,9 @@ A debug build of the client (`dotnet run`, where Fable runs in watch mode) with 
 the level `d`, `i`, `w` or `e` traces every Elmish message and the new state to the browser console,
 and hands the history to the [Redux DevTools](https://github.com/reduxjs/redux-devtools) browser
 extension: message by message, with time travel and export as JSON. It is for development against
-the demo data only. It shows the admin password and the admin token as `***`: the server signs the
-token with the password, so either would open the admin commands of every server sharing that
+the demo data only. It shows the admin password as `***`, because a development password may be the
+one a production server takes. The admin token it records is signed under the server's mode, so a
+token of a demo or development server never opens a production server, even one that shares the
 password. The PINs and the Session tokens it records are issued by the development server and its
 stand-ins, and work nowhere else.
 

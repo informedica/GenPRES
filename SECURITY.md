@@ -129,7 +129,7 @@ We handle reports in order of severity: the more severe the issue, the higher it
 
 2. **Authentication & token handling**
    - Admin password compared with `CryptographicOperations.FixedTimeEquals` (constant-time, no per-character timing leak), once, at `AdminCommand.ValidatePassword`
-   - Every other admin operation (`ListLogFiles`, `AnalyzeLogFile`, `ReloadResources`) is gated by the short-lived HMAC-SHA256 token (1-hour TTL) that exchange issued; signature verification uses `FixedTimeEquals`; the password never travels again
+   - Every other admin operation (`ListLogFiles`, `AnalyzeLogFile`, `ReloadResources`) is gated by the short-lived HMAC-SHA256 token (1-hour TTL) that exchange issued, signed under the server's mode, so a token of a demo or development server never verifies on a production server that shares its password; signature verification uses `FixedTimeEquals`; the password never travels again
    - Auth token kept in browser memory only — never persisted to `localStorage` / `sessionStorage`; cleared on logout
    - Server fails closed: when `GENPRES_PASSWORD` is unset (or empty / whitespace) all admin operations are rejected
    - **Production password policy enforced at startup**: when `GENPRES_PROD=1`, the server refuses to bind any HTTP listener if `GENPRES_PASSWORD` is shorter than 16 characters. A missing, empty or whitespace-only password starts the server with every admin operation disabled and prints a warning. Operators must inject a CSPRNG-generated value (e.g. `openssl rand -base64 32`)
