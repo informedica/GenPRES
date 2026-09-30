@@ -1,6 +1,6 @@
 namespace Informedica.GenOrder.Lib
 
-module Filters =
+module FilterHelpers =
 
     open Informedica.GenForm.Lib
     open Informedica.GenForm.Lib.Resources
@@ -24,24 +24,6 @@ module Filters =
             | Error _ -> [||]
 
 
-    let getIndications logger (provider: IResourceProvider) =
-        getPrescriptionRules logger provider >> PrescriptionRule.indications
-
-
-    let getGenerics logger (provider: IResourceProvider) =
-        getPrescriptionRules logger provider >> PrescriptionRule.generics
-
-
-    let getRoutes logger (provider: IResourceProvider) = getPrescriptionRules logger provider >> PrescriptionRule.routes
-
-
-    let getForms logger (provider: IResourceProvider) = getPrescriptionRules logger provider >> PrescriptionRule.forms
-
-
-    let getFrequencies logger (provider: IResourceProvider) =
-        getPrescriptionRules logger provider >> PrescriptionRule.frequencies
-
-
     let filterIndications logger (provider: IResourceProvider) =
         filterPrescriptionRules logger provider >> PrescriptionRule.indications
 
@@ -60,16 +42,6 @@ module Filters =
 
     let filterDoseTypes logger (provider: IResourceProvider) =
         filterPrescriptionRules logger provider >> PrescriptionRule.doseTypes
-
-
-    let filterFrequencies (logger: Logger) (provider: IResourceProvider) =
-        filterPrescriptionRules logger provider >> PrescriptionRule.frequencies
-
-
-    let filterDiluents (logger: Logger) (provider: IResourceProvider) =
-        filterPrescriptionRules logger provider
-        >> PrescriptionRule.diluents
-        >> Array.map _.Generic
 
 
 module OrderScenario =
@@ -362,7 +334,7 @@ module OrderContext =
     open Informedica.GenOrder.Lib
 
     open Informedica.GenUnits.Lib
-    open Filters
+    open FilterHelpers
 
 
     type Command =
