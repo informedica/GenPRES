@@ -213,6 +213,28 @@ module Config =
         | _ -> Ok()
 
 
+    /// <summary>
+    /// Debugging never runs against production: GENPRES_PROD=1 refuses the start with GENPRES_LOG=d, whose
+    /// solver trace holds the patient data and slows every calculation, or with GENPRES_DEBUG=1. The levels
+    /// i, w and e stay allowed, because the log files are the only record of how a dose was calculated.
+    /// </summary>
+    let validateProductionDebug (isProd: bool) (log: string) (debug: string) : Result<unit, string> =
+        let debugLevel = log.Trim().ToLowerInvariant() = "d"
+        let debugMode = debug.Trim() = "1"
+
+        match isProd, debugLevel, debugMode with
+        | true, true, _ ->
+            Error
+                "GENPRES_PROD=1 but GENPRES_LOG=d. \
+                 Debug logging is for development against the demo data only; \
+                 use GENPRES_LOG=i, w or e in production."
+        | true, _, true ->
+            Error
+                "GENPRES_PROD=1 but GENPRES_DEBUG=1. \
+                 Debug mode is for development against the demo data only; set GENPRES_DEBUG=0 in production."
+        | _ -> Ok()
+
+
     /// GENPRES_SESSION_IDLE_MINUTES as the idle lifetime of a Session: unset or blank is the
     /// default of an hour, a positive whole number of minutes is taken, and anything else is
     /// the message the server refuses to start with, so that a lifetime mistyped does not end
@@ -230,13 +252,14 @@ module Config =
 
 
     /// <summary>
-    /// Every start-up guard in one place: the session store, the idle lifetime, the production
-    /// password policy, the language, then the presence of <c>GENPRES_URL_ID</c>. <c>Ok</c> carries
+    /// Every start-up guard in one place: the session store, debugging in production, the idle
+    /// lifetime, the production password policy, the language, then the presence of <c>GENPRES_URL_ID</c>. <c>Ok</c> carries
     /// the URL ID the host needs and the warnings to print; <c>Error</c> is the
     /// message the server exits with.
     /// </summary>
     let validateStartup (settings: Settings) : Result<Startup, string> =
         validateStore settings.IsProd settings.DbConnection
+        |> Result.bind (fun () -> validateProductionDebug settings.IsProd settings.Log settings.Debug)
         |> Result.bind (fun () -> parseSessionIdle settings.SessionIdle)
         |> Result.bind (fun _ -> validateProductionPassword settings.IsProd settings.Password)
         |> Result.bind (fun warning ->
