@@ -181,7 +181,10 @@ module ViewHelpers =
                 | _ -> None
 
             let onChange (value: string option) =
-                trace (if value.IsSome then "pick" else "clear") [ "onChange" ]
+                match value with
+                | Some _ -> trace "pick" [ "onChange" ]
+                | None -> trace "clear" [ "onChange none" ]
+
                 updateSelected value
 
             // no field is the lead yet: which one the user starts from is the server's to say
