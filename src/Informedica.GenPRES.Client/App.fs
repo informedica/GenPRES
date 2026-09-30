@@ -1847,6 +1847,40 @@ module private Elmish =
 
 open Elmish
 
+#if DEBUG
+open Elmish.Debug
+
+
+/// GENPRES_LOG as Vite read it at start-up, from the environment or the repository .env.
+[<Emit("__GENPRES_LOG__")>]
+let private genpresLog: string = jsNative
+
+
+/// Logging is on for the levels the server logs at, d, i, w and e; unset or 0 is off.
+let isLogging (log: string) =
+    match log.Trim().ToLowerInvariant() with
+    | "d"
+    | "i"
+    | "w"
+    | "e" -> true
+    | _ -> false
+#endif
+
+
+/// The app as an Elmish program. A debug build with GENPRES_LOG on traces every message and the new state to
+/// the console, and hands the history to the Redux DevTools browser extension, for development testing only;
+/// a release build records nothing.
+let private program () =
+    let program = Program.mkProgram init update (fun _ _ -> ())
+#if DEBUG
+    if isLogging genpresLog then
+        program |> Program.withConsoleTrace |> Program.withDebugger
+    else
+        program
+#else
+    program
+#endif
+
 
 type private ConcreteAppEnv
     (state: State, dispatch: Msg -> unit, bm: Deferred<Intervention list>, cm: Deferred<Intervention list>)
@@ -2068,7 +2102,7 @@ let private mobile: obj = jsNative
 // for Vite Hot Reload to work
 [<JSX.Component>]
 let View () =
-    let state, dispatch = React.useElmish (init, update, [||])
+    let state, dispatch = React.useElmish (program, [||])
     let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
 
     // the browser asks before it leaves the page (back, a closed tab, a reload) while there is

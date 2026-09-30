@@ -616,6 +616,17 @@ these files and refuses one over 50 MB. The order log holds patient data; handle
 `src/Informedica.GenPRES.Server/Scripts/LoggingPerf.fsx` measures the cost of logging; rerun it after
 a change to the bridge, the sinks or the formatters.
 
+#### The client trace
+
+A debug build of the client (`dotnet run`, where Fable runs in watch mode) with `GENPRES_LOG` on at
+the level `d`, `i`, `w` or `e` traces every Elmish message and the new state to the browser console,
+and hands the history to the [Redux DevTools](https://github.com/reduxjs/redux-devtools) browser
+extension: message by message, with time travel and export as JSON. Vite reads `GENPRES_LOG` at
+start-up, from the environment or the repository `.env`, so a change needs a restart of `dotnet run`.
+A release build (`Bundle`, `ClientBuild`) leaves the trace and the debugger out entirely. The state
+holds the patient, so use test patients only. The debugger (Fable.Elmish.Debugger) needs the npm
+package `jsan`, a development dependency of the client.
+
 #### How It Works
 
 Environment variables are resolved in this order, highest first:
