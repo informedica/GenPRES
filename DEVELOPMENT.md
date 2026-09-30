@@ -627,9 +627,11 @@ it reached, logged to the console and kept as the last 500 lines.
 `genpresTrail()` in the browser console returns the lines as text, and `copy(genpresTrail())` puts
 them on the clipboard in Chrome, to paste into an issue or a conversation. Ids and request ids show
 their first 8 characters, enough to find the request in the server log. A line shows a patient by
-age, gestational age, weight, height, gender and department, an estimated weight or height marked
-`est`, and never a patient's identity or location, a user's name, a PIN, a code, a token, a url, an
-error text or the argumentation. The trail is written by the `Trail` module in Client.Core.
+age, gestational age, weight, height and gender, an estimated weight or height marked `est`, and
+never a patient's identity, department or location, a user's name, a PIN, a code, a token, a url, an
+error text or the argumentation. The department and a filter seeded from the url can hold free text,
+so a seed shows only how many picks it carries, and a line break in any text becomes a space. The
+trail is written by the `Trail` module in Client.Core.
 
 It never runs against production, by two independent checks:
 

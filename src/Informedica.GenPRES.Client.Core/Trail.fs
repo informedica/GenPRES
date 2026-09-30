@@ -31,6 +31,12 @@ type Step =
     }
 
 
+/// The text with every line break and other control character replaced by a space, so that no text a step
+/// carries can split its line.
+let oneLine (text: string) =
+    text |> String.map (fun c -> if Char.IsControl c then ' ' else c)
+
+
 /// The step as one line of the trail.
 let format (step: Step) =
     let effects =
@@ -41,6 +47,7 @@ let format (step: Step) =
     let time = step.At.ToString "HH:mm:ss.fff"
 
     $"#%i{step.No} %s{time} %s{step.Machine} %s{step.Msg} -> %s{effects} | %s{step.State}"
+    |> oneLine
 
 
 /// The trail with the line added, keeping the newest max lines, oldest first.
@@ -70,9 +77,10 @@ module Part =
         | Error _ -> "Error"
 
 
-    /// The patient by age, gestational age, weight, height, gender and department, a weight or a height marked est
-    /// when it is estimated rather than measured, so that two patients that differ show as different. A patient
-    /// carries no identity, and the trail shows none; the location is left out, since it can name a bed.
+    /// The patient by age, gestational age, weight, height and gender, a weight or a height marked est when it is
+    /// estimated rather than measured, so that two patients that differ show as different. A patient carries no
+    /// identity, and the trail shows none. The department and the location are left out: both can arrive as free
+    /// text in the url, and the location can name a bed.
     let patient (p: Patient) =
         let age =
             p
@@ -103,9 +111,7 @@ module Part =
             | Female -> "female"
             | UnknownGender -> "gender unknown"
 
-        let department = p.Department |> Option.map (fun d -> $" %s{d}") |> Option.defaultValue ""
-
-        $"patient %s{age}%s{gestationalAge} %s{weight} %s{height} %s{gender}%s{department}"
+        $"patient %s{age}%s{gestationalAge} %s{weight} %s{height} %s{gender}"
 
 
     /// The patient by age and weight, or no patient.
@@ -130,7 +136,7 @@ module Part =
 
 
     /// The picks of a filter, in the order the workbench asks for them.
-    let filter (f: Filter) =
+    let picks (f: Filter) =
         [
             f.Indication
             f.Generic
@@ -140,9 +146,13 @@ module Part =
             f.Diluent
         ]
         |> List.choose id
-        |> function
-            | [] -> "no picks"
-            | picks -> picks |> String.concat "/"
+
+
+    /// The picks of a filter as one text.
+    let filter (f: Filter) =
+        match picks f with
+        | [] -> "no picks"
+        | xs -> xs |> String.concat "/"
 
 
     /// An order context by its id alone; the workbench has none.
@@ -523,7 +533,10 @@ module OrderContext =
         match msg with
         | OrderContextMsg.PatientChanged(p, request) ->
             $"PatientChanged %s{Part.patientOption p} %s{Part.shortId request}"
-        | OrderContextMsg.Seed(ctx, request) -> $"Seed %s{Part.context ctx} %s{Part.shortId request}"
+        // a seed comes from the url or the menu, before the server has checked its picks against its lists, so
+        // it shows how many picks it carries, never their text
+        | OrderContextMsg.Seed(ctx, request) ->
+            $"Seed %i{(Part.picks ctx.Filter).Length} picks %s{Part.shortId request}"
         | OrderContextMsg.Command(cmd, ctx, request) ->
             $"Command %s{command Part.context cmd ctx} %s{Part.shortId request}"
         | OrderContextMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result response}"

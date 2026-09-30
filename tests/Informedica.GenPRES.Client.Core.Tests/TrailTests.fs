@@ -111,7 +111,28 @@ let tests =
                     Location = Some "bed 12"
                 }
                 |> Trail.Part.patient
-                |> Expect.equal "the patient" "patient 3.0 y est 15.5 kg 98 cm female ICK"
+                |> Expect.equal "the patient" "patient 3.0 y est 15.5 kg 98 cm female"
+            }
+
+            test "a seed shows how many picks it carries, never their text" {
+                OrderContextMsg.Seed({ ctxPicked with OrderContext.Filter.Generic = Some "Jan Jansen" }, "r-4")
+                |> Trail.OrderContext.msg
+                |> Expect.equal "the count" "Seed 3 picks r-4"
+            }
+
+            test "a line never breaks, whatever text a step carries" {
+                Trail.format
+                    {
+                        No = 1
+                        At = at
+                        Machine = "OrderContext"
+                        Msg = "Argue\r\nsecond line"
+                        Effects = [ "Tell\tError" ]
+                        State = "Settled\nworkbench"
+                    }
+                |> Expect.equal
+                    "one line"
+                    "#1 10:41:07.311 OrderContext Argue  second line -> Tell Error | Settled workbench"
             }
 
             test "an id shows its first 8 characters" {
