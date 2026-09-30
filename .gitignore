@@ -173,6 +173,8 @@
 
 # Add data folders
 !/data/
+!/data/localization/
+!/data/localization/*.tsv
 !/data/cache/
 !/data/cache/*.demo
 !/data/cache/interactions/

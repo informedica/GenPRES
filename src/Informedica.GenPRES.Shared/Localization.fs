@@ -23,6 +23,8 @@ namespace Shared
 /// Add a new case here whenever a new UI label is introduced, and update the
 /// Localization sheet accordingly. New cases are drafted script-first in
 /// `Scripts/Localization.fsx` (the script-only policy), which also prints the sheet rows.
+/// The translations live in data/localization/localization.tsv, the shape of the sheet;
+/// scripts/CheckLocalization.fsx fails when a case has no row there.
 type Terms =
     | ``Patient enter patient data``
     // what a draft that is no patient yet is missing: an age, or a weight and a height

@@ -415,6 +415,11 @@ Target.create
 Target.create "CheckVersions" (fun _ -> run dotnet [ "fsi"; "scripts/CheckSolutionVersions.fsx" ] ".")
 
 
+// The localization file checked against the Terms union (every case has a row, every locale a
+// column, every cell filled), then its rows, tab separated, to paste over the Localization sheet.
+Target.create "Localization" (fun _ -> run dotnet [ "fsi"; "scripts/CheckLocalization.fsx"; "--print" ] ".")
+
+
 // The whole suite through `dotnet test`, with its own output rather than the per-assembly
 // summary ServerTests prints. It used to start the Vite dev server after the tests, which
 // never returns, so the target ran the tests and then hung; nothing could call it.
