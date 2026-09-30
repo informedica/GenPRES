@@ -397,6 +397,124 @@ module Order =
         | _ -> None
 
 
+    /// What a message does: change a value, step it, send or reset the order, or change the dialog alone.
+    [<RequireQualifiedAccess>]
+    type private Kind =
+        | Local
+        | Change
+        | Step of string
+        | Update
+        | Reset
+
+
+    let private kindOf msg =
+        match msg with
+        | ChangeComponent _
+        | ChangeItem _ -> Kind.Local
+        | UpdateOrderScenario _ -> Kind.Update
+        | ResetOrderScenario -> Kind.Reset
+        | SetMinFrequencyProperty
+        | SetMinDoseRateProperty
+        | SetMinDoseQuantityProperty
+        | SetMinComponentQuantityProperty -> Kind.Step "min"
+        | DecreaseFrequencyProperty
+        | DecreaseDoseRateProperty _
+        | DecreaseDoseQuantityProperty _
+        | DecreaseComponentQuantityProperty _ -> Kind.Step "dec"
+        | SetMedianFrequencyProperty
+        | SetMedianDoseRateProperty
+        | SetMedianDoseQuantityProperty
+        | SetMedianComponentQuantityProperty -> Kind.Step "med"
+        | IncreaseFrequencyProperty
+        | IncreaseDoseRateProperty _
+        | IncreaseDoseQuantityProperty _
+        | IncreaseComponentQuantityProperty _ -> Kind.Step "inc"
+        | SetMaxFrequencyProperty
+        | SetMaxDoseRateProperty
+        | SetMaxDoseQuantityProperty
+        | SetMaxComponentQuantityProperty -> Kind.Step "max"
+        | _ -> Kind.Change
+
+
+    /// The message for the trail: its case, what it carries, and its field.
+    let private describeMsg msg =
+        let value (s: string option) = s |> Option.defaultValue "none"
+
+        let steps (n: int, useCalc: bool) = if useCalc then $"%i{n} calc" else $"%i{n}"
+
+        let case =
+            match msg with
+            | ChangeComponent s -> $"ChangeComponent %s{value s}"
+            | ChangeItem s -> $"ChangeItem %s{value s}"
+            | ChangeComponentOrderableQuantity s -> $"ChangeComponentOrderableQuantity %s{value s}"
+            | ChangeFrequency s -> $"ChangeFrequency %s{value s}"
+            | ChangeTime s -> $"ChangeTime %s{value s}"
+            | ChangeSubstanceDoseQuantity s -> $"ChangeSubstanceDoseQuantity %s{value s}"
+            | ChangeSubstanceDoseQuantityAdjust s -> $"ChangeSubstanceDoseQuantityAdjust %s{value s}"
+            | ChangeSubstancePerTime s -> $"ChangeSubstancePerTime %s{value s}"
+            | ChangeSubstancePerTimeAdjust s -> $"ChangeSubstancePerTimeAdjust %s{value s}"
+            | ChangeSubstanceRate s -> $"ChangeSubstanceRate %s{value s}"
+            | ChangeSubstanceRateAdjust s -> $"ChangeSubstanceRateAdjust %s{value s}"
+            | ChangeSubstanceComponentConcentration(cmp, sbst, s) ->
+                $"ChangeSubstanceComponentConcentration %s{cmp} %s{sbst} %s{value s}"
+            | ChangeSubstanceOrderableConcentration s -> $"ChangeSubstanceOrderableConcentration %s{value s}"
+            | ChangeSubstanceOrderableQuantity s -> $"ChangeSubstanceOrderableQuantity %s{value s}"
+            | ChangeOrderableDoseQuantity s -> $"ChangeOrderableDoseQuantity %s{value s}"
+            | ChangeOrderableDoseRate s -> $"ChangeOrderableDoseRate %s{value s}"
+            | ChangeOrderableQuantity s -> $"ChangeOrderableQuantity %s{value s}"
+            | UpdateOrderScenario ord -> $"UpdateOrderScenario %s{Trail.Part.shortId ord.Id}"
+            | ResetOrderScenario -> "ResetOrderScenario"
+            | DecreaseFrequencyProperty -> "DecreaseFrequencyProperty"
+            | IncreaseFrequencyProperty -> "IncreaseFrequencyProperty"
+            | SetMinFrequencyProperty -> "SetMinFrequencyProperty"
+            | SetMaxFrequencyProperty -> "SetMaxFrequencyProperty"
+            | SetMedianFrequencyProperty -> "SetMedianFrequencyProperty"
+            | DecreaseDoseQuantityProperty(n, uc) -> $"DecreaseDoseQuantityProperty %s{steps (n, uc)}"
+            | IncreaseDoseQuantityProperty(n, uc) -> $"IncreaseDoseQuantityProperty %s{steps (n, uc)}"
+            | SetMinDoseQuantityProperty -> "SetMinDoseQuantityProperty"
+            | SetMaxDoseQuantityProperty -> "SetMaxDoseQuantityProperty"
+            | SetMedianDoseQuantityProperty -> "SetMedianDoseQuantityProperty"
+            | DecreaseDoseRateProperty(n, uc) -> $"DecreaseDoseRateProperty %s{steps (n, uc)}"
+            | IncreaseDoseRateProperty(n, uc) -> $"IncreaseDoseRateProperty %s{steps (n, uc)}"
+            | SetMinDoseRateProperty -> "SetMinDoseRateProperty"
+            | SetMaxDoseRateProperty -> "SetMaxDoseRateProperty"
+            | SetMedianDoseRateProperty -> "SetMedianDoseRateProperty"
+            | DecreaseComponentQuantityProperty(n, uc) -> $"DecreaseComponentQuantityProperty %s{steps (n, uc)}"
+            | IncreaseComponentQuantityProperty(n, uc) -> $"IncreaseComponentQuantityProperty %s{steps (n, uc)}"
+            | SetMinComponentQuantityProperty -> "SetMinComponentQuantityProperty"
+            | SetMaxComponentQuantityProperty -> "SetMaxComponentQuantityProperty"
+            | SetMedianComponentQuantityProperty -> "SetMedianComponentQuantityProperty"
+
+        match msgToField msg with
+        | Some field -> $"%s{case} field %s{field}"
+        | None -> case
+
+
+    /// The call a message makes, given the order shown and whether a reopen is under way.
+    let private effectsOf (shown: Order option) (reopening: bool) msg =
+        let shownId = shown |> Option.map (_.Id >> Trail.Part.shortId)
+
+        match kindOf msg, shownId with
+        | Kind.Local, _ -> []
+        | Kind.Update, _ ->
+            match msg with
+            | UpdateOrderScenario ord ->
+                let call = if reopening then "CallReopen" else "CallUpdate"
+                [ $"%s{call} %s{Trail.Part.shortId ord.Id}" ]
+            | _ -> []
+        | _, None -> []
+        | Kind.Reset, Some id -> [ $"CallReset %s{id}" ]
+        | Kind.Change, Some _ -> [ "ofMsg UpdateOrderScenario" ]
+        | Kind.Step step, Some _ ->
+            let field = msgToField msg |> Option.defaultValue "?"
+            [ $"CallStep %s{field} %s{step}" ]
+
+
+    let private describeState (state: State) =
+        let value (s: string option) = s |> Option.defaultValue "none"
+        $"cmp %s{value state.SelectedComponent} item %s{value state.SelectedItem}"
+
+
     [<JSX.Component>]
     let View
         (props:
@@ -663,12 +781,19 @@ module Order =
                 setComponentQtyMax = createWithCmp props.stepOrderScenario.setMaxComponentQty
             |}
 
-        let state, dispatch =
-            React.useElmish (
-                init props.orderContext,
-                update updateOrderScenario resetOrderScenario stepper shownOrder,
-                [| box props.orderContext |]
+        // the reopen flag is read before the update, which resets it
+        let updateTraced msg state =
+            let reopen = reopening.current
+            let next, cmd = update updateOrderScenario resetOrderScenario stepper shownOrder msg state
+
+            StepTrail.record (fun no at ->
+                Trail.step "Order" describeMsg id describeState no at msg (next, effectsOf shownOrder reopen msg)
             )
+
+            next, cmd
+
+        let state, dispatch =
+            React.useElmish (init props.orderContext, updateTraced, [| box props.orderContext |])
 
         // the field whose change went out, and whether it shows that it is loading
         let changing, setChanging = React.useState<(string * bool) option> None
