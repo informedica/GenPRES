@@ -76,7 +76,7 @@ let tests =
                 |> Trail.format
                 |> Expect.equal
                     "the line"
-                    "#12 10:41:07.311 OrderContext PatientChanged patient 3.0 y 14.0 kg r-1 -> CallContext UpdateOrderContext workbench r-1 | Changing workbench awaits r-1"
+                    "#12 10:41:07.311 OrderContext PatientChanged patient 3.0 y 14.0 kg no height gender unknown r-1 -> CallContext UpdateOrderContext workbench r-1 | Changing workbench awaits r-1"
             }
 
             test "a step without effects says none" {
@@ -96,6 +96,22 @@ let tests =
                 ctxPicked
                 |> Trail.Part.context
                 |> Expect.equal "the context" "ctx-1 pain/paracetamol/oral 0 scenarios"
+            }
+
+            test "a patient shows what tells two patients apart, an estimate marked as such" {
+                { pat with
+                    Weight =
+                        { pat.Weight with
+                            Measured = None
+                            Estimated = Some 15500<gram>
+                        }
+                    Height = { pat.Height with Measured = Some 98<cm> }
+                    Gender = Female
+                    Department = Some "ICK"
+                    Location = Some "bed 12"
+                }
+                |> Trail.Part.patient
+                |> Expect.equal "the patient" "patient 3.0 y est 15.5 kg 98 cm female ICK"
             }
 
             test "an id shows its first 8 characters" {
@@ -257,7 +273,7 @@ let exampleTests =
         |> Expect.equal
             "the lines"
             [
-                "#1 10:41:08.311 OrderContext PatientChanged patient 3.0 y 14.0 kg r-1 -> CallContext UpdateOrderContext workbench r-1 | Changing workbench awaits r-1"
+                "#1 10:41:08.311 OrderContext PatientChanged patient 3.0 y 14.0 kg no height gender unknown r-1 -> CallContext UpdateOrderContext workbench r-1 | Changing workbench awaits r-1"
                 "#2 10:41:09.311 OrderContext Answered r-1 Ok Evaluated workbench no picks 0 scenarios -> none | Settled workbench"
                 "#3 10:41:10.311 OrderContext Command UpdateOrderContext ctx-1 pain/paracetamol/oral 0 scenarios r-2 -> CallContext UpdateOrderContext ctx-1 r-2, SyncFormulary, SyncParenteralia | Changing ctx-1 awaits r-2"
                 "#4 10:41:11.311 OrderContext Answered r-2 Ok Refused ctx-1 pain/paracetamol/oral 0 scenarios NoProducts -> none | Refused ctx-1 NoProducts"

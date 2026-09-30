@@ -70,7 +70,9 @@ module Part =
         | Error _ -> "Error"
 
 
-    /// The patient by age and weight: a patient carries no identity, and the trail shows none.
+    /// The patient by age, gestational age, weight, height, gender and department, a weight or a height marked est
+    /// when it is estimated rather than measured, so that two patients that differ show as different. A patient
+    /// carries no identity, and the trail shows none; the location is left out, since it can name a bed.
     let patient (p: Patient) =
         let age =
             p
@@ -78,13 +80,32 @@ module Part =
             |> Option.map (fun a -> $"%.1f{a} y")
             |> Option.defaultValue "no age"
 
-        let weight =
-            p
-            |> Patient.getWeightInKg
-            |> Option.map (fun w -> $"%.1f{w} kg")
-            |> Option.defaultValue "no weight"
+        let gestationalAge =
+            p.GestationalAge
+            |> Option.map (fun ga -> $" GA %i{int ga.Weeks}+%i{int ga.Days}")
+            |> Option.defaultValue ""
 
-        $"patient %s{age} %s{weight}"
+        let weight =
+            match p.Weight.Measured, p.Weight.Estimated with
+            | Some g, _ -> $"%.1f{float (int g) / 1000.} kg"
+            | None, Some g -> $"est %.1f{float (int g) / 1000.} kg"
+            | None, None -> "no weight"
+
+        let height =
+            match p.Height.Measured, p.Height.Estimated with
+            | Some cm, _ -> $"%i{int cm} cm"
+            | None, Some cm -> $"est %i{int cm} cm"
+            | None, None -> "no height"
+
+        let gender =
+            match p.Gender with
+            | Male -> "male"
+            | Female -> "female"
+            | UnknownGender -> "gender unknown"
+
+        let department = p.Department |> Option.map (fun d -> $" %s{d}") |> Option.defaultValue ""
+
+        $"patient %s{age}%s{gestationalAge} %s{weight} %s{height} %s{gender}%s{department}"
 
 
     /// The patient by age and weight, or no patient.
