@@ -218,4 +218,4 @@ stay unrecorded. DEVELOPMENT.md gains a `Field` line and the rule that a line ne
 
 | Step | PR | Landed |
 |------|----|--------|
-| plan | | this document |
+| plan | [#1231](https://github.com/informedica/GenPRES/pull/1231) | this document |
