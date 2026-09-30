@@ -345,6 +345,19 @@ module OrderContextState =
         | OrderContextWorkbench.Evaluated(_, ctx), None, None -> OrderContextView.Settled ctx
 
 
+    /// The request id the state waits on; None while no request is under way.
+    let inFlightRequest (state: OrderContextState) = state.InFlight |> Option.map snd
+
+
+    /// The dialog command waiting on the answer under way, with the context it goes with and its own
+    /// request id; None while none waits.
+    let pendingCommand (state: OrderContextState) = state.Pending
+
+
+    /// Whether the state before a reopen is kept, to be put back when its list closes without a pick.
+    let isKept (state: OrderContextState) = state.Kept.IsSome
+
+
     /// Whether the context has a scenario with the order with this id.
     let holds (orderId: string) (ctx: OrderContext) = ctx.Scenarios |> Array.exists (fun sc -> sc.Order.Id = orderId)
 

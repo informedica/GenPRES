@@ -26,3 +26,4 @@
 #load "../UnsignedWorkPolicy.fs"
 #load "../OrderPlanMachine.fs"
 #load "../OrderContextMachine.fs"
+#load "../Trail.fs"
