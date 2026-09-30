@@ -1737,7 +1737,6 @@ module Nutrition =
 
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
-        let patient = (AppEnv.asEnv<AppEnv.IPatient> props.appEnv).Draft
         // the one plan: the nutrition workbenches live in the order plan, which is there
         // with the patient
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
@@ -1752,15 +1751,14 @@ module Nutrition =
 
         let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
 
-        let progress =
-            match orderPlan with
-            | OrderPlanView.NoPatient when patient.IsNone ->
-                let msg = Terms.``Patient enter patient data`` |> getTerm "Voer patient gegevens in ..."
-
-                JSX.jsx $"<>{msg}</>"
-            | OrderPlanView.NoPatient -> ViewHelpers.circularProgress
-            | OrderPlanView.Settled _
-            | OrderPlanView.Changing _ -> null
+        // no patient: the notice says what is missing. A patient whose plan is being opened
+        // shows as Changing, with the sections' own overlay and greyed slots, so no spinner here
+        let patientNotice =
+            Components.PatientNotice.View
+                {|
+                    appEnv = props.appEnv
+                    needs = PatientReadiness.Needs.Calculation
+                |}
 
         // the slots and the buttons rest while a change is under way: the plan takes one change
         // at a time
@@ -1989,8 +1987,8 @@ module Nutrition =
         import Typography from '@mui/material/Typography';
 
         <Box>
+            {patientNotice}
             {content}
-            {progress}
             {confirmDeleteDialog}
             {printDialog}
         </Box>

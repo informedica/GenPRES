@@ -18,6 +18,7 @@
     <Compile Include="LanguagePolicy.fs" />
     <Compile Include="OrderContextRefusalPolicy.fs" />
     <Compile Include="PatientDraftPolicy.fs" />
+    <Compile Include="PatientReadiness.fs" />
     <Compile Include="PickPolicy.fs" />
     <Compile Include="SeverityReasonPolicy.fs" />
     <Compile Include="ArgumentationPolicy.fs" />

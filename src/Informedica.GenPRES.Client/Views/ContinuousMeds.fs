@@ -224,7 +224,25 @@ module ContinuousMeds =
                 |}
             |> toReact
 
-        let boxSx = {| height = "100%" |}
+        let boxSx =
+            {|
+                height = "100%"
+                display = "flex"
+                flexDirection = "column"
+            |}
+
+        let tableSx =
+            {|
+                flex = 1
+                minHeight = 0
+            |}
+
+        let patientNotice =
+            Components.PatientNotice.View
+                {|
+                    appEnv = props.appEnv
+                    needs = PatientReadiness.Needs.Calculation
+                |}
 
         let tableProps =
             {|
@@ -264,8 +282,11 @@ module ContinuousMeds =
         import Box from '@mui/material/Box';
         import React from 'react';
 
-        <Box sx={boxSx} >
-            {Components.ResponsiveTable.View tableProps}
+        <Box sx={boxSx}>
+            {patientNotice}
+            <Box sx={tableSx}>
+                {Components.ResponsiveTable.View tableProps}
+            </Box>
             {ViewHelpers.PrintView.PrintDialog printDialogProps}
         </Box>
         """

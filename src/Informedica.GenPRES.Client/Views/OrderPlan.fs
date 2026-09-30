@@ -883,6 +883,13 @@ module OrderPlan =
 
         let sxBars = {| flexShrink = 0 |}
 
+        let patientNotice =
+            Components.PatientNotice.View
+                {|
+                    appEnv = props.appEnv
+                    needs = PatientReadiness.Needs.Calculation
+                |}
+
         let sxTable =
             {|
                 flex = 1
@@ -895,6 +902,7 @@ module OrderPlan =
 
         <Box sx={sxPlan}>
             <Box sx={sxBars}>
+                {patientNotice}
                 {movedOnBar}
                 {actionBar}
             </Box>

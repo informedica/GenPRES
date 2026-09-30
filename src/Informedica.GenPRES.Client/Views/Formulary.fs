@@ -145,6 +145,13 @@ module Formulary =
         let autoComplete = ViewHelpers.autoComplete busy
 
 
+        let patientNotice =
+            Components.PatientNotice.View
+                {|
+                    appEnv = props.appEnv
+                    needs = PatientReadiness.Needs.DoseCheck
+                |}
+
         let progress = ViewHelpers.progressOrEmpty formulary
 
         let stackDirection =
@@ -403,6 +410,7 @@ module Formulary =
         import Typography from '@mui/material/Typography';
 
         <Box>
+                {patientNotice}
                 {content}
                 {progress}
         </Box>

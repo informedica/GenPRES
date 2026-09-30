@@ -37,15 +37,15 @@ module Patient =
                 | Resolved terms -> Patient.toString terms lang true
                 | _ -> fun _ -> ""
 
+            // what the draft misses to be a patient, in the words every page uses
             let missing =
-                term
-                    "Voer een leeftijd in, of een gewicht en een lengte"
-                    Terms.``Patient enter age or weight and height``
+                pat
+                |> PatientReadiness.readiness
+                |> PatientReadiness.missing
+                |> Option.map (fun t -> term (PatientReadiness.english t) t)
 
-            match pat with
-            | Some p when p |> Patient.validate |> Result.isOk -> [ p |> toString ]
-            | Some p -> [ p |> toString; missing ]
-            | None -> [ term "Voer patient gegevens in" Terms.``Patient enter patient data`` ]
+            [ pat |> Option.map toString; missing ]
+            |> List.choose id
             |> List.filter (fun s -> s <> "")
             |> String.concat "\n\n"
             |> Markdown.markdown.children

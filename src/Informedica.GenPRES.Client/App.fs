@@ -1858,11 +1858,13 @@ module private Elmish =
                 |> Cmd.fromAsync
 
 
+    /// The lists calculated for the draft; empty without one, since no patient is not a fetch
+    /// under way: the page says what is missing, and the spinner is for a fetch only.
     let calculateInterventions calc meds pat =
         meds
         |> Deferred.bind (fun xs ->
             match pat with
-            | None -> InProgress
+            | None -> Resolved []
             | Some p ->
                 let a = p |> Patient.getAgeInYears
                 let w = p |> Patient.getWeightInKg
