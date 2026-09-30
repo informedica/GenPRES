@@ -415,9 +415,10 @@ module Nutrition =
             [ $"CallStep %s{field} %s{step}" ]
 
 
+    /// The slot's own state; a step names the component it acts on in its message.
     let private describeState (state: State) =
         let cmp = state.SelectedComponent |> Option.defaultValue "none"
-        $"cmp %s{cmp}"
+        $"selected %s{cmp}"
 
 
     let private halfSize =
