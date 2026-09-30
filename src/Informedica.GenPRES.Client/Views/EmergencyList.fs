@@ -262,7 +262,25 @@ module EmergencyList =
                 |}
             |> toReact
 
-        let boxSx = {| height = "100%" |}
+        let boxSx =
+            {|
+                height = "100%"
+                display = "flex"
+                flexDirection = "column"
+            |}
+
+        let tableSx =
+            {|
+                flex = 1
+                minHeight = 0
+            |}
+
+        let patientNotice =
+            Components.PatientNotice.View
+                {|
+                    appEnv = props.appEnv
+                    needs = PatientReadiness.Needs.Calculation
+                |}
 
         let tableProps =
             {|
@@ -303,7 +321,10 @@ module EmergencyList =
         import React from 'react';
 
         <Box sx={boxSx}>
-            {Components.ResponsiveTable.View tableProps}
+            {patientNotice}
+            <Box sx={tableSx}>
+                {Components.ResponsiveTable.View tableProps}
+            </Box>
             {ViewHelpers.PrintView.PrintDialog printDialogProps}
         </Box>
         """
