@@ -163,9 +163,55 @@ module Part =
             shortId c.Id
 
 
-    /// An order context by its id, its picks and its scenarios; never its argumentation.
+    /// A pick's name without its order prefix: the last bracketed segment and the tail, so that
+    /// [orderable.component.item]_dos_qty reads item.dos_qty.
+    let pickName (name: string) =
+        match name.LastIndexOf ']' with
+        | -1 -> name
+        | close ->
+            let inside = name.Substring(0, close).TrimStart '['
+
+            let last =
+                match inside.LastIndexOf '.' with
+                | -1 -> inside
+                | dot -> inside.Substring(dot + 1)
+
+            let tail = name.Substring(close + 1).TrimStart '_'
+            if tail = "" then last else $"%s{last}.%s{tail}"
+
+
+    /// A pick with its value when the order holds one value for it, open otherwise, unknown when the order
+    /// lacks it.
+    let pick (ord: Order) (name: string) =
+        let short = pickName name
+
+        ArgumentationPolicy.variables ord
+        |> List.tryFind (fun v -> v.Name = name)
+        |> function
+            | None -> $"%s{short}=unknown"
+            | Some v when PickList.valuesOf v = 1 -> $"%s{short}=%s{Order.OrderVariable.displayString v}"
+            | Some _ -> $"%s{short}=open"
+
+
+    /// A scenario by its short order id, its component and its picks; never its texts.
+    let scenario (sc: OrderScenario) =
+        let cmp = sc.Component |> Option.defaultValue "none"
+
+        let picks =
+            match sc.Picks with
+            | None -> "unknown"
+            | Some [||] -> "none"
+            | Some ps -> ps |> Array.map (pick sc.Order) |> String.concat ", "
+
+        $"%s{shortId sc.Order.Id} cmp %s{cmp} picks %s{picks}"
+
+
+    /// An order context by its id, its picks and its scenarios, the one scenario shown; never its
+    /// argumentation.
     let context (c: OrderContext) =
-        $"%s{contextId c} %s{filter c.Filter} %i{c.Scenarios.Length} scenarios"
+        match c.Scenarios with
+        | [| sc |] -> $"%s{contextId c} %s{filter c.Filter} 1 scenario %s{scenario sc}"
+        | scs -> $"%s{contextId c} %s{filter c.Filter} %i{scs.Length} scenarios"
 
 
     /// A plan by the number of its contexts; never the orders.

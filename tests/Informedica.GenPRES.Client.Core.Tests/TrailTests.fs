@@ -300,3 +300,145 @@ let exampleTests =
                 "#4 10:41:11.311 OrderContext Answered r-2 Ok Refused ctx-1 pain/paracetamol/oral 0 scenarios NoProducts -> none | Refused ctx-1 NoProducts"
             ]
     }
+
+
+/// The picks of a scenario on the line: the plan fixtures' scenario with a dose quantity picked at
+/// one value and a frequency left at two.
+module ScenarioPicks =
+
+    open Informedica.GenPRES.Client.Core.Tests.OrderPlanMachineTests.Fixtures
+
+    let doseQtyName = "[paracetamol.paracetamol.paracetamol]_dos_qty"
+    let freqName = "[paracetamol]_pres_freq"
+
+    let withValues (name: string) (values: decimal[]) (unit: string) (ovar: OrderVariable) =
+        { ovar with
+            Name = name
+            Variable =
+                { ovar.Variable with
+                    Vals =
+                        Some
+                            {
+                                Value = values |> Array.map (fun d -> string d, d)
+                                Unit = unit
+                                Group = ""
+                                Short = true
+                                Language = ""
+                                Json = ""
+                            }
+                }
+        }
+
+    let picked =
+        let sc = scenario "order-0001-abcd" "paracetamol"
+
+        { sc with
+            Component = Some "paracetamol"
+            Picks = Some [| doseQtyName; freqName |]
+            Order =
+                { sc.Order with
+                    Orderable =
+                        { sc.Order.Orderable with
+                            Dose =
+                                { sc.Order.Orderable.Dose with
+                                    Quantity =
+                                        sc.Order.Orderable.Dose.Quantity |> withValues doseQtyName [| 240m |] "mg"
+                                }
+                        }
+                    Schedule =
+                        { sc.Order.Schedule with
+                            Frequency = sc.Order.Schedule.Frequency |> withValues freqName [| 3m; 4m |] "x/dag"
+                        }
+                }
+        }
+
+    let ctxOne =
+        { OrderContext.empty with
+            Id = "ctx-1"
+            Filter = { OrderContext.empty.Filter with Generic = Some "paracetamol" }
+            Scenarios = [| picked |]
+        }
+
+
+    [<Tests>]
+    let tests =
+        testList
+            "Trail scenario picks"
+            [
+                test "a pick's name loses its order prefix" {
+                    "[Test Medication Complete.Diluent Component.sodium]_dos_qty"
+                    |> Trail.Part.pickName
+                    |> Expect.equal "the item and the tail" "sodium.dos_qty"
+                }
+
+                test "a pick's name of a component keeps the component" {
+                    "[Test Medication Complete.Diluent Component]_cmp_qty"
+                    |> Trail.Part.pickName
+                    |> Expect.equal "the component and the tail" "Diluent Component.cmp_qty"
+                }
+
+                test "a name without brackets stays whole" {
+                    "frequency" |> Trail.Part.pickName |> Expect.equal "whole" "frequency"
+                }
+
+                test "a pick with one value shows the value" {
+                    Trail.Part.pick picked.Order doseQtyName
+                    |> Expect.equal "the value" "paracetamol.dos_qty=240 mg"
+                }
+
+                test "a pick with several values is open" {
+                    Trail.Part.pick picked.Order freqName
+                    |> Expect.equal "open" "paracetamol.pres_freq=open"
+                }
+
+                test "a pick the order lacks is unknown" {
+                    Trail.Part.pick picked.Order "[x]_dos_rate"
+                    |> Expect.equal "unknown" "x.dos_rate=unknown"
+                }
+
+                test "a scenario shows its order id, its component and its picks" {
+                    Trail.Part.scenario picked
+                    |> Expect.equal
+                        "the scenario"
+                        "order-00 cmp paracetamol picks paracetamol.dos_qty=240 mg, paracetamol.pres_freq=open"
+                }
+
+                test "a scenario without picks says none, one that does not say says unknown" {
+                    { picked with Picks = Some [||] }
+                    |> Trail.Part.scenario
+                    |> Expect.equal "none" "order-00 cmp paracetamol picks none"
+
+                    { picked with
+                        Picks = None
+                        Component = None
+                    }
+                    |> Trail.Part.scenario
+                    |> Expect.equal "unknown" "order-00 cmp none picks unknown"
+                }
+
+                test "a context with one scenario shows it" {
+                    Trail.Part.context ctxOne
+                    |> Expect.equal
+                        "the context"
+                        "ctx-1 paracetamol 1 scenario order-00 cmp paracetamol picks paracetamol.dos_qty=240 mg, paracetamol.pres_freq=open"
+                }
+
+                test "a context with several scenarios shows their count" {
+                    { ctxOne with Scenarios = [| picked; picked |] }
+                    |> Trail.Part.context
+                    |> Expect.equal "the count" "ctx-1 paracetamol 2 scenarios"
+                }
+
+                test "a context without scenarios reads as before" {
+                    { ctxOne with Scenarios = [||] }
+                    |> Trail.Part.context
+                    |> Expect.equal "as before" "ctx-1 paracetamol 0 scenarios"
+                }
+
+                test "a scenario's texts never show" {
+                    { picked with Prescription = [| [| TextBlock.Valid [| TextItem.Normal "Jan Jansen" |] |] |] }
+                    |> Trail.Part.scenario
+                    |> _.Contains("Jan Jansen")
+                    |> Expect.isFalse "no text"
+                }
+            ]

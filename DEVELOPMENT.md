@@ -636,6 +636,9 @@ before the dialog's own line.
 #24 13:33:20.116 Order UpdateOrderScenario 4cfe91b6 -> CallUpdate 4cfe91b6 | cmp paracetamol item paracetamol
 ```
 
+A context with one scenario shows that scenario: its short order id, its component and its picks,
+each with its value when the order holds one (`paracetamol.dos_qty=240 mg`), `open` otherwise.
+
 `genpresTrail()` in the browser console returns the lines as text, and `copy(genpresTrail())` puts
 them on the clipboard in Chrome, to paste into an issue or a conversation. Ids and request ids show
 their first 8 characters, enough to find the request in the server log. A line shows a patient by
