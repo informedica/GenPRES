@@ -250,7 +250,10 @@ module Part =
         match cmd with
         | OrderPlanCommand.Recalculate _ -> "Recalculate"
         | OrderPlanCommand.Navigate(_, id, ctxCmd, ctx) ->
-            $"Navigate %s{shortId id} %s{OrderContextCommand.toString (ctxCmd, ctx)}"
+            // an effect describes the context by its id, which the line already shows
+            let described = describeContext ctx
+            let context = if described = shortId id then "" else $" %s{described}"
+            $"Navigate %s{shortId id} %s{OrderContextCommand.toString (ctxCmd, ctx)}%s{context}"
         | OrderPlanCommand.AddOrderContext(_, ctx) -> $"AddOrderContext %s{describeContext ctx}"
         | OrderPlanCommand.NewOrderContext(_, category) -> $"NewOrderContext %s{nutrition category}"
         | OrderPlanCommand.RemoveOrderContexts(_, ids) -> $"RemoveOrderContexts %i{ids.Length}"
@@ -557,6 +560,22 @@ let step machine describeMsg describeEffect describeState (no: int) (at: DateTim
         Effects = effects |> List.map describeEffect
         State = describeState state
     }
+
+
+/// A state the App set outside the machine, with why: no message and no effects.
+let reset machine describeState (no: int) (at: DateTime) (why: string) state =
+    {
+        No = no
+        At = at
+        Machine = machine
+        Msg = $"reset: %s{why}"
+        Effects = []
+        State = describeState state
+    }
+
+
+/// The signing state the App set back when the session left Open.
+let signingReset = reset "Signing" Signing.state
 
 
 /// A step of the session machine.

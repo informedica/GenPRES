@@ -1559,6 +1559,14 @@ module private Elmish =
                 match SessionState.view session with
                 | SessionView.Open _ -> state.Lanes.Signing
                 | _ -> SigningState.idle
+#if DEBUG
+            // the reset happens outside the signing machine, so the trail records it here
+            match SessionState.view session, SigningState.view state.Lanes.Signing with
+            | SessionView.Open _, _
+            | _, SigningView.Idle -> ()
+            | _ ->
+                StepTrail.record state (fun no at -> Trail.signingReset no at "the session is no longer open" signing)
+#endif
 
             { state with
                 Lanes.Session = session

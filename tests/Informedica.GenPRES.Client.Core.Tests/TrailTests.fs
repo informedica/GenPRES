@@ -127,6 +127,33 @@ let tests =
                 |> Expect.equal "pending" "Changing workbench awaits r-1 pending SelectOrderScenario ctx-1 r-2"
             }
 
+            test "a plan navigation shows the context in a message, and its id once in an effect" {
+                let cmd =
+                    OrderPlanCommand.Navigate(
+                        OrderPlan.empty,
+                        "ctx-1",
+                        OrderContextCommand.UpdateOrderContext,
+                        ctxPicked
+                    )
+
+                [
+                    Trail.OrderPlan.msg (OrderPlanMsg.Command(cmd, "r-3"))
+                    Trail.OrderPlan.effect (OrderPlanEffect.CallPlan(cmd, "r-3"))
+                ]
+                |> Expect.equal
+                    "the lines"
+                    [
+                        "Command Navigate ctx-1 UpdateOrderContext ctx-1 pain/paracetamol/oral 0 scenarios r-3"
+                        "CallPlan Navigate ctx-1 UpdateOrderContext r-3"
+                    ]
+            }
+
+            test "a reset by the App reads as a signing step without message or effects" {
+                Trail.signingReset 7 at "the session is no longer open" SigningState.idle
+                |> Trail.format
+                |> Expect.equal "the line" "#7 10:41:07.311 Signing reset: the session is no longer open -> none | Idle"
+            }
+
             test "the trail keeps the newest lines, oldest first" {
                 [ "a"; "b"; "c" ]
                 |> List.fold (fun lines line -> Trail.append 2 line lines) []
