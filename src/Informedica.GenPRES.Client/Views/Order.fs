@@ -490,8 +490,8 @@ module Order =
         | None -> case
 
 
-    /// The call a message makes, given the order shown and whether a reopen is under way.
-    let private effectsOf (shown: Order option) (reopening: bool) msg =
+    /// The call a message makes, given the order shown, whether a reopen is under way and the dialog's state.
+    let private effectsOf (shown: Order option) (reopening: bool) (state: State) msg =
         let shownId = shown |> Option.map (_.Id >> Trail.Part.shortId)
 
         match kindOf msg, shownId with
@@ -506,8 +506,12 @@ module Order =
         | Kind.Reset, Some id -> [ $"CallReset %s{id}" ]
         | Kind.Change, Some _ -> [ "ofMsg UpdateOrderScenario" ]
         | Kind.Step step, Some _ ->
-            let field = msgToField msg |> Option.defaultValue "?"
-            [ $"CallStep %s{field} %s{step}" ]
+            match msgToField msg with
+            // a component quantity step without a component selected makes no call
+            | Some "compOrdQty" when state.SelectedComponent.IsNone -> []
+            | field ->
+                let field = field |> Option.defaultValue "?"
+                [ $"CallStep %s{field} %s{step}" ]
 
 
     let private describeState (state: State) =
@@ -787,7 +791,7 @@ module Order =
             let next, cmd = update updateOrderScenario resetOrderScenario stepper shownOrder msg state
 
             StepTrail.record (fun no at ->
-                Trail.step "Order" describeMsg id describeState no at msg (next, effectsOf shownOrder reopen msg)
+                Trail.step "Order" describeMsg id describeState no at msg (next, effectsOf shownOrder reopen next msg)
             )
 
             next, cmd
