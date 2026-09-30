@@ -8,10 +8,12 @@
 //   - a case without a row is appended with empty translation cells, so the missing translations
 //     show up as gaps in the sheet;
 //   - a row whose term is no longer a case is reported on stderr and dropped, unless
-//     `--keep-stale` is given.
+//     `--keep-stale` is given;
+//   - a locale of the Locales union without a column is appended, named as the sheet names its
+//     columns (English, Dutch, ...), with empty cells; the existing columns keep their order,
+//     since getTerm reads them by position.
 //
-// The header row is kept as it is. The output overwrites the snapshot; the git diff is the review,
-// and the added rows are pasted into the sheet.
+// The output overwrites the snapshot, and --print gives the rows to paste over the sheet.
 //
 // Run from the repository root or from this directory:
 //
@@ -21,6 +23,8 @@
 //   dotnet fsi scripts/LocalizationUpdate.fsx --print       the full TSV on stdout, the summary
 //                                                           on stderr: pipe it to pbcopy and
 //                                                           paste it over the sheet
+//   dotnet fsi scripts/LocalizationUpdate.fsx --file <tsv>  read and write that file instead of
+//                                                           the snapshot: an export of the sheet
 //   dotnet fsi scripts/LocalizationUpdate.fsx --test        run the tests of the pure update
 //
 // Through the FSI MCP server, after `#I "<this directory>"`, loading the script runs the same
@@ -61,6 +65,8 @@ type Update =
         Snapshot: Snapshot
         /// The term keys appended, in the order of the union.
         Added: string list
+        /// The locale columns appended, in the order of the union.
+        AddedColumns: string list
         /// The rows whose term is no longer a case, dropped or kept.
         Stale: Row list
         /// Per header column after Term, the number of empty cells in the result.
@@ -80,6 +86,12 @@ let termKeys () : string list =
     FSharpType.GetUnionCases typeof<Terms>
     |> Array.map (fun c -> c.Name.Trim())
     |> Array.toList
+
+
+/// The column names of the locales, in the order `getTerm` reads the columns: the case names of
+/// the Locales union, as the sheet names its columns.
+let localeColumns () : string list =
+    Localization.languages |> Array.map (fun l -> $"{l}") |> Array.toList
 
 
 /// Fails on a cell that the tab separated shape cannot carry.
@@ -131,13 +143,20 @@ let parse (lines: string list) : Snapshot =
         }
 
 
-/// Brings the snapshot in step with the term keys: rows kept in order, missing terms appended
-/// with empty cells, stale rows dropped or kept.
-let update (stale: StaleRows) (terms: string list) (snapshot: Snapshot) : Update =
+/// Brings the snapshot in step with the term keys and the locale columns: columns kept in
+/// order and missing locales appended, rows kept in order, missing terms appended with empty
+/// cells, stale rows dropped or kept.
+let update (stale: StaleRows) (locales: string list) (terms: string list) (snapshot: Snapshot) : Update =
     let termSet = Set.ofList terms
     let present = snapshot.Rows |> List.map _.Term |> Set.ofList
-    let width = snapshot.Header.Length - 1
+
+    let addedColumns =
+        locales |> List.filter (fun l -> snapshot.Header |> List.contains l |> not)
+
+    let header = snapshot.Header @ addedColumns
+    let width = header.Length - 1
     let empty = List.replicate width ""
+    let pad (cells: string list) = cells @ List.replicate addedColumns.Length ""
 
     let staleRows = snapshot.Rows |> List.filter (fun r -> termSet.Contains r.Term |> not)
 
@@ -145,6 +164,7 @@ let update (stale: StaleRows) (terms: string list) (snapshot: Snapshot) : Update
         match stale with
         | StaleRows.Keep -> snapshot.Rows
         | StaleRows.Drop -> snapshot.Rows |> List.filter (fun r -> termSet.Contains r.Term)
+        |> List.map (fun r -> { r with Cells = pad r.Cells })
 
     let added = terms |> List.filter (present.Contains >> not)
 
@@ -165,17 +185,19 @@ let update (stale: StaleRows) (terms: string list) (snapshot: Snapshot) : Update
             checkCell r.Term c
 
     let emptyCells =
-        snapshot.Header.Tail
+        header.Tail
         |> List.mapi (fun i name ->
             name, rows |> List.filter (fun r -> String.IsNullOrWhiteSpace r.Cells[i]) |> List.length
         )
 
     {
         Snapshot =
-            { snapshot with
+            {
+                Header = header
                 Rows = rows
             }
         Added = added
+        AddedColumns = addedColumns
         Stale = staleRows
         EmptyCells = emptyCells
     }
@@ -231,11 +253,12 @@ type Output =
 /// the summary. With `Output.Tsv` the full updated TSV goes to stdout, header first, and the
 /// summary to stderr, so the output can be piped and pasted over the sheet. Stale rows go to
 /// stderr either way.
-let run (stale: StaleRows) (dryRun: bool) (output: Output) =
-    let path = snapshotPath ()
+let run (file: string option) (stale: StaleRows) (dryRun: bool) (output: Output) =
+    let path = file |> Option.defaultWith snapshotPath
     let terms = termKeys ()
+    let locales = localeColumns ()
     let before = readSnapshot path
-    let result = update stale terms before
+    let result = update stale locales terms before
 
     let say (s: string) =
         match output with
@@ -253,7 +276,12 @@ let run (stale: StaleRows) (dryRun: bool) (output: Output) =
     if not dryRun then
         writeSnapshot path result.Snapshot
 
-    say $"terms in the union: %i{terms.Length}"
+    say $"terms in the union: %i{terms.Length}, locales: %i{locales.Length}"
+    say $"columns added: %i{result.AddedColumns.Length}"
+
+    for c in result.AddedColumns do
+        say $"  + %s{c}"
+
     say $"rows before: %i{before.Rows.Length}, after: %i{result.Snapshot.Rows.Length}"
     say $"rows added: %i{result.Added.Length}"
 
@@ -333,13 +361,13 @@ let tests =
             test "update keeps existing rows unchanged and in order" {
                 let snapshot = { Header = header; Rows = [ row "B" [ "b"; "" ]; row "A" [ "a"; "aa" ] ] }
 
-                (update StaleRows.Drop [ "A"; "B" ] snapshot).Snapshot.Rows
+                (update StaleRows.Drop header.Tail [ "A"; "B" ] snapshot).Snapshot.Rows
                 |> Expect.equal "same rows, same order" snapshot.Rows
             }
 
             test "update appends missing terms in union order with empty cells" {
                 let snapshot = { Header = header; Rows = [ row "B" [ "b"; "" ] ] }
-                let result = update StaleRows.Drop [ "C"; "B"; "A" ] snapshot
+                let result = update StaleRows.Drop header.Tail [ "C"; "B"; "A" ] snapshot
 
                 result.Added |> Expect.equal "C then A" [ "C"; "A" ]
 
@@ -349,7 +377,7 @@ let tests =
 
             test "update drops a stale row and reports it" {
                 let snapshot = { Header = header; Rows = [ row "A" [ "a"; "" ]; row "Old" [ "o"; "" ] ] }
-                let result = update StaleRows.Drop [ "A" ] snapshot
+                let result = update StaleRows.Drop header.Tail [ "A" ] snapshot
 
                 result.Stale |> Expect.equal "Old is stale" [ row "Old" [ "o"; "" ] ]
                 result.Snapshot.Rows |> Expect.equal "Old dropped" [ row "A" [ "a"; "" ] ]
@@ -357,7 +385,7 @@ let tests =
 
             test "update keeps a stale row on Keep and still reports it" {
                 let snapshot = { Header = header; Rows = [ row "A" [ "a"; "" ]; row "Old" [ "o"; "" ] ] }
-                let result = update StaleRows.Keep [ "A" ] snapshot
+                let result = update StaleRows.Keep header.Tail [ "A" ] snapshot
 
                 result.Stale |> Expect.equal "Old is stale" [ row "Old" [ "o"; "" ] ]
                 result.Snapshot.Rows |> Expect.equal "Old kept" snapshot.Rows
@@ -366,7 +394,7 @@ let tests =
             test "update counts the empty cells per locale" {
                 let snapshot = { Header = header; Rows = [ row "A" [ "a"; "" ]; row "B" [ ""; " " ] ] }
 
-                (update StaleRows.Drop [ "A"; "B"; "C" ] snapshot).EmptyCells
+                (update StaleRows.Drop header.Tail [ "A"; "B"; "C" ] snapshot).EmptyCells
                 |> Expect.equal "English 2 of 3, Dutch 3 of 3" [ "English", 2; "Dutch", 3 ]
             }
 
@@ -374,15 +402,41 @@ let tests =
                 for bad in [ "a\tb"; "a\nb"; "a\rb" ] do
                     let snapshot = { Header = header; Rows = [ row "A" [ bad; "" ] ] }
 
-                    (fun () -> update StaleRows.Drop [ "A" ] snapshot |> ignore)
+                    (fun () -> update StaleRows.Drop header.Tail [ "A" ] snapshot |> ignore)
                     |> Expect.throws $"%A{bad} refused"
+            }
+
+            test "update appends a missing locale column with empty cells, existing columns first" {
+                let snapshot = { Header = header; Rows = [ row "A" [ "a"; "aa" ] ] }
+                let result = update StaleRows.Drop [ "Dutch"; "English"; "French" ] [ "A"; "B" ] snapshot
+
+                result.AddedColumns |> Expect.equal "French only" [ "French" ]
+                result.Snapshot.Header |> Expect.equal "kept order, French last" [ "Term"; "English"; "Dutch"; "French" ]
+
+                result.Snapshot.Rows
+                |> Expect.equal "padded and appended" [ row "A" [ "a"; "aa"; "" ]; row "B" [ ""; ""; "" ] ]
+
+                result.EmptyCells |> Expect.equal "French empty twice" [ "English", 1; "Dutch", 1; "French", 2 ]
+            }
+
+            test "update keeps a header column that is no locale" {
+                let snapshot = { Header = [ "Term"; "Note"; "English" ]; Rows = [ row "A" [ "n"; "a" ] ] }
+                let result = update StaleRows.Drop [ "English" ] [ "A" ] snapshot
+
+                result.AddedColumns |> Expect.isEmpty "nothing to add"
+                result.Snapshot |> Expect.equal "unchanged" snapshot
+            }
+
+            test "the locale columns are the Locales cases in getTerm's order" {
+                localeColumns ()
+                |> Expect.equal "six locales" [ "English"; "Dutch"; "French"; "German"; "Spanish"; "Italian" ]
             }
 
             test "update is idempotent" {
                 let snapshot = { Header = header; Rows = [ row "B" [ "b"; "" ]; row "Old" [ "o"; "" ] ] }
                 let terms = [ "A"; "B" ]
-                let once = (update StaleRows.Drop terms snapshot).Snapshot
-                let twice = update StaleRows.Drop terms once
+                let once = (update StaleRows.Drop header.Tail terms snapshot).Snapshot
+                let twice = update StaleRows.Drop header.Tail terms once
 
                 twice.Snapshot |> Expect.equal "same snapshot" once
                 twice.Added |> Expect.isEmpty "nothing added"
@@ -433,4 +487,10 @@ else
         else
             Output.Summary
 
-    run stale (args |> List.contains "--dry-run") output |> ignore
+    let file =
+        match args |> List.tryFindIndex ((=) "--file") with
+        | Some i when i + 1 < args.Length -> Some(Path.GetFullPath args[i + 1])
+        | Some _ -> invalidOp "--file needs a path"
+        | None -> None
+
+    run file stale (args |> List.contains "--dry-run") output |> ignore
