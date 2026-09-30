@@ -1,5 +1,5 @@
 ---
-last_commit_released: 066475f9c349c1191387bb6179929d4c9a32fc10
+last_commit_released: e01baa5b1c46e67bc83197c4594f06064b11e75f
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,45 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.41 - 2026-09-30
+
+### 🚀 Features
+
+* *(api)* Script that updates the localization snapshot ([8c140d1c](https://github.com/informedica/GenPRES/commit/8c140d1c5d9a000efc6603b96212e02fe05bec4b))
+* *(api)* Print the localization TSV to paste over the sheet ([8a46ecbb](https://github.com/informedica/GenPRES/commit/8a46ecbbb39c9ed5abc280de054552fdfb70e468))
+* *(api)* Localization script carries every locale column ([5d54650f](https://github.com/informedica/GenPRES/commit/5d54650f7f8479dfc025b1baa58798c425cba232))
+* *(api)* The localization file is the source, checked by script ([fc43cf62](https://github.com/informedica/GenPRES/commit/fc43cf62fe9ee3ef6729ee4adaab24f613505a21))
+* *(client)* Add Elmish debugger when logging is on ([f05c7064](https://github.com/informedica/GenPRES/commit/f05c7064bae2630e28a36d94336c7734e261b97a))
+* *(client)* Draft the readable trail of the machines ([406cd00c](https://github.com/informedica/GenPRES/commit/406cd00c8328f90a0ae15d0b45124dff792a557a))
+* *(client)* Add the readable trail of the machine steps ([17be582a](https://github.com/informedica/GenPRES/commit/17be582a23a4afcb32f449c1e503855ff2bb4d66))
+* *(client)* Log the trail of the machine steps ([0b5e4c63](https://github.com/informedica/GenPRES/commit/0b5e4c633ad21de098dddf2be4aa7e1986341a5c))
+* *(client)* Log the order dialog's steps in the trail ([95389354](https://github.com/informedica/GenPRES/commit/9538935491439e9ebf278502d1b24ae184b840e0))
+* *(client)* Log the nutrition slot's steps in the trail ([bda51019](https://github.com/informedica/GenPRES/commit/bda51019fc93e84b40b73bf208cd6706794b42c2))
+* *(client)* Show a scenario's picks in the trail ([ff5f4596](https://github.com/informedica/GenPRES/commit/ff5f4596d1fa9553fd66b6d3ff5501d344951e33))
+* *(client)* Log the field events in the trail ([01b0e3a3](https://github.com/informedica/GenPRES/commit/01b0e3a3822c33eed560dd267c5e532942ae3b06))
+* *(client)* One readiness rule for the patient draft ([bb2a2874](https://github.com/informedica/GenPRES/commit/bb2a2874ff33fd7dd83b53a5ef877b9a64b70a93))
+* *(client)* The patient notice on the lists, no spinner ([532e8380](https://github.com/informedica/GenPRES/commit/532e8380ea7834295c8bde3953cd89a9436f47f8))
+* *(client)* The patient notice on every other page ([f59bd1ec](https://github.com/informedica/GenPRES/commit/f59bd1eca31ab2f53e5c17461c3c0a74bc05d784))
+* *(server)* Refuse debugging in production ([6df2e0df](https://github.com/informedica/GenPRES/commit/6df2e0dfe054e2469cc66986b369f9cea27d03be))
+
+### 🐞 Bug Fixes
+
+* *(client)* Never trace against production data ([0ca1ce86](https://github.com/informedica/GenPRES/commit/0ca1ce8654968bfea58cc52a2ed952aca3aadfcc))
+* *(client)* Redact the admin password and token in the trace ([dcc7a187](https://github.com/informedica/GenPRES/commit/dcc7a1877071c20b138824c2f606b88b3580bc81))
+* *(client)* Keep the admin token in the trace ([1c6f95b8](https://github.com/informedica/GenPRES/commit/1c6f95b83a3dccc39b9c18a5ab49f97d36ec5362))
+* *(client)* Show the signing reset and the navigated context ([f55c6927](https://github.com/informedica/GenPRES/commit/f55c692719ea2c26f22d29b7c52e82b7b8a33190))
+* *(client)* Describe the patient so two patients differ ([4dd1469f](https://github.com/informedica/GenPRES/commit/4dd1469f855d369d758415e8d19134e08d1dc56e))
+* *(client)* Keep url free text out of the trail ([1ca344c4](https://github.com/informedica/GenPRES/commit/1ca344c4ad8ae41fef216c1398887c5230dec031))
+* *(client)* No step call in the trail without a component ([162e0cb5](https://github.com/informedica/GenPRES/commit/162e0cb5d6aad6f2ee6f2c4506f612977b3f64f1))
+* *(client)* Name the nutrition slot's state as its selection ([67cbf44e](https://github.com/informedica/GenPRES/commit/67cbf44e889004749be3bd9c7ac88c3b047af56f))
+* *(client)* A cleared order field reads onChange none in the trail ([72ecff76](https://github.com/informedica/GenPRES/commit/72ecff7635fea53325cc360c68856ec0084d9b19))
+* *(client)* The readiness rule warns per missing dimension ([c0e40547](https://github.com/informedica/GenPRES/commit/c0e405479c1a59266ac90f0bcbdb9c1f0610affd))
+* *(genorder)* Offer a patient without a department the default's forms ([46a40f0a](https://github.com/informedica/GenPRES/commit/46a40f0a9f61ffdd58c9badf54f1faee33a71990))
+* *(genorder)* Keep the patient's department when no departments loaded ([672fc43d](https://github.com/informedica/GenPRES/commit/672fc43dce9a3eab080896e5ad2a5017a797b466))
+* *(server)* Bind admin tokens to the server mode ([533cc4d9](https://github.com/informedica/GenPRES/commit/533cc4d9de86dca7dfdf47c9cdf799e7afcddb1e))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/066475f9c349c1191387bb6179929d4c9a32fc10..e01baa5b1c46e67bc83197c4594f06064b11e75f)</small></strong>
 
 ## 0.1.2-alpha.40 - 2026-09-29
 
