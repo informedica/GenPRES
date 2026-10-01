@@ -410,7 +410,31 @@ module Prescribe =
 
         let stackDirection = if isMobile then "column" else "row"
 
-        let loadingIndicator = ViewHelpers.inlineProgress isAnythingLoading
+        // the spinner lies over the scenarios and takes no room, so they stay where they are
+        // while the order context reloads
+        let scenarios =
+            let list =
+                JSX.jsx
+                    $"""
+                import Stack from '@mui/material/Stack';
+                <Stack direction="column" spacing={1} >
+                    {match orderContext with
+                     | OrderContextView.Settled pr
+                     | OrderContextView.Refused(pr, _)
+                     | OrderContextView.Changing pr ->
+                         pr.Scenarios
+                         |> Array.map (displayScenario pr pr.Filter.Generic)
+                         |> unbox<seq<ReactElement>>
+                         |> React.Fragment
+                     | OrderContextView.NoPatient -> Seq.empty<ReactElement> |> React.Fragment}
+                </Stack>
+                """
+
+            Components.LoadingOverlay.View
+                {|
+                    isLoading = isAnythingLoading
+                    children = list
+                |}
 
         let cards =
             JSX.jsx
@@ -545,18 +569,7 @@ module Prescribe =
                     <Box sx={ {| marginTop = 2 |} }>
                         {resetBar}
                     </Box>
-                    {loadingIndicator}
-                    <Stack direction="column" spacing={1} >
-                        {match orderContext with
-                         | OrderContextView.Settled pr
-                         | OrderContextView.Refused(pr, _)
-                         | OrderContextView.Changing pr ->
-                             pr.Scenarios
-                             |> Array.map (displayScenario pr pr.Filter.Generic)
-                             |> unbox<seq<ReactElement>>
-                             |> React.Fragment
-                         | OrderContextView.NoPatient -> Seq.empty<ReactElement> |> React.Fragment}
-                    </Stack>
+                    {scenarios}
                 </Stack>
             </React.Fragment>
             """
