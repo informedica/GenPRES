@@ -66,10 +66,16 @@ let v2FixtureText () =
     File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v2.json"))
 
 
-/// The same version as this release writes it, structure version 3: the version 2 fixture
-/// upgraded, parsed and written, with the picks on every scenario unknown.
-let currentFixtureText () =
+/// The stored fixture of structure version 3: the version 2 fixture upgraded, parsed and written,
+/// with the picks on every scenario unknown.
+let v3FixtureText () =
     File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v3.json"))
+
+
+/// The same version as this release writes it, structure version 4: the version 3 fixture
+/// upgraded, parsed and written, without the picks.
+let currentFixtureText () =
+    File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v4.json"))
 
 
 let parse (text: string) =
@@ -327,33 +333,44 @@ let tests =
                 | other -> failtest $"expected a parsed version, got %A{other}"
             }
 
-            test "this release reads and writes structure version 3; 1 and 2 are left as they are, 0 and 4 are reasons" {
+            test "this release reads and writes structure version 4; 1 to 3 are left as they are, 0 and 5 are reasons" {
                 let json = currentFixtureText ()
 
                 (SqlDatabase.jsonVersionRead, SqlDatabase.jsonVersionWritten)
-                |> Expect.equal "read and written" (3, 3)
+                |> Expect.equal "read and written" (4, 4)
 
                 SqlDatabase.upgrade 1 json |> Expect.equal "1 leaves the JSON" (Ok json)
-                SqlDatabase.upgrade 2 json |> Expect.equal "2 to 3 leaves the JSON" (Ok json)
-                SqlDatabase.upgrade 3 json |> Expect.equal "3 is current" (Ok json)
+                SqlDatabase.upgrade 2 json |> Expect.equal "2 leaves the JSON" (Ok json)
+                SqlDatabase.upgrade 3 json |> Expect.equal "3 to 4 leaves the JSON" (Ok json)
+                SqlDatabase.upgrade 4 json |> Expect.equal "4 is current" (Ok json)
 
                 SqlDatabase.upgrade 0 json
                 |> Expect.equal "0" (Error "JSON structure version 0 does not exist")
 
-                SqlDatabase.upgrade 4 json
-                |> Expect.equal "4" (Error "JSON structure version 4 is newer than this release knows")
+                SqlDatabase.upgrade 5 json
+                |> Expect.equal "5" (Error "JSON structure version 5 is newer than this release knows")
             }
 
-            test "the stored fixture of structure version 2 upgrades and parses with the picks unknown" {
+            test "L5: the stored fixture of structure version 2 upgrades and parses" {
                 match v2FixtureText () |> SqlDatabase.upgrade 2 |> Result.map parse with
-                | Ok(Ok v) ->
-                    let picks = v.Plan.Contexts |> Array.collect _.Context.Scenarios |> Array.map _.Picks
-
-                    picks |> Expect.isNonEmpty "the fixture has scenarios"
-                    picks
-                    |> Array.forall Option.isNone
-                    |> Expect.isTrue "every scenario's picks unknown"
+                | Ok(Ok v) -> v.Plan.Contexts |> Expect.isNonEmpty "the fixture has contexts"
                 | other -> failtest $"expected a parsed version, got %A{other}"
+            }
+
+            test "a stored version 3 row reads and is written without its picks, unknown or listed" {
+                // the fixture's picks are unknown; a row the workbench wrote can list them
+                let listed = """["[paracetamol]_pres_freq","[paracetamol.paracetamol.paracetamol]_dos_qty"]"""
+
+                for picks in [ "null"; listed ] do
+                    let text = v3FixtureText().Replace("\"Picks\":null", $"\"Picks\":%s{picks}")
+                    text.Contains $"\"Picks\":%s{picks}" |> Expect.isTrue "the row holds the picks"
+
+                    match text |> SqlDatabase.upgrade 3 |> Result.map parse with
+                    | Ok(Ok v) ->
+                        v
+                        |> SqlDatabase.toJson
+                        |> Expect.equal $"picks %s{picks}: the current fixture" (currentFixtureText ())
+                    | other -> failtest $"expected a parsed version, got %A{other}"
             }
 
             test "a version 2 row with an argumentation loads back with it; the version 1 fixture with none" {
