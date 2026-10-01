@@ -941,23 +941,8 @@ Scenarios: {scenarios}
 
 
     /// The scenario after a field's arrow cleared a value: a cleared pick reopens the order with the
-    /// picks made before it; any other clear, and a reopen that fails to solve, is solved as it is.
-    let reopenScenarioOrder logger picks (ctx: OrderContext) =
-        let reopened =
-            ctx.Scenarios
-            |> Array.tryExactlyOne
-            |> Option.bind (fun sc ->
-                sc.Order
-                |> OrderReopen.reopen logger picks
-                |> Option.bind Result.toOption
-                |> Option.map (fun ord -> { sc with Order = ord })
-            )
-
-        match reopened with
-        | Some sc ->
-            { ctx with Scenarios = [| sc |> OrderScenario.setOrderTableFormat |] }
-            |> updateFilterIfOneScenario
-        | None -> ctx |> processScenarioOrder logger SolveOrder
+    /// picks made before it; any other clear is solved as it is.
+    let reopenScenarioOrder logger picks ctx = ctx |> processScenarioOrder logger (fun o -> Reopen(o, picks))
 
 
     /// The message a refusal has been until now, kept for the message-list contract.
