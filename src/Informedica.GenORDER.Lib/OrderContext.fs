@@ -3,43 +3,41 @@ namespace Informedica.GenOrder.Lib
 module FilterHelpers =
 
     open Informedica.GenForm.Lib
-    open Informedica.GenForm.Lib.Resources
-    open Informedica.Logging.Lib
 
 
-    let rulesOrLogErrors (logger: Logger) =
+    /// The value of a result, or the fallback when it failed; the GenForm messages of a failure are logged.
+    let orLogErrors logger fallback =
         function
-        | Ok rules -> rules
+        | Ok x -> x
         | Error errs ->
             errs |> Events.GenFormErrors |> OrderLogging.logOrderEventError logger
-            [||]
+            fallback
 
 
-    let getPrescriptionRules (logger: Logger) (provider: IResourceProvider) =
-        Api.getPrescriptionRules provider >> rulesOrLogErrors logger
+    let getPrescriptionRules logger provider = Api.getPrescriptionRules provider >> orLogErrors logger [||]
 
 
-    let filterPrescriptionRules (logger: Logger) (provider: IResourceProvider) filter =
-        Api.filterPrescriptionRules provider filter |> rulesOrLogErrors logger
+    let filterPrescriptionRules logger provider filter =
+        Api.filterPrescriptionRules provider filter |> orLogErrors logger [||]
 
 
-    let filterIndications logger (provider: IResourceProvider) =
+    let filterIndications logger provider =
         filterPrescriptionRules logger provider >> PrescriptionRule.indications
 
 
-    let filterGenerics logger (provider: IResourceProvider) =
+    let filterGenerics logger provider =
         filterPrescriptionRules logger provider >> PrescriptionRule.generics
 
 
-    let filterRoutes logger (provider: IResourceProvider) =
+    let filterRoutes logger provider =
         filterPrescriptionRules logger provider >> PrescriptionRule.routes
 
 
-    let filterForms logger (provider: IResourceProvider) =
+    let filterForms logger provider =
         filterPrescriptionRules logger provider >> PrescriptionRule.forms
 
 
-    let filterDoseTypes logger (provider: IResourceProvider) =
+    let filterDoseTypes logger provider =
         filterPrescriptionRules logger provider >> PrescriptionRule.doseTypes
 
 
@@ -700,28 +698,25 @@ module OrderContext =
                     Patient = ctx |> matchedPatient provider w h
                 }
 
-            let prs = doseFilter |> filterPrescriptionRules logger provider
+            let opts =
+                doseFilter
+                |> Api.getFilterOptions logger provider
+                |> orLogErrors logger PrescriptionRule.emptyFilterOptions
 
-            let inds = prs |> PrescriptionRule.indications
-            let gens = prs |> PrescriptionRule.generics
-            let rtes = prs |> PrescriptionRule.routes
-            let frms = prs |> PrescriptionRule.forms
-            let dsts = prs |> PrescriptionRule.doseTypes
-
-            let ind = inds |> Array.someIfOne
-            let gen = gens |> Array.someIfOne
-            let rte = rtes |> Array.someIfOne
-            let frm = frms |> Array.someIfOne
-            let dst = dsts |> Array.someIfOne
+            let ind = opts.Indications |> Array.someIfOne
+            let gen = opts.Generics |> Array.someIfOne
+            let rte = opts.Routes |> Array.someIfOne
+            let frm = opts.Forms |> Array.someIfOne
+            let dst = opts.DoseTypes |> Array.someIfOne
 
             { ctx with
                 Filter =
                     { ctx.Filter with
-                        Indications = inds
-                        Generics = gens
-                        Routes = rtes
-                        Forms = frms
-                        DoseTypes = dsts
+                        Indications = opts.Indications
+                        Generics = opts.Generics
+                        Routes = opts.Routes
+                        Forms = opts.Forms
+                        DoseTypes = opts.DoseTypes
                         Indication = ind
                         Generic = gen
                         Route = rte
