@@ -24,7 +24,7 @@ flowchart TD
     end
 
     subgraph GENORDER["GenORDER.Lib"]
-        GEVAL["evaluate -> processPropertyCmd<br/>ChangeProperty(o, ...DoseQuantity)<br/>Api.fs"]
+        GEVAL["evaluate -> processPropertyCmd<br/>ChangeProperty(o, ...DoseQuantity)<br/>OrderContext.fs"]
         PIPE["OrderProcessor.processPipeline<br/>ChangeProperty case<br/>OrderProcessor.fs"]
         PCHANGE["processChangeProperty<br/>Dose.increase/decreaseQuantity<br/>OrderProcessor.fs"]
         STEP["OrderVariable.step true/false useCalc n<br/>min + N*incr  /  max - N*incr<br/>OrderVariable.fs"]
@@ -139,7 +139,7 @@ confirmed solver result.
   decrease = `max - N*incr`. The stepped value is set as the variable's one
   value and re-solved; nothing snaps it to the grid the order had narrowed
   to. The solver either accepts it or fails, and a failed solve leaves the
-  order as it was before the step (`processScenarioOrder` in `Api.fs`), which
+  order as it was before the step (`processScenarioOrder` in `OrderContext.fs`), which
   the client shows as the value coming back. `pickNearestHigherElseLower`
   runs for component quantities in the solve pipeline, not after a step.
 - **Re-solve**: after the property change, `calcMinMaxStep` recomputes
