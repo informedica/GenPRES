@@ -1109,6 +1109,26 @@ let refusalTests =
                         |> Expect.equal "none from the provider" Refusal.NoDoseRules
                     }
 
+                    test "the picks are asked in the patient's department: its ward's rule makes it the second case" {
+                        let neo = RuleFixtures.row "NEO"
+                        // a rule for NEO the patient does not fit: for up to 10 kg only
+                        let rules =
+                            RuleFixtures.rules [| { neo with Patient = { neo.Patient with MaxWeight = Some 10N } } |]
+
+                        rules |> Expect.isNonEmpty "the fixture builds a rule"
+
+                        { EvaluateFixtures.pcmContext with
+                            Patient = { EvaluateFixtures.child with Department = Some "NEO" }
+                            Filter =
+                                { EvaluateFixtures.fresh with
+                                    Generic = Some "paracetamol"
+                                    Indication = Some "koorts"
+                                }
+                        }
+                        |> OrderContext.refusal (RulesOf rules)
+                        |> Expect.equal "a rule for the picks, none for the patient" Refusal.NoDoseRulesForPatient
+                    }
+
                     test "a pick without rules is refused with the context as sent" {
                         let sent = EvaluateFixtures.pcmContext
 

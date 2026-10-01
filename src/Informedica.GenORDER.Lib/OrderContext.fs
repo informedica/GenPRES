@@ -964,8 +964,8 @@ Scenarios: {scenarios}
     let noDoseRulesMessage = "Geen doseerregels gevonden voor het geselecteerde filter"
 
 
-    /// Which refusal an empty answer is, from the dose rules for the picks: none with the
-    /// patient left out is the first case; none with the patient in is the second; some with
+    /// Which refusal an empty answer is, from the dose rules for the picks: none in the
+    /// patient's department is the first case; none with the patient in is the second; some with
     /// the patient in, which the rule lookup then dropped for having no product or no dose
     /// type, is the third. Reads only whether each set is empty.
     let refusalOf (forPicks: 'a[]) (forPatient: 'a[]) =
@@ -977,11 +977,16 @@ Scenarios: {scenarios}
             Refusal.NoProducts
 
 
-    /// The refusal for the context, read from the provider's dose rules: the picks alone,
-    /// then the picks with the patient as the rules match it. Without a weight and a height
-    /// no rule covers the patient.
+    /// The refusal for the context, read from the provider's dose rules: the picks in the
+    /// patient's department, then the picks with the patient as the rules match it. Without a
+    /// weight and a height no rule covers the patient.
     let refusal provider (ctx: OrderContext) =
-        let forPicks = Api.getDoseRules provider |> Api.filterDoseRules provider (picks ctx)
+        // the department alone, so that a rule of the patient's ward counts as one for the picks
+        let forPicks =
+            Api.getDoseRules provider
+            |> Api.filterDoseRules
+                provider
+                { picks ctx with Patient = { Patient.patient with Department = ctx.Patient.Department } }
 
         match ctx.Patient.Weight, ctx.Patient.Height with
         | Some w, Some h ->
