@@ -54,6 +54,7 @@
     <Compile Include="./Views/Prescribe.fs" />
     <Compile Include="./Views/NutritionSlot.fs" />
     <Compile Include="./Views/EnteralNutrition.fs" />
+    <Compile Include="./Views/ParenteralPrint.fs" />
     <Compile Include="./Views/ParenteralNutrition.fs" />
     <Compile Include="./Views/Nutrition.fs" />
     <Compile Include="./Views/SignDialog.fs" />
