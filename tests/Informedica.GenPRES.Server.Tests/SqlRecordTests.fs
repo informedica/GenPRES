@@ -357,13 +357,20 @@ let tests =
                 | other -> failtest $"expected a parsed version, got %A{other}"
             }
 
-            test "the stored fixture of structure version 3 reads and is written without its picks" {
-                match v3FixtureText () |> SqlDatabase.upgrade 3 |> Result.map parse with
-                | Ok(Ok v) ->
-                    v
-                    |> SqlDatabase.toJson
-                    |> Expect.equal "the current fixture" (currentFixtureText ())
-                | other -> failtest $"expected a parsed version, got %A{other}"
+            test "a stored version 3 row reads and is written without its picks, unknown or listed" {
+                // the fixture's picks are unknown; a row the workbench wrote can list them
+                let listed = """["[paracetamol]_pres_freq","[paracetamol.paracetamol.paracetamol]_dos_qty"]"""
+
+                for picks in [ "null"; listed ] do
+                    let text = v3FixtureText().Replace("\"Picks\":null", $"\"Picks\":%s{picks}")
+                    text.Contains $"\"Picks\":%s{picks}" |> Expect.isTrue "the row holds the picks"
+
+                    match text |> SqlDatabase.upgrade 3 |> Result.map parse with
+                    | Ok(Ok v) ->
+                        v
+                        |> SqlDatabase.toJson
+                        |> Expect.equal $"picks %s{picks}: the current fixture" (currentFixtureText ())
+                    | other -> failtest $"expected a parsed version, got %A{other}"
             }
 
             test "a version 2 row with an argumentation loads back with it; the version 1 fixture with none" {
