@@ -17,30 +17,6 @@ module FilterHelpers =
     let getPrescriptionRules logger provider = Api.getPrescriptionRules provider >> orLogErrors logger [||]
 
 
-    let filterPrescriptionRules logger provider filter =
-        Api.filterPrescriptionRules provider filter |> orLogErrors logger [||]
-
-
-    let filterIndications logger provider =
-        filterPrescriptionRules logger provider >> PrescriptionRule.indications
-
-
-    let filterGenerics logger provider =
-        filterPrescriptionRules logger provider >> PrescriptionRule.generics
-
-
-    let filterRoutes logger provider =
-        filterPrescriptionRules logger provider >> PrescriptionRule.routes
-
-
-    let filterForms logger provider =
-        filterPrescriptionRules logger provider >> PrescriptionRule.forms
-
-
-    let filterDoseTypes logger provider =
-        filterPrescriptionRules logger provider >> PrescriptionRule.doseTypes
-
-
 module OrderScenario =
 
     open Informedica.Utils.Lib.BCL
