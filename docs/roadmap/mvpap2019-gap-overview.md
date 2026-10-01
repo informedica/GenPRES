@@ -450,7 +450,7 @@ rg -n 'Time.applyConstraints' src/Informedica.GenORDER.Lib/Order.fs
 rg -n 'fromTupleInclExcl' src/Informedica.GenFORM.Lib/SolutionRule.fs
 
 # 5.17: per-component selection already exists in Prescribe, not Nutrition
-rg -n 'SelectedComponents' src/Informedica.GenPRES.Shared/Types.fs src/Informedica.GenORDER.Lib/Api.fs
+rg -n 'SelectedComponents' src/Informedica.GenPRES.Shared/Types.fs src/Informedica.GenORDER.Lib/OrderContext.fs
 rg -n 'Components.MultipleSelect' src/Informedica.GenPRES.Client/Views/Prescribe.fs
 rg -n 'SelectedComponents' src/Informedica.GenPRES.Client/Views/Nutrition.fs   # no hits
 

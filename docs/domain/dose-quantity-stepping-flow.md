@@ -159,7 +159,7 @@ confirmed solver result.
 | Shared DTO | `src/Informedica.GenPRES.Shared/Api.fs` | `OrderContextCommand` |
 | Server cmd | `src/Informedica.GenPRES.Server/ServerApi.OrderContextCommand.fs` | `processCmd` |
 | Server service | `src/Informedica.GenPRES.Server/ServerApi.Services.fs` | `OrderContext.evaluate` |
-| GenORDER eval | `src/Informedica.GenORDER.Lib/Api.fs` | `evaluate` / `processPropertyCmd` |
+| GenORDER eval | `src/Informedica.GenORDER.Lib/OrderContext.fs` | `evaluate` / `processPropertyCmd` |
 | Pipeline | `src/Informedica.GenORDER.Lib/OrderProcessor.fs` | `processPipeline` |
 | Property change | `src/Informedica.GenORDER.Lib/OrderProcessor.fs` | `processChangeProperty` |
 | Step math | `src/Informedica.GenORDER.Lib/OrderVariable.fs` | `step` |
