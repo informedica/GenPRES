@@ -412,7 +412,7 @@ locked.
 | Issue | Milestone | Status |
 |---|---|---|
 | #495 | M4 | open |
-| #504 | M4 | open: Figma design linked on the issue |
+| #504 | M4 | open: Figma design linked on the issue; layout slice planned in [504-nutrition-component-rows.md](504-nutrition-component-rows.md) |
 | #506 | post-MVP | open |
 
 **Cause.**
