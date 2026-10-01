@@ -509,23 +509,6 @@ module Nutrition =
             width = "100%"
         |}
 
-    let private removeButtonSx =
-        {|
-            marginLeft = "auto"
-            display = "inline-flex"
-            alignItems = "center"
-            cursor = "pointer"
-            padding = "4px"
-            borderRadius = "50%"
-            ``&:hover`` = {| backgroundColor = "rgba(0, 0, 0, 0.04)" |}
-        |}
-
-    let private addButtonSx =
-        {|
-            marginTop = 1
-            marginBottom = 1
-        |}
-
     let private dividerSx =
         {|
             marginTop = 2
@@ -533,82 +516,23 @@ module Nutrition =
         |}
 
 
-    // the administration of a scenario as pills: one per value the server printed, the
-    // frequency, the dose, the rate, the time, each coloured by its own severity; a row per
-    // item, the rows told apart by a plus between them
-    let private renderAdminSummary (key: string) (name: string) (rows: TextBlock[][]) =
-        let typoSx =
+    // the administration of a scenario as pills, one per value the server printed, each in
+    // its own severity
+    let private adminSummary (name: string) (rows: TextBlock[][]) =
+        Components.AdministrationSummary.View
             {|
-                display = "inline"
-                color = "text.secondary"
-                marginRight = 1
+                name = name
+                rows =
+                    rows
+                    |> Array.map (
+                        Array.map (fun block ->
+                            {|
+                                text = block |> ViewHelpers.textBlockText |> String.trim
+                                severity = block |> Severity.ofTextBlock
+                            |}
+                        )
+                    )
             |}
-
-        let boxSx =
-            {|
-                display = "inline-flex"
-                alignItems = "center"
-                flexWrap = "wrap"
-                marginLeft = 1
-            |}
-
-        let textOf = ViewHelpers.textBlockText >> String.trim
-
-        // a block with a number in it is a value and becomes a chip; one without, an item's
-        // name or a word between values such as "in" or "=", stays text between the chips
-        let isValue (text: string) = text |> Seq.exists System.Char.IsDigit
-
-        let text (key: string) (s: string) =
-            JSX.jsx
-                $"""
-            import Typography from '@mui/material/Typography';
-            <Typography key={key} variant="body2" sx={typoSx}>{s}</Typography>
-            """
-
-        // each block keeps its own severity through the filtering: the text and the block
-        // travel together
-        let ofRow (r: int) (row: TextBlock[]) =
-            row
-            |> Array.map (fun block -> textOf block, block)
-            |> Array.filter (fst >> String.notEmpty)
-            |> Array.mapi (fun i (t, block) ->
-                if t |> isValue then
-                    Components.ValueChip.View
-                        {|
-                            value = t
-                            severity = block |> Severity.ofTextBlock
-                            label = None
-                        |}
-                else
-                    text $"{r}-{i}" t
-            )
-
-        let chips =
-            rows
-            |> Array.map (fun row -> row |> Array.map textOf |> Array.exists String.notEmpty, row)
-            |> Array.filter fst
-            |> Array.mapi (fun r (_, row) ->
-                if r = 0 then
-                    ofRow r row
-                else
-                    Array.append [| text $"sep-{r}" "+" |] (ofRow r row)
-            )
-            |> Array.concat
-            |> unbox<seq<ReactElement>>
-            |> React.Fragment
-
-        JSX.jsx
-            $"""
-        import Box from '@mui/material/Box';
-        import Typography from '@mui/material/Typography';
-
-        <Box key={key} sx={boxSx}>
-            <Typography variant="body2" sx={typoSx}>
-                {name}:
-            </Typography>
-            {chips}
-        </Box>
-        """
 
 
     [<JSX.Component>]
@@ -1506,38 +1430,26 @@ module Nutrition =
                         |]
                 |}
 
-        // the spinner lies over the details and takes no room, so the fields stay where they are
-        // while the order reloads
-        let detailsSx = {| position = "relative" |}
-
-        let progressSx =
-            {|
-                position = "absolute"
-                inset = 0
-                display = "flex"
-                alignItems = "center"
-                justifyContent = "center"
-                pointerEvents = "none"
-            |}
-
         let details =
             JSX.jsx
                 $"""
             import Stack from '@mui/material/Stack';
-            import Divider from '@mui/material/Divider';
-            import Typography from '@mui/material/Typography';
-            import Box from '@mui/material/Box';
-            <Box sx={detailsSx}>
-                <Stack direction={"column"} spacing={1} >
-                    {preparationSection}
-                    {if isEnteral then null else administrationDivider}
-                    {frequencyDoseRow}
-                    {rateControl}
-                    {resetBar}
-                </Stack>
-                <Box sx={progressSx}>{loadingIndicator}</Box>
-            </Box>
+            <Stack direction={"column"} spacing={1} >
+                {preparationSection}
+                {if isEnteral then null else administrationDivider}
+                {frequencyDoseRow}
+                {rateControl}
+                {resetBar}
+            </Stack>
             """
+            |> fun fields ->
+                // the spinner lies over the details and takes no room, so the fields stay where
+                // they are while the order reloads
+                Components.LoadingOverlay.View
+                    {|
+                        isLoading = isOrderLoading
+                        children = fields
+                    |}
 
         let indicationFilter =
             if ctx.Filter.Generic.IsNone || ctx.Filter.Indications |> Array.length <= 1 then
@@ -1608,24 +1520,11 @@ module Nutrition =
             match props.onRemove with
             | Some onRemove ->
                 // the plan takes one change at a time: no removal while one is under way
-                let handleClick (e: Browser.Types.Event) =
-                    e.stopPropagation ()
-
-                    if not props.isRecalculating then
-                        onRemove ()
-
-                JSX.jsx
-                    $"""
-                import Box from '@mui/material/Box';
-                import DeleteIcon from '@mui/icons-material/Delete';
-                <Box
-                    component="span"
-                    onClick={handleClick}
-                    sx={removeButtonSx}
-                >
-                    <DeleteIcon fontSize="small" />
-                </Box>
-                """
+                Components.RemoveIconButton.View
+                    {|
+                        onRemove = onRemove
+                        busy = props.isRecalculating
+                    |}
             | None -> null
 
         if props.wrapInAccordion then
@@ -1633,7 +1532,7 @@ module Nutrition =
                 let adminSummary =
                     match ctx.Scenarios with
                     | [| sc |] when sc.Administration |> Array.isEmpty |> not ->
-                        renderAdminSummary (string props.nutritionContext.Id) sc.Order.Orderable.Name sc.Administration
+                        adminSummary sc.Order.Orderable.Name sc.Administration
                     | _ -> null
 
                 JSX.jsx
@@ -1693,32 +1592,6 @@ module Nutrition =
                 {orderDetails}
             </Box>
             """
-
-
-    [<JSX.Component>]
-    let private AddButton
-        (props:
-            {|
-                label: string
-                onClick: unit -> unit
-                disabled: bool
-            |})
-        =
-        JSX.jsx
-            $"""
-        import Button from '@mui/material/Button';
-        import AddIcon from '@mui/icons-material/Add';
-        <Button
-            variant="outlined"
-            size="small"
-            startIcon={{ <AddIcon /> }}
-            disabled={props.disabled}
-            onClick={fun _ -> props.onClick ()}
-            sx={addButtonSx}
-        >
-            {props.label}
-        </Button>
-        """
 
 
     [<JSX.Component>]
@@ -1804,7 +1677,7 @@ module Nutrition =
 
                 let enteralFeedingAddButton =
                     if mayAdd NutritionCategory.EnteralFeeding then
-                        AddButton
+                        Components.AddButton.View
                             {|
                                 label = Terms.``Nutrition Enteral Feeding`` |> getTerm "Enterale Voeding"
                                 onClick = fun () -> newOrderContext plan NutritionCategory.EnteralFeeding
@@ -1815,7 +1688,7 @@ module Nutrition =
 
                 let supplementAddButton =
                     if mayAdd NutritionCategory.EnteralSupplement then
-                        AddButton
+                        Components.AddButton.View
                             {|
                                 label = Terms.``Nutrition Add Supplement`` |> getTerm "Supplement toevoegen"
                                 onClick = fun () -> newOrderContext plan NutritionCategory.EnteralSupplement
@@ -1827,21 +1700,21 @@ module Nutrition =
                 let parenteralAddButtons =
                     [|
                         if mayAdd NutritionCategory.TPN then
-                            AddButton
+                            Components.AddButton.View
                                 {|
                                     label = Terms.``Nutrition TPN`` |> getTerm "TPN"
                                     onClick = fun () -> newOrderContext plan NutritionCategory.TPN
                                     disabled = isRecalculating
                                 |}
                         if mayAdd NutritionCategory.Lipid then
-                            AddButton
+                            Components.AddButton.View
                                 {|
                                     label = Terms.``Nutrition Lipids`` |> getTerm "Vetten"
                                     onClick = fun () -> newOrderContext plan NutritionCategory.Lipid
                                     disabled = isRecalculating
                                 |}
                         if mayAdd NutritionCategory.ElectrolyteGlucose then
-                            AddButton
+                            Components.AddButton.View
                                 {|
                                     label = Terms.``Nutrition Electrolytes Glucose`` |> getTerm "Elektrolyten/Glucose"
                                     onClick = fun () -> newOrderContext plan NutritionCategory.ElectrolyteGlucose
@@ -1856,10 +1729,10 @@ module Nutrition =
                             |> Array.choose (fun nc ->
                                 match nc.Scenarios with
                                 | [| sc |] when sc.Administration |> Array.isEmpty |> not ->
-                                    renderAdminSummary (string nc.Id) sc.Order.Orderable.Name sc.Administration
-                                    |> Some
+                                    (string nc.Id, adminSummary sc.Order.Orderable.Name sc.Administration) |> Some
                                 | _ -> None
                             )
+                            |> withKey
 
                         JSX.jsx
                             $"""
@@ -1902,7 +1775,7 @@ module Nutrition =
                 import Stack from '@mui/material/Stack';
                 import Typography from '@mui/material/Typography';
                 import Divider from '@mui/material/Divider';
-                import IconButton from '@mui/material/IconButton';
+                import Button from '@mui/material/Button';
                 import PrintIcon from '@mui/icons-material/Print';
 
                 <Stack direction="column" spacing={1}>

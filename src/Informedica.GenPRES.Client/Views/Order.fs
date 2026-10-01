@@ -1138,7 +1138,6 @@ module Order =
 
         let argues = props.editing |> PlanContextPolicy.argues
 
-        let loadingIndicator = ViewHelpers.inlineProgress isOrderLoading
 
         let fixPrecision = Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision
 
@@ -1244,19 +1243,6 @@ module Order =
                 {|
                     paddingX = (if isMobile then 1.5 else 2)
                     paddingY = (if isMobile then 1 else 2)
-                    position = "relative"
-                |}
-
-            // the spinner lies over the fields and takes no room, so the dialog keeps its height
-            // and the fields stay where they are while the order reloads
-            let progressSx =
-                {|
-                    position = "absolute"
-                    inset = 0
-                    display = "flex"
-                    alignItems = "center"
-                    justifyContent = "center"
-                    pointerEvents = "none"
                 |}
 
             let componentSelect =
@@ -1842,6 +1828,24 @@ module Order =
                 |> unbox<seq<ReactElement>>
                 |> React.Fragment
 
+            // the spinner lies over the fields and takes no room, so the dialog keeps its height
+            // and the fields stay where they are while the order reloads
+            let fieldsOverlay =
+                let stack =
+                    JSX.jsx
+                        $"""
+                    import Stack from '@mui/material/Stack';
+                    <Stack direction={"column"} spacing={if isMobile then 1.5 else 3} >
+                        {fields}
+                    </Stack>
+                    """
+
+                Components.LoadingOverlay.View
+                    {|
+                        isLoading = isOrderLoading
+                        children = stack
+                    |}
+
             let titleSlotProps = {| title = {| variant = "h6" |} |}
 
             JSX.jsx
@@ -1860,10 +1864,7 @@ module Order =
                 slotProps={titleSlotProps}
             ></CardHeader>
             <CardContent sx={contentSx}>
-                <Stack direction={"column"} spacing={if isMobile then 1.5 else 3} >
-                    {fields}
-                </Stack>
-                <Box sx={progressSx}>{loadingIndicator}</Box>
+                {fieldsOverlay}
             </CardContent>
             <CardActions >
                 {actionBar}
