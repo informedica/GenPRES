@@ -191,16 +191,7 @@ module SessionGate =
                 </Button>
                 """
 
-        let progress =
-            if gate.Busy then
-                JSX.jsx
-                    $"""
-                <Box sx={ {| marginTop = 2 |} }>
-                    <CircularProgress size={24} />
-                </Box>
-                """
-            else
-                null
+        let progress = ViewHelpers.busyProgress gate.Busy
 
         let actions =
             gate.Actions
@@ -232,7 +223,6 @@ module SessionGate =
         import CardContent from '@mui/material/CardContent';
         import Button from '@mui/material/Button';
         import Typography from '@mui/material/Typography';
-        import CircularProgress from '@mui/material/CircularProgress';
         import TextField from '@mui/material/TextField';
 
         <Card sx={ {| p = 4 |} } variant="outlined" role="alertdialog" aria-labelledby="session-gate-title">
