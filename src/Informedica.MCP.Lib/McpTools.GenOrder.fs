@@ -210,11 +210,11 @@ module GenOrderTools =
                 Patient = patient
             }
 
-        let inds = filter |> Filters.filterIndications OrderLogging.noOp provider
-        let gens = filter |> Filters.filterGenerics OrderLogging.noOp provider
-        let rtes = filter |> Filters.filterRoutes OrderLogging.noOp provider
-        let frms = filter |> Filters.filterForms OrderLogging.noOp provider
-        let dsts = filter |> Filters.filterDoseTypes OrderLogging.noOp provider
+        let inds = filter |> FilterHelpers.filterIndications OrderLogging.noOp provider
+        let gens = filter |> FilterHelpers.filterGenerics OrderLogging.noOp provider
+        let rtes = filter |> FilterHelpers.filterRoutes OrderLogging.noOp provider
+        let frms = filter |> FilterHelpers.filterForms OrderLogging.noOp provider
+        let dsts = filter |> FilterHelpers.filterDoseTypes OrderLogging.noOp provider
 
         {
             Indications = inds

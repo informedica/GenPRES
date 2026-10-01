@@ -88,7 +88,7 @@ prepare belongs to M3**, because M3 cannot close without it; the rest is M4.
 
 | Item | Proposed issue | Why it is code, and what to build | Milestone |
 |---|---|---|---|
-| **5.17** | Expose per-component selection in the Nutrition view | The mechanism exists: `Filter.SelectedComponents` (`Shared/Types.fs:429`, applied in `GenORDER/Api.fs:568`) and `Components.MultipleSelect.View` in `Prescribe.fs:129`, shown when an orderable has more than one component. The Nutrition view does not surface it. Surface it; the "never remove the principal component or a concentration-bearing solvent" guard is configuration (C1.6) | M3 |
+| **5.17** | Expose per-component selection in the Nutrition view | The mechanism exists: `Filter.SelectedComponents` (`Shared/Types.fs:429`, applied in `getRules` of `GenORDER/OrderContext.fs`) and `Components.MultipleSelect.View` in `Prescribe.fs:129`, shown when an orderable has more than one component. The Nutrition view does not surface it. Surface it; the "never remove the principal component or a concentration-bearing solvent" guard is configuration (C1.6) | M3 |
 | **5.12** | Per-order "extra" flag excluding it from totals | `Totals.calc` (`GenORDER/Totals.fs:63`) sums every order whose dose carries a volume unit; there is no attribute to exclude one. New order attribute, honoured in `calc`, settable in the client | M4 |
 | **7.3** | Allow a second unit for one total (glucose mg/kg/min) | `TotalsData` rows carry their own `Unit`/`TimeUnit`/`Adj`, so a row "koolhydraat, mg, min" could be authored — but `getTotals` (`Totals.fs:159`) does `Array.tryFind` on the name and returns the first row only. Let a total carry more than one unit; then the row is configuration (C1.7) | M4 |
 | **7.8** | Gestational-age and post-menstrual-age bands on `TotalsData` | `TotalsData` (`GenFORM/Types.fs:764`) has `MinAge`/`MaxAge`/`MinWeight`/`MaxWeight` only, and `getTotals` filters on those two. Add `MinGestAge`/`MaxGestAge`/`MinPMAge`/`MaxPMAge`, extend `Mapping.getTotals`, the filter, the `Data` record comments and the column-contract test. Then the rows are configuration (C1.8) | M4 |
@@ -450,7 +450,7 @@ rg -n 'Time.applyConstraints' src/Informedica.GenORDER.Lib/Order.fs
 rg -n 'fromTupleInclExcl' src/Informedica.GenFORM.Lib/SolutionRule.fs
 
 # 5.17: per-component selection already exists in Prescribe, not Nutrition
-rg -n 'SelectedComponents' src/Informedica.GenPRES.Shared/Types.fs src/Informedica.GenORDER.Lib/Api.fs
+rg -n 'SelectedComponents' src/Informedica.GenPRES.Shared/Types.fs src/Informedica.GenORDER.Lib/OrderContext.fs
 rg -n 'Components.MultipleSelect' src/Informedica.GenPRES.Client/Views/Prescribe.fs
 rg -n 'SelectedComponents' src/Informedica.GenPRES.Client/Views/Nutrition.fs   # no hits
 

@@ -1,6 +1,6 @@
 namespace Informedica.GenOrder.Lib
 
-module Filters =
+module FilterHelpers =
 
     open Informedica.GenForm.Lib
     open Informedica.GenForm.Lib.Resources
@@ -24,24 +24,6 @@ module Filters =
             | Error _ -> [||]
 
 
-    let getIndications logger (provider: IResourceProvider) =
-        getPrescriptionRules logger provider >> PrescriptionRule.indications
-
-
-    let getGenerics logger (provider: IResourceProvider) =
-        getPrescriptionRules logger provider >> PrescriptionRule.generics
-
-
-    let getRoutes logger (provider: IResourceProvider) = getPrescriptionRules logger provider >> PrescriptionRule.routes
-
-
-    let getForms logger (provider: IResourceProvider) = getPrescriptionRules logger provider >> PrescriptionRule.forms
-
-
-    let getFrequencies logger (provider: IResourceProvider) =
-        getPrescriptionRules logger provider >> PrescriptionRule.frequencies
-
-
     let filterIndications logger (provider: IResourceProvider) =
         filterPrescriptionRules logger provider >> PrescriptionRule.indications
 
@@ -60,16 +42,6 @@ module Filters =
 
     let filterDoseTypes logger (provider: IResourceProvider) =
         filterPrescriptionRules logger provider >> PrescriptionRule.doseTypes
-
-
-    let filterFrequencies (logger: Logger) (provider: IResourceProvider) =
-        filterPrescriptionRules logger provider >> PrescriptionRule.frequencies
-
-
-    let filterDiluents (logger: Logger) (provider: IResourceProvider) =
-        filterPrescriptionRules logger provider
-        >> PrescriptionRule.diluents
-        >> Array.map _.Generic
 
 
 module OrderScenario =
@@ -362,7 +334,7 @@ module OrderContext =
     open Informedica.GenOrder.Lib
 
     open Informedica.GenUnits.Lib
-    open Filters
+    open FilterHelpers
 
 
     type Command =
@@ -626,12 +598,10 @@ module OrderContext =
     /// default applies to the matching only and never to the patient. A provider whose load
     /// failed registers no departments; the patient's own then stands, so that the lookup
     /// answers the empty rules such a provider holds instead of raising.
-    let matchedDepartment (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) (pat: Patient) =
+    let matchedDepartment (provider: Resources.IResourceProvider) (pat: Patient) =
         try
             pat.Department
-            |> Informedica.GenForm.Lib.Resources.Departments.forPatient (
-                provider.Get Informedica.GenForm.Lib.Resources.Keys.departments
-            )
+            |> Resources.Departments.forPatient (provider.Get Resources.Keys.departments)
         with :? System.Collections.Generic.KeyNotFoundException ->
             pat.Department
 
@@ -696,13 +666,7 @@ module OrderContext =
     /// The patient as the rules match it: the provider's default department for one without,
     /// which applies to the matching only and never to the patient, and the weight and the
     /// height it has.
-    let matchedPatient
-        (provider: Informedica.GenForm.Lib.Resources.IResourceProvider)
-        w
-        h
-        (ctx: OrderContext)
-        : Patient
-        =
+    let matchedPatient (provider: Resources.IResourceProvider) w h (ctx: OrderContext) : Patient =
         {
             Location = ctx.Patient.Location
             Department = ctx.Patient |> matchedDepartment provider
@@ -725,7 +689,7 @@ module OrderContext =
     /// without one being matched as a patient of the provider's default department, while the
     /// patient itself keeps none. Without a weight and a height the context is made afresh and
     /// there are no rules.
-    let getRules logger (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) (ctx: OrderContext) =
+    let getRules logger (provider: Resources.IResourceProvider) (ctx: OrderContext) =
 
         match ctx.Patient.Weight, ctx.Patient.Height with
         | Some w, Some h ->
@@ -1300,7 +1264,7 @@ Scenarios: {scenarios}
 
     /// The totals over the orders of the context's scenarios, for its patient's age and
     /// weight.
-    let intake (totalsData: Types.Data.TotalsData[]) (ctx: OrderContext) : Totals =
+    let intake (totalsData: TotalsData[]) (ctx: OrderContext) : Totals =
         let wght = ctx.Patient.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
 
         ctx.Scenarios
@@ -1425,33 +1389,3 @@ Scenarios: {scenarios}
 
                         Error(errorsOf filter @ errorsOf patient @ errorsOf scenarios)
                 )
-
-
-module Formulary =
-
-    open Informedica.Utils.Lib.BCL
-    open Informedica.GenForm.Lib
-    open Informedica.GenOrder.Lib
-
-    module Prescription = Order.Schedule
-
-
-    let getDoseRules provider filter = Api.getDoseRules provider |> Api.filterDoseRules provider filter
-
-
-    let getSolutionRules provider generic form route =
-        Api.getSolutionRules provider
-        |> Array.filter (fun sr ->
-            generic
-            |> Option.map (String.equalsCapInsens sr.Generic)
-            |> Option.defaultValue true
-            && sr.Form
-               |> Option.map (fun s ->
-                   if form |> Option.isNone then
-                       true
-                   else
-                       form.Value |> String.equalsCapInsens s
-               )
-               |> Option.defaultValue true
-            && route |> Option.map ((=) sr.Route) |> Option.defaultValue true
-        )
