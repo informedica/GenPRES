@@ -7,9 +7,9 @@ module CompositionRoot =
 
 
     /// The api of one request: the settings and the env are built once per host, the cookie
-    /// once per request.
+    /// once per request; the settings take the departments as loaded when asked.
     let compose
-        (settings: ServerSettings)
+        (settings: Informedica.GenForm.Lib.Types.Departments -> ServerSettings)
         (env: AppEnv)
         (cookie: SessionCookie)
         (stateCookie: LaunchStateCookie)
@@ -89,14 +89,7 @@ module CompositionRoot =
                         |> Informedica.Logging.Lib.Logging.logInfo env.logger
 
                         // the departments as loaded now, so a reload reaches the next asker
-                        return
-                            match env.departments () with
-                            | Some d ->
-                                { settings with
-                                    Departments = d.Names
-                                    DefaultDepartment = d.Default
-                                }
-                            | None -> settings
+                        return env.departments () |> settings
                     }
 
             testApi = fun () -> async { return "Hello world!" }

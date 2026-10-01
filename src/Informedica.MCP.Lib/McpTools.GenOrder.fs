@@ -149,8 +149,8 @@ module GenOrderTools =
             | _ -> pat
 
 
-    /// The patient built from the input, the department the default when none is given, and
-    /// what the caller left out of the weight and the height estimated from the age.
+    /// The patient built from the input, the department as given, and what the caller left out
+    /// of the weight and the height estimated from the age.
     let buildPatient (provider: IResourceProvider) (input: CreateOrderContextInput) : Patient.Patient =
         let pat = Patient.patient
 
@@ -175,12 +175,7 @@ module GenOrderTools =
             | None -> pat
 
         pat
-        |> Patient.setDepartment (
-            input.Department
-            |> Informedica.GenForm.Lib.Resources.Departments.forPatient (
-                provider.Get Informedica.GenForm.Lib.Resources.Keys.departments
-            )
-        )
+        |> Patient.setDepartment input.Department
         |> estimated
             (provider.Get Informedica.GenForm.Lib.Resources.Keys.normalValueRows
              |> Shared.Models.NormalValues.ofRows)
@@ -328,7 +323,7 @@ module GenOrderTools =
         =
         input
         |> requireAgeOrMeasures
-        |> Result.bind (fun () -> input |> checkDepartment (provider.Get Keys.departments))
+        |> Result.bind (fun () -> input |> checkDepartment (provider.GetDepartments()))
         |> Result.bind (fun input ->
             let patient = buildPatient provider input
 

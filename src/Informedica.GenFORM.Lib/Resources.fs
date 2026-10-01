@@ -63,6 +63,9 @@ module Resources =
         abstract member GetRenalRules: unit -> RenalRule[]
         abstract member GetTotals: unit -> TotalsData[]
         abstract member GetGStandProvider: unit -> Check.GStandProvider
+        /// The departments the loaded rules name and the default; only the default when the
+        /// rules did not load, since no rule is matched then.
+        abstract member GetDepartments: unit -> Departments
         abstract member GetResourceInfo: unit -> ResourceInfo
 
     and ResourceInfo =
@@ -490,6 +493,13 @@ module Resources =
     let loadAllResources logger dataUrlId = loadAllResourcesWithRegistry (defaultRegistry logger dataUrlId)
 
 
+    /// The departments of a resolved resource set; only the default when the rules did not load.
+    let departmentsOf (loaded: LoadedResources) =
+        match loaded.Resolved |> Map.tryFind Keys.departments.Name with
+        | Some d -> d :?> Departments
+        | None -> Departments.ofNamed []
+
+
     /// A plain provider over an already-loaded resource set.
     type ResourceProvider(loaded: LoadedResources) =
         let state = loaded.State
@@ -513,6 +523,8 @@ module Resources =
 
             member _.GetGStandProvider() =
                 loaded.Resolved[Keys.gStandProvider.Name] :?> Check.GStandProvider
+
+            member _.GetDepartments() = departmentsOf loaded
 
             member _.GetResourceInfo() = resourceInfo state
 
@@ -610,5 +622,7 @@ module Resources =
 
             member this.GetGStandProvider() =
                 this.getFromCache (fun l -> l.Resolved[Keys.gStandProvider.Name] :?> Check.GStandProvider)
+
+            member this.GetDepartments() = this.getFromCache departmentsOf
 
             member this.GetResourceInfo() = this.getFromCache (fun l -> resourceInfo l.State)

@@ -110,7 +110,7 @@ module OrderContext =
 
 
     /// The refusal for the context, read from the provider's dose rules: the picks alone,
-    /// then the picks with the patient as the rules match it (matchedPatient is in Api.fs).
+    /// then the picks with the patient (matchedPatient is in OrderContext.fs).
     /// Without a weight and a height no rule covers the patient.
     let refusal provider (ctx: OrderContext) =
         let forPicks = Api.getDoseRules provider |> Api.filterDoseRules provider (picks ctx)
@@ -118,7 +118,7 @@ module OrderContext =
         match ctx.Patient.Weight, ctx.Patient.Height with
         | Some w, Some h ->
             forPicks
-            |> Api.filterDoseRules provider { picks ctx with Patient = ctx |> matchedPatient provider w h }
+            |> Api.filterDoseRules provider { picks ctx with Patient = ctx |> matchedPatient w h }
             |> refusalOf forPicks
         | _ -> refusalOf forPicks [||]
 
@@ -227,11 +227,7 @@ let start = DateTime(2026, 9, 28)
 /// and nothing else.
 type Rules(rules: Types.DoseRule[]) =
     interface Resources.IResourceProvider with
-        member _.Get(key: Resources.ResourceKey<'T>) : 'T =
-            if key.Name = Resources.Keys.departments.Name then
-                box (Resources.Departments.ofNamed []) :?> 'T
-            else
-                raise (NotImplementedException())
+        member _.Get(_: Resources.ResourceKey<'T>) : 'T = raise (NotImplementedException())
         member _.GetData() = raise (NotImplementedException())
         member _.GetUnitMappings() = raise (NotImplementedException())
         member _.GetRouteMappings() = [||]
@@ -247,6 +243,7 @@ type Rules(rules: Types.DoseRule[]) =
         member _.GetRenalRules() = [||]
         member _.GetTotals() = raise (NotImplementedException())
         member _.GetGStandProvider() = raise (NotImplementedException())
+        member _.GetDepartments() = Resources.Departments.ofNamed []
         member _.GetResourceInfo() = raise (NotImplementedException())
 
 

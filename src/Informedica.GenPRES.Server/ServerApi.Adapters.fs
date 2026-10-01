@@ -347,11 +347,7 @@ module Adapters =
                 }
             requireLoaded = fun () -> notLoaded provider
             normalValues = normalValuesOf provider
-            departments =
-                fun () ->
-                    match notLoaded provider with
-                    | None -> provider.Get Informedica.GenForm.Lib.Resources.Keys.departments |> Some
-                    | Some _ -> None
+            departments = fun () -> provider.GetDepartments()
             // a stub with a two-minute Launch lifetime; its sessions live as long as this
             // AppEnv, and the record as long as its store
             session =

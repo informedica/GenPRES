@@ -119,11 +119,11 @@ let tests =
                     (Some(ValueUnit.singleWithUnit Units.Time.day (BigRational.fromInt 3905)))
             }
 
-            test "an empty department stays empty; the old mapper made it ICK" {
+            test "an empty department stays empty, in the Formulary mapper too: the lookup applies the default" {
                 (domain stub).Department |> Expect.equal "new" None
 
-                (ServerApi.Mappers.mapFromSharedPatient (Resources.Departments.ofNamed []) stub).Department
-                |> Expect.equal "old" (Some "ICK")
+                (ServerApi.Mappers.mapFromSharedPatient stub).Department
+                |> Expect.equal "Formulary" None
             }
 
             test "golden: which categories a patient without a department matches, before and after" {
@@ -137,9 +137,9 @@ let tests =
                 let rows pat = categories |> List.map (PatientCategory.filterPatient pat)
 
                 stub
-                |> ServerApi.Mappers.mapFromSharedPatient (Resources.Departments.ofNamed [])
+                |> ServerApi.Mappers.mapFromSharedPatient
                 |> rows
-                |> Expect.equal "before: ICK and the rules for every department" [ true; false; true ]
+                |> Expect.equal "the Formulary mapper: the same" [ false; false; true ]
 
                 // a patient with no department matches the rules that name none and no others,
                 // so the mapper's empty department is no longer every department's rules

@@ -76,8 +76,16 @@ module Api =
     // Filtering functions using cached mappings
 
 
-    let filterDoseRules (provider: IResourceProvider) filter doseRules =
+    /// The patient with its own department, else the provider's default. The rule lookups match
+    /// with it; the patient a caller holds keeps the department it has.
+    let withDefaultDepartment (provider: IResourceProvider) (pat: Patient) =
+        { pat with Department = pat.Department |> Departments.forPatient (provider.GetDepartments()) }
+
+
+    let filterDoseRules (provider: IResourceProvider) (filter: DoseFilter) doseRules =
         let routeMappings = getRouteMapping provider
+        let filter = { filter with Patient = filter.Patient |> withDefaultDepartment provider }
+
         DoseRule.filter routeMappings filter doseRules
 
 
@@ -87,14 +95,20 @@ module Api =
         let routeMappings = getRouteMapping provider
         let renalRules = getRenalRules provider
 
-        PrescriptionRule.getForPatient doseRules solutionRules renalRules routeMappings
+        withDefaultDepartment provider
+        >> PrescriptionRule.getForPatient doseRules solutionRules renalRules routeMappings
 
 
-    let filterPrescriptionRules (provider: IResourceProvider) filter : Result<PrescriptionRule array, Message list> =
+    let filterPrescriptionRules
+        (provider: IResourceProvider)
+        (filter: DoseFilter)
+        : Result<PrescriptionRule array, Message list>
+        =
         let doseRules = getDoseRules provider
         let solutionRules = getSolutionRules provider
         let routeMappings = getRouteMapping provider
         let renalRules = getRenalRules provider
+        let filter = { filter with Patient = filter.Patient |> withDefaultDepartment provider }
 
         let chunkSize =
             let c = (doseRules |> Array.length) / 12

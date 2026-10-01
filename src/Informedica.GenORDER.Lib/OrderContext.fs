@@ -566,30 +566,12 @@ module OrderContext =
     module Prescription = Order.Schedule
 
 
-    /// The department the rules match a patient with: its own, or the provider's default. The
-    /// default applies to the matching only and never to the patient. A provider whose load
-    /// failed registers no departments; the patient's own then stands, so that the lookup
-    /// answers the empty rules such a provider holds instead of raising.
-    let matchedDepartment (provider: Resources.IResourceProvider) (pat: Patient) =
-        try
-            pat.Department
-            |> Resources.Departments.forPatient (provider.Get Resources.Keys.departments)
-        with :? System.Collections.Generic.KeyNotFoundException ->
-            pat.Department
-
-
-    /// The context afresh for a patient: the pick lists read for the patient as the rules match
-    /// it, so that a patient without a department is offered what the default department's rules
-    /// offer, as the evaluation does. Read for the patient as sent, the lists lacked every rule
-    /// whose reconstitution names a department, and the reconcile dropped a form the evaluation
-    /// had offered. The patient itself keeps the department it has.
+    /// The context afresh for a patient: the pick lists of the rules for the patient, matched
+    /// as every rule lookup matches it, so they hold what the evaluation offers.
     let create logger provider (pat: Patient) =
         let pat = { pat with Weight = pat.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram) }
 
-        let opts =
-            { pat with Department = pat |> matchedDepartment provider }
-            |> getPrescriptionRules logger provider
-            |> PrescriptionRule.filterOptions
+        let opts = pat |> getPrescriptionRules logger provider |> PrescriptionRule.filterOptions
 
         let filter =
             {
@@ -636,13 +618,12 @@ module OrderContext =
         }
 
 
-    /// The patient as the rules match it: the provider's default department for one without,
-    /// which applies to the matching only and never to the patient, and the weight and the
-    /// height it has.
-    let matchedPatient (provider: Resources.IResourceProvider) w h (ctx: OrderContext) : Patient =
+    /// The patient of the context with the weight and the height it has, as the rule lookup
+    /// takes it.
+    let matchedPatient w h (ctx: OrderContext) : Patient =
         {
             Location = ctx.Patient.Location
-            Department = ctx.Patient |> matchedDepartment provider
+            Department = ctx.Patient.Department
             Age = ctx.Patient.Age
             GestAge = ctx.Patient.GestAge
             PMAge = ctx.Patient.PMAge
@@ -671,7 +652,7 @@ module OrderContext =
                 { picks ctx with
                     Diluent = ctx.Filter.Diluent
                     Components = ctx.Filter.SelectedComponents |> Array.toList //TODO probably go for lists
-                    Patient = ctx |> matchedPatient provider w h
+                    Patient = ctx |> matchedPatient w h
                 }
 
             let opts =
@@ -983,8 +964,8 @@ Scenarios: {scenarios}
     let noDoseRulesMessage = "Geen doseerregels gevonden voor het geselecteerde filter"
 
 
-    /// Which refusal an empty answer is, from the dose rules for the picks: none with the
-    /// patient left out is the first case; none with the patient in is the second; some with
+    /// Which refusal an empty answer is, from the dose rules for the picks: none in the
+    /// patient's department is the first case; none with the patient in is the second; some with
     /// the patient in, which the rule lookup then dropped for having no product or no dose
     /// type, is the third. Reads only whether each set is empty.
     let refusalOf (forPicks: 'a[]) (forPatient: 'a[]) =
@@ -996,16 +977,21 @@ Scenarios: {scenarios}
             Refusal.NoProducts
 
 
-    /// The refusal for the context, read from the provider's dose rules: the picks alone,
-    /// then the picks with the patient as the rules match it. Without a weight and a height
-    /// no rule covers the patient.
+    /// The refusal for the context, read from the provider's dose rules: the picks in the
+    /// patient's department, then the picks with the patient as the rules match it. Without a
+    /// weight and a height no rule covers the patient.
     let refusal provider (ctx: OrderContext) =
-        let forPicks = Api.getDoseRules provider |> Api.filterDoseRules provider (picks ctx)
+        // the department alone, so that a rule of the patient's ward counts as one for the picks
+        let forPicks =
+            Api.getDoseRules provider
+            |> Api.filterDoseRules
+                provider
+                { picks ctx with Patient = { Patient.patient with Department = ctx.Patient.Department } }
 
         match ctx.Patient.Weight, ctx.Patient.Height with
         | Some w, Some h ->
             forPicks
-            |> Api.filterDoseRules provider { picks ctx with Patient = ctx |> matchedPatient provider w h }
+            |> Api.filterDoseRules provider { picks ctx with Patient = ctx |> matchedPatient w h }
             |> refusalOf forPicks
         | _ -> refusalOf forPicks [||]
 
