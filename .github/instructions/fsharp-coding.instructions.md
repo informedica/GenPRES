@@ -176,15 +176,21 @@ module Patient =
 
 ### Type annotations
 
-F# infers types. Annotate a parameter or a return type only where the compiler cannot infer it:
+F# infers types. Do not annotate a type the compiler can infer; annotate a parameter or a return type only where
+it cannot:
 
-- a member access on a parameter whose type is not known yet (`provider.Get`, `x.Length`)
+- a member access on a parameter whose type is not known yet at that point (`provider.Get`, `x.Length`)
 - an overloaded method or operator that needs to know the argument type
-- a record expression whose field names more than one record type shares
-- a generic value the compiler would otherwise restrict (the value restriction)
+- a record expression or field access where the compiler picks the wrong record type from the field names
+
+Inference reads a definition top to bottom and does not look at later call sites. A type is inferred when the body
+fixes it before it is needed, for example by passing the parameter to a function whose parameter type is known.
+Prefer code that lets the compiler infer the type over an annotation: pipe the value whose type is known first
+(`xs |> List.map _.Length`), or use a module function (`String.length s`) instead of a member (`s.Length`).
 
 Do not add an annotation to document a type; IntelliSense and the generated API reference show the inferred one.
-When a call site already fixes the type, leave the definition unannotated.
+
+New code follows this rule. When you change existing code, remove the annotations it does not need.
 
 ```fsharp
 // Bad - every type can be inferred
