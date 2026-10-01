@@ -707,6 +707,22 @@ module Types =
         }
 
 
+    /// The values a dose filter can choose from
+    type FilterOptions =
+        {
+            /// The indications of the rules
+            Indications: string[]
+            /// The generics of the rules
+            Generics: string[]
+            /// The routes of the rules
+            Routes: string[]
+            /// The pharmaceutical forms of the rules
+            Forms: string[]
+            /// The dose types of the rules
+            DoseTypes: DoseType[]
+        }
+
+
     type SolutionFilter =
         {
             /// The Generic of the SolutionRule
