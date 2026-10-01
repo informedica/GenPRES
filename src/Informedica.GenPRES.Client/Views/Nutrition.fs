@@ -920,11 +920,21 @@ module Nutrition =
         // a reopen rather than as a change
         let reopening = React.useRef false
 
-        // a change goes out with what it picked added to the scenario's picks; a reopen goes as it
-        // is, and the server keeps the picks made before the cleared one
+        // a change goes out with what it picked added to the scenario's picks; a reopen goes with
+        // the picks, and the server keeps those made before the cleared one
         let updateOrderScenario (ol: OrderLoader) =
             let isReopen = reopening.current
             reopening.current <- false
+
+            let cmd =
+                if isReopen then
+                    ctx.Scenarios
+                    |> Array.tryFind (fun sc -> sc.Order.Id = ol.Order.Id)
+                    |> Option.bind _.Picks
+                    |> Option.defaultValue [||]
+                    |> Api.OrderContextCommand.ReopenOrderScenario
+                else
+                    Api.OrderContextCommand.UpdateOrderScenario
 
             { ctx with
                 Scenarios =
@@ -946,12 +956,7 @@ module Nutrition =
                     )
             }
             |> fun updCtx ->
-                Api.OrderPlanCommand.Navigate(
-                    planRef.current,
-                    ncId,
-                    Api.OrderContextCommand.UpdateOrderScenario,
-                    updCtx
-                )
+                Api.OrderPlanCommand.Navigate(planRef.current, ncId, cmd, updCtx)
                 |> if isReopen then props.planReopen else props.planCommand
 
         let resetOrderScenario (_ol: OrderLoader) =

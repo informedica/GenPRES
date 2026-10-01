@@ -1058,7 +1058,7 @@ let reopenTests =
     let reopened = context "c-1" "paracetamol-reopened"
     let answer = plan [| reopened; context "c-2" "ibuprofen" |]
     let open' = held two (Some "c-1")
-    let clear = OrderPlanCommand.Navigate(two, "c-1", OrderContextCommand.UpdateOrderScenario, cleared)
+    let clear = OrderPlanCommand.Navigate(two, "c-1", OrderContextCommand.ReopenOrderScenario [||], cleared)
     let move = OrderPlanState.transition
     let run msgs state = msgs |> List.fold (fun s m -> move m s |> fst) state
 
