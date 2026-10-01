@@ -101,26 +101,6 @@ let tests =
                 |> Expect.isNone "none stays none"
             }
 
-            test "the picks go to the Dto and back, a list and unknown" {
-                let withPicks picks =
-                    { context with Scenarios = context.Scenarios |> Array.map (fun sc -> { sc with Picks = picks }) }
-
-                let back picks =
-                    (withPicks picks
-                     |> OrderContextMapper.ofModel
-                     |> OrderContextMapper.toModel false)
-                        .Scenarios
-                    |> Array.map _.Picks
-
-                context.Scenarios |> Expect.isNonEmpty "the context has a scenario"
-
-                back (Some [| "frequency"; "dose" |])
-                |> Array.forall ((=) (Some [| "frequency"; "dose" |]))
-                |> Expect.isTrue "the list, in order"
-
-                back None |> Array.forall Option.isNone |> Expect.isTrue "unknown stays unknown"
-            }
-
             test "a plan context JSON from before the field, a version 1 row, reads with none" {
                 let json =
                     (context |> OrderContextMapper.ofModel |> Canonical.serialize)

@@ -2006,7 +2006,6 @@ module DtoTests =
                 UseRenalRule = false
                 RenalRule = None
                 ProductsIds = [| "gpk-1" |]
-                Picks = Some []
             }
 
 
@@ -2309,7 +2308,6 @@ module OrderPlanDtoTests =
                 UseRenalRule = false
                 RenalRule = None
                 ProductsIds = [| "gpk-1" |]
-                Picks = Some []
             }
 
         let context: OrderContext =
