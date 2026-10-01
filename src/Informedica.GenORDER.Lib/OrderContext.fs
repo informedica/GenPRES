@@ -700,11 +700,13 @@ module OrderContext =
                     Patient = ctx |> matchedPatient provider w h
                 }
 
-            let inds = doseFilter |> filterIndications logger provider
-            let gens = doseFilter |> filterGenerics logger provider
-            let rtes = doseFilter |> filterRoutes logger provider
-            let frms = doseFilter |> filterForms logger provider
-            let dsts = doseFilter |> filterDoseTypes logger provider
+            let prs = doseFilter |> filterPrescriptionRules logger provider
+
+            let inds = prs |> PrescriptionRule.indications
+            let gens = prs |> PrescriptionRule.generics
+            let rtes = prs |> PrescriptionRule.routes
+            let frms = prs |> PrescriptionRule.forms
+            let dsts = prs |> PrescriptionRule.doseTypes
 
             let ind = inds |> Array.someIfOne
             let gen = gens |> Array.someIfOne
