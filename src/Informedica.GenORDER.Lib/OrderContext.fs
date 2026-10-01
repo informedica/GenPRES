@@ -969,7 +969,7 @@ Scenarios: {scenarios}
                 sc.Order
                 |> OrderReopen.reopen logger picks
                 |> Option.bind Result.toOption
-                |> Option.map (fun (ord, _) -> { sc with Order = ord })
+                |> Option.map (fun ord -> { sc with Order = ord })
             )
 
         match reopened with
