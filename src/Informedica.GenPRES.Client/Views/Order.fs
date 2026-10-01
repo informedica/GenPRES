@@ -594,8 +594,27 @@ module Order =
         // a reopen rather than as a change
         let reopening = React.useRef false
 
-        // a change goes out with what it picked added to the scenario's picks; a reopen goes with
-        // the picks, and the server keeps those made before the cleared one
+        // the variables the user picked or stepped in the workbench, in the order picked; a new
+        // order starts with none; the plan dialog keeps no picks
+        let initialPicks =
+            if props.editing = PlanContextPolicy.Editing.Workbench then
+                Some [||]
+            else
+                None
+
+        let picks, setPicks = React.useState<string[] option> initialPicks
+
+        // the picks before a reopen, put back when its list closes without a pick
+        let heldPicks = React.useRef<string[] option> None
+
+        // the variable a step moves and the order it started from, until its answer lands
+        let stepping = React.useRef<(string * Order) option> None
+
+        // a new order, also after a patient change or a resource sync, starts from the initial picks
+        React.useEffect ((fun () -> setPicks initialPicks), [| box (shownOrder |> Option.map _.Id) |])
+
+        // a change goes out and adds what it picked to the picks; a reopen goes with the picks from
+        // before it, and the server keeps those made before the cleared one
         let updateOrderScenario (ol: OrderLoader) =
             match props.orderContext with
             | OrderContextView.Settled ctx
@@ -604,11 +623,9 @@ module Order =
                 let isReopen = reopening.current
                 reopening.current <- false
 
-                let picks =
-                    ctx.Scenarios
-                    |> Array.tryFind (fun sc -> sc.Order.Id = ol.Order.Id)
-                    |> Option.bind _.Picks
-                    |> Option.defaultValue [||]
+                if not isReopen then
+                    shownOrder
+                    |> Option.iter (fun before -> setPicks (picks |> PickList.afterChange before ol.Order))
 
                 { ctx with
                     Scenarios =
@@ -621,25 +638,23 @@ module Order =
                                     Component = ol.Component
                                     Item = ol.Item
                                     Order = ol.Order
-                                    Picks =
-                                        if isReopen then
-                                            sc.Picks
-                                        else
-                                            sc.Picks |> PickList.afterChange sc.Order ol.Order
                                 }
                         )
                 }
                 |> if isReopen then
-                       props.reopenOrderScenario picks
+                       props.reopenOrderScenario (heldPicks.current |> Option.defaultValue [||])
                    else
                        props.updateOrderScenario
             | _ -> ()
 
+        // a reset keeps the order id, so it starts from the initial picks itself
         let resetOrderScenario (ol: OrderLoader) =
             match props.orderContext with
             | OrderContextView.Settled ctx
             | OrderContextView.Refused(ctx, _)
             | OrderContextView.Changing ctx ->
+                setPicks initialPicks
+
                 { ctx with
                     Scenarios =
                         ctx.Scenarios
@@ -658,8 +673,24 @@ module Order =
             | _ -> ()
 
         let stepper =
-            let create nav =
+            // the variable each stepper moves, by name
+            let frequencyOf (ol: OrderLoader) = Some ol.Order.Schedule.Frequency.Name
+            let doseQuantityOf (ol: OrderLoader) = Some ol.Order.Orderable.Dose.Quantity.Name
+            let doseRateOf (ol: OrderLoader) = Some ol.Order.Orderable.Dose.Rate.Name
+
+            let componentQuantityOf (ol: OrderLoader) =
+                ol.Order.Orderable.Components
+                |> Array.tryFind (fun c -> ol.Component = Some c.Name)
+                |> Option.map _.OrderableQuantity.Name
+
+            // a step notes the variable it moves, so its answer can add it to the picks
+            let stepped nameOf (ol: OrderLoader) =
+                stepping.current <- nameOf ol |> Option.map (fun name -> name, ol.Order)
+
+            let create nameOf nav =
                 fun (ol: OrderLoader) ->
+                    stepped nameOf ol
+
                     match props.orderContext with
                     | OrderContextView.Settled ctx
                     | OrderContextView.Refused(ctx, _)
@@ -681,8 +712,10 @@ module Order =
                         |> nav
                     | _ -> ()
 
-            let createWithCmp nav =
+            let createWithCmp nameOf nav =
                 fun (ol: OrderLoader) ->
+                    stepped nameOf ol
+
                     match props.orderContext with
                     | OrderContextView.Settled ctx
                     | OrderContextView.Refused(ctx, _)
@@ -709,8 +742,10 @@ module Order =
                             nav (ctx, cmp)
                     | _ -> ()
 
-            let createWithN nav =
+            let createWithN nameOf nav =
                 fun (n, uc) (ol: OrderLoader) ->
+                    stepped nameOf ol
+
                     match props.orderContext with
                     | OrderContextView.Settled ctx
                     | OrderContextView.Refused(ctx, _)
@@ -737,8 +772,10 @@ module Order =
                             nav (ctx, n, uc)
                     | _ -> ()
 
-            let createWithCmpN nav =
+            let createWithCmpN nameOf nav =
                 fun (n, uc) (ol: OrderLoader) ->
+                    stepped nameOf ol
+
                     match props.orderContext with
                     | OrderContextView.Settled ctx
                     | OrderContextView.Refused(ctx, _)
@@ -767,29 +804,29 @@ module Order =
 
             {|
                 // Frequency
-                setFreqMin = create props.stepOrderScenario.setMinFrequency
-                setFreqDec = create props.stepOrderScenario.decrFrequency
-                setFreqMed = create props.stepOrderScenario.setMedianFrequency
-                setFreqInc = create props.stepOrderScenario.incrFrequency
-                setFreqMax = create props.stepOrderScenario.setMaxFrequency
+                setFreqMin = create frequencyOf props.stepOrderScenario.setMinFrequency
+                setFreqDec = create frequencyOf props.stepOrderScenario.decrFrequency
+                setFreqMed = create frequencyOf props.stepOrderScenario.setMedianFrequency
+                setFreqInc = create frequencyOf props.stepOrderScenario.incrFrequency
+                setFreqMax = create frequencyOf props.stepOrderScenario.setMaxFrequency
                 // Dose Rate
-                setRateMin = create props.stepOrderScenario.setMinRate
-                setRateDec = createWithN props.stepOrderScenario.decrRate
-                setRateMed = create props.stepOrderScenario.setMedianRate
-                setRateInc = createWithN props.stepOrderScenario.incrRate
-                setRateMax = create props.stepOrderScenario.setMaxRate
+                setRateMin = create doseRateOf props.stepOrderScenario.setMinRate
+                setRateDec = createWithN doseRateOf props.stepOrderScenario.decrRate
+                setRateMed = create doseRateOf props.stepOrderScenario.setMedianRate
+                setRateInc = createWithN doseRateOf props.stepOrderScenario.incrRate
+                setRateMax = create doseRateOf props.stepOrderScenario.setMaxRate
                 // Dose Quantity
-                setDoseQtyMin = create props.stepOrderScenario.setMinDoseQty
-                setDoseQtyDec = createWithN props.stepOrderScenario.decrDoseQty
-                setDoseQtyMed = create props.stepOrderScenario.setMedianDoseQty
-                setDoseQtyInc = createWithN props.stepOrderScenario.incrDoseQty
-                setDoseQtyMax = create props.stepOrderScenario.setMaxDoseQty
+                setDoseQtyMin = create doseQuantityOf props.stepOrderScenario.setMinDoseQty
+                setDoseQtyDec = createWithN doseQuantityOf props.stepOrderScenario.decrDoseQty
+                setDoseQtyMed = create doseQuantityOf props.stepOrderScenario.setMedianDoseQty
+                setDoseQtyInc = createWithN doseQuantityOf props.stepOrderScenario.incrDoseQty
+                setDoseQtyMax = create doseQuantityOf props.stepOrderScenario.setMaxDoseQty
                 // Component Quantity
-                setComponentQtyMin = createWithCmp props.stepOrderScenario.setMinComponentQty
-                setComponentQtyDec = createWithCmpN props.stepOrderScenario.decrComponentQty
-                setComponentQtyMed = createWithCmp props.stepOrderScenario.setMedianComponentQty
-                setComponentQtyInc = createWithCmpN props.stepOrderScenario.incrComponentQty
-                setComponentQtyMax = createWithCmp props.stepOrderScenario.setMaxComponentQty
+                setComponentQtyMin = createWithCmp componentQuantityOf props.stepOrderScenario.setMinComponentQty
+                setComponentQtyDec = createWithCmpN componentQuantityOf props.stepOrderScenario.decrComponentQty
+                setComponentQtyMed = createWithCmp componentQuantityOf props.stepOrderScenario.setMedianComponentQty
+                setComponentQtyInc = createWithCmpN componentQuantityOf props.stepOrderScenario.incrComponentQty
+                setComponentQtyMax = createWithCmp componentQuantityOf props.stepOrderScenario.setMaxComponentQty
             |}
 
         // the reopen flag is read before the update, which resets it
@@ -818,10 +855,19 @@ module Order =
         React.useEffect (
             (fun () ->
                 match props.orderContext with
-                | OrderContextView.Settled _
+                | OrderContextView.Settled ctx ->
+                    setChanging None
+                    setReopenedFrom None
+
+                    match stepping.current, ctx.Scenarios |> Array.tryExactlyOne with
+                    | Some(name, before), Some sc -> setPicks (picks |> PickList.afterStep name before sc.Order)
+                    | _ -> ()
+
+                    stepping.current <- None
                 | OrderContextView.Refused _ ->
                     setChanging None
                     setReopenedFrom None
+                    stepping.current <- None
                 | _ -> ()
             ),
             [| box props.orderContext |]
@@ -1118,20 +1164,21 @@ module Order =
 
         // a field's select: rests while another field is changing, shows it while its own is; a
         // field the editing does not let change shows its value, without steps or a dropdown
-        let picks =
-            shownContext
-            |> Option.bind (_.Scenarios >> Array.tryExactlyOne)
-            |> Option.bind _.Picks
-
-        // a field reopens by its arrow when the user constrained its variable, by name
+        // a field reopens by its arrow when the user constrained its variable, by name; the reopen
+        // keeps the picks made before it, and a list closed without a pick puts them all back
         let reopenOf (name: string) : ViewHelpers.Reopen =
             {|
                 constrained = PickList.constrained picks name
                 reopening =
                     fun () ->
+                        heldPicks.current <- picks
+                        setPicks (picks |> PickList.beforeReopen name)
                         reopening.current <- true
                         setReopenedFrom shownOrder
-                restore = props.restoreOrderScenario
+                restore =
+                    fun () ->
+                        setPicks heldPicks.current
+                        props.restoreOrderScenario ()
                 busy = isOrderLoading
             |}
 
