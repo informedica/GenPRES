@@ -500,6 +500,35 @@ module NutritionSlot =
     let alignCenterSx = {| alignItems = "center" |}
 
 
+    // the summary wraps onto more lines rather than clip a value at the header's edge
+    let flexOverflowSx =
+        {|
+            display = "flex"
+            flexWrap = "wrap"
+            alignItems = "center"
+            width = "100%"
+        |}
+
+
+    // the administration of a scenario as pills, one per value the server printed, each in
+    // its own severity
+    let adminSummary (name: string) (rows: TextBlock[][]) =
+        Components.AdministrationSummary.View
+            {|
+                name = name
+                rows =
+                    rows
+                    |> Array.map (
+                        Array.map (fun block ->
+                            {|
+                                text = block |> ViewHelpers.textBlockText |> String.trim
+                                severity = block |> Severity.ofTextBlock
+                            |}
+                        )
+                    )
+            |}
+
+
     /// The controls of one slot, built from its order context and ready to be laid out.
     type Slot =
         {
