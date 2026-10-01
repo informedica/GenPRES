@@ -278,16 +278,7 @@ module SignDialog =
                 </Box>
                 """
 
-        let progress =
-            if busy then
-                JSX.jsx
-                    $"""
-                <Box sx={ {| marginTop = 2 |} }>
-                    <CircularProgress size={24} />
-                </Box>
-                """
-            else
-                null
+        let progress = ViewHelpers.busyProgress busy
 
         let primary =
             match notice with
@@ -311,7 +302,6 @@ module SignDialog =
         import Box from '@mui/material/Box';
         import Button from '@mui/material/Button';
         import Chip from '@mui/material/Chip';
-        import CircularProgress from '@mui/material/CircularProgress';
         import Dialog from '@mui/material/Dialog';
         import DialogActions from '@mui/material/DialogActions';
         import DialogContent from '@mui/material/DialogContent';

@@ -698,6 +698,23 @@ module ViewHelpers =
             null
 
 
+    /// A small spinner below a form's button while its request is under way.
+    let busyProgress isBusy =
+        if isBusy then
+            let progressSx = {| marginTop = 2 |}
+
+            JSX.jsx
+                $"""
+            import CircularProgress from '@mui/material/CircularProgress';
+            import Box from '@mui/material/Box';
+            <Box sx={progressSx}>
+                <CircularProgress size={24} />
+            </Box>
+            """
+        else
+            null
+
+
     let circularProgress =
         let circularProgressSx =
             {|
