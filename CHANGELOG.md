@@ -1,5 +1,5 @@
 ---
-last_commit_released: 0add03f7018a2d3c5a866615f45553f8450f6b54
+last_commit_released: 3fcaa90c618aeffac24a35ca1c13605ad1b2a9e7
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,31 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.43 - 2026-10-01
+
+### 🚀 Features
+
+* *(ui)* Lay out nutrition components as fixed rows ([6f5c2211](https://github.com/informedica/GenPRES/commit/6f5c22114d7a09a43ae2fcfb99c0b429bd97d264))
+* *(ui)* Rework the TPN slot layout ([74987d39](https://github.com/informedica/GenPRES/commit/74987d394cdb02c982e8b0b8791b99f376a6c991))
+* *(ui)* Add the TPN toolbar with intake slider ([75cfec58](https://github.com/informedica/GenPRES/commit/75cfec585b26dc22c5b11a84be788375a938d96b))
+
+### 🐞 Bug Fixes
+
+* *(client)* Decide a reopen once, on its answer ([e247b9a0](https://github.com/informedica/GenPRES/commit/e247b9a08c252ec038e7aec01566dad4a810aeb1))
+* *(client)* Draw the placeholder in the select ([7afa53e4](https://github.com/informedica/GenPRES/commit/7afa53e47ec6dfd7c38a83190006d26d64fba420))
+* *(client)* Let go of the reopened order on restore ([5ff33c7e](https://github.com/informedica/GenPRES/commit/5ff33c7e5e2b5669fee8e0869b36d02b530eb0f1))
+* *(genform)* Match the patient's department in the rule lookup ([3ca280b7](https://github.com/informedica/GenPRES/commit/3ca280b75f9ac1bb25bdf50f15428f2981890aec))
+* *(genform)* Keep the department check for a department-only patient ([fbde4987](https://github.com/informedica/GenPRES/commit/fbde49876dac5e76fd6537453b6bf4dce2d68f7c))
+* *(genorder)* Log errors when rules cannot be read ([a3421fe7](https://github.com/informedica/GenPRES/commit/a3421fe7a8e1196855d49f17924442012da82c84))
+* *(genorder)* Ask the refusal's picks in the patient's department ([33681800](https://github.com/informedica/GenPRES/commit/33681800ab109bfe1f53c70c12c5c37e7d317b6d))
+* *(ui)* Fit nutrition component rows to their columns ([be67c4c3](https://github.com/informedica/GenPRES/commit/be67c4c32271b639580b6f7a558122c711d29f1a))
+
+### ⚡ Performance Improvements
+
+* *(genorder)* Filter prescription rules once in getRules ([d35160ea](https://github.com/informedica/GenPRES/commit/d35160eaabd6e91d690737c38f50c350e98d025f))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/0add03f7018a2d3c5a866615f45553f8450f6b54..3fcaa90c618aeffac24a35ca1c13605ad1b2a9e7)</small></strong>
 
 ## 0.1.2-alpha.42 - 2026-09-30
 
