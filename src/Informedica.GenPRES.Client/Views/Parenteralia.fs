@@ -91,8 +91,7 @@ module Parenteralia =
             | OrderContextView.Refused _
             | OrderContextView.Settled _ -> false
 
-        let select = ViewHelpers.filterSelect busy
-        let autoComplete = ViewHelpers.autoComplete busy
+        let responsiveFilter = ViewHelpers.responsiveFilter isMobile busy
 
         let patientNotice =
             Components.PatientNotice.View
@@ -129,17 +128,12 @@ module Parenteralia =
                      | Refreshing par -> true, par.Generic, par.Generics
                      | _ -> true, None, [||]
                      |> fun (isLoading, sel, items) ->
-                         if isMobile then
-                             items
-                             |> Array.map (fun s -> s, s)
-                             |> select isLoading (Terms.``Formulary Medications`` |> getTerm "Medicatie") sel (GenericChange >> dispatch)
-                         else
-                             items
-                             |> autoComplete
-                                 isLoading
-                                 (Terms.``Formulary Medications`` |> getTerm "Medicatie")
-                                 sel
-                                 (GenericChange >> dispatch)
+                         items
+                         |> responsiveFilter
+                             isLoading
+                             (Terms.``Formulary Medications`` |> getTerm "Medicatie")
+                             sel
+                             (GenericChange >> dispatch)
 
                 }
                     {match parenteralia with
@@ -149,25 +143,16 @@ module Parenteralia =
                      |> fun (isLoading, sel, items) ->
                          if items |> Array.isEmpty then
                              null
-                         else if isMobile then
-                             items
-                             |> Array.map (fun s -> s, s)
-                             |> select isLoading (Terms.``Formulary Indications`` |> getTerm "Forms") sel (FormChange >> dispatch)
                          else
                              items
-                             |> autoComplete isLoading (Terms.``Formulary Indications`` |> getTerm "Forms") sel (FormChange >> dispatch)}
+                             |> responsiveFilter isLoading (Terms.``Formulary Indications`` |> getTerm "Forms") sel (FormChange >> dispatch)}
                     {match parenteralia with
                      | Resolved par -> false, par.Route, par.Routes
                      | Refreshing par -> true, par.Route, par.Routes
                      | _ -> true, None, [||]
                      |> fun (isLoading, sel, items) ->
-                         if isMobile then
-                             items
-                             |> Array.map (fun s -> s, s)
-                             |> select isLoading (Terms.``Formulary Routes`` |> getTerm "Routes") sel (RouteChange >> dispatch)
-                         else
-                             items
-                             |> autoComplete isLoading (Terms.``Formulary Routes`` |> getTerm "Routes") sel (RouteChange >> dispatch)
+                         items
+                         |> responsiveFilter isLoading (Terms.``Formulary Routes`` |> getTerm "Routes") sel (RouteChange >> dispatch)
 
                 }
 

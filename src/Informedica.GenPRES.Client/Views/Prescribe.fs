@@ -165,7 +165,7 @@ module Prescribe =
                     enabled = not isAnythingLoading
                 |}
 
-        let autoComplete = ViewHelpers.autoComplete isAnythingLoading
+        let responsiveFilter = ViewHelpers.responsiveFilter isMobile isAnythingLoading
 
         // what the patient data misses for the dose rules, said above the selects while it
         // holds: no patient yet, or one without a weight or a height, measured or estimated, or
@@ -433,10 +433,7 @@ module Prescribe =
                          let isLoading = isSourceLoading IndicationLoading
                          let lbl = Terms.``Prescribe Indications`` |> getTerm "Indicaties"
 
-                         if isMobile then
-                             items |> Array.map (fun s -> s, s) |> select isLoading lbl sel indicationChange
-                         else
-                             items |> autoComplete isLoading lbl sel indicationChange}
+                         items |> responsiveFilter isLoading lbl sel indicationChange}
                     <Stack direction={stackDirection} spacing={if isMobile then 1 else 3} >
                         {match orderContext with
                          | OrderContextView.Settled pr
@@ -447,10 +444,7 @@ module Prescribe =
                              let isLoading = isSourceLoading MedicationLoading
                              let lbl = Terms.``Prescribe Medications`` |> getTerm "Medicatie"
 
-                             if isMobile then
-                                 items |> Array.map (fun s -> s, s) |> select isLoading lbl sel medicationChange
-                             else
-                                 items |> autoComplete isLoading lbl sel medicationChange
+                             items |> responsiveFilter isLoading lbl sel medicationChange
 
                 }
                         {match orderContext with
@@ -462,10 +456,7 @@ module Prescribe =
                              let isLoading = isSourceLoading RouteLoading
                              let lbl = Terms.``Prescribe Routes`` |> getTerm "Routes"
 
-                             if isMobile then
-                                 items |> Array.map (fun s -> s, s) |> select isLoading lbl sel routeChange
-                             else
-                                 items |> autoComplete isLoading lbl sel routeChange
+                             items |> responsiveFilter isLoading lbl sel routeChange
 
                 }
                         {match orderContext with

@@ -628,20 +628,7 @@ module Order =
                     shownOrder
                     |> Option.iter (fun before -> setPicks (picks |> PickList.afterChange before ol.Order))
 
-                { ctx with
-                    Scenarios =
-                        ctx.Scenarios
-                        |> Array.map (fun sc ->
-                            if sc.Order.Id <> ol.Order.Id then
-                                sc
-                            else
-                                { sc with
-                                    Component = ol.Component
-                                    Item = ol.Item
-                                    Order = ol.Order
-                                }
-                        )
-                }
+                ViewHelpers.withLoader ctx ol
                 |> if isReopen then
                        props.reopenOrderScenario (heldPicks.current |> Option.defaultValue [||])
                    else
@@ -656,21 +643,7 @@ module Order =
             | OrderContextView.Changing ctx ->
                 setPicks initialPicks
 
-                { ctx with
-                    Scenarios =
-                        ctx.Scenarios
-                        |> Array.map (fun sc ->
-                            if sc.Order.Id <> ol.Order.Id then
-                                sc
-                            else
-                                { sc with
-                                    Component = ol.Component
-                                    Item = ol.Item
-                                    Order = ol.Order
-                                }
-                        )
-                }
-                |> props.refreshOrderScenario
+                ViewHelpers.withLoader ctx ol |> props.refreshOrderScenario
             | _ -> ()
 
         let stepper =
@@ -695,22 +668,7 @@ module Order =
                     match props.orderContext with
                     | OrderContextView.Settled ctx
                     | OrderContextView.Refused(ctx, _)
-                    | OrderContextView.Changing ctx ->
-                        { ctx with
-                            Scenarios =
-                                ctx.Scenarios
-                                |> Array.map (fun sc ->
-                                    if sc.Order.Id <> ol.Order.Id then
-                                        sc
-                                    else
-                                        { sc with
-                                            Component = ol.Component
-                                            Item = ol.Item
-                                            Order = ol.Order
-                                        }
-                                )
-                        }
-                        |> nav
+                    | OrderContextView.Changing ctx -> ViewHelpers.withLoader ctx ol |> nav
                     | _ -> ()
 
             let createWithCmp nameOf nav =
@@ -724,21 +682,7 @@ module Order =
                         match ol.Component with
                         | None -> ()
                         | Some cmp ->
-                            let ctx =
-                                { ctx with
-                                    Scenarios =
-                                        ctx.Scenarios
-                                        |> Array.map (fun sc ->
-                                            if sc.Order.Id <> ol.Order.Id then
-                                                sc
-                                            else
-                                                { sc with
-                                                    Component = ol.Component
-                                                    Item = ol.Item
-                                                    Order = ol.Order
-                                                }
-                                        )
-                                }
+                            let ctx = ViewHelpers.withLoader ctx ol
 
                             nav (ctx, cmp)
                     | _ -> ()
@@ -754,21 +698,7 @@ module Order =
                         match ol.Component with
                         | None -> ()
                         | Some _ ->
-                            let ctx =
-                                { ctx with
-                                    Scenarios =
-                                        ctx.Scenarios
-                                        |> Array.map (fun sc ->
-                                            if sc.Order.Id <> ol.Order.Id then
-                                                sc
-                                            else
-                                                { sc with
-                                                    Component = ol.Component
-                                                    Item = ol.Item
-                                                    Order = ol.Order
-                                                }
-                                        )
-                                }
+                            let ctx = ViewHelpers.withLoader ctx ol
 
                             nav (ctx, n, uc)
                     | _ -> ()
@@ -784,21 +714,7 @@ module Order =
                         match ol.Component with
                         | None -> ()
                         | Some cmp ->
-                            let ctx =
-                                { ctx with
-                                    Scenarios =
-                                        ctx.Scenarios
-                                        |> Array.map (fun sc ->
-                                            if sc.Order.Id <> ol.Order.Id then
-                                                sc
-                                            else
-                                                { sc with
-                                                    Component = ol.Component
-                                                    Item = ol.Item
-                                                    Order = ol.Order
-                                                }
-                                        )
-                                }
+                            let ctx = ViewHelpers.withLoader ctx ol
 
                             nav (ctx, cmp, n, uc)
                     | _ -> ()

@@ -173,22 +173,7 @@ module Formulary =
 
         let doseCheckAlertSx = {| marginTop = 1 |}
 
-        let textOf tb =
-            let items =
-                match tb with
-                | Valid xs
-                | Caution xs
-                | Warning xs
-                | Alert xs -> xs
-
-            items
-            |> Array.map (
-                function
-                | Normal s
-                | Bold s
-                | Italic s -> s
-            )
-            |> String.concat ""
+        let textOf = ViewHelpers.textBlockText
 
         let isAllValid (blocks: TextBlock[]) =
             blocks
