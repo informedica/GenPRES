@@ -1098,6 +1098,8 @@ module Order =
                 restore =
                     fun () ->
                         setPicks heldPicks.current
+                        // the reopen ends here: its order is no longer held, whatever the answer
+                        setReopenedFrom None
                         props.restoreOrderScenario ()
                 busy = isOrderLoading
             |}
