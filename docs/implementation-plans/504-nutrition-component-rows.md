@@ -22,9 +22,11 @@ the same as every other component.
 The redesign of #504 lays the slot out as a table: one fixed row per component with the name as
 the row label, one stepper for the quantity and the recommended range beside it.
 
-This plan is the layout only. Nothing the user can do changes: no new message, no new server
-command. #504 stays open for choosing the glucose percentage and the administration duration, #495
-for the confirm step and #506 for custom and second enteral feeds.
+This plan is the layout only, with one exception: the per-kg dose field of each component leaves
+the view, and with it the edit of the component dose per kg. The component quantity stays
+editable, and the dose per kg follows from it. Otherwise nothing the user can do changes: no new
+message, no new server command. #504 stays open for choosing the glucose percentage and the
+administration duration, #495 for the confirm step and #506 for custom and second enteral feeds.
 
 ## Decisions
 
@@ -38,7 +40,7 @@ Taken 2026-10-01 by the maintainer.
 | Checkboxes | Only on the middle components. The first component, the main composition, and the last, the solution, have none. An unchecked row is a row whose quantity is zero or empty, shown greyed. |
 | Solution dropdown | One option, the current solution. More options are a follow-up under #504. |
 | Severity mark | Stays on the stepper; the range label gets no colour of its own. |
-| Dose quantity per kg | The component dose-adjust field leaves the view. |
+| Dose quantity per kg | The component dose-adjust field leaves the view, and with it the only place to edit a component's dose per kg. This is a deliberate behaviour change: the component is set through its quantity alone. |
 | Kept as is | The divider with "totaal volume", the administration section (frequentie, toedien hoeveelheid, dosering, infuussnelheid, looptijd) and the Reset bar. |
 | Indication | Shown only with more than one option. Already so. |
 | Form | Not shown. Already so. |
@@ -80,15 +82,17 @@ range column moves under the stepper.
     option, no checkbox. More options are a follow-up under #504.
 - **Quantity column**: the existing `select` call over `cmp.OrderableQuantity`, with the same
   values (`ViewHelpers.ovarValsWithRange`), stepper (`ViewHelpers.createStepper` with the mode from
-  `QuantityModePolicy.decideFor ... ComponentQuantity`), severity mark and reopen, but with an
-  empty label: the name already stands in the label column.
+  `QuantityModePolicy.decideFor ... ComponentQuantity`), severity mark and reopen. The label
+  stays `ovarLabel cmp.Name`, because `QuantityField` uses it as the id and accessible name of the
+  select; only its visible caption is hidden, with a visually-hidden style on
+  `[data-part="label"]` from the row's `sx`, since the name already stands in the label column.
 - **Range column**: a `Typography` with `Variable.renderValue` over
   `cmp.OrderableQuantity.DefinedConstraints`, in brackets, with its unit. Grey when the row's
   checkbox is unchecked.
 
-The dose-adjust field (`doseLabel`, `doseDisplay`) is removed from the view. The
-`ChangeComponentDoseQuantityAdjust` message stays until the behaviour work of #504 removes or
-reuses it.
+The dose-adjust field (`doseLabel`, `doseDisplay`) is removed from the view, so a component's dose
+per kg can no longer be edited directly. The `ChangeComponentDoseQuantityAdjust` message stays
+until the behaviour work of #504 removes or reuses it.
 
 ### Labels
 
@@ -116,6 +120,8 @@ One pull request, under 150 changed lines of `src/Informedica.GenPRES.Client`.
 - `dotnet run`, Nutrition page, add TPN, lipids and electrolytes/glucose: the rows match the
   design; stepping, the median click on the range value and the severity marks still work; the
   range is shown before and after a pick; the dose-adjust field is gone.
+- Each quantity select keeps a component-specific id and accessible name (inspect the rendered
+  element), and no two rows share an id.
 - The enteral slot is unchanged.
 - Below the mobile breakpoint the filter row and the range column stack.
 - Fable compiles and the generated JSX nests as intended; `npx vite build` passes;
