@@ -51,30 +51,82 @@ module ParenteralNutrition =
                     planRestore = props.planRestore
                     localizationTerms = props.localizationTerms
                     isRecalculating = props.isRecalculating
-                    fieldMinWidth = Some 400
+                    fieldMinWidth = None
                 |}
 
-        let frequencyControl = slot.FrequencyControl
-        let doseQtyControl = slot.DoseQuantityControl
         let genericFilter = slot.GenericFilter
         let doseTypeFilter = slot.DoseTypeFilter
 
-        let frequencyDoseRow =
+        // the dose, the rate and the time on one row while they fit, measured on the row and not
+        // the window; narrower, they stand in one column. The time takes no buttons, so it drops
+        // their room.
+        let administrationRow =
+            let containerSx =
+                {| Components.QuantityField.dropUnusedSlotsSx with
+                    containerType = "inline-size"
+                    width = "100%"
+                |}
+
+            let rowWidth =
+                2 * Components.QuantityField.fieldWidth
+                + Components.QuantityField.fieldWidthWithoutSlots
+                + 2 * 16
+
+            let flexSx =
+                createObj
+                    [
+                        "display" ==> "flex"
+                        "flexWrap" ==> "nowrap"
+                        "gap" ==> 2
+                        "alignItems" ==> "flex-end"
+                        $"@container (max-width: %i{rowWidth - 1}px)"
+                        ==> {|
+                                flexDirection = "column"
+                                alignItems = "stretch"
+                            |}
+                    ]
+
+            let itemSx =
+                {|
+                    flex = "1 1 0%"
+                    minWidth = "min-content"
+                |}
+
+            JSX.jsx
+                $"""
+            import Box from '@mui/material/Box';
+            <Box sx={containerSx}>
+                <Box sx={flexSx}>
+                    <Box sx={itemSx}>
+                        {slot.DoseQuantityControl}
+                    </Box>
+                    <Box sx={itemSx}>
+                        {slot.RateField}
+                    </Box>
+                    <Box sx={itemSx}>
+                        {slot.TimeDisplay}
+                    </Box>
+                </Box>
+            </Box>
+            """
+
+        // the total volume stands in the columns of the components, under their quantities
+        let totalVolumeRow =
             JSX.jsx
                 $"""
             import Grid from '@mui/material/Grid';
             import Box from '@mui/material/Box';
-            <Grid container spacing={{2}} sx={flexEndSx}>
-                <Grid size={halfSize}>
-                    <Box sx={cellSx}>
-                        {frequencyControl}
+            import Typography from '@mui/material/Typography';
+            <Grid container spacing={{2}} sx={alignCenterSx}>
+                <Grid size={cmpLabelSize}>
+                    <Typography variant="body1">Totaal volume</Typography>
+                </Grid>
+                <Grid size={cmpQtySize}>
+                    <Box sx={cmpQtySx}>
+                        {slot.TotalVolumeDisplay}
                     </Box>
                 </Grid>
-                <Grid size={halfSize}>
-                    <Box sx={cellSx}>
-                        {doseQtyControl}
-                    </Box>
-                </Grid>
+                <Grid size={cmpRangeSize} />
             </Grid>
             """
 
@@ -86,7 +138,7 @@ module ParenteralNutrition =
                 {slot.ComponentHeader}
                 {slot.ComponentRows |> unbox<seq<ReactElement>> |> React.Fragment}
                 <Divider />
-                {slot.TotalVolumeDisplay}
+                {totalVolumeRow}
             </>
             """
 
@@ -97,8 +149,7 @@ module ParenteralNutrition =
             <Stack direction={"column"} spacing={1} >
                 {preparationSection}
                 {slot.AdministrationHeading}
-                {frequencyDoseRow}
-                {slot.RateControl}
+                {administrationRow}
                 {slot.ResetBar}
             </Stack>
             """
