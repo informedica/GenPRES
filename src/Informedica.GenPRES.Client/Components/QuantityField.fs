@@ -186,8 +186,6 @@ module QuantityField =
         {| cellSx false (if hasButtons then "0" else "4px") with
             minWidth = 0
             overflow = "hidden"
-            // the placeholder stands over the empty select
-            position = "relative"
             backgroundColor = "background.paper"
             ``&:focus-within`` = {| borderColor = "primary.main" |}
             ``& .MuiInputLabel-root`` = {| display = "none" |}
@@ -260,17 +258,6 @@ module QuantityField =
             flexGrow = 1
             alignSelf = "stretch"
             minWidth = 0
-        |}
-
-
-    // over the empty select, where its value would stand, and out of the way of a click on it
-    let placeholderSx =
-        {|
-            position = "absolute"
-            left = "8px"
-            color = "text.disabled"
-            pointerEvents = "none"
-            whiteSpace = "nowrap"
         |}
 
 
@@ -444,6 +431,7 @@ module QuantityField =
                     reopen = props.reopen
                     restore = props.restore
                     busy = props.busy
+                    placeholder = Some props.texts.pickValue
                 |}
 
         // the step buttons rest only when the field is disabled: a step sent while the value
@@ -565,17 +553,6 @@ module QuantityField =
                 </Tooltip>
                 """
 
-        // with values to pick from and none picked the cell is not left blank: it asks for one
-        let placeholder =
-            match displaySelected, displayValues with
-            | None, values when values.Length > 0 ->
-                JSX.jsx
-                    $"""
-                import Typography from '@mui/material/Typography';
-                <Typography variant="body1" sx={placeholderSx}>{props.texts.pickValue}</Typography>
-                """
-            | _ -> null
-
         let focusSelect =
             fun _ ->
                 match Browser.Dom.document.getElementById props.label with
@@ -600,7 +577,6 @@ module QuantityField =
                 {slot2}
                 <Box sx={cellSx}>
                     {value}
-                    {placeholder}
                 </Box>
                 {slot4}
                 {slot5}

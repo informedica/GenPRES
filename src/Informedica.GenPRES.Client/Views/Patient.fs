@@ -410,6 +410,7 @@ module Patient =
                     reopen = None
                     restore = ignore
                     busy = false
+                    placeholder = None
                 |}
 
         // renal function has no "unknown" among its options, so the cross is the only way back
