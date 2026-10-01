@@ -82,6 +82,7 @@ module Dialog =
     let carries (cmd: OrderContextCommand) =
         match cmd with
         | OrderContextCommand.UpdateOrderScenario
+        | OrderContextCommand.ReopenOrderScenario _
         | OrderContextCommand.ResetOrderScenario -> true
         | _ -> false
 

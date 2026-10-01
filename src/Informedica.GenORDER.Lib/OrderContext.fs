@@ -314,6 +314,7 @@ module OrderContext =
         | UpdateOrderContext of OrderContext
         | SelectOrderScenario of OrderContext
         | UpdateOrderScenario of OrderContext
+        | ReopenOrderScenario of OrderContext * picks: string list
         | ResetOrderScenario of OrderContext
         | ReloadResources of OrderContext
         // Frequency property commands
@@ -349,6 +350,7 @@ module OrderContext =
             | UpdateOrderContext ctx -> ctx
             | SelectOrderScenario ctx -> ctx
             | UpdateOrderScenario ctx -> ctx
+            | ReopenOrderScenario(ctx, _) -> ctx
             | ResetOrderScenario ctx -> ctx
             | ReloadResources ctx -> ctx
             // Frequency property commands
@@ -382,6 +384,7 @@ module OrderContext =
             | UpdateOrderContext _ -> "UpdateOrderContext"
             | SelectOrderScenario _ -> "SelectOrderScenario"
             | UpdateOrderScenario _ -> "UpdateOrderScenario"
+            | ReopenOrderScenario(_, picks) -> $"ReopenOrderScenario %i{picks.Length} picks"
             | ResetOrderScenario _ -> "ResetOrderScenario"
             | ReloadResources _ -> "ReloadResources"
             | DecreaseScheduleFrequencyProperty _ -> "DecreaseScheduleFrequencyProperty"
@@ -960,16 +963,15 @@ Scenarios: {scenarios}
             |> updateFilterIfOneScenario
 
 
-    /// The scenario after a change from the dialog. A variable the user picked that arrives
-    /// cleared is reopened, the picks made before it kept; any other change, and a reopen that
-    /// fails to solve, is solved as it is.
-    let updateScenarioOrder (logger: Logger) (ctx: OrderContext) =
+    /// The scenario after a field's arrow cleared a value: a cleared pick reopens the order with the
+    /// picks made before it; any other clear, and a reopen that fails to solve, is solved as it is.
+    let reopenScenarioOrder logger picks (ctx: OrderContext) =
         let reopened =
             ctx.Scenarios
             |> Array.tryExactlyOne
             |> Option.bind (fun sc ->
-                sc.Picks
-                |> Option.bind (fun picks -> sc.Order |> OrderReopen.reopen logger picks)
+                sc.Order
+                |> OrderReopen.reopen logger picks
                 |> Option.bind Result.toOption
                 |> Option.map (fun (ord, picks) ->
                     { sc with
@@ -1129,7 +1131,17 @@ Scenarios: {scenarios}
             |> SelectOrderScenario
             |> Evaluated
             |> Ok
-        | UpdateOrderScenario ctx -> ctx |> updateScenarioOrder logger |> UpdateOrderScenario |> Evaluated |> Ok
+        | UpdateOrderScenario ctx ->
+            ctx
+            |> processScenarioOrder logger SolveOrder
+            |> UpdateOrderScenario
+            |> Evaluated
+            |> Ok
+        | ReopenOrderScenario(ctx, picks) ->
+            (ctx |> reopenScenarioOrder logger picks, picks)
+            |> ReopenOrderScenario
+            |> Evaluated
+            |> Ok
         | ResetOrderScenario ctx ->
             ctx
             |> processScenarioOrder logger ReCalcValues
