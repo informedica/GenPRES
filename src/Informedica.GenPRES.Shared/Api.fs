@@ -14,6 +14,8 @@ module Api =
         | UpdateOrderContext
         | SelectOrderScenario
         | UpdateOrderScenario
+        /// A value a field's arrow cleared, with the variables the user picked or stepped, in the order picked.
+        | ReopenOrderScenario of picks: string[]
         | ResetOrderScenario
         // Frequency property commands
         | DecreaseScheduleFrequencyProperty
@@ -67,6 +69,7 @@ module Api =
             | OrderContextCommand.UpdateOrderContext -> "UpdateOrderContext"
             | OrderContextCommand.SelectOrderScenario -> "SelectOrderScenario"
             | OrderContextCommand.UpdateOrderScenario -> "UpdateOrderScenario"
+            | OrderContextCommand.ReopenOrderScenario picks -> $"ReopenOrderScenario %i{picks.Length} picks"
             | OrderContextCommand.ResetOrderScenario -> "ResetOrderScenario"
             | OrderContextCommand.DecreaseScheduleFrequencyProperty -> "DecreaseScheduleFrequencyProperty"
             | OrderContextCommand.IncreaseScheduleFrequencyProperty -> "IncreaseScheduleFrequencyProperty"

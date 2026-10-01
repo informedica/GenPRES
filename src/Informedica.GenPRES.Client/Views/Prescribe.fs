@@ -577,7 +577,7 @@ module Prescribe =
                     orderContext = dialog |> Option.defaultValue OrderContextView.NoPatient
                     updateOrderScenario = fun ctx -> orderContextMsg (Api.OrderContextCommand.UpdateOrderScenario, ctx)
                     reopenOrderScenario =
-                        fun ctx -> envOrderContext.Reopen(Api.OrderContextCommand.UpdateOrderScenario, ctx)
+                        fun picks ctx -> envOrderContext.Reopen(Api.OrderContextCommand.ReopenOrderScenario picks, ctx)
                     restoreOrderScenario = envOrderContext.Restore
                     stepOrderScenario =
                         {|

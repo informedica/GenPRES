@@ -264,6 +264,8 @@ let tests =
                         Shared.Api.OrderContextCommand.UpdateOrderContext, Domain.UpdateOrderContext ctx
                         Shared.Api.OrderContextCommand.SelectOrderScenario, Domain.SelectOrderScenario ctx
                         Shared.Api.OrderContextCommand.UpdateOrderScenario, Domain.UpdateOrderScenario ctx
+                        Shared.Api.OrderContextCommand.ReopenOrderScenario [| "a"; "b" |],
+                        Domain.ReopenOrderScenario(ctx, [ "a"; "b" ])
                         Shared.Api.OrderContextCommand.ResetOrderScenario, Domain.ResetOrderScenario ctx
                         Shared.Api.OrderContextCommand.DecreaseScheduleFrequencyProperty,
                         Domain.DecreaseScheduleFrequencyProperty ctx
@@ -307,7 +309,7 @@ let tests =
                         Domain.SetMedianComponentQuantityProperty(ctx, "cmp")
                     ]
 
-                verbs |> List.length |> Expect.equal "every case of the wire's union" 24
+                verbs |> List.length |> Expect.equal "every case of the wire's union" 25
 
                 for verb, expected in verbs do
                     OrderContextMapper.Command.toDomain verb ctx |> Expect.equal $"{verb}" expected

@@ -324,6 +324,8 @@ module OrderContextMapper =
             | Shared.Api.OrderContextCommand.UpdateOrderContext -> Domain.UpdateOrderContext
             | Shared.Api.OrderContextCommand.SelectOrderScenario -> Domain.SelectOrderScenario
             | Shared.Api.OrderContextCommand.UpdateOrderScenario -> Domain.UpdateOrderScenario
+            | Shared.Api.OrderContextCommand.ReopenOrderScenario picks ->
+                fun ctx -> Domain.ReopenOrderScenario(ctx, picks |> Array.toList)
             | Shared.Api.OrderContextCommand.ResetOrderScenario -> Domain.ResetOrderScenario
             // Frequency property commands
             | Shared.Api.OrderContextCommand.DecreaseScheduleFrequencyProperty ->

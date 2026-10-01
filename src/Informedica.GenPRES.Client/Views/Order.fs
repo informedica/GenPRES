@@ -525,8 +525,9 @@ module Order =
             {|
                 orderContext: OrderContextView
                 updateOrderScenario: OrderContext -> unit
-                // a clear from a field's arrow: the page sends it and keeps what it showed before
-                reopenOrderScenario: OrderContext -> unit
+                // a clear from a field's arrow, with the picks: the page sends it and keeps what it
+                // showed before
+                reopenOrderScenario: string[] -> OrderContext -> unit
                 // the list of a reopen closed without a pick: the page puts back what it showed
                 restoreOrderScenario: unit -> unit
                 stepOrderScenario:
@@ -593,8 +594,8 @@ module Order =
         // a reopen rather than as a change
         let reopening = React.useRef false
 
-        // a change goes out with what it picked added to the scenario's picks; a reopen goes as it
-        // is, and the server keeps the picks made before the cleared one
+        // a change goes out with what it picked added to the scenario's picks; a reopen goes with
+        // the picks, and the server keeps those made before the cleared one
         let updateOrderScenario (ol: OrderLoader) =
             match props.orderContext with
             | OrderContextView.Settled ctx
@@ -602,6 +603,12 @@ module Order =
             | OrderContextView.Changing ctx ->
                 let isReopen = reopening.current
                 reopening.current <- false
+
+                let picks =
+                    ctx.Scenarios
+                    |> Array.tryFind (fun sc -> sc.Order.Id = ol.Order.Id)
+                    |> Option.bind _.Picks
+                    |> Option.defaultValue [||]
 
                 { ctx with
                     Scenarios =
@@ -623,7 +630,7 @@ module Order =
                         )
                 }
                 |> if isReopen then
-                       props.reopenOrderScenario
+                       props.reopenOrderScenario picks
                    else
                        props.updateOrderScenario
             | _ -> ()

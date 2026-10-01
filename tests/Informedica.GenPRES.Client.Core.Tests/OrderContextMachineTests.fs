@@ -888,7 +888,7 @@ let reopenTests =
     let run msgs state = msgs |> List.fold (fun s m -> move m s |> fst) state
     let view = OrderContextState.view
 
-    let reopen = OrderContextMsg.Reopen(OrderContextCommand.UpdateOrderScenario, cleared, "r-1")
+    let reopen = OrderContextMsg.Reopen(OrderContextCommand.ReopenOrderScenario [||], cleared, "r-1")
 
     let answered ctx = Ok(OrderContextResponse.Evaluated ctx)
 
@@ -903,7 +903,7 @@ let reopenTests =
                     "the clear goes out"
                     [
                         OrderContextEffect.CallContext(
-                            OrderContextCommand.UpdateOrderScenario,
+                            OrderContextCommand.ReopenOrderScenario [||],
                             { cleared with Patient = patient },
                             "r-1"
                         )
@@ -965,7 +965,7 @@ let reopenTests =
                     busy
                     |> run
                         [
-                            OrderContextMsg.Reopen(OrderContextCommand.UpdateOrderScenario, cleared, "r-2")
+                            OrderContextMsg.Reopen(OrderContextCommand.ReopenOrderScenario [||], cleared, "r-2")
                             OrderContextMsg.Answered("r-1", answered c1)
                             OrderContextMsg.Answered("r-2", answered reopened)
                         ]
