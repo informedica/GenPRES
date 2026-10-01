@@ -52,6 +52,7 @@
     <Compile Include="./Views/ContinuousMeds.fs" />
     <Compile Include="./Views/Totals.fs" />
     <Compile Include="./Views/Prescribe.fs" />
+    <Compile Include="./Views/NutritionSlot.fs" />
     <Compile Include="./Views/Nutrition.fs" />
     <Compile Include="./Views/SignDialog.fs" />
     <Compile Include="./Views/OrderPlan.fs" />
