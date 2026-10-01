@@ -435,6 +435,65 @@ module Nutrition =
 
     let private flexEndSx = {| alignItems = "flex-end" |}
 
+    // the component rows: name, quantity and range in three columns, stacked below the large
+    // breakpoint, where five twelfths of the slot no longer holds the quantity field's 400px
+    let private cmpLabelSize =
+        {|
+            xs = 12
+            lg = 4
+        |}
+
+    let private cmpQtySize =
+        {|
+            xs = 12
+            lg = 5
+        |}
+
+    let private cmpRangeSize =
+        {|
+            xs = 12
+            lg = 3
+        |}
+
+    // the column headings only make sense while the columns stand side by side
+    let private cmpHeaderSx =
+        {|
+            display =
+                {|
+                    xs = "none"
+                    lg = "flex"
+                |}
+        |}
+
+    // the name stands in the first column, so the field's own caption is hidden; it stays in the
+    // page for the screen reader, as the field also uses it as the id of its select
+    let private cmpQtySx =
+        {|
+            minWidth = 350
+            ``& .MuiFormControl-root`` = {| width = "100%" |}
+            ``& [data-part="label"]`` =
+                {|
+                    position = "absolute"
+                    width = "1px"
+                    height = "1px"
+                    overflow = "hidden"
+                    clip = "rect(0 0 0 0)"
+                    whiteSpace = "nowrap"
+                |}
+        |}
+
+    let private cmpSolutionSx = {| minWidth = 160 |}
+
+    // stacked, the column headings are hidden, so the range carries its own caption
+    let private cmpRangeCaptionSx =
+        {|
+            display =
+                {|
+                    xs = "block"
+                    lg = "none"
+                |}
+        |}
+
     let private alignCenterSx = {| alignItems = "center" |}
 
     let private boldCellSx = {| fontWeight = "bold" |}
@@ -1134,9 +1193,11 @@ module Nutrition =
         let componentRows =
             match displayOrder with
             | Some ord ->
-                ord.Orderable.Components
-                |> Array.map (fun cmp ->
-                    // Quantity control (bereiding)
+                let cmps = ord.Orderable.Components
+                let lastIdx = cmps.Length - 1
+
+                cmps
+                |> Array.mapi (fun i cmp ->
                     let qtyVals = cmp.OrderableQuantity |> ViewHelpers.ovarValsWithRange string 3
 
                     let nav =
@@ -1161,6 +1222,7 @@ module Nutrition =
 
                     let qtyWarning = cmp.OrderableQuantity |> markOf
 
+                    // the label is hidden from sight but kept: the field uses it as the id of its select
                     let qtyLabel = cmp.OrderableQuantity |> ViewHelpers.ovarLabel cmp.Name
 
                     let qtyControl =
@@ -1175,37 +1237,72 @@ module Nutrition =
                             (Some 400)
                             qtyVals
 
-                    // Dose display (dosering) - always show with label
-                    let doseLabel = cmp.Dose.QuantityAdjust |> ViewHelpers.ovarLabel cmp.Name
-                    let doseWarning = cmp.Dose.QuantityAdjust |> markOf
-                    let doseVals = cmp.Dose.QuantityAdjust |> ViewHelpers.ovarVals (fixPrecision 3)
+                    // a component is in the mix once its quantity is chosen and above zero; a list of
+                    // values still to pick from does not include it
+                    let isIncluded =
+                        cmp.OrderableQuantity.Variable.Vals
+                        |> Option.exists (fun vu ->
+                            match vu.Value with
+                            | [| _, d |] -> d > 0m
+                            | _ -> false
+                        )
 
-                    let doseDisplay =
-                        select
-                            false
-                            doseLabel
-                            None
-                            (fun s -> ChangeComponentDoseQuantityAdjust(cmp.Name, s) |> dispatch)
-                            ViewHelpers.noSteps
-                            doseWarning
-                            (reopenOf cmp.Dose.QuantityAdjust)
-                            (Some 400)
-                            doseVals
+                    let nameColor = if isIncluded then "text.primary" else "text.disabled"
+
+                    let name =
+                        JSX.jsx
+                            $"""
+                        import Typography from '@mui/material/Typography';
+                        <Typography variant="body1" color={nameColor}>{cmp.Name}</Typography>
+                        """
+
+                    // the first component is the composition and the last the solution: neither can be
+                    // left out; the checkbox and the solution choice are shown, not yet working
+                    let labelCell =
+                        if i = 0 then
+                            name
+                        elif i = lastIdx then
+                            JSX.jsx
+                                $"""
+                            import Select from '@mui/material/Select';
+                            import MenuItem from '@mui/material/MenuItem';
+                            <Select variant="standard" value={cmp.Name} disabled={true} sx={cmpSolutionSx}>
+                                <MenuItem value={cmp.Name}>{cmp.Name}</MenuItem>
+                            </Select>
+                            """
+                        else
+                            JSX.jsx
+                                $"""
+                            import Stack from '@mui/material/Stack';
+                            import Checkbox from '@mui/material/Checkbox';
+                            <Stack direction="row" sx={alignCenterSx}>
+                                <Checkbox checked={isIncluded} disabled={true} />
+                                {name}
+                            </Stack>
+                            """
+
+                    let range, rangeCaption =
+                        match cmp.OrderableQuantity.DefinedConstraints |> Variable.renderValue 3 with
+                        | "" -> "", ""
+                        | r -> $"(%s{r})", "Aanbevolen range"
 
                     JSX.jsx
                         $"""
                     import Grid from '@mui/material/Grid';
                     import Box from '@mui/material/Box';
-                    <Grid container spacing={{2}} sx={flexEndSx}>
-                        <Grid size={halfSize}>
-                            <Box sx={cellSx}>
+                    import Typography from '@mui/material/Typography';
+                    <Grid container spacing={{2}} sx={alignCenterSx}>
+                        <Grid size={cmpLabelSize}>
+                            {labelCell}
+                        </Grid>
+                        <Grid size={cmpQtySize}>
+                            <Box sx={cmpQtySx}>
                                 {qtyControl}
                             </Box>
                         </Grid>
-                        <Grid size={halfSize}>
-                            <Box sx={cellSx}>
-                                {doseDisplay}
-                            </Box>
+                        <Grid size={cmpRangeSize}>
+                            <Typography variant="caption" color="text.secondary" sx={cmpRangeCaptionSx}>{rangeCaption}</Typography>
+                            <Typography variant="body1" color={nameColor}>{range}</Typography>
                         </Grid>
                     </Grid>
                     """
@@ -1478,19 +1575,23 @@ module Nutrition =
 
         let administrationDivider = Terms.``Prescribe Administration`` |> getTerm "toediening" |> heading
 
-        let preparationHeading = Terms.``Prescribe Preparation`` |> getTerm "bereiding" |> heading
-        let dosingHeading = heading "dosering"
+        let componentHeading = heading "Component"
+        let quantityHeading = heading "Hoeveelheid"
+        let rangeHeading = heading "Aanbevolen range"
 
         let headerRow =
             JSX.jsx
                 $"""
             import Grid from '@mui/material/Grid';
-            <Grid container spacing={{2}}>
-                <Grid size={halfSize}>
-                    {preparationHeading}
+            <Grid container spacing={{2}} sx={cmpHeaderSx}>
+                <Grid size={cmpLabelSize}>
+                    {componentHeading}
                 </Grid>
-                <Grid size={halfSize}>
-                    {dosingHeading}
+                <Grid size={cmpQtySize}>
+                    {quantityHeading}
+                </Grid>
+                <Grid size={cmpRangeSize}>
+                    {rangeHeading}
                 </Grid>
             </Grid>
             """
@@ -1591,17 +1692,34 @@ module Nutrition =
 
         let filterSx = {| marginBottom = 2 |}
 
+        // a parenteral slot shows the composition and the dose type side by side
+        let compositionRow =
+            if isEnteral || isNull doseTypeFilter then
+                null
+            else
+                JSX.jsx
+                    $"""
+                import Grid from '@mui/material/Grid';
+                <Grid container spacing={{2}}>
+                    <Grid size={halfSize}>
+                        {genericFilter}
+                    </Grid>
+                    <Grid size={halfSize}>
+                        {doseTypeFilter}
+                    </Grid>
+                </Grid>
+                """
+
         let filterControls =
             JSX.jsx
                 $"""
             import Stack from '@mui/material/Stack';
             <Stack direction="column" spacing={2} sx={filterSx}>
-                {if isEnteral && displayOrder.IsSome then
-                     null
-                 else
-                     genericFilter}
+                {if not (isNull compositionRow) then compositionRow
+                 elif isEnteral && displayOrder.IsSome then null
+                 else genericFilter}
                 {indicationFilter}
-                {doseTypeFilter}
+                {if isNull compositionRow then doseTypeFilter else null}
             </Stack>
             """
 
