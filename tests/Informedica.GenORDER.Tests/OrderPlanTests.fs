@@ -991,14 +991,27 @@ let rulesTests =
                     (rulesFor (Some Resources.Departments.defaultDepartment))
             }
 
-            test "a patient that is not set stays unset with the default: no rule is filtered on its department" {
-                let rules = RuleFixtures.rules [| RuleFixtures.row "NEO" |]
-                rules |> Expect.isNonEmpty "the fixture builds a rule"
+            test "a department alone filters on the department: its own rules, not another ward's" {
+                let neo = RuleFixtures.rules [| RuleFixtures.row "NEO" |]
+                let ick = RuleFixtures.rules [| RuleFixtures.row Resources.Departments.defaultDepartment |]
+                let rules = Array.append neo ick
+                (neo.Length, ick.Length) |> Expect.equal "the fixture builds a rule each" (1, 1)
 
-                rules
-                |> Api.filterDoseRules (RulesOf rules) Informedica.GenForm.Lib.Filter.doseFilter
-                |> Array.length
-                |> Expect.equal "every rule" rules.Length
+                let filterFor department =
+                    rules
+                    |> Api.filterDoseRules
+                        (RulesOf rules)
+                        { Informedica.GenForm.Lib.Filter.doseFilter with
+                            Patient = { Patient.patient with Department = department }
+                        }
+                    |> Array.map _.PatientCategory.Department
+
+                filterFor (Some "NEO") |> Expect.equal "NEO's rule only" [| Some "NEO" |]
+
+                filterFor None
+                |> Expect.equal
+                    "no patient: the default department's rule only"
+                    [| Some Resources.Departments.defaultDepartment |]
             }
 
             test
