@@ -449,3 +449,25 @@ module PrescriptionRule =
 
     /// Get all frequencies of an array of PrescriptionRules.
     let frequencies = getDoseRules >> DoseRule.frequencies
+
+
+    /// The filter options with no values.
+    let emptyFilterOptions =
+        {
+            Indications = [||]
+            Generics = [||]
+            Routes = [||]
+            Forms = [||]
+            DoseTypes = [||]
+        }
+
+
+    /// The filter options of an array of PrescriptionRules.
+    let filterOptions prs =
+        {
+            Indications = prs |> indications
+            Generics = prs |> generics
+            Routes = prs |> routes
+            Forms = prs |> forms
+            DoseTypes = prs |> doseTypes
+        }

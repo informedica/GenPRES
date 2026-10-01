@@ -192,12 +192,7 @@ module GenOrderTools =
     /// The filter options for a patient already built and checked, so a caller that has just validated one
     /// (createOrderContext) asks for the options of the same patient, without a second check. The patient
     /// fields of the input are not read.
-    let filterOptionsFor
-        (provider: IResourceProvider)
-        (patient: Patient.Patient)
-        (input: FilterOptionsInput)
-        : FilterOptionsOutput
-        =
+    let filterOptionsFor provider patient (input: FilterOptionsInput) : FilterOptionsOutput =
         let filter: DoseFilter =
             {
                 Generic = input.Generic
@@ -210,18 +205,17 @@ module GenOrderTools =
                 Patient = patient
             }
 
-        let inds = filter |> FilterHelpers.filterIndications OrderLogging.noOp provider
-        let gens = filter |> FilterHelpers.filterGenerics OrderLogging.noOp provider
-        let rtes = filter |> FilterHelpers.filterRoutes OrderLogging.noOp provider
-        let frms = filter |> FilterHelpers.filterForms OrderLogging.noOp provider
-        let dsts = filter |> FilterHelpers.filterDoseTypes OrderLogging.noOp provider
+        let opts =
+            filter
+            |> Api.getFilterOptions OrderLogging.noOp provider
+            |> FilterHelpers.orLogErrors OrderLogging.noOp PrescriptionRule.emptyFilterOptions
 
         {
-            Indications = inds
-            Generics = gens
-            Routes = rtes
-            Forms = frms
-            DoseTypes = dsts |> Array.map DoseType.toString
+            Indications = opts.Indications
+            Generics = opts.Generics
+            Routes = opts.Routes
+            Forms = opts.Forms
+            DoseTypes = opts.DoseTypes |> Array.map DoseType.toString
         }
 
 

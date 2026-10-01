@@ -18,6 +18,8 @@ module OrderLogging =
     module Name = Variable.Name
     module Mapping = EquationMapping
 
+    module FormLogging = Informedica.GenForm.Lib.FormLogging
+
 
     /// Convenience functions for logging order events
     let logOrderEvent (logger: Logger) (event: Events.Event) = event |> OrderEventMessage |> Logging.logInfo logger
@@ -107,6 +109,10 @@ module OrderLogging =
         | Events.OrderIncreaseQuantityIncrement _ -> $"increased quantity increment"
 
         | Events.OrderIncreaseRateIncrement _ -> $"increased rate increment"
+
+        | Events.GenFormErrors errs ->
+            let msgs = errs |> List.map FormLogging.formatMessage |> String.concat "\n"
+            $"Prescription rules could not be read:\n%s{msgs}"
 
 
     let printOrderException =
