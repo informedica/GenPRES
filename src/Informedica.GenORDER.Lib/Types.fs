@@ -282,6 +282,10 @@ module Types =
         | CalcValues of Order
         | ReCalcValues of Order
         | SolveOrder of Order
+        /// A cleared variable reopened: the order reset, the picks made before the cleared one
+        /// given their values back, and solved. The picks are the variables the user picked, by
+        /// name, in the order picked.
+        | Reopen of Order * picks: string list
         | ChangeProperty of Order * ChangePropertyCommand
 
     /// Change an order property, either by

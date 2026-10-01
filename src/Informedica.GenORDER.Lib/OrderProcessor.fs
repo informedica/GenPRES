@@ -13,11 +13,11 @@ module OrderProcessor =
     module Frequency = OrderVariable.Frequency
     module Dose = Orderable.Dose
     module Increment = Informedica.GenSolver.Lib.Variable.ValueRange.Increment
+    module Name = Informedica.GenSolver.Lib.Variable.Name
 
 
-    // FrequencyCleared and ConcentrationCleared are defensive arms —
-    // these variables are not Clearable per the UI spec (Section 13.1),
-    // but the arms are kept as guards against unexpected UI behavior.
+    // FrequencyCleared and ConcentrationCleared are defensive arms: no recipe handles them, so a
+    // cleared frequency is solved as it is here; a frequency the user picked reopens by Reopen.
     // NotCleared is a defensive catch-all that logs a warning. The system
     // operates on the single-variable change invariant: only one variable
     // is changed at a time, followed by a solver run. Multiple simultaneous
@@ -398,6 +398,23 @@ module OrderProcessor =
         | DoseSolvedAndCleared -> "DoseSolvedAndCleared"
 
 
+    /// The name of an order variable, as the picks list it.
+    let nameOf (ovar: OrderVariable) = ovar |> OrderVariable.getName |> Name.toString
+
+
+    /// The picks made before the first picked variable the order holds cleared; None when no
+    /// picked variable is cleared.
+    let clearedPick picks ord =
+        let vars = ord |> Order.toOrdVars
+
+        let isCleared name =
+            vars |> List.exists (fun v -> nameOf v = name && v |> OrderVariable.isCleared)
+
+        picks
+        |> List.tryFindIndex isCleared
+        |> Option.map (fun i -> picks |> List.take i)
+
+
     // New: A lightweight classification and step-driven pipeline
     type PrescriptionKind =
         | PKOnce
@@ -478,7 +495,7 @@ module OrderProcessor =
     /// <param name="logger">The logger</param>
     /// <param name="cmd">The command to process</param>
     /// <returns>A Result with the processed Order or a list of error messages</returns>
-    let processPipeline logger cmd =
+    let rec processPipeline logger cmd =
 
         let runStep (step: Step) (ord: Order) =
             if step.Guard(classify ord) then
@@ -553,6 +570,55 @@ module OrderProcessor =
 
         let pickNearestHigherElseLowerComponentQuantityStep ord =
             ord |> pickNearestHigherElseLowerComponentQuantity logger
+
+        // the values recalculated from the calculated constraints, as a reset does
+        let reCalcSteps ord =
+            let useMax = ord.Orderable.Components |> List.length <= 2
+
+            let hasTimeNotContinuous =
+                ord.Schedule |> Schedule.hasTime && ord.Schedule |> Schedule.isContinuous |> not
+
+            [
+                {
+                    Name = "recalc-values: apply-calculated-constraints"
+                    Guard = (fun _ -> true)
+                    Run = applyCalculatedConstraintsStep
+                }
+                {
+                    Name = "recalc-values: calc-qty-values"
+                    Guard = (fun _ -> true)
+                    Run = reCalcValuesStep useMax hasTimeNotContinuous
+                }
+                if hasTimeNotContinuous then
+                    {
+                        Name = "recalc-values: calc-rate-values"
+                        Guard = (fun _ -> true)
+                        Run = reCalcValuesStep useMax false
+                    }
+            ]
+
+        let finalSolveStep =
+            {
+                Name = "final-solve"
+                Guard = (_.OrderIsSolved >> not)
+                Run = solveStep
+            }
+
+        // the values ensured, solved, and the component quantity picked, as a solve ends
+        let solveSteps ord =
+            [
+                {
+                    Name = "solve-order: ensure-values-1"
+                    Guard = (_.HasValues >> not)
+                    Run = calcValuesStep (ord.Orderable.Components |> List.length <= 2) false
+                }
+                finalSolveStep
+                {
+                    Name = "solve-order: pick-cmp-qty"
+                    Guard = (fun _ -> true)
+                    Run = pickNearestHigherElseLowerComponentQuantityStep
+                }
+            ]
 
         match cmd with
         | CalcMinMax ord ->
@@ -637,54 +703,40 @@ module OrderProcessor =
                     Guard = (fun os -> os.DoseIsSolved && os.IsCleared)
                     Run = processClearedStep
                 }
-                {
-                    Name = "solve-order: ensure-values-1"
-                    Guard = (_.HasValues >> not)
-                    Run = calcValuesStep (ord.Orderable.Components |> List.length <= 2) false
-                }
-                {
-                    Name = "solve-order: final-solve"
-                    Guard = (_.OrderIsSolved >> not)
-                    Run = solveStep
-                }
-                {
-                    Name = "solve-order: pick-cmp-qty"
-                    Guard = (fun _ -> true)
-                    Run = pickNearestHigherElseLowerComponentQuantityStep
-                }
+                yield! solveSteps ord
             ]
             |> runPipeline ord
 
-        | ReCalcValues ord ->
-            let useMax = ord.Orderable.Components |> List.length <= 2
+        | ReCalcValues ord -> reCalcSteps ord @ [ finalSolveStep ] |> runPipeline ord
 
-            let hasTimeNotContinuous =
-                ord.Schedule |> Schedule.hasTime && ord.Schedule |> Schedule.isContinuous |> not
+        | Reopen(ord, picks) ->
+            match ord |> clearedPick picks with
+            | None -> SolveOrder ord |> processPipeline logger
+            | Some earlier ->
+                // the earlier picks as they arrived, put back over the reset order
+                let arrived =
+                    ord
+                    |> Order.toOrdVars
+                    |> List.filter (fun v -> earlier |> List.contains (nameOf v))
 
-            [
-                {
-                    Name = "recalc-values: apply-calculated-constraints"
-                    Guard = (fun _ -> true)
-                    Run = applyCalculatedConstraintsStep
-                }
-                {
-                    Name = "recalc-values: calc-qty-values"
-                    Guard = (fun _ -> true)
-                    Run = reCalcValuesStep useMax hasTimeNotContinuous
-                }
-                if hasTimeNotContinuous then
+                [
+                    yield! reCalcSteps ord
                     {
-                        Name = "recalc-values: calc-rate-values"
+                        Name = "reopen: put-back-earlier-picks"
                         Guard = (fun _ -> true)
-                        Run = reCalcValuesStep useMax false
+                        Run = Order.fromOrdVars arrived >> Ok
                     }
-                {
-                    Name = "recalc-values: final-solve"
-                    Guard = (_.OrderIsSolved >> not)
-                    Run = solveStep
-                }
-            ]
-            |> runPipeline ord
+                    yield! solveSteps ord
+                ]
+                |> runPipeline ord
+                |> function
+                    | Ok ord -> Ok ord
+                    | Error _ ->
+                        "Reopen failed, the order is solved as it is"
+                        |> Events.OrderScenario
+                        |> Logging.logWarning logger
+
+                        SolveOrder ord |> processPipeline logger
 
         | ChangeProperty(ord, cmd) -> //ord |> processChangeProperty cmd |> Ok
             [
