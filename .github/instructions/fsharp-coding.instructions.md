@@ -155,7 +155,7 @@ type Patient = private {
 /// Functions for working with Patient instances
 module Patient =
     /// Creates a new patient with validation
-    let create id name birthDate : Result<Patient, PatientError> =
+    let create id name birthDate =
         result {
             let! id = PatientId.create id
             let! name = NonEmptyString.create name
@@ -173,6 +173,37 @@ module Patient =
 - Pattern matching over if-else chains; total functions over partial matches, validate inputs early
 - Model choices as discriminated unions, never as boolean flags
 - Keep pure logic separate from IO; pass dependencies as parameters
+
+### Type annotations
+
+F# infers types. Do not annotate a type the compiler can infer; annotate a parameter or a return type only where
+it cannot:
+
+- a member access on a parameter whose type is not known yet at that point (`provider.Get`, `x.Length`)
+- an overloaded method or operator that needs to know the argument type
+- a record expression or field access where the compiler picks the wrong record type from the field names
+
+Inference reads a definition top to bottom and does not look at later call sites. A type is inferred when the body
+fixes it before it is needed, for example by passing the parameter to a function whose parameter type is known.
+Prefer code that lets the compiler infer the type over an annotation: pipe the value whose type is known first
+(`xs |> List.map _.Length`), or use a module function (`String.length s`) instead of a member (`s.Length`).
+
+Do not add an annotation to document a type; IntelliSense and the generated API reference show the inferred one.
+
+New code follows this rule. When you change existing code, remove the annotations it does not need.
+
+```fsharp
+// Bad - every type can be inferred
+let getFilterOptions (provider: IResourceProvider) (filter: DoseFilter) : Result<FilterOptions, Message list> =
+    Api.filterPrescriptionRules provider filter |> Result.map PrescriptionRule.filterOptions
+
+// Good
+let getFilterOptions provider filter =
+    Api.filterPrescriptionRules provider filter |> Result.map PrescriptionRule.filterOptions
+
+// Good - the member access needs the type
+let departments (provider: IResourceProvider) = provider.Get Keys.departments
+```
 
 ## Error Handling
 
