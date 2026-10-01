@@ -3156,6 +3156,120 @@ module Tests =
                 ]
 
 
+    /// The filter options of a set of prescription rules, and the warning when no rule matches a dose filter.
+    module FilterOptionsTests =
+
+        open System
+        open Informedica.Logging.Lib
+        open Informedica.GenForm.Lib.Resources
+
+
+        /// A provider that holds the given dose rules and nothing else.
+        let withDoseRules doseRules =
+            { new IResourceProvider with
+                member _.Get(key: ResourceKey<'T>) : 'T = raise (NotImplementedException key.Name)
+                member _.GetData() = raise (NotImplementedException())
+                member _.GetUnitMappings() = raise (NotImplementedException())
+                member _.GetRouteMappings() = DoseRuleProductTests.routeMapping
+                member _.GetValidForms() = raise (NotImplementedException())
+                member _.GetFormRoutes() = raise (NotImplementedException())
+                member _.GetFormularyProducts() = raise (NotImplementedException())
+                member _.GetReconstitution() = [||]
+                member _.GetParenteralMeds() = raise (NotImplementedException())
+                member _.GetEnteralFeeding() = raise (NotImplementedException())
+                member _.GetProducts() = raise (NotImplementedException())
+                member _.GetDoseRules() = doseRules
+                member _.GetSolutionRules() = [||]
+                member _.GetRenalRules() = [||]
+                member _.GetTotals() = raise (NotImplementedException())
+                member _.GetGStandProvider() = raise (NotImplementedException())
+                member _.GetResourceInfo() = raise (NotImplementedException())
+            }
+
+
+        /// A logger that keeps what it is given.
+        let capture () =
+            let events = ResizeArray<Event>()
+            Logging.create events.Add, events
+
+
+        let doseRules =
+            lazy (DoseRuleProductTests.buildRules [| DoseRuleProductTests.formRow; DoseRuleProductTests.brandRow |])
+
+
+        let prescriptionRules () =
+            doseRules.Value
+            |> Array.map (fun dr ->
+                {
+                    Patient = PatientDtoTests.Fixtures.child
+                    DoseRule = dr
+                    SolutionRules = [||]
+                    RenalRules = [||]
+                }
+            )
+
+
+        let warnings (events: ResizeArray<Event>) =
+            events |> Seq.filter (fun e -> e.Level = Level.Warning) |> Seq.toList
+
+
+        let tests =
+            testList
+                "FilterOptions"
+                [
+                    test "no prescription rules give no options" {
+                        [||]
+                        |> PrescriptionRule.filterOptions
+                        |> Expect.equal "all five options are empty" PrescriptionRule.emptyFilterOptions
+                    }
+
+                    test "the options are the projections of the rules" {
+                        let prs = prescriptionRules ()
+                        let opts = prs |> PrescriptionRule.filterOptions
+
+                        opts.Generics |> Expect.isNonEmpty "the fixture rules have generics"
+                        opts.Indications
+                        |> Expect.equal "indications" (prs |> PrescriptionRule.indications)
+                        opts.Generics |> Expect.equal "generics" (prs |> PrescriptionRule.generics)
+                        opts.Routes |> Expect.equal "routes" (prs |> PrescriptionRule.routes)
+                        opts.Forms |> Expect.equal "forms" (prs |> PrescriptionRule.forms)
+                        opts.DoseTypes |> Expect.equal "dose types" (prs |> PrescriptionRule.doseTypes)
+                    }
+
+                    test "the warning names generic, route and form, and a dash for each one not set" {
+                        { DepartmentTests.filterFor None with Generic = Some "paracetamol" }
+                        |> Api.noRulesWarning
+                        |> Expect.equal
+                            "generic named, route and form not set"
+                            (Warning "No prescription rules for generic paracetamol, route -, form -")
+                    }
+
+                    test "no matching rule gives empty options and one warning" {
+                        let logger, events = capture ()
+
+                        DepartmentTests.filterFor None
+                        |> Api.getFilterOptions logger (withDoseRules [||])
+                        |> Expect.equal "empty options" (Ok PrescriptionRule.emptyFilterOptions)
+
+                        events |> warnings |> List.length |> Expect.equal "one warning" 1
+                    }
+
+                    test "a matching rule gives its options and no warning" {
+                        let logger, events = capture ()
+
+                        let opts =
+                            DepartmentTests.filterFor None
+                            |> Api.getFilterOptions logger (withDoseRules doseRules.Value)
+
+                        match opts with
+                        | Ok opts -> opts.Generics |> Expect.isNonEmpty "the rules' generics"
+                        | Error errs -> failtest $"%A{errs}"
+
+                        events |> warnings |> Expect.isEmpty "no warning"
+                    }
+                ]
+
+
     module PatientCategoryTests =
 
 
@@ -4799,6 +4913,7 @@ module Tests =
                 PatientDtoTests.tests
                 AccessDeviceTests.tests
                 DepartmentTests.tests
+                FilterOptionsTests.tests
                 DoseTypeTests.tests
                 LimitTargetTests.tests
                 GenericLabelTests.tests
