@@ -6,7 +6,7 @@ module ApiImpl =
 
     /// Creates the IServerApi implementation for one request using the composition root.
     let createServerApi
-        (settings: Shared.Api.ServerSettings)
+        (settings: Informedica.GenForm.Lib.Types.Departments -> Shared.Api.ServerSettings)
         (env: AppEnv)
         (cookie: SessionCookie)
         (stateCookie: LaunchStateCookie)

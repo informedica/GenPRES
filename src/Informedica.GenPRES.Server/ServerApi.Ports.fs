@@ -447,9 +447,9 @@ type AppEnv =
         // whether the server runs on the demo data; read once at start-up, told on every
         // context the client gets
         demo: bool
-        // the departments the loaded rules name and the default; none until the resources
-        // are loaded, since the settings are asked for before that
-        departments: unit -> Informedica.GenForm.Lib.Types.Departments option
+        // the departments the loaded rules name and the default; only the default while the
+        // rules are not loaded
+        departments: unit -> Informedica.GenForm.Lib.Types.Departments
         // the normal values of weight and height the server estimates from; none until the
         // resources are loaded. Asking may load
         normalValues: unit -> NormalValues option

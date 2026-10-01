@@ -240,9 +240,7 @@ module Tests =
         let private departmentsOnly: IResourceProvider =
             { new IResourceProvider with
                 member _.Get(key: ResourceKey<'T>) : 'T =
-                    if key.Name = Keys.departments.Name then
-                        box departments :?> 'T
-                    elif key.Name = Keys.normalValueRows.Name then
+                    if key.Name = Keys.normalValueRows.Name then
                         box EstimateFixtures.rows :?> 'T
                     else
                         raise (NotImplementedException key.Name)
@@ -262,6 +260,7 @@ module Tests =
                 member _.GetRenalRules() = raise (NotImplementedException())
                 member _.GetTotals() = raise (NotImplementedException())
                 member _.GetGStandProvider() = raise (NotImplementedException())
+                member _.GetDepartments() = departments
                 member _.GetResourceInfo() = raise (NotImplementedException())
             }
 
@@ -270,9 +269,7 @@ module Tests =
         let emptyRules: IResourceProvider =
             { new IResourceProvider with
                 member _.Get(key: ResourceKey<'T>) : 'T =
-                    if key.Name = Keys.departments.Name then
-                        box departments :?> 'T
-                    elif key.Name = Keys.normalValueRows.Name then
+                    if key.Name = Keys.normalValueRows.Name then
                         box EstimateFixtures.rows :?> 'T
                     else
                         raise (NotImplementedException key.Name)
@@ -292,6 +289,7 @@ module Tests =
                 member _.GetRenalRules() = [||]
                 member _.GetTotals() = raise (NotImplementedException())
                 member _.GetGStandProvider() = raise (NotImplementedException())
+                member _.GetDepartments() = departments
                 member _.GetResourceInfo() = raise (NotImplementedException())
             }
 
@@ -495,9 +493,7 @@ module Tests =
 
             { new IResourceProvider with
                 member _.Get(key: ResourceKey<'T>) : 'T =
-                    if key.Name = Keys.departments.Name then
-                        box departments :?> 'T
-                    elif key.Name = Keys.normalValueRows.Name then
+                    if key.Name = Keys.normalValueRows.Name then
                         box rows :?> 'T
                     else
                         raise (NotImplementedException key.Name)
@@ -517,6 +513,7 @@ module Tests =
                 member _.GetRenalRules() = raise (NotImplementedException())
                 member _.GetTotals() = raise (NotImplementedException())
                 member _.GetGStandProvider() = raise (NotImplementedException())
+                member _.GetDepartments() = departments
                 member _.GetResourceInfo() = raise (NotImplementedException())
             }
 

@@ -143,11 +143,7 @@ module OrderContextService =
 /// raises. The same as the GenORDER tests' NoRules.
 type NoRules() =
     interface Resources.IResourceProvider with
-        member _.Get(key: Resources.ResourceKey<'T>) : 'T =
-            if key.Name = Resources.Keys.departments.Name then
-                box (Resources.Departments.ofNamed []) :?> 'T
-            else
-                raise (System.NotImplementedException())
+        member _.Get(_: Resources.ResourceKey<'T>) : 'T = raise (System.NotImplementedException())
 
         member _.GetData() = raise (System.NotImplementedException())
         member _.GetUnitMappings() = raise (System.NotImplementedException())
@@ -164,6 +160,7 @@ type NoRules() =
         member _.GetRenalRules() = [||]
         member _.GetTotals() = [||]
         member _.GetGStandProvider() = raise (System.NotImplementedException())
+        member _.GetDepartments() = Resources.Departments.ofNamed []
         member _.GetResourceInfo() = raise (System.NotImplementedException())
 
 

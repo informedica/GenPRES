@@ -160,7 +160,7 @@ module StubAdapters =
                 }
             admin = adminNone
             requireLoaded = fun () -> None
-            departments = fun () -> None
+            departments = fun () -> Informedica.GenForm.Lib.Resources.Departments.ofNamed []
             // no normal values: a patient is estimated only where a test gives them
             normalValues = fun () -> None
             // the tests run as the demo server does
@@ -190,7 +190,7 @@ module StubAdapters =
                 }
             admin = adminNone
             requireLoaded = fun () -> Some msgs
-            departments = fun () -> None
+            departments = fun () -> Informedica.GenForm.Lib.Resources.Departments.ofNamed []
             normalValues = fun () -> None
             // the tests run as the demo server does
             session = sessionNone
@@ -3783,21 +3783,34 @@ module SessionStubTests =
         testList
             "processLaunch, processCallback and processSession"
             [
-                testAsync "getSettings answers the settings the host composed with" {
+                testAsync "getSettings answers the settings the host composed with, the default alone before a load" {
                     let settings =
                         {
                             ServerSettings.Language = Shared.Localization.French
                             IsDemo = false
                             Departments = [||]
-                            DefaultDepartment = "ICK"
+                            DefaultDepartment = ""
+                        }
+
+                    let withDepartments (d: Informedica.GenForm.Lib.Types.Departments) =
+                        { settings with
+                            Departments = d.Names
+                            DefaultDepartment = d.Default
                         }
 
                     let _, env = envWithStub newStore ()
                     let cookie, _ = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
-                    let api = CompositionRoot.compose settings env cookie stateCookie (noEnrolment ())
+                    let api = CompositionRoot.compose withDepartments env cookie stateCookie (noEnrolment ())
                     let! answer = api.getSettings ()
-                    answer |> Expect.equal "same value" settings
+
+                    answer
+                    |> Expect.equal
+                        "the rest as composed, the default alone"
+                        { settings with
+                            Departments = [| "ICK" |]
+                            DefaultDepartment = "ICK"
+                        }
                 }
 
                 testAsync "getSettings carries the departments once the resources are loaded, the rest as composed" {
@@ -3806,7 +3819,13 @@ module SessionStubTests =
                             ServerSettings.Language = Shared.Localization.French
                             IsDemo = false
                             Departments = [||]
-                            DefaultDepartment = "ICK"
+                            DefaultDepartment = ""
+                        }
+
+                    let withDepartments (d: Informedica.GenForm.Lib.Types.Departments) =
+                        { settings with
+                            Departments = d.Names
+                            DefaultDepartment = d.Default
                         }
 
                     let loaded: Informedica.GenForm.Lib.Types.Departments =
@@ -3816,10 +3835,10 @@ module SessionStubTests =
                         }
 
                     let _, env = envWithStub newStore ()
-                    let env = { env with departments = fun () -> Some loaded }
+                    let env = { env with departments = fun () -> loaded }
                     let cookie, _ = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
-                    let api = CompositionRoot.compose settings env cookie stateCookie (noEnrolment ())
+                    let api = CompositionRoot.compose withDepartments env cookie stateCookie (noEnrolment ())
                     let! answer = api.getSettings ()
 
                     answer
@@ -4741,7 +4760,7 @@ module SessionStubTests =
                     let _, env = envWithStub newStore ()
                     let cookie, _ = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
-                    let api = CompositionRoot.compose settings env cookie stateCookie (noEnrolment ())
+                    let api = CompositionRoot.compose (fun _ -> settings) env cookie stateCookie (noEnrolment ())
 
                     match! api.processFormulary (request None) with
                     | Ok reply ->
@@ -4768,7 +4787,7 @@ module SessionStubTests =
                             "prescriber"
 
                     let! opened = sessionOf env cookie
-                    let api = CompositionRoot.compose settings env cookie stateCookie (noEnrolment ())
+                    let api = CompositionRoot.compose (fun _ -> settings) env cookie stateCookie (noEnrolment ())
 
                     match! api.processFormulary (request opened.OpenedToken) with
                     | Ok reply -> reply.Notice |> Expect.isNone "nothing told"
@@ -4805,7 +4824,7 @@ module SessionStubTests =
                             keyB
                             "prescriber"
 
-                    let api = CompositionRoot.compose settings env cookieA stateCookie (noEnrolment ())
+                    let api = CompositionRoot.compose (fun _ -> settings) env cookieA stateCookie (noEnrolment ())
 
                     match! api.processFormulary (request openedA.OpenedToken) with
                     | Ok reply ->
@@ -4820,7 +4839,7 @@ module SessionStubTests =
                     let directory, env = envWithStub newStore ()
                     let cookie, _ = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
-                    let api = CompositionRoot.compose settings env cookie stateCookie (noEnrolment ())
+                    let api = CompositionRoot.compose (fun _ -> settings) env cookie stateCookie (noEnrolment ())
 
                     let! before = api.processSession (SessionCommand.OpenVersion "plan-1")
                     before |> Expect.equal "no session" (SessionResponse.SessionResp None)
@@ -5113,7 +5132,13 @@ module AdminTests =
                             DefaultDepartment = "ICK"
                         }
 
-                    let api = CompositionRoot.compose settings env cookie stateCookie (SessionStubTests.noEnrolment ())
+                    let api =
+                        CompositionRoot.compose
+                            (fun _ -> settings)
+                            env
+                            cookie
+                            stateCookie
+                            (SessionStubTests.noEnrolment ())
 
                     match! api.processAdmin (AdminCommand.ValidatePassword secret.Value) with
                     | Ok(AdminResponse.PasswordValidated(true, token)) ->

@@ -348,28 +348,26 @@ let languageTests =
                 |> Expect.equal "Ok with the url id" (Ok(startup "sheet-id"))
             }
 
-            test "toServerSettings carries the language and the demo flag" {
-                Map [ "GENPRES_LANG", "en" ]
-                |> settings
-                |> Config.toServerSettings
+            test "toServerSettings carries the language, the demo flag and the departments" {
+                Map [ "GENPRES_LANG", "en" ] |> settings |> Config.toServerSettings
+                <| Informedica.GenForm.Lib.Resources.Departments.ofNamed []
                 |> Expect.equal
                     "demo, English"
                     {
                         Shared.Api.ServerSettings.Language = Shared.Localization.English
                         IsDemo = true
-                        Departments = [||]
+                        Departments = [| "ICK" |]
                         DefaultDepartment = "ICK"
                     }
 
-                Map [ "GENPRES_PROD", "1" ]
-                |> settings
-                |> Config.toServerSettings
+                Map [ "GENPRES_PROD", "1" ] |> settings |> Config.toServerSettings
+                <| Informedica.GenForm.Lib.Resources.Departments.ofNamed []
                 |> Expect.equal
                     "production, Dutch"
                     {
                         Shared.Api.ServerSettings.Language = Shared.Localization.Dutch
                         IsDemo = false
-                        Departments = [||]
+                        Departments = [| "ICK" |]
                         DefaultDepartment = "ICK"
                     }
             }

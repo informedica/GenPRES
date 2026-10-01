@@ -279,17 +279,20 @@ module Config =
 
     /// <summary>
     /// The settings the client learns, mapped here in the DMZ from the
-    /// env-shaped record. Call after <c>validateStartup</c>: an invalid
-    /// language never reaches this point, so the fallback is dead.
+    /// env-shaped record, and the departments as the provider answers them
+    /// per request. Call after <c>validateStartup</c>: an invalid language
+    /// never reaches this point, so the fallback is dead.
     /// </summary>
-    let toServerSettings (settings: Settings) : Shared.Api.ServerSettings =
+    let toServerSettings
+        (settings: Settings)
+        (departments: Informedica.GenForm.Lib.Types.Departments)
+        : Shared.Api.ServerSettings
+        =
         {
             Language = language settings |> Result.defaultValue defaultLanguage
             IsDemo = not settings.IsProd
-            // the names come from the loaded rules, answered per request; the default is the
-            // one literal until the resources say otherwise
-            Departments = [||]
-            DefaultDepartment = Informedica.GenForm.Lib.Resources.Departments.defaultDepartment
+            Departments = departments.Names
+            DefaultDepartment = departments.Default
         }
 
 
@@ -704,7 +707,7 @@ module Host =
             else
                 env
 
-        // what the client learns: computed once here, answered per request
+        // what the client learns: the settings once here, the departments per request
         let serverSettings = Config.toServerSettings settings
 
         let webApi =

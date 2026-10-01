@@ -672,12 +672,7 @@ let evaluateTests =
 /// raises, so a test sees which branch the lookup takes and nothing else.
 type NoRules() =
     interface Resources.IResourceProvider with
-        // the departments answer, since the rule lookup reads the default from them
-        member _.Get(key: Resources.ResourceKey<'T>) : 'T =
-            if key.Name = Resources.Keys.departments.Name then
-                box (Resources.Departments.ofNamed []) :?> 'T
-            else
-                raise (System.NotImplementedException())
+        member _.Get(_: Resources.ResourceKey<'T>) : 'T = raise (System.NotImplementedException())
 
         member _.GetData() = raise (System.NotImplementedException())
 
@@ -707,11 +702,14 @@ type NoRules() =
 
         member _.GetGStandProvider() = raise (System.NotImplementedException())
 
+        // the departments answer, since the rule lookup reads the default from them
+        member _.GetDepartments() = Resources.Departments.ofNamed []
+
         member _.GetResourceInfo() = raise (System.NotImplementedException())
 
 
-/// A provider whose load failed: nothing registered, so every keyed read raises, and the rules
-/// read empty.
+/// A provider whose load failed: nothing registered, so every keyed read raises, the rules
+/// read empty and the departments are the default alone.
 type NotLoaded() =
     inherit NoRules()
 
@@ -821,7 +819,8 @@ module RuleFixtures =
             DoseCheck = None
         }
 
-    let private routeMapping: RouteMapping[] =
+    /// The route mapping the rules are built with.
+    let routeMapping: RouteMapping[] =
         [|
             {
                 Long = "RECTAAL"
@@ -837,12 +836,14 @@ module RuleFixtures =
         DoseRuleLoader.fromData routeMapping [||] [| suppository |] rows |> fst
 
 
-/// A provider holding the dose rules given and nothing else, naming the default department.
+/// A provider holding the dose rules given and the route mapping they are built with, naming
+/// the default department.
 type RulesOf(rules: DoseRule[]) =
     inherit NoRules()
 
     interface Resources.IResourceProvider with
         member _.GetDoseRules() = rules
+        member _.GetRouteMappings() = RuleFixtures.routeMapping
 
 
 /// The rules for a patient without a department: the lookup runs on the context as held,
@@ -892,11 +893,13 @@ let rulesTests =
                 let provider = NoRules()
 
                 { EvaluateFixtures.child with Department = None }
-                |> OrderContext.matchedDepartment provider
+                |> Api.withDefaultDepartment provider
+                |> _.Department
                 |> Expect.equal "the default" (Some Resources.Departments.defaultDepartment)
 
                 { EvaluateFixtures.child with Department = Some "NEO" }
-                |> OrderContext.matchedDepartment provider
+                |> Api.withDefaultDepartment provider
+                |> _.Department
                 |> Expect.equal "its own" (Some "NEO")
             }
 
@@ -964,8 +967,65 @@ let rulesTests =
                 fresh.Patient.Department |> Expect.equal "still no department" None
 
                 { EvaluateFixtures.child with Department = Some "NEO" }
-                |> OrderContext.matchedDepartment (NotLoaded())
+                |> Api.withDefaultDepartment (NotLoaded())
+                |> _.Department
                 |> Expect.equal "its own department stands" (Some "NEO")
+            }
+
+            test "the rule lookup itself matches a patient without a department with the default" {
+                let provider =
+                    RulesOf(RuleFixtures.rules [| RuleFixtures.row Resources.Departments.defaultDepartment |])
+
+                let rulesFor department =
+                    { EvaluateFixtures.child with Department = department }
+                    |> Api.getPrescriptionRules provider
+                    |> Result.map (Array.map _.DoseRule.Generic)
+
+                rulesFor None
+                |> Result.defaultValue [||]
+                |> Expect.isNonEmpty "the default's rule"
+
+                rulesFor None
+                |> Expect.equal
+                    "the same rules as a patient of the default department"
+                    (rulesFor (Some Resources.Departments.defaultDepartment))
+            }
+
+            test "a patient that is not set stays unset with the default: no rule is filtered on its department" {
+                let rules = RuleFixtures.rules [| RuleFixtures.row "NEO" |]
+                rules |> Expect.isNonEmpty "the fixture builds a rule"
+
+                rules
+                |> Api.filterDoseRules (RulesOf rules) Informedica.GenForm.Lib.Filter.doseFilter
+                |> Array.length
+                |> Expect.equal "every rule" rules.Length
+            }
+
+            test
+                "the lists the rules give a context are among those of the context afresh, with or without a department" {
+                let provider =
+                    RulesOf(RuleFixtures.rules [| RuleFixtures.row Resources.Departments.defaultDepartment |])
+
+                let within name (narrowed: 'a[]) (all: 'a[]) =
+                    narrowed
+                    |> Array.forall (fun x -> all |> Array.contains x)
+                    |> Expect.isTrue $"%s{name} among those afresh"
+
+                for department in [ None; Some Resources.Departments.defaultDepartment ] do
+                    let fresh =
+                        { EvaluateFixtures.child with Department = department }
+                        |> OrderContext.create OrderLogging.noOp provider
+
+                    fresh.Filter.Forms |> Expect.isNonEmpty "the rule's form afresh"
+
+                    let ctx, _ = fresh |> OrderContext.getRules OrderLogging.noOp provider
+
+                    ctx.Filter.Forms |> Expect.isNonEmpty "the rule's form for the context"
+                    within "indications" ctx.Filter.Indications fresh.Filter.Indications
+                    within "generics" ctx.Filter.Generics fresh.Filter.Generics
+                    within "routes" ctx.Filter.Routes fresh.Filter.Routes
+                    within "forms" ctx.Filter.Forms fresh.Filter.Forms
+                    within "dose types" ctx.Filter.DoseTypes fresh.Filter.DoseTypes
             }
 
             test "made afresh, the context keeps its argumentation" {

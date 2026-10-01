@@ -3183,6 +3183,7 @@ module Tests =
                 member _.GetRenalRules() = [||]
                 member _.GetTotals() = raise (NotImplementedException())
                 member _.GetGStandProvider() = raise (NotImplementedException())
+                member _.GetDepartments() = Departments.ofNamed []
                 member _.GetResourceInfo() = raise (NotImplementedException())
             }
 
@@ -4629,6 +4630,18 @@ module Tests =
                         "NEO" |> Departments.isKnown deps |> Expect.isTrue "NEO"
                         "ICK" |> Departments.isKnown deps |> Expect.isTrue "ICK"
                         "ICU" |> Departments.isKnown deps |> Expect.isFalse "ICU"
+                    }
+
+                    test "a provider whose rules did not load answers the default department alone" {
+                        let provider: IResourceProvider =
+                            CachedResourceProvider(
+                                Informedica.Logging.Lib.Logging.noOp,
+                                (fun () -> Error [ ErrorMsg("no sheet", None) ]),
+                                None
+                            )
+
+                        provider.GetDepartments()
+                        |> Expect.equal "the default alone" (Departments.ofNamed [])
                     }
 
                     test

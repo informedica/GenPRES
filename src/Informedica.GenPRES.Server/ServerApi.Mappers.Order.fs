@@ -348,11 +348,9 @@ module Mappers =
         | Informedica.GenForm.Lib.Types.NoDoseType -> NoDoseType
 
 
-    let mapFromSharedPatient (departments: Departments) (pat: Patient) =
+    let mapFromSharedPatient (pat: Patient) =
         { Patient.patient with
-            Department =
-                pat.Department
-                |> Informedica.GenForm.Lib.Resources.Departments.forPatient departments
+            Department = pat.Department
             Age =
                 pat
                 |> Models.Patient.getAgeInDays

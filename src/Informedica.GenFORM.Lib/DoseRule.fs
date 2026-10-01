@@ -988,8 +988,8 @@ module DoseRule =
                 fun (dr: DoseRule) ->
                     filter.Route |> Option.isNone
                     || dr.Route |> Mapping.eqsRoute routeMapping filter.Route
-                // don't filter on patients if patient is not set
-                if filter.Patient = Patient.patient |> not then
+                // don't filter on patients if patient is not set; a department alone does not set one
+                if { filter.Patient with Department = None } = Patient.patient |> not then
                     fun (dr: DoseRule) -> dr.PatientCategory |> PatientCategory.filter filter
                 fun (dr: DoseRule) -> filter.DoseType |> Option.map ((=) dr.DoseType) |> Option.defaultValue true
             |]
