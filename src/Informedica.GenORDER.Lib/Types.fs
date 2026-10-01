@@ -774,6 +774,7 @@ module Types =
             | OrderSolveConstraintsFinished of Order * Constraint list
             | OrderScenario of string
             | OrderScenarioWithNameValue of Order * Name * BigRational
+            | GenFormErrors of Informedica.GenForm.Lib.Types.Message list
 
 
     module Logging =

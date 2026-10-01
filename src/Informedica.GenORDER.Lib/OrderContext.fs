@@ -6,22 +6,21 @@ module FilterHelpers =
     open Informedica.GenForm.Lib.Resources
     open Informedica.Logging.Lib
 
-    // Logger-injected variant
-    // TODO: the logger arg makes no sense
+
+    let rulesOrLogErrors (logger: Logger) =
+        function
+        | Ok rules -> rules
+        | Error errs ->
+            errs |> Events.GenFormErrors |> OrderLogging.logOrderEventError logger
+            [||]
+
+
     let getPrescriptionRules (logger: Logger) (provider: IResourceProvider) =
-        Api.getPrescriptionRules provider
-        >> function
-            | Ok rules -> rules
-            | Error _ -> [||]
+        Api.getPrescriptionRules provider >> rulesOrLogErrors logger
 
 
-    // Logger-injected variant
-    // TODO: the logger arg makes no sense
     let filterPrescriptionRules (logger: Logger) (provider: IResourceProvider) filter =
-        Api.filterPrescriptionRules provider filter
-        |> function
-            | Ok rules -> rules
-            | Error _ -> [||]
+        Api.filterPrescriptionRules provider filter |> rulesOrLogErrors logger
 
 
     let filterIndications logger (provider: IResourceProvider) =
