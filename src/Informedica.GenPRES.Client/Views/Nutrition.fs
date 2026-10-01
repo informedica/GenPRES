@@ -435,23 +435,24 @@ module Nutrition =
 
     let private flexEndSx = {| alignItems = "flex-end" |}
 
-    // the component rows: name, quantity and range in three columns, stacked on a narrow screen
+    // the component rows: name, quantity and range in three columns, stacked below the large
+    // breakpoint, where five twelfths of the slot no longer holds the quantity field's 400px
     let private cmpLabelSize =
         {|
             xs = 12
-            md = 4
+            lg = 4
         |}
 
     let private cmpQtySize =
         {|
             xs = 12
-            md = 5
+            lg = 5
         |}
 
     let private cmpRangeSize =
         {|
             xs = 12
-            md = 3
+            lg = 3
         |}
 
     // the column headings only make sense while the columns stand side by side
@@ -460,7 +461,7 @@ module Nutrition =
             display =
                 {|
                     xs = "none"
-                    md = "flex"
+                    lg = "flex"
                 |}
         |}
 
@@ -482,6 +483,16 @@ module Nutrition =
         |}
 
     let private cmpSolutionSx = {| minWidth = 160 |}
+
+    // stacked, the column headings are hidden, so the range carries its own caption
+    let private cmpRangeCaptionSx =
+        {|
+            display =
+                {|
+                    xs = "block"
+                    lg = "none"
+                |}
+        |}
 
     let private alignCenterSx = {| alignItems = "center" |}
 
@@ -1226,10 +1237,15 @@ module Nutrition =
                             (Some 400)
                             qtyVals
 
-                    // a component is in the mix while it has a quantity above zero
+                    // a component is in the mix once its quantity is chosen and above zero; a list of
+                    // values still to pick from does not include it
                     let isIncluded =
                         cmp.OrderableQuantity.Variable.Vals
-                        |> Option.exists (fun vu -> vu.Value |> Array.exists (fun (_, d) -> d > 0m))
+                        |> Option.exists (fun vu ->
+                            match vu.Value with
+                            | [| _, d |] -> d > 0m
+                            | _ -> false
+                        )
 
                     let nameColor = if isIncluded then "text.primary" else "text.disabled"
 
@@ -1265,10 +1281,10 @@ module Nutrition =
                             </Stack>
                             """
 
-                    let range =
+                    let range, rangeCaption =
                         match cmp.OrderableQuantity.DefinedConstraints |> Variable.renderValue 3 with
-                        | "" -> ""
-                        | r -> $"(%s{r})"
+                        | "" -> "", ""
+                        | r -> $"(%s{r})", "Aanbevolen range"
 
                     JSX.jsx
                         $"""
@@ -1285,6 +1301,7 @@ module Nutrition =
                             </Box>
                         </Grid>
                         <Grid size={cmpRangeSize}>
+                            <Typography variant="caption" color="text.secondary" sx={cmpRangeCaptionSx}>{rangeCaption}</Typography>
                             <Typography variant="body1" color={nameColor}>{range}</Typography>
                         </Grid>
                     </Grid>
