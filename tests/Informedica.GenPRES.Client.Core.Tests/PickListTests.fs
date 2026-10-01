@@ -1,8 +1,8 @@
 namespace Informedica.GenPRES.Client.Core.Tests
 
 
-/// The picks the client keeps: what a change from the dialog picked, and what the field decision
-/// reads of them.
+/// The picks the workbench dialog keeps: what a change or a step from the dialog picked, what a
+/// reopen keeps, and what the field decision reads of them.
 module PickListTests =
 
     open Expecto
@@ -101,6 +101,32 @@ module PickListTests =
                     |> Expect.equal "the dose the latest" (Some [| "frq"; "dos" |])
 
                     None |> PickList.afterChange before after |> Expect.isNone "unknown"
+                }
+
+                test "a step that moved its variable makes it the latest pick; one at a bound does not" {
+                    let stepped = order (ovar "frq" false three) (ovar "dos" false one)
+
+                    Some [| "dos"; "frq" |]
+                    |> PickList.afterStep "dos" before stepped
+                    |> Expect.equal "the dose the latest" (Some [| "frq"; "dos" |])
+
+                    Some [| "frq" |]
+                    |> PickList.afterStep "dos" before before
+                    |> Expect.equal "at a bound, as it was" (Some [| "frq" |])
+
+                    None |> PickList.afterStep "dos" before stepped |> Expect.isNone "unknown"
+                }
+
+                test "a reopen keeps the picks made before the reopened one" {
+                    Some [| "frq"; "dos"; "rate" |]
+                    |> PickList.beforeReopen "dos"
+                    |> Expect.equal "the frequency" (Some [| "frq" |])
+
+                    Some [| "frq" |]
+                    |> PickList.beforeReopen "dos"
+                    |> Expect.equal "not a pick, all kept" (Some [| "frq" |])
+
+                    None |> PickList.beforeReopen "dos" |> Expect.isNone "unknown"
                 }
 
                 test "the field decision reads the picks: yes, no, unknown" {

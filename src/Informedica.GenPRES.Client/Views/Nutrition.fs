@@ -920,19 +920,15 @@ module Nutrition =
         // a reopen rather than as a change
         let reopening = React.useRef false
 
-        // a change goes out with what it picked added to the scenario's picks; a reopen goes with
-        // the picks, and the server keeps those made before the cleared one
+        // a reopen goes without picks, since only the workbench keeps them: the server clears and
+        // solves, so a value another variable pins comes back as it was
         let updateOrderScenario (ol: OrderLoader) =
             let isReopen = reopening.current
             reopening.current <- false
 
             let cmd =
                 if isReopen then
-                    ctx.Scenarios
-                    |> Array.tryFind (fun sc -> sc.Order.Id = ol.Order.Id)
-                    |> Option.bind _.Picks
-                    |> Option.defaultValue [||]
-                    |> Api.OrderContextCommand.ReopenOrderScenario
+                    Api.OrderContextCommand.ReopenOrderScenario [||]
                 else
                     Api.OrderContextCommand.UpdateOrderScenario
 
@@ -947,11 +943,6 @@ module Nutrition =
                                 Component = ol.Component
                                 Item = ol.Item
                                 Order = ol.Order
-                                Picks =
-                                    if isReopen then
-                                        sc.Picks
-                                    else
-                                        sc.Picks |> PickList.afterChange sc.Order ol.Order
                             }
                     )
             }
@@ -1123,14 +1114,11 @@ module Nutrition =
 
         let select = ViewHelpers.orderSelect texts true isOrderLoading
 
-        // a field reopens by its arrow when the user constrained its variable, by name
+        // a field with one value reopens by its arrow; without picks it cannot tell whether the user
+        // constrained it
         let reopenOf (ovar: OrderVariable) : ViewHelpers.Reopen =
             {|
-                constrained =
-                    ctx.Scenarios
-                    |> Array.tryExactlyOne
-                    |> Option.bind _.Picks
-                    |> fun picks -> PickList.constrained picks ovar.Name
+                constrained = PickList.constrained None ovar.Name
                 reopening = fun () -> reopening.current <- true
                 restore = props.planRestore
                 busy = isOrderLoading

@@ -1,5 +1,5 @@
-/// The picks a scenario lists, as the client keeps them: a pick from the dialog is added, and a
-/// field reads from them whether the user constrained its variable.
+/// The picks the workbench dialog keeps: the variables the user picked or stepped, in the order
+/// picked. A field reads from them whether the user constrained its variable.
 module PickList
 
 open Shared.Types
@@ -33,10 +33,31 @@ let add (name: string) (picks: string[]) = Array.append (picks |> Array.filter (
 
 
 /// The picks after a change from the dialog: every variable it picked added, in the order the
-/// order lists them. Unknown picks stay unknown: the scenario was stored before the list.
+/// order lists them. Unknown picks stay unknown: outside the workbench there are none.
 let afterChange (before: Order) (after: Order) (picks: string[] option) =
     picks
     |> Option.map (fun ps -> picked before after |> List.fold (fun ps n -> ps |> add n) ps)
+
+
+/// The picks after a step of the variable with this name: the latest pick when the step moved it.
+/// A step at a bound leaves the variable, and the picks, as they were. Unknown picks stay unknown.
+let afterStep name (before: Order) (after: Order) picks =
+    let variableOf ord =
+        ArgumentationPolicy.variables ord
+        |> List.tryFind (fun v -> v.Name = name)
+        |> Option.map _.Variable
+
+    picks
+    |> Option.map (fun ps ->
+        if variableOf after <> variableOf before then
+            ps |> add name
+        else
+            ps
+    )
+
+
+/// The picks a reopen of the variable with this name keeps: those made before it.
+let beforeReopen name picks = picks |> Option.map (Array.takeWhile ((<>) name))
 
 
 /// Whether the user constrained the variable with this name, as the field decision asks it.
