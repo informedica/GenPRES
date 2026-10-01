@@ -568,6 +568,8 @@ module NutritionSlot =
             ComponentRows: JSX.Element[]
             /// The heading above the administration fields.
             AdministrationHeading: JSX.Element
+            /// The action that discards the changes to the order, for a bar of its own.
+            ResetAction: Components.ActionBar.Action
             /// The button that discards the changes to the order.
             ResetBar: JSX.Element
             /// The spinner shown while the slot has no order yet.
@@ -1117,20 +1119,16 @@ module NutritionSlot =
 
         // the changes to the order are discarded: bounded and to the left, so the button is not
         // as wide as the panel it sits in and is not where you click by default
-        let resetBar =
-            Components.ActionBar.View
-                {|
-                    actions =
-                        [|
-                            {|
-                                label = Terms.Reset |> getTerm "Reset"
-                                kind = Components.ActionBar.Kind.Secondary
-                                onClick = onClickReset
-                                disabled = isOrderLoading
-                                icon = Some Mui.Icons.RefreshIcon
-                            |}
-                        |]
-                |}
+        let resetAction =
+            {|
+                label = Terms.Reset |> getTerm "Reset"
+                kind = Components.ActionBar.Kind.Secondary
+                onClick = onClickReset
+                disabled = isOrderLoading
+                icon = Some Mui.Icons.RefreshIcon
+            |}
+
+        let resetBar = Components.ActionBar.View {| actions = [| resetAction |] |}
 
         let indicationFilter =
             if ctx.Filter.Generic.IsNone || ctx.Filter.Indications |> Array.length <= 1 then
@@ -1187,6 +1185,7 @@ module NutritionSlot =
             ComponentHeader = headerRow
             ComponentRows = componentRows
             AdministrationHeading = administrationDivider
+            ResetAction = resetAction
             ResetBar = resetBar
             LoadingIndicator = loadingIndicator
         }

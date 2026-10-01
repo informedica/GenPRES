@@ -24,6 +24,40 @@ module ParenteralNutrition =
     let private autoMarginSx = {| marginLeft = "auto" |}
 
 
+    // the steps of the intake slider, in percent of the full intake; only a few carry a label, so
+    // the slider stays readable on a narrow screen
+    let private intakeMarks =
+        [|
+            for v in 10..10..100 ->
+                if v = 10 || v = 50 || v = 100 then
+                    createObj [ "value" ==> v; "label" ==> $"%i{v}%%" ]
+                else
+                    createObj [ "value" ==> v ]
+        |]
+
+
+    let private toolbarSx =
+        {|
+            display = "flex"
+            flexWrap = "wrap"
+            width = "100%"
+            justifyContent = "space-between"
+            alignItems = "center"
+            gap = 2
+            // room above the slider for the value that pops up while it moves; padding, because the
+            // Stack the bar sits in sets the top margin of its children
+            paddingTop = 3
+        |}
+
+
+    let private sliderBoxSx =
+        {|
+            flex = "1 1 160px"
+            minWidth = 160
+            paddingX = 5
+        |}
+
+
     /// One parenteral order: in a fold with its values in the summary and a bin beside them,
     /// the composition with the dose type, the components, and the administration.
     [<JSX.Component>]
@@ -53,6 +87,12 @@ module ParenteralNutrition =
                     isRecalculating = props.isRecalculating
                     fieldMinWidth = None
                 |}
+
+        let context: Global.Context = React.useContext Global.context
+        let getTerm = Global.getLocalizedTerm props.localizationTerms context.Localization
+
+        // the share of the full intake, in percent; not yet linked to the order
+        let intake, setIntake = React.useState 100
 
         let genericFilter = slot.GenericFilter
         let doseTypeFilter = slot.DoseTypeFilter
@@ -130,6 +170,57 @@ module ParenteralNutrition =
             </Grid>
             """
 
+        // the TPN ends in one bar: reset on the left, the intake in the middle, prescribe on the
+        // right; prescribe does nothing yet
+        let tpnToolbar =
+            let onIntakeChange = System.Func<obj, int, unit>(fun _ v -> setIntake v)
+            let intakeLabel = fun (v: int) -> $"%i{v}%% van totaal"
+            let resetButton = Components.ActionBar.ActionButton slot.ResetAction
+
+            let prescribeButton =
+                Components.ActionBar.ActionButton
+                    {|
+                        label = Terms.``Prescribe`` |> getTerm "Voorschrijven"
+                        kind = Components.ActionBar.Kind.Primary
+                        onClick = ignore
+                        disabled = slot.IsLoading
+                        icon = None
+                    |}
+
+            JSX.jsx
+                $"""
+            import Box from '@mui/material/Box';
+            import Slider from '@mui/material/Slider';
+            import Typography from '@mui/material/Typography';
+            <Box sx={toolbarSx}>
+                {resetButton}
+                <Box sx={sliderBoxSx}>
+                    <Typography id="tpn-intake-label" variant="caption" color="text.secondary">
+                        toedien hoeveelheid als percentage van totaal
+                    </Typography>
+                    <Slider
+                        aria-labelledby="tpn-intake-label"
+                        value={intake}
+                        onChange={onIntakeChange}
+                        step={10}
+                        min={10}
+                        max={100}
+                        marks={intakeMarks}
+                        valueLabelDisplay="auto"
+                        valueLabelFormat={intakeLabel}
+                        disabled={slot.IsLoading}
+                    />
+                </Box>
+                {prescribeButton}
+            </Box>
+            """
+
+        let actionBar =
+            if props.nutritionContext |> isOneOf [ NutritionCategory.TPN ] then
+                tpnToolbar
+            else
+                slot.ResetBar
+
         let preparationSection =
             JSX.jsx
                 $"""
@@ -150,7 +241,7 @@ module ParenteralNutrition =
                 {preparationSection}
                 {slot.AdministrationHeading}
                 {administrationRow}
-                {slot.ResetBar}
+                {actionBar}
             </Stack>
             """
             |> fun fields ->
