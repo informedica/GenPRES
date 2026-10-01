@@ -587,17 +587,18 @@ module OrderContext =
     let create logger provider (pat: Patient) =
         let pat = { pat with Weight = pat.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram) }
 
-        let prs =
+        let opts =
             { pat with Department = pat |> matchedDepartment provider }
             |> getPrescriptionRules logger provider
+            |> PrescriptionRule.filterOptions
 
         let filter =
             {
-                Indications = prs |> PrescriptionRule.indications
-                Generics = prs |> PrescriptionRule.generics
-                Routes = prs |> PrescriptionRule.routes
-                Forms = prs |> PrescriptionRule.forms
-                DoseTypes = prs |> PrescriptionRule.doseTypes
+                Indications = opts.Indications
+                Generics = opts.Generics
+                Routes = opts.Routes
+                Forms = opts.Forms
+                DoseTypes = opts.DoseTypes
                 Diluents = [||]
                 Components = [||]
                 Indication = None
