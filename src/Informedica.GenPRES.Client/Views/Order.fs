@@ -595,7 +595,8 @@ module Order =
         let reopening = React.useRef false
 
         // the variables the user picked or stepped in the workbench, in the order picked; a new
-        // order starts with none; the plan dialog keeps no picks
+        // order starts with none; the plan dialog keeps no picks, so its reopen is a plain clear,
+        // and a value another variable pins comes back as it was
         let initialPicks =
             if props.editing = PlanContextPolicy.Editing.Workbench then
                 Some [||]

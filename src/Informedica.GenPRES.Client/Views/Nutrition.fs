@@ -920,7 +920,8 @@ module Nutrition =
         // a reopen rather than as a change
         let reopening = React.useRef false
 
-        // a reopen goes without picks: only the workbench keeps them, so the server clears and solves
+        // a reopen goes without picks, since only the workbench keeps them: the server clears and
+        // solves, so a value another variable pins comes back as it was
         let updateOrderScenario (ol: OrderLoader) =
             let isReopen = reopening.current
             reopening.current <- false
