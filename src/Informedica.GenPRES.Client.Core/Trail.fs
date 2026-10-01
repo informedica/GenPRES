@@ -163,47 +163,11 @@ module Part =
             shortId c.Id
 
 
-    /// A pick's name without its order prefix: the last bracketed segment and the tail, so that
-    /// [orderable.component.item]_dos_qty reads item.dos_qty.
-    let pickName (name: string) =
-        match name.LastIndexOf ']' with
-        | -1 -> name
-        | close ->
-            let inside = name.Substring(0, close).TrimStart '['
-
-            let last =
-                match inside.LastIndexOf '.' with
-                | -1 -> inside
-                | dot -> inside.Substring(dot + 1)
-
-            let tail = name.Substring(close + 1).TrimStart '_'
-            if tail = "" then last else $"%s{last}.%s{tail}"
-
-
-    /// A pick with its value when the order holds one value for it, open otherwise, unknown when the order
-    /// lacks it.
-    let pick (ord: Order) (name: string) =
-        let short = pickName name
-
-        ArgumentationPolicy.variables ord
-        |> List.tryFind (fun v -> v.Name = name)
-        |> function
-            | None -> $"%s{short}=unknown"
-            | Some v when PickList.valuesOf v = 1 -> $"%s{short}=%s{Order.OrderVariable.displayString v}"
-            | Some _ -> $"%s{short}=open"
-
-
-    /// A scenario by its short order id, its component and its picks; never its texts.
+    /// A scenario by its short order id and its component; never its texts.
     let scenario (sc: OrderScenario) =
         let cmp = sc.Component |> Option.defaultValue "none"
 
-        let picks =
-            match sc.Picks with
-            | None -> "unknown"
-            | Some [||] -> "none"
-            | Some ps -> ps |> Array.map (pick sc.Order) |> String.concat ", "
-
-        $"%s{shortId sc.Order.Id} cmp %s{cmp} picks %s{picks}"
+        $"%s{shortId sc.Order.Id} cmp %s{cmp}"
 
 
     /// An order context by its id, its picks and its scenarios, the one scenario shown; never its
