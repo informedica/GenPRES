@@ -552,8 +552,14 @@ module NutritionSlot =
             DoseQuantityControl: JSX.Element
             /// The dose per time, adjusted, shown only.
             DosePerTimeAdjustDisplay: JSX.Element
-            /// The rate and the time, for a timed or continuous order.
+            /// The rate and the time side by side, for a timed or continuous order.
             RateControl: JSX.Element
+            /// The rate field alone, at the least width of the fields, for a timed or continuous
+            /// order.
+            RateField: JSX.Element
+            /// The time the order runs alone, at the least width of the fields, for a timed or
+            /// continuous order.
+            TimeDisplay: JSX.Element
             /// The total volume, shown only.
             TotalVolumeDisplay: JSX.Element
             /// The headings above the component rows.
@@ -876,8 +882,10 @@ module NutritionSlot =
                             </Stack>
                             """
 
+                    // the range the solver calculated for the component's quantity, from the rules
+                    // that bound it
                     let range, rangeCaption =
-                        match cmp.OrderableQuantity.DefinedConstraints |> Variable.renderValue 3 with
+                        match cmp.OrderableQuantity.CalculatedConstraints |> Variable.renderValue 3 with
                         | "" -> "", ""
                         | r -> $"(%s{r})", "Aanbevolen range"
 
@@ -986,9 +994,12 @@ module NutritionSlot =
 
             items |> responsiveFilter lbl sel genericChange
 
-        let rateControl =
+        let isTimedOrContinuous (ord: Order) = ord.Schedule.IsTimed || ord.Schedule.IsContinuous
+
+        // the rate field, for a timed or continuous order
+        let rateField minWidth =
             match displayOrder with
-            | Some ord when ord.Schedule.IsTimed || ord.Schedule.IsContinuous ->
+            | Some ord when ord |> isTimedOrContinuous ->
                 let nav =
                     let mode =
                         ord.Orderable.Dose.Rate
@@ -1008,22 +1019,32 @@ module NutritionSlot =
                 let severity = ord.Orderable.Dose.Rate |> markOf
                 let label = ord.Orderable.Dose.Rate |> ViewHelpers.ovarLabel "infuussnelheid"
 
-                let rateDisplay =
-                    ord.Orderable.Dose.Rate
-                    |> ViewHelpers.ovarValsWithRange string 3
-                    |> select
-                        false
-                        label
-                        None
-                        (ChangeOrderableDoseRate >> dispatch)
-                        nav
-                        severity
-                        (reopenOf ord.Orderable.Dose.Rate)
-                        (Some 400)
+                ord.Orderable.Dose.Rate
+                |> ViewHelpers.ovarValsWithRange string 3
+                |> select
+                    false
+                    label
+                    None
+                    (ChangeOrderableDoseRate >> dispatch)
+                    nav
+                    severity
+                    (reopenOf ord.Orderable.Dose.Rate)
+                    minWidth
+            | _ -> null
 
-                let timeDisplay =
-                    ord.Schedule.Time
-                    |> ViewHelpers.ovarDisplay display "looptijd" (fixPrecision 3) (Some 400)
+        // the time the order runs, shown only, for a timed or continuous order
+        let timeDisplay minWidth =
+            match displayOrder with
+            | Some ord when ord |> isTimedOrContinuous ->
+                ord.Schedule.Time
+                |> ViewHelpers.ovarDisplay display "looptijd" (fixPrecision 3) minWidth
+            | _ -> null
+
+        let rateControl =
+            match displayOrder with
+            | Some ord when ord |> isTimedOrContinuous ->
+                let rateDisplay = rateField (Some 400)
+                let timeDisplay = timeDisplay (Some 400)
 
                 JSX.jsx
                     $"""
@@ -1044,11 +1065,22 @@ module NutritionSlot =
                 """
             | _ -> null
 
+        // like the component quantities, an unsolved total shows the range it can still take
         let totalVolumeDisplay =
             match displayOrder with
             | Some ord ->
-                ord.Orderable.OrderableQuantity
-                |> ViewHelpers.ovarDisplay display "totaal volume" string (Some 400)
+                let ovar = ord.Orderable.OrderableQuantity
+
+                ovar
+                |> ViewHelpers.ovarValsWithRange string 3
+                |> display
+                    false
+                    (ovar |> ViewHelpers.ovarLabel "totaal volume")
+                    None
+                    ignore
+                    ViewHelpers.noSteps
+                    (ovar |> markOf)
+                    (Some 400)
             | None -> null
 
         let onClickReset = fun () -> ResetOrderScenario |> dispatch
@@ -1110,11 +1142,22 @@ module NutritionSlot =
 
                 items |> responsiveFilter lbl sel indicationChange
 
+        // once a composition and indication offered more than one dose type, the choice stays in
+        // view after one is picked, so it can be changed; another composition or indication
+        // starts over
+        let doseTypeChoice = React.useRef ((ctx.Filter.Generic, ctx.Filter.Indication), false)
+
+        if fst doseTypeChoice.current <> (ctx.Filter.Generic, ctx.Filter.Indication) then
+            doseTypeChoice.current <- (ctx.Filter.Generic, ctx.Filter.Indication), false
+
+        if ctx.Filter.DoseTypes |> Array.length > 1 then
+            doseTypeChoice.current <- (ctx.Filter.Generic, ctx.Filter.Indication), true
+
         let doseTypeFilter =
             if
                 ctx.Filter.Generic.IsNone
                 || ctx.Filter.Indication.IsNone
-                || ctx.Filter.DoseTypes |> Array.length <= 1
+                || not (snd doseTypeChoice.current)
             then
                 null
             else
@@ -1138,6 +1181,8 @@ module NutritionSlot =
             DoseQuantityControl = doseQtyControl
             DosePerTimeAdjustDisplay = dosePerTimeAdjDisplay
             RateControl = rateControl
+            RateField = rateField props.fieldMinWidth
+            TimeDisplay = timeDisplay props.fieldMinWidth
             TotalVolumeDisplay = totalVolumeDisplay
             ComponentHeader = headerRow
             ComponentRows = componentRows
