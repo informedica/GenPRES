@@ -790,12 +790,15 @@ module Order =
             [| box props.orderContext |]
         )
 
+        // a reopen stays loading until its answer is shown: the order it started from is shown one
+        // render past the answer, until the effect above lets go of it
         let isOrderLoading =
-            match props.orderContext with
-            | OrderContextView.Changing _ -> true
-            | OrderContextView.NoPatient
-            | OrderContextView.Refused _
-            | OrderContextView.Settled _ -> false
+            reopenedFrom.IsSome
+            || match props.orderContext with
+               | OrderContextView.Changing _ -> true
+               | OrderContextView.NoPatient
+               | OrderContextView.Refused _
+               | OrderContextView.Settled _ -> false
 
         let isFieldLoading field = isOrderLoading && changing = Some(field, true)
 
@@ -1095,6 +1098,8 @@ module Order =
                 restore =
                     fun () ->
                         setPicks heldPicks.current
+                        // the reopen ends here: its order is no longer held, whatever the answer
+                        setReopenedFrom None
                         props.restoreOrderScenario ()
                 busy = isOrderLoading
             |}

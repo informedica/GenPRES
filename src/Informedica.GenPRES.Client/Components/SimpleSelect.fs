@@ -49,6 +49,8 @@ module SimpleSelect =
                 // a request of the page under way, also a step shown before its answer: a reopen
                 // then does nothing, since the clear would wait behind it with nothing to put back
                 busy: bool
+                // what the box asks while it has values to pick from and shows none
+                placeholder: string option
             |})
         =
 
@@ -268,6 +270,27 @@ module SimpleSelect =
                 |> Option.defaultValue ""
             | None -> ""
 
+        // the placeholder stands where the value would, only when the box shows no value, so the
+        // two never lie over each other
+        let placeholder =
+            match props.placeholder with
+            | Some text when value = "" && props.values.Length > 0 -> Some text
+            | _ -> None
+
+        let placeholderSx = {| color = "text.disabled" |}
+
+        let renderValue =
+            match placeholder with
+            | Some text ->
+                fun (_: string) ->
+                    JSX.jsx
+                        $"""
+                    import Box from '@mui/material/Box';
+                    <Box component="span" sx={placeholderSx}>{text}</Box>
+                    """
+                |> box
+            | None -> null
+
         // in a row beside a stepper the select takes the width the stepper leaves
         let formControlSx =
             {|
@@ -290,6 +313,8 @@ module SimpleSelect =
             id={props.label}
             name={props.label}
             value={value}
+            displayEmpty={placeholder.IsSome}
+            renderValue={renderValue}
             open={isOpen}
             onOpen={handleOpen}
             onClose={handleClose}
