@@ -155,7 +155,7 @@ type Patient = private {
 /// Functions for working with Patient instances
 module Patient =
     /// Creates a new patient with validation
-    let create id name birthDate : Result<Patient, PatientError> =
+    let create id name birthDate =
         result {
             let! id = PatientId.create id
             let! name = NonEmptyString.create name
@@ -173,6 +173,31 @@ module Patient =
 - Pattern matching over if-else chains; total functions over partial matches, validate inputs early
 - Model choices as discriminated unions, never as boolean flags
 - Keep pure logic separate from IO; pass dependencies as parameters
+
+### Type annotations
+
+F# infers types. Annotate a parameter or a return type only where the compiler cannot infer it:
+
+- a member access on a parameter whose type is not known yet (`provider.Get`, `x.Length`)
+- an overloaded method or operator that needs to know the argument type
+- a record expression whose field names more than one record type shares
+- a generic value the compiler would otherwise restrict (the value restriction)
+
+Do not add an annotation to document a type; IntelliSense and the generated API reference show the inferred one.
+When a call site already fixes the type, leave the definition unannotated.
+
+```fsharp
+// Bad - every type can be inferred
+let getFilterOptions (provider: IResourceProvider) (filter: DoseFilter) : Result<FilterOptions, Message list> =
+    Api.filterPrescriptionRules provider filter |> Result.map PrescriptionRule.filterOptions
+
+// Good
+let getFilterOptions provider filter =
+    Api.filterPrescriptionRules provider filter |> Result.map PrescriptionRule.filterOptions
+
+// Good - the member access needs the type
+let departments (provider: IResourceProvider) = provider.Get Keys.departments
+```
 
 ## Error Handling
 
