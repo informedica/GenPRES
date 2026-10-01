@@ -635,6 +635,48 @@ module ViewHelpers =
             |}
 
 
+    /// A filter scrolled on a small screen and typed into on a large one.
+    let responsiveFilter isMobile disabled isLoading lbl selected dispatch xs =
+        if isMobile then
+            xs
+            |> Array.map (fun s -> s, s)
+            |> filterSelect disabled isLoading lbl selected dispatch
+        else
+            xs |> autoComplete disabled isLoading lbl selected dispatch
+
+
+    /// The text of an item, without the emphasis it is drawn with.
+    let textItemText item =
+        match item with
+        | Normal s
+        | Bold s
+        | Italic s -> s
+
+
+    /// The text of a block, its items joined, without their emphasis or the block's severity.
+    let textBlockText block =
+        block |> Models.Severity.items |> Array.map textItemText |> String.concat ""
+
+
+    /// The context with the scenario of the loader's order replaced by the loader's component,
+    /// item and order.
+    let withLoader (ctx: OrderContext) (ol: OrderLoader) =
+        { ctx with
+            Scenarios =
+                ctx.Scenarios
+                |> Array.map (fun sc ->
+                    if sc.Order.Id <> ol.Order.Id then
+                        sc
+                    else
+                        { sc with
+                            Component = ol.Component
+                            Item = ol.Item
+                            Order = ol.Order
+                        }
+                )
+        }
+
+
     let inlineProgress isLoading =
         if isLoading then
             let progressSx =
@@ -758,6 +800,34 @@ module ViewHelpers =
                 s + " kg"
             )
             |> Option.defaultValue unknown
+
+
+        /// The heading of a section on paper: bold on a light band.
+        [<JSX.Component>]
+        let SectionHeader
+            (props:
+                {|
+                    label: string
+                    marginBottom: int
+                |})
+            =
+            let headerSx =
+                {|
+                    fontWeight = "bold"
+                    backgroundColor = "#f5f5f5"
+                    padding = "4px 8px"
+                    borderRadius = 1
+                    marginBottom = props.marginBottom
+                |}
+
+            JSX.jsx
+                $"""
+            import Typography from '@mui/material/Typography';
+
+            <Typography variant="subtitle1" sx={headerSx}>
+                {props.label}
+            </Typography>
+            """
 
 
         [<JSX.Component>]

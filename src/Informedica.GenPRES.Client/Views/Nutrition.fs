@@ -509,32 +509,6 @@ module Nutrition =
             width = "100%"
         |}
 
-    let private printSectionHeaderSx =
-        {|
-            fontWeight = "bold"
-            backgroundColor = "#f5f5f5"
-            padding = "4px 8px"
-            borderRadius = 1
-        |}
-
-    let private printSectionHeaderMb1Sx =
-        {|
-            fontWeight = "bold"
-            backgroundColor = "#f5f5f5"
-            padding = "4px 8px"
-            borderRadius = 1
-            marginBottom = 1
-        |}
-
-    let private printSectionHeaderMb2Sx =
-        {|
-            fontWeight = "bold"
-            backgroundColor = "#f5f5f5"
-            padding = "4px 8px"
-            borderRadius = 1
-            marginBottom = 2
-        |}
-
     let private removeButtonSx =
         {|
             marginLeft = "auto"
@@ -578,17 +552,7 @@ module Nutrition =
                 marginLeft = 1
             |}
 
-        let textOf (block: TextBlock) =
-            block
-            |> Severity.items
-            |> Array.map (
-                function
-                | Normal s
-                | Bold s
-                | Italic s -> s
-            )
-            |> String.concat ""
-            |> String.trim
+        let textOf = ViewHelpers.textBlockText >> String.trim
 
         // a block with a number in it is a value and becomes a chip; one without, an item's
         // name or a word between values such as "in" or "=", stays text between the chips
@@ -676,15 +640,20 @@ module Nutrition =
                 | None ->
                     let mb2Sx = {| marginBottom = 2 |}
 
+                    let header =
+                        ViewHelpers.PrintView.SectionHeader
+                            {|
+                                label = label
+                                marginBottom = 0
+                            |}
+
                     JSX.jsx
                         $"""
                     import Box from '@mui/material/Box';
                     import Typography from '@mui/material/Typography';
 
                     <Box key={nc.Id} sx={mb2Sx}>
-                        <Typography variant="subtitle1" sx={printSectionHeaderSx}>
-                            {label}
-                        </Typography>
+                        {header}
                         <Typography variant="body2" color="text.secondary">
                             niet geconfigureerd
                         </Typography>
@@ -747,10 +716,16 @@ module Nutrition =
                         else
                             null
 
+                    let header =
+                        ViewHelpers.PrintView.SectionHeader
+                            {|
+                                label = $"%s{label} - %s{orderableName}"
+                                marginBottom = 1
+                            |}
+
                     JSX.jsx
                         $"""
                     import Box from '@mui/material/Box';
-                    import Typography from '@mui/material/Typography';
                     import Table from '@mui/material/Table';
                     import TableBody from '@mui/material/TableBody';
                     import TableRow from '@mui/material/TableRow';
@@ -758,9 +733,7 @@ module Nutrition =
                     import TableHead from '@mui/material/TableHead';
 
                     <Box key={nc.Id} sx={ {| marginBottom = 3 |} }>
-                        <Typography variant="subtitle1" sx={printSectionHeaderMb1Sx}>
-                            {label} - {orderableName}
-                        </Typography>
+                        {header}
                         <Table size="small" sx={tableSx}>
                             <TableHead>
                                 <TableRow>
@@ -805,23 +778,14 @@ module Nutrition =
                     let value =
                         if items.Length >= 2 then
                             items[0 .. items.Length - 2]
-                            |> Array.map (fun item ->
-                                match item with
-                                | Normal s
-                                | Bold s
-                                | Italic s -> s
-                            )
+                            |> Array.map ViewHelpers.textItemText
                             |> String.concat " "
                         else
                             ""
 
                     let normal =
                         if items.Length >= 1 then
-                            let s =
-                                match items[items.Length - 1] with
-                                | Normal s
-                                | Bold s
-                                | Italic s -> s
+                            let s = items[items.Length - 1] |> ViewHelpers.textItemText
 
                             if s = "" then "" else s + " " + unit
                         else
@@ -843,17 +807,21 @@ module Nutrition =
             if activeRows.Length = 0 then
                 null
             else
+                let header =
+                    ViewHelpers.PrintView.SectionHeader
+                        {|
+                            label = "Totalen"
+                            marginBottom = 1
+                        |}
+
                 JSX.jsx
                     $"""
                 import Box from '@mui/material/Box';
-                import Typography from '@mui/material/Typography';
                 import Table from '@mui/material/Table';
                 import TableBody from '@mui/material/TableBody';
 
                 <Box sx={ {| marginTop = 2 |} }>
-                    <Typography variant="subtitle1" sx={printSectionHeaderMb1Sx}>
-                        Totalen
-                    </Typography>
+                    {header}
                     <Table size="small" sx={tableSx}>
                         <TableBody>
                             {totalsRows |> unbox<seq<ReactElement>> |> React.Fragment}
@@ -863,14 +831,17 @@ module Nutrition =
                 """
 
         let printContent =
+            let header =
+                ViewHelpers.PrintView.SectionHeader
+                    {|
+                        label = "INFUUS AFSPRAKEN CENTRAAL VENEUZE CATHETERS"
+                        marginBottom = 2
+                    |}
+
             JSX.jsx
                 $"""
-            import Typography from '@mui/material/Typography';
-
             <React.Fragment>
-                <Typography variant="subtitle1" sx={printSectionHeaderMb2Sx}>
-                    INFUUS AFSPRAKEN CENTRAAL VENEUZE CATHETERS
-                </Typography>
+                {header}
                 {ViewHelpers.PrintView.PatientHeader
                      {|
                          weightKg = weightKg
@@ -991,20 +962,7 @@ module Nutrition =
                 else
                     Api.OrderContextCommand.UpdateOrderScenario
 
-            { ctx with
-                Scenarios =
-                    ctx.Scenarios
-                    |> Array.map (fun sc ->
-                        if sc.Order.Id <> ol.Order.Id then
-                            sc
-                        else
-                            { sc with
-                                Component = ol.Component
-                                Item = ol.Item
-                                Order = ol.Order
-                            }
-                    )
-            }
+            ViewHelpers.withLoader ctx ol
             |> fun updCtx ->
                 Api.OrderPlanCommand.Navigate(planRef.current, ncId, cmd, updCtx)
                 |> if isReopen then props.planReopen else props.planCommand
@@ -1014,91 +972,21 @@ module Nutrition =
             |> props.planCommand
 
         let stepper =
-            let create nav =
-                fun (ol: OrderLoader) ->
-                    let updCtx =
-                        { ctx with
-                            Scenarios =
-                                ctx.Scenarios
-                                |> Array.map (fun sc ->
-                                    if sc.Order.Id <> ol.Order.Id then
-                                        sc
-                                    else
-                                        { sc with
-                                            Component = ol.Component
-                                            Item = ol.Item
-                                            Order = ol.Order
-                                        }
-                                )
-                        }
+            let create nav = fun ol -> ViewHelpers.withLoader ctx ol |> nav
 
-                    nav updCtx
-
-            let createWithN nav =
-                fun (n, uc) (ol: OrderLoader) ->
-                    let updCtx =
-                        { ctx with
-                            Scenarios =
-                                ctx.Scenarios
-                                |> Array.map (fun sc ->
-                                    if sc.Order.Id <> ol.Order.Id then
-                                        sc
-                                    else
-                                        { sc with
-                                            Component = ol.Component
-                                            Item = ol.Item
-                                            Order = ol.Order
-                                        }
-                                )
-                        }
-
-                    nav (updCtx, n, uc)
+            let createWithN nav = fun (n, uc) ol -> nav (ViewHelpers.withLoader ctx ol, n, uc)
 
             let createWithCmp nav =
                 fun (ol: OrderLoader) ->
                     match ol.Component with
                     | None -> ()
-                    | Some cmp ->
-                        let updCtx =
-                            { ctx with
-                                Scenarios =
-                                    ctx.Scenarios
-                                    |> Array.map (fun sc ->
-                                        if sc.Order.Id <> ol.Order.Id then
-                                            sc
-                                        else
-                                            { sc with
-                                                Component = ol.Component
-                                                Item = ol.Item
-                                                Order = ol.Order
-                                            }
-                                    )
-                            }
-
-                        nav (updCtx, cmp)
+                    | Some cmp -> nav (ViewHelpers.withLoader ctx ol, cmp)
 
             let createWithCmpN nav =
                 fun (n, uc) (ol: OrderLoader) ->
                     match ol.Component with
                     | None -> ()
-                    | Some cmp ->
-                        let updCtx =
-                            { ctx with
-                                Scenarios =
-                                    ctx.Scenarios
-                                    |> Array.map (fun sc ->
-                                        if sc.Order.Id <> ol.Order.Id then
-                                            sc
-                                        else
-                                            { sc with
-                                                Component = ol.Component
-                                                Item = ol.Item
-                                                Order = ol.Order
-                                            }
-                                    )
-                            }
-
-                        nav (updCtx, cmp, n, uc)
+                    | Some cmp -> nav (ViewHelpers.withLoader ctx ol, cmp, n, uc)
 
             let navRate cmd =
                 fun updCtx ->
@@ -1185,7 +1073,7 @@ module Nutrition =
         // a value only shown has nothing for a cross to clear
         let display = ViewHelpers.orderFixed texts true isOrderLoading
         let filterSelect = ViewHelpers.filterSelect isOrderLoading isOrderLoading
-        let autoComplete = ViewHelpers.autoComplete isOrderLoading isOrderLoading
+        let responsiveFilter = ViewHelpers.responsiveFilter isMobile isOrderLoading isOrderLoading
         let loadingIndicator = ViewHelpers.inlineProgress isOrderLoading
 
         let displayOrder = shownOrder
@@ -1364,19 +1252,15 @@ module Nutrition =
                         ord.Schedule.Frequency
                         |> QuantityModePolicy.decideFor QuantityModePolicy.Field.Frequency ord
 
-                    // a frequency steps one increment per click, so it has no large step
-                    ViewHelpers.createStepper
+                    ViewHelpers.frequencyStepper
                         dispatch
                         revision
                         mode
-                        false
                         SetMinFrequencyProperty
-                        (fun _ -> DecreaseFrequencyProperty)
+                        DecreaseFrequencyProperty
                         SetMedianFrequencyProperty
-                        (fun _ -> IncreaseFrequencyProperty)
+                        IncreaseFrequencyProperty
                         SetMaxFrequencyProperty
-                        None
-                        None
 
                 select
                     false
@@ -1394,12 +1278,8 @@ module Nutrition =
             let sel = ctx.Filter.Generic
             let items = ctx.Filter.Generics
             let lbl = Terms.Composition |> getTerm "Samenstelling"
-            let onChange = genericChange
 
-            if isMobile then
-                items |> Array.map (fun s -> s, s) |> filterSelect lbl sel onChange
-            else
-                items |> autoComplete lbl sel onChange
+            items |> responsiveFilter lbl sel genericChange
 
         let frequencyDoseRow =
             if isEnteral then
@@ -1505,18 +1385,16 @@ module Nutrition =
                         ord.Orderable.Dose.Rate
                         |> QuantityModePolicy.decideFor QuantityModePolicy.Field.DoseRate ord
 
-                    ViewHelpers.createStepper
+                    ViewHelpers.doseRateStepper
                         dispatch
                         revision
                         mode
-                        (ord.Orderable.Dose.Rate |> ViewHelpers.hasLargeStep)
+                        ord.Orderable.Dose.Rate
                         SetMinDoseRateProperty
                         DecreaseDoseRateProperty
                         SetMedianDoseRateProperty
                         IncreaseDoseRateProperty
                         SetMaxDoseRateProperty
-                        (ord.Orderable.Dose.Rate |> ViewHelpers.ovarStep string)
-                        (ord.Orderable.Dose.Rate |> ViewHelpers.largeStepText)
 
                 let severity = ord.Orderable.Dose.Rate |> markOf
                 let label = ord.Orderable.Dose.Rate |> ViewHelpers.ovarLabel "infuussnelheid"
@@ -1669,10 +1547,7 @@ module Nutrition =
                 let items = ctx.Filter.Indications
                 let lbl = Terms.Indication |> getTerm "Indicatie"
 
-                if isMobile then
-                    items |> Array.map (fun s -> s, s) |> filterSelect lbl sel indicationChange
-                else
-                    items |> autoComplete lbl sel indicationChange
+                items |> responsiveFilter lbl sel indicationChange
 
         let doseTypeFilter =
             if
