@@ -211,12 +211,24 @@ module Prescribe =
                 null
             else
                 let caption =
+                    // the access the preparation is for, labelled as the patient panel labels it
+                    let access =
+                        sc.Access
+                        |> Option.map (
+                            function
+                            | CVL -> "CVL"
+                            | PVL -> "PVL"
+                            | EnteralTube -> Terms.``Patient Enteral Tube`` |> getTerm "Sonde"
+                        )
+                        |> Option.map (fun s -> $" (%s{s})")
+                        |> Option.defaultValue ""
+
                     let renal =
                         sc.RenalRule
                         |> Option.map (fun s -> $" (doseer aanpassing volgens {s})")
                         |> Option.defaultValue ""
 
-                    $"{sc.Form}{renal}"
+                    $"{sc.Form}{access}{renal}"
 
                 let onClick (sc: OrderScenario) =
                     let ctx =

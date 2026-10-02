@@ -373,6 +373,7 @@ module SessionStubTests =
             false
             None
             [||]
+            None
 
 
     /// A plan over the scenarios given, each in a context of its own, as the plan holds its

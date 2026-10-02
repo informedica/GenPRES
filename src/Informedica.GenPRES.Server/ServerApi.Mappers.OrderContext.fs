@@ -188,6 +188,11 @@ module OrderContextMapper =
             UseRenalRule = sc.UseRenalRule
             RenalRule = sc.RenalRule
             ProductsIds = sc.ProductIds
+            Access =
+                sc.Access
+                |> Option.map Patient.access
+                |> Option.defaultValue AnyAccess
+                |> AccessDevice.toString
         }
 
 
@@ -212,6 +217,10 @@ module OrderContextMapper =
             dto.UseRenalRule
             dto.RenalRule
             dto.ProductsIds
+            (dto.Access
+             |> Option.ofObj
+             |> Option.bind AccessDevice.tryFromString
+             |> Option.bind Patient.accessBack)
 
 
     /// The totals as the domain's Dto: each line as marked-up text, an empty one as none.

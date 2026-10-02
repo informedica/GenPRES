@@ -65,6 +65,7 @@ module Fixtures =
             UseRenalRule = false
             RenalRule = None
             ProductsIds = [||]
+            Access = AnyAccess
         }
 
 
@@ -479,6 +480,7 @@ module EvaluateFixtures =
             UseRenalRule = false
             RenalRule = None
             ProductsIds = [||]
+            Access = AnyAccess
         }
 
     let pcmContext: OrderContext =
@@ -1053,6 +1055,68 @@ let rulesTests =
                 ctx.Scenarios |> Expect.isEmpty "afresh: no scenarios"
                 ctx.Argumentation |> Expect.equal "the text kept" held.Argumentation
             }
+        ]
+
+
+/// The access device a scenario is labelled with: that of the solution rule its order was made
+/// from, paired by place with the medications of the rule.
+let scenarioAccessTests =
+    let solutionRule access : SolutionRule =
+        {
+            Generic = "paracetamol"
+            Form = None
+            Route = "iv"
+            Indication = None
+            DoseType = NoDoseType
+            PatientCategory = { PatientCategory.empty with Access = access }
+            Dose = Informedica.GenCore.Lib.Ranges.MinMax.empty
+            Diluents = [||]
+            Div = None
+            Volumes = None
+            Volume = Informedica.GenCore.Lib.Ranges.MinMax.empty
+            VolumeAdjust = Informedica.GenCore.Lib.Ranges.MinMax.empty
+            DripRate = Informedica.GenCore.Lib.Ranges.MinMax.empty
+            DosePerc = Informedica.GenCore.Lib.Ranges.MinMax.empty
+            SolutionLimits = [||]
+        }
+
+    // a function, so that the rule lookup runs in the test and not when the file loads
+    let rule accesses =
+        let provider =
+            RulesOf(RuleFixtures.rules [| RuleFixtures.row Resources.Departments.defaultDepartment |])
+
+        EvaluateFixtures.child
+        |> Api.getPrescriptionRules provider
+        |> Result.defaultValue [||]
+        |> Array.head
+        |> fun pr -> { pr with SolutionRules = accesses |> Array.map solutionRule }
+
+    testList
+        "the access of a scenario"
+        [
+            test "a rule without solution rules gives a single any access" {
+                rule [||]
+                |> OrderScenario.accessOfRule
+                |> Expect.equal "any access, once" [| AnyAccess |]
+            }
+
+            test "each solution rule gives its access device, in the order of the rules" {
+                rule [| CVL; PVL; AnyAccess |]
+                |> OrderScenario.accessOfRule
+                |> Expect.equal "the devices of the rules" [| CVL; PVL; AnyAccess |]
+            }
+
+            for accesses in [ [||]; [| CVL |]; [| CVL; PVL; AnyAccess |] ] do
+                test $"%i{accesses.Length} solution rules give as many devices as medications" {
+                    let pr = rule accesses
+
+                    pr
+                    |> OrderScenario.accessOfRule
+                    |> Array.length
+                    |> Expect.equal
+                        "one device per medication"
+                        (pr |> Medication.fromRule OrderLogging.noOp |> Array.length)
+                }
         ]
 
 

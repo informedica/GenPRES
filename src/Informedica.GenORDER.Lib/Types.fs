@@ -513,6 +513,9 @@ module Types =
             RenalRule: string option
             /// Associated product identifiers
             ProductsIds: string[]
+            /// The access device the scenario's solution rule makes the preparation for; AnyAccess
+            /// when the rule names none or the scenario has no solution rule. Never the patient's access.
+            Access: Informedica.GenForm.Lib.Types.AccessDevice
         }
 
 
