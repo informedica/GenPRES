@@ -1117,6 +1117,21 @@ let scenarioAccessTests =
                         "one device per medication"
                         (pr |> Medication.fromRule OrderLogging.noOp |> Array.length)
                 }
+
+            for accesses in [ [||]; [| CVL; PVL |]; [| PVL; AnyAccess; CVL |] ] do
+                test $"evaluated, the scenarios of %i{accesses.Length} solution rules hold the access of their rule" {
+                    let expected =
+                        if accesses |> Array.isEmpty then
+                            [| AnyAccess |]
+                        else
+                            accesses
+
+                    [| rule accesses |]
+                    |> OrderContext.Helpers.evaluateRules (System.DateTime(2026, 1, 1)) OrderLogging.noOp
+                    |> OrderContext.Helpers.processEvaluationResults
+                    |> Array.map _.Access
+                    |> Expect.equal "the access of each rule, in the order of the rules" expected
+                }
         ]
 
 
