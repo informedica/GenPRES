@@ -1856,7 +1856,7 @@ module Models =
     module OrderScenario =
 
 
-        let create ind nme frm rte dst dil cmp itm dils cmps itms prs prep adm o adj rr rn ids =
+        let create ind nme frm rte dst dil cmp itm dils cmps itms prs prep adm o adj rr rn ids acc =
             {
                 Name = nme
                 Indication = ind
@@ -1877,6 +1877,7 @@ module Models =
                 UseRenalRule = rr
                 RenalRule = rn
                 ProductIds = ids
+                Access = acc
             }
 
 

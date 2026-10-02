@@ -2006,6 +2006,7 @@ module DtoTests =
                 UseRenalRule = false
                 RenalRule = None
                 ProductsIds = [| "gpk-1" |]
+                Access = AnyAccess
             }
 
 
@@ -2087,6 +2088,29 @@ module DtoTests =
                                 |> OrderScenario.Dto.fromDto
                                 |> Result.map (OrderScenario.Dto.toDto >> Canonical.serialize)
                                 |> Expect.equal "the same form" (Ok(Canonical.serialize dto))
+                            }
+
+                        for access in [ CVL; PVL; EnteralTube; AnyAccess ] do
+                            test $"the access %A{access} goes to the Dto and back" {
+                                let sc = { Fixtures.scenario (snd Fixtures.orders[0]) with Access = access }
+
+                                sc
+                                |> OrderScenario.Dto.toDto
+                                |> OrderScenario.Dto.fromDto
+                                |> Result.map _.Access
+                                |> Expect.equal "the same access" (Ok access)
+                            }
+
+                        for name, stored in [ "no", null; "an empty", ""; "an unknown", "arterial" ] do
+                            test $"%s{name} stored access reads as any access" {
+                                let dto =
+                                    { Fixtures.scenario (snd Fixtures.orders[0]) with Access = CVL }
+                                    |> OrderScenario.Dto.toDto
+
+                                { dto with Access = stored }
+                                |> OrderScenario.Dto.fromDto
+                                |> Result.map _.Access
+                                |> Expect.equal "any access" (Ok AnyAccess)
                             }
 
                         test "an unknown text kind is an error" {
@@ -2308,6 +2332,7 @@ module OrderPlanDtoTests =
                 UseRenalRule = false
                 RenalRule = None
                 ProductsIds = [| "gpk-1" |]
+                Access = AnyAccess
             }
 
         let context: OrderContext =
@@ -2613,6 +2638,7 @@ let tests =
             OrderPlanTests.tests
             OrderPlanTests.evaluateTests
             OrderPlanTests.rulesTests
+            OrderPlanTests.scenarioAccessTests
             OrderPlanTests.refusalTests
             OrderPlanTests.argumentationTests
             DosePrintoutTests.tests

@@ -486,6 +486,9 @@ module Types =
             UseRenalRule: bool
             RenalRule: string option
             ProductIds: string[]
+            /// The access device the scenario's solution rule makes the preparation for; none when
+            /// the preparation is for any access. Never the patient's access.
+            Access: Access option
         }
 
 

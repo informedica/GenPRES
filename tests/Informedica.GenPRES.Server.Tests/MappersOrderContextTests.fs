@@ -44,6 +44,7 @@ let scenario: OrderScenario =
         false
         None
         [| "gpk-1" |]
+        None
 
 
 let context: OrderContext =
@@ -85,6 +86,24 @@ let tests =
 
                 (context |> OrderContextMapper.ofModel |> OrderContextMapper.toModel true).DemoVersion
                 |> Expect.isTrue "demo as the server says"
+            }
+
+            for access in [ Some CVL; Some PVL; Some EnteralTube; None ] do
+                test $"the scenario access %A{access} goes to the Dto and back" {
+                    let sc = { scenario with Access = access }
+
+                    sc
+                    |> OrderContextMapper.scenario 0
+                    |> OrderContextMapper.scenarioBack
+                    |> _.Access
+                    |> Expect.equal "the same access" access
+                }
+
+            test "a scenario Dto without an access reads as none" {
+                { (scenario |> OrderContextMapper.scenario 0) with Access = null }
+                |> OrderContextMapper.scenarioBack
+                |> _.Access
+                |> Expect.isNone "no access"
             }
 
             test "the argumentation goes to the Dto and back, the text and none" {

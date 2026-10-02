@@ -69,7 +69,17 @@ module OrderScenario =
             UseRenalRule = ren
             RenalRule = rrl
             ProductsIds = ids
+            Access = AnyAccess
         }
+
+
+    /// One access device per medication that Medication.fromRule makes from the rule, in the same
+    /// order: the device of each solution rule, or a single AnyAccess when the rule has none.
+    let accessOfRule pr =
+        if pr.SolutionRules |> Array.isEmpty then
+            [| AnyAccess |]
+        else
+            pr.SolutionRules |> Array.map _.PatientCategory.Access
 
 
     let setOrderTableFormat (sc: OrderScenario) =
@@ -167,6 +177,7 @@ module OrderScenario =
                 UseRenalRule: bool
                 RenalRule: string option
                 ProductsIds: string[]
+                Access: string
             }
 
 
@@ -212,6 +223,7 @@ module OrderScenario =
                 UseRenalRule = sc.UseRenalRule
                 RenalRule = sc.RenalRule
                 ProductsIds = sc.ProductsIds
+                Access = sc.Access |> AccessDevice.toString
             }
 
 
@@ -272,6 +284,12 @@ module OrderScenario =
                                 UseRenalRule = dto.UseRenalRule
                                 RenalRule = dto.RenalRule
                                 ProductsIds = dto.ProductsIds |> DtoResult.orEmpty
+                                // a scenario stored before the field existed has none
+                                Access =
+                                    dto.Access
+                                    |> Option.ofObj
+                                    |> Option.bind AccessDevice.tryFromString
+                                    |> Option.defaultValue AnyAccess
                             }
                     | errors, _, _, _, _, _ -> Error errors
                 )
@@ -512,11 +530,13 @@ module OrderContext =
             let ords =
                 prs
                 |> Array.collect (fun pr ->
+                    // one access device per medication; zip throws when the two differ in length
                     pr
-                    |> Medication.fromRule logger
-                    |> Array.choose (fun med ->
+                    |> OrderScenario.accessOfRule
+                    |> Array.zip (pr |> Medication.fromRule logger)
+                    |> Array.choose (fun (med, access) ->
                         match med |> Medication.toOrder start with
-                        | Ok ord -> Some ord
+                        | Ok ord -> Some(ord, pr, access)
                         // a medication that cannot become an order is left out of the
                         // scenarios, so say which one and why, or it goes missing in silence
                         | Error msg ->
@@ -527,7 +547,6 @@ module OrderContext =
 
                             None
                     )
-                    |> Array.map (fun ord -> ord, pr)
                 )
 
             if ords |> Array.isEmpty then
@@ -535,7 +554,9 @@ module OrderContext =
             else
                 // Evaluate all orders in parallel using Array.Parallel for better performance
                 ords
-                |> Array.Parallel.map (fun (ord, pr) -> evaluateOrder logger pr ord)
+                |> Array.Parallel.map (fun (ord, pr, access) ->
+                    evaluateOrder logger pr ord |> Result.map (fun (ord, pr) -> ord, pr, access)
+                )
                 |> Array.filter Result.isOk
 
 
@@ -544,7 +565,7 @@ module OrderContext =
             |> Array.mapi (fun i r -> i, r)
             |> Array.choose (
                 function
-                | i, Ok(ord, pr) -> OrderScenario.fromRule i pr ord |> Some
+                | i, Ok(ord, pr, access) -> { OrderScenario.fromRule i pr ord with Access = access } |> Some
                 | _, Error(ord, ctx, errs) ->
                     // TODO: this never gets written!! (evaluateRules already filters to Ok
                     // results before this function ever sees them)
