@@ -68,6 +68,9 @@ module NutritionSlot =
             | SetMinDoseQuantityProperty
             | SetMaxDoseQuantityProperty
             | SetMedianDoseQuantityProperty
+            | SetDoseQuantityPercProperty of perc: int
+            // the move to 100% the slot makes by itself once the TPN is composed
+            | StartDoseQuantityPercProperty
             // Component Quantity navigation (carries component name)
             | DecreaseComponentQuantityProperty of cmp: string * ntimes: int * useCalc: bool
             | IncreaseComponentQuantityProperty of cmp: string * ntimes: int * useCalc: bool
@@ -116,6 +119,7 @@ module NutritionSlot =
                     setDoseQtyMed: OrderLoader -> unit
                     setDoseQtyInc: int * bool -> OrderLoader -> unit
                     setDoseQtyMax: OrderLoader -> unit
+                    setDoseQtyPerc: int -> OrderLoader -> unit
 
                     setComponentQtyMin: OrderLoader -> unit
                     setComponentQtyDec: int * bool -> OrderLoader -> unit
@@ -264,6 +268,8 @@ module NutritionSlot =
             | SetMedianDoseQuantityProperty -> handleNav stepper.setDoseQtyMed
             | IncreaseDoseQuantityProperty(n, uc) -> handleNav (stepper.setDoseQtyInc (n, uc))
             | SetMaxDoseQuantityProperty -> handleNav stepper.setDoseQtyMax
+            | SetDoseQuantityPercProperty perc -> handleNav (stepper.setDoseQtyPerc perc)
+            | StartDoseQuantityPercProperty -> handleNav (stepper.setDoseQtyPerc 100)
 
             // Component Quantity navigation
             | SetMinComponentQuantityProperty cmp -> handleNavWithCmp cmp stepper.setComponentQtyMin
@@ -318,6 +324,8 @@ module NutritionSlot =
         | SetMaxDoseQuantityProperty
         | SetMaxComponentQuantityProperty _
         | SetMaxFrequencyProperty -> Kind.Step "max"
+        | SetDoseQuantityPercProperty _
+        | StartDoseQuantityPercProperty -> Kind.Step "perc"
         | _ -> Kind.Change
 
 
@@ -342,7 +350,9 @@ module NutritionSlot =
         | DecreaseDoseQuantityProperty _
         | SetMedianDoseQuantityProperty
         | IncreaseDoseQuantityProperty _
-        | SetMaxDoseQuantityProperty -> Some "ordDoseQty"
+        | SetMaxDoseQuantityProperty
+        | SetDoseQuantityPercProperty _
+        | StartDoseQuantityPercProperty -> Some "ordDoseQty"
         | ChangeOrderableQuantity _ -> Some "ordQty"
         | ChangeFrequency _
         | SetMinFrequencyProperty
@@ -382,6 +392,8 @@ module NutritionSlot =
             | SetMinDoseQuantityProperty -> "SetMinDoseQuantityProperty"
             | SetMaxDoseQuantityProperty -> "SetMaxDoseQuantityProperty"
             | SetMedianDoseQuantityProperty -> "SetMedianDoseQuantityProperty"
+            | SetDoseQuantityPercProperty perc -> $"SetDoseQuantityPercProperty %i{perc}"
+            | StartDoseQuantityPercProperty -> "StartDoseQuantityPercProperty 100 automatic"
             | DecreaseComponentQuantityProperty(_, n, uc) -> $"DecreaseComponentQuantityProperty %s{steps (n, uc)}"
             | IncreaseComponentQuantityProperty(_, n, uc) -> $"IncreaseComponentQuantityProperty %s{steps (n, uc)}"
             | SetMinComponentQuantityProperty _ -> "SetMinComponentQuantityProperty"
@@ -590,6 +602,15 @@ module NutritionSlot =
             ResetBar: JSX.Element
             /// The spinner shown while the slot has no order yet.
             LoadingIndicator: JSX.Element
+            /// Set the dose quantity at a percentage of the total.
+            SetDoseQuantityPerc: int -> unit
+            /// Whether the intake slider can set the dose: the TPN is composed and its dose count
+            /// holds one value.
+            CanSetDoseQuantityPerc: bool
+            /// The share of the total the dose is, in percent, when both hold one value.
+            DoseQuantityShare: decimal option
+            /// Why the components are locked, while the dose of the TPN is a part of the total.
+            CompositionHint: JSX.Element
         }
 
 
@@ -752,6 +773,8 @@ module NutritionSlot =
                 setDoseQtyMed = create (navRate Api.OrderContextCommand.SetMedianOrderableDoseQuantityProperty)
                 setDoseQtyInc = createWithN (navRateN Api.OrderContextCommand.IncreaseOrderableDoseQuantityProperty)
                 setDoseQtyMax = create (navRate Api.OrderContextCommand.SetMaxOrderableDoseQuantityProperty)
+                setDoseQtyPerc =
+                    fun perc -> create (navRate (Api.OrderContextCommand.SetOrderableDoseQuantityPercProperty perc))
                 // Component Quantity
                 setComponentQtyMin =
                     createWithCmp (navCmpQty Api.OrderContextCommand.SetMinComponentOrderableQuantityProperty)
@@ -791,6 +814,33 @@ module NutritionSlot =
         let texts = ViewHelpers.quantityFieldTexts getTerm
 
         let select = ViewHelpers.orderSelect texts true isOrderLoading
+
+        let isTpn = ctx |> isOneOf [ NutritionCategory.TPN ]
+
+        // the order and composition the move to 100% was sent for
+        let sentFor = React.useRef (None: (string * decimal option[]) option)
+
+        // once the TPN is composed, its dose is set at the whole total, so the dose count holds one
+        // value and the intake slider can take over
+        let startIntake () =
+            match shownOrder with
+            | Some ord when isTpn && not isOrderLoading ->
+                match ord |> IntakePolicy.start sentFor.current with
+                | IntakePolicy.Start.Clear -> sentFor.current <- None
+                | IntakePolicy.Start.Wait -> ()
+                | IntakePolicy.Start.Send key ->
+                    sentFor.current <- Some key
+                    // run directly: a dispatch from here reaches the program useElmish is replacing
+                    updateTraced StartDoseQuantityPercProperty state |> ignore
+            | _ -> ()
+
+        React.useEffect (startIntake, [| box ctx; box isOrderLoading |])
+
+        // while the dose of the TPN is a part of the total, the composition stays as it is: a step
+        // of a component would keep the rate of the part for the whole
+        let isCompositionLocked = isTpn && shownOrder |> Option.exists IntakePolicy.isCompositionLocked
+
+        let componentSelect = ViewHelpers.orderSelect texts true (isOrderLoading || isCompositionLocked)
 
         // a field with one value reopens by its arrow; without picks it cannot tell whether the user
         // constrained it
@@ -845,7 +895,7 @@ module NutritionSlot =
                     let qtyLabel = cmp.OrderableQuantity |> ViewHelpers.ovarLabel cmp.Name
 
                     let qtyControl =
-                        select
+                        componentSelect
                             false
                             qtyLabel
                             None
@@ -1146,6 +1196,20 @@ module NutritionSlot =
 
         let resetBar = Components.ActionBar.View {| actions = [| resetAction |] |}
 
+        let compositionHint =
+            if isCompositionLocked then
+                JSX.jsx
+                    $"""
+                import Typography from '@mui/material/Typography';
+                <Typography variant="caption" color="text.secondary">
+                    zet de toedien hoeveelheid eerst op 100%% om de samenstelling te wijzigen
+                </Typography>
+                """
+            else
+                null
+
+        let canSetDoseQuantityPerc = shownOrder |> Option.exists IntakePolicy.canSetDoseQuantityPerc
+
         let indicationFilter =
             if ctx.Filter.Generic.IsNone || ctx.Filter.Indications |> Array.length <= 1 then
                 null
@@ -1204,4 +1268,8 @@ module NutritionSlot =
             ResetAction = resetAction
             ResetBar = resetBar
             LoadingIndicator = loadingIndicator
+            SetDoseQuantityPerc = SetDoseQuantityPercProperty >> dispatch
+            CanSetDoseQuantityPerc = canSetDoseQuantityPerc
+            DoseQuantityShare = shownOrder |> Option.bind IntakePolicy.doseShare
+            CompositionHint = compositionHint
         }

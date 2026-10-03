@@ -164,6 +164,25 @@ module Fixture =
     let once = lazy (composed.Value |> perc 100)
 
 
+    // the TPN as the live sheet gives it: Div 1 and every product divisible by 10
+    let withDiv =
+        { tpn with
+            Div = Some 1N
+            Components = tpn.Components |> List.map (fun pc -> { pc with Divisible = Some 10N })
+        }
+
+
+    // the TPN with Div, composed as above
+    let composedWithDiv =
+        lazy
+            (withDiv
+             |> Medication.toOrder Scenarios.testStart
+             |> Result.get
+             |> run CalcMinMax
+             |> run CalcValues
+             |> compose)
+
+
     // the user picks the median rate after a first move, so the time follows from the dose and the rate
     let rated =
         lazy
@@ -256,6 +275,19 @@ let tests =
             test "the fixture has no Div, so the products give the step of the dose quantity" {
                 (tpn.Div, (selected.Value |> doseQty).DefinedConstraints.Incr |> Option.isSome)
                 |> Expect.equal "Div should be empty and the dose quantity should have a defined increment" (None, true)
+            }
+
+            test "Div steps the orderable dose quantity" {
+                (composedWithDiv.Value |> doseQty).DefinedConstraints.Incr
+                |> Option.map (Variable.ValueRange.Increment.toValueUnit >> ValueUnit.getValue)
+                |> Expect.equal "Div 1 should step the dose quantity by 1 mL" (Some [| 1N |])
+            }
+
+            test "with Div, 100% gives the whole orderable quantity" {
+                composedWithDiv.Value
+                |> perc 100
+                |> value
+                |> Expect.equal "should be the orderable quantity" (composedWithDiv.Value |> orderableValue)
             }
 
             test "the fixture limits the component orderable quantities, not the component doses" {
