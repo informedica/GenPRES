@@ -166,18 +166,34 @@ command with wildcards.
 - `update`: `handleNav (stepper.setDoseQtyPerc perc)`;
 - the trail helpers `kindOf`, `fieldOf` (the `"ordDoseQty"` group) and `describeMsg`;
 - `Slot`: `SetDoseQuantityPerc: int -> unit`; `CanSetDoseQuantityPerc: bool`, true when the
-  order is composed, every component orderable quantity holding one value; and `DoseQuantityPerc`, the exact share of the orderable
-  quantity the dose quantity is, when both hold one value, and whether that share is a slider step;
+  order is composed, every component orderable quantity holding one value, and the dose count
+  holds one value; and `DoseQuantityPerc`, the exact share of the orderable quantity the dose
+  quantity is, when both hold one value, and whether that share is a slider step;
+- the start: when an order arrives that is composed but whose dose count does not hold one value,
+  and the slot is not loading, the slot sends `SetOrderableDoseQuantityPercProperty 100`. The dose
+  becomes the whole orderable and the dose count one, which enables the slider. The condition is
+  read from every order that arrives, so the last component pick, a component step, an order
+  loaded from an order plan and a composition after a reset all lead to it. The slot sends it at
+  most once per order: when the move fails, for example without an increment on the dose quantity
+  or with a rate maximum after a rate pick, the server returns the order unchanged, and sending it
+  again would loop. The slider then stays disabled. The trail marks the command as automatic;
 - the component rows: locked while the dose quantity is less than the orderable quantity, see
   "Which control sets the dose".
 
 `Views/ParenteralNutrition.fs`: the slider takes its position from `DoseQuantityPerc`; local state
 only holds the position while the user drags. It sends the command on `onChangeCommitted`, once
-per release, and is disabled while the slot is loading or `CanSetDoseQuantityPerc` is false.
+per release, and is disabled while the slot is loading or `CanSetDoseQuantityPerc` is false, that
+is until every component is set and the dose count holds one value.
 
 ### Which control sets the dose
 
 Either the slider or the dose quantity field sets the dose, not both at the same time.
+
+0. **The start.** While the user composes, the dose count is a range, so the slider is disabled.
+   Once every component is set, the slot sends a move to 100% by itself, as described under
+   Client; the dose is then the whole orderable, the dose count one, and the slider is enabled at
+   100%. When the dose count already holds one value, for example because the user set the dose
+   quantity field before composing, nothing is sent and the slider reads the share as in 1 and 2.
 
 1. **Read from the order.** The slider is in control when the dose quantity is the value the
    percentage step gives for one of the slider's steps, 10 to 100; otherwise the dose quantity

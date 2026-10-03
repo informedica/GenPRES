@@ -53,6 +53,10 @@ module ParenteralNutrition =
     let private sliderBoxSx = {| paddingRight = $"%i{Components.QuantityField.markWidth}px" |}
 
 
+    // a dose that is no step of the slider has no handle on it
+    let private noHandleSx = {| ``& .MuiSlider-thumb`` = {| display = "none" |} |}
+
+
     /// One parenteral order: in a fold with its values in the summary and a bin beside them,
     /// the composition with the dose type, the components, and the administration.
     [<JSX.Component>]
@@ -86,8 +90,11 @@ module ParenteralNutrition =
         let context: Global.Context = React.useContext Global.context
         let getTerm = Global.getLocalizedTerm props.localizationTerms context.Localization
 
-        // the share of the full intake, in percent; not yet linked to the order
-        let intake, setIntake = React.useState 100
+        // the position while the user drags; otherwise the slider reads it from the order, and a
+        // new order drops it
+        let dragged, setDragged = React.useState (None: int option)
+
+        React.useEffect ((fun () -> setDragged None), [| box slot.Order |])
 
         let genericFilter = slot.GenericFilter
         let doseTypeFilter = slot.DoseTypeFilter
@@ -113,10 +120,26 @@ module ParenteralNutrition =
             </Grid>
             """
 
-        // the share of the full intake the TPN gives, beside its total volume
+        // the share of the full intake the TPN gives, beside its total volume; it sets the dose once
+        // the TPN is composed and its dose count holds one value
         let intakeSlider =
             if props.nutritionContext |> isOneOf [ NutritionCategory.TPN ] then
-                let onIntakeChange = System.Func<obj, int, unit>(fun _ v -> setIntake v)
+                let position = dragged |> Option.orElse (slot.DoseQuantityShare |> Option.bind sliderStep)
+                let value = position |> Option.defaultValue 100
+                let sliderSx = if position.IsSome then null else box noHandleSx
+                let track: obj = if position.IsSome then box "normal" else box false
+                let disabled = slot.IsLoading || not slot.CanSetDoseQuantityPerc
+
+                // a dose set otherwise shows its exact share instead of a handle
+                let shareText =
+                    match position, slot.DoseQuantityShare with
+                    | None, Some share ->
+                        let pct = share |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3
+                        $": %s{pct}%% van totaal"
+                    | _ -> ""
+
+                let onIntakeChange = System.Func<obj, int, unit>(fun _ v -> setDragged (Some v))
+                let onIntakeCommitted = System.Func<obj, int, unit>(fun _ v -> slot.SetDoseQuantityPerc v)
                 let intakeLabel = fun (v: int) -> $"%i{v}%% van totaal"
 
                 JSX.jsx
@@ -126,19 +149,22 @@ module ParenteralNutrition =
                 import Typography from '@mui/material/Typography';
                 <Box sx={sliderBoxSx}>
                     <Typography id="tpn-intake-label" variant="caption" color="text.secondary">
-                        toedien hoeveelheid als percentage van totaal
+                        toedien hoeveelheid als percentage van totaal{shareText}
                     </Typography>
                     <Slider
                         aria-labelledby="tpn-intake-label"
-                        value={intake}
+                        value={value}
                         onChange={onIntakeChange}
+                        onChangeCommitted={onIntakeCommitted}
                         step={10}
                         min={10}
                         max={100}
                         marks={intakeMarks}
+                        track={track}
+                        sx={sliderSx}
                         valueLabelDisplay="auto"
                         valueLabelFormat={intakeLabel}
-                        disabled={slot.IsLoading}
+                        disabled={disabled}
                     />
                 </Box>
                 """
@@ -209,6 +235,7 @@ module ParenteralNutrition =
             <>
                 {slot.ComponentHeader}
                 {slot.ComponentRows |> unbox<seq<ReactElement>> |> React.Fragment}
+                {slot.CompositionHint}
                 <Divider sx={dividerSx} />
                 {totalVolumeRow}
             </>
