@@ -44,18 +44,13 @@ module ParenteralNutrition =
             justifyContent = "space-between"
             alignItems = "center"
             gap = 2
-            // room above the slider for the value that pops up while it moves; padding, because the
-            // Stack the bar sits in sets the top margin of its children
-            paddingTop = 3
         |}
 
 
-    let private sliderBoxSx =
-        {|
-            flex = "1 1 160px"
-            minWidth = 160
-            paddingX = 5
-        |}
+    // on the right the room of the severity mark of a field, so the slider is as wide as the
+    // fields of its column; no room above it, so the total row is no higher than the others and
+    // the value that pops up while it moves lies over the caption
+    let private sliderBoxSx = {| paddingRight = $"%i{Components.QuantityField.markWidth}px" |}
 
 
     /// One parenteral order: in a fold with its values in the summary and a bin beside them,
@@ -97,103 +92,38 @@ module ParenteralNutrition =
         let genericFilter = slot.GenericFilter
         let doseTypeFilter = slot.DoseTypeFilter
 
-        // the dose, the rate and the time on one row while they fit, measured on the row and not
-        // the window; narrower, they stand in one column. The time takes no buttons, so it drops
-        // their room.
+        // the dose, the rate and the time in the columns of the components, stacked as they are.
+        // The time takes no buttons, so it drops their room.
         let administrationRow =
-            let containerSx =
-                {| Components.QuantityField.dropUnusedSlotsSx with
-                    containerType = "inline-size"
-                    width = "100%"
-                |}
+            let containerSx = {| Components.QuantityField.dropUnusedSlotsSx with alignItems = "flex-end" |}
 
-            let rowWidth =
-                2 * Components.QuantityField.fieldWidth
-                + Components.QuantityField.fieldWidthWithoutSlots
-                + 2 * 16
-
-            let flexSx =
-                createObj
-                    [
-                        "display" ==> "flex"
-                        "flexWrap" ==> "nowrap"
-                        "gap" ==> 2
-                        "alignItems" ==> "flex-end"
-                        $"@container (max-width: %i{rowWidth - 1}px)"
-                        ==> {|
-                                flexDirection = "column"
-                                alignItems = "stretch"
-                            |}
-                    ]
-
-            let itemSx =
-                {|
-                    flex = "1 1 0%"
-                    minWidth = "min-content"
-                |}
-
-            JSX.jsx
-                $"""
-            import Box from '@mui/material/Box';
-            <Box sx={containerSx}>
-                <Box sx={flexSx}>
-                    <Box sx={itemSx}>
-                        {slot.DoseQuantityControl}
-                    </Box>
-                    <Box sx={itemSx}>
-                        {slot.RateField}
-                    </Box>
-                    <Box sx={itemSx}>
-                        {slot.TimeDisplay}
-                    </Box>
-                </Box>
-            </Box>
-            """
-
-        // the total volume stands in the columns of the components, under their quantities
-        let totalVolumeRow =
             JSX.jsx
                 $"""
             import Grid from '@mui/material/Grid';
-            import Box from '@mui/material/Box';
-            import Typography from '@mui/material/Typography';
-            <Grid container spacing={{2}} sx={alignCenterSx}>
+            <Grid container spacing={{2}} sx={containerSx}>
                 <Grid size={cmpLabelSize}>
-                    <Typography variant="body1">Totaal volume</Typography>
+                    {slot.DoseQuantityControl}
                 </Grid>
-                <Grid size={cmpQtySize}>
-                    <Box sx={cmpQtySx}>
-                        {slot.TotalVolumeDisplay}
-                    </Box>
+                <Grid size={cmpQtySize} sx={cmpMiddleSx}>
+                    {slot.RateField}
                 </Grid>
-                <Grid size={cmpRangeSize} />
+                <Grid size={cmpRangeSize} sx={cmpRightSx}>
+                    {slot.TimeDisplay}
+                </Grid>
             </Grid>
             """
 
-        // the TPN ends in one bar: reset on the left, the intake in the middle, prescribe on the
-        // right; prescribe does nothing yet
-        let tpnToolbar =
-            let onIntakeChange = System.Func<obj, int, unit>(fun _ v -> setIntake v)
-            let intakeLabel = fun (v: int) -> $"%i{v}%% van totaal"
-            let resetButton = Components.ActionBar.ActionButton slot.ResetAction
+        // the share of the full intake the TPN gives, beside its total volume
+        let intakeSlider =
+            if props.nutritionContext |> isOneOf [ NutritionCategory.TPN ] then
+                let onIntakeChange = System.Func<obj, int, unit>(fun _ v -> setIntake v)
+                let intakeLabel = fun (v: int) -> $"%i{v}%% van totaal"
 
-            let prescribeButton =
-                Components.ActionBar.ActionButton
-                    {|
-                        label = Terms.``Prescribe`` |> getTerm "Voorschrijven"
-                        kind = Components.ActionBar.Kind.Primary
-                        onClick = ignore
-                        disabled = slot.IsLoading
-                        icon = None
-                    |}
-
-            JSX.jsx
-                $"""
-            import Box from '@mui/material/Box';
-            import Slider from '@mui/material/Slider';
-            import Typography from '@mui/material/Typography';
-            <Box sx={toolbarSx}>
-                {resetButton}
+                JSX.jsx
+                    $"""
+                import Box from '@mui/material/Box';
+                import Slider from '@mui/material/Slider';
+                import Typography from '@mui/material/Typography';
                 <Box sx={sliderBoxSx}>
                     <Typography id="tpn-intake-label" variant="caption" color="text.secondary">
                         toedien hoeveelheid als percentage van totaal
@@ -211,6 +141,53 @@ module ParenteralNutrition =
                         disabled={slot.IsLoading}
                     />
                 </Box>
+                """
+            else
+                null
+
+        // the total volume stands in the columns of the components, under their quantities, with
+        // the intake in the column of their ranges
+        let totalVolumeRow =
+            JSX.jsx
+                $"""
+            import Grid from '@mui/material/Grid';
+            import Box from '@mui/material/Box';
+            import Typography from '@mui/material/Typography';
+            <Grid container spacing={{2}} sx={alignCenterSx}>
+                <Grid size={cmpLabelSize}>
+                    <Typography variant="body1">Totaal volume</Typography>
+                </Grid>
+                <Grid size={cmpQtySize} sx={cmpMiddleSx}>
+                    <Box sx={cmpQtySx}>
+                        {slot.TotalVolumeDisplay}
+                    </Box>
+                </Grid>
+                <Grid size={cmpRangeSize}>
+                    {intakeSlider}
+                </Grid>
+            </Grid>
+            """
+
+        // the TPN ends in one bar: reset on the left, prescribe on the right; prescribe does nothing
+        // yet
+        let tpnToolbar =
+            let resetButton = Components.ActionBar.ActionButton slot.ResetAction
+
+            let prescribeButton =
+                Components.ActionBar.ActionButton
+                    {|
+                        label = Terms.``Prescribe`` |> getTerm "Voorschrijven"
+                        kind = Components.ActionBar.Kind.Primary
+                        onClick = ignore
+                        disabled = slot.IsLoading
+                        icon = None
+                    |}
+
+            JSX.jsx
+                $"""
+            import Box from '@mui/material/Box';
+            <Box sx={toolbarSx}>
+                {resetButton}
                 {prescribeButton}
             </Box>
             """
@@ -221,6 +198,10 @@ module ParenteralNutrition =
             else
                 slot.ResetBar
 
+        // a little more room above the divider under the components; padding, because the Stack
+        // it sits in sets its top margin, and the line is drawn at its bottom
+        let dividerSx = {| paddingTop = 1 |}
+
         let preparationSection =
             JSX.jsx
                 $"""
@@ -228,20 +209,26 @@ module ParenteralNutrition =
             <>
                 {slot.ComponentHeader}
                 {slot.ComponentRows |> unbox<seq<ReactElement>> |> React.Fragment}
-                <Divider />
+                <Divider sx={dividerSx} />
                 {totalVolumeRow}
             </>
             """
+
+        // padding, because the Stack the bar sits in sets the top margin of its children
+        let actionBarSx = {| paddingTop = 1 |}
 
         let details =
             JSX.jsx
                 $"""
             import Stack from '@mui/material/Stack';
+            import Box from '@mui/material/Box';
             <Stack direction={"column"} spacing={1} >
                 {preparationSection}
                 {slot.AdministrationHeading}
                 {administrationRow}
-                {actionBar}
+                <Box sx={actionBarSx}>
+                    {actionBar}
+                </Box>
             </Stack>
             """
             |> fun fields ->
@@ -255,6 +242,31 @@ module ParenteralNutrition =
 
         let filterSx = {| marginBottom = 2 |}
 
+        // on a large screen the composition spans the component and quantity columns and ends
+        // where the quantity fields end, before the room of their severity mark
+        let compositionSize =
+            {|
+                xs = 12
+                md = 6
+                lg = 7.5
+            |}
+
+        let doseTypeSize =
+            {|
+                xs = 12
+                md = 6
+                lg = 4.5
+            |}
+
+        let compositionSx =
+            {|
+                paddingRight =
+                    {|
+                        xs = "0px"
+                        lg = $"%i{Components.QuantityField.markWidth}px"
+                    |}
+            |}
+
         // the composition and the dose type side by side, once there is a dose type to choose
         let compositionRow =
             if isNull doseTypeFilter then
@@ -264,10 +276,10 @@ module ParenteralNutrition =
                     $"""
                 import Grid from '@mui/material/Grid';
                 <Grid container spacing={{2}}>
-                    <Grid size={halfSize}>
+                    <Grid size={compositionSize} sx={compositionSx}>
                         {genericFilter}
                     </Grid>
-                    <Grid size={halfSize}>
+                    <Grid size={doseTypeSize}>
                         {doseTypeFilter}
                     </Grid>
                 </Grid>

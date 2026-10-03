@@ -438,25 +438,41 @@ module NutritionSlot =
 
     let flexEndSx = {| alignItems = "flex-end" |}
 
-    // the component rows: name, quantity and range in three columns, stacked below the large
-    // breakpoint, where five twelfths of the slot no longer holds the quantity field's 400px
+    // the component rows: name, quantity and range in three columns, the quantity and the range
+    // of even width, stacked below the large breakpoint, where the quantity column no longer
+    // holds the quantity field's 400px
     let cmpLabelSize =
         {|
             xs = 12
-            lg = 4
+            lg = 3
         |}
 
     let cmpQtySize =
         {|
             xs = 12
-            lg = 5
+            lg = 4.5
         |}
 
     let cmpRangeSize =
         {|
             xs = 12
-            lg = 3
+            lg = 4.5
         |}
+
+    // the quantity fields end in the column of their severity mark, so the middle column takes
+    // as much room on its left, while the columns stand side by side
+    let cmpMiddleSx =
+        {|
+            paddingLeft =
+                {|
+                    xs = "0px"
+                    lg = $"%i{Components.QuantityField.markWidth}px"
+                |}
+        |}
+
+    // the controls of the right column span it, so they are of even width; a field takes the
+    // room of its severity mark within that width
+    let cmpRightSx = {| ``& .MuiFormControl-root`` = {| width = "100%" |} |}
 
     // the column headings only make sense while the columns stand side by side
     let cmpHeaderSx =
@@ -900,7 +916,7 @@ module NutritionSlot =
                         <Grid size={cmpLabelSize}>
                             {labelCell}
                         </Grid>
-                        <Grid size={cmpQtySize}>
+                        <Grid size={cmpQtySize} sx={cmpMiddleSx}>
                             <Box sx={cmpQtySx}>
                                 {qtyControl}
                             </Box>
@@ -1108,7 +1124,7 @@ module NutritionSlot =
                 <Grid size={cmpLabelSize}>
                     {componentHeading}
                 </Grid>
-                <Grid size={cmpQtySize}>
+                <Grid size={cmpQtySize} sx={cmpMiddleSx}>
                     {quantityHeading}
                 </Grid>
                 <Grid size={cmpRangeSize}>
