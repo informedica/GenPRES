@@ -48,6 +48,7 @@ Taken 2026-10-03 by the maintainer.
 | Where the per-kg limits of a component live | On the component orderable quantity, through a solution rule, not on the component dose. |
 | Dose count | Initially one, defined in the solution rule, so the dose is the whole orderable while the user composes it. The step then sets it to at least one, so a partial dose is the orderable divided into more than one dose. |
 | Rate and time | Stay ranges after the move; the user picks one of them in the administration row. When the time was solved before the move, because the user set the rate or the time, that time becomes the maximum of the time and the rate is recalculated within it. |
+| Composition during a partial dose | Locked in the TPN view until the dose is back at 100%; the processor's component picks stay as they are. |
 | Command | Reuse `SetOrderableDoseQuantityPerc`; its processor case gets a new step. |
 | Code | The domain step is prototyped in a script and migrated by the maintainer. |
 
@@ -149,7 +150,9 @@ command with wildcards.
 - the trail helpers `kindOf`, `fieldOf` (the `"ordDoseQty"` group) and `describeMsg`;
 - `Slot`: `SetDoseQuantityPerc: int -> unit`; `CanSetDoseQuantityPerc: bool`, true when the
   orderable quantity holds one value; and `DoseQuantityPerc`, the exact share of the orderable
-  quantity the dose quantity is, when both hold one value, and whether that share is a slider step.
+  quantity the dose quantity is, when both hold one value, and whether that share is a slider step;
+- the component rows: locked while the dose quantity is less than the orderable quantity, see
+  "Which control sets the dose".
 
 `Views/ParenteralNutrition.fs`: the slider takes its position from `DoseQuantityPerc`; local state
 only holds the position while the user drags. It sends the command on `onChangeCommitted`, once
@@ -166,11 +169,13 @@ Either the slider or the dose quantity field sets the dose, not both at the same
 2. **The slider not in control** shows no handle and the exact share as text, for example
    "14% van totaal", so it never rounds a typed dose to a step. Moving it takes control back and
    replaces the typed dose.
-3. **A composition change** after a slider move: the component quantity step
-   (`orderPropertyIncrOrDecrComponentOrderableQuantity`) sets the dose count back to one, so the
-   dose becomes the whole new orderable, and the slider reads 100%. The rate is kept and the time
-   follows. Whether the slider's percentage should be sent again instead, keeping for example 50%
-   of the new total, is an open question.
+3. **The composition is locked while the dose is partial.** While the dose quantity is less than
+   the orderable quantity, whether the slider or the dose quantity field set it, the component
+   rows are disabled: the quantity field, its step buttons, its minimum, median and maximum picks,
+   and the arrow that reopens it. A hint says why: "zet de toedien hoeveelheid eerst op 100% om de
+   samenstelling te wijzigen". The user moves the slider back to 100% to change the composition.
+   Without the lock, a pick after a reopen keeps the dose count and the dose of the partial dose
+   while the composition changes, because the minimum, median and maximum picks do not reset them.
 4. **Rate and time** after a slider move: picking the rate leaves the dose quantity as it is, so
    the slider stays in control; when a pick changes the dose quantity, the dose quantity field
    takes control, and the slider shows the exact share as in 2.
@@ -236,8 +241,13 @@ weight is required.
    unscaled and with minimum and maximum swapped (`Min = DosePerc.Max`, `Max = DosePerc.Min`). For a
    dose count of one both columns hold `1`, not `100`. Whether the column name, its documentation or
    the conversion should change is not yet settled.
-2. **Composition change after a slider move.** Keep the reset to the whole orderable that the
-   component quantity step gives today, or send the slider's percentage again so the share stays.
+2. **Component picks in the processor.** The increase and decrease of a component quantity go
+   through `orderPropertyIncrOrDecrComponentOrderableQuantity`, which sets the dose count back to
+   one and clears the time and the orderable dose; the minimum, median and maximum picks
+   (`setCmpOrbQty`) clear nothing. Routing the picks through the same reset would protect the order
+   itself, not only the TPN view, but it changes every multi-component order the medication dialog
+   and the order plan send these picks for, for example a drug in a diluent whose dose is part of
+   the orderable. That needs its own decision and tests on the medication scenarios.
 3. **The live sheets.** Whether the live TPN rules already put the component limits in the solution
    rules, and leave the dose minimums empty, is not yet checked.
 
@@ -271,6 +281,8 @@ Steps 1 and 2 can be one pull request; step 3 follows; step 4 is a sheet change.
   the dose quantity equals the total volume; before every component is set, the slider is disabled.
 - Change the dose quantity with its own field, for example to 14%: the slider shows no handle and
   "14% van totaal". Move the slider: it takes control again.
-- Press reset, or change a component quantity after a slider move: the slider reads 100%.
+- Move the slider below 100%, or type a partial dose: the component rows are disabled, the reopen
+  arrows too, and the hint shows. Move the slider back to 100%: they are enabled again.
+- Press reset: the slider reads 100%.
 - Set the rate, then move the slider: the time stays at or below the time the rate gave, and the
   rate is recalculated for the new dose.
