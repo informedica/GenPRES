@@ -649,22 +649,24 @@ module OrderVariable =
             }
 
 
-    /// Apply only the defined min and increment of an OrderVariable, with the value of upTo as
-    /// inclusive maximum when upTo holds one value.
-    let applyOnlyMinIncrConstraintsUpTo upTo (ovar: OrderVariable) =
-        let max = upTo |> getValSetValueUnit |> Option.map (Maximum.create true)
+    /// Set the Variable of an OrderVariable to its defined constraints; the constraints stay as
+    /// they are.
+    let applyDefinedConstraints (ovar: OrderVariable) =
+        { ovar with Variable = { ovar.Variable with Values = ovar.DefinedConstraints |> Constraints.toValueRange } }
 
-        { ovar with
-            Variable =
-                { ovar.Variable with
-                    Values =
-                        { ovar.DefinedConstraints with
-                            Max = max
-                            Values = None
-                        }
-                        |> Constraints.toValueRange
-                }
-        }
+
+    /// Lower the maximum of the Variable of an OrderVariable to the value of upTo, when upTo holds
+    /// one value and that is lower.
+    let setMaxToValueOf upTo (ovar: OrderVariable) =
+        match upTo |> getValSetValueUnit with
+        | None -> ovar
+        | Some vu ->
+            { ovar with
+                Variable =
+                    { ovar.Variable with
+                        Values = ovar.Variable.Values |> ValueRange.setMax (vu |> Maximum.create true)
+                    }
+            }
 
 
     /// Apply the constraints of an OrderVariable; an OrderVariable solved to one value keeps that
@@ -681,23 +683,6 @@ module OrderVariable =
                     }
             }
         | _ -> applied
-
-
-    /// Set an OrderVariable to a minimum in its values and in its defined and calculated
-    /// constraints, without a maximum or values, so neither constraint brings back what it held.
-    let setMinWithConstraints min (ovar: OrderVariable) =
-        let onlyMin (cs: Constraints) =
-            { cs with
-                Min = Some min
-                Max = None
-                Values = None
-            }
-
-        { ovar with
-            Variable = { ovar.Variable with Values = min |> Min }
-            DefinedConstraints = ovar.DefinedConstraints |> onlyMin
-            CalculatedConstraints = ovar.CalculatedConstraints |> onlyMin
-        }
 
 
     /// Check whether the Values of the Variable of an OrderVariable
@@ -1501,14 +1486,6 @@ module OrderVariable =
             >> count
 
 
-        /// Set a Count to a minimum of one in its values and in its defined and calculated
-        /// constraints, so neither brings back a count the rule fixed.
-        let setMinToOneWithConstraints =
-            toOrdVar
-            >> setMinWithConstraints (Units.Count.times |> ValueUnit.one |> Minimum.create true)
-            >> count
-
-
     /// Type and functions that represent a time
     module Time =
 
@@ -1959,10 +1936,13 @@ module OrderVariable =
         let applyOnlyMinIncrConstraints = toOrdVar >> applyOnlyMinIncrConstraints >> Quantity
 
 
-        /// Apply only the defined min and increment of a Quantity, with the value of another
-        /// Quantity as inclusive maximum when that holds one value: a dose up to the whole orderable.
-        let applyOnlyMinIncrConstraintsUpTo upTo =
-            toOrdVar >> applyOnlyMinIncrConstraintsUpTo (upTo |> toOrdVar) >> Quantity
+        /// Set the Variable of a Quantity to its defined constraints
+        let applyDefinedConstraints = toOrdVar >> applyDefinedConstraints >> Quantity
+
+
+        /// Lower the maximum of a Quantity to the value of another Quantity, when that holds one
+        /// value and that is lower: a dose up to the whole orderable.
+        let setMaxToValueOf upTo = toOrdVar >> setMaxToValueOf (upTo |> toOrdVar) >> Quantity
 
 
         /// Apply a function to the OrderVariable in a Quantity
@@ -2264,8 +2244,8 @@ module OrderVariable =
         let applyOnlyMaxConstraints = toOrdVar >> applyOnlyMaxConstraints >> Rate
 
 
-        /// Apply only the defined min and increment of a Rate; any positive value without them.
-        let applyOnlyMinIncrConstraints = toOrdVar >> applyOnlyMinIncrConstraints >> Rate
+        /// Set the Variable of a Rate to its defined constraints
+        let applyDefinedConstraints = toOrdVar >> applyDefinedConstraints >> Rate
 
 
         /// Set constraints for a Rate
@@ -2504,6 +2484,10 @@ module OrderVariable =
 
         /// Apply the constraints of a QuantityAdjust to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> QuantityAdjust
+
+
+        /// Set the Variable of a QuantityAdjust to its defined constraints
+        let applyDefinedConstraints = toOrdVar >> applyDefinedConstraints >> QuantityAdjust
 
         /// Check whether a QuantityAdjust is non-zero positive
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive

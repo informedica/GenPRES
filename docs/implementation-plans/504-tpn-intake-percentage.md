@@ -46,7 +46,7 @@ Taken 2026-10-03 by the maintainer.
 | Meaning of the percentage | A point in the range of the dose quantity, from its defined minimum up to the orderable quantity: in effect the share of the composed orderable that is given. |
 | Composition | The orderable and component orderable quantities keep the values the user set. |
 | Where the per-kg limits of a component live | On the component orderable quantity, through a solution rule, not on the component dose. |
-| Dose count | Initially one, defined in the solution rule, so the dose is the whole orderable while the user composes it. The step then sets it to at least one, so a partial dose is the orderable divided into more than one dose. |
+| Dose count | Defined as at least one in the solution rule, with no maximum. The solution limits on the component orderable quantities keep the composition safe, so the count need not be one while the user composes. The dose quantity stays a range until the slider or a dose pick sets it; a partial dose is the orderable divided into more than one dose. |
 | Rate and time | Stay ranges after the move; the user picks one of them in the administration row. When the time was solved before the move, because the user picked the rate, that time becomes the maximum of the time and the rate is recalculated within it. No command sets the time itself; the user settles it through the rate. |
 | Composition during a partial dose | Locked in the TPN view until the dose is back at 100%; the processor's component picks stay as they are. |
 | Command | Reuse `SetOrderableDoseQuantityPerc`; its processor case gets a new step. |
@@ -67,53 +67,56 @@ Taken 2026-10-03 by the maintainer.
 
 ### Domain (`GenORDER.Lib`)
 
+A step changes the Variable of an order variable only: its defined constraints are never changed
+once written, and its calculated constraints are only set by calculation from the defined
+constraints.
+
 Three generic functions on an `OrderVariable`, beside `applyConstraints`:
 
-- `setMinWithConstraints min`: the minimum in the values and in the defined and calculated
-  constraints, without a maximum or values.
-- `applyOnlyMinIncrConstraintsUpTo upTo`: the defined minimum and increment, with the value of
-  `upTo` as inclusive maximum when `upTo` holds one value.
+- `applyDefinedConstraints`: the Variable set to the defined constraints.
+- `setMaxToValueOf upTo`: the maximum of the Variable lowered to the value of `upTo`, when `upTo`
+  holds one value and that is lower.
 - `applyConstraintsUpToSolved`: `applyConstraints`, then the value as inclusive maximum when the
   variable held one value.
 
-Four helpers in the typed modules, each only composing a generic function, as their neighbours do:
+Helpers in the typed modules, each only composing a generic function, as their neighbours do:
 
-- `Count.setMinToOneWithConstraints`: a minimum of one and no maximum, in the values and in the
-  defined and calculated constraints, so the one count the solution rule defines does not come back.
-- `Quantity.applyOnlyMinIncrConstraintsUpTo upTo qty`: the defined minimum and increment of
-  `qty`, with the value of `upTo` as inclusive maximum when `upTo` holds one value.
-- `Rate.applyOnlyMinIncrConstraints`: the typed wrapper of `applyOnlyMinIncrConstraints`, as
-  `Quantity` already has.
-- `Time.applyConstraintsUpToSolved`: the constraints of the time, as `Time.applyConstraints`; when
-  the time held one value, that value as inclusive maximum. A time the user settled through the
-  rate is then not exceeded by the new dose, and the rate follows from it.
+- `Quantity.applyDefinedConstraints`, `QuantityAdjust.applyDefinedConstraints` and
+  `Rate.applyDefinedConstraints`.
+- `Quantity.setMaxToValueOf upTo`: a dose up to the whole orderable.
+- `Time.applyConstraintsUpToSolved`: a time the user settled through the rate is not exceeded by
+  the new dose, and the rate follows from it.
+
+The dose count uses the existing `Count.setMinToOne`, which sets the Variable only.
 
 A step in `OrderProcessor.fs`, shaped like `orderPropertyIncrOrDecrOrderableDoseQuantity`:
 
 ```fsharp
 let orderPropertySetPercOrderableDoseQuantity step ord =
-    let upToOrderable (dos: Dose) =
-        let qty =
-            dos.Quantity
-            |> Quantity.applyOnlyMinIncrConstraintsUpTo ord.Orderable.OrderableQuantity
-
-        { dos with Quantity = qty }
+    // the dose as the rules define it, up to the whole orderable
+    let definedUpToOrderable (dos: Dose) =
+        { dos with
+            Quantity =
+                dos.Quantity
+                |> Quantity.applyDefinedConstraints
+                |> Quantity.setMaxToValueOf ord.Orderable.OrderableQuantity
+            QuantityAdjust = dos.QuantityAdjust |> OrderVariable.QuantityAdjust.applyDefinedConstraints
+            Rate = dos.Rate |> Rate.applyDefinedConstraints
+        }
 
     ord
-    // clear the doses, the dose quantity up to the orderable, the composition stays
+    // clear the doses, the orderable dose as defined up to the orderable, the composition stays
     |> OrderPropertyChange.proc
         [
             if ord.Schedule |> Schedule.hasTime then
                 ScheduleTime Time.applyConstraintsUpToSolved
 
-            OrderableDoseCount Count.setMinToOneWithConstraints
+            OrderableDoseCount OrderVariable.Count.setMinToOne
 
             OrderableDose Dose.setToNonZeroPositive
-            OrderableDose upToOrderable
+            OrderableDose definedUpToOrderable
             ComponentDose("", Dose.setToNonZeroPositive)
             ItemDose("", "", Dose.setToNonZeroPositive)
-
-            OrderableDose(fun dos -> { dos with Rate = dos.Rate |> Rate.applyOnlyMinIncrConstraints })
         ]
     // set the percentage
     |> OrderPropertyChange.proc [ OrderableDose step ]
@@ -228,7 +231,7 @@ limit:
 | `MinQtyAdj`, `MaxQtyAdj` | the range per kg, for example `10` and `25`; equal for a fixed amount, for example `6` and `6` | optional |
 | `MinConc`, `MaxConc` | empty | the concentration limits, for example max `0.5` |
 | `Div` | empty, see below | |
-| `MinPerc`, `MaxPerc` | `1` and `1`, so the dose count is initially one | |
+| `MinPerc`, `MaxPerc` | empty and `1`, so the dose count is at least one | |
 
 `Div` stays empty. A solution rule's `Div` becomes the medication's `Div`, and with it set the
 orderable dose quantity gets no increment (`Medication.divisibility` without a component), so the
@@ -236,7 +239,8 @@ percentage has no steps to pick from and the slider does nothing. With `Div` emp
 and its dose quantity step by the coarsest `Divisible` of the products, 1 mL for the TPN products.
 
 `Medication.addSolution` turns `MinPerc`/`MaxPerc` into the dose count as they are, without dividing
-by 100 and with minimum and maximum swapped, so both columns hold `1` for a dose count of one.
+by 100 and with minimum and maximum swapped, so `MaxPerc` holds `1` for a dose count of at least one
+and `MinPerc` stays empty. A dose count defined as exactly one forbids every partial dose.
 
 Every component needs a component row, the filler too (for example `gluc 10%` at `65` to `80`
 mL/kg): a component without one has no upper bound, the orderable quantity then never becomes one
@@ -259,7 +263,7 @@ weight is required.
 1. **`MinPerc`/`MaxPerc`.** The sheet documents these columns as "the percentage of the solution
    that makes up one dose quantity", but `Medication.addSolution` uses the values as a dose count,
    unscaled and with minimum and maximum swapped (`Min = DosePerc.Max`, `Max = DosePerc.Min`). For a
-   dose count of one both columns hold `1`, not `100`. Whether the column name, its documentation or
+   dose count of at least one `MaxPerc` holds `1`, not `100`. Whether the column name, its documentation or
    the conversion should change is not yet settled.
 2. **Component picks in the processor.** The increase and decrease of a component quantity go
    through `orderPropertyIncrOrDecrComponentOrderableQuantity`, which sets the dose count back to
@@ -273,15 +277,16 @@ weight is required.
 
 ## Confidence
 
-High for the domain step: 72 tests run it through the processor pipeline on the fixture, and
-every percentage from 10 to 100 keeps the order within its constraints, also after the user picked
-the rate. Medium for the configuration until the open questions are settled.
+High for the domain step: 82 tests run it through the processor pipeline on the fixture, with
+the dose count defined as at least one, and every percentage from 10 to 100 keeps the order within
+its constraints, also after the user picked the rate and with a dose and a rate maximum. Medium for the configuration until the open questions are settled.
 
 ## Steps
 
-1. **Domain** (done): the three generic functions and the four helpers, `isComposed`, the step and
-   the processor case with its guard, with the tests in `DoseQuantityPercTests.fs`: moves on a
-   composed order, after 100%, after the user picked the rate, and before every component is set.
+1. **Domain** (done): the three generic functions and their typed helpers, `isComposed`, the step
+   and the processor case with its guard, with the tests in `DoseQuantityPercTests.fs`: moves on a
+   composed order, after 100%, after the user picked the rate, with a dose and a rate maximum, and
+   before every component is set.
 2. **Contract and server**: the wire case, the domain command, the mapper, and the mapper test.
 3. **Client**: the message, the stepper, the trail helpers, the slot fields and the slider.
 4. **Rules**: the TPN dose and solution rules on the sheets, as configured above.

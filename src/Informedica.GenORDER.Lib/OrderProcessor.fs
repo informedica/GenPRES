@@ -120,34 +120,35 @@ module OrderProcessor =
 
 
     /// Set the dose quantity of an order at a percentage of its range: the doses are cleared to any
-    /// positive value, the orderable dose quantity to the min and increment of its definition up to
-    /// the orderable quantity, the rate to the min and increment of its definition, the time to its
-    /// constraints up to the time it was solved to and the dose count to min one, so the orderable
-    /// and component orderable quantities keep the composition the user set. Then the step picks a
-    /// dose quantity.
+    /// positive value, the orderable dose quantity, its quantity per kg and its rate to their defined
+    /// constraints, the dose quantity at most the orderable quantity, the time to its constraints up
+    /// to the time it was solved to and the dose count to min one, so the orderable and component
+    /// orderable quantities keep the composition the user set. Then the step picks a dose quantity.
     let orderPropertySetPercOrderableDoseQuantity step ord =
-        let upToOrderable (dos: Dose) =
-            let qty =
-                dos.Quantity
-                |> Quantity.applyOnlyMinIncrConstraintsUpTo ord.Orderable.OrderableQuantity
-
-            { dos with Quantity = qty }
+        // the dose as the rules define it, up to the whole orderable
+        let definedUpToOrderable (dos: Dose) =
+            { dos with
+                Quantity =
+                    dos.Quantity
+                    |> Quantity.applyDefinedConstraints
+                    |> Quantity.setMaxToValueOf ord.Orderable.OrderableQuantity
+                QuantityAdjust = dos.QuantityAdjust |> OrderVariable.QuantityAdjust.applyDefinedConstraints
+                Rate = dos.Rate |> Rate.applyDefinedConstraints
+            }
 
         ord
-        // clear the doses, the dose quantity up to the orderable, the composition stays
+        // clear the doses, the orderable dose as defined up to the orderable, the composition stays
         |> OrderPropertyChange.proc
             [
                 if ord.Schedule |> Schedule.hasTime then
                     ScheduleTime Time.applyConstraintsUpToSolved
 
-                OrderableDoseCount OrderVariable.Count.setMinToOneWithConstraints
+                OrderableDoseCount OrderVariable.Count.setMinToOne
 
                 OrderableDose Dose.setToNonZeroPositive
-                OrderableDose upToOrderable
+                OrderableDose definedUpToOrderable
                 ComponentDose("", Dose.setToNonZeroPositive)
                 ItemDose("", "", Dose.setToNonZeroPositive)
-
-                OrderableDose(fun dos -> { dos with Rate = dos.Rate |> Rate.applyOnlyMinIncrConstraints })
             ]
         // set the percentage
         |> OrderPropertyChange.proc [ OrderableDose step ]

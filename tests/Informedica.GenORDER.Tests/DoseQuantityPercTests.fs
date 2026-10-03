@@ -88,8 +88,38 @@ module Fixture =
         { med with Components = med.Components |> List.map limit }
 
 
+    // a dose rule with a dose maximum of 1100 mL and a rate maximum of 45 mL/uur; while the user
+    // composes, the dose is the whole orderable, so a lower dose maximum would cap the composition
+    let withDoseMax (med: Medication) =
+        let max u n =
+            { MinMax.empty with Max = n |> ValueUnit.singleWithUnit u |> Limit.inclusive |> Some }
+
+        let mL = Units.Volume.milliLiter
+
+        { med with
+            Dose =
+                med.Dose
+                |> Option.map (fun dl ->
+                    { dl with
+                        Quantity = 1100N |> max mL
+                        Rate = 45N |> max (mL |> ValueUnit.per Units.Time.hour)
+                    }
+                )
+        }
+
+
+    // the dose count defined as at least one, not exactly one, so a dose can be a part of the
+    // orderable
+    let withDoseCountMinOne (med: Medication) =
+        { med with
+            DoseCount =
+                { MinMax.empty with Min = 1N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.inclusive |> Some }
+        }
+
+
     let tpn =
         Scenarios.tpnComplete
+        |> withDoseCountMinOne
         |> withComponentSolutionLimits
         |> withGlucoseSolutionLimit
         |> withoutOrderableDoseQuantityAdjust
@@ -105,15 +135,29 @@ module Fixture =
              |> run CalcValues)
 
 
-    // the TPN as the user composes it: every component orderable quantity solved to one value, here
-    // its median
-    let composed =
-        lazy
-            (let setMedian ord (cmp: Component) =
-                ord
-                |> run (fun o -> ChangeProperty(o, SetMedianComponentOrderableQuantity(cmp.Name |> Name.toString)))
+    // every component orderable quantity solved to one value, here its median
+    let compose (ord: Order) =
+        let setMedian ord (cmp: Component) =
+            ord
+            |> run (fun o -> ChangeProperty(o, SetMedianComponentOrderableQuantity(cmp.Name |> Name.toString)))
 
-             selected.Value.Orderable.Components |> List.fold setMedian selected.Value)
+        ord.Orderable.Components |> List.fold setMedian ord
+
+
+    // the TPN as the user composes it
+    let composed = lazy (selected.Value |> compose)
+
+
+    // the TPN with a dose and a rate maximum, composed as above
+    let capped =
+        lazy
+            (tpn
+             |> withDoseMax
+             |> Medication.toOrder Scenarios.testStart
+             |> Result.get
+             |> run CalcMinMax
+             |> run CalcValues
+             |> compose)
 
 
     // the composed TPN solved to one dose quantity by a first move
@@ -294,6 +338,15 @@ let tests =
 
                 test $"a move to %i{p}%% after the user set the rate keeps the order within its constraints" {
                     rated.Value
+                    |> perc p
+                    |> Order.checkConstraints false
+                    |> List.map (OrderVariable.toString false)
+                    |> Expect.isEmpty "no order variable should be outside its constraints"
+                }
+
+            for p in percentages do
+                test $"a move to %i{p}%% keeps the dose and rate maximum of the rule" {
+                    capped.Value
                     |> perc p
                     |> Order.checkConstraints false
                     |> List.map (OrderVariable.toString false)
