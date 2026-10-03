@@ -107,6 +107,52 @@ module OrderProcessor =
         |> OrderPropertyChange.proc [ OrderableDose step ]
 
 
+    /// Check whether every component orderable quantity holds one value, so the user has set the
+    /// composition a dose is a part of.
+    let isComposed (ord: Order) =
+        ord.Orderable.Components
+        |> List.forall (
+            _.OrderableQuantity
+            >> Quantity.toOrdVar
+            >> _.Variable
+            >> Informedica.GenSolver.Lib.Variable.isSolved
+        )
+
+
+    /// Set the dose quantity of an order at a percentage of its range: the doses are cleared to any
+    /// positive value, the orderable dose quantity to the min and increment of its definition up to
+    /// the orderable quantity, the rate to the min and increment of its definition, the time to its
+    /// constraints up to the time it was solved to and the dose count to min one, so the orderable
+    /// and component orderable quantities keep the composition the user set. Then the step picks a
+    /// dose quantity.
+    let orderPropertySetPercOrderableDoseQuantity step ord =
+        let upToOrderable (dos: Dose) =
+            let qty =
+                dos.Quantity
+                |> Quantity.applyOnlyMinIncrConstraintsUpTo ord.Orderable.OrderableQuantity
+
+            { dos with Quantity = qty }
+
+        ord
+        // clear the doses, the dose quantity up to the orderable, the composition stays
+        |> OrderPropertyChange.proc
+            [
+                if ord.Schedule |> Schedule.hasTime then
+                    ScheduleTime Time.applyConstraintsUpToSolved
+
+                OrderableDoseCount OrderVariable.Count.setMinToOneWithConstraints
+
+                OrderableDose Dose.setToNonZeroPositive
+                OrderableDose upToOrderable
+                ComponentDose("", Dose.setToNonZeroPositive)
+                ItemDose("", "", Dose.setToNonZeroPositive)
+
+                OrderableDose(fun dos -> { dos with Rate = dos.Rate |> Rate.applyOnlyMinIncrConstraints })
+            ]
+        // set the percentage
+        |> OrderPropertyChange.proc [ OrderableDose step ]
+
+
     // == Property Change Component Quantity
 
     /// <summary>
@@ -196,7 +242,14 @@ module OrderProcessor =
         | SetMinOrderableDoseQuantity -> ord |> setDose (Dose.setMinDose ord.Schedule false)
         | SetMaxOrderableDoseQuantity -> ord |> setDose (Dose.setMaxDose ord.Schedule false)
         | SetMedianOrderableDoseQuantity -> ord |> setDose (Dose.setMedianDose ord.Schedule false)
-        | SetOrderableDoseQuantityPerc n -> ord |> setDose (Dose.setPercValue n ord.Schedule false)
+        // the percentage of a dose that is a part of a composition the user set; without one the
+        // order is left as it is
+        | SetOrderableDoseQuantityPerc n ->
+            match ord |> isComposed with
+            | true ->
+                ord
+                |> orderPropertySetPercOrderableDoseQuantity (Dose.setPercValue n ord.Schedule false)
+            | false -> ord
         // Dose Rate
         | DecreaseOrderableDoseRate(n, useCalc) ->
             ord |> orderPropertyIncrOrDecrOrderableDoseRate (Dose.decreaseRate useCalc n)

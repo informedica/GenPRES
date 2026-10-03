@@ -15,6 +15,7 @@
     <Compile Include="OrderPlanTests.fs" />
     <Compile Include="OrderReopenTests.fs" />
     <Compile Include="MedicationTextTests.fs" />
+    <Compile Include="DoseQuantityPercTests.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="Main.fs" />
     <None Include="Scripts\load.fsx" />
