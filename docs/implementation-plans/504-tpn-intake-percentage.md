@@ -48,7 +48,7 @@ Taken 2026-10-03 by the maintainer.
 | Where the per-kg limits of a component live | On the component orderable quantity, through a solution rule, not on the component dose. |
 | Dose count | Defined as at least one in the solution rule, with no maximum. The solution limits on the component orderable quantities keep the composition safe, so the count need not be one while the user composes. The dose quantity stays a range until the slider or a dose pick sets it; a partial dose is the orderable divided into more than one dose. |
 | Rate and time | Stay ranges after the move; the user picks one of them in the administration row. When the time was solved before the move, because the user picked the rate, that time becomes the maximum of the time and the rate is recalculated within it. No command sets the time itself; the user settles it through the rate. |
-| Composition during a partial dose | Locked in the TPN view until the dose is back at 100%; the processor's component picks stay as they are. |
+| Composition during a partial dose | Locked in the TPN view until the dose is back at 100%. At 100% the existing component steps change the composition correctly; below 100% a step breaks the time maximum. The processor's component picks stay as they are. |
 | Command | Reuse `SetOrderableDoseQuantityPerc`; its processor case gets a new step. |
 | Code | The domain step is prototyped in a script and migrated by the maintainer. |
 
@@ -191,8 +191,16 @@ Either the slider or the dose quantity field sets the dose, not both at the same
    rows are disabled: the quantity field, its step buttons, its minimum, median and maximum picks,
    and the arrow that reopens it. A hint says why: "zet de toedien hoeveelheid eerst op 100% om de
    samenstelling te wijzigen". The user moves the slider back to 100% to change the composition.
-   Without the lock, a pick after a reopen keeps the dose count and the dose of the partial dose
-   while the composition changes, because the minimum, median and maximum picks do not reset them.
+   What the order does when the composition changes, tested on the composed TPN fixture:
+   - A reopen in the TPN view goes without picks, so it solves the cleared order as it is: the other
+     components and the orderable quantity give the component its old value back, and a minimum,
+     median or maximum pick then changes nothing.
+   - The composition changes through the increase and decrease of a component, which set the dose
+     count to one and keep the rate. At 100% that gives one dose of the new total, within the
+     constraints (`gluc 10%` one step up: 1080 mL, dose count 1).
+   - Below 100% the kept rate belongs to the partial dose, so the whole new total takes too long:
+     after a move to 50%, one step gives a time of 40 to 48 h against a maximum of 24 h. The lock
+     prevents this.
 4. **Rate and time** after a slider move: picking the rate leaves the dose quantity as it is, so
    the slider stays in control; when a pick changes the dose quantity, the dose quantity field
    takes control, and the slider shows the exact share as in 2.
@@ -265,13 +273,13 @@ weight is required.
    unscaled and with minimum and maximum swapped (`Min = DosePerc.Max`, `Max = DosePerc.Min`). For a
    dose count of at least one `MaxPerc` holds `1`, not `100`. Whether the column name, its documentation or
    the conversion should change is not yet settled.
-2. **Component picks in the processor.** The increase and decrease of a component quantity go
-   through `orderPropertyIncrOrDecrComponentOrderableQuantity`, which sets the dose count back to
-   one and clears the time and the orderable dose; the minimum, median and maximum picks
-   (`setCmpOrbQty`) clear nothing. Routing the picks through the same reset would protect the order
-   itself, not only the TPN view, but it changes every multi-component order the medication dialog
-   and the order plan send these picks for, for example a drug in a diluent whose dose is part of
-   the orderable. That needs its own decision and tests on the medication scenarios.
+2. **Component picks in the processor** (settled: no change). The increase and decrease of a
+   component quantity go through `orderPropertyIncrOrDecrComponentOrderableQuantity`, which sets the
+   dose count back to one; the minimum, median and maximum picks (`setCmpOrbQty`) do not. Routing
+   the picks through that step was tested on every scenario with more than one component (`amfo`,
+   `morfCont`, `tpn`, `tpnComplete`): it puts one to four variables outside their constraints,
+   because that step lets values go outside them on purpose. It is not needed for TPN either: on a
+   composed TPN a pick cannot change the composition, and the steps already reset the dose count.
 3. **The live sheets.** Whether the live TPN rules already put the component limits in the solution
    rules, and leave the dose minimums empty, is not yet checked.
 
@@ -287,7 +295,7 @@ its constraints, also after the user picked the rate and with a dose and a rate 
    and the processor case with its guard, with the tests in `DoseQuantityPercTests.fs`: moves on a
    composed order, after 100%, after the user picked the rate, with a dose and a rate maximum, and
    before every component is set.
-2. **Contract and server**: the wire case, the domain command, the mapper, and the mapper test.
+2. **Contract and server** (done): the wire case, the domain command, the mapper, and the mapper test.
 3. **Client**: the message, the stepper, the trail helpers, the slot fields and the slider.
 4. **Rules**: the TPN dose and solution rules on the sheets, as configured above.
 

@@ -29,6 +29,8 @@ module Api =
         | SetMinOrderableDoseQuantityProperty
         | SetMaxOrderableDoseQuantityProperty
         | SetMedianOrderableDoseQuantityProperty
+        /// The dose quantity at a percentage of its range.
+        | SetOrderableDoseQuantityPercProperty of perc: int
         // DoseRate property commands (ntimes = number of times to adjust, useCalc = use calculated increment)
         | DecreaseOrderableDoseRateProperty of ntimes: int * useCalc: bool
         | IncreaseOrderableDoseRateProperty of ntimes: int * useCalc: bool
@@ -83,6 +85,8 @@ module Api =
             | OrderContextCommand.SetMinOrderableDoseQuantityProperty -> "SetMinOrderableDoseQuantityProperty"
             | OrderContextCommand.SetMaxOrderableDoseQuantityProperty -> "SetMaxOrderableDoseQuantityProperty"
             | OrderContextCommand.SetMedianOrderableDoseQuantityProperty -> "SetMedianOrderableDoseQuantityProperty"
+            | OrderContextCommand.SetOrderableDoseQuantityPercProperty perc ->
+                $"SetOrderableDoseQuantityPercProperty perc=%i{perc}"
             | OrderContextCommand.DecreaseOrderableDoseRateProperty(ntimes, useCalc) ->
                 $"DecreaseOrderableDoseRateProperty ntimes={ntimes} useCalc={useCalc}"
             | OrderContextCommand.IncreaseOrderableDoseRateProperty(ntimes, useCalc) ->
