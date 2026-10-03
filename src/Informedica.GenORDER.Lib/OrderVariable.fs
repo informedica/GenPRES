@@ -649,6 +649,42 @@ module OrderVariable =
             }
 
 
+    /// Set the Variable of an OrderVariable to its defined constraints; the constraints stay as
+    /// they are.
+    let applyDefinedConstraints (ovar: OrderVariable) =
+        { ovar with Variable = { ovar.Variable with Values = ovar.DefinedConstraints |> Constraints.toValueRange } }
+
+
+    /// Lower the maximum of the Variable of an OrderVariable to the value of upTo, when upTo holds
+    /// one value and that is lower.
+    let setMaxToValueOf upTo (ovar: OrderVariable) =
+        match upTo |> getValSetValueUnit with
+        | None -> ovar
+        | Some vu ->
+            { ovar with
+                Variable =
+                    { ovar.Variable with
+                        Values = ovar.Variable.Values |> ValueRange.setMax (vu |> Maximum.create true)
+                    }
+            }
+
+
+    /// Apply the constraints of an OrderVariable; an OrderVariable solved to one value keeps that
+    /// value as inclusive maximum.
+    let applyConstraintsUpToSolved (ovar: OrderVariable) =
+        let applied = ovar |> applyConstraints
+
+        match ovar.Variable |> Variable.isSolved, ovar |> getValSetValueUnit with
+        | true, Some vu ->
+            { applied with
+                Variable =
+                    { applied.Variable with
+                        Values = applied.Variable.Values |> ValueRange.setMax (vu |> Maximum.create true)
+                    }
+            }
+        | _ -> applied
+
+
     /// Check whether the Values of the Variable of an OrderVariable
     /// are within the Constraints of the OrderVariable
     let isWithinConstraints useCalc ovar =
@@ -1523,6 +1559,11 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> time
 
 
+        /// Apply the constraints of a Time; a Time solved to one value keeps that value as inclusive
+        /// maximum, so a new dose does not take longer than the time the user settled.
+        let applyConstraintsUpToSolved = toOrdVar >> applyConstraintsUpToSolved >> time
+
+
         /// Check whether Time is non-zero positive
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
@@ -1895,6 +1936,15 @@ module OrderVariable =
         let applyOnlyMinIncrConstraints = toOrdVar >> applyOnlyMinIncrConstraints >> Quantity
 
 
+        /// Set the Variable of a Quantity to its defined constraints
+        let applyDefinedConstraints = toOrdVar >> applyDefinedConstraints >> Quantity
+
+
+        /// Lower the maximum of a Quantity to the value of another Quantity, when that holds one
+        /// value and that is lower: a dose up to the whole orderable.
+        let setMaxToValueOf upTo = toOrdVar >> setMaxToValueOf (upTo |> toOrdVar) >> Quantity
+
+
         /// Apply a function to the OrderVariable in a Quantity
         let apply f = toOrdVar >> f >> Quantity
 
@@ -2194,6 +2244,10 @@ module OrderVariable =
         let applyOnlyMaxConstraints = toOrdVar >> applyOnlyMaxConstraints >> Rate
 
 
+        /// Set the Variable of a Rate to its defined constraints
+        let applyDefinedConstraints = toOrdVar >> applyDefinedConstraints >> Rate
+
+
         /// Set constraints for a Rate
         let setConstraints cons = toOrdVar >> setConstraints cons >> Rate
 
@@ -2430,6 +2484,10 @@ module OrderVariable =
 
         /// Apply the constraints of a QuantityAdjust to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> QuantityAdjust
+
+
+        /// Set the Variable of a QuantityAdjust to its defined constraints
+        let applyDefinedConstraints = toOrdVar >> applyDefinedConstraints >> QuantityAdjust
 
         /// Check whether a QuantityAdjust is non-zero positive
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive
