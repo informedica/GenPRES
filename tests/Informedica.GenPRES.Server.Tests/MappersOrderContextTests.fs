@@ -286,6 +286,8 @@ let tests =
                         Domain.SetMaxOrderableDoseQuantityProperty ctx
                         Shared.Api.OrderContextCommand.SetMedianOrderableDoseQuantityProperty,
                         Domain.SetMedianOrderableDoseQuantityProperty ctx
+                        Shared.Api.OrderContextCommand.SetOrderableDoseQuantityPercProperty 50,
+                        Domain.SetOrderableDoseQuantityPercProperty(ctx, 50)
                         Shared.Api.OrderContextCommand.DecreaseOrderableDoseRateProperty(1, true),
                         Domain.DecreaseOrderableDoseRateProperty(ctx, 1, true)
                         Shared.Api.OrderContextCommand.IncreaseOrderableDoseRateProperty(1, false),
@@ -308,7 +310,7 @@ let tests =
                         Domain.SetMedianComponentQuantityProperty(ctx, "cmp")
                     ]
 
-                verbs |> List.length |> Expect.equal "every case of the wire's union" 25
+                verbs |> List.length |> Expect.equal "every case of the wire's union" 26
 
                 for verb, expected in verbs do
                     OrderContextMapper.Command.toDomain verb ctx |> Expect.equal $"{verb}" expected

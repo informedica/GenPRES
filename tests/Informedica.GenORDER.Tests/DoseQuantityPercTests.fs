@@ -360,4 +360,19 @@ let tests =
                 |> List.map (fun p -> rated.Value |> perc p |> value)
                 |> Expect.equal "should be the same" firstMoves
             }
+
+            test "the command of the order context sets the dose of its one scenario at the percentage" {
+                let ctx =
+                    { OrderPlanTests.EvaluateFixtures.pcmContext with
+                        Scenarios =
+                            [|
+                                { OrderPlanTests.EvaluateFixtures.pcmScenario with Order = composed.Value }
+                            |]
+                    }
+
+                OrderContext.SetOrderableDoseQuantityPercProperty(ctx, 50)
+                |> OrderContext.evaluate Scenarios.testStart OrderLogging.noOp (OrderPlanTests.NoRules())
+                |> Result.map (OrderContext.Command.get >> _.Scenarios >> Array.map (_.Order >> value))
+                |> Expect.equal "the dose of a move to 50%" (Ok [| composed.Value |> perc 50 |> value |])
+            }
         ]

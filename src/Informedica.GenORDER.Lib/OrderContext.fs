@@ -343,6 +343,8 @@ module OrderContext =
         | SetMinOrderableDoseQuantityProperty of OrderContext
         | SetMaxOrderableDoseQuantityProperty of OrderContext
         | SetMedianOrderableDoseQuantityProperty of OrderContext
+        /// The dose quantity at a percentage of its range.
+        | SetOrderableDoseQuantityPercProperty of OrderContext * perc: int
         // DoseRate property commands (ntimes = number of times to adjust, useCalc = use calculated increment)
         | DecreaseOrderableDoseRateProperty of OrderContext * ntimes: int * useCalc: bool
         | IncreaseOrderableDoseRateProperty of OrderContext * ntimes: int * useCalc: bool
@@ -379,6 +381,7 @@ module OrderContext =
             | SetMinOrderableDoseQuantityProperty ctx -> ctx
             | SetMaxOrderableDoseQuantityProperty ctx -> ctx
             | SetMedianOrderableDoseQuantityProperty ctx -> ctx
+            | SetOrderableDoseQuantityPercProperty(ctx, _) -> ctx
             // DoseRate property commands
             | DecreaseOrderableDoseRateProperty(ctx, _, _) -> ctx
             | IncreaseOrderableDoseRateProperty(ctx, _, _) -> ctx
@@ -413,6 +416,7 @@ module OrderContext =
             | SetMinOrderableDoseQuantityProperty _ -> "SetMinOrderableDoseQuantityProperty"
             | SetMaxOrderableDoseQuantityProperty _ -> "SetMaxOrderableDoseQuantityProperty"
             | SetMedianOrderableDoseQuantityProperty _ -> "SetMedianOrderableDoseQuantityProperty"
+            | SetOrderableDoseQuantityPercProperty(_, perc) -> $"SetOrderableDoseQuantityPercProperty perc=%i{perc}"
             | DecreaseOrderableDoseRateProperty(_, ntimes, useCalc) ->
                 $"DecreaseOrderableDoseRateProperty ntimes={ntimes} useCalc={useCalc}"
             | IncreaseOrderableDoseRateProperty(_, ntimes, useCalc) ->
@@ -1141,6 +1145,11 @@ Scenarios: {scenarios}
             processPropertyCmd ctx SetMaxOrderableDoseQuantity SetMaxOrderableDoseQuantityProperty
         | SetMedianOrderableDoseQuantityProperty ctx ->
             processPropertyCmd ctx SetMedianOrderableDoseQuantity SetMedianOrderableDoseQuantityProperty
+        | SetOrderableDoseQuantityPercProperty(ctx, perc) ->
+            processPropertyCmd
+                ctx
+                (SetOrderableDoseQuantityPerc perc)
+                (fun ctx -> SetOrderableDoseQuantityPercProperty(ctx, perc))
         // Dose Rate property commands
         | DecreaseOrderableDoseRateProperty(ctx, ntimes, useCalc) ->
             processPropertyCmd

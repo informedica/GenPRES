@@ -352,6 +352,8 @@ module OrderContextMapper =
                 Domain.SetMaxOrderableDoseQuantityProperty
             | Shared.Api.OrderContextCommand.SetMedianOrderableDoseQuantityProperty ->
                 Domain.SetMedianOrderableDoseQuantityProperty
+            | Shared.Api.OrderContextCommand.SetOrderableDoseQuantityPercProperty perc ->
+                fun ctx -> Domain.SetOrderableDoseQuantityPercProperty(ctx, perc)
             // DoseRate property commands
             | Shared.Api.OrderContextCommand.DecreaseOrderableDoseRateProperty(ntimes, useCalc) ->
                 fun ctx -> Domain.DecreaseOrderableDoseRateProperty(ctx, ntimes, useCalc)
