@@ -1,5 +1,5 @@
 ---
-last_commit_released: 3fcaa90c618aeffac24a35ca1c13605ad1b2a9e7
+last_commit_released: 1384083c08238c9200d2984837fa19b1c529a5d7
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,25 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.44 - 2026-10-03
+
+### 🚀 Features
+
+* *(client)* Link the TPN intake slider to the dose ([16d415f1](https://github.com/informedica/GenPRES/commit/16d415f10e5acb8a3956b859cc824ce1b39f8b9f))
+* *(genorder)* Show the access of a scenario ([8a46cc48](https://github.com/informedica/GenPRES/commit/8a46cc4848b9aad50feea2fa3d76de7fe4a0b505))
+* *(genorder)* Set TPN dose quantity by percentage ([7427b060](https://github.com/informedica/GenPRES/commit/7427b06069ec196ac6f6b5b7ceee1d5cee5af3e7))
+* *(server)* Wire TPN dose quantity percentage ([5a2476ef](https://github.com/informedica/GenPRES/commit/5a2476ef1e4fe3cddeef34ee53d656afc9eb089e))
+* *(ui)* Put nutrition after prescribe in the menu ([200c09e7](https://github.com/informedica/GenPRES/commit/200c09e7a9d25810578d922108178c5a38ca1b96))
+* *(ui)* Put the filter before the search above lists ([2e0ad22a](https://github.com/informedica/GenPRES/commit/2e0ad22a9de2b510e638670817180885817f1ae8))
+* *(ui)* Align the TPN panel in three columns ([e119906a](https://github.com/informedica/GenPRES/commit/e119906a23a9db9e1133c5c87ca359ffcdc21998))
+
+### 🐞 Bug Fixes
+
+* *(genorder)* Keep rule maxima in TPN percentage ([26cf572f](https://github.com/informedica/GenPRES/commit/26cf572f927ee09ef2047f5075d0e1f0f9233c25))
+* *(genorder)* Apply Div to the orderable dose quantity ([72375f66](https://github.com/informedica/GenPRES/commit/72375f663bca9bb38cc47647dac567365121e19c))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/3fcaa90c618aeffac24a35ca1c13605ad1b2a9e7..1384083c08238c9200d2984837fa19b1c529a5d7)</small></strong>
 
 ## 0.1.2-alpha.43 - 2026-10-01
 
