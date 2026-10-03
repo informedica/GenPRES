@@ -180,6 +180,11 @@ command with wildcards.
 - the component rows: locked while the dose quantity is less than the orderable quantity, see
   "Which control sets the dose".
 
+`Client.Core/IntakePolicy.fs` holds the pure decisions, tested in the Client.Core tests: whether the
+order is composed, the dose share and its slider step, whether the slider can set the dose, whether
+the composition is locked, and whether the start is sent. The start is sent once per order id and
+composition, so another order with the same composition still gets it.
+
 `Views/ParenteralNutrition.fs`: the slider takes its position from `DoseQuantityPerc`; local state
 only holds the position while the user drags. It sends the command on `onChangeCommitted`, once
 per release, and is disabled while the slot is loading or `CanSetDoseQuantityPerc` is false, that
@@ -200,8 +205,10 @@ Either the slider or the dose quantity field sets the dose, not both at the same
    field is. Nothing new is stored. A dose typed in the field that equals a slider step reads as a
    slider setting, which shows the same intake.
 2. **The slider not in control** shows no handle and the exact share as text, for example
-   "14% van totaal", so it never rounds a typed dose to a step. Moving it takes control back and
-   replaces the typed dose.
+   "14% van totaal". A share within half a percent of a step reads as that step: the percentage
+   step picks a value on the dose quantity's range, so a slider setting is close to its step but
+   not always exact. The dose quantity is the exact value; the slider is only a way to change it.
+   Moving the slider takes control back and replaces the typed dose.
 3. **The composition is locked while the dose is partial.** While the dose quantity is less than
    the orderable quantity, whether the slider or the dose quantity field set it, the component
    rows are disabled: the quantity field, its step buttons, its minimum, median and maximum picks,
@@ -257,10 +264,10 @@ limit:
 | `Div` | empty, see below | |
 | `MinPerc`, `MaxPerc` | empty and `1`, so the dose count is at least one | |
 
-`Div` stays empty. A solution rule's `Div` becomes the medication's `Div`, and with it set the
-orderable dose quantity gets no increment (`Medication.divisibility` without a component), so the
-percentage has no steps to pick from and the slider does nothing. With `Div` empty, the orderable
-and its dose quantity step by the coarsest `Divisible` of the products, 1 mL for the TPN products.
+`Div` stays empty until #1288 settles what it means for the orderable. A solution rule's `Div`
+becomes the medication's `Div`. With it set, the orderable dose quantity steps by 1/`Div`. With `Div`
+empty, the orderable and its dose quantity step by the coarsest `Divisible` of the products, 1 mL
+for the TPN products. Either way the percentage has steps to pick from.
 
 `Medication.addSolution` turns `MinPerc`/`MaxPerc` into the dose count as they are, without dividing
 by 100 and with minimum and maximum swapped, so `MaxPerc` holds `1` for a dose count of at least one
@@ -279,8 +286,8 @@ weight is required.
 
 - The infusion rate steps by 0.1 in the rate unit (`Medication.fs`, the `rate` function of the
   orderable dose).
-- A timed orderable and its dose quantity are stepped by the coarsest step of its products, from
-  their `Divisible`, when the rule has no `Div`.
+- A timed orderable and its dose quantity are stepped by 1/`Div` when the rule has a `Div`, and
+  otherwise by the coarsest step of its products, from their `Divisible`.
 
 ## Open questions
 

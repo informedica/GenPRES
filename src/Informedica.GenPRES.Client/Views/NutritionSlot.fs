@@ -436,41 +436,6 @@ module NutritionSlot =
         $"selected %s{cmp}"
 
 
-    /// The one value of an order variable, when it holds one.
-    let singleValue (ovar: OrderVariable) =
-        ovar.Variable.Vals
-        |> Option.bind (fun vu ->
-            match vu.Value with
-            | [| _, d |] -> Some d
-            | _ -> None
-        )
-
-
-    /// Whether every component quantity of an order holds one value: the user has set the
-    /// composition.
-    let isComposed (ord: Order) =
-        ord.Orderable.Components
-        |> Array.forall (_.OrderableQuantity >> singleValue >> Option.isSome)
-
-
-    /// The share of the total the dose quantity is, in percent, when both hold one value.
-    let doseShare (ord: Order) =
-        match ord.Orderable.Dose.Quantity |> singleValue, ord.Orderable.OrderableQuantity |> singleValue with
-        | Some dose, Some total when total > 0m -> Some(dose / total * 100m)
-        | _ -> None
-
-
-    /// The step of the intake slider a share is, to the nearest whole percent: a multiple of ten
-    /// from 10 to 100.
-    let sliderStep (share: decimal) =
-        let pct = System.Math.Round share |> int
-
-        if pct >= 10 && pct <= 100 && pct % 10 = 0 then
-            Some pct
-        else
-            None
-
-
     let halfSize =
         {|
             xs = 12
@@ -852,25 +817,19 @@ module NutritionSlot =
 
         let isTpn = ctx |> isOneOf [ NutritionCategory.TPN ]
 
-        // the composition the move to 100% was sent for: a move the server cannot make returns the
-        // order unchanged, and sending it again would loop
-        let startedFor = React.useRef (None: decimal option[] option)
-
-        let composition (ord: Order) =
-            ord.Orderable.Components |> Array.map (_.OrderableQuantity >> singleValue)
+        // the order and composition the move to 100% was sent for
+        let sentFor = React.useRef (None: (string * decimal option[]) option)
 
         // once the TPN is composed, its dose is set at the whole total, so the dose count holds one
         // value and the intake slider can take over
         let startIntake () =
             match shownOrder with
             | Some ord when isTpn && not isOrderLoading ->
-                if ord |> isComposed |> not then
-                    startedFor.current <- None
-                elif
-                    ord.Orderable.DoseCount |> singleValue |> Option.isNone
-                    && startedFor.current <> Some(ord |> composition)
-                then
-                    startedFor.current <- Some(ord |> composition)
+                match ord |> IntakePolicy.start sentFor.current with
+                | IntakePolicy.Start.Clear -> sentFor.current <- None
+                | IntakePolicy.Start.Wait -> ()
+                | IntakePolicy.Start.Send key ->
+                    sentFor.current <- Some key
                     // run directly: a dispatch from here reaches the program useElmish is replacing
                     updateTraced StartDoseQuantityPercProperty state |> ignore
             | _ -> ()
@@ -879,9 +838,7 @@ module NutritionSlot =
 
         // while the dose of the TPN is a part of the total, the composition stays as it is: a step
         // of a component would keep the rate of the part for the whole
-        let isCompositionLocked =
-            isTpn
-            && shownOrder |> Option.bind doseShare |> Option.exists (fun share -> share < 100m)
+        let isCompositionLocked = isTpn && shownOrder |> Option.exists IntakePolicy.isCompositionLocked
 
         let componentSelect = ViewHelpers.orderSelect texts true (isOrderLoading || isCompositionLocked)
 
@@ -1251,9 +1208,7 @@ module NutritionSlot =
             else
                 null
 
-        let canSetDoseQuantityPerc =
-            shownOrder
-            |> Option.exists (fun ord -> ord |> isComposed && ord.Orderable.DoseCount |> singleValue |> Option.isSome)
+        let canSetDoseQuantityPerc = shownOrder |> Option.exists IntakePolicy.canSetDoseQuantityPerc
 
         let indicationFilter =
             if ctx.Filter.Generic.IsNone || ctx.Filter.Indications |> Array.length <= 1 then
@@ -1315,6 +1270,6 @@ module NutritionSlot =
             LoadingIndicator = loadingIndicator
             SetDoseQuantityPerc = SetDoseQuantityPercProperty >> dispatch
             CanSetDoseQuantityPerc = canSetDoseQuantityPerc
-            DoseQuantityShare = shownOrder |> Option.bind doseShare
+            DoseQuantityShare = shownOrder |> Option.bind IntakePolicy.doseShare
             CompositionHint = compositionHint
         }

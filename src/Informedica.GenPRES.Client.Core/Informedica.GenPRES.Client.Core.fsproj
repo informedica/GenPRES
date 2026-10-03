@@ -23,6 +23,7 @@
     <Compile Include="SeverityReasonPolicy.fs" />
     <Compile Include="ArgumentationPolicy.fs" />
     <Compile Include="QuantityModePolicy.fs" />
+    <Compile Include="IntakePolicy.fs" />
     <Compile Include="FieldOpenPolicy.fs" />
     <Compile Include="PickList.fs" />
     <Compile Include="PlanContextPolicy.fs" />

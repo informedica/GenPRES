@@ -124,7 +124,9 @@ module ParenteralNutrition =
         // the TPN is composed and its dose count holds one value
         let intakeSlider =
             if props.nutritionContext |> isOneOf [ NutritionCategory.TPN ] then
-                let position = dragged |> Option.orElse (slot.DoseQuantityShare |> Option.bind sliderStep)
+                let position =
+                    dragged
+                    |> Option.orElse (slot.DoseQuantityShare |> Option.bind IntakePolicy.sliderStep)
                 let value = position |> Option.defaultValue 100
                 let sliderSx = if position.IsSome then null else box noHandleSx
                 let track: obj = if position.IsSome then box "normal" else box false
