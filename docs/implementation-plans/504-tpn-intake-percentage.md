@@ -68,8 +68,8 @@ Taken 2026-10-03 by the maintainer.
 
 Four helpers, each following the pattern of its neighbours in `OrderVariable.fs`:
 
-- `Count.setMinToOneWithConstraints`: `Count.setMinToOne`, and the same minimum of one in the
-  defined and calculated constraints, so neither brings back a count the rule fixed at one.
+- `Count.setMinToOneWithConstraints`: a minimum of one and no maximum, in the values and in the
+  defined and calculated constraints, so the one count the solution rule defines does not come back.
 - `Quantity.applyOnlyMinIncrConstraintsUpTo upTo qty`: the defined minimum and increment of
   `qty`, with the value of `upTo` as inclusive maximum when `upTo` holds one value.
 - `Rate.applyOnlyMinIncrConstraints`: the typed wrapper of `applyOnlyMinIncrConstraints`, as
@@ -147,12 +147,14 @@ command with wildcards.
   `create (navRate (Api.OrderContextCommand.SetOrderableDoseQuantityPercProperty perc))`;
 - `update`: `handleNav (stepper.setDoseQtyPerc perc)`;
 - the trail helpers `kindOf`, `fieldOf` (the `"ordDoseQty"` group) and `describeMsg`;
-- `Slot`: `SetDoseQuantityPerc: int -> unit`, and `CanSetDoseQuantityPerc: bool`, true when the
-  orderable quantity holds one value.
+- `Slot`: `SetDoseQuantityPerc: int -> unit`; `CanSetDoseQuantityPerc: bool`, true when the
+  orderable quantity holds one value; and `DoseQuantityPerc: int option`, the dose quantity as a
+  share of the orderable quantity, rounded to the slider's steps of 10, when both hold one value.
 
-`Views/ParenteralNutrition.fs`: the slider keeps `onChange` for its own position and sends the
-command on `onChangeCommitted`, once per release; it is disabled while
-`CanSetDoseQuantityPerc` is false.
+`Views/ParenteralNutrition.fs`: the slider shows `DoseQuantityPerc` from the order, or 100 when
+there is none, so a dose changed elsewhere or a reset moves it too; local state only holds the
+position while the user drags. It sends the command on `onChangeCommitted`, once per release, and
+is disabled while the slot is loading or `CanSetDoseQuantityPerc` is false.
 
 ## Configuring a TPN order
 
@@ -246,5 +248,6 @@ Steps 1 and 2 can be one pull request; step 3 follows; step 4 is a sheet change.
 - `dotnet run`, Nutrition page, add TPN, set every component, move the slider: the dose quantity,
   the rate range and the time range change after release; the component quantities do not; at 100%
   the dose quantity equals the total volume; before every component is set, the slider is disabled.
+- Change the dose quantity with its own field, or press reset: the slider follows the order.
 - Set the rate, then move the slider: the time stays at or below the time the rate gave, and the
   rate is recalculated for the new dose.
