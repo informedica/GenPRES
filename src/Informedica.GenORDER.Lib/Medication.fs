@@ -1509,7 +1509,7 @@ module Medication =
             let pu = pc |> Option.bind (_.Quantities >> Option.map ValueUnit.getUnit)
 
             match ou, med.Div with
-            | Some ou, Some br when Some ou = pu -> 1N / br |> singleOrNone ou
+            | Some ou, Some br when pu.IsNone || Some ou = pu -> 1N / br |> singleOrNone ou
             | Some ou, None ->
                 let incrs =
                     med.Components

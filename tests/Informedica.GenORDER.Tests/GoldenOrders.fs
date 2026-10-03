@@ -818,7 +818,7 @@ Orderable
 [Test Medication Complete]_orb_qty [50 mL]
 [Test Medication Complete]_ord_cnt <0 x..>
 [Test Medication Complete]_dos_cnt [1 x..2 x]
-[Test Medication Complete]_dos_qty [5 mL..10 mL]
+[Test Medication Complete]_dos_qty [5 mL..0,5 mL..10 mL]
 [Test Medication Complete]_dos_ptm <0 mL/dag..>
 [Test Medication Complete]_dos_rte [0,1 mL/uur..0,1 mL/uur..>
 [Test Medication Complete]_dos_tot <0 ..>
