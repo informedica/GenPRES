@@ -29,6 +29,7 @@
     <Compile Include="PlanContextPolicy.fs" />
     <Compile Include="PlanCellPolicy.fs" />
     <Compile Include="SectionFoldPolicy.fs" />
+    <Compile Include="TotalsChangePolicy.fs" />
     <Compile Include="PlanWorkPolicy.fs" />
     <Compile Include="HeldContextPolicy.fs" />
     <Compile Include="ServerErrorPolicy.fs" />

@@ -27,6 +27,7 @@
     <Compile Include="FieldOpenPolicyTests.fs" />
     <Compile Include="PickListTests.fs" />
     <Compile Include="SectionFoldPolicyTests.fs" />
+    <Compile Include="TotalsChangePolicyTests.fs" />
     <Compile Include="PlanWorkPolicyTests.fs" />
     <Compile Include="HeldContextPolicyTests.fs" />
     <Compile Include="ServerErrorPolicyTests.fs" />
