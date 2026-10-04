@@ -14,40 +14,37 @@ module BasicTable =
                 rows:
                     {|
                         key: string
-                        sx: obj
-                        cells: obj[]
+                        cells:
+                            {|
+                                sx: obj
+                                content: obj
+                            |}[]
                     |}[]
             |})
         =
-        let createRow
-            (row:
-                {|
-                    key: string
-                    sx: obj
-                    cells: obj[]
-                |})
-            =
-            let cells =
-                row.cells
-                |> Array.mapi (fun i c ->
-                    JSX.jsx
-                        $"""
-                    import TableCell from '@mui/material/TableCell';
-                    <TableCell key={i}>
-                        {c}
-                    </TableCell>
-                    """
-                )
+        let rows =
+            props.rows
+            |> Array.map (fun row ->
+                let cells =
+                    row.cells
+                    |> Array.mapi (fun i c ->
+                        JSX.jsx
+                            $"""
+                        import TableCell from '@mui/material/TableCell';
+                        <TableCell key={i} sx={c.sx}>
+                            {c.content}
+                        </TableCell>
+                        """
+                    )
 
-            JSX.jsx
-                $"""
-            import TableRow from '@mui/material/TableRow';
-            <TableRow key={row.key} sx={row.sx}>
-                {cells}
-            </TableRow>
-            """
-
-        let rows = props.rows |> Array.map createRow
+                JSX.jsx
+                    $"""
+                import TableRow from '@mui/material/TableRow';
+                <TableRow key={row.key}>
+                    {cells}
+                </TableRow>
+                """
+            )
 
         JSX.jsx
             $"""

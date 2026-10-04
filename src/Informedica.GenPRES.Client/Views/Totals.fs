@@ -32,15 +32,19 @@ module Totals =
             |]
 
 
-    // a changed row lights up and fades back to the table's own background
+    // a changed value lights up, holds its colour and then fades back to the table's own background
+    let private flashMs = 3000
+
+
     let private flashSx =
         createObj
             [
-                "animation" ==> "totalsFlash 1.5s ease-out"
+                "animation" ==> $"totalsFlash %i{flashMs}ms ease-out"
                 "@keyframes totalsFlash"
                 ==> {|
-                        from = {| backgroundColor = Mui.Styles.changedBgColor |}
-                        ``to`` = {| backgroundColor = "transparent" |}
+                        ``0%`` = {| backgroundColor = Mui.Styles.changedBgColor |}
+                        ``40%`` = {| backgroundColor = Mui.Styles.changedBgColor |}
+                        ``100%`` = {| backgroundColor = "transparent" |}
                     |}
             ]
 
@@ -146,7 +150,7 @@ module Totals =
                                     revision = revision
                                 |}
                         )
-                        1500
+                        flashMs
                     |> Some
 
         React.useEffect (observeTotals, [| box props.source; box props.intake |])
@@ -154,33 +158,31 @@ module Totals =
         React.useEffect ((fun () -> fun () -> timerRef.current |> Option.iter JS.clearTimeout), [||])
 
         let mapRow (intake: Totals) row =
-            let print n (itms: TextItem[]) =
-                [|
-                    [| Normal n |] |> typoGraphy
-                    itms[0 .. (itms.Length - 2)] |> typoGraphy
-                    [| itms |> Array.last |] |> typoGraphy
-                |]
-                |> Array.map box
+            let cell sx content =
+                {|
+                    sx = box sx
+                    content = box content
+                |}
 
             row
             |> Array.map (fun cells ->
                 let name = cells |> Array.head
                 let items = Models.Totals.substanceToField intake name
+                let isChanged = flash.names |> Set.contains name
 
-                // the revision in the key remounts a row that changes again while it fades,
-                // so the fade starts over
-                if flash.names |> Set.contains name then
-                    {|
-                        key = $"%s{name}-%i{flash.revision}"
-                        sx = box flashSx
-                        cells = print name items
-                    |}
-                else
-                    {|
-                        key = name
-                        sx = box noFlashSx
-                        cells = print name items
-                    |}
+                {|
+                    // the revision in the key remounts a row that changes again while it fades,
+                    // so the fade starts over
+                    key = if isChanged then $"%s{name}-%i{flash.revision}" else name
+                    cells =
+                        [|
+                            [| Normal name |] |> typoGraphy |> cell noFlashSx
+                            items[0 .. (items.Length - 2)]
+                            |> typoGraphy
+                            |> cell (if isChanged then flashSx else box noFlashSx)
+                            [| items |> Array.last |] |> typoGraphy |> cell noFlashSx
+                        |]
+                |}
             )
 
         let activeRows =
