@@ -18,6 +18,7 @@
 #load "../PlanContextPolicy.fs"
 #load "../PlanCellPolicy.fs"
 #load "../SectionFoldPolicy.fs"
+#load "../TotalsChangePolicy.fs"
 #load "../PlanWorkPolicy.fs"
 #load "../HeldContextPolicy.fs"
 #load "../SessionMachine.fs"

@@ -872,6 +872,9 @@ module Styles =
     /// The header band over a table or a section; a tint the palette has no name for yet.
     let headerBgColor = Colors.Blue.``50``
 
+    /// The yellow tint a changed value lights up with before it fades.
+    let changedBgColor = "#fff9c4"
+
 
     let selectIconVisibilitySx isClear =
         {| ``& .MuiSelect-icon`` = {| visibility = if isClear then "visible" else "hidden" |} |}
