@@ -4,6 +4,7 @@ module Totals =
 
 
     open Fable.Core
+    open Fable.Core.JsInterop
     open Feliz
     open Shared
     open Types
@@ -29,6 +30,22 @@ module Totals =
                     if start < n then
                         arr[start..stop]
             |]
+
+
+    // a changed row lights up and fades back to the table's own background
+    let private flashSx =
+        createObj
+            [
+                "animation" ==> "totalsFlash 1.5s ease-out"
+                "@keyframes totalsFlash"
+                ==> {|
+                        from = {| backgroundColor = Mui.Styles.changedBgColor |}
+                        ``to`` = {| backgroundColor = "transparent" |}
+                    |}
+            ]
+
+
+    let private noFlashSx = {| |}
 
 
     let private typoGraphy (items: TextItem[]) =
@@ -88,24 +105,82 @@ module Totals =
 
 
     [<JSX.Component>]
-    let View (props: {| intake: Totals |}) =
+    let View
+        (props:
+            {|
+                source: string
+                intake: Totals
+            |})
+        =
+        let seenRef = React.useRef (TotalsChangePolicy.initial props.source props.intake)
+        let timerRef = React.useRef (None: int option)
+
+        let flash, setFlash =
+            React.useState
+                {|
+                    names = Set.empty<string>
+                    revision = 0
+                |}
+
+        let observeTotals () =
+            let seen, changed = seenRef.current |> TotalsChangePolicy.observe props.source props.intake
+
+            seenRef.current <- seen
+
+            if changed |> Array.isEmpty |> not then
+                let revision = flash.revision + 1
+                timerRef.current |> Option.iter JS.clearTimeout
+
+                setFlash
+                    {|
+                        names = Set.ofArray changed
+                        revision = revision
+                    |}
+
+                timerRef.current <-
+                    JS.setTimeout
+                        (fun () ->
+                            setFlash
+                                {|
+                                    names = Set.empty
+                                    revision = revision
+                                |}
+                        )
+                        1500
+                    |> Some
+
+        React.useEffect (observeTotals, [| box props.source; box props.intake |])
+
+        React.useEffect ((fun () -> fun () -> timerRef.current |> Option.iter JS.clearTimeout), [||])
+
         let mapRow (intake: Totals) row =
-            let print n itms =
-                if itms |> Array.length < 2 then
-                    [||]
-                else
-                    [|
-                        [| Normal n |] |> typoGraphy
-                        itms[0 .. (itms.Length - 2)] |> typoGraphy
-                        [| itms |> Array.last |] |> typoGraphy
-                    |]
+            let print n (itms: TextItem[]) =
+                [|
+                    [| Normal n |] |> typoGraphy
+                    itms[0 .. (itms.Length - 2)] |> typoGraphy
+                    [| itms |> Array.last |] |> typoGraphy
+                |]
                 |> Array.map box
 
             row
             |> Array.map (fun cells ->
                 let name = cells |> Array.head
                 let items = Models.Totals.substanceToField intake name
-                print name items
+
+                // the revision in the key remounts a row that changes again while it fades,
+                // so the fade starts over
+                if flash.names |> Set.contains name then
+                    {|
+                        key = $"%s{name}-%i{flash.revision}"
+                        sx = box flashSx
+                        cells = print name items
+                    |}
+                else
+                    {|
+                        key = name
+                        sx = box noFlashSx
+                        cells = print name items
+                    |}
             )
 
         let activeRows =
