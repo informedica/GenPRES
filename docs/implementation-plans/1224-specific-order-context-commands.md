@@ -506,9 +506,10 @@ Open:
 
 ## As built
 
-Every step lands as a pull request from a fork branch against `master`. Steps 1 to 3 landed on
-2026-10-05, the `Shared` and `Server` source written by the agent on the user's request, the
-script removed once its tests were in `OrderContextCommandTests.fs`.
+Every step landed as a pull request from a fork branch against `master`, all on 2026-10-05. The
+`Shared`, `Server` and `Client.Core` source was written by the agent on the user's request; the
+script was removed once its tests were in `OrderContextCommandTests.fs`. Each client part was
+checked in the browser by the user before it was committed.
 
 | Step | PR | Landed |
 |------|----|--------|
@@ -516,6 +517,14 @@ script removed once its tests were in `OrderContextCommandTests.fs`.
 | 1, 2 | [#1295](https://github.com/informedica/GenPRES/pull/1295) | the property types in `Types.fs`; `Target` and `Options` with `count` in `Models.fs` |
 | 1, 2 | [#1296](https://github.com/informedica/GenPRES/pull/1296) | the picks, the scenario narrowing, the filter, components and scenario changes, `setNth` and `clear`, and the argumentation in `Models.fs`; `ArgumentationPolicy` calls them |
 | 1, 2, 3 | [#1297](https://github.com/informedica/GenPRES/pull/1297) | the new cases, `toString`, `toChange` and `replaced` in `Api.fs`; the server calls `toChange` in `processCmd` and `Navigate`; the tests in `OrderContextCommandTests.fs` |
+| docs | [#1298](https://github.com/informedica/GenPRES/pull/1298) | the as-built notes for steps 1 to 3 |
+| 4 | [#1299](https://github.com/informedica/GenPRES/pull/1299) | the machines: `Dialog.waits` and `carries` by `replaced`, `Dialog.shown`, a filter case on the evaluate path; tests in `OrderContextMachineTests.fs` and `OrderPlanMachineTests.fs` |
+| 4 | [#1300](https://github.com/informedica/GenPRES/pull/1300) | the workbench's filter fields, diluent, components, reset and scenario cards in `Prescribe.fs` |
+| 4 | [#1301](https://github.com/informedica/GenPRES/pull/1301) | the dose dialog's value messages name their variable; the changed order made by `Target.map` |
+| 4 | [#1303](https://github.com/informedica/GenPRES/pull/1303) | the dose dialog sends `SetNth…Property` and `Clear…Property`, in the workbench and the plan |
+| 4 | [#1304](https://github.com/informedica/GenPRES/pull/1304) | the nutrition slot's filter fields and value fields in `NutritionSlot.fs` |
+| 5 | none | the trail already shows the new cases through `OrderContextCommand.toString` |
+| 6 | none | checked by a search of `Client` and `Client.Core`, see below |
 
 ### Deviations from the text above
 
@@ -529,3 +538,23 @@ script removed once its tests were in `OrderContextCommandTests.fs`.
   component is found by name over every component of that name, as the dose dialog does.
 - **An argumentation with no command** in `Navigate` is written on the plan's own context with
   that id and the plan is recalculated; a plan without that id answers `NoSuchContext`.
+- **Step 4 went out in five pull requests:** the machines first, so that a new case never fell into
+  their default branches, then the workbench, the dose dialog in two parts to stay within the
+  200-line limit, and the nutrition slot. The machines were changed in source on the user's request,
+  since their request stages are private and a script would have copied them whole.
+- **The page shows the context as the command changes it, derived when read** (`Dialog.shown`), not
+  stored beside the context sent.
+- **A value a field does not offer still goes as today's case,** with the context changed by the
+  client. No picker hands back such a value, so these paths should not run; they go with the old
+  cases (see *Later*).
+- **Step 5 needed no code.** The trail prints every command through `toString`, so the command and
+  reopen lines of a trail, and the `Navigate` lines of the plan, read as the sequence of commands
+  with their indexes. A replay that feeds a trail back stays deferred.
+- **Step 6, the search:** the client sends `UpdateOrderContext` only to evaluate a whole context,
+  on the first evaluation for a patient, a patient change and a seed, and in the fallbacks above. It
+  sends `UpdateOrderScenario` and `ReopenOrderScenario` only in the fallbacks, and
+  `SelectOrderScenario` no longer. `scripts/CheckDependencyRule.fsx` and the benchmark build pass;
+  no project reference changed.
+- **Found during the browser check:** a concentration the dose dialog offers that the order cannot
+  reach, unrelated to this plan, filed as
+  [#1302](https://github.com/informedica/GenPRES/issues/1302).
