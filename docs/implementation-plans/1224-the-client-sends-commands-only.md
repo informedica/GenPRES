@@ -55,11 +55,17 @@ Taken on 2026-10-05, before the first step.
 
 1. **A dialog command made while a request runs.** The user picks a value while the answer to an
    earlier change is still under way. Today the pick waits and goes out over the context the user
-   picked it on, which already shows the earlier change as the preview (`Dialog.shown`). Three
-   choices:
+   picked it on. The two dialogs show that context differently:
+   - **the workbench** shows the context sent with the earlier change as the preview
+     (`Dialog.shown`), so the waiting pick includes the earlier change;
+   - **the plan dialog** shows the plan held while a `Navigate` runs (`OrderPlanState.meanwhile`,
+     read by `OrderContextView.dialog` without a preview), so the waiting pick goes over the context
+     without the earlier change, and its answer replaces that change.
+
+   Three choices:
    - **(a) as today:** the pick goes over the context it was made on. Its index reads the list the
-     user saw. The answer to the earlier change is replaced by the answer to the pick, which
-     includes the earlier change, since the preview does. No visible difference.
+     user saw. In the workbench the answer to the pick includes the earlier change; in the plan
+     dialog it does not, as now. No visible difference.
    - **(b) over the context answered:** the pick goes over the newest context. Its index then reads
      the list as the server answered it, which can differ from the list the user saw: the pick can
      land on another value. A visible difference, and an unsafe one for a dose.
@@ -69,7 +75,10 @@ Taken on 2026-10-05, before the first step.
 
    Decided (user, 2026-10-05): (a) for a pick, a clear and a reset, since an index belongs to the
    list it was read in; a step keeps going over the context answered, as it carries no index. The
-   rule then reads from the specific command itself, not from the old case.
+   rule then reads from the specific command itself, not from the old case. The plan dialog keeps
+   showing the plan held, so its waiting pick still replaces the earlier change; a preview there
+   would change what the user sees, and is not part of this plan. The one request stage of step 5
+   keeps each dialog's own view.
 2. **The preview.** `preview` in `Shared/Api.fs` shows a command while its request runs. Keep it:
    without it the field shows the old value until the answer lands. Decided (user, 2026-10-05):
    keep.
@@ -111,8 +120,9 @@ outside the client views starts as a script with its tests, unless the user asks
    each rule.
 5. **One request stage.** The request logic both machines hold twice moves into one module in
    Client.Core: in flight, waiting, landing, and the reopen with its state kept. Each machine keeps
-   its own workbench or plan stage. Client.Core tests: the existing machine tests pass unchanged.
-   Two pull requests if needed for size.
+   its own workbench or plan stage, and its own view of a request under way: the preview in the
+   workbench, the plan held in the plan dialog. Client.Core tests: the existing machine tests pass
+   unchanged. Two pull requests if needed for size.
 
 ## Verification, per step
 
