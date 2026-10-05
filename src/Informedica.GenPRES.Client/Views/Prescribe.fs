@@ -52,21 +52,20 @@ module Prescribe =
             [| box orderContext |]
         )
 
-        let updateOrderContext ctx =
-            orderContextMsg (Api.OrderContextCommand.UpdateOrderContext, ctx)
+        let send loading cmd pr =
+            setLoadingSource (Some loading)
+            orderContextMsg (cmd, pr)
 
         // a pick goes as its position in the options the field offers, an emptied field as a
-        // clear; a value the field does not offer goes as the changed context, as before
-        let pickFilter loading (options: OrderContext -> 'a[]) (picked: 'a option) change toCommand =
+        // clear; a value the field does not offer is a bug, written to the console and not sent
+        let pickFilter loading (options: OrderContext -> 'a[]) (picked: 'a option) toCommand =
             match orderContext with
             | OrderContextView.Settled pr
             | OrderContextView.Refused(pr, _) ->
-                setLoadingSource (Some loading)
-
                 match picked |> Option.map (fun x -> pr |> options |> Array.tryFindIndex ((=) x)) with
-                | None -> orderContextMsg (toCommand None, pr)
-                | Some(Some n) -> orderContextMsg (toCommand (Some n), pr)
-                | Some None -> pr |> change picked |> updateOrderContext
+                | None -> pr |> send loading (toCommand None)
+                | Some(Some n) -> pr |> send loading (toCommand (Some n))
+                | Some None -> Logging.warning "a pick the field does not offer is not sent" picked
             | _ -> ()
 
         let filterCommand field n =
@@ -76,50 +75,41 @@ module Prescribe =
 
         let indicationChange s =
             filterCommand OrderContext.Indication
-            |> pickFilter IndicationLoading _.Filter.Indications s OrderContext.indicationChange
+            |> pickFilter IndicationLoading _.Filter.Indications s
 
         let medicationChange s =
             filterCommand OrderContext.Generic
-            |> pickFilter MedicationLoading _.Filter.Generics s OrderContext.medicationChange
+            |> pickFilter MedicationLoading _.Filter.Generics s
 
         let routeChange s =
-            filterCommand OrderContext.Route
-            |> pickFilter RouteLoading _.Filter.Routes s OrderContext.routeChange
+            filterCommand OrderContext.Route |> pickFilter RouteLoading _.Filter.Routes s
 
         let formChange s =
-            filterCommand OrderContext.Form
-            |> pickFilter FormLoading _.Filter.Forms s OrderContext.formChange
+            filterCommand OrderContext.Form |> pickFilter FormLoading _.Filter.Forms s
 
         let diluentCommand n =
             match n with
             | Some n -> Api.OrderContextCommand.SetNthDiluentProperty n
             | None -> Api.OrderContextCommand.ClearDiluentProperty
 
-        let diluentChange s =
-            diluentCommand
-            |> pickFilter DiluentLoading _.Filter.Diluents s OrderContext.diluentChange
+        let diluentChange s = diluentCommand |> pickFilter DiluentLoading _.Filter.Diluents s
 
         let componentsChange (cs: string[]) =
             match orderContext with
             | OrderContextView.Settled pr
             | OrderContextView.Refused(pr, _) ->
-                setLoadingSource (Some ComponentsLoading)
-
                 let ns = cs |> Array.choose (fun c -> pr.Filter.Components |> Array.tryFindIndex ((=) c))
 
                 if ns.Length = cs.Length then
-                    orderContextMsg (Api.OrderContextCommand.SetNthComponentsProperty ns, pr)
+                    pr
+                    |> send ComponentsLoading (Api.OrderContextCommand.SetNthComponentsProperty ns)
                 else
-                    pr |> OrderContext.componentsChange cs |> updateOrderContext
+                    Logging.warning "components the field does not offer are not sent" cs
             | _ -> ()
 
         let doseTypeChange s =
             filterCommand OrderContext.DoseType
-            |> pickFilter
-                DoseTypeLoading
-                _.Filter.DoseTypes
-                (s |> Option.map DoseType.doseTypeFromString)
-                OrderContext.doseTypeChange
+            |> pickFilter DoseTypeLoading _.Filter.DoseTypes (s |> Option.map DoseType.doseTypeFromString)
 
         let clear () =
             match orderContext with
