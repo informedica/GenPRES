@@ -30,7 +30,6 @@ module OrderContextCommand =
                 (fun () ->
                     match ctx |> OrderContextService.parse, change with
                     | Error errs, _ -> async { return Error errs }
-                    // nothing to evaluate: the context is answered as it is
                     | Ok pc, None ->
                         async { return Ok(Evaluated pc) |> Result.map (OrderContextService.toResponse env.demo) }
                     | Ok pc, Some cmd ->

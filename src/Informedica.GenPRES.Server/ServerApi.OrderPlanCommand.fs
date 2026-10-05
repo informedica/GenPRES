@@ -110,11 +110,17 @@ module OrderPlanCommand =
         | OrderPlanCommand.Navigate(plan, contextId, ctxCmd, ctx) ->
             match Shared.Api.OrderContextCommand.toChange ctxCmd ctx with
             | Error err -> async { return Error [| err |] }
-            // nothing to evaluate: the context written into the plan, the plan recalculated
-            | Ok(None, ctx) ->
-                let contexts = plan.OrderContexts |> Array.map (fun c -> if c.Id = contextId then ctx else c)
-
-                processCmd env (OrderPlanCommand.Recalculate { plan with OrderContexts = contexts })
+            | Ok(None, ctx) when plan.OrderContexts |> Array.exists (fun c -> c.Id = contextId) ->
+                let written (c: OrderContext) =
+                    if c.Id = contextId then
+                        { c with Argumentation = ctx.Argumentation }
+                    else
+                        c
+                processCmd
+                    env
+                    (OrderPlanCommand.Recalculate { plan with OrderContexts = Array.map written plan.OrderContexts })
+            | Ok(None, _) ->
+                async { return Error [| OrderPlanMapper.words [||] (OrderPlanError.NoSuchContext contextId) |] }
             | Ok(Some ctxCmd, ctx) ->
                 Patient.overAll
                     (Patient.ofPlan plan @ [ ctx.Patient ])

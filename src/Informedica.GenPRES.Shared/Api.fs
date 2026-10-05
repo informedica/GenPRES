@@ -158,9 +158,8 @@ module Api =
         module Ctx = Models.OrderContext
 
 
-        /// A stop-gap for #1224, until the domain processes the new cases itself: the command as
-        /// the server evaluates it today, and the context the client sends with it today; no
-        /// command when the context is answered as it is.
+        /// A stop-gap for #1224 until the domain processes the new cases: today's command and context
+        /// for a new case; no command when the context is answered as it is.
         let toChange (cmd: OrderContextCommand) (ctx: OrderContext) =
             let over cmd r = r |> Result.map (fun ctx -> Some cmd, ctx)
             let update r = r |> over OrderContextCommand.UpdateOrderContext
@@ -202,8 +201,7 @@ module Api =
             | cmd -> Ok(Some cmd, ctx)
 
 
-        /// The case a command stands for in the client's decisions by case; None for the
-        /// argumentation, which sends no request.
+        /// The case a command stands for in the client's decisions by case; None if it sends none.
         let replaced (cmd: OrderContextCommand) =
             match cmd with
             | OrderContextCommand.SetNthFilterProperty _

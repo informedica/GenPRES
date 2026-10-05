@@ -374,7 +374,6 @@ module OrderContextMapper =
                 fun ctx -> Domain.SetMaxComponentQuantityProperty(ctx, cmp)
             | Shared.Api.OrderContextCommand.SetMedianComponentOrderableQuantityProperty cmp ->
                 fun ctx -> Domain.SetMedianComponentQuantityProperty(ctx, cmp)
-            // the new cases reach the domain only as the case toChange turns them into
             | Shared.Api.OrderContextCommand.SetNthFilterProperty _
             | Shared.Api.OrderContextCommand.ClearFilterProperty _
             | Shared.Api.OrderContextCommand.ClearAllFilterProperty

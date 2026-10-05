@@ -763,11 +763,15 @@ let tests =
                         targets ctx.Scenarios[0].Order
                         |> List.find (fun t -> ctx |> Ctx.count (Ctx.Options.Variable t) > 1)
 
+                    let recalculated = ref None
+
                     let run cmd =
                         let seen = ref []
 
                         let answering name (p: Informedica.GenOrder.Lib.Types.OrderPlan) =
                             seen.Value <- name :: seen.Value
+                            if name = "recalculate" then
+                                recalculated.Value <- Some p
                             async { return Ok p }
 
                         let port: ServerApi.OrderPlanPort =
@@ -814,6 +818,49 @@ let tests =
 
                         answer |> Result.isOk |> Expect.isTrue "answered"
                         seen |> Expect.equal "the recalculation only" [ "recalculate" ]
+                    }
+
+                    testAsync "the argumentation for a context the plan does not hold is refused" {
+                        let! answer, seen =
+                            run (
+                                Shared.Api.OrderPlanCommand.Navigate(
+                                    plan,
+                                    "c-2",
+                                    Api.SetArgumentationProperty "bewust",
+                                    ctx
+                                )
+                            )
+
+                        answer |> Result.isError |> Expect.isTrue "refused"
+                        seen |> Expect.isEmpty "no port asked"
+                    }
+
+                    testAsync "the argumentation keeps the plan's own context, only its text written" {
+                        let other =
+                            { ctx with
+                                Id = "c-9"
+                                Category = Shared.Types.OrderCategory.Nutrition Shared.Types.NutritionCategory.TPN
+                            }
+
+                        let! answer, _ =
+                            run (
+                                Shared.Api.OrderPlanCommand.Navigate(
+                                    plan,
+                                    "c-1",
+                                    Api.SetArgumentationProperty "bewust",
+                                    other
+                                )
+                            )
+
+                        answer |> Result.isOk |> Expect.isTrue "answered"
+
+                        match recalculated.Value |> Option.map _.Contexts with
+                        | Some [| pc |] ->
+                            pc.Id |> Expect.equal "the plan's id" "c-1"
+                            pc.Category
+                            |> Expect.equal "the plan's category" Informedica.GenOrder.Lib.Types.OrderCategory.Drug
+                            pc.Context.Argumentation |> Expect.equal "the text written" (Some "bewust")
+                        | other -> failtest $"expected the one context recalculated, got %A{other}"
                     }
 
                     testAsync "an index past the values is refused before the port" {
