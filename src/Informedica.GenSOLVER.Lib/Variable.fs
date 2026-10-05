@@ -3385,6 +3385,8 @@ module Variable =
         { var with Values = var.Values |> ValueRange.setNearestValue vu }
 
 
+    /// The variable set to its nth value, counted from 0: the nth of its value set, or min plus nth
+    /// times the increment, capped at the maximum. A value set without an nth value is kept as it is.
     let setNthValue nth (var: Variable) =
         let min, incr, max, vs = var.Values |> ValueRange.getMinIncrMaxOrValueSet
 
@@ -3396,7 +3398,7 @@ module Variable =
                     vu
                     |> ValueUnit.applyToValue (fun brs ->
                         brs
-                        |> Array.tryItem (nth - 1)
+                        |> Array.tryItem nth
                         |> Option.map Array.singleton
                         |> Option.defaultValue brs
                     )

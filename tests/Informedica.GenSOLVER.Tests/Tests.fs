@@ -2228,9 +2228,98 @@ module Tests =
                 ]
 
 
+    /// The nth value of a variable, counted from 0, and the percentage of its range the slider
+    /// sets with it.
+    module NthValueTests =
+
+        module ValueRange = Variable.ValueRange
+        module ValueSet = ValueRange.ValueSet
+
+
+        let times brs = brs |> ValueUnit.withUnit Units.Count.times
+
+        let variable vr =
+            vr |> Variable.createSucc ("[1.x]_qty" |> Variable.Name.createExc)
+
+        /// A variable with the value set 1, 2, 3, 4, 5.
+        let valueSet = [| 1N; 2N; 3N; 4N; 5N |] |> times |> ValueRange.createValSet |> variable
+
+        /// A variable from 1 to 10 by 1.
+        let minIncrMax =
+            ValueRange.create
+                (1N
+                 |> ValueUnit.singleWithUnit Units.Count.times
+                 |> ValueRange.Minimum.create true
+                 |> Some)
+                (1N
+                 |> ValueUnit.singleWithUnit Units.Count.times
+                 |> ValueRange.Increment.create
+                 |> Some)
+                (10N
+                 |> ValueUnit.singleWithUnit Units.Count.times
+                 |> ValueRange.Maximum.create true
+                 |> Some)
+                None
+            |> variable
+
+        let values var =
+            var
+            |> Variable.getValueRange
+            |> ValueRange.getValSet
+            |> Option.map (ValueSet.toValueUnit >> ValueUnit.getValue)
+
+
+        let tests =
+            testList
+                "setNthValue and setPercValue"
+                [
+                    test "the nth of a value set, counted from 0" {
+                        [ 0; 2; 4 ]
+                        |> List.map (fun n -> valueSet |> Variable.setNthValue n |> values)
+                        |> Expect.equal
+                            "the first, the third and the last"
+                            [ Some [| 1N |]; Some [| 3N |]; Some [| 5N |] ]
+                    }
+
+                    test "a value set past its values is kept" {
+                        valueSet
+                        |> Variable.setNthValue 5
+                        |> values
+                        |> Expect.equal "all values" (Some [| 1N; 2N; 3N; 4N; 5N |])
+                    }
+
+                    test "the nth of a min, increment and max, counted from 0, capped at the max" {
+                        [ 0; 3; 20 ]
+                        |> List.map (fun n -> minIncrMax |> Variable.setNthValue n |> values)
+                        |> Expect.equal
+                            "the min, min plus 3 and the max"
+                            [ Some [| 1N |]; Some [| 4N |]; Some [| 10N |] ]
+                    }
+
+                    test "the slider sets the values it set before" {
+                        [ 0; 50; 100 ]
+                        |> List.map (fun perc -> valueSet |> Variable.setPercValue perc |> values)
+                        |> Expect.equal
+                            "a value set is left as it is"
+                            [
+                                Some [| 1N; 2N; 3N; 4N; 5N |]
+                                Some [| 1N; 2N; 3N; 4N; 5N |]
+                                Some [| 1N; 2N; 3N; 4N; 5N |]
+                            ]
+
+                        [ 0; 50; 100 ]
+                        |> List.map (fun perc -> minIncrMax |> Variable.setPercValue perc |> values)
+                        |> Expect.equal
+                            "a range: min plus 1, min plus 4, the max"
+                            [ Some [| 2N |]; Some [| 5N |]; Some [| 10N |] ]
+                    }
+                ]
+
+
     [<Tests>]
     let tests =
         [
+            NthValueTests.tests
             VariableTests.ValueRangeTests.IncrementTests.tests
             VariableTests.ValueRangeTests.MinimumTests.tests
             VariableTests.ValueRangeTests.MaximumTests.tests

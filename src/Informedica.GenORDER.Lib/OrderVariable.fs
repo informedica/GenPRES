@@ -1571,6 +1571,10 @@ module OrderVariable =
         let clear = toOrdVar >> clear >> time
 
 
+        /// Set the variable to its nth value, counted from 0.
+        let setNthValue nth = toOrdVar >> setNthValue nth >> time
+
+
         /// Set Time to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> time
 
@@ -2131,6 +2135,10 @@ module OrderVariable =
         let clear = toOrdVar >> clear >> PerTime
 
 
+        /// Set the variable to its nth value, counted from 0.
+        let setNthValue nth = toOrdVar >> setNthValue nth >> PerTime
+
+
         /// Set a PerTime to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> PerTime
 
@@ -2480,6 +2488,10 @@ module OrderVariable =
         /// Clear the values of a QuantityAdjust
         let clear = toOrdVar >> clear >> QuantityAdjust
 
+
+        /// Set the variable to its nth value, counted from 0.
+        let setNthValue nth = toOrdVar >> setNthValue nth >> QuantityAdjust
+
         /// Set a QuantityAdjust to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> QuantityAdjust
 
@@ -2597,6 +2609,10 @@ module OrderVariable =
         let clear = toOrdVar >> clear >> PerTimeAdjust
 
 
+        /// Set the variable to its nth value, counted from 0.
+        let setNthValue nth = toOrdVar >> setNthValue nth >> PerTimeAdjust
+
+
         /// Set a PerTimeAdjust to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> PerTimeAdjust
 
@@ -2711,6 +2727,10 @@ module OrderVariable =
 
         /// Clear the values of a RateAdjust
         let clear = toOrdVar >> clear >> RateAdjust
+
+
+        /// Set the variable to its nth value, counted from 0.
+        let setNthValue nth = toOrdVar >> setNthValue nth >> RateAdjust
 
 
         /// Set a RateAdjust to non-zero positive values

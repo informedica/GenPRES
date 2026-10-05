@@ -316,6 +316,40 @@ module Types =
         | SetMaxComponentOrderableQuantity of cmp: string
         | SetMedianComponentOrderableQuantity of cmp: string
         | ComponentInStock of cmp: string * onlyInStock: bool
+        // the nth value of one variable, counted from 0
+        | SetNthScheduleFrequency of nth: int
+        | SetNthScheduleTime of nth: int
+        | SetNthOrderableQuantity of nth: int
+        | SetNthOrderableDoseQuantity of nth: int
+        | SetNthOrderableDoseRate of nth: int
+        | SetNthComponentOrderableQuantity of cmp: string * nth: int
+        | SetNthComponentDoseQuantityAdjust of cmp: string * nth: int
+        | SetNthItemDoseQuantity of cmp: string * itm: string * nth: int
+        | SetNthItemDoseQuantityAdjust of cmp: string * itm: string * nth: int
+        | SetNthItemDosePerTime of cmp: string * itm: string * nth: int
+        | SetNthItemDosePerTimeAdjust of cmp: string * itm: string * nth: int
+        | SetNthItemDoseRate of cmp: string * itm: string * nth: int
+        | SetNthItemDoseRateAdjust of cmp: string * itm: string * nth: int
+        | SetNthItemComponentConcentration of cmp: string * itm: string * nth: int
+        | SetNthItemOrderableConcentration of cmp: string * itm: string * nth: int
+        | SetNthItemOrderableQuantity of cmp: string * itm: string * nth: int
+        // one variable cleared
+        | ClearScheduleFrequency
+        | ClearScheduleTime
+        | ClearOrderableQuantity
+        | ClearOrderableDoseQuantity
+        | ClearOrderableDoseRate
+        | ClearComponentOrderableQuantity of cmp: string
+        | ClearComponentDoseQuantityAdjust of cmp: string
+        | ClearItemDoseQuantity of cmp: string * itm: string
+        | ClearItemDoseQuantityAdjust of cmp: string * itm: string
+        | ClearItemDosePerTime of cmp: string * itm: string
+        | ClearItemDosePerTimeAdjust of cmp: string * itm: string
+        | ClearItemDoseRate of cmp: string * itm: string
+        | ClearItemDoseRateAdjust of cmp: string * itm: string
+        | ClearItemComponentConcentration of cmp: string * itm: string
+        | ClearItemOrderableConcentration of cmp: string * itm: string
+        | ClearItemOrderableQuantity of cmp: string * itm: string
 
 
     /// The different possible order types

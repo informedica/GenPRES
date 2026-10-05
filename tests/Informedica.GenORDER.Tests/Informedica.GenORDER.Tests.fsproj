@@ -16,6 +16,7 @@
     <Compile Include="OrderReopenTests.fs" />
     <Compile Include="FilterFixtures.fs" />
     <Compile Include="FilterCommandTests.fs" />
+    <Compile Include="OrderValueCommandTests.fs" />
     <Compile Include="MedicationTextTests.fs" />
     <Compile Include="DoseQuantityPercTests.fs" />
     <Compile Include="Tests.fs" />
