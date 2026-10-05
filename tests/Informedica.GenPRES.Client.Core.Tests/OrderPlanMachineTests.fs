@@ -505,6 +505,24 @@ let pendingTests =
                      ])
             }
 
+            test "a value picked goes out into the context it was picked in, as a value typed does" {
+                let pick = OrderContextCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 1)
+                let sent = OrderPlanCommand.Navigate(answer, "c-1", pick, c1)
+
+                busy
+                |> OrderPlanState.pending (navigate pick c1) "r-2"
+                |> transition (OrderPlanMsg.Answered("r-1", Ok answer))
+                |> Expect.equal
+                    "the pick, into the context it was picked in"
+                    (recalculating answer (Some "c-1") "r-2" sent
+                     |> OrderPlanState.withWork PlanWork.Changed
+                     |> OrderPlanState.withOpened two.OrderContexts,
+                     [
+                         OrderPlanEffect.CheckInteractions [ "paracetamol-now" ]
+                         OrderPlanEffect.CallPlan(sent, "r-2")
+                     ])
+            }
+
             test "gone with its context, with a failure and with a patient change" {
                 let intoGone =
                     OrderPlanCommand.Navigate(
