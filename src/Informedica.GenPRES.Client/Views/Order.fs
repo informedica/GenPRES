@@ -463,10 +463,10 @@ module Order =
         (props:
             {|
                 orderContext: OrderContextView
-                updateOrderScenario: OrderContext -> unit
+                updateOrderScenario: Api.OrderContextCommand -> OrderContext -> unit
                 // a clear from a field's arrow, with the picks: the page sends it and keeps what it
                 // showed before
-                reopenOrderScenario: string[] -> OrderContext -> unit
+                reopenOrderScenario: Api.OrderContextCommand -> OrderContext -> unit
                 // the list of a reopen closed without a pick: the page puts back what it showed
                 restoreOrderScenario: unit -> unit
                 stepOrderScenario:
@@ -553,8 +553,10 @@ module Order =
         // a new order, also after a patient change or a resource sync, starts from the initial picks
         React.useEffect ((fun () -> setPicks initialPicks), [| box (shownOrder |> Option.map _.Id) |])
 
-        // a change goes out and adds what it picked to the picks; a reopen goes with the picks from
-        // before it, and the server keeps those made before the cleared one
+        // a pick goes out as the index of its value over the order as it is, and adds what it picked
+        // to the picks; a reopen goes as a clear with the picks from before it, and the server keeps
+        // those made before the cleared one. A value the order does not offer goes as the changed
+        // order, as before
         let updateOrderScenario (ol: OrderLoader) target (s: string option) =
             match props.orderContext with
             | OrderContextView.Settled ctx
@@ -572,11 +574,36 @@ module Order =
                     shownOrder
                     |> Option.iter (fun before -> setPicks (picks |> PickList.afterChange before changed))
 
-                ViewHelpers.withLoader ctx { ol with Order = changed }
-                |> if isReopen then
-                       props.reopenOrderScenario (heldPicks.current |> Option.defaultValue [||])
-                   else
-                       props.updateOrderScenario
+                let held = heldPicks.current |> Option.defaultValue [||]
+
+                let located =
+                    target
+                    |> Option.bind (fun t ->
+                        ol.Order |> Models.OrderContext.Target.tryGet t |> Option.map (fun v -> t, v)
+                    )
+
+                match located, s with
+                | Some(t, _), None when isReopen ->
+                    ViewHelpers.withLoader ctx ol
+                    |> props.reopenOrderScenario (
+                        held
+                        |> Array.map (Models.OrderContext.Picks.withinOrder ol.Order.Id)
+                        |> ViewHelpers.clearCommand t
+                    )
+                | Some(t, ovar), Some key when not isReopen ->
+                    match Models.OrderContext.values ovar |> Array.tryFindIndex ((=) key) with
+                    | Some n ->
+                        ViewHelpers.withLoader ctx ol
+                        |> props.updateOrderScenario (ViewHelpers.setNthCommand t n)
+                    | None ->
+                        ViewHelpers.withLoader ctx { ol with Order = changed }
+                        |> props.updateOrderScenario Api.OrderContextCommand.UpdateOrderScenario
+                | _ ->
+                    ViewHelpers.withLoader ctx { ol with Order = changed }
+                    |> if isReopen then
+                           props.reopenOrderScenario (Api.OrderContextCommand.ReopenOrderScenario held)
+                       else
+                           props.updateOrderScenario Api.OrderContextCommand.UpdateOrderScenario
             | _ -> ()
 
         // a reset keeps the order id, so it starts from the initial picks itself
