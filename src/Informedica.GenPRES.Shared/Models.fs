@@ -2362,6 +2362,180 @@ module Models =
                 | _ -> 0
 
 
+        /// Variable names without the order id, so that a command plays the same in every run,
+        /// and with it put back for the server.
+        module Picks =
+
+            /// The name without the order id: "[id.paracetamol]_dos_qty" becomes "[.paracetamol]_dos_qty".
+            let withinOrder (orderId: string) (name: string) =
+                let prefix = $"[%s{orderId}"
+
+                if name.StartsWith prefix then
+                    "[" + name.Substring prefix.Length
+                else
+                    name
+
+
+            /// The name with the order id put back.
+            let ofOrder (orderId: string) (name: string) =
+                if name.StartsWith "[" then
+                    $"[%s{orderId}" + name.Substring 1
+                else
+                    name
+
+
+        /// The one scenario of the context, or why there is none.
+        let scenario (ctx: OrderContext) =
+            match ctx.Scenarios with
+            | [| sc |] -> Ok sc
+            | scs -> Error $"one scenario expected, the context has %i{scs.Length}"
+
+
+        /// The nth of the options, counted from 0, or why there is none.
+        let nth what n (xs: 'a[]) =
+            xs
+            |> Array.tryItem n
+            |> Option.map Ok
+            |> Option.defaultValue (Error $"%s{what}: index %i{n} out of %i{xs.Length}")
+
+
+        /// The context with the scenario of the order's id holding the order.
+        let withOrder (ord: Order) (ctx: OrderContext) =
+            { ctx with
+                Scenarios =
+                    ctx.Scenarios
+                    |> Array.map (fun sc -> if sc.Order.Id = ord.Id then { sc with Order = ord } else sc)
+            }
+
+
+        /// A filter field set to its nth option, or emptied with None, as the page changes it.
+        let changeFilter field (n: int option) (ctx: OrderContext) =
+            let pick what xs change =
+                match n with
+                | None -> Ok(ctx |> change None)
+                | Some n -> xs |> nth what n |> Result.map (fun x -> ctx |> change (Some x))
+
+            match field with
+            | Indication -> pick "indication" ctx.Filter.Indications indicationChange
+            | Generic -> pick "generic" ctx.Filter.Generics medicationChange
+            | Route -> pick "route" ctx.Filter.Routes routeChange
+            | Form -> pick "form" ctx.Filter.Forms formChange
+            | DoseType -> pick "dose type" ctx.Filter.DoseTypes doseTypeChange
+
+
+        /// The diluent set to its nth option, or emptied with None.
+        let changeDiluent (n: int option) (ctx: OrderContext) =
+            match n with
+            | None -> Ok(ctx |> diluentChange None)
+            | Some n ->
+                ctx.Filter.Diluents
+                |> nth "diluent" n
+                |> Result.map (fun d -> ctx |> diluentChange (Some d))
+
+
+        /// The components at these positions of the options.
+        let setNthComponents (ns: int[]) (ctx: OrderContext) =
+            let picked = ns |> Array.map (fun n -> ctx.Filter.Components |> nth "component" n)
+
+            match
+                picked
+                |> Array.choose (
+                    function
+                    | Error e -> Some e
+                    | Ok _ -> None
+                )
+            with
+            | [||] ->
+                Ok(
+                    ctx
+                    |> componentsChange (
+                        picked
+                        |> Array.choose (
+                            function
+                            | Ok c -> Some c
+                            | Error _ -> None
+                        )
+                    )
+                )
+            | errs -> Error errs[0]
+
+
+        /// The whole filter emptied, the patient kept.
+        let clearAll (ctx: OrderContext) = empty |> setPatient ctx.Patient
+
+
+        /// The context narrowed to its nth scenario and that scenario's form, as the page selects it.
+        let selectNthScenario n (ctx: OrderContext) =
+            ctx.Scenarios
+            |> nth "scenario" n
+            |> Result.map (fun sc ->
+                { ctx with
+                    Filter = { ctx.Filter with Form = Some sc.Form }
+                    Scenarios = [| sc |]
+                }
+            )
+
+
+        /// The variable set to its nth value, as the dose dialog sets it; None when it offers no
+        /// list to pick from.
+        let setNth target n (ctx: OrderContext) =
+            scenario ctx
+            |> Result.bind (fun sc ->
+                match sc.Order |> Target.tryGet target with
+                | None -> Error $"no %A{target} in the order"
+                | Some ovar ->
+                    match values ovar with
+                    | [||] -> Ok None
+                    | keys ->
+                        keys
+                        |> nth $"%A{target}" n
+                        |> Result.map (fun key ->
+                            let ord = sc.Order |> Target.map target (Order.OrderVariable.setOvar (Some key))
+                            ctx |> withOrder ord |> Some
+                        )
+            )
+
+
+        /// The variable cleared, as the dose dialog clears it, with the picks given back the order
+        /// id.
+        let clear target (picks: string[]) (ctx: OrderContext) =
+            scenario ctx
+            |> Result.bind (fun sc ->
+                match sc.Order |> Target.tryGet target with
+                | None -> Error $"no %A{target} in the order"
+                | Some _ ->
+                    let ord = sc.Order |> Target.map target (Order.OrderVariable.setOvar None)
+                    Ok(ctx |> withOrder ord, picks |> Array.map (Picks.ofOrder sc.Order.Id))
+            )
+
+
+        /// The argumentation the user writes for a deviation from the rules.
+        module Argumentation =
+
+            /// The maximum length of a text, the same as the server's, so the server never refuses
+            /// a text the client holds.
+            let maxLength = 1000
+
+
+            /// The text trimmed and cut to the maximum length; None when empty.
+            let normalise (text: string) =
+                match text with
+                | null -> None
+                | text ->
+                    let text = text.Trim()
+
+                    if text = "" then
+                        None
+                    elif text.Length > maxLength then
+                        Some(text.Substring(0, maxLength))
+                    else
+                        Some text
+
+
+            /// The context with the text written.
+            let write (text: string) (ctx: OrderContext) = { ctx with Argumentation = normalise text }
+
+
     /// Conversions between the one severity and the two shapes the wire carries it in.
     [<RequireQualifiedAccess>]
     module Severity =
