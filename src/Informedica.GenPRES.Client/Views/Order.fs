@@ -44,7 +44,7 @@ module Order =
             | ChangeOrderableDoseQuantity of string option
             | ChangeOrderableDoseRate of string option
             | ChangeOrderableQuantity of string option
-            | UpdateOrderScenario of Order
+            | UpdateOrderScenario of Models.OrderContext.Target option * string option
             | ResetOrderScenario
             // Frequency property commands
             | DecreaseFrequencyProperty
@@ -156,8 +156,6 @@ module Order =
             (state: State)
             : State * Cmd<Msg>
             =
-            let setOvar = OrderVariable.setOvar
-
             // every change and every step is over the order shown, the one the context sent
             // has while a change is under way; the lane holds it, the dialog holds none
             let handleNav nav =
@@ -167,66 +165,37 @@ module Order =
                     OrderLoader.create state.SelectedComponent state.SelectedItem ord |> nav
                     state, Cmd.none
 
-            // a change to the order shown, sent to the lane; nothing to change without one
-            let over (f: Order -> Order) =
+            // a pick of a variable of the order shown, sent to the lane; nothing to pick without one
+            let pick target s =
                 match shown with
-                | Some ord -> state, Cmd.ofMsg (UpdateOrderScenario(f ord))
+                | Some _ -> state, Cmd.ofMsg (UpdateOrderScenario(target, s))
                 | None -> state, Cmd.none
 
-            // a change to the component picked, by name
-            let overComponent (f: Shared.Types.Component -> Shared.Types.Component) =
-                over (fun ord ->
-                    { ord with
-                        Order.Orderable.Components =
-                            ord.Orderable.Components
-                            |> Array.map (fun cmp ->
-                                match state.SelectedComponent with
-                                | Some c when cmp.Name = c -> f cmp
-                                | _ -> cmp
-                            )
-                    }
+            // the component the dialog shows: the one picked, or the first
+            let shownComponent (ord: Order) =
+                ord.Orderable.Components
+                |> Array.tryFind (fun c -> state.SelectedComponent.IsNone || state.SelectedComponent = Some c.Name)
+
+            // the item the dialog shows: the item picked in the component shown, or its first substance
+            let item prop =
+                shown
+                |> Option.bind shownComponent
+                |> Option.bind (fun cmp ->
+                    state.SelectedItem
+                    |> Option.orElse (cmp.Items |> Array.tryFind (_.IsAdditional >> not) |> Option.map _.Name)
+                    |> Option.map (fun itm -> Models.OrderContext.Target.Item(cmp.Name, itm, prop))
                 )
 
-            // a change to the item the dialog shows: the item picked in the component picked, or, with
-            // none picked, as after a switch of component, the first of its substances and the first
-            // component, as the fields show them
-            let overItem (f: Shared.Types.Item -> Shared.Types.Item) =
-                over (fun ord ->
-                    let cmpName =
-                        ord.Orderable.Components
-                        |> Array.tryFind (fun c ->
-                            state.SelectedComponent.IsNone || state.SelectedComponent = Some c.Name
-                        )
-                        |> Option.map _.Name
-
-                    { ord with
-                        Order.Orderable.Components =
-                            ord.Orderable.Components
-                            |> Array.map (fun cmp ->
-                                if Some cmp.Name <> cmpName then
-                                    cmp
-                                else
-                                    let itmName =
-                                        state.SelectedItem
-                                        |> Option.orElse (
-                                            cmp.Items |> Array.tryFind (_.IsAdditional >> not) |> Option.map _.Name
-                                        )
-
-                                    { cmp with
-                                        Items =
-                                            cmp.Items
-                                            |> Array.map (fun itm -> if Some itm.Name = itmName then f itm else itm)
-                                    }
-                            )
-                    }
-                )
+            let schedule prop = Some(Models.OrderContext.Target.Schedule prop)
+            let orderable prop = Some(Models.OrderContext.Target.Orderable prop)
 
             match msg with
 
-            | UpdateOrderScenario ord ->
-
-                OrderLoader.create state.SelectedComponent state.SelectedItem ord
-                |> updateOrderScenario
+            | UpdateOrderScenario(target, s) ->
+                match shown with
+                | Some ord ->
+                    updateOrderScenario (OrderLoader.create state.SelectedComponent state.SelectedItem ord) target s
+                | None -> ()
 
                 state, Cmd.none
 
@@ -254,66 +223,35 @@ module Order =
                     Cmd.none
 
             | ChangeComponentOrderableQuantity s ->
-                overComponent (fun cmp -> { cmp with OrderableQuantity = cmp.OrderableQuantity |> setOvar s })
+                let target =
+                    state.SelectedComponent
+                    |> Option.map (fun c ->
+                        Models.OrderContext.Target.Component(c, ComponentProperty.OrderableQuantity)
+                    )
+
+                pick target s
 
             | ChangeItem itm ->
                 match itm with
                 | None -> state, Cmd.none
                 | Some _ -> { state with SelectedItem = itm }, Cmd.none
 
-            | ChangeFrequency s ->
-                over (fun ord -> { ord with Order.Schedule.Frequency = ord.Schedule.Frequency |> setOvar s })
-            | ChangeTime s -> over (fun ord -> { ord with Order.Schedule.Time = ord.Schedule.Time |> setOvar s })
-            | ChangeSubstanceDoseQuantity s ->
-                overItem (fun itm -> { itm with Item.Dose.Quantity = itm.Dose.Quantity |> setOvar s })
-            | ChangeSubstanceDoseQuantityAdjust s ->
-                overItem (fun itm -> { itm with Item.Dose.QuantityAdjust = itm.Dose.QuantityAdjust |> setOvar s })
-            | ChangeSubstancePerTime s ->
-                overItem (fun itm -> { itm with Item.Dose.PerTime = itm.Dose.PerTime |> setOvar s })
-            | ChangeSubstancePerTimeAdjust s ->
-                overItem (fun itm -> { itm with Item.Dose.PerTimeAdjust = itm.Dose.PerTimeAdjust |> setOvar s })
-            | ChangeSubstanceRate s -> overItem (fun itm -> { itm with Item.Dose.Rate = itm.Dose.Rate |> setOvar s })
-            | ChangeSubstanceRateAdjust s ->
-                overItem (fun itm -> { itm with Item.Dose.RateAdjust = itm.Dose.RateAdjust |> setOvar s })
-
-            // the item picked and the item named, in the first component and the one named
+            | ChangeFrequency s -> pick (schedule ScheduleProperty.Frequency) s
+            | ChangeTime s -> pick (schedule ScheduleProperty.Time) s
+            | ChangeSubstanceDoseQuantity s -> pick (item ItemProperty.DoseQuantity) s
+            | ChangeSubstanceDoseQuantityAdjust s -> pick (item ItemProperty.DoseQuantityAdjust) s
+            | ChangeSubstancePerTime s -> pick (item ItemProperty.DosePerTime) s
+            | ChangeSubstancePerTimeAdjust s -> pick (item ItemProperty.DosePerTimeAdjust) s
+            | ChangeSubstanceRate s -> pick (item ItemProperty.DoseRate) s
+            | ChangeSubstanceRateAdjust s -> pick (item ItemProperty.DoseRateAdjust) s
+            // the item named, in the first component and the one named
             | ChangeSubstanceComponentConcentration(cname, iname, s) ->
-                let set (itm: Shared.Types.Item) =
-                    { itm with ComponentConcentration = itm.ComponentConcentration |> setOvar s }
-
-                over (fun ord ->
-                    { ord with
-                        Order.Orderable.Components =
-                            ord.Orderable.Components
-                            |> Array.mapi (fun i cmp ->
-                                if i > 0 && cmp.Name <> cname then
-                                    cmp
-                                else
-                                    { cmp with
-                                        Items =
-                                            cmp.Items
-                                            |> Array.map (fun itm ->
-                                                match state.SelectedItem with
-                                                | Some subst when subst = itm.Name -> set itm
-                                                | _ -> if itm.Name <> iname then itm else set itm
-                                            )
-                                    }
-                            )
-                    }
-                )
-
-            | ChangeSubstanceOrderableConcentration s ->
-                overItem (fun itm -> { itm with OrderableConcentration = itm.OrderableConcentration |> setOvar s })
-            | ChangeSubstanceOrderableQuantity s ->
-                overItem (fun itm -> { itm with OrderableQuantity = itm.OrderableQuantity |> setOvar s })
-            | ChangeOrderableDoseQuantity s ->
-                over (fun ord -> { ord with Order.Orderable.Dose.Quantity = ord.Orderable.Dose.Quantity |> setOvar s })
-            | ChangeOrderableDoseRate s ->
-                over (fun ord -> { ord with Order.Orderable.Dose.Rate = ord.Orderable.Dose.Rate |> setOvar s })
-            | ChangeOrderableQuantity s ->
-                over (fun ord ->
-                    { ord with Order.Orderable.OrderableQuantity = ord.Orderable.OrderableQuantity |> setOvar s }
-                )
+                pick (Some(Models.OrderContext.Target.Item(cname, iname, ItemProperty.ComponentConcentration))) s
+            | ChangeSubstanceOrderableConcentration s -> pick (item ItemProperty.OrderableConcentration) s
+            | ChangeSubstanceOrderableQuantity s -> pick (item ItemProperty.OrderableQuantity) s
+            | ChangeOrderableDoseQuantity s -> pick (orderable OrderableProperty.DoseQuantity) s
+            | ChangeOrderableDoseRate s -> pick (orderable OrderableProperty.DoseRate) s
+            | ChangeOrderableQuantity s -> pick (orderable OrderableProperty.Quantity) s
 
             // == Frequency ==
             | SetMinFrequencyProperty -> handleNav stepper.setFreqMin
@@ -462,7 +400,7 @@ module Order =
             | ChangeOrderableDoseQuantity s -> $"ChangeOrderableDoseQuantity %s{value s}"
             | ChangeOrderableDoseRate s -> $"ChangeOrderableDoseRate %s{value s}"
             | ChangeOrderableQuantity s -> $"ChangeOrderableQuantity %s{value s}"
-            | UpdateOrderScenario ord -> $"UpdateOrderScenario %s{Trail.Part.shortId ord.Id}"
+            | UpdateOrderScenario(_, s) -> $"UpdateOrderScenario %s{value s}"
             | ResetOrderScenario -> "ResetOrderScenario"
             | DecreaseFrequencyProperty -> "DecreaseFrequencyProperty"
             | IncreaseFrequencyProperty -> "IncreaseFrequencyProperty"
@@ -498,9 +436,10 @@ module Order =
         | Kind.Local, _ -> []
         | Kind.Update, _ ->
             match msg with
-            | UpdateOrderScenario ord ->
+            | UpdateOrderScenario _ ->
                 let call = if reopening then "CallReopen" else "CallUpdate"
-                [ $"%s{call} %s{Trail.Part.shortId ord.Id}" ]
+                let id = shownId |> Option.defaultValue "none"
+                [ $"%s{call} %s{id}" ]
             | _ -> []
         | _, None -> []
         | Kind.Reset, Some id -> [ $"CallReset %s{id}" ]
@@ -616,7 +555,7 @@ module Order =
 
         // a change goes out and adds what it picked to the picks; a reopen goes with the picks from
         // before it, and the server keeps those made before the cleared one
-        let updateOrderScenario (ol: OrderLoader) =
+        let updateOrderScenario (ol: OrderLoader) target (s: string option) =
             match props.orderContext with
             | OrderContextView.Settled ctx
             | OrderContextView.Refused(ctx, _)
@@ -624,11 +563,16 @@ module Order =
                 let isReopen = reopening.current
                 reopening.current <- false
 
+                let changed =
+                    target
+                    |> Option.map (fun t -> ol.Order |> Models.OrderContext.Target.map t (OrderVariable.setOvar s))
+                    |> Option.defaultValue ol.Order
+
                 if not isReopen then
                     shownOrder
-                    |> Option.iter (fun before -> setPicks (picks |> PickList.afterChange before ol.Order))
+                    |> Option.iter (fun before -> setPicks (picks |> PickList.afterChange before changed))
 
-                ViewHelpers.withLoader ctx ol
+                ViewHelpers.withLoader ctx { ol with Order = changed }
                 |> if isReopen then
                        props.reopenOrderScenario (heldPicks.current |> Option.defaultValue [||])
                    else
