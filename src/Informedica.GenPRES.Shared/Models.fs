@@ -2277,9 +2277,9 @@ module Models =
                     |> Option.map (itemVar prop)
 
 
-            /// The order with the variable the target addresses changed. A component concentration
-            /// is changed in the first component as well as the one named, as the dose dialog
-            /// changes it.
+            /// The order with the variable the target addresses changed; the order as it is when it
+            /// holds no such variable. A component concentration is changed in the first component
+            /// as well as the one named, as the dose dialog changes it.
             let map target f (ord: Order) =
                 let orderable (o: Orderable) = { ord with Orderable = o }
 
@@ -2287,6 +2287,7 @@ module Models =
                     orderable { ord.Orderable with Components = ord.Orderable.Components |> Array.mapi g }
 
                 match target with
+                | _ when ord |> tryGet target |> Option.isNone -> ord
                 | Target.Schedule ScheduleProperty.Frequency ->
                     { ord with Schedule = { ord.Schedule with Frequency = f ord.Schedule.Frequency } }
                 | Target.Schedule ScheduleProperty.Time ->

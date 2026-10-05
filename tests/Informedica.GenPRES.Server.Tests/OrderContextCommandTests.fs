@@ -271,6 +271,26 @@ let tests =
                         |> Expect.isNone "no variable"
                     }
 
+                    for name, ctx in Fixtures.all.Value do
+                        let ord = ctx.Scenarios[0].Order
+                        let first = ord.Orderable.Components[0]
+                        let set = Shared.Models.Order.OrderVariable.setOvar None
+
+                        for item in first.Items do
+                            test $"%s{name}: a concentration of %s{item.Name} in a missing component" {
+                                let target =
+                                    Target.Item("none", item.Name, Shared.Types.ItemProperty.ComponentConcentration)
+
+                                ord |> Ctx.Target.map target set |> Expect.equal "the order as it is" ord
+                            }
+
+                        test $"%s{name}: a missing item in the first component" {
+                            let target =
+                                Target.Item(first.Name, "none", Shared.Types.ItemProperty.ComponentConcentration)
+
+                            ord |> Ctx.Target.map target set |> Expect.equal "the order as it is" ord
+                        }
+
                     test "counts no values" {
                         Fixtures.all.Value[0]
                         |> snd
