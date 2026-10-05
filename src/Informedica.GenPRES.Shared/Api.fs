@@ -43,6 +43,32 @@ module Api =
         | SetMinComponentOrderableQuantityProperty of cmp: string
         | SetMaxComponentOrderableQuantityProperty of cmp: string
         | SetMedianComponentOrderableQuantityProperty of cmp: string
+        /// A filter field set to its nth option, counted from 0.
+        | SetNthFilterProperty of field: Models.OrderContext.FilterField * nth: int
+        /// A filter field emptied, with the choices below it.
+        | ClearFilterProperty of field: Models.OrderContext.FilterField
+        /// The whole filter emptied.
+        | ClearAllFilterProperty
+        /// The diluent set to its nth option, counted from 0.
+        | SetNthDiluentProperty of nth: int
+        | ClearDiluentProperty
+        /// The components at these positions of the options, counted from 0.
+        | SetNthComponentsProperty of nth: int[]
+        /// The nth scenario, counted from 0, selected with its form.
+        | SelectNthOrderScenario of nth: int
+        /// A schedule value set to its nth value, counted from 0.
+        | SetNthScheduleProperty of property: ScheduleProperty * nth: int
+        /// A schedule value cleared, with the variables the user picked or stepped, in the order
+        /// picked, named without the order id.
+        | ClearScheduleProperty of property: ScheduleProperty * picks: string[]
+        | SetNthOrderableProperty of property: OrderableProperty * nth: int
+        | ClearOrderableProperty of property: OrderableProperty * picks: string[]
+        | SetNthComponentProperty of cmp: string * property: ComponentProperty * nth: int
+        | ClearComponentProperty of cmp: string * property: ComponentProperty * picks: string[]
+        | SetNthItemProperty of cmp: string * itm: string * property: ItemProperty * nth: int
+        | ClearItemProperty of cmp: string * itm: string * property: ItemProperty * picks: string[]
+        /// The argumentation the user writes for a deviation from the rules.
+        | SetArgumentationProperty of text: string
 
     /// Every computing request: the command and the OpenedToken the Session holds.
     /// `None` where there is none to send: no Session, an anonymous one, or a client acting
@@ -104,6 +130,100 @@ module Api =
                 $"SetMaxComponentQuantityProperty cmp={cmp}"
             | OrderContextCommand.SetMedianComponentOrderableQuantityProperty cmp ->
                 $"SetMedianComponentQuantityProperty cmp={cmp}"
+            | OrderContextCommand.SetNthFilterProperty(field, n) -> $"SetNthFilterProperty %A{field} nth=%i{n}"
+            | OrderContextCommand.ClearFilterProperty field -> $"ClearFilterProperty %A{field}"
+            | OrderContextCommand.ClearAllFilterProperty -> "ClearAllFilterProperty"
+            | OrderContextCommand.SetNthDiluentProperty n -> $"SetNthDiluentProperty nth=%i{n}"
+            | OrderContextCommand.ClearDiluentProperty -> "ClearDiluentProperty"
+            | OrderContextCommand.SetNthComponentsProperty ns -> $"SetNthComponentsProperty nth=%A{ns}"
+            | OrderContextCommand.SelectNthOrderScenario n -> $"SelectNthOrderScenario nth=%i{n}"
+            | OrderContextCommand.SetNthScheduleProperty(prop, n) -> $"SetNthScheduleProperty %A{prop} nth=%i{n}"
+            | OrderContextCommand.ClearScheduleProperty(prop, picks) ->
+                $"ClearScheduleProperty %A{prop} %i{picks.Length} picks"
+            | OrderContextCommand.SetNthOrderableProperty(prop, n) -> $"SetNthOrderableProperty %A{prop} nth=%i{n}"
+            | OrderContextCommand.ClearOrderableProperty(prop, picks) ->
+                $"ClearOrderableProperty %A{prop} %i{picks.Length} picks"
+            | OrderContextCommand.SetNthComponentProperty(cmp, prop, n) ->
+                $"SetNthComponentProperty cmp={cmp} %A{prop} nth=%i{n}"
+            | OrderContextCommand.ClearComponentProperty(cmp, prop, picks) ->
+                $"ClearComponentProperty cmp={cmp} %A{prop} %i{picks.Length} picks"
+            | OrderContextCommand.SetNthItemProperty(cmp, itm, prop, n) ->
+                $"SetNthItemProperty cmp={cmp} itm={itm} %A{prop} nth=%i{n}"
+            | OrderContextCommand.ClearItemProperty(cmp, itm, prop, picks) ->
+                $"ClearItemProperty cmp={cmp} itm={itm} %A{prop} %i{picks.Length} picks"
+            // never the text: it is the clinician's and stays out of the log
+            | OrderContextCommand.SetArgumentationProperty _ -> "SetArgumentationProperty"
+
+
+        module Ctx = Models.OrderContext
+
+
+        /// A stop-gap for #1224, until the domain processes the new cases itself: the command as
+        /// the server evaluates it today, and the context the client sends with it today; no
+        /// command when the context is answered as it is.
+        let toChange (cmd: OrderContextCommand) (ctx: OrderContext) =
+            let over cmd r = r |> Result.map (fun ctx -> Some cmd, ctx)
+            let update r = r |> over OrderContextCommand.UpdateOrderContext
+
+            let setNth target n =
+                ctx
+                |> Ctx.setNth target n
+                |> Result.map (
+                    function
+                    | Some changed -> Some OrderContextCommand.UpdateOrderScenario, changed
+                    | None -> None, ctx
+                )
+
+            let clear target picks =
+                ctx
+                |> Ctx.clear target picks
+                |> Result.map (fun (changed, picks) -> Some(OrderContextCommand.ReopenOrderScenario picks), changed)
+
+            match cmd with
+            | OrderContextCommand.SetNthFilterProperty(field, n) -> ctx |> Ctx.changeFilter field (Some n) |> update
+            | OrderContextCommand.ClearFilterProperty field -> ctx |> Ctx.changeFilter field None |> update
+            | OrderContextCommand.ClearAllFilterProperty -> Ok(Ctx.clearAll ctx) |> update
+            | OrderContextCommand.SetNthDiluentProperty n -> ctx |> Ctx.changeDiluent (Some n) |> update
+            | OrderContextCommand.ClearDiluentProperty -> ctx |> Ctx.changeDiluent None |> update
+            | OrderContextCommand.SetNthComponentsProperty ns -> ctx |> Ctx.setNthComponents ns |> update
+            | OrderContextCommand.SelectNthOrderScenario n ->
+                ctx |> Ctx.selectNthScenario n |> over OrderContextCommand.SelectOrderScenario
+            | OrderContextCommand.SetNthScheduleProperty(prop, n) -> setNth (Ctx.Target.Schedule prop) n
+            | OrderContextCommand.ClearScheduleProperty(prop, picks) -> clear (Ctx.Target.Schedule prop) picks
+            | OrderContextCommand.SetNthOrderableProperty(prop, n) -> setNth (Ctx.Target.Orderable prop) n
+            | OrderContextCommand.ClearOrderableProperty(prop, picks) -> clear (Ctx.Target.Orderable prop) picks
+            | OrderContextCommand.SetNthComponentProperty(cmp, prop, n) -> setNth (Ctx.Target.Component(cmp, prop)) n
+            | OrderContextCommand.ClearComponentProperty(cmp, prop, picks) ->
+                clear (Ctx.Target.Component(cmp, prop)) picks
+            | OrderContextCommand.SetNthItemProperty(cmp, itm, prop, n) -> setNth (Ctx.Target.Item(cmp, itm, prop)) n
+            | OrderContextCommand.ClearItemProperty(cmp, itm, prop, picks) ->
+                clear (Ctx.Target.Item(cmp, itm, prop)) picks
+            | OrderContextCommand.SetArgumentationProperty text -> Ok(None, ctx |> Ctx.Argumentation.write text)
+            | cmd -> Ok(Some cmd, ctx)
+
+
+        /// The case a command stands for in the client's decisions by case; None for the
+        /// argumentation, which sends no request.
+        let replaced (cmd: OrderContextCommand) =
+            match cmd with
+            | OrderContextCommand.SetNthFilterProperty _
+            | OrderContextCommand.ClearFilterProperty _
+            | OrderContextCommand.ClearAllFilterProperty
+            | OrderContextCommand.SetNthDiluentProperty _
+            | OrderContextCommand.ClearDiluentProperty
+            | OrderContextCommand.SetNthComponentsProperty _ -> Some OrderContextCommand.UpdateOrderContext
+            | OrderContextCommand.SelectNthOrderScenario _ -> Some OrderContextCommand.SelectOrderScenario
+            | OrderContextCommand.SetNthScheduleProperty _
+            | OrderContextCommand.SetNthOrderableProperty _
+            | OrderContextCommand.SetNthComponentProperty _
+            | OrderContextCommand.SetNthItemProperty _ -> Some OrderContextCommand.UpdateOrderScenario
+            | OrderContextCommand.ClearScheduleProperty(_, picks)
+            | OrderContextCommand.ClearOrderableProperty(_, picks)
+            | OrderContextCommand.ClearComponentProperty(_, _, picks)
+            | OrderContextCommand.ClearItemProperty(_, _, _, picks) ->
+                Some(OrderContextCommand.ReopenOrderScenario picks)
+            | OrderContextCommand.SetArgumentationProperty _ -> None
+            | cmd -> Some cmd
 
 
     /// The launch command family. Cut from the session family at the authentication boundary:
