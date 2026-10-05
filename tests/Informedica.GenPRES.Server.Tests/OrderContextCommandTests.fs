@@ -350,4 +350,194 @@ let tests =
                         |> Expect.equal "nothing to pick" 0
                     }
                 ]
+
+            testList
+                "a value changed in the context as today's client changes it"
+                [
+                    for name, ctx in Fixtures.all.Value do
+                        let ord = ctx.Scenarios[0].Order
+
+                        for target in targets ord do
+                            match ord |> Ctx.Target.tryGet target |> Option.map Ctx.values with
+                            | None -> ()
+                            | Some [||] ->
+                                test $"%s{name}: %A{target} offers no list" {
+                                    ctx |> Ctx.setNth target 0 |> Expect.equal "no change" (Ok None)
+                                }
+                            | Some keys ->
+                                for n in 0 .. keys.Length - 1 do
+                                    test $"%s{name}: %A{target} set to value %i{n}" {
+                                        let today = ctx |> Ctx.withOrder (ord |> Today.change target (Some keys[n]))
+                                        ctx |> Ctx.setNth target n |> Expect.equal "today's context" (Ok(Some today))
+                                    }
+
+                                test $"%s{name}: %A{target} past its values" {
+                                    ctx
+                                    |> Ctx.setNth target keys.Length
+                                    |> Result.isError
+                                    |> Expect.isTrue "an error"
+                                }
+
+                                test $"%s{name}: %A{target} cleared, the picks with the order id" {
+                                    let today = ctx |> Ctx.withOrder (ord |> Today.change target None)
+
+                                    ctx
+                                    |> Ctx.clear target [| "[.x]_dos_qty" |]
+                                    |> Expect.equal "today's context" (Ok(today, [| $"[%s{ord.Id}.x]_dos_qty" |]))
+                                }
+
+                    test "a target the order does not hold" {
+                        let ctx = Fixtures.all.Value[0] |> snd
+                        let target = Target.Component("none", Shared.Types.ComponentProperty.OrderableQuantity)
+
+                        ctx |> Ctx.setNth target 0 |> Result.isError |> Expect.isTrue "an error"
+                        ctx |> Ctx.clear target [||] |> Result.isError |> Expect.isTrue "an error"
+                    }
+
+                    test "a context without one scenario" {
+                        let ctx = Fixtures.all.Value[0] |> snd |> fun ctx -> { ctx with Scenarios = [||] }
+                        let target = Target.Schedule Shared.Types.ScheduleProperty.Frequency
+
+                        ctx |> Ctx.setNth target 0 |> Result.isError |> Expect.isTrue "an error"
+                    }
+                ]
+
+            testList
+                "the filter changed as the page changes it"
+                [
+                    let ctx = Fixtures.all.Value[0] |> snd
+                    let f = ctx.Filter
+
+                    let today field (x: int option) =
+                        match field with
+                        | Ctx.Indication -> ctx |> Ctx.indicationChange (x |> Option.map (fun i -> f.Indications[i]))
+                        | Ctx.Generic -> ctx |> Ctx.medicationChange (x |> Option.map (fun i -> f.Generics[i]))
+                        | Ctx.Route -> ctx |> Ctx.routeChange (x |> Option.map (fun i -> f.Routes[i]))
+                        | Ctx.Form -> ctx |> Ctx.formChange (x |> Option.map (fun i -> f.Forms[i]))
+                        | Ctx.DoseType -> ctx |> Ctx.doseTypeChange (x |> Option.map (fun i -> f.DoseTypes[i]))
+
+                    for field in [ Ctx.Indication; Ctx.Generic; Ctx.Route; Ctx.Form; Ctx.DoseType ] do
+                        let n = ctx |> Ctx.count (Ctx.Options.Filter field)
+
+                        for i in 0 .. n - 1 do
+                            test $"%A{field} option %i{i}" {
+                                ctx
+                                |> Ctx.changeFilter field (Some i)
+                                |> Expect.equal "today's context" (Ok(today field (Some i)))
+                            }
+
+                        test $"%A{field} emptied" {
+                            ctx
+                            |> Ctx.changeFilter field None
+                            |> Expect.equal "today's context" (Ok(today field None))
+                        }
+
+                        test $"%A{field} past its options" {
+                            ctx
+                            |> Ctx.changeFilter field (Some n)
+                            |> Result.isError
+                            |> Expect.isTrue "an error"
+                        }
+
+                    test "the diluent set and emptied" {
+                        ctx
+                        |> Ctx.changeDiluent (Some 1)
+                        |> Expect.equal "today's context" (Ok(ctx |> Ctx.diluentChange (Some f.Diluents[1])))
+
+                        ctx
+                        |> Ctx.changeDiluent None
+                        |> Expect.equal "today's context" (Ok(ctx |> Ctx.diluentChange None))
+
+                        ctx |> Ctx.changeDiluent (Some 2) |> Result.isError |> Expect.isTrue "an error"
+                    }
+
+                    test "the components picked" {
+                        ctx
+                        |> Ctx.setNthComponents [| 0; 2 |]
+                        |> Expect.equal
+                            "today's context"
+                            (Ok(ctx |> Ctx.componentsChange [| f.Components[0]; f.Components[2] |]))
+
+                        ctx
+                        |> Ctx.setNthComponents [| 0; 3 |]
+                        |> Result.isError
+                        |> Expect.isTrue "an error"
+                    }
+
+                    test "the whole filter emptied, the patient kept" {
+                        ctx
+                        |> Ctx.clearAll
+                        |> Expect.equal "the empty context of the patient" { Ctx.empty with Patient = ctx.Patient }
+                    }
+
+                    test "the scenario selected with its form" {
+                        let sc = ctx.Scenarios[0]
+
+                        ctx
+                        |> Ctx.selectNthScenario 0
+                        |> Expect.equal
+                            "today's context"
+                            (Ok
+                                { ctx with
+                                    Filter = { ctx.Filter with Form = Some sc.Form }
+                                    Scenarios = [| sc |]
+                                })
+
+                        ctx |> Ctx.selectNthScenario 1 |> Result.isError |> Expect.isTrue "an error"
+                    }
+                ]
+
+            testList
+                "picks without the order id"
+                [
+                    test "the id leaves a name and comes back" {
+                        let name = "[a-1.paracetamol.paracetamol]_dos_qty"
+
+                        name
+                        |> Ctx.Picks.withinOrder "a-1"
+                        |> Expect.equal "the id left off" "[.paracetamol.paracetamol]_dos_qty"
+
+                        name
+                        |> Ctx.Picks.withinOrder "a-1"
+                        |> Ctx.Picks.ofOrder "a-1"
+                        |> Expect.equal "the id put back" name
+                    }
+
+                    test "every variable name of the fixtures comes back" {
+                        for _, ctx in Fixtures.all.Value do
+                            let ord = ctx.Scenarios[0].Order
+
+                            for v in targets ord |> List.choose (fun t -> ord |> Ctx.Target.tryGet t) do
+                                v.Name
+                                |> Ctx.Picks.withinOrder ord.Id
+                                |> Ctx.Picks.ofOrder ord.Id
+                                |> Expect.equal "the name as it was" v.Name
+                    }
+                ]
+
+            testList
+                "the argumentation"
+                [
+                    test "written trimmed" {
+                        Ctx.empty
+                        |> Ctx.Argumentation.write "  te hoog, bewust  "
+                        |> _.Argumentation
+                        |> Expect.equal "the text trimmed" (Some "te hoog, bewust")
+                    }
+
+                    test "an empty text writes none" {
+                        Ctx.empty
+                        |> Ctx.Argumentation.write "   "
+                        |> _.Argumentation
+                        |> Expect.isNone "none"
+                    }
+
+                    test "a long text is cut" {
+                        Ctx.empty
+                        |> Ctx.Argumentation.write (String.replicate 1100 "a")
+                        |> _.Argumentation
+                        |> Option.map String.length
+                        |> Expect.equal "the maximum" (Some Ctx.Argumentation.maxLength)
+                    }
+                ]
         ]

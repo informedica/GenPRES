@@ -66,26 +66,15 @@ let wanted (ctx: OrderContext) =
 
 /// The maximum length of a text, the same as the server's, so the server never refuses a text
 /// the client holds.
-let maxLength = 1000
+let maxLength = OrderContext.Argumentation.maxLength
 
 
 /// The text trimmed and cut to the maximum length; None when empty.
-let normalise (text: string) =
-    match text with
-    | null -> None
-    | text ->
-        let text = text.Trim()
-
-        if text = "" then
-            None
-        elif text.Length > maxLength then
-            Some(text.Substring(0, maxLength))
-        else
-            Some text
+let normalise = OrderContext.Argumentation.normalise
 
 
 /// The context with the text written.
-let write (text: string) (ctx: OrderContext) = { ctx with Argumentation = normalise text }
+let write = OrderContext.Argumentation.write
 
 
 /// The answered context with the argumentation as sent: the server never changes the text.
