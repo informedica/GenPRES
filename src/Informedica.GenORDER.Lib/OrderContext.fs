@@ -895,45 +895,86 @@ module OrderContext =
             ctx |> applyChange category field emptied write
 
 
-    let setFilterItem item ctx =
-        let tryItem n xs =
-            xs |> Array.tryItem n |> Option.map Array.singleton |> Option.defaultValue xs
+    /// The nth item of the options, or why there is none.
+    let nth what n (xs: 'a[]) =
+        xs
+        |> Array.tryItem n
+        |> Option.map Ok
+        |> Option.defaultValue (Error $"%s{what}: index %i{n} out of %i{xs.Length}")
 
+
+    /// The diluent set to its nth option, or emptied with None.
+    let changeDiluent (n: int option) (ctx: OrderContext) =
+        match n with
+        | None -> Ok { ctx with OrderContext.Filter.Diluent = None }
+        | Some n ->
+            ctx.Filter.Diluents
+            |> nth "diluent" n
+            |> Result.map (fun d -> { ctx with OrderContext.Filter.Diluent = Some d })
+
+
+    /// The components at these positions of the options.
+    let setNthComponents (ns: int[]) (ctx: OrderContext) =
+        ns
+        |> Array.map (fun n -> ctx.Filter.Components |> nth "component" n)
+        |> Array.fold
+            (fun acc r ->
+                match acc, r with
+                | Ok cs, Ok c -> Ok(Array.append cs [| c |])
+                | Error e, _
+                | _, Error e -> Error e
+            )
+            (Ok [||])
+        |> Result.map (fun cs -> { ctx with OrderContext.Filter.SelectedComponents = cs })
+
+
+    /// A field set to its nth option, counted from 0, or emptied with None. The diluent and the
+    /// components are written without the cascade, since the lookup does not read them; a pick
+    /// of the components is one component, several go with setNthComponents.
+    let changeFilter category field (n: int option) (ctx: OrderContext) =
+        let pick what (xs: string[]) =
+            match n with
+            | None -> Ok(ctx |> change category field None None)
+            | Some n ->
+                xs
+                |> nth what n
+                |> Result.map (fun x -> ctx |> change category field (Some x) None)
+
+        match field with
+        | FilterField.Indication -> pick "indication" ctx.Filter.Indications
+        | FilterField.Generic -> pick "generic" ctx.Filter.Generics
+        | FilterField.Route -> pick "route" ctx.Filter.Routes
+        | FilterField.Form -> pick "form" ctx.Filter.Forms
+        | FilterField.DoseType ->
+            match n with
+            | None -> Ok(ctx |> change category field None None)
+            | Some n ->
+                ctx.Filter.DoseTypes
+                |> nth "dose type" n
+                |> Result.map (fun dt -> ctx |> change category field None (Some dt))
+        | FilterField.Diluent -> ctx |> changeDiluent n
+        | FilterField.Components -> ctx |> setNthComponents (n |> Option.toArray)
+
+
+    /// The whole filter emptied, the patient kept.
+    let clearAll (ctx: OrderContext) =
         { ctx with
-            OrderContext.Filter.Indications =
-                match item with
-                | FilterItem.Indication n -> ctx.Filter.Indications |> tryItem n
-                | _ -> ctx.Filter.Indications
-            OrderContext.Filter.Generics =
-                match item with
-                | FilterItem.Generic n -> ctx.Filter.Generics |> tryItem n
-                | _ -> ctx.Filter.Generics
-            OrderContext.Filter.Routes =
-                match item with
-                | FilterItem.Route n -> ctx.Filter.Routes |> tryItem n
-                | _ -> ctx.Filter.Routes
-            OrderContext.Filter.Forms =
-                match item with
-                | FilterItem.Form n -> ctx.Filter.Forms |> tryItem n
-                | _ -> ctx.Filter.Forms
-            OrderContext.Filter.DoseTypes =
-                match item with
-                | FilterItem.DoseType n -> ctx.Filter.DoseTypes |> tryItem n
-                | _ -> ctx.Filter.DoseTypes
-            OrderContext.Filter.Diluents =
-                match item with
-                | FilterItem.Diluent n -> ctx.Filter.Diluents |> tryItem n
-                | _ -> ctx.Filter.Diluents
-            OrderContext.Filter.SelectedComponents =
-                match item with
-                | FilterItem.Component ns ->
-                    [|
-                        for i in ns do
-                            yield! ctx.Filter.SelectedComponents |> tryItem i
-                    |]
-
-                | _ -> ctx.Filter.SelectedComponents
+            Filter = emptyFilter
+            Scenarios = [||]
+            Argumentation = None
         }
+
+
+    /// The context narrowed to its nth scenario and that scenario's form.
+    let selectNthScenario n (ctx: OrderContext) =
+        ctx.Scenarios
+        |> nth "scenario" n
+        |> Result.map (fun sc ->
+            { ctx with
+                OrderContext.Filter.Form = Some sc.Form
+                Scenarios = [| sc |]
+            }
+        )
 
 
     let setFilterGeneric gen ctx = { ctx with OrderContext.Filter.Generic = Some gen }

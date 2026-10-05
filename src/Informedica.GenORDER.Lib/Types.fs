@@ -566,19 +566,6 @@ module Types =
         | Components
 
 
-    module FilterItem =
-
-        /// Represents different filter item types with their index positions
-        type FilterItem =
-            | Indication of int
-            | Generic of int
-            | Route of int
-            | Form of int
-            | DoseType of int
-            | Diluent of int
-            | Component of int list
-
-
     /// <summary>
     /// The main communication object to transfer the
     /// results of the solver to the client. The Filter
