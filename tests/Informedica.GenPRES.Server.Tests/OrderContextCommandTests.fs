@@ -485,6 +485,22 @@ let tests =
 
                         ctx |> Ctx.selectNthScenario 1 |> Result.isError |> Expect.isTrue "an error"
                     }
+
+                    test "the later of two scenarios selected with its form" {
+                        let first = { ctx.Scenarios[0] with Form = "zetpil" }
+                        let later = { (Fixtures.all.Value[1] |> snd).Scenarios[0] with Form = "drank" }
+                        let two = { ctx with Scenarios = [| first; later |] }
+
+                        two
+                        |> Ctx.selectNthScenario 1
+                        |> Expect.equal
+                            "the later scenario and its form"
+                            (Ok
+                                { two with
+                                    Filter = { two.Filter with Form = Some "drank" }
+                                    Scenarios = [| later |]
+                                })
+                    }
                 ]
 
             testList
