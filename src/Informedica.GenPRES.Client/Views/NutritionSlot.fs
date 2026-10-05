@@ -53,7 +53,7 @@ module NutritionSlot =
             | ChangeOrderableDoseRate of string option
             | ChangeOrderableQuantity of string option
             | ChangeFrequency of string option
-            | UpdateOrderScenario of Order
+            | UpdateOrderScenario of OrderContext.Target option * string option
             | ResetOrderScenario
             // Rate navigation
             | DecreaseDoseRateProperty of ntimes: int * useCalc: bool
@@ -138,8 +138,6 @@ module NutritionSlot =
             (state: State)
             : State * Cmd<Msg>
             =
-            let setOvar = OrderVariable.setOvar
-
             // every change and every step is over the order shown, the slot's context's; the
             // plan lane holds it, the slot holds none
             let handleNav nav =
@@ -156,10 +154,18 @@ module NutritionSlot =
                     OrderLoader.create (Some cmpName) None ord |> nav
                     state, Cmd.none
 
+            // a pick of a variable of the order shown, sent to the plan lane; nothing to pick without one
+            let pick target s =
+                match shown with
+                | Some _ -> state, Cmd.ofMsg (UpdateOrderScenario(Some target, s))
+                | None -> state, Cmd.none
+
             match msg with
 
-            | UpdateOrderScenario ord ->
-                OrderLoader.create state.SelectedComponent None ord |> updateOrderScenario
+            | UpdateOrderScenario(target, s) ->
+                match shown with
+                | Some ord -> updateOrderScenario (OrderLoader.create state.SelectedComponent None ord) target s
+                | None -> ()
 
                 state, Cmd.none
 
@@ -176,84 +182,13 @@ module NutritionSlot =
                 | Some _ -> { state with SelectedComponent = cmp }, Cmd.none
 
             | ChangeComponentOrderableQuantity(cmpName, s) ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with
-                            Order.Orderable.Components =
-                                ord.Orderable.Components
-                                |> Array.map (fun cmp ->
-                                    if cmp.Name = cmpName then
-                                        { cmp with OrderableQuantity = cmp.OrderableQuantity |> setOvar s }
-                                    else
-                                        cmp
-                                )
-                        }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
+                pick (OrderContext.Target.Component(cmpName, ComponentProperty.OrderableQuantity)) s
             | ChangeComponentDoseQuantityAdjust(cmpName, s) ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with
-                            Order.Orderable.Components =
-                                ord.Orderable.Components
-                                |> Array.map (fun cmp ->
-                                    if cmp.Name = cmpName then
-                                        { cmp with
-                                            Component.Dose.QuantityAdjust = cmp.Dose.QuantityAdjust |> setOvar s
-                                        }
-                                    else
-                                        cmp
-                                )
-                        }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
-            | ChangeOrderableDoseRate s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with Order.Orderable.Dose.Rate = ord.Orderable.Dose.Rate |> setOvar s }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
-            | ChangeOrderableQuantity s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with Order.Orderable.OrderableQuantity = ord.Orderable.OrderableQuantity |> setOvar s }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
-            | ChangeFrequency s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with Order.Schedule.Frequency = ord.Schedule.Frequency |> setOvar s }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
-            | ChangeOrderableDoseQuantity s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with Order.Orderable.Dose.Quantity = ord.Orderable.Dose.Quantity |> setOvar s }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
+                pick (OrderContext.Target.Component(cmpName, ComponentProperty.DoseQuantityAdjust)) s
+            | ChangeOrderableDoseRate s -> pick (OrderContext.Target.Orderable OrderableProperty.DoseRate) s
+            | ChangeOrderableQuantity s -> pick (OrderContext.Target.Orderable OrderableProperty.Quantity) s
+            | ChangeFrequency s -> pick (OrderContext.Target.Schedule ScheduleProperty.Frequency) s
+            | ChangeOrderableDoseQuantity s -> pick (OrderContext.Target.Orderable OrderableProperty.DoseQuantity) s
 
             // Rate navigation
             | SetMinDoseRateProperty -> handleNav stepper.setRateMin
@@ -380,7 +315,7 @@ module NutritionSlot =
             | ChangeOrderableQuantity s -> $"ChangeOrderableQuantity %s{value s}"
             | ChangeFrequency s -> $"ChangeFrequency %s{value s}"
             | ChangeOrderableDoseQuantity s -> $"ChangeOrderableDoseQuantity %s{value s}"
-            | UpdateOrderScenario ord -> $"UpdateOrderScenario %s{Trail.Part.shortId ord.Id}"
+            | UpdateOrderScenario(_, s) -> $"UpdateOrderScenario %s{value s}"
             | ResetOrderScenario -> "ResetOrderScenario"
             | DecreaseDoseRateProperty(n, uc) -> $"DecreaseDoseRateProperty %s{steps (n, uc)}"
             | IncreaseDoseRateProperty(n, uc) -> $"IncreaseDoseRateProperty %s{steps (n, uc)}"
@@ -418,9 +353,10 @@ module NutritionSlot =
         | Kind.Local, _ -> []
         | Kind.Update, _ ->
             match msg with
-            | UpdateOrderScenario ord ->
+            | UpdateOrderScenario _ ->
                 let call = if reopening then "CallReopen" else "CallUpdate"
-                [ $"%s{call} %s{Trail.Part.shortId ord.Id}" ]
+                let id = shownId |> Option.defaultValue "none"
+                [ $"%s{call} %s{id}" ]
             | _ -> []
         | _, None -> []
         | Kind.Reset, Some id -> [ $"CallReset %s{id}" ]
@@ -675,46 +611,60 @@ module NutritionSlot =
 
         let markOf = ViewHelpers.markOf
 
-        let genericChange s =
-            ctx
-            |> OrderContext.medicationChange s
-            |> fun updCtx ->
-                Api.OrderPlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
+        // a filter pick goes as its position in the options the field offers, an emptied field as
+        // a clear; a value the field does not offer goes as the changed context, as before
+        let pickFilter field (options: 'a[]) (picked: 'a option) change =
+            let cmd, updCtx =
+                match picked |> Option.map (fun x -> options |> Array.tryFindIndex ((=) x)) with
+                | None -> Api.OrderContextCommand.ClearFilterProperty field, ctx
+                | Some(Some n) -> Api.OrderContextCommand.SetNthFilterProperty(field, n), ctx
+                | Some None -> Api.OrderContextCommand.UpdateOrderContext, ctx |> change picked
+
+            Api.OrderPlanCommand.Navigate(planRef.current, ncId, cmd, updCtx)
             |> props.planCommand
 
+        let genericChange s =
+            pickFilter OrderContext.Generic ctx.Filter.Generics s OrderContext.medicationChange
+
         let indicationChange s =
-            ctx
-            |> OrderContext.indicationChange s
-            |> fun updCtx ->
-                Api.OrderPlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
-            |> props.planCommand
+            pickFilter OrderContext.Indication ctx.Filter.Indications s OrderContext.indicationChange
 
         let doseTypeChange s =
             let dt = s |> Option.map DoseType.doseTypeFromString
-
-            ctx
-            |> OrderContext.doseTypeChange dt
-            |> fun updCtx ->
-                Api.OrderPlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
-            |> props.planCommand
+            pickFilter OrderContext.DoseType ctx.Filter.DoseTypes dt OrderContext.doseTypeChange
 
         // set by a field's arrow just before it clears its value, so that the change goes out as
         // a reopen rather than as a change
         let reopening = React.useRef false
 
-        // a reopen goes without picks, since only the workbench keeps them: the server clears and
-        // solves, so a value another variable pins comes back as it was
-        let updateOrderScenario (ol: OrderLoader) =
+        // a pick goes out as the index of its value over the order as it is; a reopen as a clear
+        // without picks, since only the workbench keeps them: the server clears and solves, so a
+        // value another variable pins comes back as it was. A value the order does not offer goes
+        // as the changed order, as before
+        let updateOrderScenario (ol: OrderLoader) target (s: string option) =
             let isReopen = reopening.current
             reopening.current <- false
 
-            let cmd =
-                if isReopen then
-                    Api.OrderContextCommand.ReopenOrderScenario [||]
-                else
-                    Api.OrderContextCommand.UpdateOrderScenario
+            let changed =
+                target
+                |> Option.map (fun t -> ol.Order |> OrderContext.Target.map t (OrderVariable.setOvar s))
+                |> Option.defaultValue ol.Order
 
-            ViewHelpers.withLoader ctx ol
+            let located =
+                target
+                |> Option.bind (fun t -> ol.Order |> OrderContext.Target.tryGet t |> Option.map (fun v -> t, v))
+
+            let cmd, ord =
+                match located, s with
+                | Some(t, _), None when isReopen -> ViewHelpers.clearCommand t [||], ol.Order
+                | Some(t, ovar), Some key when not isReopen ->
+                    match OrderContext.values ovar |> Array.tryFindIndex ((=) key) with
+                    | Some n -> ViewHelpers.setNthCommand t n, ol.Order
+                    | None -> Api.OrderContextCommand.UpdateOrderScenario, changed
+                | _ when isReopen -> Api.OrderContextCommand.ReopenOrderScenario [||], changed
+                | _ -> Api.OrderContextCommand.UpdateOrderScenario, changed
+
+            ViewHelpers.withLoader ctx { ol with Order = ord }
             |> fun updCtx ->
                 Api.OrderPlanCommand.Navigate(planRef.current, ncId, cmd, updCtx)
                 |> if isReopen then props.planReopen else props.planCommand
