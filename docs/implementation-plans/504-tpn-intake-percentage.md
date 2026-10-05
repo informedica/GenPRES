@@ -47,8 +47,8 @@ Taken 2026-10-03 by the maintainer.
 | Composition | The orderable and component orderable quantities keep the values the user set. |
 | Where the per-kg limits of a component live | On the component orderable quantity, through a solution rule, not on the component dose. |
 | Dose count | Defined as at least one in the solution rule, with no maximum. The solution limits on the component orderable quantities keep the composition safe, so the count need not be one while the user composes. The dose quantity stays a range until the slider or a dose pick sets it; a partial dose is the orderable divided into more than one dose. |
-| Rate and time | Stay ranges after the move; the user picks one of them in the administration row. When the time was solved before the move, because the user picked the rate, that time becomes the maximum of the time and the rate is recalculated within it. No command sets the time itself; the user settles it through the rate. |
-| Composition during a partial dose | Locked in the TPN view until the dose is back at 100%. At 100% the existing component steps change the composition correctly; below 100% a step breaks the time maximum. The processor's component picks stay as they are. |
+| Rate and time | Stay ranges after the move; the user picks one of them in the administration row. Every move gives the time its constraints back, also when the time was solved before the move because the user picked the rate; the user then picks the rate again. A time held to the solved time leaves the rate one value at exactly that time when the time sits on its minimum, as after a reset, and most percentages do not fit it. No command sets the time itself; the user settles it through the rate. |
+| Composition during a partial dose | Locked in the TPN view until the dose is back at 100%. At 100% the existing component steps change the composition correctly; below 100% a step is not verified. The processor's component picks stay as they are. |
 | Command | Reuse `SetOrderableDoseQuantityPerc`; its processor case gets a new step. |
 | Code | The domain step is prototyped in a script and migrated by the maintainer. |
 
@@ -71,23 +71,20 @@ A step changes the Variable of an order variable only: its defined constraints a
 once written, and its calculated constraints are only set by calculation from the defined
 constraints.
 
-Three generic functions on an `OrderVariable`, beside `applyConstraints`:
+Two generic functions on an `OrderVariable`, beside `applyConstraints`:
 
 - `applyDefinedConstraints`: the Variable set to the defined constraints.
 - `setMaxToValueOf upTo`: the maximum of the Variable lowered to the value of `upTo`, when `upTo`
   holds one value and that is lower.
-- `applyConstraintsUpToSolved`: `applyConstraints`, then the value as inclusive maximum when the
-  variable held one value.
 
 Helpers in the typed modules, each only composing a generic function, as their neighbours do:
 
 - `Quantity.applyDefinedConstraints`, `QuantityAdjust.applyDefinedConstraints` and
   `Rate.applyDefinedConstraints`.
 - `Quantity.setMaxToValueOf upTo`: a dose up to the whole orderable.
-- `Time.applyConstraintsUpToSolved`: a time the user settled through the rate is not exceeded by
-  the new dose, and the rate follows from it.
 
-The dose count uses the existing `Count.setMinToOne`, which sets the Variable only.
+The time uses the existing `Time.applyConstraints` and the dose count the existing
+`Count.setMinToOne`; both set the Variable only.
 
 A step in `OrderProcessor.fs`, shaped like `orderPropertyIncrOrDecrOrderableDoseQuantity`:
 
@@ -109,7 +106,7 @@ let orderPropertySetPercOrderableDoseQuantity step ord =
     |> OrderPropertyChange.proc
         [
             if ord.Schedule |> Schedule.hasTime then
-                ScheduleTime Time.applyConstraintsUpToSolved
+                ScheduleTime Time.applyConstraints
 
             OrderableDoseCount OrderVariable.Count.setMinToOne
 
@@ -338,5 +335,7 @@ Steps 1 and 2 can be one pull request; step 3 follows; step 4 is a sheet change.
 - Move the slider below 100%, or type a partial dose: the component rows are disabled, the reopen
   arrows too, and the hint shows. Move the slider back to 100%: they are enabled again.
 - Press reset: the slider reads 100%.
-- Set the rate, then move the slider: the time stays at or below the time the rate gave, and the
-  rate is recalculated for the new dose.
+- Set the rate, then move the slider: the time and the rate are ranges again, the time within its
+  constraints, and the rate is picked again for the new dose.
+- Press reset, set every component again, then move the slider: the dose quantity follows the
+  slider.
