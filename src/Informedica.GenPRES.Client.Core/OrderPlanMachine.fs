@@ -68,22 +68,30 @@ type OrderPlanCartIntent =
 /// goes out when the answer lands.
 module Dialog =
 
+    /// The context as the command changes it, shown while its request is under way; the context
+    /// itself when the command cannot change it.
+    let shown (cmd: OrderContextCommand) (ctx: OrderContext) =
+        match OrderContextCommand.toChange cmd ctx with
+        | Ok(_, changed) -> changed
+        | Error _ -> ctx
+
+
     /// Whether the command waits while a request is under way. The page's own commands, updating
     /// the filter and selecting a scenario, are dropped instead.
     let waits (cmd: OrderContextCommand) =
-        match cmd with
-        | OrderContextCommand.UpdateOrderContext
-        | OrderContextCommand.SelectOrderScenario -> false
+        match OrderContextCommand.replaced cmd with
+        | Some OrderContextCommand.UpdateOrderContext
+        | Some OrderContextCommand.SelectOrderScenario -> false
         | _ -> true
 
 
-    /// Whether the command carries the dialog's order: a typed value or a reset goes out over the
-    /// context it was sent with; a step goes out over the context answered.
+    /// Whether the command carries the dialog's order: a picked value, a clear or a reset goes out
+    /// over the context it was sent with; a step goes out over the context answered.
     let carries (cmd: OrderContextCommand) =
-        match cmd with
-        | OrderContextCommand.UpdateOrderScenario
-        | OrderContextCommand.ReopenOrderScenario _
-        | OrderContextCommand.ResetOrderScenario -> true
+        match OrderContextCommand.replaced cmd with
+        | Some OrderContextCommand.UpdateOrderScenario
+        | Some(OrderContextCommand.ReopenOrderScenario _)
+        | Some OrderContextCommand.ResetOrderScenario -> true
         | _ -> false
 
 

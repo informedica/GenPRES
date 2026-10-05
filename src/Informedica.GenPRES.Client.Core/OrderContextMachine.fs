@@ -308,11 +308,12 @@ module OrderContextState =
         | OrderContextWorkbench.Evaluated(pat, _) -> Some pat
 
 
-    /// The context shown: the one sent while a request is under way, otherwise the one held.
+    /// The context shown: the one sent, as its command changes it, while a request is under way;
+    /// otherwise the one held.
     let context (state: OrderContextState) =
         match state.Workbench, state.InFlight with
         | OrderContextWorkbench.NoPatient, _ -> None
-        | OrderContextWorkbench.Evaluated _, Some((_, sent), _) -> Some sent
+        | OrderContextWorkbench.Evaluated _, Some((cmd, sent), _) -> Some(OrderPlanMachine.Dialog.shown cmd sent)
         | OrderContextWorkbench.Evaluated(_, ctx), None -> Some ctx
 
 
@@ -340,7 +341,8 @@ module OrderContextState =
     let view (state: OrderContextState) : OrderContextView =
         match state.Workbench, state.InFlight, state.Refusal with
         | OrderContextWorkbench.NoPatient, _, _ -> OrderContextView.NoPatient
-        | OrderContextWorkbench.Evaluated _, Some((_, sent), _), _ -> OrderContextView.Changing sent
+        | OrderContextWorkbench.Evaluated _, Some((cmd, sent), _), _ ->
+            OrderContextView.Changing(OrderPlanMachine.Dialog.shown cmd sent)
         | OrderContextWorkbench.Evaluated(_, ctx), None, Some refusal -> OrderContextView.Refused(ctx, refusal)
         | OrderContextWorkbench.Evaluated(_, ctx), None, None -> OrderContextView.Settled ctx
 
@@ -387,15 +389,18 @@ module OrderContextState =
     /// while a request is under way is dropped, except a dialog command, which waits; an
     /// evaluation replaces both.
     let private apply (request: string) (intents: OrderContextWorkbenchIntent list) (state: OrderContextState) =
-        let evaluate (ctx: OrderContext) (state: OrderContextState) =
+        // a filter command syncs the other pages to the filter as the command changes it
+        let evaluate (cmd: OrderContextCommand) (ctx: OrderContext) (state: OrderContextState) =
+            let filter = (OrderPlanMachine.Dialog.shown cmd ctx).Filter
+
             { state with
-                InFlight = Some((OrderContextCommand.UpdateOrderContext, ctx), request)
+                InFlight = Some((cmd, ctx), request)
                 Pending = None
             },
             [
-                OrderContextEffect.CallContext(OrderContextCommand.UpdateOrderContext, ctx, request)
-                OrderContextEffect.SyncFormulary ctx.Filter
-                OrderContextEffect.SyncParenteralia ctx.Filter
+                OrderContextEffect.CallContext(cmd, ctx, request)
+                OrderContextEffect.SyncFormulary filter
+                OrderContextEffect.SyncParenteralia filter
             ]
 
         intents
@@ -413,15 +418,18 @@ module OrderContextState =
                         [
                             OrderContextEffect.CallContext(OrderContextCommand.UpdateOrderContext, ctx, request)
                         ]
-                    | OrderContextWorkbenchIntent.Evaluate ctx -> evaluate ctx state
+                    | OrderContextWorkbenchIntent.Evaluate ctx ->
+                        evaluate OrderContextCommand.UpdateOrderContext ctx state
                     | OrderContextWorkbenchIntent.Call(cmd, ctx) when state.InFlight.IsSome ->
                         (if OrderPlanMachine.Dialog.waits cmd then
                              { state with Pending = Some(cmd, ctx, request) }
                          else
                              state),
                         []
-                    | OrderContextWorkbenchIntent.Call(OrderContextCommand.UpdateOrderContext, ctx) ->
-                        evaluate ctx state
+                    | OrderContextWorkbenchIntent.Call(cmd, ctx) when
+                        OrderContextCommand.replaced cmd = Some OrderContextCommand.UpdateOrderContext
+                        ->
+                        evaluate cmd ctx state
                     | OrderContextWorkbenchIntent.Call(cmd, ctx) ->
                         { state with InFlight = Some((cmd, ctx), request) },
                         [ OrderContextEffect.CallContext(cmd, ctx, request) ]
@@ -521,9 +529,11 @@ module OrderContextState =
         // alike
         | OrderContextMsg.Argue text, _, _ -> map (ArgumentationPolicy.write text) state, []
 
-        // a patient change during a request: the context sent is evaluated for the new patient;
-        // the dialog closes and the refusal is cleared
-        | OrderContextMsg.PatientChanged(Some pat, request), OrderContextWorkbench.Evaluated _, Some((_, sent), _) ->
+        // a patient change during a request: the context sent, as its command changes it, is
+        // evaluated for the new patient; the dialog closes and the refusal is cleared
+        | OrderContextMsg.PatientChanged(Some pat, request), OrderContextWorkbench.Evaluated _, Some((cmd, sent), _) ->
+            let sent = OrderPlanMachine.Dialog.shown cmd sent
+
             let workbench, _ =
                 OrderContextWorkbench.step (OrderContextWorkbenchMsg.PatientChanged(Some pat)) state.Workbench
 
