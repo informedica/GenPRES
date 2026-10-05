@@ -242,8 +242,8 @@ It needs, on the contract side:
   `Argue` step as it.
 - **The cases the UI cannot produce stay invisible:** an index out of range is an error; an index on
   a variable that offers no list leaves the context unchanged.
-- **The old cases stay,** both as the targets of `toChange` and on the wire until the client has
-  moved, so a tab open across a deployment behaves as today.
+- **The old cases stay** in the shared type for as long as `toChange` returns them, so a tab open
+  across a deployment that still sends them behaves as today.
 
 What changes that the app user does not see: the debug-only trail and the server's request log
 (`OrderContextCommand.toString`, `Shared/Api.fs:69`, logged by `ServerApi.CompositionRoot.fs:26`)
@@ -305,11 +305,12 @@ request for that step.
    index in `Vals` starts as a script, migrated by the user.
 5. **The trail** (`Client.Core/Trail.fs`) shows the new cases, so that a trail reads as the sequence
    of commands that plays the scenario; prototyped in a script, migrated by the user.
-6. **Removal** from the wire of the cases the client no longer sends (`UpdateOrderScenario`,
-   `SelectOrderScenario`, `ReopenOrderScenario`); they stay in the domain as the targets of
-   `toChange`. `UpdateOrderContext` stays on the wire: a patient change sends it with an empty
-   context for the new patient (`OrderContextMachine.fs:262`, `:392`), and patient edits are out of
-   scope. By the user, or on request. `scripts/CheckDependencyRule.fsx`, `scripts/ProjectGraph.fsx`
+6. **The client no longer sends the old cases** `UpdateOrderScenario`, `SelectOrderScenario` and
+   `ReopenOrderScenario`: checked by a search of `Client` and `Client.Core`. They stay in the shared
+   type, since `toChange` returns them and the server mapper matches them; their removal waits
+   until `toChange` is gone (see *Later*). `UpdateOrderContext` stays in any case: a patient change
+   sends it with an empty context for the new patient (`OrderContextMachine.fs:262`, `:392`), and
+   patient edits are out of scope. `scripts/CheckDependencyRule.fsx`, `scripts/ProjectGraph.fsx`
    when a reference changes, and the benchmark build, since `benchmark/` is outside the solution.
 
 ## Verification, per step
@@ -382,6 +383,11 @@ Made in review on 2026-10-05.
     contract-side behaviour into the core, so it needs a decision first; until then the filter and
     scenario cases stay in `toChange`. The domain's `setFilterItem` narrows the options to the nth
     instead of choosing it, and is unused; it is a starting point, not the same behaviour.
+  - **The old cases leave the wire** once `toChange` is gone, since then nothing returns them and
+    the server mapper takes the new cases: `UpdateOrderScenario`, `SelectOrderScenario`,
+    `ReopenOrderScenario`, and `UpdateOrderContext` once the patient change has a command of its
+    own. A tab still open from before then sends a case the server no longer reads; that is the
+    case of any change to the contract, and the reload notice of #682 (G10) is its answer.
   - Applying a waiting command to the newest context instead of the context it was made on. It
     would simplify the two machines, but it changes what the user sees when requests overlap.
   - **The client state with one context.** Once every command goes over the newest context:
