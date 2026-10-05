@@ -67,7 +67,7 @@ context as it is, and does the change itself:
 - **The argumentation stays with the server.** `SetArgumentationProperty` is answered by the server
   without the domain, as now; the domain keeps the argumentation as a plain field.
 - **The mapper maps one to one.** `OrderContextMapper.Command.toDomain` maps each new wire case to
-  its domain case; `toChange` is deleted. The old wire cases stay, mapped as today, until the client
+  its domain case; `toChange` leaves the server. The old wire cases stay, mapped as today, until the client
   no longer sends them (the next plan).
 
 ## Steps
@@ -99,9 +99,9 @@ starts as a script with its tests; the user migrates it to source, or asks the a
    new case; the tests from the script.
 5. **Server and contract**: the mapper maps the new cases one to one; `processCmd` and `Navigate`
    answer `SetArgumentationProperty` themselves and send every other case to the domain;
-   `toChange` is deleted and its change functions renamed as the preview;
-   `OrderContextCommandTests.fs` compares the domain answer with the old case's answer instead of
-   `toChange`'s.
+   `toChange` leaves the server and is renamed `preview`, the client's view of a request under
+   way; `OrderContextCommandTests.fs` checks what reaches the domain instead of `toChange`'s
+   answer.
 
 ## Verification, per step
 
@@ -147,8 +147,11 @@ The MCP tools taking the specific commands remain a separate capability.
 
 ## As built
 
-Steps 1 and 2 landed as source on the user's request, without a script, on 2026-10-05. The step
-that put the picks on the scenario was dropped on 2026-10-05: the picks stay in the client.
+Every step landed as a pull request from a fork branch against `master` on 2026-10-05, as source on
+the user's request: steps 1 and 2 without a script, steps 3 and 4 migrated from the script in one
+pull request. The step that put the picks on the scenario was dropped: the picks stay in the
+client. The server step went over the 200-line limit by the user's one-time allowance, since the
+fix the browser check asked for came with it.
 
 | Step | PR | Landed |
 | --- | --- | --- |
@@ -156,6 +159,9 @@ that put the picks on the scenario was dropped on 2026-10-05: the picks stay in 
 | 1 | [#1307](https://github.com/informedica/GenPRES/pull/1307) | `FilterField`, the cascade and `emptyFilter` in `OrderContext.fs` |
 | 1 | [#1308](https://github.com/informedica/GenPRES/pull/1308) | `changeFilter`, `changeDiluent`, `setNthComponents`, `clearAll`, `selectNthScenario`; `setFilterItem` and `FilterItem` removed |
 | 2 | [#1309](https://github.com/informedica/GenPRES/pull/1309) | the `SetNth…` and `Clear…` cases of `ChangePropertyCommand`; `setNthValue` counts from 0 |
+| docs | [#1310](https://github.com/informedica/GenPRES/pull/1310) | this document brought up to steps 1 and 2 |
+| 3, 4 | [#1311](https://github.com/informedica/GenPRES/pull/1311) | six cases of `OrderContext.Command`, each evaluated as the existing command on the context it changed; the picks kept in the client |
+| 5 | [#1312](https://github.com/informedica/GenPRES/pull/1312) | the mapper maps every new wire case; the server sends them to the domain, the argumentation excepted; `toChange` renamed `preview`; a filter or scenario pick applied before the context is reconciled (231 lines) |
 
 Found on the way:
 
@@ -167,5 +173,12 @@ Found on the way:
 - In the morphine infusion, after a pick of the time and then of the dose rate, a clear of the dose
   rate keeps the time as a pick, but the reopened order offers the whole time range again. It is
   the same `Reopen` the client asks for today.
+- The plan context is reconciled with the rules before its command runs, which rebuilds the
+  filter's lists. A filter or scenario pick therefore reads its index in the context as sent, the
+  lists the user saw, and is reconciled after (`OrderContext.resolvePick`). The browser check
+  found it: the first of two indications was read in the whole list.
+- An index past the values now reaches the domain, which leaves the order as it is; the server
+  refused it before. The client never sends one.
+- `processClearedOrder` stays: a clear of a variable the user did not pick is solved through it.
 - Concentration picks for amphotericin B and cotrimoxazole are refused by the final solve on both
   paths, as before: [#1302](https://github.com/informedica/GenPRES/issues/1302).
