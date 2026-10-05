@@ -1,5 +1,5 @@
-/// The filter cascade of the order context: a choice is written, an emptied field lets go of the
-/// choices below it, and the scenarios go.
+/// The filter of the order context: a choice is written, an emptied field lets go of the choices
+/// below it, and the scenarios go; a command picks a field's option by its index.
 module FilterCommandTests
 
 open Informedica.GenOrder.Lib
@@ -13,7 +13,7 @@ open FilterFixtures
 [<Tests>]
 let tests =
     testList
-        "OrderContext filter cascade"
+        "OrderContext filter"
         [
             test "a choice keeps the options" {
                 context options
@@ -57,5 +57,47 @@ let tests =
                 |> OrderContext.change OrderCategory.Drug FilterField.Route None None
                 |> fun c -> c.Filter.Indications, c.Filter.Generics, c.Filter.Routes, c.Filter.Forms, c.Filter.DoseTypes
                 |> Expect.equal "no options" ([||], [||], [||], [||], [||])
+            }
+
+            test "a field picked by index keeps the options" {
+                context options
+                |> OrderContext.changeFilter OrderCategory.Drug FilterField.Route (Some 2)
+                |> Result.map (fun c -> c.Filter.Route, c.Filter.Routes)
+                |> Expect.equal "rectal chosen, all routes kept" (Ok(Some "RECTAAL", options.Routes))
+            }
+
+            test "an index past the options is refused" {
+                context options
+                |> OrderContext.changeFilter OrderCategory.Drug FilterField.Form (Some 5)
+                |> Result.isError
+                |> Expect.isTrue "no sixth form"
+            }
+
+            test "the components at their positions" {
+                context options
+                |> OrderContext.setNthComponents [| 0; 2 |]
+                |> Result.map _.Filter.SelectedComponents
+                |> Expect.equal "the first and the third" (Ok [| "paracetamol"; "water" |])
+            }
+
+            test "the second scenario selected, with its form" {
+                context options
+                |> OrderContext.selectNthScenario 1
+                |> Result.map (fun c -> c.Filter.Form, c.Scenarios |> Array.map _.No)
+                |> Expect.equal "the drink, alone" (Ok(Some "drank", [| 2 |]))
+            }
+
+            test "a scenario past the scenarios is refused" {
+                context options
+                |> OrderContext.selectNthScenario 2
+                |> Result.isError
+                |> Expect.isTrue "no third scenario"
+            }
+
+            test "clearing everything keeps the patient and drops the rest" {
+                let cleared = context options |> OrderContext.clearAll
+
+                (cleared.Patient, cleared.Filter, cleared.Scenarios.Length, cleared.Argumentation)
+                |> Expect.equal "patient kept" (Patient.patient, OrderContext.emptyFilter, 0, None)
             }
         ]

@@ -82,36 +82,58 @@ let sameFilter (domain: Result<OrderContext, string>) (shared: Result<S.OrderCon
     | d, s -> failtest $"one answers, the other refuses: %A{d |> Result.map ignore} %A{s |> Result.map ignore}"
 
 
-/// The domain's change with the option at the index, as Shared's changeFilter picks it.
-let changeAt category field (n: int option) (ctx: OrderContext) =
-    let at (xs: 'a[]) = n |> Option.map (fun i -> xs[i])
-
-    match field with
-    | FilterField.Indication -> ctx |> OrderContext.change category field (at ctx.Filter.Indications) None
-    | FilterField.Generic -> ctx |> OrderContext.change category field (at ctx.Filter.Generics) None
-    | FilterField.Route -> ctx |> OrderContext.change category field (at ctx.Filter.Routes) None
-    | FilterField.Form -> ctx |> OrderContext.change category field (at ctx.Filter.Forms) None
-    | FilterField.DoseType -> ctx |> OrderContext.change category field None (at ctx.Filter.DoseTypes)
-    | FilterField.Diluent
-    | FilterField.Components -> invalidArg (nameof field) "not a field the lookup reads"
-
-
 [<Tests>]
 let tests =
     testList
-        "the domain's filter cascade and Shared's"
+        "the domain's filter commands and Shared's"
         [
-            for cname, category in categories do
-                for fname, filter in filters do
-                    for field in OrderContext.filterFields do
-                        // Shared's change empties the scenarios, so both start without
-                        let ctx = { context filter with Scenarios = [||] }
-                        let shared = ctx |> Contract.context category
+            testList
+                "every lookup field, every index"
+                [
+                    for cname, category in categories do
+                        for fname, filter in filters do
+                            for field in OrderContext.filterFields do
+                                // Shared's change empties the scenarios, so both start without
+                                let ctx = { context filter with Scenarios = [||] }
+                                let shared = ctx |> Contract.context category
 
-                        for n in [ None ] @ [ for i in 0 .. count field filter - 1 -> Some i ] do
-                            test $"%s{cname}, %s{fname}, %A{field} %A{n}" {
+                                for n in [ None ] @ [ for i in 0 .. count field filter -> Some i ] do
+                                    test $"%s{cname}, %s{fname}, %A{field} %A{n}" {
+                                        sameFilter
+                                            (ctx |> OrderContext.changeFilter category field n)
+                                            (shared |> SCtx.changeFilter (Contract.field field) n)
+                                    }
+                ]
+
+            testList
+                "the diluent, the components, everything"
+                [
+                    for fname, filter in filters do
+                        let ctx = { context filter with Scenarios = [||] }
+                        let shared = ctx |> Contract.context OrderCategory.Drug
+
+                        for n in [ None; Some 0; Some 1; Some 2 ] do
+                            test $"%s{fname}, diluent %A{n}" {
                                 sameFilter
-                                    (ctx |> changeAt category field n |> Ok)
-                                    (shared |> SCtx.changeFilter (Contract.field field) n)
+                                    (ctx |> OrderContext.changeFilter OrderCategory.Drug FilterField.Diluent n)
+                                    (shared |> SCtx.changeDiluent n)
                             }
+
+                            test $"%s{fname}, one component %A{n}" {
+                                sameFilter
+                                    (ctx |> OrderContext.changeFilter OrderCategory.Drug FilterField.Components n)
+                                    (shared |> SCtx.setNthComponents (n |> Option.toArray))
+                            }
+
+                        for ns in [ [||]; [| 0 |]; [| 1; 2 |]; [| 3 |] ] do
+                            test $"%s{fname}, components %A{ns}" {
+                                sameFilter
+                                    (ctx |> OrderContext.setNthComponents ns)
+                                    (shared |> SCtx.setNthComponents ns)
+                            }
+
+                        test $"%s{fname}, everything cleared" {
+                            sameFilter (ctx |> OrderContext.clearAll |> Ok) (shared |> SCtx.clearAll |> Ok)
+                        }
+                ]
         ]
