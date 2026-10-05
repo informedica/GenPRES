@@ -80,22 +80,29 @@ starts as a script with its tests; the user migrates it to source, or asks the a
 2. **Script, same file: the order target and the order commands.** The domain `Target` with
    `tryGet` and `map` (after `Shared`'s), `SetNth(target, n)` and `Clear target` as order commands
    in `OrderProcessor`, the target's variable set or cleared and the order solved or reopened.
+   `Clear` takes the picks the command carries, as `Reopen` does today, until step 6.
    Tests: for every target with more than one value on every fixture, the new command gives the
    same order as today's `SolveOrder` and `Reopen` path. Then `processClearedOrder` without callers
    is checked: the client sends a cleared variable through `UpdateOrderScenario` in no path.
 3. **Script, same file: the picks on the scenario.** `Picks` on the domain `OrderScenario`, a list
-   of targets, appended by `SetNth` and by a step that moves its variable, read by `Clear`, which
-   puts back the variables of the earlier targets. Tests: a clear keeps the picks made before the
-   cleared one, as `Reopen` with the variable names does now, also for an item in two components
-   of the same name and a component concentration.
+   of targets, added by `SetNth` and by a step that moves its variable, read by `Clear`, which
+   puts back the variables of the earlier targets. A target picked again moves to the end, as
+   `PickList.add` does today, so a list never holds a target twice. Tests: a clear keeps the picks
+   made before the cleared one, as `Reopen` with the variable names does now, also for an item in
+   two components of the same name, a component concentration, and a target picked again (picks
+   A, B, A: a clear of A keeps B).
 4. **Migration, GenORDER** (user): steps 1 and 2, the new `Command` cases and their evaluation in
-   `evaluateOutcome`; GenORDER tests from the scripts. Two pull requests if needed for size.
+   `evaluateOutcome`; GenORDER tests from the scripts. Two pull requests if needed for size. Step 3
+   migrates with step 6.
 5. **Server and contract**: the mapper maps the new cases; `processCmd` and `Navigate` answer
    `SetArgumentationProperty` themselves and send every other case to the domain; `toChange` is
    deleted and its change functions renamed as the preview; `OrderContextCommandTests.fs` compares
    the domain answer with the old case's answer instead of `toChange`'s.
-6. **The picks end to end**: `Picks` on the wire scenario and in the plan's JSON (a new JSON
-   structure version, older rows read with no picks); the `Clear…Property` cases without picks;
+   Until step 6 a clear still carries the client's picks: the domain context is rebuilt from the
+   client's context on every request, so picks kept by the domain alone would not survive.
+6. **The picks end to end**: step 3 migrated; `Picks` on the wire scenario and in the plan's JSON
+   (a new JSON structure version, older rows read with no picks), so they travel with the context
+   both ways; then the `Clear…Property` cases without picks;
    the client reads the picks from the scenario, `PickList` and its picks state go
    (`Views/Order.fs`, `Client.Core/PickList.fs`). Prototyped in a script where it is not client
    UI code.
