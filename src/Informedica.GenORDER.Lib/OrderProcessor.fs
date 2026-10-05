@@ -121,9 +121,11 @@ module OrderProcessor =
 
     /// Set the dose quantity of an order at a percentage of its range: the doses are cleared to any
     /// positive value, the orderable dose quantity, its quantity per kg and its rate to their defined
-    /// constraints, the dose quantity at most the orderable quantity, the time to its constraints up
-    /// to the time it was solved to and the dose count to min one, so the orderable and component
-    /// orderable quantities keep the composition the user set. Then the step picks a dose quantity.
+    /// constraints, the dose quantity at most the orderable quantity, the time to its constraints
+    /// and the dose count to min one, so the orderable and component orderable quantities keep the
+    /// composition the user set. Then the step picks a dose quantity. The time the order was solved
+    /// to is not kept: held to that time, the rate has to be a multiple of its increment at exactly
+    /// that time, and most percentages are then refused.
     let orderPropertySetPercOrderableDoseQuantity step ord =
         // the dose as the rules define it, up to the whole orderable
         let definedUpToOrderable (dos: Dose) =
@@ -141,7 +143,7 @@ module OrderProcessor =
         |> OrderPropertyChange.proc
             [
                 if ord.Schedule |> Schedule.hasTime then
-                    ScheduleTime Time.applyConstraintsUpToSolved
+                    ScheduleTime Time.applyConstraints
 
                 OrderableDoseCount OrderVariable.Count.setMinToOne
 

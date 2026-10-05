@@ -669,22 +669,6 @@ module OrderVariable =
             }
 
 
-    /// Apply the constraints of an OrderVariable; an OrderVariable solved to one value keeps that
-    /// value as inclusive maximum.
-    let applyConstraintsUpToSolved (ovar: OrderVariable) =
-        let applied = ovar |> applyConstraints
-
-        match ovar.Variable |> Variable.isSolved, ovar |> getValSetValueUnit with
-        | true, Some vu ->
-            { applied with
-                Variable =
-                    { applied.Variable with
-                        Values = applied.Variable.Values |> ValueRange.setMax (vu |> Maximum.create true)
-                    }
-            }
-        | _ -> applied
-
-
     /// Check whether the Values of the Variable of an OrderVariable
     /// are within the Constraints of the OrderVariable
     let isWithinConstraints useCalc ovar =
@@ -1557,11 +1541,6 @@ module OrderVariable =
 
         /// Apply the constraints of a Time to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> time
-
-
-        /// Apply the constraints of a Time; a Time solved to one value keeps that value as inclusive
-        /// maximum, so a new dose does not take longer than the time the user settled.
-        let applyConstraintsUpToSolved = toOrdVar >> applyConstraintsUpToSolved >> time
 
 
         /// Check whether Time is non-zero positive
