@@ -1,11 +1,12 @@
 # Implementation plan for issue #1224: the client sends commands only
 
 The domain processes the client's specific commands ([the previous
-plan](1224-the-domain-processes-the-commands.md)). The client still sends a changed context in a few
-places, and its two order machines still decide what to do with a command by the old case it stands
-for. This plan lets the client send commands only, removes the old wire cases it no longer sends,
-and simplifies the machines that the old cases kept complex. It is a refactor: the user sees no
-difference.
+plan](1224-the-domain-processes-the-commands.md)). This plan finishes the work: every change to an
+order context becomes a command, and the client's order machines hold commands instead of
+contexts. The client then never changes a context itself; it shows the last answer, and the preview
+of the command under way. A sequence of commands, played over the domain, gives the workflow back.
+It is a refactor: the user sees no difference, except that the order dialog's fields are greyed
+while a request runs (decision 1).
 
 The work hangs under [#1224](https://github.com/informedica/GenPRES/issues/1224).
 
@@ -17,125 +18,132 @@ The work hangs under [#1224](https://github.com/informedica/GenPRES/issues/1224)
 
 ## Problem description
 
-The client sends an old case, with the context it changed itself, in three kinds of places:
+The client changes an order context itself, outside any command, in these places:
 
-- **Fallbacks.** A filter pick, a value pick and a reopen go as a specific command when the value is
-  in the list the field offers, and as the old case with the changed context when it is not
-  (`pickFilter` and `componentsChange` in `Views/Prescribe.fs`, `pickFilter` in
-  `Views/NutritionSlot.fs`, `updateOrderScenario` in `Views/Order.fs` and
-  `Views/NutritionSlot.fs`). A field offers only what its list holds, so the
-  fallback is not expected to run; nothing shows that it does.
+- **Fallbacks.** A filter pick, a value pick and a reopen went as the old case with a changed
+  context when the value was not in the field's list. Removed in step 1.
 - **Seeds and patient changes.** The order context machine sends `UpdateOrderContext` with a context
   it built: the empty context for a new patient (`Open`) and after a prescription (`Reset`), the
-  held context with the new patient (`PatientChanged`), and a filter from the url, the formulary
-  page or a resource reload (`Seed`).
-- **Never sent.** `SetArgumentationProperty` is in the contract and handled by the server, but the
-  client writes the argumentation itself (`Argue`) and never sends it.
+  held context with the new patient (`PatientChanged`), and a filter from outside the workbench's
+  own fields (`Seed`).
+- **The page syncs.** A choice on the formulary or parenteralia page is written into the held
+  context by `FilterSync.syncFormularyToFilter` and `syncParenteraliaToFilter` (through
+  `OrderContextState.map` in `App.fs`), which also drop the diluent, the components and the
+  scenarios, before the seed goes out.
+- **The argumentation.** The client writes the text into the held context (`Argue`, through `map`
+  and `ArgumentationPolicy`); it travels inside every later command. `SetArgumentationProperty` is
+  in the contract and handled by the server, but the client never sends it.
 
-The two machines decide by the old case a command stands for (`OrderContextCommand.replaced` in
-`Shared/Api.fs`):
+The two machines hold contexts, not commands:
 
-- `Dialog.waits`: a dialog command waits while a request runs; a filter or scenario pick is dropped.
-- `Dialog.carries` and `OrderPlanCart.replay`: a waiting pick, clear or reset goes out over the
-  context it was made on, a waiting step over the context answered. The rule exists because the old
-  pick carried its value in its context: sent over another context, the pick was lost.
-- `apply` in `OrderContextMachine.fs`: a filter command syncs the formulary and parenteralia pages.
+- the workbench holds the context last evaluated (`OrderContextWorkbench.Evaluated`), the plan the
+  plan last answered (`OrderPlanCart.Opened`);
+- the request under way and the dialog command waiting hold a context with the command
+  (`InFlight`, `Pending`), and the waiting command goes out over the context it was made on
+  (`Dialog.carries`, `OrderPlanCart.replay`);
+- the state before a reopen is kept whole, to be put back (`Kept`);
+- they decide by the old case a command stands for (`OrderContextCommand.replaced`): which command
+  waits, which carries its context, which syncs the formulary and parenteralia pages.
 
-A specific command carries its value in itself, as an index into a list. That changes the question
-the carries rule answers, which is the first decision below.
-
-The two machines also hold the same request logic twice: one request in flight, one dialog command
-waiting, an answer that lands only on its own request, and a reopen whose state is kept to be put
-back (`InFlight`, `Pending`, `landing`, `Kept`, `Reopen`, `Restore` in `OrderContextMachine.fs` and
-`OrderPlanMachine.fs`).
+The two machines also hold the same request logic twice (`InFlight`, `Pending`, `landing`, `Kept`,
+`Reopen`, `Restore` in `OrderContextMachine.fs` and `OrderPlanMachine.fs`).
 
 ## Decisions
 
-Taken on 2026-10-05, before the first step.
+1. **A dialog command made while a request runs.** Reopened on 2026-10-05, since the machines will
+   hold commands. Today the command waits and goes out over the context it was made on: in the
+   workbench the preview of the request under way, in the plan dialog the plan held. A client that
+   holds commands has no such context to send, except a preview it computes, which is a context the
+   client changed. The choices:
+   - **(a) as today:** the waiting command goes over the preview of the command under way. No
+     visible difference; the client still sends a context it changed, and a replay of the commands
+     gives the same order only where the preview equals the domain's answer.
+   - **(b) over the answer:** the waiting command goes over the answer to the command under way. Its
+     index then reads the list as answered, which can differ from the list the user saw: the pick
+     can land on another value. Unsafe for a dose.
+   - **(c) no command while a request runs:** the dialog greys its fields while a request runs, as
+     the filter fields do; `Pending`, `carries` and `replay` go. Every command goes over the last
+     answer, so a replay is exact. A visible difference: a second pick waits until the first is
+     answered, typically under a second.
 
-1. **A dialog command made while a request runs.** The user picks a value while the answer to an
-   earlier change is still under way. Today the pick waits and goes out over the context the user
-   picked it on. The two dialogs show that context differently:
-   - **the workbench** shows the context sent with the earlier change as the preview
-     (`Dialog.shown`), so the waiting pick includes the earlier change;
-   - **the plan dialog** shows the plan held while a `Navigate` runs (`OrderPlanState.meanwhile`,
-     read by `OrderContextView.dialog` without a preview), so the waiting pick goes over the context
-     without the earlier change, and its answer replaces that change.
-
-   Three choices:
-   - **(a) as today:** the pick goes over the context it was made on. Its index reads the list the
-     user saw. In the workbench the answer to the pick includes the earlier change; in the plan
-     dialog it does not, as now. No visible difference.
-   - **(b) over the context answered:** the pick goes over the newest context. Its index then reads
-     the list as the server answered it, which can differ from the list the user saw: the pick can
-     land on another value. A visible difference, and an unsafe one for a dose.
-   - **(c) dropped:** a dialog command made while a request runs is dropped, as a filter pick is,
-     and the dialog greys its fields meanwhile. `Pending` and `carries` go. A visible difference: a
-     quick second pick needs a second click.
-
-   Decided (user, 2026-10-05): (a) for a pick, a clear and a reset, since an index belongs to the
-   list it was read in; a step keeps going over the context answered, as it carries no index. The
-   rule then reads from the specific command itself, not from the old case. The plan dialog keeps
-   showing the plan held, so its waiting pick still replaces the earlier change; a preview there
-   would change what the user sees, and is not part of this plan. The one request stage of step 5
-   keeps each dialog's own view.
-2. **The preview.** `preview` in `Shared/Api.fs` shows a command while its request runs. Keep it:
-   without it the field shows the old value until the answer lands. Decided (user, 2026-10-05):
-   keep.
-3. **The seeds and the patient change.** Two new wire commands, each answered by the domain:
-   - `ChangePatient of Patient`: the held context evaluated for the new patient, its filter kept.
-   - `SeedFilter of names`: a filter set by names, from the url, the formulary page or a reload,
-     then evaluated. The names are what the url and the formulary page hold; an index has no list to
-     read from there.
+   Decided (user, 2026-10-05): (c).
+2. **The preview.** `preview` in `Shared/Api.fs` shows a command while its request runs. Decided
+   (user, 2026-10-05): keep. It is display only; the client does not send it.
+3. **The seeds and the patient change.** Decided (user, 2026-10-05):
+   - `ChangePatient`: the context evaluated for the patient the command carries, its filter kept.
+   - `SeedFilter`: the five choices by name (indication, medication, route, form, dose type) and
+     where they come from: the url, the emergency or continuous list, the formulary page, the
+     parenteralia page, or a resource reload. The domain applies them with the rule of their
+     source, as the client does today: the formulary and parenteralia page rules of `FilterSync`
+     move into the domain, the url's medication is written over the workbench as `setMedication`
+     does, an emergency or continuous list item's over an empty filter, and a reload changes
+     nothing. The same rules go into the preview of `SeedFilter`, so the synced
+     choices show at once, as today. The pages' own selections, kept in step with the workbench by
+     `syncFilterToFormulary` and `syncFilterToParenteralia`, stay in the client: they change no
+     order context.
    - The empty workbench, at an open and after a prescription, is `ClearAllFilterProperty`, which
-     exists.
-
-   Decided (user, 2026-10-05): as listed.
+     exists and clears the argumentation as the reset does now.
+4. **The machines hold commands instead of contexts.** Decided in [the previous
+   plan](1224-the-domain-processes-the-commands.md#out-of-scope). The client holds the last answer
+   as it came in, never a context it changed, and the commands under way. What it shows is the last
+   answer, with the preview of the command under way. Each command goes out with the last answer
+   as its context, since the server keeps no state between requests.
 
 ## Steps
 
 One pull request per step, one open at a time, each within the 200-line limit. Every code step
 outside the client views starts as a script with its tests, unless the user asks for source.
 
-1. **The fallbacks go** from `Views/Prescribe.fs`, `Views/Order.fs` and `Views/NutritionSlot.fs`
-   (decided by the user, 2026-10-05). A field searches the list it was drawn from in the same
-   render, so the lookup of a picked value fails only on a bug, such as a value written otherwise
-   than its list. Then the client writes a warning to the console, sends nothing and keeps what it
-   holds; the next answer is shown as it comes in. Nothing is set before the lookup succeeds: not
-   the loading mark of the filter field, the loader on the order, the picks, nor the state of a
-   reopen.
-   The reopen in `Views/Order.fs` that finds no field at all, and goes as `ReopenOrderScenario`
-   today, goes too; it ends as a list closed without a pick.
-2. **The seed and patient commands.** `ChangePatient` and `SeedFilter` on the wire, mapped to domain
-   cases; the domain sets the filter by names with the existing cascade. The order context machine
-   sends them for `PatientChanged`, `Seed` and a reload, and `ClearAllFilterProperty` for `Open` and
-   `Reset`. Tests: each new case answers as `UpdateOrderContext` on the context the client built
-   today, on the fixtures.
-3. **The old wire cases go.** `UpdateOrderContext`, `SelectOrderScenario`, `UpdateOrderScenario`,
-   `ReopenOrderScenario` and `SetArgumentationProperty` leave `OrderContextCommand`, with their
-   mapping and their server branches. The domain keeps its own old cases, which MCP and
-   `OrderPlan.fs` use.
-4. **The machines decide by the specific command.** `replaced` goes; `Dialog.waits`, the carries
-   rule of decision 1 and the filter sync read the specific command directly. Client.Core tests for
-   each rule.
-5. **One request stage.** The request logic both machines hold twice moves into one module in
-   Client.Core: in flight, waiting, landing, and the reopen with its state kept. Each machine keeps
-   its own workbench or plan stage, and its own view of a request under way: the preview in the
-   workbench, the plan held in the plan dialog. Client.Core tests: the existing machine tests pass
-   unchanged. Two pull requests if needed for size.
+1. **The fallbacks go** (landed, [#1315](https://github.com/informedica/GenPRES/pull/1315)). A
+   value a field does not offer is written to the console and not sent; nothing is set before the
+   lookup succeeds.
+2. **The seed and patient commands, domain side.** `ChangePatient` and `SeedFilter` on the wire and
+   as domain cases, mapped one to one; the seed rules of decision 3 in the domain and in the
+   preview. `PlanContext.resolvePick` treats both as it does a filter pick: applied to the context
+   as sent, then looked up with the refusal check of `UpdateOrderContext`. Tests on the fixtures,
+   with no rules loaded: each new case answers as `UpdateOrderContext` on the context the client
+   builds today, for every source; the domain's seed rules and the preview's agree.
+3. **The seed and patient commands, client side.** The order context machine sends `ChangePatient`
+   for a patient change, `SeedFilter` for every seed and `ClearAllFilterProperty` for an open and a
+   reset; `App.fs` sends the page's choices instead of writing them into the held context, and
+   `syncFormularyToFilter` and `syncParenteraliaToFilter` leave the client. Client.Core tests for
+   each intent.
+4. **The argumentation as a command.** The client sends `SetArgumentationProperty` instead of
+   writing the text into the held context; the server writes it, as it does now. The command goes
+   when the field is left (decided by the user, 2026-10-05); until then the text shows as the
+   field's own typing. `Argue` and its `map` go from both machines.
+5. **The machines hold commands.** `InFlight` holds the command under way; the workbench and the
+   plan hold the last answer; the view is the last answer with the preview of the command under
+   way. The dialog's fields are greyed while a request runs, so `Pending`, `Dialog.carries` and
+   `OrderPlanCart.replay` go; `map` goes, and `replaced` goes, since the machines read the specific
+   command. The reopen keeps the answer it started from, not a whole state. Client.Core tests: the
+   machine tests rewritten over commands, their cases kept. Two pull requests if needed for size.
+6. **The old wire cases go.** `UpdateOrderContext`, `SelectOrderScenario`, `UpdateOrderScenario` and
+   `ReopenOrderScenario` leave `OrderContextCommand`, with their mapping and their server branches.
+   The domain keeps its own old cases, which MCP and `OrderPlan.fs` use.
+7. **One request stage.** Weighed after step 5: if the two machines still hold the same request
+   logic, it moves into one module in Client.Core; if step 5 leaves little to share, this step is
+   dropped.
 
 ## Verification, per step
 
-- **Steps 2 to 5 in code:** `dotnet run servertests`; `scripts/CheckDependencyRule.fsx`; benchmark
+- **Steps 2 to 7 in code:** `dotnet run servertests`; `scripts/CheckDependencyRule.fsx`; benchmark
   build; Fable and `npx vite build`.
 - **Every code step:** the user's browser check with the trail: the filter, the components, a
-  scenario choice, picks and clears with picks kept, a quick second pick while a request runs, a
-  patient change during a request, the url medication, a resource reload, the plan dialog and the
-  nutrition slot.
+  scenario choice, picks and clears with picks kept, a second pick while a request runs, a patient
+  change during a request, the url medication, an emergency list item, a formulary and a
+  parenteralia page change, a resource reload, the argumentation, the plan dialog and the nutrition
+  slot.
 
 ## Out of scope
 
 - The picks on the order scenario, so a clear carries none and the plan dialog has them too: a
   visible change for the plan dialog, for a decision of its own.
+- A nutrition order working as a prescribing order context does: worked on outside the plan and
+  entering it only once confirmed, so one order context is the one worked on and the plan holds the
+  contexts confirmed (user, 2026-10-05). It belongs to
+  [#495](https://github.com/informedica/GenPRES/issues/495), under the order plan group (G7). The
+  machines this plan leaves over commands carry it: the nutrition slot then sends its commands to
+  the order context being worked on, as the prescribing page does.
 - The MCP tools taking the specific commands: a separate capability.
-- Replay of a trail back into the machines.
+- Replay of a trail back into the machines: this plan makes it possible, it does not build it.
