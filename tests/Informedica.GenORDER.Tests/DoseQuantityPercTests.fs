@@ -33,6 +33,16 @@ module Fixture =
         ord |> run (fun o -> ChangeProperty(o, SetOrderableDoseQuantityPerc p))
 
 
+    // the percentages of 10..100 the pipeline refuses to set on an order
+    let refused ord =
+        [ 10..10..100 ]
+        |> List.filter (fun p ->
+            ChangeProperty(ord, SetOrderableDoseQuantityPerc p)
+            |> OrderProcessor.processPipeline OrderLogging.noOp
+            |> Result.isError
+        )
+
+
     // The per-kg limits of a component belong to its orderable quantity, the composition, not to its
     // dose: a part of the orderable may be given. So each component dose limit becomes a solution limit
     // on the component, made absolute by the weight as Medication.create does for a solution rule.
@@ -191,6 +201,44 @@ module Fixture =
              |> run (fun o -> ChangeProperty(o, SetMedianOrderableDoseRate)))
 
 
+    // the composed TPN with the time solved to the minimum of its constraints, as a reset and picking
+    // the composition again leaves it
+    let timeAtMin =
+        lazy
+            (composed.Value
+             |> Order.OrderPropertyChange.proc [ ScheduleTime OrderVariable.Time.setMinValue ]
+             |> run SolveOrder)
+
+
+    // the order with a rate that steps by n mL/uur: a larger step leaves fewer rates that fit a time
+    let withRateIncr n (ord: Order) =
+        let incr =
+            n
+            |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour)
+            |> Variable.ValueRange.Increment.create
+            |> Some
+
+        let setIncr (dos: Dose) =
+            let ovar = dos.Rate |> OrderVariable.Rate.toOrdVar
+
+            { dos with
+                Rate =
+                    { ovar with DefinedConstraints = { ovar.DefinedConstraints with Incr = incr } }
+                    |> OrderVariable.applyDefinedConstraints
+                    |> Rate
+            }
+
+        ord |> Order.OrderPropertyChange.proc [ OrderableDose setIncr ]
+
+
+    // the composed TPN with a rate step of n mL/uur, the rate set by the user after a first move
+    let ratedWithIncr n =
+        composed.Value
+        |> withRateIncr n
+        |> perc 50
+        |> run (fun o -> ChangeProperty(o, SetMedianOrderableDoseRate))
+
+
 open Fixture
 
 
@@ -214,23 +262,15 @@ let orderableValue (ord: Order) =
     |> valueOf
 
 
+// the variable of the time of the schedule, when it has one
+let timeVar (ord: Order) =
+    ord.Schedule
+    |> Order.Schedule.getTime
+    |> Option.map (fun tme -> (tme |> OrderVariable.Time.toOrdVar).Variable)
+
+
 // the value of the time of the schedule, when it holds one
-let timeValue (ord: Order) =
-    ord.Schedule
-    |> Order.Schedule.getTime
-    |> Option.bind (fun tme -> (tme |> OrderVariable.Time.toOrdVar).Variable |> valueOf)
-
-
-// the max of the time of the schedule, when it has one
-let timeMax (ord: Order) =
-    ord.Schedule
-    |> Order.Schedule.getTime
-    |> Option.bind (fun tme ->
-        (tme |> OrderVariable.Time.toOrdVar).Variable
-        |> Variable.getValueRange
-        |> Variable.ValueRange.getMax
-        |> Option.map (Variable.ValueRange.Maximum.toValueUnit >> ValueUnit.getValue)
-    )
+let timeValue = timeVar >> Option.bind valueOf
 
 
 // the value of the orderable dose rate, when it holds one
@@ -360,12 +400,11 @@ let tests =
             }
 
             for p in percentages do
-                test $"a move to %i{p}%% after the user set the rate keeps the time at or below that time" {
+                test $"a move to %i{p}%% after the user set the rate gives the time its constraints back" {
                     rated.Value
                     |> perc p
-                    |> timeMax
-                    |> Option.map (fun tme -> tme <= (rated.Value |> timeValue |> Option.get))
-                    |> Expect.equal "the time should not exceed the time the rate gave" (Some true)
+                    |> timeVar
+                    |> Expect.equal "the time should be that of a first move" (composed.Value |> perc p |> timeVar)
                 }
 
                 test $"a move to %i{p}%% after the user set the rate keeps the order within its constraints" {
@@ -392,6 +431,60 @@ let tests =
                 |> List.map (fun p -> rated.Value |> perc p |> value)
                 |> Expect.equal "should be the same" firstMoves
             }
+
+            test "the time fixture has the time solved to the minimum of its constraints" {
+                timeAtMin.Value
+                |> timeValue
+                |> Expect.equal "should be 20 hours" (Some [| 20N |])
+            }
+
+            test "no percentage is refused with the time solved to its minimum" {
+                timeAtMin.Value |> refused |> Expect.isEmpty "every percentage should be set"
+            }
+
+            test "with the time solved to its minimum the dose quantities are those of a first move" {
+                let firstMoves = percentages |> List.map (fun p -> composed.Value |> perc p |> value)
+
+                percentages
+                |> List.map (fun p -> timeAtMin.Value |> perc p |> value)
+                |> Expect.equal "should be the same" firstMoves
+            }
+
+            for p in percentages do
+                test $"a move to %i{p}%% with the time solved to its minimum gives the time its constraints back" {
+                    timeAtMin.Value
+                    |> perc p
+                    |> timeVar
+                    |> Expect.equal "the time should be that of a first move" (composed.Value |> perc p |> timeVar)
+                }
+
+                test $"a move to %i{p}%% with the time solved to its minimum keeps the order within its constraints" {
+                    timeAtMin.Value
+                    |> perc p
+                    |> Order.checkConstraints false
+                    |> List.map (OrderVariable.toString false)
+                    |> Expect.isEmpty "no order variable should be outside its constraints"
+                }
+
+            // the rate is the dose quantity over a time of 20 to 24 hours, so a percentage is refused
+            // only when no multiple of the rate step lies in that range
+            for step in [ 1N; 2N; 5N ] do
+                test $"with a rate step of %A{step} mL/uur a percentage is refused only when no rate fits the time" {
+                    let noRateFits p =
+                        match composed.Value |> perc p |> value with
+                        | Some [| qty |] ->
+                            // the first whole number of steps at or above the lowest rate
+                            let steps = qty / 24N / step
+                            let whole = steps.Numerator / steps.Denominator |> BigRational.FromBigInt
+                            let lowest = if whole = steps then whole else whole + 1N
+
+                            lowest * step > qty / 20N
+                        | _ -> false
+
+                    ratedWithIncr step
+                    |> refused
+                    |> Expect.equal "should be the percentages without a rate" (percentages |> List.filter noRateFits)
+                }
 
             test "the command of the order context sets the dose of its one scenario at the percentage" {
                 let ctx =
