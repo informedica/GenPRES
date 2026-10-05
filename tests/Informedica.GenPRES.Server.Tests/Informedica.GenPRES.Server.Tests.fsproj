@@ -23,6 +23,7 @@
     <Compile Include="OrderContextSwitchTests.fs" />
     <Compile Include="OrderContextCommandTests.fs" />
     <Compile Include="FilterAgreementTests.fs" />
+    <Compile Include="OrderValueAgreementTests.fs" />
     <Compile Include="OrderPlanSwitchTests.fs" />
     <Compile Include="SessionStoreTests.fs" />
     <Compile Include="SessionWritesTests.fs" />

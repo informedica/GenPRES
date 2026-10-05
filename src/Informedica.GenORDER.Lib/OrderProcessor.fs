@@ -11,6 +11,10 @@ module OrderProcessor =
     module Time = OrderVariable.Time
     module Rate = OrderVariable.Rate
     module Frequency = OrderVariable.Frequency
+    module PerTime = OrderVariable.PerTime
+    module QuantityAdjust = OrderVariable.QuantityAdjust
+    module PerTimeAdjust = OrderVariable.PerTimeAdjust
+    module RateAdjust = OrderVariable.RateAdjust
     module Dose = Orderable.Dose
     module Increment = Informedica.GenSolver.Lib.Variable.ValueRange.Increment
     module Name = Informedica.GenSolver.Lib.Variable.Name
@@ -228,6 +232,10 @@ module OrderProcessor =
         let setCmpOrbQty cmp step =
             OrderPropertyChange.proc [ ComponentOrderableQuantity(cmp, step) ]
 
+        let set change = OrderPropertyChange.proc [ change ]
+
+        let setItmDose cmp itm step = OrderPropertyChange.proc [ ItemDose(cmp, itm, step) ]
+
         match cmd with
         // Frequency
         | DecreaseScheduleFrequency -> ord |> orderPropertyIncrOrDecrFrequency Frequency.decrease
@@ -274,6 +282,56 @@ module OrderProcessor =
         | ComponentInStock _ ->
             $"{cmd} not implemented" |> Events.OrderScenario |> Logging.logWarning logger
             ord
+        // the nth value of one variable
+        | SetNthScheduleFrequency n -> ord |> setFreq (Frequency.setNthValue n)
+        | SetNthScheduleTime n -> ord |> set (ScheduleTime(Time.setNthValue n))
+        | SetNthOrderableQuantity n -> ord |> set (OrderableQuantity(Quantity.setNthValue n))
+        | SetNthOrderableDoseQuantity n -> ord |> setDose (Dose.applyToQuantity (Quantity.setNthValue n))
+        | SetNthOrderableDoseRate n -> ord |> setDose (Dose.applyToRate (Rate.setNthValue n))
+        | SetNthComponentOrderableQuantity(cmp, n) -> ord |> setCmpOrbQty cmp (Quantity.setNthValue n)
+        | SetNthComponentDoseQuantityAdjust(cmp, n) ->
+            ord
+            |> set (ComponentDose(cmp, Dose.applyToQuantityAdjust (QuantityAdjust.setNthValue n)))
+        | SetNthItemDoseQuantity(cmp, itm, n) ->
+            ord |> setItmDose cmp itm (Dose.applyToQuantity (Quantity.setNthValue n))
+        | SetNthItemDoseQuantityAdjust(cmp, itm, n) ->
+            ord
+            |> setItmDose cmp itm (Dose.applyToQuantityAdjust (QuantityAdjust.setNthValue n))
+        | SetNthItemDosePerTime(cmp, itm, n) -> ord |> setItmDose cmp itm (Dose.applyToPerTime (PerTime.setNthValue n))
+        | SetNthItemDosePerTimeAdjust(cmp, itm, n) ->
+            ord
+            |> setItmDose cmp itm (Dose.applyToPerTimeAdjust (PerTimeAdjust.setNthValue n))
+        | SetNthItemDoseRate(cmp, itm, n) -> ord |> setItmDose cmp itm (Dose.applyToRate (Rate.setNthValue n))
+        | SetNthItemDoseRateAdjust(cmp, itm, n) ->
+            ord |> setItmDose cmp itm (Dose.applyToRateAdjust (RateAdjust.setNthValue n))
+        | SetNthItemComponentConcentration(cmp, itm, n) ->
+            ord |> set (ItemComponentConcentration(cmp, itm, Concentration.setNthValue n))
+        | SetNthItemOrderableConcentration(cmp, itm, n) ->
+            ord |> set (ItemOrderableConcentration(cmp, itm, Concentration.setNthValue n))
+        | SetNthItemOrderableQuantity(cmp, itm, n) ->
+            ord |> set (ItemOrderableQuantity(cmp, itm, Quantity.setNthValue n))
+        // one variable cleared
+        | ClearScheduleFrequency -> ord |> setFreq Frequency.clear
+        | ClearScheduleTime -> ord |> set (ScheduleTime Time.clear)
+        | ClearOrderableQuantity -> ord |> set (OrderableQuantity Quantity.clear)
+        | ClearOrderableDoseQuantity -> ord |> setDose (Dose.applyToQuantity Quantity.clear)
+        | ClearOrderableDoseRate -> ord |> setDose (Dose.applyToRate Rate.clear)
+        | ClearComponentOrderableQuantity cmp -> ord |> setCmpOrbQty cmp Quantity.clear
+        | ClearComponentDoseQuantityAdjust cmp ->
+            ord |> set (ComponentDose(cmp, Dose.applyToQuantityAdjust QuantityAdjust.clear))
+        | ClearItemDoseQuantity(cmp, itm) -> ord |> setItmDose cmp itm (Dose.applyToQuantity Quantity.clear)
+        | ClearItemDoseQuantityAdjust(cmp, itm) ->
+            ord |> setItmDose cmp itm (Dose.applyToQuantityAdjust QuantityAdjust.clear)
+        | ClearItemDosePerTime(cmp, itm) -> ord |> setItmDose cmp itm (Dose.applyToPerTime PerTime.clear)
+        | ClearItemDosePerTimeAdjust(cmp, itm) ->
+            ord |> setItmDose cmp itm (Dose.applyToPerTimeAdjust PerTimeAdjust.clear)
+        | ClearItemDoseRate(cmp, itm) -> ord |> setItmDose cmp itm (Dose.applyToRate Rate.clear)
+        | ClearItemDoseRateAdjust(cmp, itm) -> ord |> setItmDose cmp itm (Dose.applyToRateAdjust RateAdjust.clear)
+        | ClearItemComponentConcentration(cmp, itm) ->
+            ord |> set (ItemComponentConcentration(cmp, itm, Concentration.clear))
+        | ClearItemOrderableConcentration(cmp, itm) ->
+            ord |> set (ItemOrderableConcentration(cmp, itm, Concentration.clear))
+        | ClearItemOrderableQuantity(cmp, itm) -> ord |> set (ItemOrderableQuantity(cmp, itm, Quantity.clear))
 
 
     let processClearedFrequency ord =
