@@ -2198,6 +2198,170 @@ module Models =
                 ctx |> applyChange DoseType dt.IsNone (fun f -> { f with DoseType = dt })
 
 
+        /// The order variable a command addresses: a level, its property, and the names that
+        /// locate a component or an item.
+        [<RequireQualifiedAccess>]
+        type Target =
+            | Schedule of ScheduleProperty
+            | Orderable of OrderableProperty
+            | Component of cmp: string * ComponentProperty
+            | Item of cmp: string * itm: string * ItemProperty
+
+
+        /// The order variables a command addresses, read and changed per level.
+        module Target =
+
+            /// The variable of an item's property.
+            let itemVar prop (itm: Item) =
+                match prop with
+                | ItemProperty.DoseQuantity -> itm.Dose.Quantity
+                | ItemProperty.DoseQuantityAdjust -> itm.Dose.QuantityAdjust
+                | ItemProperty.DosePerTime -> itm.Dose.PerTime
+                | ItemProperty.DosePerTimeAdjust -> itm.Dose.PerTimeAdjust
+                | ItemProperty.DoseRate -> itm.Dose.Rate
+                | ItemProperty.DoseRateAdjust -> itm.Dose.RateAdjust
+                | ItemProperty.ComponentConcentration -> itm.ComponentConcentration
+                | ItemProperty.OrderableConcentration -> itm.OrderableConcentration
+                | ItemProperty.OrderableQuantity -> itm.OrderableQuantity
+
+
+            /// An item with the variable of its property changed.
+            let mapItemVar prop f (itm: Item) =
+                let dose (d: Dose) = { itm with Dose = d }
+
+                match prop with
+                | ItemProperty.DoseQuantity -> dose { itm.Dose with Quantity = f itm.Dose.Quantity }
+                | ItemProperty.DoseQuantityAdjust -> dose { itm.Dose with QuantityAdjust = f itm.Dose.QuantityAdjust }
+                | ItemProperty.DosePerTime -> dose { itm.Dose with PerTime = f itm.Dose.PerTime }
+                | ItemProperty.DosePerTimeAdjust -> dose { itm.Dose with PerTimeAdjust = f itm.Dose.PerTimeAdjust }
+                | ItemProperty.DoseRate -> dose { itm.Dose with Rate = f itm.Dose.Rate }
+                | ItemProperty.DoseRateAdjust -> dose { itm.Dose with RateAdjust = f itm.Dose.RateAdjust }
+                | ItemProperty.ComponentConcentration ->
+                    { itm with ComponentConcentration = f itm.ComponentConcentration }
+                | ItemProperty.OrderableConcentration ->
+                    { itm with OrderableConcentration = f itm.OrderableConcentration }
+                | ItemProperty.OrderableQuantity -> { itm with OrderableQuantity = f itm.OrderableQuantity }
+
+
+            /// The variable of a component's property.
+            let componentVar prop (cmp: Component) =
+                match prop with
+                | ComponentProperty.OrderableQuantity -> cmp.OrderableQuantity
+                | ComponentProperty.DoseQuantityAdjust -> cmp.Dose.QuantityAdjust
+
+
+            /// A component with the variable of its property changed.
+            let mapComponentVar prop f (cmp: Component) =
+                match prop with
+                | ComponentProperty.OrderableQuantity -> { cmp with OrderableQuantity = f cmp.OrderableQuantity }
+                | ComponentProperty.DoseQuantityAdjust ->
+                    { cmp with Dose = { cmp.Dose with QuantityAdjust = f cmp.Dose.QuantityAdjust } }
+
+
+            /// The variable the target addresses in the order; None when the order holds no such
+            /// component or item.
+            let tryGet target (ord: Order) =
+                let tryComponent cmp =
+                    ord.Orderable.Components |> Array.tryFind (fun c -> c.Name = cmp)
+
+                match target with
+                | Target.Schedule ScheduleProperty.Frequency -> Some ord.Schedule.Frequency
+                | Target.Schedule ScheduleProperty.Time -> Some ord.Schedule.Time
+                | Target.Orderable OrderableProperty.Quantity -> Some ord.Orderable.OrderableQuantity
+                | Target.Orderable OrderableProperty.DoseQuantity -> Some ord.Orderable.Dose.Quantity
+                | Target.Orderable OrderableProperty.DoseRate -> Some ord.Orderable.Dose.Rate
+                | Target.Component(cmp, prop) -> tryComponent cmp |> Option.map (componentVar prop)
+                // an item in any component of the name, since a diluent can carry the name of a
+                // medication component, and map changes them all
+                | Target.Item(cmp, itm, prop) ->
+                    ord.Orderable.Components
+                    |> Array.filter (fun c -> c.Name = cmp)
+                    |> Array.tryPick (_.Items >> Array.tryFind (fun i -> i.Name = itm))
+                    |> Option.map (itemVar prop)
+
+
+            /// The order with the variable the target addresses changed; the order as it is when it
+            /// holds no such variable. A component concentration is changed in the first component
+            /// as well as the one named, as the dose dialog changes it.
+            let map target f (ord: Order) =
+                let orderable (o: Orderable) = { ord with Orderable = o }
+
+                let components g =
+                    orderable { ord.Orderable with Components = ord.Orderable.Components |> Array.mapi g }
+
+                match target with
+                | _ when ord |> tryGet target |> Option.isNone -> ord
+                | Target.Schedule ScheduleProperty.Frequency ->
+                    { ord with Schedule = { ord.Schedule with Frequency = f ord.Schedule.Frequency } }
+                | Target.Schedule ScheduleProperty.Time ->
+                    { ord with Schedule = { ord.Schedule with Time = f ord.Schedule.Time } }
+                | Target.Orderable OrderableProperty.Quantity ->
+                    orderable { ord.Orderable with OrderableQuantity = f ord.Orderable.OrderableQuantity }
+                | Target.Orderable OrderableProperty.DoseQuantity ->
+                    orderable
+                        { ord.Orderable with
+                            Dose = { ord.Orderable.Dose with Quantity = f ord.Orderable.Dose.Quantity }
+                        }
+                | Target.Orderable OrderableProperty.DoseRate ->
+                    orderable { ord.Orderable with Dose = { ord.Orderable.Dose with Rate = f ord.Orderable.Dose.Rate } }
+                | Target.Component(cmp, prop) ->
+                    components (fun _ c -> if c.Name = cmp then c |> mapComponentVar prop f else c)
+                | Target.Item(cmp, itm, prop) ->
+                    let holds i (c: Component) =
+                        c.Name = cmp || (prop = ItemProperty.ComponentConcentration && i = 0)
+
+                    components (fun i c ->
+                        if holds i c then
+                            { c with
+                                Items =
+                                    c.Items
+                                    |> Array.map (fun it -> if it.Name = itm then it |> mapItemVar prop f else it)
+                            }
+                        else
+                            c
+                    )
+
+
+        /// What a user picks from: a filter field, the diluents, the components, the scenarios, or
+        /// the values of an order variable.
+        [<RequireQualifiedAccess>]
+        type Options =
+            | Filter of FilterField
+            | Diluents
+            | Components
+            | Scenarios
+            | Variable of Target
+
+
+        /// The keys of the values a variable offers to pick from.
+        let values (ovar: OrderVariable) =
+            ovar.Variable.Vals
+            |> Option.map _.Value
+            |> Option.defaultValue [||]
+            |> Array.map fst
+
+
+        /// How many options a user picks from; 0 for a variable that offers no list.
+        let count options (ctx: OrderContext) =
+            match options with
+            | Options.Filter Indication -> ctx.Filter.Indications.Length
+            | Options.Filter Generic -> ctx.Filter.Generics.Length
+            | Options.Filter Route -> ctx.Filter.Routes.Length
+            | Options.Filter Form -> ctx.Filter.Forms.Length
+            | Options.Filter DoseType -> ctx.Filter.DoseTypes.Length
+            | Options.Diluents -> ctx.Filter.Diluents.Length
+            | Options.Components -> ctx.Filter.Components.Length
+            | Options.Scenarios -> ctx.Scenarios.Length
+            | Options.Variable target ->
+                match ctx.Scenarios with
+                | [| sc |] ->
+                    sc.Order
+                    |> Target.tryGet target
+                    |> Option.map (values >> Array.length)
+                    |> Option.defaultValue 0
+                | _ -> 0
+
+
     /// Conversions between the one severity and the two shapes the wire carries it in.
     [<RequireQualifiedAccess>]
     module Severity =
