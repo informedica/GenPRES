@@ -357,6 +357,20 @@ module OrderContext =
         | SetMinComponentQuantityProperty of OrderContext * cmp: string
         | SetMaxComponentQuantityProperty of OrderContext * cmp: string
         | SetMedianComponentQuantityProperty of OrderContext * cmp: string
+        /// A filter field set to its nth option, counted from 0, or emptied with None; the rules
+        /// looked up again.
+        | ChangeFilter of OrderContext * OrderCategory * FilterField * nth: int option
+        /// The components at these positions of the options; the rules looked up again.
+        | SetNthComponents of OrderContext * nth: int[]
+        /// The whole filter emptied, the patient kept; the rules looked up again.
+        | ClearAllFilter of OrderContext
+        /// The nth scenario chosen, counted from 0, and its order calculated.
+        | SelectNthOrderScenario of OrderContext * nth: int
+        /// One order value set to its nth value by the property command, the order solved.
+        | SetNthOrderValue of OrderContext * ChangePropertyCommand
+        /// One order value cleared by the property command, the order reopened with the picks
+        /// made before it.
+        | ClearOrderValue of OrderContext * ChangePropertyCommand * picks: string list
 
     module Command =
 
@@ -394,6 +408,12 @@ module OrderContext =
             | SetMinComponentQuantityProperty(ctx, _) -> ctx
             | SetMaxComponentQuantityProperty(ctx, _) -> ctx
             | SetMedianComponentQuantityProperty(ctx, _) -> ctx
+            | ChangeFilter(ctx, _, _, _) -> ctx
+            | SetNthComponents(ctx, _) -> ctx
+            | ClearAllFilter ctx -> ctx
+            | SelectNthOrderScenario(ctx, _) -> ctx
+            | SetNthOrderValue(ctx, _) -> ctx
+            | ClearOrderValue(ctx, _, _) -> ctx
 
 
         let toString (cmd: Command) =
@@ -431,6 +451,12 @@ module OrderContext =
             | SetMinComponentQuantityProperty(_, cmp) -> $"SetMinComponentQuantityProperty cmp={cmp}"
             | SetMaxComponentQuantityProperty(_, cmp) -> $"SetMaxComponentQuantityProperty cmp={cmp}"
             | SetMedianComponentQuantityProperty(_, cmp) -> $"SetMedianComponentQuantityProperty cmp={cmp}"
+            | ChangeFilter(_, _, field, n) -> $"ChangeFilter %A{field} nth=%A{n}"
+            | SetNthComponents(_, ns) -> $"SetNthComponents nth=%A{ns}"
+            | ClearAllFilter _ -> "ClearAllFilter"
+            | SelectNthOrderScenario(_, n) -> $"SelectNthOrderScenario nth=%i{n}"
+            | SetNthOrderValue(_, change) -> $"SetNthOrderValue %A{change}"
+            | ClearOrderValue(_, change, picks) -> $"ClearOrderValue %A{change} %i{picks.Length} picks"
 
 
     module Helpers =
@@ -1176,6 +1202,14 @@ Scenarios: {scenarios}
     let reopenScenarioOrder logger picks ctx = ctx |> processScenarioOrder logger (fun o -> Reopen(o, picks))
 
 
+    /// The order of the one scenario changed by the property command, not solved.
+    let changeOrder logger change ctx =
+        ctx
+        |> applyToOrderScenario (fun sc ->
+            { sc with Order = sc.Order |> OrderProcessor.processChangeProperty logger change }
+        )
+
+
     /// The message a refusal has been until now, kept for the message-list contract.
     let noDoseRulesMessage = "Geen doseerregels gevonden voor het geselecteerde filter"
 
@@ -1276,7 +1310,7 @@ Scenarios: {scenarios}
 
     /// The command evaluated, as an outcome. The two commands that look the rules up can be
     /// refused; every other command is evaluated as it is.
-    let evaluateOutcome (start: System.DateTime) logger provider cmd : Result<Outcome<Command>, Message list> =
+    let rec evaluateOutcome (start: System.DateTime) logger provider cmd : Result<Outcome<Command>, Message list> =
         // Helper to process property commands when there's exactly one scenario with an order
         let processPropertyCmd ctx propCmd wrapResult =
             match ctx.Scenarios |> Array.tryExactlyOne with
@@ -1289,6 +1323,14 @@ Scenarios: {scenarios}
             | None ->
                 // No single scenario, return ctx unchanged
                 wrapResult ctx |> Evaluated |> Ok
+
+        // the context as a specific command changed it, evaluated as today's command and answered
+        // as the specific command; an index past the options is an error
+        let evaluateAs today wrap changed =
+            changed
+            |> Result.mapError (fun e -> [ ErrorMsg(e, None) ])
+            |> Result.bind (today >> evaluateOutcome start logger provider)
+            |> Result.map (Outcome.map (Command.get >> wrap))
 
         match cmd with
         | UpdateOrderContext ctx ->
@@ -1399,6 +1441,25 @@ Scenarios: {scenarios}
                 ctx
                 (SetMedianComponentOrderableQuantity cmp)
                 (fun ctx -> SetMedianComponentQuantityProperty(ctx, cmp))
+        | ChangeFilter(ctx, category, field, n) ->
+            ctx
+            |> changeFilter category field n
+            |> evaluateAs UpdateOrderContext (fun ctx -> ChangeFilter(ctx, category, field, n))
+        | SetNthComponents(ctx, ns) ->
+            ctx
+            |> setNthComponents ns
+            |> evaluateAs UpdateOrderContext (fun ctx -> SetNthComponents(ctx, ns))
+        | ClearAllFilter ctx -> Ok(clearAll ctx) |> evaluateAs UpdateOrderContext ClearAllFilter
+        | SelectNthOrderScenario(ctx, n) ->
+            ctx
+            |> selectNthScenario n
+            |> evaluateAs SelectOrderScenario (fun ctx -> SelectNthOrderScenario(ctx, n))
+        | SetNthOrderValue(ctx, change) ->
+            Ok(ctx |> changeOrder logger change)
+            |> evaluateAs UpdateOrderScenario (fun ctx -> SetNthOrderValue(ctx, change))
+        | ClearOrderValue(ctx, change, picks) ->
+            Ok(ctx |> changeOrder logger change)
+            |> evaluateAs (fun ctx -> ReopenOrderScenario(ctx, picks)) (fun ctx -> ClearOrderValue(ctx, change, picks))
 
 
     /// The evaluate of the message-list contract, over the outcome: a refusal is the message
