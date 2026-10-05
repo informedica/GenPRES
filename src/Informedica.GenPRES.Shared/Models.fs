@@ -2271,9 +2271,12 @@ module Models =
                 | Target.Orderable OrderableProperty.DoseQuantity -> Some ord.Orderable.Dose.Quantity
                 | Target.Orderable OrderableProperty.DoseRate -> Some ord.Orderable.Dose.Rate
                 | Target.Component(cmp, prop) -> tryComponent cmp |> Option.map (componentVar prop)
+                // an item in any component of the name, since a diluent can carry the name of a
+                // medication component, and map changes them all
                 | Target.Item(cmp, itm, prop) ->
-                    tryComponent cmp
-                    |> Option.bind (_.Items >> Array.tryFind (fun i -> i.Name = itm))
+                    ord.Orderable.Components
+                    |> Array.filter (fun c -> c.Name = cmp)
+                    |> Array.tryPick (_.Items >> Array.tryFind (fun i -> i.Name = itm))
                     |> Option.map (itemVar prop)
 
 

@@ -291,6 +291,31 @@ let tests =
                             ord |> Ctx.Target.map target set |> Expect.equal "the order as it is" ord
                         }
 
+                    test "an item only in a later component of the same name" {
+                        let ord = Fixtures.all.Value[0] |> snd |> _.Scenarios[0].Order
+                        let first = ord.Orderable.Components[0]
+
+                        let later = { first with Items = [| { first.Items[0] with Name = "later" } |] }
+
+                        let ord: Shared.Types.Order =
+                            { ord with
+                                Orderable =
+                                    { ord.Orderable with
+                                        Components = Array.append ord.Orderable.Components [| later |]
+                                    }
+                            }
+
+                        let target = Target.Item(first.Name, "later", Shared.Types.ItemProperty.DoseQuantity)
+
+                        ord |> Ctx.Target.tryGet target |> Expect.isSome "the item found"
+
+                        ord
+                        |> Ctx.Target.map target (Shared.Models.Order.OrderVariable.setOvar None)
+                        |> Ctx.Target.tryGet target
+                        |> Option.map _.Variable.IsNonZeroPositive
+                        |> Expect.equal "the item cleared" (Some true)
+                    }
+
                     test "counts no values" {
                         Fixtures.all.Value[0]
                         |> snd
