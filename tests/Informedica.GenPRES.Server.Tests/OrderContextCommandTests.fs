@@ -726,6 +726,33 @@ let tests =
                         |> Expect.equal "the domain's case" (Some true)
                     }
 
+                    testAsync "a patient change reaches the port as the context evaluated for that patient" {
+                        let pat = { ctx.Patient with Department = Some "NEO" }
+                        let seen = ref None
+
+                        let port: ServerApi.OrderContextPort =
+                            {
+                                evaluate =
+                                    fun cmd pc ->
+                                        match cmd pc.Context with
+                                        | Informedica.GenOrder.Lib.OrderContext.ChangePatient(sent, p) ->
+                                            seen.Value <- Some(sent.Patient.Department, p.Department)
+                                        | _ -> ()
+
+                                        async { return Ok(Informedica.GenOrder.Lib.Types.Evaluated pc) }
+                            }
+
+                        let! answer =
+                            ServerApi.OrderContextCommand.processActive
+                                (env port)
+                                (Shared.Api.ActiveOrderContextCommand.ChangePatient pat, ctx)
+
+                        answer |> Result.isOk |> Expect.isTrue "evaluated"
+
+                        seen.Value
+                        |> Expect.equal "the context's patient is the new one" (Some(Some "NEO", Some "NEO"))
+                    }
+
                     testAsync "the argumentation is answered without asking the port" {
                         let seen = ref None
 

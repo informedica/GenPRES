@@ -97,37 +97,51 @@ outside the client views starts as a script with its tests, unless the user asks
 1. **The fallbacks go** (landed, [#1315](https://github.com/informedica/GenPRES/pull/1315)). A
    value a field does not offer is written to the console and not sent; nothing is set before the
    lookup succeeds.
-2. **The seed and patient commands, domain side.** `ChangePatient` and `SeedFilter` on the wire and
-   as domain cases, mapped one to one; the seed rules of decision 3 in the domain and in the
-   preview. `PlanContext.resolvePick` treats both as it does a filter pick: applied to the context
-   as sent, then looked up with the refusal check of `UpdateOrderContext`. Tests on the fixtures,
+2. **The seed and patient commands, domain side.** The domain landed as
+   [#1317](https://github.com/informedica/GenPRES/pull/1317); Shared and the server follow.
+   `SeedFilter` on the wire as an order context command, `ChangePatient` as a command of its own
+   for the order context being worked on (`ActiveOrderContextCommand`), so a plan cannot carry a
+   patient change: a context in the plan keeps its patient. Both map one to one to the domain
+   cases; the seed rules of decision 3 in the domain and in the preview.
+   `PlanContext.resolveChange` treats both as it does a filter pick: applied to the context as
+   sent, then looked up with the refusal check of `UpdateOrderContext`. Tests on the fixtures,
    with no rules loaded: each new case answers as `UpdateOrderContext` on the context the client
    builds today, for every source; the domain's seed rules and the preview's agree.
-3. **The seed and patient commands, client side.** The order context machine sends `ChangePatient`
+3. **A context's patient is never rewritten.** An order context keeps the patient it was
+   evaluated for, and signing fixes the patient and the rest of the context; its order can still be
+   changed (user, 2026-10-05). The Session's age and the estimates that `Compute.bound` applies
+   (`Patient.aged`, `Patient.estimate`) then reach only a patient that comes in new: the plan's own
+   patient and the patient a `ChangePatient` carries. `OrderPlanCommand.patientsPlan` and
+   `OrderContextCommand.patients` stop applying them to the patient of a context a command carries.
+   Instead of being rewritten, a context of the plan sent with a command is checked against the
+   signed version the server stores, and refused when its patient or the rest of its context
+   differs. How a context that is new or changed since that version is checked is decided with the
+   user in this step. It changes what the server accepts.
+4. **The seed and patient commands, client side.** The order context machine sends `ChangePatient`
    for a patient change, `SeedFilter` for every seed and `ClearAllFilterProperty` for an open and a
    reset; `App.fs` sends the page's choices instead of writing them into the held context, and
    `syncFormularyToFilter` and `syncParenteraliaToFilter` leave the client. Client.Core tests for
    each intent.
-4. **The argumentation as a command.** The client sends `SetArgumentationProperty` instead of
+5. **The argumentation as a command.** The client sends `SetArgumentationProperty` instead of
    writing the text into the held context; the server writes it, as it does now. The command goes
    when the field is left (decided by the user, 2026-10-05); until then the text shows as the
    field's own typing. `Argue` and its `map` go from both machines.
-5. **The machines hold commands.** `InFlight` holds the command under way; the workbench and the
+6. **The machines hold commands.** `InFlight` holds the command under way; the workbench and the
    plan hold the last answer; the view is the last answer with the preview of the command under
    way. The dialog's fields are greyed while a request runs, so `Pending`, `Dialog.carries` and
    `OrderPlanCart.replay` go; `map` goes, and `replaced` goes, since the machines read the specific
    command. The reopen keeps the answer it started from, not a whole state. Client.Core tests: the
    machine tests rewritten over commands, their cases kept. Two pull requests if needed for size.
-6. **The old wire cases go.** `UpdateOrderContext`, `SelectOrderScenario`, `UpdateOrderScenario` and
+7. **The old wire cases go.** `UpdateOrderContext`, `SelectOrderScenario`, `UpdateOrderScenario` and
    `ReopenOrderScenario` leave `OrderContextCommand`, with their mapping and their server branches.
    The domain keeps its own old cases, which MCP and `OrderPlan.fs` use.
-7. **One request stage.** Weighed after step 5: if the two machines still hold the same request
-   logic, it moves into one module in Client.Core; if step 5 leaves little to share, this step is
+8. **One request stage.** Weighed after step 6: if the two machines still hold the same request
+   logic, it moves into one module in Client.Core; if step 6 leaves little to share, this step is
    dropped.
 
 ## Verification, per step
 
-- **Steps 2 to 7 in code:** `dotnet run servertests`; `scripts/CheckDependencyRule.fsx`; benchmark
+- **Steps 2 to 8 in code:** `dotnet run servertests`; `scripts/CheckDependencyRule.fsx`; benchmark
   build; Fable and `npx vite build`.
 - **Every code step:** the user's browser check with the trail: the filter, the components, a
   scenario choice, picks and clears with picks kept, a second pick while a request runs, a patient
