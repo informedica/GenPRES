@@ -76,6 +76,26 @@ let tests =
                 | other -> failtest $"%A{other}"
             }
 
+            test "a filter pick in the plan reads its index in the lists as sent, not as reconciled" {
+                // the rules offer none of the sent indications, so a reconcile first would leave
+                // nothing at index 0
+                let pc = PlanContext.create "c-1" OrderCategory.Drug pcmContext
+
+                pc
+                |> PlanContext.evaluateOutcome
+                    start
+                    OrderLogging.noOp
+                    (OrderPlanTests.NoRules())
+                    (fun () -> [||])
+                    (fun ctx -> OrderContext.ChangeFilter(ctx, OrderCategory.Drug, FilterField.Indication, Some 0))
+                |> function
+                    | Ok(Evaluated pc)
+                    | Ok(Refused(pc, _)) ->
+                        pc.Context.Filter.Indication
+                        |> Expect.equal "the first indication sent" (Some pcmContext.Filter.Indications[0])
+                    | Error e -> failtest $"%A{e}"
+            }
+
             test "a filter index past the options is an error" {
                 OrderContext.ChangeFilter(pcmContext, OrderCategory.Drug, FilterField.Route, Some 99)
                 |> evaluate

@@ -24,43 +24,6 @@ module Today =
         ord |> Order.Dto.toDto |> ServerApi.Mappers.Order.mapFromOrderToShared items
 
 
-    /// The property commands for a wire target: the nth value and the clear, as the server will map
-    /// the wire's specific commands.
-    let toCommands (t: Ctx.Target) =
-        match t with
-        | Ctx.Target.Schedule Shared.Types.ScheduleProperty.Frequency -> SetNthScheduleFrequency, ClearScheduleFrequency
-        | Ctx.Target.Schedule Shared.Types.ScheduleProperty.Time -> SetNthScheduleTime, ClearScheduleTime
-        | Ctx.Target.Orderable Shared.Types.OrderableProperty.Quantity ->
-            SetNthOrderableQuantity, ClearOrderableQuantity
-        | Ctx.Target.Orderable Shared.Types.OrderableProperty.DoseQuantity ->
-            SetNthOrderableDoseQuantity, ClearOrderableDoseQuantity
-        | Ctx.Target.Orderable Shared.Types.OrderableProperty.DoseRate ->
-            SetNthOrderableDoseRate, ClearOrderableDoseRate
-        | Ctx.Target.Component(c, Shared.Types.ComponentProperty.OrderableQuantity) ->
-            (fun n -> SetNthComponentOrderableQuantity(c, n)), ClearComponentOrderableQuantity c
-        | Ctx.Target.Component(c, Shared.Types.ComponentProperty.DoseQuantityAdjust) ->
-            (fun n -> SetNthComponentDoseQuantityAdjust(c, n)), ClearComponentDoseQuantityAdjust c
-        | Ctx.Target.Item(c, i, p) ->
-            match p with
-            | Shared.Types.ItemProperty.DoseQuantity ->
-                (fun n -> SetNthItemDoseQuantity(c, i, n)), ClearItemDoseQuantity(c, i)
-            | Shared.Types.ItemProperty.DoseQuantityAdjust ->
-                (fun n -> SetNthItemDoseQuantityAdjust(c, i, n)), ClearItemDoseQuantityAdjust(c, i)
-            | Shared.Types.ItemProperty.DosePerTime ->
-                (fun n -> SetNthItemDosePerTime(c, i, n)), ClearItemDosePerTime(c, i)
-            | Shared.Types.ItemProperty.DosePerTimeAdjust ->
-                (fun n -> SetNthItemDosePerTimeAdjust(c, i, n)), ClearItemDosePerTimeAdjust(c, i)
-            | Shared.Types.ItemProperty.DoseRate -> (fun n -> SetNthItemDoseRate(c, i, n)), ClearItemDoseRate(c, i)
-            | Shared.Types.ItemProperty.DoseRateAdjust ->
-                (fun n -> SetNthItemDoseRateAdjust(c, i, n)), ClearItemDoseRateAdjust(c, i)
-            | Shared.Types.ItemProperty.ComponentConcentration ->
-                (fun n -> SetNthItemComponentConcentration(c, i, n)), ClearItemComponentConcentration(c, i)
-            | Shared.Types.ItemProperty.OrderableConcentration ->
-                (fun n -> SetNthItemOrderableConcentration(c, i, n)), ClearItemOrderableConcentration(c, i)
-            | Shared.Types.ItemProperty.OrderableQuantity ->
-                (fun n -> SetNthItemOrderableQuantity(c, i, n)), ClearItemOrderableQuantity(c, i)
-
-
     let private run ocmd =
         ocmd
         |> OrderProcessor.processPipeline OrderLogging.noOp
@@ -231,7 +194,7 @@ let tests =
                         for t in Fixtures.targets shared do
                             match shared |> Fixtures.count t with
                             | Some c when c > 1 && not (fansOut shared t) ->
-                                let setNth, _ = Today.toCommands t
+                                let setNth, _ = ServerApi.OrderContextMapper.Command.propertyCommands t
 
                                 for n in Fixtures.indexes c |> List.filter (fun n -> n < c) do
                                     test $"%s{name}, %A{t} %i{n}" {
@@ -247,13 +210,62 @@ let tests =
                         for t in Fixtures.targets shared do
                             match shared |> Fixtures.count t with
                             | Some c when c > 1 && not (fansOut shared t) ->
-                                let _, clear = Today.toCommands t
+                                let _, clear = ServerApi.OrderContextMapper.Command.propertyCommands t
 
                                 test $"%s{name}, %A{t}" {
                                     same items (ord |> Domain.clear clear []) (shared |> Today.clear t [])
                                 }
                             | _ -> ()
                 ]
+
+            test "a clear's picks get the order id back" {
+                let _, _, ord = Fixtures.all.Value[0] |> snd
+                let dt = Informedica.GenForm.Lib.Types.Once "eenmalig"
+
+                let ctx: OrderContext =
+                    {
+                        Filter = OrderContext.emptyFilter
+                        Patient = Informedica.GenForm.Lib.Patient.patient
+                        Scenarios =
+                            [|
+                                OrderScenario.create
+                                    1
+                                    ""
+                                    ""
+                                    ""
+                                    ""
+                                    dt
+                                    None
+                                    None
+                                    None
+                                    [||]
+                                    [||]
+                                    [||]
+                                    ord
+                                    false
+                                    false
+                                    None
+                                    [||]
+                            |]
+                        Argumentation = None
+                    }
+
+                let id = ord.Id |> WrappedString.Id.toString
+
+                let cmd =
+                    Shared.Api.OrderContextCommand.ClearScheduleProperty(
+                        Shared.Types.ScheduleProperty.Frequency,
+                        [| "[.x]_dos_qty" |]
+                    )
+
+                match
+                    ctx
+                    |> ServerApi.OrderContextMapper.Command.toDomain Shared.Types.OrderCategory.Drug cmd
+                with
+                | OrderContext.ClearOrderValue(_, ClearScheduleFrequency, picks) ->
+                    picks |> Expect.equal "the order id put back" [ $"[%s{id}.x]_dos_qty" ]
+                | other -> failtest $"%A{other}"
+            }
 
             // the nutrition's natrium and kalium concentrations are changed in its first component
             // as well by today's client, but offer one value, so there is nothing to pick

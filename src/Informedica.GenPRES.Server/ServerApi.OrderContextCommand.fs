@@ -22,20 +22,24 @@ module OrderContextCommand =
     /// the environment's demo flag. A draft that is none, or a context the domain does not
     /// read, is a failure.
     let processCmd (env: AppEnv) (cmd: OrderContextCommand, ctx: OrderContext) =
-        match Shared.Api.OrderContextCommand.toChange cmd ctx with
-        | Error err -> async { return Error [| err |] }
-        | Ok(change, ctx) ->
-            Patient.over
-                ctx.Patient
-                (fun () ->
-                    match ctx |> OrderContextService.parse, change with
-                    | Error errs, _ -> async { return Error errs }
-                    | Ok pc, None ->
-                        async { return Ok(Evaluated pc) |> Result.map (OrderContextService.toResponse env.demo) }
-                    | Ok pc, Some cmd ->
-                        async {
-                            let! answer = env.orderContext.evaluate (OrderContextMapper.Command.toDomain cmd) pc
+        // the argumentation is written by the server and answered without the domain
+        let ctx, domainCmd =
+            match cmd with
+            | OrderContextCommand.SetArgumentationProperty text ->
+                ctx |> Shared.Models.OrderContext.Argumentation.write text, None
+            | cmd -> ctx, Some(OrderContextMapper.Command.toDomain ctx.Category cmd)
 
-                            return answer |> Result.map (OrderContextService.toResponse env.demo)
-                        }
-                )
+        Patient.over
+            ctx.Patient
+            (fun () ->
+                match ctx |> OrderContextService.parse, domainCmd with
+                | Error errs, _ -> async { return Error errs }
+                | Ok pc, None ->
+                    async { return Ok(Evaluated pc) |> Result.map (OrderContextService.toResponse env.demo) }
+                | Ok pc, Some cmd ->
+                    async {
+                        let! answer = env.orderContext.evaluate cmd pc
+
+                        return answer |> Result.map (OrderContextService.toResponse env.demo)
+                    }
+            )

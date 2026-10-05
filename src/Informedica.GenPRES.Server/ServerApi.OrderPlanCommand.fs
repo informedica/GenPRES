@@ -108,9 +108,13 @@ module OrderPlanCommand =
         | OrderPlanCommand.Recalculate plan ->
             Patient.overAll (Patient.ofPlan plan) (fun () -> answer env (parsePlan plan) env.orderPlan.recalculate)
         | OrderPlanCommand.Navigate(plan, contextId, ctxCmd, ctx) ->
-            match Shared.Api.OrderContextCommand.toChange ctxCmd ctx with
-            | Error err -> async { return Error [| err |] }
-            | Ok(None, ctx) when plan.OrderContexts |> Array.exists (fun c -> c.Id = contextId) ->
+            match ctxCmd with
+            // the argumentation is written by the server on the plan's context, without the domain
+            | OrderContextCommand.SetArgumentationProperty text when
+                plan.OrderContexts |> Array.exists (fun c -> c.Id = contextId)
+                ->
+                let ctx = ctx |> Shared.Models.OrderContext.Argumentation.write text
+
                 let written (c: OrderContext) =
                     if c.Id = contextId then
                         { c with Argumentation = ctx.Argumentation }
@@ -119,9 +123,9 @@ module OrderPlanCommand =
                 processCmd
                     env
                     (OrderPlanCommand.Recalculate { plan with OrderContexts = Array.map written plan.OrderContexts })
-            | Ok(None, _) ->
+            | OrderContextCommand.SetArgumentationProperty _ ->
                 async { return Error [| OrderPlanMapper.words [||] (OrderPlanError.NoSuchContext contextId) |] }
-            | Ok(Some ctxCmd, ctx) ->
+            | ctxCmd ->
                 Patient.overAll
                     (Patient.ofPlan plan @ [ ctx.Patient ])
                     (fun () ->
@@ -129,7 +133,11 @@ module OrderPlanCommand =
                             env
                             (both (parsePlan plan) (OrderContextService.parse ctx))
                             (fun (p, pc) ->
-                                env.orderPlan.navigate p contextId (OrderContextMapper.Command.toDomain ctxCmd) pc
+                                env.orderPlan.navigate
+                                    p
+                                    contextId
+                                    (OrderContextMapper.Command.toDomain ctx.Category ctxCmd)
+                                    pc
                             )
                     )
         | OrderPlanCommand.AddOrderContext(plan, ctx) ->

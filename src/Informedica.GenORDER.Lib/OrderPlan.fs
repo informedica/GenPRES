@@ -57,6 +57,16 @@ module PlanContext =
         )
 
 
+    /// A filter or scenario pick reads its index in the lists the user saw, so it is applied to
+    /// the context as sent, before the context is reconciled with the rules: the existing
+    /// command it is evaluated as, over the context it changed. Any other command stays as it is.
+    let resolvePick (cmd: OrderContext -> OrderContext.Command) (pc: PlanContext) =
+        match pc.Context |> cmd |> OrderContext.resolvePick with
+        | Some(Ok(changed, asCommand)) -> Ok(asCommand, { pc with Context = changed })
+        | Some(Error e) -> Error [ ErrorMsg(e, None) ]
+        | None -> Ok(cmd, pc)
+
+
     /// The plan context evaluated against the rules: reconciled, evaluated and its intake
     /// computed over the totals data.
     let evaluate
@@ -68,11 +78,15 @@ module PlanContext =
         (pc: PlanContext)
         =
         pc
-        |> evaluateWith
-            (OrderContext.reconcile logger provider)
-            (OrderContext.evaluate start logger provider)
-            (OrderContext.intake totalsData)
-            cmd
+        |> resolvePick cmd
+        |> Result.bind (fun (cmd, pc) ->
+            pc
+            |> evaluateWith
+                (OrderContext.reconcile logger provider)
+                (OrderContext.evaluate start logger provider)
+                (OrderContext.intake totalsData)
+                cmd
+        )
 
 
     /// The plan context evaluated against the rules as an outcome. For the two commands that
@@ -82,7 +96,7 @@ module PlanContext =
     /// runs over the context reconciled. The intake is recorded over the answer, evaluated or
     /// refused, from the totals data read after any reload; the id and the category stay the
     /// plan's. An evaluation that fails is the answer.
-    let evaluateOutcome
+    let evaluateSent
         (start: System.DateTime)
         logger
         provider
@@ -123,6 +137,14 @@ module PlanContext =
             |> cmd
             |> OrderContext.evaluateOutcome start logger provider
             |> Result.map (Outcome.map recorded)
+
+
+    /// The plan context evaluated against the rules as an outcome, a filter or scenario pick
+    /// applied to the context as sent first.
+    let evaluateOutcome start logger provider totalsData cmd pc =
+        pc
+        |> resolvePick cmd
+        |> Result.bind (fun (cmd, pc) -> pc |> evaluateSent start logger provider totalsData cmd)
 
 
     /// The serializable shape of a PlanContext: the category as a string, the context and

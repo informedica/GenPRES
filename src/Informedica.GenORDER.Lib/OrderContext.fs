@@ -1202,6 +1202,20 @@ Scenarios: {scenarios}
     let reopenScenarioOrder logger picks ctx = ctx |> processScenarioOrder logger (fun o -> Reopen(o, picks))
 
 
+    /// A filter or scenario pick applied to its context, read in the lists as sent: the context it
+    /// changes and the existing command it is evaluated as, or why the index is past the options.
+    /// None for any other command.
+    let resolvePick cmd =
+        let over asCommand changed = changed |> Result.map (fun ctx -> ctx, asCommand) |> Some
+
+        match cmd with
+        | ChangeFilter(ctx, category, field, n) -> ctx |> changeFilter category field n |> over UpdateOrderContext
+        | SetNthComponents(ctx, ns) -> ctx |> setNthComponents ns |> over UpdateOrderContext
+        | ClearAllFilter ctx -> Ok(clearAll ctx) |> over UpdateOrderContext
+        | SelectNthOrderScenario(ctx, n) -> ctx |> selectNthScenario n |> over SelectOrderScenario
+        | _ -> None
+
+
     /// The order of the one scenario changed by the property command, not solved.
     let changeOrder logger change ctx =
         ctx
@@ -1324,12 +1338,12 @@ Scenarios: {scenarios}
                 // No single scenario, return ctx unchanged
                 wrapResult ctx |> Evaluated |> Ok
 
-        // the context as a specific command changed it, evaluated as today's command and answered
-        // as the specific command; an index past the options is an error
-        let evaluateAs today wrap changed =
+        // the context as a specific command changed it, evaluated as the existing command and
+        // answered as the specific command; an index past the options is an error
+        let evaluateAs asCommand wrap changed =
             changed
             |> Result.mapError (fun e -> [ ErrorMsg(e, None) ])
-            |> Result.bind (today >> evaluateOutcome start logger provider)
+            |> Result.bind (asCommand >> evaluateOutcome start logger provider)
             |> Result.map (Outcome.map (Command.get >> wrap))
 
         match cmd with

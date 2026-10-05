@@ -319,12 +319,73 @@ module OrderContextMapper =
     module Command =
 
         module Domain = Informedica.GenOrder.Lib.OrderContext
+        module Ctx = Shared.Models.OrderContext
 
 
+        /// The domain's filter field for the wire's.
+        let field (f: Ctx.FilterField) =
+            match f with
+            | Ctx.Indication -> FilterField.Indication
+            | Ctx.Generic -> FilterField.Generic
+            | Ctx.Route -> FilterField.Route
+            | Ctx.Form -> FilterField.Form
+            | Ctx.DoseType -> FilterField.DoseType
+
+
+        /// The property commands for a wire target: the one that sets its nth value and the one
+        /// that clears it.
+        let propertyCommands (t: Ctx.Target) =
+            match t with
+            | Ctx.Target.Schedule ScheduleProperty.Frequency -> SetNthScheduleFrequency, ClearScheduleFrequency
+            | Ctx.Target.Schedule ScheduleProperty.Time -> SetNthScheduleTime, ClearScheduleTime
+            | Ctx.Target.Orderable OrderableProperty.Quantity -> SetNthOrderableQuantity, ClearOrderableQuantity
+            | Ctx.Target.Orderable OrderableProperty.DoseQuantity ->
+                SetNthOrderableDoseQuantity, ClearOrderableDoseQuantity
+            | Ctx.Target.Orderable OrderableProperty.DoseRate -> SetNthOrderableDoseRate, ClearOrderableDoseRate
+            | Ctx.Target.Component(c, ComponentProperty.OrderableQuantity) ->
+                (fun n -> SetNthComponentOrderableQuantity(c, n)), ClearComponentOrderableQuantity c
+            | Ctx.Target.Component(c, ComponentProperty.DoseQuantityAdjust) ->
+                (fun n -> SetNthComponentDoseQuantityAdjust(c, n)), ClearComponentDoseQuantityAdjust c
+            | Ctx.Target.Item(c, i, p) ->
+                match p with
+                | ItemProperty.DoseQuantity -> (fun n -> SetNthItemDoseQuantity(c, i, n)), ClearItemDoseQuantity(c, i)
+                | ItemProperty.DoseQuantityAdjust ->
+                    (fun n -> SetNthItemDoseQuantityAdjust(c, i, n)), ClearItemDoseQuantityAdjust(c, i)
+                | ItemProperty.DosePerTime -> (fun n -> SetNthItemDosePerTime(c, i, n)), ClearItemDosePerTime(c, i)
+                | ItemProperty.DosePerTimeAdjust ->
+                    (fun n -> SetNthItemDosePerTimeAdjust(c, i, n)), ClearItemDosePerTimeAdjust(c, i)
+                | ItemProperty.DoseRate -> (fun n -> SetNthItemDoseRate(c, i, n)), ClearItemDoseRate(c, i)
+                | ItemProperty.DoseRateAdjust ->
+                    (fun n -> SetNthItemDoseRateAdjust(c, i, n)), ClearItemDoseRateAdjust(c, i)
+                | ItemProperty.ComponentConcentration ->
+                    (fun n -> SetNthItemComponentConcentration(c, i, n)), ClearItemComponentConcentration(c, i)
+                | ItemProperty.OrderableConcentration ->
+                    (fun n -> SetNthItemOrderableConcentration(c, i, n)), ClearItemOrderableConcentration(c, i)
+                | ItemProperty.OrderableQuantity ->
+                    (fun n -> SetNthItemOrderableQuantity(c, i, n)), ClearItemOrderableQuantity(c, i)
+
+
+        /// The command verb over a context of this category as the domain's command. A clear's
+        /// picks get the order id back, the wire names them without it.
         let toDomain
+            category
             (cmd: Shared.Api.OrderContextCommand)
             : Informedica.GenOrder.Lib.Types.OrderContext -> Domain.Command
             =
+            let category = category |> Category.toDomain
+
+            let setNth t n =
+                fun ctx -> Domain.SetNthOrderValue(ctx, (fst (propertyCommands t)) n)
+
+            let clear t (picks: string[]) =
+                fun (ctx: Informedica.GenOrder.Lib.Types.OrderContext) ->
+                    let withId =
+                        match ctx.Scenarios |> Array.tryExactlyOne with
+                        | Some sc -> Shared.Models.OrderContext.Picks.ofOrder (sc.Order.Id |> WrappedString.Id.toString)
+                        | None -> id
+
+                    Domain.ClearOrderValue(ctx, snd (propertyCommands t), picks |> Array.map withId |> Array.toList)
+
             match cmd with
             | Shared.Api.OrderContextCommand.UpdateOrderContext -> Domain.UpdateOrderContext
             | Shared.Api.OrderContextCommand.SelectOrderScenario -> Domain.SelectOrderScenario
@@ -374,23 +435,34 @@ module OrderContextMapper =
                 fun ctx -> Domain.SetMaxComponentQuantityProperty(ctx, cmp)
             | Shared.Api.OrderContextCommand.SetMedianComponentOrderableQuantityProperty cmp ->
                 fun ctx -> Domain.SetMedianComponentQuantityProperty(ctx, cmp)
-            | Shared.Api.OrderContextCommand.SetNthFilterProperty _
-            | Shared.Api.OrderContextCommand.ClearFilterProperty _
-            | Shared.Api.OrderContextCommand.ClearAllFilterProperty
-            | Shared.Api.OrderContextCommand.SetNthDiluentProperty _
-            | Shared.Api.OrderContextCommand.ClearDiluentProperty
-            | Shared.Api.OrderContextCommand.SetNthComponentsProperty _
-            | Shared.Api.OrderContextCommand.SelectNthOrderScenario _
-            | Shared.Api.OrderContextCommand.SetNthScheduleProperty _
-            | Shared.Api.OrderContextCommand.ClearScheduleProperty _
-            | Shared.Api.OrderContextCommand.SetNthOrderableProperty _
-            | Shared.Api.OrderContextCommand.ClearOrderableProperty _
-            | Shared.Api.OrderContextCommand.SetNthComponentProperty _
-            | Shared.Api.OrderContextCommand.ClearComponentProperty _
-            | Shared.Api.OrderContextCommand.SetNthItemProperty _
-            | Shared.Api.OrderContextCommand.ClearItemProperty _
+            | Shared.Api.OrderContextCommand.SetNthFilterProperty(f, n) ->
+                fun ctx -> Domain.ChangeFilter(ctx, category, field f, Some n)
+            | Shared.Api.OrderContextCommand.ClearFilterProperty f ->
+                fun ctx -> Domain.ChangeFilter(ctx, category, field f, None)
+            | Shared.Api.OrderContextCommand.ClearAllFilterProperty -> Domain.ClearAllFilter
+            | Shared.Api.OrderContextCommand.SetNthDiluentProperty n ->
+                fun ctx -> Domain.ChangeFilter(ctx, category, FilterField.Diluent, Some n)
+            | Shared.Api.OrderContextCommand.ClearDiluentProperty ->
+                fun ctx -> Domain.ChangeFilter(ctx, category, FilterField.Diluent, None)
+            | Shared.Api.OrderContextCommand.SetNthComponentsProperty ns -> fun ctx -> Domain.SetNthComponents(ctx, ns)
+            | Shared.Api.OrderContextCommand.SelectNthOrderScenario n ->
+                fun ctx -> Domain.SelectNthOrderScenario(ctx, n)
+            | Shared.Api.OrderContextCommand.SetNthScheduleProperty(prop, n) -> setNth (Ctx.Target.Schedule prop) n
+            | Shared.Api.OrderContextCommand.ClearScheduleProperty(prop, picks) ->
+                clear (Ctx.Target.Schedule prop) picks
+            | Shared.Api.OrderContextCommand.SetNthOrderableProperty(prop, n) -> setNth (Ctx.Target.Orderable prop) n
+            | Shared.Api.OrderContextCommand.ClearOrderableProperty(prop, picks) ->
+                clear (Ctx.Target.Orderable prop) picks
+            | Shared.Api.OrderContextCommand.SetNthComponentProperty(cmp, prop, n) ->
+                setNth (Ctx.Target.Component(cmp, prop)) n
+            | Shared.Api.OrderContextCommand.ClearComponentProperty(cmp, prop, picks) ->
+                clear (Ctx.Target.Component(cmp, prop)) picks
+            | Shared.Api.OrderContextCommand.SetNthItemProperty(cmp, itm, prop, n) ->
+                setNth (Ctx.Target.Item(cmp, itm, prop)) n
+            | Shared.Api.OrderContextCommand.ClearItemProperty(cmp, itm, prop, picks) ->
+                clear (Ctx.Target.Item(cmp, itm, prop)) picks
             | Shared.Api.OrderContextCommand.SetArgumentationProperty _ ->
-                invalidArg (nameof cmd) $"%A{cmd} is turned into a command the domain knows by toChange first"
+                invalidArg (nameof cmd) "the argumentation is written by the server, without the domain"
 
 
     /// The server's words for a reason the contract model is no plan context. Only the
