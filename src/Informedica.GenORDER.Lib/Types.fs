@@ -600,6 +600,21 @@ module Types =
         | Components
 
 
+    /// Where the choices of a filter come from when they are set from outside its own fields.
+    [<RequireQualifiedAccess>]
+    type SeedSource =
+        /// The medication in the url, written over the filter as it is.
+        | Url
+        /// An item of the emergency or continuous medication list, written over an empty filter.
+        | MedicationList
+        /// The choices of the formulary page.
+        | Formulary
+        /// The medication, route and form of the parenteralia page.
+        | Parenteralia
+        /// The rules reloaded: the filter evaluated again as it is.
+        | Reload
+
+
     /// <summary>
     /// The main communication object to transfer the
     /// results of the solver to the client. The Filter

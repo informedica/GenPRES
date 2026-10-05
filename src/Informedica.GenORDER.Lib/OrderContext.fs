@@ -371,6 +371,18 @@ module OrderContext =
         /// One order value cleared by the property command, the order reopened with the picks
         /// made before it.
         | ClearOrderValue of OrderContext * ChangePropertyCommand * picks: string list
+        /// The context evaluated for this patient, its filter kept.
+        | ChangePatient of OrderContext * Patient
+        /// The filter's choices set from outside its own fields, by name, with the rule of their
+        /// source; the rules looked up again.
+        | SeedFilter of
+            OrderContext *
+            SeedSource *
+            indication: string option *
+            generic: string option *
+            route: string option *
+            form: string option *
+            doseType: DoseType option
 
     module Command =
 
@@ -414,6 +426,8 @@ module OrderContext =
             | SelectNthOrderScenario(ctx, _) -> ctx
             | SetNthOrderValue(ctx, _) -> ctx
             | ClearOrderValue(ctx, _, _) -> ctx
+            | ChangePatient(ctx, _) -> ctx
+            | SeedFilter(ctx, _, _, _, _, _, _) -> ctx
 
 
         let toString (cmd: Command) =
@@ -457,6 +471,8 @@ module OrderContext =
             | SelectNthOrderScenario(_, n) -> $"SelectNthOrderScenario nth=%i{n}"
             | SetNthOrderValue(_, change) -> $"SetNthOrderValue %A{change}"
             | ClearOrderValue(_, change, picks) -> $"ClearOrderValue %A{change} %i{picks.Length} picks"
+            | ChangePatient _ -> "ChangePatient"
+            | SeedFilter(_, source, _, gen, _, _, _) -> $"SeedFilter %A{source} %A{gen}"
 
 
     module Helpers =
@@ -1003,6 +1019,33 @@ module OrderContext =
         )
 
 
+    /// The filter's choices set from outside its own fields, with the rule of their source. A page's
+    /// choices keep the diluent and the selected components only when the choices above them are
+    /// unchanged, and the scenarios go; the url's medication is written over the filter as it is, a
+    /// list item's over an empty one; a reload changes nothing.
+    let seedFilter source ind gen rte frm dt (ctx: OrderContext) =
+        let write keep (ctx: OrderContext) =
+            { ctx with
+                OrderContext.Filter.Indication = ind
+                OrderContext.Filter.Generic = gen
+                OrderContext.Filter.Route = rte
+                OrderContext.Filter.Form = frm
+                OrderContext.Filter.DoseType = dt
+                OrderContext.Filter.Diluent = if keep then ctx.Filter.Diluent else None
+                OrderContext.Filter.SelectedComponents = if keep then ctx.Filter.SelectedComponents else [||]
+            }
+
+        let f = ctx.Filter
+        let same = gen = f.Generic && rte = f.Route && frm = f.Form
+
+        match source with
+        | SeedSource.Formulary -> { (ctx |> write (same && ind = f.Indication)) with Scenarios = [||] }
+        | SeedSource.Parenteralia -> { (ctx |> write same) with Scenarios = [||] }
+        | SeedSource.Url -> ctx |> write true
+        | SeedSource.MedicationList -> ctx |> clearAll |> write true
+        | SeedSource.Reload -> ctx
+
+
     let setFilterGeneric gen ctx = { ctx with OrderContext.Filter.Generic = Some gen }
 
 
@@ -1202,10 +1245,10 @@ Scenarios: {scenarios}
     let reopenScenarioOrder logger picks ctx = ctx |> processScenarioOrder logger (fun o -> Reopen(o, picks))
 
 
-    /// A filter or scenario pick applied to its context, read in the lists as sent: the context it
-    /// changes and the existing command it is evaluated as, or why the index is past the options.
-    /// None for any other command.
-    let resolvePick cmd =
+    /// A filter or scenario pick, a seed or a patient change applied to its context, read in the
+    /// lists as sent: the context it changes and the existing command it is evaluated as, or why
+    /// the index is past the options. None for any other command.
+    let resolveChange cmd =
         let over asCommand changed = changed |> Result.map (fun ctx -> ctx, asCommand) |> Some
 
         match cmd with
@@ -1213,6 +1256,9 @@ Scenarios: {scenarios}
         | SetNthComponents(ctx, ns) -> ctx |> setNthComponents ns |> over UpdateOrderContext
         | ClearAllFilter ctx -> Ok(clearAll ctx) |> over UpdateOrderContext
         | SelectNthOrderScenario(ctx, n) -> ctx |> selectNthScenario n |> over SelectOrderScenario
+        | ChangePatient(ctx, pat) -> Ok { ctx with Patient = pat } |> over UpdateOrderContext
+        | SeedFilter(ctx, source, ind, gen, rte, frm, dt) ->
+            Ok(ctx |> seedFilter source ind gen rte frm dt) |> over UpdateOrderContext
         | _ -> None
 
 
@@ -1474,6 +1520,12 @@ Scenarios: {scenarios}
         | ClearOrderValue(ctx, change, picks) ->
             Ok(ctx |> changeOrder logger change)
             |> evaluateAs (fun ctx -> ReopenOrderScenario(ctx, picks)) (fun ctx -> ClearOrderValue(ctx, change, picks))
+        | ChangePatient(ctx, pat) ->
+            Ok { ctx with Patient = pat }
+            |> evaluateAs UpdateOrderContext (fun ctx -> ChangePatient(ctx, pat))
+        | SeedFilter(ctx, source, ind, gen, rte, frm, dt) ->
+            Ok(ctx |> seedFilter source ind gen rte frm dt)
+            |> evaluateAs UpdateOrderContext (fun ctx -> SeedFilter(ctx, source, ind, gen, rte, frm, dt))
 
 
     /// The evaluate of the message-list contract, over the outcome: a refusal is the message

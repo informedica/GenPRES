@@ -57,11 +57,12 @@ module PlanContext =
         )
 
 
-    /// A filter or scenario pick reads its index in the lists the user saw, so it is applied to
-    /// the context as sent, before the context is reconciled with the rules: the existing
-    /// command it is evaluated as, over the context it changed. Any other command stays as it is.
-    let resolvePick (cmd: OrderContext -> OrderContext.Command) (pc: PlanContext) =
-        match pc.Context |> cmd |> OrderContext.resolvePick with
+    /// A filter or scenario pick reads its index in the lists the user saw, and a seed or a patient
+    /// change is checked against the rules as an update of the context is, so each is applied to
+    /// the context as sent, before the context is reconciled with the rules: the existing command
+    /// it is evaluated as, over the context it changed. Any other command stays as it is.
+    let resolveChange (cmd: OrderContext -> OrderContext.Command) (pc: PlanContext) =
+        match pc.Context |> cmd |> OrderContext.resolveChange with
         | Some(Ok(changed, asCommand)) -> Ok(asCommand, { pc with Context = changed })
         | Some(Error e) -> Error [ ErrorMsg(e, None) ]
         | None -> Ok(cmd, pc)
@@ -78,7 +79,7 @@ module PlanContext =
         (pc: PlanContext)
         =
         pc
-        |> resolvePick cmd
+        |> resolveChange cmd
         |> Result.bind (fun (cmd, pc) ->
             pc
             |> evaluateWith
@@ -143,7 +144,7 @@ module PlanContext =
     /// applied to the context as sent first.
     let evaluateOutcome start logger provider totalsData cmd pc =
         pc
-        |> resolvePick cmd
+        |> resolveChange cmd
         |> Result.bind (fun (cmd, pc) -> pc |> evaluateSent start logger provider totalsData cmd)
 
 
