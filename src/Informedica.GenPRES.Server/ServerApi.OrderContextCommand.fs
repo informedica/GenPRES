@@ -22,15 +22,20 @@ module OrderContextCommand =
     /// the environment's demo flag. A draft that is none, or a context the domain does not
     /// read, is a failure.
     let processCmd (env: AppEnv) (cmd: OrderContextCommand, ctx: OrderContext) =
-        Patient.over
-            ctx.Patient
-            (fun () ->
-                match ctx |> OrderContextService.parse with
-                | Error errs -> async { return Error errs }
-                | Ok pc ->
-                    async {
-                        let! answer = env.orderContext.evaluate (OrderContextMapper.Command.toDomain cmd) pc
+        match Shared.Api.OrderContextCommand.toChange cmd ctx with
+        | Error err -> async { return Error [| err |] }
+        | Ok(change, ctx) ->
+            Patient.over
+                ctx.Patient
+                (fun () ->
+                    match ctx |> OrderContextService.parse, change with
+                    | Error errs, _ -> async { return Error errs }
+                    | Ok pc, None ->
+                        async { return Ok(Evaluated pc) |> Result.map (OrderContextService.toResponse env.demo) }
+                    | Ok pc, Some cmd ->
+                        async {
+                            let! answer = env.orderContext.evaluate (OrderContextMapper.Command.toDomain cmd) pc
 
-                        return answer |> Result.map (OrderContextService.toResponse env.demo)
-                    }
-            )
+                            return answer |> Result.map (OrderContextService.toResponse env.demo)
+                        }
+                )

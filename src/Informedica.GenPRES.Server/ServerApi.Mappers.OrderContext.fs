@@ -374,6 +374,23 @@ module OrderContextMapper =
                 fun ctx -> Domain.SetMaxComponentQuantityProperty(ctx, cmp)
             | Shared.Api.OrderContextCommand.SetMedianComponentOrderableQuantityProperty cmp ->
                 fun ctx -> Domain.SetMedianComponentQuantityProperty(ctx, cmp)
+            | Shared.Api.OrderContextCommand.SetNthFilterProperty _
+            | Shared.Api.OrderContextCommand.ClearFilterProperty _
+            | Shared.Api.OrderContextCommand.ClearAllFilterProperty
+            | Shared.Api.OrderContextCommand.SetNthDiluentProperty _
+            | Shared.Api.OrderContextCommand.ClearDiluentProperty
+            | Shared.Api.OrderContextCommand.SetNthComponentsProperty _
+            | Shared.Api.OrderContextCommand.SelectNthOrderScenario _
+            | Shared.Api.OrderContextCommand.SetNthScheduleProperty _
+            | Shared.Api.OrderContextCommand.ClearScheduleProperty _
+            | Shared.Api.OrderContextCommand.SetNthOrderableProperty _
+            | Shared.Api.OrderContextCommand.ClearOrderableProperty _
+            | Shared.Api.OrderContextCommand.SetNthComponentProperty _
+            | Shared.Api.OrderContextCommand.ClearComponentProperty _
+            | Shared.Api.OrderContextCommand.SetNthItemProperty _
+            | Shared.Api.OrderContextCommand.ClearItemProperty _
+            | Shared.Api.OrderContextCommand.SetArgumentationProperty _ ->
+                invalidArg (nameof cmd) $"%A{cmd} is turned into a command the domain knows by toChange first"
 
 
     /// The server's words for a reason the contract model is no plan context. Only the

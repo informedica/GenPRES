@@ -103,21 +103,35 @@ module OrderPlanCommand =
     /// command carries one, made at the inbound boundary; the plan and the context parsed into
     /// the domain, the verb mapped, the port asked, the answer mapped out with the environment's
     /// demo flag. A draft that is none, or a plan the domain does not read, is refused.
-    let processCmd (env: AppEnv) (cmd: OrderPlanCommand) =
+    let rec processCmd (env: AppEnv) (cmd: OrderPlanCommand) =
         match cmd with
         | OrderPlanCommand.Recalculate plan ->
             Patient.overAll (Patient.ofPlan plan) (fun () -> answer env (parsePlan plan) env.orderPlan.recalculate)
         | OrderPlanCommand.Navigate(plan, contextId, ctxCmd, ctx) ->
-            Patient.overAll
-                (Patient.ofPlan plan @ [ ctx.Patient ])
-                (fun () ->
-                    answer
-                        env
-                        (both (parsePlan plan) (OrderContextService.parse ctx))
-                        (fun (p, pc) ->
-                            env.orderPlan.navigate p contextId (OrderContextMapper.Command.toDomain ctxCmd) pc
-                        )
-                )
+            match Shared.Api.OrderContextCommand.toChange ctxCmd ctx with
+            | Error err -> async { return Error [| err |] }
+            | Ok(None, ctx) when plan.OrderContexts |> Array.exists (fun c -> c.Id = contextId) ->
+                let written (c: OrderContext) =
+                    if c.Id = contextId then
+                        { c with Argumentation = ctx.Argumentation }
+                    else
+                        c
+                processCmd
+                    env
+                    (OrderPlanCommand.Recalculate { plan with OrderContexts = Array.map written plan.OrderContexts })
+            | Ok(None, _) ->
+                async { return Error [| OrderPlanMapper.words [||] (OrderPlanError.NoSuchContext contextId) |] }
+            | Ok(Some ctxCmd, ctx) ->
+                Patient.overAll
+                    (Patient.ofPlan plan @ [ ctx.Patient ])
+                    (fun () ->
+                        answer
+                            env
+                            (both (parsePlan plan) (OrderContextService.parse ctx))
+                            (fun (p, pc) ->
+                                env.orderPlan.navigate p contextId (OrderContextMapper.Command.toDomain ctxCmd) pc
+                            )
+                    )
         | OrderPlanCommand.AddOrderContext(plan, ctx) ->
             Patient.overAll
                 (Patient.ofPlan plan @ [ ctx.Patient ])
