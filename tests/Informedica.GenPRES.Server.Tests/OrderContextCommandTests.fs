@@ -603,7 +603,7 @@ let tests =
                             Api.ResetOrderScenario, Ok(Some Api.ResetOrderScenario, ctx)
                         ] do
                         test $"%s{Cmd.toString (cmd, ctx)}" {
-                            ctx |> Cmd.toChange cmd |> Expect.equal "today's case and context" expected
+                            ctx |> Cmd.preview cmd |> Expect.equal "today's case and context" expected
                         }
 
                     for target in targets ord do
@@ -613,7 +613,7 @@ let tests =
                                 let n = keys.Length - 1
 
                                 ctx
-                                |> Cmd.toChange (setNthCommand target n)
+                                |> Cmd.preview (setNthCommand target n)
                                 |> Expect.equal
                                     "the update of the scenario"
                                     (ctx
@@ -623,7 +623,7 @@ let tests =
 
                             test $"%A{target} cleared" {
                                 ctx
-                                |> Cmd.toChange (clearCommand target [| "[.x]_dos_qty" |])
+                                |> Cmd.preview (clearCommand target [| "[.x]_dos_qty" |])
                                 |> Expect.equal
                                     "the reopen with the picks"
                                     (ctx
@@ -633,14 +633,14 @@ let tests =
 
                             test $"%A{target} past its values" {
                                 ctx
-                                |> Cmd.toChange (setNthCommand target keys.Length)
+                                |> Cmd.preview (setNthCommand target keys.Length)
                                 |> Result.isError
                                 |> Expect.isTrue "an error"
                             }
                         | Some [||] ->
                             test $"%A{target} without a list" {
                                 ctx
-                                |> Cmd.toChange (setNthCommand target 0)
+                                |> Cmd.preview (setNthCommand target 0)
                                 |> Expect.equal "no command" (Ok(None, ctx))
                             }
                         | _ -> ()
@@ -691,7 +691,7 @@ let tests =
                 ]
 
             testList
-                "the server turns a new case into today's"
+                "the server sends a new case to the domain"
                 [
                     let ctx = Fixtures.all.Value[0] |> snd
 
@@ -713,14 +713,17 @@ let tests =
                             (StubAdapterTests.StubAdapters.formularyAlwaysOk Shared.Models.Formulary.empty)
                             port
 
-                    testAsync "a value pick reaches the port as the update of the scenario" {
+                    testAsync "a value pick reaches the port as the pick of one order value" {
                         let seen = ref None
 
                         let! answer =
                             ServerApi.OrderContextCommand.processCmd (env (seenBy seen)) (setNthCommand target 0, ctx)
 
                         answer |> Result.isOk |> Expect.isTrue "evaluated"
-                        seen.Value |> Expect.equal "today's case" (Some "UpdateOrderScenario")
+
+                        seen.Value
+                        |> Option.map _.StartsWith("SetNthOrderValue")
+                        |> Expect.equal "the domain's case" (Some true)
                     }
 
                     testAsync "the argumentation is answered without asking the port" {
@@ -739,7 +742,7 @@ let tests =
                         | other -> failtest $"expected the context, got %A{other}"
                     }
 
-                    testAsync "an index past the values is refused before the port" {
+                    testAsync "an index past the values reaches the port, where it leaves the order as it is" {
                         let seen = ref None
                         let past = ctx |> Ctx.count (Ctx.Options.Variable target)
 
@@ -748,13 +751,13 @@ let tests =
                                 (env (seenBy seen))
                                 (setNthCommand target past, ctx)
 
-                        answer |> Result.isError |> Expect.isTrue "an error"
-                        seen.Value |> Expect.isNone "the port not asked"
+                        answer |> Result.isOk |> Expect.isTrue "evaluated"
+                        seen.Value |> Expect.isSome "the port asked"
                     }
                 ]
 
             testList
-                "the plan turns a new case into today's"
+                "the plan navigates with a new case"
                 [
                     let ctx = { (Fixtures.all.Value[0] |> snd) with Id = "c-1" }
                     let plan = Shared.Models.OrderPlan.create ctx.Patient [| ctx |]
@@ -863,12 +866,12 @@ let tests =
                         | other -> failtest $"expected the one context recalculated, got %A{other}"
                     }
 
-                    testAsync "an index past the values is refused before the port" {
+                    testAsync "an index past the values navigates, where it leaves the order as it is" {
                         let past = ctx |> Ctx.count (Ctx.Options.Variable target)
                         let! answer, seen =
                             run (Shared.Api.OrderPlanCommand.Navigate(plan, "c-1", setNthCommand target past, ctx))
-                        answer |> Result.isError |> Expect.isTrue "an error"
-                        seen |> Expect.isEmpty "no port asked"
+                        answer |> Result.isOk |> Expect.isTrue "answered"
+                        seen |> Expect.equal "the navigation" [ "navigate" ]
                     }
                 ]
         ]

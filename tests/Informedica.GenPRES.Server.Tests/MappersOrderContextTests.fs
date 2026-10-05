@@ -308,12 +308,66 @@ let tests =
                         Domain.SetMaxComponentQuantityProperty(ctx, "cmp")
                         Shared.Api.OrderContextCommand.SetMedianComponentOrderableQuantityProperty "cmp",
                         Domain.SetMedianComponentQuantityProperty(ctx, "cmp")
+                        Shared.Api.OrderContextCommand.SetNthFilterProperty(Shared.Models.OrderContext.Route, 1),
+                        Domain.ChangeFilter(ctx, Types.OrderCategory.Drug, FilterField.Route, Some 1)
+                        Shared.Api.OrderContextCommand.ClearFilterProperty Shared.Models.OrderContext.Generic,
+                        Domain.ChangeFilter(ctx, Types.OrderCategory.Drug, FilterField.Generic, None)
+                        Shared.Api.OrderContextCommand.ClearAllFilterProperty, Domain.ClearAllFilter ctx
+                        Shared.Api.OrderContextCommand.SetNthDiluentProperty 0,
+                        Domain.ChangeFilter(ctx, Types.OrderCategory.Drug, FilterField.Diluent, Some 0)
+                        Shared.Api.OrderContextCommand.ClearDiluentProperty,
+                        Domain.ChangeFilter(ctx, Types.OrderCategory.Drug, FilterField.Diluent, None)
+                        Shared.Api.OrderContextCommand.SetNthComponentsProperty [| 0; 2 |],
+                        Domain.SetNthComponents(ctx, [| 0; 2 |])
+                        Shared.Api.OrderContextCommand.SelectNthOrderScenario 1, Domain.SelectNthOrderScenario(ctx, 1)
+                        Shared.Api.OrderContextCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 2),
+                        Domain.SetNthOrderValue(ctx, SetNthScheduleFrequency 2)
+                        Shared.Api.OrderContextCommand.ClearScheduleProperty(ScheduleProperty.Time, [| "a" |]),
+                        Domain.ClearOrderValue(ctx, ClearScheduleTime, [ "a" ])
+                        Shared.Api.OrderContextCommand.SetNthOrderableProperty(OrderableProperty.DoseRate, 1),
+                        Domain.SetNthOrderValue(ctx, SetNthOrderableDoseRate 1)
+                        Shared.Api.OrderContextCommand.ClearOrderableProperty(OrderableProperty.Quantity, [||]),
+                        Domain.ClearOrderValue(ctx, ClearOrderableQuantity, [])
+                        Shared.Api.OrderContextCommand.SetNthComponentProperty(
+                            "cmp",
+                            ComponentProperty.OrderableQuantity,
+                            0
+                        ),
+                        Domain.SetNthOrderValue(ctx, SetNthComponentOrderableQuantity("cmp", 0))
+                        Shared.Api.OrderContextCommand.ClearComponentProperty(
+                            "cmp",
+                            ComponentProperty.DoseQuantityAdjust,
+                            [||]
+                        ),
+                        Domain.ClearOrderValue(ctx, ClearComponentDoseQuantityAdjust "cmp", [])
+                        Shared.Api.OrderContextCommand.SetNthItemProperty("cmp", "itm", ItemProperty.DoseRate, 3),
+                        Domain.SetNthOrderValue(ctx, SetNthItemDoseRate("cmp", "itm", 3))
+                        Shared.Api.OrderContextCommand.ClearItemProperty(
+                            "cmp",
+                            "itm",
+                            ItemProperty.ComponentConcentration,
+                            [||]
+                        ),
+                        Domain.ClearOrderValue(ctx, ClearItemComponentConcentration("cmp", "itm"), [])
                     ]
 
-                verbs |> List.length |> Expect.equal "every case of the wire's union" 26
+                verbs
+                |> List.length
+                |> Expect.equal "every case of the wire's union but the argumentation" 41
 
                 for verb, expected in verbs do
-                    OrderContextMapper.Command.toDomain verb ctx |> Expect.equal $"{verb}" expected
+                    OrderContextMapper.Command.toDomain OrderCategory.Drug verb ctx
+                    |> Expect.equal $"{verb}" expected
+            }
+
+            test "the argumentation is no domain command" {
+                (fun () ->
+                    OrderContextMapper.Command.toDomain
+                        OrderCategory.Drug
+                        (Shared.Api.OrderContextCommand.SetArgumentationProperty "text")
+                    |> ignore
+                )
+                |> Expect.throwsT<System.ArgumentException> "answered by the server"
             }
         ]
 

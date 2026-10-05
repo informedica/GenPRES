@@ -158,9 +158,10 @@ module Api =
         module Ctx = Models.OrderContext
 
 
-        /// A stop-gap for #1224 until the domain processes the new cases: today's command and context
-        /// for a new case; no command when the context is answered as it is.
-        let toChange (cmd: OrderContextCommand) (ctx: OrderContext) =
+        /// The client's preview of a command while its request is under way: the command the domain
+        /// answers it as, and the context as that command changes it; no command when the context is
+        /// answered as it is. The domain's answer replaces it.
+        let preview (cmd: OrderContextCommand) (ctx: OrderContext) =
             let over cmd r = r |> Result.map (fun ctx -> Some cmd, ctx)
             let update r = r |> over OrderContextCommand.UpdateOrderContext
 

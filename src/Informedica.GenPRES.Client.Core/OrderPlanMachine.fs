@@ -71,7 +71,7 @@ module Dialog =
     /// The context as the command changes it, shown while its request is under way; the context
     /// itself when the command cannot change it.
     let shown (cmd: OrderContextCommand) (ctx: OrderContext) =
-        match OrderContextCommand.toChange cmd ctx with
+        match OrderContextCommand.preview cmd ctx with
         | Ok(_, changed) -> changed
         | Error _ -> ctx
 
