@@ -55,70 +55,78 @@ module Prescribe =
         let updateOrderContext ctx =
             orderContextMsg (Api.OrderContextCommand.UpdateOrderContext, ctx)
 
-        let indicationChange s =
+        // a pick goes as its position in the options the field offers, an emptied field as a
+        // clear; a value the field does not offer goes as the changed context, as before
+        let pickFilter loading (options: OrderContext -> 'a[]) (picked: 'a option) change toCommand =
             match orderContext with
             | OrderContextView.Settled pr
             | OrderContextView.Refused(pr, _) ->
-                setLoadingSource (Some IndicationLoading)
-                pr |> OrderContext.indicationChange s |> updateOrderContext
+                setLoadingSource (Some loading)
+
+                match picked |> Option.map (fun x -> pr |> options |> Array.tryFindIndex ((=) x)) with
+                | None -> orderContextMsg (toCommand None, pr)
+                | Some(Some n) -> orderContextMsg (toCommand (Some n), pr)
+                | Some None -> pr |> change picked |> updateOrderContext
             | _ -> ()
+
+        let filterCommand field n =
+            match n with
+            | Some n -> Api.OrderContextCommand.SetNthFilterProperty(field, n)
+            | None -> Api.OrderContextCommand.ClearFilterProperty field
+
+        let indicationChange s =
+            filterCommand OrderContext.Indication
+            |> pickFilter IndicationLoading _.Filter.Indications s OrderContext.indicationChange
 
         let medicationChange s =
-            match orderContext with
-            | OrderContextView.Settled pr
-            | OrderContextView.Refused(pr, _) ->
-                setLoadingSource (Some MedicationLoading)
-                pr |> OrderContext.medicationChange s |> updateOrderContext
-            | _ -> ()
+            filterCommand OrderContext.Generic
+            |> pickFilter MedicationLoading _.Filter.Generics s OrderContext.medicationChange
 
         let routeChange s =
-            match orderContext with
-            | OrderContextView.Settled pr
-            | OrderContextView.Refused(pr, _) ->
-                setLoadingSource (Some RouteLoading)
-                pr |> OrderContext.routeChange s |> updateOrderContext
-            | _ -> ()
+            filterCommand OrderContext.Route
+            |> pickFilter RouteLoading _.Filter.Routes s OrderContext.routeChange
 
         let formChange s =
-            match orderContext with
-            | OrderContextView.Settled ctx
-            | OrderContextView.Refused(ctx, _) ->
-                setLoadingSource (Some FormLoading)
-                ctx |> OrderContext.formChange s |> updateOrderContext
-            | _ -> ()
+            filterCommand OrderContext.Form
+            |> pickFilter FormLoading _.Filter.Forms s OrderContext.formChange
+
+        let diluentCommand n =
+            match n with
+            | Some n -> Api.OrderContextCommand.SetNthDiluentProperty n
+            | None -> Api.OrderContextCommand.ClearDiluentProperty
 
         let diluentChange s =
+            diluentCommand
+            |> pickFilter DiluentLoading _.Filter.Diluents s OrderContext.diluentChange
+
+        let componentsChange (cs: string[]) =
             match orderContext with
             | OrderContextView.Settled pr
             | OrderContextView.Refused(pr, _) ->
-                setLoadingSource (Some DiluentLoading)
-                pr |> OrderContext.diluentChange s |> updateOrderContext
-            | _ -> ()
-
-        let componentsChange cs =
-            match orderContext with
-            | OrderContextView.Settled prctx
-            | OrderContextView.Refused(prctx, _) ->
                 setLoadingSource (Some ComponentsLoading)
-                prctx |> OrderContext.componentsChange cs |> updateOrderContext
+
+                let ns = cs |> Array.choose (fun c -> pr.Filter.Components |> Array.tryFindIndex ((=) c))
+
+                if ns.Length = cs.Length then
+                    orderContextMsg (Api.OrderContextCommand.SetNthComponentsProperty ns, pr)
+                else
+                    pr |> OrderContext.componentsChange cs |> updateOrderContext
             | _ -> ()
 
         let doseTypeChange s =
-            let dt = s |> Option.map DoseType.doseTypeFromString
-
-            match orderContext with
-            | OrderContextView.Settled pr
-            | OrderContextView.Refused(pr, _) ->
-                setLoadingSource (Some DoseTypeLoading)
-                pr |> OrderContext.doseTypeChange dt |> updateOrderContext
-            | _ -> ()
+            filterCommand OrderContext.DoseType
+            |> pickFilter
+                DoseTypeLoading
+                _.Filter.DoseTypes
+                (s |> Option.map DoseType.doseTypeFromString)
+                OrderContext.doseTypeChange
 
         let clear () =
             match orderContext with
-            | OrderContextView.Settled _
-            | OrderContextView.Refused(_, _) ->
+            | OrderContextView.Settled pr
+            | OrderContextView.Refused(pr, _) ->
                 setLoadingSource None
-                OrderContext.empty |> updateOrderContext
+                orderContextMsg (Api.OrderContextCommand.ClearAllFilterProperty, pr)
             | _ -> ()
 
         // the dialog is open while a scenario is selected: the selection is the state
@@ -231,13 +239,9 @@ module Prescribe =
                     $"{sc.Form}{access}{renal}"
 
                 let onClick (sc: OrderScenario) =
-                    let ctx =
-                        { pr with
-                            OrderContext.Filter.Form = Some sc.Form
-                            Scenarios = [| sc |]
-                        }
-
-                    orderContextMsg (Api.OrderContextCommand.SelectOrderScenario, ctx)
+                    match pr.Scenarios |> Array.tryFindIndex (fun x -> x.Order.Id = sc.Order.Id) with
+                    | Some n -> orderContextMsg (Api.OrderContextCommand.SelectNthOrderScenario n, pr)
+                    | None -> ()
 
                 // the workbench, narrowed to this scenario, into the plan as a drug context; the
                 // page switches to the plan when the server answers
