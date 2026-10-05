@@ -11,6 +11,7 @@
   <ItemGroup>
     <Compile Include="ResourceErrorTests.fs" />
     <Compile Include="../Informedica.GenORDER.Tests/Scenarios.fs" />
+    <Compile Include="../Informedica.GenORDER.Tests/FilterFixtures.fs" />
     <Compile Include="StubAdapterTests.fs" />
     <Compile Include="DoseCheckTests.fs" />
     <Compile Include="TotalsTests.fs" />
@@ -21,6 +22,7 @@
     <Compile Include="MeasurementsTests.fs" />
     <Compile Include="OrderContextSwitchTests.fs" />
     <Compile Include="OrderContextCommandTests.fs" />
+    <Compile Include="FilterAgreementTests.fs" />
     <Compile Include="OrderPlanSwitchTests.fs" />
     <Compile Include="SessionStoreTests.fs" />
     <Compile Include="SessionWritesTests.fs" />

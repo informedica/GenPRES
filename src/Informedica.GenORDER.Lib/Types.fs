@@ -553,6 +553,19 @@ module Types =
         }
 
 
+    /// A field of the filter: a choice is the field with the index of its option, a clear is the
+    /// field alone.
+    [<RequireQualifiedAccess>]
+    type FilterField =
+        | Indication
+        | Generic
+        | Route
+        | Form
+        | DoseType
+        | Diluent
+        | Components
+
+
     module FilterItem =
 
         /// Represents different filter item types with their index positions

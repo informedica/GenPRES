@@ -730,6 +730,180 @@ module OrderContext =
     let setFilter filter ctx = { ctx with Filter = filter }
 
 
+    /// The fields the rule lookup reads, for emptying the filter outright; the diluent and the
+    /// components belong to the scenario, not to the lookup.
+    let filterFields =
+        [
+            FilterField.Indication
+            FilterField.Generic
+            FilterField.Route
+            FilterField.Form
+            FilterField.DoseType
+        ]
+
+
+    /// The order the choices are made in, as steps: a change lets go of the choices in the steps
+    /// after its own and leaves the ones beside it alone. For a drug the indication and the
+    /// medication stand in one step, each narrowing the other; for a nutrition order the
+    /// composition comes first and the indication follows from it.
+    let chain category =
+        match category with
+        | OrderCategory.Drug ->
+            [
+                [ FilterField.Indication; FilterField.Generic ]
+                [ FilterField.Route ]
+                [ FilterField.Form ]
+                [ FilterField.DoseType ]
+            ]
+        | OrderCategory.Nutrition _ ->
+            [
+                [ FilterField.Generic ]
+                [ FilterField.Indication ]
+                [ FilterField.DoseType ]
+            ]
+
+
+    /// One field's choice let go, the options it was picked from left standing.
+    let clearChoice field (f: Filter) =
+        match field with
+        | FilterField.Indication -> { f with Indication = None }
+        | FilterField.Generic -> { f with Generic = None }
+        | FilterField.Route -> { f with Route = None }
+        | FilterField.Form -> { f with Form = None }
+        | FilterField.DoseType -> { f with DoseType = None }
+        | FilterField.Diluent -> { f with Diluent = None }
+        | FilterField.Components -> { f with SelectedComponents = [||] }
+
+
+    /// One field emptied: the choice it holds and the options it was picked from. The options go
+    /// as well because the rule lookup reads a field as its choice, else as the one option it
+    /// offers: a list narrowed to one option by the other choices would be read as a pick, and
+    /// the cleared field would come back chosen. The next evaluation offers the field's options
+    /// afresh.
+    let clearField field (f: Filter) =
+        match field with
+        | FilterField.Indication ->
+            { f with
+                Indications = [||]
+                Indication = None
+            }
+        | FilterField.Generic ->
+            { f with
+                Generics = [||]
+                Generic = None
+            }
+        | FilterField.Route ->
+            { f with
+                Routes = [||]
+                Route = None
+            }
+        | FilterField.Form ->
+            { f with
+                Forms = [||]
+                Form = None
+            }
+        | FilterField.DoseType ->
+            { f with
+                DoseTypes = [||]
+                DoseType = None
+            }
+        | FilterField.Diluent ->
+            { f with
+                Diluents = [||]
+                Diluent = None
+            }
+        | FilterField.Components ->
+            { f with
+                Components = [||]
+                SelectedComponents = [||]
+            }
+
+
+    /// Whether any choice at all is still held.
+    let anyChosen (f: Filter) =
+        f.Indication.IsSome
+        || f.Generic.IsSome
+        || f.Route.IsSome
+        || f.Form.IsSome
+        || f.DoseType.IsSome
+
+
+    /// A change to one of the choices: the change is written and the scenarios go. An emptied
+    /// field lets go of the choices in the steps below it and keeps neither its choice nor its
+    /// options; with nothing chosen anywhere afterwards no options are kept either.
+    let applyChange category field clearOwn write (ctx: OrderContext) =
+        let below =
+            if not clearOwn then
+                []
+            else
+                match category |> chain |> List.skipWhile (List.contains field >> not) with
+                | [] -> []
+                | _ :: rest -> rest |> List.concat
+
+        let filter =
+            below
+            |> List.fold (fun f x -> f |> clearChoice x) ctx.Filter
+            |> fun f -> if clearOwn then f |> clearField field else f
+            |> write
+
+        let filter =
+            if filter |> anyChosen then
+                filter
+            else
+                filterFields |> List.fold (fun f x -> f |> clearField x) filter
+
+        { ctx with
+            Filter = filter
+            Scenarios = [||]
+        }
+
+
+    /// The choice of a field set or emptied; nothing happens when the field already holds it.
+    let change category field (chosen: string option) (dt: DoseType option) (ctx: OrderContext) =
+        let held, write =
+            match field with
+            | FilterField.Indication ->
+                ctx.Filter.Indication = chosen, (fun (f: Filter) -> { f with Indication = chosen })
+            | FilterField.Generic -> ctx.Filter.Generic = chosen, (fun (f: Filter) -> { f with Generic = chosen })
+            | FilterField.Route -> ctx.Filter.Route = chosen, (fun (f: Filter) -> { f with Route = chosen })
+            | FilterField.Form -> ctx.Filter.Form = chosen, (fun (f: Filter) -> { f with Form = chosen })
+            | FilterField.DoseType -> ctx.Filter.DoseType = dt, (fun (f: Filter) -> { f with DoseType = dt })
+            | FilterField.Diluent -> ctx.Filter.Diluent = chosen, (fun (f: Filter) -> { f with Diluent = chosen })
+            | FilterField.Components ->
+                ctx.Filter.SelectedComponents = (chosen |> Option.toArray),
+                (fun (f: Filter) -> { f with SelectedComponents = chosen |> Option.toArray })
+
+        let emptied =
+            match field with
+            | FilterField.DoseType -> dt.IsNone
+            | _ -> chosen.IsNone
+
+        if held then
+            ctx
+        else
+            ctx |> applyChange category field emptied write
+
+
+    /// The filter with no options and no choices.
+    let emptyFilter =
+        {
+            Indications = [||]
+            Generics = [||]
+            Routes = [||]
+            Forms = [||]
+            DoseTypes = [||]
+            Diluents = [||]
+            Components = [||]
+            Indication = None
+            Generic = None
+            Route = None
+            Form = None
+            DoseType = None
+            Diluent = None
+            SelectedComponents = [||]
+        }
+
+
     let setFilterItem item ctx =
         let tryItem n xs =
             xs |> Array.tryItem n |> Option.map Array.singleton |> Option.defaultValue xs
