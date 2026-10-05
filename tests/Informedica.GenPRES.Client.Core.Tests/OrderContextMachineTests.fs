@@ -979,3 +979,141 @@ let reopenTests =
                 |> Expect.equal "nothing to put back, nothing in flight again" (settled, [])
             }
         ]
+
+
+[<Tests>]
+let specificCommandTests =
+    let newCases =
+        [
+            OrderContextCommand.SetNthFilterProperty(Shared.Models.OrderContext.Generic, 0)
+            OrderContextCommand.ClearFilterProperty Shared.Models.OrderContext.Route
+            OrderContextCommand.ClearAllFilterProperty
+            OrderContextCommand.SetNthDiluentProperty 0
+            OrderContextCommand.ClearDiluentProperty
+            OrderContextCommand.SetNthComponentsProperty [| 0 |]
+            OrderContextCommand.SelectNthOrderScenario 0
+            OrderContextCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 0)
+            OrderContextCommand.ClearScheduleProperty(ScheduleProperty.Time, [| "pick" |])
+            OrderContextCommand.SetNthOrderableProperty(OrderableProperty.DoseQuantity, 0)
+            OrderContextCommand.ClearOrderableProperty(OrderableProperty.Quantity, [||])
+            OrderContextCommand.SetNthComponentProperty("cmp", ComponentProperty.OrderableQuantity, 0)
+            OrderContextCommand.ClearComponentProperty("cmp", ComponentProperty.OrderableQuantity, [||])
+            OrderContextCommand.SetNthItemProperty("cmp", "itm", ItemProperty.DoseQuantity, 0)
+            OrderContextCommand.ClearItemProperty("cmp", "itm", ItemProperty.DoseRate, [||])
+        ]
+
+    let withFrequency freq (sc: OrderScenario) =
+        { sc with Order = { sc.Order with Schedule = { sc.Order.Schedule with Frequency = freq } } }
+
+    let twoGenerics = { empty with OrderContext.Filter.Generics = [| "ibuprofen"; "paracetamol" |] }
+
+    // a context whose one scenario offers two frequencies
+    let twoFrequencies =
+        let sc = OrderPlanMachineTests.Fixtures.scenario "o-1" "paracetamol"
+
+        let freq =
+            { sc.Order.Schedule.Frequency with
+                OrderVariable.Variable.Vals =
+                    Some
+                        {
+                            Value = [| "1", 1m; "2", 2m |]
+                            Unit = "x/dag"
+                            Group = ""
+                            Short = false
+                            Language = ""
+                            Json = ""
+                        }
+            }
+
+        { paracetamol with Scenarios = [| sc |> withFrequency freq |] }
+
+    // the context as today's dialog sends a pick of the second frequency
+    let secondFrequency =
+        let sc = twoFrequencies.Scenarios[0]
+
+        let freq =
+            sc.Order.Schedule.Frequency
+            |> Shared.Models.Order.OrderVariable.setOvar (Some "2")
+
+        { twoFrequencies with Scenarios = [| sc |> withFrequency freq |] }
+
+    let pickSecond = OrderContextCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 1)
+
+    testList
+        "the specific commands"
+        [
+            test "each waits and carries as the case it stands for" {
+                for cmd in newCases do
+                    let old = OrderContextCommand.replaced cmd |> Option.get
+
+                    OrderPlanMachine.Dialog.waits cmd
+                    |> Expect.equal $"%A{cmd} waits as %A{old}" (OrderPlanMachine.Dialog.waits old)
+                    OrderPlanMachine.Dialog.carries cmd
+                    |> Expect.equal $"%A{cmd} carries as %A{old}" (OrderPlanMachine.Dialog.carries old)
+            }
+
+            test "a command that cannot change the context shows it as it is" {
+                twoGenerics
+                |> OrderPlanMachine.Dialog.shown (
+                    OrderContextCommand.SetNthFilterProperty(Shared.Models.OrderContext.Generic, 2)
+                )
+                |> Expect.equal "an index out of range" twoGenerics
+            }
+
+            test "a filter pick goes out as is, evaluates, and syncs the pages to the filter it makes" {
+                let cmd = OrderContextCommand.SetNthFilterProperty(Shared.Models.OrderContext.Generic, 1)
+                let picked = twoGenerics |> Shared.Models.OrderContext.medicationChange (Some "paracetamol")
+
+                let state, effects = transition (OrderContextMsg.Command(cmd, twoGenerics, "r-1")) (held twoGenerics)
+
+                effects
+                |> Expect.equal
+                    "the call with the context as it is, the syncs with the filter picked"
+                    [
+                        OrderContextEffect.CallContext(cmd, twoGenerics, "r-1")
+                        OrderContextEffect.SyncFormulary picked.Filter
+                        OrderContextEffect.SyncParenteralia picked.Filter
+                    ]
+
+                state
+                |> OrderContextState.view
+                |> Expect.equal "the pick shown while it runs" (OrderContextView.Changing picked)
+            }
+
+            test "a value pick goes out as is and shows as today's dialog sends it" {
+                let state, effects =
+                    transition (OrderContextMsg.Command(pickSecond, twoFrequencies, "r-1")) (held twoFrequencies)
+
+                effects
+                |> Expect.equal
+                    "the call with the context as it is"
+                    [ OrderContextEffect.CallContext(pickSecond, twoFrequencies, "r-1") ]
+
+                state
+                |> OrderContextState.context
+                |> Expect.equal "the pick shown while it runs" (Some secondFrequency)
+            }
+
+            test "a pick that waits goes out over the context it was sent with" {
+                let busy = inFlight OrderContextCommand.IncreaseScheduleFrequencyProperty paracetamol paracetamol "r-1"
+
+                let waiting, _ = transition (OrderContextMsg.Command(pickSecond, twoFrequencies, "r-2")) busy
+
+                transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol))) waiting
+                |> snd
+                |> Expect.equal
+                    "the pick over its own context"
+                    [ OrderContextEffect.CallContext(pickSecond, twoFrequencies, "r-2") ]
+            }
+
+            test "a patient change during a pick evaluates the pick for the new patient" {
+                let busy, _ =
+                    transition (OrderContextMsg.Command(pickSecond, twoFrequencies, "r-1")) (held twoFrequencies)
+
+                transition (OrderContextMsg.PatientChanged(Some other, "r-2")) busy
+                |> snd
+                |> Expect.equal
+                    "the context picked, for the other patient"
+                    (evaluated { secondFrequency with Patient = other } "r-2")
+            }
+        ]
