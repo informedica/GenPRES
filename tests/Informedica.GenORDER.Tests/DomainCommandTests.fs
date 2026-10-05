@@ -175,3 +175,120 @@ let tests =
                 |> fun msgs -> msgs |> Expect.isEmpty $"the same order: %A{msgs}"
             }
         ]
+
+
+/// The plan's answer to a command over a plan context holding this context.
+let inPlan ctx cmd =
+    PlanContext.create "c-1" OrderCategory.Drug ctx
+    |> PlanContext.evaluateOutcome start OrderLogging.noOp (OrderPlanTests.NoRules()) (fun () -> [||]) cmd
+    |> Result.map (
+        function
+        | Evaluated pc -> pc.Context, None
+        | Refused(pc, r) -> pc.Context, Some r
+    )
+    |> Result.toOption
+
+
+[<Tests>]
+let seedTests =
+    let seed source ind gen rte frm dt = pcmContext |> OrderContext.seedFilter source ind gen rte frm dt
+
+    let held = pcmContext.Filter
+
+    testList
+        "the seeds and the patient change"
+        [
+            test "a formulary page with the same choices keeps the diluent and the components" {
+                let ctx = seed SeedSource.Formulary held.Indication held.Generic held.Route held.Form held.DoseType
+
+                ctx.Filter.Diluent |> Expect.equal "the diluent kept" held.Diluent
+                ctx.Filter.SelectedComponents
+                |> Expect.equal "the components kept" held.SelectedComponents
+                ctx.Scenarios |> Expect.isEmpty "the scenarios go"
+            }
+
+            test "a formulary page with another indication lets go of the diluent and the components" {
+                let ctx = seed SeedSource.Formulary (Some "pijn") held.Generic held.Route held.Form held.DoseType
+
+                ctx.Filter.Indication |> Expect.equal "the indication written" (Some "pijn")
+                ctx.Filter.Diluent |> Expect.isNone "the diluent goes"
+                ctx.Filter.SelectedComponents |> Expect.isEmpty "the components go"
+            }
+
+            test "a parenteralia page does not compare the indication" {
+                let ctx = seed SeedSource.Parenteralia None held.Generic held.Route held.Form None
+
+                ctx.Filter.Indication |> Expect.isNone "the indication cleared"
+                ctx.Filter.DoseType |> Expect.isNone "the dose type cleared"
+                ctx.Filter.Diluent |> Expect.equal "the diluent kept" held.Diluent
+                ctx.Scenarios |> Expect.isEmpty "the scenarios go"
+            }
+
+            test "a parenteralia page with another route lets go of the diluent and the components" {
+                let ctx = seed SeedSource.Parenteralia None held.Generic (Some "rect") held.Form None
+
+                ctx.Filter.Diluent |> Expect.isNone "the diluent goes"
+                ctx.Filter.SelectedComponents |> Expect.isEmpty "the components go"
+            }
+
+            test "the url's medication is written over the filter as it is" {
+                let ctx = seed SeedSource.Url (Some "pijn") (Some "ibuprofen") None None None
+
+                ctx.Filter.Generic |> Expect.equal "the medication written" (Some "ibuprofen")
+                ctx.Filter.Route |> Expect.isNone "the route written"
+                ctx.Filter.Diluent |> Expect.equal "the diluent kept" held.Diluent
+                ctx.Scenarios |> Expect.equal "the scenarios kept" pcmContext.Scenarios
+            }
+
+            test "a list item is written over an empty filter, the patient kept" {
+                let ctx = seed SeedSource.MedicationList None (Some "ibuprofen") (Some "or") None None
+
+                ctx.Filter
+                |> Expect.equal
+                    "the item's choices alone"
+                    { OrderContext.emptyFilter with
+                        Generic = Some "ibuprofen"
+                        Route = Some "or"
+                    }
+
+                ctx.Scenarios |> Expect.isEmpty "no scenarios"
+                ctx.Patient |> Expect.equal "the patient kept" pcmContext.Patient
+            }
+
+            test "a reload changes nothing" {
+                seed SeedSource.Reload None None None None None
+                |> Expect.equal "the context as it is" pcmContext
+            }
+
+            test "a seed answers in the plan as the update of the context it seeds" {
+                [
+                    SeedSource.Url
+                    SeedSource.MedicationList
+                    SeedSource.Formulary
+                    SeedSource.Parenteralia
+                    SeedSource.Reload
+                ]
+                |> List.filter (fun source ->
+                    let seeded = seed source (Some "pijn") (Some "ibuprofen") (Some "or") None None
+
+                    // today the client sends the context it seeded as an update
+                    inPlan
+                        pcmContext
+                        (fun ctx ->
+                            OrderContext.SeedFilter(ctx, source, Some "pijn", Some "ibuprofen", Some "or", None, None)
+                        )
+                    <> inPlan seeded OrderContext.UpdateOrderContext
+                )
+                |> Expect.isEmpty "the same answer for every source"
+            }
+
+            test "a patient change answers in the plan as the update of the context with the patient" {
+                let pat = { pcmContext.Patient with Department = Some "NEO" }
+
+                // today the client sends the context with the patient as an update
+                inPlan pcmContext (fun ctx -> OrderContext.ChangePatient(ctx, pat))
+                |> Expect.equal
+                    "the same answer"
+                    (inPlan { pcmContext with Patient = pat } OrderContext.UpdateOrderContext)
+            }
+        ]
