@@ -611,27 +611,25 @@ module NutritionSlot =
 
         let markOf = ViewHelpers.markOf
 
-        // a filter pick goes as its position in the options the field offers, an emptied field as
-        // a clear; a value the field does not offer goes as the changed context, as before
-        let pickFilter field (options: 'a[]) (picked: 'a option) change =
-            let cmd, updCtx =
-                match picked |> Option.map (fun x -> options |> Array.tryFindIndex ((=) x)) with
-                | None -> Api.OrderContextCommand.ClearFilterProperty field, ctx
-                | Some(Some n) -> Api.OrderContextCommand.SetNthFilterProperty(field, n), ctx
-                | Some None -> Api.OrderContextCommand.UpdateOrderContext, ctx |> change picked
-
-            Api.OrderPlanCommand.Navigate(planRef.current, ncId, cmd, updCtx)
+        let navigate cmd =
+            Api.OrderPlanCommand.Navigate(planRef.current, ncId, cmd, ctx)
             |> props.planCommand
 
-        let genericChange s =
-            pickFilter OrderContext.Generic ctx.Filter.Generics s OrderContext.medicationChange
+        // a filter pick goes as its position in the options the field offers, an emptied field as
+        // a clear; a value the field does not offer is a bug, written to the console and not sent
+        let pickFilter field (options: 'a[]) (picked: 'a option) =
+            match picked |> Option.map (fun x -> options |> Array.tryFindIndex ((=) x)) with
+            | None -> navigate (Api.OrderContextCommand.ClearFilterProperty field)
+            | Some(Some n) -> navigate (Api.OrderContextCommand.SetNthFilterProperty(field, n))
+            | Some None -> Logging.warning "a pick the field does not offer is not sent" picked
 
-        let indicationChange s =
-            pickFilter OrderContext.Indication ctx.Filter.Indications s OrderContext.indicationChange
+        let genericChange s = pickFilter OrderContext.Generic ctx.Filter.Generics s
+
+        let indicationChange s = pickFilter OrderContext.Indication ctx.Filter.Indications s
 
         let doseTypeChange s =
             let dt = s |> Option.map DoseType.doseTypeFromString
-            pickFilter OrderContext.DoseType ctx.Filter.DoseTypes dt OrderContext.doseTypeChange
+            pickFilter OrderContext.DoseType ctx.Filter.DoseTypes dt
 
         // set by a field's arrow just before it clears its value, so that the change goes out as
         // a reopen rather than as a change
@@ -639,35 +637,27 @@ module NutritionSlot =
 
         // a pick goes out as the index of its value over the order as it is; a reopen as a clear
         // without picks, since only the workbench keeps them: the server clears and solves, so a
-        // value another variable pins comes back as it was. A value the order does not offer goes
-        // as the changed order, as before
+        // value another variable pins comes back as it was. A value the order does not offer is a
+        // bug, written to the console and not sent
         let updateOrderScenario (ol: OrderLoader) target (s: string option) =
             let isReopen = reopening.current
             reopening.current <- false
-
-            let changed =
-                target
-                |> Option.map (fun t -> ol.Order |> OrderContext.Target.map t (OrderVariable.setOvar s))
-                |> Option.defaultValue ol.Order
 
             let located =
                 target
                 |> Option.bind (fun t -> ol.Order |> OrderContext.Target.tryGet t |> Option.map (fun v -> t, v))
 
-            let cmd, ord =
-                match located, s with
-                | Some(t, _), None when isReopen -> ViewHelpers.clearCommand t [||], ol.Order
-                | Some(t, ovar), Some key when not isReopen ->
-                    match OrderContext.values ovar |> Array.tryFindIndex ((=) key) with
-                    | Some n -> ViewHelpers.setNthCommand t n, ol.Order
-                    | None -> Api.OrderContextCommand.UpdateOrderScenario, changed
-                | _ when isReopen -> Api.OrderContextCommand.ReopenOrderScenario [||], changed
-                | _ -> Api.OrderContextCommand.UpdateOrderScenario, changed
-
-            ViewHelpers.withLoader ctx { ol with Order = ord }
-            |> fun updCtx ->
-                Api.OrderPlanCommand.Navigate(planRef.current, ncId, cmd, updCtx)
+            let send cmd =
+                Api.OrderPlanCommand.Navigate(planRef.current, ncId, cmd, ViewHelpers.withLoader ctx ol)
                 |> if isReopen then props.planReopen else props.planCommand
+
+            match located, s with
+            | Some(t, _), None when isReopen -> send (ViewHelpers.clearCommand t [||])
+            | Some(t, ovar), Some key when not isReopen ->
+                match OrderContext.values ovar |> Array.tryFindIndex ((=) key) with
+                | Some n -> send (ViewHelpers.setNthCommand t n)
+                | None -> Logging.warning "a value the field does not offer is not sent" key
+            | _ -> Logging.warning "a change no field holds is not sent" s
 
         let resetOrderScenario (_ol: OrderLoader) =
             Api.OrderPlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.ResetOrderScenario, ctx)

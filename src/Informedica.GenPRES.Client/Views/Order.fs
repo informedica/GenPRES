@@ -555,8 +555,8 @@ module Order =
 
         // a pick goes out as the index of its value over the order as it is, and adds what it picked
         // to the picks; a reopen goes as a clear with the picks from before it, and the server keeps
-        // those made before the cleared one. A value the order does not offer goes as the changed
-        // order, as before
+        // those made before the cleared one. A value the order does not offer is a bug, written to
+        // the console and not sent; a reopen then ends when its list closes without a pick
         let updateOrderScenario (ol: OrderLoader) target (s: string option) =
             match props.orderContext with
             | OrderContextView.Settled ctx
@@ -564,17 +564,6 @@ module Order =
             | OrderContextView.Changing ctx ->
                 let isReopen = reopening.current
                 reopening.current <- false
-
-                let changed =
-                    target
-                    |> Option.map (fun t -> ol.Order |> Models.OrderContext.Target.map t (OrderVariable.setOvar s))
-                    |> Option.defaultValue ol.Order
-
-                if not isReopen then
-                    shownOrder
-                    |> Option.iter (fun before -> setPicks (picks |> PickList.afterChange before changed))
-
-                let held = heldPicks.current |> Option.defaultValue [||]
 
                 let located =
                     target
@@ -586,24 +575,23 @@ module Order =
                 | Some(t, _), None when isReopen ->
                     ViewHelpers.withLoader ctx ol
                     |> props.reopenOrderScenario (
-                        held
+                        heldPicks.current
+                        |> Option.defaultValue [||]
                         |> Array.map (Models.OrderContext.Picks.withinOrder ol.Order.Id)
                         |> ViewHelpers.clearCommand t
                     )
                 | Some(t, ovar), Some key when not isReopen ->
                     match Models.OrderContext.values ovar |> Array.tryFindIndex ((=) key) with
                     | Some n ->
+                        let changed = ol.Order |> Models.OrderContext.Target.map t (OrderVariable.setOvar s)
+
+                        shownOrder
+                        |> Option.iter (fun before -> setPicks (picks |> PickList.afterChange before changed))
+
                         ViewHelpers.withLoader ctx ol
                         |> props.updateOrderScenario (ViewHelpers.setNthCommand t n)
-                    | None ->
-                        ViewHelpers.withLoader ctx { ol with Order = changed }
-                        |> props.updateOrderScenario Api.OrderContextCommand.UpdateOrderScenario
-                | _ ->
-                    ViewHelpers.withLoader ctx { ol with Order = changed }
-                    |> if isReopen then
-                           props.reopenOrderScenario (Api.OrderContextCommand.ReopenOrderScenario held)
-                       else
-                           props.updateOrderScenario Api.OrderContextCommand.UpdateOrderScenario
+                    | None -> Logging.warning "a value the field does not offer is not sent" key
+                | _ -> Logging.warning "a change no field holds is not sent" s
             | _ -> ()
 
         // a reset keeps the order id, so it starts from the initial picks itself
