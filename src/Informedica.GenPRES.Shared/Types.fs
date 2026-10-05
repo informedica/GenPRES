@@ -424,6 +424,42 @@ module Types =
         | NoDoseType
 
 
+    /// A value of an order's schedule the user can pick.
+    [<RequireQualifiedAccess>]
+    type ScheduleProperty =
+        | Frequency
+        | Time
+
+
+    /// A value of an order's orderable the user can pick.
+    [<RequireQualifiedAccess>]
+    type OrderableProperty =
+        | Quantity
+        | DoseQuantity
+        | DoseRate
+
+
+    /// A value of a component of the orderable the user can pick.
+    [<RequireQualifiedAccess>]
+    type ComponentProperty =
+        | OrderableQuantity
+        | DoseQuantityAdjust
+
+
+    /// A value of an item of a component the user can pick.
+    [<RequireQualifiedAccess>]
+    type ItemProperty =
+        | DoseQuantity
+        | DoseQuantityAdjust
+        | DosePerTime
+        | DosePerTimeAdjust
+        | DoseRate
+        | DoseRateAdjust
+        | ComponentConcentration
+        | OrderableConcentration
+        | OrderableQuantity
+
+
     type Filter =
         {
             Indications: string[]
