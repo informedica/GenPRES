@@ -638,16 +638,14 @@ module OrderPlan =
                     onCancel = fun () -> setConfirmDeleteOpen false
                 |}
 
-        let updateOrderScenario (ctx: OrderContext) =
-            orderContextMsg (Api.OrderContextCommand.UpdateOrderScenario, ctx)
+        let updateOrderScenario cmd (ctx: OrderContext) = orderContextMsg (cmd, ctx)
 
         // a clear from a field's arrow goes as a reopen of the plan, which keeps the plan before it
-        let reopenOrderScenario picks (ctx: OrderContext) =
+        let reopenOrderScenario cmd (ctx: OrderContext) =
             match orderPlan with
             | OrderPlanView.Settled(tp, Some id)
             | OrderPlanView.Changing(tp, Some id) ->
-                Api.OrderPlanCommand.Navigate(tp, id, Api.OrderContextCommand.ReopenOrderScenario picks, ctx)
-                |> envOrderPlan.Reopen
+                Api.OrderPlanCommand.Navigate(tp, id, cmd, ctx) |> envOrderPlan.Reopen
             | OrderPlanView.Settled(_, None)
             | OrderPlanView.Changing(_, None)
             | OrderPlanView.NoPatient -> ()

@@ -658,6 +658,28 @@ module ViewHelpers =
         block |> Models.Severity.items |> Array.map textItemText |> String.concat ""
 
 
+    /// The command that picks the nth value of the variable the target addresses.
+    let setNthCommand target n =
+        match target with
+        | Models.OrderContext.Target.Schedule prop -> Api.OrderContextCommand.SetNthScheduleProperty(prop, n)
+        | Models.OrderContext.Target.Orderable prop -> Api.OrderContextCommand.SetNthOrderableProperty(prop, n)
+        | Models.OrderContext.Target.Component(cmp, prop) ->
+            Api.OrderContextCommand.SetNthComponentProperty(cmp, prop, n)
+        | Models.OrderContext.Target.Item(cmp, itm, prop) ->
+            Api.OrderContextCommand.SetNthItemProperty(cmp, itm, prop, n)
+
+
+    /// The command that clears the variable the target addresses, with the picks to keep.
+    let clearCommand target picks =
+        match target with
+        | Models.OrderContext.Target.Schedule prop -> Api.OrderContextCommand.ClearScheduleProperty(prop, picks)
+        | Models.OrderContext.Target.Orderable prop -> Api.OrderContextCommand.ClearOrderableProperty(prop, picks)
+        | Models.OrderContext.Target.Component(cmp, prop) ->
+            Api.OrderContextCommand.ClearComponentProperty(cmp, prop, picks)
+        | Models.OrderContext.Target.Item(cmp, itm, prop) ->
+            Api.OrderContextCommand.ClearItemProperty(cmp, itm, prop, picks)
+
+
     /// The context with the scenario of the loader's order replaced by the loader's component,
     /// item and order.
     let withLoader (ctx: OrderContext) (ol: OrderLoader) =
