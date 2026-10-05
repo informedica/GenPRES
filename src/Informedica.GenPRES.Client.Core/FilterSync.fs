@@ -29,46 +29,19 @@ let syncFilterToParenteralia (filter: Filter) (par: Parenteralia) : Parenteralia
 /// The order context with the choices of the formulary. The diluent and the selected components
 /// are kept only when the indication, generic, route and form are unchanged; the scenarios go.
 let syncFormularyToFilter (form: Formulary) (ctx: OrderContext) : OrderContext =
-    let unchanged =
-        form.Indication = ctx.Filter.Indication
-        && form.Generic = ctx.Filter.Generic
-        && form.Route = ctx.Filter.Route
-        && form.Form = ctx.Filter.Form
-
-    { ctx with
-        Filter =
-            { ctx.Filter with
-                Indication = form.Indication
-                Generic = form.Generic
-                Form = form.Form
-                Route = form.Route
-                DoseType = form.DoseType
-                Diluent = if unchanged then ctx.Filter.Diluent else None
-                SelectedComponents = if unchanged then ctx.Filter.SelectedComponents else [||]
-            }
-        Scenarios = [||]
-    }
+    ctx
+    |> Shared.Models.OrderContext.seedFilter
+        SeedSource.Formulary
+        form.Indication
+        form.Generic
+        form.Route
+        form.Form
+        form.DoseType
 
 
 /// The order context with the generic, form and route of the parenteralia page; the indication
 /// and dose type are cleared. The diluent and the selected components are kept only when the
 /// generic, route and form are unchanged; the scenarios go.
 let syncParenteraliaToFilter (par: Parenteralia) (ctx: OrderContext) : OrderContext =
-    let unchanged =
-        par.Generic = ctx.Filter.Generic
-        && par.Route = ctx.Filter.Route
-        && par.Form = ctx.Filter.Form
-
-    { ctx with
-        Filter =
-            { ctx.Filter with
-                Indication = None
-                Generic = par.Generic
-                Form = par.Form
-                Route = par.Route
-                DoseType = None
-                Diluent = if unchanged then ctx.Filter.Diluent else None
-                SelectedComponents = if unchanged then ctx.Filter.SelectedComponents else [||]
-            }
-        Scenarios = [||]
-    }
+    ctx
+    |> Shared.Models.OrderContext.seedFilter SeedSource.Parenteralia None par.Generic par.Route par.Form None

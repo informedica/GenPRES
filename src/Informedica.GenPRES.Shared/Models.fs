@@ -2464,6 +2464,38 @@ module Models =
         let clearAll (ctx: OrderContext) = empty |> setPatient ctx.Patient
 
 
+        /// The filter's choices set from outside its own fields, with the rule of their source. A
+        /// page's choices keep the diluent and the selected components only when the choices above
+        /// them are unchanged, and the scenarios go; the url's medication is written over the
+        /// filter as it is, a list item's over an empty one; a reload changes nothing. The
+        /// domain's seed applies the same rules; the agreement test in the server tests keeps them
+        /// equal.
+        let seedFilter source ind gen rte frm dt (ctx: OrderContext) =
+            let write keep (ctx: OrderContext) =
+                { ctx with
+                    Filter =
+                        { ctx.Filter with
+                            Indication = ind
+                            Generic = gen
+                            Route = rte
+                            Form = frm
+                            DoseType = dt
+                            Diluent = if keep then ctx.Filter.Diluent else None
+                            SelectedComponents = if keep then ctx.Filter.SelectedComponents else [||]
+                        }
+                }
+
+            let f = ctx.Filter
+            let same = gen = f.Generic && rte = f.Route && frm = f.Form
+
+            match source with
+            | SeedSource.Formulary -> { (ctx |> write (same && ind = f.Indication)) with Scenarios = [||] }
+            | SeedSource.Parenteralia -> { (ctx |> write same) with Scenarios = [||] }
+            | SeedSource.Url -> ctx |> write true
+            | SeedSource.MedicationList -> ctx |> clearAll |> write true
+            | SeedSource.Reload -> ctx
+
+
         /// The context narrowed to its nth scenario and that scenario's form, as the page selects it.
         let selectNthScenario n (ctx: OrderContext) =
             ctx.Scenarios

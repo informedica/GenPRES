@@ -137,3 +137,41 @@ let tests =
                         }
                 ]
         ]
+
+
+[<Tests>]
+let seedTests =
+    let sources =
+        [
+            SeedSource.Url, S.SeedSource.Url
+            SeedSource.MedicationList, S.SeedSource.MedicationList
+            SeedSource.Formulary, S.SeedSource.Formulary
+            SeedSource.Parenteralia, S.SeedSource.Parenteralia
+            SeedSource.Reload, S.SeedSource.Reload
+        ]
+
+    // the filter's own choices, other choices, and none at all
+    let choices (f: Filter) =
+        [
+            "the same", (f.Indication, f.Generic, f.Route, f.Form, f.DoseType)
+            "others", (Some "sedatie", Some "morfine", Some "INTRAVENEUS", Some "drank", Some options.DoseTypes[1])
+            "none", (None, None, None, None, None)
+        ]
+
+    testList
+        "the domain's seeds and Shared's"
+        [
+            for fname, filter in filters do
+                let ctx = { context filter with Scenarios = [||] }
+                let shared = ctx |> Contract.context OrderCategory.Drug
+
+                for source, sharedSource in sources do
+                    for cname, (ind, gen, rte, frm, dt) in choices filter do
+                        test $"%s{fname}, %A{source}, %s{cname}" {
+                            sameFilter
+                                (ctx |> OrderContext.seedFilter source ind gen rte frm dt |> Ok)
+                                (shared
+                                 |> SCtx.seedFilter sharedSource ind gen rte frm (dt |> Option.map Contract.doseType)
+                                 |> Ok)
+                        }
+        ]

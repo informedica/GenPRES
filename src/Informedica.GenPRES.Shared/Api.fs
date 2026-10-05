@@ -69,6 +69,15 @@ module Api =
         | ClearItemProperty of cmp: string * itm: string * property: ItemProperty * picks: string[]
         /// The argumentation the user writes for a deviation from the rules.
         | SetArgumentationProperty of text: string
+        /// The filter's choices set from outside its own fields, by name, with the rule of their
+        /// source.
+        | SeedFilter of
+            source: SeedSource *
+            indication: string option *
+            generic: string option *
+            route: string option *
+            form: string option *
+            doseType: DoseType option
 
     /// Every computing request: the command and the OpenedToken the Session holds.
     /// `None` where there is none to send: no Session, an anonymous one, or a client acting
@@ -153,6 +162,7 @@ module Api =
                 $"ClearItemProperty cmp={cmp} itm={itm} %A{prop} %i{picks.Length} picks"
             // never the text: it is the clinician's and stays out of the log
             | OrderContextCommand.SetArgumentationProperty _ -> "SetArgumentationProperty"
+            | OrderContextCommand.SeedFilter(source, _, gen, _, _, _) -> $"SeedFilter %A{source} %A{gen}"
 
 
         module Ctx = Models.OrderContext
@@ -199,6 +209,8 @@ module Api =
             | OrderContextCommand.ClearItemProperty(cmp, itm, prop, picks) ->
                 clear (Ctx.Target.Item(cmp, itm, prop)) picks
             | OrderContextCommand.SetArgumentationProperty text -> Ok(None, ctx |> Ctx.Argumentation.write text)
+            | OrderContextCommand.SeedFilter(source, ind, gen, rte, frm, dt) ->
+                Ok(ctx |> Ctx.seedFilter source ind gen rte frm dt) |> update
             | cmd -> Ok(Some cmd, ctx)
 
 
@@ -210,7 +222,8 @@ module Api =
             | OrderContextCommand.ClearAllFilterProperty
             | OrderContextCommand.SetNthDiluentProperty _
             | OrderContextCommand.ClearDiluentProperty
-            | OrderContextCommand.SetNthComponentsProperty _ -> Some OrderContextCommand.UpdateOrderContext
+            | OrderContextCommand.SetNthComponentsProperty _
+            | OrderContextCommand.SeedFilter _ -> Some OrderContextCommand.UpdateOrderContext
             | OrderContextCommand.SelectNthOrderScenario _ -> Some OrderContextCommand.SelectOrderScenario
             | OrderContextCommand.SetNthScheduleProperty _
             | OrderContextCommand.SetNthOrderableProperty _
@@ -223,6 +236,24 @@ module Api =
                 Some(OrderContextCommand.ReopenOrderScenario picks)
             | OrderContextCommand.SetArgumentationProperty _ -> None
             | cmd -> Some cmd
+
+
+    /// What the order context still being worked on is asked: a command over it, or the patient it
+    /// is evaluated for changed. Only this context changes patient: a context in the plan keeps the
+    /// patient it was evaluated for, so a plan cannot carry a patient change.
+    [<RequireQualifiedAccess>]
+    type ActiveOrderContextCommand =
+        | Command of OrderContextCommand
+        | ChangePatient of patient: Patient
+
+
+    module ActiveOrderContextCommand =
+
+        /// For the log: the command alone, never the context nor the patient.
+        let toString (cmd: ActiveOrderContextCommand, ctx: OrderContext) =
+            match cmd with
+            | ActiveOrderContextCommand.Command cmd -> OrderContextCommand.toString (cmd, ctx)
+            | ActiveOrderContextCommand.ChangePatient _ -> "ChangePatient"
 
 
     /// The launch command family. Cut from the session family at the authentication boundary:
@@ -418,7 +449,8 @@ module Api =
             // one member per use case, each on the same envelope
             // the context evaluated, or refused with why; the error channel is for failures
             processOrderContext:
-                Request<OrderContextCommand * OrderContext> -> Async<Result<Reply<OrderContextResponse>, string[]>>
+                Request<ActiveOrderContextCommand * OrderContext>
+                    -> Async<Result<Reply<OrderContextResponse>, string[]>>
             processFormulary: Request<Formulary> -> Async<Result<Reply<Formulary>, string[]>>
             processParenteralia: Request<Parenteralia> -> Async<Result<Reply<Parenteralia>, string[]>>
             processInteraction: Request<InteractionCommand> -> Async<Result<Reply<InteractionResponse>, string[]>>

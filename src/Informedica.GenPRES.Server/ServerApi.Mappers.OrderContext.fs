@@ -365,6 +365,16 @@ module OrderContextMapper =
                     (fun n -> SetNthItemOrderableQuantity(c, i, n)), ClearItemOrderableQuantity(c, i)
 
 
+        /// The domain's source of a seed for the wire's.
+        let seedSource (source: SeedSource) =
+            match source with
+            | SeedSource.Url -> Informedica.GenOrder.Lib.Types.SeedSource.Url
+            | SeedSource.MedicationList -> Informedica.GenOrder.Lib.Types.SeedSource.MedicationList
+            | SeedSource.Formulary -> Informedica.GenOrder.Lib.Types.SeedSource.Formulary
+            | SeedSource.Parenteralia -> Informedica.GenOrder.Lib.Types.SeedSource.Parenteralia
+            | SeedSource.Reload -> Informedica.GenOrder.Lib.Types.SeedSource.Reload
+
+
         /// The command verb over a context of this category as the domain's command. A clear's
         /// picks get the order id back, the wire names them without it.
         let toDomain
@@ -461,6 +471,10 @@ module OrderContextMapper =
                 setNth (Ctx.Target.Item(cmp, itm, prop)) n
             | Shared.Api.OrderContextCommand.ClearItemProperty(cmp, itm, prop, picks) ->
                 clear (Ctx.Target.Item(cmp, itm, prop)) picks
+            | Shared.Api.OrderContextCommand.SeedFilter(source, ind, gen, rte, frm, dt) ->
+                fun ctx ->
+                    let dt = dt |> Option.map Mappers.mapFromSharedDoseTypeToOrderDoseType
+                    Domain.SeedFilter(ctx, seedSource source, ind, gen, rte, frm, dt)
             | Shared.Api.OrderContextCommand.SetArgumentationProperty _ ->
                 invalidArg (nameof cmd) "the argumentation is written by the server, without the domain"
 

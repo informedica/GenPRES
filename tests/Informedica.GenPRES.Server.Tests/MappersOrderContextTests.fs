@@ -349,15 +349,48 @@ let tests =
                             [||]
                         ),
                         Domain.ClearOrderValue(ctx, ClearItemComponentConcentration("cmp", "itm"), [])
+                        Shared.Api.OrderContextCommand.SeedFilter(
+                            SeedSource.Formulary,
+                            Some "pijn",
+                            Some "morfine",
+                            None,
+                            None,
+                            Some(DoseType.Discontinuous "onderhoud")
+                        ),
+                        Domain.SeedFilter(
+                            ctx,
+                            Types.SeedSource.Formulary,
+                            Some "pijn",
+                            Some "morfine",
+                            None,
+                            None,
+                            Some(Informedica.GenForm.Lib.Types.Discontinuous "onderhoud")
+                        )
                     ]
 
                 verbs
                 |> List.length
-                |> Expect.equal "every case of the wire's union but the argumentation" 41
+                |> Expect.equal "every case of the wire's union but the argumentation" 42
 
                 for verb, expected in verbs do
                     OrderContextMapper.Command.toDomain OrderCategory.Drug verb ctx
                     |> Expect.equal $"{verb}" expected
+            }
+
+            test "a patient change is the patient the request edits, and its patient is mapped" {
+                let pat = { Shared.Models.Patient.empty with Department = Some "NEO" }
+                let cmd = Shared.Api.ActiveOrderContextCommand.ChangePatient pat
+                let ctx = Shared.Models.OrderContext.empty
+
+                ServerApi.OrderContextCommand.patientOfActive (cmd, ctx)
+                |> Expect.equal "the patient the request edits" (Some pat)
+
+                let mark (p: Patient) = { p with Department = Some "mapped" }
+
+                match ServerApi.OrderContextCommand.patientsActive mark (cmd, ctx) with
+                | Shared.Api.ActiveOrderContextCommand.ChangePatient p, _ ->
+                    p.Department |> Expect.equal "the command's patient mapped" (Some "mapped")
+                | other -> failtest $"%A{other}"
             }
 
             test "the argumentation is no domain command" {

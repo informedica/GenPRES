@@ -1056,7 +1056,7 @@ module private Elmish =
                         serverApi.processOrderContext
                             {
                                 Opened = opened
-                                Command = (cmd, ctx)
+                                Command = (Api.ActiveOrderContextCommand.Command cmd, ctx)
                             }
                     with
                     | Ok reply ->
