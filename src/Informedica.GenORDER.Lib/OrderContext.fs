@@ -591,6 +591,26 @@ module OrderContext =
     module Prescription = Order.Schedule
 
 
+    /// The filter with no options and no choices.
+    let emptyFilter =
+        {
+            Indications = [||]
+            Generics = [||]
+            Routes = [||]
+            Forms = [||]
+            DoseTypes = [||]
+            Diluents = [||]
+            Components = [||]
+            Indication = None
+            Generic = None
+            Route = None
+            Form = None
+            DoseType = None
+            Diluent = None
+            SelectedComponents = [||]
+        }
+
+
     /// The context afresh for a patient: the pick lists of the rules for the patient, matched
     /// as every rule lookup matches it, so they hold what the evaluation offers.
     let create logger provider (pat: Patient) =
@@ -599,21 +619,12 @@ module OrderContext =
         let opts = pat |> getPrescriptionRules logger provider |> PrescriptionRule.filterOptions
 
         let filter =
-            {
+            { emptyFilter with
                 Indications = opts.Indications
                 Generics = opts.Generics
                 Routes = opts.Routes
                 Forms = opts.Forms
                 DoseTypes = opts.DoseTypes
-                Diluents = [||]
-                Components = [||]
-                Indication = None
-                Generic = None
-                Route = None
-                Form = None
-                DoseType = None
-                Diluent = None
-                SelectedComponents = [||]
             }
 
         {
@@ -882,26 +893,6 @@ module OrderContext =
             ctx
         else
             ctx |> applyChange category field emptied write
-
-
-    /// The filter with no options and no choices.
-    let emptyFilter =
-        {
-            Indications = [||]
-            Generics = [||]
-            Routes = [||]
-            Forms = [||]
-            DoseTypes = [||]
-            Diluents = [||]
-            Components = [||]
-            Indication = None
-            Generic = None
-            Route = None
-            Form = None
-            DoseType = None
-            Diluent = None
-            SelectedComponents = [||]
-        }
 
 
     let setFilterItem item ctx =
