@@ -44,9 +44,9 @@ values in it, and a scenario cannot be played as a sequence of commands alone.
 
 This plan is the first, behaviour-neutral step towards a command structure in which every scenario
 plays as it happens in the user interface. It covers every filter, scenario and order action,
-played one after another on the demo data. Each remaining gap closes by adding to it, without
-undoing it: patient edits, overlapping requests (the trail of #1224), signing, and a rule set
-version per order context (#1247).
+played one after another on the fixed medications of the tests. Each remaining gap closes by
+adding to it, without undoing it: patient edits, overlapping requests (the trail of #1224),
+signing, and a rule set version per order context (#1247).
 
 ## Approaches considered
 
@@ -267,10 +267,10 @@ request for that step.
    shadowed `OrderContextCommand`; the order variables by name, the scenario narrowing, `count` and
    `toChange`; with Expecto and FsCheck:
    - **Identity:** for every filter field, scenario and variable with more than one value, on the
-     demo data and the `Scenarios.fs` fixtures, `toChange` gives the old case and the same context
+     `Scenarios.fs` fixtures, `toChange` gives the old case and the same context
      the client builds today.
-   - **Through the server:** each new case and its old counterpart, through `processCmd` on the
-     demo data, give the same response. A filter command makes the scenarios afresh, with new order
+   - **Through the server:** each new case and its old counterpart, through `processCmd` with stub
+     ports, give the same response. A filter command makes the scenarios afresh, with new order
      ids on both paths, so its responses are compared with the order ids left out; a command on an
      order keeps the ids, as the existing minimum, median and maximum commands do.
    - **Playing a scenario:** a scenario as a sequence of commands over a starting context, the
@@ -355,8 +355,9 @@ Made in review on 2026-10-05.
   form and dose type when it makes the filter (`OrderContext.fs:687`, `Array.someIfOne`). The
   client's own pick of a single option (`PickField.fs:76`) is then a second request for what the
   server already did; where step 1 finds it still needed, that pick moves to the server.
-- **Scenarios are played on the demo data,** which the repository fixes. On the live sheets an edit
-  can shift a list, so index 2 picks a different value and the scenario still passes.
+- **Scenarios are played on the fixed medications of the tests** (`Scenarios.fs`), with no rules
+  loaded. On the live sheets an edit can shift a list, so index 2 picks a different value and the
+  scenario still passes, and a test on them is flaky.
 - **Later, not in this plan:**
   - MCP tools that take the new cases: a new capability, since the MCP tools change no order today.
   - The client takes the name of a pick from the command it sends, instead of comparing the order
@@ -502,3 +503,29 @@ Open:
 5. Which rule set version a check across contexts uses, such as interactions; the latest is the
    obvious choice.
 6. Who may publish a rule set: unfiled in `docs/security/threat-model.md`.
+
+## As built
+
+Every step lands as a pull request from a fork branch against `master`. Steps 1 to 3 landed on
+2026-10-05, the `Shared` and `Server` source written by the agent on the user's request, the
+script removed once its tests were in `OrderContextCommandTests.fs`.
+
+| Step | PR | Landed |
+|------|----|--------|
+| plan | [#1294](https://github.com/informedica/GenPRES/pull/1294) | this document |
+| 1, 2 | [#1295](https://github.com/informedica/GenPRES/pull/1295) | the property types in `Types.fs`; `Target` and `Options` with `count` in `Models.fs` |
+| 1, 2 | [#1296](https://github.com/informedica/GenPRES/pull/1296) | the picks, the scenario narrowing, the filter, components and scenario changes, `setNth` and `clear`, and the argumentation in `Models.fs`; `ArgumentationPolicy` calls them |
+| 1, 2, 3 | [#1297](https://github.com/informedica/GenPRES/pull/1297) | the new cases, `toString`, `toChange` and `replaced` in `Api.fs`; the server calls `toChange` in `processCmd` and `Navigate`; the tests in `OrderContextCommandTests.fs` |
+
+### Deviations from the text above
+
+- **Steps 1 to 3 went to source in three pull requests,** split to stay within the 200-line limit,
+  each with its tests in the server test project instead of the script.
+- **The tests run on the `Scenarios.fs` fixtures and stub ports,** not on the demo data: they load
+  no rules, so a sheet edit cannot change their outcome.
+- **The server mapper has a branch for the new cases.** `OrderContextMapper.Command.toDomain` must
+  match every case, so the new ones share a branch that raises: `toChange` always runs first.
+- **A command on a missing target is an error, not a change of another component:** the
+  component is found by name over every component of that name, as the dose dialog does.
+- **An argumentation with no command** in `Navigate` is written on the plan's own context with
+  that id and the plan is recalculated; a plan without that id answers `NoSuchContext`.
