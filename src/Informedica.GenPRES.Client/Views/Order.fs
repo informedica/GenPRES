@@ -72,51 +72,21 @@ module Order =
             | SetMedianComponentQuantityProperty
 
 
-        /// The component and the item picked, seeded from the one scenario of the context
-        /// shown: the scenario's own, or the first component and its first substance.
-        let init (ctx: OrderContextView) =
-            let cmp, itm =
+        /// The component and the item picked, seeded from the one scenario of the context shown:
+        /// those the dialog kept for the same order, else the scenario's own, else the first
+        /// component and its first substance.
+        let init (kept: DialogTabPolicy.Tab option) (ctx: OrderContextView) =
+            let tab =
                 match ctx with
                 | OrderContextView.Settled ctx
                 | OrderContextView.Refused(ctx, _)
                 | OrderContextView.Changing ctx ->
-                    match ctx.Scenarios with
-                    | [| sc |] ->
-
-                        let ord = sc.Order
-                        let cmp = sc.Component
-                        let itm = sc.Item
-
-                        match ord.Orderable.Components with
-                        | [||] -> None, None
-                        | _ ->
-                            ord.Orderable.Components
-                            |> Array.tryFind (fun c -> cmp.IsNone || c.Name = cmp.Value)
-                            |> Option.map (fun c ->
-                                // only use substances that are not additional
-                                let substs = c.Items |> Array.filter (_.IsAdditional >> not)
-
-                                if substs |> Array.isEmpty then
-                                    Some c.Name, None
-                                else
-                                    let s =
-                                        substs
-                                        |> Array.tryFind (fun i -> i.Name |> Some = itm)
-                                        |> Option.map _.Name
-                                        |> Option.defaultValue (substs[0].Name)
-                                        |> Some
-
-                                    Some c.Name, s
-                            )
-                            |> Option.defaultValue (None, None)
-
-                    | _ -> None, None
-
-                | _ -> None, None
+                    ctx.Scenarios |> Array.tryExactlyOne |> Option.map (DialogTabPolicy.tab kept)
+                | OrderContextView.NoPatient -> None
 
             {
-                SelectedComponent = cmp
-                SelectedItem = itm
+                SelectedComponent = tab |> Option.bind _.Component
+                SelectedItem = tab |> Option.bind _.Item
             },
             Cmd.none
 
@@ -573,7 +543,7 @@ module Order =
 
                 match located, s with
                 | Some(t, _), None when isReopen ->
-                    ViewHelpers.withLoader ctx ol
+                    ctx
                     |> props.reopenOrderScenario (
                         heldPicks.current
                         |> Option.defaultValue [||]
@@ -588,8 +558,7 @@ module Order =
                         shownOrder
                         |> Option.iter (fun before -> setPicks (picks |> PickList.afterChange before changed))
 
-                        ViewHelpers.withLoader ctx ol
-                        |> props.updateOrderScenario (ViewHelpers.setNthCommand t n)
+                        ctx |> props.updateOrderScenario (ViewHelpers.setNthCommand t n)
                     | None -> Logging.warning "a value the field does not offer is not sent" key
                 | _ -> Logging.warning "a change no field holds is not sent" s
             | _ -> ()
@@ -602,7 +571,7 @@ module Order =
             | OrderContextView.Changing ctx ->
                 setPicks initialPicks
 
-                ViewHelpers.withLoader ctx ol |> props.refreshOrderScenario
+                ctx |> props.refreshOrderScenario
             | _ -> ()
 
         let stepper =
@@ -627,7 +596,7 @@ module Order =
                     match props.orderContext with
                     | OrderContextView.Settled ctx
                     | OrderContextView.Refused(ctx, _)
-                    | OrderContextView.Changing ctx -> ViewHelpers.withLoader ctx ol |> nav
+                    | OrderContextView.Changing ctx -> ctx |> nav
                     | _ -> ()
 
             let createWithCmp nameOf nav =
@@ -640,10 +609,7 @@ module Order =
                     | OrderContextView.Changing ctx ->
                         match ol.Component with
                         | None -> ()
-                        | Some cmp ->
-                            let ctx = ViewHelpers.withLoader ctx ol
-
-                            nav (ctx, cmp)
+                        | Some cmp -> nav (ctx, cmp)
                     | _ -> ()
 
             let createWithN nameOf nav =
@@ -656,10 +622,7 @@ module Order =
                     | OrderContextView.Changing ctx ->
                         match ol.Component with
                         | None -> ()
-                        | Some _ ->
-                            let ctx = ViewHelpers.withLoader ctx ol
-
-                            nav (ctx, n, uc)
+                        | Some _ -> nav (ctx, n, uc)
                     | _ -> ()
 
             let createWithCmpN nameOf nav =
@@ -672,10 +635,7 @@ module Order =
                     | OrderContextView.Changing ctx ->
                         match ol.Component with
                         | None -> ()
-                        | Some cmp ->
-                            let ctx = ViewHelpers.withLoader ctx ol
-
-                            nav (ctx, cmp, n, uc)
+                        | Some cmp -> nav (ctx, cmp, n, uc)
                     | _ -> ()
 
             {|
@@ -716,8 +676,22 @@ module Order =
 
             next, cmd
 
+        // the tab of the last render, so that an answer for the same order keeps it
+        let kept = React.useRef<DialogTabPolicy.Tab option> None
+
         let state, dispatch =
-            React.useElmish (init props.orderContext, updateTraced, [| box props.orderContext |])
+            React.useElmish (init kept.current props.orderContext, updateTraced, [| box props.orderContext |])
+
+        kept.current <-
+            shownOrder
+            |> Option.map (fun ord ->
+                {
+                    OrderId = ord.Id
+                    Component = state.SelectedComponent
+                    Item = state.SelectedItem
+                }
+                : DialogTabPolicy.Tab
+            )
 
         // the field whose change went out, and whether it shows that it is loading
         let changing, setChanging = React.useState<(string * bool) option> None
