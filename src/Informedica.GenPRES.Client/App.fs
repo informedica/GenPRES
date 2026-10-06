@@ -1040,6 +1040,35 @@ module private Elmish =
             (state, Cmd.none) |> processError ServerErrorPolicy.ErrorSource.OrderPlan errs
 
 
+    /// A workbench request, answered under the request id it was sent for.
+    let callContext cmd ctx request (state: State) =
+        let opened = tokenOf state.Lanes.Session
+
+        async {
+            try
+                match!
+                    serverApi.processOrderContext
+                        {
+                            Opened = opened
+                            Command = (cmd, ctx)
+                        }
+                with
+                | Ok reply ->
+                    return
+                        OrderContextAnswered(
+                            request,
+                            {
+                                From = opened
+                                Reply = reply
+                            }
+                        )
+                | Error errs -> return OrderContextMsg(OrderContextMsg.Answered(request, Error errs))
+            with ex ->
+                return OrderContextMsg(OrderContextMsg.Answered(request, Error [| ex.Message |]))
+        }
+        |> Cmd.fromAsync
+
+
     /// What one order-context effect changes, and the command it sends. A workbench call
     /// answers under the request it was sent for; the notice rides on the reply and is told by
     /// `update`; a transport failure is an Error answer. A filter sync both syncs what is
@@ -1047,32 +1076,9 @@ module private Elmish =
     let applyOrderContextEffect (effect: OrderContextEffect) (state: State) : State * Cmd<Msg> =
         match effect with
         | OrderContextEffect.CallContext(cmd, ctx, request) ->
-            let opened = tokenOf state.Lanes.Session
-
-            state,
-            async {
-                try
-                    match!
-                        serverApi.processOrderContext
-                            {
-                                Opened = opened
-                                Command = (Api.ActiveOrderContextCommand.Command cmd, ctx)
-                            }
-                    with
-                    | Ok reply ->
-                        return
-                            OrderContextAnswered(
-                                request,
-                                {
-                                    From = opened
-                                    Reply = reply
-                                }
-                            )
-                    | Error errs -> return OrderContextMsg(OrderContextMsg.Answered(request, Error errs))
-                with ex ->
-                    return OrderContextMsg(OrderContextMsg.Answered(request, Error [| ex.Message |]))
-            }
-            |> Cmd.fromAsync
+            state, callContext (Api.ActiveOrderContextCommand.Command cmd) ctx request state
+        | OrderContextEffect.CallPatientChanged(pat, ctx, request) ->
+            state, callContext (Api.ActiveOrderContextCommand.PatientChanged pat) ctx request state
         | OrderContextEffect.SyncFormulary filter ->
             { state with
                 Fetches.Formulary =

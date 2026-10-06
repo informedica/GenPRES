@@ -563,6 +563,8 @@ module OrderContext =
         match effect with
         | OrderContextEffect.CallContext(cmd, ctx, request) ->
             $"CallContext %s{command Part.contextId cmd ctx} %s{Part.shortId request}"
+        | OrderContextEffect.CallPatientChanged(_, ctx, request) ->
+            $"CallPatientChanged %s{Part.contextId ctx} %s{Part.shortId request}"
         | OrderContextEffect.SyncFormulary _ -> "SyncFormulary"
         | OrderContextEffect.SyncParenteralia _ -> "SyncParenteralia"
         | OrderContextEffect.TellError _ -> "TellError"
