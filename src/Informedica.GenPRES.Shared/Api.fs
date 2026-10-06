@@ -367,8 +367,11 @@ module Api =
     /// The plan command family: the order plan, nutrition included.
     [<RequireQualifiedAccess>]
     type OrderPlanCommand =
-        // the plan as it is, totals recomputed over its orders
-        | Recalculate of OrderPlan
+        // the patient updated: the plan recalculated for the patient the patient command answered;
+        // the patient of each context in it stays the one it was evaluated for
+        | UpdatePatient of Patient * OrderPlan
+        // the contexts the rows keep, by id: the totals recalculated over them
+        | FilterRows of ids: string[] * OrderPlan
         // an order-context command evaluated over the context named, in that context's own
         // patient, its order following
         | Navigate of OrderPlan * contextId: string * OrderViewCommand * OrderContext
@@ -388,7 +391,8 @@ module Api =
         /// For the log: never the plan.
         let toString cmd =
             match cmd with
-            | OrderPlanCommand.Recalculate _ -> "Recalculate"
+            | OrderPlanCommand.UpdatePatient _ -> "UpdatePatient"
+            | OrderPlanCommand.FilterRows(ids, _) -> $"FilterRows %i{ids.Length}"
             | OrderPlanCommand.Navigate(_, _, ctxCmd, _) -> $"Navigate {ctxCmd}"
             | OrderPlanCommand.AddOrderContext _ -> "AddOrderContext"
             | OrderPlanCommand.NewOrderContext(_, category) -> $"NewOrderContext {category}"

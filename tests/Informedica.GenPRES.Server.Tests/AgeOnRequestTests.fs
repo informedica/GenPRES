@@ -423,7 +423,7 @@ let tests =
 
                     test "the plan's patient and that of every context, on every plan command" {
                         [
-                            OrderPlanCommand.Recalculate plan
+                            OrderPlanCommand.FilterRows(plan.Filtered, plan)
                             OrderPlanCommand.Navigate(
                                 plan,
                                 "1",

@@ -63,14 +63,20 @@ module OrderPlanCommand =
             }
 
 
+    /// The plan as it is, its totals recalculated over its orders.
+    let recalculate (env: AppEnv) (plan: OrderPlan) =
+        Patient.overAll (Patient.ofPlan plan) (fun () -> answer env (parsePlan plan) env.orderPlan.recalculate)
+
+
     /// The plan's patient and that of every context it carries, and the context's where a
     /// command carries one, made at the inbound boundary; the plan and the context parsed into
     /// the domain, the verb mapped, the port asked, the answer mapped out with the environment's
     /// demo flag. A draft that is none, or a plan the domain does not read, is refused.
-    let rec processCmd (env: AppEnv) (cmd: OrderPlanCommand) =
+    let processCmd (env: AppEnv) (cmd: OrderPlanCommand) =
         match cmd with
-        | OrderPlanCommand.Recalculate plan ->
-            Patient.overAll (Patient.ofPlan plan) (fun () -> answer env (parsePlan plan) env.orderPlan.recalculate)
+        // the server writes the patient and the rows; the client sends the plan as answered
+        | OrderPlanCommand.UpdatePatient(pat, plan) -> recalculate env { plan with Patient = pat }
+        | OrderPlanCommand.FilterRows(ids, plan) -> recalculate env { plan with Filtered = ids }
         | OrderPlanCommand.Navigate(plan, contextId, ctxCmd, ctx) ->
             match ctxCmd with
             // the argumentation is written by the server on the plan's context, without the domain
@@ -84,9 +90,7 @@ module OrderPlanCommand =
                         { c with Argumentation = ctx.Argumentation }
                     else
                         c
-                processCmd
-                    env
-                    (OrderPlanCommand.Recalculate { plan with OrderContexts = Array.map written plan.OrderContexts })
+                recalculate env { plan with OrderContexts = Array.map written plan.OrderContexts }
             | OrderViewCommand.SetArgumentationProperty _ ->
                 async { return Error [| OrderPlanMapper.words [||] (OrderPlanError.NoSuchContext contextId) |] }
             | ctxCmd ->
