@@ -10,6 +10,10 @@ while a request runs (decision 1).
 
 The work hangs under [#1224](https://github.com/informedica/GenPRES/issues/1224).
 
+**Done** (2026-10-06): steps 1 to 8 landed, step 9 was dropped. No command on the wire carries a
+context or a plan the client changed itself: the client sends what changed, with the last answer
+it holds, and the server writes the change.
+
 - [Problem description](#problem-description)
 - [Decisions](#decisions)
 - [Steps](#steps)
@@ -96,16 +100,16 @@ The two machines also hold the same request logic twice (`InFlight`, `Pending`, 
    answer, with the preview of the command under way. Each command goes out with the last answer
    as its context, since the server keeps no state between requests.
 5. **One patient change command for everything.** Decided (user, 2026-10-06). A patient's age and
-   estimates are set at launch and on a patient change, nowhere else: for an identified patient
-   the server computes the age, for an anonymous one the client sets it, and for both the server
-   estimates a missing weight or height from the age. A patient change is one command, answered
-   with the patient made complete; the client puts that patient on the plan, on the order context
-   being worked on, and on the formulary and parenteralia pages. Launch sets the first patient; every
-   later change goes through this command. No other request changes a patient: the server takes
-   the patient it is sent and only checks that it is valid. No context's patient is ever
-   rewritten: an order context keeps the patient it was evaluated for, and signing fixes the
-   patient and the rest of the context, its order can still be changed. The case that evaluates
-   the order context being worked on for the changed patient is named `PatientChanged`, on the wire
+   estimates are set at launch and on a patient change, nowhere else: for an identified patient the
+   server computes the age, for an anonymous one the client sets it, and for both the server
+   estimates a missing weight or height from the age. A patient change is one command, answered with
+   the patient made complete; the client puts that patient on the plan, on the order context being
+   worked on, and on the formulary and parenteralia pages. Launch sets the first patient; every
+   later change goes through this command. No other request changes a patient: the server takes the
+   patient it is sent and only checks that it is valid. No context's patient is ever rewritten: an
+   order context keeps the patient it was evaluated for, and signing fixes the patient and the rest
+   of the context, its order can still be changed. The case that evaluates the order context being
+   worked on for the changed patient is named `PatientChanged`, on the wire
    (`ActiveOrderContextCommand`) and in the domain (`OrderContext.Command`): it reports a patient
    changed elsewhere, it does not change one.
 
@@ -154,34 +158,39 @@ outside the client views starts as a script with its tests, unless the user asks
        a page's command that arrives anyway is dropped
        ([#1327](https://github.com/informedica/GenPRES/issues/1327) checks whether that backstop is
        needed). A failed change puts back the draft the orders were calculated for.
-   - **4b, the seeds.** Two pull requests:
+   - **4b, the seeds** (landed, [#1328](https://github.com/informedica/GenPRES/pull/1328) and
+     [#1329](https://github.com/informedica/GenPRES/pull/1329)). Two pull requests:
      - the order context machine sends `SeedFilter` for the url, a medication list item and a
        reload, and `ClearAllFilterProperty` for an open and a reset; a seed that arrives before
        the patient waits for it as a seed; `OrderContext.setMedication` goes;
      - the formulary and parenteralia pages send `SeedFilter` with their choices instead of
        writing them into the held context; `syncFormularyToFilter`, `syncParenteraliaToFilter`
        and the machine's old `Seed` of a whole context go.
-   - **4c, the server stops changing patients**, in its own pull request. The Session records a
-     change only from the patient command, no longer from every request (`patientOf` and `seen`
-     in `Compute.bound`). `Compute.bound` leaves every patient as sent: `patients`, `patientsPlan`,
-     `patientsActive` and the formulary, parenteralia and interaction versions go, with the age
-     and estimate step in `ServerApi.Compute.fs`, which moves into the patient command. Signing
-     stops putting the Session's age on the plan: `SigningCommand.patients` goes from
-     `SigningCommand.processCmd`. The check that a patient is valid (`Patient.over`) stays. No
-     context's patient is touched on any path, signing included. Tests: every request other than
-     the patient command, signing included, leaves every patient as sent. The age-on-request
-     tests (`AgeOnRequestTests.fs`) and `HeldContextTests.parsedAt`, which test the old rule, are
-     rewritten to the new one.
+   - **4c, the server stops changing patients** (landed,
+     [#1330](https://github.com/informedica/GenPRES/pull/1330); a patient without a weight or height
+     is held back, [#1331](https://github.com/informedica/GenPRES/pull/1331)), in its own pull
+     request. The Session records a change only from the patient command, no longer from every
+     request (`patientOf` and `seen` in `Compute.bound`). `Compute.bound` leaves every patient as
+     sent: `patients`, `patientsPlan`, `patientsActive` and the formulary, parenteralia and
+     interaction versions go, with the age and estimate step in `ServerApi.Compute.fs`, which moves
+     into the patient command. Signing stops putting the Session's age on the plan:
+     `SigningCommand.patients` goes from `SigningCommand.processCmd`. The check that a patient is
+     valid (`Patient.over`) stays. No context's patient is touched on any path, signing included.
+     Tests: every request other than the patient command, signing included, leaves every patient as
+     sent. The age-on-request tests (`AgeOnRequestTests.fs`) and `HeldContextTests.parsedAt`, which
+     test the old rule, are rewritten to the new one.
 5. **The machines hold commands.** `InFlight` holds the command under way; the workbench and the
    plan hold the last answer; the view is the last answer with the preview of the command under
    way. Before the argumentation step, since a command that waits behind a request can be
    replaced by the next one, and an argumentation command replaced that way loses the text
    (decided by the user, 2026-10-06). Two pull requests:
-   - **5a, no command while a request runs.** The dialog greys every field while a request runs,
-     the field being stepped included, so `Pending`, `Dialog.waits`, `Dialog.carries`,
-     `OrderPlanCart.waits` and `OrderPlanCart.replay` go, with the trail's waiting-command lines.
-     A command that arrives while a request runs is dropped, as the page's filter commands are
-     now. A visible change: a second step of a dose waits until the first is answered.
+   - **5a, no command while a request runs** (landed,
+     [#1332](https://github.com/informedica/GenPRES/pull/1332)). The dialog greys every field while
+     a request runs, the field being stepped included, so `Pending`, `Dialog.waits`,
+     `Dialog.carries`, `OrderPlanCart.waits` and `OrderPlanCart.replay` go, with the trail's
+     waiting-command lines. A command that arrives while a request runs is dropped, as the page's
+     filter commands are now. A visible change: a second step of a dose waits until the first is
+     answered.
    - **5b, every command over the last answer.** Three pull requests:
      - [#1333](https://github.com/informedica/GenPRES/pull/1333): the dialog keeps its own tab,
        the component and the item it shows, so the page no longer writes it into the context it
@@ -198,55 +207,60 @@ outside the client views starts as a script with its tests, unless the user asks
      keeping only the answer would change nothing the user sees.
 
      Client.Core tests: the machine tests rewritten over commands, their cases kept.
-6. **The argumentation as a command.** The client sends `SetArgumentationProperty` instead of
-   writing the text into the held context; the server writes it, as it does now. The command goes
-   when the field is left, or when the dialog closes with the field still holding a new text
-   (decided by the user, 2026-10-05), and only when the text differs from the one the context
-   holds; until then the text shows as the field's own typing. The field rests while a request
-   runs, as the other fields do, so its command is never dropped. A reset clears the text on the
-   server, on the context and on the plan's copy of it, instead of in the client as it is sent
-   (decided by the user, 2026-10-06). `Argue` and its `map` go from both machines, with
-   `ArgumentationPolicy.keep`, `keepAll`, `write`, `writeIn`, `clear`, `clearIn` and `clearedBy`,
-   since every answer carries the text as the server wrote it.
+6. **The argumentation as a command** (landed,
+   [#1336](https://github.com/informedica/GenPRES/pull/1336)). The client sends
+   `SetArgumentationProperty` instead of writing the text into the held context; the server writes
+   it, as it does now. The command goes when the field is left, or when the dialog closes with the
+   field still holding a new text (decided by the user, 2026-10-05), and only when the text differs
+   from the one the context holds; until then the text shows as the field's own typing. The field
+   rests while a request runs, as the other fields do, so its command is never dropped. A reset
+   clears the text on the server, on the context and on the plan's copy of it, instead of in the
+   client as it is sent (decided by the user, 2026-10-06). `Argue` and its `map` go from both
+   machines, with `ArgumentationPolicy.keep`, `keepAll`, `write`, `writeIn`, `clear`, `clearIn` and
+   `clearedBy`, since every answer carries the text as the server wrote it.
 7. **The old wire cases go.** `UpdateOrderContext`, `SelectOrderScenario`, `UpdateOrderScenario` and
    `ReopenOrderScenario` leave `OrderContextCommand`, with their mapping and their server branches.
    The domain keeps its own old cases, which MCP and `OrderPlan.fs` use. The preview returns the
    context alone, and the workbench machine remembers a request as what was sent, a command or a
    patient change, instead of a patient change standing in as `UpdateOrderContext` (decided by the
    user, 2026-10-06). Landed as [#1337](https://github.com/informedica/GenPRES/pull/1337).
-8. **The patient update and the row filter as requests.** The client no longer changes a context
-   or a plan itself for a patient change or a row filter: it sends a request that names what
+8. **The patient update and the row filter as requests** (landed). The client no longer changes a
+   context or a plan itself for a patient change or a row filter: it sends a request that names what
    changed, with the answer it holds, and the server writes the change. Names chosen by the user,
    2026-10-06. Two pull requests:
-   - **8a, the order context.** `ActiveOrderContextCommand` goes. The commands the order view
-     sends, which the order context being worked on and the plan both take, are renamed
-     `OrderViewCommand`; `processOrderContext` takes an `OrderContextCommand` with two cases: a
-     command of the order view over the context (`Command of OrderViewCommand * OrderContext`),
-     and the patient updated for it (`UpdatePatient of Patient * OrderContext`), the patient being
-     the one the patient command answered (decided by the user, 2026-10-06, so that every
-     endpoint takes a command family of its own name). The server writes the patient into the
-     context and evaluates it as now, through the domain's `PatientChanged`, renamed
-     `UpdatePatient`. The workbench remembers the command it sent, so `shown` reads that command
-     and the pair of what was sent and the context goes.
-   - **8b, the plan.** The client's `Recalculate` over a plan it changed goes: `{ tp with Patient
-     = pat }` after a patient change and `{ tp with Filtered = ids }` after a row filter. The plan
-     machine sends the patient updated (`UpdatePatient of Patient * OrderPlan`) and the rows kept
-     (`FilterRows of string[] * OrderPlan`) over the plan it holds; the server writes the patient
-     or the rows and recalculates as `Recalculate` does now. `Recalculate` leaves the wire, so no
-     command carries a plan the client changed; the server's own recalculation, after it writes
-     the argumentation on a plan context, calls a function of its own (decided by the user,
-     2026-10-06).
+   - **8a, the order context** ([#1339](https://github.com/informedica/GenPRES/pull/1339)).
+     `ActiveOrderContextCommand` goes. The commands the order view sends, which the order context
+     being worked on and the plan both take, are renamed `OrderViewCommand`; `processOrderContext`
+     takes an `OrderContextCommand` with two cases: a command of the order view over the context
+     (`Command of OrderViewCommand * OrderContext`), and the patient updated for it (`UpdatePatient
+     of Patient * OrderContext`), the patient being the one the patient command answered (decided by
+     the user, 2026-10-06, so that every endpoint takes a command family of its own name). The
+     server writes the patient into the context and evaluates it as now, through the domain's
+     `PatientChanged`, renamed `UpdatePatient`. The workbench remembers the command it sent, so
+     `shown` reads that command and the pair of what was sent and the context goes.
+   - **8b, the plan** ([#1340](https://github.com/informedica/GenPRES/pull/1340)). The client's
+     `Recalculate` over a plan it changed goes: `{ tp with Patient = pat }` after a patient change
+     and `{ tp with Filtered = ids }` after a row filter. The plan machine sends the patient updated
+     (`UpdatePatient of Patient * OrderPlan`) and the rows kept (`FilterRows of string[] *
+     OrderPlan`) over the plan it holds; the server writes the patient or the rows and recalculates
+     as `Recalculate` does now. `Recalculate` leaves the wire, so no command carries a plan the
+     client changed; the server's own recalculation, after it writes the argumentation on a plan
+     context, calls a function of its own (decided by the user, 2026-10-06).
 
    No visible change. Tests: the machine tests over the new requests, their cases kept; server
    tests that each new case answers as today's request over the context or plan the client builds
    now.
-9. **One request stage.** Weighed after step 5: if the two machines still hold the same request
-   logic, it moves into one module in Client.Core; if step 5 leaves little to share, this step is
-   dropped.
+9. **One request stage** (dropped, decided by the user, 2026-10-06). Weighed after step 8: the two
+   machines share only the request under way with its `landing`, `inFlightRequest`, `isKept`, the
+   reopen and restore around `transition`, and the rule that a command is dropped while a request
+   runs, some 30 to 40 lines. What each machine does with a message, its intents and its effects
+   differs: the workbench syncs the formulary and parenteralia pages and takes seeds, the plan
+   opens versions, holds a signature and counts its changes. One generic module would save little
+   and make both machines harder to read.
 
 ## Verification, per step
 
-- **Steps 2 to 9 in code:** `dotnet run servertests`; `scripts/CheckDependencyRule.fsx`; benchmark
+- **Steps 2 to 8 in code:** `dotnet run servertests`; `scripts/CheckDependencyRule.fsx`; benchmark
   build; Fable and `npx vite build`.
 - **Every code step:** the user's browser check with the trail: the filter, the components, a
   scenario choice, picks and clears with picks kept, a second pick while a request runs, a patient
