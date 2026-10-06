@@ -186,19 +186,28 @@ outside the client views starts as a script with its tests, unless the user asks
      - [#1333](https://github.com/informedica/GenPRES/pull/1333): the dialog keeps its own tab,
        the component and the item it shows, so the page no longer writes it into the context it
        sends (decided by the user, 2026-10-06);
-     - the workbench: a command from the page carries no context, and the machine sends it over
-       the answer it holds; `replaced` goes from Shared, since the machine reads the specific
-       command;
-     - the plan: the page names the context and the command, and the machine sends it over the
-       plan it holds and that context as answered; the dialog hands out commands only, and the
-       reopen keeps the answer it started from instead of a whole state.
+     - [#1334](https://github.com/informedica/GenPRES/pull/1334): the workbench: a command from
+       the page carries no context, and the machine sends it over the answer it holds; `replaced`
+       goes from Shared, since the machine reads the specific command;
+     - [#1335](https://github.com/informedica/GenPRES/pull/1335): the plan: the page names the
+       context and the command, and the machine sends it over the plan it holds and that context
+       as answered; the dialog hands out commands only.
+
+     The reopen keeps the whole state before it (`Kept`), as before (decided by the user,
+     2026-10-06): since a reopen during a request is dropped, the state kept holds no request, and
+     keeping only the answer would change nothing the user sees.
 
      Client.Core tests: the machine tests rewritten over commands, their cases kept.
 6. **The argumentation as a command.** The client sends `SetArgumentationProperty` instead of
    writing the text into the held context; the server writes it, as it does now. The command goes
-   when the field is left (decided by the user, 2026-10-05); until then the text shows as the
-   field's own typing. `Argue` and its `map` go from both machines, with
-   `ArgumentationPolicy.keep` and `keepAll`, since every answer carries the text as written.
+   when the field is left, or when the dialog closes with the field still holding a new text
+   (decided by the user, 2026-10-05), and only when the text differs from the one the context
+   holds; until then the text shows as the field's own typing. The field rests while a request
+   runs, as the other fields do, so its command is never dropped. A reset clears the text on the
+   server, on the context and on the plan's copy of it, instead of in the client as it is sent
+   (decided by the user, 2026-10-06). `Argue` and its `map` go from both machines, with
+   `ArgumentationPolicy.keep`, `keepAll`, `write`, `writeIn`, `clear`, `clearIn` and `clearedBy`,
+   since every answer carries the text as the server wrote it.
 7. **The old wire cases go.** `UpdateOrderContext`, `SelectOrderScenario`, `UpdateOrderScenario` and
    `ReopenOrderScenario` leave `OrderContextCommand`, with their mapping and their server branches.
    The domain keeps its own old cases, which MCP and `OrderPlan.fs` use.
