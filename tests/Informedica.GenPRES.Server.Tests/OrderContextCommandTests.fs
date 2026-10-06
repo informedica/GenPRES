@@ -735,7 +735,7 @@ let tests =
                                 evaluate =
                                     fun cmd pc ->
                                         match cmd pc.Context with
-                                        | Informedica.GenOrder.Lib.OrderContext.ChangePatient(sent, p) ->
+                                        | Informedica.GenOrder.Lib.OrderContext.PatientChanged(sent, p) ->
                                             seen.Value <- Some(sent.Patient.Department, p.Department)
                                         | _ -> ()
 
@@ -745,7 +745,7 @@ let tests =
                         let! answer =
                             ServerApi.OrderContextCommand.processActive
                                 (env port)
-                                (Shared.Api.ActiveOrderContextCommand.ChangePatient pat, ctx)
+                                (Shared.Api.ActiveOrderContextCommand.PatientChanged pat, ctx)
 
                         answer |> Result.isOk |> Expect.isTrue "evaluated"
 

@@ -54,7 +54,7 @@ module OrderContextCommand =
     let patientsActive (f: Patient -> Patient) (cmd: ActiveOrderContextCommand, ctx: OrderContext) =
         let cmd =
             match cmd with
-            | ActiveOrderContextCommand.ChangePatient pat -> ActiveOrderContextCommand.ChangePatient(f pat)
+            | ActiveOrderContextCommand.PatientChanged pat -> ActiveOrderContextCommand.PatientChanged(f pat)
             | ActiveOrderContextCommand.Command _ -> cmd
 
         cmd, OrderContextMapper.patients f ctx
@@ -63,7 +63,7 @@ module OrderContextCommand =
     /// The patient the request edits: a patient change's own, else the context's.
     let patientOfActive (cmd: ActiveOrderContextCommand, ctx: OrderContext) =
         match cmd with
-        | ActiveOrderContextCommand.ChangePatient pat -> Some pat
+        | ActiveOrderContextCommand.PatientChanged pat -> Some pat
         | ActiveOrderContextCommand.Command _ -> Some ctx.Patient
 
 
@@ -73,8 +73,8 @@ module OrderContextCommand =
     let processActive (env: AppEnv) (cmd: ActiveOrderContextCommand, ctx: OrderContext) =
         match cmd with
         | ActiveOrderContextCommand.Command cmd -> processCmd env (cmd, ctx)
-        | ActiveOrderContextCommand.ChangePatient pat ->
+        | ActiveOrderContextCommand.PatientChanged pat ->
             let change (ctx: Informedica.GenOrder.Lib.Types.OrderContext) =
-                Informedica.GenOrder.Lib.OrderContext.ChangePatient(ctx, ctx.Patient)
+                Informedica.GenOrder.Lib.OrderContext.PatientChanged(ctx, ctx.Patient)
 
             Some change |> evaluated env { ctx with Patient = pat }

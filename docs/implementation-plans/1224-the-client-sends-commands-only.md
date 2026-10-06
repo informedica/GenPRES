@@ -76,7 +76,8 @@ The two machines also hold the same request logic twice (`InFlight`, `Pending`, 
 2. **The preview.** `preview` in `Shared/Api.fs` shows a command while its request runs. Decided
    (user, 2026-10-05): keep. It is display only; the client does not send it.
 3. **The seeds and the patient change.** Decided (user, 2026-10-05):
-   - `ChangePatient`: the context evaluated for the patient the command carries, its filter kept.
+   - `PatientChanged` (first named `ChangePatient`): the context evaluated for the patient the
+     command carries, its filter kept.
    - `SeedFilter`: the five choices by name (indication, medication, route, form, dose type) and
      where they come from: the url, the emergency or continuous list, the formulary page, the
      parenteralia page, or a resource reload. The domain applies them with the rule of their
@@ -119,7 +120,8 @@ outside the client views starts as a script with its tests, unless the user asks
 2. **The seed and patient commands, domain side.** Landed as
    [#1317](https://github.com/informedica/GenPRES/pull/1317) (the domain) and
    [#1318](https://github.com/informedica/GenPRES/pull/1318) (Shared and the server).
-   `SeedFilter` on the wire as an order context command, `ChangePatient` as a command of its own
+   `SeedFilter` on the wire as an order context command, `ChangePatient` (renamed `PatientChanged`
+   in step 3a) as a command of its own
    for the order context being worked on (`ActiveOrderContextCommand`), so a plan cannot carry a
    patient change: a context in the plan keeps its patient. Both map one to one to the domain
    cases; the seed rules of decision 3 in the domain and in the preview.
@@ -127,22 +129,16 @@ outside the client views starts as a script with its tests, unless the user asks
    sent, then looked up with the refusal check of `UpdateOrderContext`. Tests on the fixtures,
    with no rules loaded: each new case answers as `UpdateOrderContext` on the context the client
    builds today, for every source; the domain's seed rules and the preview's agree.
-3. **One patient change command, server side.** Decision 5. A patient command family with
-   `ChangePatient`: the patient made at the inbound boundary (the Session's age for an identified
-   patient, the client's for an anonymous one; a missing weight or height estimated from the age,
-   for both) and answered as it is then. The Session records the change from this command, no
-   longer from every request (`patientOf` and `seen` in `Compute.bound`). `Compute.bound` stops
-   changing patients: `patients`, `patientsPlan`, `patientsActive` and the formulary, parenteralia
-   and interaction versions go, with the age and estimate step in `ServerApi.Compute.fs`. Signing
-   stops putting the Session's age on the plan: `SigningCommand.patients` goes from
-   `SigningCommand.processCmd`. The check that a patient is valid (`Patient.over`) stays. No
-   context's patient is touched on any path, signing included. `ChangePatient` of the order context
-   being worked on is renamed `PatientChanged`, on the wire (`ActiveOrderContextCommand`) and in the
-   domain (`OrderContext.Command`); it only evaluates that context again for a patient already
-   complete. Tests: the age and the estimates for an identified and an anonymous patient;
-   every other request, signing included, leaves every patient as sent. The age-on-request tests
-   (`AgeOnRequestTests.fs`) and `HeldContextTests.parsedAt`, which test the old rule, are rewritten
-   to the new one.
+3. **One patient change command, server side.** Decision 5. Two pull requests, and the server
+   keeps changing patients until the client sends the new command (step 4), so an identified
+   patient keeps its age in between:
+   - **3a.** `ChangePatient` of the order context being worked on is renamed `PatientChanged`, on
+     the wire (`ActiveOrderContextCommand`) and in the domain (`OrderContext.Command`).
+   - **3b.** A patient command family with `ChangePatient`: the patient made at the inbound
+     boundary (the Session's age for an identified patient, the client's for an anonymous one; a
+     missing weight or height estimated from the age, for both) and answered as it is then; the
+     Session records the change from this command. The client does not send it yet. Tests: the
+     age and the estimates for an identified and an anonymous patient.
 4. **The seed and patient commands, client side.** A patient change on the panel goes as the
    patient command of step 3; on its answer the client puts the patient on the plan (through
    `Recalculate`), on the order context being worked on (`ActiveOrderContextCommand.PatientChanged`)
@@ -150,6 +146,17 @@ outside the client views starts as a script with its tests, unless the user asks
    every seed and `ClearAllFilterProperty` for an open and a reset; `App.fs` sends the page's
    choices instead of writing them into the held context, and `syncFormularyToFilter` and
    `syncParenteraliaToFilter` leave the client. Client.Core tests for each intent.
+
+   Then, in its own pull request, the server stops changing patients. The Session records a
+   change only from the patient command, no longer from every request (`patientOf` and `seen` in
+   `Compute.bound`). `Compute.bound` leaves every patient as sent: `patients`, `patientsPlan`,
+   `patientsActive` and the formulary, parenteralia and interaction versions go, with the age and
+   estimate step in `ServerApi.Compute.fs`. Signing stops putting the Session's age on the plan:
+   `SigningCommand.patients` goes from `SigningCommand.processCmd`. The check that a patient is
+   valid (`Patient.over`) stays. No context's patient is touched on any path, signing included.
+   Tests: every request other than the patient command, signing included, leaves every patient as
+   sent. The age-on-request tests (`AgeOnRequestTests.fs`) and `HeldContextTests.parsedAt`, which
+   test the old rule, are rewritten to the new one.
 5. **The argumentation as a command.** The client sends `SetArgumentationProperty` instead of
    writing the text into the held context; the server writes it, as it does now. The command goes
    when the field is left (decided by the user, 2026-10-05); until then the text shows as the

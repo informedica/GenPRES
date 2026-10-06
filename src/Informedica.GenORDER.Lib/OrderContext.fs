@@ -371,8 +371,8 @@ module OrderContext =
         /// One order value cleared by the property command, the order reopened with the picks
         /// made before it.
         | ClearOrderValue of OrderContext * ChangePropertyCommand * picks: string list
-        /// The context evaluated for this patient, its filter kept.
-        | ChangePatient of OrderContext * Patient
+        /// The patient changed elsewhere: the context evaluated for it, its filter kept.
+        | PatientChanged of OrderContext * Patient
         /// The filter's choices set from outside its own fields, by name, with the rule of their
         /// source; the rules looked up again.
         | SeedFilter of
@@ -426,7 +426,7 @@ module OrderContext =
             | SelectNthOrderScenario(ctx, _) -> ctx
             | SetNthOrderValue(ctx, _) -> ctx
             | ClearOrderValue(ctx, _, _) -> ctx
-            | ChangePatient(ctx, _) -> ctx
+            | PatientChanged(ctx, _) -> ctx
             | SeedFilter(ctx, _, _, _, _, _, _) -> ctx
 
 
@@ -471,7 +471,7 @@ module OrderContext =
             | SelectNthOrderScenario(_, n) -> $"SelectNthOrderScenario nth=%i{n}"
             | SetNthOrderValue(_, change) -> $"SetNthOrderValue %A{change}"
             | ClearOrderValue(_, change, picks) -> $"ClearOrderValue %A{change} %i{picks.Length} picks"
-            | ChangePatient _ -> "ChangePatient"
+            | PatientChanged _ -> "PatientChanged"
             | SeedFilter(_, source, _, gen, _, _, _) -> $"SeedFilter %A{source} %A{gen}"
 
 
@@ -1256,7 +1256,7 @@ Scenarios: {scenarios}
         | SetNthComponents(ctx, ns) -> ctx |> setNthComponents ns |> over UpdateOrderContext
         | ClearAllFilter ctx -> Ok(clearAll ctx) |> over UpdateOrderContext
         | SelectNthOrderScenario(ctx, n) -> ctx |> selectNthScenario n |> over SelectOrderScenario
-        | ChangePatient(ctx, pat) -> Ok { ctx with Patient = pat } |> over UpdateOrderContext
+        | PatientChanged(ctx, pat) -> Ok { ctx with Patient = pat } |> over UpdateOrderContext
         | SeedFilter(ctx, source, ind, gen, rte, frm, dt) ->
             Ok(ctx |> seedFilter source ind gen rte frm dt) |> over UpdateOrderContext
         | _ -> None
@@ -1520,9 +1520,9 @@ Scenarios: {scenarios}
         | ClearOrderValue(ctx, change, picks) ->
             Ok(ctx |> changeOrder logger change)
             |> evaluateAs (fun ctx -> ReopenOrderScenario(ctx, picks)) (fun ctx -> ClearOrderValue(ctx, change, picks))
-        | ChangePatient(ctx, pat) ->
+        | PatientChanged(ctx, pat) ->
             Ok { ctx with Patient = pat }
-            |> evaluateAs UpdateOrderContext (fun ctx -> ChangePatient(ctx, pat))
+            |> evaluateAs UpdateOrderContext (fun ctx -> PatientChanged(ctx, pat))
         | SeedFilter(ctx, source, ind, gen, rte, frm, dt) ->
             Ok(ctx |> seedFilter source ind gen rte frm dt)
             |> evaluateAs UpdateOrderContext (fun ctx -> SeedFilter(ctx, source, ind, gen, rte, frm, dt))

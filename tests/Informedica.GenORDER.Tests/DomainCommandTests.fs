@@ -286,7 +286,7 @@ let seedTests =
                 let pat = { pcmContext.Patient with Department = Some "NEO" }
 
                 // today the client sends the context with the patient as an update
-                inPlan pcmContext (fun ctx -> OrderContext.ChangePatient(ctx, pat))
+                inPlan pcmContext (fun ctx -> OrderContext.PatientChanged(ctx, pat))
                 |> Expect.equal
                     "the same answer"
                     (inPlan { pcmContext with Patient = pat } OrderContext.UpdateOrderContext)
