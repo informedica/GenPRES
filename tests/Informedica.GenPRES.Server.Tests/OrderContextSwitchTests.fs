@@ -39,7 +39,15 @@ let tests =
                 let! answer =
                     OrderContextCommand.processCmd
                         (envOver false echo)
-                        (Shared.Api.OrderContextCommand.UpdateOrderContext, ctx)
+                        (Shared.Api.OrderContextCommand.SeedFilter(
+                            Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         ctx)
 
                 match answer with
                 | Ok(OrderContextResponse.Evaluated a) ->
@@ -50,7 +58,15 @@ let tests =
                 let! demo =
                     OrderContextCommand.processCmd
                         (envOver true echo)
-                        (Shared.Api.OrderContextCommand.UpdateOrderContext, ctx)
+                        (Shared.Api.OrderContextCommand.SeedFilter(
+                            Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         ctx)
 
                 match demo with
                 | Ok(OrderContextResponse.Evaluated a) -> a.DemoVersion |> Expect.isTrue "demo as the environment says"
@@ -64,7 +80,15 @@ let tests =
                 let! answer =
                     OrderContextCommand.processCmd
                         (envOver false port)
-                        (Shared.Api.OrderContextCommand.UpdateOrderContext, ctx)
+                        (Shared.Api.OrderContextCommand.SeedFilter(
+                            Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         ctx)
 
                 match answer with
                 | Ok(OrderContextResponse.Refused(a, OrderContextRefusal.NoDoseRulesForPatient)) ->
@@ -87,10 +111,10 @@ let tests =
                 let! _ =
                     OrderContextCommand.processCmd
                         (envOver false port)
-                        (Shared.Api.OrderContextCommand.SelectOrderScenario, ctx)
+                        (Shared.Api.OrderContextCommand.SelectNthOrderScenario 0, ctx)
 
                 match seen.Value with
-                | Some(OrderContext.SelectOrderScenario domainCtx, id, category) ->
+                | Some(OrderContext.SelectNthOrderScenario(domainCtx, _), id, category) ->
                     domainCtx.Filter.Generic |> Expect.equal "the context parsed" (Some "glucose")
                     id |> Expect.equal "the plan's id" "c-1"
 
@@ -116,7 +140,14 @@ let tests =
                 let! answer =
                     OrderContextCommand.processCmd
                         (envOver false port)
-                        (Shared.Api.OrderContextCommand.UpdateOrderContext,
+                        (Shared.Api.OrderContextCommand.SeedFilter(
+                            Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
                          { ctx with Patient = Shared.Models.Patient.empty })
 
                 answer |> Expect.equal "no patient" (Error [| Patient.noPatient |])
@@ -129,7 +160,15 @@ let tests =
                 let! answer =
                     OrderContextCommand.processCmd
                         (envOver false port)
-                        (Shared.Api.OrderContextCommand.UpdateOrderContext, ctx)
+                        (Shared.Api.OrderContextCommand.SeedFilter(
+                            Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         ctx)
 
                 answer |> Expect.equal "propagated" (Error [| "ctx error" |])
             }

@@ -236,7 +236,18 @@ let commandRoutingTests =
             testAsync "processOrderContext dispatches to orderContext.evaluate, typed" {
                 let env = makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk emptyCtx)
 
-                let! result = OrderContextCommand.processCmd env (Api.OrderContextCommand.UpdateOrderContext, emptyCtx)
+                let! result =
+                    OrderContextCommand.processCmd
+                        env
+                        (Api.OrderContextCommand.SeedFilter(
+                            Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         emptyCtx)
 
                 match result with
                 | Ok _ -> ()
@@ -263,7 +274,18 @@ let errorPropagationTests =
             testAsync "processOrderContext propagates port error" {
                 let env = makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysFails [| "ctx error" |])
 
-                let! result = OrderContextCommand.processCmd env (Api.OrderContextCommand.UpdateOrderContext, emptyCtx)
+                let! result =
+                    OrderContextCommand.processCmd
+                        env
+                        (Api.OrderContextCommand.SeedFilter(
+                            Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         emptyCtx)
 
                 match result with
                 | Error msgs -> msgs |> Expect.equal "should propagate order context error" [| "ctx error" |]
@@ -302,7 +324,18 @@ let requireLoadedTests =
             testAsync "requireLoaded returns Error when not loaded" {
                 let env = makeEnvNotLoaded [| "not ready" |]
 
-                let! result = bound env (Api.OrderContextCommand.UpdateOrderContext, emptyCtx)
+                let! result =
+                    bound
+                        env
+                        (Api.OrderContextCommand.SeedFilter(
+                            Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         emptyCtx)
 
                 match result with
                 | Error msgs -> msgs |> Expect.equal "should return requireLoaded error" [| "not ready" |]
@@ -312,7 +345,18 @@ let requireLoadedTests =
             testAsync "requireLoaded passes when loaded" {
                 let env = makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk emptyCtx)
 
-                let! result = bound env (Api.OrderContextCommand.UpdateOrderContext, emptyCtx)
+                let! result =
+                    bound
+                        env
+                        (Api.OrderContextCommand.SeedFilter(
+                            Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         emptyCtx)
 
                 match result with
                 | Ok _ -> ()
@@ -5184,7 +5228,8 @@ module BoundTests =
             }
         |> Async.RunSynchronously
 
-    let formulary = (Api.OrderContextCommand.UpdateOrderContext, emptyCtx)
+    let formulary =
+        (Api.OrderContextCommand.SeedFilter(Shared.Types.SeedSource.Reload, None, None, None, None, None), emptyCtx)
 
     let runInteraction env cookie cmd =
         Compute.bound
@@ -5408,7 +5453,19 @@ module PlanTests =
                     let! _ =
                         OrderPlanCommand.processCmd
                             env
-                            (OrderPlanCommand.Navigate(p, "c-1", Api.OrderContextCommand.UpdateOrderContext, emptyCtx))
+                            (OrderPlanCommand.Navigate(
+                                p,
+                                "c-1",
+                                Api.OrderContextCommand.SeedFilter(
+                                    Shared.Types.SeedSource.Reload,
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    None
+                                ),
+                                emptyCtx
+                            ))
 
                     let! _ = OrderPlanCommand.processCmd env (OrderPlanCommand.AddOrderContext(p, emptyCtx))
 
@@ -5439,11 +5496,11 @@ module PlanTests =
                         OrderPlanCommand.Navigate(
                             p,
                             "c-1",
-                            Api.OrderContextCommand.UpdateOrderContext,
+                            Api.OrderContextCommand.ResetOrderScenario,
                             OrderContext.empty
                         )
                     )
-                    |> Expect.equal "the command, not the context" "Navigate UpdateOrderContext"
+                    |> Expect.equal "the command, not the context" "Navigate ResetOrderScenario"
 
                     OrderPlanCommand.toString (OrderPlanCommand.NewOrderContext(p, NutritionCategory.TPN))
                     |> Expect.equal "category" "NewOrderContext TPN"
@@ -5513,7 +5570,15 @@ let ingressTests =
                 let! result =
                     OrderContextCommand.processCmd
                         env
-                        (Api.OrderContextCommand.UpdateOrderContext, Models.OrderContext.empty)
+                        (Api.OrderContextCommand.SeedFilter(
+                            Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         Models.OrderContext.empty)
 
                 result |> refusedAs Patient.noPatient
             }
@@ -5532,7 +5597,14 @@ let ingressTests =
                         (Api.OrderPlanCommand.Navigate(
                             emptyPlan,
                             "c-1",
-                            Api.OrderContextCommand.UpdateOrderContext,
+                            Api.OrderContextCommand.SeedFilter(
+                                Shared.Types.SeedSource.Reload,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None
+                            ),
                             Models.OrderContext.empty
                         ))
 

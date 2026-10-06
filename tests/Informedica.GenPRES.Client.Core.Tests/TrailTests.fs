@@ -180,7 +180,12 @@ let tests =
 
             test "a reopen shows the request it awaits and the state it keeps" {
                 OrderContextState.held pat ctxPicked
-                |> OrderContextState.transition (OrderContextMsg.Reopen(OrderContextCommand.UpdateOrderContext, "r-9"))
+                |> OrderContextState.transition (
+                    OrderContextMsg.Reopen(
+                        OrderContextCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
+                        "r-9"
+                    )
+                )
                 |> fst
                 |> Trail.OrderContext.state
                 |> Expect.equal "awaits and kept" "Changing ctx-1 awaits r-9 kept"
@@ -191,7 +196,7 @@ let tests =
                     OrderPlanCommand.Navigate(
                         OrderPlan.empty,
                         "ctx-1",
-                        OrderContextCommand.UpdateOrderContext,
+                        OrderContextCommand.ResetOrderScenario,
                         ctxPicked
                     )
 
@@ -202,8 +207,8 @@ let tests =
                 |> Expect.equal
                     "the lines"
                     [
-                        "Command Navigate ctx-1 UpdateOrderContext ctx-1 pain/paracetamol/oral 0 scenarios r-3"
-                        "CallPlan Navigate ctx-1 UpdateOrderContext r-3"
+                        "Command Navigate ctx-1 ResetOrderScenario ctx-1 pain/paracetamol/oral 0 scenarios r-3"
+                        "CallPlan Navigate ctx-1 ResetOrderScenario r-3"
                     ]
             }
 

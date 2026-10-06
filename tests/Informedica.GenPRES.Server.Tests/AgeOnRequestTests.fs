@@ -279,7 +279,7 @@ let evaluatedWith normalValues (ctx: OrderContext) =
         (OrderContextCommand.processCmd env)
         {
             Opened = None
-            Command = OrderContextCommand.UpdateOrderContext, ctx
+            Command = OrderContextCommand.SeedFilter(Shared.Types.SeedSource.Reload, None, None, None, None, None), ctx
         }
     |> Async.RunSynchronously
 
@@ -397,16 +397,46 @@ let tests =
                 [
                     test "the order context's patient, in an identified Session and without one" {
                         for sid in [ Some identified; None; Some anonymous; Some entered; Some "nobody" ] do
-                            over sid (OrderContextCommand.UpdateOrderContext, context)
+                            over
+                                sid
+                                (OrderContextCommand.SeedFilter(
+                                    Shared.Types.SeedSource.Reload,
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    None
+                                 ),
+                                 context)
                             |> Expect.equal
                                 $"the order context as sent, %A{sid}"
-                                (OrderContextCommand.UpdateOrderContext, context)
+                                (OrderContextCommand.SeedFilter(
+                                    Shared.Types.SeedSource.Reload,
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    None
+                                 ),
+                                 context)
                     }
 
                     test "the plan's patient and that of every context, on every plan command" {
                         [
                             OrderPlanCommand.Recalculate plan
-                            OrderPlanCommand.Navigate(plan, "1", OrderContextCommand.UpdateOrderContext, context)
+                            OrderPlanCommand.Navigate(
+                                plan,
+                                "1",
+                                OrderContextCommand.SeedFilter(
+                                    Shared.Types.SeedSource.Reload,
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    None
+                                ),
+                                context
+                            )
                             OrderPlanCommand.AddOrderContext(plan, context)
                             OrderPlanCommand.NewOrderContext(plan, NutritionCategory.TPN)
                             OrderPlanCommand.RemoveOrderContexts(plan, [| "1" |])
@@ -531,15 +561,48 @@ let tests =
                     test "an age-only patient on another request is not estimated: the patient change is" {
                         let ctx = { Shared.Models.OrderContext.empty with Patient = ageOnly 10 }
 
-                        estimatedOver loaded None (OrderContextCommand.UpdateOrderContext, ctx)
-                        |> Expect.equal "the context as sent" (OrderContextCommand.UpdateOrderContext, ctx)
+                        estimatedOver
+                            loaded
+                            None
+                            (OrderContextCommand.SeedFilter(
+                                Shared.Types.SeedSource.Reload,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None
+                             ),
+                             ctx)
+                        |> Expect.equal
+                            "the context as sent"
+                            (OrderContextCommand.SeedFilter(
+                                Shared.Types.SeedSource.Reload,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None
+                             ),
+                             ctx)
                     }
 
                     test "a request other than a patient change never asks the normal values" {
                         let ask, count = counting (Some tables)
                         let ctx = { Shared.Models.OrderContext.empty with Patient = ageOnly 10 }
 
-                        estimatedOver ask None (OrderContextCommand.UpdateOrderContext, ctx) |> ignore
+                        estimatedOver
+                            ask
+                            None
+                            (OrderContextCommand.SeedFilter(
+                                Shared.Types.SeedSource.Reload,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None
+                             ),
+                             ctx)
+                        |> ignore
 
                         count.Value |> Expect.equal "asked none: asking may load" 0
                     }

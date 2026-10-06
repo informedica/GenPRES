@@ -26,7 +26,14 @@ module PlanWorkPolicyTests =
         [
             "Recalculate", recalculate, false
             "Open", OrderPlanCommand.Open(patient, [||]), false
-            "Navigate", OrderPlanCommand.Navigate(plan, "c-1", OrderContextCommand.UpdateOrderContext, context), true
+            "Navigate",
+            OrderPlanCommand.Navigate(
+                plan,
+                "c-1",
+                OrderContextCommand.SetNthFilterProperty(Shared.Models.OrderContext.Route, 0),
+                context
+            ),
+            true
             "AddOrderContext", add, true
             "NewOrderContext", OrderPlanCommand.NewOrderContext(plan, NutritionCategory.TPN), true
             "RemoveOrderContexts", remove, true

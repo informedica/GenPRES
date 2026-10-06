@@ -11,11 +11,6 @@ module Api =
     /// frequency, the dose quantity, the dose rate and a component quantity.
     [<RequireQualifiedAccess>]
     type OrderContextCommand =
-        | UpdateOrderContext
-        | SelectOrderScenario
-        | UpdateOrderScenario
-        /// A value a field's arrow cleared, with the variables the user picked or stepped, in the order picked.
-        | ReopenOrderScenario of picks: string[]
         | ResetOrderScenario
         // Frequency property commands
         | DecreaseScheduleFrequencyProperty
@@ -103,10 +98,6 @@ module Api =
         /// For the log: the command alone, never the context.
         let toString (cmd: OrderContextCommand, _: OrderContext) =
             match cmd with
-            | OrderContextCommand.UpdateOrderContext -> "UpdateOrderContext"
-            | OrderContextCommand.SelectOrderScenario -> "SelectOrderScenario"
-            | OrderContextCommand.UpdateOrderScenario -> "UpdateOrderScenario"
-            | OrderContextCommand.ReopenOrderScenario picks -> $"ReopenOrderScenario %i{picks.Length} picks"
             | OrderContextCommand.ResetOrderScenario -> "ResetOrderScenario"
             | OrderContextCommand.DecreaseScheduleFrequencyProperty -> "DecreaseScheduleFrequencyProperty"
             | OrderContextCommand.IncreaseScheduleFrequencyProperty -> "IncreaseScheduleFrequencyProperty"
@@ -168,36 +159,23 @@ module Api =
         module Ctx = Models.OrderContext
 
 
-        /// The client's preview of a command while its request is under way: the command the domain
-        /// answers it as, and the context as that command changes it; no command when the context is
-        /// answered as it is. The domain's answer replaces it.
+        /// The client's preview of a command while its request is under way: the context as the
+        /// command changes it; the context as it is when the command leaves it, as an index past the
+        /// values does. The domain's answer replaces it.
         let preview (cmd: OrderContextCommand) (ctx: OrderContext) =
-            let over cmd r = r |> Result.map (fun ctx -> Some cmd, ctx)
-            let update r = r |> over OrderContextCommand.UpdateOrderContext
-
             let setNth target n =
-                ctx
-                |> Ctx.setNth target n
-                |> Result.map (
-                    function
-                    | Some changed -> Some OrderContextCommand.UpdateOrderScenario, changed
-                    | None -> None, ctx
-                )
+                ctx |> Ctx.setNth target n |> Result.map (Option.defaultValue ctx)
 
-            let clear target picks =
-                ctx
-                |> Ctx.clear target picks
-                |> Result.map (fun (changed, picks) -> Some(OrderContextCommand.ReopenOrderScenario picks), changed)
+            let clear target picks = ctx |> Ctx.clear target picks |> Result.map fst
 
             match cmd with
-            | OrderContextCommand.SetNthFilterProperty(field, n) -> ctx |> Ctx.changeFilter field (Some n) |> update
-            | OrderContextCommand.ClearFilterProperty field -> ctx |> Ctx.changeFilter field None |> update
-            | OrderContextCommand.ClearAllFilterProperty -> Ok(Ctx.clearAll ctx) |> update
-            | OrderContextCommand.SetNthDiluentProperty n -> ctx |> Ctx.changeDiluent (Some n) |> update
-            | OrderContextCommand.ClearDiluentProperty -> ctx |> Ctx.changeDiluent None |> update
-            | OrderContextCommand.SetNthComponentsProperty ns -> ctx |> Ctx.setNthComponents ns |> update
-            | OrderContextCommand.SelectNthOrderScenario n ->
-                ctx |> Ctx.selectNthScenario n |> over OrderContextCommand.SelectOrderScenario
+            | OrderContextCommand.SetNthFilterProperty(field, n) -> ctx |> Ctx.changeFilter field (Some n)
+            | OrderContextCommand.ClearFilterProperty field -> ctx |> Ctx.changeFilter field None
+            | OrderContextCommand.ClearAllFilterProperty -> Ok(Ctx.clearAll ctx)
+            | OrderContextCommand.SetNthDiluentProperty n -> ctx |> Ctx.changeDiluent (Some n)
+            | OrderContextCommand.ClearDiluentProperty -> ctx |> Ctx.changeDiluent None
+            | OrderContextCommand.SetNthComponentsProperty ns -> ctx |> Ctx.setNthComponents ns
+            | OrderContextCommand.SelectNthOrderScenario n -> ctx |> Ctx.selectNthScenario n
             | OrderContextCommand.SetNthScheduleProperty(prop, n) -> setNth (Ctx.Target.Schedule prop) n
             | OrderContextCommand.ClearScheduleProperty(prop, picks) -> clear (Ctx.Target.Schedule prop) picks
             | OrderContextCommand.SetNthOrderableProperty(prop, n) -> setNth (Ctx.Target.Orderable prop) n
@@ -208,10 +186,10 @@ module Api =
             | OrderContextCommand.SetNthItemProperty(cmp, itm, prop, n) -> setNth (Ctx.Target.Item(cmp, itm, prop)) n
             | OrderContextCommand.ClearItemProperty(cmp, itm, prop, picks) ->
                 clear (Ctx.Target.Item(cmp, itm, prop)) picks
-            | OrderContextCommand.SetArgumentationProperty text -> Ok(None, ctx |> Ctx.Argumentation.write text)
+            | OrderContextCommand.SetArgumentationProperty text -> Ok(ctx |> Ctx.Argumentation.write text)
             | OrderContextCommand.SeedFilter(source, ind, gen, rte, frm, dt) ->
-                Ok(ctx |> Ctx.seedFilter source ind gen rte frm dt) |> update
-            | cmd -> Ok(Some cmd, ctx)
+                Ok(ctx |> Ctx.seedFilter source ind gen rte frm dt)
+            | _ -> Ok ctx
 
 
     /// What the order context still being worked on is asked: a command over it, or the patient it
