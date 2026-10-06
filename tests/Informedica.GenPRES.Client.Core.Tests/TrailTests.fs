@@ -79,6 +79,27 @@ let tests =
                     "#12 10:41:07.311 OrderContext PatientChanged patient 3.0 y 14.0 kg no height gender unknown r-1 -> CallContext ClearAllFilterProperty workbench r-1 | Changing workbench awaits r-1"
             }
 
+            test "a seed shows its source and how many choices, never their text" {
+                let seed: OrderContextMachine.FilterSeed =
+                    {
+                        Source = SeedSource.Url
+                        Indication = Some "Milde pijn"
+                        Generic = Some "paracetamol"
+                        Route = Some "oraal"
+                        Form = None
+                        DoseType = None
+                    }
+
+                let held = OrderContextState.held pat (OrderContextState.emptyFor pat)
+                let msg = OrderContextMsg.SeedFilter(seed, "r-1")
+
+                Trail.orderContext 3 at msg (held |> OrderContextState.transition msg)
+                |> Trail.format
+                |> Expect.equal
+                    "the line"
+                    "#3 10:41:07.311 OrderContext SeedFilter url 3 choices r-1 -> CallContext SeedFilter url 3 choices workbench r-1, SyncFormulary, SyncParenteralia | Changing workbench awaits r-1"
+            }
+
             test "a step without effects says none" {
                 Trail.format
                     {
