@@ -680,25 +680,6 @@ module ViewHelpers =
             Api.OrderContextCommand.ClearItemProperty(cmp, itm, prop, picks)
 
 
-    /// The context with the scenario of the loader's order replaced by the loader's component,
-    /// item and order.
-    let withLoader (ctx: OrderContext) (ol: OrderLoader) =
-        { ctx with
-            Scenarios =
-                ctx.Scenarios
-                |> Array.map (fun sc ->
-                    if sc.Order.Id <> ol.Order.Id then
-                        sc
-                    else
-                        { sc with
-                            Component = ol.Component
-                            Item = ol.Item
-                            Order = ol.Order
-                        }
-                )
-        }
-
-
     let inlineProgress isLoading =
         if isLoading then
             let progressSx =

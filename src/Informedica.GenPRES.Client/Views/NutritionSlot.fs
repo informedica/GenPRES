@@ -85,20 +85,16 @@ module NutritionSlot =
             | SetMedianFrequencyProperty
 
 
-        /// The component picked, seeded from the one scenario of the slot's context: its first
-        /// component.
-        let init (ctx: OrderContext) =
-            let cmp =
-                match ctx.Scenarios with
-                | [| sc |] ->
-                    match sc.Order.Orderable.Components with
-                    | [||] -> None
-                    | cmps -> Some cmps[0].Name
-                | _ ->
-                    if ctx.Scenarios |> Array.length > 1 then
-                        Logging.error "received multiple scenarios" ctx.Scenarios.Length
+        /// The component picked, seeded from the one scenario of the slot's context: the one the
+        /// slot kept for the same order, else the scenario's own, else its first component.
+        let init (kept: DialogTabPolicy.Tab option) (ctx: OrderContext) =
+            if ctx.Scenarios |> Array.length > 1 then
+                Logging.error "received multiple scenarios" ctx.Scenarios.Length
 
-                    None
+            let cmp =
+                ctx.Scenarios
+                |> Array.tryExactlyOne
+                |> Option.bind (DialogTabPolicy.tab kept >> _.Component)
 
             { SelectedComponent = cmp }, Cmd.none
 
@@ -648,7 +644,7 @@ module NutritionSlot =
                 |> Option.bind (fun t -> ol.Order |> OrderContext.Target.tryGet t |> Option.map (fun v -> t, v))
 
             let send cmd =
-                Api.OrderPlanCommand.Navigate(planRef.current, ncId, cmd, ViewHelpers.withLoader ctx ol)
+                Api.OrderPlanCommand.Navigate(planRef.current, ncId, cmd, ctx)
                 |> if isReopen then props.planReopen else props.planCommand
 
             match located, s with
@@ -664,21 +660,21 @@ module NutritionSlot =
             |> props.planCommand
 
         let stepper =
-            let create nav = fun ol -> ViewHelpers.withLoader ctx ol |> nav
+            let create nav = fun (_: OrderLoader) -> nav ctx
 
-            let createWithN nav = fun (n, uc) ol -> nav (ViewHelpers.withLoader ctx ol, n, uc)
+            let createWithN nav = fun (n, uc) (_: OrderLoader) -> nav (ctx, n, uc)
 
             let createWithCmp nav =
                 fun (ol: OrderLoader) ->
                     match ol.Component with
                     | None -> ()
-                    | Some cmp -> nav (ViewHelpers.withLoader ctx ol, cmp)
+                    | Some cmp -> nav (ctx, cmp)
 
             let createWithCmpN nav =
                 fun (n, uc) (ol: OrderLoader) ->
                     match ol.Component with
                     | None -> ()
-                    | Some cmp -> nav (ViewHelpers.withLoader ctx ol, cmp, n, uc)
+                    | Some cmp -> nav (ctx, cmp, n, uc)
 
             let navRate cmd =
                 fun updCtx ->
@@ -748,7 +744,21 @@ module NutritionSlot =
 
             next, cmd
 
-        let state, dispatch = React.useElmish (init ctx, updateTraced, [| box ctx |])
+        // the tab of the last render, so that an answer for the same order keeps it
+        let kept = React.useRef<DialogTabPolicy.Tab option> None
+
+        let state, dispatch = React.useElmish (init kept.current ctx, updateTraced, [| box ctx |])
+
+        kept.current <-
+            shownOrder
+            |> Option.map (fun ord ->
+                {
+                    OrderId = ord.Id
+                    Component = state.SelectedComponent
+                    Item = None
+                }
+                : DialogTabPolicy.Tab
+            )
 
         let isOrderLoading = props.isRecalculating
         let texts = ViewHelpers.quantityFieldTexts getTerm
