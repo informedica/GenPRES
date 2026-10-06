@@ -27,9 +27,9 @@ type ISettings =
 type IOrderContext =
     // the workbench as the pages show it
     abstract OrderContext: OrderContextMachine.OrderContextView
-    abstract OrderContextMsg: Api.OrderContextCommand * OrderContext -> unit
+    abstract OrderContextMsg: Api.OrderContextCommand -> unit
     // a clear from the dialog that opens the field's list, the workbench before it kept
-    abstract Reopen: Api.OrderContextCommand * OrderContext -> unit
+    abstract Reopen: Api.OrderContextCommand -> unit
     // the list of a reopen closed without a pick: the workbench kept is put back
     abstract Restore: unit -> unit
     // the workbench as the order dialog shows it; none while no scenario is selected

@@ -199,7 +199,7 @@ let tests =
                         |> Expect.equal "over the context held" (replacing cmd paracetamol "r-1")
 
                         let step = OrderContextCommand.IncreaseScheduleFrequencyProperty
-                        let busy, _ = transition (OrderContextMsg.Command(step, paracetamol, "r-1")) shown
+                        let busy, _ = transition (OrderContextMsg.Command(step, "r-1")) shown
 
                         transition (OrderContextMsg.SeedFilter(urlSeed, "r-2")) busy
                         |> snd
@@ -240,9 +240,7 @@ let tests =
                     }
 
                     test "a command before a patient is dropped" {
-                        transition
-                            (OrderContextMsg.Command(OrderContextCommand.UpdateOrderContext, paracetamol, "r-1"))
-                            noPatient
+                        transition (OrderContextMsg.Command(OrderContextCommand.UpdateOrderContext, "r-1")) noPatient
                         |> Expect.equal "dropped" (noPatient, [])
                     }
                 ]
@@ -250,40 +248,24 @@ let tests =
             testList
                 "a command"
                 [
-                    test "an update takes the formulary and the parenteralia along; a step calls alone, or waits" {
-                        let changed =
-                            { paracetamol with
-                                OrderContext.Filter.Generic = Some "ibuprofen"
-                                Patient = otherDraft
-                            }
+                    test "a filter pick goes over the context held and takes the pages along; a step calls alone" {
+                        let pick = OrderContextCommand.SetNthFilterProperty(Shared.Models.OrderContext.Route, 0)
 
-                        let forPatient = { changed with Patient = draft }
-
-                        let busy, effects =
-                            transition
-                                (OrderContextMsg.Command(OrderContextCommand.UpdateOrderContext, changed, "r-1"))
-                                shown
+                        let busy, effects = transition (OrderContextMsg.Command(pick, "r-1")) shown
 
                         busy
-                        |> Expect.equal "in flight, for the patient held" (evaluating forPatient paracetamol "r-1")
+                        |> Expect.equal "in flight over the context held" (inFlight pick paracetamol paracetamol "r-1")
 
-                        effects |> Expect.equal "the call and the syncs" (evaluated forPatient "r-1")
+                        effects
+                        |> Expect.equal "the call and the syncs" (replacing pick paracetamol "r-1")
 
                         transition
-                            (OrderContextMsg.Command(
-                                OrderContextCommand.IncreaseScheduleFrequencyProperty,
-                                changed,
-                                "r-2"
-                            ))
+                            (OrderContextMsg.Command(OrderContextCommand.IncreaseScheduleFrequencyProperty, "r-2"))
                             busy
                         |> Expect.equal "dropped while busy" (busy, [])
 
                         transition
-                            (OrderContextMsg.Command(
-                                OrderContextCommand.IncreaseScheduleFrequencyProperty,
-                                paracetamol,
-                                "r-2"
-                            ))
+                            (OrderContextMsg.Command(OrderContextCommand.IncreaseScheduleFrequencyProperty, "r-2"))
                             shown
                         |> Expect.equal
                             "a step calls alone"
@@ -324,22 +306,20 @@ let tests =
                         |> Expect.equal "the empty workbench" (held empty, restored empty [| "not loaded" |])
                     }
 
-                    test "a refused step restores the context last evaluated, never the one sent" {
-                        let stepped = { paracetamol with OrderContext.Filter.Route = Some "stepped" }
-
+                    test "a refused step restores the context last evaluated" {
                         let busy, _ =
                             transition
-                                (OrderContextMsg.Command(
-                                    OrderContextCommand.IncreaseScheduleFrequencyProperty,
-                                    stepped,
-                                    "r-1"
-                                ))
+                                (OrderContextMsg.Command(OrderContextCommand.IncreaseScheduleFrequencyProperty, "r-1"))
                                 shown
 
                         busy
                         |> Expect.equal
-                            "the sent shown meanwhile, the found kept"
-                            (inFlight OrderContextCommand.IncreaseScheduleFrequencyProperty stepped paracetamol "r-1")
+                            "the step over the context held"
+                            (inFlight
+                                OrderContextCommand.IncreaseScheduleFrequencyProperty
+                                paracetamol
+                                paracetamol
+                                "r-1")
 
                         transition (OrderContextMsg.Answered("r-1", Error [| "not loaded" |])) busy
                         |> Expect.equal "the last evaluated" (held paracetamol, restored paracetamol [| "not loaded" |])
@@ -448,14 +428,14 @@ let busyTests =
                         OrderContextCommand.ResetOrderScenario
                         OrderContextCommand.SelectOrderScenario
                     ] do
-                    transition (OrderContextMsg.Command(cmd, paracetamol, "r-2")) busy
+                    transition (OrderContextMsg.Command(cmd, "r-2")) busy
                     |> Expect.equal $"%A{cmd} dropped, nothing sent" (busy, [])
             }
 
             test "the answer sends nothing more" {
                 let answer = { paracetamol with OrderContext.Filter.Generics = [| "paracetamol"; "ibuprofen" |] }
 
-                transition (OrderContextMsg.Command(step, paracetamol, "r-2")) busy
+                transition (OrderContextMsg.Command(step, "r-2")) busy
                 |> fst
                 |> transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated answer)))
                 |> Expect.equal "the answer held, nothing sent" (held answer, [])
@@ -668,23 +648,21 @@ let refusalTests =
                     "refused"
                     (OrderContextView.Refused(paracetamol, OrderContextRefusal.NoDoseRulesForPatient))
 
-                let again = { paracetamol with OrderContext.Filter.Route = Some "or" }
-
                 let busy, effects =
-                    transition (OrderContextMsg.Command(OrderContextCommand.UpdateOrderContext, again, "r-2")) shown
+                    transition (OrderContextMsg.Command(OrderContextCommand.UpdateOrderContext, "r-2")) shown
 
-                effects |> Expect.equal "evaluated again" (evaluated again "r-2")
+                effects
+                |> Expect.equal "the context refused, evaluated again" (evaluated paracetamol "r-2")
                 busy
                 |> view
-                |> Expect.equal "changing meanwhile" (OrderContextView.Changing again)
+                |> Expect.equal "changing meanwhile" (OrderContextView.Changing paracetamol)
             }
 
             test "the next evaluated answer clears the refusal" {
                 let shown = refused paracetamol OrderContextRefusal.NoDoseRules
                 let again = { paracetamol with OrderContext.Filter.Route = Some "or" }
 
-                let busy, _ =
-                    transition (OrderContextMsg.Command(OrderContextCommand.UpdateOrderContext, again, "r-2")) shown
+                let busy, _ = transition (OrderContextMsg.Command(OrderContextCommand.UpdateOrderContext, "r-2")) shown
 
                 transition (OrderContextMsg.Answered("r-2", evaluatedAnswer again)) busy
                 |> Expect.equal "settled" (held again, [])
@@ -694,8 +672,7 @@ let refusalTests =
                 let shown = refused paracetamol OrderContextRefusal.NoDoseRules
                 let again = { paracetamol with OrderContext.Filter.Route = Some "or" }
 
-                let busy, _ =
-                    transition (OrderContextMsg.Command(OrderContextCommand.UpdateOrderContext, again, "r-2")) shown
+                let busy, _ = transition (OrderContextMsg.Command(OrderContextCommand.UpdateOrderContext, "r-2")) shown
 
                 transition (OrderContextMsg.Answered("r-2", Error [| "not loaded" |])) busy
                 |> Expect.equal "as found, told" (held paracetamol, restored paracetamol [| "not loaded" |])
@@ -856,7 +833,7 @@ let argueTests =
             test "a reset takes the text with it as it goes out; a text written meanwhile survives its answer" {
                 let resetting, effects =
                     held argued
-                    |> transition (OrderContextMsg.Command(OrderContextCommand.ResetOrderScenario, argued, "r-1"))
+                    |> transition (OrderContextMsg.Command(OrderContextCommand.ResetOrderScenario, "r-1"))
 
                 effects
                 |> Expect.equal
@@ -915,8 +892,7 @@ let reopenTests =
         }
 
     let c1 = context "c-1" "paracetamol"
-    // the context as the dialog sends it with a field cleared, and as the server answers it
-    let cleared = context "c-1" "paracetamol-cleared"
+    // the context as the server answers a clear
     let reopened = context "c-1" "paracetamol-reopened"
 
     let open' = held c1 |> OrderContextState.select (Some "o-c-1")
@@ -925,14 +901,14 @@ let reopenTests =
     let run msgs state = msgs |> List.fold (fun s m -> move m s |> fst) state
     let view = OrderContextState.view
 
-    let reopen = OrderContextMsg.Reopen(OrderContextCommand.ReopenOrderScenario [||], cleared, "r-1")
+    let reopen = OrderContextMsg.Reopen(OrderContextCommand.ReopenOrderScenario [||], "r-1")
 
     let answered ctx = Ok(OrderContextResponse.Evaluated ctx)
 
     testList
         "OrderContextState.transition, a reopen and a restore"
         [
-            test "a reopen sends the clear and shows the context sent" {
+            test "a reopen sends the clear over the context held and shows it changing" {
                 let state, effects = open' |> move reopen
 
                 effects
@@ -941,7 +917,7 @@ let reopenTests =
                     [
                         OrderContextEffect.CallContext(
                             OrderContextCommand.ReopenOrderScenario [||],
-                            { cleared with Patient = patient },
+                            { c1 with Patient = patient },
                             "r-1"
                         )
                     ]
@@ -978,7 +954,7 @@ let reopenTests =
                         [
                             reopen
                             OrderContextMsg.Answered("r-1", answered reopened)
-                            OrderContextMsg.Command(OrderContextCommand.UpdateOrderScenario, reopened, "r-2")
+                            OrderContextMsg.Command(OrderContextCommand.UpdateOrderScenario, "r-2")
                         ]
 
                 picked
@@ -995,11 +971,11 @@ let reopenTests =
             test "a reopen while a request is under way is dropped and keeps nothing" {
                 let busy =
                     open'
-                    |> move (OrderContextMsg.Command(OrderContextCommand.IncreaseScheduleFrequencyProperty, c1, "r-1"))
+                    |> move (OrderContextMsg.Command(OrderContextCommand.IncreaseScheduleFrequencyProperty, "r-1"))
                     |> fst
 
                 busy
-                |> move (OrderContextMsg.Reopen(OrderContextCommand.ReopenOrderScenario [||], cleared, "r-2"))
+                |> move (OrderContextMsg.Reopen(OrderContextCommand.ReopenOrderScenario [||], "r-2"))
                 |> Expect.equal "dropped, nothing sent" (busy, [])
 
                 let settled = busy |> run [ OrderContextMsg.Answered("r-1", answered c1) ]
@@ -1084,7 +1060,7 @@ let specificCommandTests =
                 let cmd = OrderContextCommand.SetNthFilterProperty(Shared.Models.OrderContext.Generic, 1)
                 let picked = twoGenerics |> Shared.Models.OrderContext.medicationChange (Some "paracetamol")
 
-                let state, effects = transition (OrderContextMsg.Command(cmd, twoGenerics, "r-1")) (held twoGenerics)
+                let state, effects = transition (OrderContextMsg.Command(cmd, "r-1")) (held twoGenerics)
 
                 effects
                 |> Expect.equal
@@ -1101,8 +1077,7 @@ let specificCommandTests =
             }
 
             test "a value pick goes out as is and shows as today's dialog sends it" {
-                let state, effects =
-                    transition (OrderContextMsg.Command(pickSecond, twoFrequencies, "r-1")) (held twoFrequencies)
+                let state, effects = transition (OrderContextMsg.Command(pickSecond, "r-1")) (held twoFrequencies)
 
                 effects
                 |> Expect.equal
@@ -1115,8 +1090,7 @@ let specificCommandTests =
             }
 
             test "a patient change during a pick evaluates the pick for the new patient" {
-                let busy, _ =
-                    transition (OrderContextMsg.Command(pickSecond, twoFrequencies, "r-1")) (held twoFrequencies)
+                let busy, _ = transition (OrderContextMsg.Command(pickSecond, "r-1")) (held twoFrequencies)
 
                 transition (OrderContextMsg.PatientChanged(Some other, "r-2")) busy
                 |> snd
@@ -1153,7 +1127,7 @@ let patientChangeTests =
                 shown
                 |> OrderContextState.transitionWhile
                     patientChanging
-                    (OrderContextMsg.Command(OrderContextCommand.UpdateOrderContext, paracetamol, "r-1"))
+                    (OrderContextMsg.Command(OrderContextCommand.UpdateOrderContext, "r-1"))
                 |> Expect.equal "the command is dropped" (shown, [])
 
                 OrderContextMsg.PatientChanged(Some other, "r-1")

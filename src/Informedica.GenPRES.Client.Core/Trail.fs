@@ -567,6 +567,10 @@ module OrderContext =
         | _ -> $"%s{OrderContextCommand.toString (cmd, ctx)} %s{describeContext ctx}"
 
 
+    /// The command alone, as a message from the page carries it.
+    let commandAlone (cmd: OrderContextCommand) = (command (fun _ -> "") cmd OrderContext.empty).TrimEnd()
+
+
     /// Never the argumentation.
     let msg (msg: OrderContextMsg) =
         match msg with
@@ -574,14 +578,12 @@ module OrderContext =
             $"PatientChanged %s{Part.patientOption p} %s{Part.shortId request}"
         | OrderContextMsg.SeedFilter(seed, request) ->
             $"SeedFilter %s{seedSource seed.Source} %i{seedChoices seed} choices %s{Part.shortId request}"
-        | OrderContextMsg.Command(cmd, ctx, request) ->
-            $"Command %s{command Part.context cmd ctx} %s{Part.shortId request}"
+        | OrderContextMsg.Command(cmd, request) -> $"Command %s{commandAlone cmd} %s{Part.shortId request}"
         | OrderContextMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result response}"
         | OrderContextMsg.Reset request -> $"Reset %s{Part.shortId request}"
         | OrderContextMsg.Select id -> $"Select %s{id |> Part.orNone Part.shortId}"
         | OrderContextMsg.Argue _ -> "Argue"
-        | OrderContextMsg.Reopen(cmd, ctx, request) ->
-            $"Reopen %s{command Part.context cmd ctx} %s{Part.shortId request}"
+        | OrderContextMsg.Reopen(cmd, request) -> $"Reopen %s{commandAlone cmd} %s{Part.shortId request}"
         | OrderContextMsg.Restore -> "Restore"
 
 

@@ -214,30 +214,6 @@ module Api =
             | cmd -> Ok(Some cmd, ctx)
 
 
-        /// The case a command stands for in the client's decisions by case; None if it sends none.
-        let replaced (cmd: OrderContextCommand) =
-            match cmd with
-            | OrderContextCommand.SetNthFilterProperty _
-            | OrderContextCommand.ClearFilterProperty _
-            | OrderContextCommand.ClearAllFilterProperty
-            | OrderContextCommand.SetNthDiluentProperty _
-            | OrderContextCommand.ClearDiluentProperty
-            | OrderContextCommand.SetNthComponentsProperty _
-            | OrderContextCommand.SeedFilter _ -> Some OrderContextCommand.UpdateOrderContext
-            | OrderContextCommand.SelectNthOrderScenario _ -> Some OrderContextCommand.SelectOrderScenario
-            | OrderContextCommand.SetNthScheduleProperty _
-            | OrderContextCommand.SetNthOrderableProperty _
-            | OrderContextCommand.SetNthComponentProperty _
-            | OrderContextCommand.SetNthItemProperty _ -> Some OrderContextCommand.UpdateOrderScenario
-            | OrderContextCommand.ClearScheduleProperty(_, picks)
-            | OrderContextCommand.ClearOrderableProperty(_, picks)
-            | OrderContextCommand.ClearComponentProperty(_, _, picks)
-            | OrderContextCommand.ClearItemProperty(_, _, _, picks) ->
-                Some(OrderContextCommand.ReopenOrderScenario picks)
-            | OrderContextCommand.SetArgumentationProperty _ -> None
-            | cmd -> Some cmd
-
-
     /// What the order context still being worked on is asked: a command over it, or the patient it
     /// is evaluated for changed. Only this context changes patient: a context in the plan keeps the
     /// patient it was evaluated for, so a plan cannot carry a patient change.

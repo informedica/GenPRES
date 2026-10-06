@@ -57,7 +57,7 @@ type OrderContextWorkbenchMsg =
     /// A seed of the filter, sent as a command.
     | SeedFilter of FilterSeed
     /// A command from the page.
-    | Command of OrderContextCommand * OrderContext
+    | Command of OrderContextCommand
     /// The answer that landed, with what was sent.
     | Landed of sent: (OrderContextCommand * OrderContext) * Result<OrderContextResponse, string[]>
     /// Clear the workbench.
@@ -92,6 +92,21 @@ module OrderContextWorkbench =
 
     /// An empty context for the patient.
     let emptyFor (pat: Patient) = OrderContext.empty |> OrderContext.setPatient pat
+
+
+    /// Whether the command changes the filter, so that the formulary and parenteralia pages follow
+    /// it: a pick or a clear of the filter, the diluent or the components, or a seed.
+    let changesFilter (cmd: OrderContextCommand) =
+        match cmd with
+        | OrderContextCommand.UpdateOrderContext
+        | OrderContextCommand.SetNthFilterProperty _
+        | OrderContextCommand.ClearFilterProperty _
+        | OrderContextCommand.ClearAllFilterProperty
+        | OrderContextCommand.SetNthDiluentProperty _
+        | OrderContextCommand.ClearDiluentProperty
+        | OrderContextCommand.SetNthComponentsProperty _
+        | OrderContextCommand.SeedFilter _ -> true
+        | _ -> false
 
 
     /// After a failed change: the context as it was, with the formulary and parenteralia pages put
@@ -140,10 +155,10 @@ module OrderContextWorkbench =
         | OrderContextWorkbenchMsg.SeedFilter seed, OrderContextWorkbench.Evaluated(_, held) ->
             workbench, [ OrderContextWorkbenchIntent.SeedFilter(seed, held) ]
 
-        // a command, always for the patient held; a reset clears the argumentation when it is
-        // sent, so a text written while it runs is kept
-        | OrderContextWorkbenchMsg.Command(cmd, ctx), OrderContextWorkbench.Evaluated(pat, held) ->
-            let sent = { ctx with Patient = pat }
+        // a command, over the context held, for the patient held; a reset clears the argumentation
+        // when it is sent, so a text written while it runs is kept
+        | OrderContextWorkbenchMsg.Command cmd, OrderContextWorkbench.Evaluated(pat, held) ->
+            let sent = { held with Patient = pat }
 
             if ArgumentationPolicy.clearedBy cmd then
                 OrderContextWorkbench.Evaluated(pat, ArgumentationPolicy.clear held),
@@ -209,8 +224,8 @@ type OrderContextMsg =
     | PatientChanged of Patient option * request: string
     /// A seed of the filter, sent as a command over the context shown; it waits for a patient.
     | SeedFilter of FilterSeed * request: string
-    /// A command from the page, over the context the page holds.
-    | Command of OrderContextCommand * OrderContext * request: string
+    /// A command from the page, sent over the context held.
+    | Command of OrderContextCommand * request: string
     /// The answer to the request with this id: the context evaluated or refused; Error is a
     /// failure of the server or the call.
     | Answered of request: string * Result<OrderContextResponse, string[]>
@@ -222,7 +237,7 @@ type OrderContextMsg =
     | Argue of string
     /// A clear from the dialog that opens the field's list: the command goes out, and the state
     /// before it is kept to be put back.
-    | Reopen of OrderContextCommand * OrderContext * request: string
+    | Reopen of OrderContextCommand * request: string
     /// The list of a reopen closed without a pick: the context kept is put back, and the answer to
     /// the clear is dropped.
     | Restore
@@ -463,9 +478,7 @@ module OrderContextState =
                             OrderContextEffect.SyncParenteralia ctx.Filter
                         ]
                     | OrderContextWorkbenchIntent.Call _ when state.InFlight.IsSome -> state, []
-                    | OrderContextWorkbenchIntent.Call(cmd, ctx) when
-                        OrderContextCommand.replaced cmd = Some OrderContextCommand.UpdateOrderContext
-                        ->
+                    | OrderContextWorkbenchIntent.Call(cmd, ctx) when OrderContextWorkbench.changesFilter cmd ->
                         evaluate cmd ctx state
                     | OrderContextWorkbenchIntent.Call(cmd, ctx) ->
                         { state with InFlight = Some((cmd, ctx), request) },
@@ -574,8 +587,7 @@ module OrderContextState =
                 }
         | OrderContextMsg.SeedFilter(seed, request), _, _ ->
             run request (OrderContextWorkbenchMsg.SeedFilter seed) state
-        | OrderContextMsg.Command(cmd, ctx, request), _, _ ->
-            run request (OrderContextWorkbenchMsg.Command(cmd, ctx)) state
+        | OrderContextMsg.Command(cmd, request), _, _ -> run request (OrderContextWorkbenchMsg.Command cmd) state
         | OrderContextMsg.Reset request, _, _ -> run request OrderContextWorkbenchMsg.Reset state
         // taken by transition
         | OrderContextMsg.Reopen _, _, _
@@ -590,11 +602,11 @@ module OrderContextState =
     /// finds no request to land on after a restore.
     let transition (msg: OrderContextMsg) (state: OrderContextState) : OrderContextState * OrderContextEffect list =
         match msg with
-        | OrderContextMsg.Reopen(cmd, ctx, request) when state.InFlight.IsSome ->
-            move (OrderContextMsg.Command(cmd, ctx, request)) { state with Kept = None }
-        | OrderContextMsg.Reopen(cmd, ctx, request) ->
+        | OrderContextMsg.Reopen(cmd, request) when state.InFlight.IsSome ->
+            move (OrderContextMsg.Command(cmd, request)) { state with Kept = None }
+        | OrderContextMsg.Reopen(cmd, request) ->
             let kept = { state with Kept = None }
-            let moved, effects = move (OrderContextMsg.Command(cmd, ctx, request)) kept
+            let moved, effects = move (OrderContextMsg.Command(cmd, request)) kept
             { moved with Kept = Some kept }, effects
         | OrderContextMsg.Restore ->
             match state.Kept with

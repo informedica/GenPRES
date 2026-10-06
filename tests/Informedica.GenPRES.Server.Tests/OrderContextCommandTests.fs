@@ -647,42 +647,8 @@ let tests =
                 ]
 
             testList
-                "the case a new case stands for"
+                "the log of a command"
                 [
-                    for cmd, expected in
-                        [
-                            Api.SetNthFilterProperty(Ctx.Route, 0), Some Api.UpdateOrderContext
-                            Api.ClearFilterProperty Ctx.Route, Some Api.UpdateOrderContext
-                            Api.ClearAllFilterProperty, Some Api.UpdateOrderContext
-                            Api.SetNthDiluentProperty 0, Some Api.UpdateOrderContext
-                            Api.ClearDiluentProperty, Some Api.UpdateOrderContext
-                            Api.SetNthComponentsProperty [| 0 |], Some Api.UpdateOrderContext
-                            Api.SelectNthOrderScenario 0, Some Api.SelectOrderScenario
-                            Api.SetNthScheduleProperty(Shared.Types.ScheduleProperty.Time, 0),
-                            Some Api.UpdateOrderScenario
-                            Api.SetNthOrderableProperty(Shared.Types.OrderableProperty.DoseRate, 0),
-                            Some Api.UpdateOrderScenario
-                            Api.SetNthComponentProperty("a", Shared.Types.ComponentProperty.OrderableQuantity, 0),
-                            Some Api.UpdateOrderScenario
-                            Api.SetNthItemProperty("a", "b", Shared.Types.ItemProperty.DoseQuantity, 0),
-                            Some Api.UpdateOrderScenario
-                            Api.ClearScheduleProperty(Shared.Types.ScheduleProperty.Frequency, [| "p" |]),
-                            Some(Api.ReopenOrderScenario [| "p" |])
-                            Api.ClearOrderableProperty(Shared.Types.OrderableProperty.Quantity, [| "p" |]),
-                            Some(Api.ReopenOrderScenario [| "p" |])
-                            Api.ClearComponentProperty(
-                                "a",
-                                Shared.Types.ComponentProperty.DoseQuantityAdjust,
-                                [| "p" |]
-                            ),
-                            Some(Api.ReopenOrderScenario [| "p" |])
-                            Api.ClearItemProperty("a", "b", Shared.Types.ItemProperty.DoseRate, [| "p" |]),
-                            Some(Api.ReopenOrderScenario [| "p" |])
-                            Api.SetArgumentationProperty "x", None
-                            Api.ResetOrderScenario, Some Api.ResetOrderScenario
-                        ] do
-                        test $"%A{cmd}" { cmd |> Cmd.replaced |> Expect.equal "the case it stands for" expected }
-
                     test "the log never shows the argumentation" {
                         (Api.SetArgumentationProperty "patient weegt meer", Ctx.empty)
                         |> Cmd.toString
