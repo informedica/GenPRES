@@ -21,6 +21,7 @@
     <Compile Include="PatientReadiness.fs" />
     <Compile Include="PatientMachine.fs" />
     <Compile Include="PickPolicy.fs" />
+    <Compile Include="StepPolicy.fs" />
     <Compile Include="SeverityReasonPolicy.fs" />
     <Compile Include="ArgumentationPolicy.fs" />
     <Compile Include="QuantityModePolicy.fs" />

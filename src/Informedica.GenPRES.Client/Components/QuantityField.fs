@@ -289,16 +289,16 @@ module QuantityField =
 
 
     // A step button: disabled when the step is not offered; with debounce a counting button,
-    // which repeats while held, shows the count on a badge and predicts each click; otherwise a
-    // plain button that sends one step per click.
-    let stepButton disabled useDebounce (step: (int -> unit) option) (onStep: unit -> unit) icon =
+    // which repeats while held, shows the field's count on a badge and predicts each click, and
+    // the field sends the clicks; otherwise a plain button that sends one step per click.
+    let stepButton disabled useDebounce count (step: (int -> unit) option) (onStep: unit -> unit) icon =
         match step with
         | None -> plainButton true ignore icon
-        | Some onClick when useDebounce ->
+        | Some _ when useDebounce ->
             ClickCountingButton.View
                 {|
                     disabled = disabled
-                    onClick = onClick
+                    count = count
                     onStep = onStep
                     icon = icon
                 |}
@@ -388,6 +388,41 @@ module QuantityField =
                 largeRef.current <- next
                 setLargeDelta next
 
+        // the clicks of all four arrows go out as one command for their net count, 700 ms after
+        // the last click, so that no click is lost to the request of another arrow; a field
+        // disabled by then sends nothing, and its prediction goes
+        let timerRef = React.useRef (None: int option)
+        let disabledRef = React.useRef props.disabled
+        disabledRef.current <- props.disabled
+
+        React.useEffect ((fun () -> fun () -> timerRef.current |> Option.iter JS.clearTimeout), [||])
+
+        let send () =
+            timerRef.current <- None
+
+            let step =
+                match StepPolicy.net smallRef.current largeRef.current, steps with
+                | Some(StepPolicy.Pair.Inner, n), Some s when n > 0 -> s.increase |> Option.map (fun f -> f, n)
+                | Some(StepPolicy.Pair.Inner, n), Some s -> s.decrease |> Option.map (fun f -> f, -n)
+                | Some(StepPolicy.Pair.Outer, n), Some s when n > 0 -> s.last |> Option.map (fun f -> f, n)
+                | Some(StepPolicy.Pair.Outer, n), Some s -> s.first |> Option.map (fun f -> f, -n)
+                | None, _
+                | _, None -> None
+
+            match step with
+            | Some(f, n) when not disabledRef.current -> f n
+            | _ ->
+                smallRef.current <- 0
+                largeRef.current <- 0
+                setSmallDelta 0
+                setLargeDelta 0
+
+        let counted bump =
+            fun () ->
+                bump ()
+                timerRef.current |> Option.iter JS.clearTimeout
+                timerRef.current <- Some(JS.setTimeout send 700)
+
         // Override only the displayed LABEL with the optimistically stepped value, keeping
         // the original (server-provided) key. The key is a BigRational string the server
         // recognises, so an in-flight dropdown change still dispatches a valid key; only
@@ -434,8 +469,7 @@ module QuantityField =
                     placeholder = Some props.texts.pickValue
                 |}
 
-        // the step buttons rest only when the field is disabled: a step sent while the value
-        // is loading waits for the answer and steps from it
+        // the step buttons rest while the field is disabled, as while a request runs
         let hasButtons, (title1, title2, title4, title5), (icon1, icon2, icon4, icon5) =
             match props.mode with
             | Navigable _ ->
@@ -459,9 +493,11 @@ module QuantityField =
                  Mui.Icons.Add,
                  large "+" Mui.Icons.KeyboardDoubleArrowRightIcon)
 
-        let button (pick: Steps -> (int -> unit) option) onStep icon =
+        // a pair rests while the other pair holds clicks, so the field's clicks are one pair's
+        let button pair count (pick: Steps -> (int -> unit) option) bump icon =
             let useDebounce = steps |> Option.exists _.useDebounce
-            stepButton props.disabled useDebounce (steps |> Option.bind pick) onStep icon
+            let disabled = props.disabled || StepPolicy.rests pair smallDelta largeDelta
+            stepButton disabled useDebounce count (steps |> Option.bind pick) (counted bump) icon
 
         // a stepable value without a large step leaves out the outer slots, which would step the
         // same as the inner ones; the inner buttons then close the group
@@ -474,21 +510,21 @@ module QuantityField =
 
         let slot1 =
             if hasOuter then
-                button _.first (fun () -> bumpLarge -1) icon1
+                button StepPolicy.Pair.Outer (max -largeDelta 0) _.first (fun () -> bumpLarge -1) icon1
                 |> slot hasButtons true "4px 0 0 4px" title1
             else
                 null
 
         let slot2 =
-            button _.decrease (fun () -> bumpSmall -1) icon2
+            button StepPolicy.Pair.Inner (max -smallDelta 0) _.decrease (fun () -> bumpSmall -1) icon2
             |> slot hasButtons (not hasOuter) (if hasOuter then "0" else "4px 0 0 4px") title2
         let slot4 =
-            button _.increase (fun () -> bumpSmall 1) icon4
+            button StepPolicy.Pair.Inner (max smallDelta 0) _.increase (fun () -> bumpSmall 1) icon4
             |> slot hasButtons false (if hasOuter then "0" else "0 4px 4px 0") title4
 
         let slot5 =
             if hasOuter then
-                button _.last (fun () -> bumpLarge 1) icon5
+                button StepPolicy.Pair.Outer (max largeDelta 0) _.last (fun () -> bumpLarge 1) icon5
                 |> slot hasButtons false "0 4px 4px 0" title5
             else
                 null
