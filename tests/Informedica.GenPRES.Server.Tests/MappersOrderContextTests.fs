@@ -377,22 +377,6 @@ let tests =
                     |> Expect.equal $"{verb}" expected
             }
 
-            test "a patient change is the patient the request edits, and its patient is mapped" {
-                let pat = { Shared.Models.Patient.empty with Department = Some "NEO" }
-                let cmd = Shared.Api.ActiveOrderContextCommand.PatientChanged pat
-                let ctx = Shared.Models.OrderContext.empty
-
-                ServerApi.OrderContextCommand.patientOfActive (cmd, ctx)
-                |> Expect.equal "the patient the request edits" (Some pat)
-
-                let mark (p: Patient) = { p with Department = Some "mapped" }
-
-                match ServerApi.OrderContextCommand.patientsActive mark (cmd, ctx) with
-                | Shared.Api.ActiveOrderContextCommand.PatientChanged p, _ ->
-                    p.Department |> Expect.equal "the command's patient mapped" (Some "mapped")
-                | other -> failtest $"%A{other}"
-            }
-
             test "the argumentation is no domain command" {
                 (fun () ->
                     OrderContextMapper.Command.toDomain

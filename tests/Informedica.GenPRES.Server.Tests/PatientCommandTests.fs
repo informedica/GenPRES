@@ -25,15 +25,16 @@ let changed normalValues (sid: string option) (pat: Patient) =
                     port.seen sid opened draft
         }
 
+    let env = { envOver port with normalValues = normalValues }
+
     let answer =
         Compute.bound
-            { envOver port with normalValues = normalValues }
+            env
             (cookieOf sid)
             PatientCommand.toString
-            (fun _ -> Gate.Open)
-            PatientCommand.patients
+            PatientCommand.gate
             PatientCommand.patientOf
-            PatientCommand.processCmd
+            (PatientCommand.processCmd env (cookieOf sid))
             {
                 Opened = sid |> Option.map (fun sid -> OpenedToken $"opened-{sid}")
                 Command = PatientCommand.ChangePatient pat
@@ -86,6 +87,14 @@ let tests =
                 |> Expect.equal
                     "the measured weight, no weight estimate, the height estimated"
                     (Some 28000<gram>, None, Some 140<cm>)
+            }
+
+            test "a patient that lacks a weight or a height waits for the normal values" {
+                [ ageOnly 10; ageOnly 10 |> withWeight 28000<gram>; sent ]
+                |> List.map (PatientCommand.ChangePatient >> PatientCommand.gate)
+                |> Expect.equal
+                    "loaded for the two that lack a measure, open for the measured one"
+                    [ Gate.RequiresLoaded; Gate.RequiresLoaded; Gate.Open ]
             }
 
             test "the Session is told the patient as sent" {

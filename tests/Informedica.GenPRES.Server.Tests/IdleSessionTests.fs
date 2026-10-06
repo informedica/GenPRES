@@ -227,14 +227,13 @@ let portTests =
                 | other -> failtest $"expected still ended idle, got %A{other}"
             }
 
-            testAsync "a computing request in an idle Session is told the ending and no age" {
+            testAsync "a computing request in an idle Session is told the ending" {
                 let clock = ref (openedAt + TimeSpan.FromHours 2.0)
                 let port = portAt clock (stateSeenAt openedAt)
 
                 let! told = port.seen sid None None
 
-                told
-                |> Expect.equal "the ending" (Some(RecordNotice.Ended SessionEnding.Idle), None)
+                told |> Expect.equal "the ending" (Some(RecordNotice.Ended SessionEnding.Idle))
             }
 
             testAsync "a signing request keeps the Session alive, also one refused before its challenge" {

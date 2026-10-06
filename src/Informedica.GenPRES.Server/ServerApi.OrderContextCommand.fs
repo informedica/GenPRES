@@ -8,15 +8,6 @@ open Shared.Api
 /// The order-context member: the prescribing workbench over the order-context port.
 module OrderContextCommand =
 
-    /// The context's patient mapped.
-    let patients (f: Patient -> Patient) (cmd: OrderContextCommand, ctx: OrderContext) =
-        cmd, OrderContextMapper.patients f ctx
-
-
-    /// The patient the request edits: the context's.
-    let patientOf (_: OrderContextCommand, ctx: OrderContext) = Some ctx.Patient
-
-
     /// The context's patient made at the inbound boundary, the context parsed into the domain, the
     /// port asked with the domain command, or the context answered as it is without one; the
     /// outcome mapped out as the response with the environment's demo flag. A draft that is none,
@@ -48,23 +39,6 @@ module OrderContextCommand =
             | cmd -> ctx, Some(OrderContextMapper.Command.toDomain ctx.Category cmd)
 
         evaluated env ctx domainCmd
-
-
-    /// The patients the request carries mapped: the context's, and a patient change's own.
-    let patientsActive (f: Patient -> Patient) (cmd: ActiveOrderContextCommand, ctx: OrderContext) =
-        let cmd =
-            match cmd with
-            | ActiveOrderContextCommand.PatientChanged pat -> ActiveOrderContextCommand.PatientChanged(f pat)
-            | ActiveOrderContextCommand.Command _ -> cmd
-
-        cmd, OrderContextMapper.patients f ctx
-
-
-    /// The patient the request edits: a patient change's own, else the context's.
-    let patientOfActive (cmd: ActiveOrderContextCommand, ctx: OrderContext) =
-        match cmd with
-        | ActiveOrderContextCommand.PatientChanged pat -> Some pat
-        | ActiveOrderContextCommand.Command _ -> Some ctx.Patient
 
 
     /// A command over the order context being worked on, or that context evaluated again for
