@@ -213,14 +213,35 @@ outside the client views starts as a script with its tests, unless the user asks
    The domain keeps its own old cases, which MCP and `OrderPlan.fs` use. The preview returns the
    context alone, and the workbench machine remembers a request as what was sent, a command or a
    patient change, instead of a patient change standing in as `UpdateOrderContext` (decided by the
-   user, 2026-10-06).
-8. **One request stage.** Weighed after step 5: if the two machines still hold the same request
+   user, 2026-10-06). Landed as [#1337](https://github.com/informedica/GenPRES/pull/1337).
+8. **The patient update and the row filter as requests.** The client no longer changes a context
+   or a plan itself for a patient change or a row filter: it sends a request that names what
+   changed, with the answer it holds, and the server writes the change. Names chosen by the user,
+   2026-10-06. Two pull requests:
+   - **8a, the order context.** `ActiveOrderContextCommand` goes. `processOrderContext` takes an
+     `OrderContextRequest` with two cases: a command over the order context (`Command of
+     OrderContextCommand * OrderContext`), and the patient updated for it (`UpdatePatient of
+     Patient * OrderContext`), the patient being the one the patient command answered. The server
+     writes the patient into the context and evaluates it as now, through the domain's
+     `PatientChanged`, renamed `UpdatePatient`. The workbench remembers the request it sent, so `shown`
+     reads the request and the pair of what was sent and the context goes.
+   - **8b, the plan.** The client's `Recalculate` over a plan it changed goes: `{ tp with Patient
+     = pat }` after a patient change and `{ tp with Filtered = ids }` after a row filter. The plan
+     machine sends the patient updated (`UpdatePatient of Patient * OrderPlan`) and the rows kept
+     (`FilterRows of string[] * OrderPlan`) over the plan it holds; the server writes the patient
+     or the rows and recalculates as `Recalculate` does now. `Recalculate` stays for the server's
+     own use only if something still needs it.
+
+   No visible change. Tests: the machine tests over the new requests, their cases kept; server
+   tests that each new case answers as today's request over the context or plan the client builds
+   now.
+9. **One request stage.** Weighed after step 5: if the two machines still hold the same request
    logic, it moves into one module in Client.Core; if step 5 leaves little to share, this step is
    dropped.
 
 ## Verification, per step
 
-- **Steps 2 to 8 in code:** `dotnet run servertests`; `scripts/CheckDependencyRule.fsx`; benchmark
+- **Steps 2 to 9 in code:** `dotnet run servertests`; `scripts/CheckDependencyRule.fsx`; benchmark
   build; Fable and `npx vite build`.
 - **Every code step:** the user's browser check with the trail: the filter, the components, a
   scenario choice, picks and clears with picks kept, a second pick while a request runs, a patient
