@@ -61,6 +61,14 @@ module Fixtures =
             OrderContextEffect.SyncParenteralia ctx.Filter
         ]
 
+    /// A patient change over the context: the call with the context as held, and the two syncs.
+    let patientChanged pat (ctx: OrderContext) request =
+        [
+            OrderContextEffect.CallPatientChanged(pat, ctx, request)
+            OrderContextEffect.SyncFormulary ctx.Filter
+            OrderContextEffect.SyncParenteralia ctx.Filter
+        ]
+
     let transition = OrderContextState.transition
 
 
@@ -105,7 +113,8 @@ let tests =
                         state
                         |> Expect.equal "evaluating for the new patient" (evaluatingFor other expected expected "r-2")
 
-                        effects |> Expect.equal "the call and the syncs" (evaluated expected "r-2")
+                        effects
+                        |> Expect.equal "the patient change and the syncs" (patientChanged other paracetamol "r-2")
 
                         transition
                             (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol)))
@@ -128,7 +137,8 @@ let tests =
                             "the selection evaluated for the new patient"
                             (evaluatingFor other sent found "r-2")
 
-                        effects |> Expect.equal "the call and the syncs" (evaluated sent "r-2")
+                        effects
+                        |> Expect.equal "the patient change and the syncs" (patientChanged other chosen "r-2")
 
                         transition (OrderContextMsg.Answered("r-2", Error [| "not loaded" |])) state
                         |> Expect.equal
@@ -145,13 +155,31 @@ let tests =
             testList
                 "the seed"
                 [
-                    test "a filter before a patient is dropped: the patient is part of it" {
-                        transition (OrderContextMsg.Seed(paracetamol, "r-1")) noPatient
-                        |> Expect.equal "dropped" (noPatient, [])
+                    test "a filter before a patient waits for it and is evaluated for it" {
+                        let waiting, effects = transition (OrderContextMsg.Seed(paracetamol, "r-1")) noPatient
 
-                        transition (OrderContextMsg.PatientChanged(Some patient, "r-2")) noPatient
+                        (OrderContextState.view waiting, effects)
+                        |> Expect.equal "no workbench, nothing sent" (OrderContextView.NoPatient, [])
+
+                        transition (OrderContextMsg.PatientChanged(Some other, "r-2")) waiting
+                        |> Expect.equal
+                            "the filter evaluated for the patient, over the empty workbench"
+                            (evaluatingFor
+                                other
+                                { paracetamol with Patient = other }
+                                (OrderContextState.emptyFor other)
+                                "r-2",
+                             evaluated { paracetamol with Patient = other } "r-2")
+                    }
+
+                    test "a filter waiting goes with a cleared patient" {
+                        let waiting, _ = transition (OrderContextMsg.Seed(paracetamol, "r-1")) noPatient
+
+                        transition (OrderContextMsg.PatientChanged(None, "r-2")) waiting
                         |> fst
-                        |> Expect.equal "the empty workbench opened, nothing waited" (opening patient "r-2")
+                        |> transition (OrderContextMsg.PatientChanged(Some patient, "r-3"))
+                        |> fst
+                        |> Expect.equal "the empty workbench opened, nothing waited" (opening patient "r-3")
                     }
 
                     test
@@ -434,7 +462,7 @@ let pendingTests =
                 transition (OrderContextMsg.PatientChanged(Some other, "r-3")) waiting
                 |> Expect.equal
                     "evaluated for the new patient, the pending gone"
-                    (evaluatingFor other forOther forOther "r-3", evaluated forOther "r-3")
+                    (evaluatingFor other forOther forOther "r-3", patientChanged other paracetamol "r-3")
 
                 transition (OrderContextMsg.Reset "r-3") waiting
                 |> Expect.equal
@@ -474,8 +502,8 @@ let stagesTests =
                         Ok(OrderContextResponse.Evaluated paracetamol)
                     )
 
-                OrderContextWorkbench.step landed OrderContextWorkbench.NoPatient
-                |> Expect.equal "no patient" (OrderContextWorkbench.NoPatient, [])
+                OrderContextWorkbench.step landed (OrderContextWorkbench.NoPatient None)
+                |> Expect.equal "no patient" (OrderContextWorkbench.NoPatient None, [])
 
                 transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol))) noPatient
                 |> Expect.equal "no request under way to land on" (noPatient, [])
@@ -1112,8 +1140,6 @@ let specificCommandTests =
 
                 transition (OrderContextMsg.PatientChanged(Some other, "r-2")) busy
                 |> snd
-                |> Expect.equal
-                    "the context picked, for the other patient"
-                    (evaluated { secondFrequency with Patient = other } "r-2")
+                |> Expect.equal "the context picked, for the other patient" (patientChanged other secondFrequency "r-2")
             }
         ]
