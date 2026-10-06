@@ -20,6 +20,7 @@
     <Compile Include="OrderContextRefusalPolicyTests.fs" />
     <Compile Include="PatientDraftPolicyTests.fs" />
     <Compile Include="PatientReadinessTests.fs" />
+    <Compile Include="PatientMachineTests.fs" />
     <Compile Include="PickPolicyTests.fs" />
     <Compile Include="SeverityReasonPolicyTests.fs" />
     <Compile Include="QuantityModePolicyTests.fs" />

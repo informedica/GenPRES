@@ -596,6 +596,48 @@ module OrderContext =
         |> String.concat " "
 
 
+/// The patient machine.
+[<RequireQualifiedAccess>]
+module Patient =
+
+    open PatientMachine
+
+
+    /// What becomes of the estimates once the change is answered.
+    let estimates (estimates: PatientDraftPolicy.Estimates) =
+        match estimates with
+        | PatientDraftPolicy.Estimates.Renewed -> "estimates renewed"
+        | PatientDraftPolicy.Estimates.Kept -> "estimates kept"
+
+
+    /// A patient by age and weight, never its identity.
+    let msg (msg: PatientMsg) =
+        match msg with
+        | PatientMsg.Changed(p, e, request) ->
+            $"Changed %s{Part.patientOption p} %s{estimates e} %s{Part.shortId request}"
+        | PatientMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result Part.patient}"
+
+
+    /// A patient effect; never the error texts.
+    let effect (effect: PatientEffect) =
+        match effect with
+        | PatientEffect.CallPatient(p, request) -> $"CallPatient %s{Part.patient p} %s{Part.shortId request}"
+        | PatientEffect.SetPatient p -> $"SetPatient %s{Part.patientOption p}"
+        | PatientEffect.TellError _ -> "TellError"
+
+
+    /// The draft, with the request it awaits.
+    let state (state: PatientState) =
+        [
+            state |> PatientState.draft |> Part.patientOption |> Some
+            state
+            |> PatientState.inFlightRequest
+            |> Option.map (fun r -> $"awaits %s{Part.shortId r}")
+        ]
+        |> List.choose id
+        |> String.concat " "
+
+
 /// One step of a machine, described with that machine's describers.
 let step machine describeMsg describeEffect describeState (no: int) (at: DateTime) msg (state, effects) =
     {
@@ -635,3 +677,6 @@ let orderPlan = step "OrderPlan" OrderPlan.msg OrderPlan.effect OrderPlan.state
 
 /// A step of the order context machine.
 let orderContext = step "OrderContext" OrderContext.msg OrderContext.effect OrderContext.state
+
+/// A step of the patient machine.
+let patient = step "Patient" Patient.msg Patient.effect Patient.state
