@@ -1143,3 +1143,41 @@ let specificCommandTests =
                 |> Expect.equal "the context picked, for the other patient" (patientChanged other secondFrequency "r-2")
             }
         ]
+
+
+/// The workbench during a patient change: shown as a change under way, and a command from the page
+/// dropped, so that nothing is ordered for the patient being replaced.
+[<Tests>]
+let patientChangeTests =
+    let noPatientChange = PatientMachine.PatientState.init (Some draft)
+
+    let patientChanging =
+        noPatientChange
+        |> PatientMachine.PatientState.transition (
+            PatientMachine.PatientMsg.Changed(Some otherDraft, PatientDraftPolicy.Estimates.Kept, "p-1")
+        )
+        |> fst
+
+    testList
+        "the workbench during a patient change"
+        [
+            test "the context held shows as a change under way, and settles when the change is done" {
+                (shown |> OrderContextState.viewWhile patientChanging,
+                 shown |> OrderContextState.viewWhile noPatientChange)
+                |> Expect.equal
+                    "changing, then settled"
+                    (OrderContextView.Changing paracetamol, OrderContextView.Settled paracetamol)
+            }
+
+            test "a command from the page is dropped; the patient change itself reaches the workbench" {
+                shown
+                |> OrderContextState.transitionWhile
+                    patientChanging
+                    (OrderContextMsg.Command(OrderContextCommand.UpdateOrderContext, paracetamol, "r-1"))
+                |> Expect.equal "the command is dropped" (shown, [])
+
+                OrderContextMsg.PatientChanged(Some other, "r-1")
+                |> OrderContextState.admitted patientChanging
+                |> Expect.isTrue "the patient admitted"
+            }
+        ]

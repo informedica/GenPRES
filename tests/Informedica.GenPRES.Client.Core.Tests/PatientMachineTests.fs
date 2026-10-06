@@ -96,13 +96,18 @@ let tests =
                 |> Expect.equal "only under way" [ false; true; false; false ]
             }
 
-            test "a failure is told, the draft kept" {
+            test "a failure is told, and the draft the change started from is put back" {
+                let older = { draft with Department = Some "older" }
+
                 let state, effects =
-                    transition (PatientMsg.Answered("r-1", Error [| "failed" |])) (changing renewed "r-1")
+                    PatientState.init (Some older)
+                    |> transition (PatientMsg.Changed(Some draft, renewed, "r-1"))
+                    |> fst
+                    |> transition (PatientMsg.Answered("r-1", Error [| "failed" |]))
 
                 (PatientState.draft state, PatientState.inFlightRequest state, effects)
                 |> Expect.equal
-                    "the draft, nothing awaited, told"
-                    (Some draft, None, [ PatientEffect.TellError [| "failed" |] ])
+                    "the draft before the edit, nothing awaited, told"
+                    (Some older, None, [ PatientEffect.TellError [| "failed" |] ])
             }
         ]

@@ -1599,9 +1599,9 @@ module private Elmish =
             { state with Fetches.NormalValues = InProgress },
             Cmd.fromAsync (GoogleDocs.loadNormalValues LoadNormalValues)
 
+        // the client's normal values serve the panel summary only; the server estimates
         | LoadNormalValues(Finished(Ok normalValues)) ->
-            { state with Fetches.NormalValues = normalValues |> Resolved },
-            Cmd.ofMsg (UpdatePatient(state.Lanes.Patient |> PatientState.draft))
+            { state with Fetches.NormalValues = normalValues |> Resolved }, Cmd.none
 
         | LoadNormalValues(Finished(Error s)) ->
             Logging.error "cannot load normal values" s
@@ -1692,7 +1692,8 @@ module private Elmish =
                 | OrderContextMsg.Answered _ -> settleReload state
                 | _ -> state
 
-            let workbench, effects = OrderContextState.transition msg state.Lanes.OrderContext
+            let workbench, effects =
+                OrderContextState.transitionWhile state.Lanes.Patient msg state.Lanes.OrderContext
             StepTrail.record (fun no at -> Trail.orderContext no at msg (workbench, effects))
 
             { state with Lanes.OrderContext = workbench }
@@ -1711,7 +1712,11 @@ module private Elmish =
         | OrderPlanMsg msg ->
             // a change from a page is dropped while a signature is under way
             let plan, effects =
-                OrderPlanState.transitionWhile (SigningState.view state.Lanes.Signing) msg state.Lanes.OrderPlan
+                OrderPlanState.transitionWhile
+                    (SigningState.view state.Lanes.Signing)
+                    state.Lanes.Patient
+                    msg
+                    state.Lanes.OrderPlan
             StepTrail.record (fun no at -> Trail.orderPlan no at msg (plan, effects))
 
             { state with Lanes.OrderPlan = plan } |> runEffects applyOrderPlanEffect effects
@@ -2035,7 +2040,7 @@ type private ConcreteAppEnv
         member _.Settings = state.Fetches.Settings
 
     interface AppEnv.IOrderContext with
-        member _.OrderContext = state.Lanes.OrderContext |> OrderContextState.view
+        member _.OrderContext = state.Lanes.OrderContext |> OrderContextState.viewWhile state.Lanes.Patient
 
         member _.OrderContextMsg(cmd, ctx) =
             OrderContextMsg(OrderContextMsg.Command(cmd, ctx, newRequest ())) |> dispatch
@@ -2045,14 +2050,14 @@ type private ConcreteAppEnv
 
         member _.Restore() = OrderContextMsg OrderContextMsg.Restore |> dispatch
 
-        member _.Dialog = state.Lanes.OrderContext |> OrderContextState.dialog
+        member _.Dialog = state.Lanes.OrderContext |> OrderContextState.dialogWhile state.Lanes.Patient
 
         member _.Select id = OrderContextMsg(OrderContextMsg.Select id) |> dispatch
 
         member _.Argue text = OrderContextMsg(OrderContextMsg.Argue text) |> dispatch
 
     interface AppEnv.IOrderPlan with
-        member _.OrderPlan = state.Lanes.OrderPlan |> OrderPlanState.view
+        member _.OrderPlan = state.Lanes.OrderPlan |> OrderPlanState.viewWhile state.Lanes.Patient
 
         member _.OrderPlanCommand cmd =
             OrderPlanMsg(OrderPlanMsg.Command(cmd, newRequest ())) |> dispatch
