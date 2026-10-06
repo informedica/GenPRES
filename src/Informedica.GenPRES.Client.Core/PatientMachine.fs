@@ -86,6 +86,9 @@ module PatientState =
     /// is sent and the patient is cleared. After an edit that renews the estimates the draft takes
     /// the answered patient; after any other edit it is kept, so a cleared weight stays cleared. A
     /// failure puts back the draft the change started from, the one the orders were calculated for.
+    /// An answered patient without a weight or a height, measured or estimated, is held back: every
+    /// request would be refused for it, so the pages keep the patient they have, and the notice on
+    /// the page says what is missing.
     let transition (msg: PatientMsg) (state: PatientState) : PatientState * PatientEffect list =
         match msg with
         | PatientMsg.Changed(dto, estimates, request) ->
@@ -110,12 +113,20 @@ module PatientState =
                     | PatientDraftPolicy.Estimates.Renewed -> Some pat
                     | PatientDraftPolicy.Estimates.Kept -> state.Draft
 
-                {
-                    Draft = draft
-                    Answered = Some pat
-                    InFlight = None
-                },
-                [ PatientEffect.SetPatient(Some pat) ]
+                match pat |> Patient.getWeight, pat |> Patient.getHeight with
+                | Some _, Some _ ->
+                    {
+                        Draft = draft
+                        Answered = Some pat
+                        InFlight = None
+                    },
+                    [ PatientEffect.SetPatient(Some pat) ]
+                | _ ->
+                    { state with
+                        Draft = draft
+                        InFlight = None
+                    },
+                    []
             | Some(_, before, underWay), Error errs when underWay = request ->
                 { state with
                     Draft = before
