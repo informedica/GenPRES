@@ -1,5 +1,4 @@
-/// Decides when the dose dialog asks for an argumentation of a dose the rules mark, and keeps
-/// the text the clinician writes unchanged by server answers.
+/// Decides when the dose dialog asks for an argumentation of a dose the rules mark.
 module ArgumentationPolicy
 
 open Shared.Types
@@ -71,49 +70,3 @@ let maxLength = OrderContext.Argumentation.maxLength
 
 /// The text trimmed and cut to the maximum length; None when empty.
 let normalise = OrderContext.Argumentation.normalise
-
-
-/// The context with the text written.
-let write = OrderContext.Argumentation.write
-
-
-/// The answered context with the argumentation as sent: the server never changes the text.
-let keep (sent: OrderContext) (answered: OrderContext) = { answered with Argumentation = sent.Argumentation }
-
-
-/// The plan with the text written on the context with this id.
-let writeIn (id: string) (text: string) (plan: OrderPlan) =
-    { plan with OrderContexts = plan.OrderContexts |> Array.map (fun c -> if c.Id = id then write text c else c) }
-
-
-/// The answered plan with the client's argumentation on every context it held; other contexts
-/// keep the answer's.
-let keepAll (held: OrderPlan) (answered: OrderPlan) =
-    { answered with
-        OrderContexts =
-            answered.OrderContexts
-            |> Array.map (fun c ->
-                held.OrderContexts
-                |> Array.tryFind (fun h -> h.Id = c.Id)
-                |> Option.map (fun h -> keep h c)
-                |> Option.defaultValue c
-            )
-    }
-
-
-/// Whether the command clears the text: only a reset does, since it puts the order back within
-/// the rules. The text is cleared when the reset is sent, so a text written while it runs is
-/// kept.
-let clearedBy (cmd: OrderContextCommand) =
-    match cmd with
-    | OrderContextCommand.ResetOrderScenario -> true
-    | _ -> false
-
-
-/// The context without its argumentation.
-let clear (ctx: OrderContext) = { ctx with Argumentation = None }
-
-
-/// The plan with the argumentation cleared from the context with this id.
-let clearIn (id: string) (plan: OrderPlan) =
-    { plan with OrderContexts = plan.OrderContexts |> Array.map (fun c -> if c.Id = id then clear c else c) }

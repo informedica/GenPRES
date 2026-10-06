@@ -830,150 +830,65 @@ let signingTests =
         ]
 
 
-/// The argumentation written on a context of the plan: the client's own, no call, a change of
-/// the plan, kept over the answer under way.
+/// The argumentation on a context of the plan: a command into that context, written by the
+/// server, and a change of the plan.
 [<Tests>]
 let argueTests =
     let text = "Sepsis, hogere dosis in overleg met de apotheek"
+    let argue = OrderContextCommand.SetArgumentationProperty text
     let transition = OrderPlanState.transition
 
     testList
-        "OrderPlanMsg.Argue"
+        "the argumentation in the plan"
         [
-            test "written on the context named, no call, and the plan's work is changed" {
+            test "goes as a command into the context named, and the plan's work is changed" {
                 let state, effects =
                     held two None
                     |> OrderPlanState.withOpened two.OrderContexts
-                    |> transition (OrderPlanMsg.Argue("c-2", text))
-
-                effects |> Expect.isEmpty "no call"
-                state |> OrderPlanState.work |> Expect.equal "changed" PlanWork.Changed
-
-                state
-                |> OrderPlanState.changed
-                |> Expect.equal "held against the version opened" [| "c-2" |]
-
-                match state |> OrderPlanState.view with
-                | OrderPlanView.Settled(tp, _) ->
-                    tp.OrderContexts
-                    |> Array.map _.Argumentation
-                    |> Expect.equal "c-2 only" [| None; Some text |]
-                | other -> failtest $"expected settled, got %A{other}"
-            }
-
-            test "a text the plan already holds, and an id it does not, change nothing" {
-                let shown = held two None
-
-                shown
-                |> transition (OrderPlanMsg.Argue("c-1", ""))
-                |> Expect.equal "none written as none: as it was, work as signed" (shown, [])
-
-                shown
-                |> transition (OrderPlanMsg.Argue("c-9", text))
-                |> Expect.equal "unknown id" (shown, [])
-            }
-
-            test "written while a step is under way, the answer keeps it; an added context keeps the answer's" {
-                let busy = recalculating two None "r-1" (OrderPlanCommand.Recalculate two)
-                let state, _ = busy |> transition (OrderPlanMsg.Argue("c-1", text))
-
-                // shown meanwhile, though the recalculation carries the plan without it
-                match state |> OrderPlanState.view with
-                | OrderPlanView.Changing(shown, _) ->
-                    shown.OrderContexts
-                    |> Array.map _.Argumentation
-                    |> Expect.equal "shown while the step runs" [| Some text; None |]
-                | other -> failtest $"expected changing, got %A{other}"
-
-                let landed, _ = state |> transition (OrderPlanMsg.Answered("r-1", Ok two))
-
-                match landed |> OrderPlanState.view with
-                | OrderPlanView.Settled(tp, _) ->
-                    tp.OrderContexts
-                    |> Array.map _.Argumentation
-                    |> Expect.equal "kept on c-1" [| Some text; None |]
-                | other -> failtest $"expected settled, got %A{other}"
-
-                let added =
-                    plan
-                        [|
-                            context "c-1" "paracetamol"
-                            { context "c-3" "new" with Argumentation = Some "from the workbench" }
-                        |]
-
-                let adding = recalculating one None "r-2" (OrderPlanCommand.AddOrderContext(one, context "c-3" "new"))
-
-                let landed, _ = adding |> transition (OrderPlanMsg.Answered("r-2", Ok added))
-
-                match landed |> OrderPlanState.view with
-                | OrderPlanView.Settled(tp, _) ->
-                    tp.OrderContexts
-                    |> Array.map _.Argumentation
-                    |> Expect.equal "c-1 the client's none, c-3 the answer's" [| None; Some "from the workbench" |]
-                | other -> failtest $"expected settled, got %A{other}"
-            }
-
-            test "a reset navigated into a context takes its text with it as it goes out, the other keeps its own" {
-                let argued =
-                    two
-                    |> ArgumentationPolicy.writeIn "c-1" text
-                    |> ArgumentationPolicy.writeIn "c-2" "other"
-
-                let ctx = argued.OrderContexts[0]
-                let reset = OrderPlanCommand.Navigate(argued, "c-1", OrderContextCommand.ResetOrderScenario, ctx)
-                let cleared = argued |> ArgumentationPolicy.clearIn "c-1"
-
-                let busy, effects = held argued (Some "c-1") |> transition (OrderPlanMsg.Command(reset, "r-1"))
+                    |> transition (OrderPlanMsg.Navigate("c-2", argue, "r-1"))
 
                 effects
                 |> Expect.equal
-                    "the plan and the context sent without the text"
+                    "the text into c-2, over the plan held"
                     [
                         OrderPlanEffect.CallPlan(
-                            OrderPlanCommand.Navigate(
-                                cleared,
-                                "c-1",
-                                OrderContextCommand.ResetOrderScenario,
-                                ArgumentationPolicy.clear ctx
-                            ),
+                            OrderPlanCommand.Navigate(two, "c-2", argue, two.OrderContexts[1]),
                             "r-1"
                         )
                     ]
 
-                let texts (state: OrderPlanState) =
-                    match state |> OrderPlanState.view with
-                    | OrderPlanView.Settled(tp, _)
-                    | OrderPlanView.Changing(tp, _) -> tp.OrderContexts |> Array.map _.Argumentation
-                    | OrderPlanView.NoPatient -> [||]
+                state |> OrderPlanState.work |> Expect.equal "changed" PlanWork.Changed
+            }
 
-                busy
-                |> texts
-                |> Expect.equal "shown without the text meanwhile" [| None; Some "other" |]
+            test "the answer lands as the server answered it, the text included" {
+                let argued =
+                    { two with
+                        OrderContexts =
+                            two.OrderContexts
+                            |> Array.map (fun c ->
+                                if c.Id = "c-2" then
+                                    { c with Argumentation = Some text }
+                                else
+                                    c
+                            )
+                    }
 
-                // the server echoes the text it was not sent: the answer keeps what the plan holds
-                busy
-                |> transition (OrderPlanMsg.Answered("r-1", Ok argued))
-                |> fst
-                |> texts
-                |> Expect.equal "c-1 cleared, c-2 kept" [| None; Some "other" |]
-
-                // a text written while the reset runs is the newer intent, and stays
-                busy
-                |> transition (OrderPlanMsg.Argue("c-1", "newer"))
+                held two None
+                |> transition (OrderPlanMsg.Navigate("c-2", argue, "r-1"))
                 |> fst
                 |> transition (OrderPlanMsg.Answered("r-1", Ok argued))
                 |> fst
-                |> texts
-                |> Expect.equal "the newer text kept" [| Some "newer"; Some "other" |]
+                |> OrderPlanState.plan
+                |> Expect.equal "the plan answered" (Some argued)
             }
 
             test "not admitted while a signature is under way" {
-                let argue = OrderPlanMsg.Argue("c-1", text)
+                let msg = OrderPlanMsg.Navigate("c-1", argue, "r-1")
 
-                OrderPlanState.admitted SigningMachine.SigningView.Requesting noPatientChange argue
+                OrderPlanState.admitted SigningMachine.SigningView.Requesting noPatientChange msg
                 |> Expect.isFalse "a change, held back like a command"
 
-                OrderPlanState.admitted SigningMachine.SigningView.Idle noPatientChange argue
+                OrderPlanState.admitted SigningMachine.SigningView.Idle noPatientChange msg
                 |> Expect.isTrue "admitted while idle"
             }
         ]

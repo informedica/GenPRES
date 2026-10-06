@@ -739,146 +739,41 @@ let refusalTests =
         ]
 
 
-/// The argumentation written on the workbench: the client's own, no request, kept over the
-/// answer under way.
+/// The argumentation on the workbench: a command like any other, written by the server.
 [<Tests>]
 let argueTests =
     let text = "Sepsis, hogere dosis in overleg met de apotheek"
-    let argued = paracetamol |> ArgumentationPolicy.write text
+    let argued = paracetamol |> Shared.Models.OrderContext.Argumentation.write text
+    let argue = OrderContextCommand.SetArgumentationProperty text
 
     testList
-        "OrderContextMsg.Argue"
+        "the argumentation"
         [
-            test "written on the context held, no effect; the view shows it" {
-                let state, effects = held paracetamol |> transition (OrderContextMsg.Argue text)
+            test "goes as a command over the context held, shown with the text meanwhile" {
+                let state, effects = held paracetamol |> transition (OrderContextMsg.Command(argue, "r-1"))
 
-                effects |> Expect.isEmpty "no call"
-                state
-                |> OrderContextState.view
-                |> Expect.equal "settled with the text" (OrderContextView.Settled argued)
-            }
+                effects
+                |> Expect.equal "the call" [ OrderContextEffect.CallContext(argue, paracetamol, "r-1") ]
 
-            test
-                "written while a request is under way: the one sent has it, the request is kept, and the answer keeps it" {
-                let busy = evaluating paracetamol paracetamol "r-1"
-                let state, effects = busy |> transition (OrderContextMsg.Argue text)
-
-                effects |> Expect.isEmpty "no call"
                 state
                 |> OrderContextState.view
                 |> Expect.equal "changing, with the text" (OrderContextView.Changing argued)
 
-                // the answer was computed over the context without the text
-                let landed, more =
-                    state
-                    |> transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol)))
-
-                more |> Expect.isEmpty "nothing more"
-                landed
-                |> OrderContextState.view
-                |> Expect.equal "the text kept over the answer" (OrderContextView.Settled argued)
-
-                // the same for a refusal
-                let refused, _ =
-                    state
-                    |> transition (
-                        OrderContextMsg.Answered(
-                            "r-1",
-                            Ok(OrderContextResponse.Refused(paracetamol, OrderContextRefusal.NoDoseRules))
-                        )
-                    )
-
-                match refused |> OrderContextState.view with
-                | OrderContextView.Refused(shown, _) ->
-                    shown.Argumentation |> Expect.equal "kept on the refusal" (Some text)
-                | other -> failtest $"expected refused, got %A{other}"
+                state
+                |> transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated argued)))
+                |> Expect.equal "the answer as the server wrote it" (held argued, [])
             }
 
-            test "a list item and a reset after a text do not carry it: they start the filter afresh" {
-                let listSeed =
-                    { urlSeed with
-                        Source = SeedSource.MedicationList
-                        Generic = Some "ibuprofen"
-                    }
-
-                let ibuprofen = { empty with OrderContext.Filter.Generic = Some "ibuprofen" }
-
-                held argued
-                |> transition (OrderContextMsg.SeedFilter(listSeed, "r-2"))
-                |> fst
-                |> transition (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated ibuprofen)))
-                |> fst
-                |> OrderContextState.view
-                |> Expect.equal "the list item, no text" (OrderContextView.Settled ibuprofen)
-
-                held argued
-                |> transition (OrderContextMsg.Reset "r-2")
-                |> fst
-                |> transition (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated empty)))
-                |> fst
-                |> OrderContextState.view
-                |> Expect.equal "the empty workbench, no text" (OrderContextView.Settled empty)
-            }
-
-            test "a url or a page seed after a text keeps it, as the filter it changes keeps its order" {
-                held argued
-                |> transition (OrderContextMsg.SeedFilter(urlSeed, "r-2"))
-                |> fst
-                |> transition (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated paracetamol)))
-                |> fst
-                |> OrderContextState.view
-                |> Expect.equal "the text kept" (OrderContextView.Settled argued)
-            }
-
-            test "a reset takes the text with it as it goes out; a text written meanwhile survives its answer" {
-                let resetting, effects =
-                    held argued
-                    |> transition (OrderContextMsg.Command(OrderContextCommand.ResetOrderScenario, "r-1"))
+            test "a reset goes over the context held, text and all; the answer has it cleared" {
+                let reset = OrderContextCommand.ResetOrderScenario
+                let state, effects = held argued |> transition (OrderContextMsg.Command(reset, "r-1"))
 
                 effects
-                |> Expect.equal
-                    "the context sent without the text"
-                    [
-                        OrderContextEffect.CallContext(OrderContextCommand.ResetOrderScenario, paracetamol, "r-1")
-                    ]
-
-                resetting
-                |> OrderContextState.view
-                |> Expect.equal "shown without the text meanwhile" (OrderContextView.Changing paracetamol)
-
-                // the server echoes the text it was not sent: the answer keeps none
-                let landed, _ =
-                    resetting
-                    |> transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated argued)))
-
-                landed
-                |> OrderContextState.view
-                |> Expect.equal "cleared" (OrderContextView.Settled paracetamol)
-
-                // a text written while the reset runs is the newer intent, and stays
-                let newer = paracetamol |> ArgumentationPolicy.write "newer"
-
-                let landed, _ =
-                    resetting
-                    |> transition (OrderContextMsg.Argue "newer")
-                    |> fst
-                    |> transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol)))
-
-                landed
-                |> OrderContextState.view
-                |> Expect.equal "the newer text kept" (OrderContextView.Settled newer)
-            }
-
-            test "blank clears the text; nothing without a patient" {
-                let state, _ = held argued |> transition (OrderContextMsg.Argue "   ")
+                |> Expect.equal "the context held sent" [ OrderContextEffect.CallContext(reset, argued, "r-1") ]
 
                 state
-                |> OrderContextState.view
-                |> Expect.equal "cleared" (OrderContextView.Settled paracetamol)
-
-                noPatient
-                |> transition (OrderContextMsg.Argue text)
-                |> Expect.equal "no patient, nothing" (noPatient, [])
+                |> transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol)))
+                |> Expect.equal "the answer without the text" (held paracetamol, [])
             }
         ]
 

@@ -441,9 +441,6 @@ module Order =
                 // the list of a reopen closed without a pick: the page puts back what it showed
                 restoreOrderScenario: unit -> unit
                 closeOrder: unit -> unit
-                // the argumentation typed, committed when the field loses focus; the page
-                // writes it on its lane
-                argue: string -> unit
                 localizationTerms: Deferred<string[][]>
                 // what the user can change: everything on the workbench, less in the plan
                 editing: PlanContextPolicy.Editing
@@ -1029,7 +1026,7 @@ module Order =
 
         let onClickOk = fun () -> props.closeOrder ()
 
-        // the argumentation: the text the context holds, typed here and committed when the
+        // the argumentation: the text the context holds, typed here and sent as a command when the
         // field loses focus, so that a blur before Ok lands it; the draft follows the context
         let heldArgumentation = shownContext |> Option.bind _.Argumentation |> Option.defaultValue ""
 
@@ -1039,29 +1036,28 @@ module Order =
 
         let onArgumentation (e: Browser.Types.Event) = setArgumentation (e.target?value: string)
 
-        // a locked context commits nothing: its argumentation is shown, not edited
-        let onArgumentationBlur =
-            fun _ ->
-                if argues then
-                    props.argue argumentation
+        // a text goes out only when it differs from the one the context holds, since in the plan
+        // every command counts as a change; a locked context sends nothing, its text is shown only
+        let argue (text: string) =
+            if
+                argues
+                && ArgumentationPolicy.normalise text
+                   <> ArgumentationPolicy.normalise heldArgumentation
+            then
+                props.command (Api.OrderContextCommand.SetArgumentationProperty text)
 
-        // Escape closes the dialog without a blur, so a draft not yet committed goes with the
-        // dialog when it unmounts; through refs, since the cleanup runs with the first
-        // render's values otherwise
+        let onArgumentationBlur = fun _ -> argue argumentation
+
+        // Escape closes the dialog without a blur, so a draft not yet sent goes out when the
+        // dialog unmounts; through refs, since the cleanup runs with the first render's values
+        // otherwise. The field rests while a request runs, as the other fields do, so that a
+        // blur never comes while its command would be dropped
         let draftRef = React.useRef argumentation
         draftRef.current <- argumentation
-        let heldRef = React.useRef heldArgumentation
-        heldRef.current <- heldArgumentation
-        let argueRef = React.useRef props.argue
-        argueRef.current <- props.argue
-        let arguesRef = React.useRef argues
-        arguesRef.current <- argues
+        let argueRef = React.useRef argue
+        argueRef.current <- argue
 
-        React.useEffectOnce (fun () ->
-            fun () ->
-                if arguesRef.current && draftRef.current <> heldRef.current then
-                    argueRef.current draftRef.current
-        )
+        React.useEffectOnce (fun () -> fun () -> argueRef.current draftRef.current)
 
         let argumentationWanted = shownContext |> Option.exists ArgumentationPolicy.wanted
 
@@ -1680,6 +1676,7 @@ module Order =
                         value={argumentation}
                         onChange={onArgumentation}
                         onBlur={onArgumentationBlur}
+                        disabled={isOrderLoading}
                         slotProps={inputProps}
                     />
                     """

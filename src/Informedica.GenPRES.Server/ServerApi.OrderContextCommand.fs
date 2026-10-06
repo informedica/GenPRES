@@ -30,12 +30,15 @@ module OrderContextCommand =
 
 
     /// The verb mapped to the domain's command and the context evaluated with it; the
-    /// argumentation is written by the server and answered without the domain.
+    /// argumentation is written by the server and answered without the domain, and a reset
+    /// clears it, since it puts the order back within the rules.
     let processCmd (env: AppEnv) (cmd: OrderContextCommand, ctx: OrderContext) =
         let ctx, domainCmd =
             match cmd with
             | OrderContextCommand.SetArgumentationProperty text ->
                 ctx |> Shared.Models.OrderContext.Argumentation.write text, None
+            | OrderContextCommand.ResetOrderScenario ->
+                { ctx with Argumentation = None }, Some(OrderContextMapper.Command.toDomain ctx.Category cmd)
             | cmd -> ctx, Some(OrderContextMapper.Command.toDomain ctx.Category cmd)
 
         evaluated env ctx domainCmd

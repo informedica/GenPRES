@@ -36,8 +36,6 @@ type IOrderContext =
     abstract Dialog: OrderContextMachine.OrderContextView option
     // the scenario whose order the dialog shows, by its order's id; the client's own, no round trip
     abstract Select: string option -> unit
-    // the argumentation written on the workbench; the client's own, no round trip
-    abstract Argue: string -> unit
 
 
 /// The one plan, nutrition included, and the commands on it.
@@ -57,8 +55,6 @@ type IOrderPlan =
     abstract Select: string option -> unit
     // the contexts the rows keep, by id; the totals follow
     abstract Filter: string[] -> unit
-    // the argumentation written on a context of the plan, by id; the client's own, no round trip
-    abstract Argue: string * string -> unit
     // the contexts of the plan that are new or changed since the version last opened or
     // signed, by id; while there are any in an open Session the patient context is held
     abstract Changed: string[]

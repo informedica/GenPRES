@@ -647,15 +647,6 @@ module OrderPlan =
 
         let orderContext = dialog |> Option.defaultValue OrderContextView.NoPatient
 
-        // the argumentation into the selected context of the plan, no call
-        let argue (text: string) =
-            match orderPlan with
-            | OrderPlanView.Settled(_, Some id)
-            | OrderPlanView.Changing(_, Some id) -> envOrderPlan.Argue(id, text)
-            | OrderPlanView.Settled(_, None)
-            | OrderPlanView.Changing(_, None)
-            | OrderPlanView.NoPatient -> ()
-
         let nothingSelected =
             match orderPlan with
             | OrderPlanView.Settled(tp, _)
@@ -786,7 +777,6 @@ module OrderPlan =
                     reopen = reopen
                     restoreOrderScenario = envOrderPlan.Restore
                     closeOrder = handleModalClose
-                    argue = argue
                     localizationTerms = localizationTerms
                 |}
 

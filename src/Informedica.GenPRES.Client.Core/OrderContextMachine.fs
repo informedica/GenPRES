@@ -155,33 +155,19 @@ module OrderContextWorkbench =
         | OrderContextWorkbenchMsg.SeedFilter seed, OrderContextWorkbench.Evaluated(_, held) ->
             workbench, [ OrderContextWorkbenchIntent.SeedFilter(seed, held) ]
 
-        // a command, over the context held, for the patient held; a reset clears the argumentation
-        // when it is sent, so a text written while it runs is kept
+        // a command, over the context held, for the patient held
         | OrderContextWorkbenchMsg.Command cmd, OrderContextWorkbench.Evaluated(pat, held) ->
-            let sent = { held with Patient = pat }
-
-            if ArgumentationPolicy.clearedBy cmd then
-                OrderContextWorkbench.Evaluated(pat, ArgumentationPolicy.clear held),
-                [ OrderContextWorkbenchIntent.Call(cmd, ArgumentationPolicy.clear sent) ]
-            else
-                workbench, [ OrderContextWorkbenchIntent.Call(cmd, sent) ]
+            workbench, [ OrderContextWorkbenchIntent.Call(cmd, { held with Patient = pat }) ]
         // nothing to command without a patient
         | OrderContextWorkbenchMsg.Command _, OrderContextWorkbench.NoPatient _ -> workbench, []
 
         // nothing is asked without a patient, so nothing lands
         | OrderContextWorkbenchMsg.Landed _, OrderContextWorkbench.NoPatient _ -> workbench, []
-        // an answer lands with the argumentation as its command leaves the context sent: the server
-        // never changes the text, and a clear of the filter or a list item takes it away
-        | OrderContextWorkbenchMsg.Landed((cmd, sent), Ok(OrderContextResponse.Evaluated ctx)),
-          OrderContextWorkbench.Evaluated(pat, _) ->
-            OrderContextWorkbench.Evaluated(
-                pat,
-                ctx |> ArgumentationPolicy.keep (OrderPlanMachine.Dialog.shown cmd sent)
-            ),
-            []
-        | OrderContextWorkbenchMsg.Landed((cmd, sent), Ok(OrderContextResponse.Refused(back, _))),
-          OrderContextWorkbench.Evaluated(pat, _) ->
-            refused pat (back |> ArgumentationPolicy.keep (OrderPlanMachine.Dialog.shown cmd sent))
+        // an answer lands as the server answered it, the argumentation included
+        | OrderContextWorkbenchMsg.Landed(_, Ok(OrderContextResponse.Evaluated ctx)),
+          OrderContextWorkbench.Evaluated(pat, _) -> OrderContextWorkbench.Evaluated(pat, ctx), []
+        | OrderContextWorkbenchMsg.Landed(_, Ok(OrderContextResponse.Refused(back, _))),
+          OrderContextWorkbench.Evaluated(pat, _) -> refused pat back
         // a failed change leaves the workbench as it was, not as sent; after a failed first
         // evaluation, that is the empty workbench
         | OrderContextWorkbenchMsg.Landed(_, Error errs), OrderContextWorkbench.Evaluated(pat, held) ->
@@ -233,8 +219,6 @@ type OrderContextMsg =
     | Reset of request: string
     /// The scenario the dialog shows, by its order's id.
     | Select of string option
-    /// The argumentation written on the workbench. No request; the answer under way keeps it.
-    | Argue of string
     /// A clear from the dialog that opens the field's list: the command goes out, and the state
     /// before it is kept to be put back.
     | Reopen of OrderContextCommand * request: string
@@ -360,23 +344,6 @@ module OrderContextState =
         | OrderContextWorkbench.NoPatient _, _ -> None
         | OrderContextWorkbench.Evaluated _, Some((cmd, sent), _) -> Some(OrderPlanMachine.Dialog.shown cmd sent)
         | OrderContextWorkbench.Evaluated(_, ctx), None -> Some ctx
-
-
-    /// The state with the function applied to the context held and sent alike.
-    let map (f: OrderContext -> OrderContext) (state: OrderContextState) =
-        let workbench =
-            match state.Workbench with
-            | OrderContextWorkbench.NoPatient _ -> state.Workbench
-            | OrderContextWorkbench.Evaluated(pat, ctx) -> OrderContextWorkbench.Evaluated(pat, f ctx)
-
-        let inFlight =
-            state.InFlight
-            |> Option.map (fun ((cmd, sent), request) -> (cmd, f sent), request)
-
-        { state with
-            Workbench = workbench
-            InFlight = inFlight
-        }
 
 
     /// What the page reads.
@@ -551,9 +518,6 @@ module OrderContextState =
         // the selection needs no request
         | OrderContextMsg.Select id, _, _ -> select id state, []
 
-        // the argumentation needs no request: it is written on the context held and sent alike
-        | OrderContextMsg.Argue text, _, _ -> map (ArgumentationPolicy.write text) state, []
-
         // a patient change during a request: the context sent, as its command changes it, is
         // evaluated for the new patient; the dialog closes and the refusal is cleared
         | OrderContextMsg.PatientChanged(Some pat, request), OrderContextWorkbench.Evaluated _, Some((cmd, sent), _) ->
@@ -627,7 +591,6 @@ module OrderContextState =
         | OrderContextMsg.Answered _
         | OrderContextMsg.Reset _
         | OrderContextMsg.Select _
-        | OrderContextMsg.Argue _
         | OrderContextMsg.Restore -> true
 
 
