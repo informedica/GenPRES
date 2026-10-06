@@ -10,9 +10,9 @@ open Informedica.GenOrder.Lib
 
 module Ctx = Shared.Models.OrderContext
 
-type Api = Shared.Api.OrderContextCommand
+type Api = Shared.Api.OrderViewCommand
 
-module Cmd = Shared.Api.OrderContextCommand
+module Cmd = Shared.Api.OrderViewCommand
 
 type Target = Ctx.Target
 
@@ -676,7 +676,9 @@ let tests =
                         let seen = ref None
 
                         let! answer =
-                            ServerApi.OrderContextCommand.processCmd (env (seenBy seen)) (setNthCommand target 0, ctx)
+                            ServerApi.OrderContextCommand.processViewCmd
+                                (env (seenBy seen))
+                                (setNthCommand target 0, ctx)
 
                         answer |> Result.isOk |> Expect.isTrue "evaluated"
 
@@ -685,7 +687,7 @@ let tests =
                         |> Expect.equal "the domain's case" (Some true)
                     }
 
-                    testAsync "a patient change reaches the port as the context evaluated for that patient" {
+                    testAsync "a patient update reaches the port as the context evaluated for that patient" {
                         let pat = { ctx.Patient with Department = Some "NEO" }
                         let seen = ref None
 
@@ -694,7 +696,7 @@ let tests =
                                 evaluate =
                                     fun cmd pc ->
                                         match cmd pc.Context with
-                                        | Informedica.GenOrder.Lib.OrderContext.PatientChanged(sent, p) ->
+                                        | Informedica.GenOrder.Lib.OrderContext.UpdatePatient(sent, p) ->
                                             seen.Value <- Some(sent.Patient.Department, p.Department)
                                         | _ -> ()
 
@@ -702,9 +704,9 @@ let tests =
                             }
 
                         let! answer =
-                            ServerApi.OrderContextCommand.processActive
+                            ServerApi.OrderContextCommand.processCmd
                                 (env port)
-                                (Shared.Api.ActiveOrderContextCommand.PatientChanged pat, ctx)
+                                (Shared.Api.OrderContextCommand.UpdatePatient(pat, ctx))
 
                         answer |> Result.isOk |> Expect.isTrue "evaluated"
 
@@ -716,7 +718,7 @@ let tests =
                         let seen = ref None
 
                         let! answer =
-                            ServerApi.OrderContextCommand.processCmd
+                            ServerApi.OrderContextCommand.processViewCmd
                                 (env (seenBy seen))
                                 (Api.SetArgumentationProperty "bewust", ctx)
 
@@ -732,7 +734,7 @@ let tests =
                         let seen = ref None
 
                         let! answer =
-                            ServerApi.OrderContextCommand.processCmd
+                            ServerApi.OrderContextCommand.processViewCmd
                                 (env (seenBy seen))
                                 (Api.ResetOrderScenario, ctx |> Ctx.Argumentation.write "bewust")
 
@@ -747,7 +749,7 @@ let tests =
                         let past = ctx |> Ctx.count (Ctx.Options.Variable target)
 
                         let! answer =
-                            ServerApi.OrderContextCommand.processCmd
+                            ServerApi.OrderContextCommand.processViewCmd
                                 (env (seenBy seen))
                                 (setNthCommand target past, ctx)
 

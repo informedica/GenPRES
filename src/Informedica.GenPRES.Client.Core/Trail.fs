@@ -294,7 +294,7 @@ module Part =
             // an effect describes the context by its id, which the line already shows
             let described = describeContext ctx
             let context = if described = shortId id then "" else $" %s{described}"
-            $"Navigate %s{shortId id} %s{OrderContextCommand.toString (ctxCmd, ctx)}%s{context}"
+            $"Navigate %s{shortId id} %s{OrderViewCommand.toString (ctxCmd, ctx)}%s{context}"
         | OrderPlanCommand.AddOrderContext(_, ctx) -> $"AddOrderContext %s{describeContext ctx}"
         | OrderPlanCommand.NewOrderContext(_, category) -> $"NewOrderContext %s{nutrition category}"
         | OrderPlanCommand.RemoveOrderContexts(_, ids) -> $"RemoveOrderContexts %i{ids.Length}"
@@ -476,9 +476,9 @@ module OrderPlan =
         | OrderPlanMsg.Select id -> $"Select %s{id |> Part.orNone Part.shortId}"
         | OrderPlanMsg.Filter(ids, request) -> $"Filter %i{ids.Length} %s{Part.shortId request}"
         | OrderPlanMsg.Navigate(id, cmd, request) ->
-            $"Navigate %s{id} %s{OrderContextCommand.toString (cmd, OrderContext.empty)} %s{Part.shortId request}"
+            $"Navigate %s{id} %s{OrderViewCommand.toString (cmd, OrderContext.empty)} %s{Part.shortId request}"
         | OrderPlanMsg.Reopen(id, cmd, request) ->
-            $"Reopen %s{id} %s{OrderContextCommand.toString (cmd, OrderContext.empty)} %s{Part.shortId request}"
+            $"Reopen %s{id} %s{OrderViewCommand.toString (cmd, OrderContext.empty)} %s{Part.shortId request}"
         | OrderPlanMsg.Restore -> "Restore"
         | OrderPlanMsg.Signed -> "Signed"
 
@@ -552,9 +552,9 @@ module OrderContext =
 
     /// The command with the context as describeContext tells it. A seed's choices come from the url
     /// or a list, before the server has checked them, so a seed shows how many, never their text.
-    let command (describeContext: OrderContext -> string) (cmd: OrderContextCommand) (ctx: OrderContext) =
+    let command (describeContext: OrderContext -> string) (cmd: OrderViewCommand) (ctx: OrderContext) =
         match cmd with
-        | OrderContextCommand.SeedFilter(source, ind, gen, rte, frm, dt) ->
+        | OrderViewCommand.SeedFilter(source, ind, gen, rte, frm, dt) ->
             let seed =
                 {
                     Source = source
@@ -566,11 +566,11 @@ module OrderContext =
                 }
 
             $"SeedFilter %s{seedSource source} %i{seedChoices seed} choices %s{describeContext ctx}"
-        | _ -> $"%s{OrderContextCommand.toString (cmd, ctx)} %s{describeContext ctx}"
+        | _ -> $"%s{OrderViewCommand.toString (cmd, ctx)} %s{describeContext ctx}"
 
 
     /// The command alone, as a message from the page carries it.
-    let commandAlone (cmd: OrderContextCommand) = (command (fun _ -> "") cmd OrderContext.empty).TrimEnd()
+    let commandAlone (cmd: OrderViewCommand) = (command (fun _ -> "") cmd OrderContext.empty).TrimEnd()
 
 
     /// Never the argumentation.

@@ -474,8 +474,8 @@ let busyTests =
             test "is dropped, a step into an order and any other change alike, with no work counted" {
                 for cmd in
                     [
-                        navigate OrderContextCommand.IncreaseScheduleFrequencyProperty
-                        navigate (OrderContextCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 0))
+                        navigate OrderViewCommand.IncreaseScheduleFrequencyProperty
+                        navigate (OrderViewCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 0))
                         remove
                     ] do
                     transition (OrderPlanMsg.Command(cmd, "r-2")) busy
@@ -484,7 +484,7 @@ let busyTests =
 
             test "the answer sends nothing more" {
                 transition
-                    (OrderPlanMsg.Command(navigate OrderContextCommand.IncreaseScheduleFrequencyProperty, "r-2"))
+                    (OrderPlanMsg.Command(navigate OrderViewCommand.IncreaseScheduleFrequencyProperty, "r-2"))
                     busy
                 |> fst
                 |> transition (OrderPlanMsg.Answered("r-1", Ok answer))
@@ -591,7 +591,7 @@ let workTests =
                     OrderPlanCommand.Navigate(
                         one,
                         "c-1",
-                        OrderContextCommand.IncreaseScheduleFrequencyProperty,
+                        OrderViewCommand.IncreaseScheduleFrequencyProperty,
                         one.OrderContexts[0]
                     )
 
@@ -835,7 +835,7 @@ let signingTests =
 [<Tests>]
 let argueTests =
     let text = "Sepsis, hogere dosis in overleg met de apotheek"
-    let argue = OrderContextCommand.SetArgumentationProperty text
+    let argue = OrderViewCommand.SetArgumentationProperty text
     let transition = OrderPlanState.transition
 
     testList
@@ -919,7 +919,7 @@ let awaitsTests =
 
 [<Tests>]
 let navigateTests =
-    let step = OrderContextCommand.IncreaseScheduleFrequencyProperty
+    let step = OrderViewCommand.IncreaseScheduleFrequencyProperty
     let open' = held two (Some "c-1")
 
     testList
@@ -949,13 +949,13 @@ let reopenTests =
     let answer = plan [| reopened; context "c-2" "ibuprofen" |]
     let open' = held two (Some "c-1")
     let reopen request =
-        OrderPlanMsg.Reopen("c-1", OrderContextCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]), request)
+        OrderPlanMsg.Reopen("c-1", OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]), request)
     // the clear as the machine sends it, over the plan and the context held
     let clear =
         OrderPlanCommand.Navigate(
             two,
             "c-1",
-            OrderContextCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
+            OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
             two.OrderContexts[0]
         )
     let move = OrderPlanState.transition
@@ -1010,7 +1010,7 @@ let reopenTests =
                     OrderPlanCommand.Navigate(
                         answer,
                         "c-1",
-                        OrderContextCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 0),
+                        OrderViewCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 0),
                         reopened
                     )
 

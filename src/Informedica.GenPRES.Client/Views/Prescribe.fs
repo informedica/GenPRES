@@ -70,8 +70,8 @@ module Prescribe =
 
         let filterCommand field n =
             match n with
-            | Some n -> Api.OrderContextCommand.SetNthFilterProperty(field, n)
-            | None -> Api.OrderContextCommand.ClearFilterProperty field
+            | Some n -> Api.OrderViewCommand.SetNthFilterProperty(field, n)
+            | None -> Api.OrderViewCommand.ClearFilterProperty field
 
         let indicationChange s =
             filterCommand OrderContext.Indication
@@ -89,8 +89,8 @@ module Prescribe =
 
         let diluentCommand n =
             match n with
-            | Some n -> Api.OrderContextCommand.SetNthDiluentProperty n
-            | None -> Api.OrderContextCommand.ClearDiluentProperty
+            | Some n -> Api.OrderViewCommand.SetNthDiluentProperty n
+            | None -> Api.OrderViewCommand.ClearDiluentProperty
 
         let diluentChange s = diluentCommand |> pickFilter DiluentLoading _.Filter.Diluents s
 
@@ -101,7 +101,7 @@ module Prescribe =
                 let ns = cs |> Array.choose (fun c -> pr.Filter.Components |> Array.tryFindIndex ((=) c))
 
                 if ns.Length = cs.Length then
-                    send ComponentsLoading (Api.OrderContextCommand.SetNthComponentsProperty ns)
+                    send ComponentsLoading (Api.OrderViewCommand.SetNthComponentsProperty ns)
                 else
                     Logging.warning "components the field does not offer are not sent" cs
             | _ -> ()
@@ -115,7 +115,7 @@ module Prescribe =
             | OrderContextView.Settled pr
             | OrderContextView.Refused(pr, _) ->
                 setLoadingSource None
-                orderContextMsg Api.OrderContextCommand.ClearAllFilterProperty
+                orderContextMsg Api.OrderViewCommand.ClearAllFilterProperty
             | _ -> ()
 
         // the dialog is open while a scenario is selected: the selection is the state
@@ -229,7 +229,7 @@ module Prescribe =
 
                 let onClick (sc: OrderScenario) =
                     match pr.Scenarios |> Array.tryFindIndex (fun x -> x.Order.Id = sc.Order.Id) with
-                    | Some n -> orderContextMsg (Api.OrderContextCommand.SelectNthOrderScenario n)
+                    | Some n -> orderContextMsg (Api.OrderViewCommand.SelectNthOrderScenario n)
                     | None -> ()
 
                 // the workbench, narrowed to this scenario, into the plan as a drug context; the

@@ -218,13 +218,16 @@ outside the client views starts as a script with its tests, unless the user asks
    or a plan itself for a patient change or a row filter: it sends a request that names what
    changed, with the answer it holds, and the server writes the change. Names chosen by the user,
    2026-10-06. Two pull requests:
-   - **8a, the order context.** `ActiveOrderContextCommand` goes. `processOrderContext` takes an
-     `OrderContextRequest` with two cases: a command over the order context (`Command of
-     OrderContextCommand * OrderContext`), and the patient updated for it (`UpdatePatient of
-     Patient * OrderContext`), the patient being the one the patient command answered. The server
-     writes the patient into the context and evaluates it as now, through the domain's
-     `PatientChanged`, renamed `UpdatePatient`. The workbench remembers the request it sent, so `shown`
-     reads the request and the pair of what was sent and the context goes.
+   - **8a, the order context.** `ActiveOrderContextCommand` goes. The commands the order view
+     sends, which the order context being worked on and the plan both take, are renamed
+     `OrderViewCommand`; `processOrderContext` takes an `OrderContextCommand` with two cases: a
+     command of the order view over the context (`Command of OrderViewCommand * OrderContext`),
+     and the patient updated for it (`UpdatePatient of Patient * OrderContext`), the patient being
+     the one the patient command answered (decided by the user, 2026-10-06, so that every
+     endpoint takes a command family of its own name). The server writes the patient into the
+     context and evaluates it as now, through the domain's `PatientChanged`, renamed
+     `UpdatePatient`. The workbench remembers the command it sent, so `shown` reads that command
+     and the pair of what was sent and the context goes.
    - **8b, the plan.** The client's `Recalculate` over a plan it changed goes: `{ tp with Patient
      = pat }` after a patient change and `{ tp with Filtered = ids }` after a row filter. The plan
      machine sends the patient updated (`UpdatePatient of Patient * OrderPlan`) and the rows kept

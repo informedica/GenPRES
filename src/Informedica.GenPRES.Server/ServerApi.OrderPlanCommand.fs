@@ -74,7 +74,7 @@ module OrderPlanCommand =
         | OrderPlanCommand.Navigate(plan, contextId, ctxCmd, ctx) ->
             match ctxCmd with
             // the argumentation is written by the server on the plan's context, without the domain
-            | OrderContextCommand.SetArgumentationProperty text when
+            | OrderViewCommand.SetArgumentationProperty text when
                 plan.OrderContexts |> Array.exists (fun c -> c.Id = contextId)
                 ->
                 let ctx = ctx |> Shared.Models.OrderContext.Argumentation.write text
@@ -87,14 +87,14 @@ module OrderPlanCommand =
                 processCmd
                     env
                     (OrderPlanCommand.Recalculate { plan with OrderContexts = Array.map written plan.OrderContexts })
-            | OrderContextCommand.SetArgumentationProperty _ ->
+            | OrderViewCommand.SetArgumentationProperty _ ->
                 async { return Error [| OrderPlanMapper.words [||] (OrderPlanError.NoSuchContext contextId) |] }
             | ctxCmd ->
                 // a reset clears the argumentation, on the context and on the plan's copy of it, since
                 // it puts the order back within the rules
                 let plan, ctx =
                     match ctxCmd with
-                    | OrderContextCommand.ResetOrderScenario ->
+                    | OrderViewCommand.ResetOrderScenario ->
                         let clear (c: OrderContext) =
                             if c.Id = contextId then
                                 { c with Argumentation = None }

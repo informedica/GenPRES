@@ -27,10 +27,10 @@ module CompositionRoot =
                 Compute.bound
                     env
                     cookie
-                    ActiveOrderContextCommand.toString
+                    OrderContextCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
                     noPatient
-                    (OrderContextCommand.processActive env)
+                    (OrderContextCommand.processCmd env)
 
             processFormulary =
                 Compute.bound

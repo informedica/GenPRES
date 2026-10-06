@@ -30,7 +30,7 @@ module PlanWorkPolicyTests =
             OrderPlanCommand.Navigate(
                 plan,
                 "c-1",
-                OrderContextCommand.SetNthFilterProperty(Shared.Models.OrderContext.Route, 0),
+                OrderViewCommand.SetNthFilterProperty(Shared.Models.OrderContext.Route, 0),
                 context
             ),
             true

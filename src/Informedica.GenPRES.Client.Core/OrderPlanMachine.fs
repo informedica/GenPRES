@@ -69,8 +69,8 @@ module Dialog =
 
     /// The context as the command changes it, shown while its request is under way; the context
     /// itself when the command cannot change it.
-    let shown (cmd: OrderContextCommand) (ctx: OrderContext) =
-        match OrderContextCommand.preview cmd ctx with
+    let shown (cmd: OrderViewCommand) (ctx: OrderContext) =
+        match OrderViewCommand.preview cmd ctx with
         | Ok changed -> changed
         | Error _ -> ctx
 
@@ -189,7 +189,7 @@ type OrderPlanMsg =
     | Command of OrderPlanCommand * request: string
     /// A command from the order dialog into the plan's context with this id, sent over the plan
     /// held and that context as answered.
-    | Navigate of contextId: string * OrderContextCommand * request: string
+    | Navigate of contextId: string * OrderViewCommand * request: string
     /// The answer to the request with this id; Error is a failure of the server or the call.
     | Answered of request: string * Result<OrderPlan, string[]>
     /// The context the dialog shows, by id.
@@ -198,7 +198,7 @@ type OrderPlanMsg =
     | Filter of string[] * request: string
     /// A clear from the dialog that opens the field's list: the command goes out as a change, and
     /// the plan before it is kept to be put back.
-    | Reopen of contextId: string * OrderContextCommand * request: string
+    | Reopen of contextId: string * OrderViewCommand * request: string
     /// The list of a reopen closed without a pick: the plan kept is put back, with whether it had
     /// changed since the version last opened or signed, and the answer to the clear is dropped.
     | Restore

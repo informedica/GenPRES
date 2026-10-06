@@ -434,10 +434,10 @@ module Order =
             {|
                 orderContext: OrderContextView
                 // a command from the dialog; the page sends it over the context it holds
-                command: Api.OrderContextCommand -> unit
+                command: Api.OrderViewCommand -> unit
                 // a clear from a field's arrow, with the picks: the page sends it and keeps what it
                 // showed before
-                reopen: Api.OrderContextCommand -> unit
+                reopen: Api.OrderViewCommand -> unit
                 // the list of a reopen closed without a pick: the page puts back what it showed
                 restoreOrderScenario: unit -> unit
                 closeOrder: unit -> unit
@@ -539,7 +539,7 @@ module Order =
             | OrderContextView.Refused _
             | OrderContextView.Changing _ ->
                 setPicks initialPicks
-                props.command Api.OrderContextCommand.ResetOrderScenario
+                props.command Api.OrderViewCommand.ResetOrderScenario
             | OrderContextView.NoPatient -> ()
 
         let stepper =
@@ -580,40 +580,34 @@ module Order =
 
             {|
                 // Frequency
-                setFreqMin = create frequencyOf Api.OrderContextCommand.SetMinScheduleFrequencyProperty
-                setFreqDec = create frequencyOf Api.OrderContextCommand.DecreaseScheduleFrequencyProperty
-                setFreqMed = create frequencyOf Api.OrderContextCommand.SetMedianScheduleFrequencyProperty
-                setFreqInc = create frequencyOf Api.OrderContextCommand.IncreaseScheduleFrequencyProperty
-                setFreqMax = create frequencyOf Api.OrderContextCommand.SetMaxScheduleFrequencyProperty
+                setFreqMin = create frequencyOf Api.OrderViewCommand.SetMinScheduleFrequencyProperty
+                setFreqDec = create frequencyOf Api.OrderViewCommand.DecreaseScheduleFrequencyProperty
+                setFreqMed = create frequencyOf Api.OrderViewCommand.SetMedianScheduleFrequencyProperty
+                setFreqInc = create frequencyOf Api.OrderViewCommand.IncreaseScheduleFrequencyProperty
+                setFreqMax = create frequencyOf Api.OrderViewCommand.SetMaxScheduleFrequencyProperty
                 // Dose Rate
-                setRateMin = create doseRateOf Api.OrderContextCommand.SetMinOrderableDoseRateProperty
-                setRateDec = createWithN doseRateOf Api.OrderContextCommand.DecreaseOrderableDoseRateProperty
-                setRateMed = create doseRateOf Api.OrderContextCommand.SetMedianOrderableDoseRateProperty
-                setRateInc = createWithN doseRateOf Api.OrderContextCommand.IncreaseOrderableDoseRateProperty
-                setRateMax = create doseRateOf Api.OrderContextCommand.SetMaxOrderableDoseRateProperty
+                setRateMin = create doseRateOf Api.OrderViewCommand.SetMinOrderableDoseRateProperty
+                setRateDec = createWithN doseRateOf Api.OrderViewCommand.DecreaseOrderableDoseRateProperty
+                setRateMed = create doseRateOf Api.OrderViewCommand.SetMedianOrderableDoseRateProperty
+                setRateInc = createWithN doseRateOf Api.OrderViewCommand.IncreaseOrderableDoseRateProperty
+                setRateMax = create doseRateOf Api.OrderViewCommand.SetMaxOrderableDoseRateProperty
                 // Dose Quantity
-                setDoseQtyMin = create doseQuantityOf Api.OrderContextCommand.SetMinOrderableDoseQuantityProperty
-                setDoseQtyDec = createWithN doseQuantityOf Api.OrderContextCommand.DecreaseOrderableDoseQuantityProperty
-                setDoseQtyMed = create doseQuantityOf Api.OrderContextCommand.SetMedianOrderableDoseQuantityProperty
-                setDoseQtyInc = createWithN doseQuantityOf Api.OrderContextCommand.IncreaseOrderableDoseQuantityProperty
-                setDoseQtyMax = create doseQuantityOf Api.OrderContextCommand.SetMaxOrderableDoseQuantityProperty
+                setDoseQtyMin = create doseQuantityOf Api.OrderViewCommand.SetMinOrderableDoseQuantityProperty
+                setDoseQtyDec = createWithN doseQuantityOf Api.OrderViewCommand.DecreaseOrderableDoseQuantityProperty
+                setDoseQtyMed = create doseQuantityOf Api.OrderViewCommand.SetMedianOrderableDoseQuantityProperty
+                setDoseQtyInc = createWithN doseQuantityOf Api.OrderViewCommand.IncreaseOrderableDoseQuantityProperty
+                setDoseQtyMax = create doseQuantityOf Api.OrderViewCommand.SetMaxOrderableDoseQuantityProperty
                 // Component Quantity
                 setComponentQtyMin =
-                    createWithCmp componentQuantityOf Api.OrderContextCommand.SetMinComponentOrderableQuantityProperty
+                    createWithCmp componentQuantityOf Api.OrderViewCommand.SetMinComponentOrderableQuantityProperty
                 setComponentQtyDec =
-                    createWithCmpN
-                        componentQuantityOf
-                        Api.OrderContextCommand.DecreaseComponentOrderableQuantityProperty
+                    createWithCmpN componentQuantityOf Api.OrderViewCommand.DecreaseComponentOrderableQuantityProperty
                 setComponentQtyMed =
-                    createWithCmp
-                        componentQuantityOf
-                        Api.OrderContextCommand.SetMedianComponentOrderableQuantityProperty
+                    createWithCmp componentQuantityOf Api.OrderViewCommand.SetMedianComponentOrderableQuantityProperty
                 setComponentQtyInc =
-                    createWithCmpN
-                        componentQuantityOf
-                        Api.OrderContextCommand.IncreaseComponentOrderableQuantityProperty
+                    createWithCmpN componentQuantityOf Api.OrderViewCommand.IncreaseComponentOrderableQuantityProperty
                 setComponentQtyMax =
-                    createWithCmp componentQuantityOf Api.OrderContextCommand.SetMaxComponentOrderableQuantityProperty
+                    createWithCmp componentQuantityOf Api.OrderViewCommand.SetMaxComponentOrderableQuantityProperty
             |}
 
         // the reopen flag is read before the update, which resets it
@@ -1044,7 +1038,7 @@ module Order =
                 && ArgumentationPolicy.normalise text
                    <> ArgumentationPolicy.normalise heldArgumentation
             then
-                props.command (Api.OrderContextCommand.SetArgumentationProperty text)
+                props.command (Api.OrderViewCommand.SetArgumentationProperty text)
 
         let onArgumentationBlur = fun _ -> argue argumentation
 

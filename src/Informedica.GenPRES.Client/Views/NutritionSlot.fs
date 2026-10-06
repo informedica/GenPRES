@@ -553,9 +553,9 @@ module NutritionSlot =
             {|
                 nutritionContext: OrderContext
                 // a command into the slot's context, sent over the plan held
-                planNavigate: string * Api.OrderContextCommand -> unit
+                planNavigate: string * Api.OrderViewCommand -> unit
                 // a clear from a field's arrow, and the list of such a reopen closed without a pick
-                planReopen: string * Api.OrderContextCommand -> unit
+                planReopen: string * Api.OrderViewCommand -> unit
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
                 isRecalculating: bool
@@ -607,8 +607,8 @@ module NutritionSlot =
         // a clear; a value the field does not offer is a bug, written to the console and not sent
         let pickFilter field (options: 'a[]) (picked: 'a option) =
             match picked |> Option.map (fun x -> options |> Array.tryFindIndex ((=) x)) with
-            | None -> navigate (Api.OrderContextCommand.ClearFilterProperty field)
-            | Some(Some n) -> navigate (Api.OrderContextCommand.SetNthFilterProperty(field, n))
+            | None -> navigate (Api.OrderViewCommand.ClearFilterProperty field)
+            | Some(Some n) -> navigate (Api.OrderViewCommand.SetNthFilterProperty(field, n))
             | Some None -> Logging.warning "a pick the field does not offer is not sent" picked
 
         let genericChange s = pickFilter OrderContext.Generic ctx.Filter.Generics s
@@ -646,7 +646,7 @@ module NutritionSlot =
                 | None -> Logging.warning "a value the field does not offer is not sent" key
             | _ -> Logging.warning "a change no field holds is not sent" s
 
-        let resetOrderScenario (_ol: OrderLoader) = navigate Api.OrderContextCommand.ResetOrderScenario
+        let resetOrderScenario (_ol: OrderLoader) = navigate Api.OrderViewCommand.ResetOrderScenario
 
         let stepper =
             let create cmd = fun (_: OrderLoader) -> navigate cmd
@@ -661,30 +661,30 @@ module NutritionSlot =
 
             {|
                 // Dose Rate
-                setRateMin = create Api.OrderContextCommand.SetMinOrderableDoseRateProperty
-                setRateDec = createWithN Api.OrderContextCommand.DecreaseOrderableDoseRateProperty
-                setRateMed = create Api.OrderContextCommand.SetMedianOrderableDoseRateProperty
-                setRateInc = createWithN Api.OrderContextCommand.IncreaseOrderableDoseRateProperty
-                setRateMax = create Api.OrderContextCommand.SetMaxOrderableDoseRateProperty
+                setRateMin = create Api.OrderViewCommand.SetMinOrderableDoseRateProperty
+                setRateDec = createWithN Api.OrderViewCommand.DecreaseOrderableDoseRateProperty
+                setRateMed = create Api.OrderViewCommand.SetMedianOrderableDoseRateProperty
+                setRateInc = createWithN Api.OrderViewCommand.IncreaseOrderableDoseRateProperty
+                setRateMax = create Api.OrderViewCommand.SetMaxOrderableDoseRateProperty
                 // Dose Quantity
-                setDoseQtyMin = create Api.OrderContextCommand.SetMinOrderableDoseQuantityProperty
-                setDoseQtyDec = createWithN Api.OrderContextCommand.DecreaseOrderableDoseQuantityProperty
-                setDoseQtyMed = create Api.OrderContextCommand.SetMedianOrderableDoseQuantityProperty
-                setDoseQtyInc = createWithN Api.OrderContextCommand.IncreaseOrderableDoseQuantityProperty
-                setDoseQtyMax = create Api.OrderContextCommand.SetMaxOrderableDoseQuantityProperty
-                setDoseQtyPerc = fun perc -> create (Api.OrderContextCommand.SetOrderableDoseQuantityPercProperty perc)
+                setDoseQtyMin = create Api.OrderViewCommand.SetMinOrderableDoseQuantityProperty
+                setDoseQtyDec = createWithN Api.OrderViewCommand.DecreaseOrderableDoseQuantityProperty
+                setDoseQtyMed = create Api.OrderViewCommand.SetMedianOrderableDoseQuantityProperty
+                setDoseQtyInc = createWithN Api.OrderViewCommand.IncreaseOrderableDoseQuantityProperty
+                setDoseQtyMax = create Api.OrderViewCommand.SetMaxOrderableDoseQuantityProperty
+                setDoseQtyPerc = fun perc -> create (Api.OrderViewCommand.SetOrderableDoseQuantityPercProperty perc)
                 // Component Quantity
-                setComponentQtyMin = createWithCmp Api.OrderContextCommand.SetMinComponentOrderableQuantityProperty
-                setComponentQtyDec = createWithCmpN Api.OrderContextCommand.DecreaseComponentOrderableQuantityProperty
-                setComponentQtyMed = createWithCmp Api.OrderContextCommand.SetMedianComponentOrderableQuantityProperty
-                setComponentQtyInc = createWithCmpN Api.OrderContextCommand.IncreaseComponentOrderableQuantityProperty
-                setComponentQtyMax = createWithCmp Api.OrderContextCommand.SetMaxComponentOrderableQuantityProperty
+                setComponentQtyMin = createWithCmp Api.OrderViewCommand.SetMinComponentOrderableQuantityProperty
+                setComponentQtyDec = createWithCmpN Api.OrderViewCommand.DecreaseComponentOrderableQuantityProperty
+                setComponentQtyMed = createWithCmp Api.OrderViewCommand.SetMedianComponentOrderableQuantityProperty
+                setComponentQtyInc = createWithCmpN Api.OrderViewCommand.IncreaseComponentOrderableQuantityProperty
+                setComponentQtyMax = createWithCmp Api.OrderViewCommand.SetMaxComponentOrderableQuantityProperty
                 // Frequency
-                setFreqMin = create Api.OrderContextCommand.SetMinScheduleFrequencyProperty
-                setFreqDec = create Api.OrderContextCommand.DecreaseScheduleFrequencyProperty
-                setFreqMed = create Api.OrderContextCommand.SetMedianScheduleFrequencyProperty
-                setFreqInc = create Api.OrderContextCommand.IncreaseScheduleFrequencyProperty
-                setFreqMax = create Api.OrderContextCommand.SetMaxScheduleFrequencyProperty
+                setFreqMin = create Api.OrderViewCommand.SetMinScheduleFrequencyProperty
+                setFreqDec = create Api.OrderViewCommand.DecreaseScheduleFrequencyProperty
+                setFreqMed = create Api.OrderViewCommand.SetMedianScheduleFrequencyProperty
+                setFreqInc = create Api.OrderViewCommand.IncreaseScheduleFrequencyProperty
+                setFreqMax = create Api.OrderViewCommand.SetMaxScheduleFrequencyProperty
             |}
 
         // the order shown: the one scenario's of the slot's context
