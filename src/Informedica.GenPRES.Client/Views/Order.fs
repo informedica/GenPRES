@@ -1063,12 +1063,17 @@ module Order =
 
         // Ok completes the dialog and Reset discards the changes: the bar places them. Reset is
         // the workbench's alone: it re-solves from the rules, which in the plan could change
-        // what the plan context rule keeps fixed
+        // what the plan context rule keeps fixed. The reset clears the argumentation, so it
+        // discards a text not yet sent as well
+        let reset () =
+            setArgumentation ""
+            ResetOrderScenario |> dispatch
+
         let resetAction =
             {|
                 label = Terms.Reset |> getTerm "Reset"
                 kind = Components.ActionBar.Kind.Secondary
-                onClick = fun () -> ResetOrderScenario |> dispatch
+                onClick = reset
                 disabled = isOrderLoading
                 icon = Some Mui.Icons.RefreshIcon
             |}
