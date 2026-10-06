@@ -60,6 +60,7 @@ module Nutrition =
                     {|
                         plan = plan
                         planCommand = envOrderPlan.OrderPlanCommand
+                        planNavigate = envOrderPlan.Navigate
                         planReopen = envOrderPlan.Reopen
                         planRestore = envOrderPlan.Restore
                         localizationTerms = localizationTerms

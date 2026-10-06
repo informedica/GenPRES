@@ -433,40 +433,13 @@ module Order =
         (props:
             {|
                 orderContext: OrderContextView
-                updateOrderScenario: Api.OrderContextCommand -> OrderContext -> unit
+                // a command from the dialog; the page sends it over the context it holds
+                command: Api.OrderContextCommand -> unit
                 // a clear from a field's arrow, with the picks: the page sends it and keeps what it
                 // showed before
-                reopenOrderScenario: Api.OrderContextCommand -> OrderContext -> unit
+                reopen: Api.OrderContextCommand -> unit
                 // the list of a reopen closed without a pick: the page puts back what it showed
                 restoreOrderScenario: unit -> unit
-                stepOrderScenario:
-                    {|
-                        // Frequency
-                        setMinFrequency: OrderContext -> unit
-                        decrFrequency: OrderContext -> unit
-                        setMedianFrequency: OrderContext -> unit
-                        incrFrequency: OrderContext -> unit
-                        setMaxFrequency: OrderContext -> unit
-                        // Rate
-                        setMinRate: OrderContext -> unit
-                        decrRate: OrderContext * int * bool -> unit
-                        setMedianRate: OrderContext -> unit
-                        incrRate: OrderContext * int * bool -> unit
-                        setMaxRate: OrderContext -> unit
-                        // Dose Quantity
-                        setMinDoseQty: OrderContext -> unit
-                        decrDoseQty: OrderContext * int * bool -> unit
-                        setMedianDoseQty: OrderContext -> unit
-                        incrDoseQty: OrderContext * int * bool -> unit
-                        setMaxDoseQty: OrderContext -> unit
-                        // Component Quantity
-                        setMinComponentQty: OrderContext * string -> unit
-                        decrComponentQty: OrderContext * string * int * bool -> unit
-                        setMedianComponentQty: OrderContext * string -> unit
-                        incrComponentQty: OrderContext * string * int * bool -> unit
-                        setMaxComponentQty: OrderContext * string -> unit
-                    |}
-                refreshOrderScenario: OrderContext -> unit
                 closeOrder: unit -> unit
                 // the argumentation typed, committed when the field loses focus; the page
                 // writes it on its lane
@@ -529,9 +502,9 @@ module Order =
         // the console and not sent; a reopen then ends when its list closes without a pick
         let updateOrderScenario (ol: OrderLoader) target (s: string option) =
             match props.orderContext with
-            | OrderContextView.Settled ctx
-            | OrderContextView.Refused(ctx, _)
-            | OrderContextView.Changing ctx ->
+            | OrderContextView.Settled _
+            | OrderContextView.Refused _
+            | OrderContextView.Changing _ ->
                 let isReopen = reopening.current
                 reopening.current <- false
 
@@ -543,8 +516,7 @@ module Order =
 
                 match located, s with
                 | Some(t, _), None when isReopen ->
-                    ctx
-                    |> props.reopenOrderScenario (
+                    props.reopen (
                         heldPicks.current
                         |> Option.defaultValue [||]
                         |> Array.map (Models.OrderContext.Picks.withinOrder ol.Order.Id)
@@ -558,21 +530,20 @@ module Order =
                         shownOrder
                         |> Option.iter (fun before -> setPicks (picks |> PickList.afterChange before changed))
 
-                        ctx |> props.updateOrderScenario (ViewHelpers.setNthCommand t n)
+                        props.command (ViewHelpers.setNthCommand t n)
                     | None -> Logging.warning "a value the field does not offer is not sent" key
                 | _ -> Logging.warning "a change no field holds is not sent" s
             | _ -> ()
 
         // a reset keeps the order id, so it starts from the initial picks itself
-        let resetOrderScenario (ol: OrderLoader) =
+        let resetOrderScenario (_: OrderLoader) =
             match props.orderContext with
-            | OrderContextView.Settled ctx
-            | OrderContextView.Refused(ctx, _)
-            | OrderContextView.Changing ctx ->
+            | OrderContextView.Settled _
+            | OrderContextView.Refused _
+            | OrderContextView.Changing _ ->
                 setPicks initialPicks
-
-                ctx |> props.refreshOrderScenario
-            | _ -> ()
+                props.command Api.OrderContextCommand.ResetOrderScenario
+            | OrderContextView.NoPatient -> ()
 
         let stepper =
             // the variable each stepper moves, by name
@@ -589,80 +560,63 @@ module Order =
             let stepped nameOf (ol: OrderLoader) =
                 stepping.current <- nameOf ol |> Option.map (fun name -> name, ol.Order)
 
-            let create nameOf nav =
-                fun (ol: OrderLoader) ->
-                    stepped nameOf ol
+            // a step goes out as its command, while the dialog shows a context
+            let send nameOf (ol: OrderLoader) cmd =
+                stepped nameOf ol
 
-                    match props.orderContext with
-                    | OrderContextView.Settled ctx
-                    | OrderContextView.Refused(ctx, _)
-                    | OrderContextView.Changing ctx -> ctx |> nav
-                    | _ -> ()
+                match props.orderContext with
+                | OrderContextView.NoPatient -> ()
+                | _ -> props.command cmd
 
-            let createWithCmp nameOf nav =
-                fun (ol: OrderLoader) ->
-                    stepped nameOf ol
+            let create nameOf cmd = fun ol -> send nameOf ol cmd
 
-                    match props.orderContext with
-                    | OrderContextView.Settled ctx
-                    | OrderContextView.Refused(ctx, _)
-                    | OrderContextView.Changing ctx ->
-                        match ol.Component with
-                        | None -> ()
-                        | Some cmp -> nav (ctx, cmp)
-                    | _ -> ()
+            let createWithCmp nameOf cmd =
+                fun (ol: OrderLoader) -> ol.Component |> Option.iter (cmd >> send nameOf ol)
 
-            let createWithN nameOf nav =
+            let createWithN nameOf cmd =
                 fun (n, uc) (ol: OrderLoader) ->
-                    stepped nameOf ol
+                    if ol.Component.IsSome then
+                        send nameOf ol (cmd (n, uc))
 
-                    match props.orderContext with
-                    | OrderContextView.Settled ctx
-                    | OrderContextView.Refused(ctx, _)
-                    | OrderContextView.Changing ctx ->
-                        match ol.Component with
-                        | None -> ()
-                        | Some _ -> nav (ctx, n, uc)
-                    | _ -> ()
-
-            let createWithCmpN nameOf nav =
-                fun (n, uc) (ol: OrderLoader) ->
-                    stepped nameOf ol
-
-                    match props.orderContext with
-                    | OrderContextView.Settled ctx
-                    | OrderContextView.Refused(ctx, _)
-                    | OrderContextView.Changing ctx ->
-                        match ol.Component with
-                        | None -> ()
-                        | Some cmp -> nav (ctx, cmp, n, uc)
-                    | _ -> ()
+            let createWithCmpN nameOf cmd =
+                fun (n, uc) (ol: OrderLoader) -> ol.Component |> Option.iter (fun c -> send nameOf ol (cmd (c, n, uc)))
 
             {|
                 // Frequency
-                setFreqMin = create frequencyOf props.stepOrderScenario.setMinFrequency
-                setFreqDec = create frequencyOf props.stepOrderScenario.decrFrequency
-                setFreqMed = create frequencyOf props.stepOrderScenario.setMedianFrequency
-                setFreqInc = create frequencyOf props.stepOrderScenario.incrFrequency
-                setFreqMax = create frequencyOf props.stepOrderScenario.setMaxFrequency
+                setFreqMin = create frequencyOf Api.OrderContextCommand.SetMinScheduleFrequencyProperty
+                setFreqDec = create frequencyOf Api.OrderContextCommand.DecreaseScheduleFrequencyProperty
+                setFreqMed = create frequencyOf Api.OrderContextCommand.SetMedianScheduleFrequencyProperty
+                setFreqInc = create frequencyOf Api.OrderContextCommand.IncreaseScheduleFrequencyProperty
+                setFreqMax = create frequencyOf Api.OrderContextCommand.SetMaxScheduleFrequencyProperty
                 // Dose Rate
-                setRateMin = create doseRateOf props.stepOrderScenario.setMinRate
-                setRateDec = createWithN doseRateOf props.stepOrderScenario.decrRate
-                setRateMed = create doseRateOf props.stepOrderScenario.setMedianRate
-                setRateInc = createWithN doseRateOf props.stepOrderScenario.incrRate
-                setRateMax = create doseRateOf props.stepOrderScenario.setMaxRate
+                setRateMin = create doseRateOf Api.OrderContextCommand.SetMinOrderableDoseRateProperty
+                setRateDec = createWithN doseRateOf Api.OrderContextCommand.DecreaseOrderableDoseRateProperty
+                setRateMed = create doseRateOf Api.OrderContextCommand.SetMedianOrderableDoseRateProperty
+                setRateInc = createWithN doseRateOf Api.OrderContextCommand.IncreaseOrderableDoseRateProperty
+                setRateMax = create doseRateOf Api.OrderContextCommand.SetMaxOrderableDoseRateProperty
                 // Dose Quantity
-                setDoseQtyMin = create doseQuantityOf props.stepOrderScenario.setMinDoseQty
-                setDoseQtyDec = createWithN doseQuantityOf props.stepOrderScenario.decrDoseQty
-                setDoseQtyMed = create doseQuantityOf props.stepOrderScenario.setMedianDoseQty
-                setDoseQtyInc = createWithN doseQuantityOf props.stepOrderScenario.incrDoseQty
-                setDoseQtyMax = create doseQuantityOf props.stepOrderScenario.setMaxDoseQty
+                setDoseQtyMin = create doseQuantityOf Api.OrderContextCommand.SetMinOrderableDoseQuantityProperty
+                setDoseQtyDec = createWithN doseQuantityOf Api.OrderContextCommand.DecreaseOrderableDoseQuantityProperty
+                setDoseQtyMed = create doseQuantityOf Api.OrderContextCommand.SetMedianOrderableDoseQuantityProperty
+                setDoseQtyInc = createWithN doseQuantityOf Api.OrderContextCommand.IncreaseOrderableDoseQuantityProperty
+                setDoseQtyMax = create doseQuantityOf Api.OrderContextCommand.SetMaxOrderableDoseQuantityProperty
                 // Component Quantity
-                setComponentQtyMin = createWithCmp componentQuantityOf props.stepOrderScenario.setMinComponentQty
-                setComponentQtyDec = createWithCmpN componentQuantityOf props.stepOrderScenario.decrComponentQty
-                setComponentQtyMed = createWithCmp componentQuantityOf props.stepOrderScenario.setMedianComponentQty
-                setComponentQtyInc = createWithCmpN componentQuantityOf props.stepOrderScenario.incrComponentQty
-                setComponentQtyMax = createWithCmp componentQuantityOf props.stepOrderScenario.setMaxComponentQty
+                setComponentQtyMin =
+                    createWithCmp componentQuantityOf Api.OrderContextCommand.SetMinComponentOrderableQuantityProperty
+                setComponentQtyDec =
+                    createWithCmpN
+                        componentQuantityOf
+                        Api.OrderContextCommand.DecreaseComponentOrderableQuantityProperty
+                setComponentQtyMed =
+                    createWithCmp
+                        componentQuantityOf
+                        Api.OrderContextCommand.SetMedianComponentOrderableQuantityProperty
+                setComponentQtyInc =
+                    createWithCmpN
+                        componentQuantityOf
+                        Api.OrderContextCommand.IncreaseComponentOrderableQuantityProperty
+                setComponentQtyMax =
+                    createWithCmp componentQuantityOf Api.OrderContextCommand.SetMaxComponentOrderableQuantityProperty
             |}
 
         // the reopen flag is read before the update, which resets it
