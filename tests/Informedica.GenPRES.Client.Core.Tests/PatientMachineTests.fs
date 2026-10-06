@@ -13,8 +13,12 @@ module Fixtures =
     /// An age makes the draft a patient.
     let draft = { Shared.Models.Patient.empty with Age = Some ten }
 
-    /// The patient the server answers: the draft with an estimated weight.
-    let answered = { draft with Weight = { draft.Weight with Estimated = Some 32000<gram> } }
+    /// The patient the server answers: the draft with an estimated weight and height.
+    let answered =
+        { draft with
+            Weight = { draft.Weight with Estimated = Some 32000<gram> }
+            Height = { draft.Height with Estimated = Some 140<cm> }
+        }
 
     /// Below the minimum: no age, no measured weight and height.
     let below = Shared.Models.Patient.empty
@@ -72,6 +76,22 @@ let tests =
 
                 (PatientState.draft state, effects)
                 |> Expect.equal "the draft as typed" (Some draft, [ PatientEffect.SetPatient(Some answered) ])
+            }
+
+            test "an answered patient without a weight or a height is held back, the pages keep theirs" {
+                let unestimated = { draft with Department = Some "unestimated" }
+
+                let state, effects =
+                    transition (PatientMsg.Answered("r-1", Ok answered)) (changing renewed "r-1")
+                    |> fst
+                    |> transition (PatientMsg.Changed(Some unestimated, renewed, "r-2"))
+                    |> fst
+                    |> transition (PatientMsg.Answered("r-2", Ok unestimated))
+
+                (PatientState.draft state, PatientState.answered state, PatientState.changing state, effects)
+                |> Expect.equal
+                    "the answer on the panel, the earlier patient kept, nothing set"
+                    (Some unestimated, Some answered, false, [])
             }
 
             test "an answer to an earlier change is dropped" {
