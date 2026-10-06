@@ -49,6 +49,16 @@ module CompositionRoot =
                     ParenteraliaCommand.patientOf
                     (ParenteraliaCommand.processCmd env)
 
+            processPatient =
+                Compute.bound
+                    env
+                    cookie
+                    PatientCommand.toString
+                    (fun _ -> Gate.RequiresLoaded)
+                    PatientCommand.patients
+                    PatientCommand.patientOf
+                    PatientCommand.processCmd
+
             // the one plan, nutrition included
             processOrderPlan =
                 Compute.bound
