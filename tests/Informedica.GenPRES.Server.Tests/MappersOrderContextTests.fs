@@ -260,11 +260,6 @@ let tests =
 
                 let verbs =
                     [
-                        Shared.Api.OrderContextCommand.UpdateOrderContext, Domain.UpdateOrderContext ctx
-                        Shared.Api.OrderContextCommand.SelectOrderScenario, Domain.SelectOrderScenario ctx
-                        Shared.Api.OrderContextCommand.UpdateOrderScenario, Domain.UpdateOrderScenario ctx
-                        Shared.Api.OrderContextCommand.ReopenOrderScenario [| "a"; "b" |],
-                        Domain.ReopenOrderScenario(ctx, [ "a"; "b" ])
                         Shared.Api.OrderContextCommand.ResetOrderScenario, Domain.ResetOrderScenario ctx
                         Shared.Api.OrderContextCommand.DecreaseScheduleFrequencyProperty,
                         Domain.DecreaseScheduleFrequencyProperty ctx
@@ -370,7 +365,7 @@ let tests =
 
                 verbs
                 |> List.length
-                |> Expect.equal "every case of the wire's union but the argumentation" 42
+                |> Expect.equal "every case of the wire's union but the argumentation" 38
 
                 for verb, expected in verbs do
                     OrderContextMapper.Command.toDomain OrderCategory.Drug verb ctx

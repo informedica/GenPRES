@@ -67,7 +67,14 @@ let tests =
                         Shared.Api.OrderPlanCommand.Navigate(
                             plan,
                             "c-1",
-                            Shared.Api.OrderContextCommand.UpdateOrderContext,
+                            Shared.Api.OrderContextCommand.SeedFilter(
+                                Shared.Types.SeedSource.Reload,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None
+                            ),
                             ctx
                         )
                     )
@@ -128,12 +135,12 @@ let tests =
                         (Shared.Api.OrderPlanCommand.Navigate(
                             plan,
                             "c-1",
-                            Shared.Api.OrderContextCommand.SelectOrderScenario,
+                            Shared.Api.OrderContextCommand.SelectNthOrderScenario 0,
                             ctx
                         ))
 
                 match seen.Value with
-                | Some(filtered, "c-1", OrderContext.SelectOrderScenario _, category) ->
+                | Some(filtered, "c-1", OrderContext.SelectNthOrderScenario _, category) ->
                     filtered |> Expect.equal "the plan parsed" [| "c-1" |]
 
                     category

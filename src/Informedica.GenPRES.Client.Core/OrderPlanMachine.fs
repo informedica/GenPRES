@@ -71,7 +71,7 @@ module Dialog =
     /// itself when the command cannot change it.
     let shown (cmd: OrderContextCommand) (ctx: OrderContext) =
         match OrderContextCommand.preview cmd ctx with
-        | Ok(_, changed) -> changed
+        | Ok changed -> changed
         | Error _ -> ctx
 
 

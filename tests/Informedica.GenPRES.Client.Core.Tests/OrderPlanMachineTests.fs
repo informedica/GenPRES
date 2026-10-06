@@ -475,7 +475,7 @@ let busyTests =
                 for cmd in
                     [
                         navigate OrderContextCommand.IncreaseScheduleFrequencyProperty
-                        navigate OrderContextCommand.UpdateOrderScenario
+                        navigate (OrderContextCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 0))
                         remove
                     ] do
                     transition (OrderPlanMsg.Command(cmd, "r-2")) busy
@@ -949,10 +949,15 @@ let reopenTests =
     let answer = plan [| reopened; context "c-2" "ibuprofen" |]
     let open' = held two (Some "c-1")
     let reopen request =
-        OrderPlanMsg.Reopen("c-1", OrderContextCommand.ReopenOrderScenario [||], request)
+        OrderPlanMsg.Reopen("c-1", OrderContextCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]), request)
     // the clear as the machine sends it, over the plan and the context held
     let clear =
-        OrderPlanCommand.Navigate(two, "c-1", OrderContextCommand.ReopenOrderScenario [||], two.OrderContexts[0])
+        OrderPlanCommand.Navigate(
+            two,
+            "c-1",
+            OrderContextCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
+            two.OrderContexts[0]
+        )
     let move = OrderPlanState.transition
     let run msgs state = msgs |> List.fold (fun s m -> move m s |> fst) state
 
@@ -1001,7 +1006,13 @@ let reopenTests =
             }
 
             test "a pick ends the look: a restore after it changes nothing" {
-                let pick = OrderPlanCommand.Navigate(answer, "c-1", OrderContextCommand.UpdateOrderScenario, reopened)
+                let pick =
+                    OrderPlanCommand.Navigate(
+                        answer,
+                        "c-1",
+                        OrderContextCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 0),
+                        reopened
+                    )
 
                 let picked =
                     open'

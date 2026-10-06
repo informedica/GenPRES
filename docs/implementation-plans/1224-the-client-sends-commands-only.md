@@ -210,7 +210,10 @@ outside the client views starts as a script with its tests, unless the user asks
    since every answer carries the text as the server wrote it.
 7. **The old wire cases go.** `UpdateOrderContext`, `SelectOrderScenario`, `UpdateOrderScenario` and
    `ReopenOrderScenario` leave `OrderContextCommand`, with their mapping and their server branches.
-   The domain keeps its own old cases, which MCP and `OrderPlan.fs` use.
+   The domain keeps its own old cases, which MCP and `OrderPlan.fs` use. The preview returns the
+   context alone, and the workbench machine remembers a request as what was sent, a command or a
+   patient change, instead of a patient change standing in as `UpdateOrderContext` (decided by the
+   user, 2026-10-06).
 8. **One request stage.** Weighed after step 5: if the two machines still hold the same request
    logic, it moves into one module in Client.Core; if step 5 leaves little to share, this step is
    dropped.

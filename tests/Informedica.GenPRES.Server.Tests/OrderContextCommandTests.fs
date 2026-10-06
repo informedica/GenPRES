@@ -580,30 +580,27 @@ let tests =
                 ]
 
             testList
-                "the new cases turned into today's"
+                "the preview of a command"
                 [
                     let ctx = Fixtures.all.Value[0] |> snd
                     let ord = ctx.Scenarios[0].Order
 
-                    let ok cmd changed = changed |> Result.map (fun c -> Some cmd, c)
-
                     for cmd, expected in
                         [
-                            Api.SetNthFilterProperty(Ctx.Route, 0),
-                            ctx |> Ctx.changeFilter Ctx.Route (Some 0) |> ok Api.UpdateOrderContext
-                            Api.ClearFilterProperty Ctx.Generic,
-                            ctx |> Ctx.changeFilter Ctx.Generic None |> ok Api.UpdateOrderContext
-                            Api.ClearAllFilterProperty, Ok(Ctx.clearAll ctx) |> ok Api.UpdateOrderContext
-                            Api.SetNthDiluentProperty 1, ctx |> Ctx.changeDiluent (Some 1) |> ok Api.UpdateOrderContext
-                            Api.ClearDiluentProperty, ctx |> Ctx.changeDiluent None |> ok Api.UpdateOrderContext
-                            Api.SetNthComponentsProperty [| 1 |],
-                            ctx |> Ctx.setNthComponents [| 1 |] |> ok Api.UpdateOrderContext
-                            Api.SelectNthOrderScenario 0, ctx |> Ctx.selectNthScenario 0 |> ok Api.SelectOrderScenario
-                            Api.SetArgumentationProperty "bewust", Ok(None, ctx |> Ctx.Argumentation.write "bewust")
-                            Api.ResetOrderScenario, Ok(Some Api.ResetOrderScenario, ctx)
+                            Api.SetNthFilterProperty(Ctx.Route, 0), ctx |> Ctx.changeFilter Ctx.Route (Some 0)
+                            Api.ClearFilterProperty Ctx.Generic, ctx |> Ctx.changeFilter Ctx.Generic None
+                            Api.ClearAllFilterProperty, Ok(Ctx.clearAll ctx)
+                            Api.SetNthDiluentProperty 1, ctx |> Ctx.changeDiluent (Some 1)
+                            Api.ClearDiluentProperty, ctx |> Ctx.changeDiluent None
+                            Api.SetNthComponentsProperty [| 1 |], ctx |> Ctx.setNthComponents [| 1 |]
+                            Api.SelectNthOrderScenario 0, ctx |> Ctx.selectNthScenario 0
+                            Api.SetArgumentationProperty "bewust", Ok(ctx |> Ctx.Argumentation.write "bewust")
+                            Api.ResetOrderScenario, Ok ctx
                         ] do
                         test $"%s{Cmd.toString (cmd, ctx)}" {
-                            ctx |> Cmd.preview cmd |> Expect.equal "today's case and context" expected
+                            ctx
+                            |> Cmd.preview cmd
+                            |> Expect.equal "the context as the command changes it" expected
                         }
 
                     for target in targets ord do
@@ -616,9 +613,7 @@ let tests =
                                 |> Cmd.preview (setNthCommand target n)
                                 |> Expect.equal
                                     "the update of the scenario"
-                                    (ctx
-                                     |> Ctx.setNth target n
-                                     |> Result.map (fun c -> Some Api.UpdateOrderScenario, c.Value))
+                                    (ctx |> Ctx.setNth target n |> Result.map _.Value)
                             }
 
                             test $"%A{target} cleared" {
@@ -626,9 +621,7 @@ let tests =
                                 |> Cmd.preview (clearCommand target [| "[.x]_dos_qty" |])
                                 |> Expect.equal
                                     "the reopen with the picks"
-                                    (ctx
-                                     |> Ctx.clear target [| "[.x]_dos_qty" |]
-                                     |> Result.map (fun (c, picks) -> Some(Api.ReopenOrderScenario picks), c))
+                                    (ctx |> Ctx.clear target [| "[.x]_dos_qty" |] |> Result.map fst)
                             }
 
                             test $"%A{target} past its values" {
@@ -641,7 +634,7 @@ let tests =
                             test $"%A{target} without a list" {
                                 ctx
                                 |> Cmd.preview (setNthCommand target 0)
-                                |> Expect.equal "no command" (Ok(None, ctx))
+                                |> Expect.equal "the context as it is" (Ok ctx)
                             }
                         | _ -> ()
                 ]
