@@ -172,21 +172,31 @@ outside the client views starts as a script with its tests, unless the user asks
      the patient command, signing included, leaves every patient as sent. The age-on-request
      tests (`AgeOnRequestTests.fs`) and `HeldContextTests.parsedAt`, which test the old rule, are
      rewritten to the new one.
-5. **The argumentation as a command.** The client sends `SetArgumentationProperty` instead of
+5. **The machines hold commands.** `InFlight` holds the command under way; the workbench and the
+   plan hold the last answer; the view is the last answer with the preview of the command under
+   way. Before the argumentation step, since a command that waits behind a request can be
+   replaced by the next one, and an argumentation command replaced that way loses the text
+   (decided by the user, 2026-10-06). Two pull requests:
+   - **5a, no command while a request runs.** The dialog greys every field while a request runs,
+     the field being stepped included, so `Pending`, `Dialog.waits`, `Dialog.carries`,
+     `OrderPlanCart.waits` and `OrderPlanCart.replay` go, with the trail's waiting-command lines.
+     A command that arrives while a request runs is dropped, as the page's filter commands are
+     now. A visible change: a second step of a dose waits until the first is answered.
+   - **5b, every command over the last answer.** A command from the page carries no context; the
+     machine sends it over the answer it holds, and the plan over the plan it holds. `replaced`
+     goes from Shared, since the machines read the specific command, and the reopen keeps the
+     answer it started from instead of a whole state. Client.Core tests: the machine tests
+     rewritten over commands, their cases kept.
+6. **The argumentation as a command.** The client sends `SetArgumentationProperty` instead of
    writing the text into the held context; the server writes it, as it does now. The command goes
    when the field is left (decided by the user, 2026-10-05); until then the text shows as the
-   field's own typing. `Argue` and its `map` go from both machines.
-6. **The machines hold commands.** `InFlight` holds the command under way; the workbench and the
-   plan hold the last answer; the view is the last answer with the preview of the command under
-   way. The dialog's fields are greyed while a request runs, so `Pending`, `Dialog.carries` and
-   `OrderPlanCart.replay` go; `map` goes, and `replaced` goes, since the machines read the specific
-   command. The reopen keeps the answer it started from, not a whole state. Client.Core tests: the
-   machine tests rewritten over commands, their cases kept. Two pull requests if needed for size.
+   field's own typing. `Argue` and its `map` go from both machines, with
+   `ArgumentationPolicy.keep` and `keepAll`, since every answer carries the text as written.
 7. **The old wire cases go.** `UpdateOrderContext`, `SelectOrderScenario`, `UpdateOrderScenario` and
    `ReopenOrderScenario` leave `OrderContextCommand`, with their mapping and their server branches.
    The domain keeps its own old cases, which MCP and `OrderPlan.fs` use.
-8. **One request stage.** Weighed after step 6: if the two machines still hold the same request
-   logic, it moves into one module in Client.Core; if step 6 leaves little to share, this step is
+8. **One request stage.** Weighed after step 5: if the two machines still hold the same request
+   logic, it moves into one module in Client.Core; if step 5 leaves little to share, this step is
    dropped.
 
 ## Verification, per step
