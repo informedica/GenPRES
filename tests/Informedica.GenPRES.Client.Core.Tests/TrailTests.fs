@@ -180,9 +180,7 @@ let tests =
 
             test "a reopen shows the request it awaits and the state it keeps" {
                 OrderContextState.held pat ctxPicked
-                |> OrderContextState.transition (
-                    OrderContextMsg.Reopen(OrderContextCommand.UpdateOrderContext, ctxPicked, "r-9")
-                )
+                |> OrderContextState.transition (OrderContextMsg.Reopen(OrderContextCommand.UpdateOrderContext, "r-9"))
                 |> fst
                 |> Trail.OrderContext.state
                 |> Expect.equal "awaits and kept" "Changing ctx-1 awaits r-9 kept"
@@ -302,7 +300,7 @@ let exampleTests =
         [
             OrderContextMsg.PatientChanged(Some pat, "r-1")
             OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated ctx))
-            OrderContextMsg.Command(OrderContextCommand.UpdateOrderContext, ctxPicked, "r-2")
+            OrderContextMsg.Command(OrderContextCommand.SetNthFilterProperty(OrderContext.Generic, 0), "r-2")
             OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Refused(ctxPicked, OrderContextRefusal.NoProducts)))
         ]
         |> List.mapFold
@@ -320,7 +318,7 @@ let exampleTests =
             [
                 "#1 10:41:08.311 OrderContext PatientChanged patient 3.0 y 14.0 kg no height gender unknown r-1 -> CallContext ClearAllFilterProperty workbench r-1 | Changing workbench awaits r-1"
                 "#2 10:41:09.311 OrderContext Answered r-1 Ok Evaluated workbench no picks 0 scenarios -> none | Settled workbench"
-                "#3 10:41:10.311 OrderContext Command UpdateOrderContext ctx-1 pain/paracetamol/oral 0 scenarios r-2 -> CallContext UpdateOrderContext ctx-1 r-2, SyncFormulary, SyncParenteralia | Changing ctx-1 awaits r-2"
+                "#3 10:41:10.311 OrderContext Command SetNthFilterProperty Generic nth=0 r-2 -> CallContext SetNthFilterProperty Generic nth=0 workbench r-2, SyncFormulary, SyncParenteralia | Changing workbench awaits r-2"
                 "#4 10:41:11.311 OrderContext Answered r-2 Ok Refused ctx-1 pain/paracetamol/oral 0 scenarios NoProducts -> none | Refused ctx-1 NoProducts"
             ]
     }

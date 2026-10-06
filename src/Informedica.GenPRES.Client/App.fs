@@ -2074,11 +2074,11 @@ type private ConcreteAppEnv
     interface AppEnv.IOrderContext with
         member _.OrderContext = state.Lanes.OrderContext |> OrderContextState.viewWhile state.Lanes.Patient
 
-        member _.OrderContextMsg(cmd, ctx) =
-            OrderContextMsg(OrderContextMsg.Command(cmd, ctx, newRequest ())) |> dispatch
+        member _.OrderContextMsg cmd =
+            OrderContextMsg(OrderContextMsg.Command(cmd, newRequest ())) |> dispatch
 
-        member _.Reopen(cmd, ctx) =
-            OrderContextMsg(OrderContextMsg.Reopen(cmd, ctx, newRequest ())) |> dispatch
+        member _.Reopen cmd =
+            OrderContextMsg(OrderContextMsg.Reopen(cmd, newRequest ())) |> dispatch
 
         member _.Restore() = OrderContextMsg OrderContextMsg.Restore |> dispatch
 

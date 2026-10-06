@@ -182,11 +182,18 @@ outside the client views starts as a script with its tests, unless the user asks
      `OrderPlanCart.waits` and `OrderPlanCart.replay` go, with the trail's waiting-command lines.
      A command that arrives while a request runs is dropped, as the page's filter commands are
      now. A visible change: a second step of a dose waits until the first is answered.
-   - **5b, every command over the last answer.** A command from the page carries no context; the
-     machine sends it over the answer it holds, and the plan over the plan it holds. `replaced`
-     goes from Shared, since the machines read the specific command, and the reopen keeps the
-     answer it started from instead of a whole state. Client.Core tests: the machine tests
-     rewritten over commands, their cases kept.
+   - **5b, every command over the last answer.** Three pull requests:
+     - [#1333](https://github.com/informedica/GenPRES/pull/1333): the dialog keeps its own tab,
+       the component and the item it shows, so the page no longer writes it into the context it
+       sends (decided by the user, 2026-10-06);
+     - the workbench: a command from the page carries no context, and the machine sends it over
+       the answer it holds; `replaced` goes from Shared, since the machine reads the specific
+       command;
+     - the plan: the page names the context and the command, and the machine sends it over the
+       plan it holds and that context as answered; the dialog hands out commands only, and the
+       reopen keeps the answer it started from instead of a whole state.
+
+     Client.Core tests: the machine tests rewritten over commands, their cases kept.
 6. **The argumentation as a command.** The client sends `SetArgumentationProperty` instead of
    writing the text into the held context; the server writes it, as it does now. The command goes
    when the field is left (decided by the user, 2026-10-05); until then the text shows as the
