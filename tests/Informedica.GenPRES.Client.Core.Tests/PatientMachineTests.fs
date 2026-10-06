@@ -83,6 +83,19 @@ let tests =
                 |> Expect.equal "unchanged, nothing done" (newer, [])
             }
 
+            test "changing while a change is under way, not once it is answered or failed" {
+                [
+                    none
+                    changing renewed "r-1"
+                    transition (PatientMsg.Answered("r-1", Ok answered)) (changing renewed "r-1")
+                    |> fst
+                    transition (PatientMsg.Answered("r-1", Error [| "failed" |])) (changing renewed "r-1")
+                    |> fst
+                ]
+                |> List.map PatientState.changing
+                |> Expect.equal "only under way" [ false; true; false; false ]
+            }
+
             test "a failure is told, the draft kept" {
                 let state, effects =
                     transition (PatientMsg.Answered("r-1", Error [| "failed" |])) (changing renewed "r-1")

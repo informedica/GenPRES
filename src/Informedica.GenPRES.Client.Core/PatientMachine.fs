@@ -2,8 +2,8 @@
 /// server answers with the patient made complete. The App carries out the effects.
 ///
 /// Two invariants:
-/// - one patient change is under way at a time; a newer change replaces it, and an answer lands
-///   only on the request it names;
+/// - one patient change is under way at a time: the panel takes no edit while one is,
+///   and an answer lands only on the request it names;
 /// - the workbench, the plan and the pages get the patient as the server answered it, never the
 ///   draft.
 module PatientMachine
@@ -63,6 +63,11 @@ module PatientState =
 
     /// The request id the state waits on; None while no change is under way.
     let inFlightRequest (state: PatientState) = state.InFlight |> Option.map snd
+
+
+    /// Whether a patient change is under way, so that the panel takes no edit until it is answered:
+    /// an edit made meanwhile would start from a draft without the estimates the answer brings.
+    let changing (state: PatientState) = state.InFlight.IsSome
 
 
     /// The patient the draft is: one with an age, or a measured weight and height.
