@@ -28,7 +28,6 @@ module EnteralNutrition =
         (props:
             {|
                 nutritionContext: OrderContext
-                plan: OrderPlan
                 planNavigate: string * Api.OrderContextCommand -> unit
                 // a clear from a field's arrow, and the list of such a reopen closed without a pick
                 planReopen: string * Api.OrderContextCommand -> unit
@@ -42,7 +41,6 @@ module EnteralNutrition =
             useSlot
                 {|
                     nutritionContext = props.nutritionContext
-                    plan = props.plan
                     planNavigate = props.planNavigate
                     planReopen = props.planReopen
                     planRestore = props.planRestore
@@ -243,7 +241,6 @@ module EnteralNutrition =
             SlotView
                 {|
                     nutritionContext = nc
-                    plan = props.plan
                     planNavigate = props.planNavigate
                     planReopen = props.planReopen
                     planRestore = props.planRestore

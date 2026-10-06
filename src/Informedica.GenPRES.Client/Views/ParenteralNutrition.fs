@@ -64,7 +64,6 @@ module ParenteralNutrition =
         (props:
             {|
                 nutritionContext: OrderContext
-                plan: OrderPlan
                 planNavigate: string * Api.OrderContextCommand -> unit
                 // a clear from a field's arrow, and the list of such a reopen closed without a pick
                 planReopen: string * Api.OrderContextCommand -> unit
@@ -78,7 +77,6 @@ module ParenteralNutrition =
             useSlot
                 {|
                     nutritionContext = props.nutritionContext
-                    plan = props.plan
                     planNavigate = props.planNavigate
                     planReopen = props.planReopen
                     planRestore = props.planRestore
@@ -414,7 +412,6 @@ module ParenteralNutrition =
             SlotView
                 {|
                     nutritionContext = nc
-                    plan = props.plan
                     planNavigate = props.planNavigate
                     planReopen = props.planReopen
                     planRestore = props.planRestore
