@@ -55,9 +55,7 @@ module CompositionRoot =
                     env
                     cookie
                     PatientCommand.toString
-                    // the age and the estimates need no formulary, so a patient at the start is
-                    // never refused while it loads
-                    (fun _ -> Gate.Open)
+                    PatientCommand.gate
                     PatientCommand.patientOf
                     (PatientCommand.processCmd env cookie)
 

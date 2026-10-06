@@ -14,6 +14,22 @@ module PatientCommand =
         | PatientCommand.ChangePatient pat -> Some pat
 
 
+    /// A patient that lacks a weight or a height is refused while the server loads, since its
+    /// estimate needs the normal values; any other patient is answered.
+    let gate (cmd: PatientCommand) =
+        match cmd with
+        | PatientCommand.ChangePatient pat ->
+            let lacks (measured: 'a option) (estimated: 'a option) = measured.IsNone && estimated.IsNone
+
+            if
+                lacks pat.Weight.Measured pat.Weight.Estimated
+                || lacks pat.Height.Measured pat.Height.Estimated
+            then
+                Gate.RequiresLoaded
+            else
+                Gate.Open
+
+
     /// The patient made complete at the inbound boundary: an identified patient at the age the
     /// Session holds, whatever age the client sent, an anonymous one at the client's; for both, a
     /// weight or a height that is neither measured nor estimated is estimated from the age. The

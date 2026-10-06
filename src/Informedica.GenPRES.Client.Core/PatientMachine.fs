@@ -41,6 +41,9 @@ type PatientState =
         {
             /// The patient data as the panel edits it and the lists read it.
             Draft: Patient option
+            /// The patient as the server last answered it, the one the workbench, the plan and the
+            /// pages have.
+            Answered: Patient option
             /// What becomes of the estimates when the change under way is answered, the draft it
             /// started from, which a failure puts back, and the request id its answer must name.
             InFlight: (PatientDraftPolicy.Estimates * Patient option * string) option
@@ -53,12 +56,17 @@ module PatientState =
     let init (draft: Patient option) =
         {
             Draft = draft
+            Answered = None
             InFlight = None
         }
 
 
     /// The patient data as the panel edits it.
     let draft (state: PatientState) = state.Draft
+
+
+    /// The patient as the server last answered it; None before an answer or once cleared.
+    let answered (state: PatientState) = state.Answered
 
 
     /// The request id the state waits on; None while no change is under way.
@@ -87,7 +95,12 @@ module PatientState =
             match patient state with
             | Some pat ->
                 { state with InFlight = Some(estimates, before, request) }, [ PatientEffect.CallPatient(pat, request) ]
-            | None -> { state with InFlight = None }, [ PatientEffect.SetPatient None ]
+            | None ->
+                { state with
+                    Answered = None
+                    InFlight = None
+                },
+                [ PatientEffect.SetPatient None ]
 
         | PatientMsg.Answered(request, result) ->
             match state.InFlight, result with
@@ -99,11 +112,12 @@ module PatientState =
 
                 {
                     Draft = draft
+                    Answered = Some pat
                     InFlight = None
                 },
                 [ PatientEffect.SetPatient(Some pat) ]
             | Some(_, before, underWay), Error errs when underWay = request ->
-                {
+                { state with
                     Draft = before
                     InFlight = None
                 },

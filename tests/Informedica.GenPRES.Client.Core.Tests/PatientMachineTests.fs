@@ -96,6 +96,25 @@ let tests =
                 |> Expect.equal "only under way" [ false; true; false; false ]
             }
 
+            test "the answered patient: set by an answer, kept by a failure, cleared below the minimum" {
+                let answeredOnce =
+                    transition (PatientMsg.Answered("r-1", Ok answered)) (changing kept "r-1")
+                    |> fst
+
+                [
+                    none
+                    answeredOnce
+                    answeredOnce
+                    |> transition (PatientMsg.Changed(Some draft, kept, "r-2"))
+                    |> fst
+                    |> transition (PatientMsg.Answered("r-2", Error [| "failed" |]))
+                    |> fst
+                    answeredOnce |> transition (PatientMsg.Changed(Some below, kept, "r-2")) |> fst
+                ]
+                |> List.map PatientState.answered
+                |> Expect.equal "none, the answer, the answer kept, none" [ None; Some answered; Some answered; None ]
+            }
+
             test "a failure is told, and the draft the change started from is put back" {
                 let older = { draft with Department = Some "older" }
 
