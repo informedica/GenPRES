@@ -22,6 +22,7 @@
     <Compile Include="PatientReadinessTests.fs" />
     <Compile Include="PatientMachineTests.fs" />
     <Compile Include="PickPolicyTests.fs" />
+    <Compile Include="StepPolicyTests.fs" />
     <Compile Include="SeverityReasonPolicyTests.fs" />
     <Compile Include="QuantityModePolicyTests.fs" />
     <Compile Include="IntakePolicyTests.fs" />

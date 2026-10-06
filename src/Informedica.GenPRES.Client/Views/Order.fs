@@ -761,13 +761,6 @@ module Order =
 
         let isFieldLoading field = isOrderLoading && changing = Some(field, true)
 
-        // while a change is under way only the field changing may change again, and only
-        // on an order solved through: the lane keeps one change pending, so a second field
-        // would replace the first
-        let solved = shownOrder |> Option.map isSolved |> Option.defaultValue false
-
-        let rests field =
-            isOrderLoading && (not solved || (changing |> Option.map fst) <> Some field)
 
         // Monotonic counter bumped on every new server response (a fresh Settled
         // orderContext). Passed into stepped selects so they reset their optimistic
@@ -1041,7 +1034,7 @@ module Order =
 
         let pick = ViewHelpers.orderFixed texts false false
 
-        // a field's select: rests while another field is changing, shows it while its own is; a
+        // a field's select: rests while a field is changing, shows it while its own is; a
         // field the editing does not let change shows its value, without steps or a dropdown
         // a field reopens by its arrow when the user constrained its variable, by name; the reopen
         // keeps the picks made before it, and a list closed without a pick puts them all back
@@ -1068,7 +1061,8 @@ module Order =
                 ViewHelpers.orderSelect
                     texts
                     false
-                    (rests field)
+                    // no field changes while a change is under way: the next goes over its answer
+                    isOrderLoading
                     (isFieldLoading field)
                     lbl
                     selected

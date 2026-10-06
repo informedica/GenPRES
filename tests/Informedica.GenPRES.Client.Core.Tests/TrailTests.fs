@@ -188,13 +188,6 @@ let tests =
                 |> Expect.equal "awaits and kept" "Changing ctx-1 awaits r-9 kept"
             }
 
-            test "a dialog command that waits shows as pending" {
-                OrderContextState.opening pat "r-1"
-                |> OrderContextState.pending OrderContextCommand.SelectOrderScenario ctxPicked "r-2"
-                |> Trail.OrderContext.state
-                |> Expect.equal "pending" "Changing workbench awaits r-1 pending SelectOrderScenario ctx-1 r-2"
-            }
-
             test "a plan navigation shows the context in a message, and its id once in an effect" {
                 let cmd =
                     OrderPlanCommand.Navigate(
