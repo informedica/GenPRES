@@ -256,6 +256,22 @@ module Api =
             | ActiveOrderContextCommand.PatientChanged _ -> "PatientChanged"
 
 
+    /// The patient command family: a patient change on the panel, answered with the patient made
+    /// complete.
+    [<RequireQualifiedAccess>]
+    type PatientCommand =
+        /// The patient as the panel changed it.
+        | ChangePatient of patient: Patient
+
+
+    module PatientCommand =
+
+        /// For the log: the command alone, never the patient.
+        let toString (cmd: PatientCommand) =
+            match cmd with
+            | PatientCommand.ChangePatient _ -> "ChangePatient"
+
+
     /// The launch command family. Cut from the session family at the authentication boundary:
     /// a launch command arrives without a cookie. Room to grow: the identity callback.
     [<RequireQualifiedAccess>]
@@ -453,6 +469,8 @@ module Api =
                     -> Async<Result<Reply<OrderContextResponse>, string[]>>
             processFormulary: Request<Formulary> -> Async<Result<Reply<Formulary>, string[]>>
             processParenteralia: Request<Parenteralia> -> Async<Result<Reply<Parenteralia>, string[]>>
+            // a patient change, answered with the patient made complete
+            processPatient: Request<PatientCommand> -> Async<Result<Reply<Patient>, string[]>>
             processInteraction: Request<InteractionCommand> -> Async<Result<Reply<InteractionResponse>, string[]>>
             // the one plan, nutrition included
             processOrderPlan: Request<OrderPlanCommand> -> Async<Result<Reply<OrderPlan>, string[]>>
