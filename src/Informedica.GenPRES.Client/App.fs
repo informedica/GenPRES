@@ -1781,9 +1781,10 @@ module private Elmish =
             | InProgress
             | Refreshing _ -> state, Cmd.none
             | _ ->
+                // the formulary's patient is the one the server answered, put on it with the patient
                 let form =
                     match state.Fetches.Formulary with
-                    | Resolved form -> { form with Patient = patientOf state }
+                    | Resolved form -> form
                     | _ -> Formulary.empty
 
                 let cmd = form |> loadFormulary (tokenOf state.Lanes.Session)

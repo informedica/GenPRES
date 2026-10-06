@@ -319,7 +319,7 @@ let tests =
                         |> Expect.allEqual "the heartbeat alone" [ Session.RecordSeen(sid, later) ]
                     }
 
-                    test "bound passes the patient the request edits, as sent" {
+                    test "bound passes the patient of a patient change, as sent" {
                         let captured = ref None
 
                         let env =
@@ -330,7 +330,7 @@ let tests =
                                             fun _ _ draft ->
                                                 async {
                                                     captured.Value <- draft
-                                                    return None, None
+                                                    return None
                                                 }
                                     }
                             }
@@ -342,53 +342,29 @@ let tests =
                                 delete = ignore
                             }
 
-                        let ctx =
-                            { Shared.Models.OrderContext.empty with Patient = shown |> withWeight (Some 34000<gram>) }
+                        let pat = shown |> withWeight (Some 34000<gram>)
 
                         Compute.bound
                             env
                             cookie
                             (fun _ -> "test")
                             (fun _ -> Gate.Open)
-                            OrderContextCommand.patients
-                            OrderContextCommand.patientOf
+                            PatientCommand.patientOf
                             (fun _ -> async { return Ok() })
                             {
                                 Opened = None
-                                Command = (OrderContextCommand.UpdateOrderContext, ctx)
+                                Command = PatientCommand.ChangePatient pat
                             }
                         |> Async.RunSynchronously
                         |> ignore
 
-                        captured.Value |> Expect.equal "the context's patient" (Some ctx.Patient)
+                        captured.Value |> Expect.equal "the patient changed" (Some pat)
                     }
 
-                    test "the patient a request edits, per family" {
-                        let ctx = { Shared.Models.OrderContext.empty with Patient = shown }
-
-                        let other =
-                            { Shared.Models.OrderContext.empty with Patient = shown |> withWeight (Some 1000<gram>) }
-
-                        let plan = Shared.Models.OrderPlan.create shown [| other |]
-
-                        (OrderContextCommand.patientOf (OrderContextCommand.UpdateOrderContext, ctx),
-                         [
-                             OrderPlanCommand.Recalculate plan
-                             OrderPlanCommand.Navigate(plan, "1", OrderContextCommand.UpdateOrderContext, other)
-                             OrderPlanCommand.AddOrderContext(plan, other)
-                             OrderPlanCommand.NewOrderContext(plan, NutritionCategory.TPN)
-                             OrderPlanCommand.RemoveOrderContexts(plan, [| "1" |])
-                             OrderPlanCommand.Open(shown, [| other |])
-                         ]
-                         |> List.map OrderPlanCommand.patientOf
-                         |> List.distinct,
-                         FormularyCommand.patientOf { Shared.Models.Formulary.empty with Patient = Some shown },
-                         FormularyCommand.patientOf Shared.Models.Formulary.empty,
-                         ParenteraliaCommand.patientOf Shared.Models.Parenteralia.empty,
-                         InteractionCommand.patientOf InteractionCommand.GetDrugNames)
-                        |> Expect.equal
-                            "the context's; the plan's, never a context's own; the filter's or none; none; none"
-                            (Some shown, [ Some shown ], Some shown, None, None, None)
+                    test "only a patient change is a patient the request edits" {
+                        PatientCommand.ChangePatient shown
+                        |> PatientCommand.patientOf
+                        |> Expect.equal "the patient changed" (Some shown)
                     }
                 ]
         ]

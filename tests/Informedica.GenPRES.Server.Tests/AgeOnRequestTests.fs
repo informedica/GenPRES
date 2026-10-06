@@ -1,10 +1,8 @@
-/// The age on each request. An identified Session holds the age its patient opened on, and
-/// every request of that Session is evaluated at that age, whatever age the client sent: a
-/// computing request through Compute.bound, a signing request through its own member. No
-/// clock is read. A request without a Session, or in a Session whose EHR data names no
-/// patient, is unchanged field for field.
-/// After the age, every request patient is given the estimates of weight and height it lacks,
-/// so that a patient with an age alone is calculable while the normal values are loaded.
+/// The patients on each request. An identified Session holds the age its patient opened on; the
+/// patient change alone puts it on the patient, whatever age the client sent, and gives the
+/// patient the estimates of weight and height it lacks. Every other request, signing included,
+/// is computed with every patient as sent: no context's patient is ever rewritten. No clock is
+/// read.
 module Informedica.GenPRES.Server.Tests.AgeOnRequestTests
 
 open System
@@ -152,7 +150,7 @@ let form = { Shared.Models.Formulary.empty with Patient = Some sent }
 
 /// The command a computing request reaches its handler as, run through bound over the Session
 /// named, at the clock given.
-let boundOver (clock: unit -> DateTime) (sid: string option) patients (cmd: 'cmd) : 'cmd =
+let boundOver (clock: unit -> DateTime) (sid: string option) (cmd: 'cmd) : 'cmd =
     let seen: 'cmd option ref = ref None
     let env = envOver (portOver clock (ResizeArray()))
 
@@ -168,7 +166,7 @@ let boundOver (clock: unit -> DateTime) (sid: string option) patients (cmd: 'cmd
             return Ok()
         }
 
-    Compute.bound env (cookieOf sid) (fun _ -> "test") (fun _ -> Gate.Open) patients (fun _ -> None) handler request
+    Compute.bound env (cookieOf sid) (fun _ -> "test") (fun _ -> Gate.Open) (fun _ -> None) handler request
     |> Async.RunSynchronously
     |> ignore
 
@@ -176,7 +174,7 @@ let boundOver (clock: unit -> DateTime) (sid: string option) patients (cmd: 'cmd
     |> Option.defaultWith (fun () -> failtest "the handler was not reached")
 
 
-let over sid patients cmd = boundOver (fun () -> today) sid patients cmd
+let over sid cmd = boundOver (fun () -> today) sid cmd
 
 
 let ageInDays (pat: Informedica.GenForm.Lib.Types.Patient) =
@@ -242,7 +240,7 @@ let weightAndHeight (pat: Patient) =
 
 
 /// The command a computing request reaches its handler as, with the normal values given.
-let estimatedOver normalValues (sid: string option) patients (cmd: 'cmd) : 'cmd =
+let estimatedOver normalValues (sid: string option) (cmd: 'cmd) : 'cmd =
     let seen: 'cmd option ref = ref None
 
     let env = { envOver (portOver (fun () -> today) (ResizeArray())) with normalValues = normalValues }
@@ -259,7 +257,7 @@ let estimatedOver normalValues (sid: string option) patients (cmd: 'cmd) : 'cmd 
             return Ok()
         }
 
-    Compute.bound env (cookieOf sid) (fun _ -> "test") (fun _ -> Gate.Open) patients (fun _ -> None) handler request
+    Compute.bound env (cookieOf sid) (fun _ -> "test") (fun _ -> Gate.Open) (fun _ -> None) handler request
     |> Async.RunSynchronously
     |> ignore
 
@@ -277,8 +275,7 @@ let evaluatedWith normalValues (ctx: OrderContext) =
         (cookieOf None)
         (fun _ -> "test")
         (fun _ -> Gate.Open)
-        OrderContextCommand.patients
-        OrderContextCommand.patientOf
+        (fun _ -> None)
         (OrderContextCommand.processCmd env)
         {
             Opened = None
@@ -309,6 +306,27 @@ let resumedAfterClearing () : Patient =
     |> Option.defaultWith (fun () -> failtest "the Session resumes without a patient")
 
 
+/// The patient a patient change answers in the Session named, at the clock given, with the
+/// normal values given.
+let changedAt (clock: unit -> DateTime) normalValues (sid: string option) (pat: Patient) =
+    let env = { envOver (portOver clock (ResizeArray())) with normalValues = normalValues }
+
+    Compute.bound
+        env
+        (cookieOf sid)
+        PatientCommand.toString
+        (fun _ -> Gate.Open)
+        PatientCommand.patientOf
+        (PatientCommand.processCmd env (cookieOf sid))
+        {
+            Opened = sid |> Option.map (fun sid -> OpenedToken $"opened-{sid}")
+            Command = PatientCommand.ChangePatient pat
+        }
+    |> Async.RunSynchronously
+    |> Result.map _.Response
+    |> Result.defaultWith (fun errs -> failtest $"%A{errs}")
+
+
 /// The answer to a signing command and the plan the session port was asked over, with the
 /// normal values given.
 let signedWith normalValues (sid: string option) (cmd: SigningCommand) =
@@ -324,7 +342,7 @@ let signedWith normalValues (sid: string option) (cmd: SigningCommand) =
 [<Tests>]
 let tests =
     testList
-        "the age on each request"
+        "the patients on each request"
         [
             testList
                 "the age a Session holds"
@@ -340,27 +358,49 @@ let tests =
                         |> Expect.allEqual "none, every one" None
                     }
 
-                    test "seen tells the age beside the notice" {
+                    test "seen marks the Session and tells no age: only the patient change asks it" {
                         let _, told, writes =
                             Session.seen today identified (Some(OpenedToken $"opened-{identified}")) None state
 
                         (told, writes |> List.length)
-                        |> Expect.equal "no notice, the age, and the one touch" ((None, Some sessionAge), 1)
+                        |> Expect.equal "no notice, and the one touch" (None, 1)
                     }
                 ]
 
             testList
-                "an identified request is evaluated at the Session's age"
+                "the patient change sets the age"
                 [
-                    test "the order context's patient, its measured weight kept" {
-                        let _, ctx =
-                            over
-                                (Some identified)
-                                OrderContextCommand.patients
-                                (OrderContextCommand.UpdateOrderContext, context)
+                    test "an identified patient gets the Session's age, whatever age the client sent" {
+                        (changedAt (fun () -> today) loaded (Some identified) sent).Age
+                        |> Expect.equal "the Session's age" (Some sessionAge)
+                    }
 
-                        (ctx.Patient.Age, ctx.Patient.Weight.Measured)
-                        |> Expect.equal "the Session's age, the weight as measured" (Some sessionAge, Some 12000<gram>)
+                    test "two changes of one Session use one age, whatever the clock does between them" {
+                        let clock = ref today
+                        let first = (changedAt (fun () -> clock.Value) loaded (Some identified) sent).Age
+                        clock.Value <- today.AddDays 400.0
+                        let second = (changedAt (fun () -> clock.Value) loaded (Some identified) sent).Age
+
+                        (first, second)
+                        |> Expect.equal "the age of the open, both times" (Some sessionAge, Some sessionAge)
+                    }
+
+                    test "without an identity the client's age stays" {
+                        for sid in [ None; Some anonymous; Some entered; Some "nobody" ] do
+                            (changedAt (fun () -> today) loaded sid sent).Age
+                            |> Expect.equal $"the client's age, %A{sid}" sent.Age
+                    }
+                ]
+
+            testList
+                "every other request leaves every patient as sent"
+                [
+                    test "the order context's patient, in an identified Session and without one" {
+                        for sid in [ Some identified; None; Some anonymous; Some entered; Some "nobody" ] do
+                            over sid (OrderContextCommand.UpdateOrderContext, context)
+                            |> Expect.equal
+                                $"the order context as sent, %A{sid}"
+                                (OrderContextCommand.UpdateOrderContext, context)
                     }
 
                     test "the plan's patient and that of every context, on every plan command" {
@@ -372,30 +412,17 @@ let tests =
                             OrderPlanCommand.RemoveOrderContexts(plan, [| "1" |])
                             OrderPlanCommand.Open(sent, [| context |])
                         ]
-                        |> List.map (fun cmd ->
-                            let patients =
-                                match over (Some identified) OrderPlanCommand.patients cmd with
-                                | OrderPlanCommand.Recalculate plan
-                                | OrderPlanCommand.NewOrderContext(plan, _)
-                                | OrderPlanCommand.RemoveOrderContexts(plan, _) -> Patient.ofPlan plan
-                                | OrderPlanCommand.Navigate(plan, _, _, ctx)
-                                | OrderPlanCommand.AddOrderContext(plan, ctx) -> Patient.ofPlan plan @ [ ctx.Patient ]
-                                | OrderPlanCommand.Open(pat, contexts) ->
-                                    pat :: (contexts |> Array.map _.Patient |> Array.toList)
-
-                            patients |> List.map _.Age |> List.distinct
+                        |> List.iter (fun cmd ->
+                            over (Some identified) cmd
+                            |> Expect.equal $"the plan command as sent, %A{cmd}" cmd
                         )
-                        |> Expect.allEqual "the Session's age on every patient" [ Some sessionAge ]
                     }
 
-                    test "the formulary's patient where it has one; without one it stays unfiltered" {
-                        ((over (Some identified) FormularyCommand.patients form).Patient
-                         |> Option.bind _.Age,
-                         (over (Some identified) FormularyCommand.patients Shared.Models.Formulary.empty).Patient)
-                        |> Expect.equal "the Session's age; none" (Some sessionAge, None)
+                    test "the formulary's patient" {
+                        over (Some identified) form |> Expect.equal "the formulary as sent" form
                     }
 
-                    test "the plan passed to the session port for a challenge and for a submission carries it" {
+                    test "the plan passed to the session port for a challenge and for a submission" {
                         let token = OpenedToken $"opened-{identified}"
 
                         let submission: Submission =
@@ -420,68 +447,12 @@ let tests =
                                 |> List.map ageInDays
                                 |> List.distinct
                         )
-                        |> Expect.allEqual "3841 days on the plan's patient and on every context's" [ Some 3841N ]
-                    }
-
-                    test "two requests of one Session use one age, whatever the clock does between them" {
-                        let clock = ref today
-
-                        let ageOf () =
-                            let _, ctx =
-                                boundOver
-                                    (fun () -> clock.Value)
-                                    (Some identified)
-                                    OrderContextCommand.patients
-                                    (OrderContextCommand.UpdateOrderContext, context)
-
-                            ctx.Patient.Age
-
-                        let first = ageOf ()
-                        clock.Value <- today.AddDays 400.0
-                        let second = ageOf ()
-
-                        (first, second)
-                        |> Expect.equal "the age of the open, both times" (Some sessionAge, Some sessionAge)
+                        |> Expect.allEqual "the five years the client sent, on every patient" [ Some 1825N ]
                     }
                 ]
 
             testList
-                "a request without an identity is unchanged"
-                [
-                    test "without a Session, or in a Session without an identity: field for field" {
-                        for sid in [ None; Some anonymous; Some entered; Some "nobody" ] do
-                            over sid OrderContextCommand.patients (OrderContextCommand.UpdateOrderContext, context)
-                            |> Expect.equal
-                                $"the order context as sent, %A{sid}"
-                                (OrderContextCommand.UpdateOrderContext, context)
-
-                            over sid OrderPlanCommand.patients (OrderPlanCommand.Recalculate plan)
-                            |> Expect.equal $"the plan as sent, %A{sid}" (OrderPlanCommand.Recalculate plan)
-
-                            over sid FormularyCommand.patients form
-                            |> Expect.equal $"the formulary as sent, %A{sid}" form
-                    }
-
-                    test "the plan of a signing request as sent" {
-                        let token = OpenedToken $"opened-{entered}"
-
-                        match signedOver (Some entered) (SigningCommand.RequestSignChallenge(plan, token, None)) with
-                        | None -> failtest "the port was not asked"
-                        | Some parsed ->
-                            parsed.Patient
-                            |> ageInDays
-                            |> Expect.equal "the five years the client sent" (Some 1825N)
-                    }
-
-                    test "the families without a patient are the identity" {
-                        (ParenteraliaCommand.patients (Patient.aged (Some sessionAge)) Shared.Models.Parenteralia.empty,
-                         InteractionCommand.patients (Patient.aged (Some sessionAge)) InteractionCommand.GetDrugNames)
-                        |> Expect.equal "as given" (Shared.Models.Parenteralia.empty, InteractionCommand.GetDrugNames)
-                    }
-                ]
-
-            testList
-                "the estimates a request patient lacks"
+                "the estimates a patient lacks"
                 [
                     test "an age alone gets a weight and a height" {
                         ageOnly 10
@@ -549,71 +520,42 @@ let tests =
                         |> Expect.equal "refused" (Error [| Patient.noWeightAndHeight |])
                     }
 
-                    test "an age-only order context patient is computed on the estimate" {
-                        let _, ctx =
-                            estimatedOver
-                                loaded
-                                None
-                                OrderContextCommand.patients
-                                (OrderContextCommand.UpdateOrderContext,
-                                 { Shared.Models.OrderContext.empty with Patient = ageOnly 10 })
-
-                        ctx.Patient
-                        |> weightAndHeight
-                        |> Expect.equal "32 kg and 140 cm" (Some 32000<gram>, Some 140<cm>)
-                    }
-
-                    test "every patient of an age-only order plan is computed on the estimate" {
-                        let ctx = { Shared.Models.OrderContext.empty with Patient = ageOnly 10 }
-
-                        let plan = Shared.Models.OrderPlan.create (ageOnly 10) [| ctx; ctx |]
-
-                        match
-                            estimatedOver loaded None OrderPlanCommand.patients (OrderPlanCommand.Recalculate plan)
-                        with
-                        | OrderPlanCommand.Recalculate plan -> Patient.ofPlan plan |> List.map weightAndHeight
-                        | _ -> failtest "another command"
-                        |> Expect.allEqual "32 kg and 140 cm" (Some 32000<gram>, Some 140<cm>)
-                    }
-
-                    test "the Session's age is put on first, and the estimate follows it" {
-                        // the client sends five years; the Session holds ten and a half
-                        let _, ctx =
-                            estimatedOver
-                                loaded
-                                (Some identified)
-                                OrderContextCommand.patients
-                                (OrderContextCommand.UpdateOrderContext,
-                                 { Shared.Models.OrderContext.empty with Patient = ageOnly 5 })
-
-                        (ctx.Patient.Age, ctx.Patient |> weightAndHeight)
+                    test "the patient change estimates at the Session's age, not the client's" {
+                        changedAt (fun () -> today) loaded (Some identified) (ageOnly 5)
+                        |> fun pat -> pat.Age, pat |> weightAndHeight
                         |> Expect.equal
                             "the Session's age, the ten-year estimate"
                             (Some sessionAge, (Some 32000<gram>, Some 140<cm>))
                     }
 
-                    test "a command without a patient never asks the normal values" {
-                        let ask, count = counting (Some tables)
+                    test "an age-only patient on another request is not estimated: the patient change is" {
+                        let ctx = { Shared.Models.OrderContext.empty with Patient = ageOnly 10 }
 
-                        estimatedOver ask None InteractionCommand.patients InteractionCommand.GetDrugNames
-                        |> ignore
+                        estimatedOver loaded None (OrderContextCommand.UpdateOrderContext, ctx)
+                        |> Expect.equal "the context as sent" (OrderContextCommand.UpdateOrderContext, ctx)
+                    }
+
+                    test "a request other than a patient change never asks the normal values" {
+                        let ask, count = counting (Some tables)
+                        let ctx = { Shared.Models.OrderContext.empty with Patient = ageOnly 10 }
+
+                        estimatedOver ask None (OrderContextCommand.UpdateOrderContext, ctx) |> ignore
 
                         count.Value |> Expect.equal "asked none: asking may load" 0
                     }
 
-                    test
-                        "a Session resumed after its weight and height were cleared is refused without the normal values" {
-                        { Shared.Models.OrderContext.empty with Patient = resumedAfterClearing () }
-                        |> evaluatedWith (fun () -> None)
-                        |> Result.mapError List.ofArray
-                        |> Expect.equal "refused" (Error [ Patient.noWeightAndHeight ])
+                    test "a Session resumed after its weight and height were cleared gets them from the patient change" {
+                        changedAt (fun () -> today) loaded (Some identified) (resumedAfterClearing ())
+                        |> Patient.patient
+                        |> Result.isOk
+                        |> Expect.isTrue "a patient, its weight and height estimated"
                     }
 
-                    test "a Session resumed after its weight and height were cleared computes with them" {
+                    test "a Session resumed after its weight and height were cleared is refused as sent" {
                         { Shared.Models.OrderContext.empty with Patient = resumedAfterClearing () }
                         |> evaluatedWith loaded
-                        |> Result.isOk
-                        |> Expect.isTrue "computed"
+                        |> Result.mapError List.ofArray
+                        |> Expect.equal "refused" (Error [ Patient.noWeightAndHeight ])
                     }
 
                     test "signing takes no estimate: the plan is signed as sent, whatever the normal values" {

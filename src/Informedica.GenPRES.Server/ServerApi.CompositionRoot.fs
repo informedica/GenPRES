@@ -16,8 +16,12 @@ module CompositionRoot =
         (enrolment: EnrolmentCookie)
         : IServerApi
         =
+        let noPatient _ : Shared.Types.Patient option = None
+
         {
             // every computing member goes through Compute.bound: the log, the Session marked seen
+            // and told what a patient change measures, the gate, the exception as an Error;
+            // only the patient member records a patient
             // and told, the gate, the exception as an Error
             processOrderContext =
                 Compute.bound
@@ -25,8 +29,7 @@ module CompositionRoot =
                     cookie
                     ActiveOrderContextCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
-                    OrderContextCommand.patientsActive
-                    OrderContextCommand.patientOfActive
+                    noPatient
                     (OrderContextCommand.processActive env)
 
             processFormulary =
@@ -35,8 +38,7 @@ module CompositionRoot =
                     cookie
                     FormularyCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
-                    FormularyCommand.patients
-                    FormularyCommand.patientOf
+                    noPatient
                     (FormularyCommand.processCmd env)
 
             processParenteralia =
@@ -45,8 +47,7 @@ module CompositionRoot =
                     cookie
                     ParenteraliaCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
-                    ParenteraliaCommand.patients
-                    ParenteraliaCommand.patientOf
+                    noPatient
                     (ParenteraliaCommand.processCmd env)
 
             processPatient =
@@ -54,10 +55,11 @@ module CompositionRoot =
                     env
                     cookie
                     PatientCommand.toString
-                    (fun _ -> Gate.RequiresLoaded)
-                    PatientCommand.patients
+                    // the age and the estimates need no formulary, so a patient at the start is
+                    // never refused while it loads
+                    (fun _ -> Gate.Open)
                     PatientCommand.patientOf
-                    PatientCommand.processCmd
+                    (PatientCommand.processCmd env cookie)
 
             // the one plan, nutrition included
             processOrderPlan =
@@ -66,8 +68,7 @@ module CompositionRoot =
                     cookie
                     OrderPlanCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
-                    OrderPlanCommand.patients
-                    OrderPlanCommand.patientOf
+                    noPatient
                     (OrderPlanCommand.processCmd env)
 
             // the one member whose gate differs per command: the drug names run open
@@ -77,8 +78,7 @@ module CompositionRoot =
                     cookie
                     InteractionCommand.toString
                     InteractionCommand.gate
-                    InteractionCommand.patients
-                    InteractionCommand.patientOf
+                    noPatient
                     (InteractionCommand.processCmd env)
 
             processLaunch =

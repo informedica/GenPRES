@@ -489,7 +489,3 @@ module OrderContextMapper =
         | DtoError.UnknownTextKind s -> $"Onbekende tekstsoort: %s{s}"
         | DtoError.UnknownCategory s -> $"Onbekende categorie: %s{s}"
         | DtoError.Missing f -> $"Ontbreekt: %s{f}"
-
-
-    /// The context with its patient mapped.
-    let patients (f: Patient -> Patient) (ctx: OrderContext) : OrderContext = { ctx with Patient = f ctx.Patient }

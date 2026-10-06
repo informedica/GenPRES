@@ -25,15 +25,16 @@ let changed normalValues (sid: string option) (pat: Patient) =
                     port.seen sid opened draft
         }
 
+    let env = { envOver port with normalValues = normalValues }
+
     let answer =
         Compute.bound
-            { envOver port with normalValues = normalValues }
+            env
             (cookieOf sid)
             PatientCommand.toString
             (fun _ -> Gate.Open)
-            PatientCommand.patients
             PatientCommand.patientOf
-            PatientCommand.processCmd
+            (PatientCommand.processCmd env (cookieOf sid))
             {
                 Opened = sid |> Option.map (fun sid -> OpenedToken $"opened-{sid}")
                 Command = PatientCommand.ChangePatient pat

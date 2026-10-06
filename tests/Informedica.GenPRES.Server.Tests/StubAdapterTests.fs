@@ -34,10 +34,7 @@ module Machine =
 
     let touch now sid state = ServerApi.Session.touch now sid state |> fst
 
-    /// The notice alone: the age the machine tells beside it has its own tests.
-    let seen now sid opened state =
-        let state, (notice, _) = ServerApi.Session.seen now sid opened None state |> answered
-        state, notice
+    let seen now sid opened state = ServerApi.Session.seen now sid opened None state |> answered
 
     let openVersion now newId sid id state = ServerApi.Session.openVersion now newId sid id state |> answered
 
@@ -128,7 +125,7 @@ module StubAdapters =
             dropEnrolment = fun _ -> async { return () }
             challenge = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             submit = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
-            seen = fun _ _ _ -> async { return None, None }
+            seen = fun _ _ _ -> async { return None }
             age = fun _ -> async { return Ok None }
             openVersion = fun _ _ -> async { return None }
             refresh = fun _ -> async { return None }
@@ -291,8 +288,7 @@ let requireLoadedTests =
             noCookie
             Api.OrderContextCommand.toString
             (fun _ -> Gate.RequiresLoaded)
-            OrderContextCommand.patients
-            OrderContextCommand.patientOf
+            (fun _ -> None)
             (OrderContextCommand.processCmd env)
             {
                 Opened = None
@@ -5171,7 +5167,7 @@ module BoundTests =
 
         { env with
             requireLoaded = (fun () -> if loaded then None else Some [| "not loaded" |])
-            session = { env.session with seen = fun _ _ _ -> async { return told, None } }
+            session = { env.session with seen = fun _ _ _ -> async { return told } }
         }
 
     let run env cookie handler cmd =
@@ -5180,8 +5176,7 @@ module BoundTests =
             cookie
             OrderContextCommand.toString
             (fun _ -> Gate.RequiresLoaded)
-            OrderContextCommand.patients
-            OrderContextCommand.patientOf
+            (fun _ -> None)
             handler
             {
                 Opened = None
@@ -5197,8 +5192,7 @@ module BoundTests =
             cookie
             InteractionCommand.toString
             InteractionCommand.gate
-            InteractionCommand.patients
-            InteractionCommand.patientOf
+            (fun _ -> None)
             (InteractionCommand.processCmd env)
             {
                 Opened = None

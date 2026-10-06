@@ -63,42 +63,6 @@ module OrderPlanCommand =
             }
 
 
-    /// The plan's patient and that of every context in it mapped.
-    let patientsPlan (f: Patient -> Patient) (plan: OrderPlan) : OrderPlan =
-        { plan with
-            Patient = f plan.Patient
-            OrderContexts = plan.OrderContexts |> Array.map (OrderContextMapper.patients f)
-        }
-
-
-    /// Every patient the command carries mapped: the plan's and its contexts', and the
-    /// context's where the command carries one.
-    let patients (f: Patient -> Patient) (cmd: OrderPlanCommand) : OrderPlanCommand =
-        match cmd with
-        | OrderPlanCommand.Recalculate plan -> OrderPlanCommand.Recalculate(patientsPlan f plan)
-        | OrderPlanCommand.Navigate(plan, contextId, ctxCmd, ctx) ->
-            OrderPlanCommand.Navigate(patientsPlan f plan, contextId, ctxCmd, OrderContextMapper.patients f ctx)
-        | OrderPlanCommand.AddOrderContext(plan, ctx) ->
-            OrderPlanCommand.AddOrderContext(patientsPlan f plan, OrderContextMapper.patients f ctx)
-        | OrderPlanCommand.NewOrderContext(plan, category) ->
-            OrderPlanCommand.NewOrderContext(patientsPlan f plan, category)
-        | OrderPlanCommand.RemoveOrderContexts(plan, ids) ->
-            OrderPlanCommand.RemoveOrderContexts(patientsPlan f plan, ids)
-        | OrderPlanCommand.Open(pat, contexts) ->
-            OrderPlanCommand.Open(f pat, contexts |> Array.map (OrderContextMapper.patients f))
-
-
-    /// The patient the request edits: the plan's, the panel's; not a context's own.
-    let patientOf (cmd: OrderPlanCommand) =
-        match cmd with
-        | OrderPlanCommand.Recalculate plan
-        | OrderPlanCommand.Navigate(plan, _, _, _)
-        | OrderPlanCommand.AddOrderContext(plan, _)
-        | OrderPlanCommand.NewOrderContext(plan, _)
-        | OrderPlanCommand.RemoveOrderContexts(plan, _) -> Some plan.Patient
-        | OrderPlanCommand.Open(pat, _) -> Some pat
-
-
     /// The plan's patient and that of every context it carries, and the context's where a
     /// command carries one, made at the inbound boundary; the plan and the context parsed into
     /// the domain, the verb mapped, the port asked, the answer mapped out with the environment's
