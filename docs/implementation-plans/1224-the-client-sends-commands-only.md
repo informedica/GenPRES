@@ -31,9 +31,11 @@ The client changes an order context itself, outside any command, in these places
   `OrderContextState.map` in `App.fs`), which also drop the diluent, the components and the
   scenarios, before the seed goes out.
 - **The patients.** `Compute.bound` puts the Session's age and the estimates on every patient of
-  every request: the order context being worked on, the plan's own patient, every context in the
-  plan, the plan being signed, and the formulary and parenteralia pages. A context's patient is
-  then rewritten, and a patient change on the panel reaches the server in several ways.
+  every computing request: the order context being worked on, the plan's own patient, every
+  context in the plan, and the formulary and parenteralia pages. Signing, which does not go through
+  `Compute.bound`, puts the Session's age, without estimates, on the plan's patient and on every
+  context in the plan (`SigningCommand.processCmd`). A context's patient is then rewritten, and a
+  patient change on the panel reaches the server in several ways.
 - **The argumentation.** The client writes the text into the held context (`Argue`, through `map`
   and `ArgumentationPolicy`); it travels inside every later command. `SetArgumentationProperty` is
   in the contract and handled by the server, but the client never sends it.
@@ -97,10 +99,14 @@ The two machines also hold the same request logic twice (`InFlight`, `Pending`, 
    the server computes the age, for an anonymous one the client sets it, and for both the server
    estimates a missing weight or height from the age. A patient change is one command, answered
    with the patient made complete; the client puts that patient on the plan, on the order context
-   being worked on, and on the formulary and parenteralia pages. No other request changes a
-   patient, and no context's patient is ever rewritten: an order context keeps the patient it was
-   evaluated for, and signing fixes the patient and the rest of the context, its order can still
-   be changed.
+   being worked on, and on the formulary and parenteralia pages. Launch sets the first patient; every
+   later change goes through this command. No other request changes a patient: the server takes
+   the patient it is sent and only checks that it is valid. No context's patient is ever
+   rewritten: an order context keeps the patient it was evaluated for, and signing fixes the
+   patient and the rest of the context, its order can still be changed. The case that evaluates
+   the order context being worked on for the changed patient is named `PatientChanged`, on the wire
+   (`ActiveOrderContextCommand`) and in the domain (`OrderContext.Command`): it reports a patient
+   changed elsewhere, it does not change one.
 
 ## Steps
 
@@ -126,18 +132,20 @@ outside the client views starts as a script with its tests, unless the user asks
    patient, the client's for an anonymous one; a missing weight or height estimated from the age,
    for both) and answered as it is then. The Session records the change from this command, no
    longer from every request (`patientOf` and `seen` in `Compute.bound`). `Compute.bound` stops
-   changing patients: `patients`, `patientsPlan`, `patientsActive`, `SigningCommand.patients` and
-   the formulary, parenteralia and interaction versions go, with the age and estimate step in
-   `ServerApi.Compute.fs`; the check that a patient is valid (`Patient.over`) stays. No context's
-   patient is touched on any path, signing included. The `ChangePatient` of the order context being
-   worked on (`ActiveOrderContextCommand`) then only evaluates that context again for a patient
-   already complete. Tests: the age and the estimates for an identified and an anonymous patient;
+   changing patients: `patients`, `patientsPlan`, `patientsActive` and the formulary, parenteralia
+   and interaction versions go, with the age and estimate step in `ServerApi.Compute.fs`. Signing
+   stops putting the Session's age on the plan: `SigningCommand.patients` goes from
+   `SigningCommand.processCmd`. The check that a patient is valid (`Patient.over`) stays. No
+   context's patient is touched on any path, signing included. `ChangePatient` of the order context
+   being worked on is renamed `PatientChanged`, on the wire (`ActiveOrderContextCommand`) and in the
+   domain (`OrderContext.Command`); it only evaluates that context again for a patient already
+   complete. Tests: the age and the estimates for an identified and an anonymous patient;
    every other request, signing included, leaves every patient as sent. The age-on-request tests
    (`AgeOnRequestTests.fs`) and `HeldContextTests.parsedAt`, which test the old rule, are rewritten
    to the new one.
 4. **The seed and patient commands, client side.** A patient change on the panel goes as the
    patient command of step 3; on its answer the client puts the patient on the plan (through
-   `Recalculate`), on the order context being worked on (`ActiveOrderContextCommand.ChangePatient`)
+   `Recalculate`), on the order context being worked on (`ActiveOrderContextCommand.PatientChanged`)
    and on the formulary and parenteralia pages. The order context machine sends `SeedFilter` for
    every seed and `ClearAllFilterProperty` for an open and a reset; `App.fs` sends the page's
    choices instead of writing them into the held context, and `syncFormularyToFilter` and
