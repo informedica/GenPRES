@@ -2094,8 +2094,11 @@ type private ConcreteAppEnv
         member _.OrderPlanCommand cmd =
             OrderPlanMsg(OrderPlanMsg.Command(cmd, newRequest ())) |> dispatch
 
-        member _.Reopen cmd =
-            OrderPlanMsg(OrderPlanMsg.Reopen(cmd, newRequest ())) |> dispatch
+        member _.Navigate(id, cmd) =
+            OrderPlanMsg(OrderPlanMsg.Navigate(id, cmd, newRequest ())) |> dispatch
+
+        member _.Reopen(id, cmd) =
+            OrderPlanMsg(OrderPlanMsg.Reopen(id, cmd, newRequest ())) |> dispatch
 
         member _.Restore() = OrderPlanMsg OrderPlanMsg.Restore |> dispatch
 

@@ -1003,21 +1003,49 @@ let awaitsTests =
 
 
 [<Tests>]
+let navigateTests =
+    let step = OrderContextCommand.IncreaseScheduleFrequencyProperty
+    let open' = held two (Some "c-1")
+
+    testList
+        "a command from the order dialog"
+        [
+            test "goes over the plan held and that context as answered" {
+                let sent = OrderPlanCommand.Navigate(two, "c-1", step, two.OrderContexts[0])
+
+                open'
+                |> OrderPlanState.transition (OrderPlanMsg.Navigate("c-1", step, "r-1"))
+                |> snd
+                |> Expect.equal "the step over the context held" [ OrderPlanEffect.CallPlan(sent, "r-1") ]
+            }
+
+            test "goes nowhere for a context the plan does not hold" {
+                open'
+                |> OrderPlanState.transition (OrderPlanMsg.Navigate("gone", step, "r-1"))
+                |> Expect.equal "nothing sent" (open', [])
+            }
+        ]
+
+
+[<Tests>]
 let reopenTests =
-    // the context as the dialog sends it with a field cleared, and as the server answers it
-    let cleared = context "c-1" "paracetamol-cleared"
+    // the context as the server answers a clear
     let reopened = context "c-1" "paracetamol-reopened"
     let answer = plan [| reopened; context "c-2" "ibuprofen" |]
     let open' = held two (Some "c-1")
-    let clear = OrderPlanCommand.Navigate(two, "c-1", OrderContextCommand.ReopenOrderScenario [||], cleared)
+    let reopen request =
+        OrderPlanMsg.Reopen("c-1", OrderContextCommand.ReopenOrderScenario [||], request)
+    // the clear as the machine sends it, over the plan and the context held
+    let clear =
+        OrderPlanCommand.Navigate(two, "c-1", OrderContextCommand.ReopenOrderScenario [||], two.OrderContexts[0])
     let move = OrderPlanState.transition
     let run msgs state = msgs |> List.fold (fun s m -> move m s |> fst) state
 
     testList
         "OrderPlanState.transition, a reopen and a restore"
         [
-            test "a reopen sends the clear and counts as a change" {
-                let state, effects = open' |> move (OrderPlanMsg.Reopen(clear, "r-1"))
+            test "a reopen sends the clear over the context held and counts as a change" {
+                let state, effects = open' |> move (reopen "r-1")
 
                 effects
                 |> Expect.equal "the clear goes out" [ OrderPlanEffect.CallPlan(clear, "r-1") ]
@@ -1028,7 +1056,7 @@ let reopenTests =
             }
 
             test "a restore before the answer puts the plan back as signed, and the late answer is dropped" {
-                let restored = open' |> run [ OrderPlanMsg.Reopen(clear, "r-1"); OrderPlanMsg.Restore ]
+                let restored = open' |> run [ reopen "r-1"; OrderPlanMsg.Restore ]
 
                 restored |> Expect.equal "the state before the click" open'
 
@@ -1038,9 +1066,7 @@ let reopenTests =
             }
 
             test "a restore after the answer puts the plan back as signed" {
-                let answered =
-                    open'
-                    |> run [ OrderPlanMsg.Reopen(clear, "r-1"); OrderPlanMsg.Answered("r-1", Ok answer) ]
+                let answered = open' |> run [ reopen "r-1"; OrderPlanMsg.Answered("r-1", Ok answer) ]
 
                 answered
                 |> OrderPlanState.plan
@@ -1055,7 +1081,7 @@ let reopenTests =
                 let changed = open' |> OrderPlanState.withWork PlanWork.Changed
 
                 changed
-                |> run [ OrderPlanMsg.Reopen(clear, "r-1"); OrderPlanMsg.Restore ]
+                |> run [ reopen "r-1"; OrderPlanMsg.Restore ]
                 |> Expect.equal "as before the click" changed
             }
 
@@ -1066,7 +1092,7 @@ let reopenTests =
                     open'
                     |> run
                         [
-                            OrderPlanMsg.Reopen(clear, "r-1")
+                            reopen "r-1"
                             OrderPlanMsg.Answered("r-1", Ok answer)
                             OrderPlanMsg.Command(pick, "r-2")
                         ]
@@ -1086,9 +1112,7 @@ let reopenTests =
                 let remove = OrderPlanCommand.RemoveOrderContexts(two, [| "c-2" |])
                 let busy = open' |> move (OrderPlanMsg.Command(remove, "r-1")) |> fst
 
-                busy
-                |> move (OrderPlanMsg.Reopen(clear, "r-2"))
-                |> Expect.equal "dropped, nothing sent" (busy, [])
+                busy |> move (reopen "r-2") |> Expect.equal "dropped, nothing sent" (busy, [])
 
                 let settled = busy |> run [ OrderPlanMsg.Answered("r-1", Ok two) ]
 
@@ -1100,7 +1124,7 @@ let reopenTests =
             test "a reopen is not admitted while a signature is under way; a restore is" {
                 let signing = SigningMachine.SigningView.Requesting
 
-                OrderPlanMsg.Reopen(clear, "r-1")
+                reopen "r-1"
                 |> OrderPlanState.admitted signing noPatientChange
                 |> Expect.isFalse "reopen not admitted"
 

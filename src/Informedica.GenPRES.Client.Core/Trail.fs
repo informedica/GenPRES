@@ -475,7 +475,10 @@ module OrderPlan =
         | OrderPlanMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result Part.plan}"
         | OrderPlanMsg.Select id -> $"Select %s{id |> Part.orNone Part.shortId}"
         | OrderPlanMsg.Filter(ids, request) -> $"Filter %i{ids.Length} %s{Part.shortId request}"
-        | OrderPlanMsg.Reopen(cmd, request) -> $"Reopen %s{Part.planCommand Part.context cmd} %s{Part.shortId request}"
+        | OrderPlanMsg.Navigate(id, cmd, request) ->
+            $"Navigate %s{id} %s{OrderContextCommand.toString (cmd, OrderContext.empty)} %s{Part.shortId request}"
+        | OrderPlanMsg.Reopen(id, cmd, request) ->
+            $"Reopen %s{id} %s{OrderContextCommand.toString (cmd, OrderContext.empty)} %s{Part.shortId request}"
         | OrderPlanMsg.Restore -> "Restore"
         | OrderPlanMsg.Signed -> "Signed"
         | OrderPlanMsg.Argue(id, _) -> $"Argue %s{Part.shortId id}"

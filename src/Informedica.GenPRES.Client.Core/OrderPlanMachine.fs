@@ -198,6 +198,9 @@ type OrderPlanMsg =
     | Version of SignedOrderPlan * request: string
     /// A change to the plan from a page.
     | Command of OrderPlanCommand * request: string
+    /// A command from the order dialog into the plan's context with this id, sent over the plan
+    /// held and that context as answered.
+    | Navigate of contextId: string * OrderContextCommand * request: string
     /// The answer to the request with this id; Error is a failure of the server or the call.
     | Answered of request: string * Result<OrderPlan, string[]>
     /// The context the dialog shows, by id.
@@ -206,7 +209,7 @@ type OrderPlanMsg =
     | Filter of string[] * request: string
     /// A clear from the dialog that opens the field's list: the command goes out as a change, and
     /// the plan before it is kept to be put back.
-    | Reopen of OrderPlanCommand * request: string
+    | Reopen of contextId: string * OrderContextCommand * request: string
     /// The list of a reopen closed without a pick: the plan kept is put back, with whether it had
     /// changed since the version last opened or signed, and the answer to the clear is dropped.
     | Restore
@@ -529,6 +532,15 @@ module OrderPlanState =
                     Opened = [||]
                 }
         | OrderPlanMsg.Command(cmd, request) -> run request (OrderPlanCartMsg.Command cmd) state
+        // nothing to navigate into without the context
+        | OrderPlanMsg.Navigate(id, ctxCmd, request) ->
+            match state.Cart with
+            | OrderPlanCart.Opened(_, tp) ->
+                match tp.OrderContexts |> Array.tryFind (fun c -> c.Id = id) with
+                | Some ctx ->
+                    run request (OrderPlanCartMsg.Command(OrderPlanCommand.Navigate(tp, id, ctxCmd, ctx))) state
+                | None -> state, []
+            | OrderPlanCart.NoPatient _ -> state, []
         | OrderPlanMsg.Filter(ids, request) -> run request (OrderPlanCartMsg.Filter ids) state
         // the argumentation needs no request; a changed text counts as a change to the plan
         | OrderPlanMsg.Argue(id, text) ->
@@ -570,11 +582,11 @@ module OrderPlanState =
     /// finds no request to land on after a restore.
     let transition (msg: OrderPlanMsg) (state: OrderPlanState) : OrderPlanState * OrderPlanEffect list =
         match msg with
-        | OrderPlanMsg.Reopen(cmd, request) when state.InFlight.IsSome ->
-            move (OrderPlanMsg.Command(cmd, request)) { state with Kept = None }
-        | OrderPlanMsg.Reopen(cmd, request) ->
+        | OrderPlanMsg.Reopen(id, cmd, request) when state.InFlight.IsSome ->
+            move (OrderPlanMsg.Navigate(id, cmd, request)) { state with Kept = None }
+        | OrderPlanMsg.Reopen(id, cmd, request) ->
             let kept = { state with Kept = None }
-            let moved, effects = move (OrderPlanMsg.Command(cmd, request)) kept
+            let moved, effects = move (OrderPlanMsg.Navigate(id, cmd, request)) kept
             { moved with Kept = Some kept }, effects
         | OrderPlanMsg.Restore ->
             match state.Kept with
@@ -590,6 +602,7 @@ module OrderPlanState =
     let admitted (signing: SigningMachine.SigningView) (patient: PatientMachine.PatientState) (msg: OrderPlanMsg) =
         match msg with
         | OrderPlanMsg.Command _
+        | OrderPlanMsg.Navigate _
         | OrderPlanMsg.Reopen _
         | OrderPlanMsg.Filter _
         | OrderPlanMsg.Argue _ -> not (SigningPolicy.underWay signing || PatientMachine.PatientState.changing patient)
