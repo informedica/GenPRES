@@ -502,17 +502,14 @@ module OrderPlan =
             $"Changing %s{Part.plan p} selected %s{selected |> Part.orNone Part.shortId}"
 
 
-    /// The order plan state, through the view the pages read, with the request it awaits, the dialog command
-    /// that waits and whether a plan is kept for a reopen.
+    /// The order plan state, through the view the pages read, with the request it awaits and whether a
+    /// plan is kept for a reopen.
     let state (state: OrderPlanState) =
         [
             state |> OrderPlanState.view |> view |> Some
             state
             |> OrderPlanState.inFlightRequest
             |> Option.map (fun r -> $"awaits %s{Part.shortId r}")
-            state
-            |> OrderPlanState.pendingCommand
-            |> Option.map (fun (cmd, r) -> $"pending %s{Part.planCommand Part.contextId cmd} %s{Part.shortId r}")
             if OrderPlanState.isKept state then Some "kept" else None
         ]
         |> List.choose id
@@ -609,17 +606,14 @@ module OrderContext =
         | OrderContextView.Changing ctx -> $"Changing %s{Part.contextId ctx}"
 
 
-    /// The order context state, through the view the page reads, with the request it awaits, the dialog
-    /// command that waits and whether a state is kept for a reopen.
+    /// The order context state, through the view the page reads, with the request it awaits and whether
+    /// a state is kept for a reopen.
     let state (state: OrderContextState) =
         [
             state |> OrderContextState.view |> view |> Some
             state
             |> OrderContextState.inFlightRequest
             |> Option.map (fun r -> $"awaits %s{Part.shortId r}")
-            state
-            |> OrderContextState.pendingCommand
-            |> Option.map (fun (cmd, ctx, r) -> $"pending %s{command Part.contextId cmd ctx} %s{Part.shortId r}")
             if OrderContextState.isKept state then Some "kept" else None
         ]
         |> List.choose id
