@@ -85,6 +85,16 @@ module Fixtures =
 
     let held = OrderPlanState.held patient
 
+    /// The patient machine with no change under way, and with one under way.
+    let noPatientChange = PatientMachine.PatientState.init (Some draft)
+
+    let patientChanging =
+        noPatientChange
+        |> PatientMachine.PatientState.transition (
+            PatientMachine.PatientMsg.Changed(Some otherDraft, PatientDraftPolicy.Estimates.Kept, "p-1")
+        )
+        |> fst
+
     /// A change under way over the plan held for the patient, the one a failed change goes back to.
     let recalculatingFor pat (tp: OrderPlan) (selected: string option) request (sent: OrderPlanCommand) =
         OrderPlanState.changing pat tp selected sent request
@@ -808,7 +818,7 @@ let signingTests =
         ]
 
     let add = OrderPlanCommand.AddOrderContext(one, context "" "ibuprofen")
-    let transitionWhile = OrderPlanState.transitionWhile
+    let transitionWhile signing = OrderPlanState.transitionWhile signing noPatientChange
 
     testList
         "the order plan while a signature is under way"
@@ -840,7 +850,7 @@ let signingTests =
                     OrderPlanMsg.Select(Some "c-1")
                     OrderPlanMsg.Signed
                 ]
-                |> List.forall (OrderPlanState.admitted SigningMachine.SigningView.Requesting)
+                |> List.forall (OrderPlanState.admitted SigningMachine.SigningView.Requesting noPatientChange)
                 |> Expect.isTrue "admitted"
             }
 
@@ -1037,10 +1047,10 @@ let argueTests =
             test "not admitted while a signature is under way" {
                 let argue = OrderPlanMsg.Argue("c-1", text)
 
-                OrderPlanState.admitted SigningMachine.SigningView.Requesting argue
+                OrderPlanState.admitted SigningMachine.SigningView.Requesting noPatientChange argue
                 |> Expect.isFalse "a change, held back like a command"
 
-                OrderPlanState.admitted SigningMachine.SigningView.Idle argue
+                OrderPlanState.admitted SigningMachine.SigningView.Idle noPatientChange argue
                 |> Expect.isTrue "admitted while idle"
             }
         ]
@@ -1175,11 +1185,43 @@ let reopenTests =
                 let signing = SigningMachine.SigningView.Requesting
 
                 OrderPlanMsg.Reopen(clear, "r-1")
-                |> OrderPlanState.admitted signing
+                |> OrderPlanState.admitted signing noPatientChange
                 |> Expect.isFalse "reopen not admitted"
 
                 OrderPlanMsg.Restore
-                |> OrderPlanState.admitted signing
+                |> OrderPlanState.admitted signing noPatientChange
                 |> Expect.isTrue "restore admitted"
+            }
+        ]
+
+
+/// The order plan during a patient change: shown as a change under way, and a change from a page
+/// dropped, so that nothing is ordered for the patient being replaced.
+[<Tests>]
+let patientChangeTests =
+    let add = OrderPlanCommand.AddOrderContext(one, context "" "ibuprofen")
+
+    testList
+        "the order plan during a patient change"
+        [
+            test "the plan held shows as a change under way, and settles when the change is done" {
+                (held one None |> OrderPlanState.viewWhile patientChanging,
+                 held one None |> OrderPlanState.viewWhile noPatientChange)
+                |> Expect.equal
+                    "changing, then settled"
+                    (OrderPlanView.Changing(one, None), OrderPlanView.Settled(one, None))
+            }
+
+            test "a change from a page is dropped; the patient change itself reaches the plan" {
+                held one None
+                |> OrderPlanState.transitionWhile
+                    SigningMachine.SigningView.Idle
+                    patientChanging
+                    (OrderPlanMsg.Command(add, "r-1"))
+                |> Expect.equal "the command is dropped" (held one None, [])
+
+                OrderPlanMsg.PatientChanged(Some other, "r-1")
+                |> OrderPlanState.admitted SigningMachine.SigningView.Idle patientChanging
+                |> Expect.isTrue "the patient admitted"
             }
         ]

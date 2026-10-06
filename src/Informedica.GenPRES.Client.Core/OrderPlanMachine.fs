@@ -437,6 +437,15 @@ module OrderPlanState =
         | OrderPlanCart.Opened(_, tp), None -> OrderPlanView.Settled(tp, state.Selected)
 
 
+    /// What the pages read while the patient may be changing: during a patient change the plan held
+    /// shows as a change under way, so that nothing is ordered for the patient being replaced.
+    let viewWhile (patient: PatientMachine.PatientState) (state: OrderPlanState) =
+        match view state with
+        | OrderPlanView.Settled(tp, selected) when PatientMachine.PatientState.changing patient ->
+            OrderPlanView.Changing(tp, selected)
+        | shown -> shown
+
+
     /// The request id the state waits on; None while no request is under way.
     let inFlightRequest (state: OrderPlanState) = state.InFlight |> Option.map snd
 
@@ -662,13 +671,14 @@ module OrderPlanState =
 
 
     /// Whether the message reaches the plan: changes from a page do not while a signature is under
-    /// way, so the plan signed is the plan shown.
-    let admitted (signing: SigningMachine.SigningView) (msg: OrderPlanMsg) =
+    /// way, so the plan signed is the plan shown, nor during a patient change, so that nothing is
+    /// ordered for the patient being replaced.
+    let admitted (signing: SigningMachine.SigningView) (patient: PatientMachine.PatientState) (msg: OrderPlanMsg) =
         match msg with
         | OrderPlanMsg.Command _
         | OrderPlanMsg.Reopen _
         | OrderPlanMsg.Filter _
-        | OrderPlanMsg.Argue _ -> not (SigningPolicy.underWay signing)
+        | OrderPlanMsg.Argue _ -> not (SigningPolicy.underWay signing || PatientMachine.PatientState.changing patient)
         | OrderPlanMsg.PatientChanged _
         | OrderPlanMsg.Version _
         | OrderPlanMsg.Answered _
@@ -677,9 +687,14 @@ module OrderPlanState =
         | OrderPlanMsg.Signed -> true
 
 
-    /// The transition, with messages not admitted during a signature ignored.
-    let transitionWhile (signing: SigningMachine.SigningView) (msg: OrderPlanMsg) (state: OrderPlanState) =
-        if admitted signing msg then
+    /// The transition, with messages not admitted during a signature or a patient change ignored.
+    let transitionWhile
+        (signing: SigningMachine.SigningView)
+        (patient: PatientMachine.PatientState)
+        (msg: OrderPlanMsg)
+        (state: OrderPlanState)
+        =
+        if admitted signing patient msg then
             transition msg state
         else
             state, []

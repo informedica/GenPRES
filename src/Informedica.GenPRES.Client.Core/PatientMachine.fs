@@ -41,9 +41,9 @@ type PatientState =
         {
             /// The patient data as the panel edits it and the lists read it.
             Draft: Patient option
-            /// What becomes of the estimates when the change under way is answered, and the
-            /// request id its answer must name.
-            InFlight: (PatientDraftPolicy.Estimates * string) option
+            /// What becomes of the estimates when the change under way is answered, the draft it
+            /// started from, which a failure puts back, and the request id its answer must name.
+            InFlight: (PatientDraftPolicy.Estimates * Patient option * string) option
         }
 
 
@@ -62,7 +62,7 @@ module PatientState =
 
 
     /// The request id the state waits on; None while no change is under way.
-    let inFlightRequest (state: PatientState) = state.InFlight |> Option.map snd
+    let inFlightRequest (state: PatientState) = state.InFlight |> Option.map (fun (_, _, request) -> request)
 
 
     /// Whether a patient change is under way, so that the panel takes no edit until it is answered:
@@ -76,20 +76,22 @@ module PatientState =
 
     /// The next state and effects for a message. A draft below the minimum is no patient: nothing
     /// is sent and the patient is cleared. After an edit that renews the estimates the draft takes
-    /// the answered patient; after any other edit it is kept, so a cleared weight stays cleared.
+    /// the answered patient; after any other edit it is kept, so a cleared weight stays cleared. A
+    /// failure puts back the draft the change started from, the one the orders were calculated for.
     let transition (msg: PatientMsg) (state: PatientState) : PatientState * PatientEffect list =
         match msg with
         | PatientMsg.Changed(dto, estimates, request) ->
+            let before = state.Draft
             let state = { state with Draft = dto }
 
             match patient state with
             | Some pat ->
-                { state with InFlight = Some(estimates, request) }, [ PatientEffect.CallPatient(pat, request) ]
+                { state with InFlight = Some(estimates, before, request) }, [ PatientEffect.CallPatient(pat, request) ]
             | None -> { state with InFlight = None }, [ PatientEffect.SetPatient None ]
 
         | PatientMsg.Answered(request, result) ->
             match state.InFlight, result with
-            | Some(estimates, underWay), Ok pat when underWay = request ->
+            | Some(estimates, _, underWay), Ok pat when underWay = request ->
                 let draft =
                     match estimates with
                     | PatientDraftPolicy.Estimates.Renewed -> Some pat
@@ -100,7 +102,11 @@ module PatientState =
                     InFlight = None
                 },
                 [ PatientEffect.SetPatient(Some pat) ]
-            | Some(_, underWay), Error errs when underWay = request ->
-                { state with InFlight = None }, [ PatientEffect.TellError errs ]
+            | Some(_, before, underWay), Error errs when underWay = request ->
+                {
+                    Draft = before
+                    InFlight = None
+                },
+                [ PatientEffect.TellError errs ]
             // an answer to an earlier change
             | _ -> state, []
