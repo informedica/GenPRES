@@ -481,7 +481,6 @@ module OrderPlan =
             $"Reopen %s{id} %s{OrderContextCommand.toString (cmd, OrderContext.empty)} %s{Part.shortId request}"
         | OrderPlanMsg.Restore -> "Restore"
         | OrderPlanMsg.Signed -> "Signed"
-        | OrderPlanMsg.Argue(id, _) -> $"Argue %s{Part.shortId id}"
 
 
     /// An order plan effect; a context by its id, never the error texts.
@@ -585,7 +584,6 @@ module OrderContext =
         | OrderContextMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result response}"
         | OrderContextMsg.Reset request -> $"Reset %s{Part.shortId request}"
         | OrderContextMsg.Select id -> $"Select %s{id |> Part.orNone Part.shortId}"
-        | OrderContextMsg.Argue _ -> "Argue"
         | OrderContextMsg.Reopen(cmd, request) -> $"Reopen %s{commandAlone cmd} %s{Part.shortId request}"
         | OrderContextMsg.Restore -> "Restore"
 

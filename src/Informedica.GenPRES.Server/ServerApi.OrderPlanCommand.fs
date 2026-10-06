@@ -90,6 +90,21 @@ module OrderPlanCommand =
             | OrderContextCommand.SetArgumentationProperty _ ->
                 async { return Error [| OrderPlanMapper.words [||] (OrderPlanError.NoSuchContext contextId) |] }
             | ctxCmd ->
+                // a reset clears the argumentation, on the context and on the plan's copy of it, since
+                // it puts the order back within the rules
+                let plan, ctx =
+                    match ctxCmd with
+                    | OrderContextCommand.ResetOrderScenario ->
+                        let clear (c: OrderContext) =
+                            if c.Id = contextId then
+                                { c with Argumentation = None }
+                            else
+                                c
+
+                        { plan with OrderContexts = Array.map clear plan.OrderContexts },
+                        { ctx with Argumentation = None }
+                    | _ -> plan, ctx
+
                 Patient.overAll
                     (Patient.ofPlan plan @ [ ctx.Patient ])
                     (fun () ->

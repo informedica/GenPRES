@@ -2086,8 +2086,6 @@ type private ConcreteAppEnv
 
         member _.Select id = OrderContextMsg(OrderContextMsg.Select id) |> dispatch
 
-        member _.Argue text = OrderContextMsg(OrderContextMsg.Argue text) |> dispatch
-
     interface AppEnv.IOrderPlan with
         member _.OrderPlan = state.Lanes.OrderPlan |> OrderPlanState.viewWhile state.Lanes.Patient
 
@@ -2106,8 +2104,6 @@ type private ConcreteAppEnv
 
         member _.Filter ids =
             OrderPlanMsg(OrderPlanMsg.Filter(ids, newRequest ())) |> dispatch
-
-        member _.Argue(id, text) = OrderPlanMsg(OrderPlanMsg.Argue(id, text)) |> dispatch
 
         member _.Changed = state.Lanes.OrderPlan |> OrderPlanState.changed
 

@@ -101,11 +101,9 @@ module OrderPlanCart =
         | OrderPlanCommand.RemoveOrderContexts(_, ids) -> OrderPlanCommand.RemoveOrderContexts(tp, ids)
 
 
-    /// The plan answered, with the client's argumentation kept; its drugs are checked, and a
-    /// prescribed order opens the plan page and clears the workbench.
-    let private answered (pat: Patient) (held: OrderPlan) (sent: OrderPlanCommand) (tp: OrderPlan) =
-        let tp = tp |> ArgumentationPolicy.keepAll held
-
+    /// The plan answered; its drugs are checked, and a prescribed order opens the plan page and
+    /// clears the workbench.
+    let private answered (pat: Patient) (sent: OrderPlanCommand) (tp: OrderPlan) =
         let prescribed =
             match sent with
             | OrderPlanCommand.AddOrderContext _ ->
@@ -137,22 +135,13 @@ module OrderPlanCart =
         | OrderPlanCartMsg.Version head, OrderPlanCart.Opened(pat, _) ->
             OrderPlanCart.Opened(pat, OrderPlan.create pat [||]), [ OrderPlanCartIntent.Open(pat, head.OrderContexts) ]
 
-        // a reset clears the context's argumentation when it is sent, so a text written while it
-        // runs is kept
-        | OrderPlanCartMsg.Command(OrderPlanCommand.Navigate(_, id, ctxCmd, ctx)), OrderPlanCart.Opened(pat, tp) when
-            ArgumentationPolicy.clearedBy ctxCmd
-            ->
-            let tp = tp |> ArgumentationPolicy.clearIn id
-            let cmd = OrderPlanCommand.Navigate(tp, id, ctxCmd, ArgumentationPolicy.clear ctx)
-
-            OrderPlanCart.Opened(pat, tp), [ OrderPlanCartIntent.Call cmd ]
         | OrderPlanCartMsg.Command cmd, OrderPlanCart.Opened(_, tp) -> plan, [ OrderPlanCartIntent.Call(rebase tp cmd) ]
         | OrderPlanCartMsg.Command _, _ -> plan, []
 
         // nothing is asked without a patient, so nothing lands
         | OrderPlanCartMsg.Landed _, OrderPlanCart.NoPatient _ -> plan, []
         // an answer lands for the patient held
-        | OrderPlanCartMsg.Landed(sent, Ok tp), OrderPlanCart.Opened(pat, held) -> answered pat held sent tp
+        | OrderPlanCartMsg.Landed(sent, Ok tp), OrderPlanCart.Opened(pat, _) -> answered pat sent tp
         // a failed change leaves the plan as it was; after a failed open, that is the empty plan
         | OrderPlanCartMsg.Landed(_, Error errs), OrderPlanCart.Opened _ -> plan, [ OrderPlanCartIntent.Tell errs ]
 
@@ -215,9 +204,6 @@ type OrderPlanMsg =
     | Restore
     /// The plan was signed; it took no change meanwhile, so it is the version signed.
     | Signed
-    /// The argumentation written on a context, by id. No request; a changed text counts as a
-    /// change to the plan.
-    | Argue of contextId: string * text: string
 
 
 /// What the App carries out for the order plan machine.
@@ -372,11 +358,11 @@ module OrderPlanState =
         |> Option.filter (fun id -> tp.OrderContexts |> Array.exists (fun c -> c.Id = id))
 
 
-    /// The plan shown while a change is under way: for a recalculation the plan sent, with the
-    /// argumentation written meanwhile; otherwise the plan held.
+    /// The plan shown while a change is under way: for a recalculation the plan sent; otherwise the
+    /// plan held.
     let meanwhile (tp: OrderPlan) (sent: OrderPlanCommand) =
         match sent with
-        | OrderPlanCommand.Recalculate shown -> shown |> ArgumentationPolicy.keepAll tp
+        | OrderPlanCommand.Recalculate shown -> shown
         | _ -> tp
 
 
@@ -542,21 +528,6 @@ module OrderPlanState =
                 | None -> state, []
             | OrderPlanCart.NoPatient _ -> state, []
         | OrderPlanMsg.Filter(ids, request) -> run request (OrderPlanCartMsg.Filter ids) state
-        // the argumentation needs no request; a changed text counts as a change to the plan
-        | OrderPlanMsg.Argue(id, text) ->
-            match state.Cart with
-            | OrderPlanCart.Opened(pat, tp) ->
-                let written = tp |> ArgumentationPolicy.writeIn id text
-
-                if written = tp then
-                    state, []
-                else
-                    { state with
-                        Cart = OrderPlanCart.Opened(pat, written)
-                        Work = PlanWork.Changed
-                    },
-                    []
-            | OrderPlanCart.NoPatient _ -> state, []
         // taken by transition
         | OrderPlanMsg.Reopen _
         | OrderPlanMsg.Restore -> state, []
@@ -604,8 +575,7 @@ module OrderPlanState =
         | OrderPlanMsg.Command _
         | OrderPlanMsg.Navigate _
         | OrderPlanMsg.Reopen _
-        | OrderPlanMsg.Filter _
-        | OrderPlanMsg.Argue _ -> not (SigningPolicy.underWay signing || PatientMachine.PatientState.changing patient)
+        | OrderPlanMsg.Filter _ -> not (SigningPolicy.underWay signing || PatientMachine.PatientState.changing patient)
         | OrderPlanMsg.PatientChanged _
         | OrderPlanMsg.Version _
         | OrderPlanMsg.Answered _

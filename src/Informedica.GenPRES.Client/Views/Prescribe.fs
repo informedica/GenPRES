@@ -588,7 +588,6 @@ module Prescribe =
                     reopen = envOrderContext.Reopen
                     restoreOrderScenario = envOrderContext.Restore
                     closeOrder = handleModalClose
-                    argue = envOrderContext.Argue
                     localizationTerms = localizationTerms
                 |}
 

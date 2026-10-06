@@ -735,6 +735,20 @@ let tests =
                         | other -> failtest $"expected the context, got %A{other}"
                     }
 
+                    testAsync "a reset clears the argumentation, since it puts the order back within the rules" {
+                        let seen = ref None
+
+                        let! answer =
+                            ServerApi.OrderContextCommand.processCmd
+                                (env (seenBy seen))
+                                (Api.ResetOrderScenario, ctx |> Ctx.Argumentation.write "bewust")
+
+                        match answer with
+                        | Ok(Shared.Types.OrderContextResponse.Evaluated c) ->
+                            c.Argumentation |> Expect.isNone "the text cleared"
+                        | other -> failtest $"expected the context, got %A{other}"
+                    }
+
                     testAsync "an index past the values reaches the port, where it leaves the order as it is" {
                         let seen = ref None
                         let past = ctx |> Ctx.count (Ctx.Options.Variable target)
@@ -760,6 +774,7 @@ let tests =
                         |> List.find (fun t -> ctx |> Ctx.count (Ctx.Options.Variable t) > 1)
 
                     let recalculated = ref None
+                    let navigated = ref None
 
                     let run cmd =
                         let seen = ref []
@@ -773,7 +788,10 @@ let tests =
                         let port: ServerApi.OrderPlanPort =
                             {
                                 recalculate = answering "recalculate"
-                                navigate = fun p _ _ _ -> answering "navigate" p
+                                navigate =
+                                    fun p _ _ pc ->
+                                        navigated.Value <- Some(p, pc)
+                                        answering "navigate" p
                                 addOrderContext = fun p _ -> answering "addOrderContext" p
                                 newOrderContext = fun p _ -> answering "newOrderContext" p
                                 removeOrderContexts = fun p _ -> answering "removeOrderContexts" p
@@ -857,6 +875,24 @@ let tests =
                             |> Expect.equal "the plan's category" Informedica.GenOrder.Lib.Types.OrderCategory.Drug
                             pc.Context.Argumentation |> Expect.equal "the text written" (Some "bewust")
                         | other -> failtest $"expected the one context recalculated, got %A{other}"
+                    }
+
+                    testAsync "a reset clears the argumentation on the context and on the plan's copy of it" {
+                        let argued = ctx |> Ctx.Argumentation.write "bewust"
+                        let argued' = Shared.Models.OrderPlan.create ctx.Patient [| argued |]
+
+                        let! answer, _ =
+                            run (Shared.Api.OrderPlanCommand.Navigate(argued', "c-1", Api.ResetOrderScenario, argued))
+
+                        answer |> Result.isOk |> Expect.isTrue "answered"
+
+                        match navigated.Value with
+                        | Some(p, pc) ->
+                            pc.Context.Argumentation |> Expect.isNone "the context's text cleared"
+                            p.Contexts
+                            |> Array.map _.Context.Argumentation
+                            |> Expect.equal "the plan's copy cleared" [| None |]
+                        | None -> failtest "expected the navigation"
                     }
 
                     testAsync "an index past the values navigates, where it leaves the order as it is" {

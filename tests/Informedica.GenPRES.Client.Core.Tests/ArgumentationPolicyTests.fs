@@ -1,5 +1,4 @@
-/// The argumentation policy: when the dose dialog asks for the text, how a text is taken, and
-/// how the text is kept over an answer, on the workbench and on the plan.
+/// The argumentation policy: when the dose dialog asks for the text, and how a text is taken.
 module Informedica.GenPRES.Client.Core.Tests.ArgumentationPolicyTests
 
 open Expecto
@@ -101,77 +100,5 @@ let tests =
 
                 ArgumentationPolicy.normalise (String.replicate 1001 "a")
                 |> Expect.equal "clipped at the server's cap" (Some(String.replicate 1000 "a"))
-
-                (context "c-1" "p" |> ArgumentationPolicy.write " x ").Argumentation
-                |> Expect.equal "written normalised" (Some "x")
-            }
-
-            test "the plan's context by id gets the text; the answer keeps the client's per context" {
-                let written = two |> ArgumentationPolicy.writeIn "c-2" text
-
-                written.OrderContexts
-                |> Array.map _.Argumentation
-                |> Expect.equal "c-2 only" [| None; Some text |]
-
-                two
-                |> ArgumentationPolicy.writeIn "c-9" text
-                |> Expect.equal "unknown id: unchanged" two
-
-                let answered =
-                    plan
-                        [|
-                            context "c-1" "paracetamol"
-                            context "c-2" "ibuprofen"
-                            context "c-3" "new"
-                        |]
-
-                let kept =
-                    answered
-                    |> ArgumentationPolicy.keepAll (written |> ArgumentationPolicy.writeIn "c-1" "held")
-
-                kept.OrderContexts
-                |> Array.map _.Argumentation
-                |> Expect.equal "the client's on c-1 and c-2, the answer's on c-3" [| Some "held"; Some text; None |]
-            }
-        ]
-
-
-/// The reset: the one command that clears the text, as it goes out.
-[<Tests>]
-let resetTests =
-    testList
-        "ArgumentationPolicy, the reset"
-        [
-            test "the reset is the one command that clears the text" {
-                ArgumentationPolicy.clearedBy OrderContextCommand.ResetOrderScenario
-                |> Expect.isTrue "the reset"
-
-                [
-                    OrderContextCommand.UpdateOrderContext
-                    OrderContextCommand.SelectOrderScenario
-                    OrderContextCommand.UpdateOrderScenario
-                    OrderContextCommand.IncreaseOrderableDoseQuantityProperty(1, false)
-                ]
-                |> List.exists ArgumentationPolicy.clearedBy
-                |> Expect.isFalse "no other"
-            }
-
-            test "clear takes the text off a context; clearIn off the context named in a plan" {
-                let argued = { context "c-1" "paracetamol" with Argumentation = Some text }
-
-                (argued |> ArgumentationPolicy.clear).Argumentation |> Expect.isNone "cleared"
-
-                let held =
-                    two
-                    |> ArgumentationPolicy.writeIn "c-1" text
-                    |> ArgumentationPolicy.writeIn "c-2" "other"
-
-                (held |> ArgumentationPolicy.clearIn "c-1").OrderContexts
-                |> Array.map _.Argumentation
-                |> Expect.equal "c-1 cleared, c-2 kept" [| None; Some "other" |]
-
-                held
-                |> ArgumentationPolicy.clearIn "c-9"
-                |> Expect.equal "unknown id: unchanged" held
             }
         ]

@@ -552,7 +552,6 @@ module NutritionSlot =
         (props:
             {|
                 nutritionContext: OrderContext
-                plan: OrderPlan
                 // a command into the slot's context, sent over the plan held
                 planNavigate: string * Api.OrderContextCommand -> unit
                 // a clear from a field's arrow, and the list of such a reopen closed without a pick

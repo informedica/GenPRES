@@ -268,8 +268,19 @@ let tests =
                             Trail.Signing.effect (
                                 SigningEffect.RenewToken(OpenedToken "secret-token", pat, Some identity)
                             )
-                            Trail.OrderContext.msg (OrderContextMsg.Argue "Jan Jansen weighs more")
-                            Trail.OrderPlan.msg (OrderPlanMsg.Argue("ctx-1", "Jan Jansen weighs more"))
+                            Trail.OrderContext.msg (
+                                OrderContextMsg.Command(
+                                    OrderContextCommand.SetArgumentationProperty "Jan Jansen weighs more",
+                                    "r-1"
+                                )
+                            )
+                            Trail.OrderPlan.msg (
+                                OrderPlanMsg.Navigate(
+                                    "ctx-1",
+                                    OrderContextCommand.SetArgumentationProperty "Jan Jansen weighs more",
+                                    "r-1"
+                                )
+                            )
                         ]
 
                     for line in lines do
