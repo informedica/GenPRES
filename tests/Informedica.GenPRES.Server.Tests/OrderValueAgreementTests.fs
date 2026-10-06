@@ -253,7 +253,7 @@ let tests =
                 let id = ord.Id |> WrappedString.Id.toString
 
                 let cmd =
-                    Shared.Api.OrderContextCommand.ClearScheduleProperty(
+                    Shared.Api.OrderViewCommand.ClearScheduleProperty(
                         Shared.Types.ScheduleProperty.Frequency,
                         [| "[.x]_dos_qty" |]
                     )

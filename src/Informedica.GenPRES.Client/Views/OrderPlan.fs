@@ -301,22 +301,22 @@ module OrderPlan =
                         send
                         revision
                         stepable
-                        Api.OrderContextCommand.SetMinScheduleFrequencyProperty
-                        Api.OrderContextCommand.DecreaseScheduleFrequencyProperty
-                        Api.OrderContextCommand.SetMedianScheduleFrequencyProperty
-                        Api.OrderContextCommand.IncreaseScheduleFrequencyProperty
-                        Api.OrderContextCommand.SetMaxScheduleFrequencyProperty,
+                        Api.OrderViewCommand.SetMinScheduleFrequencyProperty
+                        Api.OrderViewCommand.DecreaseScheduleFrequencyProperty
+                        Api.OrderViewCommand.SetMedianScheduleFrequencyProperty
+                        Api.OrderViewCommand.IncreaseScheduleFrequencyProperty
+                        Api.OrderViewCommand.SetMaxScheduleFrequencyProperty,
                     Terms.``Order Frequency`` |> getTerm "frequentie"
                 | QuantityModePolicy.Field.DoseQuantity ->
                     ViewHelpers.createDoseQtyStepper
                         send
                         revision
                         ord
-                        Api.OrderContextCommand.SetMinOrderableDoseQuantityProperty
-                        Api.OrderContextCommand.DecreaseOrderableDoseQuantityProperty
-                        Api.OrderContextCommand.SetMedianOrderableDoseQuantityProperty
-                        Api.OrderContextCommand.IncreaseOrderableDoseQuantityProperty
-                        Api.OrderContextCommand.SetMaxOrderableDoseQuantityProperty,
+                        Api.OrderViewCommand.SetMinOrderableDoseQuantityProperty
+                        Api.OrderViewCommand.DecreaseOrderableDoseQuantityProperty
+                        Api.OrderViewCommand.SetMedianOrderableDoseQuantityProperty
+                        Api.OrderViewCommand.IncreaseOrderableDoseQuantityProperty
+                        Api.OrderViewCommand.SetMaxOrderableDoseQuantityProperty,
                     "toedien hoeveelheid"
                 | QuantityModePolicy.Field.DoseRate ->
                     ViewHelpers.doseRateStepper
@@ -324,11 +324,11 @@ module OrderPlan =
                         revision
                         stepable
                         ovar
-                        Api.OrderContextCommand.SetMinOrderableDoseRateProperty
-                        Api.OrderContextCommand.DecreaseOrderableDoseRateProperty
-                        Api.OrderContextCommand.SetMedianOrderableDoseRateProperty
-                        Api.OrderContextCommand.IncreaseOrderableDoseRateProperty
-                        Api.OrderContextCommand.SetMaxOrderableDoseRateProperty,
+                        Api.OrderViewCommand.SetMinOrderableDoseRateProperty
+                        Api.OrderViewCommand.DecreaseOrderableDoseRateProperty
+                        Api.OrderViewCommand.SetMedianOrderableDoseRateProperty
+                        Api.OrderViewCommand.IncreaseOrderableDoseRateProperty
+                        Api.OrderViewCommand.SetMaxOrderableDoseRateProperty,
                     Terms.``Order Drip rate`` |> getTerm "inloop snelheid"
                 | QuantityModePolicy.Field.ComponentQuantity
                 | QuantityModePolicy.Field.Other -> Components.QuantityField.Fixed, ""

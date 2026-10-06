@@ -37,7 +37,7 @@ module Fixtures =
     let inFlight = inFlightFor patient
 
     /// The context evaluated as it is: a reload's seed, which changes nothing.
-    let asIs = OrderContextCommand.SeedFilter(SeedSource.Reload, None, None, None, None, None)
+    let asIs = OrderViewCommand.SeedFilter(SeedSource.Reload, None, None, None, None, None)
 
     /// An evaluation under way: the context evaluated as it is.
     let evaluatingFor pat = inFlightFor pat asIs
@@ -117,7 +117,7 @@ let tests =
                         |> Expect.equal
                             "the empty workbench evaluated"
                             [
-                                OrderContextEffect.CallContext(OrderContextCommand.ClearAllFilterProperty, empty, "r-1")
+                                OrderContextEffect.CallContext(OrderViewCommand.ClearAllFilterProperty, empty, "r-1")
                             ]
 
                         transition
@@ -137,7 +137,7 @@ let tests =
                         state
                         |> Expect.equal
                             "evaluating for the new patient"
-                            (OrderContextState.patientChanging other expected expected "r-2")
+                            (OrderContextState.patientChanging other paracetamol expected "r-2")
 
                         effects
                         |> Expect.equal "the patient change and the syncs" (patientChanged other paracetamol "r-2")
@@ -155,13 +155,12 @@ let tests =
 
                         let state, effects = transition (OrderContextMsg.PatientChanged(Some other, "r-2")) busy
 
-                        let sent = { chosen with Patient = otherDraft }
                         let found = { paracetamol with Patient = otherDraft }
 
                         state
                         |> Expect.equal
                             "the selection evaluated for the new patient"
-                            (OrderContextState.patientChanging other sent found "r-2")
+                            (OrderContextState.patientChanging other chosen found "r-2")
 
                         effects
                         |> Expect.equal "the patient change and the syncs" (patientChanged other chosen "r-2")
@@ -203,7 +202,7 @@ let tests =
                         |> snd
                         |> Expect.equal "over the context held" (replacing cmd paracetamol "r-1")
 
-                        let step = OrderContextCommand.IncreaseScheduleFrequencyProperty
+                        let step = OrderViewCommand.IncreaseScheduleFrequencyProperty
                         let busy, _ = transition (OrderContextMsg.Command(step, "r-1")) shown
 
                         transition (OrderContextMsg.SeedFilter(urlSeed, "r-2")) busy
@@ -254,7 +253,7 @@ let tests =
                 "a command"
                 [
                     test "a filter pick goes over the context held and takes the pages along; a step calls alone" {
-                        let pick = OrderContextCommand.SetNthFilterProperty(Shared.Models.OrderContext.Route, 0)
+                        let pick = OrderViewCommand.SetNthFilterProperty(Shared.Models.OrderContext.Route, 0)
 
                         let busy, effects = transition (OrderContextMsg.Command(pick, "r-1")) shown
 
@@ -265,23 +264,19 @@ let tests =
                         |> Expect.equal "the call and the syncs" (replacing pick paracetamol "r-1")
 
                         transition
-                            (OrderContextMsg.Command(OrderContextCommand.IncreaseScheduleFrequencyProperty, "r-2"))
+                            (OrderContextMsg.Command(OrderViewCommand.IncreaseScheduleFrequencyProperty, "r-2"))
                             busy
                         |> Expect.equal "dropped while busy" (busy, [])
 
                         transition
-                            (OrderContextMsg.Command(OrderContextCommand.IncreaseScheduleFrequencyProperty, "r-2"))
+                            (OrderContextMsg.Command(OrderViewCommand.IncreaseScheduleFrequencyProperty, "r-2"))
                             shown
                         |> Expect.equal
                             "a step calls alone"
-                            (inFlight
-                                OrderContextCommand.IncreaseScheduleFrequencyProperty
-                                paracetamol
-                                paracetamol
-                                "r-2",
+                            (inFlight OrderViewCommand.IncreaseScheduleFrequencyProperty paracetamol paracetamol "r-2",
                              [
                                  OrderContextEffect.CallContext(
-                                     OrderContextCommand.IncreaseScheduleFrequencyProperty,
+                                     OrderViewCommand.IncreaseScheduleFrequencyProperty,
                                      paracetamol,
                                      "r-2"
                                  )
@@ -314,17 +309,13 @@ let tests =
                     test "a refused step restores the context last evaluated" {
                         let busy, _ =
                             transition
-                                (OrderContextMsg.Command(OrderContextCommand.IncreaseScheduleFrequencyProperty, "r-1"))
+                                (OrderContextMsg.Command(OrderViewCommand.IncreaseScheduleFrequencyProperty, "r-1"))
                                 shown
 
                         busy
                         |> Expect.equal
                             "the step over the context held"
-                            (inFlight
-                                OrderContextCommand.IncreaseScheduleFrequencyProperty
-                                paracetamol
-                                paracetamol
-                                "r-1")
+                            (inFlight OrderViewCommand.IncreaseScheduleFrequencyProperty paracetamol paracetamol "r-1")
 
                         transition (OrderContextMsg.Answered("r-1", Error [| "not loaded" |])) busy
                         |> Expect.equal "the last evaluated" (held paracetamol, restored paracetamol [| "not loaded" |])
@@ -335,7 +326,7 @@ let tests =
                 "the reset"
                 [
                     test "the workbench's filter cleared for the patient held; nothing without a patient" {
-                        let clear = OrderContextCommand.ClearAllFilterProperty
+                        let clear = OrderViewCommand.ClearAllFilterProperty
                         let state, effects = transition (OrderContextMsg.Reset "r-1") shown
 
                         state
@@ -375,7 +366,7 @@ let viewTests =
 
                 let stepped = { paracetamol with OrderContext.Filter.Route = Some "stepped" }
 
-                inFlight OrderContextCommand.IncreaseScheduleFrequencyProperty stepped paracetamol "r-1"
+                inFlight OrderViewCommand.IncreaseScheduleFrequencyProperty stepped paracetamol "r-1"
                 |> OrderContextState.view
                 |> Expect.equal "the context sent" (OrderContextView.Changing stepped)
             }
@@ -419,7 +410,7 @@ let viewTests =
 
 [<Tests>]
 let busyTests =
-    let step = OrderContextCommand.IncreaseScheduleFrequencyProperty
+    let step = OrderViewCommand.IncreaseScheduleFrequencyProperty
     let busy = inFlight step paracetamol paracetamol "r-1"
 
     testList
@@ -429,9 +420,9 @@ let busyTests =
                 for cmd in
                     [
                         step
-                        OrderContextCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 0)
-                        OrderContextCommand.ResetOrderScenario
-                        OrderContextCommand.SelectNthOrderScenario 0
+                        OrderViewCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 0)
+                        OrderViewCommand.ResetOrderScenario
+                        OrderViewCommand.SelectNthOrderScenario 0
                     ] do
                     transition (OrderContextMsg.Command(cmd, "r-2")) busy
                     |> Expect.equal $"%A{cmd} dropped, nothing sent" (busy, [])
@@ -458,7 +449,7 @@ let stagesTests =
 
                 OrderContextWorkbench.step
                     (OrderContextWorkbenchMsg.Landed(
-                        (ActiveOrderContextCommand.Command asIs, stepped),
+                        OrderContextCommand.Command(asIs, stepped),
                         Error [| "not loaded" |]
                     ))
                     (OrderContextWorkbench.Evaluated(patient, paracetamol))
@@ -474,7 +465,7 @@ let stagesTests =
             test "nothing lands where nothing was asked: no patient" {
                 let landed =
                     OrderContextWorkbenchMsg.Landed(
-                        (ActiveOrderContextCommand.Command asIs, paracetamol),
+                        OrderContextCommand.Command(asIs, paracetamol),
                         Ok(OrderContextResponse.Evaluated paracetamol)
                     )
 
@@ -489,7 +480,7 @@ let stagesTests =
                 "the context shown is the one sent while a change is under way, else the one held; none before the first evaluation" {
                 let stepped = { paracetamol with OrderContext.Filter.Route = Some "stepped" }
 
-                let busy = inFlight OrderContextCommand.IncreaseScheduleFrequencyProperty stepped paracetamol "r-1"
+                let busy = inFlight OrderViewCommand.IncreaseScheduleFrequencyProperty stepped paracetamol "r-1"
 
                 busy |> OrderContextState.context |> Expect.equal "the one sent" (Some stepped)
 
@@ -518,7 +509,7 @@ let selectionTests =
     let dialog = OrderContextState.dialog
     let selected = held withOrder |> select (Some "o-1")
 
-    let busy = inFlight OrderContextCommand.IncreaseScheduleFrequencyProperty withOrder withOrder "r-1"
+    let busy = inFlight OrderViewCommand.IncreaseScheduleFrequencyProperty withOrder withOrder "r-1"
 
     let busySelected = busy |> select (Some "o-1")
 
@@ -748,7 +739,7 @@ let refusalTests =
 let argueTests =
     let text = "Sepsis, hogere dosis in overleg met de apotheek"
     let argued = paracetamol |> Shared.Models.OrderContext.Argumentation.write text
-    let argue = OrderContextCommand.SetArgumentationProperty text
+    let argue = OrderViewCommand.SetArgumentationProperty text
 
     testList
         "the argumentation"
@@ -769,7 +760,7 @@ let argueTests =
             }
 
             test "a reset goes over the context held, text and all; the answer has it cleared" {
-                let reset = OrderContextCommand.ResetOrderScenario
+                let reset = OrderViewCommand.ResetOrderScenario
                 let state, effects = held argued |> transition (OrderContextMsg.Command(reset, "r-1"))
 
                 effects
@@ -801,7 +792,7 @@ let reopenTests =
     let view = OrderContextState.view
 
     let reopen =
-        OrderContextMsg.Reopen(OrderContextCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]), "r-1")
+        OrderContextMsg.Reopen(OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]), "r-1")
 
     let answered ctx = Ok(OrderContextResponse.Evaluated ctx)
 
@@ -816,7 +807,7 @@ let reopenTests =
                     "the clear goes out"
                     [
                         OrderContextEffect.CallContext(
-                            OrderContextCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
+                            OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
                             { c1 with Patient = patient },
                             "r-1"
                         )
@@ -855,7 +846,7 @@ let reopenTests =
                             reopen
                             OrderContextMsg.Answered("r-1", answered reopened)
                             OrderContextMsg.Command(
-                                OrderContextCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 0),
+                                OrderViewCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 0),
                                 "r-2"
                             )
                         ]
@@ -874,13 +865,13 @@ let reopenTests =
             test "a reopen while a request is under way is dropped and keeps nothing" {
                 let busy =
                     open'
-                    |> move (OrderContextMsg.Command(OrderContextCommand.IncreaseScheduleFrequencyProperty, "r-1"))
+                    |> move (OrderContextMsg.Command(OrderViewCommand.IncreaseScheduleFrequencyProperty, "r-1"))
                     |> fst
 
                 busy
                 |> move (
                     OrderContextMsg.Reopen(
-                        OrderContextCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
+                        OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
                         "r-2"
                     )
                 )
@@ -899,21 +890,21 @@ let reopenTests =
 let specificCommandTests =
     let newCases =
         [
-            OrderContextCommand.SetNthFilterProperty(Shared.Models.OrderContext.Generic, 0)
-            OrderContextCommand.ClearFilterProperty Shared.Models.OrderContext.Route
-            OrderContextCommand.ClearAllFilterProperty
-            OrderContextCommand.SetNthDiluentProperty 0
-            OrderContextCommand.ClearDiluentProperty
-            OrderContextCommand.SetNthComponentsProperty [| 0 |]
-            OrderContextCommand.SelectNthOrderScenario 0
-            OrderContextCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 0)
-            OrderContextCommand.ClearScheduleProperty(ScheduleProperty.Time, [| "pick" |])
-            OrderContextCommand.SetNthOrderableProperty(OrderableProperty.DoseQuantity, 0)
-            OrderContextCommand.ClearOrderableProperty(OrderableProperty.Quantity, [||])
-            OrderContextCommand.SetNthComponentProperty("cmp", ComponentProperty.OrderableQuantity, 0)
-            OrderContextCommand.ClearComponentProperty("cmp", ComponentProperty.OrderableQuantity, [||])
-            OrderContextCommand.SetNthItemProperty("cmp", "itm", ItemProperty.DoseQuantity, 0)
-            OrderContextCommand.ClearItemProperty("cmp", "itm", ItemProperty.DoseRate, [||])
+            OrderViewCommand.SetNthFilterProperty(Shared.Models.OrderContext.Generic, 0)
+            OrderViewCommand.ClearFilterProperty Shared.Models.OrderContext.Route
+            OrderViewCommand.ClearAllFilterProperty
+            OrderViewCommand.SetNthDiluentProperty 0
+            OrderViewCommand.ClearDiluentProperty
+            OrderViewCommand.SetNthComponentsProperty [| 0 |]
+            OrderViewCommand.SelectNthOrderScenario 0
+            OrderViewCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 0)
+            OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Time, [| "pick" |])
+            OrderViewCommand.SetNthOrderableProperty(OrderableProperty.DoseQuantity, 0)
+            OrderViewCommand.ClearOrderableProperty(OrderableProperty.Quantity, [||])
+            OrderViewCommand.SetNthComponentProperty("cmp", ComponentProperty.OrderableQuantity, 0)
+            OrderViewCommand.ClearComponentProperty("cmp", ComponentProperty.OrderableQuantity, [||])
+            OrderViewCommand.SetNthItemProperty("cmp", "itm", ItemProperty.DoseQuantity, 0)
+            OrderViewCommand.ClearItemProperty("cmp", "itm", ItemProperty.DoseRate, [||])
         ]
 
     let withFrequency freq (sc: OrderScenario) =
@@ -951,7 +942,7 @@ let specificCommandTests =
 
         { twoFrequencies with Scenarios = [| sc |> withFrequency freq |] }
 
-    let pickSecond = OrderContextCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 1)
+    let pickSecond = OrderViewCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 1)
 
     testList
         "the specific commands"
@@ -959,13 +950,13 @@ let specificCommandTests =
             test "a command that cannot change the context shows it as it is" {
                 twoGenerics
                 |> OrderPlanMachine.Dialog.shown (
-                    OrderContextCommand.SetNthFilterProperty(Shared.Models.OrderContext.Generic, 2)
+                    OrderViewCommand.SetNthFilterProperty(Shared.Models.OrderContext.Generic, 2)
                 )
                 |> Expect.equal "an index out of range" twoGenerics
             }
 
             test "a filter pick goes out as is, evaluates, and syncs the pages to the filter it makes" {
-                let cmd = OrderContextCommand.SetNthFilterProperty(Shared.Models.OrderContext.Generic, 1)
+                let cmd = OrderViewCommand.SetNthFilterProperty(Shared.Models.OrderContext.Generic, 1)
                 let picked = twoGenerics |> Shared.Models.OrderContext.medicationChange (Some "paracetamol")
 
                 let state, effects = transition (OrderContextMsg.Command(cmd, "r-1")) (held twoGenerics)

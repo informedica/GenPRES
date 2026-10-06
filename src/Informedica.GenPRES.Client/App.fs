@@ -1057,7 +1057,7 @@ module private Elmish =
 
 
     /// A workbench request, answered under the request id it was sent for.
-    let callContext cmd ctx request (state: State) =
+    let callContext req request (state: State) =
         let opened = tokenOf state.Lanes.Session
 
         async {
@@ -1066,7 +1066,7 @@ module private Elmish =
                     serverApi.processOrderContext
                         {
                             Opened = opened
-                            Command = (cmd, ctx)
+                            Command = req
                         }
                 with
                 | Ok reply ->
@@ -1092,9 +1092,9 @@ module private Elmish =
     let applyOrderContextEffect (effect: OrderContextEffect) (state: State) : State * Cmd<Msg> =
         match effect with
         | OrderContextEffect.CallContext(cmd, ctx, request) ->
-            state, callContext (Api.ActiveOrderContextCommand.Command cmd) ctx request state
+            state, callContext (Api.OrderContextCommand.Command(cmd, ctx)) request state
         | OrderContextEffect.CallPatientChanged(pat, ctx, request) ->
-            state, callContext (Api.ActiveOrderContextCommand.PatientChanged pat) ctx request state
+            state, callContext (Api.OrderContextCommand.UpdatePatient(pat, ctx)) request state
         | OrderContextEffect.SyncFormulary filter ->
             { state with
                 Fetches.Formulary =

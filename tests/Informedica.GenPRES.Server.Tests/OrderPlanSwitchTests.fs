@@ -67,7 +67,7 @@ let tests =
                         Shared.Api.OrderPlanCommand.Navigate(
                             plan,
                             "c-1",
-                            Shared.Api.OrderContextCommand.SeedFilter(
+                            Shared.Api.OrderViewCommand.SeedFilter(
                                 Shared.Types.SeedSource.Reload,
                                 None,
                                 None,
@@ -135,7 +135,7 @@ let tests =
                         (Shared.Api.OrderPlanCommand.Navigate(
                             plan,
                             "c-1",
-                            Shared.Api.OrderContextCommand.SelectNthOrderScenario 0,
+                            Shared.Api.OrderViewCommand.SelectNthOrderScenario 0,
                             ctx
                         ))
 

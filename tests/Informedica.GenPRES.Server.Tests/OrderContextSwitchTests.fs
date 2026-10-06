@@ -37,9 +37,9 @@ let tests =
         [
             testAsync "the answer is the port's plan context as the contract model, the demo flag the environment's" {
                 let! answer =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         (envOver false echo)
-                        (Shared.Api.OrderContextCommand.SeedFilter(
+                        (Shared.Api.OrderViewCommand.SeedFilter(
                             Shared.Types.SeedSource.Reload,
                             None,
                             None,
@@ -56,9 +56,9 @@ let tests =
                 | other -> failtest $"expected the context evaluated, got: %A{other}"
 
                 let! demo =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         (envOver true echo)
-                        (Shared.Api.OrderContextCommand.SeedFilter(
+                        (Shared.Api.OrderViewCommand.SeedFilter(
                             Shared.Types.SeedSource.Reload,
                             None,
                             None,
@@ -78,9 +78,9 @@ let tests =
                     { evaluate = fun _ pc -> async { return Ok(Refused(pc, Refusal.NoDoseRulesForPatient)) } }
 
                 let! answer =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         (envOver false port)
-                        (Shared.Api.OrderContextCommand.SeedFilter(
+                        (Shared.Api.OrderViewCommand.SeedFilter(
                             Shared.Types.SeedSource.Reload,
                             None,
                             None,
@@ -109,9 +109,9 @@ let tests =
                     }
 
                 let! _ =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         (envOver false port)
-                        (Shared.Api.OrderContextCommand.SelectNthOrderScenario 0, ctx)
+                        (Shared.Api.OrderViewCommand.SelectNthOrderScenario 0, ctx)
 
                 match seen.Value with
                 | Some(OrderContext.SelectNthOrderScenario(domainCtx, _), id, category) ->
@@ -138,9 +138,9 @@ let tests =
                     }
 
                 let! answer =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         (envOver false port)
-                        (Shared.Api.OrderContextCommand.SeedFilter(
+                        (Shared.Api.OrderViewCommand.SeedFilter(
                             Shared.Types.SeedSource.Reload,
                             None,
                             None,
@@ -158,9 +158,9 @@ let tests =
                 let port: OrderContextPort = { evaluate = fun _ _ -> async { return Error [| "ctx error" |] } }
 
                 let! answer =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         (envOver false port)
-                        (Shared.Api.OrderContextCommand.SeedFilter(
+                        (Shared.Api.OrderViewCommand.SeedFilter(
                             Shared.Types.SeedSource.Reload,
                             None,
                             None,

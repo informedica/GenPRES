@@ -276,10 +276,10 @@ let evaluatedWith normalValues (ctx: OrderContext) =
         (fun _ -> "test")
         (fun _ -> Gate.Open)
         (fun _ -> None)
-        (OrderContextCommand.processCmd env)
+        (OrderContextCommand.processViewCmd env)
         {
             Opened = None
-            Command = OrderContextCommand.SeedFilter(Shared.Types.SeedSource.Reload, None, None, None, None, None), ctx
+            Command = OrderViewCommand.SeedFilter(Shared.Types.SeedSource.Reload, None, None, None, None, None), ctx
         }
     |> Async.RunSynchronously
 
@@ -399,7 +399,7 @@ let tests =
                         for sid in [ Some identified; None; Some anonymous; Some entered; Some "nobody" ] do
                             over
                                 sid
-                                (OrderContextCommand.SeedFilter(
+                                (OrderViewCommand.SeedFilter(
                                     Shared.Types.SeedSource.Reload,
                                     None,
                                     None,
@@ -410,7 +410,7 @@ let tests =
                                  context)
                             |> Expect.equal
                                 $"the order context as sent, %A{sid}"
-                                (OrderContextCommand.SeedFilter(
+                                (OrderViewCommand.SeedFilter(
                                     Shared.Types.SeedSource.Reload,
                                     None,
                                     None,
@@ -427,7 +427,7 @@ let tests =
                             OrderPlanCommand.Navigate(
                                 plan,
                                 "1",
-                                OrderContextCommand.SeedFilter(
+                                OrderViewCommand.SeedFilter(
                                     Shared.Types.SeedSource.Reload,
                                     None,
                                     None,
@@ -564,25 +564,11 @@ let tests =
                         estimatedOver
                             loaded
                             None
-                            (OrderContextCommand.SeedFilter(
-                                Shared.Types.SeedSource.Reload,
-                                None,
-                                None,
-                                None,
-                                None,
-                                None
-                             ),
+                            (OrderViewCommand.SeedFilter(Shared.Types.SeedSource.Reload, None, None, None, None, None),
                              ctx)
                         |> Expect.equal
                             "the context as sent"
-                            (OrderContextCommand.SeedFilter(
-                                Shared.Types.SeedSource.Reload,
-                                None,
-                                None,
-                                None,
-                                None,
-                                None
-                             ),
+                            (OrderViewCommand.SeedFilter(Shared.Types.SeedSource.Reload, None, None, None, None, None),
                              ctx)
                     }
 
@@ -593,14 +579,7 @@ let tests =
                         estimatedOver
                             ask
                             None
-                            (OrderContextCommand.SeedFilter(
-                                Shared.Types.SeedSource.Reload,
-                                None,
-                                None,
-                                None,
-                                None,
-                                None
-                             ),
+                            (OrderViewCommand.SeedFilter(Shared.Types.SeedSource.Reload, None, None, None, None, None),
                              ctx)
                         |> ignore
 

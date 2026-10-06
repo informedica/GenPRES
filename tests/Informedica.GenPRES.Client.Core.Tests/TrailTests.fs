@@ -182,7 +182,7 @@ let tests =
                 OrderContextState.held pat ctxPicked
                 |> OrderContextState.transition (
                     OrderContextMsg.Reopen(
-                        OrderContextCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
+                        OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
                         "r-9"
                     )
                 )
@@ -193,12 +193,7 @@ let tests =
 
             test "a plan navigation shows the context in a message, and its id once in an effect" {
                 let cmd =
-                    OrderPlanCommand.Navigate(
-                        OrderPlan.empty,
-                        "ctx-1",
-                        OrderContextCommand.ResetOrderScenario,
-                        ctxPicked
-                    )
+                    OrderPlanCommand.Navigate(OrderPlan.empty, "ctx-1", OrderViewCommand.ResetOrderScenario, ctxPicked)
 
                 [
                     Trail.OrderPlan.msg (OrderPlanMsg.Command(cmd, "r-3"))
@@ -275,14 +270,14 @@ let tests =
                             )
                             Trail.OrderContext.msg (
                                 OrderContextMsg.Command(
-                                    OrderContextCommand.SetArgumentationProperty "Jan Jansen weighs more",
+                                    OrderViewCommand.SetArgumentationProperty "Jan Jansen weighs more",
                                     "r-1"
                                 )
                             )
                             Trail.OrderPlan.msg (
                                 OrderPlanMsg.Navigate(
                                     "ctx-1",
-                                    OrderContextCommand.SetArgumentationProperty "Jan Jansen weighs more",
+                                    OrderViewCommand.SetArgumentationProperty "Jan Jansen weighs more",
                                     "r-1"
                                 )
                             )
@@ -316,7 +311,7 @@ let exampleTests =
         [
             OrderContextMsg.PatientChanged(Some pat, "r-1")
             OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated ctx))
-            OrderContextMsg.Command(OrderContextCommand.SetNthFilterProperty(OrderContext.Generic, 0), "r-2")
+            OrderContextMsg.Command(OrderViewCommand.SetNthFilterProperty(OrderContext.Generic, 0), "r-2")
             OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Refused(ctxPicked, OrderContextRefusal.NoProducts)))
         ]
         |> List.mapFold

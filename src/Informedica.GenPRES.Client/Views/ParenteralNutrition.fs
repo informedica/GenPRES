@@ -64,9 +64,9 @@ module ParenteralNutrition =
         (props:
             {|
                 nutritionContext: OrderContext
-                planNavigate: string * Api.OrderContextCommand -> unit
+                planNavigate: string * Api.OrderViewCommand -> unit
                 // a clear from a field's arrow, and the list of such a reopen closed without a pick
-                planReopen: string * Api.OrderContextCommand -> unit
+                planReopen: string * Api.OrderViewCommand -> unit
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
                 onRemove: (unit -> unit) option
@@ -393,8 +393,8 @@ module ParenteralNutrition =
             {|
                 plan: OrderPlan
                 planCommand: Api.OrderPlanCommand -> unit
-                planReopen: string * Api.OrderContextCommand -> unit
-                planNavigate: string * Api.OrderContextCommand -> unit
+                planReopen: string * Api.OrderViewCommand -> unit
+                planNavigate: string * Api.OrderViewCommand -> unit
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
                 isRecalculating: bool

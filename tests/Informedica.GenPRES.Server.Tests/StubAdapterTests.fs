@@ -237,16 +237,9 @@ let commandRoutingTests =
                 let env = makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk emptyCtx)
 
                 let! result =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         env
-                        (Api.OrderContextCommand.SeedFilter(
-                            Shared.Types.SeedSource.Reload,
-                            None,
-                            None,
-                            None,
-                            None,
-                            None
-                         ),
+                        (Api.OrderViewCommand.SeedFilter(Shared.Types.SeedSource.Reload, None, None, None, None, None),
                          emptyCtx)
 
                 match result with
@@ -275,16 +268,9 @@ let errorPropagationTests =
                 let env = makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysFails [| "ctx error" |])
 
                 let! result =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         env
-                        (Api.OrderContextCommand.SeedFilter(
-                            Shared.Types.SeedSource.Reload,
-                            None,
-                            None,
-                            None,
-                            None,
-                            None
-                         ),
+                        (Api.OrderViewCommand.SeedFilter(Shared.Types.SeedSource.Reload, None, None, None, None, None),
                          emptyCtx)
 
                 match result with
@@ -308,10 +294,10 @@ let requireLoadedTests =
         Compute.bound
             env
             noCookie
-            Api.OrderContextCommand.toString
+            Api.OrderViewCommand.toString
             (fun _ -> Gate.RequiresLoaded)
             (fun _ -> None)
-            (OrderContextCommand.processCmd env)
+            (OrderContextCommand.processViewCmd env)
             {
                 Opened = None
                 Command = cmd
@@ -327,14 +313,7 @@ let requireLoadedTests =
                 let! result =
                     bound
                         env
-                        (Api.OrderContextCommand.SeedFilter(
-                            Shared.Types.SeedSource.Reload,
-                            None,
-                            None,
-                            None,
-                            None,
-                            None
-                         ),
+                        (Api.OrderViewCommand.SeedFilter(Shared.Types.SeedSource.Reload, None, None, None, None, None),
                          emptyCtx)
 
                 match result with
@@ -348,14 +327,7 @@ let requireLoadedTests =
                 let! result =
                     bound
                         env
-                        (Api.OrderContextCommand.SeedFilter(
-                            Shared.Types.SeedSource.Reload,
-                            None,
-                            None,
-                            None,
-                            None,
-                            None
-                         ),
+                        (Api.OrderViewCommand.SeedFilter(Shared.Types.SeedSource.Reload, None, None, None, None, None),
                          emptyCtx)
 
                 match result with
@@ -5218,7 +5190,7 @@ module BoundTests =
         Compute.bound
             env
             cookie
-            OrderContextCommand.toString
+            OrderViewCommand.toString
             (fun _ -> Gate.RequiresLoaded)
             (fun _ -> None)
             handler
@@ -5229,7 +5201,7 @@ module BoundTests =
         |> Async.RunSynchronously
 
     let formulary =
-        (Api.OrderContextCommand.SeedFilter(Shared.Types.SeedSource.Reload, None, None, None, None, None), emptyCtx)
+        (Api.OrderViewCommand.SeedFilter(Shared.Types.SeedSource.Reload, None, None, None, None, None), emptyCtx)
 
     let runInteraction env cookie cmd =
         Compute.bound
@@ -5258,7 +5230,7 @@ module BoundTests =
                 test "without a cookie: computed, nothing told" {
                     let env = envWith true (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
 
-                    match run env (cookieOf None) (OrderContextCommand.processCmd env) formulary with
+                    match run env (cookieOf None) (OrderContextCommand.processViewCmd env) formulary with
                     | Ok reply ->
                         reply.Notice |> Expect.isNone "nothing told without a cookie"
 
@@ -5270,7 +5242,7 @@ module BoundTests =
                 test "with a cookie: what the Session is told rides on the reply, still computed" {
                     let env = envWith true (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
 
-                    match run env (cookieOf (Some "s-1")) (OrderContextCommand.processCmd env) formulary with
+                    match run env (cookieOf (Some "s-1")) (OrderContextCommand.processViewCmd env) formulary with
                     | Ok reply ->
                         reply.Notice
                         |> Expect.equal "the ending" (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
@@ -5283,7 +5255,7 @@ module BoundTests =
                 test "a command that needs the formulary is refused while it is not loaded" {
                     let env = envWith false None
 
-                    run env (cookieOf None) (OrderContextCommand.processCmd env) formulary
+                    run env (cookieOf None) (OrderContextCommand.processViewCmd env) formulary
                     |> Expect.equal "refused with the messages" (Error [| "not loaded" |])
                 }
 
@@ -5320,7 +5292,7 @@ module BoundTests =
 
                     asked.Value |> Expect.equal "never asked: asking may load" 0
 
-                    run env (cookieOf None) (OrderContextCommand.processCmd env) formulary
+                    run env (cookieOf None) (OrderContextCommand.processViewCmd env) formulary
                     |> Result.isOk
                     |> Expect.isTrue "computed"
 
@@ -5456,7 +5428,7 @@ module PlanTests =
                             (OrderPlanCommand.Navigate(
                                 p,
                                 "c-1",
-                                Api.OrderContextCommand.SeedFilter(
+                                Api.OrderViewCommand.SeedFilter(
                                     Shared.Types.SeedSource.Reload,
                                     None,
                                     None,
@@ -5493,12 +5465,7 @@ module PlanTests =
                     let p = OrderPlan.empty
 
                     OrderPlanCommand.toString (
-                        OrderPlanCommand.Navigate(
-                            p,
-                            "c-1",
-                            Api.OrderContextCommand.ResetOrderScenario,
-                            OrderContext.empty
-                        )
+                        OrderPlanCommand.Navigate(p, "c-1", Api.OrderViewCommand.ResetOrderScenario, OrderContext.empty)
                     )
                     |> Expect.equal "the command, not the context" "Navigate ResetOrderScenario"
 
@@ -5568,16 +5535,9 @@ let ingressTests =
                 let env = makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysFails [| "asked" |])
 
                 let! result =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         env
-                        (Api.OrderContextCommand.SeedFilter(
-                            Shared.Types.SeedSource.Reload,
-                            None,
-                            None,
-                            None,
-                            None,
-                            None
-                         ),
+                        (Api.OrderViewCommand.SeedFilter(Shared.Types.SeedSource.Reload, None, None, None, None, None),
                          Models.OrderContext.empty)
 
                 result |> refusedAs Patient.noPatient
@@ -5597,7 +5557,7 @@ let ingressTests =
                         (Api.OrderPlanCommand.Navigate(
                             emptyPlan,
                             "c-1",
-                            Api.OrderContextCommand.SeedFilter(
+                            Api.OrderViewCommand.SeedFilter(
                                 Shared.Types.SeedSource.Reload,
                                 None,
                                 None,
