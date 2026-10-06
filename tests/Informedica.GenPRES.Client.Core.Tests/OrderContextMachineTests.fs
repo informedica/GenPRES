@@ -384,7 +384,7 @@ let viewTests =
                     patient
                     plan
                     (Some "c-1")
-                    (OrderPlanCommand.Recalculate plan)
+                    (OrderPlanCommand.FilterRows(plan.Filtered, plan))
                     "r-1"
                 |> OrderPlanMachine.OrderPlanState.view
                 |> OrderContextView.dialog

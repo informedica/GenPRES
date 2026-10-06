@@ -49,8 +49,8 @@ type OrderPlanCartMsg =
 type OrderPlanCartIntent =
     /// Open the plan for the patient, empty or with a version's contexts; replaces any request.
     | Open of Patient * OrderContext[]
-    /// Recalculate the plan for a changed patient; replaces any request.
-    | Recalculate of OrderPlan
+    /// The plan held recalculated for the patient updated; replaces any request.
+    | UpdatePatient of Patient * OrderPlan
     /// Send a change from a page; one at a time.
     | Call of OrderPlanCommand
     /// Check the plan's drugs for interactions; fewer than two clears the warnings.
@@ -90,11 +90,12 @@ module OrderPlanCart =
 
 
     /// A command from a page, over the plan the machine holds, since the page's copy may be
-    /// behind. A recalculation keeps the page's plan, which carries its filter.
+    /// behind.
     let rebase (tp: OrderPlan) (cmd: OrderPlanCommand) =
         match cmd with
-        | OrderPlanCommand.Recalculate _
         | OrderPlanCommand.Open _ -> cmd
+        | OrderPlanCommand.UpdatePatient(pat, _) -> OrderPlanCommand.UpdatePatient(pat, tp)
+        | OrderPlanCommand.FilterRows(ids, _) -> OrderPlanCommand.FilterRows(ids, tp)
         | OrderPlanCommand.AddOrderContext(_, ctx) -> OrderPlanCommand.AddOrderContext(tp, ctx)
         | OrderPlanCommand.NewOrderContext(_, category) -> OrderPlanCommand.NewOrderContext(tp, category)
         | OrderPlanCommand.Navigate(_, contextId, ctxCmd, ctx) -> OrderPlanCommand.Navigate(tp, contextId, ctxCmd, ctx)
@@ -124,11 +125,10 @@ module OrderPlanCart =
         // empty plan, is opened
         | OrderPlanCartMsg.PatientChanged(Some pat), OrderPlanCart.NoPatient awaiting ->
             OrderPlanCart.Opened(pat, OrderPlan.create pat [||]), [ OrderPlanCartIntent.Open(pat, awaiting) ]
-        // the plan follows the patient and is recalculated; an open under way is handled in
+        // the plan held is recalculated for the patient updated; an open under way is handled in
         // transition
         | OrderPlanCartMsg.PatientChanged(Some pat), OrderPlanCart.Opened(_, tp) ->
-            let tp = { tp with Patient = pat }
-            OrderPlanCart.Opened(pat, tp), [ OrderPlanCartIntent.Recalculate tp ]
+            OrderPlanCart.Opened(pat, tp), [ OrderPlanCartIntent.UpdatePatient(pat, tp) ]
 
         // the signed version replaces the plan; before the patient arrives, its contexts wait
         | OrderPlanCartMsg.Version head, OrderPlanCart.NoPatient _ -> OrderPlanCart.NoPatient head.OrderContexts, []
@@ -147,10 +147,7 @@ module OrderPlanCart =
 
         // the rows chosen: the totals are recalculated over them; the rows travel in the command
         | OrderPlanCartMsg.Filter ids, OrderPlanCart.Opened(_, tp) ->
-            plan,
-            [
-                OrderPlanCartIntent.Call(OrderPlanCommand.Recalculate { tp with Filtered = ids })
-            ]
+            plan, [ OrderPlanCartIntent.Call(OrderPlanCommand.FilterRows(ids, tp)) ]
         | OrderPlanCartMsg.Filter _, _ -> plan, []
 
 
@@ -230,8 +227,8 @@ type OrderPlanView =
     | NoPatient
     /// The plan the server answered, with the context the dialog shows.
     | Settled of OrderPlan * selected: string option
-    /// A change under way, with the plan shown meanwhile: for a recalculation the plan sent, so
-    /// the rows chosen show at once; otherwise the plan held.
+    /// A change under way, with the plan shown meanwhile: for a patient update or a row filter the
+    /// plan sent as the command changes it, so the rows chosen show at once; otherwise the plan held.
     | Changing of OrderPlan * selected: string option
 
 
@@ -358,11 +355,12 @@ module OrderPlanState =
         |> Option.filter (fun id -> tp.OrderContexts |> Array.exists (fun c -> c.Id = id))
 
 
-    /// The plan shown while a change is under way: for a recalculation the plan sent; otherwise the
-    /// plan held.
+    /// The plan shown while a change is under way: for a patient update or a row filter the plan
+    /// sent as the command changes it, so the rows chosen show at once; otherwise the plan held.
     let meanwhile (tp: OrderPlan) (sent: OrderPlanCommand) =
         match sent with
-        | OrderPlanCommand.Recalculate shown -> shown
+        | OrderPlanCommand.UpdatePatient(pat, sent) -> { sent with Patient = pat }
+        | OrderPlanCommand.FilterRows(ids, sent) -> { sent with Filtered = ids }
         | _ -> tp
 
 
@@ -400,12 +398,12 @@ module OrderPlanState =
 
 
     /// Whether an answer to request is the one the plan waits for. An answer to a request an
-    /// open or a recalculation has since replaced is not, and the machine drops it.
+    /// open or a patient update has since replaced is not, and the machine drops it.
     let awaits (request: string) (state: OrderPlanState) = landing request state.InFlight |> Option.isSome
 
 
     /// The request stage: each intent becomes a request under the given id or an effect. A call
-    /// while a request is under way is dropped; an open or a recalculation replaces it.
+    /// while a request is under way is dropped; an open or a patient update replaces it.
     let private apply (request: string) (intents: OrderPlanCartIntent list) (state: OrderPlanState) =
         let call (cmd: OrderPlanCommand) (state: OrderPlanState) =
             { state with InFlight = Some(cmd, request) }, [ OrderPlanEffect.CallPlan(cmd, request) ]
@@ -416,7 +414,8 @@ module OrderPlanState =
                 let state, added =
                     match intent with
                     | OrderPlanCartIntent.Open(pat, ctxs) -> call (OrderPlanCommand.Open(pat, ctxs)) state
-                    | OrderPlanCartIntent.Recalculate tp -> call (OrderPlanCommand.Recalculate tp) state
+                    | OrderPlanCartIntent.UpdatePatient(pat, tp) ->
+                        call (OrderPlanCommand.UpdatePatient(pat, tp)) state
                     | OrderPlanCartIntent.Call _ when state.InFlight.IsSome -> state, []
                     // the one place a command goes out, so the one place it counts as a change to
                     // the plan
@@ -485,17 +484,15 @@ module OrderPlanState =
             | OrderPlanCart.NoPatient _, _ -> state, []
 
         // a patient change during an open: the same contexts are opened again for the new
-        // patient
+        // patient, the empty plan shown meanwhile
         | OrderPlanMsg.PatientChanged(Some pat, request) ->
             match state.Cart, state.InFlight with
             | OrderPlanCart.Opened _, Some(OrderPlanCommand.Open(_, contexts), _) ->
-                let plan, _ = OrderPlanCart.step (OrderPlanCartMsg.PatientChanged(Some pat)) state.Cart
-
                 apply
                     request
                     [ OrderPlanCartIntent.Open(pat, contexts) ]
                     { state with
-                        Cart = plan
+                        Cart = OrderPlanCart.Opened(pat, OrderPlan.create pat [||])
                         Selected = None
                     }
             | _ -> run request (OrderPlanCartMsg.PatientChanged(Some pat)) state

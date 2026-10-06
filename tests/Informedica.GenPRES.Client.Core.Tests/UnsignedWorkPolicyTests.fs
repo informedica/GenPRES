@@ -21,12 +21,14 @@ module UnsignedWorkPolicyTests =
 
     let add = OrderPlanCommand.AddOrderContext(plan, context)
     let remove = OrderPlanCommand.RemoveOrderContexts(plan, [| "c-1" |])
-    let recalculate = OrderPlanCommand.Recalculate plan
+    let updatePatient = OrderPlanCommand.UpdatePatient(patient, plan)
+    let filterRows = OrderPlanCommand.FilterRows([| "c-1" |], plan)
 
 
     let commands =
         [
-            "Recalculate", recalculate, false
+            "UpdatePatient", updatePatient, false
+            "FilterRows", filterRows, false
             "Open", OrderPlanCommand.Open(patient, [||]), false
             "Navigate",
             OrderPlanCommand.Navigate(

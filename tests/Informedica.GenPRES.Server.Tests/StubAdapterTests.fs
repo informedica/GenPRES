@@ -5420,7 +5420,7 @@ module PlanTests =
                         }
 
                     let p = emptyPlan
-                    let! _ = OrderPlanCommand.processCmd env (OrderPlanCommand.Recalculate p)
+                    let! _ = OrderPlanCommand.processCmd env (OrderPlanCommand.FilterRows(p.Filtered, p))
 
                     let! _ =
                         OrderPlanCommand.processCmd
@@ -5548,7 +5548,8 @@ let ingressTests =
 
                 let draft = OrderPlan.empty
 
-                let! recalculated = OrderPlanCommand.processCmd env (Api.OrderPlanCommand.Recalculate draft)
+                let! recalculated =
+                    OrderPlanCommand.processCmd env (Api.OrderPlanCommand.FilterRows(draft.Filtered, draft))
                 recalculated |> refusedAs Patient.noPatient
 
                 let! navigated =
@@ -5597,7 +5598,8 @@ let ingressTests =
                 let! opened = OrderPlanCommand.processCmd env (Api.OrderPlanCommand.Open(patient, [| draft |]))
                 opened |> refusedAs Patient.noPatient
 
-                let! recalculated = OrderPlanCommand.processCmd env (Api.OrderPlanCommand.Recalculate carrying)
+                let! recalculated =
+                    OrderPlanCommand.processCmd env (Api.OrderPlanCommand.FilterRows(carrying.Filtered, carrying))
                 recalculated |> refusedAs Patient.noPatient
 
                 let cookie: SessionCookie =

@@ -232,8 +232,10 @@ outside the client views starts as a script with its tests, unless the user asks
      = pat }` after a patient change and `{ tp with Filtered = ids }` after a row filter. The plan
      machine sends the patient updated (`UpdatePatient of Patient * OrderPlan`) and the rows kept
      (`FilterRows of string[] * OrderPlan`) over the plan it holds; the server writes the patient
-     or the rows and recalculates as `Recalculate` does now. `Recalculate` stays for the server's
-     own use only if something still needs it.
+     or the rows and recalculates as `Recalculate` does now. `Recalculate` leaves the wire, so no
+     command carries a plan the client changed; the server's own recalculation, after it writes
+     the argumentation on a plan context, calls a function of its own (decided by the user,
+     2026-10-06).
 
    No visible change. Tests: the machine tests over the new requests, their cases kept; server
    tests that each new case answers as today's request over the context or plan the client builds

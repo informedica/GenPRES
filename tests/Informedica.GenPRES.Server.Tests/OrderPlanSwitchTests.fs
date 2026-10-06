@@ -57,7 +57,7 @@ let tests =
                 let seen = ref []
                 let run = OrderPlanCommand.processCmd (envOver true (echoPort seen))
 
-                let! recalculated = run (Shared.Api.OrderPlanCommand.Recalculate plan)
+                let! recalculated = run (Shared.Api.OrderPlanCommand.FilterRows(plan.Filtered, plan))
 
                 recalculated
                 |> Expect.equal "the plan back, demo as the environment says" (Ok plan)
@@ -107,11 +107,43 @@ let tests =
                 | Error e -> failtest $"open refused: %A{e}"
             }
 
+            testAsync "a patient update recalculates the plan for that patient, each context keeping its own" {
+                let seen = ref []
+                let updated = { patient with Department = Some "NEO" }
+
+                let! answer =
+                    OrderPlanCommand.processCmd
+                        (envOver true (echoPort seen))
+                        (Shared.Api.OrderPlanCommand.UpdatePatient(updated, plan))
+
+                seen.Value |> Expect.equal "recalculated" [ "recalculate" ]
+
+                answer
+                |> Result.map (fun p -> p.Patient.Department, p.OrderContexts |> Array.map _.Patient.Department)
+                |> Expect.equal
+                    "the plan's patient updated, the context's kept"
+                    (Ok(Some "NEO", [| patient.Department |]))
+            }
+
+            testAsync "a row filter recalculates the plan over the rows chosen" {
+                let seen = ref []
+                let run = OrderPlanCommand.processCmd (envOver true (echoPort seen))
+
+                let! none = run (Shared.Api.OrderPlanCommand.FilterRows([||], plan))
+                let! one = run (Shared.Api.OrderPlanCommand.FilterRows([| "c-1" |], { plan with Filtered = [||] }))
+
+                seen.Value |> Expect.equal "recalculated twice" [ "recalculate"; "recalculate" ]
+
+                [ none; one ]
+                |> List.map (Result.map _.Filtered)
+                |> Expect.equal "the rows as chosen" [ Ok [||]; Ok [| "c-1" |] ]
+            }
+
             testAsync "the demo flag on every context is the environment's, not the wire's" {
                 let! answer =
                     OrderPlanCommand.processCmd
                         (envOver false (echoPort (ref [])))
-                        (Shared.Api.OrderPlanCommand.Recalculate plan)
+                        (Shared.Api.OrderPlanCommand.FilterRows(plan.Filtered, plan))
 
                 answer
                 |> Result.map (_.OrderContexts >> Array.map _.DemoVersion)
@@ -179,7 +211,7 @@ let tests =
                 let! refused =
                     OrderPlanCommand.processCmd
                         (envOver false (echoPort seen))
-                        (Shared.Api.OrderPlanCommand.Recalculate Shared.Models.OrderPlan.empty)
+                        (Shared.Api.OrderPlanCommand.FilterRows([||], Shared.Models.OrderPlan.empty))
 
                 refused |> Expect.equal "no patient" (Error [| Patient.noPatient |])
                 seen.Value |> Expect.isEmpty "the port never asked"

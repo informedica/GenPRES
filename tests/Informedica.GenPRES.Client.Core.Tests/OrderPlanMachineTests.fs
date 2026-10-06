@@ -157,28 +157,31 @@ let tests =
 
                     test
                         "a patient changed recalculates the plan over the new patient, the dialog closed, whatever was in flight superseded" {
-                        let busy = recalculating one (Some "c-1") "r-1" (OrderPlanCommand.Recalculate one)
+                        let busy = recalculating one (Some "c-1") "r-1" (OrderPlanCommand.FilterRows(one.Filtered, one))
 
                         let state, effects = transition (OrderPlanMsg.PatientChanged(Some other, "r-2")) busy
 
-                        let expected = { one with Patient = otherDraft }
+                        let update = OrderPlanCommand.UpdatePatient(otherDraft, one)
 
                         state
                         |> Expect.equal
-                            "recalculating over the new patient"
-                            (recalculatingFor other expected None "r-2" (OrderPlanCommand.Recalculate expected))
+                            "the plan held, the patient update in the command"
+                            (recalculatingFor other one None "r-2" update)
 
                         effects
+                        |> Expect.equal "the patient update" [ OrderPlanEffect.CallPlan(update, "r-2") ]
+
+                        OrderPlanState.view state
                         |> Expect.equal
-                            "recalculate"
-                            [ OrderPlanEffect.CallPlan(OrderPlanCommand.Recalculate expected, "r-2") ]
+                            "the plan shown for the new patient meanwhile"
+                            (OrderPlanView.Changing({ one with Patient = otherDraft }, None))
 
                         transition (OrderPlanMsg.Answered("r-1", Ok two)) state
                         |> Expect.equal "the older answer dropped" (state, [])
                     }
 
                     test "no patient: no plan, whatever was in flight answers to nothing" {
-                        let busy = recalculating one None "r-1" (OrderPlanCommand.Recalculate one)
+                        let busy = recalculating one None "r-1" (OrderPlanCommand.FilterRows(one.Filtered, one))
 
                         let state, effects = transition (OrderPlanMsg.PatientChanged(None, "r-2")) busy
                         state |> Expect.equal "no patient" noPatient
@@ -273,19 +276,20 @@ let tests =
                         |> Expect.equal "dropped while busy" (busy, [])
                     }
 
-                    test "a recalculation carries the plan as the page changed it; the plan held stays" {
+                    test "a row filter goes over the plan held, the rows in the command; the plan held stays" {
                         let filtered = { one with Filtered = [| "c-1" |] }
+                        let rows = OrderPlanCommand.FilterRows([| "c-1" |], one)
 
                         let busy, _ =
-                            transition (OrderPlanMsg.Command(OrderPlanCommand.Recalculate filtered, "r-1")) shown
+                            transition
+                                (OrderPlanMsg.Command(OrderPlanCommand.FilterRows([| "c-1" |], two), "r-1"))
+                                shown
 
                         busy
-                        |> Expect.equal
-                            "the plan held, the page's plan in the command"
-                            (recalculating one None "r-1" (OrderPlanCommand.Recalculate filtered))
+                        |> Expect.equal "the plan held, the rows in the command" (recalculating one None "r-1" rows)
 
-                        OrderPlanState.meanwhile one (OrderPlanCommand.Recalculate filtered)
-                        |> Expect.equal "the pages show the page's plan meanwhile" filtered
+                        OrderPlanState.meanwhile one rows
+                        |> Expect.equal "the pages show the rows chosen meanwhile" filtered
 
                         OrderPlanState.meanwhile one (OrderPlanCommand.RemoveOrderContexts(one, [| "c-1" |]))
                         |> Expect.equal "and the plan held for any other change" one
@@ -328,7 +332,7 @@ let tests =
 
                         let recalculating, _ =
                             transition
-                                (OrderPlanMsg.Command(OrderPlanCommand.Recalculate filtered, "r-1"))
+                                (OrderPlanMsg.Command(OrderPlanCommand.FilterRows([| "c-1" |], one), "r-1"))
                                 (held one (Some "c-1"))
 
                         transition (OrderPlanMsg.Answered("r-1", Error [| "no dose rules" |])) recalculating
@@ -368,12 +372,12 @@ let tests =
                         transition (OrderPlanMsg.Select(Some "c-1")) shown
                         |> Expect.equal "selected" (held one (Some "c-1"), [])
 
-                        let busy = recalculating one None "r-1" (OrderPlanCommand.Recalculate one)
+                        let busy = recalculating one None "r-1" (OrderPlanCommand.FilterRows(one.Filtered, one))
 
                         transition (OrderPlanMsg.Select(Some "c-1")) busy
                         |> Expect.equal
                             "selected while busy"
-                            (recalculating one (Some "c-1") "r-1" (OrderPlanCommand.Recalculate one), [])
+                            (recalculating one (Some "c-1") "r-1" (OrderPlanCommand.FilterRows(one.Filtered, one)), [])
 
                         transition (OrderPlanMsg.Select None) noPatient
                         |> Expect.equal "nothing to select" (noPatient, [])
@@ -388,12 +392,14 @@ let tests =
                         state
                         |> Expect.equal
                             "recalculating over the plan held, the rows in the command, the dialog closed"
-                            (recalculating one None "r-1" (OrderPlanCommand.Recalculate filtered))
+                            (recalculating one None "r-1" (OrderPlanCommand.FilterRows([| "c-1" |], one)))
 
                         effects
                         |> Expect.equal
-                            "recalculate"
-                            [ OrderPlanEffect.CallPlan(OrderPlanCommand.Recalculate filtered, "r-1") ]
+                            "the row filter"
+                            [
+                                OrderPlanEffect.CallPlan(OrderPlanCommand.FilterRows([| "c-1" |], one), "r-1")
+                            ]
 
                         transition (OrderPlanMsg.Filter([||], "r-2")) state
                         |> Expect.equal "dropped while busy" (state, [])
@@ -424,7 +430,7 @@ let viewTests =
             test "a change under way: the plan the page changed for a recalculation, the plan held otherwise" {
                 let filtered = { one with Filtered = [| "c-1" |] }
 
-                recalculating one (Some "c-1") "r-1" (OrderPlanCommand.Recalculate filtered)
+                recalculating one (Some "c-1") "r-1" (OrderPlanCommand.FilterRows([| "c-1" |], one))
                 |> OrderPlanState.view
                 |> Expect.equal "the rows chosen show at once" (OrderPlanView.Changing(filtered, Some "c-1"))
 
@@ -505,14 +511,14 @@ let stagesTests =
                 let filtered = { one with Filtered = [| "c-1" |] }
 
                 OrderPlanCart.step
-                    (OrderPlanCartMsg.Landed(OrderPlanCommand.Recalculate filtered, Error [| "not loaded" |]))
+                    (OrderPlanCartMsg.Landed(OrderPlanCommand.FilterRows([| "c-1" |], one), Error [| "not loaded" |]))
                     (OrderPlanCart.Opened(patient, one))
                 |> Expect.equal
                     "the original, told"
                     (OrderPlanCart.Opened(patient, one), [ OrderPlanCartIntent.Tell [| "not loaded" |] ])
 
                 OrderPlanCart.step
-                    (OrderPlanCartMsg.Landed(OrderPlanCommand.Recalculate filtered, Ok filtered))
+                    (OrderPlanCartMsg.Landed(OrderPlanCommand.FilterRows([| "c-1" |], one), Ok filtered))
                     (OrderPlanCart.Opened(patient, one))
                 |> Expect.equal
                     "the plan answered, its drugs checked"
@@ -535,7 +541,7 @@ let stagesTests =
 [<Tests>]
 let workTests =
     let remove = OrderPlanCommand.RemoveOrderContexts(one, [| "c-1" |])
-    let recalculate = OrderPlanCommand.Recalculate one
+    let filterRows = OrderPlanCommand.FilterRows(one.Filtered, one)
 
     let version: SignedOrderPlan =
         {
@@ -574,14 +580,14 @@ let workTests =
                 |> Expect.equal "one change" PlanWork.Changed
 
                 transition
-                    (OrderPlanMsg.Command(recalculate, "r-1"))
+                    (OrderPlanMsg.Command(filterRows, "r-1"))
                     (held one None |> OrderPlanState.withWork PlanWork.Changed)
                 |> workOf
                 |> Expect.equal "still one change" PlanWork.Changed
             }
 
             test "a command counts when it goes out, never when it is dropped" {
-                let busy = recalculating one None "r-1" (OrderPlanCommand.Recalculate one)
+                let busy = recalculating one None "r-1" (OrderPlanCommand.FilterRows(one.Filtered, one))
 
                 transition (OrderPlanMsg.Command(remove, "r-2")) busy
                 |> workOf
@@ -900,13 +906,13 @@ let awaitsTests =
         "OrderPlanState.awaits"
         [
             test "the request under way is awaited" {
-                recalculating one None "r-1" (OrderPlanCommand.Recalculate one)
+                recalculating one None "r-1" (OrderPlanCommand.FilterRows(one.Filtered, one))
                 |> OrderPlanState.awaits "r-1"
                 |> Expect.isTrue "the answer to r-1 lands"
             }
 
             test "a request since replaced is not awaited" {
-                recalculating one None "r-2" (OrderPlanCommand.Recalculate one)
+                recalculating one None "r-2" (OrderPlanCommand.FilterRows(one.Filtered, one))
                 |> OrderPlanState.awaits "r-1"
                 |> Expect.isFalse "the answer to r-1 is dropped"
             }

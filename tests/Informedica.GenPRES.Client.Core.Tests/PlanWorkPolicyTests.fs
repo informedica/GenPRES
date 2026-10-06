@@ -19,12 +19,14 @@ module PlanWorkPolicyTests =
 
     let add = OrderPlanCommand.AddOrderContext(plan, context)
     let remove = OrderPlanCommand.RemoveOrderContexts(plan, [| "c-1" |])
-    let recalculate = OrderPlanCommand.Recalculate plan
+    let updatePatient = OrderPlanCommand.UpdatePatient(patient, plan)
+    let filterRows = OrderPlanCommand.FilterRows([| "c-1" |], plan)
 
 
     let commands =
         [
-            "Recalculate", recalculate, false
+            "UpdatePatient", updatePatient, false
+            "FilterRows", filterRows, false
             "Open", OrderPlanCommand.Open(patient, [||]), false
             "Navigate",
             OrderPlanCommand.Navigate(
@@ -71,16 +73,17 @@ module PlanWorkPolicyTests =
                             |> Expect.equal "should stay changed" PlanWork.Changed
                         }
 
-                        test "a recalculation keeps the plan as signed" {
-                            PlanWork.AsSigned
-                            |> PlanWork.afterCommand recalculate
-                            |> Expect.equal "should stay as signed" PlanWork.AsSigned
-                        }
+                        for name, cmd in [ "a patient update", updatePatient; "a row filter", filterRows ] do
+                            test $"%s{name} keeps the plan as signed" {
+                                PlanWork.AsSigned
+                                |> PlanWork.afterCommand cmd
+                                |> Expect.equal "should stay as signed" PlanWork.AsSigned
+                            }
 
-                        test "a recalculation keeps the plan changed" {
-                            PlanWork.Changed
-                            |> PlanWork.afterCommand recalculate
-                            |> Expect.equal "should stay changed" PlanWork.Changed
-                        }
+                            test $"%s{name} keeps the plan changed" {
+                                PlanWork.Changed
+                                |> PlanWork.afterCommand cmd
+                                |> Expect.equal "should stay changed" PlanWork.Changed
+                            }
                     ]
             ]

@@ -289,7 +289,8 @@ module Part =
     /// A plan command by what it does, with a context as describeContext tells it; never the plan.
     let planCommand (describeContext: OrderContext -> string) (cmd: OrderPlanCommand) =
         match cmd with
-        | OrderPlanCommand.Recalculate _ -> "Recalculate"
+        | OrderPlanCommand.UpdatePatient _ -> "UpdatePatient"
+        | OrderPlanCommand.FilterRows(ids, _) -> $"FilterRows %i{ids.Length}"
         | OrderPlanCommand.Navigate(_, id, ctxCmd, ctx) ->
             // an effect describes the context by its id, which the line already shows
             let described = describeContext ctx

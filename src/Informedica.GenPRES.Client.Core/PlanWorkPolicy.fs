@@ -17,11 +17,12 @@ type PlanWork =
 module PlanWork =
 
     /// Whether a plan command changes the plan: navigating an order, adding an order, opening a
-    /// new nutrition context and removing contexts do; recalculating and opening a version do
-    /// not.
+    /// new nutrition context and removing contexts do; a patient update, a row filter and opening
+    /// a version do not.
     let changedBy (cmd: OrderPlanCommand) =
         match cmd with
-        | OrderPlanCommand.Recalculate _
+        | OrderPlanCommand.UpdatePatient _
+        | OrderPlanCommand.FilterRows _
         | OrderPlanCommand.Open _ -> false
         | OrderPlanCommand.Navigate _
         | OrderPlanCommand.AddOrderContext _
