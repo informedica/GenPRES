@@ -538,6 +538,24 @@ module OrderContext =
         $"%s{OrderContextCommand.toString (cmd, ctx)} %s{describeContext ctx}"
 
 
+    /// Where a seed comes from.
+    let seedSource (source: SeedSource) =
+        match source with
+        | SeedSource.Url -> "url"
+        | SeedSource.MedicationList -> "list"
+        | SeedSource.Formulary -> "formulary"
+        | SeedSource.Parenteralia -> "parenteralia"
+        | SeedSource.Reload -> "reload"
+
+
+    /// How many choices a seed sets, never their text.
+    let seedChoices (seed: FilterSeed) =
+        [ seed.Indication; seed.Generic; seed.Route; seed.Form ]
+        |> List.filter Option.isSome
+        |> List.length
+        |> (+) (if seed.DoseType.IsSome then 1 else 0)
+
+
     /// Never the argumentation.
     let msg (msg: OrderContextMsg) =
         match msg with
@@ -547,6 +565,8 @@ module OrderContext =
         // it shows how many picks it carries, never their text
         | OrderContextMsg.Seed(ctx, request) ->
             $"Seed %i{(Part.picks ctx.Filter).Length} picks %s{Part.shortId request}"
+        | OrderContextMsg.SeedFilter(seed, request) ->
+            $"SeedFilter %s{seedSource seed.Source} %i{seedChoices seed} choices %s{Part.shortId request}"
         | OrderContextMsg.Command(cmd, ctx, request) ->
             $"Command %s{command Part.context cmd ctx} %s{Part.shortId request}"
         | OrderContextMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result response}"

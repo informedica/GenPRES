@@ -69,6 +69,27 @@ module Fixtures =
             OrderContextEffect.SyncParenteralia ctx.Filter
         ]
 
+    /// A command that replaces any request: the call and the syncs of the filter it gives.
+    let replacing cmd (ctx: OrderContext) request =
+        let filter = (OrderPlanMachine.Dialog.shown cmd ctx).Filter
+
+        [
+            OrderContextEffect.CallContext(cmd, ctx, request)
+            OrderContextEffect.SyncFormulary filter
+            OrderContextEffect.SyncParenteralia filter
+        ]
+
+    /// The url's paracetamol.
+    let urlSeed =
+        {
+            Source = SeedSource.Url
+            Indication = None
+            Generic = Some "paracetamol"
+            Route = None
+            Form = None
+            DoseType = None
+        }
+
     let transition = OrderContextState.transition
 
 
@@ -93,7 +114,7 @@ let tests =
                         |> Expect.equal
                             "the empty workbench evaluated"
                             [
-                                OrderContextEffect.CallContext(OrderContextCommand.UpdateOrderContext, empty, "r-1")
+                                OrderContextEffect.CallContext(OrderContextCommand.ClearAllFilterProperty, empty, "r-1")
                             ]
 
                         transition
@@ -155,25 +176,40 @@ let tests =
             testList
                 "the seed"
                 [
-                    test "a filter before a patient waits for it and is evaluated for it" {
-                        let waiting, effects = transition (OrderContextMsg.Seed(paracetamol, "r-1")) noPatient
+                    test "a seed before a patient waits for it and is sent over the empty workbench" {
+                        let waiting, effects = transition (OrderContextMsg.SeedFilter(urlSeed, "r-1")) noPatient
 
                         (OrderContextState.view waiting, effects)
                         |> Expect.equal "no workbench, nothing sent" (OrderContextView.NoPatient, [])
 
+                        let emptyForOther = OrderContextState.emptyFor other
+                        let cmd = FilterSeed.command urlSeed
+
                         transition (OrderContextMsg.PatientChanged(Some other, "r-2")) waiting
                         |> Expect.equal
-                            "the filter evaluated for the patient, over the empty workbench"
-                            (evaluatingFor
-                                other
-                                { paracetamol with Patient = other }
-                                (OrderContextState.emptyFor other)
-                                "r-2",
-                             evaluated { paracetamol with Patient = other } "r-2")
+                            "the seed sent for the patient, over the empty workbench"
+                            (inFlightFor other cmd emptyForOther emptyForOther "r-2", replacing cmd emptyForOther "r-2")
                     }
 
-                    test "a filter waiting goes with a cleared patient" {
-                        let waiting, _ = transition (OrderContextMsg.Seed(paracetamol, "r-1")) noPatient
+                    test "a seed with a patient goes over the context held, and over the one shown during a request" {
+                        let cmd = FilterSeed.command urlSeed
+
+                        transition (OrderContextMsg.SeedFilter(urlSeed, "r-1")) shown
+                        |> snd
+                        |> Expect.equal "over the context held" (replacing cmd paracetamol "r-1")
+
+                        let step = OrderContextCommand.IncreaseScheduleFrequencyProperty
+                        let busy, _ = transition (OrderContextMsg.Command(step, paracetamol, "r-1")) shown
+
+                        transition (OrderContextMsg.SeedFilter(urlSeed, "r-2")) busy
+                        |> snd
+                        |> Expect.equal
+                            "over the context shown"
+                            (replacing cmd (OrderPlanMachine.Dialog.shown step paracetamol) "r-2")
+                    }
+
+                    test "a seed waiting goes with a cleared patient" {
+                        let waiting, _ = transition (OrderContextMsg.SeedFilter(urlSeed, "r-1")) noPatient
 
                         transition (OrderContextMsg.PatientChanged(None, "r-2")) waiting
                         |> fst
@@ -329,13 +365,17 @@ let tests =
             testList
                 "the reset"
                 [
-                    test "the workbench cleared for the patient held and evaluated empty; nothing without a patient" {
+                    test "the workbench's filter cleared for the patient held; nothing without a patient" {
+                        let clear = OrderContextCommand.ClearAllFilterProperty
                         let state, effects = transition (OrderContextMsg.Reset "r-1") shown
 
                         state
-                        |> Expect.equal "evaluating the empty workbench" (evaluating empty empty "r-1")
+                        |> Expect.equal
+                            "clearing, back to the empty workbench on a failure"
+                            (inFlight clear paracetamol empty "r-1")
 
-                        effects |> Expect.equal "the call and the syncs" (evaluated empty "r-1")
+                        effects
+                        |> Expect.equal "the clear and the syncs" (replacing clear paracetamol "r-1")
 
                         transition (OrderContextMsg.Reset "r-1") noPatient
                         |> Expect.equal "nothing" (noPatient, [])
@@ -464,10 +504,12 @@ let pendingTests =
                     "evaluated for the new patient, the pending gone"
                     (evaluatingFor other forOther forOther "r-3", patientChanged other paracetamol "r-3")
 
+                let clear = OrderContextCommand.ClearAllFilterProperty
+
                 transition (OrderContextMsg.Reset "r-3") waiting
                 |> Expect.equal
                     "the workbench cleared, the pending gone"
-                    (evaluating empty empty "r-3", evaluated empty "r-3")
+                    (inFlight clear paracetamol empty "r-3", replacing clear paracetamol "r-3")
             }
         ]
 

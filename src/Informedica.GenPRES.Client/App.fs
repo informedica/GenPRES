@@ -341,14 +341,20 @@ module private Elmish =
         | Api.AdminResponse.ResourcesReloaded ->
             let refresh =
                 match patientOf state with
-                // the workbench evaluated again, as it is, whatever was in flight
+                // the workbench evaluated again, as it is, whatever was in flight: a reload seed
+                // carries no choices
                 | Some _ ->
-                    let ctx =
-                        state.Lanes.OrderContext
-                        |> OrderContextState.context
-                        |> Option.defaultValue OrderContext.empty
+                    let seed =
+                        {
+                            Source = SeedSource.Reload
+                            Indication = None
+                            Generic = None
+                            Route = None
+                            Form = None
+                            DoseType = None
+                        }
 
-                    Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ())))
+                    Cmd.ofMsg (OrderContextMsg(OrderContextMsg.SeedFilter(seed, newRequest ())))
                 | None -> Cmd.batch [ Cmd.ofMsg (LoadFormulary Started); Cmd.ofMsg (LoadParenteralia Started) ]
 
             state, refresh
@@ -739,6 +745,11 @@ module private Elmish =
                     Cmd.ofMsg (LoadFormulary Started)
                     Cmd.ofMsg (LoadParenteralia Started)
                     Cmd.ofMsg (LoadInteractionDrugNames Started)
+                    // the url's patient sent as a patient change, so the workbench and the plan get
+                    // it; a Session that resumes on a patient replaces it
+                    match pat with
+                    | Some _ -> Cmd.ofMsg (UpdatePatient pat)
+                    | None -> Cmd.none
                 ]
 
         initialState pat page lang discl, cmds
@@ -1226,12 +1237,14 @@ module private Elmish =
         let selectMedicationItem generic indication route doseType state =
             let nonEmpty s = if s = "" then None else Some s
 
-            let ctx =
-                { OrderContext.empty with
-                    OrderContext.Filter.Indication = indication |> nonEmpty
-                    OrderContext.Filter.Generic = Some generic
-                    OrderContext.Filter.Route = route |> nonEmpty
-                    OrderContext.Filter.DoseType = doseType |> nonEmpty |> Option.map DoseType.doseTypeFromString
+            let seed =
+                {
+                    Source = SeedSource.MedicationList
+                    Indication = indication |> nonEmpty
+                    Generic = Some generic
+                    Route = route |> nonEmpty
+                    Form = None
+                    DoseType = doseType |> nonEmpty |> Option.map DoseType.doseTypeFromString
                 }
 
             // the medication chosen is evaluated for the patient held; without one it is dropped
@@ -1239,7 +1252,7 @@ module private Elmish =
             match patientOf state with
             | Some _ ->
                 { state with Ui.Page = Prescribe },
-                Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ())))
+                Cmd.ofMsg (OrderContextMsg(OrderContextMsg.SeedFilter(seed, newRequest ())))
             | None -> noPatientForMedication state, Cmd.none
 
         match msg with
@@ -1509,12 +1522,17 @@ module private Elmish =
                 match med with
                 | None -> state, Cmd.none
                 | Some m when (patientOf state).IsSome ->
-                    state,
-                    state.Lanes.OrderContext
-                    |> OrderContextState.context
-                    |> Option.defaultValue OrderContext.empty
-                    |> OrderContext.setMedication m.indication m.medication m.route m.form m.dosetype
-                    |> fun ctx -> Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ())))
+                    let seed =
+                        {
+                            Source = SeedSource.Url
+                            Indication = m.indication
+                            Generic = m.medication
+                            Route = m.route
+                            Form = m.form
+                            DoseType = m.dosetype
+                        }
+
+                    state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.SeedFilter(seed, newRequest ())))
                 | Some m ->
                     Logging.warning "a medication in the url without a patient is dropped" m.medication
                     noPatientForMedication state, Cmd.none

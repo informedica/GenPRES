@@ -129,34 +129,49 @@ outside the client views starts as a script with its tests, unless the user asks
    sent, then looked up with the refusal check of `UpdateOrderContext`. Tests on the fixtures,
    with no rules loaded: each new case answers as `UpdateOrderContext` on the context the client
    builds today, for every source; the domain's seed rules and the preview's agree.
-3. **One patient change command, server side.** Decision 5. Two pull requests, and the server
-   keeps changing patients until the client sends the new command (step 4), so an identified
-   patient keeps its age in between:
-   - **3a.** `ChangePatient` of the order context being worked on is renamed `PatientChanged`, on
-     the wire (`ActiveOrderContextCommand`) and in the domain (`OrderContext.Command`).
-   - **3b.** A patient command family with `ChangePatient`: the patient made at the inbound
-     boundary (the Session's age for an identified patient, the client's for an anonymous one; a
-     missing weight or height estimated from the age, for both) and answered as it is then; the
-     Session records the change from this command. The client does not send it yet. Tests: the
-     age and the estimates for an identified and an anonymous patient.
-4. **The seed and patient commands, client side.** A patient change on the panel goes as the
-   patient command of step 3; on its answer the client puts the patient on the plan (through
-   `Recalculate`), on the order context being worked on (`ActiveOrderContextCommand.PatientChanged`)
-   and on the formulary and parenteralia pages. The order context machine sends `SeedFilter` for
-   every seed and `ClearAllFilterProperty` for an open and a reset; `App.fs` sends the page's
-   choices instead of writing them into the held context, and `syncFormularyToFilter` and
-   `syncParenteraliaToFilter` leave the client. Client.Core tests for each intent.
-
-   Then, in its own pull request, the server stops changing patients. The Session records a
-   change only from the patient command, no longer from every request (`patientOf` and `seen` in
-   `Compute.bound`). `Compute.bound` leaves every patient as sent: `patients`, `patientsPlan`,
-   `patientsActive` and the formulary, parenteralia and interaction versions go, with the age and
-   estimate step in `ServerApi.Compute.fs`. Signing stops putting the Session's age on the plan:
-   `SigningCommand.patients` goes from `SigningCommand.processCmd`. The check that a patient is
-   valid (`Patient.over`) stays. No context's patient is touched on any path, signing included.
-   Tests: every request other than the patient command, signing included, leaves every patient as
-   sent. The age-on-request tests (`AgeOnRequestTests.fs`) and `HeldContextTests.parsedAt`, which
-   test the old rule, are rewritten to the new one.
+3. **One patient change command, server side** (landed). Decision 5.
+   - **3a** ([#1320](https://github.com/informedica/GenPRES/pull/1320)). `ChangePatient` of the
+     order context being worked on is renamed `PatientChanged`, on the wire
+     (`ActiveOrderContextCommand`) and in the domain (`OrderContext.Command`).
+   - **3b** ([#1321](https://github.com/informedica/GenPRES/pull/1321)). A patient command family
+     with `ChangePatient` (`processPatient`), through `Compute.bound`: the Session's age for an
+     identified patient, the client's for an anonymous one, a missing weight or height estimated
+     for both, and the Session told the patient.
+4. **The seed and patient commands, client side.**
+   - **4a, the patient change** (landed). The client holds the patient in a machine of its own,
+     as it holds the order context and the plan.
+     - [#1323](https://github.com/informedica/GenPRES/pull/1323): the order context machine sends
+       a patient change as `ActiveOrderContextCommand.PatientChanged` over the context as held, and
+       a filter that arrives before the patient waits for it.
+     - [#1324](https://github.com/informedica/GenPRES/pull/1324): `PatientMachine` holds the draft
+       and the patient change under way; after an edit of the age, gender or gestational age the
+       draft takes the answered patient, after a clear it stays as typed.
+     - [#1325](https://github.com/informedica/GenPRES/pull/1325): the App uses it; the panel, the
+       url and the Session send the patient command, and the answered patient goes to the plan
+       (through `Recalculate`), the order context and the two pages. The client no longer
+       estimates the draft. While a patient change is under way the panel, the order context and
+       the plan show as a change under way, so nothing is ordered for the patient being replaced;
+       a page's command that arrives anyway is dropped
+       ([#1327](https://github.com/informedica/GenPRES/issues/1327) checks whether that backstop is
+       needed). A failed change puts back the draft the orders were calculated for.
+   - **4b, the seeds.** Two pull requests:
+     - the order context machine sends `SeedFilter` for the url, a medication list item and a
+       reload, and `ClearAllFilterProperty` for an open and a reset; a seed that arrives before
+       the patient waits for it as a seed; `OrderContext.setMedication` goes;
+     - the formulary and parenteralia pages send `SeedFilter` with their choices instead of
+       writing them into the held context; `syncFormularyToFilter`, `syncParenteraliaToFilter`
+       and the machine's old `Seed` of a whole context go.
+   - **4c, the server stops changing patients**, in its own pull request. The Session records a
+     change only from the patient command, no longer from every request (`patientOf` and `seen`
+     in `Compute.bound`). `Compute.bound` leaves every patient as sent: `patients`, `patientsPlan`,
+     `patientsActive` and the formulary, parenteralia and interaction versions go, with the age
+     and estimate step in `ServerApi.Compute.fs`, which moves into the patient command. Signing
+     stops putting the Session's age on the plan: `SigningCommand.patients` goes from
+     `SigningCommand.processCmd`. The check that a patient is valid (`Patient.over`) stays. No
+     context's patient is touched on any path, signing included. Tests: every request other than
+     the patient command, signing included, leaves every patient as sent. The age-on-request
+     tests (`AgeOnRequestTests.fs`) and `HeldContextTests.parsedAt`, which test the old rule, are
+     rewritten to the new one.
 5. **The argumentation as a command.** The client sends `SetArgumentationProperty` instead of
    writing the text into the held context; the server writes it, as it does now. The command goes
    when the field is left (decided by the user, 2026-10-05); until then the text shows as the
