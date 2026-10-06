@@ -65,14 +65,17 @@ type IOrderPlan =
 /// Patient data and updates
 [<Interface>]
 type IPatient =
-    // the patient data as the panel edits it and the lists read it, the estimate applied
+    // the patient data as the panel edits it and the lists read it, with the estimates the
+    // server answered after an edit that renews them
     abstract Draft: Patient option
+    // a patient change is under way: the panel takes no edit until it is answered
+    abstract Changing: bool
     // the draft with the estimates of its age, the gender and the gestational age applied to
     // every weight and height, cleared or entered as well: what the summary shows, not what
     // the fields show
     abstract Estimated: Patient option
-    // the draft, with the weight and height the user did not enter estimated again: after an
-    // edit of the age, the gender or the gestational age, which the normal values follow
+    // the draft, with the weight and height the user did not enter estimated again by the
+    // server: after an edit of the age, the gender or the gestational age
     abstract UpdatePatient: Patient option -> unit
     // the draft with its estimates as they are: after any other edit, so that a weight or a
     // height the user cleared stays cleared
