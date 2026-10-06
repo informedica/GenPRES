@@ -244,7 +244,7 @@ module Api =
     [<RequireQualifiedAccess>]
     type ActiveOrderContextCommand =
         | Command of OrderContextCommand
-        | ChangePatient of patient: Patient
+        | PatientChanged of patient: Patient
 
 
     module ActiveOrderContextCommand =
@@ -253,7 +253,7 @@ module Api =
         let toString (cmd: ActiveOrderContextCommand, ctx: OrderContext) =
             match cmd with
             | ActiveOrderContextCommand.Command cmd -> OrderContextCommand.toString (cmd, ctx)
-            | ActiveOrderContextCommand.ChangePatient _ -> "ChangePatient"
+            | ActiveOrderContextCommand.PatientChanged _ -> "PatientChanged"
 
 
     /// The launch command family. Cut from the session family at the authentication boundary:
