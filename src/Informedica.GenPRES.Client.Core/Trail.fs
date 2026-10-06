@@ -533,9 +533,41 @@ module OrderContext =
         | OrderContextResponse.Refused(ctx, r) -> $"Refused %s{Part.context ctx} %s{Part.contextRefusal r}"
 
 
-    /// The command with the context as describeContext tells it.
+    /// Where a seed comes from.
+    let seedSource (source: SeedSource) =
+        match source with
+        | SeedSource.Url -> "url"
+        | SeedSource.MedicationList -> "list"
+        | SeedSource.Formulary -> "formulary"
+        | SeedSource.Parenteralia -> "parenteralia"
+        | SeedSource.Reload -> "reload"
+
+
+    /// How many choices a seed sets, never their text.
+    let seedChoices (seed: FilterSeed) =
+        [ seed.Indication; seed.Generic; seed.Route; seed.Form ]
+        |> List.filter Option.isSome
+        |> List.length
+        |> (+) (if seed.DoseType.IsSome then 1 else 0)
+
+
+    /// The command with the context as describeContext tells it. A seed's choices come from the url
+    /// or a list, before the server has checked them, so a seed shows how many, never their text.
     let command (describeContext: OrderContext -> string) (cmd: OrderContextCommand) (ctx: OrderContext) =
-        $"%s{OrderContextCommand.toString (cmd, ctx)} %s{describeContext ctx}"
+        match cmd with
+        | OrderContextCommand.SeedFilter(source, ind, gen, rte, frm, dt) ->
+            let seed =
+                {
+                    Source = source
+                    Indication = ind
+                    Generic = gen
+                    Route = rte
+                    Form = frm
+                    DoseType = dt
+                }
+
+            $"SeedFilter %s{seedSource source} %i{seedChoices seed} choices %s{describeContext ctx}"
+        | _ -> $"%s{OrderContextCommand.toString (cmd, ctx)} %s{describeContext ctx}"
 
 
     /// Never the argumentation.
@@ -547,6 +579,8 @@ module OrderContext =
         // it shows how many picks it carries, never their text
         | OrderContextMsg.Seed(ctx, request) ->
             $"Seed %i{(Part.picks ctx.Filter).Length} picks %s{Part.shortId request}"
+        | OrderContextMsg.SeedFilter(seed, request) ->
+            $"SeedFilter %s{seedSource seed.Source} %i{seedChoices seed} choices %s{Part.shortId request}"
         | OrderContextMsg.Command(cmd, ctx, request) ->
             $"Command %s{command Part.context cmd ctx} %s{Part.shortId request}"
         | OrderContextMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result response}"
