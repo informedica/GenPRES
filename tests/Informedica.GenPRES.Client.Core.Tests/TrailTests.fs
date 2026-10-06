@@ -135,10 +135,20 @@ let tests =
                 |> Expect.equal "the patient" "patient 3.0 y est 15.5 kg 98 cm female"
             }
 
-            test "a seed shows how many picks it carries, never their text" {
-                OrderContextMsg.Seed({ ctxPicked with OrderContext.Filter.Generic = Some "Jan Jansen" }, "r-4")
+            test "a seed message shows its source and how many choices, never their text" {
+                let seed: OrderContextMachine.FilterSeed =
+                    {
+                        Source = SeedSource.MedicationList
+                        Indication = None
+                        Generic = Some "Jan Jansen"
+                        Route = None
+                        Form = None
+                        DoseType = None
+                    }
+
+                OrderContextMsg.SeedFilter(seed, "r-4")
                 |> Trail.OrderContext.msg
-                |> Expect.equal "the count" "Seed 3 picks r-4"
+                |> Expect.equal "the count" "SeedFilter list 1 choices r-4"
             }
 
             test "a line never breaks, whatever text a step carries" {

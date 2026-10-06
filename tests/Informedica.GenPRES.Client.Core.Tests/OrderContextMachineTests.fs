@@ -219,16 +219,16 @@ let tests =
                     }
 
                     test
-                        "a filter during the first evaluation supersedes it; a failed one goes back to the empty workbench" {
+                        "a seed during the first evaluation supersedes it; a failed one goes back to the empty workbench" {
+                        let cmd = FilterSeed.command urlSeed
+
                         let seeded, effects =
-                            transition (OrderContextMsg.Seed(paracetamol, "r-2")) (opening patient "r-1")
+                            transition (OrderContextMsg.SeedFilter(urlSeed, "r-2")) (opening patient "r-1")
 
                         seeded
-                        |> Expect.equal
-                            "the seed evaluated over the empty workbench held"
-                            (evaluating paracetamol empty "r-2")
+                        |> Expect.equal "the seed sent over the empty workbench" (inFlight cmd empty empty "r-2")
 
-                        effects |> Expect.equal "the call and the syncs" (evaluated paracetamol "r-2")
+                        effects |> Expect.equal "the call and the syncs" (replacing cmd empty "r-2")
 
                         transition
                             (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol)))
@@ -237,15 +237,6 @@ let tests =
 
                         transition (OrderContextMsg.Answered("r-2", Error [| "refused" |])) seeded
                         |> Expect.equal "back to the empty workbench" (held empty, restored empty [| "refused" |])
-                    }
-
-                    test "a filter with a patient held is evaluated at once, for that patient" {
-                        let fromUrl = { paracetamol with Patient = otherDraft }
-                        let state, effects = transition (OrderContextMsg.Seed(fromUrl, "r-1")) shown
-
-                        state |> Expect.equal "evaluating" (evaluating paracetamol paracetamol "r-1")
-
-                        effects |> Expect.equal "for the patient held" (evaluated paracetamol "r-1")
                     }
 
                     test "a command before a patient is dropped" {
@@ -636,7 +627,7 @@ let selectionTests =
                 |> dialog
                 |> Expect.equal "a patient change during a request" None
 
-                transition (OrderContextMsg.Seed(paracetamol, "r-1")) selected
+                transition (OrderContextMsg.SeedFilter(urlSeed, "r-1")) selected
                 |> fst
                 |> dialog
                 |> Expect.equal "a seed" None
@@ -762,10 +753,12 @@ let refusalTests =
                     "changing for the other patient"
                     (OrderContextView.Changing { paracetamol with Patient = other })
 
-                transition (OrderContextMsg.Seed(empty, "r-2")) shown
+                transition (OrderContextMsg.SeedFilter(urlSeed, "r-2")) shown
                 |> fst
                 |> view
-                |> Expect.equal "changing over the seed" (OrderContextView.Changing empty)
+                |> Expect.equal
+                    "changing over the seed"
+                    (OrderContextView.Changing(OrderPlanMachine.Dialog.shown (FilterSeed.command urlSeed) paracetamol))
 
                 transition (OrderContextMsg.Reset "r-2") shown
                 |> fst
@@ -872,18 +865,40 @@ let argueTests =
                 | other -> failtest $"expected refused, got %A{other}"
             }
 
-            test "a seed evaluated after a text does not carry it: the text goes with the context sent" {
-                let seed = { paracetamol with OrderContext.Filter.Generic = Some "ibuprofen" }
+            test "a list item and a reset after a text do not carry it: they start the filter afresh" {
+                let listSeed =
+                    { urlSeed with
+                        Source = SeedSource.MedicationList
+                        Generic = Some "ibuprofen"
+                    }
 
-                let state, _ = held argued |> transition (OrderContextMsg.Seed(seed, "r-2"))
+                let ibuprofen = { empty with OrderContext.Filter.Generic = Some "ibuprofen" }
 
-                let landed, _ =
-                    state
-                    |> transition (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated seed)))
-
-                landed
+                held argued
+                |> transition (OrderContextMsg.SeedFilter(listSeed, "r-2"))
+                |> fst
+                |> transition (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated ibuprofen)))
+                |> fst
                 |> OrderContextState.view
-                |> Expect.equal "the seed, no text" (OrderContextView.Settled seed)
+                |> Expect.equal "the list item, no text" (OrderContextView.Settled ibuprofen)
+
+                held argued
+                |> transition (OrderContextMsg.Reset "r-2")
+                |> fst
+                |> transition (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated empty)))
+                |> fst
+                |> OrderContextState.view
+                |> Expect.equal "the empty workbench, no text" (OrderContextView.Settled empty)
+            }
+
+            test "a url or a page seed after a text keeps it, as the filter it changes keeps its order" {
+                held argued
+                |> transition (OrderContextMsg.SeedFilter(urlSeed, "r-2"))
+                |> fst
+                |> transition (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated paracetamol)))
+                |> fst
+                |> OrderContextState.view
+                |> Expect.equal "the text kept" (OrderContextView.Settled argued)
             }
 
             test "a reset takes the text with it as it goes out; a text written meanwhile survives its answer" {
