@@ -55,8 +55,6 @@ type OrderContextWorkbench =
 type OrderContextWorkbenchMsg =
     /// The patient set, changed or cleared.
     | PatientChanged of Patient option
-    /// A filter from the url or the menu.
-    | Seed of OrderContext
     /// A seed of the filter, sent as a command.
     | SeedFilter of FilterSeed
     /// A command from the page.
@@ -79,9 +77,6 @@ type OrderContextWorkbenchIntent =
     /// Clear the context's filter and put the cleared filter on the formulary and parenteralia
     /// pages; replaces any request.
     | Clear of OrderContext
-    /// Evaluate the context and put its filter on the formulary and parenteralia pages; replaces
-    /// any request.
-    | Evaluate of OrderContext
     /// Evaluate the context again for the patient changed, and put its filter on the formulary and
     /// parenteralia pages; replaces any request.
     | PatientChanged of Patient * OrderContext
@@ -139,10 +134,6 @@ module OrderContextWorkbench =
             OrderContextWorkbench.Evaluated(pat, { ctx with Patient = pat }),
             [ OrderContextWorkbenchIntent.PatientChanged(pat, ctx) ]
 
-        // a filter needs a patient; the pages seed only a workbench that has one
-        | OrderContextWorkbenchMsg.Seed _, OrderContextWorkbench.NoPatient _ -> workbench, []
-        | OrderContextWorkbenchMsg.Seed ctx, OrderContextWorkbench.Evaluated(pat, _) ->
-            workbench, [ OrderContextWorkbenchIntent.Evaluate { ctx with Patient = pat } ]
         // a seed needs a patient, so without one it waits for it; with one it is sent over the
         // context held
         | OrderContextWorkbenchMsg.SeedFilter seed, OrderContextWorkbench.NoPatient _ ->
@@ -165,12 +156,18 @@ module OrderContextWorkbench =
 
         // nothing is asked without a patient, so nothing lands
         | OrderContextWorkbenchMsg.Landed _, OrderContextWorkbench.NoPatient _ -> workbench, []
-        // an answer lands with the argumentation as sent: the server never changes the text
-        | OrderContextWorkbenchMsg.Landed((_, sent), Ok(OrderContextResponse.Evaluated ctx)),
+        // an answer lands with the argumentation as its command leaves the context sent: the server
+        // never changes the text, and a clear of the filter or a list item takes it away
+        | OrderContextWorkbenchMsg.Landed((cmd, sent), Ok(OrderContextResponse.Evaluated ctx)),
           OrderContextWorkbench.Evaluated(pat, _) ->
-            OrderContextWorkbench.Evaluated(pat, ctx |> ArgumentationPolicy.keep sent), []
-        | OrderContextWorkbenchMsg.Landed((_, sent), Ok(OrderContextResponse.Refused(back, _))),
-          OrderContextWorkbench.Evaluated(pat, _) -> refused pat (back |> ArgumentationPolicy.keep sent)
+            OrderContextWorkbench.Evaluated(
+                pat,
+                ctx |> ArgumentationPolicy.keep (OrderPlanMachine.Dialog.shown cmd sent)
+            ),
+            []
+        | OrderContextWorkbenchMsg.Landed((cmd, sent), Ok(OrderContextResponse.Refused(back, _))),
+          OrderContextWorkbench.Evaluated(pat, _) ->
+            refused pat (back |> ArgumentationPolicy.keep (OrderPlanMachine.Dialog.shown cmd sent))
         // a failed change leaves the workbench as it was, not as sent; after a failed first
         // evaluation, that is the empty workbench
         | OrderContextWorkbenchMsg.Landed(_, Error errs), OrderContextWorkbench.Evaluated(pat, held) ->
@@ -214,8 +211,6 @@ type OrderContextState =
 type OrderContextMsg =
     /// The patient set, changed or cleared; the workbench is evaluated for it.
     | PatientChanged of Patient option * request: string
-    /// A filter from the url or the menu, evaluated for the patient; dropped without one.
-    | Seed of OrderContext * request: string
     /// A seed of the filter, sent as a command over the context shown; it waits for a patient.
     | SeedFilter of FilterSeed * request: string
     /// A command from the page, over the context the page holds.
@@ -484,8 +479,6 @@ module OrderContextState =
                     | OrderContextWorkbenchIntent.SeedFilter(seed, ctx) -> evaluate (FilterSeed.command seed) ctx state
                     | OrderContextWorkbenchIntent.Clear ctx ->
                         evaluate OrderContextCommand.ClearAllFilterProperty ctx state
-                    | OrderContextWorkbenchIntent.Evaluate ctx ->
-                        evaluate OrderContextCommand.UpdateOrderContext ctx state
                     // shown meanwhile as the context evaluated for the new patient
                     | OrderContextWorkbenchIntent.PatientChanged(pat, ctx) ->
                         { state with
@@ -535,7 +528,6 @@ module OrderContextState =
             match msg, workbench with
             | _, OrderContextWorkbench.NoPatient _ -> None
             | OrderContextWorkbenchMsg.PatientChanged _, _
-            | OrderContextWorkbenchMsg.Seed _, _
             | OrderContextWorkbenchMsg.SeedFilter _, _
             | OrderContextWorkbenchMsg.Reset, _ -> None
             | OrderContextWorkbenchMsg.Landed _, OrderContextWorkbench.Evaluated(_, ctx) ->
@@ -548,7 +540,6 @@ module OrderContextState =
             | OrderContextWorkbenchMsg.Landed(_, Ok(OrderContextResponse.Refused(_, refusal))), _ -> Some refusal
             | OrderContextWorkbenchMsg.Landed _, _
             | OrderContextWorkbenchMsg.PatientChanged _, _
-            | OrderContextWorkbenchMsg.Seed _, _
             | OrderContextWorkbenchMsg.SeedFilter _, _
             | OrderContextWorkbenchMsg.Reset, _ -> None
             | OrderContextWorkbenchMsg.Command _, _ -> state.Refusal
@@ -640,7 +631,6 @@ module OrderContextState =
                     Selected = None
                     Refusal = None
                 }
-        | OrderContextMsg.Seed(ctx, request), _, _ -> run request (OrderContextWorkbenchMsg.Seed ctx) state
         | OrderContextMsg.SeedFilter(seed, request), _, _ ->
             run request (OrderContextWorkbenchMsg.SeedFilter seed) state
         | OrderContextMsg.Command(cmd, ctx, request), _, _ ->
@@ -680,7 +670,6 @@ module OrderContextState =
         | OrderContextMsg.Command _
         | OrderContextMsg.Reopen _ -> not (PatientMachine.PatientState.changing patient)
         | OrderContextMsg.PatientChanged _
-        | OrderContextMsg.Seed _
         | OrderContextMsg.SeedFilter _
         | OrderContextMsg.Answered _
         | OrderContextMsg.Reset _

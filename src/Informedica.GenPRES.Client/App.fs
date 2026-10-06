@@ -1234,6 +1234,24 @@ module private Elmish =
             else
                 state, cmd
 
+        // a page's choices seeded over the workbench, only while it has a patient, as a page shows
+        // its choices only then
+        let seedFromPage source ind gen rte frm dt (state: State) =
+            match OrderContextState.patient state.Lanes.OrderContext with
+            | Some _ ->
+                let seed =
+                    {
+                        Source = source
+                        Indication = ind
+                        Generic = gen
+                        Route = rte
+                        Form = frm
+                        DoseType = dt
+                    }
+
+                Cmd.ofMsg (OrderContextMsg(OrderContextMsg.SeedFilter(seed, newRequest ())))
+            | None -> Cmd.none
+
         let selectMedicationItem generic indication route doseType state =
             let nonEmpty s = if s = "" then None else Some s
 
@@ -1795,9 +1813,6 @@ module private Elmish =
             let state =
                 { state with
                     Fetches.Formulary = Resolved form
-                    Lanes.OrderContext =
-                        state.Lanes.OrderContext
-                        |> OrderContextState.map (FilterSync.syncFormularyToFilter form)
                     Fetches.Parenteralia =
                         state.Fetches.Parenteralia
                         |> Deferred.map (fun par ->
@@ -1813,11 +1828,15 @@ module private Elmish =
             Cmd.batch
                 [
                     Cmd.ofMsg (LoadFormulary Started)
-                    // the workbench evaluated again over the filter just synced
-                    (state.Lanes.OrderContext
-                     |> OrderContextState.context
-                     |> Option.map (fun ctx -> Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ()))))
-                     |> Option.defaultValue Cmd.none)
+                    // the formulary's choices seeded over the workbench, with the formulary's rule
+                    seedFromPage
+                        SeedSource.Formulary
+                        form.Indication
+                        form.Generic
+                        form.Route
+                        form.Form
+                        form.DoseType
+                        state
                     Cmd.ofMsg (LoadParenteralia Started)
                 ]
 
@@ -1856,20 +1875,14 @@ module private Elmish =
                                 DoseType = None
                             }
                         )
-                    Lanes.OrderContext =
-                        state.Lanes.OrderContext
-                        |> OrderContextState.map (FilterSync.syncParenteraliaToFilter par)
                 }
 
             state,
             Cmd.batch
                 [
                     Cmd.ofMsg (LoadFormulary Started)
-                    // the workbench evaluated again over the filter just synced
-                    (state.Lanes.OrderContext
-                     |> OrderContextState.context
-                     |> Option.map (fun ctx -> Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ()))))
-                     |> Option.defaultValue Cmd.none)
+                    // the parenteralia page's choices seeded over the workbench, with its rule
+                    seedFromPage SeedSource.Parenteralia None par.Generic par.Route par.Form None state
                     Cmd.ofMsg (LoadParenteralia Started)
                 ]
 

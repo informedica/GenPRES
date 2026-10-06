@@ -575,10 +575,6 @@ module OrderContext =
         match msg with
         | OrderContextMsg.PatientChanged(p, request) ->
             $"PatientChanged %s{Part.patientOption p} %s{Part.shortId request}"
-        // a seed comes from the url or the menu, before the server has checked its picks against its lists, so
-        // it shows how many picks it carries, never their text
-        | OrderContextMsg.Seed(ctx, request) ->
-            $"Seed %i{(Part.picks ctx.Filter).Length} picks %s{Part.shortId request}"
         | OrderContextMsg.SeedFilter(seed, request) ->
             $"SeedFilter %s{seedSource seed.Source} %i{seedChoices seed} choices %s{Part.shortId request}"
         | OrderContextMsg.Command(cmd, ctx, request) ->
