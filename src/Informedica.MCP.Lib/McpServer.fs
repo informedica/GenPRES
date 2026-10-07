@@ -3,6 +3,7 @@ namespace Informedica.MCP.Lib
 open System
 open System.ComponentModel
 open System.Diagnostics
+open System.Runtime.InteropServices
 open System.Threading.Tasks
 
 open Informedica.GenForm.Lib.Resources
@@ -67,14 +68,14 @@ type GenFormMcpTools() =
     [<Description("Filter dose rules by generic drug name, route, form, indication, and patient demographics. All parameters are optional.")>]
     static member FilterDoseRules
         (
-            [<Description("Generic drug name (e.g. 'paracetamol')")>] generic: string,
-            [<Description("Administration route (e.g. 'oraal', 'intraveneus')")>] route: string,
-            [<Description("Drug form (e.g. 'tablet', 'infuusvloeistof')")>] form: string,
-            [<Description("Clinical indication")>] indication: string,
-            [<Description("Minimum patient age in months")>] minAge: Nullable<float>,
-            [<Description("Maximum patient age in months")>] maxAge: Nullable<float>,
-            [<Description("Minimum body weight in kg")>] minWeight: Nullable<float>,
-            [<Description("Maximum body weight in kg")>] maxWeight: Nullable<float>
+            [<Description("Generic drug name (e.g. 'paracetamol')"); Optional>] generic: string,
+            [<Description("Administration route (e.g. 'oraal', 'intraveneus')"); Optional>] route: string,
+            [<Description("Drug form (e.g. 'tablet', 'infuusvloeistof')"); Optional>] form: string,
+            [<Description("Clinical indication"); Optional>] indication: string,
+            [<Description("Minimum patient age in months"); Optional>] minAge: Nullable<float>,
+            [<Description("Maximum patient age in months"); Optional>] maxAge: Nullable<float>,
+            [<Description("Minimum body weight in kg"); Optional>] minWeight: Nullable<float>,
+            [<Description("Maximum body weight in kg"); Optional>] maxWeight: Nullable<float>
         )
         =
         let input: GenFormTools.FilterDoseRulesInput =
@@ -105,10 +106,10 @@ type GenFormMcpTools() =
     [<Description("Return prescription rules matching an optional filter. All parameters are optional.")>]
     static member GetPrescriptionRules
         (
-            [<Description("Generic drug name")>] generic: string,
-            [<Description("Administration route")>] route: string,
-            [<Description("Drug form")>] form: string,
-            [<Description("Clinical indication")>] indication: string
+            [<Description("Generic drug name"); Optional>] generic: string,
+            [<Description("Administration route"); Optional>] route: string,
+            [<Description("Drug form"); Optional>] form: string,
+            [<Description("Clinical indication"); Optional>] indication: string
         )
         =
         let input: GenFormTools.GetPrescriptionRulesInput =
@@ -154,13 +155,14 @@ type GenOrderMcpTools() =
     [<Description("Return available filter options (generics, routes, indications, forms, dose types) for a patient. This is the primary discovery tool: call this first to learn what medications are available. A patient needs an age, or both weightKg and heightCm; with an age alone the weight and height are estimated from it. Without either the tool returns an error.")>]
     static member GetFilterOptions
         (
-            [<Description("Generic drug name to pre-filter on")>] generic: string,
-            [<Description("Clinical indication to pre-filter on")>] indication: string,
-            [<Description("Administration route to pre-filter on")>] route: string,
-            [<Description("Drug form to pre-filter on")>] form: string,
-            [<Description("Patient age in months")>] ageMonths: Nullable<float>,
-            [<Description("Patient body weight in kg")>] weightKg: Nullable<float>,
-            [<Description("Patient height in cm. Estimated from the age when omitted.")>] heightCm: Nullable<float>
+            [<Description("Generic drug name to pre-filter on"); Optional>] generic: string,
+            [<Description("Clinical indication to pre-filter on"); Optional>] indication: string,
+            [<Description("Administration route to pre-filter on"); Optional>] route: string,
+            [<Description("Drug form to pre-filter on"); Optional>] form: string,
+            [<Description("Patient age in months"); Optional>] ageMonths: Nullable<float>,
+            [<Description("Patient body weight in kg"); Optional>] weightKg: Nullable<float>,
+            [<Description("Patient height in cm. Estimated from the age when omitted."); Optional>] heightCm:
+                Nullable<float>
         )
         =
         let input: GenOrderTools.FilterOptionsInput =
@@ -181,10 +183,10 @@ type GenOrderMcpTools() =
     [<Description("Return dose rules matching a filter — a lightweight alternative to creating a full order context when only rule metadata is needed")>]
     static member GetDoseRulesForContext
         (
-            [<Description("Generic drug name (e.g. 'paracetamol')")>] generic: string,
-            [<Description("Clinical indication")>] indication: string,
-            [<Description("Administration route")>] route: string,
-            [<Description("Drug form")>] form: string
+            [<Description("Generic drug name (e.g. 'paracetamol')"); Optional>] generic: string,
+            [<Description("Clinical indication"); Optional>] indication: string,
+            [<Description("Administration route"); Optional>] route: string,
+            [<Description("Drug form"); Optional>] form: string
         )
         =
         let input: GenOrderTools.DoseRulesForContextInput =
@@ -202,9 +204,9 @@ type GenOrderMcpTools() =
     [<Description("Return solution/preparation rules for a specific drug combination")>]
     static member GetSolutionRulesForContext
         (
-            [<Description("Generic drug name")>] generic: string,
-            [<Description("Drug form")>] form: string,
-            [<Description("Administration route")>] route: string
+            [<Description("Generic drug name"); Optional>] generic: string,
+            [<Description("Drug form"); Optional>] form: string,
+            [<Description("Administration route"); Optional>] route: string
         )
         =
         let input: GenOrderTools.SolutionRulesForContextInput =
@@ -221,16 +223,18 @@ type GenOrderMcpTools() =
     [<Description("Create an order context for a patient and return a summary of available scenarios and filter options. This is the main entry point for AI-assisted prescription support. A patient needs an age, or both weightKg and heightCm; with an age alone the weight and height are estimated from it, as the web client does. Without either the tool returns an error rather than scenarios.")>]
     static member CreateOrderContext
         (
-            [<Description("Patient age in months")>] ageMonths: Nullable<float>,
-            [<Description("Patient body weight in kg. Estimated from the age when omitted.")>] weightKg: Nullable<float>,
-            [<Description("Patient height in cm. Estimated from the age when omitted.")>] heightCm: Nullable<float>,
-            [<Description("Patient sex: 'male' or 'female'")>] sex: string,
-            [<Description("Hospital department, one of the departments the loaded rules name (e.g. 'ICK', 'NEO'); another is refused, naming the known ones. Omitted, the server's default department applies.")>] department:
-                string,
-            [<Description("Generic drug name to pre-filter on")>] generic: string,
-            [<Description("Clinical indication to pre-filter on")>] indication: string,
-            [<Description("Administration route to pre-filter on")>] route: string,
-            [<Description("Drug form to pre-filter on")>] form: string
+            [<Description("Patient age in months"); Optional>] ageMonths: Nullable<float>,
+            [<Description("Patient body weight in kg. Estimated from the age when omitted."); Optional>] weightKg:
+                Nullable<float>,
+            [<Description("Patient height in cm. Estimated from the age when omitted."); Optional>] heightCm:
+                Nullable<float>,
+            [<Description("Patient sex: 'male' or 'female'"); Optional>] sex: string,
+            [<Description("Hospital department, one of the departments the loaded rules name (e.g. 'ICK', 'NEO'); another is refused, naming the known ones. Omitted, the server's default department applies.");
+              Optional>] department: string,
+            [<Description("Generic drug name to pre-filter on"); Optional>] generic: string,
+            [<Description("Clinical indication to pre-filter on"); Optional>] indication: string,
+            [<Description("Administration route to pre-filter on"); Optional>] route: string,
+            [<Description("Drug form to pre-filter on"); Optional>] form: string
         )
         =
         let input: GenOrderTools.CreateOrderContextInput =
@@ -253,16 +257,18 @@ type GenOrderMcpTools() =
     [<Description("Return a summary of all available order scenarios for a patient with optional pre-filters. Each scenario represents one valid way to prescribe the medication. A patient needs an age, or both weightKg and heightCm; with an age alone the weight and height are estimated from it, as the web client does. Without either the tool returns an error rather than scenarios.")>]
     static member GetOrderScenarios
         (
-            [<Description("Patient age in months")>] ageMonths: Nullable<float>,
-            [<Description("Patient body weight in kg. Estimated from the age when omitted.")>] weightKg: Nullable<float>,
-            [<Description("Patient height in cm. Estimated from the age when omitted.")>] heightCm: Nullable<float>,
-            [<Description("Patient sex: 'male' or 'female'")>] sex: string,
-            [<Description("Hospital department, one of the departments the loaded rules name (e.g. 'ICK', 'NEO'); another is refused, naming the known ones. Omitted, the server's default department applies.")>] department:
-                string,
-            [<Description("Generic drug name")>] generic: string,
-            [<Description("Clinical indication")>] indication: string,
-            [<Description("Administration route")>] route: string,
-            [<Description("Drug form")>] form: string
+            [<Description("Patient age in months"); Optional>] ageMonths: Nullable<float>,
+            [<Description("Patient body weight in kg. Estimated from the age when omitted."); Optional>] weightKg:
+                Nullable<float>,
+            [<Description("Patient height in cm. Estimated from the age when omitted."); Optional>] heightCm:
+                Nullable<float>,
+            [<Description("Patient sex: 'male' or 'female'"); Optional>] sex: string,
+            [<Description("Hospital department, one of the departments the loaded rules name (e.g. 'ICK', 'NEO'); another is refused, naming the known ones. Omitted, the server's default department applies.");
+              Optional>] department: string,
+            [<Description("Generic drug name"); Optional>] generic: string,
+            [<Description("Clinical indication"); Optional>] indication: string,
+            [<Description("Administration route"); Optional>] route: string,
+            [<Description("Drug form"); Optional>] form: string
         )
         =
         let input: GenOrderTools.CreateOrderContextInput =
