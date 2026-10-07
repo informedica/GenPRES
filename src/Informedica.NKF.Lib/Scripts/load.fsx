@@ -15,4 +15,3 @@ open Informedica.Utils.Lib
 let zindexPath = __SOURCE_DIRECTORY__ |> Path.combineWith "../../../"
 Environment.CurrentDirectory <- zindexPath
 
-Environment.SetEnvironmentVariable("GENPRES_PROD", "1")

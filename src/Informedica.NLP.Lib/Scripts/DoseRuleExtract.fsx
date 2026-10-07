@@ -122,7 +122,6 @@ type DoseRuleData =
 module Config =
 
     Env.loadDotEnv () |> ignore
-    Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 
     /// The Google Sheets data URL used by the GenFORM resource provider.
     let dataUrlId = Environment.GetEnvironmentVariable("GENPRES_URL_ID")

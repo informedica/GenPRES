@@ -81,7 +81,8 @@ docker run -it -p 8080:8085 informedica/genpres
 Open a browser to <http://localhost:8080> to view the site.
 
 Production is an explicit opt-in at container runtime and needs `GENPRES_PROD=1`, the proprietary
-`GENPRES_URL_ID`, and a bind mount of `data/cache`. A `GENPRES_PASSWORD` of at least 16 characters
+`GENPRES_URL_ID`, and a bind mount of `data/cache` with the four licensed `*.cache` files; without
+them the server refuses to start. A `GENPRES_PASSWORD` of at least 16 characters
 enables the admin operations; without one the server starts with them disabled and warns.
 Neither the URL ID nor the password is ever baked into the image; inject them via a Docker or
 Kubernetes secret. The repo-root `compose.yaml` wires all of this from `.env`:

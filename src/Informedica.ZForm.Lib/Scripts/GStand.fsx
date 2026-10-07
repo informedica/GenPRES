@@ -8,7 +8,6 @@ open Informedica.Utils.Lib.BCL
 open Informedica.ZForm.Lib
 
 
-Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 
 let config =
     {

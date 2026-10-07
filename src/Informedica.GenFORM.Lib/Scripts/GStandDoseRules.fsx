@@ -11,7 +11,6 @@
 
     Pre-requisites:
         dotnet run Build   # or dotnet build GenPRES.sln
-        export GENPRES_PROD=1          # use demo data
         export GENPRES_URL_ID=<id>     # or real spreadsheet id
 *)
 
@@ -33,7 +32,6 @@ open Informedica.GenForm.Lib.Resources
 // GenForm opens last and shadows the ZForm types of the same name.
 module ZF = Informedica.ZForm.Lib.Types
 
-Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 Informedica.Utils.Lib.Env.loadDotEnv () |> ignore
 
 let dataUrlId = Environment.GetEnvironmentVariable("GENPRES_URL_ID")

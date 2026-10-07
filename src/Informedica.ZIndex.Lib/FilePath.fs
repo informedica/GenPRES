@@ -104,7 +104,19 @@ module FilePath =
     let GENPRES_PROD = "GENPRES_PROD"
 
 
-    /// Check whether the demo version of
-    /// the cache files should be used.
+    /// Check whether the demo version of the cache files should be used: the licensed *.cache set loads when all
+    /// four files are there, otherwise the *.demo set. In production, GENPRES_PROD=1, an incomplete licensed set
+    /// raises a FileNotFoundException.
     let useDemo () =
-        Env.getItem GENPRES_PROD |> Option.map ((<>) "1") |> Option.defaultValue true
+        let complete =
+            [ "substance"; "product"; "rule"; "group" ]
+            |> List.forall (fun n -> data () + $"cache/%s{n}.cache" |> File.exists)
+
+        match complete, Env.getItem GENPRES_PROD with
+        | true, _ -> false
+        | false, Some "1" ->
+            raise (
+                FileNotFoundException
+                    "GENPRES_PROD=1 but the licensed ZIndex cache, the four *.cache files, is incomplete"
+            )
+        | false, _ -> true

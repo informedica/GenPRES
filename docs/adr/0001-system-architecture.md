@@ -166,9 +166,9 @@ Recorded retrospectively; the original decision predates this ADR format.
   reviewer to read than an explicit parameter list, and the code base already has three working
   mechanisms for the same purpose.
 - **Treat ZIndex and ZForm as domain.** Rejected: their records are shaped like the G-Standaard
-  tables, they decide demo versus production by reading `GENPRES_PROD` themselves, and the
-  formulary library maps their output to its own `ProductComponent` on first contact — the
-  signature of an adapter.
+  tables, they decide demo versus production by the cache files present and by reading
+  `GENPRES_PROD` themselves, and the formulary library maps their output to its own
+  `ProductComponent` on first contact — the signature of an adapter.
 - **Merge `Logging.Lib` and `Utils.Lib` into one foundation project** (the original proposal in
   #378). Rejected: it would make the file-writing agent a permanent dependency of every core
   library, the opposite of the rule.

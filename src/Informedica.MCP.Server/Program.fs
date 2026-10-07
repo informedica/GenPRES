@@ -27,7 +27,6 @@ let main _ =
     Console.SetOut Console.Error
 
     Env.loadDotEnv () |> ignore
-    Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
     Environment.SetEnvironmentVariable("GENPRES_DEBUG", "0")
 
     // Set working directory to the resolved app root so data paths resolve

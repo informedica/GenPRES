@@ -284,13 +284,14 @@ module Config =
     /// never reaches this point, so the fallback is dead.
     /// </summary>
     let toServerSettings
+        (isDemo: bool)
         (settings: Settings)
         (departments: Informedica.GenForm.Lib.Types.Departments)
         : Shared.Api.ServerSettings
         =
         {
             Language = language settings |> Result.defaultValue defaultLanguage
-            IsDemo = not settings.IsProd
+            IsDemo = isDemo
             Departments = departments.Names
             DefaultDepartment = departments.Default
         }
@@ -672,7 +673,11 @@ module Host =
         urlId |> Informedica.GenForm.Lib.Api.getCachedProviderWithDataUrlId logger
 
 
-    let build (settings: Config.Settings) (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) =
+    let build
+        (settings: Config.Settings)
+        (isDemo: bool)
+        (provider: Informedica.GenForm.Lib.Resources.IResourceProvider)
+        =
         // Built once per host: the session stub's state lives in it. Remoting.fromContext
         // runs its function per request, so the env must not be built in there.
         // the key the stub LaunchScript seals Launches under: per host start, so a
@@ -690,7 +695,7 @@ module Host =
         let env =
             let env =
                 Adapters.makeAppEnvWith
-                    (not settings.IsProd)
+                    isDemo
                     settings.DbConnection
                     // validated at the start, so the fallback is dead
                     (Config.parseSessionIdle settings.SessionIdle
@@ -708,7 +713,7 @@ module Host =
                 env
 
         // what the client learns: the settings once here, the departments per request
-        let serverSettings = Config.toServerSettings settings
+        let serverSettings = Config.toServerSettings isDemo settings
 
         let webApi =
             Remoting.createApi ()
@@ -904,8 +909,16 @@ let main _ =
     // unhandled exception was dropped, leaving the container "running" with
     // nothing listening. A genuine crash elsewhere is still an
     // unhandled exception on purpose; tini as PID 1 turns it into exit 134.
+    // the demo cache or the licensed one; in production an incomplete licensed cache refuses the start
+    let isDemo =
+        try
+            Ok(Informedica.ZIndex.Lib.FilePath.useDemo ())
+        with :? System.IO.FileNotFoundException as e ->
+            Error e.Message
+
     match
         Config.validateStartup settings
+        |> Result.bind (fun startup -> isDemo |> Result.map (fun _ -> startup))
         // the store is made ready here, for the same reason: a file that cannot be migrated or
         // seeded is a refused start with a message and an exit code, not a crash while hosting
         |> Result.bind (fun startup -> Adapters.prepareStore settings.DbConnection |> Result.map (fun () -> startup))
@@ -916,5 +929,6 @@ let main _ =
     | Ok startup ->
         // a degraded but permitted configuration is written once, before hosting
         startup.Warnings |> List.iter writeWarningMessage
-        Host.build settings (Host.resourceProvider startup.UrlId) |> run
+        Host.build settings (isDemo = Ok true) (Host.resourceProvider startup.UrlId)
+        |> run
         0

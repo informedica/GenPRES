@@ -11,7 +11,6 @@ open Informedica.Utils.Lib.BCL
 open Informedica.ZIndex.Lib
 
 
-Environment.SetEnvironmentVariable(FilePath.GENPRES_PROD, "1")
 Environment.CurrentDirectory
 
 module File =
@@ -28,21 +27,42 @@ File.timeStamp <| (FilePath.GStandPath () + "BST000T")
 // Check the product cache
 FilePath.productCache false |> File.exists
 
+// The demo set loads unless all four *.cache files are there
 FilePath.useDemo ()
 
-// Clear the cache
-Json.clearCache (FilePath.useDemo ())
+
+/// Builds a cache set from the G-Standaard in data/zindex: the products, the groups and the
+/// substances for the given GPKs (all when empty), then the rules. DoseRule.parse reads the
+/// products through GenPresProduct.get, which loads the licensed set only when all four files
+/// are there, so a licensed build writes an empty rule file first. Run in a fresh FSI session:
+/// the loaders are memoized.
+let buildCache useDemo gpks =
+    Json.clearCache useDemo
+
+    printfn "Building GenPresProduct ..."
+    let gpps = GenPresProduct.parse gpks
+    gpps |> Json.cache (FilePath.productCache useDemo)
+
+    let gpks =
+        gpps
+        |> Array.collect (fun gpp -> gpp.GenericProducts |> Array.map _.Id)
+        |> Array.distinct
+        |> Array.toList
+
+    printfn "Building ATCGroup ..."
+    ATCGroup.parse gpks |> Json.cache (FilePath.groupCache useDemo)
+    printfn "Building Substance ..."
+    Substance.parse () |> Json.cache (FilePath.substanceCache useDemo)
+
+    if not useDemo then
+        [||] |> Json.cache (FilePath.ruleCache useDemo)
+
+    printfn "Building DoseRule ..."
+    DoseRule.parse gpks |> Json.cache (FilePath.ruleCache useDemo)
 
 
-// Load all
-printfn "Loading GenPresProduct ..."
-GenPresProduct.load []
-printfn "Loading ATCGroup ..."
-ATCGroup.load ()
-printfn "Loading DoseRule ..."
-DoseRule.load []
-printfn "Loading Substance"
-Substance.load ()
+// Build the licensed cache
+buildCache false []
 
 
 GenPresProduct.getRoutes ()
@@ -53,16 +73,10 @@ GenPresProduct.getRoutes ()
 DoseRule.routes () |> Array.sortBy String.toLower |> Array.iter (printfn "%s")
 
 
-// load demo cache
-Environment.SetEnvironmentVariable(FilePath.GENPRES_PROD, "0")
-FilePath.useDemo ()
-
 // Check the demo cache
-FilePath.productCache (FilePath.useDemo ()) |> File.exists
+FilePath.productCache true |> File.exists
 
-Json.clearCache (FilePath.useDemo ())
-
-// Load demo
+// Build the demo cache for the products below, only on purpose: the repository tracks the *.demo files
 
 let gpks =
     [
@@ -372,14 +386,7 @@ let gpks =
         194301 // meropenem
     ]
 
-printfn "Loading GenPresProduct ..."
-GenPresProduct.load gpks
-printfn "Loading ATCGroup ..."
-ATCGroup.load ()
-printfn "Loading DoseRule ..."
-DoseRule.load gpks
-printfn "Loading Substance"
-Substance.load ()
+buildCache true gpks
 
 
 GenPresProduct.filter "ZOLEDRONINEZUUR" "" "intraveneus"

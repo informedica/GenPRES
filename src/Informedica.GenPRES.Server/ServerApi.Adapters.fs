@@ -392,10 +392,7 @@ module Adapters =
     /// server builds makeAppEnvWith so that its stub pages share the key and the directory.
     let makeAppEnv (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) =
         // the demo flag as the server reads it, once
-        let demo =
-            Informedica.Utils.Lib.Env.getItem "GENPRES_PROD"
-            |> Option.map (fun v -> v <> "1")
-            |> Option.defaultValue true
+        let demo = Informedica.ZIndex.Lib.FilePath.useDemo ()
 
         makeAppEnvWith
             demo

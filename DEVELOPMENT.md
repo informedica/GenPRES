@@ -232,8 +232,8 @@ docker compose logs -f genpres
 The image is published a few minutes after the release PR merges; a `docker compose pull` in that
 window fails with "manifest unknown". The image itself defaults to demo mode, so a bare
 `docker run -p 8080:8085 informedica/genpres:<tag>` works with no flags. `GENPRES_PROD=1` needs the
-proprietary `GENPRES_URL_ID` and the `data/cache` bind mount: production reads `*.cache`, the image
-ships only `*.demo`. `compose.yaml` forwards only the `GENPRES_*` keys. For a demo that keeps its
+proprietary `GENPRES_URL_ID` and the `data/cache` bind mount: production refuses to start without the
+four `*.cache` files, and the image ships only `*.demo`. `compose.yaml` forwards only the `GENPRES_*` keys. For a demo that keeps its
 signed order plans across a recreated container, set `GENPRES_DB_CONNECTION="Data Source=data/db/genpres.db"`
 in `.env`; `compose.yaml` mounts `./data/db` for it.
 
@@ -515,7 +515,7 @@ Put a `git worktree` **next to** the main checkout, not inside it: the root reso
 ```bash
 GENPRES_URL_ID=<your-url-id>   # Google Sheets data URL ID (required; .env.example ships the demo ID)
 GENPRES_LOG=i                  # Logging level: 0=off, d=debug, i=info, w=warning, e=error; d refuses the start with GENPRES_PROD=1
-GENPRES_PROD=0                 # 0=demo (safe default), 1=production data
+GENPRES_PROD=0                 # 0=demo (safe default), 1=production; 1 refuses the start without the four *.cache files
 GENPRES_DEBUG=1                # Debug mode: 0=off, 1=on; 1 refuses the start with GENPRES_PROD=1
 GENPRES_LANG=nl                # Default UI language: en, nl, fr, de, es, it
 GENPRES_PASSWORD=<password>    # Admin password, see policy below
@@ -525,6 +525,17 @@ GENPRES_SESSION_IDLE_MINUTES=60 # A Session with no request this long ends; unse
 GENPRES_TRUSTED_PROXIES=<ips>  # Comma-separated IPs whose X-Forwarded-For is believed; unset = loopback only
 SERVER_PORT=8085               # Kestrel's listen port (no GENPRES_ prefix); the Vite dev proxy targets it
 ```
+
+#### ZIndex cache
+
+The medication data from the G-Standaard load from `data/cache` as one set of four files: `substance`,
+`product`, `rule` and `group`. The licensed set (`*.cache`) loads when all four files are there, in
+any mode; otherwise the demo set (`*.demo`) loads, never a mix of the two. With `GENPRES_PROD=1` an
+incomplete licensed set refuses the start. The client shows "DEMO VERSION" when the demo set loaded.
+
+To build a set from the G-Standaard in `data/zindex`, use `buildCache` in
+`src/Informedica.ZIndex.Lib/Scripts/Script.fsx`, in a fresh FSI session. The repository tracks the
+`*.demo` files, so build the demo set only on purpose.
 
 #### Default language
 
@@ -705,4 +716,5 @@ So a variable set in the shell always overrides `.env`.
 
 - **Missing GENPRES_URL_ID**: "cannot find column" errors when loading resources. Check that `.env`
   exists and holds a valid ID.
-- **GENPRES_PROD other than `0` in development**: may cause authentication or data access issues.
+- **GENPRES_PROD other than `0` in development**: may cause authentication or data access issues, and
+  refuses the start without the four `*.cache` files. The licensed data load without it.

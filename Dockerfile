@@ -74,14 +74,15 @@ ENV GENPRES_ROOT="/app"
 # The defaults above (GENPRES_PROD=0) plus the public demo sheet ID below make a
 # bare `docker run -p 8080:8085 informedica/genpres` start a working demo with no
 # secrets (issue #541). They match what the image ships: /app/data/cache holds
-# only the *.demo files, and demo mode is what reads them. Admin operations stay
-# disabled because GENPRES_PASSWORD is empty.
+# only the *.demo files, which load whenever the four licensed *.cache files are
+# not all there. Admin operations stay disabled because GENPRES_PASSWORD is empty.
 #
 # Production is an explicit opt-in at container runtime and needs three things:
 #
 #   -e GENPRES_PROD=1
 #   -e GENPRES_URL_ID="<proprietary_url_id>"
-#   -v "$PWD/data/cache:/app/data/cache"   (production reads *.cache, not shipped)
+#   -v "$PWD/data/cache:/app/data/cache"   (the four *.cache files, not shipped;
+#                                           production refuses to start without them)
 #
 # GENPRES_PASSWORD is optional: without it the server starts with admin operations
 # disabled and warns (#590); to enable them pass 16+ characters (fewer refuses):

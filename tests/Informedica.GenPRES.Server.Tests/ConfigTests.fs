@@ -349,7 +349,7 @@ let languageTests =
             }
 
             test "toServerSettings carries the language, the demo flag and the departments" {
-                Map [ "GENPRES_LANG", "en" ] |> settings |> Config.toServerSettings
+                Map [ "GENPRES_LANG", "en" ] |> settings |> Config.toServerSettings true
                 <| Informedica.GenForm.Lib.Resources.Departments.ofNamed []
                 |> Expect.equal
                     "demo, English"
@@ -360,7 +360,7 @@ let languageTests =
                         DefaultDepartment = "ICK"
                     }
 
-                Map [ "GENPRES_PROD", "1" ] |> settings |> Config.toServerSettings
+                Map [ "GENPRES_PROD", "1" ] |> settings |> Config.toServerSettings false
                 <| Informedica.GenForm.Lib.Resources.Departments.ofNamed []
                 |> Expect.equal
                     "production, Dutch"
@@ -370,6 +370,13 @@ let languageTests =
                         Departments = [| "ICK" |]
                         DefaultDepartment = "ICK"
                     }
+            }
+
+            test "toServerSettings takes the demo flag from the cache that loaded, not from GENPRES_PROD" {
+                (Map.empty |> settings |> Config.toServerSettings false
+                 <| Informedica.GenForm.Lib.Resources.Departments.ofNamed [])
+                    .IsDemo
+                |> Expect.isFalse "a development server on the licensed cache is not a demo"
             }
 
             test "the banner shows the derived language, or flags the raw value" {

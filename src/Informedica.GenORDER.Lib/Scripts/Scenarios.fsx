@@ -10,7 +10,6 @@ open System
 
 Informedica.Utils.Lib.Env.loadDotEnv () |> ignore
 Environment.SetEnvironmentVariable("GENPRES_DEBUG", "0")
-Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 
 
 open Informedica.Utils.Lib
