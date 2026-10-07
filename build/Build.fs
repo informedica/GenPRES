@@ -176,8 +176,10 @@ let escapeXmlDocMemberNames () =
         failwith "Directory 'src' not found; run from the repository root"
 
     System.IO.Directory.EnumerateDirectories "src"
-    |> Seq.map (fun dir -> Path.combine dir "bin/Release/net10.0")
+    |> Seq.map (fun dir -> Path.combine dir "bin/Release")
     |> Seq.filter System.IO.Directory.Exists
+    // Every target framework folder, so a library moving off net10.0 is not silently skipped.
+    |> Seq.collect System.IO.Directory.EnumerateDirectories
     |> Seq.collect (fun bin -> System.IO.Directory.EnumerateFiles(bin, "Informedica.*.xml"))
     |> Seq.iter (fun path ->
         let text = File.readAsString path
