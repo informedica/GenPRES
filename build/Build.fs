@@ -149,14 +149,45 @@ Target.create
 // content under docs/reference/. Output goes to ./output/ (gitignored); .github/workflows/docs.yml
 // publishes it to GitHub Pages on push to master.
 //
-// Self-contained rather than chained off Build: fsdocs cracks the projects and reads their compiled .dll + .xml,
-// and defaults to the Release configuration, so this builds Release explicitly instead of reusing Build's Debug
-// output. Set FSDOCS_ROOT to the site's base URL (docs.yml passes https://informedica.github.io/GenPRES/ for
-// the project Pages site); left unset the links are site-root relative, which is what a local `--output` preview wants.
+// Self-contained rather than chained off Build: fsdocs cracks the projects and reads their compiled .dll + .xml.
+// It cracks them as Debug unless told otherwise, finds no Release assemblies, and still exits 0 with an empty
+// reference; so this builds Release and passes Configuration=Release to fsdocs, with --strict to fail the run
+// instead of publishing an empty reference. Set FSDOCS_ROOT to the site's base URL (docs.yml passes
+// https://informedica.github.io/GenPRES/ for the project Pages site); left unset the links are site-root relative,
+// which is what a local `--output` preview wants.
+let fsdocsReleaseArgs = [ "--properties"; "Configuration=Release" ]
+
+
 let fsdocsRootArgs () =
     match System.Environment.GetEnvironmentVariable "FSDOCS_ROOT" with
     | root when System.String.IsNullOrWhiteSpace root -> []
     | root -> [ "--parameters"; "root"; root ]
+
+
+// The compiler writes the member id of a function that takes an anonymous record with a raw <>f__AnonymousType
+// inside the name attribute which is not well-formed XML; fsdocs then throws on the whole file and documents
+// nothing of that library. Fix is to escape the angle brackets inside name attributes only.
+let escapeXmlDocMemberNames () =
+    let escapeNameAttr (m: Match) = m.Value.Replace("<", "&lt;").Replace(">", "&gt;")
+
+    let nameAttr = Regex("\\bname=\"[^\"]*\"", RegexOptions.Compiled)
+
+    if not (System.IO.Directory.Exists "src") then
+        failwith "Directory 'src' not found; run from the repository root"
+
+    System.IO.Directory.EnumerateDirectories "src"
+    |> Seq.map (fun dir -> Path.combine dir "bin/Release")
+    |> Seq.filter System.IO.Directory.Exists
+    // Every target framework folder, so a library moving off net10.0 is not silently skipped.
+    |> Seq.collect System.IO.Directory.EnumerateDirectories
+    |> Seq.collect (fun bin -> System.IO.Directory.EnumerateFiles(bin, "Informedica.*.xml"))
+    |> Seq.iter (fun path ->
+        let text = File.readAsString path
+        let escaped = nameAttr.Replace(text, MatchEvaluator escapeNameAttr)
+
+        if escaped <> text then
+            File.writeString false path escaped
+    )
 
 
 Target.create
@@ -165,6 +196,7 @@ Target.create
         run dotnet [ "tool"; "restore" ] "."
         run dotnet [ "restore"; sln ] "."
         run dotnet [ "build"; sln; "-c"; "Release"; "--no-restore" ] "."
+        escapeXmlDocMemberNames ()
 
         run
             dotnet
@@ -176,7 +208,9 @@ Target.create
                 "--output"
                 "output"
                 "--clean"
+                "--strict"
              ]
+             @ fsdocsReleaseArgs
              @ fsdocsRootArgs ())
             "."
     )
@@ -189,7 +223,8 @@ Target.create
     (fun _ ->
         run dotnet [ "tool"; "restore" ] "."
         run dotnet [ "build"; sln; "-c"; "Release" ] "."
-        run dotnet [ "fsdocs"; "watch"; "--input"; "docs/reference" ] "."
+        escapeXmlDocMemberNames ()
+        run dotnet ([ "fsdocs"; "watch"; "--input"; "docs/reference" ] @ fsdocsReleaseArgs) "."
     )
 
 
