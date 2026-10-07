@@ -10,9 +10,9 @@ open Informedica.GenOrder.Lib
 
 module Ctx = Shared.Models.OrderContext
 
-type Api = Shared.Api.OrderContextCommand
+type Api = Shared.Api.OrderViewCommand
 
-module Cmd = Shared.Api.OrderContextCommand
+module Cmd = Shared.Api.OrderViewCommand
 
 type Target = Ctx.Target
 
@@ -580,30 +580,27 @@ let tests =
                 ]
 
             testList
-                "the new cases turned into today's"
+                "the preview of a command"
                 [
                     let ctx = Fixtures.all.Value[0] |> snd
                     let ord = ctx.Scenarios[0].Order
 
-                    let ok cmd changed = changed |> Result.map (fun c -> Some cmd, c)
-
                     for cmd, expected in
                         [
-                            Api.SetNthFilterProperty(Ctx.Route, 0),
-                            ctx |> Ctx.changeFilter Ctx.Route (Some 0) |> ok Api.UpdateOrderContext
-                            Api.ClearFilterProperty Ctx.Generic,
-                            ctx |> Ctx.changeFilter Ctx.Generic None |> ok Api.UpdateOrderContext
-                            Api.ClearAllFilterProperty, Ok(Ctx.clearAll ctx) |> ok Api.UpdateOrderContext
-                            Api.SetNthDiluentProperty 1, ctx |> Ctx.changeDiluent (Some 1) |> ok Api.UpdateOrderContext
-                            Api.ClearDiluentProperty, ctx |> Ctx.changeDiluent None |> ok Api.UpdateOrderContext
-                            Api.SetNthComponentsProperty [| 1 |],
-                            ctx |> Ctx.setNthComponents [| 1 |] |> ok Api.UpdateOrderContext
-                            Api.SelectNthOrderScenario 0, ctx |> Ctx.selectNthScenario 0 |> ok Api.SelectOrderScenario
-                            Api.SetArgumentationProperty "bewust", Ok(None, ctx |> Ctx.Argumentation.write "bewust")
-                            Api.ResetOrderScenario, Ok(Some Api.ResetOrderScenario, ctx)
+                            Api.SetNthFilterProperty(Ctx.Route, 0), ctx |> Ctx.changeFilter Ctx.Route (Some 0)
+                            Api.ClearFilterProperty Ctx.Generic, ctx |> Ctx.changeFilter Ctx.Generic None
+                            Api.ClearAllFilterProperty, Ok(Ctx.clearAll ctx)
+                            Api.SetNthDiluentProperty 1, ctx |> Ctx.changeDiluent (Some 1)
+                            Api.ClearDiluentProperty, ctx |> Ctx.changeDiluent None
+                            Api.SetNthComponentsProperty [| 1 |], ctx |> Ctx.setNthComponents [| 1 |]
+                            Api.SelectNthOrderScenario 0, ctx |> Ctx.selectNthScenario 0
+                            Api.SetArgumentationProperty "bewust", Ok(ctx |> Ctx.Argumentation.write "bewust")
+                            Api.ResetOrderScenario, Ok ctx
                         ] do
                         test $"%s{Cmd.toString (cmd, ctx)}" {
-                            ctx |> Cmd.preview cmd |> Expect.equal "today's case and context" expected
+                            ctx
+                            |> Cmd.preview cmd
+                            |> Expect.equal "the context as the command changes it" expected
                         }
 
                     for target in targets ord do
@@ -616,9 +613,7 @@ let tests =
                                 |> Cmd.preview (setNthCommand target n)
                                 |> Expect.equal
                                     "the update of the scenario"
-                                    (ctx
-                                     |> Ctx.setNth target n
-                                     |> Result.map (fun c -> Some Api.UpdateOrderScenario, c.Value))
+                                    (ctx |> Ctx.setNth target n |> Result.map _.Value)
                             }
 
                             test $"%A{target} cleared" {
@@ -626,9 +621,7 @@ let tests =
                                 |> Cmd.preview (clearCommand target [| "[.x]_dos_qty" |])
                                 |> Expect.equal
                                     "the reopen with the picks"
-                                    (ctx
-                                     |> Ctx.clear target [| "[.x]_dos_qty" |]
-                                     |> Result.map (fun (c, picks) -> Some(Api.ReopenOrderScenario picks), c))
+                                    (ctx |> Ctx.clear target [| "[.x]_dos_qty" |] |> Result.map fst)
                             }
 
                             test $"%A{target} past its values" {
@@ -641,48 +634,14 @@ let tests =
                             test $"%A{target} without a list" {
                                 ctx
                                 |> Cmd.preview (setNthCommand target 0)
-                                |> Expect.equal "no command" (Ok(None, ctx))
+                                |> Expect.equal "the context as it is" (Ok ctx)
                             }
                         | _ -> ()
                 ]
 
             testList
-                "the case a new case stands for"
+                "the log of a command"
                 [
-                    for cmd, expected in
-                        [
-                            Api.SetNthFilterProperty(Ctx.Route, 0), Some Api.UpdateOrderContext
-                            Api.ClearFilterProperty Ctx.Route, Some Api.UpdateOrderContext
-                            Api.ClearAllFilterProperty, Some Api.UpdateOrderContext
-                            Api.SetNthDiluentProperty 0, Some Api.UpdateOrderContext
-                            Api.ClearDiluentProperty, Some Api.UpdateOrderContext
-                            Api.SetNthComponentsProperty [| 0 |], Some Api.UpdateOrderContext
-                            Api.SelectNthOrderScenario 0, Some Api.SelectOrderScenario
-                            Api.SetNthScheduleProperty(Shared.Types.ScheduleProperty.Time, 0),
-                            Some Api.UpdateOrderScenario
-                            Api.SetNthOrderableProperty(Shared.Types.OrderableProperty.DoseRate, 0),
-                            Some Api.UpdateOrderScenario
-                            Api.SetNthComponentProperty("a", Shared.Types.ComponentProperty.OrderableQuantity, 0),
-                            Some Api.UpdateOrderScenario
-                            Api.SetNthItemProperty("a", "b", Shared.Types.ItemProperty.DoseQuantity, 0),
-                            Some Api.UpdateOrderScenario
-                            Api.ClearScheduleProperty(Shared.Types.ScheduleProperty.Frequency, [| "p" |]),
-                            Some(Api.ReopenOrderScenario [| "p" |])
-                            Api.ClearOrderableProperty(Shared.Types.OrderableProperty.Quantity, [| "p" |]),
-                            Some(Api.ReopenOrderScenario [| "p" |])
-                            Api.ClearComponentProperty(
-                                "a",
-                                Shared.Types.ComponentProperty.DoseQuantityAdjust,
-                                [| "p" |]
-                            ),
-                            Some(Api.ReopenOrderScenario [| "p" |])
-                            Api.ClearItemProperty("a", "b", Shared.Types.ItemProperty.DoseRate, [| "p" |]),
-                            Some(Api.ReopenOrderScenario [| "p" |])
-                            Api.SetArgumentationProperty "x", None
-                            Api.ResetOrderScenario, Some Api.ResetOrderScenario
-                        ] do
-                        test $"%A{cmd}" { cmd |> Cmd.replaced |> Expect.equal "the case it stands for" expected }
-
                     test "the log never shows the argumentation" {
                         (Api.SetArgumentationProperty "patient weegt meer", Ctx.empty)
                         |> Cmd.toString
@@ -717,7 +676,9 @@ let tests =
                         let seen = ref None
 
                         let! answer =
-                            ServerApi.OrderContextCommand.processCmd (env (seenBy seen)) (setNthCommand target 0, ctx)
+                            ServerApi.OrderContextCommand.processViewCmd
+                                (env (seenBy seen))
+                                (setNthCommand target 0, ctx)
 
                         answer |> Result.isOk |> Expect.isTrue "evaluated"
 
@@ -726,7 +687,7 @@ let tests =
                         |> Expect.equal "the domain's case" (Some true)
                     }
 
-                    testAsync "a patient change reaches the port as the context evaluated for that patient" {
+                    testAsync "a patient update reaches the port as the context evaluated for that patient" {
                         let pat = { ctx.Patient with Department = Some "NEO" }
                         let seen = ref None
 
@@ -735,7 +696,7 @@ let tests =
                                 evaluate =
                                     fun cmd pc ->
                                         match cmd pc.Context with
-                                        | Informedica.GenOrder.Lib.OrderContext.PatientChanged(sent, p) ->
+                                        | Informedica.GenOrder.Lib.OrderContext.UpdatePatient(sent, p) ->
                                             seen.Value <- Some(sent.Patient.Department, p.Department)
                                         | _ -> ()
 
@@ -743,9 +704,9 @@ let tests =
                             }
 
                         let! answer =
-                            ServerApi.OrderContextCommand.processActive
+                            ServerApi.OrderContextCommand.processCmd
                                 (env port)
-                                (Shared.Api.ActiveOrderContextCommand.PatientChanged pat, ctx)
+                                (Shared.Api.OrderContextCommand.UpdatePatient(pat, ctx))
 
                         answer |> Result.isOk |> Expect.isTrue "evaluated"
 
@@ -757,7 +718,7 @@ let tests =
                         let seen = ref None
 
                         let! answer =
-                            ServerApi.OrderContextCommand.processCmd
+                            ServerApi.OrderContextCommand.processViewCmd
                                 (env (seenBy seen))
                                 (Api.SetArgumentationProperty "bewust", ctx)
 
@@ -769,12 +730,26 @@ let tests =
                         | other -> failtest $"expected the context, got %A{other}"
                     }
 
+                    testAsync "a reset clears the argumentation, since it puts the order back within the rules" {
+                        let seen = ref None
+
+                        let! answer =
+                            ServerApi.OrderContextCommand.processViewCmd
+                                (env (seenBy seen))
+                                (Api.ResetOrderScenario, ctx |> Ctx.Argumentation.write "bewust")
+
+                        match answer with
+                        | Ok(Shared.Types.OrderContextResponse.Evaluated c) ->
+                            c.Argumentation |> Expect.isNone "the text cleared"
+                        | other -> failtest $"expected the context, got %A{other}"
+                    }
+
                     testAsync "an index past the values reaches the port, where it leaves the order as it is" {
                         let seen = ref None
                         let past = ctx |> Ctx.count (Ctx.Options.Variable target)
 
                         let! answer =
-                            ServerApi.OrderContextCommand.processCmd
+                            ServerApi.OrderContextCommand.processViewCmd
                                 (env (seenBy seen))
                                 (setNthCommand target past, ctx)
 
@@ -794,6 +769,7 @@ let tests =
                         |> List.find (fun t -> ctx |> Ctx.count (Ctx.Options.Variable t) > 1)
 
                     let recalculated = ref None
+                    let navigated = ref None
 
                     let run cmd =
                         let seen = ref []
@@ -807,7 +783,10 @@ let tests =
                         let port: ServerApi.OrderPlanPort =
                             {
                                 recalculate = answering "recalculate"
-                                navigate = fun p _ _ _ -> answering "navigate" p
+                                navigate =
+                                    fun p _ _ pc ->
+                                        navigated.Value <- Some(p, pc)
+                                        answering "navigate" p
                                 addOrderContext = fun p _ -> answering "addOrderContext" p
                                 newOrderContext = fun p _ -> answering "newOrderContext" p
                                 removeOrderContexts = fun p _ -> answering "removeOrderContexts" p
@@ -891,6 +870,24 @@ let tests =
                             |> Expect.equal "the plan's category" Informedica.GenOrder.Lib.Types.OrderCategory.Drug
                             pc.Context.Argumentation |> Expect.equal "the text written" (Some "bewust")
                         | other -> failtest $"expected the one context recalculated, got %A{other}"
+                    }
+
+                    testAsync "a reset clears the argumentation on the context and on the plan's copy of it" {
+                        let argued = ctx |> Ctx.Argumentation.write "bewust"
+                        let argued' = Shared.Models.OrderPlan.create ctx.Patient [| argued |]
+
+                        let! answer, _ =
+                            run (Shared.Api.OrderPlanCommand.Navigate(argued', "c-1", Api.ResetOrderScenario, argued))
+
+                        answer |> Result.isOk |> Expect.isTrue "answered"
+
+                        match navigated.Value with
+                        | Some(p, pc) ->
+                            pc.Context.Argumentation |> Expect.isNone "the context's text cleared"
+                            p.Contexts
+                            |> Array.map _.Context.Argumentation
+                            |> Expect.equal "the plan's copy cleared" [| None |]
+                        | None -> failtest "expected the navigation"
                     }
 
                     testAsync "an index past the values navigates, where it leaves the order as it is" {

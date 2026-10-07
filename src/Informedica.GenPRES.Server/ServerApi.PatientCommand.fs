@@ -8,20 +8,44 @@ module PatientCommand =
     open Shared.Api
 
 
-    /// The patient the change carries mapped.
-    let patients (f: Patient -> Patient) (cmd: PatientCommand) =
-        match cmd with
-        | PatientCommand.ChangePatient pat -> PatientCommand.ChangePatient(f pat)
-
-
     /// The patient the request edits: the change's own.
     let patientOf (cmd: PatientCommand) =
         match cmd with
         | PatientCommand.ChangePatient pat -> Some pat
 
 
-    /// The patient as it reaches the member: Compute.bound has put the Session's age on an
-    /// identified patient and estimated the weight and height it lacks.
-    let processCmd (cmd: PatientCommand) =
+    /// A patient that lacks a weight or a height is refused while the server loads, since its
+    /// estimate needs the normal values; any other patient is answered.
+    let gate (cmd: PatientCommand) =
         match cmd with
-        | PatientCommand.ChangePatient pat -> async { return Ok pat }
+        | PatientCommand.ChangePatient pat ->
+            let lacks (measured: 'a option) (estimated: 'a option) = measured.IsNone && estimated.IsNone
+
+            if
+                lacks pat.Weight.Measured pat.Weight.Estimated
+                || lacks pat.Height.Measured pat.Height.Estimated
+            then
+                Gate.RequiresLoaded
+            else
+                Gate.Open
+
+
+    /// The patient made complete at the inbound boundary: an identified patient at the age the
+    /// Session holds, whatever age the client sent, an anonymous one at the client's; for both, a
+    /// weight or a height that is neither measured nor estimated is estimated from the age. The
+    /// normal values are asked only when a measure is missing. A store that fails while the age
+    /// is asked is a failure.
+    let processCmd (env: AppEnv) (cookie: SessionCookie) (cmd: PatientCommand) =
+        async {
+            match cmd with
+            | PatientCommand.ChangePatient pat ->
+                let! age =
+                    match cookie.read () with
+                    | Some id -> env.session.age id
+                    | None -> async { return Ok None }
+
+                return
+                    match age with
+                    | Ok age -> Ok(pat |> Patient.aged age |> Patient.estimate env.normalValues)
+                    | Error refusal -> Error [| $"The Session's age could not be read: %A{refusal}" |]
+        }

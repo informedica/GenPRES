@@ -15,18 +15,15 @@ type Gate =
 module Compute =
 
     /// Every computing member: the Session the cookie names is marked seen and told whether the
-    /// record moved on or the Session ended, what the patient the request edits measures is
-    /// recorded, and every patient the command carries is put at the age the Session holds and
-    /// given the estimates of weight and height it lacks, before the command is computed;
-    /// without a cookie only the estimates are filled in. The gate refuses a command that needs
-    /// the formulary while it is not loaded, with the provider's messages. An exception is an
-    /// Error with its message. The token is never logged.
+    /// record moved on or the Session ended, and what a patient change measures is recorded.
+    /// Every patient the command carries is computed as sent. The gate refuses a command that
+    /// needs the formulary while it is not loaded, with the provider's messages. An exception is
+    /// an Error with its message. The token is never logged.
     let bound
         (env: AppEnv)
         (cookie: SessionCookie)
         (name: 'cmd -> string)
         (gate: 'cmd -> Gate)
-        (patients: (Patient -> Patient) -> 'cmd -> 'cmd)
         (patientOf: 'cmd -> Patient option)
         (handler: 'cmd -> Async<Result<'resp, string[]>>)
         (request: Request<'cmd>)
@@ -39,16 +36,10 @@ module Compute =
                 Logging.ServerLogging.Info $"Processing command: {name cmd}"
                 |> Informedica.Logging.Lib.Logging.logInfo env.logger
 
-                let! notice, age =
+                let! notice =
                     match cookie.read () with
-                    | None -> async { return None, None }
+                    | None -> async { return None }
                     | Some id -> env.session.seen id request.Opened (patientOf cmd)
-
-                // an identified Session's age, never the client's, then the estimates a patient
-                // lacks, on every patient the command carries, before anything reads it. The
-                // normal values are asked per patient and only for one that lacks a measure, so
-                // a command without a patient never asks the provider
-                let cmd = cmd |> patients (Patient.aged age >> Patient.estimate env.normalValues)
 
                 // an open command never asks the provider: asking may load
                 let! result =

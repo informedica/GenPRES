@@ -27,17 +27,15 @@ type ISettings =
 type IOrderContext =
     // the workbench as the pages show it
     abstract OrderContext: OrderContextMachine.OrderContextView
-    abstract OrderContextMsg: Api.OrderContextCommand * OrderContext -> unit
+    abstract OrderContextMsg: Api.OrderViewCommand -> unit
     // a clear from the dialog that opens the field's list, the workbench before it kept
-    abstract Reopen: Api.OrderContextCommand * OrderContext -> unit
+    abstract Reopen: Api.OrderViewCommand -> unit
     // the list of a reopen closed without a pick: the workbench kept is put back
     abstract Restore: unit -> unit
     // the workbench as the order dialog shows it; none while no scenario is selected
     abstract Dialog: OrderContextMachine.OrderContextView option
     // the scenario whose order the dialog shows, by its order's id; the client's own, no round trip
     abstract Select: string option -> unit
-    // the argumentation written on the workbench; the client's own, no round trip
-    abstract Argue: string -> unit
 
 
 /// The one plan, nutrition included, and the commands on it.
@@ -47,16 +45,16 @@ type IOrderPlan =
     // the plan as the pages show it, the dialog's selection inside
     abstract OrderPlan: OrderPlanMachine.OrderPlanView
     abstract OrderPlanCommand: Api.OrderPlanCommand -> unit
+    // a command into the plan's context with this id, sent over the plan held
+    abstract Navigate: string * Api.OrderViewCommand -> unit
     // a clear from the dialog that opens the field's list, the plan before it kept
-    abstract Reopen: Api.OrderPlanCommand -> unit
+    abstract Reopen: string * Api.OrderViewCommand -> unit
     // the list of a reopen closed without a pick: the plan kept is put back, as signed or changed
     abstract Restore: unit -> unit
     // the context whose order the dialog shows, by id; the client's own, no round trip
     abstract Select: string option -> unit
     // the contexts the rows keep, by id; the totals follow
     abstract Filter: string[] -> unit
-    // the argumentation written on a context of the plan, by id; the client's own, no round trip
-    abstract Argue: string * string -> unit
     // the contexts of the plan that are new or changed since the version last opened or
     // signed, by id; while there are any in an open Session the patient context is held
     abstract Changed: string[]
@@ -65,14 +63,17 @@ type IOrderPlan =
 /// Patient data and updates
 [<Interface>]
 type IPatient =
-    // the patient data as the panel edits it and the lists read it, the estimate applied
+    // the patient data as the panel edits it and the lists read it, with the estimates the
+    // server answered after an edit that renews them
     abstract Draft: Patient option
+    // a patient change is under way: the panel takes no edit until it is answered
+    abstract Changing: bool
     // the draft with the estimates of its age, the gender and the gestational age applied to
     // every weight and height, cleared or entered as well: what the summary shows, not what
     // the fields show
     abstract Estimated: Patient option
-    // the draft, with the weight and height the user did not enter estimated again: after an
-    // edit of the age, the gender or the gestational age, which the normal values follow
+    // the draft, with the weight and height the user did not enter estimated again by the
+    // server: after an edit of the age, the gender or the gestational age
     abstract UpdatePatient: Patient option -> unit
     // the draft with its estimates as they are: after any other edit, so that a weight or a
     // height the user cleared stays cleared

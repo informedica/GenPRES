@@ -34,32 +34,18 @@ module SigningCommand =
         | SigningOutcome.Refused refusal -> SigningResponse.Refused refusal
 
 
-    /// The plan of a challenge or of a submission with every patient mapped.
-    let patients (f: Patient -> Patient) (cmd: SigningCommand) : SigningCommand =
-        match cmd with
-        | SigningCommand.RequestSignChallenge(plan, opened, notice) ->
-            SigningCommand.RequestSignChallenge(OrderPlanCommand.patientsPlan f plan, opened, notice)
-        | SigningCommand.Submit submission ->
-            SigningCommand.Submit { submission with Plan = OrderPlanCommand.patientsPlan f submission.Plan }
-
-
     /// A signing command for the Session the cookie names. No cookie, no Session: refused
-    /// before the port is asked. The plan's patient and that of every context in it put at the
-    /// age the Session holds and made at the inbound boundary, then the plan parsed into the
-    /// domain; a plan the domain does not read is refused before the port is asked. A store
-    /// that fails while the age is asked answers StoreFailed. Writes no cookie.
+    /// before the port is asked. The plan is signed as sent: the challenge is a digest of it, so
+    /// no patient in it is changed. Its patient and that of every context in it made at the
+    /// inbound boundary, then the plan parsed into the domain; a plan the domain does not read
+    /// is refused before the port is asked. The Session is asked its age first, which marks it
+    /// seen; a store that fails then answers StoreFailed. Writes no cookie.
     let processCmd (env: AppEnv) (cookie: SessionCookie) (cmd: SigningCommand) =
         async {
             match cookie.read () with
             | None -> return SigningResponse.Refused SigningRefusal.NoSession
             | Some id ->
                 let! answer = env.session.age id
-                // the Session's age only, no estimates: the challenge is a digest of the plan as
-                // sent, and an estimate from tables reloaded between the challenge and the
-                // submission would change the plan under it. A plan the server computed carries
-                // its estimates already
-                let cmd = cmd |> patients (Patient.aged (answer |> Result.defaultValue None))
-
                 let plan =
                     match cmd with
                     | SigningCommand.RequestSignChallenge(plan, _, _) -> plan

@@ -162,12 +162,11 @@ module OrderPlan =
             tp.OrderContexts
             |> Array.tryFind (fun c -> OrderContext.contribution c |> Option.exists (fun sc -> sc.Order.Id = orderId))
 
-        // an order-context command into the selected context: a step, settled or changing as
-        // the plan is; while changing it waits in the lane for the answer
-        let orderContextMsg (cmd, ctx) =
+        // an order-context command into the selected context, sent over the plan held
+        let orderContextMsg cmd =
             match orderPlan with
-            | OrderPlanView.Settled(tp, Some id)
-            | OrderPlanView.Changing(tp, Some id) -> planCommand (Api.OrderPlanCommand.Navigate(tp, id, cmd, ctx))
+            | OrderPlanView.Settled(_, Some id)
+            | OrderPlanView.Changing(_, Some id) -> envOrderPlan.Navigate(id, cmd)
             | OrderPlanView.Settled(_, None)
             | OrderPlanView.Changing(_, None)
             | OrderPlanView.NoPatient -> ()
@@ -291,8 +290,7 @@ module OrderPlan =
         // the quantity field a cell steps, its commands sent into the row's own context, as the
         // order dialog builds the same field
         let cellField (tp: OrderPlan) (ctx: OrderContext) (ord: Order) (field, ovar: OrderVariable) =
-            let send cmd =
-                planCommand (Api.OrderPlanCommand.Navigate(tp, ctx.Id, cmd, ctx))
+            let send cmd = envOrderPlan.Navigate(ctx.Id, cmd)
 
             let stepable = QuantityModePolicy.Mode.Stepable
 
@@ -303,22 +301,22 @@ module OrderPlan =
                         send
                         revision
                         stepable
-                        Api.OrderContextCommand.SetMinScheduleFrequencyProperty
-                        Api.OrderContextCommand.DecreaseScheduleFrequencyProperty
-                        Api.OrderContextCommand.SetMedianScheduleFrequencyProperty
-                        Api.OrderContextCommand.IncreaseScheduleFrequencyProperty
-                        Api.OrderContextCommand.SetMaxScheduleFrequencyProperty,
+                        Api.OrderViewCommand.SetMinScheduleFrequencyProperty
+                        Api.OrderViewCommand.DecreaseScheduleFrequencyProperty
+                        Api.OrderViewCommand.SetMedianScheduleFrequencyProperty
+                        Api.OrderViewCommand.IncreaseScheduleFrequencyProperty
+                        Api.OrderViewCommand.SetMaxScheduleFrequencyProperty,
                     Terms.``Order Frequency`` |> getTerm "frequentie"
                 | QuantityModePolicy.Field.DoseQuantity ->
                     ViewHelpers.createDoseQtyStepper
                         send
                         revision
                         ord
-                        Api.OrderContextCommand.SetMinOrderableDoseQuantityProperty
-                        Api.OrderContextCommand.DecreaseOrderableDoseQuantityProperty
-                        Api.OrderContextCommand.SetMedianOrderableDoseQuantityProperty
-                        Api.OrderContextCommand.IncreaseOrderableDoseQuantityProperty
-                        Api.OrderContextCommand.SetMaxOrderableDoseQuantityProperty,
+                        Api.OrderViewCommand.SetMinOrderableDoseQuantityProperty
+                        Api.OrderViewCommand.DecreaseOrderableDoseQuantityProperty
+                        Api.OrderViewCommand.SetMedianOrderableDoseQuantityProperty
+                        Api.OrderViewCommand.IncreaseOrderableDoseQuantityProperty
+                        Api.OrderViewCommand.SetMaxOrderableDoseQuantityProperty,
                     "toedien hoeveelheid"
                 | QuantityModePolicy.Field.DoseRate ->
                     ViewHelpers.doseRateStepper
@@ -326,11 +324,11 @@ module OrderPlan =
                         revision
                         stepable
                         ovar
-                        Api.OrderContextCommand.SetMinOrderableDoseRateProperty
-                        Api.OrderContextCommand.DecreaseOrderableDoseRateProperty
-                        Api.OrderContextCommand.SetMedianOrderableDoseRateProperty
-                        Api.OrderContextCommand.IncreaseOrderableDoseRateProperty
-                        Api.OrderContextCommand.SetMaxOrderableDoseRateProperty,
+                        Api.OrderViewCommand.SetMinOrderableDoseRateProperty
+                        Api.OrderViewCommand.DecreaseOrderableDoseRateProperty
+                        Api.OrderViewCommand.SetMedianOrderableDoseRateProperty
+                        Api.OrderViewCommand.IncreaseOrderableDoseRateProperty
+                        Api.OrderViewCommand.SetMaxOrderableDoseRateProperty,
                     Terms.``Order Drip rate`` |> getTerm "inloop snelheid"
                 | QuantityModePolicy.Field.ComponentQuantity
                 | QuantityModePolicy.Field.Other -> Components.QuantityField.Fixed, ""
@@ -638,92 +636,16 @@ module OrderPlan =
                     onCancel = fun () -> setConfirmDeleteOpen false
                 |}
 
-        let updateOrderScenario cmd (ctx: OrderContext) = orderContextMsg (cmd, ctx)
-
         // a clear from a field's arrow goes as a reopen of the plan, which keeps the plan before it
-        let reopenOrderScenario cmd (ctx: OrderContext) =
-            match orderPlan with
-            | OrderPlanView.Settled(tp, Some id)
-            | OrderPlanView.Changing(tp, Some id) ->
-                Api.OrderPlanCommand.Navigate(tp, id, cmd, ctx) |> envOrderPlan.Reopen
-            | OrderPlanView.Settled(_, None)
-            | OrderPlanView.Changing(_, None)
-            | OrderPlanView.NoPatient -> ()
-
-        let refreshOrderScenario (ctx: OrderContext) =
-            orderContextMsg (Api.OrderContextCommand.ResetOrderScenario, ctx)
-
-        let stepOrderScenario =
-            {|
-                // Frequency
-                setMinFrequency =
-                    fun ctx -> orderContextMsg (Api.OrderContextCommand.SetMinScheduleFrequencyProperty, ctx)
-                decrFrequency =
-                    fun ctx -> orderContextMsg (Api.OrderContextCommand.DecreaseScheduleFrequencyProperty, ctx)
-                setMedianFrequency =
-                    fun ctx -> orderContextMsg (Api.OrderContextCommand.SetMedianScheduleFrequencyProperty, ctx)
-                incrFrequency =
-                    fun ctx -> orderContextMsg (Api.OrderContextCommand.IncreaseScheduleFrequencyProperty, ctx)
-                setMaxFrequency =
-                    fun ctx -> orderContextMsg (Api.OrderContextCommand.SetMaxScheduleFrequencyProperty, ctx)
-                // Rate
-                setMinRate = fun ctx -> orderContextMsg (Api.OrderContextCommand.SetMinOrderableDoseRateProperty, ctx)
-                decrRate =
-                    fun (ctx, n, uc) ->
-                        orderContextMsg (Api.OrderContextCommand.DecreaseOrderableDoseRateProperty(n, uc), ctx)
-                setMedianRate =
-                    fun ctx -> orderContextMsg (Api.OrderContextCommand.SetMedianOrderableDoseRateProperty, ctx)
-                incrRate =
-                    fun (ctx, n, uc) ->
-                        orderContextMsg (Api.OrderContextCommand.IncreaseOrderableDoseRateProperty(n, uc), ctx)
-                setMaxRate = fun ctx -> orderContextMsg (Api.OrderContextCommand.SetMaxOrderableDoseRateProperty, ctx)
-                // Dose Quantity
-                setMinDoseQty =
-                    fun ctx -> orderContextMsg (Api.OrderContextCommand.SetMinOrderableDoseQuantityProperty, ctx)
-                decrDoseQty =
-                    fun (ctx, n, uc) ->
-                        orderContextMsg (Api.OrderContextCommand.DecreaseOrderableDoseQuantityProperty(n, uc), ctx)
-                setMedianDoseQty =
-                    fun ctx -> orderContextMsg (Api.OrderContextCommand.SetMedianOrderableDoseQuantityProperty, ctx)
-                incrDoseQty =
-                    fun (ctx, n, uc) ->
-                        orderContextMsg (Api.OrderContextCommand.IncreaseOrderableDoseQuantityProperty(n, uc), ctx)
-                setMaxDoseQty =
-                    fun ctx -> orderContextMsg (Api.OrderContextCommand.SetMaxOrderableDoseQuantityProperty, ctx)
-                // Component Quantity
-                setMinComponentQty =
-                    fun (ctx, cmp) ->
-                        orderContextMsg (Api.OrderContextCommand.SetMinComponentOrderableQuantityProperty cmp, ctx)
-                decrComponentQty =
-                    fun (ctx, cmp, n, uc) ->
-                        orderContextMsg (
-                            Api.OrderContextCommand.DecreaseComponentOrderableQuantityProperty(cmp, n, uc),
-                            ctx
-                        )
-                setMedianComponentQty =
-                    fun (ctx, cmp) ->
-                        orderContextMsg (Api.OrderContextCommand.SetMedianComponentOrderableQuantityProperty cmp, ctx)
-                incrComponentQty =
-                    fun (ctx, cmp, n, uc) ->
-                        orderContextMsg (
-                            Api.OrderContextCommand.IncreaseComponentOrderableQuantityProperty(cmp, n, uc),
-                            ctx
-                        )
-                setMaxComponentQty =
-                    fun (ctx, cmp) ->
-                        orderContextMsg (Api.OrderContextCommand.SetMaxComponentOrderableQuantityProperty cmp, ctx)
-            |}
-
-        let orderContext = dialog |> Option.defaultValue OrderContextView.NoPatient
-
-        // the argumentation into the selected context of the plan, no call
-        let argue (text: string) =
+        let reopen cmd =
             match orderPlan with
             | OrderPlanView.Settled(_, Some id)
-            | OrderPlanView.Changing(_, Some id) -> envOrderPlan.Argue(id, text)
+            | OrderPlanView.Changing(_, Some id) -> envOrderPlan.Reopen(id, cmd)
             | OrderPlanView.Settled(_, None)
             | OrderPlanView.Changing(_, None)
             | OrderPlanView.NoPatient -> ()
+
+        let orderContext = dialog |> Option.defaultValue OrderContextView.NoPatient
 
         let nothingSelected =
             match orderPlan with
@@ -851,13 +773,10 @@ module OrderPlan =
                 {|
                     editing = editing
                     orderContext = orderContext
-                    updateOrderScenario = updateOrderScenario
-                    reopenOrderScenario = reopenOrderScenario
+                    command = orderContextMsg
+                    reopen = reopen
                     restoreOrderScenario = envOrderPlan.Restore
-                    stepOrderScenario = stepOrderScenario
-                    refreshOrderScenario = refreshOrderScenario
                     closeOrder = handleModalClose
-                    argue = argue
                     localizationTerms = localizationTerms
                 |}
 

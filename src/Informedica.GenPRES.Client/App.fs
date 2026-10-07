@@ -18,6 +18,7 @@ open SessionMachine
 open SigningMachine
 open OrderPlanMachine
 open OrderContextMachine
+open PatientMachine
 
 
 module private Elmish =
@@ -69,8 +70,6 @@ module private Elmish =
             EmergencyListFilter: string[]
             ContinuousMedsFilter: string[]
             Snackbar: Snackbar
-            // the patient data as the panel edits it and the lists read it, the estimate applied
-            PatientDraft: Patient option
         }
 
 
@@ -113,9 +112,11 @@ module private Elmish =
         }
 
 
-    /// The four lanes, each a machine's state the pages read a projection of.
+    /// The five lanes, each a machine's state the pages read a projection of.
     type LanesState =
         {
+            // the patient, as the patient machine holds it: the draft and the change under way
+            Patient: PatientState
             // the prescribing workbench, as the order-context machine holds it
             OrderContext: OrderContextState
             // the one plan, as the order-plan machine holds it
@@ -149,6 +150,11 @@ module private Elmish =
         | UpdatePage of Global.Pages
         | UpdatePatient of Patient option
         | EditPatient of Patient option
+        // the patient: the patient machine's messages
+        | PatientMsg of PatientMsg
+        // the server's answer to a patient change: the notice is told here, the patient goes to
+        // the machine under the request it answers
+        | PatientAnswered of request: string * Answer<Patient>
 
         | LoadNormalValues of AsyncOperationStatus<Result<NormalValues, string>>
 
@@ -300,8 +306,7 @@ module private Elmish =
     /// The patient the workbench and the plan are for: the draft, once it meets the minimum, an
     /// age or a measured weight and height; below that there is no patient. Derived from the
     /// draft whenever it is read, so that the two cannot differ.
-    let patientOf (state: State) =
-        state.Ui.PatientDraft |> Option.bind (Patient.validate >> Result.toOption)
+    let patientOf (state: State) = state.Lanes.Patient |> PatientState.patient
 
 
     /// A reload settles when the refresh it started has answered: the order context over a
@@ -336,14 +341,20 @@ module private Elmish =
         | Api.AdminResponse.ResourcesReloaded ->
             let refresh =
                 match patientOf state with
-                // the workbench evaluated again, as it is, whatever was in flight
+                // the workbench evaluated again, as it is, whatever was in flight: a reload seed
+                // carries no choices
                 | Some _ ->
-                    let ctx =
-                        state.Lanes.OrderContext
-                        |> OrderContextState.context
-                        |> Option.defaultValue OrderContext.empty
+                    let seed =
+                        {
+                            Source = SeedSource.Reload
+                            Indication = None
+                            Generic = None
+                            Route = None
+                            Form = None
+                            DoseType = None
+                        }
 
-                    Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ())))
+                    Cmd.ofMsg (OrderContextMsg(OrderContextMsg.SeedFilter(seed, newRequest ())))
                 | None -> Cmd.batch [ Cmd.ofMsg (LoadFormulary Started); Cmd.ofMsg (LoadParenteralia Started) ]
 
             state, refresh
@@ -607,6 +618,7 @@ module private Elmish =
         {
             Lanes =
                 {
+                    Patient = PatientState.init pat
                     // a medication in the url is seeded by UrlChanged, which the router fires on
                     // mount too, once the patient is set
                     OrderContext = OrderContextState.noPatient
@@ -657,7 +669,6 @@ module private Elmish =
                     EmergencyListFilter = [||]
                     ContinuousMedsFilter = [||]
                     Snackbar = Snackbar.closed
-                    PatientDraft = pat
                 }
         }
 
@@ -734,6 +745,11 @@ module private Elmish =
                     Cmd.ofMsg (LoadFormulary Started)
                     Cmd.ofMsg (LoadParenteralia Started)
                     Cmd.ofMsg (LoadInteractionDrugNames Started)
+                    // the url's patient sent as a patient change, so the workbench and the plan get
+                    // it; a Session that resumes on a patient replaces it
+                    match pat with
+                    | Some _ -> Cmd.ofMsg (UpdatePatient pat)
+                    | None -> Cmd.none
                 ]
 
         initialState pat page lang discl, cmds
@@ -903,8 +919,8 @@ module private Elmish =
         | SessionEffect.GoTo url -> state, Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
         | SessionEffect.SetPatient patient -> state, Cmd.ofMsg (UpdatePatient patient)
         // the cart is the version the Session opened with, opened by the plan machine over the
-        // patient as UpdatePatient leaves it (normal values applied); the machine keeps the
-        // version while that patient is still on its way
+        // patient as the server answers it; the machine keeps the version while that patient is
+        // still on its way
         | SessionEffect.LoadCart head -> state, Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Version(head, newRequest ())))
         | SessionEffect.KeepKey thumbprint ->
             state,
@@ -1040,6 +1056,35 @@ module private Elmish =
             (state, Cmd.none) |> processError ServerErrorPolicy.ErrorSource.OrderPlan errs
 
 
+    /// A workbench request, answered under the request id it was sent for.
+    let callContext req request (state: State) =
+        let opened = tokenOf state.Lanes.Session
+
+        async {
+            try
+                match!
+                    serverApi.processOrderContext
+                        {
+                            Opened = opened
+                            Command = req
+                        }
+                with
+                | Ok reply ->
+                    return
+                        OrderContextAnswered(
+                            request,
+                            {
+                                From = opened
+                                Reply = reply
+                            }
+                        )
+                | Error errs -> return OrderContextMsg(OrderContextMsg.Answered(request, Error errs))
+            with ex ->
+                return OrderContextMsg(OrderContextMsg.Answered(request, Error [| ex.Message |]))
+        }
+        |> Cmd.fromAsync
+
+
     /// What one order-context effect changes, and the command it sends. A workbench call
     /// answers under the request it was sent for; the notice rides on the reply and is told by
     /// `update`; a transport failure is an Error answer. A filter sync both syncs what is
@@ -1047,32 +1092,9 @@ module private Elmish =
     let applyOrderContextEffect (effect: OrderContextEffect) (state: State) : State * Cmd<Msg> =
         match effect with
         | OrderContextEffect.CallContext(cmd, ctx, request) ->
-            let opened = tokenOf state.Lanes.Session
-
-            state,
-            async {
-                try
-                    match!
-                        serverApi.processOrderContext
-                            {
-                                Opened = opened
-                                Command = (Api.ActiveOrderContextCommand.Command cmd, ctx)
-                            }
-                    with
-                    | Ok reply ->
-                        return
-                            OrderContextAnswered(
-                                request,
-                                {
-                                    From = opened
-                                    Reply = reply
-                                }
-                            )
-                    | Error errs -> return OrderContextMsg(OrderContextMsg.Answered(request, Error errs))
-                with ex ->
-                    return OrderContextMsg(OrderContextMsg.Answered(request, Error [| ex.Message |]))
-            }
-            |> Cmd.fromAsync
+            state, callContext (Api.OrderContextCommand.Command(cmd, ctx)) request state
+        | OrderContextEffect.CallPatientChanged(pat, ctx, request) ->
+            state, callContext (Api.OrderContextCommand.UpdatePatient(pat, ctx)) request state
         | OrderContextEffect.SyncFormulary filter ->
             { state with
                 Fetches.Formulary =
@@ -1095,23 +1117,11 @@ module private Elmish =
             Cmd.none
 
 
-    /// The patient data received as it is, the estimates included: the draft kept for the panel
-    /// and the lists, and the patient it is, if any, for the workbench and the plan, which follow
-    /// it: evaluated for a new one, again over a change. The draft is a patient with an age, or a
-    /// measured weight and height; below that there is no patient: no workbench, no plan.
-    let setPatient (dto: Patient option) (state: State) : State * Cmd<Msg> =
-        let pat =
-            dto
-            |> Option.bind (fun dto ->
-                match dto |> Patient.validate with
-                | Ok pat -> Some pat
-                | Error err ->
-                    Logging.warning "no patient: the data is below the minimum" err
-                    None
-            )
-
+    /// The patient on the workbench, the plan and the formulary and parenteralia pages, which
+    /// follow it: evaluated for a new one, again over a change. No patient, no workbench and no
+    /// plan.
+    let setPatient (pat: Patient option) (state: State) : State * Cmd<Msg> =
         { state with
-            Ui.PatientDraft = dto
             Fetches.Formulary = { Formulary.empty with Patient = pat } |> Resolved
             Fetches.Parenteralia = Parenteralia.empty |> Resolved
             Ui.EmergencyListFilter = [||]
@@ -1126,10 +1136,53 @@ module private Elmish =
             ]
 
 
-    /// The patient data received, from the panel, the url or the Session, with the estimate of
-    /// every weight and height the user did not enter applied, then set as it is.
-    let updatePatient (dto: Patient option) (state: State) : State * Cmd<Msg> =
-        state |> setPatient (dto |> applyNormalValues state.Fetches.NormalValues)
+    /// What one patient effect changes, and the command it sends. A patient change answers under
+    /// the request it was sent for; the notice rides on the reply and is told by update; a
+    /// transport failure is an Error answer.
+    let applyPatientEffect (effect: PatientEffect) (state: State) : State * Cmd<Msg> =
+        match effect with
+        | PatientEffect.CallPatient(pat, request) ->
+            let opened = tokenOf state.Lanes.Session
+
+            state,
+            async {
+                try
+                    match!
+                        serverApi.processPatient
+                            {
+                                Opened = opened
+                                Command = Api.PatientCommand.ChangePatient pat
+                            }
+                    with
+                    | Ok reply ->
+                        return
+                            PatientAnswered(
+                                request,
+                                {
+                                    From = opened
+                                    Reply = reply
+                                }
+                            )
+                    | Error errs -> return PatientMsg(PatientMsg.Answered(request, Error errs))
+                with ex ->
+                    return PatientMsg(PatientMsg.Answered(request, Error [| ex.Message |]))
+            }
+            |> Cmd.fromAsync
+        | PatientEffect.SetPatient pat -> state |> setPatient pat
+        | PatientEffect.TellError errs ->
+            Logging.warning "patient change error" errs
+
+            state
+            |> tell (errs |> Array.tryHead |> Option.defaultValue "Er ging iets mis") "warning",
+            Cmd.none
+
+
+    /// A step of the patient machine: the trail recorded, the effects applied.
+    let changePatient (msg: PatientMsg) (state: State) =
+        let patient, effects = PatientState.transition msg state.Lanes.Patient
+        StepTrail.record (fun no at -> Trail.patient no at msg (patient, effects))
+
+        { state with Lanes.Patient = patient } |> runEffects applyPatientEffect effects
 
 
     /// Whether the patient context is held: an identified patient whose plan has an order that
@@ -1181,15 +1234,35 @@ module private Elmish =
             else
                 state, cmd
 
+        // a page's choices seeded over the workbench, only while it has a patient, as a page shows
+        // its choices only then
+        let seedFromPage source ind gen rte frm dt (state: State) =
+            match OrderContextState.patient state.Lanes.OrderContext with
+            | Some _ ->
+                let seed =
+                    {
+                        Source = source
+                        Indication = ind
+                        Generic = gen
+                        Route = rte
+                        Form = frm
+                        DoseType = dt
+                    }
+
+                Cmd.ofMsg (OrderContextMsg(OrderContextMsg.SeedFilter(seed, newRequest ())))
+            | None -> Cmd.none
+
         let selectMedicationItem generic indication route doseType state =
             let nonEmpty s = if s = "" then None else Some s
 
-            let ctx =
-                { OrderContext.empty with
-                    OrderContext.Filter.Indication = indication |> nonEmpty
-                    OrderContext.Filter.Generic = Some generic
-                    OrderContext.Filter.Route = route |> nonEmpty
-                    OrderContext.Filter.DoseType = doseType |> nonEmpty |> Option.map DoseType.doseTypeFromString
+            let seed =
+                {
+                    Source = SeedSource.MedicationList
+                    Indication = indication |> nonEmpty
+                    Generic = Some generic
+                    Route = route |> nonEmpty
+                    Form = None
+                    DoseType = doseType |> nonEmpty |> Option.map DoseType.doseTypeFromString
                 }
 
             // the medication chosen is evaluated for the patient held; without one it is dropped
@@ -1197,7 +1270,7 @@ module private Elmish =
             match patientOf state with
             | Some _ ->
                 { state with Ui.Page = Prescribe },
-                Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ())))
+                Cmd.ofMsg (OrderContextMsg(OrderContextMsg.SeedFilter(seed, newRequest ())))
             | None -> noPatientForMedication state, Cmd.none
 
         match msg with
@@ -1406,9 +1479,23 @@ module private Elmish =
 
                 { state with Ui.Page = page }, Cmd.batch (retryDrugNames :: loadCmds)
 
-        | UpdatePatient dto -> updatePatient dto state
+        | UpdatePatient dto ->
+            state
+            |> changePatient (PatientMsg.Changed(dto, PatientDraftPolicy.Estimates.Renewed, newRequest ()))
 
-        | EditPatient dto -> setPatient dto state
+        | EditPatient dto ->
+            state
+            |> changePatient (PatientMsg.Changed(dto, PatientDraftPolicy.Estimates.Kept, newRequest ()))
+
+        | PatientMsg msg -> state |> changePatient msg
+
+        // what the Session is told rides on the reply; the patient goes to the machine under the
+        // request it answers
+        | PatientAnswered(request, answer) ->
+            processApiMsg
+                state
+                answer
+                (fun state pat -> state, Cmd.ofMsg (PatientMsg(PatientMsg.Answered(request, Ok pat))))
 
         | UrlChanged sl ->
             let launchUrl = sl |> parseLaunch
@@ -1428,35 +1515,42 @@ module private Elmish =
                 | SessionView.Closing _ -> false
                 | _ -> true
 
-            let pat = if anonymous then pat else state.Ui.PatientDraft
+            let pat =
+                if anonymous then
+                    pat
+                else
+                    state.Lanes.Patient |> PatientState.draft
 
             // only an `la` parameter changes the language; a navigation keeps the current one
             let language = languageOf state |> LanguagePolicy.Language.onUrl lang
 
-            // the url's patient taken here, not by a message of its own: the workbench learns of
-            // it through the commands this yields, which go out before the seed below, so that
-            // the seed lands on a patient held. The draft is the one updatePatient sets, the
-            // estimate applied, or while a Session holds the patient the one there was; never the
-            // url's patient as parsed, without the estimate
+            // the url's patient taken here, not by a message of its own, and sent as a patient
+            // change; while a Session holds the patient the draft stays the one there was
             let state, patientCmd =
                 if anonymous then
-                    updatePatient pat state
+                    state
+                    |> changePatient (PatientMsg.Changed(pat, PatientDraftPolicy.Estimates.Renewed, newRequest ()))
                 else
                     state, Cmd.none
 
             // a medication in the url is seeded over the workbench as it is, for the patient held
-            // or the one the url sets; without a patient it is dropped and said, since the
-            // patient is part of the filter and nothing waits for one
+            // or the one the url sets, which the workbench waits for; without a patient it is
+            // dropped and said, since the patient is part of the filter and nothing waits for one
             let state, seed =
                 match med with
                 | None -> state, Cmd.none
                 | Some m when (patientOf state).IsSome ->
-                    state,
-                    state.Lanes.OrderContext
-                    |> OrderContextState.context
-                    |> Option.defaultValue OrderContext.empty
-                    |> OrderContext.setMedication m.indication m.medication m.route m.form m.dosetype
-                    |> fun ctx -> Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ())))
+                    let seed =
+                        {
+                            Source = SeedSource.Url
+                            Indication = m.indication
+                            Generic = m.medication
+                            Route = m.route
+                            Form = m.form
+                            DoseType = m.dosetype
+                        }
+
+                    state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.SeedFilter(seed, newRequest ())))
                 | Some m ->
                     Logging.warning "a medication in the url without a patient is dropped" m.medication
                     noPatientForMedication state, Cmd.none
@@ -1470,7 +1564,7 @@ module private Elmish =
             },
             Cmd.batch
                 [
-                    // the patient's commands first, so that the seed lands on a patient held
+                    // a seed that comes before the patient waits for it in the workbench
                     patientCmd
                     seed
                     launchCmd launchUrl
@@ -1541,9 +1635,9 @@ module private Elmish =
             { state with Fetches.NormalValues = InProgress },
             Cmd.fromAsync (GoogleDocs.loadNormalValues LoadNormalValues)
 
+        // the client's normal values serve the panel summary only; the server estimates
         | LoadNormalValues(Finished(Ok normalValues)) ->
-            { state with Fetches.NormalValues = normalValues |> Resolved },
-            Cmd.ofMsg (UpdatePatient state.Ui.PatientDraft)
+            { state with Fetches.NormalValues = normalValues |> Resolved }, Cmd.none
 
         | LoadNormalValues(Finished(Error s)) ->
             Logging.error "cannot load normal values" s
@@ -1634,7 +1728,8 @@ module private Elmish =
                 | OrderContextMsg.Answered _ -> settleReload state
                 | _ -> state
 
-            let workbench, effects = OrderContextState.transition msg state.Lanes.OrderContext
+            let workbench, effects =
+                OrderContextState.transitionWhile state.Lanes.Patient msg state.Lanes.OrderContext
             StepTrail.record (fun no at -> Trail.orderContext no at msg (workbench, effects))
 
             { state with Lanes.OrderContext = workbench }
@@ -1653,7 +1748,11 @@ module private Elmish =
         | OrderPlanMsg msg ->
             // a change from a page is dropped while a signature is under way
             let plan, effects =
-                OrderPlanState.transitionWhile (SigningState.view state.Lanes.Signing) msg state.Lanes.OrderPlan
+                OrderPlanState.transitionWhile
+                    (SigningState.view state.Lanes.Signing)
+                    state.Lanes.Patient
+                    msg
+                    state.Lanes.OrderPlan
             StepTrail.record (fun no at -> Trail.orderPlan no at msg (plan, effects))
 
             { state with Lanes.OrderPlan = plan } |> runEffects applyOrderPlanEffect effects
@@ -1682,10 +1781,11 @@ module private Elmish =
             | InProgress
             | Refreshing _ -> state, Cmd.none
             | _ ->
+                // the patient the server answered, also over a formulary answered without one
                 let form =
-                    match state.Fetches.Formulary with
-                    | Resolved form -> { form with Patient = patientOf state }
-                    | _ -> Formulary.empty
+                    { (state.Fetches.Formulary |> Deferred.defaultValue Formulary.empty) with
+                        Patient = state.Lanes.Patient |> PatientState.answered
+                    }
 
                 let cmd = form |> loadFormulary (tokenOf state.Lanes.Session)
 
@@ -1714,9 +1814,6 @@ module private Elmish =
             let state =
                 { state with
                     Fetches.Formulary = Resolved form
-                    Lanes.OrderContext =
-                        state.Lanes.OrderContext
-                        |> OrderContextState.map (FilterSync.syncFormularyToFilter form)
                     Fetches.Parenteralia =
                         state.Fetches.Parenteralia
                         |> Deferred.map (fun par ->
@@ -1732,11 +1829,15 @@ module private Elmish =
             Cmd.batch
                 [
                     Cmd.ofMsg (LoadFormulary Started)
-                    // the workbench evaluated again over the filter just synced
-                    (state.Lanes.OrderContext
-                     |> OrderContextState.context
-                     |> Option.map (fun ctx -> Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ()))))
-                     |> Option.defaultValue Cmd.none)
+                    // the formulary's choices seeded over the workbench, with the formulary's rule
+                    seedFromPage
+                        SeedSource.Formulary
+                        form.Indication
+                        form.Generic
+                        form.Route
+                        form.Form
+                        form.DoseType
+                        state
                     Cmd.ofMsg (LoadParenteralia Started)
                 ]
 
@@ -1775,20 +1876,14 @@ module private Elmish =
                                 DoseType = None
                             }
                         )
-                    Lanes.OrderContext =
-                        state.Lanes.OrderContext
-                        |> OrderContextState.map (FilterSync.syncParenteraliaToFilter par)
                 }
 
             state,
             Cmd.batch
                 [
                     Cmd.ofMsg (LoadFormulary Started)
-                    // the workbench evaluated again over the filter just synced
-                    (state.Lanes.OrderContext
-                     |> OrderContextState.context
-                     |> Option.map (fun ctx -> Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ()))))
-                     |> Option.defaultValue Cmd.none)
+                    // the parenteralia page's choices seeded over the workbench, with its rule
+                    seedFromPage SeedSource.Parenteralia None par.Generic par.Route par.Form None state
                     Cmd.ofMsg (LoadParenteralia Started)
                 ]
 
@@ -1977,30 +2072,31 @@ type private ConcreteAppEnv
         member _.Settings = state.Fetches.Settings
 
     interface AppEnv.IOrderContext with
-        member _.OrderContext = state.Lanes.OrderContext |> OrderContextState.view
+        member _.OrderContext = state.Lanes.OrderContext |> OrderContextState.viewWhile state.Lanes.Patient
 
-        member _.OrderContextMsg(cmd, ctx) =
-            OrderContextMsg(OrderContextMsg.Command(cmd, ctx, newRequest ())) |> dispatch
+        member _.OrderContextMsg cmd =
+            OrderContextMsg(OrderContextMsg.Command(cmd, newRequest ())) |> dispatch
 
-        member _.Reopen(cmd, ctx) =
-            OrderContextMsg(OrderContextMsg.Reopen(cmd, ctx, newRequest ())) |> dispatch
+        member _.Reopen cmd =
+            OrderContextMsg(OrderContextMsg.Reopen(cmd, newRequest ())) |> dispatch
 
         member _.Restore() = OrderContextMsg OrderContextMsg.Restore |> dispatch
 
-        member _.Dialog = state.Lanes.OrderContext |> OrderContextState.dialog
+        member _.Dialog = state.Lanes.OrderContext |> OrderContextState.dialogWhile state.Lanes.Patient
 
         member _.Select id = OrderContextMsg(OrderContextMsg.Select id) |> dispatch
 
-        member _.Argue text = OrderContextMsg(OrderContextMsg.Argue text) |> dispatch
-
     interface AppEnv.IOrderPlan with
-        member _.OrderPlan = state.Lanes.OrderPlan |> OrderPlanState.view
+        member _.OrderPlan = state.Lanes.OrderPlan |> OrderPlanState.viewWhile state.Lanes.Patient
 
         member _.OrderPlanCommand cmd =
             OrderPlanMsg(OrderPlanMsg.Command(cmd, newRequest ())) |> dispatch
 
-        member _.Reopen cmd =
-            OrderPlanMsg(OrderPlanMsg.Reopen(cmd, newRequest ())) |> dispatch
+        member _.Navigate(id, cmd) =
+            OrderPlanMsg(OrderPlanMsg.Navigate(id, cmd, newRequest ())) |> dispatch
+
+        member _.Reopen(id, cmd) =
+            OrderPlanMsg(OrderPlanMsg.Reopen(id, cmd, newRequest ())) |> dispatch
 
         member _.Restore() = OrderPlanMsg OrderPlanMsg.Restore |> dispatch
 
@@ -2009,14 +2105,17 @@ type private ConcreteAppEnv
         member _.Filter ids =
             OrderPlanMsg(OrderPlanMsg.Filter(ids, newRequest ())) |> dispatch
 
-        member _.Argue(id, text) = OrderPlanMsg(OrderPlanMsg.Argue(id, text)) |> dispatch
-
         member _.Changed = state.Lanes.OrderPlan |> OrderPlanState.changed
 
     interface AppEnv.IPatient with
-        member _.Draft = state.Ui.PatientDraft
+        member _.Draft = state.Lanes.Patient |> PatientState.draft
 
-        member _.Estimated = state.Ui.PatientDraft |> applyNormalValues state.Fetches.NormalValues
+        member _.Changing = state.Lanes.Patient |> PatientState.changing
+
+        member _.Estimated =
+            state.Lanes.Patient
+            |> PatientState.draft
+            |> applyNormalValues state.Fetches.NormalValues
         // the panel's edit is ignored while the patient context is held; the Session's patient
         // and a data notice accepted do not come this way
         member _.UpdatePatient p =
@@ -2218,7 +2317,10 @@ let View () =
         | _ -> null
 
     let bm =
-        calculateInterventions EmergencyTreatment.calculate state.Fetches.BolusMedication state.Ui.PatientDraft
+        calculateInterventions
+            EmergencyTreatment.calculate
+            state.Fetches.BolusMedication
+            (state.Lanes.Patient |> PatientState.draft)
 
     let cm =
         let calc =
@@ -2227,7 +2329,7 @@ let View () =
                 | Some w' -> ContinuousMedication.calculate w' meds
                 | None -> []
 
-        calculateInterventions calc state.Fetches.ContinuousMedication state.Ui.PatientDraft
+        calculateInterventions calc state.Fetches.ContinuousMedication (state.Lanes.Patient |> PatientState.draft)
 
     let appEnv = ConcreteAppEnv(state, dispatch, bm, cm) :> obj
 

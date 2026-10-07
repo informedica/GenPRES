@@ -289,12 +289,13 @@ module Part =
     /// A plan command by what it does, with a context as describeContext tells it; never the plan.
     let planCommand (describeContext: OrderContext -> string) (cmd: OrderPlanCommand) =
         match cmd with
-        | OrderPlanCommand.Recalculate _ -> "Recalculate"
+        | OrderPlanCommand.UpdatePatient _ -> "UpdatePatient"
+        | OrderPlanCommand.FilterRows(ids, _) -> $"FilterRows %i{ids.Length}"
         | OrderPlanCommand.Navigate(_, id, ctxCmd, ctx) ->
             // an effect describes the context by its id, which the line already shows
             let described = describeContext ctx
             let context = if described = shortId id then "" else $" %s{described}"
-            $"Navigate %s{shortId id} %s{OrderContextCommand.toString (ctxCmd, ctx)}%s{context}"
+            $"Navigate %s{shortId id} %s{OrderViewCommand.toString (ctxCmd, ctx)}%s{context}"
         | OrderPlanCommand.AddOrderContext(_, ctx) -> $"AddOrderContext %s{describeContext ctx}"
         | OrderPlanCommand.NewOrderContext(_, category) -> $"NewOrderContext %s{nutrition category}"
         | OrderPlanCommand.RemoveOrderContexts(_, ids) -> $"RemoveOrderContexts %i{ids.Length}"
@@ -475,10 +476,12 @@ module OrderPlan =
         | OrderPlanMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result Part.plan}"
         | OrderPlanMsg.Select id -> $"Select %s{id |> Part.orNone Part.shortId}"
         | OrderPlanMsg.Filter(ids, request) -> $"Filter %i{ids.Length} %s{Part.shortId request}"
-        | OrderPlanMsg.Reopen(cmd, request) -> $"Reopen %s{Part.planCommand Part.context cmd} %s{Part.shortId request}"
+        | OrderPlanMsg.Navigate(id, cmd, request) ->
+            $"Navigate %s{id} %s{OrderViewCommand.toString (cmd, OrderContext.empty)} %s{Part.shortId request}"
+        | OrderPlanMsg.Reopen(id, cmd, request) ->
+            $"Reopen %s{id} %s{OrderViewCommand.toString (cmd, OrderContext.empty)} %s{Part.shortId request}"
         | OrderPlanMsg.Restore -> "Restore"
         | OrderPlanMsg.Signed -> "Signed"
-        | OrderPlanMsg.Argue(id, _) -> $"Argue %s{Part.shortId id}"
 
 
     /// An order plan effect; a context by its id, never the error texts.
@@ -502,17 +505,14 @@ module OrderPlan =
             $"Changing %s{Part.plan p} selected %s{selected |> Part.orNone Part.shortId}"
 
 
-    /// The order plan state, through the view the pages read, with the request it awaits, the dialog command
-    /// that waits and whether a plan is kept for a reopen.
+    /// The order plan state, through the view the pages read, with the request it awaits and whether a
+    /// plan is kept for a reopen.
     let state (state: OrderPlanState) =
         [
             state |> OrderPlanState.view |> view |> Some
             state
             |> OrderPlanState.inFlightRequest
             |> Option.map (fun r -> $"awaits %s{Part.shortId r}")
-            state
-            |> OrderPlanState.pendingCommand
-            |> Option.map (fun (cmd, r) -> $"pending %s{Part.planCommand Part.contextId cmd} %s{Part.shortId r}")
             if OrderPlanState.isKept state then Some "kept" else None
         ]
         |> List.choose id
@@ -533,9 +533,45 @@ module OrderContext =
         | OrderContextResponse.Refused(ctx, r) -> $"Refused %s{Part.context ctx} %s{Part.contextRefusal r}"
 
 
-    /// The command with the context as describeContext tells it.
-    let command (describeContext: OrderContext -> string) (cmd: OrderContextCommand) (ctx: OrderContext) =
-        $"%s{OrderContextCommand.toString (cmd, ctx)} %s{describeContext ctx}"
+    /// Where a seed comes from.
+    let seedSource (source: SeedSource) =
+        match source with
+        | SeedSource.Url -> "url"
+        | SeedSource.MedicationList -> "list"
+        | SeedSource.Formulary -> "formulary"
+        | SeedSource.Parenteralia -> "parenteralia"
+        | SeedSource.Reload -> "reload"
+
+
+    /// How many choices a seed sets, never their text.
+    let seedChoices (seed: FilterSeed) =
+        [ seed.Indication; seed.Generic; seed.Route; seed.Form ]
+        |> List.filter Option.isSome
+        |> List.length
+        |> (+) (if seed.DoseType.IsSome then 1 else 0)
+
+
+    /// The command with the context as describeContext tells it. A seed's choices come from the url
+    /// or a list, before the server has checked them, so a seed shows how many, never their text.
+    let command (describeContext: OrderContext -> string) (cmd: OrderViewCommand) (ctx: OrderContext) =
+        match cmd with
+        | OrderViewCommand.SeedFilter(source, ind, gen, rte, frm, dt) ->
+            let seed =
+                {
+                    Source = source
+                    Indication = ind
+                    Generic = gen
+                    Route = rte
+                    Form = frm
+                    DoseType = dt
+                }
+
+            $"SeedFilter %s{seedSource source} %i{seedChoices seed} choices %s{describeContext ctx}"
+        | _ -> $"%s{OrderViewCommand.toString (cmd, ctx)} %s{describeContext ctx}"
+
+
+    /// The command alone, as a message from the page carries it.
+    let commandAlone (cmd: OrderViewCommand) = (command (fun _ -> "") cmd OrderContext.empty).TrimEnd()
 
 
     /// Never the argumentation.
@@ -543,18 +579,13 @@ module OrderContext =
         match msg with
         | OrderContextMsg.PatientChanged(p, request) ->
             $"PatientChanged %s{Part.patientOption p} %s{Part.shortId request}"
-        // a seed comes from the url or the menu, before the server has checked its picks against its lists, so
-        // it shows how many picks it carries, never their text
-        | OrderContextMsg.Seed(ctx, request) ->
-            $"Seed %i{(Part.picks ctx.Filter).Length} picks %s{Part.shortId request}"
-        | OrderContextMsg.Command(cmd, ctx, request) ->
-            $"Command %s{command Part.context cmd ctx} %s{Part.shortId request}"
+        | OrderContextMsg.SeedFilter(seed, request) ->
+            $"SeedFilter %s{seedSource seed.Source} %i{seedChoices seed} choices %s{Part.shortId request}"
+        | OrderContextMsg.Command(cmd, request) -> $"Command %s{commandAlone cmd} %s{Part.shortId request}"
         | OrderContextMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result response}"
         | OrderContextMsg.Reset request -> $"Reset %s{Part.shortId request}"
         | OrderContextMsg.Select id -> $"Select %s{id |> Part.orNone Part.shortId}"
-        | OrderContextMsg.Argue _ -> "Argue"
-        | OrderContextMsg.Reopen(cmd, ctx, request) ->
-            $"Reopen %s{command Part.context cmd ctx} %s{Part.shortId request}"
+        | OrderContextMsg.Reopen(cmd, request) -> $"Reopen %s{commandAlone cmd} %s{Part.shortId request}"
         | OrderContextMsg.Restore -> "Restore"
 
 
@@ -563,6 +594,8 @@ module OrderContext =
         match effect with
         | OrderContextEffect.CallContext(cmd, ctx, request) ->
             $"CallContext %s{command Part.contextId cmd ctx} %s{Part.shortId request}"
+        | OrderContextEffect.CallPatientChanged(_, ctx, request) ->
+            $"CallPatientChanged %s{Part.contextId ctx} %s{Part.shortId request}"
         | OrderContextEffect.SyncFormulary _ -> "SyncFormulary"
         | OrderContextEffect.SyncParenteralia _ -> "SyncParenteralia"
         | OrderContextEffect.TellError _ -> "TellError"
@@ -577,18 +610,57 @@ module OrderContext =
         | OrderContextView.Changing ctx -> $"Changing %s{Part.contextId ctx}"
 
 
-    /// The order context state, through the view the page reads, with the request it awaits, the dialog
-    /// command that waits and whether a state is kept for a reopen.
+    /// The order context state, through the view the page reads, with the request it awaits and whether
+    /// a state is kept for a reopen.
     let state (state: OrderContextState) =
         [
             state |> OrderContextState.view |> view |> Some
             state
             |> OrderContextState.inFlightRequest
             |> Option.map (fun r -> $"awaits %s{Part.shortId r}")
-            state
-            |> OrderContextState.pendingCommand
-            |> Option.map (fun (cmd, ctx, r) -> $"pending %s{command Part.contextId cmd ctx} %s{Part.shortId r}")
             if OrderContextState.isKept state then Some "kept" else None
+        ]
+        |> List.choose id
+        |> String.concat " "
+
+
+/// The patient machine.
+[<RequireQualifiedAccess>]
+module Patient =
+
+    open PatientMachine
+
+
+    /// What becomes of the estimates once the change is answered.
+    let estimates (estimates: PatientDraftPolicy.Estimates) =
+        match estimates with
+        | PatientDraftPolicy.Estimates.Renewed -> "estimates renewed"
+        | PatientDraftPolicy.Estimates.Kept -> "estimates kept"
+
+
+    /// A patient by age and weight, never its identity.
+    let msg (msg: PatientMsg) =
+        match msg with
+        | PatientMsg.Changed(p, e, request) ->
+            $"Changed %s{Part.patientOption p} %s{estimates e} %s{Part.shortId request}"
+        | PatientMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result Part.patient}"
+
+
+    /// A patient effect; never the error texts.
+    let effect (effect: PatientEffect) =
+        match effect with
+        | PatientEffect.CallPatient(p, request) -> $"CallPatient %s{Part.patient p} %s{Part.shortId request}"
+        | PatientEffect.SetPatient p -> $"SetPatient %s{Part.patientOption p}"
+        | PatientEffect.TellError _ -> "TellError"
+
+
+    /// The draft, with the request it awaits.
+    let state (state: PatientState) =
+        [
+            state |> PatientState.draft |> Part.patientOption |> Some
+            state
+            |> PatientState.inFlightRequest
+            |> Option.map (fun r -> $"awaits %s{Part.shortId r}")
         ]
         |> List.choose id
         |> String.concat " "
@@ -633,3 +705,6 @@ let orderPlan = step "OrderPlan" OrderPlan.msg OrderPlan.effect OrderPlan.state
 
 /// A step of the order context machine.
 let orderContext = step "OrderContext" OrderContext.msg OrderContext.effect OrderContext.state
+
+/// A step of the patient machine.
+let patient = step "Patient" Patient.msg Patient.effect Patient.state

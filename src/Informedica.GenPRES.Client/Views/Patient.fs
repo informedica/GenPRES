@@ -73,12 +73,13 @@ module Patient =
         let envPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
 
         // the patient is the subject of every workbench and plan request: while one is under
-        // way the panel is greyed, so that the patient cannot change under it
+        // way the panel is greyed, so that the patient cannot change under it; and while a
+        // patient change is under way, so that the next edit starts from its answer
         let busy =
             match (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext, envPlan.OrderPlan with
             | OrderContextView.Changing _, _
             | _, OrderPlanView.Changing _ -> true
-            | _ -> false
+            | _ -> envPatient.Changing
 
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization

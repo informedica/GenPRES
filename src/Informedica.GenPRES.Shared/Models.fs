@@ -2012,19 +2012,6 @@ module Models =
         let contribution (ctx: OrderContext) = ctx.Scenarios |> Array.tryExactlyOne
 
 
-        let setMedication ind med rte frm dtp ctx : OrderContext =
-            { ctx with
-                Filter =
-                    { ctx.Filter with
-                        Indication = ind
-                        Generic = med
-                        Route = rte
-                        Form = frm
-                        DoseType = dtp
-                    }
-            }
-
-
         let setScenarios srs ctx : OrderContext = { ctx with Scenarios = srs }
 
         /// A choice a page offers in the filter it builds.

@@ -260,96 +260,91 @@ let tests =
 
                 let verbs =
                     [
-                        Shared.Api.OrderContextCommand.UpdateOrderContext, Domain.UpdateOrderContext ctx
-                        Shared.Api.OrderContextCommand.SelectOrderScenario, Domain.SelectOrderScenario ctx
-                        Shared.Api.OrderContextCommand.UpdateOrderScenario, Domain.UpdateOrderScenario ctx
-                        Shared.Api.OrderContextCommand.ReopenOrderScenario [| "a"; "b" |],
-                        Domain.ReopenOrderScenario(ctx, [ "a"; "b" ])
-                        Shared.Api.OrderContextCommand.ResetOrderScenario, Domain.ResetOrderScenario ctx
-                        Shared.Api.OrderContextCommand.DecreaseScheduleFrequencyProperty,
+                        Shared.Api.OrderViewCommand.ResetOrderScenario, Domain.ResetOrderScenario ctx
+                        Shared.Api.OrderViewCommand.DecreaseScheduleFrequencyProperty,
                         Domain.DecreaseScheduleFrequencyProperty ctx
-                        Shared.Api.OrderContextCommand.IncreaseScheduleFrequencyProperty,
+                        Shared.Api.OrderViewCommand.IncreaseScheduleFrequencyProperty,
                         Domain.IncreaseScheduleFrequencyProperty ctx
-                        Shared.Api.OrderContextCommand.SetMinScheduleFrequencyProperty,
+                        Shared.Api.OrderViewCommand.SetMinScheduleFrequencyProperty,
                         Domain.SetMinScheduleFrequencyProperty ctx
-                        Shared.Api.OrderContextCommand.SetMaxScheduleFrequencyProperty,
+                        Shared.Api.OrderViewCommand.SetMaxScheduleFrequencyProperty,
                         Domain.SetMaxScheduleFrequencyProperty ctx
-                        Shared.Api.OrderContextCommand.SetMedianScheduleFrequencyProperty,
+                        Shared.Api.OrderViewCommand.SetMedianScheduleFrequencyProperty,
                         Domain.SetMedianScheduleFrequencyProperty ctx
-                        Shared.Api.OrderContextCommand.DecreaseOrderableDoseQuantityProperty(2, true),
+                        Shared.Api.OrderViewCommand.DecreaseOrderableDoseQuantityProperty(2, true),
                         Domain.DecreaseOrderableDoseQuantityProperty(ctx, 2, true)
-                        Shared.Api.OrderContextCommand.IncreaseOrderableDoseQuantityProperty(3, false),
+                        Shared.Api.OrderViewCommand.IncreaseOrderableDoseQuantityProperty(3, false),
                         Domain.IncreaseOrderableDoseQuantityProperty(ctx, 3, false)
-                        Shared.Api.OrderContextCommand.SetMinOrderableDoseQuantityProperty,
+                        Shared.Api.OrderViewCommand.SetMinOrderableDoseQuantityProperty,
                         Domain.SetMinOrderableDoseQuantityProperty ctx
-                        Shared.Api.OrderContextCommand.SetMaxOrderableDoseQuantityProperty,
+                        Shared.Api.OrderViewCommand.SetMaxOrderableDoseQuantityProperty,
                         Domain.SetMaxOrderableDoseQuantityProperty ctx
-                        Shared.Api.OrderContextCommand.SetMedianOrderableDoseQuantityProperty,
+                        Shared.Api.OrderViewCommand.SetMedianOrderableDoseQuantityProperty,
                         Domain.SetMedianOrderableDoseQuantityProperty ctx
-                        Shared.Api.OrderContextCommand.SetOrderableDoseQuantityPercProperty 50,
+                        Shared.Api.OrderViewCommand.SetOrderableDoseQuantityPercProperty 50,
                         Domain.SetOrderableDoseQuantityPercProperty(ctx, 50)
-                        Shared.Api.OrderContextCommand.DecreaseOrderableDoseRateProperty(1, true),
+                        Shared.Api.OrderViewCommand.DecreaseOrderableDoseRateProperty(1, true),
                         Domain.DecreaseOrderableDoseRateProperty(ctx, 1, true)
-                        Shared.Api.OrderContextCommand.IncreaseOrderableDoseRateProperty(1, false),
+                        Shared.Api.OrderViewCommand.IncreaseOrderableDoseRateProperty(1, false),
                         Domain.IncreaseOrderableDoseRateProperty(ctx, 1, false)
-                        Shared.Api.OrderContextCommand.SetMinOrderableDoseRateProperty,
+                        Shared.Api.OrderViewCommand.SetMinOrderableDoseRateProperty,
                         Domain.SetMinOrderableDoseRateProperty ctx
-                        Shared.Api.OrderContextCommand.SetMaxOrderableDoseRateProperty,
+                        Shared.Api.OrderViewCommand.SetMaxOrderableDoseRateProperty,
                         Domain.SetMaxOrderableDoseRateProperty ctx
-                        Shared.Api.OrderContextCommand.SetMedianOrderableDoseRateProperty,
+                        Shared.Api.OrderViewCommand.SetMedianOrderableDoseRateProperty,
                         Domain.SetMedianOrderableDoseRateProperty ctx
-                        Shared.Api.OrderContextCommand.DecreaseComponentOrderableQuantityProperty("cmp", 2, true),
+                        Shared.Api.OrderViewCommand.DecreaseComponentOrderableQuantityProperty("cmp", 2, true),
                         Domain.DecreaseComponentQuantityProperty(ctx, "cmp", 2, true)
-                        Shared.Api.OrderContextCommand.IncreaseComponentOrderableQuantityProperty("cmp", 2, false),
+                        Shared.Api.OrderViewCommand.IncreaseComponentOrderableQuantityProperty("cmp", 2, false),
                         Domain.IncreaseComponentQuantityProperty(ctx, "cmp", 2, false)
-                        Shared.Api.OrderContextCommand.SetMinComponentOrderableQuantityProperty "cmp",
+                        Shared.Api.OrderViewCommand.SetMinComponentOrderableQuantityProperty "cmp",
                         Domain.SetMinComponentQuantityProperty(ctx, "cmp")
-                        Shared.Api.OrderContextCommand.SetMaxComponentOrderableQuantityProperty "cmp",
+                        Shared.Api.OrderViewCommand.SetMaxComponentOrderableQuantityProperty "cmp",
                         Domain.SetMaxComponentQuantityProperty(ctx, "cmp")
-                        Shared.Api.OrderContextCommand.SetMedianComponentOrderableQuantityProperty "cmp",
+                        Shared.Api.OrderViewCommand.SetMedianComponentOrderableQuantityProperty "cmp",
                         Domain.SetMedianComponentQuantityProperty(ctx, "cmp")
-                        Shared.Api.OrderContextCommand.SetNthFilterProperty(Shared.Models.OrderContext.Route, 1),
+                        Shared.Api.OrderViewCommand.SetNthFilterProperty(Shared.Models.OrderContext.Route, 1),
                         Domain.ChangeFilter(ctx, Types.OrderCategory.Drug, FilterField.Route, Some 1)
-                        Shared.Api.OrderContextCommand.ClearFilterProperty Shared.Models.OrderContext.Generic,
+                        Shared.Api.OrderViewCommand.ClearFilterProperty Shared.Models.OrderContext.Generic,
                         Domain.ChangeFilter(ctx, Types.OrderCategory.Drug, FilterField.Generic, None)
-                        Shared.Api.OrderContextCommand.ClearAllFilterProperty, Domain.ClearAllFilter ctx
-                        Shared.Api.OrderContextCommand.SetNthDiluentProperty 0,
+                        Shared.Api.OrderViewCommand.ClearAllFilterProperty, Domain.ClearAllFilter ctx
+                        Shared.Api.OrderViewCommand.SetNthDiluentProperty 0,
                         Domain.ChangeFilter(ctx, Types.OrderCategory.Drug, FilterField.Diluent, Some 0)
-                        Shared.Api.OrderContextCommand.ClearDiluentProperty,
+                        Shared.Api.OrderViewCommand.ClearDiluentProperty,
                         Domain.ChangeFilter(ctx, Types.OrderCategory.Drug, FilterField.Diluent, None)
-                        Shared.Api.OrderContextCommand.SetNthComponentsProperty [| 0; 2 |],
+                        Shared.Api.OrderViewCommand.SetNthComponentsProperty [| 0; 2 |],
                         Domain.SetNthComponents(ctx, [| 0; 2 |])
-                        Shared.Api.OrderContextCommand.SelectNthOrderScenario 1, Domain.SelectNthOrderScenario(ctx, 1)
-                        Shared.Api.OrderContextCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 2),
+                        Shared.Api.OrderViewCommand.SelectNthOrderScenario 1, Domain.SelectNthOrderScenario(ctx, 1)
+                        Shared.Api.OrderViewCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 2),
                         Domain.SetNthOrderValue(ctx, SetNthScheduleFrequency 2)
-                        Shared.Api.OrderContextCommand.ClearScheduleProperty(ScheduleProperty.Time, [| "a" |]),
+                        Shared.Api.OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Time, [| "a" |]),
                         Domain.ClearOrderValue(ctx, ClearScheduleTime, [ "a" ])
-                        Shared.Api.OrderContextCommand.SetNthOrderableProperty(OrderableProperty.DoseRate, 1),
+                        Shared.Api.OrderViewCommand.SetNthOrderableProperty(OrderableProperty.DoseRate, 1),
                         Domain.SetNthOrderValue(ctx, SetNthOrderableDoseRate 1)
-                        Shared.Api.OrderContextCommand.ClearOrderableProperty(OrderableProperty.Quantity, [||]),
+                        Shared.Api.OrderViewCommand.ClearOrderableProperty(OrderableProperty.Quantity, [||]),
                         Domain.ClearOrderValue(ctx, ClearOrderableQuantity, [])
-                        Shared.Api.OrderContextCommand.SetNthComponentProperty(
+                        Shared.Api.OrderViewCommand.SetNthComponentProperty(
                             "cmp",
                             ComponentProperty.OrderableQuantity,
                             0
                         ),
                         Domain.SetNthOrderValue(ctx, SetNthComponentOrderableQuantity("cmp", 0))
-                        Shared.Api.OrderContextCommand.ClearComponentProperty(
+                        Shared.Api.OrderViewCommand.ClearComponentProperty(
                             "cmp",
                             ComponentProperty.DoseQuantityAdjust,
                             [||]
                         ),
                         Domain.ClearOrderValue(ctx, ClearComponentDoseQuantityAdjust "cmp", [])
-                        Shared.Api.OrderContextCommand.SetNthItemProperty("cmp", "itm", ItemProperty.DoseRate, 3),
+                        Shared.Api.OrderViewCommand.SetNthItemProperty("cmp", "itm", ItemProperty.DoseRate, 3),
                         Domain.SetNthOrderValue(ctx, SetNthItemDoseRate("cmp", "itm", 3))
-                        Shared.Api.OrderContextCommand.ClearItemProperty(
+                        Shared.Api.OrderViewCommand.ClearItemProperty(
                             "cmp",
                             "itm",
                             ItemProperty.ComponentConcentration,
                             [||]
                         ),
                         Domain.ClearOrderValue(ctx, ClearItemComponentConcentration("cmp", "itm"), [])
-                        Shared.Api.OrderContextCommand.SeedFilter(
+                        Shared.Api.OrderViewCommand.SeedFilter(
                             SeedSource.Formulary,
                             Some "pijn",
                             Some "morfine",
@@ -370,34 +365,18 @@ let tests =
 
                 verbs
                 |> List.length
-                |> Expect.equal "every case of the wire's union but the argumentation" 42
+                |> Expect.equal "every case of the wire's union but the argumentation" 38
 
                 for verb, expected in verbs do
                     OrderContextMapper.Command.toDomain OrderCategory.Drug verb ctx
                     |> Expect.equal $"{verb}" expected
             }
 
-            test "a patient change is the patient the request edits, and its patient is mapped" {
-                let pat = { Shared.Models.Patient.empty with Department = Some "NEO" }
-                let cmd = Shared.Api.ActiveOrderContextCommand.PatientChanged pat
-                let ctx = Shared.Models.OrderContext.empty
-
-                ServerApi.OrderContextCommand.patientOfActive (cmd, ctx)
-                |> Expect.equal "the patient the request edits" (Some pat)
-
-                let mark (p: Patient) = { p with Department = Some "mapped" }
-
-                match ServerApi.OrderContextCommand.patientsActive mark (cmd, ctx) with
-                | Shared.Api.ActiveOrderContextCommand.PatientChanged p, _ ->
-                    p.Department |> Expect.equal "the command's patient mapped" (Some "mapped")
-                | other -> failtest $"%A{other}"
-            }
-
             test "the argumentation is no domain command" {
                 (fun () ->
                     OrderContextMapper.Command.toDomain
                         OrderCategory.Drug
-                        (Shared.Api.OrderContextCommand.SetArgumentationProperty "text")
+                        (Shared.Api.OrderViewCommand.SetArgumentationProperty "text")
                     |> ignore
                 )
                 |> Expect.throwsT<System.ArgumentException> "answered by the server"

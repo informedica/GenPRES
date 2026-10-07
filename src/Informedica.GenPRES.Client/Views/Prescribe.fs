@@ -52,9 +52,9 @@ module Prescribe =
             [| box orderContext |]
         )
 
-        let send loading cmd pr =
+        let send loading cmd =
             setLoadingSource (Some loading)
-            orderContextMsg (cmd, pr)
+            orderContextMsg cmd
 
         // a pick goes as its position in the options the field offers, an emptied field as a
         // clear; a value the field does not offer is a bug, written to the console and not sent
@@ -63,15 +63,15 @@ module Prescribe =
             | OrderContextView.Settled pr
             | OrderContextView.Refused(pr, _) ->
                 match picked |> Option.map (fun x -> pr |> options |> Array.tryFindIndex ((=) x)) with
-                | None -> pr |> send loading (toCommand None)
-                | Some(Some n) -> pr |> send loading (toCommand (Some n))
+                | None -> send loading (toCommand None)
+                | Some(Some n) -> send loading (toCommand (Some n))
                 | Some None -> Logging.warning "a pick the field does not offer is not sent" picked
             | _ -> ()
 
         let filterCommand field n =
             match n with
-            | Some n -> Api.OrderContextCommand.SetNthFilterProperty(field, n)
-            | None -> Api.OrderContextCommand.ClearFilterProperty field
+            | Some n -> Api.OrderViewCommand.SetNthFilterProperty(field, n)
+            | None -> Api.OrderViewCommand.ClearFilterProperty field
 
         let indicationChange s =
             filterCommand OrderContext.Indication
@@ -89,8 +89,8 @@ module Prescribe =
 
         let diluentCommand n =
             match n with
-            | Some n -> Api.OrderContextCommand.SetNthDiluentProperty n
-            | None -> Api.OrderContextCommand.ClearDiluentProperty
+            | Some n -> Api.OrderViewCommand.SetNthDiluentProperty n
+            | None -> Api.OrderViewCommand.ClearDiluentProperty
 
         let diluentChange s = diluentCommand |> pickFilter DiluentLoading _.Filter.Diluents s
 
@@ -101,8 +101,7 @@ module Prescribe =
                 let ns = cs |> Array.choose (fun c -> pr.Filter.Components |> Array.tryFindIndex ((=) c))
 
                 if ns.Length = cs.Length then
-                    pr
-                    |> send ComponentsLoading (Api.OrderContextCommand.SetNthComponentsProperty ns)
+                    send ComponentsLoading (Api.OrderViewCommand.SetNthComponentsProperty ns)
                 else
                     Logging.warning "components the field does not offer are not sent" cs
             | _ -> ()
@@ -116,7 +115,7 @@ module Prescribe =
             | OrderContextView.Settled pr
             | OrderContextView.Refused(pr, _) ->
                 setLoadingSource None
-                orderContextMsg (Api.OrderContextCommand.ClearAllFilterProperty, pr)
+                orderContextMsg Api.OrderViewCommand.ClearAllFilterProperty
             | _ -> ()
 
         // the dialog is open while a scenario is selected: the selection is the state
@@ -230,7 +229,7 @@ module Prescribe =
 
                 let onClick (sc: OrderScenario) =
                     match pr.Scenarios |> Array.tryFindIndex (fun x -> x.Order.Id = sc.Order.Id) with
-                    | Some n -> orderContextMsg (Api.OrderContextCommand.SelectNthOrderScenario n, pr)
+                    | Some n -> orderContextMsg (Api.OrderViewCommand.SelectNthOrderScenario n)
                     | None -> ()
 
                 // the workbench, narrowed to this scenario, into the plan as a drug context; the
@@ -585,109 +584,10 @@ module Prescribe =
                 {|
                     editing = PlanContextPolicy.Editing.Workbench
                     orderContext = dialog |> Option.defaultValue OrderContextView.NoPatient
-                    updateOrderScenario = fun cmd ctx -> orderContextMsg (cmd, ctx)
-                    reopenOrderScenario = fun cmd ctx -> envOrderContext.Reopen(cmd, ctx)
+                    command = orderContextMsg
+                    reopen = envOrderContext.Reopen
                     restoreOrderScenario = envOrderContext.Restore
-                    stepOrderScenario =
-                        {|
-                            // Frequency
-                            setMinFrequency =
-                                fun ctx ->
-                                    orderContextMsg (Api.OrderContextCommand.SetMinScheduleFrequencyProperty, ctx)
-                            decrFrequency =
-                                fun ctx ->
-                                    orderContextMsg (Api.OrderContextCommand.DecreaseScheduleFrequencyProperty, ctx)
-                            setMedianFrequency =
-                                fun ctx ->
-                                    orderContextMsg (Api.OrderContextCommand.SetMedianScheduleFrequencyProperty, ctx)
-                            incrFrequency =
-                                fun ctx ->
-                                    orderContextMsg (Api.OrderContextCommand.IncreaseScheduleFrequencyProperty, ctx)
-                            setMaxFrequency =
-                                fun ctx ->
-                                    orderContextMsg (Api.OrderContextCommand.SetMaxScheduleFrequencyProperty, ctx)
-                            // Rate
-                            setMinRate =
-                                fun ctx ->
-                                    orderContextMsg (Api.OrderContextCommand.SetMinOrderableDoseRateProperty, ctx)
-                            decrRate =
-                                fun (ctx, n, uc) ->
-                                    orderContextMsg (
-                                        Api.OrderContextCommand.DecreaseOrderableDoseRateProperty(n, uc),
-                                        ctx
-                                    )
-                            setMedianRate =
-                                fun ctx ->
-                                    orderContextMsg (Api.OrderContextCommand.SetMedianOrderableDoseRateProperty, ctx)
-                            incrRate =
-                                fun (ctx, n, uc) ->
-                                    orderContextMsg (
-                                        Api.OrderContextCommand.IncreaseOrderableDoseRateProperty(n, uc),
-                                        ctx
-                                    )
-                            setMaxRate =
-                                fun ctx ->
-                                    orderContextMsg (Api.OrderContextCommand.SetMaxOrderableDoseRateProperty, ctx)
-                            // Dose Quantity
-                            setMinDoseQty =
-                                fun ctx ->
-                                    orderContextMsg (Api.OrderContextCommand.SetMinOrderableDoseQuantityProperty, ctx)
-                            decrDoseQty =
-                                fun (ctx, n, uc) ->
-                                    orderContextMsg (
-                                        Api.OrderContextCommand.DecreaseOrderableDoseQuantityProperty(n, uc),
-                                        ctx
-                                    )
-                            setMedianDoseQty =
-                                fun ctx ->
-                                    orderContextMsg (
-                                        Api.OrderContextCommand.SetMedianOrderableDoseQuantityProperty,
-                                        ctx
-                                    )
-                            incrDoseQty =
-                                fun (ctx, n, uc) ->
-                                    orderContextMsg (
-                                        Api.OrderContextCommand.IncreaseOrderableDoseQuantityProperty(n, uc),
-                                        ctx
-                                    )
-                            setMaxDoseQty =
-                                fun ctx ->
-                                    orderContextMsg (Api.OrderContextCommand.SetMaxOrderableDoseQuantityProperty, ctx)
-                            // Component Quantity
-                            setMinComponentQty =
-                                fun (ctx, cmp) ->
-                                    orderContextMsg (
-                                        Api.OrderContextCommand.SetMinComponentOrderableQuantityProperty cmp,
-                                        ctx
-                                    )
-                            decrComponentQty =
-                                fun (ctx, cmp, n, uc) ->
-                                    orderContextMsg (
-                                        Api.OrderContextCommand.DecreaseComponentOrderableQuantityProperty(cmp, n, uc),
-                                        ctx
-                                    )
-                            setMedianComponentQty =
-                                fun (ctx, cmp) ->
-                                    orderContextMsg (
-                                        Api.OrderContextCommand.SetMedianComponentOrderableQuantityProperty cmp,
-                                        ctx
-                                    )
-                            incrComponentQty =
-                                fun (ctx, cmp, n, uc) ->
-                                    orderContextMsg (
-                                        Api.OrderContextCommand.IncreaseComponentOrderableQuantityProperty(cmp, n, uc),
-                                        ctx
-                                    )
-                            setMaxComponentQty =
-                                fun (ctx, cmp) ->
-                                    orderContextMsg (
-                                        Api.OrderContextCommand.SetMaxComponentOrderableQuantityProperty cmp,
-                                        ctx
-                                    )
-                        |}
-                    refreshOrderScenario = fun ctx -> orderContextMsg (Api.OrderContextCommand.ResetOrderScenario, ctx)
                     closeOrder = handleModalClose
-                    argue = envOrderContext.Argue
                     localizationTerms = localizationTerms
                 |}
 

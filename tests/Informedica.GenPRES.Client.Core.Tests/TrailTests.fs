@@ -76,7 +76,28 @@ let tests =
                 |> Trail.format
                 |> Expect.equal
                     "the line"
-                    "#12 10:41:07.311 OrderContext PatientChanged patient 3.0 y 14.0 kg no height gender unknown r-1 -> CallContext UpdateOrderContext workbench r-1 | Changing workbench awaits r-1"
+                    "#12 10:41:07.311 OrderContext PatientChanged patient 3.0 y 14.0 kg no height gender unknown r-1 -> CallContext ClearAllFilterProperty workbench r-1 | Changing workbench awaits r-1"
+            }
+
+            test "a seed shows its source and how many choices, never their text" {
+                let seed: OrderContextMachine.FilterSeed =
+                    {
+                        Source = SeedSource.Url
+                        Indication = Some "Milde pijn"
+                        Generic = Some "paracetamol"
+                        Route = Some "oraal"
+                        Form = None
+                        DoseType = None
+                    }
+
+                let held = OrderContextState.held pat (OrderContextState.emptyFor pat)
+                let msg = OrderContextMsg.SeedFilter(seed, "r-1")
+
+                Trail.orderContext 3 at msg (held |> OrderContextState.transition msg)
+                |> Trail.format
+                |> Expect.equal
+                    "the line"
+                    "#3 10:41:07.311 OrderContext SeedFilter url 3 choices r-1 -> CallContext SeedFilter url 3 choices workbench r-1, SyncFormulary, SyncParenteralia | Changing workbench awaits r-1"
             }
 
             test "a step without effects says none" {
@@ -114,10 +135,20 @@ let tests =
                 |> Expect.equal "the patient" "patient 3.0 y est 15.5 kg 98 cm female"
             }
 
-            test "a seed shows how many picks it carries, never their text" {
-                OrderContextMsg.Seed({ ctxPicked with OrderContext.Filter.Generic = Some "Jan Jansen" }, "r-4")
+            test "a seed message shows its source and how many choices, never their text" {
+                let seed: OrderContextMachine.FilterSeed =
+                    {
+                        Source = SeedSource.MedicationList
+                        Indication = None
+                        Generic = Some "Jan Jansen"
+                        Route = None
+                        Form = None
+                        DoseType = None
+                    }
+
+                OrderContextMsg.SeedFilter(seed, "r-4")
                 |> Trail.OrderContext.msg
-                |> Expect.equal "the count" "Seed 3 picks r-4"
+                |> Expect.equal "the count" "SeedFilter list 1 choices r-4"
             }
 
             test "a line never breaks, whatever text a step carries" {
@@ -150,28 +181,19 @@ let tests =
             test "a reopen shows the request it awaits and the state it keeps" {
                 OrderContextState.held pat ctxPicked
                 |> OrderContextState.transition (
-                    OrderContextMsg.Reopen(OrderContextCommand.UpdateOrderContext, ctxPicked, "r-9")
+                    OrderContextMsg.Reopen(
+                        OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
+                        "r-9"
+                    )
                 )
                 |> fst
                 |> Trail.OrderContext.state
                 |> Expect.equal "awaits and kept" "Changing ctx-1 awaits r-9 kept"
             }
 
-            test "a dialog command that waits shows as pending" {
-                OrderContextState.opening pat "r-1"
-                |> OrderContextState.pending OrderContextCommand.SelectOrderScenario ctxPicked "r-2"
-                |> Trail.OrderContext.state
-                |> Expect.equal "pending" "Changing workbench awaits r-1 pending SelectOrderScenario ctx-1 r-2"
-            }
-
             test "a plan navigation shows the context in a message, and its id once in an effect" {
                 let cmd =
-                    OrderPlanCommand.Navigate(
-                        OrderPlan.empty,
-                        "ctx-1",
-                        OrderContextCommand.UpdateOrderContext,
-                        ctxPicked
-                    )
+                    OrderPlanCommand.Navigate(OrderPlan.empty, "ctx-1", OrderViewCommand.ResetOrderScenario, ctxPicked)
 
                 [
                     Trail.OrderPlan.msg (OrderPlanMsg.Command(cmd, "r-3"))
@@ -180,8 +202,8 @@ let tests =
                 |> Expect.equal
                     "the lines"
                     [
-                        "Command Navigate ctx-1 UpdateOrderContext ctx-1 pain/paracetamol/oral 0 scenarios r-3"
-                        "CallPlan Navigate ctx-1 UpdateOrderContext r-3"
+                        "Command Navigate ctx-1 ResetOrderScenario ctx-1 pain/paracetamol/oral 0 scenarios r-3"
+                        "CallPlan Navigate ctx-1 ResetOrderScenario r-3"
                     ]
             }
 
@@ -246,8 +268,19 @@ let tests =
                             Trail.Signing.effect (
                                 SigningEffect.RenewToken(OpenedToken "secret-token", pat, Some identity)
                             )
-                            Trail.OrderContext.msg (OrderContextMsg.Argue "Jan Jansen weighs more")
-                            Trail.OrderPlan.msg (OrderPlanMsg.Argue("ctx-1", "Jan Jansen weighs more"))
+                            Trail.OrderContext.msg (
+                                OrderContextMsg.Command(
+                                    OrderViewCommand.SetArgumentationProperty "Jan Jansen weighs more",
+                                    "r-1"
+                                )
+                            )
+                            Trail.OrderPlan.msg (
+                                OrderPlanMsg.Navigate(
+                                    "ctx-1",
+                                    OrderViewCommand.SetArgumentationProperty "Jan Jansen weighs more",
+                                    "r-1"
+                                )
+                            )
                         ]
 
                     for line in lines do
@@ -278,7 +311,7 @@ let exampleTests =
         [
             OrderContextMsg.PatientChanged(Some pat, "r-1")
             OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated ctx))
-            OrderContextMsg.Command(OrderContextCommand.UpdateOrderContext, ctxPicked, "r-2")
+            OrderContextMsg.Command(OrderViewCommand.SetNthFilterProperty(OrderContext.Generic, 0), "r-2")
             OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Refused(ctxPicked, OrderContextRefusal.NoProducts)))
         ]
         |> List.mapFold
@@ -294,9 +327,9 @@ let exampleTests =
         |> Expect.equal
             "the lines"
             [
-                "#1 10:41:08.311 OrderContext PatientChanged patient 3.0 y 14.0 kg no height gender unknown r-1 -> CallContext UpdateOrderContext workbench r-1 | Changing workbench awaits r-1"
+                "#1 10:41:08.311 OrderContext PatientChanged patient 3.0 y 14.0 kg no height gender unknown r-1 -> CallContext ClearAllFilterProperty workbench r-1 | Changing workbench awaits r-1"
                 "#2 10:41:09.311 OrderContext Answered r-1 Ok Evaluated workbench no picks 0 scenarios -> none | Settled workbench"
-                "#3 10:41:10.311 OrderContext Command UpdateOrderContext ctx-1 pain/paracetamol/oral 0 scenarios r-2 -> CallContext UpdateOrderContext ctx-1 r-2, SyncFormulary, SyncParenteralia | Changing ctx-1 awaits r-2"
+                "#3 10:41:10.311 OrderContext Command SetNthFilterProperty Generic nth=0 r-2 -> CallContext SetNthFilterProperty Generic nth=0 workbench r-2, SyncFormulary, SyncParenteralia | Changing workbench awaits r-2"
                 "#4 10:41:11.311 OrderContext Answered r-2 Ok Refused ctx-1 pain/paracetamol/oral 0 scenarios NoProducts -> none | Refused ctx-1 NoProducts"
             ]
     }

@@ -661,42 +661,21 @@ module ViewHelpers =
     /// The command that picks the nth value of the variable the target addresses.
     let setNthCommand target n =
         match target with
-        | Models.OrderContext.Target.Schedule prop -> Api.OrderContextCommand.SetNthScheduleProperty(prop, n)
-        | Models.OrderContext.Target.Orderable prop -> Api.OrderContextCommand.SetNthOrderableProperty(prop, n)
-        | Models.OrderContext.Target.Component(cmp, prop) ->
-            Api.OrderContextCommand.SetNthComponentProperty(cmp, prop, n)
-        | Models.OrderContext.Target.Item(cmp, itm, prop) ->
-            Api.OrderContextCommand.SetNthItemProperty(cmp, itm, prop, n)
+        | Models.OrderContext.Target.Schedule prop -> Api.OrderViewCommand.SetNthScheduleProperty(prop, n)
+        | Models.OrderContext.Target.Orderable prop -> Api.OrderViewCommand.SetNthOrderableProperty(prop, n)
+        | Models.OrderContext.Target.Component(cmp, prop) -> Api.OrderViewCommand.SetNthComponentProperty(cmp, prop, n)
+        | Models.OrderContext.Target.Item(cmp, itm, prop) -> Api.OrderViewCommand.SetNthItemProperty(cmp, itm, prop, n)
 
 
     /// The command that clears the variable the target addresses, with the picks to keep.
     let clearCommand target picks =
         match target with
-        | Models.OrderContext.Target.Schedule prop -> Api.OrderContextCommand.ClearScheduleProperty(prop, picks)
-        | Models.OrderContext.Target.Orderable prop -> Api.OrderContextCommand.ClearOrderableProperty(prop, picks)
+        | Models.OrderContext.Target.Schedule prop -> Api.OrderViewCommand.ClearScheduleProperty(prop, picks)
+        | Models.OrderContext.Target.Orderable prop -> Api.OrderViewCommand.ClearOrderableProperty(prop, picks)
         | Models.OrderContext.Target.Component(cmp, prop) ->
-            Api.OrderContextCommand.ClearComponentProperty(cmp, prop, picks)
+            Api.OrderViewCommand.ClearComponentProperty(cmp, prop, picks)
         | Models.OrderContext.Target.Item(cmp, itm, prop) ->
-            Api.OrderContextCommand.ClearItemProperty(cmp, itm, prop, picks)
-
-
-    /// The context with the scenario of the loader's order replaced by the loader's component,
-    /// item and order.
-    let withLoader (ctx: OrderContext) (ol: OrderLoader) =
-        { ctx with
-            Scenarios =
-                ctx.Scenarios
-                |> Array.map (fun sc ->
-                    if sc.Order.Id <> ol.Order.Id then
-                        sc
-                    else
-                        { sc with
-                            Component = ol.Component
-                            Item = ol.Item
-                            Order = ol.Order
-                        }
-                )
-        }
+            Api.OrderViewCommand.ClearItemProperty(cmp, itm, prop, picks)
 
 
     let inlineProgress isLoading =

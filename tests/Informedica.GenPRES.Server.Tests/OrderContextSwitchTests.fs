@@ -37,9 +37,17 @@ let tests =
         [
             testAsync "the answer is the port's plan context as the contract model, the demo flag the environment's" {
                 let! answer =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         (envOver false echo)
-                        (Shared.Api.OrderContextCommand.UpdateOrderContext, ctx)
+                        (Shared.Api.OrderViewCommand.SeedFilter(
+                            Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         ctx)
 
                 match answer with
                 | Ok(OrderContextResponse.Evaluated a) ->
@@ -48,9 +56,17 @@ let tests =
                 | other -> failtest $"expected the context evaluated, got: %A{other}"
 
                 let! demo =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         (envOver true echo)
-                        (Shared.Api.OrderContextCommand.UpdateOrderContext, ctx)
+                        (Shared.Api.OrderViewCommand.SeedFilter(
+                            Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         ctx)
 
                 match demo with
                 | Ok(OrderContextResponse.Evaluated a) -> a.DemoVersion |> Expect.isTrue "demo as the environment says"
@@ -62,9 +78,17 @@ let tests =
                     { evaluate = fun _ pc -> async { return Ok(Refused(pc, Refusal.NoDoseRulesForPatient)) } }
 
                 let! answer =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         (envOver false port)
-                        (Shared.Api.OrderContextCommand.UpdateOrderContext, ctx)
+                        (Shared.Api.OrderViewCommand.SeedFilter(
+                            Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         ctx)
 
                 match answer with
                 | Ok(OrderContextResponse.Refused(a, OrderContextRefusal.NoDoseRulesForPatient)) ->
@@ -85,12 +109,12 @@ let tests =
                     }
 
                 let! _ =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         (envOver false port)
-                        (Shared.Api.OrderContextCommand.SelectOrderScenario, ctx)
+                        (Shared.Api.OrderViewCommand.SelectNthOrderScenario 0, ctx)
 
                 match seen.Value with
-                | Some(OrderContext.SelectOrderScenario domainCtx, id, category) ->
+                | Some(OrderContext.SelectNthOrderScenario(domainCtx, _), id, category) ->
                     domainCtx.Filter.Generic |> Expect.equal "the context parsed" (Some "glucose")
                     id |> Expect.equal "the plan's id" "c-1"
 
@@ -114,9 +138,16 @@ let tests =
                     }
 
                 let! answer =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         (envOver false port)
-                        (Shared.Api.OrderContextCommand.UpdateOrderContext,
+                        (Shared.Api.OrderViewCommand.SeedFilter(
+                            Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
                          { ctx with Patient = Shared.Models.Patient.empty })
 
                 answer |> Expect.equal "no patient" (Error [| Patient.noPatient |])
@@ -127,9 +158,17 @@ let tests =
                 let port: OrderContextPort = { evaluate = fun _ _ -> async { return Error [| "ctx error" |] } }
 
                 let! answer =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         (envOver false port)
-                        (Shared.Api.OrderContextCommand.UpdateOrderContext, ctx)
+                        (Shared.Api.OrderViewCommand.SeedFilter(
+                            Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         ctx)
 
                 answer |> Expect.equal "propagated" (Error [| "ctx error" |])
             }

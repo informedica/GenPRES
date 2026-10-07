@@ -379,7 +379,7 @@ module OrderContextMapper =
         /// picks get the order id back, the wire names them without it.
         let toDomain
             category
-            (cmd: Shared.Api.OrderContextCommand)
+            (cmd: Shared.Api.OrderViewCommand)
             : Informedica.GenOrder.Lib.Types.OrderContext -> Domain.Command
             =
             let category = category |> Category.toDomain
@@ -397,85 +397,75 @@ module OrderContextMapper =
                     Domain.ClearOrderValue(ctx, snd (propertyCommands t), picks |> Array.map withId |> Array.toList)
 
             match cmd with
-            | Shared.Api.OrderContextCommand.UpdateOrderContext -> Domain.UpdateOrderContext
-            | Shared.Api.OrderContextCommand.SelectOrderScenario -> Domain.SelectOrderScenario
-            | Shared.Api.OrderContextCommand.UpdateOrderScenario -> Domain.UpdateOrderScenario
-            | Shared.Api.OrderContextCommand.ReopenOrderScenario picks ->
-                fun ctx -> Domain.ReopenOrderScenario(ctx, picks |> Array.toList)
-            | Shared.Api.OrderContextCommand.ResetOrderScenario -> Domain.ResetOrderScenario
+            | Shared.Api.OrderViewCommand.ResetOrderScenario -> Domain.ResetOrderScenario
             // Frequency property commands
-            | Shared.Api.OrderContextCommand.DecreaseScheduleFrequencyProperty ->
-                Domain.DecreaseScheduleFrequencyProperty
-            | Shared.Api.OrderContextCommand.IncreaseScheduleFrequencyProperty ->
-                Domain.IncreaseScheduleFrequencyProperty
-            | Shared.Api.OrderContextCommand.SetMinScheduleFrequencyProperty -> Domain.SetMinScheduleFrequencyProperty
-            | Shared.Api.OrderContextCommand.SetMaxScheduleFrequencyProperty -> Domain.SetMaxScheduleFrequencyProperty
-            | Shared.Api.OrderContextCommand.SetMedianScheduleFrequencyProperty ->
+            | Shared.Api.OrderViewCommand.DecreaseScheduleFrequencyProperty -> Domain.DecreaseScheduleFrequencyProperty
+            | Shared.Api.OrderViewCommand.IncreaseScheduleFrequencyProperty -> Domain.IncreaseScheduleFrequencyProperty
+            | Shared.Api.OrderViewCommand.SetMinScheduleFrequencyProperty -> Domain.SetMinScheduleFrequencyProperty
+            | Shared.Api.OrderViewCommand.SetMaxScheduleFrequencyProperty -> Domain.SetMaxScheduleFrequencyProperty
+            | Shared.Api.OrderViewCommand.SetMedianScheduleFrequencyProperty ->
                 Domain.SetMedianScheduleFrequencyProperty
             // DoseQuantity property commands
-            | Shared.Api.OrderContextCommand.DecreaseOrderableDoseQuantityProperty(ntimes, useCalc) ->
+            | Shared.Api.OrderViewCommand.DecreaseOrderableDoseQuantityProperty(ntimes, useCalc) ->
                 fun ctx -> Domain.DecreaseOrderableDoseQuantityProperty(ctx, ntimes, useCalc)
-            | Shared.Api.OrderContextCommand.IncreaseOrderableDoseQuantityProperty(ntimes, useCalc) ->
+            | Shared.Api.OrderViewCommand.IncreaseOrderableDoseQuantityProperty(ntimes, useCalc) ->
                 fun ctx -> Domain.IncreaseOrderableDoseQuantityProperty(ctx, ntimes, useCalc)
-            | Shared.Api.OrderContextCommand.SetMinOrderableDoseQuantityProperty ->
+            | Shared.Api.OrderViewCommand.SetMinOrderableDoseQuantityProperty ->
                 Domain.SetMinOrderableDoseQuantityProperty
-            | Shared.Api.OrderContextCommand.SetMaxOrderableDoseQuantityProperty ->
+            | Shared.Api.OrderViewCommand.SetMaxOrderableDoseQuantityProperty ->
                 Domain.SetMaxOrderableDoseQuantityProperty
-            | Shared.Api.OrderContextCommand.SetMedianOrderableDoseQuantityProperty ->
+            | Shared.Api.OrderViewCommand.SetMedianOrderableDoseQuantityProperty ->
                 Domain.SetMedianOrderableDoseQuantityProperty
-            | Shared.Api.OrderContextCommand.SetOrderableDoseQuantityPercProperty perc ->
+            | Shared.Api.OrderViewCommand.SetOrderableDoseQuantityPercProperty perc ->
                 fun ctx -> Domain.SetOrderableDoseQuantityPercProperty(ctx, perc)
             // DoseRate property commands
-            | Shared.Api.OrderContextCommand.DecreaseOrderableDoseRateProperty(ntimes, useCalc) ->
+            | Shared.Api.OrderViewCommand.DecreaseOrderableDoseRateProperty(ntimes, useCalc) ->
                 fun ctx -> Domain.DecreaseOrderableDoseRateProperty(ctx, ntimes, useCalc)
-            | Shared.Api.OrderContextCommand.IncreaseOrderableDoseRateProperty(ntimes, useCalc) ->
+            | Shared.Api.OrderViewCommand.IncreaseOrderableDoseRateProperty(ntimes, useCalc) ->
                 fun ctx -> Domain.IncreaseOrderableDoseRateProperty(ctx, ntimes, useCalc)
-            | Shared.Api.OrderContextCommand.SetMinOrderableDoseRateProperty -> Domain.SetMinOrderableDoseRateProperty
-            | Shared.Api.OrderContextCommand.SetMaxOrderableDoseRateProperty -> Domain.SetMaxOrderableDoseRateProperty
-            | Shared.Api.OrderContextCommand.SetMedianOrderableDoseRateProperty ->
+            | Shared.Api.OrderViewCommand.SetMinOrderableDoseRateProperty -> Domain.SetMinOrderableDoseRateProperty
+            | Shared.Api.OrderViewCommand.SetMaxOrderableDoseRateProperty -> Domain.SetMaxOrderableDoseRateProperty
+            | Shared.Api.OrderViewCommand.SetMedianOrderableDoseRateProperty ->
                 Domain.SetMedianOrderableDoseRateProperty
             // Component Quantity property commands
-            | Shared.Api.OrderContextCommand.DecreaseComponentOrderableQuantityProperty(cmp, ntimes, useCalc) ->
+            | Shared.Api.OrderViewCommand.DecreaseComponentOrderableQuantityProperty(cmp, ntimes, useCalc) ->
                 fun ctx -> Domain.DecreaseComponentQuantityProperty(ctx, cmp, ntimes, useCalc)
-            | Shared.Api.OrderContextCommand.IncreaseComponentOrderableQuantityProperty(cmp, ntimes, useCalc) ->
+            | Shared.Api.OrderViewCommand.IncreaseComponentOrderableQuantityProperty(cmp, ntimes, useCalc) ->
                 fun ctx -> Domain.IncreaseComponentQuantityProperty(ctx, cmp, ntimes, useCalc)
-            | Shared.Api.OrderContextCommand.SetMinComponentOrderableQuantityProperty cmp ->
+            | Shared.Api.OrderViewCommand.SetMinComponentOrderableQuantityProperty cmp ->
                 fun ctx -> Domain.SetMinComponentQuantityProperty(ctx, cmp)
-            | Shared.Api.OrderContextCommand.SetMaxComponentOrderableQuantityProperty cmp ->
+            | Shared.Api.OrderViewCommand.SetMaxComponentOrderableQuantityProperty cmp ->
                 fun ctx -> Domain.SetMaxComponentQuantityProperty(ctx, cmp)
-            | Shared.Api.OrderContextCommand.SetMedianComponentOrderableQuantityProperty cmp ->
+            | Shared.Api.OrderViewCommand.SetMedianComponentOrderableQuantityProperty cmp ->
                 fun ctx -> Domain.SetMedianComponentQuantityProperty(ctx, cmp)
-            | Shared.Api.OrderContextCommand.SetNthFilterProperty(f, n) ->
+            | Shared.Api.OrderViewCommand.SetNthFilterProperty(f, n) ->
                 fun ctx -> Domain.ChangeFilter(ctx, category, field f, Some n)
-            | Shared.Api.OrderContextCommand.ClearFilterProperty f ->
+            | Shared.Api.OrderViewCommand.ClearFilterProperty f ->
                 fun ctx -> Domain.ChangeFilter(ctx, category, field f, None)
-            | Shared.Api.OrderContextCommand.ClearAllFilterProperty -> Domain.ClearAllFilter
-            | Shared.Api.OrderContextCommand.SetNthDiluentProperty n ->
+            | Shared.Api.OrderViewCommand.ClearAllFilterProperty -> Domain.ClearAllFilter
+            | Shared.Api.OrderViewCommand.SetNthDiluentProperty n ->
                 fun ctx -> Domain.ChangeFilter(ctx, category, FilterField.Diluent, Some n)
-            | Shared.Api.OrderContextCommand.ClearDiluentProperty ->
+            | Shared.Api.OrderViewCommand.ClearDiluentProperty ->
                 fun ctx -> Domain.ChangeFilter(ctx, category, FilterField.Diluent, None)
-            | Shared.Api.OrderContextCommand.SetNthComponentsProperty ns -> fun ctx -> Domain.SetNthComponents(ctx, ns)
-            | Shared.Api.OrderContextCommand.SelectNthOrderScenario n ->
-                fun ctx -> Domain.SelectNthOrderScenario(ctx, n)
-            | Shared.Api.OrderContextCommand.SetNthScheduleProperty(prop, n) -> setNth (Ctx.Target.Schedule prop) n
-            | Shared.Api.OrderContextCommand.ClearScheduleProperty(prop, picks) ->
-                clear (Ctx.Target.Schedule prop) picks
-            | Shared.Api.OrderContextCommand.SetNthOrderableProperty(prop, n) -> setNth (Ctx.Target.Orderable prop) n
-            | Shared.Api.OrderContextCommand.ClearOrderableProperty(prop, picks) ->
-                clear (Ctx.Target.Orderable prop) picks
-            | Shared.Api.OrderContextCommand.SetNthComponentProperty(cmp, prop, n) ->
+            | Shared.Api.OrderViewCommand.SetNthComponentsProperty ns -> fun ctx -> Domain.SetNthComponents(ctx, ns)
+            | Shared.Api.OrderViewCommand.SelectNthOrderScenario n -> fun ctx -> Domain.SelectNthOrderScenario(ctx, n)
+            | Shared.Api.OrderViewCommand.SetNthScheduleProperty(prop, n) -> setNth (Ctx.Target.Schedule prop) n
+            | Shared.Api.OrderViewCommand.ClearScheduleProperty(prop, picks) -> clear (Ctx.Target.Schedule prop) picks
+            | Shared.Api.OrderViewCommand.SetNthOrderableProperty(prop, n) -> setNth (Ctx.Target.Orderable prop) n
+            | Shared.Api.OrderViewCommand.ClearOrderableProperty(prop, picks) -> clear (Ctx.Target.Orderable prop) picks
+            | Shared.Api.OrderViewCommand.SetNthComponentProperty(cmp, prop, n) ->
                 setNth (Ctx.Target.Component(cmp, prop)) n
-            | Shared.Api.OrderContextCommand.ClearComponentProperty(cmp, prop, picks) ->
+            | Shared.Api.OrderViewCommand.ClearComponentProperty(cmp, prop, picks) ->
                 clear (Ctx.Target.Component(cmp, prop)) picks
-            | Shared.Api.OrderContextCommand.SetNthItemProperty(cmp, itm, prop, n) ->
+            | Shared.Api.OrderViewCommand.SetNthItemProperty(cmp, itm, prop, n) ->
                 setNth (Ctx.Target.Item(cmp, itm, prop)) n
-            | Shared.Api.OrderContextCommand.ClearItemProperty(cmp, itm, prop, picks) ->
+            | Shared.Api.OrderViewCommand.ClearItemProperty(cmp, itm, prop, picks) ->
                 clear (Ctx.Target.Item(cmp, itm, prop)) picks
-            | Shared.Api.OrderContextCommand.SeedFilter(source, ind, gen, rte, frm, dt) ->
+            | Shared.Api.OrderViewCommand.SeedFilter(source, ind, gen, rte, frm, dt) ->
                 fun ctx ->
                     let dt = dt |> Option.map Mappers.mapFromSharedDoseTypeToOrderDoseType
                     Domain.SeedFilter(ctx, seedSource source, ind, gen, rte, frm, dt)
-            | Shared.Api.OrderContextCommand.SetArgumentationProperty _ ->
+            | Shared.Api.OrderViewCommand.SetArgumentationProperty _ ->
                 invalidArg (nameof cmd) "the argumentation is written by the server, without the domain"
 
 
@@ -489,7 +479,3 @@ module OrderContextMapper =
         | DtoError.UnknownTextKind s -> $"Onbekende tekstsoort: %s{s}"
         | DtoError.UnknownCategory s -> $"Onbekende categorie: %s{s}"
         | DtoError.Missing f -> $"Ontbreekt: %s{f}"
-
-
-    /// The context with its patient mapped.
-    let patients (f: Patient -> Patient) (ctx: OrderContext) : OrderContext = { ctx with Patient = f ctx.Patient }

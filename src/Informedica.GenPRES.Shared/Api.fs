@@ -7,15 +7,11 @@ module Api =
     open Types
 
 
-    /// The order-context command family: the selection, the reset, and the stepping of the
-    /// frequency, the dose quantity, the dose rate and a component quantity.
+    /// The commands of the order view, which the order context being worked on and the plan both
+    /// take: the selection, the reset, and the stepping of the frequency, the dose quantity, the
+    /// dose rate and a component quantity.
     [<RequireQualifiedAccess>]
-    type OrderContextCommand =
-        | UpdateOrderContext
-        | SelectOrderScenario
-        | UpdateOrderScenario
-        /// A value a field's arrow cleared, with the variables the user picked or stepped, in the order picked.
-        | ReopenOrderScenario of picks: string[]
+    type OrderViewCommand =
         | ResetOrderScenario
         // Frequency property commands
         | DecreaseScheduleFrequencyProperty
@@ -98,162 +94,122 @@ module Api =
         }
 
 
-    module OrderContextCommand =
+    module OrderViewCommand =
 
         /// For the log: the command alone, never the context.
-        let toString (cmd: OrderContextCommand, _: OrderContext) =
+        let toString (cmd: OrderViewCommand, _: OrderContext) =
             match cmd with
-            | OrderContextCommand.UpdateOrderContext -> "UpdateOrderContext"
-            | OrderContextCommand.SelectOrderScenario -> "SelectOrderScenario"
-            | OrderContextCommand.UpdateOrderScenario -> "UpdateOrderScenario"
-            | OrderContextCommand.ReopenOrderScenario picks -> $"ReopenOrderScenario %i{picks.Length} picks"
-            | OrderContextCommand.ResetOrderScenario -> "ResetOrderScenario"
-            | OrderContextCommand.DecreaseScheduleFrequencyProperty -> "DecreaseScheduleFrequencyProperty"
-            | OrderContextCommand.IncreaseScheduleFrequencyProperty -> "IncreaseScheduleFrequencyProperty"
-            | OrderContextCommand.SetMinScheduleFrequencyProperty -> "SetMinScheduleFrequencyProperty"
-            | OrderContextCommand.SetMaxScheduleFrequencyProperty -> "SetMaxScheduleFrequencyProperty"
-            | OrderContextCommand.SetMedianScheduleFrequencyProperty -> "SetMedianScheduleFrequencyProperty"
-            | OrderContextCommand.DecreaseOrderableDoseQuantityProperty(ntimes, useCalc) ->
+            | OrderViewCommand.ResetOrderScenario -> "ResetOrderScenario"
+            | OrderViewCommand.DecreaseScheduleFrequencyProperty -> "DecreaseScheduleFrequencyProperty"
+            | OrderViewCommand.IncreaseScheduleFrequencyProperty -> "IncreaseScheduleFrequencyProperty"
+            | OrderViewCommand.SetMinScheduleFrequencyProperty -> "SetMinScheduleFrequencyProperty"
+            | OrderViewCommand.SetMaxScheduleFrequencyProperty -> "SetMaxScheduleFrequencyProperty"
+            | OrderViewCommand.SetMedianScheduleFrequencyProperty -> "SetMedianScheduleFrequencyProperty"
+            | OrderViewCommand.DecreaseOrderableDoseQuantityProperty(ntimes, useCalc) ->
                 $"DecreaseOrderableDoseQuantityProperty ntimes={ntimes} useCalc={useCalc}"
-            | OrderContextCommand.IncreaseOrderableDoseQuantityProperty(ntimes, useCalc) ->
+            | OrderViewCommand.IncreaseOrderableDoseQuantityProperty(ntimes, useCalc) ->
                 $"IncreaseOrderableDoseQuantityProperty ntimes={ntimes} useCalc={useCalc}"
-            | OrderContextCommand.SetMinOrderableDoseQuantityProperty -> "SetMinOrderableDoseQuantityProperty"
-            | OrderContextCommand.SetMaxOrderableDoseQuantityProperty -> "SetMaxOrderableDoseQuantityProperty"
-            | OrderContextCommand.SetMedianOrderableDoseQuantityProperty -> "SetMedianOrderableDoseQuantityProperty"
-            | OrderContextCommand.SetOrderableDoseQuantityPercProperty perc ->
+            | OrderViewCommand.SetMinOrderableDoseQuantityProperty -> "SetMinOrderableDoseQuantityProperty"
+            | OrderViewCommand.SetMaxOrderableDoseQuantityProperty -> "SetMaxOrderableDoseQuantityProperty"
+            | OrderViewCommand.SetMedianOrderableDoseQuantityProperty -> "SetMedianOrderableDoseQuantityProperty"
+            | OrderViewCommand.SetOrderableDoseQuantityPercProperty perc ->
                 $"SetOrderableDoseQuantityPercProperty perc=%i{perc}"
-            | OrderContextCommand.DecreaseOrderableDoseRateProperty(ntimes, useCalc) ->
+            | OrderViewCommand.DecreaseOrderableDoseRateProperty(ntimes, useCalc) ->
                 $"DecreaseOrderableDoseRateProperty ntimes={ntimes} useCalc={useCalc}"
-            | OrderContextCommand.IncreaseOrderableDoseRateProperty(ntimes, useCalc) ->
+            | OrderViewCommand.IncreaseOrderableDoseRateProperty(ntimes, useCalc) ->
                 $"IncreaseOrderableDoseRateProperty ntimes={ntimes} useCalc={useCalc}"
-            | OrderContextCommand.SetMinOrderableDoseRateProperty -> "SetMinOrderableDoseRateProperty"
-            | OrderContextCommand.SetMaxOrderableDoseRateProperty -> "SetMaxOrderableDoseRateProperty"
-            | OrderContextCommand.SetMedianOrderableDoseRateProperty -> "SetMedianOrderableDoseRateProperty"
-            | OrderContextCommand.DecreaseComponentOrderableQuantityProperty(cmp, ntimes, useCalc) ->
+            | OrderViewCommand.SetMinOrderableDoseRateProperty -> "SetMinOrderableDoseRateProperty"
+            | OrderViewCommand.SetMaxOrderableDoseRateProperty -> "SetMaxOrderableDoseRateProperty"
+            | OrderViewCommand.SetMedianOrderableDoseRateProperty -> "SetMedianOrderableDoseRateProperty"
+            | OrderViewCommand.DecreaseComponentOrderableQuantityProperty(cmp, ntimes, useCalc) ->
                 $"DecreaseComponentQuantityProperty cmp={cmp} ntimes={ntimes} useCalc={useCalc}"
-            | OrderContextCommand.IncreaseComponentOrderableQuantityProperty(cmp, ntimes, useCalc) ->
+            | OrderViewCommand.IncreaseComponentOrderableQuantityProperty(cmp, ntimes, useCalc) ->
                 $"IncreaseComponentQuantityProperty cmp={cmp} ntimes={ntimes} useCalc={useCalc}"
-            | OrderContextCommand.SetMinComponentOrderableQuantityProperty cmp ->
+            | OrderViewCommand.SetMinComponentOrderableQuantityProperty cmp ->
                 $"SetMinComponentQuantityProperty cmp={cmp}"
-            | OrderContextCommand.SetMaxComponentOrderableQuantityProperty cmp ->
+            | OrderViewCommand.SetMaxComponentOrderableQuantityProperty cmp ->
                 $"SetMaxComponentQuantityProperty cmp={cmp}"
-            | OrderContextCommand.SetMedianComponentOrderableQuantityProperty cmp ->
+            | OrderViewCommand.SetMedianComponentOrderableQuantityProperty cmp ->
                 $"SetMedianComponentQuantityProperty cmp={cmp}"
-            | OrderContextCommand.SetNthFilterProperty(field, n) -> $"SetNthFilterProperty %A{field} nth=%i{n}"
-            | OrderContextCommand.ClearFilterProperty field -> $"ClearFilterProperty %A{field}"
-            | OrderContextCommand.ClearAllFilterProperty -> "ClearAllFilterProperty"
-            | OrderContextCommand.SetNthDiluentProperty n -> $"SetNthDiluentProperty nth=%i{n}"
-            | OrderContextCommand.ClearDiluentProperty -> "ClearDiluentProperty"
-            | OrderContextCommand.SetNthComponentsProperty ns -> $"SetNthComponentsProperty nth=%A{ns}"
-            | OrderContextCommand.SelectNthOrderScenario n -> $"SelectNthOrderScenario nth=%i{n}"
-            | OrderContextCommand.SetNthScheduleProperty(prop, n) -> $"SetNthScheduleProperty %A{prop} nth=%i{n}"
-            | OrderContextCommand.ClearScheduleProperty(prop, picks) ->
+            | OrderViewCommand.SetNthFilterProperty(field, n) -> $"SetNthFilterProperty %A{field} nth=%i{n}"
+            | OrderViewCommand.ClearFilterProperty field -> $"ClearFilterProperty %A{field}"
+            | OrderViewCommand.ClearAllFilterProperty -> "ClearAllFilterProperty"
+            | OrderViewCommand.SetNthDiluentProperty n -> $"SetNthDiluentProperty nth=%i{n}"
+            | OrderViewCommand.ClearDiluentProperty -> "ClearDiluentProperty"
+            | OrderViewCommand.SetNthComponentsProperty ns -> $"SetNthComponentsProperty nth=%A{ns}"
+            | OrderViewCommand.SelectNthOrderScenario n -> $"SelectNthOrderScenario nth=%i{n}"
+            | OrderViewCommand.SetNthScheduleProperty(prop, n) -> $"SetNthScheduleProperty %A{prop} nth=%i{n}"
+            | OrderViewCommand.ClearScheduleProperty(prop, picks) ->
                 $"ClearScheduleProperty %A{prop} %i{picks.Length} picks"
-            | OrderContextCommand.SetNthOrderableProperty(prop, n) -> $"SetNthOrderableProperty %A{prop} nth=%i{n}"
-            | OrderContextCommand.ClearOrderableProperty(prop, picks) ->
+            | OrderViewCommand.SetNthOrderableProperty(prop, n) -> $"SetNthOrderableProperty %A{prop} nth=%i{n}"
+            | OrderViewCommand.ClearOrderableProperty(prop, picks) ->
                 $"ClearOrderableProperty %A{prop} %i{picks.Length} picks"
-            | OrderContextCommand.SetNthComponentProperty(cmp, prop, n) ->
+            | OrderViewCommand.SetNthComponentProperty(cmp, prop, n) ->
                 $"SetNthComponentProperty cmp={cmp} %A{prop} nth=%i{n}"
-            | OrderContextCommand.ClearComponentProperty(cmp, prop, picks) ->
+            | OrderViewCommand.ClearComponentProperty(cmp, prop, picks) ->
                 $"ClearComponentProperty cmp={cmp} %A{prop} %i{picks.Length} picks"
-            | OrderContextCommand.SetNthItemProperty(cmp, itm, prop, n) ->
+            | OrderViewCommand.SetNthItemProperty(cmp, itm, prop, n) ->
                 $"SetNthItemProperty cmp={cmp} itm={itm} %A{prop} nth=%i{n}"
-            | OrderContextCommand.ClearItemProperty(cmp, itm, prop, picks) ->
+            | OrderViewCommand.ClearItemProperty(cmp, itm, prop, picks) ->
                 $"ClearItemProperty cmp={cmp} itm={itm} %A{prop} %i{picks.Length} picks"
             // never the text: it is the clinician's and stays out of the log
-            | OrderContextCommand.SetArgumentationProperty _ -> "SetArgumentationProperty"
-            | OrderContextCommand.SeedFilter(source, _, gen, _, _, _) -> $"SeedFilter %A{source} %A{gen}"
+            | OrderViewCommand.SetArgumentationProperty _ -> "SetArgumentationProperty"
+            | OrderViewCommand.SeedFilter(source, _, gen, _, _, _) -> $"SeedFilter %A{source} %A{gen}"
 
 
         module Ctx = Models.OrderContext
 
 
-        /// The client's preview of a command while its request is under way: the command the domain
-        /// answers it as, and the context as that command changes it; no command when the context is
-        /// answered as it is. The domain's answer replaces it.
-        let preview (cmd: OrderContextCommand) (ctx: OrderContext) =
-            let over cmd r = r |> Result.map (fun ctx -> Some cmd, ctx)
-            let update r = r |> over OrderContextCommand.UpdateOrderContext
-
+        /// The client's preview of a command while its request is under way: the context as the
+        /// command changes it; the context as it is when the command leaves it, as an index past the
+        /// values does. The domain's answer replaces it.
+        let preview (cmd: OrderViewCommand) (ctx: OrderContext) =
             let setNth target n =
-                ctx
-                |> Ctx.setNth target n
-                |> Result.map (
-                    function
-                    | Some changed -> Some OrderContextCommand.UpdateOrderScenario, changed
-                    | None -> None, ctx
-                )
+                ctx |> Ctx.setNth target n |> Result.map (Option.defaultValue ctx)
 
-            let clear target picks =
-                ctx
-                |> Ctx.clear target picks
-                |> Result.map (fun (changed, picks) -> Some(OrderContextCommand.ReopenOrderScenario picks), changed)
+            let clear target picks = ctx |> Ctx.clear target picks |> Result.map fst
 
             match cmd with
-            | OrderContextCommand.SetNthFilterProperty(field, n) -> ctx |> Ctx.changeFilter field (Some n) |> update
-            | OrderContextCommand.ClearFilterProperty field -> ctx |> Ctx.changeFilter field None |> update
-            | OrderContextCommand.ClearAllFilterProperty -> Ok(Ctx.clearAll ctx) |> update
-            | OrderContextCommand.SetNthDiluentProperty n -> ctx |> Ctx.changeDiluent (Some n) |> update
-            | OrderContextCommand.ClearDiluentProperty -> ctx |> Ctx.changeDiluent None |> update
-            | OrderContextCommand.SetNthComponentsProperty ns -> ctx |> Ctx.setNthComponents ns |> update
-            | OrderContextCommand.SelectNthOrderScenario n ->
-                ctx |> Ctx.selectNthScenario n |> over OrderContextCommand.SelectOrderScenario
-            | OrderContextCommand.SetNthScheduleProperty(prop, n) -> setNth (Ctx.Target.Schedule prop) n
-            | OrderContextCommand.ClearScheduleProperty(prop, picks) -> clear (Ctx.Target.Schedule prop) picks
-            | OrderContextCommand.SetNthOrderableProperty(prop, n) -> setNth (Ctx.Target.Orderable prop) n
-            | OrderContextCommand.ClearOrderableProperty(prop, picks) -> clear (Ctx.Target.Orderable prop) picks
-            | OrderContextCommand.SetNthComponentProperty(cmp, prop, n) -> setNth (Ctx.Target.Component(cmp, prop)) n
-            | OrderContextCommand.ClearComponentProperty(cmp, prop, picks) ->
-                clear (Ctx.Target.Component(cmp, prop)) picks
-            | OrderContextCommand.SetNthItemProperty(cmp, itm, prop, n) -> setNth (Ctx.Target.Item(cmp, itm, prop)) n
-            | OrderContextCommand.ClearItemProperty(cmp, itm, prop, picks) ->
-                clear (Ctx.Target.Item(cmp, itm, prop)) picks
-            | OrderContextCommand.SetArgumentationProperty text -> Ok(None, ctx |> Ctx.Argumentation.write text)
-            | OrderContextCommand.SeedFilter(source, ind, gen, rte, frm, dt) ->
-                Ok(ctx |> Ctx.seedFilter source ind gen rte frm dt) |> update
-            | cmd -> Ok(Some cmd, ctx)
+            | OrderViewCommand.SetNthFilterProperty(field, n) -> ctx |> Ctx.changeFilter field (Some n)
+            | OrderViewCommand.ClearFilterProperty field -> ctx |> Ctx.changeFilter field None
+            | OrderViewCommand.ClearAllFilterProperty -> Ok(Ctx.clearAll ctx)
+            | OrderViewCommand.SetNthDiluentProperty n -> ctx |> Ctx.changeDiluent (Some n)
+            | OrderViewCommand.ClearDiluentProperty -> ctx |> Ctx.changeDiluent None
+            | OrderViewCommand.SetNthComponentsProperty ns -> ctx |> Ctx.setNthComponents ns
+            | OrderViewCommand.SelectNthOrderScenario n -> ctx |> Ctx.selectNthScenario n
+            | OrderViewCommand.SetNthScheduleProperty(prop, n) -> setNth (Ctx.Target.Schedule prop) n
+            | OrderViewCommand.ClearScheduleProperty(prop, picks) -> clear (Ctx.Target.Schedule prop) picks
+            | OrderViewCommand.SetNthOrderableProperty(prop, n) -> setNth (Ctx.Target.Orderable prop) n
+            | OrderViewCommand.ClearOrderableProperty(prop, picks) -> clear (Ctx.Target.Orderable prop) picks
+            | OrderViewCommand.SetNthComponentProperty(cmp, prop, n) -> setNth (Ctx.Target.Component(cmp, prop)) n
+            | OrderViewCommand.ClearComponentProperty(cmp, prop, picks) -> clear (Ctx.Target.Component(cmp, prop)) picks
+            | OrderViewCommand.SetNthItemProperty(cmp, itm, prop, n) -> setNth (Ctx.Target.Item(cmp, itm, prop)) n
+            | OrderViewCommand.ClearItemProperty(cmp, itm, prop, picks) -> clear (Ctx.Target.Item(cmp, itm, prop)) picks
+            | OrderViewCommand.SetArgumentationProperty text -> Ok(ctx |> Ctx.Argumentation.write text)
+            | OrderViewCommand.SeedFilter(source, ind, gen, rte, frm, dt) ->
+                Ok(ctx |> Ctx.seedFilter source ind gen rte frm dt)
+            | _ -> Ok ctx
 
 
-        /// The case a command stands for in the client's decisions by case; None if it sends none.
-        let replaced (cmd: OrderContextCommand) =
-            match cmd with
-            | OrderContextCommand.SetNthFilterProperty _
-            | OrderContextCommand.ClearFilterProperty _
-            | OrderContextCommand.ClearAllFilterProperty
-            | OrderContextCommand.SetNthDiluentProperty _
-            | OrderContextCommand.ClearDiluentProperty
-            | OrderContextCommand.SetNthComponentsProperty _
-            | OrderContextCommand.SeedFilter _ -> Some OrderContextCommand.UpdateOrderContext
-            | OrderContextCommand.SelectNthOrderScenario _ -> Some OrderContextCommand.SelectOrderScenario
-            | OrderContextCommand.SetNthScheduleProperty _
-            | OrderContextCommand.SetNthOrderableProperty _
-            | OrderContextCommand.SetNthComponentProperty _
-            | OrderContextCommand.SetNthItemProperty _ -> Some OrderContextCommand.UpdateOrderScenario
-            | OrderContextCommand.ClearScheduleProperty(_, picks)
-            | OrderContextCommand.ClearOrderableProperty(_, picks)
-            | OrderContextCommand.ClearComponentProperty(_, _, picks)
-            | OrderContextCommand.ClearItemProperty(_, _, _, picks) ->
-                Some(OrderContextCommand.ReopenOrderScenario picks)
-            | OrderContextCommand.SetArgumentationProperty _ -> None
-            | cmd -> Some cmd
-
-
-    /// What the order context still being worked on is asked: a command over it, or the patient it
-    /// is evaluated for changed. Only this context changes patient: a context in the plan keeps the
-    /// patient it was evaluated for, so a plan cannot carry a patient change.
+    /// The order context command family, for the order context still being worked on: a command
+    /// of the order view over it, or the context evaluated for the patient updated. Only this context takes a patient update: a context in
+    /// the plan keeps the patient it was evaluated for, so a plan cannot carry one.
     [<RequireQualifiedAccess>]
-    type ActiveOrderContextCommand =
-        | Command of OrderContextCommand
-        | PatientChanged of patient: Patient
+    type OrderContextCommand =
+        /// A command of the order view over the context as held.
+        | Command of OrderViewCommand * OrderContext
+        /// The patient the patient command answered, with the context as held; the server writes
+        /// the patient into it.
+        | UpdatePatient of patient: Patient * OrderContext
 
 
-    module ActiveOrderContextCommand =
+    module OrderContextCommand =
 
         /// For the log: the command alone, never the context nor the patient.
-        let toString (cmd: ActiveOrderContextCommand, ctx: OrderContext) =
+        let toString (cmd: OrderContextCommand) =
             match cmd with
-            | ActiveOrderContextCommand.Command cmd -> OrderContextCommand.toString (cmd, ctx)
-            | ActiveOrderContextCommand.PatientChanged _ -> "PatientChanged"
+            | OrderContextCommand.Command(cmd, ctx) -> OrderViewCommand.toString (cmd, ctx)
+            | OrderContextCommand.UpdatePatient _ -> "UpdatePatient"
 
 
     /// The patient command family: a patient change on the panel, answered with the patient made
@@ -411,11 +367,14 @@ module Api =
     /// The plan command family: the order plan, nutrition included.
     [<RequireQualifiedAccess>]
     type OrderPlanCommand =
-        // the plan as it is, totals recomputed over its orders
-        | Recalculate of OrderPlan
+        // the patient updated: the plan recalculated for the patient the patient command answered;
+        // the patient of each context in it stays the one it was evaluated for
+        | UpdatePatient of Patient * OrderPlan
+        // the contexts the rows keep, by id: the totals recalculated over them
+        | FilterRows of ids: string[] * OrderPlan
         // an order-context command evaluated over the context named, in that context's own
         // patient, its order following
-        | Navigate of OrderPlan * contextId: string * OrderContextCommand * OrderContext
+        | Navigate of OrderPlan * contextId: string * OrderViewCommand * OrderContext
         // a workbench evaluated elsewhere, narrowed to one scenario, into the plan as it is
         | AddOrderContext of OrderPlan * OrderContext
         // a fresh workbench for a nutrition category, its filter discovered
@@ -432,7 +391,8 @@ module Api =
         /// For the log: never the plan.
         let toString cmd =
             match cmd with
-            | OrderPlanCommand.Recalculate _ -> "Recalculate"
+            | OrderPlanCommand.UpdatePatient _ -> "UpdatePatient"
+            | OrderPlanCommand.FilterRows(ids, _) -> $"FilterRows %i{ids.Length}"
             | OrderPlanCommand.Navigate(_, _, ctxCmd, _) -> $"Navigate {ctxCmd}"
             | OrderPlanCommand.AddOrderContext _ -> "AddOrderContext"
             | OrderPlanCommand.NewOrderContext(_, category) -> $"NewOrderContext {category}"
@@ -464,9 +424,7 @@ module Api =
         {
             // one member per use case, each on the same envelope
             // the context evaluated, or refused with why; the error channel is for failures
-            processOrderContext:
-                Request<ActiveOrderContextCommand * OrderContext>
-                    -> Async<Result<Reply<OrderContextResponse>, string[]>>
+            processOrderContext: Request<OrderContextCommand> -> Async<Result<Reply<OrderContextResponse>, string[]>>
             processFormulary: Request<Formulary> -> Async<Result<Reply<Formulary>, string[]>>
             processParenteralia: Request<Parenteralia> -> Async<Result<Reply<Parenteralia>, string[]>>
             // a patient change, answered with the patient made complete

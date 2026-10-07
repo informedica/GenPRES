@@ -20,13 +20,14 @@
     <Compile Include="OrderContextRefusalPolicyTests.fs" />
     <Compile Include="PatientDraftPolicyTests.fs" />
     <Compile Include="PatientReadinessTests.fs" />
+    <Compile Include="PatientMachineTests.fs" />
     <Compile Include="PickPolicyTests.fs" />
+    <Compile Include="StepPolicyTests.fs" />
     <Compile Include="SeverityReasonPolicyTests.fs" />
     <Compile Include="QuantityModePolicyTests.fs" />
     <Compile Include="IntakePolicyTests.fs" />
     <Compile Include="FieldOpenPolicyTests.fs" />
     <Compile Include="PickListTests.fs" />
-    <Compile Include="FilterSyncTests.fs" />
     <Compile Include="SectionFoldPolicyTests.fs" />
     <Compile Include="TotalsChangePolicyTests.fs" />
     <Compile Include="PlanWorkPolicyTests.fs" />
@@ -48,6 +49,7 @@
 
     <!-- policies over the contract alone, whose tests read the order plan machine's fixtures -->
     <Compile Include="ArgumentationPolicyTests.fs" />
+    <Compile Include="DialogTabPolicyTests.fs" />
     <Compile Include="PlanContextPolicyTests.fs" />
     <Compile Include="PlanCellPolicyTests.fs" />
 
