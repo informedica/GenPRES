@@ -171,8 +171,8 @@ The machines barely shrank over plan B: `OrderContextMachine.fs` went from 579 t
   - the switch to the continuous medication page resets the workbench when it holds a generic
     (`App.fs`, `UpdatePage`), and the page menu is never greyed;
   - a field with one option picks it from a React effect, not from a click
-    (`Components/PickField.fs`): when an answer leaves two such fields, both send in the same
-    render, before the view shows `Changing`, and the second is dropped (#1326, item 6);
+    (`Components/PickField.fs`); every answer of the server already picks such a field, so the
+    effect sends only where no answer picks, the patient panel's department (decision 13);
   - the order dialog sends its unsent argumentation when it unmounts (`Views/Order.fs`), and it
     unmounts for a patient change, a seed, a reset or a url change as well as for its own close;
   - the nutrition slot sends the move to a full intake from an effect once the TPN is composed
@@ -215,7 +215,8 @@ What can start a request, and what each depends on:
 - **The page switch** to the continuous medication page resets the workbench today; after
   step 1 a page switch sends nothing to a machine, and the switch itself waits for every
   request (decision 1, rule 1).
-- **A field with one option** picks it after an answer; one field per answer (decision 13).
+- **A field with one option** is picked by the server in its answer; the client picks nothing
+  but the patient panel's department (decision 13).
 - **The order dialog's argumentation draft** goes out on blur and when the dialog closes itself
   (decision 12).
 - **The nutrition slot** sends the move to a full intake after the answer that composes the
@@ -311,9 +312,9 @@ What can start a request, and what each depends on:
      stays in Client.Core: the busy policy, `Busy.page` and `Busy.any` over the lanes, the
      counted field and the data loads; `SigningPolicy.canSign` over the Session and the plan's
      orders; whether the patient context is held and the held dialog's actions, which
-     `Views/Patient.fs` composes itself today (step 5); the field to pick after an answer
-     (decision 13). A page reads one value, its own busy; the menu, the title bar and the panel
-     read `Busy.any`; and no page combines anything itself (confirmed by the user, 2026-10-08).
+     `Views/Patient.fs` composes itself today (step 5). A page reads one value, its own busy;
+     the menu, the title bar and the panel read `Busy.any`; and no page combines anything
+     itself (confirmed by the user, 2026-10-08).
    - Two changes can reach a machine with a request out: the answer, which lands by its request
      id, and the patient cleared, which resets the machine (decision 11). Every other change
      not from the user is the answer to the one request out, so it reaches machines that are
@@ -610,19 +611,17 @@ What can start a request, and what each depends on:
     that open the dialog, the Prescribe page and the OrderPlan page, hand their close to it.
     Escape and a click on the backdrop are not controls, so rule 2 does not disable them: the
     dialog ignores both while its page is busy, and its own close waits like every control.
-13. **One field picks its single option per answer.** Decided (user, 2026-10-08). A
-    field with one option is picked for the user, from an effect in the field. When an answer
-    leaves two such fields, both pick in the same render and the second command meets a
-    request out. Instead a policy in Client.Core names the one field to pick after an answer,
-    the first by position with one option and no choice, and the page sends that pick; the
-    next answer names the next field. The policy covers every place the select is used: the
-    Prescribe page's filter over the workbench's context, the nutrition slot's filter selects
-    over the plan's context, the one select in the order dialog over the workbench's, and the
-    formulary and parenteralia pages over their own filter. The patient panel's department
-    field sends no request and keeps a local pick. The alternative, the server picking every
-    single option in
-    its cascade as it picks the patient category and the parenteralia page's generic, form and
-    route, is a server change and was not chosen.
+13. **The server picks a field's single option.** Decided (user, 2026-10-08). Every answer
+    that offers options picks each field left with one option before it answers: the order
+    context's evaluation for the five filter fields (`OrderContext.getRules`), with the diluent
+    taken from a single scenario, and so for the workbench and the plan's contexts alike; the
+    formulary for its six fields (`FormularyService`, `selectIfOne`); the parenteralia for its
+    three. An answer never leaves two fields with one option each unpicked, so the effect in
+    `Components/PickField.fs` that picked them on the client goes, and no policy replaces it.
+    A context made afresh for a patient without weight or height offers options and picks
+    none, and a client pick changes nothing there, since the next evaluation makes it afresh
+    again. The patient panel's department field is picked by no answer, and keeps a local pick
+    of its one option.
 
 ## Steps
 
@@ -649,7 +648,7 @@ the order of the steps protects the work between pull requests, not patients; it
    clears the whole filter on the server already (`SeedSource.MedicationList`), so the reset did
    nothing the seed does not. A page switch then sends nothing to a machine. Decision 1.
 2. **The pages follow the answer and are disabled during their own load.** Decisions 5 and 13,
-   in two pull requests: 2a the first three bullets and the tests, 2b the auto-pick.
+   in two pull requests: 2a the first three bullets and the tests, 2b the field's own pick.
    - The order context machine syncs the formulary and parenteralia pages from the context
      answered, evaluated or refused, when the request sent changes the filter or updates the
      patient; `evaluate`, the `Sync` intent and the re-sync in `restore` go, `changesFilter` moves
@@ -658,10 +657,9 @@ the order of the steps protects the work between pull requests, not patients; it
      is asked again once that load has landed and its answer is shown (decision 5).
    - The formulary and parenteralia pages are disabled as a whole while their own load runs,
      through `Components.Disabled` from step 1 (`Pages/GenPres.fs`); the views do not change.
-   - `AutoPickPolicy.next` in Client.Core names the one field to pick after an answer; the
-     Prescribe, formulary and parenteralia pages, the nutrition slot and the order dialog send
-     that pick in one effect at page level, and the effect in `Components/PickField.fs` goes;
-     the patient panel's department field keeps a local pick (decision 13).
+   - The effect in `Components/PickField.fs` that picks a field's one option goes, since the
+     server's answer picks it; the patient panel's department field keeps a local pick
+     (decision 13).
    - Tests: a filter command syncs on its answer and not before; a patient update syncs on its
      answer with the filter answered; a value pick syncs nothing; a failure syncs nothing.
 3. **Plan commands from the pages without the plan.** Decision 7.
@@ -903,8 +901,9 @@ Line counts:
   disabled while it loads; a second filter pick on the Prescribe page while the first page load
   runs: the trail shows the first answer land, then one more load of each page with the second
   filter, never two loads of a page at once.
-- **Step 2b:** an answer that leaves two fields with one option each picks the first, and its
-  answer the second, with no message dropped.
+- **Step 2b:** a filter pick whose answer narrows route and form to one option each shows both
+  picked, with no further command in the trail; a department list of one shows that department
+  picked.
 - **Step 4:** a page load: the gate shows until every load and the resume have answered, and
   the hospital menu has its options when the application opens; a filter pick, then the menu
   at once: the menu waits until the filter and the two page loads it starts have answered, and

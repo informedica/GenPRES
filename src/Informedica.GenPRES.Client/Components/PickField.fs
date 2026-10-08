@@ -5,8 +5,9 @@ namespace Components
 /// page's. A field with nothing to choose is disabled and empty; a field with one option shows
 /// it chosen and is disabled; a field with more is enabled when its caller says so and clears
 /// when its caller allows and something is chosen. The rule is the same whether the user
-/// scrolls the options or types to narrow them, so both shapes are drawn from here and the one
-/// option is told to the page once, whichever shape the field has.
+/// scrolls the options or types to narrow them, so both shapes are drawn from here. The field
+/// picks nothing itself: an answer of the server already picks every field left with one
+/// option.
 module PickField =
 
 
@@ -53,36 +54,12 @@ module PickField =
 
         let offer = PickPolicy.offer pick
 
-        // The one option a field shows chosen is chosen for the page too, once, when the field
-        // arrives at it: the choice the user could only have made is made for them, and the
-        // next field can follow. The dependencies are the option and the choice as strings and
-        // whether the field is enabled, so the effect runs when any of them changes, also when
-        // a field that was disabled with its one option already there becomes enabled, and not
-        // on every render.
-        let only =
-            match props.options with
-            | [| (key, _) |] -> Some key
-            | _ -> None
-
-        let chosen = props.selected |> Option.defaultValue ""
-
         let trace event effects =
             StepTrail.event
                 "Field"
                 $"%s{event} %s{props.label}"
                 effects
                 (SimpleSelect.fieldState props.selected props.options.Length false)
-
-        React.useEffect (
-            (fun () ->
-                match only with
-                | Some key when props.selected <> Some key && props.enabled ->
-                    trace "autoPick" [ "onChange" ]
-                    props.onChange (Some key)
-                | _ -> ()
-            ),
-            [| box (only |> Option.defaultValue ""); box chosen; box props.enabled |]
-        )
 
         // a field narrowed to one option cannot be opened, since there is nothing else to
         // choose, but it can still be emptied, and emptying it is how the user widens the
