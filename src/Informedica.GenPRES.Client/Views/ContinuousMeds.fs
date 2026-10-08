@@ -253,7 +253,6 @@ module ContinuousMeds =
                 height = "100%"
                 onRowClick = onSelectItem
                 checkboxSelection = false
-                selectDisabled = false
                 selectedRows = [||]
                 onSelectChange = ignore
                 showToolbar = true

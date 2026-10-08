@@ -991,14 +991,6 @@ let patientChangeTests =
     testList
         "the workbench during a patient change"
         [
-            test "the context held shows as a change under way, and settles when the change is done" {
-                (shown |> OrderContextState.viewWhile patientChanging,
-                 shown |> OrderContextState.viewWhile noPatientChange)
-                |> Expect.equal
-                    "changing, then settled"
-                    (OrderContextView.Changing paracetamol, OrderContextView.Settled paracetamol)
-            }
-
             test "a command from the page is dropped; the patient change itself reaches the workbench" {
                 shown
                 |> OrderContextState.transitionWhile patientChanging (OrderContextMsg.Command(asIs, "r-1"))

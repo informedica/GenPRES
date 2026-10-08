@@ -34,7 +34,7 @@ module EnteralNutrition =
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
                 onRemove: (unit -> unit) option
-                isRecalculating: bool
+                busy: bool
             |})
         =
         let slot =
@@ -45,7 +45,7 @@ module EnteralNutrition =
                     planReopen = props.planReopen
                     planRestore = props.planRestore
                     localizationTerms = props.localizationTerms
-                    isRecalculating = props.isRecalculating
+                    busy = props.busy
                     fieldMinWidth = None
                 |}
 
@@ -141,14 +141,6 @@ module EnteralNutrition =
                 {slot.ResetBar}
             </Stack>
             """
-            |> fun fields ->
-                // the spinner lies over the details and takes no room, so the fields stay where
-                // they are while the order reloads
-                Components.LoadingOverlay.View
-                    {|
-                        isLoading = slot.IsLoading
-                        children = fields
-                    |}
 
         let filterSx = {| marginBottom = 2 |}
 
@@ -164,7 +156,7 @@ module EnteralNutrition =
             </Stack>
             """
 
-        let orderDetails = if slot.Order.IsSome then details else slot.LoadingIndicator
+        let orderDetails = if slot.Order.IsSome then details else null
 
         let removeButton =
             match props.onRemove with
@@ -173,7 +165,7 @@ module EnteralNutrition =
                 Components.RemoveIconButton.View
                     {|
                         onRemove = onRemove
-                        busy = props.isRecalculating
+                        busy = props.busy
                     |}
             | None -> null
 
@@ -211,7 +203,7 @@ module EnteralNutrition =
                 planNavigate: string * Api.OrderViewCommand -> unit
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
-                isRecalculating: bool
+                busy: bool
             |})
         =
         let context: Global.Context = React.useContext Global.context
@@ -247,7 +239,7 @@ module EnteralNutrition =
                     planRestore = props.planRestore
                     localizationTerms = props.localizationTerms
                     onRemove = Some(removeOf nc)
-                    isRecalculating = props.isRecalculating
+                    busy = props.busy
                 |}
 
         let slots = contexts |> Array.map slotOf
@@ -259,7 +251,7 @@ module EnteralNutrition =
                     {|
                         label = label
                         onClick = fun () -> props.planNew category
-                        disabled = props.isRecalculating
+                        disabled = false
                     |}
             else
                 null
@@ -326,7 +318,7 @@ module EnteralNutrition =
             let handleConfirm =
                 fun () ->
                     match confirmDeleteTarget with
-                    | Some ncId when not props.isRecalculating -> props.planRemove [| ncId |]
+                    | Some ncId when not props.busy -> props.planRemove [| ncId |]
                     | Some _
                     | None -> ()
 

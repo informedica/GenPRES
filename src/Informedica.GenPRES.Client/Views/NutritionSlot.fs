@@ -496,8 +496,6 @@ module NutritionSlot =
             Label: string
             /// Whether the window is narrow: filters are scrolled, not typed into.
             IsMobile: bool
-            /// Whether a change of the plan is under way.
-            IsLoading: bool
             /// The order shown: the one scenario's of the slot's context.
             Order: Order option
             /// The composition filter.
@@ -532,8 +530,6 @@ module NutritionSlot =
             ResetAction: Components.ActionBar.Action
             /// The button that discards the changes to the order.
             ResetBar: JSX.Element
-            /// The spinner shown while the slot has no order yet.
-            LoadingIndicator: JSX.Element
             /// Set the dose quantity at a percentage of the total.
             SetDoseQuantityPerc: int -> unit
             /// Whether the intake slider can set the dose: the TPN is composed and its dose count
@@ -558,7 +554,8 @@ module NutritionSlot =
                 planReopen: string * Api.OrderViewCommand -> unit
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
-                isRecalculating: bool
+                // a request out that changes the page: the slot sends nothing on its own meanwhile
+                busy: bool
                 // the least width of the frequency, dose and dose per time fields
                 fieldMinWidth: int option
             |})
@@ -717,10 +714,10 @@ module NutritionSlot =
                 : DialogTabPolicy.Tab
             )
 
-        let isOrderLoading = props.isRecalculating
+        let busy = props.busy
         let texts = ViewHelpers.quantityFieldTexts getTerm
 
-        let select = ViewHelpers.orderSelect texts true isOrderLoading
+        let select = ViewHelpers.orderSelect texts true false
 
         let isTpn = ctx |> isOneOf [ NutritionCategory.TPN ]
 
@@ -731,7 +728,7 @@ module NutritionSlot =
         // value and the intake slider can take over
         let startIntake () =
             match shownOrder with
-            | Some ord when isTpn && not isOrderLoading ->
+            | Some ord when isTpn && not busy ->
                 match ord |> IntakePolicy.start sentFor.current with
                 | IntakePolicy.Start.Clear -> sentFor.current <- None
                 | IntakePolicy.Start.Wait -> ()
@@ -741,13 +738,13 @@ module NutritionSlot =
                     updateTraced StartDoseQuantityPercProperty state |> ignore
             | _ -> ()
 
-        React.useEffect (startIntake, [| box ctx; box isOrderLoading |])
+        React.useEffect (startIntake, [| box ctx; box busy |])
 
         // while the dose of the TPN is a part of the total, the composition stays as it is: a step
         // of a component would keep the rate of the part for the whole
         let isCompositionLocked = isTpn && shownOrder |> Option.exists IntakePolicy.isCompositionLocked
 
-        let componentSelect = ViewHelpers.orderSelect texts true (isOrderLoading || isCompositionLocked)
+        let componentSelect = ViewHelpers.orderSelect texts true isCompositionLocked
 
         // a field with one value reopens by its arrow; without picks it cannot tell whether the user
         // constrained it
@@ -756,13 +753,12 @@ module NutritionSlot =
                 constrained = PickList.constrained None ovar.Name
                 reopening = fun () -> reopening.current <- true
                 restore = props.planRestore
-                busy = isOrderLoading
+                busy = busy
             |}
         // a value only shown has nothing for a cross to clear
-        let display = ViewHelpers.orderFixed texts true isOrderLoading
-        let filterSelect = ViewHelpers.filterSelect isOrderLoading isOrderLoading
-        let responsiveFilter = ViewHelpers.responsiveFilter isMobile isOrderLoading isOrderLoading
-        let loadingIndicator = ViewHelpers.inlineProgress isOrderLoading
+        let display = ViewHelpers.orderFixed texts true false
+        let filterSelect = ViewHelpers.filterSelect
+        let responsiveFilter = ViewHelpers.responsiveFilter isMobile
 
         let displayOrder = shownOrder
 
@@ -1097,7 +1093,7 @@ module NutritionSlot =
                 label = Terms.Reset |> getTerm "Reset"
                 kind = Components.ActionBar.Kind.Secondary
                 onClick = onClickReset
-                disabled = isOrderLoading
+                disabled = false
                 icon = Some Mui.Icons.RefreshIcon
             |}
 
@@ -1157,7 +1153,6 @@ module NutritionSlot =
         {
             Label = label
             IsMobile = isMobile
-            IsLoading = isOrderLoading
             Order = displayOrder
             GenericFilter = genericFilter
             IndicationFilter = indicationFilter
@@ -1174,7 +1169,6 @@ module NutritionSlot =
             AdministrationHeading = administrationDivider
             ResetAction = resetAction
             ResetBar = resetBar
-            LoadingIndicator = loadingIndicator
             SetDoseQuantityPerc = SetDoseQuantityPercProperty >> dispatch
             CanSetDoseQuantityPerc = canSetDoseQuantityPerc
             DoseQuantityShare = shownOrder |> Option.bind IntakePolicy.doseShare

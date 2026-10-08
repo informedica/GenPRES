@@ -12,16 +12,6 @@ module Prescribe =
     open OrderContextMachine
 
 
-    type private LoadingSource =
-        | IndicationLoading
-        | MedicationLoading
-        | RouteLoading
-        | FormLoading
-        | DiluentLoading
-        | ComponentsLoading
-        | DoseTypeLoading
-
-
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
         let envOrderContext = AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv
@@ -39,31 +29,15 @@ module Prescribe =
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
 
-        let loadingSource, setLoadingSource = React.useState<LoadingSource option> None
-
-        React.useEffect (
-            (fun () ->
-                match orderContext with
-                | OrderContextView.Settled _
-                | OrderContextView.Refused _ -> setLoadingSource None
-                | _ -> ()
-            ),
-            [| box orderContext |]
-        )
-
-        let send loading cmd =
-            setLoadingSource (Some loading)
-            orderContextMsg cmd
-
         // a pick goes as its position in the options the field offers, an emptied field as a
         // clear; a value the field does not offer is a bug, written to the console and not sent
-        let pickFilter loading (options: OrderContext -> 'a[]) (picked: 'a option) toCommand =
+        let pickFilter (options: OrderContext -> 'a[]) (picked: 'a option) toCommand =
             match orderContext with
             | OrderContextView.Settled pr
             | OrderContextView.Refused(pr, _) ->
                 match picked |> Option.map (fun x -> pr |> options |> Array.tryFindIndex ((=) x)) with
-                | None -> send loading (toCommand None)
-                | Some(Some n) -> send loading (toCommand (Some n))
+                | None -> orderContextMsg (toCommand None)
+                | Some(Some n) -> orderContextMsg (toCommand (Some n))
                 | Some None -> Logging.warning "a pick the field does not offer is not sent" picked
             | _ -> ()
 
@@ -73,25 +47,21 @@ module Prescribe =
             | None -> Api.OrderViewCommand.ClearFilterProperty field
 
         let indicationChange s =
-            filterCommand OrderContext.Indication
-            |> pickFilter IndicationLoading _.Filter.Indications s
+            filterCommand OrderContext.Indication |> pickFilter _.Filter.Indications s
 
         let medicationChange s =
-            filterCommand OrderContext.Generic
-            |> pickFilter MedicationLoading _.Filter.Generics s
+            filterCommand OrderContext.Generic |> pickFilter _.Filter.Generics s
 
-        let routeChange s =
-            filterCommand OrderContext.Route |> pickFilter RouteLoading _.Filter.Routes s
+        let routeChange s = filterCommand OrderContext.Route |> pickFilter _.Filter.Routes s
 
-        let formChange s =
-            filterCommand OrderContext.Form |> pickFilter FormLoading _.Filter.Forms s
+        let formChange s = filterCommand OrderContext.Form |> pickFilter _.Filter.Forms s
 
         let diluentCommand n =
             match n with
             | Some n -> Api.OrderViewCommand.SetNthDiluentProperty n
             | None -> Api.OrderViewCommand.ClearDiluentProperty
 
-        let diluentChange s = diluentCommand |> pickFilter DiluentLoading _.Filter.Diluents s
+        let diluentChange s = diluentCommand |> pickFilter _.Filter.Diluents s
 
         let componentsChange (cs: string[]) =
             match orderContext with
@@ -100,35 +70,24 @@ module Prescribe =
                 let ns = cs |> Array.choose (fun c -> pr.Filter.Components |> Array.tryFindIndex ((=) c))
 
                 if ns.Length = cs.Length then
-                    send ComponentsLoading (Api.OrderViewCommand.SetNthComponentsProperty ns)
+                    orderContextMsg (Api.OrderViewCommand.SetNthComponentsProperty ns)
                 else
                     Logging.warning "components the field does not offer are not sent" cs
             | _ -> ()
 
         let doseTypeChange s =
             filterCommand OrderContext.DoseType
-            |> pickFilter DoseTypeLoading _.Filter.DoseTypes (s |> Option.map DoseType.doseTypeFromString)
+            |> pickFilter _.Filter.DoseTypes (s |> Option.map DoseType.doseTypeFromString)
 
         let clear () =
             match orderContext with
-            | OrderContextView.Settled pr
-            | OrderContextView.Refused(pr, _) ->
-                setLoadingSource None
-                orderContextMsg Api.OrderViewCommand.ClearAllFilterProperty
+            | OrderContextView.Settled _
+            | OrderContextView.Refused _ -> orderContextMsg Api.OrderViewCommand.ClearAllFilterProperty
             | _ -> ()
 
         // the dialog is open while a scenario is selected: the selection is the state
         let dialog = envOrderContext.Dialog
         let handleModalClose = fun () -> envOrderContext.Select None
-
-        let isAnythingLoading =
-            match orderContext with
-            | OrderContextView.Changing _ -> true
-            | OrderContextView.NoPatient
-            | OrderContextView.Settled _
-            | OrderContextView.Refused _ -> false
-
-        let isSourceLoading source = isAnythingLoading && loadingSource = Some source
 
         // the filter is put back as it was: bounded and to the left, since it discards what the
         // user built and must not be where you click by default
@@ -141,27 +100,28 @@ module Prescribe =
                                 label = Reset |> getTerm "Reset"
                                 kind = Components.ActionBar.Kind.Secondary
                                 onClick = clear
-                                disabled = isAnythingLoading
+                                disabled = false
                                 icon = Some Mui.Icons.RefreshIcon
                             |}
                         |]
                 |}
 
 
-        let select = ViewHelpers.filterSelect isAnythingLoading
+        // the page is disabled as a whole while the workbench changes, so no field greys itself
+        let select = ViewHelpers.filterSelect
 
-        let multiSelect isLoading lbl selected dispatch xs =
+        let multiSelect lbl selected dispatch xs =
             Components.MultiPickField.View
                 {|
                     label = lbl
                     options = xs
                     selected = selected
                     onChange = dispatch
-                    isLoading = isLoading
-                    enabled = not isAnythingLoading
+                    isLoading = false
+                    enabled = true
                 |}
 
-        let responsiveFilter = ViewHelpers.responsiveFilter isMobile isAnythingLoading
+        let responsiveFilter = ViewHelpers.responsiveFilter isMobile
 
         // what the patient data misses for the dose rules, said above the selects while it
         // holds: no patient yet, or one without a weight or a height, measured or estimated, or
@@ -248,7 +208,7 @@ module Prescribe =
                     | OrderPlanView.NoPatient
                     | OrderPlanView.Changing _ -> true
 
-                let prescribeDisabled = isAnythingLoading || planBusy || inPlan
+                let prescribeDisabled = planBusy || inPlan
 
                 // the scenario selected, and the workbench narrowed to it and calculated
                 let handleEditClick () =
@@ -390,7 +350,6 @@ module Prescribe =
                         <CardActions>
                             <Button
                                 size="small"
-                                disabled={isAnythingLoading}
                                 onClick={handleEditClick}
                                 startIcon={Mui.Icons.CalculateIcon}
                             >{Edit |> getTerm "bewerken"}</Button>
@@ -407,31 +366,22 @@ module Prescribe =
 
         let stackDirection = if isMobile then "column" else "row"
 
-        // the spinner lies over the scenarios and takes no room, so they stay where they are
-        // while the order context reloads
         let scenarios =
-            let list =
-                JSX.jsx
-                    $"""
-                import Stack from '@mui/material/Stack';
-                <Stack direction="column" spacing={1} >
-                    {match orderContext with
-                     | OrderContextView.Settled pr
-                     | OrderContextView.Refused(pr, _)
-                     | OrderContextView.Changing pr ->
-                         pr.Scenarios
-                         |> Array.map (displayScenario pr pr.Filter.Generic)
-                         |> unbox<seq<ReactElement>>
-                         |> React.Fragment
-                     | OrderContextView.NoPatient -> Seq.empty<ReactElement> |> React.Fragment}
-                </Stack>
-                """
-
-            Components.LoadingOverlay.View
-                {|
-                    isLoading = isAnythingLoading
-                    children = list
-                |}
+            JSX.jsx
+                $"""
+            import Stack from '@mui/material/Stack';
+            <Stack direction="column" spacing={1} >
+                {match orderContext with
+                 | OrderContextView.Settled pr
+                 | OrderContextView.Refused(pr, _)
+                 | OrderContextView.Changing pr ->
+                     pr.Scenarios
+                     |> Array.map (displayScenario pr pr.Filter.Generic)
+                     |> unbox<seq<ReactElement>>
+                     |> React.Fragment
+                 | OrderContextView.NoPatient -> Seq.empty<ReactElement> |> React.Fragment}
+            </Stack>
+            """
 
         let cards =
             JSX.jsx
@@ -451,10 +401,9 @@ module Prescribe =
                      | OrderContextView.Changing pr -> pr.Filter.Indication, pr.Filter.Indications
                      | OrderContextView.NoPatient -> None, [||]
                      |> fun (sel, items) ->
-                         let isLoading = isSourceLoading IndicationLoading
                          let lbl = Terms.``Prescribe Indications`` |> getTerm "Indicaties"
 
-                         items |> responsiveFilter isLoading lbl sel indicationChange}
+                         items |> responsiveFilter lbl sel indicationChange}
                     <Stack direction={stackDirection} spacing={if isMobile then 1 else 3} >
                         {match orderContext with
                          | OrderContextView.Settled pr
@@ -462,10 +411,9 @@ module Prescribe =
                          | OrderContextView.Changing pr -> pr.Filter.Generic, pr.Filter.Generics
                          | OrderContextView.NoPatient -> None, [||]
                          |> fun (sel, items) ->
-                             let isLoading = isSourceLoading MedicationLoading
                              let lbl = Terms.``Prescribe Medications`` |> getTerm "Medicatie"
 
-                             items |> responsiveFilter isLoading lbl sel medicationChange
+                             items |> responsiveFilter lbl sel medicationChange
 
                 }
                         {match orderContext with
@@ -474,10 +422,9 @@ module Prescribe =
                          | OrderContextView.Changing pr -> pr.Filter.Route, pr.Filter.Routes
                          | OrderContextView.NoPatient -> None, [||]
                          |> fun (sel, items) ->
-                             let isLoading = isSourceLoading RouteLoading
                              let lbl = Terms.``Prescribe Routes`` |> getTerm "Routes"
 
-                             items |> responsiveFilter isLoading lbl sel routeChange
+                             items |> responsiveFilter lbl sel routeChange
 
                 }
                         {match orderContext with
@@ -490,15 +437,14 @@ module Prescribe =
                              ctx.Filter.Form, ctx.Filter.Forms
                          | _ -> None, [||]
                          |> fun (sel, items) ->
-                             let isLoading = isSourceLoading FormLoading
                              let lbl = Terms.Form |> getTerm "Vorm"
 
                              if items |> Array.isEmpty then
                                  null
                              else if isMobile then
-                                 items |> Array.map (fun s -> s, s) |> select isLoading lbl sel formChange
+                                 items |> Array.map (fun s -> s, s) |> select lbl sel formChange
                              else
-                                 items |> Array.map (fun s -> s, s) |> select isLoading lbl sel formChange}
+                                 items |> Array.map (fun s -> s, s) |> select lbl sel formChange}
                         {match orderContext with
                          | OrderContextView.Settled pr
                          | OrderContextView.Refused(pr, _)
@@ -510,12 +456,11 @@ module Prescribe =
                              && pr.Scenarios |> Array.length = 1
                              ->
 
-                             let isLoading = isSourceLoading DiluentLoading
                              let sel = pr.Filter.Diluent
                              let items = pr.Filter.Diluents
                              let lbl = Terms.Diluent |> getTerm "Verdunningsvorm"
 
-                             items |> Array.map (fun s -> s, s) |> select isLoading lbl sel diluentChange
+                             items |> Array.map (fun s -> s, s) |> select lbl sel diluentChange
 
                          | _ -> null}
                         {match orderContext with
@@ -529,7 +474,6 @@ module Prescribe =
                              && pr.Scenarios |> Array.length = 1
                              ->
 
-                             let isLoading = isSourceLoading ComponentsLoading
                              let items = pr.Filter.Components
                              let lbl = Terms.Components |> getTerm "Componenten"
 
@@ -539,9 +483,7 @@ module Prescribe =
                                  else
                                      pr.Filter.SelectedComponents
 
-                             items
-                             |> Array.map (fun s -> s, s)
-                             |> multiSelect isLoading lbl sel componentsChange
+                             items |> Array.map (fun s -> s, s) |> multiSelect lbl sel componentsChange
 
                          | _ -> null}
                         {match orderContext with
@@ -552,14 +494,13 @@ module Prescribe =
                              && pr.Filter.Generic.IsSome
                              && pr.Filter.Route.IsSome
                              ->
-                             let isLoading = isSourceLoading DoseTypeLoading
                              let sel = pr.Filter.DoseType |> Option.map DoseType.doseTypeToString
                              let items = pr.Filter.DoseTypes
                              let lbl = Terms.``Dose Types`` |> getTerm "Doseer types"
 
                              items
                              |> Array.map (fun s -> s |> DoseType.doseTypeToString, s |> DoseType.doseTypeToDescription)
-                             |> select isLoading lbl sel doseTypeChange
+                             |> select lbl sel doseTypeChange
 
                          | _ -> null}
                     </Stack>

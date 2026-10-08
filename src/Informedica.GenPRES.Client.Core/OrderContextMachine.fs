@@ -414,21 +414,6 @@ module OrderContextState =
     let dialog (state: OrderContextState) : OrderContextView option = state.Selected |> Option.map (fun _ -> view state)
 
 
-    /// What the page reads while the patient may be changing: during a patient change the context
-    /// held shows as a change under way, so that nothing is ordered for the patient being replaced.
-    let viewWhile (patient: PatientMachine.PatientState) (state: OrderContextState) =
-        match view state with
-        | OrderContextView.Settled ctx
-        | OrderContextView.Refused(ctx, _) when PatientMachine.PatientState.changing patient ->
-            OrderContextView.Changing ctx
-        | shown -> shown
-
-
-    /// The dialog's view while the patient may be changing; None while the dialog is closed.
-    let dialogWhile (patient: PatientMachine.PatientState) (state: OrderContextState) =
-        state.Selected |> Option.map (fun _ -> viewWhile patient state)
-
-
     /// What was sent, when the answer names the request under way; None otherwise, so an answer
     /// lands only on its own request.
     let landing (request: string) (inFlight: (OrderContextCommand * string) option) =

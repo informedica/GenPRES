@@ -82,16 +82,7 @@ module Parenteralia =
 
         let dispatch msg = msg |> update parenteralia updateParenteralia
 
-        // the filter is the workbench's: a change here is evaluated there, so the selects are
-        // greyed while a workbench request is under way
-        let busy =
-            match (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext with
-            | OrderContextView.Changing _ -> true
-            | OrderContextView.NoPatient
-            | OrderContextView.Refused _
-            | OrderContextView.Settled _ -> false
-
-        let responsiveFilter = ViewHelpers.responsiveFilter isMobile busy
+        let responsiveFilter = ViewHelpers.responsiveFilter isMobile
 
         let patientNotice =
             Components.PatientNotice.View
@@ -99,8 +90,6 @@ module Parenteralia =
                     appEnv = props.appEnv
                     needs = PatientReadiness.Needs.DoseCheck
                 |}
-
-        let progress = ViewHelpers.progressOrEmpty parenteralia
 
         let stackDirection = if isMobile then "column" else "row"
 
@@ -124,35 +113,31 @@ module Parenteralia =
                 </Typography>
                 <Stack direction={stackDirection} spacing={3} >
                     {match parenteralia with
-                     | Resolved par -> false, par.Generic, par.Generics
-                     | Refreshing par -> true, par.Generic, par.Generics
-                     | _ -> true, None, [||]
-                     |> fun (isLoading, sel, items) ->
+                     | Resolved par
+                     | Refreshing par -> par.Generic, par.Generics
+                     | _ -> None, [||]
+                     |> fun (sel, items) ->
                          items
-                         |> responsiveFilter
-                             isLoading
-                             (Terms.``Formulary Medications`` |> getTerm "Medicatie")
-                             sel
-                             (GenericChange >> dispatch)
+                         |> responsiveFilter (Terms.``Formulary Medications`` |> getTerm "Medicatie") sel (GenericChange >> dispatch)
 
                 }
                     {match parenteralia with
-                     | Resolved par -> false, par.Form, par.Forms
-                     | Refreshing par -> true, par.Form, par.Forms
-                     | _ -> true, None, [||]
-                     |> fun (isLoading, sel, items) ->
+                     | Resolved par
+                     | Refreshing par -> par.Form, par.Forms
+                     | _ -> None, [||]
+                     |> fun (sel, items) ->
                          if items |> Array.isEmpty then
                              null
                          else
                              items
-                             |> responsiveFilter isLoading (Terms.``Formulary Indications`` |> getTerm "Forms") sel (FormChange >> dispatch)}
+                             |> responsiveFilter (Terms.``Formulary Indications`` |> getTerm "Forms") sel (FormChange >> dispatch)}
                     {match parenteralia with
-                     | Resolved par -> false, par.Route, par.Routes
-                     | Refreshing par -> true, par.Route, par.Routes
-                     | _ -> true, None, [||]
-                     |> fun (isLoading, sel, items) ->
+                     | Resolved par
+                     | Refreshing par -> par.Route, par.Routes
+                     | _ -> None, [||]
+                     |> fun (sel, items) ->
                          items
-                         |> responsiveFilter isLoading (Terms.``Formulary Routes`` |> getTerm "Routes") sel (RouteChange >> dispatch)
+                         |> responsiveFilter (Terms.``Formulary Routes`` |> getTerm "Routes") sel (RouteChange >> dispatch)
 
                 }
 
@@ -190,6 +175,5 @@ module Parenteralia =
         <Box sx={ {| height = "100%" |} }>
                 {patientNotice}
                 {content}
-                {progress}
         </Box>
         """
