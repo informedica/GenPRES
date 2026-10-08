@@ -710,11 +710,15 @@ module SessionMachineTests =
                 "OpenVersion"
                 [
                     test "OpenVersion from Open calls the server with the token it starts from; elsewhere dropped" {
-                        transition (SessionMsg.OpenVersion "plan-2") (SessionState.opened full None)
-                        |> Expect.equal
-                            "call"
-                            (SessionState.opened full None,
-                             [ SessionEffect.CallOpenVersion("plan-2", full.OpenedToken) ])
+                        let opening, effects =
+                            transition (SessionMsg.OpenVersion "plan-2") (SessionState.opened full None)
+
+                        effects
+                        |> Expect.equal "call" [ SessionEffect.CallOpenVersion("plan-2", full.OpenedToken) ]
+
+                        opening
+                        |> SessionState.reopening
+                        |> Expect.equal "the open is out" (Some(SessionReopening.Open "plan-2"))
 
                         for state in [ SessionState.anonymous; SessionState.closing full ] do
                             transition (SessionMsg.OpenVersion "plan-2") state
@@ -781,10 +785,13 @@ module SessionMachineTests =
                     }
 
                     test "Refresh from Open calls the server with the token it starts from; elsewhere dropped" {
-                        transition SessionMsg.Refresh (SessionState.opened full None)
-                        |> Expect.equal
-                            "call"
-                            (SessionState.opened full None, [ SessionEffect.CallRefresh full.OpenedToken ])
+                        let refreshing, effects = transition SessionMsg.Refresh (SessionState.opened full None)
+
+                        effects |> Expect.equal "call" [ SessionEffect.CallRefresh full.OpenedToken ]
+
+                        refreshing
+                        |> SessionState.reopening
+                        |> Expect.equal "the refresh is out" (Some SessionReopening.Refresh)
 
                         for state in [ SessionState.anonymous; SessionState.closing full ] do
                             transition SessionMsg.Refresh state |> Expect.equal "dropped" (state, [])
@@ -830,6 +837,54 @@ module SessionMachineTests =
                             (SessionMsg.Refreshed(full.OpenedToken, Ok(Some reopened)))
                             (SessionState.opened newer None)
                         |> Expect.equal "stale: dropped" (SessionState.opened newer None, [])
+                    }
+
+                    test "A second Refresh or OpenVersion while one is out is dropped" {
+                        for first in [ SessionMsg.Refresh; SessionMsg.OpenVersion "plan-2" ] do
+                            let out, _ = transition first (SessionState.opened full None)
+
+                            for second in [ SessionMsg.Refresh; SessionMsg.OpenVersion "plan-3" ] do
+                                transition second out |> Expect.equal $"%A{first}, then %A{second}" (out, [])
+                    }
+
+                    test "A refresh out leaves the token to the requests meanwhile, and a notice keeps it out" {
+                        let refreshing, _ = transition SessionMsg.Refresh (SessionState.opened full None)
+
+                        refreshing |> SessionState.token |> Expect.equal "the token" full.OpenedToken
+                        refreshing |> SessionState.inFlight |> Expect.isFalse "no other request"
+
+                        transition (SessionMsg.Told(full.OpenedToken, RecordNotice.NewerVersion head.Head)) refreshing
+                        |> fst
+                        |> SessionState.reopening
+                        |> Expect.equal "still out" (Some SessionReopening.Refresh)
+                    }
+
+                    test "Every answer ends the refresh or the open: done, nothing, a failure or a stale token" {
+                        let newer = { full with OpenedToken = Some(OpenedToken "t-newer") }
+
+                        let cases =
+                            [
+                                SessionMsg.Refresh, SessionMsg.Refreshed(full.OpenedToken, Ok(Some reopened)), full
+                                SessionMsg.Refresh, SessionMsg.Refreshed(full.OpenedToken, Ok None), full
+                                SessionMsg.Refresh, SessionMsg.Refreshed(full.OpenedToken, Error "offline"), full
+                                SessionMsg.Refresh, SessionMsg.Refreshed(full.OpenedToken, Ok None), newer
+                                SessionMsg.OpenVersion "plan-2",
+                                SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened)),
+                                full
+                                SessionMsg.OpenVersion "plan-2", SessionMsg.Reopened(full.OpenedToken, Ok None), full
+                                SessionMsg.OpenVersion "plan-2",
+                                SessionMsg.Reopened(full.OpenedToken, Error "offline"),
+                                full
+                                SessionMsg.OpenVersion "plan-2", SessionMsg.Reopened(full.OpenedToken, Ok None), newer
+                            ]
+
+                        for ask, answer, session in cases do
+                            let out, _ = transition ask (SessionState.opened session None)
+
+                            transition answer out
+                            |> fst
+                            |> SessionState.reopening
+                            |> Expect.isNone $"%A{answer} on %A{session.OpenedToken}"
                     }
 
                     test "Reopened lands only on the open Session that still holds the token it started from" {

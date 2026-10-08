@@ -34,6 +34,10 @@ module TitleBar =
 
         let session = AppEnv.asEnv<AppEnv.ISession> props.appEnv
 
+        // the hospital, the language, the login and the session change what every request reads:
+        // they wait while anything is out
+        let busy = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Any
+
         let anchorElSession, setAnchorElSession = React.useState None
 
         let handleOpenSessionMenu = fun ev -> ev?currentTarget |> setAnchorElSession
@@ -51,7 +55,12 @@ module TitleBar =
 
         let anchorElLang, setAnchorElLang = React.useState None
 
-        let handleOpenLangMenu = fun ev -> ev?currentTarget |> setAnchorElLang
+        // the language label beside the disabled icon button opens the menu too, so the handler
+        // checks as well
+        let handleOpenLangMenu =
+            fun ev ->
+                if not busy then
+                    ev?currentTarget |> setAnchorElLang
         let handleCloseLangMenu = fun _ -> setAnchorElLang None
 
         // Login dialog state
@@ -260,11 +269,11 @@ module TitleBar =
             | UserRole.Prescriber -> tr Terms.``Session Role Prescriber``
             | UserRole.Reader -> tr Terms.``Session Role Reader``
 
-        // the open Session with a user, and whether it is closing; nothing for anonymous use
+        // the open Session with a user; nothing for anonymous use
         let openSession =
             match session.Session with
-            | SessionView.Open opened when opened.User.IsSome -> Some(opened, false)
-            | SessionView.Closing opened when opened.User.IsSome -> Some(opened, true)
+            | SessionView.Open opened
+            | SessionView.Closing opened when opened.User.IsSome -> Some opened
             | SessionView.Open _
             | SessionView.Closing _
             | SessionView.Anonymous
@@ -282,7 +291,7 @@ module TitleBar =
         // middle of the toolbar, in that order, for a Reader as for a Prescriber
         let patientView =
             openSession
-            |> Option.bind (fun (opened, _) ->
+            |> Option.bind (fun opened ->
                 opened.PatientContext
                 |> Option.bind (fun context ->
                     context.Identity
@@ -302,7 +311,7 @@ module TitleBar =
 
         // who is in this Session, next to the hospital
         let sessionView =
-            let userOf (opened: SessionOpened) closing =
+            let userOf (opened: SessionOpened) =
                 opened.User
                 |> Option.map (fun user ->
                     let label = $"{user.DisplayName} ({roleName user.Role})"
@@ -314,6 +323,7 @@ module TitleBar =
                             color="inherit"
                             startIcon={Mui.Icons.Person}
                             onClick={handleOpenSessionMenu}
+                            disabled={busy}
                             aria-haspopup="menu"
                             aria-expanded={anchorElSession.IsSome}
                             title={label}
@@ -329,7 +339,7 @@ module TitleBar =
                             open={anchorElSession.IsSome}
                             onClose={handleCloseSessionMenu}
                         >
-                            <MenuItem onClick={handleCloseSession} disabled={closing}>
+                            <MenuItem onClick={handleCloseSession} disabled={busy}>
                                 <Typography>{tr Terms.``Session Close``}</Typography>
                             </MenuItem>
                         </Menu>
@@ -337,9 +347,7 @@ module TitleBar =
                     """
                 )
 
-            openSession
-            |> Option.bind (fun (opened, closing) -> userOf opened closing)
-            |> Option.defaultValue null
+            openSession |> Option.bind userOf |> Option.defaultValue null
 
         JSX.jsx
             $"""
@@ -382,7 +390,7 @@ module TitleBar =
                     </Box>
                     <Box sx={sxRightBox}>
                         <Box sx={ {| paddingLeft = 1 |} }>
-                            <IconButton color="inherit" onClick={handleOpenHospMenu}>
+                            <IconButton color="inherit" onClick={handleOpenHospMenu} disabled={busy}>
                                 {Mui.Icons.LocalHospital}
                             </IconButton>
                             <Menu
@@ -403,7 +411,7 @@ module TitleBar =
                         {sessionView}
     
                         <Box sx={sxLangBox}>
-                            <IconButton color="inherit" onClick={handleOpenLangMenu}>
+                            <IconButton color="inherit" onClick={handleOpenLangMenu} disabled={busy}>
                                 {Mui.Icons.Language}
                             </IconButton>
                             <Typography variant="body1" component="div" sx={sxLangLabel} onClick={handleOpenLangMenu}>
@@ -421,7 +429,14 @@ module TitleBar =
                                 {menuItems}
                             </Menu>
                         </Box>
-                        <Button color="inherit" onClick={handleLoginClick} startIcon={loginButtonIcon} sx={loginButtonSx}>{loginButtonText}</Button>
+                        <Button
+                            color="inherit"
+                            onClick={handleLoginClick}
+                            startIcon={loginButtonIcon}
+                            sx={loginButtonSx}
+                            disabled={busy}>
+                            {loginButtonText}
+                        </Button>
                     </Box>
                 </Toolbar>
             </AppBar>

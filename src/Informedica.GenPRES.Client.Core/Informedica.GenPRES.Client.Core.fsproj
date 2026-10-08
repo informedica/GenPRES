@@ -13,6 +13,7 @@
     <Compile Include="Deferred.fs" />
     <Compile Include="FilterSync.fs" />
     <Compile Include="TermText.fs" />
+    <Compile Include="Page.fs" />
 
     <!-- policies over the contract alone -->
     <Compile Include="LanguagePolicy.fs" />
@@ -49,6 +50,9 @@
     <!-- the order machines -->
     <Compile Include="OrderPlanMachine.fs" />
     <Compile Include="OrderContextMachine.fs" />
+
+    <!-- what is out, and what it disables -->
+    <Compile Include="Busy.fs" />
 
     <!-- the readable trail of the machines, for development -->
     <Compile Include="Trail.fs" />

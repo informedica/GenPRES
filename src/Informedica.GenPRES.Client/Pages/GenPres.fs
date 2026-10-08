@@ -35,15 +35,15 @@ module GenPres =
 
         let pages =
             [
-                LifeSupport
-                ContinuousMeds
-                Prescribe
-                Nutrition
-                OrderPlan
-                Interactions
-                Formulary
-                Parenteralia
-                Settings
+                Global.Pages.LifeSupport
+                Global.Pages.ContinuousMeds
+                Global.Pages.Prescribe
+                Global.Pages.Nutrition
+                Global.Pages.OrderPlan
+                Global.Pages.Interactions
+                Global.Pages.Formulary
+                Global.Pages.Parenteralia
+                Global.Pages.Settings
             ]
 
 
@@ -57,15 +57,16 @@ module GenPres =
                             let b = p = page
 
                             match p |> pageToString terms lang with
-                            | s when p = LifeSupport -> Mui.Icons.FireExtinguisher |> Some, s, b, None, false
-                            | s when p = ContinuousMeds -> Mui.Icons.Vaccines |> Some, s, b, None, false
-                            | s when p = Prescribe -> Mui.Icons.Message |> Some, s, b, None, false
-                            | s when p = Nutrition -> Mui.Icons.LocalDiningIcon |> Some, s, b, None, false
-                            | s when p = OrderPlan -> Mui.Icons.SummarizeIcon |> Some, s, b, None, false
-                            | s when p = Interactions -> Mui.Icons.WarningAmber |> Some, s, b, None, false
-                            | s when p = Formulary -> Mui.Icons.LocalPharmacy |> Some, s, b, None, false
-                            | s when p = Parenteralia -> Mui.Icons.Bloodtype |> Some, s, b, None, false
-                            | s when p = Settings -> Mui.Icons.Settings |> Some, s, b, None, false
+                            | s when p = Global.Pages.LifeSupport ->
+                                Mui.Icons.FireExtinguisher |> Some, s, b, None, false
+                            | s when p = Global.Pages.ContinuousMeds -> Mui.Icons.Vaccines |> Some, s, b, None, false
+                            | s when p = Global.Pages.Prescribe -> Mui.Icons.Message |> Some, s, b, None, false
+                            | s when p = Global.Pages.Nutrition -> Mui.Icons.LocalDiningIcon |> Some, s, b, None, false
+                            | s when p = Global.Pages.OrderPlan -> Mui.Icons.SummarizeIcon |> Some, s, b, None, false
+                            | s when p = Global.Pages.Interactions -> Mui.Icons.WarningAmber |> Some, s, b, None, false
+                            | s when p = Global.Pages.Formulary -> Mui.Icons.LocalPharmacy |> Some, s, b, None, false
+                            | s when p = Global.Pages.Parenteralia -> Mui.Icons.Bloodtype |> Some, s, b, None, false
+                            | s when p = Global.Pages.Settings -> Mui.Icons.Settings |> Some, s, b, None, false
                             | s -> None, s, b, None, false
                         )
 
@@ -86,7 +87,7 @@ module GenPres =
                 |> List.map (fun p -> p |> pageToString terms lang, p)
                 |> List.tryFind (fst >> ((=) s))
                 |> Option.map snd
-                |> Option.defaultValue LifeSupport
+                |> Option.defaultValue Global.Pages.LifeSupport
                 |> updatePage
 
                 { state with
@@ -131,6 +132,7 @@ module GenPres =
         let orderContext = (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext
         let orderPlan = (AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv).OrderPlan
         let auth = AppEnv.asEnv<AppEnv.IAuthentication> props.appEnv
+        let busy = AppEnv.asEnv<AppEnv.IBusy> props.appEnv
 
         let updatePageRef = React.useRef props.updatePage
         updatePageRef.current <- props.updatePage
@@ -223,17 +225,18 @@ module GenPres =
         let formularyIndex = pages |> List.tryFindIndex ((=) Global.Pages.Formulary)
         let settingsIndex = pages |> List.tryFindIndex ((=) Global.Pages.Settings)
 
+        // no page switch while anything is out
         let menuItems =
             state.SideMenuItems
             |> Array.mapi (fun idx (icon, text, sel, _, _) ->
                 if Some idx = interactionsIndex && hasInteractions then
-                    icon, text, sel, Some Mui.Styles.warningBg, false
+                    icon, text, sel, Some Mui.Styles.warningBg, busy.Any
                 elif Some idx = formularyIndex && formularyBg |> Option.isSome then
-                    icon, text, sel, formularyBg, false
+                    icon, text, sel, formularyBg, busy.Any
                 elif Some idx = settingsIndex && not auth.IsAuthenticated then
                     icon, text, false, None, true
                 else
-                    icon, text, sel, None, false
+                    icon, text, sel, None, busy.Any
             )
 
         let sideMenu =
@@ -259,23 +262,8 @@ module GenPres =
             | Global.Pages.Parenteralia -> Views.Parenteralia.View appEnvProps
             | Global.Pages.Settings -> Views.Settings.View appEnvProps
 
-        let isLoading deferred =
-            match deferred with
-            | InProgress
-            | Refreshing _ -> true
-            | HasNotStartedYet
-            | Resolved _ -> false
-
-        // a list item seeds the workbench, so the list pages are disabled while a workbench
-        // request is under way; the formulary and parenteralia pages while their own load runs
-        let pageDisabled =
-            match props.page, orderContext with
-            | Global.Pages.LifeSupport, OrderContextView.Changing _
-            | Global.Pages.ContinuousMeds, OrderContextView.Changing _ -> true
-            | Global.Pages.Formulary, _ -> (AppEnv.asEnv<AppEnv.IFormulary> props.appEnv).Formulary |> isLoading
-            | Global.Pages.Parenteralia, _ ->
-                (AppEnv.asEnv<AppEnv.IParenteralia> props.appEnv).Parenteralia |> isLoading
-            | _ -> false
+        // the page is disabled as a whole while a request out can change anything on it
+        let pageDisabled = busy.Page props.page
 
         // the page box scrolls, so the disable lies around it and its spinner stays in view
         let disabledPage =
