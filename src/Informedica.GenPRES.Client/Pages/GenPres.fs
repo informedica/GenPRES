@@ -259,12 +259,22 @@ module GenPres =
             | Global.Pages.Parenteralia -> Views.Parenteralia.View appEnvProps
             | Global.Pages.Settings -> Views.Settings.View appEnvProps
 
+        let isLoading deferred =
+            match deferred with
+            | InProgress
+            | Refreshing _ -> true
+            | HasNotStartedYet
+            | Resolved _ -> false
+
         // a list item seeds the workbench, so the list pages are disabled while a workbench
-        // request is under way
+        // request is under way; the formulary and parenteralia pages while their own load runs
         let pageDisabled =
             match props.page, orderContext with
             | Global.Pages.LifeSupport, OrderContextView.Changing _
             | Global.Pages.ContinuousMeds, OrderContextView.Changing _ -> true
+            | Global.Pages.Formulary, _ -> (AppEnv.asEnv<AppEnv.IFormulary> props.appEnv).Formulary |> isLoading
+            | Global.Pages.Parenteralia, _ ->
+                (AppEnv.asEnv<AppEnv.IParenteralia> props.appEnv).Parenteralia |> isLoading
             | _ -> false
 
         // the page box scrolls, so the disable lies around it and its spinner stays in view

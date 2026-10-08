@@ -67,22 +67,16 @@ type OrderContextWorkbenchMsg =
 /// What the workbench stage asks of the request stage, which turns it into calls and effects.
 [<RequireQualifiedAccess>]
 type OrderContextWorkbenchIntent =
-    /// Open an empty workbench for the patient; replaces any request. The formulary and
-    /// parenteralia pages load for the patient themselves.
+    /// Open an empty workbench for the patient; replaces any request.
     | Open of Patient
-    /// Send the seed over the context and put the filter it gives on the formulary and
-    /// parenteralia pages; replaces any request.
+    /// Send the seed over the context; replaces any request.
     | SeedFilter of FilterSeed * OrderContext
-    /// Clear the context's filter and put the cleared filter on the formulary and parenteralia
-    /// pages; replaces any request.
+    /// Clear the context's filter; replaces any request.
     | Clear of OrderContext
-    /// Evaluate the context again for the patient changed, and put its filter on the formulary and
-    /// parenteralia pages; replaces any request.
+    /// Evaluate the context again for the patient changed; replaces any request.
     | PatientChanged of Patient * OrderContext
     /// Send a command over the context; one at a time.
     | Call of OrderViewCommand * OrderContext
-    /// Put the filter on the formulary and parenteralia pages.
-    | Sync of Filter
     /// Tell the user what went wrong.
     | Tell of string[]
 
@@ -95,7 +89,7 @@ module OrderContextWorkbench =
 
 
     /// Whether the command changes the filter, so that the formulary and parenteralia pages follow
-    /// it: a pick or a clear of the filter, the diluent or the components, or a seed.
+    /// its answer: a pick or a clear of the filter, the diluent or the components, or a seed.
     let changesFilter (cmd: OrderViewCommand) =
         match cmd with
         | OrderViewCommand.SetNthFilterProperty _
@@ -116,14 +110,10 @@ module OrderContextWorkbench =
         | OrderContextCommand.UpdatePatient(pat, ctx) -> { ctx with Patient = pat }
 
 
-    /// After a failed change: the context as it was, with the formulary and parenteralia pages put
-    /// back on its filter.
+    /// After a failed change: the context as it was, told. The formulary and parenteralia pages
+    /// still show its filter, since they follow an answer only.
     let private restore (pat: Patient) (ctx: OrderContext) (errs: string[]) =
-        OrderContextWorkbench.Evaluated(pat, ctx),
-        [
-            OrderContextWorkbenchIntent.Tell errs
-            OrderContextWorkbenchIntent.Sync ctx.Filter
-        ]
+        OrderContextWorkbench.Evaluated(pat, ctx), [ OrderContextWorkbenchIntent.Tell errs ]
 
 
     /// After a refusal: the context as sent, with its picks kept and its scenarios dropped. The
@@ -241,10 +231,8 @@ type OrderContextEffect =
     | CallContext of OrderViewCommand * OrderContext * request: string
     /// Send the patient change over the context under this request id.
     | CallPatientChanged of Patient * OrderContext * request: string
-    /// Put the filter on the formulary page.
-    | SyncFormulary of Filter
-    /// Put the filter on the parenteralia page.
-    | SyncParenteralia of Filter
+    /// Put the filter on the formulary and parenteralia pages.
+    | SyncPages of Filter
     /// Tell the user what went wrong.
     | TellError of string[]
 
@@ -364,6 +352,15 @@ module OrderContextState =
         | OrderContextWorkbench.Evaluated(_, ctx), None -> Some ctx
 
 
+    /// The context the workbench holds, also while a request is under way: the last one answered,
+    /// or the empty one after a reset and during the first evaluation, which a failure goes back
+    /// to. None without a patient.
+    let answered (state: OrderContextState) =
+        match state.Workbench with
+        | OrderContextWorkbench.NoPatient _ -> None
+        | OrderContextWorkbench.Evaluated(_, ctx) -> Some ctx
+
+
     /// What the page reads.
     let view (state: OrderContextState) : OrderContextView =
         match state.Workbench, state.InFlight, state.Refusal with
@@ -422,19 +419,28 @@ module OrderContextState =
         | _ -> None
 
 
+    /// The filter the formulary and parenteralia pages take from an answer: the filter of the
+    /// context answered, evaluated or refused, when the request sent changed the filter or updated
+    /// the patient; None for any other request, so a dose step fetches neither page, and for a
+    /// failure, which leaves the pages as they were.
+    let synced sent result =
+        let follows =
+            match sent with
+            | OrderContextCommand.Command(cmd, _) -> OrderContextWorkbench.changesFilter cmd
+            | OrderContextCommand.UpdatePatient _ -> true
+
+        match result with
+        | Ok(OrderContextResponse.Evaluated ctx)
+        | Ok(OrderContextResponse.Refused(ctx, _)) when follows -> Some ctx.Filter
+        | _ -> None
+
+
     /// The request stage: each intent becomes a request under the given id or an effect. A call
     /// while a request is under way is dropped; an evaluation replaces it.
     let private apply (request: string) (intents: OrderContextWorkbenchIntent list) (state: OrderContextState) =
-        // a filter command syncs the other pages to the filter as the command changes it
-        let evaluate (cmd: OrderViewCommand) (ctx: OrderContext) (state: OrderContextState) =
-            let filter = (OrderPlanMachine.Dialog.shown cmd ctx).Filter
-
+        let call (cmd: OrderViewCommand) (ctx: OrderContext) (state: OrderContextState) =
             { state with InFlight = Some(OrderContextCommand.Command(cmd, ctx), request) },
-            [
-                OrderContextEffect.CallContext(cmd, ctx, request)
-                OrderContextEffect.SyncFormulary filter
-                OrderContextEffect.SyncParenteralia filter
-            ]
+            [ OrderContextEffect.CallContext(cmd, ctx, request) ]
 
         intents
         |> List.fold
@@ -442,41 +448,15 @@ module OrderContextState =
                 let state, added =
                     match intent with
                     | OrderContextWorkbenchIntent.Open pat ->
-                        let ctx = OrderContextWorkbench.emptyFor pat
-
-                        { state with
-                            InFlight =
-                                Some(
-                                    OrderContextCommand.Command(OrderViewCommand.ClearAllFilterProperty, ctx),
-                                    request
-                                )
-                        },
-                        [
-                            OrderContextEffect.CallContext(OrderViewCommand.ClearAllFilterProperty, ctx, request)
-                        ]
-                    | OrderContextWorkbenchIntent.SeedFilter(seed, ctx) -> evaluate (FilterSeed.command seed) ctx state
-                    | OrderContextWorkbenchIntent.Clear ctx ->
-                        evaluate OrderViewCommand.ClearAllFilterProperty ctx state
+                        call OrderViewCommand.ClearAllFilterProperty (OrderContextWorkbench.emptyFor pat) state
+                    | OrderContextWorkbenchIntent.SeedFilter(seed, ctx) -> call (FilterSeed.command seed) ctx state
+                    | OrderContextWorkbenchIntent.Clear ctx -> call OrderViewCommand.ClearAllFilterProperty ctx state
                     // shown meanwhile as the context evaluated for the new patient
                     | OrderContextWorkbenchIntent.PatientChanged(pat, ctx) ->
                         { state with InFlight = Some(OrderContextCommand.UpdatePatient(pat, ctx), request) },
-                        [
-                            OrderContextEffect.CallPatientChanged(pat, ctx, request)
-                            OrderContextEffect.SyncFormulary ctx.Filter
-                            OrderContextEffect.SyncParenteralia ctx.Filter
-                        ]
+                        [ OrderContextEffect.CallPatientChanged(pat, ctx, request) ]
                     | OrderContextWorkbenchIntent.Call _ when state.InFlight.IsSome -> state, []
-                    | OrderContextWorkbenchIntent.Call(cmd, ctx) when OrderContextWorkbench.changesFilter cmd ->
-                        evaluate cmd ctx state
-                    | OrderContextWorkbenchIntent.Call(cmd, ctx) ->
-                        { state with InFlight = Some(OrderContextCommand.Command(cmd, ctx), request) },
-                        [ OrderContextEffect.CallContext(cmd, ctx, request) ]
-                    | OrderContextWorkbenchIntent.Sync filter ->
-                        state,
-                        [
-                            OrderContextEffect.SyncFormulary filter
-                            OrderContextEffect.SyncParenteralia filter
-                        ]
+                    | OrderContextWorkbenchIntent.Call(cmd, ctx) -> call cmd ctx state
                     | OrderContextWorkbenchIntent.Tell errs -> state, [ OrderContextEffect.TellError errs ]
 
                 state, effects @ added
@@ -530,11 +510,18 @@ module OrderContextState =
     /// The next state and effects for a message, a reopen and a restore aside.
     let private move (msg: OrderContextMsg) (state: OrderContextState) : OrderContextState * OrderContextEffect list =
         match msg, state.Workbench, state.InFlight with
-        // only an answer to the request under way reaches the workbench
+        // only an answer to the request under way reaches the workbench; the formulary and
+        // parenteralia pages follow the answer, not the request
         | OrderContextMsg.Answered(request, result), _, _ ->
             match landing request state.InFlight with
             | None -> state, []
-            | Some sent -> run request (OrderContextWorkbenchMsg.Landed(sent, result)) { state with InFlight = None }
+            | Some sent ->
+                let landed, effects =
+                    run request (OrderContextWorkbenchMsg.Landed(sent, result)) { state with InFlight = None }
+
+                landed,
+                effects
+                @ (synced sent result |> Option.map OrderContextEffect.SyncPages |> Option.toList)
 
         // the selection needs no request
         | OrderContextMsg.Select id, _, _ -> select id state, []

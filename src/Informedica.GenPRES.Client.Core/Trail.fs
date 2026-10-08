@@ -596,8 +596,7 @@ module OrderContext =
             $"CallContext %s{command Part.contextId cmd ctx} %s{Part.shortId request}"
         | OrderContextEffect.CallPatientChanged(_, ctx, request) ->
             $"CallPatientChanged %s{Part.contextId ctx} %s{Part.shortId request}"
-        | OrderContextEffect.SyncFormulary _ -> "SyncFormulary"
-        | OrderContextEffect.SyncParenteralia _ -> "SyncParenteralia"
+        | OrderContextEffect.SyncPages _ -> "SyncPages"
         | OrderContextEffect.TellError _ -> "TellError"
 
 

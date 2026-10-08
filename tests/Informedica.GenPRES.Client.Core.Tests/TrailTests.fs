@@ -97,7 +97,7 @@ let tests =
                 |> Trail.format
                 |> Expect.equal
                     "the line"
-                    "#3 10:41:07.311 OrderContext SeedFilter url 3 choices r-1 -> CallContext SeedFilter url 3 choices workbench r-1, SyncFormulary, SyncParenteralia | Changing workbench awaits r-1"
+                    "#3 10:41:07.311 OrderContext SeedFilter url 3 choices r-1 -> CallContext SeedFilter url 3 choices workbench r-1 | Changing workbench awaits r-1"
             }
 
             test "a step without effects says none" {
@@ -328,9 +328,9 @@ let exampleTests =
             "the lines"
             [
                 "#1 10:41:08.311 OrderContext PatientChanged patient 3.0 y 14.0 kg no height gender unknown r-1 -> CallContext ClearAllFilterProperty workbench r-1 | Changing workbench awaits r-1"
-                "#2 10:41:09.311 OrderContext Answered r-1 Ok Evaluated workbench no picks 0 scenarios -> none | Settled workbench"
-                "#3 10:41:10.311 OrderContext Command SetNthFilterProperty Generic nth=0 r-2 -> CallContext SetNthFilterProperty Generic nth=0 workbench r-2, SyncFormulary, SyncParenteralia | Changing workbench awaits r-2"
-                "#4 10:41:11.311 OrderContext Answered r-2 Ok Refused ctx-1 pain/paracetamol/oral 0 scenarios NoProducts -> none | Refused ctx-1 NoProducts"
+                "#2 10:41:09.311 OrderContext Answered r-1 Ok Evaluated workbench no picks 0 scenarios -> SyncPages | Settled workbench"
+                "#3 10:41:10.311 OrderContext Command SetNthFilterProperty Generic nth=0 r-2 -> CallContext SetNthFilterProperty Generic nth=0 workbench r-2 | Changing workbench awaits r-2"
+                "#4 10:41:11.311 OrderContext Answered r-2 Ok Refused ctx-1 pain/paracetamol/oral 0 scenarios NoProducts -> SyncPages | Refused ctx-1 NoProducts"
             ]
     }
 

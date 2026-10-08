@@ -85,7 +85,12 @@ module private Elmish =
             // what the server was configured with: the default language, the demo flag
             Settings: Deferred<Api.ServerSettings>
             Formulary: Deferred<Formulary>
+            // a workbench filter met a formulary load under way: the page is asked again once
+            // that load has landed and is shown
+            FormularyAskAgain: bool
             Parenteralia: Deferred<Parenteralia>
+            // the same for the parenteralia page
+            ParenteraliaAskAgain: bool
             Interactions: Deferred<DrugInteraction[]>
             // the number of the interaction check under way; an answer to an earlier check is
             // dropped, so it can neither replace the rows nor clear the error of a later one
@@ -637,7 +642,9 @@ module private Elmish =
                     Hospitals = HasNotStartedYet
                     Settings = HasNotStartedYet
                     Formulary = HasNotStartedYet
+                    FormularyAskAgain = false
                     Parenteralia = HasNotStartedYet
+                    ParenteraliaAskAgain = false
                     Interactions = HasNotStartedYet
                     InteractionCheck = 0
                     InteractionDrugNames = HasNotStartedYet
@@ -787,6 +794,64 @@ module private Elmish =
     /// A successful answer of source: the banner goes when that source raised it.
     let clearError source (state: State, cmd) =
         { state with Ui.ServerError = state.Ui.ServerError |> ServerErrorPolicy.clearedBy source }, cmd
+
+
+    /// The workbench filter put on the formulary page and the page loaded for it. While a load of
+    /// the page runs, the page is only marked, and asked again once that load has landed.
+    let syncFormulary filter (state: State) =
+        match state.Fetches.Formulary with
+        | InProgress
+        | Refreshing _ -> { state with Fetches.FormularyAskAgain = true }, Cmd.none
+        | HasNotStartedYet
+        | Resolved _ ->
+            { state with
+                Fetches.Formulary =
+                    state.Fetches.Formulary
+                    |> Deferred.defaultValue Formulary.empty
+                    |> FilterSync.syncFilterToFormulary filter
+                    |> Resolved
+            },
+            Cmd.ofMsg (LoadFormulary Started)
+
+
+    /// The workbench filter put on the parenteralia page and the page loaded for it, or the page
+    /// marked while a load of it runs.
+    let syncParenteralia filter (state: State) =
+        match state.Fetches.Parenteralia with
+        | InProgress
+        | Refreshing _ -> { state with Fetches.ParenteraliaAskAgain = true }, Cmd.none
+        | HasNotStartedYet
+        | Resolved _ ->
+            { state with
+                Fetches.Parenteralia =
+                    state.Fetches.Parenteralia
+                    |> Deferred.defaultValue Parenteralia.empty
+                    |> FilterSync.syncFilterToParenteralia filter
+                    |> Resolved
+            },
+            Cmd.ofMsg (LoadParenteralia Started)
+
+
+    /// After a formulary load landed and its answer is shown: asked again with the filter the
+    /// workbench last answered, when a workbench filter met that load.
+    let askFormularyAgain (state: State, cmd) =
+        match state.Fetches.FormularyAskAgain, state.Lanes.OrderContext |> OrderContextState.answered with
+        | true, Some ctx ->
+            let state, again = syncFormulary ctx.Filter { state with Fetches.FormularyAskAgain = false }
+            state, Cmd.batch [ cmd; again ]
+        | true, None -> { state with Fetches.FormularyAskAgain = false }, cmd
+        | false, _ -> state, cmd
+
+
+    /// After a parenteralia load landed and its answer is shown: asked again with the filter the
+    /// workbench last answered, when a workbench filter met that load.
+    let askParenteraliaAgain (state: State, cmd) =
+        match state.Fetches.ParenteraliaAskAgain, state.Lanes.OrderContext |> OrderContextState.answered with
+        | true, Some ctx ->
+            let state, again = syncParenteralia ctx.Filter { state with Fetches.ParenteraliaAskAgain = false }
+            state, Cmd.batch [ cmd; again ]
+        | true, None -> { state with Fetches.ParenteraliaAskAgain = false }, cmd
+        | false, _ -> state, cmd
 
 
     /// A sentence on the snackbar, in the severity it is said with.
@@ -1095,20 +1160,10 @@ module private Elmish =
             state, callContext (Api.OrderContextCommand.Command(cmd, ctx)) request state
         | OrderContextEffect.CallPatientChanged(pat, ctx, request) ->
             state, callContext (Api.OrderContextCommand.UpdatePatient(pat, ctx)) request state
-        | OrderContextEffect.SyncFormulary filter ->
-            { state with
-                Fetches.Formulary =
-                    state.Fetches.Formulary
-                    |> Deferred.map (FilterSync.syncFilterToFormulary filter)
-            },
-            Cmd.ofMsg (LoadFormulary Started)
-        | OrderContextEffect.SyncParenteralia filter ->
-            { state with
-                Fetches.Parenteralia =
-                    state.Fetches.Parenteralia
-                    |> Deferred.map (FilterSync.syncFilterToParenteralia filter)
-            },
-            Cmd.ofMsg (LoadParenteralia Started)
+        | OrderContextEffect.SyncPages filter ->
+            let state, formCmd = syncFormulary filter state
+            let state, parCmd = syncParenteralia filter state
+            state, Cmd.batch [ formCmd; parCmd ]
         | OrderContextEffect.TellError errs ->
             Logging.warning "order context error" errs
 
@@ -1785,6 +1840,7 @@ module private Elmish =
                     state
             processApiMsg state msg applyFormulary
             |> clearError ServerErrorPolicy.ErrorSource.Formulary
+            |> askFormularyAgain
 
         | LoadFormulary(Finished(Error err)) ->
             let state =
@@ -1794,6 +1850,7 @@ module private Elmish =
                     state
             ({ state with Fetches.Formulary = HasNotStartedYet }, Cmd.none)
             |> processError ServerErrorPolicy.ErrorSource.Formulary err
+            |> askFormularyAgain
 
         | UpdateFormulary form ->
             let state =
@@ -1841,10 +1898,12 @@ module private Elmish =
         | LoadParenteralia(Finished(Ok msg)) ->
             processApiMsg state msg applyParenteralia
             |> clearError ServerErrorPolicy.ErrorSource.Parenteralia
+            |> askParenteraliaAgain
 
         | LoadParenteralia(Finished(Error err)) ->
             ({ state with Fetches.Parenteralia = HasNotStartedYet }, Cmd.none)
             |> processError ServerErrorPolicy.ErrorSource.Parenteralia err
+            |> askParenteraliaAgain
 
         | UpdateParenteralia par ->
             let state =

@@ -507,8 +507,13 @@ What can start a request, and what each depends on:
      filter for the patient, which the pages already show, so the sync changes nothing the user
      sees and costs one fetch of each page per new patient; no marker.
    - **The pages' own data load counts as a request.** The page is disabled as a whole while it
-     runs, the menu and the title bar wait for it (decision 1, rules 1 and 3), and a load asked
-     while one runs is asked again when that one lands, instead of dropped (#1326, item 6).
+     runs, and the menu and the title bar wait for it (decision 1, rules 1 and 3), so the user
+     sees its answer before acting on that page again. One ask can still meet a load that runs,
+     and the user does not start it on that page: the Prescribe page is not disabled by the
+     formulary and parenteralia loads its filter answer starts, so a second filter pick there
+     syncs the pages while the first load runs. That ask is not dropped (#1326, item 6): the
+     running load lands and its answer is shown, and then the pages are asked again with the
+     filter of the second answer. No answer is passed over, and nothing is kept to replace one.
      Decided (user, 2026-10-06, the second half; the first follows decision 1).
 6. **One layer per message.**
    - Each machine gets one `transition` over the message and the state; the intents, `apply`,
@@ -643,14 +648,16 @@ the order of the steps protects the work between pull requests, not patients; it
    medication page no longer resets the workbench (`App.fs`, `UpdatePage`): a list item's seed
    clears the whole filter on the server already (`SeedSource.MedicationList`), so the reset did
    nothing the seed does not. A page switch then sends nothing to a machine. Decision 1.
-2. **The pages follow the answer and grey during their own fetch.** Decision 5.
+2. **The pages follow the answer and are disabled during their own load.** Decisions 5 and 13,
+   in two pull requests: 2a the first three bullets and the tests, 2b the auto-pick.
    - The order context machine syncs the formulary and parenteralia pages from the context
      answered, evaluated or refused, when the request sent changes the filter or updates the
      patient; `evaluate`, the `Sync` intent and the re-sync in `restore` go, `changesFilter` moves
      to the landing, and `SyncFormulary` and `SyncParenteralia` become one effect.
-   - In `App.fs`, a page fetch asked while one runs is asked again when that one lands.
-   - `Views/Formulary.fs` and `Views/Parenteralia.fs` grey their selects while their own load
-     runs, until step 4 disables the page as a whole for it.
+   - In `App.fs`, a page sync from a workbench answer that meets a load of that page under way
+     is asked again once that load has landed and its answer is shown (decision 5).
+   - The formulary and parenteralia pages are disabled as a whole while their own load runs,
+     through `Components.Disabled` from step 1 (`Pages/GenPres.fs`); the views do not change.
    - `AutoPickPolicy.next` in Client.Core names the one field to pick after an answer; the
      Prescribe, formulary and parenteralia pages, the nutrition slot and the order dialog send
      that pick in one effect at page level, and the effect in `Components/PickField.fs` goes;
@@ -890,11 +897,14 @@ Line counts:
   - a prescription, a removal, a row filter, the plan dialog, the nutrition slot;
   - a signature, the patient refresh, the plan refresh;
   - a url change during a request.
-- **Step 2:** a filter whose answer picks a choice itself (a single route) shows that choice on the
-  formulary page; an answer that leaves two fields with one option each picks the first, and its
-  answer the second, with no message dropped; a patient change shows the filter evaluated for
-  the new patient on both pages; a dose step in the dialog fetches neither page; the formulary's
-  selects grey while it fetches.
+- **Step 2a:** a filter whose answer picks a choice itself (a single route) shows that choice on
+  the formulary page; a patient change with a filter set ends both pages on the filter evaluated
+  for the new patient; a dose step in the dialog fetches neither page; the formulary page is
+  disabled while it loads; a second filter pick on the Prescribe page while the first page load
+  runs: the trail shows the first answer land, then one more load of each page with the second
+  filter, never two loads of a page at once.
+- **Step 2b:** an answer that leaves two fields with one option each picks the first, and its
+  answer the second, with no message dropped.
 - **Step 4:** a page load: the gate shows until every load and the resume have answered, and
   the hospital menu has its options when the application opens; a filter pick, then the menu
   at once: the menu waits until the filter and the two page loads it starts have answered, and
