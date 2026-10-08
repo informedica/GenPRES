@@ -352,7 +352,9 @@ module OrderContextState =
         | OrderContextWorkbench.Evaluated(_, ctx), None -> Some ctx
 
 
-    /// The context last answered, also while a request is under way; None without a patient.
+    /// The context the workbench holds, also while a request is under way: the last one answered,
+    /// or the empty one after a reset and during the first evaluation, which a failure goes back
+    /// to. None without a patient.
     let answered (state: OrderContextState) =
         match state.Workbench with
         | OrderContextWorkbench.NoPatient _ -> None

@@ -1086,5 +1086,13 @@ let answeredTests =
                 |> Expect.equal "the context held" (Some paracetamol)
             }
 
+            test "is the empty context after a reset, before its answer" {
+                let busy, _ = transition (OrderContextMsg.Reset "r-1") (held paracetamol)
+
+                busy
+                |> OrderContextState.answered
+                |> Expect.equal "the empty context" (Some empty)
+            }
+
             test "is none without a patient" { noPatient |> OrderContextState.answered |> Expect.isNone "no context" }
         ]
