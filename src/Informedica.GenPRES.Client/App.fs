@@ -14,6 +14,7 @@ open Shared
 open Shared.Types
 open Shared.Models
 open Global
+open Page
 open SessionMachine
 open SigningMachine
 open OrderPlanMachine
@@ -424,6 +425,30 @@ module private Elmish =
         createApiMsg serverApi.processParenteralia opened LoadParenteralia
 
 
+    /// The interactions of the drugs checked, out from this update on.
+    let checkInteractions drugs (state: State) =
+        // every check, the empty one too, ends the checks before it
+        let check = state.Fetches.InteractionCheck + 1
+
+        if List.length drugs < 2 then
+            { withdrawInteractionsNotice state with
+                Fetches.Interactions = HasNotStartedYet
+                Fetches.InteractionCheck = check
+            },
+            Cmd.none
+        else
+            // the rows shown stay until the answer
+            { state with
+                Fetches.Interactions = state.Fetches.Interactions |> Deferred.refresh
+                Fetches.InteractionCheck = check
+            },
+            Api.InteractionCommand.CheckInteractions drugs
+            |> createApiMsg
+                serverApi.processInteraction
+                (tokenOf state.Lanes.Session)
+                (fun result -> LoadInteractionsResult(check, result))
+
+
     // url needs to be in format: http://localhost:8080/#patient?by=2&bm=0&bd=1
     // * pg : el (emergency list) cm (continuous medication) pr (prescribe)
     // * ad: age in days
@@ -796,8 +821,30 @@ module private Elmish =
         { state with Ui.ServerError = state.Ui.ServerError |> ServerErrorPolicy.clearedBy source }, cmd
 
 
-    /// The workbench filter put on the formulary page and the page loaded for it. While a load of
-    /// the page runs, the page is only marked, and asked again once that load has landed.
+    /// The formulary asked again over the one shown, which stays shown until the answer, and the
+    /// load out from this update on.
+    let startFormulary (state: State) =
+        // the patient the server answered, also over a formulary answered without one
+        let form =
+            { (state.Fetches.Formulary |> Deferred.defaultValue Formulary.empty) with
+                Patient = state.Lanes.Patient |> PatientState.answered
+            }
+
+        { state with Fetches.Formulary = state.Fetches.Formulary |> Deferred.refresh },
+        form |> loadFormulary (tokenOf state.Lanes.Session)
+
+
+    /// The parenteralia asked again over the ones shown, and the load out from this update on.
+    let startParenteralia (state: State) =
+        let par = state.Fetches.Parenteralia |> Deferred.defaultValue Parenteralia.empty
+
+        { state with Fetches.Parenteralia = state.Fetches.Parenteralia |> Deferred.refresh },
+        par |> loadParenteralia (tokenOf state.Lanes.Session)
+
+
+    /// The workbench filter put on the formulary page and the page loaded for it, out in the same
+    /// update, so nothing can be clicked between the answer and the load. While a load of the
+    /// page runs, the page is only marked, and asked again once that load has landed.
     let syncFormulary filter (state: State) =
         match state.Fetches.Formulary with
         | InProgress
@@ -810,12 +857,12 @@ module private Elmish =
                     |> Deferred.defaultValue Formulary.empty
                     |> FilterSync.syncFilterToFormulary filter
                     |> Resolved
-            },
-            Cmd.ofMsg (LoadFormulary Started)
+            }
+            |> startFormulary
 
 
-    /// The workbench filter put on the parenteralia page and the page loaded for it, or the page
-    /// marked while a load of it runs.
+    /// The workbench filter put on the parenteralia page and the page loaded for it, out in the
+    /// same update, or the page marked while a load of it runs.
     let syncParenteralia filter (state: State) =
         match state.Fetches.Parenteralia with
         | InProgress
@@ -828,8 +875,8 @@ module private Elmish =
                     |> Deferred.defaultValue Parenteralia.empty
                     |> FilterSync.syncFilterToParenteralia filter
                     |> Resolved
-            },
-            Cmd.ofMsg (LoadParenteralia Started)
+            }
+            |> startParenteralia
 
 
     /// After a formulary load landed and its answer is shown: asked again with the filter the
@@ -1113,7 +1160,8 @@ module private Elmish =
                     return OrderPlanMsg(OrderPlanMsg.Answered(request, Error [| ex.Message |]))
             }
             |> Cmd.fromAsync
-        | OrderPlanEffect.CheckInteractions drugs -> state, Cmd.ofMsg (CheckInteractions drugs)
+        // out in the same update as the plan answer it follows
+        | OrderPlanEffect.CheckInteractions drugs -> state |> checkInteractions drugs
         | OrderPlanEffect.ResetWorkbench -> state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Reset(newRequest ())))
         // an order prescribed opens the plan page
         | OrderPlanEffect.GoToPlanPage -> { state with Ui.Page = OrderPlan }, Cmd.none
@@ -1255,6 +1303,58 @@ module private Elmish =
 
     /// A medication chosen without a patient, from the url or a list, is dropped and said: the
     /// patient is part of the filter, so nothing waits for one.
+    /// The data loads out: every reading of the fetches and the admin, the server check excepted.
+    let loadsOut (state: State) =
+        let isOut deferred =
+            match deferred with
+            | InProgress
+            | Refreshing _ -> true
+            | HasNotStartedYet
+            | Resolved _ -> false
+
+        [
+            if isOut state.Fetches.Settings then
+                Busy.Load.Settings
+            if isOut state.Fetches.Localization then
+                Busy.Load.Localization
+            if isOut state.Fetches.Hospitals then
+                Busy.Load.Hospitals
+            if isOut state.Fetches.NormalValues then
+                Busy.Load.NormalValues
+            if isOut state.Fetches.BolusMedication then
+                Busy.Load.BolusMedication
+            if isOut state.Fetches.ContinuousMedication then
+                Busy.Load.ContinuousMedication
+            if isOut state.Fetches.Products then
+                Busy.Load.Products
+            if isOut state.Fetches.Formulary then
+                Busy.Load.Formulary
+            if isOut state.Fetches.Parenteralia then
+                Busy.Load.Parenteralia
+            if isOut state.Fetches.Interactions then
+                Busy.Load.Interactions
+            if isOut state.Fetches.InteractionDrugNames then
+                Busy.Load.DrugNames
+            if isOut state.Admin.LogFiles then
+                Busy.Load.LogFiles
+            if isOut state.Admin.LogAnalysisReport then
+                Busy.Load.LogAnalysis
+            if isOut state.Admin.Reloading then
+                Busy.Load.Reload
+        ]
+
+
+    /// The requests out in the lanes and the loads.
+    let busyOut (state: State) =
+        Busy.out
+            state.Lanes.Patient
+            state.Lanes.OrderContext
+            state.Lanes.OrderPlan
+            state.Lanes.Session
+            state.Lanes.Signing
+            (loadsOut state)
+
+
     let noPatientForMedication (state: State) =
         let message =
             Global.getLocalizedTerm
@@ -1820,16 +1920,7 @@ module private Elmish =
             match state.Fetches.Formulary with
             | InProgress
             | Refreshing _ -> state, Cmd.none
-            | _ ->
-                // the patient the server answered, also over a formulary answered without one
-                let form =
-                    { (state.Fetches.Formulary |> Deferred.defaultValue Formulary.empty) with
-                        Patient = state.Lanes.Patient |> PatientState.answered
-                    }
-
-                let cmd = form |> loadFormulary (tokenOf state.Lanes.Session)
-
-                { state with Fetches.Formulary = state.Fetches.Formulary |> Deferred.refresh }, cmd
+            | _ -> startFormulary state
 
         // without a patient the formulary is what a reload refreshes, so it settles the reload
         | LoadFormulary(Finished(Ok msg)) ->
@@ -1887,13 +1978,7 @@ module private Elmish =
             match state.Fetches.Parenteralia with
             | InProgress
             | Refreshing _ -> state, Cmd.none
-            | _ ->
-                let cmd =
-                    let par = state.Fetches.Parenteralia |> Deferred.defaultValue Parenteralia.empty
-
-                    loadParenteralia (tokenOf state.Lanes.Session) par
-
-                { state with Fetches.Parenteralia = state.Fetches.Parenteralia |> Deferred.refresh }, cmd
+            | _ -> startParenteralia state
 
         | LoadParenteralia(Finished(Ok msg)) ->
             processApiMsg state msg applyParenteralia
@@ -1931,27 +2016,7 @@ module private Elmish =
                     Cmd.ofMsg (LoadParenteralia Started)
                 ]
 
-        | CheckInteractions drugs ->
-            // every check, the empty one too, ends the checks before it
-            let check = state.Fetches.InteractionCheck + 1
-
-            if drugs.Length < 2 then
-                { withdrawInteractionsNotice state with
-                    Fetches.Interactions = HasNotStartedYet
-                    Fetches.InteractionCheck = check
-                },
-                Cmd.none
-            else
-                // the rows shown stay until the answer
-                { state with
-                    Fetches.Interactions = state.Fetches.Interactions |> Deferred.refresh
-                    Fetches.InteractionCheck = check
-                },
-                Api.InteractionCommand.CheckInteractions drugs
-                |> createApiMsg
-                    serverApi.processInteraction
-                    (tokenOf state.Lanes.Session)
-                    (fun result -> LoadInteractionsResult(check, result))
+        | CheckInteractions drugs -> checkInteractions drugs state
 
         | LoadInteractionsResult(check, Finished _) when check <> state.Fetches.InteractionCheck -> state, Cmd.none
 
@@ -2114,6 +2179,10 @@ type private ConcreteAppEnv
 
     interface AppEnv.ISettings with
         member _.Settings = state.Fetches.Settings
+
+    interface AppEnv.IBusy with
+        member _.Any = state |> busyOut |> Busy.any
+        member _.Page page = state |> busyOut |> Busy.page page
 
     interface AppEnv.IOrderContext with
         member _.OrderContext = state.Lanes.OrderContext |> OrderContextState.viewWhile state.Lanes.Patient

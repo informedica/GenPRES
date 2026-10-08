@@ -70,6 +70,16 @@ type SessionRequest =
     | SupplyingPin
 
 
+/// A refresh or an open of a version under way. It is beside the request under way, not one of
+/// them, since a workbench or plan request meanwhile still carries the token of the open session.
+[<RequireQualifiedAccess>]
+type SessionReopening =
+    /// The EHR read again and the latest version reopened.
+    | Refresh
+    /// The version with this id opened.
+    | Open of id: string
+
+
 /// Everything the session machine holds, hidden from the pages, which read a SessionView of it
 /// instead.
 type SessionState =
@@ -79,6 +89,8 @@ type SessionState =
             Phase: SessionPhase
             /// The one request under way, if any.
             InFlight: SessionRequest option
+            /// The refresh or the open under way, if any; only while the session is open.
+            Reopening: SessionReopening option
             /// The launch and its key, kept while it can still be presented again: during a
             /// presentation, after the server was unreachable, or after a refusal worth retrying.
             Presentation: (Launch * PublicKey) option
@@ -238,6 +250,7 @@ module SessionState =
         {
             Phase = SessionPhase.Anonymous
             InFlight = None
+            Reopening = None
             Presentation = None
             MovedOn = None
         }
@@ -248,6 +261,7 @@ module SessionState =
         {
             Phase = SessionPhase.Anonymous
             InFlight = Some(SessionRequest.Presenting attempt)
+            Reopening = None
             Presentation = Some(launch, key)
             MovedOn = None
         }
@@ -258,6 +272,7 @@ module SessionState =
         {
             Phase = SessionPhase.Anonymous
             InFlight = Some SessionRequest.Resuming
+            Reopening = None
             Presentation = None
             MovedOn = None
         }
@@ -268,6 +283,7 @@ module SessionState =
         {
             Phase = SessionPhase.Open session
             InFlight = None
+            Reopening = None
             Presentation = None
             MovedOn = movedOn
         }
@@ -278,6 +294,7 @@ module SessionState =
         {
             Phase = SessionPhase.Open session
             InFlight = Some SessionRequest.Closing
+            Reopening = None
             Presentation = None
             MovedOn = None
         }
@@ -288,6 +305,7 @@ module SessionState =
         {
             Phase = SessionPhase.Refused refusal
             InFlight = None
+            Reopening = None
             Presentation = None
             MovedOn = None
         }
@@ -298,6 +316,7 @@ module SessionState =
         {
             Phase = SessionPhase.Refused refusal
             InFlight = None
+            Reopening = None
             Presentation = Some(launch, key)
             MovedOn = None
         }
@@ -308,6 +327,7 @@ module SessionState =
         {
             Phase = SessionPhase.Unreachable
             InFlight = None
+            Reopening = None
             Presentation = Some(launch, key)
             MovedOn = None
         }
@@ -318,6 +338,7 @@ module SessionState =
         {
             Phase = SessionPhase.Ended ending
             InFlight = None
+            Reopening = None
             Presentation = None
             MovedOn = None
         }
@@ -328,6 +349,7 @@ module SessionState =
         {
             Phase = SessionPhase.Enrolling(pending, refusal)
             InFlight = None
+            Reopening = None
             Presentation = None
             MovedOn = None
         }
@@ -338,6 +360,7 @@ module SessionState =
         {
             Phase = SessionPhase.Enrolling(pending, None)
             InFlight = Some SessionRequest.SupplyingPin
+            Reopening = None
             Presentation = None
             MovedOn = None
         }
@@ -348,6 +371,7 @@ module SessionState =
         {
             Phase = SessionPhase.EnrolmentFailed refusal
             InFlight = None
+            Reopening = None
             Presentation = None
             MovedOn = None
         }
@@ -366,6 +390,14 @@ module SessionState =
 
     /// The newer version to offer, if any.
     let movedOn (state: SessionState) = state.MovedOn
+
+
+    /// Whether a launch, a resume, a PIN or a close is under way.
+    let inFlight (state: SessionState) = state.InFlight.IsSome
+
+
+    /// The refresh or the open under way, if any.
+    let reopening (state: SessionState) = state.Reopening
 
 
     /// What the pages read: the request when it can show on its own, else the phase. A refusal
@@ -528,12 +560,15 @@ module SessionState =
                         )
                 }
 
-            opened renewed state.MovedOn, [ SessionEffect.SetPatient(Some patient) ]
+            { opened renewed state.MovedOn with Reopening = state.Reopening },
+            [ SessionEffect.SetPatient(Some patient) ]
         | SessionMsg.TokenRenewed _, _, _ -> state, []
 
-        // only an open session can open a version; the request carries its token
-        | SessionMsg.OpenVersion id, SessionPhase.Open session, None ->
-            state, [ SessionEffect.CallOpenVersion(id, session.OpenedToken) ]
+        // only an open session can open a version, one refresh or open at a time; the request
+        // carries its token
+        | SessionMsg.OpenVersion id, SessionPhase.Open session, None when state.Reopening.IsNone ->
+            { state with Reopening = Some(SessionReopening.Open id) },
+            [ SessionEffect.CallOpenVersion(id, session.OpenedToken) ]
         | SessionMsg.OpenVersion _, _, _ -> state, []
 
         // the session with the version opened: its orders go into the cart; the patient is
@@ -546,11 +581,14 @@ module SessionState =
                 opened session (MovedOn.opened state.MovedOn head.Head),
                 [ SessionEffect.LoadCart head; SessionEffect.TellVersionOpened head.Head ]
             | _ -> opened session state.MovedOn, []
-        | SessionMsg.Reopened _, _, _ -> state, []
+        // any other answer ends the open too, a failure and an answer for an earlier session
+        // included
+        | SessionMsg.Reopened _, _, _ -> { state with Reopening = None }, []
 
-        // only an open session can be refreshed; the request carries its token
-        | SessionMsg.Refresh, SessionPhase.Open session, None ->
-            state, [ SessionEffect.CallRefresh session.OpenedToken ]
+        // only an open session can be refreshed, one refresh or open at a time; the request
+        // carries its token
+        | SessionMsg.Refresh, SessionPhase.Open session, None when state.Reopening.IsNone ->
+            { state with Reopening = Some SessionReopening.Refresh }, [ SessionEffect.CallRefresh session.OpenedToken ]
         | SessionMsg.Refresh, _, _ -> state, []
 
         // the session refreshed: the patient read again goes to the panel and the plan, and the
@@ -569,8 +607,8 @@ module SessionState =
         | SessionMsg.Refreshed(from, (Ok None | Error _)), SessionPhase.Open current, None when
             current.OpenedToken = from
             ->
-            state, [ SessionEffect.TellRefreshFailed ]
-        | SessionMsg.Refreshed _, _, _ -> state, []
+            { state with Reopening = None }, [ SessionEffect.TellRefreshFailed ]
+        | SessionMsg.Refreshed _, _, _ -> { state with Reopening = None }, []
 
         // a notice counts only when its request started from the token the open session holds now,
         // as for Reopened; the next request repeats what still holds
@@ -579,7 +617,9 @@ module SessionState =
             // kept, and told once per version
             | RecordNotice.NewerVersion head ->
                 let kept, news = MovedOn.receive state.MovedOn head
-                opened current kept, (if news then [ SessionEffect.TellMovedOn head ] else [])
+
+                { opened current kept with Reopening = state.Reopening },
+                (if news then [ SessionEffect.TellMovedOn head ] else [])
             // the server ended the session: the gate says why and the close tells the server
             | RecordNotice.Ended ending -> ended ending, [ SessionEffect.CallCloseSession ]
         | SessionMsg.Told _, _, _ -> state, []
@@ -587,5 +627,5 @@ module SessionState =
         // a signature refused for a newer version: the version is kept for the bar, not told
         // again, since the refusal said it
         | SessionMsg.Blocked head, SessionPhase.Open current, None ->
-            opened current (MovedOn.receive state.MovedOn head |> fst), []
+            { opened current (MovedOn.receive state.MovedOn head |> fst) with Reopening = state.Reopening }, []
         | SessionMsg.Blocked _, _, _ -> state, []

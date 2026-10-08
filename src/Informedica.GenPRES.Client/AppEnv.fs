@@ -20,6 +20,15 @@ type ISettings =
     abstract Settings: Deferred<Api.ServerSettings>
 
 
+/// What is out, and what it disables.
+[<Interface>]
+type IBusy =
+    // anything out that holds the menu, the title bar and the patient panel
+    abstract Any: bool
+    // whether a request out can change anything on the page
+    abstract Page: Page.Page -> bool
+
+
 /// Order context data and commands.
 /// Mangled: the app state implements this and IOrderPlan on one object, and both have a Select;
 /// without mangling Fable emits the two as one property.

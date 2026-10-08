@@ -18,6 +18,7 @@ module GenPres =
 
 
         open Global
+        open Page
 
 
         type State =
@@ -131,6 +132,7 @@ module GenPres =
         let orderContext = (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext
         let orderPlan = (AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv).OrderPlan
         let auth = AppEnv.asEnv<AppEnv.IAuthentication> props.appEnv
+        let busy = AppEnv.asEnv<AppEnv.IBusy> props.appEnv
 
         let updatePageRef = React.useRef props.updatePage
         updatePageRef.current <- props.updatePage
@@ -223,17 +225,18 @@ module GenPres =
         let formularyIndex = pages |> List.tryFindIndex ((=) Global.Pages.Formulary)
         let settingsIndex = pages |> List.tryFindIndex ((=) Global.Pages.Settings)
 
+        // no page switch while anything is out
         let menuItems =
             state.SideMenuItems
             |> Array.mapi (fun idx (icon, text, sel, _, _) ->
                 if Some idx = interactionsIndex && hasInteractions then
-                    icon, text, sel, Some Mui.Styles.warningBg, false
+                    icon, text, sel, Some Mui.Styles.warningBg, busy.Any
                 elif Some idx = formularyIndex && formularyBg |> Option.isSome then
-                    icon, text, sel, formularyBg, false
+                    icon, text, sel, formularyBg, busy.Any
                 elif Some idx = settingsIndex && not auth.IsAuthenticated then
                     icon, text, false, None, true
                 else
-                    icon, text, sel, None, false
+                    icon, text, sel, None, busy.Any
             )
 
         let sideMenu =
@@ -259,23 +262,8 @@ module GenPres =
             | Global.Pages.Parenteralia -> Views.Parenteralia.View appEnvProps
             | Global.Pages.Settings -> Views.Settings.View appEnvProps
 
-        let isLoading deferred =
-            match deferred with
-            | InProgress
-            | Refreshing _ -> true
-            | HasNotStartedYet
-            | Resolved _ -> false
-
-        // a list item seeds the workbench, so the list pages are disabled while a workbench
-        // request is under way; the formulary and parenteralia pages while their own load runs
-        let pageDisabled =
-            match props.page, orderContext with
-            | Global.Pages.LifeSupport, OrderContextView.Changing _
-            | Global.Pages.ContinuousMeds, OrderContextView.Changing _ -> true
-            | Global.Pages.Formulary, _ -> (AppEnv.asEnv<AppEnv.IFormulary> props.appEnv).Formulary |> isLoading
-            | Global.Pages.Parenteralia, _ ->
-                (AppEnv.asEnv<AppEnv.IParenteralia> props.appEnv).Parenteralia |> isLoading
-            | _ -> false
+        // the page is disabled as a whole while a request out can change anything on it
+        let pageDisabled = busy.Page props.page
 
         // the page box scrolls, so the disable lies around it and its spinner stays in view
         let disabledPage =

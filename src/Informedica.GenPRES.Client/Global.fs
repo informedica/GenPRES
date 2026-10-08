@@ -2,18 +2,10 @@ module Global
 
 open Feliz
 open Shared
+open Page
 
 
-type Pages =
-    | LifeSupport
-    | ContinuousMeds
-    | Prescribe
-    | Nutrition
-    | OrderPlan
-    | Formulary
-    | Parenteralia
-    | Interactions
-    | Settings
+type Pages = Page.Page
 
 
 let getLocalizedTerm (localizationTerms: Deferred<string[][]>) (lang: Localization.Locales) defVal term =

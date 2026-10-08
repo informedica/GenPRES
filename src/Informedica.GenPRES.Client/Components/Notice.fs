@@ -29,7 +29,8 @@ module Notice =
 
 
     /// The notice: its kind, a title when the message needs one, the message, an action when
-    /// there is one to take, and what dismissing it does when it may be dismissed.
+    /// there is one to take, and whether it is disabled, and what dismissing it does when it
+    /// may be dismissed.
     type Props =
         {|
             kind: Kind
@@ -39,6 +40,7 @@ module Notice =
                 {|
                     label: string
                     onClick: unit -> unit
+                    disabled: bool
                 |} option
             onClose: (unit -> unit) option
         |}
@@ -88,7 +90,7 @@ module Notice =
                 JSX.jsx
                     $"""
                 import Button from '@mui/material/Button';
-                <Button color="inherit" size="small" onClick={onClick}>{act.label}</Button>
+                <Button color="inherit" size="small" onClick={onClick} disabled={act.disabled}>{act.label}</Button>
                 """
 
         let onClose =

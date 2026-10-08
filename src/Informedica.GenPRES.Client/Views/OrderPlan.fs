@@ -717,6 +717,8 @@ module OrderPlan =
                                     {|
                                         label = tr Terms.``Session Open Newest``
                                         onClick = fun () -> session.OpenVersion head.Id
+                                        // the open changes every page: it waits while anything is out
+                                        disabled = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Any
                                     |}
                             onClose = None
                         |}
