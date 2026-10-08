@@ -605,9 +605,9 @@ What can start a request, and what each depends on:
     only (rule 2) and the OrderPlan page stays usable while the interaction check runs. Today
     `App` sets the signing lane idle the moment the Session is not open, and the submission's
     answer is then dropped: whether the plan was signed is unknown, which decision 2 rules out
-    for a url change. So `App` leaves the signing lane alone while a submission is out, and
-    the signing machine ends itself when the submission's answer lands on a Session that has
-    ended meanwhile.
+    for a url change. So `Lanes` (step 13) leaves the signing lane alone while a submission is
+    out, and the signing machine ends itself when the submission's answer lands on a Session
+    that has ended meanwhile.
 12. **The argumentation draft is sent before the dialog's own close, and discarded by a close
     from outside.** Decided (user, 2026-10-08). The dialog sends the text on blur
     and before it closes itself, on Ok, Escape or the backdrop, so a command never goes out
@@ -633,6 +633,67 @@ What can start a request, and what each depends on:
     too, and stops when an evaluation changes nothing; `NutritionRuleSet.discover` and the
     plan's `navigate` both settle. The patient panel's department field is picked by no
     answer, and keeps a local pick of its one option.
+14. **The wiring between the machines is pure, in Client.Core.** Decided (user, 2026-10-08).
+    - Each machine is pure, but what one machine's effect means for another is decided in
+      `App`, where no test reaches it:
+      - a patient answer goes on to the workbench, the plan and the two page loads
+        (`setPatient`);
+      - a Session's patient and saved orders go to the patient and plan machines;
+      - a signature's renewed token, ended Session and refusal for a newer version go to the
+        Session, its patient to the patient machine and its success to the plan;
+      - the plan's `ResetWorkbench` goes to the workbench;
+      - the prescribe click narrows the workbench to the order and sends `Add` to the plan
+        (step 3);
+      - a reply's notice goes to the Session, with the answer to its machine;
+      - the signing lane is set idle when the Session is no longer open.
+    - Part of it was queued as a message for the next update, which left a moment with nothing
+      out: the start-up gate lifted in such a moment, fixed for the patient and the Session in
+      `App` by #1358, while `ResetWorkbench` and the signature's `SetPatient` still queue.
+      Closing those two in `App` takes three lines, but proves nothing, and steps 5, 7 and 8 add
+      more wiring with no test; so the wiring moves instead.
+    - `Lanes` in Client.Core takes it over, as a table of routes and one pass over it, nothing
+      more, so that it does not become a sixth machine:
+      - `LanesState`, the five machines' states as one record, the one in `App` today, and
+        `Lanes.initial`, for `init`, for the start-over of step 7 and for every test fixture;
+      - `LanesMsg`, what reaches the lanes: a message for one machine; an answer that carries
+        a notice, the patient's, the workbench's or the plan's, so that the answer reaches its
+        machine and the notice the Session in one transition; a patient given from outside,
+        by the url or a signature; the start-over of step 7; the prescribe click;
+      - `LanesEffect`, the machines' own effects wrapped, one case per machine
+        (`Patient of PatientEffect`, `Workbench of OrderContextEffect`, ...). Every effect comes
+        out, the routed ones too: the transition has done what a routed effect means for another
+        machine, and `App` does the rest of it, the client part. `SetPatient` from the patient
+        machine still resets the formulary and parenteralia pages to the patient, clears the
+        lists' filters and starts the two page loads; `TellSigned` and `TellRefused` for a newer
+        version still show their message. A routed effect with no client part, the Session's
+        `SetPatient` and `LoadCart`, `RenewToken`, `EndSession`, `ResetWorkbench`, falls to
+        `App`'s closing case;
+      - `Lanes.transition`, which runs the machine the message is for and passes each routed
+        effect on to its machine in the same transition.
+    - The routes run one way: the signing lane to the Session, the Session to the patient, the
+      patient to the plan and the workbench, the plan to the workbench; the signing lane is set
+      idle right after the Session's step. One pass in that order ends by construction: no
+      machine routes back to one before it.
+    - `App` carries out what comes out, in the update that ran the transition, and queues no
+      message for a machine: the answers that carry a notice come into `Lanes` as they are.
+      The five `apply...Effect` functions in `App` stay nearly as they are: of a routed effect
+      they do the client part only, never the machine part, and the routed effects without one
+      fall to one closing case. The answers of the formulary, the parenteralia and the
+      interactions stay in `App`, with the loads.
+    - The request ids of the follow-ups come from a function `App` passes in, as the dependency
+      rule asks of entropy; the tests pass a counter.
+    - What stays in `App`: the server calls and their answers, the loads and their `Deferred`
+      state, the snackbar, the router, the clock of the trail, the error banner, which the plan
+      answer's arm clears before it runs the transition, and the start-up latch, which reads
+      `Busy.out` over the lanes and the loads; `StartupPolicy` decides it, as now.
+    - The transition returns the steps it took, each a machine's message, state and effects, or
+      the signing lane set idle, a step without a message; `App` records each in the trail, so
+      the trail shows the lines it shows today.
+    - The machines do not change: the transition calls each one's `transition`, or
+      `transitionWhile` until step 8 takes that out.
+    - When: after step 4 and before step 5. Steps 5, 7 and 8 then change `Lanes.fs` and
+      `Trail.fs` as well as the machines, but their wiring has tests from the start; landing
+      after step 12 would be one move of the final wiring, with no test on the way.
 
 ## Steps
 
@@ -641,7 +702,8 @@ the order of the steps protects the work between pull requests, not patients; it
 
 - Every step in `Client.Core` or on the server starts as a script with its tests, unless the user
   asks for source; step 1 is client view and App code alone.
-- Steps 1 to 4, 6 to 9 and 12 fit the 200-line limit; step 5 may exceed it, since it changes the
+- Steps 1 to 4, 6 to 9 and 12 fit the 200-line limit; step 13 may exceed it, since `App`'s
+  wiring moves to Client.Core as a whole; step 5 may exceed it, since it changes the
   server's refresh, the Session's head, two projections and two views, and steps 10 and 11
   rewrite one file each and exceed it by nature; in each case the pull request says so.
 - Every step that changes a message or an effect changes `Trail.fs` and its tests in the same pull
@@ -763,7 +825,8 @@ the order of the steps protects the work between pull requests, not patients; it
      plan; the context is held for an identified patient with a new or changed order and not
      otherwise; the held dialog's actions are remove alone without a signed order plan.
 6. **The prescription at the click.** Decision 8. The prescribe click sends `Add`, resets the
-   workbench and opens the OrderPlan page in one update of `App`; `GoToPlanPage` and
+   workbench and opens the OrderPlan page in one transition of `Lanes`, which `App` runs in one
+   update; `GoToPlanPage` and
    `ResetWorkbench` leave `OrderPlanEffect` and the plan's `answered`. Tests: an answer to
    `AddOrderContext` emits
    only the interaction check; the trail shows the three at the click.
@@ -774,8 +837,9 @@ the order of the steps protects the work between pull requests, not patients; it
      marked as moved on, and `CallCloseSession`, not `SessionMsg.Close`, whose
      answer would clear the patient the url applied and whose failure would reopen the Session;
      `Closed` and `CloseFailed` on a marked close leave the lane anonymous and send nothing. The
-     patient, the workbench, the plan and the signing lane go to their initial state and the url
-     applies as `init` applies it without a Session. A launch or a PIN supply out stays out
+     patient, the workbench, the plan and the signing lane go to their initial state, through
+     the start-over message of `Lanes` and `Lanes.initial`, and the url applies as `init`
+     applies it without a Session. A launch or a PIN supply out stays out
      with the mark, since its answer sets the session cookie: `PinAnswered` with a Session
      opened sends `CallCloseSession` and nothing else, and a refused PIN goes to anonymous;
      `SessionMsg.Outcome` with `Opened` then sends `CallCloseSession` and no `SetPatient` or
@@ -839,11 +903,12 @@ the order of the steps protects the work between pull requests, not patients; it
    - The plan's `UpdatePatient` sends over the plan held with nothing out, the patient-during-open
      case goes, `Version` opens without replacing; a `Call` with a request out falls to the
      closing arm.
-   - `App.update` calls `transition`.
+   - `Lanes.transition` calls each machine's `transition`.
    - `PatientChanged None` is taken in every state of both machines: the no-patient state, the
-     request dropped, the selection cleared (decision 11). `App` sets the signing lane idle when
-     the Session is not open, unless a submission is out; `SigningMachine` goes idle itself when
-     the submission's answer lands and the Session has ended meanwhile, telling the outcome.
+     request dropped, the selection cleared (decision 11). `Lanes` sets the signing lane idle
+     when the Session is not open, unless a submission is out; `SigningMachine` goes idle
+     itself when the submission's answer lands and the Session has ended meanwhile, telling the
+     outcome.
    - `SigningMachine.accepted` no longer emits `SetPatient`: the new data reaches the panel with
      the signed answer, as when the patient context is held (decision 3). The step checks whether
      a stored version's totals are read anywhere, since the plan signed carries totals for the
@@ -879,10 +944,39 @@ the order of the steps protects the work between pull requests, not patients; it
     `LanguagePolicy.onServerDefault` loses the case of a choice made while the settings are in
     flight, which the start-up on hold rules out. This plan's As built, with the line counts
     before and after.
+13. **The wiring between the machines in Client.Core.** Decision 14. Lands after step 4 and
+    before step 5, so that the steps after it put their wiring in `Lanes`, not in `App`.
+    - `Lanes.fs` in Client.Core, after the machines: `LanesState` moves there from `App`, with
+      `Lanes.initial`; `LanesMsg`, `LanesEffect` and `Lanes.transition` as decision 14 has
+      them, with every route it lists, `ResetWorkbench`, the signature's `SetPatient` and the
+      prescribe narrowing included.
+    - `App`: one arm for a lanes message runs `Lanes.transition` and carries out what comes
+      out; the arms of the three answers that carry a notice hand them to `Lanes` as they are;
+      `changePatient`, `changeOrderContext`, `changeOrderPlan`, the routing in `setPatient` and
+      the two functions `applySessionEffect` takes go; each `apply...Effect` keeps the effects
+      that leave the client and the client part of the routed ones, the routed ones without a
+      client part in one closing case.
+    - `Trail.fs` writes the lines of the steps a transition returns, the signing lane set idle
+      included.
+    - Tests in `LanesTests.fs`, use cases played by code over `Lanes.initial` and the machines'
+      own test constructors: a page load with a url patient, its answer, then the workbench and
+      plan answers in either order: after every message `Busy.out` over the lanes holds a
+      request until the last answer, and the patient machine's `SetPatient`, with its page
+      loads, comes out of the transition that lands the patient; a Session resumed with saved
+      orders: the patient and the version reach their machines in the transition that lands the
+      answer; a signature answered: the token, the patient and the signed plan reach the
+      Session, the patient and the plan in the same transition, and `TellSigned` comes out for
+      its message; a signature refused for a newer version: the Session keeps the version and
+      `TellRefused` comes out; a prescription answered: the workbench reset in the same
+      transition; an answer with a newer-version notice: the answer and `Told` in one
+      transition; the Session ended: the signing lane idle, and the step without a message
+      returned. Whether the start-up ends only then needs the loads, which stay in `App`; that
+      is checked in the browser.
 
-Step 5 may exceed the limit and steps 10 and 11, the rewrites, do; step 12 is the last. Step 9
-lands before step 8, and its browser checks are run before the guards go; it can land anywhere
-after step 4, which gives it the busy value.
+Step 5 and step 13 may exceed the limit and steps 10 and 11, the rewrites, do; step 12 is the
+last. Step 13 lands after step 4 and before step 5. Step 9 lands before step 8, and its
+browser checks are run before the guards go; it can land anywhere after step 4, which gives it
+the busy value.
 
 Line counts:
 
@@ -943,6 +1037,9 @@ Line counts:
 - **Step 4c:** a page load: the gate shows until every load and the resume have answered, and
   the hospital menu has its options when the application opens; a page load with the products
   unreachable: the gate names the products and says to reload the page.
+- **Step 13:** the browser list for every code step passes unchanged and the trail shows the
+  same lines as before; a page load with a patient in the url, and one with a Session that
+  resumes with saved orders: the gate stays until the plan has answered.
 - **Step 5:** the patient refresh after the weight changed in the EHR: the plan shows the orders
   for the new weight, the orders kept; the plan refresh: the last signed orders, the new and
   changed ones gone; a patient with no signed order plan: the plan refresh is absent and the
@@ -993,5 +1090,6 @@ Line counts:
   the panel is greyed while a patient change is out. They stay as closing arms until those
   machines are rewritten.
 - The views' own Elmish programs (the order dialog, the nutrition slot, the interactions page, the
-  page menu) and machines for what `App.update` still decides itself.
+  page menu), and machines for what `App.update` still decides itself after step 13: the loads,
+  the admin and the router.
 - Replay of a trail back into the machines.
