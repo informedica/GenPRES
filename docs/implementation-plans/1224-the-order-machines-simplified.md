@@ -660,8 +660,14 @@ What can start a request, and what each depends on:
         machine and the notice the Session in one transition; a patient given from outside,
         by the url or a signature; the start-over of step 7; the prescribe click;
       - `LanesEffect`, the machines' own effects wrapped, one case per machine
-        (`Patient of PatientEffect`, `Workbench of OrderContextEffect`, ...): the effects that
-        are routed are used up inside the transition, the rest come out;
+        (`Patient of PatientEffect`, `Workbench of OrderContextEffect`, ...). Every effect comes
+        out, the routed ones too: the transition has done what a routed effect means for another
+        machine, and `App` does the rest of it, the client part. `SetPatient` from the patient
+        machine still resets the formulary and parenteralia pages to the patient, clears the
+        lists' filters and starts the two page loads; `TellSigned` and `TellRefused` for a newer
+        version still show their message. A routed effect with no client part, the Session's
+        `SetPatient` and `LoadCart`, `RenewToken`, `EndSession`, `ResetWorkbench`, falls to
+        `App`'s closing case;
       - `Lanes.transition`, which runs the machine the message is for and passes each routed
         effect on to its machine in the same transition.
     - The routes run one way: the signing lane to the Session, the Session to the patient, the
@@ -670,8 +676,9 @@ What can start a request, and what each depends on:
       machine routes back to one before it.
     - `App` carries out what comes out, in the update that ran the transition, and queues no
       message for a machine: the answers that carry a notice come into `Lanes` as they are.
-      The five `apply...Effect` functions in `App` stay nearly as they are, the routed cases
-      falling to one closing case. The answers of the formulary, the parenteralia and the
+      The five `apply...Effect` functions in `App` stay nearly as they are: of a routed effect
+      they do the client part only, never the machine part, and the routed effects without one
+      fall to one closing case. The answers of the formulary, the parenteralia and the
       interactions stay in `App`, with the loads.
     - The request ids of the follow-ups come from a function `App` passes in, as the dependency
       rule asks of entropy; the tests pass a counter.
@@ -947,21 +954,24 @@ the order of the steps protects the work between pull requests, not patients; it
       out; the arms of the three answers that carry a notice hand them to `Lanes` as they are;
       `changePatient`, `changeOrderContext`, `changeOrderPlan`, the routing in `setPatient` and
       the two functions `applySessionEffect` takes go; each `apply...Effect` keeps the effects
-      that leave the client, the routed ones in one closing case.
+      that leave the client and the client part of the routed ones, the routed ones without a
+      client part in one closing case.
     - `Trail.fs` writes the lines of the steps a transition returns, the signing lane set idle
       included.
     - Tests in `LanesTests.fs`, use cases played by code over `Lanes.initial` and the machines'
       own test constructors: a page load with a url patient, its answer, then the workbench and
       plan answers in either order: after every message `Busy.out` over the lanes holds a
-      request until the last answer, and the two page loads come out in the transition that
-      lands the patient; a Session resumed with saved orders: the patient and the version reach
-      their machines in the transition that lands the answer; a signature answered: the token,
-      the patient and the signed plan reach the Session, the patient and the plan in the same
-      transition; a prescription answered: the workbench reset in the same transition; an
-      answer with a newer-version notice: the answer and `Told` in one transition; the Session
-      ended: the signing lane idle, and the step without a message returned. Whether the
-      start-up ends only then needs the loads, which stay in `App`; that is checked in the
-      browser.
+      request until the last answer, and the patient machine's `SetPatient`, with its page
+      loads, comes out of the transition that lands the patient; a Session resumed with saved
+      orders: the patient and the version reach their machines in the transition that lands the
+      answer; a signature answered: the token, the patient and the signed plan reach the
+      Session, the patient and the plan in the same transition, and `TellSigned` comes out for
+      its message; a signature refused for a newer version: the Session keeps the version and
+      `TellRefused` comes out; a prescription answered: the workbench reset in the same
+      transition; an answer with a newer-version notice: the answer and `Told` in one
+      transition; the Session ended: the signing lane idle, and the step without a message
+      returned. Whether the start-up ends only then needs the loads, which stay in `App`; that
+      is checked in the browser.
 
 Step 5 and step 13 may exceed the limit and steps 10 and 11, the rewrites, do; step 12 is the
 last. Step 13 lands after step 4 and before step 5. Step 9 lands before step 8, and its
