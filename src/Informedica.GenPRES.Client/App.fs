@@ -19,6 +19,7 @@ open SigningMachine
 open OrderPlanMachine
 open OrderContextMachine
 open PatientMachine
+open Lanes
 
 
 module private Elmish =
@@ -120,22 +121,6 @@ module private Elmish =
             // the resource reload from the settings page: InProgress from the request until the
             // server has reloaded
             Reloading: Deferred<unit>
-        }
-
-
-    /// The five lanes, each a machine's state the pages read a projection of.
-    type LanesState =
-        {
-            // the patient, as the patient machine holds it: the draft and the change under way
-            Patient: PatientState
-            // the prescribing workbench, as the order-context machine holds it
-            OrderContext: OrderContextState
-            // the one plan, as the order-plan machine holds it
-            OrderPlan: OrderPlanState
-            // the launch Session; Anonymous is the state every URL patient runs in
-            Session: SessionState
-            // the signing phase of the open Session; Idle whenever no Session is open
-            Signing: SigningState
         }
 
 
@@ -622,17 +607,9 @@ module private Elmish =
 
     let initialState pat page lang discl =
         {
-            Lanes =
-                {
-                    Patient = PatientState.init pat
-                    // a medication in the url is seeded by UrlChanged, which the router fires on
-                    // mount too, once the patient is set
-                    OrderContext = OrderContextState.noPatient
-                    // the patient reaches the plan through UpdatePatient
-                    OrderPlan = OrderPlanState.noPatient
-                    Session = SessionState.anonymous
-                    Signing = SigningState.idle
-                }
+            // a medication in the url is seeded by UrlChanged, which the router fires on mount too,
+            // once the patient is set; the patient reaches the plan through UpdatePatient
+            Lanes = Lanes.initial pat
             Fetches =
                 {
                     NormalValues = HasNotStartedYet
@@ -910,9 +887,8 @@ module private Elmish =
 
     /// What one session effect changes, and the command it sends. A transport failure
     /// is a message, never an exception: an Error outcome for a presentation, CloseFailed for
-    /// a close that did not reach the server. The patient and the orders the Session opened with
-    /// go to their machines through toPatient and loadCart, in this same update.
-    let applySessionEffect toPatient loadCart (effect: SessionEffect) (state: State) : State * Cmd<Msg> =
+    /// a close that did not reach the server.
+    let applySessionEffect (effect: SessionEffect) (state: State) : State * Cmd<Msg> =
         match effect with
         | SessionEffect.CallPresentLaunch(launch, key) ->
             state,
@@ -1008,11 +984,10 @@ module private Elmish =
             }
             |> Cmd.fromAsync
         | SessionEffect.GoTo url -> state, Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
-        | SessionEffect.SetPatient patient -> state |> toPatient patient
-        // the cart is the version the Session opened with, opened by the plan machine over the
-        // patient as the server answers it; the machine keeps the version while that patient is
-        // still on its way
-        | SessionEffect.LoadCart head -> state |> loadCart head
+        // the patient and the orders the Session opened with go to their machines in Lanes; nothing
+        // is left for the client
+        | SessionEffect.SetPatient _
+        | SessionEffect.LoadCart _ -> state, Cmd.none
         | SessionEffect.KeepKey thumbprint ->
             state,
             Cmd.ofEffect (fun _ ->
@@ -1141,7 +1116,8 @@ module private Elmish =
             |> Cmd.fromAsync
         // out in the same update as the plan answer it follows
         | OrderPlanEffect.CheckInteractions drugs -> state |> checkInteractions drugs
-        | OrderPlanEffect.ResetWorkbench -> state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Reset(newRequest ())))
+        // the workbench is emptied in Lanes; nothing is left for the client
+        | OrderPlanEffect.ResetWorkbench -> state, Cmd.none
         // an order prescribed opens the plan page
         | OrderPlanEffect.GoToPlanPage -> { state with Ui.Page = Global.Pages.OrderPlan }, Cmd.none
         | OrderPlanEffect.TellError errs ->
@@ -1199,38 +1175,9 @@ module private Elmish =
             Cmd.none
 
 
-    /// The patient on the workbench, the plan and the formulary and parenteralia pages, which
-    /// follow it: evaluated for a new one, again over a change. No patient, no workbench and no
-    /// plan.
-    /// A step of the order context machine: the trail recorded, the effects applied.
-    let changeOrderContext msg (state: State) =
-        let workbench, effects =
-            OrderContextState.transitionWhile state.Lanes.Patient msg state.Lanes.OrderContext
-
-        StepTrail.record (fun no at -> Trail.orderContext no at msg (workbench, effects))
-
-        { state with Lanes.OrderContext = workbench }
-        |> runEffects applyOrderContextEffect effects
-
-
-    /// A step of the order plan machine: the trail recorded, the effects applied. A change from a
-    /// page is dropped while a signature is under way.
-    let changeOrderPlan msg (state: State) =
-        let plan, effects =
-            OrderPlanState.transitionWhile
-                (SigningState.view state.Lanes.Signing)
-                state.Lanes.Patient
-                msg
-                state.Lanes.OrderPlan
-
-        StepTrail.record (fun no at -> Trail.orderPlan no at msg (plan, effects))
-
-        { state with Lanes.OrderPlan = plan } |> runEffects applyOrderPlanEffect effects
-
-
-    let setPatient (pat: Patient option) (state: State) : State * Cmd<Msg> =
-        // the workbench, the plan and the two pages asked for the patient in this same update,
-        // so the answer is never followed by a moment with nothing out
+    /// The formulary and parenteralia pages for the patient, loaded in the update that lands
+    /// it, and the lists' filters cleared; the workbench and the plan get the patient in Lanes.
+    let patientPages (pat: Patient option) (state: State) =
         let state =
             { state with
                 Fetches.Formulary = { Formulary.empty with Patient = pat } |> Resolved
@@ -1239,13 +1186,10 @@ module private Elmish =
                 Ui.ContinuousMedsFilter = [||]
             }
 
-        let state, workbench = state |> changeOrderContext (OrderContextMsg.PatientChanged(pat, newRequest ()))
-
-        let state, plan = state |> changeOrderPlan (OrderPlanMsg.PatientChanged(pat, newRequest ()))
         let state, formulary = startFormulary state
         let state, parenteralia = startParenteralia state
 
-        state, Cmd.batch [ workbench; plan; formulary; parenteralia ]
+        state, Cmd.batch [ formulary; parenteralia ]
 
 
     /// What one patient effect changes, and the command it sends. A patient change answers under
@@ -1280,7 +1224,7 @@ module private Elmish =
                     return PatientMsg(PatientMsg.Answered(request, Error [| ex.Message |]))
             }
             |> Cmd.fromAsync
-        | PatientEffect.SetPatient pat -> state |> setPatient pat
+        | PatientEffect.SetPatient pat -> state |> patientPages pat
         | PatientEffect.TellError errs ->
             Logging.warning "patient change error" errs
 
@@ -1289,12 +1233,23 @@ module private Elmish =
             Cmd.none
 
 
-    /// A step of the patient machine: the trail recorded, the effects applied.
-    let changePatient (msg: PatientMsg) (state: State) =
-        let patient, effects = PatientState.transition msg state.Lanes.Patient
-        StepTrail.record (fun no at -> Trail.patient no at msg (patient, effects))
+    /// What one effect of the lanes leaves for the client, carried out by its machine's apply.
+    let applyLanesEffect effect state =
+        match effect with
+        | LanesEffect.Patient e -> state |> applyPatientEffect e
+        | LanesEffect.Workbench e -> state |> applyOrderContextEffect e
+        | LanesEffect.Plan e -> state |> applyOrderPlanEffect e
+        | LanesEffect.Session e -> state |> applySessionEffect e
 
-        { state with Lanes.Patient = patient } |> runEffects applyPatientEffect effects
+
+    /// A message through the lanes: the machines' steps recorded in the trail, and what the
+    /// effects leave for the client carried out, all in this update.
+    let runLanes msg (state: State) =
+        let lanes, effects, steps = Lanes.transition newRequest msg state.Lanes
+        steps
+        |> List.iter (fun step -> StepTrail.record (fun no at -> Trail.lanes no at step))
+
+        { state with Lanes = lanes } |> runEffects applyLanesEffect effects
 
 
     /// What the pages show refreshed over reloaded resources, out in the update that lands the
@@ -1314,7 +1269,8 @@ module private Elmish =
                     DoseType = None
                 }
 
-            state |> changeOrderContext (OrderContextMsg.SeedFilter(seed, newRequest ()))
+            state
+            |> runLanes (LanesMsg.Workbench(OrderContextMsg.SeedFilter(seed, newRequest ())))
         | None ->
             let state, formulary = startFormulary state
             let state, parenteralia = startParenteralia state
@@ -1677,13 +1633,13 @@ module private Elmish =
 
         | UpdatePatient dto ->
             state
-            |> changePatient (PatientMsg.Changed(dto, PatientDraftPolicy.Estimates.Renewed, newRequest ()))
+            |> runLanes (LanesMsg.Patient(PatientMsg.Changed(dto, PatientDraftPolicy.Estimates.Renewed, newRequest ())))
 
         | EditPatient dto ->
             state
-            |> changePatient (PatientMsg.Changed(dto, PatientDraftPolicy.Estimates.Kept, newRequest ()))
+            |> runLanes (LanesMsg.Patient(PatientMsg.Changed(dto, PatientDraftPolicy.Estimates.Kept, newRequest ())))
 
-        | PatientMsg msg -> state |> changePatient msg
+        | PatientMsg msg -> state |> runLanes (LanesMsg.Patient msg)
 
         // what the Session is told rides on the reply; the patient goes to the machine under the
         // request it answers
@@ -1725,7 +1681,9 @@ module private Elmish =
             let state, patientCmd =
                 if anonymous then
                     state
-                    |> changePatient (PatientMsg.Changed(pat, PatientDraftPolicy.Estimates.Renewed, newRequest ()))
+                    |> runLanes (
+                        LanesMsg.Patient(PatientMsg.Changed(pat, PatientDraftPolicy.Estimates.Renewed, newRequest ()))
+                    )
                 else
                     state, Cmd.none
 
@@ -1767,9 +1725,6 @@ module private Elmish =
                 ]
 
         | SessionMsg msg ->
-            let session, effects = SessionState.transition msg state.Lanes.Session
-            StepTrail.record (fun no at -> Trail.session no at msg (session, effects))
-
             // a failed close is reported only when it was this session's close: a CloseFailed
             // that arrives after a newer launch superseded the Closing session is dropped by
             // the machine and must not put an error over the newer session
@@ -1791,37 +1746,14 @@ module private Elmish =
                     }
                 | _ -> state
 
-            // a signature belongs to an open Session: whatever ends the Session drops it. The
-            // plan's work stays: unsigned is unsigned
-            let signing =
-                match SessionState.view session with
-                | SessionView.Open _ -> state.Lanes.Signing
-                | _ -> SigningState.idle
-            // the reset happens outside the signing machine, so the trail records it here
-            match SessionState.view session, SigningState.view state.Lanes.Signing with
-            | SessionView.Open _, _
-            | _, SigningView.Idle -> ()
-            | _ -> StepTrail.record (fun no at -> Trail.signingReset no at "the session is no longer open" signing)
-
-            { state with
-                Lanes.Session = session
-                Lanes.Signing = signing
-            }
-            |> runEffects
-                (applySessionEffect
-                    (fun patient ->
-                        changePatient (
-                            PatientMsg.Changed(patient, PatientDraftPolicy.Estimates.Renewed, newRequest ())
-                        )
-                    )
-                    (fun head -> changeOrderPlan (OrderPlanMsg.Version(head, newRequest ()))))
-                effects
+            state |> runLanes (LanesMsg.Session msg)
 
         | SigningMsg msg ->
             let signing, effects = SigningState.transition msg state.Lanes.Signing
             StepTrail.record (fun no at -> Trail.signing no at msg (signing, effects))
 
-            { state with Lanes.Signing = signing } |> runEffects applySigningEffect effects
+            { state with Lanes = { state.Lanes with Signing = signing } }
+            |> runEffects applySigningEffect effects
 
         | LoadLocalization Started ->
             { state with Fetches.Localization = InProgress },
@@ -1940,7 +1872,7 @@ module private Elmish =
             |> recordFailed Busy.Load.Products,
             Cmd.none
 
-        | OrderContextMsg msg -> state |> changeOrderContext msg
+        | OrderContextMsg msg -> state |> runLanes (LanesMsg.Workbench msg)
 
         // what the Session is told rides on the reply; the context goes to the machine under
         // the request it answers
@@ -1952,7 +1884,7 @@ module private Elmish =
                     state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Answered(request, Ok response)))
                 )
 
-        | OrderPlanMsg msg -> state |> changeOrderPlan msg
+        | OrderPlanMsg msg -> state |> runLanes (LanesMsg.Plan msg)
 
         // what the Session is told rides on the reply; the plan goes to the machine under the
         // request it answers

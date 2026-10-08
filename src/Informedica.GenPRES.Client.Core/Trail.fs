@@ -714,3 +714,13 @@ let orderContext = step "OrderContext" OrderContext.msg OrderContext.effect Orde
 
 /// A step of the patient machine.
 let patient = step "Patient" Patient.msg Patient.effect Patient.state
+
+
+/// A step the lanes took: a machine's step, or the signing lane set idle.
+let lanes no at step =
+    match step with
+    | Lanes.LanesStep.Session(msg, state, effects) -> session no at msg (state, effects)
+    | Lanes.LanesStep.Patient(msg, state, effects) -> patient no at msg (state, effects)
+    | Lanes.LanesStep.Plan(msg, state, effects) -> orderPlan no at msg (state, effects)
+    | Lanes.LanesStep.Workbench(msg, state, effects) -> orderContext no at msg (state, effects)
+    | Lanes.LanesStep.SigningReset signing -> signingReset no at "the session is no longer open" signing
