@@ -717,7 +717,9 @@ module NutritionSlot =
         let busy = props.busy
         let texts = ViewHelpers.quantityFieldTexts getTerm
 
-        let select = ViewHelpers.orderSelect texts true false
+        // a field sends its counted steps from a timer, which the page's Disabled cannot stop: the
+        // field is disabled while a request is out, so the timer sends nothing then
+        let select = ViewHelpers.orderSelect texts true busy
 
         let isTpn = ctx |> isOneOf [ NutritionCategory.TPN ]
 
@@ -744,7 +746,7 @@ module NutritionSlot =
         // of a component would keep the rate of the part for the whole
         let isCompositionLocked = isTpn && shownOrder |> Option.exists IntakePolicy.isCompositionLocked
 
-        let componentSelect = ViewHelpers.orderSelect texts true isCompositionLocked
+        let componentSelect = ViewHelpers.orderSelect texts true (busy || isCompositionLocked)
 
         // a field with one value reopens by its arrow; without picks it cannot tell whether the user
         // constrained it
@@ -756,7 +758,7 @@ module NutritionSlot =
                 busy = busy
             |}
         // a value only shown has nothing for a cross to clear
-        let display = ViewHelpers.orderFixed texts true false
+        let display = ViewHelpers.orderFixed texts true busy
         let filterSelect = ViewHelpers.filterSelect
         let responsiveFilter = ViewHelpers.responsiveFilter isMobile
 
