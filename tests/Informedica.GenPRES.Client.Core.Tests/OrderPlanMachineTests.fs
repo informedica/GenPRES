@@ -359,20 +359,16 @@ let tests =
                             (held (plan [||]) None, [ OrderPlanEffect.TellError [| "not loaded" |] ])
                     }
 
-                    test "an order prescribed: the plan page opens on it and the workbench is cleared" {
+                    test "an order prescribed: the answer is shown and checked, nothing more" {
                         let workbench = context "" "ibuprofen"
 
                         let busy = recalculating one None "r-1" (OrderPlanCommand.AddOrderContext(one, workbench))
 
                         transition (OrderPlanMsg.Answered("r-1", Ok two)) busy
                         |> Expect.equal
-                            "shown, checked, the page and the workbench"
+                            "shown and checked"
                             (held two None |> OrderPlanState.withOpened one.OrderContexts,
-                             [
-                                 OrderPlanEffect.CheckInteractions [ "paracetamol"; "ibuprofen" ]
-                                 OrderPlanEffect.GoToPlanPage
-                                 OrderPlanEffect.ResetWorkbench
-                             ])
+                             [ OrderPlanEffect.CheckInteractions [ "paracetamol"; "ibuprofen" ] ])
                     }
                 ]
 

@@ -40,8 +40,9 @@ type LanesMsg =
     /// A server answer with the notice its reply carried, if any: the answer reaches its
     /// machine and the notice the Session.
     | Answer of LanesMsg * from: OpenedToken option * RecordNotice option
-    /// The prescribe click: the workbench narrowed to the order with this id goes into the plan.
-    | Prescribe of orderId: string * request: string
+    /// The prescribe click: the workbench narrowed to the order with this id goes into the plan,
+    /// and the workbench is emptied under the reset request id.
+    | Prescribe of orderId: string * request: string * reset: string
 
 
 /// The machines' effects, each as its machine emitted it.
@@ -52,6 +53,8 @@ type LanesEffect =
     | Workbench of OrderContextEffect
     | Plan of OrderPlanEffect
     | Session of SessionEffect
+    /// Open the plan page: an order was prescribed.
+    | GoToPlanPage
 
 
 /// A step the transition took, for the trail: a machine's message with its new state and
@@ -121,10 +124,28 @@ let rec step msg (lanes: LanesState) =
             let lanes, told, toldTaken = step (LanesMsg.Session(SessionMsg.Told(from, notice))) lanes
             lanes, effects @ told, taken @ toldTaken
         | None -> lanes, effects, taken
-    // nothing to add when the workbench no longer shows the order
-    | LanesMsg.Prescribe(orderId, request) ->
+    // nothing to add when the workbench no longer shows the order. The workbench is emptied and
+    // the plan page opened at the click, but only when the order went out: a plan that takes no
+    // change now drops it, and the workbench keeps it then
+    | LanesMsg.Prescribe(orderId, request, reset) ->
         match lanes.OrderContext |> OrderContextState.narrowedTo orderId with
-        | Some ctx -> step (LanesMsg.Plan(OrderPlanMsg.Change(OrderPlanChange.Add ctx, request))) lanes
+        | Some ctx ->
+            let lanes, effects, taken =
+                step (LanesMsg.Plan(OrderPlanMsg.Change(OrderPlanChange.Add ctx, request))) lanes
+
+            let sent =
+                effects
+                |> List.exists (
+                    function
+                    | LanesEffect.Plan(OrderPlanEffect.CallPlan _) -> true
+                    | _ -> false
+                )
+
+            if sent then
+                let lanes, emptied, resetTaken = step (LanesMsg.Workbench(OrderContextMsg.Reset reset)) lanes
+                lanes, effects @ emptied @ [ LanesEffect.GoToPlanPage ], taken @ resetTaken
+            else
+                lanes, effects, taken
         | None -> lanes, [], []
 
 
@@ -157,8 +178,6 @@ let route (newId: unit -> string) effect =
             LanesMsg.Workbench(OrderContextMsg.PatientChanged(pat, newId ()))
             LanesMsg.Plan(OrderPlanMsg.PatientChanged(pat, newId ()))
         ]
-    // a prescription answered empties the workbench
-    | LanesEffect.Plan OrderPlanEffect.ResetWorkbench -> [ LanesMsg.Workbench(OrderContextMsg.Reset(newId ())) ]
     | _ -> []
 
 
@@ -166,8 +185,8 @@ let route (newId: unit -> string) effect =
 /// effects become are run first, before the messages still waiting, so what an effect causes lands
 /// before anything that came after it; until none is left. The routes run one way, the signing
 /// lane to the Session, the patient and the plan, the Session to the patient and the plan, the
-/// patient to the workbench and the plan, the plan to the workbench, so the list empties: no
-/// machine passes an effect back to one before it.
+/// patient to the workbench and the plan, so the list empties: no machine passes an effect back
+/// to one before it.
 let transition newId msg (lanes: LanesState) =
     let rec run queue (lanes, effects, steps) =
         match queue with

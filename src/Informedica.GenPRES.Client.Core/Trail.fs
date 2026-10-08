@@ -497,8 +497,6 @@ module OrderPlan =
         | OrderPlanEffect.CallPlan(cmd, request) ->
             $"CallPlan %s{Part.planCommand Part.contextId cmd} %s{Part.shortId request}"
         | OrderPlanEffect.CheckInteractions drugs -> $"CheckInteractions %i{drugs.Length} drugs"
-        | OrderPlanEffect.GoToPlanPage -> "GoToPlanPage"
-        | OrderPlanEffect.ResetWorkbench -> "ResetWorkbench"
         | OrderPlanEffect.TellError _ -> "TellError"
 
 
