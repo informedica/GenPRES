@@ -696,6 +696,18 @@ module OrderContext =
         }
 
 
+    /// Whether the rule lookup would read a choice the filter does not hold: a list of one
+    /// without its choice, which one more evaluation picks.
+    let choicesOpen (ctx: OrderContext) =
+        let read = ctx |> picks
+
+        read.Indication <> ctx.Filter.Indication
+        || read.Generic <> ctx.Filter.Generic
+        || read.Route <> ctx.Filter.Route
+        || read.Form <> ctx.Filter.Form
+        || read.DoseType <> ctx.Filter.DoseType
+
+
     /// The patient of the context with the weight and the height it has, as the rule lookup
     /// takes it.
     let matchedPatient w h (ctx: OrderContext) : Patient =

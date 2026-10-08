@@ -104,9 +104,30 @@ module Adapters =
             navigate =
                 fun plan contextId cmd pc ->
                     async {
+                        let evaluate cmd pc = pc |> OrderContextService.evaluate (now ()) logger provider cmd
+
+                        // a nutrition context's lists narrowed to its rule set, and evaluated again
+                        // as it is while that leaves a choice open
+                        let set =
+                            plan.Contexts
+                            |> Array.tryFind (fun c -> c.Id = contextId)
+                            |> Option.bind PlanContext.nutritionCategory
+                            |> Option.bind (fun c -> ruleSets |> NutritionRuleSet.tryFind c)
+
+                        let settled (evaluated: PlanContext) =
+                            match set with
+                            | Some set ->
+                                evaluated
+                                |> NutritionRuleSet.settle
+                                    _.Context
+                                    (fun pc -> { pc with Context = pc.Context |> NutritionRuleSet.narrow set })
+                                    (evaluate OrderContext.UpdateOrderContext)
+                            | None -> Ok evaluated
+
                         return
                             pc
-                            |> OrderContextService.evaluate (now ()) logger provider cmd
+                            |> evaluate cmd
+                            |> Result.bind settled
                             |> Result.bind (fun evaluated ->
                                 plan |> OrderPlan.updateContext ruleSets contextId evaluated |> refused
                             )

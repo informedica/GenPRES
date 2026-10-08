@@ -172,7 +172,9 @@ The machines barely shrank over plan B: `OrderContextMachine.fs` went from 579 t
     (`App.fs`, `UpdatePage`), and the page menu is never greyed;
   - a field with one option picks it from a React effect, not from a click
     (`Components/PickField.fs`); every answer of the server already picks such a field, so the
-    effect sends only where no answer picks, the patient panel's department (decision 13);
+    effect sends only where no answer picks: the patient panel's department, and a nutrition
+    context whose lists the server narrows to its category after the evaluation, without a
+    pick (decision 13);
   - the order dialog sends its unsent argumentation when it unmounts (`Views/Order.fs`), and it
     unmounts for a patient change, a seed, a reset or a url change as well as for its own close;
   - the nutrition slot sends the move to a full intake from an effect once the TPN is composed
@@ -620,8 +622,12 @@ What can start a request, and what each depends on:
     `Components/PickField.fs` that picked them on the client goes, and no policy replaces it.
     A context made afresh for a patient without weight or height offers options and picks
     none, and a client pick changes nothing there, since the next evaluation makes it afresh
-    again. The patient panel's department field is picked by no answer, and keeps a local pick
-    of its one option.
+    again. A nutrition context's lists are narrowed to its category after the evaluation,
+    which can leave one option unpicked; `NutritionRuleSet.settle` then evaluates the context
+    again while a choice is open (`OrderContext.choicesOpen`), so the answer holds that pick
+    too, and stops when an evaluation changes nothing; `NutritionRuleSet.discover` and the
+    plan's `navigate` both settle. The patient panel's department field is picked by no
+    answer, and keeps a local pick of its one option.
 
 ## Steps
 
