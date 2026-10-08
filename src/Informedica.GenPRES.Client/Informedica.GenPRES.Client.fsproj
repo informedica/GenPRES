@@ -29,6 +29,7 @@
     <Compile Include="./Components/AddButton.fs" />
     <Compile Include="./Components/RemoveIconButton.fs" />
     <Compile Include="./Components/LoadingOverlay.fs" />
+    <Compile Include="./Components/Disabled.fs" />
     <Compile Include="./Components/DialogShell.fs" />
     <Compile Include="./Components/ConfirmDialog.fs" />
     <Compile Include="./Components/SimpleSelect.fs" />
