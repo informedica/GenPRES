@@ -621,7 +621,8 @@ What can start a request, and what each depends on:
 
 ## Steps
 
-One pull request per step, one open at a time.
+One pull request per step, one open at a time. The client is an alpha and not in production, so
+the order of the steps protects the work between pull requests, not patients; it still holds.
 
 - Every step in `Client.Core` or on the server starts as a script with its tests, unless the user
   asks for source; step 1 is client view and App code alone.
@@ -797,7 +798,9 @@ One pull request per step, one open at a time.
      with unsigned work nothing starts over until yes, in anonymous mode too; with a signature
      under way the url is put back; with a refresh or an open of a signed version out the lane
      goes anonymous, closes and drops that answer.
-8. **The guards out of the order machines.** Decisions 1, 3 and 4.
+8. **The guards out of the order machines.** Decisions 1, 3 and 4. After step 9: until the count
+   and the dialog's close wait as every control does, a step's clicks or a draft sent from the
+   unmount can still reach a busy machine, and only the guards catch them.
    - `admitted` and `transitionWhile` go from both machines, with their tests, the signing half of
      the plan's included, since step 4 disables every page from the sign click on.
    - The two cases of `move` that send over `OrderContextWorkbench.shown` go, and the unguarded
@@ -822,7 +825,8 @@ One pull request per step, one open at a time.
      There is no view test project (#598), so the wiring from `Busy` to a disabled page is
      checked in the browser list below, not under Expecto. The pull request names each test it
      replaces.
-9. **The order dialog's and the OrderPlan page's own senders.** Decisions 10 and 12.
+9. **The order dialog's and the OrderPlan page's own senders.** Decisions 10 and 12. Before step
+   8, after step 4.
    - The field being counted becomes App state (`Ui.Counting`, set and cleared by one message
      the dialog and the OrderPlan page send from their timer), which `Busy` reads like a request
      out: the page is disabled but the field counting, and the menu and the title bar wait. The
@@ -846,7 +850,8 @@ One pull request per step, one open at a time.
     before and after.
 
 Step 5 may exceed the limit and steps 10 and 11, the rewrites, do; step 12 is the last. Step 9
-can land anywhere after step 1.
+lands before step 8, and its browser checks are run before the guards go; it can land anywhere
+after step 4, which gives it the busy value.
 
 Line counts:
 
