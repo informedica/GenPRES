@@ -1451,22 +1451,7 @@ module private Elmish =
                 | InProgress -> Cmd.none
                 | _ -> Cmd.ofMsg (LoadInteractionDrugNames Started)
 
-            // make sure that the order context is not in use
-            // i.e. the order context should be "fresh"
-            if
-                page = ContinuousMeds
-                && state.Lanes.OrderContext
-                   |> OrderContextState.context
-                   |> Option.map (fun ctx -> ctx.Filter.Generic |> Option.isSome)
-                   |> Option.defaultValue true
-            then
-                { state with Ui.Page = page },
-                Cmd.batch
-                    [
-                        Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Reset(newRequest ())))
-                        retryDrugNames
-                    ]
-            else if page = Settings && not state.Admin.IsAuthenticated then
+            if page = Settings && not state.Admin.IsAuthenticated then
                 state, Cmd.none
             else if page = Settings then
                 { state with Ui.Page = page }, retryDrugNames

@@ -259,6 +259,29 @@ module GenPres =
             | Global.Pages.Parenteralia -> Views.Parenteralia.View appEnvProps
             | Global.Pages.Settings -> Views.Settings.View appEnvProps
 
+        // a list item seeds the workbench, so the list pages are disabled while a workbench
+        // request is under way
+        let pageDisabled =
+            match props.page, orderContext with
+            | Global.Pages.LifeSupport, OrderContextView.Changing _
+            | Global.Pages.ContinuousMeds, OrderContextView.Changing _ -> true
+            | _ -> false
+
+        // the page box scrolls, so the disable lies around it and its spinner stays in view
+        let disabledPage =
+            Components.Disabled.View
+                {|
+                    isDisabled = pageDisabled
+                    children =
+                        JSX.jsx
+                            $"""
+                        import Box from '@mui/material/Box';
+                        <Box id="page-box" sx={sxPageBox}>
+                            {pageView}
+                        </Box>
+                        """
+                |}
+
         let totalsContent =
             match props.page with
             | Global.Pages.Prescribe ->
@@ -417,9 +440,7 @@ module GenPres =
                 <Container id="page-container" sx={sxContainer} >
                     <Stack sx={sxStack}>
                         {patientBox}
-                        <Box id="page-box" sx={sxPageBox}>
-                            {pageView}
-                        </Box>
+                        {disabledPage}
                     </Stack>
                 </Container>
             </Box>

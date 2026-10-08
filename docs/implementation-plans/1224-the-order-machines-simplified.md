@@ -632,13 +632,17 @@ the order of the steps protects the work between pull requests, not patients; it
 - Every step that changes a message or an effect changes `Trail.fs` and its tests in the same pull
   request.
 
-1. **The medication lists are disabled while the workbench changes.** `Views/EmergencyList.fs` and
-   `Views/ContinuousMeds.fs` read the workbench through `AppEnv.IOrderContext` and grey their
-   rows while it is `Changing`, as the formulary page's selects, until step 4 gives every page
-   its one busy value. The switch to the continuous medication page no longer resets the
-   workbench (`App.fs`, `UpdatePage`): a list item's seed clears the whole filter on the server
-   already (`SeedSource.MedicationList`), so the reset did nothing the seed does not. A page
-   switch then sends nothing to a machine. Decision 1.
+1. **The medication lists are disabled while the workbench changes.** `Components/Disabled.fs`
+   is the one way a page is disabled as a whole: the page box gets `inert`, so it takes no click,
+   no key and no focus, and a MUI `Backdrop` beside it, clipped to the page, shows a small spinner
+   without dimming and without a fade. It wraps the page box in `Pages/GenPres.fs` and lies around
+   the page's scroll, so the spinner stays in view; the patient panel, the title bar, the menu and
+   the dialogs are outside it. In this step it is fed one case: the emergency list and the
+   continuous medication page while the workbench is `Changing`. A control that has the focus
+   loses it when its page is disabled and does not get it back. The switch to the continuous
+   medication page no longer resets the workbench (`App.fs`, `UpdatePage`): a list item's seed
+   clears the whole filter on the server already (`SeedSource.MedicationList`), so the reset did
+   nothing the seed does not. A page switch then sends nothing to a machine. Decision 1.
 2. **The pages follow the answer and grey during their own fetch.** Decision 5.
    - The order context machine syncs the formulary and parenteralia pages from the context
      answered, evaluated or refused, when the request sent changes the filter or updates the
@@ -691,9 +695,11 @@ the order of the steps protects the work between pull requests, not patients; it
      five failure handlers in `App` stop logging only and record the failure for the policy.
    - The page menu (`Pages/GenPres.fs`), `Components/TitleBar.fs`, the patient panel and
      `Components.Notice`, which gets a disabled on its action, read `Busy.any`; every page reads
-     `Busy.page` for itself and disables every control on it. The panel's own busy, the title
-     bar's `closing`, the pages' `isRecalculating` and `isAnythingLoading`, the lists' row check
-     from step 1 and the token check on the admin's log answers after a logout go.
+     `Busy.page` for itself through `Components.Disabled` from step 1, which then takes
+     `Busy.page` instead of its one case. The panel's own busy, the title bar's `closing`, the
+     pages' `isRecalculating` and `isAnythingLoading`, the selects greyed per page and the token
+     check on the admin's log answers after a logout go. A page disabled as a whole takes no
+     typing ahead into its next field while a request is out.
    - `OrderContextState.viewWhile`, `dialogWhile` and `OrderPlanState.viewWhile` go; `App`
      exposes `view` and `dialog`. `SigningPolicy.canSign` reads the Session and whether the
      plan has orders, nothing else; the sign button is disabled with its page.
