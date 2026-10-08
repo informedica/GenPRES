@@ -146,7 +146,7 @@ type ISession =
     abstract MovedOn: OrderPlanHead option
     // take up that version
     abstract OpenVersion: string -> unit
-    // read the EHR again and reopen the head on it; the plan's new and changed orders are dropped
+    // read the patient from the EHR again; the plan and the workbench follow it
     abstract Refresh: unit -> unit
 
 

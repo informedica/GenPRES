@@ -340,10 +340,6 @@ module OrderPlanState =
         | OrderPlanCart.Opened(_, tp) -> HeldContextPolicy.changed state.Opened tp
 
 
-    /// Whether the patient context is held: the plan has a new or changed order.
-    let contextHeld (state: OrderPlanState) = changed state |> Array.isEmpty |> not
-
-
     /// The order contexts of the plan new, changed or removed since the version last opened or
     /// signed, as the sign dialog lists them; the plan is the one the dialog shows.
     let differences (plan: OrderPlan) (state: OrderPlanState) = HeldContextPolicy.differences state.Opened plan

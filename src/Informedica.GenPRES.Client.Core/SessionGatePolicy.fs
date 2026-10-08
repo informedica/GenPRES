@@ -100,6 +100,7 @@ let english (term: Terms) =
     | Terms.``Session Enrolment Expired`` -> "The enrolment has expired."
     | Terms.``Session Newer Version`` -> "{0} signed a newer version at {1}."
     | Terms.``Session Open Newest`` -> "Open the newest version"
+    | Terms.``Session Open Last Signed`` -> "Open the last signed order plan"
     | Terms.``Session Version Opened`` -> "Version {0} by {1} is now open."
     | Terms.``Session Refresh Failed`` ->
         "The patient data could not be read from the EHR again. Nothing changed; the orders are as they were."

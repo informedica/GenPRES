@@ -42,6 +42,7 @@
     <Compile Include="SessionGatePolicyTests.fs" />
     <Compile Include="SigningPolicyTests.fs" />
     <Compile Include="UnsignedWorkPolicyTests.fs" />
+    <Compile Include="HeldPanelPolicyTests.fs" />
 
     <!-- the order machines -->
     <Compile Include="OrderPlanMachineTests.fs" />

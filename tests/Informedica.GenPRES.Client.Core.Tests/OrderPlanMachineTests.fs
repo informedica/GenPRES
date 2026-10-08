@@ -648,8 +648,8 @@ let workTests =
 
 [<Tests>]
 let heldTests =
-    let heldOf (state: OrderPlanState, _: OrderPlanEffect list) = state |> OrderPlanState.contextHeld
     let changedOf (state: OrderPlanState, _: OrderPlanEffect list) = state |> OrderPlanState.changed
+    let heldOf result = changedOf result |> Array.isEmpty |> not
 
     /// The answer to a command sent over the plan held, landed.
     let landed cmd answer state =
@@ -811,8 +811,8 @@ let signingTests =
                 |> fst
                 |> fun state ->
                     state
-                    |> OrderPlanState.contextHeld
-                    |> Expect.isFalse "the contexts are the ones signed"
+                    |> OrderPlanState.changed
+                    |> Expect.isEmpty "the contexts are the ones signed"
                     state |> OrderPlanState.work |> Expect.equal "as signed" PlanWork.AsSigned
                     state
                     |> OrderPlanState.plan
@@ -827,7 +827,7 @@ let signingTests =
                     |> transitionWhile SigningMachine.SigningView.Idle (OrderPlanMsg.Answered("r-1", Ok two))
                     |> fst
 
-                added |> OrderPlanState.contextHeld |> Expect.isTrue "the order added holds"
+                added |> OrderPlanState.changed |> Expect.isNonEmpty "the order added holds"
 
                 let another = OrderPlanCommand.AddOrderContext(two, context "" "amoxicilline")
 
@@ -841,8 +841,8 @@ let signingTests =
                 meanwhile
                 |> transitionWhile SigningMachine.SigningView.Idle OrderPlanMsg.Signed
                 |> fst
-                |> OrderPlanState.contextHeld
-                |> Expect.isFalse "the order plan is the version signed"
+                |> OrderPlanState.changed
+                |> Expect.isEmpty "the order plan is the version signed"
             }
         ]
 

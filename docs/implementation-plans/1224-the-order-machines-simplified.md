@@ -579,7 +579,7 @@ What can start a request, and what each depends on:
      is what the refresh would have done. Today's `refresh` covers this case by clearing the
      patient and setting it again, so the plan opens empty; that goes with the head reopen.
    - The server's `refresh` keeps its name and loses the head reopen; no new command.
-   - ADR-0007 and the use case record the two buttons.
+   - The use case records the two buttons.
 10. **A step being counted counts as a request.** Decided (user, 2026-10-08). A step button
     collects clicks for 700 ms and then sends one command; the field shows the stepped value
     meanwhile. During those 700 ms nothing is greyed, so another field's pick can go out first,
@@ -819,7 +819,6 @@ the order of the steps protects the work between pull requests, not patients; it
      signed order plan" through `OpenVersion` on the Session's head.
    - `Views/OrderPlan.fs` gets the same button, shown while the Session has a signed order plan
      and disabled with its page.
-   - ADR-0007 amended.
    - Tests: a refresh answered sends the patient and nothing to the plan; the plan follows the
      patient answer with `UpdatePatient`; after a signature the Session's head is the signed
      plan; the context is held for an identified patient with a new or changed order and not

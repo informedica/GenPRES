@@ -1440,9 +1440,10 @@ module Session =
 
 
     /// The Session refreshed: the EHR read again and projected at the time of the refresh with the user's
-    /// measurements over it, the head of the record reopened under a fresh OpenedToken, the
-    /// standing challenge spent and the notice dropped. None for no Session, an anonymous one or
-    /// one without a Patient. No reading: the patient and the EHR data as they were.
+    /// measurements over it, under a fresh OpenedToken, the standing challenge spent and the
+    /// notice dropped. The order plan version the Session opened with stays: opening the last
+    /// signed one is a separate action. None for no Session, an anonymous one or one without a
+    /// Patient. No reading: the patient and the EHR data as they were.
     let refresh
         (now: DateTime)
         (newId: unit -> string)
@@ -1467,21 +1468,14 @@ module Session =
                     |> Option.map (merged now patientData record.Opened.Measured)
                     |> Option.orElse record.Opened.Patient
 
-                let head = headOf patientId state
-
                 let opened =
                     { record.Opened with
                         OpenedToken = Some(OpenedToken $"opened-{newId ()}")
                         EhrData = read |> Option.orElse record.Opened.EhrData
                         Patient = patient
-                        Head = head
                     }
 
-                let session =
-                    { state.Sessions[sid] with
-                        Opened = opened
-                        OpenedWith = head |> Option.bind StoredVersion.readableId
-                    }
+                let session = { state.Sessions[sid] with Opened = opened }
 
                 let spent =
                     state.Challenges

@@ -36,11 +36,11 @@ module HeldContextPolicyTests =
             "HeldContextPolicy"
             [
                 test "the version opened is released" {
-                    held opened (plan opened) |> Expect.isFalse "the version holds nothing"
+                    changed opened (plan opened) |> Expect.isEmpty "the version holds nothing"
                 }
 
                 test "an empty order plan on no version is released" {
-                    held [||] (plan [||]) |> Expect.isFalse "nothing to hold"
+                    changed [||] (plan [||]) |> Expect.isEmpty "nothing to hold"
                 }
 
                 test "an added order holds" {
@@ -58,18 +58,18 @@ module HeldContextPolicyTests =
                 }
 
                 test "removing every new and changed order releases" {
-                    held opened (plan [| para |])
-                    |> Expect.isFalse "the order of the version left is as opened"
+                    changed opened (plan [| para |])
+                    |> Expect.isEmpty "the order of the version left is as opened"
                 }
 
                 test "removing an order of the version alone does not hold" {
-                    held opened (plan [| morf |])
-                    |> Expect.isFalse "a removal is no new or changed order"
+                    changed opened (plan [| morf |])
+                    |> Expect.isEmpty "a removal is no new or changed order"
                 }
 
                 test "a change to the filter alone does not hold" {
-                    held opened { plan opened with Filtered = [| "c1" |] }
-                    |> Expect.isFalse "the rows shown are no order"
+                    changed opened { plan opened with Filtered = [| "c1" |] }
+                    |> Expect.isEmpty "the rows shown are no order"
                 }
 
                 test "totals recalculated alone do not hold" {
@@ -78,6 +78,6 @@ module HeldContextPolicyTests =
                             Totals = { Shared.Models.Totals.empty with Volume = [| TextItem.Normal "10 mL" |] }
                         }
 
-                    held opened now |> Expect.isFalse "the totals are no order"
+                    changed opened now |> Expect.isEmpty "the totals are no order"
                 }
             ]
