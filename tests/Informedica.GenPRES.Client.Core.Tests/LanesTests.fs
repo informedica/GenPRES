@@ -240,6 +240,115 @@ let tests =
                 |> Expect.equal "the reset step" (LanesStep.SigningReset SigningState.idle)
             }
 
+            test "a signature answered: the token, the patient and the signed plan land in the same transition" {
+                let lanes =
+                    { Lanes.initial (Some draft) with
+                        Session = SessionState.opened SessionMachineTests.full None
+                        Signing = SigningMachineTests.Fixtures.submitting
+                    }
+
+                let _, effects, steps =
+                    lanes
+                    |> Lanes.transition (counter ()) (LanesMsg.Signing(SigningMachineTests.Fixtures.submitted "k-1"))
+
+                steps
+                |> List.choose (
+                    function
+                    | LanesStep.Session(SessionMsg.TokenRenewed _, _, _) -> Some "token"
+                    | LanesStep.Patient(PatientMsg.Changed _, _, _) -> Some "patient"
+                    | LanesStep.Plan(OrderPlanMsg.Signed, _, _) -> Some "signed"
+                    | _ -> None
+                )
+                |> List.distinct
+                |> Expect.equal "the Session, the patient and the plan" [ "token"; "patient"; "signed" ]
+
+                effects
+                |> List.contains (LanesEffect.Signing(SigningEffect.TellSigned SigningMachineTests.Fixtures.signed))
+                |> Expect.isTrue "the message comes out"
+            }
+
+            test "a signature refused for a newer version: the Session keeps the version, the refusal is told" {
+                let refused =
+                    SigningMsg.SubmitAnswered("k-1", Ok(SigningResponse.Refused(SigningRefusal.Blocked head.Head)))
+
+                let lanes =
+                    { Lanes.initial (Some draft) with
+                        Session = SessionState.opened SessionMachineTests.full None
+                        Signing = SigningMachineTests.Fixtures.submitting
+                    }
+
+                let _, effects, steps = lanes |> Lanes.transition (counter ()) (LanesMsg.Signing refused)
+
+                steps
+                |> List.exists (
+                    function
+                    | LanesStep.Session(SessionMsg.Blocked h, _, _) -> h = head.Head
+                    | _ -> false
+                )
+                |> Expect.isTrue "the Session got the version"
+
+                effects
+                |> List.contains (LanesEffect.Signing(SigningEffect.TellRefused(SigningRefusal.Blocked head.Head)))
+                |> Expect.isTrue "the refusal comes out"
+            }
+
+            test "an answer with a newer-version notice: the answer and the notice in one transition" {
+                let session = SessionMachineTests.full
+
+                let lanes = { Lanes.initial (Some draft) with Session = SessionState.opened session None }
+
+                let answer =
+                    LanesMsg.Answer(
+                        LanesMsg.Patient(PatientMsg.Answered("p-1", Ok measured)),
+                        session.OpenedToken,
+                        Some(RecordNotice.NewerVersion head.Head)
+                    )
+
+                let _, effects, steps = lanes |> Lanes.transition (counter ()) answer
+
+                steps
+                |> List.map (
+                    function
+                    | LanesStep.Patient _ -> "Patient"
+                    | LanesStep.Session(SessionMsg.Told _, _, _) -> "Told"
+                    | _ -> "other"
+                )
+                |> Expect.equal "the answer, then the notice" [ "Patient"; "Told" ]
+
+                effects
+                |> List.contains (LanesEffect.Session(SessionEffect.TellMovedOn head.Head))
+                |> Expect.isTrue "the newer version is told"
+            }
+
+            test "the prescribe click: the workbench narrowed to the order goes into the plan" {
+                let workbench =
+                    { context "" "paracetamol" with
+                        Scenarios = [| scenario "o-1" "paracetamol"; scenario "o-2" "paracetamol" |]
+                    }
+
+                let lanes =
+                    { Lanes.initial (Some draft) with
+                        OrderPlan = shown
+                        OrderContext = OrderContextState.held patient workbench
+                    }
+
+                let _, _, steps = lanes |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-2", "r-1"))
+
+                steps
+                |> List.choose (
+                    function
+                    | LanesStep.Plan(OrderPlanMsg.Change(OrderPlanChange.Add ctx, "r-1"), _, _) ->
+                        Some(ctx.Scenarios |> Array.map _.Order.Id)
+                    | _ -> None
+                )
+                |> Expect.equal "the order o-2 alone" [ [| "o-2" |] ]
+
+                lanes
+                |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-9", "r-1"))
+                |> fun (_, effects, steps) -> effects, steps
+                |> Expect.equal "nothing for an order the workbench does not show" ([], [])
+            }
+
             test "a message for one machine only runs that machine" {
                 let lanes = Lanes.initial (Some draft)
 

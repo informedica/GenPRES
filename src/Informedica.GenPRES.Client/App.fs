@@ -148,8 +148,8 @@ module private Elmish =
         | EditPatient of Patient option
         // the patient: the patient machine's messages
         | PatientMsg of PatientMsg
-        // the server's answer to a patient change: the notice is told here, the patient goes to
-        // the machine under the request it answers
+        // the server's answer to a patient change: the patient goes to its machine and the notice
+        // to the Session
         | PatientAnswered of request: string * Answer<Patient>
 
         | LoadNormalValues of AsyncOperationStatus<Result<NormalValues, string>>
@@ -164,15 +164,17 @@ module private Elmish =
 
         // the prescribing workbench: the order-context machine's messages
         | OrderContextMsg of OrderContextMsg
-        // the server's answer to a workbench request: the notice is told here, the context goes
-        // to the machine under the request it answers
+        // the server's answer to a workbench request: the context goes to its machine and the
+        // notice to the Session
         | OrderContextAnswered of request: string * Answer<OrderContextResponse>
 
         // the one plan, nutrition included: the order-plan machine's messages
         | OrderPlanMsg of OrderPlanMsg
-        // the server's answer to a plan request: the notice is told here, the plan goes to the
-        // machine under the request it answers
+        // the server's answer to a plan request: the plan goes to its machine and the notice to
+        // the Session
         | OrderPlanAnswered of request: string * Answer<OrderPlan>
+        // the prescribe click on the order with this id
+        | Prescribe of orderId: string
 
         | UpdateFormulary of Formulary
         | LoadFormulary of ApiResponse<Formulary>
@@ -1056,21 +1058,15 @@ module private Elmish =
                         return SigningMsg(SigningMsg.SubmitAnswered(key, Error ex.Message))
                 }
                 |> Cmd.fromAsync
-        | SigningEffect.RenewToken(token, patient, identity) ->
-            state, Cmd.ofMsg (SessionMsg(SessionMsg.TokenRenewed(token, patient, identity)))
-        | SigningEffect.EndSession ending -> state, Cmd.ofMsg (SessionMsg(SessionMsg.EndedByServer ending))
-        | SigningEffect.SetPatient patient -> state, Cmd.ofMsg (UpdatePatient(Some patient))
-        // the plan took no change while the signature was under way: it is the version signed
+        // the token, the ended Session and the patient go to their machines in Lanes; nothing is
+        // left for the client
+        | SigningEffect.RenewToken _
+        | SigningEffect.EndSession _
+        | SigningEffect.SetPatient _ -> state, Cmd.none
         | SigningEffect.TellSigned signed ->
             state
             |> tell (SigningPolicy.signedSentence (signingTerm state) signed) "success",
-            Cmd.ofMsg (OrderPlanMsg OrderPlanMsg.Signed)
-        // a refusal because the record moved on is the notice too: the Session keeps the head
-        // for the bar
-        | SigningEffect.TellRefused(SigningRefusal.Blocked head) ->
-            state
-            |> tell (SigningPolicy.refusalSentence (signingTerm state) (SigningRefusal.Blocked head)) "warning",
-            Cmd.ofMsg (SessionMsg(SessionMsg.Blocked head))
+            Cmd.none
         | SigningEffect.TellRefused refusal ->
             state
             |> tell (SigningPolicy.refusalSentence (signingTerm state) refusal) "warning",
@@ -1236,6 +1232,7 @@ module private Elmish =
     /// What one effect of the lanes leaves for the client, carried out by its machine's apply.
     let applyLanesEffect effect state =
         match effect with
+        | LanesEffect.Signing e -> state |> applySigningEffect e
         | LanesEffect.Patient e -> state |> applyPatientEffect e
         | LanesEffect.Workbench e -> state |> applyOrderContextEffect e
         | LanesEffect.Plan e -> state |> applyOrderPlanEffect e
@@ -1641,13 +1638,15 @@ module private Elmish =
 
         | PatientMsg msg -> state |> runLanes (LanesMsg.Patient msg)
 
-        // what the Session is told rides on the reply; the patient goes to the machine under the
-        // request it answers
         | PatientAnswered(request, answer) ->
-            processApiMsg
-                state
-                answer
-                (fun state pat -> state, Cmd.ofMsg (PatientMsg(PatientMsg.Answered(request, Ok pat))))
+            state
+            |> runLanes (
+                LanesMsg.Answer(
+                    LanesMsg.Patient(PatientMsg.Answered(request, Ok answer.Reply.Response)),
+                    answer.From,
+                    answer.Reply.Notice
+                )
+            )
 
         | UrlChanged sl ->
             let launchUrl = sl |> parseLaunch
@@ -1748,12 +1747,7 @@ module private Elmish =
 
             state |> runLanes (LanesMsg.Session msg)
 
-        | SigningMsg msg ->
-            let signing, effects = SigningState.transition msg state.Lanes.Signing
-            StepTrail.record (fun no at -> Trail.signing no at msg (signing, effects))
-
-            { state with Lanes = { state.Lanes with Signing = signing } }
-            |> runEffects applySigningEffect effects
+        | SigningMsg msg -> state |> runLanes (LanesMsg.Signing msg)
 
         | LoadLocalization Started ->
             { state with Fetches.Localization = InProgress },
@@ -1874,20 +1868,20 @@ module private Elmish =
 
         | OrderContextMsg msg -> state |> runLanes (LanesMsg.Workbench msg)
 
-        // what the Session is told rides on the reply; the context goes to the machine under
-        // the request it answers
         | OrderContextAnswered(request, answer) ->
-            processApiMsg
-                state
-                answer
-                (fun state response ->
-                    state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Answered(request, Ok response)))
+            state
+            |> runLanes (
+                LanesMsg.Answer(
+                    LanesMsg.Workbench(OrderContextMsg.Answered(request, Ok answer.Reply.Response)),
+                    answer.From,
+                    answer.Reply.Notice
                 )
+            )
 
         | OrderPlanMsg msg -> state |> runLanes (LanesMsg.Plan msg)
 
-        // what the Session is told rides on the reply; the plan goes to the machine under the
-        // request it answers
+        | Prescribe orderId -> state |> runLanes (LanesMsg.Prescribe(orderId, newRequest ()))
+
         | OrderPlanAnswered(request, answer) ->
             // only the answer the plan waits for clears the plan's error: a late answer to a
             // request since replaced is dropped by the machine and says nothing of the one under way
@@ -1897,10 +1891,14 @@ module private Elmish =
                 else
                     id
 
-            processApiMsg
-                state
-                answer
-                (fun state plan -> state, Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Answered(request, Ok plan))))
+            state
+            |> runLanes (
+                LanesMsg.Answer(
+                    LanesMsg.Plan(OrderPlanMsg.Answered(request, Ok answer.Reply.Response)),
+                    answer.From,
+                    answer.Reply.Notice
+                )
+            )
             |> clear
 
         // asked again over the formulary shown, which stays shown until the answer; a second
@@ -2187,12 +2185,7 @@ type private ConcreteAppEnv
     interface AppEnv.IOrderPlan with
         member _.OrderPlan = state.Lanes.OrderPlan |> OrderPlanState.view
 
-        member _.Add orderId =
-            match state.Lanes.OrderContext |> OrderContextState.narrowedTo orderId with
-            | Some ctx ->
-                OrderPlanMsg(OrderPlanMsg.Change(OrderPlanChange.Add ctx, newRequest ()))
-                |> dispatch
-            | None -> Logging.warning "prescribe: the workbench shows no order with this id" orderId
+        member _.Add orderId = Prescribe orderId |> dispatch
 
         member _.New category =
             OrderPlanMsg(OrderPlanMsg.Change(OrderPlanChange.New category, newRequest ()))
