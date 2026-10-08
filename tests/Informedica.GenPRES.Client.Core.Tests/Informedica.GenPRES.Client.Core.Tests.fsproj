@@ -46,6 +46,7 @@
     <!-- the order machines -->
     <Compile Include="OrderPlanMachineTests.fs" />
     <Compile Include="OrderContextMachineTests.fs" />
+    <Compile Include="LanesTests.fs" />
     <Compile Include="BusyTests.fs" />
     <Compile Include="StartupPolicyTests.fs" />
 

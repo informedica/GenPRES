@@ -51,6 +51,9 @@
     <Compile Include="OrderPlanMachine.fs" />
     <Compile Include="OrderContextMachine.fs" />
 
+    <!-- the wiring between the machines -->
+    <Compile Include="Lanes.fs" />
+
     <!-- what is out, and what it disables -->
     <Compile Include="Busy.fs" />
     <Compile Include="StartupPolicy.fs" />

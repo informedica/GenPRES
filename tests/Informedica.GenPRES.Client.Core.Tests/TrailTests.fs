@@ -233,6 +233,17 @@ let tests =
                 |> Expect.equal "the line" "#7 10:41:07.311 Signing reset: the session is no longer open -> none | Idle"
             }
 
+            test "a lanes step reads as the step of its machine, the reset included" {
+                Trail.lanes 7 at (Lanes.LanesStep.SigningReset SigningState.idle)
+                |> Trail.format
+                |> Expect.equal "the line" "#7 10:41:07.311 Signing reset: the session is no longer open -> none | Idle"
+
+                let session = SessionState.anonymous
+
+                Trail.lanes 3 at (Lanes.LanesStep.Session(SessionMsg.Resume, session, []))
+                |> Expect.equal "the session's step" (Trail.session 3 at SessionMsg.Resume (session, []))
+            }
+
             test "the trail keeps the newest lines, oldest first" {
                 [ "a"; "b"; "c" ]
                 |> List.fold (fun lines line -> Trail.append 2 line lines) []
