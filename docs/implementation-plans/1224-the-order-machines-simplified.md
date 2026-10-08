@@ -12,7 +12,7 @@ It is a refactor with visible changes, each decided below:
 - a few more controls are disabled while a request runs;
 - the formulary and parenteralia pages follow the workbench when its answer lands;
 - a prescription clears the workbench and opens the plan page at the click;
-- a url change starts the client over;
+- a url change starts the order lanes over, the Session kept;
 - the one Refresh becomes two.
 
 The work hangs under [#1224](https://github.com/informedica/GenPRES/issues/1224).
@@ -117,8 +117,14 @@ What can start a request, and what each depends on:
 
 ## Decisions
 
-1. **No two conflicting actions at the same time; the pages make it so, the machines do not catch
-   it.** Decided (user, 2026-10-08).
+1. **No two conflicting actions at the same time; the machines prevent it through the views they
+   project, they do not catch it.** Decided (user, 2026-10-08). A transition returns the new
+   state and the effects the app runs once; which controls may be clicked is true for as long as
+   the state holds and is asked at every render, so it is part of the state, not an effect. The
+   machine answers it in the view it projects, `viewWhile` and `dialogWhile` in Client.Core: a
+   `Changing` view carries no enabled control, so a page that renders it cannot start a second
+   request. The pages render the view and decide nothing themselves. Every "may this be clicked"
+   question has its answer in Client.Core, where Expecto reaches it.
    - A control that starts a request on a machine is disabled while that machine has a request
      out; while a machine whose state that request reads when it is sent has a request out; and
      while a request that reads this machine's state is out. The dependencies are per request,
@@ -131,6 +137,15 @@ What can start a request, and what each depends on:
      depend on the patient. The pages switch by the tab bar, not by the url, so a request sent
      from one page is still out on the next; the sign button therefore reads the workbench as the
      panel's busy does, and the signature greys the workbench as it greys the plan.
+   - **Where a page composes the answer today, the composition moves into Client.Core:**
+     - the sign button: `SigningPolicy.canSign` takes the workbench view beside the Session and
+       the plan (step 4);
+     - the panel's busy, which `Views/Patient.fs` composes from the patient, the workbench and
+       the plan: a projection beside the patient machine (step 5);
+     - the held dialog's actions, remove alone without a signed order plan: a policy beside
+       `HeldContextPolicy` (step 5);
+     - the dialog's other fields while a step is being counted: the counting is an input of
+       `dialogWhile` (step 9).
    - A change not from the user is the answer to the one request out, so it reaches machines that
      are idle.
    - Nothing then reaches a machine while it waits, and a machine holds no second guard for it:
@@ -140,8 +155,8 @@ What can start a request, and what each depends on:
      as it is, and the trail, which records every message, is where an unreachable one would show.
    - The request id stays as the one check that an answer is the one awaited (decided by the user,
      2026-10-08): it is the invariant the tests prove, not a second guard.
-   - **Per machine, as today** (user, 2026-10-08): each page reads the machines it depends on and
-     greys on them, as the patient panel reads the patient, the workbench and the plan now. The
+   - **Per machine, as today** (user, 2026-10-08): each page renders the views of the machines it
+     depends on, as the patient panel renders the patient, the workbench and the plan now. The
      workbench and the plan are read through `viewWhile` and `dialogWhile`, which stay (user,
      2026-10-08) and take, beside the patient:
      - whether the Session has a refresh or an open of a signed version out;
@@ -157,35 +172,44 @@ What can start a request, and what each depends on:
      - the order dialog's fields while a step is being counted (step 9).
    - Greying is visible: a disabled control, as the formulary's selects. A click is never
      swallowed in silence.
-2. **A url change starts the client over.** Decided (user, 2026-10-08): every change of the url,
-   with or without an open Session, is handled as a page load: `init` with the url, the Session
-   resumed when there is one.
-   - What starts over: the five lanes (the Session, the patient, the workbench, the plan, the
-     signature) and the state the url sets (the page, the language, the disclaimer), the url's
-     patient and medication applied as at launch. What is kept: the fetched resources (settings,
-     localization, normal values, the medication lists, products, drug names), the admin login and
-     the rest of the UI state. A Back press does not log the admin out or fetch every resource
-     again.
-   - An answer to a request from before finds no request under its id and is dropped, which is the
-     one use the request ids have beyond the tests. The Session's resume gets one for this: today
-     its answer carries no id and lands on any resume out, so a url change during a resume would
-     take the first resume's answer for the second's and drop the second's. The Session's other
-     requests need none: starting over leaves no presentation, no close and no PIN request for
-     their answers to match.
-   - A signature under way counts as unsigned work for the question below, since the sign button
-     needs orders, not differences. On yes the signing lane starts over with the others, as a
-     browser reload during a submission would: the submission's answer finds no request, and the
-     resumed Session shows whether the plan was signed.
+2. **A url change by the user starts the order lanes over; the Session is not touched.** Decided
+   (user, 2026-10-08): every change of the url the user makes, a navigation, Back or Forward, is
+   handled as a page load for everything but the Session.
+   - What starts over: the patient, the workbench, the plan and the signing lane, and the state
+     the url sets (the page, the language, the disclaimer). With an open Session the patient and
+     the plan come from it, as at launch: the Session's patient to the panel, the Session's head
+     into the plan, the url's medication seeded over the workbench. Without a Session the url's
+     patient applies, as today. What is kept: the Session lane, the fetched resources (settings,
+     localization, normal values, the medication lists, products, drug names), the admin login
+     and the rest of the UI state. A Back press does not log the admin out or fetch every
+     resource again.
+   - The Session is not resumed. The resume exists for one case, a page load without a launch,
+     where the client has no state and reads the cookie; on a url change the client holds the
+     Session. Leaving the lane alone also leaves each Session request the one out: a resume or a
+     PIN supply that is out when the url changes keeps running and its answer lands on it, so
+     the Session needs no request id.
+   - An answer to a request of a restarted lane finds no request under its id and is dropped,
+     which is the one use the request ids have beyond the tests.
+   - **The Session's head follows the signature.** Today the signed answer renews the token and
+     the patient only, so after a signature the Session's head is the version it opened with.
+     The signed plan reaches the Session with the token renewal and becomes its head, so that
+     the head is the last signed order plan the client knows of: what the start-over loads into
+     the plan and what the plan refresh opens (decision 9).
+   - **A signature under way puts the url back without asking.** Decided (user, 2026-10-08).
+     Restarting the signing lane would drop the submission's answer, the token would not be
+     renewed and the head not updated. The sign dialog is modal, so Back is the only way to
+     change the url while it is open; the client puts the url back as a no does and the user
+     waits the moment the answer takes. After it lands, Back asks as with any unsigned work.
    - The one exception is the url change the router fires on mount, which is the launch itself
-     and may arrive while a resume is out: it applies the url as today and starts nothing over.
+     and may arrive while the resume is out: it applies the url as today and starts nothing over.
    - A url change is the one change not from the user that is not an answer, and this takes it
      out of the running machines; without a Session it is today applied at once, which after
      step 8 would meet a request with nothing to catch it.
    - **With new or changed orders, the client asks first.** Decided (user, 2026-10-08, (a) of
-     three). Starting over resumes the Session, which reopens the last signed order plan, so the
-     new and changed orders would go; on a page load the browser asks about them through the
-     leave-page guard, but a change of the url's hash fires no `beforeunload`, so the client asks
-     the same question itself.
+     three). Starting over loads the Session's head into the plan, so the new and changed orders
+     would go; on a page load the browser asks about them through the leave-page guard, but a
+     change of the url's hash fires no `beforeunload`, so the client asks the same question
+     itself.
      - Yes starts over.
      - No puts the previous url back and changes nothing, and that restore is marked so that the
        `UrlChanged` it fires is not taken as a change.
@@ -197,7 +221,7 @@ What can start a request, and what each depends on:
    - a patient change not from the user is the answer to a Session request, during which the pages
      that would start a workbench or plan request are greyed;
    - a seed not from the user is the answer to a reload, during which the workbench is idle, or
-     comes from the url, which starts the client over;
+     comes from the url, which starts the order lanes over;
    - the one wait that stays is at launch and resume, where the signed plan arrives before the
      patient and waits for it (`NoPatient of awaiting`): an initial state, not a guard beside a
      request. The seed that waits for the first patient stays with it, for the url's medication
@@ -247,9 +271,9 @@ What can start a request, and what each depends on:
      prescribe page, switch to the plan page and click Sign; or click Sign and, while the
      challenge request is out and the dialog not yet modal, switch to the prescribe page and send
      one. Either way the patient would land on a workbench with a request out. So the signature
-     is the third input of `OrderContextState.viewWhile` and `dialogWhile` as well, and the sign
-     button is disabled while the workbench view is `Changing`, read through `IOrderContext` as
-     the panel's busy reads it.
+     is the third input of `OrderContextState.viewWhile` and `dialogWhile` as well, and
+     `SigningPolicy.canSign` takes the workbench view beside the Session and the plan, false
+     while it is `Changing`; the page passes the view it already renders.
    - **The two buttons that open a signed version read the plan.** The newer-version notice's
      action and the plan page's refresh (decision 9) send `OpenVersion`; neither reads
      `viewWhile`, and `Components.Notice` has no disabled on its action. Both are disabled while
@@ -315,8 +339,8 @@ What can start a request, and what each depends on:
      panel, which the plan and the workbench follow with `UpdatePatient` as after any edit. It is
      disabled while the plan has a new or changed order, as the panel's fields are.
    - The plan page's refresh opens the last signed order plan and nothing else: `OpenVersion` on
-     the head; the new and changed orders go with it. The held dialog's second way out becomes
-     that open.
+     the Session's head, which follows the signature (decision 2); the new and changed orders go
+     with it. The held dialog's second way out becomes that open.
    - A patient with no signed order plan yet has no head (`SessionOpened.Head` is an option), and
      the user can add orders there. Then the plan page's refresh is disabled, since there is
      nothing to open, and the held dialog shows the remove button alone: removing the new orders
@@ -330,14 +354,16 @@ What can start a request, and what each depends on:
     and the collected clicks then find the field disabled and are dropped: the value snaps back
     (#1326, item 5). Under decision 1 the dialog's other fields are greyed while a step is being
     counted, so the command that follows is the only one, and the check at the moment the timer
-    fires (`QuantityField.fs`, `disabledRef`) goes.
+    fires (`QuantityField.fs`, `disabledRef`) goes. The field being counted is an input of
+    `dialogWhile`, so the dialog's view says which fields are disabled and the dialog composes
+    nothing itself.
 
 ## Steps
 
 One pull request per step, one open at a time.
 
 - Every step in `Client.Core` or on the server starts as a script with its tests, unless the user
-  asks for source; steps 1, 7 and 9 are client view and App code alone.
+  asks for source; steps 1 and 7 are client view and App code alone.
 - Steps 1 to 9 and 12 fit the 200-line limit; steps 10 and 11 rewrite one file each and exceed it
   by nature, which the pull request says.
 - Every step that changes a message or an effect changes `Trail.fs` and its tests in the same pull
@@ -376,40 +402,47 @@ One pull request per step, one open at a time.
      Every workbench and plan control then greys while one is set: the prescribe button, the sign
      button, the held dialog's buttons, the row filter, the dialog's fields and the nutrition
      pages among them, and the panel's Refresh through the panel's busy.
-   - `Views/OrderPlan.fs` disables the sign button while the workbench view is `Changing`, read
-     through `IOrderContext` as `Views/Patient.fs` reads it for the panel's busy.
+   - `SigningPolicy.canSign` takes the workbench view beside the Session and the plan, false while
+     it is `Changing`; `Views/OrderPlan.fs` passes the view it already renders.
    - `Components.Notice` gets a disabled on its action, and the newer-version notice's button is
      disabled while the plan view is `Changing`.
    - `Views/Settings.fs` disables the reload of the resources while the workbench changes, and the
      reload backdrop no longer lifts on a workbench answer.
    - Tests: a workbench request during a refresh carries the token; the workbench and plan views
      are `Changing` while it is set; the workbench, dialog and plan views are `Changing` while a
-     signature is requesting; a second `Refresh` during the first is dropped; a failed `Reopened`
-     clears it.
+     signature is requesting; `canSign` is false while the workbench view is `Changing`; a second
+     `Refresh` during the first is dropped; a failed `Reopened` clears it.
 5. **Two refreshes.** Decision 9.
    - Server: `refresh` no longer reopens the head, as a script first.
    - `SessionMachine.Refreshed` emits `SetPatient` only.
+   - `SigningEffect.RenewToken` and `SessionMsg.TokenRenewed` carry the signed plan, and the
+     Session sets its head to it, so the head is the last signed order plan the client knows of.
+   - The panel's busy becomes a projection in `Client.Core` beside the patient machine, over the
+     patient, the workbench and the plan views; `Views/Patient.fs` renders it.
+   - The held dialog's actions become a policy beside `HeldContextPolicy`: remove, and open the
+     last signed order plan when the Session has one; `Views/Patient.fs` renders them.
    - `Views/Patient.fs` moves Refresh out of the held dialog onto the panel, disabled while the
-     plan has a new or changed order and through the panel's busy while the patient, the workbench
-     or the plan has a request out, and gives the dialog "open the last signed order plan" through
-     `OpenVersion` on the head.
+     plan has a new or changed order and through the panel's busy, and gives the dialog "open the
+     last signed order plan" through `OpenVersion` on the Session's head.
    - `Views/OrderPlan.fs` gets the same button, disabled while the plan view is `Changing` and
-     while the Session has no signed order plan; the held dialog then shows remove alone.
+     while the Session has no signed order plan.
    - ADR-0007 amended.
    - Tests: a refresh answered sends the patient and nothing to the plan; the plan follows the
-     patient answer with `UpdatePatient`.
+     patient answer with `UpdatePatient`; after a signature the Session's head is the signed
+     plan; the panel's busy is set for each of its three inputs; the held dialog's actions are
+     remove alone without a signed order plan.
 6. **The prescription at the click.** Decision 8. The prescribe click sends `Add`, resets the
    workbench and opens the plan page in one update of `App`; `GoToPlanPage` and `ResetWorkbench`
    leave `OrderPlanEffect` and the plan's `answered`. Tests: an answer to `AddOrderContext` emits
    only the interaction check; the trail shows the three at the click.
-7. **A url change starts the client over.** Decision 2.
-   - Every `UrlChanged` but the one the router fires on mount puts every lane in its initial
-     state, `init` with the url, the Session resumed when there is one, the url's patient and
-     medication applied as at launch; the url seed and the url patient during a running request
-     go with it.
-   - `SessionMsg.Resume` and `Resumed` carry a request id, as the order machines' requests do, and
-     `SessionRequest.Resuming` holds it: a `Resumed` under another id falls to the closing arm.
-     The App's resume call passes the id back with the answer, and the trail shows it.
+7. **A url change by the user starts the order lanes over.** Decision 2.
+   - Every `UrlChanged` but the one the router fires on mount puts the patient, the workbench,
+     the plan and the signing lane in their initial state and applies the url's page, language
+     and disclaimer. The Session lane is left as it is. With an open Session, App feeds the
+     Session's patient and head to the lanes as it does for `SetPatient` and `LoadCart` at
+     launch; without one the url's patient applies. The url's medication is seeded as at launch.
+     The url seed and the url patient during a running request go with it.
+   - While a signature is under way the url is put back as after a no, without a question.
    - With new or changed orders the client asks the leave-page question first. No puts the
      previous url back through `Router.navigate`, which fires `UrlChanged`, so the restore is
      marked and that `UrlChanged` is not a change. `Router.navigate` pushes a new history entry:
@@ -417,10 +450,11 @@ One pull request per step, one open at a time.
      another Back asks again. `history.replaceState` would fire nothing and need no mark, but
      after Back it would overwrite the entry the user went back to, so it is not used.
    - Tests: a url change during a workbench request drops that request's answer; a url change
-     during a resume drops the first resume's answer and takes the second's; the five lanes after
-     it equal the lanes after `init` with that url, and the fetches and the admin login are as
-     before; the mount's url change starts nothing over; with unsigned work or a signature under
-     way nothing starts over until yes.
+     during a resume or a PIN supply leaves the Session's request out and its answer lands on
+     it; the four lanes after it equal the lanes after `init` with that url fed from the Session,
+     and the Session, the fetches and the admin login are as before; the mount's url change
+     starts nothing over; with unsigned work nothing starts over until yes; with a signature
+     under way the url is put back.
 8. **The guards out of the order machines.** Decisions 1, 3 and 4.
    - `admitted` and `transitionWhile` go from both machines, with their tests, the signing half of
      the plan's included, since step 4 greys the plan from the sign click on; `viewWhile` and
@@ -444,8 +478,10 @@ One pull request per step, one open at a time.
      view is `Changing` or unchanged as the rule says. There is no view test project (#598), so
      the wiring from `viewWhile` to a disabled control is checked in the browser list below, not
      under Expecto. The pull request names each test it replaces.
-9. **A step being counted counts as a request.** Decision 10. The order dialog greys its other
-   fields while a step button counts clicks; the `disabledRef` check in `QuantityField.fs` goes.
+9. **A step being counted counts as a request.** Decision 10. `dialogWhile` takes the field being
+   counted as an input and its view says which fields are disabled; the order dialog renders it
+   and the `disabledRef` check in `QuantityField.fs` goes. Tests: the dialog view disables every
+   field but the one counted.
 10. **One layer: the order context machine.** Decision 6, over the machine steps 2 and 8 left. The
     refusal becomes a case of the workbench, `CallContext` and `CallPatientChanged` become one
     effect over the wire command, `context` and `view` share one match. Tests: the machine tests
@@ -497,9 +533,11 @@ Line counts:
   held dialog offers remove alone.
 - **Step 6:** a prescription empties the workbench and shows the plan page at once, greyed until
   the order lands; a prescription that fails leaves an empty workbench and tells the error.
-- **Step 7:** a url with another medication during a filter request: the client starts over on
-  that url, the first request's answer is nowhere; Back with unsigned work asks, and no leaves
-  the page as it was.
+- **Step 7:** a url with another medication during a filter request: the order lanes start over
+  on that url with the Session's patient and plan, the first request's answer is nowhere and the
+  Session is as it was; Back with unsigned work asks, and no leaves the page as it was; Back
+  during a signature puts the url back; Back after a signature shows the signed plan as the
+  last signed order plan.
 - **Step 8:** a data notice accepted with the patient context not held: the plan stays as it is
   until the signature lands, then the panel takes the new data and the plan recalculates.
 
