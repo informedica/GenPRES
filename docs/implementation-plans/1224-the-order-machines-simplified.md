@@ -5,7 +5,8 @@ machines sending commands only, one request at a time, each over the last answer
 machines had for waiting and replayed commands stayed, and beside it a second line of defence: a
 machine drops or replaces what reaches it while a request runs, although the page is already
 greyed. This plan takes both out. The machines exist so that two actions that conflict cannot be
-under way at the same time; once the pages make that so, nothing in a machine has to catch it.
+under way at the same time; once the views the machines project make that so, nothing in a
+machine has to catch it.
 
 It is a refactor with visible changes, each decided below:
 
@@ -14,6 +15,24 @@ It is a refactor with visible changes, each decided below:
 - a prescription clears the workbench and opens the plan page at the click;
 - a url change starts the order lanes over, the Session kept;
 - the one Refresh becomes two.
+
+The principle, which every decision below follows: a page sends what the user wants, a machine
+turns that and its state into a new state and the effects to run, and the view projected from
+the state offers only what cannot conflict with the one request out.
+
+```mermaid
+flowchart LR
+    View["View: only what cannot conflict is enabled"]
+    Machine["Machine: state and message in, state and effects out, no guard"]
+    State[("State: at most one request out")]
+    Answer["Answer to that one request"]
+
+    View -- "the user acts: intent, never state" --> Machine
+    Machine --> State
+    State -- "projected at every render" --> View
+    Machine -- "effect: the request" --> Answer
+    Answer -- "a message, the only change not from the user" --> Machine
+```
 
 The work hangs under [#1224](https://github.com/informedica/GenPRES/issues/1224).
 
