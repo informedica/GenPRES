@@ -196,14 +196,34 @@ let tests =
                     OrderPlanCommand.Navigate(OrderPlan.empty, "ctx-1", OrderViewCommand.ResetOrderScenario, ctxPicked)
 
                 [
-                    Trail.OrderPlan.msg (OrderPlanMsg.Command(cmd, "r-3"))
+                    Trail.OrderPlan.msg (
+                        OrderPlanMsg.Change(
+                            OrderPlanChange.Navigate("ctx-1", OrderViewCommand.ResetOrderScenario),
+                            "r-3"
+                        )
+                    )
                     Trail.OrderPlan.effect (OrderPlanEffect.CallPlan(cmd, "r-3"))
                 ]
                 |> Expect.equal
                     "the lines"
                     [
-                        "Command Navigate ctx-1 ResetOrderScenario ctx-1 pain/paracetamol/oral 0 scenarios r-3"
+                        "Change Navigate ctx-1 ResetOrderScenario r-3"
                         "CallPlan Navigate ctx-1 ResetOrderScenario r-3"
+                    ]
+            }
+
+            test "a page's change to the plan reads by what it wants" {
+                [
+                    Trail.OrderPlan.msg (OrderPlanMsg.Change(OrderPlanChange.Add ctxPicked, "r-1"))
+                    Trail.OrderPlan.msg (OrderPlanMsg.Change(OrderPlanChange.New NutritionCategory.TPN, "r-2"))
+                    Trail.OrderPlan.msg (OrderPlanMsg.Change(OrderPlanChange.Remove [| "c-1"; "c-2" |], "r-3"))
+                ]
+                |> Expect.equal
+                    "the lines"
+                    [
+                        "Change Add ctx-1 pain/paracetamol/oral 0 scenarios r-1"
+                        "Change New TPN r-2"
+                        "Change Remove 2 r-3"
                     ]
             }
 
@@ -275,9 +295,11 @@ let tests =
                                 )
                             )
                             Trail.OrderPlan.msg (
-                                OrderPlanMsg.Navigate(
-                                    "ctx-1",
-                                    OrderViewCommand.SetArgumentationProperty "Jan Jansen weighs more",
+                                OrderPlanMsg.Change(
+                                    OrderPlanChange.Navigate(
+                                        "ctx-1",
+                                        OrderViewCommand.SetArgumentationProperty "Jan Jansen weighs more"
+                                    ),
                                     "r-1"
                                 )
                             )

@@ -29,7 +29,6 @@ module Prescribe =
         let orderContextMsg = envOrderContext.OrderContextMsg
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
         let orderPlan = envOrderPlan.OrderPlan
-        let planCommand = envOrderPlan.OrderPlanCommand
         let draft = (AppEnv.asEnv<AppEnv.IPatient> props.appEnv).Draft
 
         let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
@@ -232,18 +231,11 @@ module Prescribe =
                     | Some n -> orderContextMsg (Api.OrderViewCommand.SelectNthOrderScenario n)
                     | None -> ()
 
-                // the workbench, narrowed to this scenario, into the plan as a drug context; the
-                // page switches to the plan when the server answers
+                // the order into the plan, from the workbench narrowed to its scenario; the page
+                // switches to the plan when the server answers
                 let prescribe () =
                     match orderPlan with
-                    | OrderPlanView.Settled(tp, _) ->
-                        let workbench =
-                            { pr with
-                                OrderContext.Filter.Form = Some sc.Form
-                                Scenarios = [| sc |]
-                            }
-
-                        planCommand (Api.OrderPlanCommand.AddOrderContext(tp, workbench))
+                    | OrderPlanView.Settled _ -> envOrderPlan.Add sc.Order.Id
                     | _ -> ()
 
                 // the plan holds this order already: the server would refuse it

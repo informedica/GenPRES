@@ -44,7 +44,12 @@ type IOrderContext =
 type IOrderPlan =
     // the plan as the pages show it, the dialog's selection inside
     abstract OrderPlan: OrderPlanMachine.OrderPlanView
-    abstract OrderPlanCommand: Api.OrderPlanCommand -> unit
+    // the order with this id prescribed, from the workbench narrowed to its scenario
+    abstract Add: orderId: string -> unit
+    // a new nutrition context for the category
+    abstract New: NutritionCategory -> unit
+    // the contexts with these ids removed
+    abstract Remove: ids: string[] -> unit
     // a command into the plan's context with this id, sent over the plan held
     abstract Navigate: string * Api.OrderViewCommand -> unit
     // a clear from the dialog that opens the field's list, the plan before it kept

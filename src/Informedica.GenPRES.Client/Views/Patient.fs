@@ -316,11 +316,9 @@ module Patient =
         // confirmed once it has landed
         let onRemoveChanged () =
             match envPlan.OrderPlan with
-            | OrderPlanView.Settled(tp, _) ->
+            | OrderPlanView.Settled _ ->
                 setHeldOpen false
-
-                Api.OrderPlanCommand.RemoveOrderContexts(tp, envPlan.Changed)
-                |> envPlan.OrderPlanCommand
+                envPlan.Remove envPlan.Changed
             | OrderPlanView.NoPatient -> setHeldOpen false
             | OrderPlanView.Changing _ -> ()
 

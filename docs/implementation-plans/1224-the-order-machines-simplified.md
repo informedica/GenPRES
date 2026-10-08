@@ -527,10 +527,11 @@ What can start a request, and what each depends on:
      `held`, `changing`, ...) stay.
    - No shared request module: plan B step 9 weighed that and dropped it.
 7. **A page sends what it wants, never what it got.** The plan machine builds every wire command
-   over the plan it holds. The prescribe message names the order chosen: `Add of orderId`
+   over the plan it holds. The prescribe button names the order chosen: `Add of orderId`
    (decided by the user, 2026-10-06). `App` narrows the workbench the order context machine holds
-   to the scenario with that order and its form, as the prescribe button does now, and hands it to
-   the plan machine, so no page passes a context or a plan to a machine any more.
+   to the scenario with that order and its form, as the prescribe button did, and hands it to
+   the plan machine as an `Add` change, so no page passes a context or a plan to a machine any
+   more.
 8. **A prescription clears the workbench and opens the OrderPlan page at the click.** Decided (user,
    2026-10-06).
    - The prescribe click sends `Add` to the plan, the reset to the workbench and opens the plan
@@ -669,9 +670,13 @@ the order of the steps protects the work between pull requests, not patients; it
    - Tests: a filter command syncs on its answer and not before; a patient update syncs on its
      answer with the filter answered; a value pick syncs nothing; a failure syncs nothing.
 3. **Plan commands from the pages without the plan.** Decision 7.
-   - `OrderPlanMsg` gets `Add of orderId`, `New of category` and `Remove of string[]`, as
-     `Navigate` names a context and a command only; the machine builds the wire command over the
-     plan it holds, and `App` narrows the workbench held to the order's scenario for `Add`.
+   - `OrderPlanChange` names what a page wants: `Add` of a narrowed workbench, `New` of a
+     category, `Remove`, `Filter` and `Navigate` of ids and a command; `OrderPlanChange.command`
+     builds the wire command over the plan the machine holds, none for a context gone.
+   - `OrderPlanMsg.Change of OrderPlanChange` is the one page message, replacing `Command`,
+     `Filter` and `Navigate`; a reopen goes on as a `Navigate` change. The page sends `Add of
+     orderId` through `AppEnv.IOrderPlan`; `App` narrows the workbench to the order's scenario
+     with `OrderContextState.narrowedTo` and sends the `Add` change with that context.
    - The `Command` case, `OrderPlanCart.rebase` and the cart's own `Filter` go.
    - `AppEnv.IOrderPlan` follows, and the five views that build plan commands: `OrderPlan.fs`,
      `Prescribe.fs`, `Patient.fs`, `EnteralNutrition.fs`, `ParenteralNutrition.fs`.
@@ -910,6 +915,9 @@ Line counts:
 - **Step 2b:** a filter pick whose answer narrows route and form to one option each shows both
   picked, with no further command in the trail; a department list of one shows that department
   picked.
+- **Step 3:** a prescription, a new nutrition context, a removal and a row filter each show one
+  `CallPlan` over the plan held in the trail; a navigate into a removed context shows nothing
+  sent.
 - **Step 4:** a page load: the gate shows until every load and the resume have answered, and
   the hospital menu has its options when the application opens; a filter pick, then the menu
   at once: the menu waits until the filter and the two page loads it starts have answered, and

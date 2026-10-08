@@ -59,7 +59,8 @@ module Nutrition =
                 let sectionProps =
                     {|
                         plan = plan
-                        planCommand = envOrderPlan.OrderPlanCommand
+                        planNew = envOrderPlan.New
+                        planRemove = envOrderPlan.Remove
                         planNavigate = envOrderPlan.Navigate
                         planReopen = envOrderPlan.Reopen
                         planRestore = envOrderPlan.Restore

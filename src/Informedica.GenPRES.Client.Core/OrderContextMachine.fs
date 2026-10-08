@@ -375,6 +375,24 @@ module OrderContextState =
     let inFlightRequest (state: OrderContextState) = state.InFlight |> Option.map snd
 
 
+    /// The workbench narrowed to the scenario with the order with this id and its form, as it
+    /// goes into the plan; None unless the workbench is settled and shows that scenario.
+    let narrowedTo (orderId: string) (state: OrderContextState) =
+        match view state with
+        | OrderContextView.Settled ctx ->
+            ctx.Scenarios
+            |> Array.tryFind (fun sc -> sc.Order.Id = orderId)
+            |> Option.map (fun sc ->
+                { ctx with
+                    OrderContext.Filter.Form = Some sc.Form
+                    Scenarios = [| sc |]
+                }
+            )
+        | OrderContextView.NoPatient
+        | OrderContextView.Refused _
+        | OrderContextView.Changing _ -> None
+
+
     /// Whether the state before a reopen is kept, to be put back when its list closes without a pick.
     let isKept (state: OrderContextState) = state.Kept.IsSome
 

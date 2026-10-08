@@ -392,7 +392,8 @@ module ParenteralNutrition =
         (props:
             {|
                 plan: OrderPlan
-                planCommand: Api.OrderPlanCommand -> unit
+                planNew: NutritionCategory -> unit
+                planRemove: string[] -> unit
                 planReopen: string * Api.OrderViewCommand -> unit
                 planNavigate: string * Api.OrderViewCommand -> unit
                 planRestore: unit -> unit
@@ -422,12 +423,7 @@ module ParenteralNutrition =
 
         let slots =
             contexts
-            |> Array.map (fun nc ->
-                slotOf (fun () -> Api.OrderPlanCommand.RemoveOrderContexts(plan, [| nc.Id |]) |> props.planCommand) nc
-            )
-
-        let newOrderContext category =
-            Api.OrderPlanCommand.NewOrderContext(plan, category) |> props.planCommand
+            |> Array.map (fun nc -> slotOf (fun () -> props.planRemove [| nc.Id |]) nc)
 
         // the buttons the plan admits a context for, as the server would rule
         let addButtons =
@@ -442,7 +438,7 @@ module ParenteralNutrition =
                 Components.AddButton.View
                     {|
                         label = label
-                        onClick = fun () -> newOrderContext category
+                        onClick = fun () -> props.planNew category
                         disabled = props.isRecalculating
                     |}
             )

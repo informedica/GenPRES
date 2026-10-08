@@ -153,7 +153,6 @@ module OrderPlan =
     let View (props: {| appEnv: obj |}) =
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
         let orderPlan = envOrderPlan.OrderPlan
-        let planCommand = envOrderPlan.OrderPlanCommand
         let session = AppEnv.asEnv<AppEnv.ISession> props.appEnv
         let signing = AppEnv.asEnv<AppEnv.ISigning> props.appEnv
 
@@ -617,8 +616,7 @@ module OrderPlan =
         let onDeleteConfirmed =
             fun () ->
                 match orderPlan with
-                | OrderPlanView.Settled(tp, _) ->
-                    planCommand (Api.OrderPlanCommand.RemoveOrderContexts(tp, tp.Filtered))
+                | OrderPlanView.Settled(tp, _) -> envOrderPlan.Remove tp.Filtered
                 | OrderPlanView.NoPatient
                 | OrderPlanView.Changing _ -> ()
 

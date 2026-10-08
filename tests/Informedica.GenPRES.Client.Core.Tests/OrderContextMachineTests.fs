@@ -1096,3 +1096,40 @@ let answeredTests =
 
             test "is none without a patient" { noPatient |> OrderContextState.answered |> Expect.isNone "no context" }
         ]
+
+
+/// The workbench narrowed to the order prescribed, as it goes into the plan.
+[<Tests>]
+let narrowedToTests =
+    let scenario id form =
+        { OrderPlanMachineTests.Fixtures.scenario id "paracetamol" with Form = form }
+
+    let twoForms = { paracetamol with Scenarios = [| scenario "o-1" "tablet"; scenario "o-2" "zetpil" |] }
+
+    testList
+        "the workbench narrowed to an order"
+        [
+            test "is the scenario with that order, with its form chosen" {
+                held twoForms
+                |> OrderContextState.narrowedTo "o-2"
+                |> Expect.equal
+                    "the zetpil alone"
+                    (Some
+                        { twoForms with
+                            OrderContext.Filter.Form = Some "zetpil"
+                            Scenarios = [| twoForms.Scenarios[1] |]
+                        })
+            }
+
+            test "is none for an order the workbench does not show" {
+                held twoForms
+                |> OrderContextState.narrowedTo "o-9"
+                |> Expect.isNone "no such order"
+            }
+
+            test "is none while a request is under way" {
+                inFlight asIs twoForms twoForms "r-1"
+                |> OrderContextState.narrowedTo "o-1"
+                |> Expect.isNone "not settled"
+            }
+        ]

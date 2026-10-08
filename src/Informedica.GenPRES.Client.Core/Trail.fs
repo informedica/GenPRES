@@ -286,6 +286,17 @@ module Part =
         | RecordNotice.Ended e -> $"Ended %s{ending e}"
 
 
+    /// A page's change to the plan by what it wants; never the plan.
+    let change (c: OrderPlanMachine.OrderPlanChange) =
+        match c with
+        | OrderPlanMachine.OrderPlanChange.Add ctx -> $"Add %s{context ctx}"
+        | OrderPlanMachine.OrderPlanChange.New category -> $"New %s{nutrition category}"
+        | OrderPlanMachine.OrderPlanChange.Remove ids -> $"Remove %i{ids.Length}"
+        | OrderPlanMachine.OrderPlanChange.Filter ids -> $"Filter %i{ids.Length}"
+        | OrderPlanMachine.OrderPlanChange.Navigate(id, cmd) ->
+            $"Navigate %s{shortId id} %s{OrderViewCommand.toString (cmd, OrderContext.empty)}"
+
+
     /// A plan command by what it does, with a context as describeContext tells it; never the plan.
     let planCommand (describeContext: OrderContext -> string) (cmd: OrderPlanCommand) =
         match cmd with
@@ -471,13 +482,9 @@ module OrderPlan =
         match msg with
         | OrderPlanMsg.PatientChanged(p, request) -> $"PatientChanged %s{Part.patientOption p} %s{Part.shortId request}"
         | OrderPlanMsg.Version(s, request) -> $"Version %s{Part.signed s} %s{Part.shortId request}"
-        | OrderPlanMsg.Command(cmd, request) ->
-            $"Command %s{Part.planCommand Part.context cmd} %s{Part.shortId request}"
+        | OrderPlanMsg.Change(change, request) -> $"Change %s{Part.change change} %s{Part.shortId request}"
         | OrderPlanMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result Part.plan}"
         | OrderPlanMsg.Select id -> $"Select %s{id |> Part.orNone Part.shortId}"
-        | OrderPlanMsg.Filter(ids, request) -> $"Filter %i{ids.Length} %s{Part.shortId request}"
-        | OrderPlanMsg.Navigate(id, cmd, request) ->
-            $"Navigate %s{id} %s{OrderViewCommand.toString (cmd, OrderContext.empty)} %s{Part.shortId request}"
         | OrderPlanMsg.Reopen(id, cmd, request) ->
             $"Reopen %s{id} %s{OrderViewCommand.toString (cmd, OrderContext.empty)} %s{Part.shortId request}"
         | OrderPlanMsg.Restore -> "Restore"

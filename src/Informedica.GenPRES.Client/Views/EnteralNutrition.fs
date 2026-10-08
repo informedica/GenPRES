@@ -205,7 +205,8 @@ module EnteralNutrition =
         (props:
             {|
                 plan: OrderPlan
-                planCommand: Api.OrderPlanCommand -> unit
+                planNew: NutritionCategory -> unit
+                planRemove: string[] -> unit
                 planReopen: string * Api.OrderViewCommand -> unit
                 planNavigate: string * Api.OrderViewCommand -> unit
                 planRestore: unit -> unit
@@ -235,7 +236,7 @@ module EnteralNutrition =
                 if hasSupplements then
                     setConfirmDeleteTarget (Some nc.Id)
                 else
-                    Api.OrderPlanCommand.RemoveOrderContexts(plan, [| nc.Id |]) |> props.planCommand
+                    props.planRemove [| nc.Id |]
 
         let slotOf (nc: OrderContext) =
             SlotView
@@ -251,16 +252,13 @@ module EnteralNutrition =
 
         let slots = contexts |> Array.map slotOf
 
-        let newOrderContext category =
-            Api.OrderPlanCommand.NewOrderContext(plan, category) |> props.planCommand
-
         // the buttons the plan admits a context for, as the server would rule
         let addButton category label =
             if plan |> OrderPlan.mayAdd category then
                 Components.AddButton.View
                     {|
                         label = label
-                        onClick = fun () -> newOrderContext category
+                        onClick = fun () -> props.planNew category
                         disabled = props.isRecalculating
                     |}
             else
@@ -328,8 +326,7 @@ module EnteralNutrition =
             let handleConfirm =
                 fun () ->
                     match confirmDeleteTarget with
-                    | Some ncId when not props.isRecalculating ->
-                        Api.OrderPlanCommand.RemoveOrderContexts(plan, [| ncId |]) |> props.planCommand
+                    | Some ncId when not props.isRecalculating -> props.planRemove [| ncId |]
                     | Some _
                     | None -> ()
 
