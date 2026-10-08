@@ -698,6 +698,125 @@ module Tests =
                 ]
 
 
+    /// The tools as a client reaches them: a real server and client joined by in-memory pipes, so the
+    /// SDK binds the JSON arguments to the method parameters, as it does over stdio.
+    module SdkInvocationTests =
+
+        open System.Collections.Generic
+        open System.IO.Pipelines
+        open System.Threading
+        open ModelContextProtocol.Client
+        open ModelContextProtocol.Protocol
+        open ModelContextProtocol.Server
+
+        let methodsOf (t: Type) =
+            t.GetMethods()
+            |> Array.filter (fun m -> m.GetCustomAttributes(typeof<McpServerToolAttribute>, false).Length > 0)
+
+        let createTool (m: System.Reflection.MethodInfo) =
+            McpServerTool.Create(m, (null: obj), McpServerToolCreateOptions())
+
+        let allTools =
+            lazy
+                ([ typeof<GenFormMcpTools>; typeof<GenOrderMcpTools> ]
+                 |> List.collect (methodsOf >> List.ofArray)
+                 |> List.map createTool)
+
+        /// The names of the parameters a client sees as required in the tool's input schema.
+        let requiredOf (tool: McpServerTool) =
+            match tool.ProtocolTool.InputSchema.TryGetProperty "required" with
+            | true, req -> [ for e in req.EnumerateArray() -> e.GetString() ]
+            | false, _ -> []
+
+        /// Starts a server with the GenORDER tools and calls the tool with the given arguments.
+        let callTool name args =
+            task {
+                GenOrderMcpTools.SetProvider CheckDepartmentTests.emptyRules
+
+                let clientToServer = Pipe()
+                let serverToClient = Pipe()
+                use cts = new CancellationTokenSource(TimeSpan.FromSeconds 30.)
+
+                let options = McpServerOptions()
+                options.ToolCollection <- McpServerPrimitiveCollection<McpServerTool>()
+
+                for t in allTools.Value do
+                    options.ToolCollection.Add t
+
+                let transport =
+                    StreamServerTransport(clientToServer.Reader.AsStream(), serverToClient.Writer.AsStream())
+
+                use server = McpServer.Create(transport, options)
+                let serverRun = server.RunAsync cts.Token
+
+                let clientTransport =
+                    StreamClientTransport(clientToServer.Writer.AsStream(), serverToClient.Reader.AsStream())
+
+                let! result =
+                    task {
+                        use! client = McpClient.CreateAsync(clientTransport, cancellationToken = cts.Token)
+
+                        return! client.CallToolAsync(name, dict args |> Dictionary, cancellationToken = cts.Token)
+                    }
+
+                cts.Cancel()
+
+                try
+                    do! serverRun
+                with :? OperationCanceledException ->
+                    // cancelling the token is how the server is stopped, so its run task ends cancelled
+                    ()
+
+                return result
+            }
+
+        /// Asserts the result is an answer, not a flagged error, and returns its text.
+        let answerText r =
+            let text = ToJsonResultTests.textOfResult r
+
+            r
+            |> ToJsonResultTests.isErrorOf
+            |> Expect.isFalse $"an answer, not an error, got {text}"
+
+            text
+
+        let tests =
+            testList
+                "tool invocation through the SDK"
+                [
+                    testTask "get_order_context_filter_options without form and height binds and answers" {
+                        let! r =
+                            callTool
+                                "get_order_context_filter_options"
+                                [ "generic", box "paracetamol"; "ageMonths", box 72; "weightKg", box 24 ]
+
+                        r |> answerText |> Expect.stringContains "the options are serialized" "Generics"
+                    }
+
+                    testTask "get_order_context_filter_options with only an age binds and answers" {
+                        let! r = callTool "get_order_context_filter_options" [ "ageMonths", box 72 ]
+
+                        r |> answerText |> Expect.stringContains "the options are serialized" "Generics"
+                    }
+
+                    testTask "create_order_context without its optional arguments binds" {
+                        let! r = callTool "create_order_context" [ "ageMonths", box 72 ]
+
+                        // the empty rules give a summary with no scenarios, not the SDK's invocation failure
+                        r
+                        |> answerText
+                        |> Expect.stringContains "the summary reports the scenario count" "\"ScenarioCount\": 0"
+                    }
+
+                    test "no tool of either class has a required parameter" {
+                        allTools.Value
+                        |> List.map (fun t -> t.ProtocolTool.Name, requiredOf t)
+                        |> List.filter (snd >> List.isEmpty >> not)
+                        |> Expect.isEmpty "every parameter is optional in the schema clients see"
+                    }
+                ]
+
+
     [<Tests>]
     let tests =
         testList
@@ -710,4 +829,5 @@ module Tests =
                 EstimateTests.tests
                 ToJsonResultTests.tests
                 FilterOptionsToolTests.tests
+                SdkInvocationTests.tests
             ]
