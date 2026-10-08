@@ -48,39 +48,21 @@ module Fixtures =
 
     let shown = held paracetamol
 
-    /// A refusal: told, and the pages restored to the context's filter.
-    let restored (ctx: OrderContext) errs =
-        [
-            OrderContextEffect.TellError errs
-            OrderContextEffect.SyncFormulary ctx.Filter
-            OrderContextEffect.SyncParenteralia ctx.Filter
-        ]
+    /// A failure: told; the pages keep what they show.
+    let restored (_: OrderContext) errs = [ OrderContextEffect.TellError errs ]
 
-    /// An evaluation of the context: the call and the two syncs.
-    let evaluated (ctx: OrderContext) request =
-        [
-            OrderContextEffect.CallContext(asIs, ctx, request)
-            OrderContextEffect.SyncFormulary ctx.Filter
-            OrderContextEffect.SyncParenteralia ctx.Filter
-        ]
+    /// An evaluation of the context: the call; the pages follow its answer.
+    let evaluated (ctx: OrderContext) request = [ OrderContextEffect.CallContext(asIs, ctx, request) ]
 
-    /// A patient change over the context: the call with the context as held, and the two syncs.
-    let patientChanged pat (ctx: OrderContext) request =
-        [
-            OrderContextEffect.CallPatientChanged(pat, ctx, request)
-            OrderContextEffect.SyncFormulary ctx.Filter
-            OrderContextEffect.SyncParenteralia ctx.Filter
-        ]
+    /// A patient change over the context: the call with the context as held; the pages follow its
+    /// answer.
+    let patientChanged pat (ctx: OrderContext) request = [ OrderContextEffect.CallPatientChanged(pat, ctx, request) ]
 
-    /// A command that replaces any request: the call and the syncs of the filter it gives.
-    let replacing cmd (ctx: OrderContext) request =
-        let filter = (OrderPlanMachine.Dialog.shown cmd ctx).Filter
+    /// A command that replaces any request: the call; the pages follow its answer.
+    let replacing cmd (ctx: OrderContext) request = [ OrderContextEffect.CallContext(cmd, ctx, request) ]
 
-        [
-            OrderContextEffect.CallContext(cmd, ctx, request)
-            OrderContextEffect.SyncFormulary filter
-            OrderContextEffect.SyncParenteralia filter
-        ]
+    /// The pages put on the filter of an answer.
+    let synced (ctx: OrderContext) = [ OrderContextEffect.SyncPages ctx.Filter ]
 
     /// The url's paracetamol.
     let urlSeed =
@@ -123,7 +105,7 @@ let tests =
                         transition
                             (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol)))
                             loading
-                        |> Expect.equal "shown" (held paracetamol, [])
+                        |> Expect.equal "shown, the pages on its filter" (held paracetamol, synced paracetamol)
                     }
 
                     test
@@ -290,7 +272,7 @@ let tests =
                             { paracetamol with OrderContext.Filter.Generics = [| "paracetamol"; "ibuprofen" |] }
 
                         transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated answer))) busy
-                        |> Expect.equal "shown" (held answer, [])
+                        |> Expect.equal "shown, the pages on its filter" (held answer, synced answer)
 
                         transition (OrderContextMsg.Answered("r-9", Ok(OrderContextResponse.Evaluated answer))) busy
                         |> Expect.equal "stale" (busy, [])
@@ -454,12 +436,9 @@ let stagesTests =
                     ))
                     (OrderContextWorkbench.Evaluated(patient, paracetamol))
                 |> Expect.equal
-                    "the original, told and synced"
+                    "the original, told"
                     (OrderContextWorkbench.Evaluated(patient, paracetamol),
-                     [
-                         OrderContextWorkbenchIntent.Tell [| "not loaded" |]
-                         OrderContextWorkbenchIntent.Sync paracetamol.Filter
-                     ])
+                     [ OrderContextWorkbenchIntent.Tell [| "not loaded" |] ])
             }
 
             test "nothing lands where nothing was asked: no patient" {
@@ -614,10 +593,10 @@ let refusalTests =
                 transition
                     (OrderContextMsg.Answered("r-1", evaluatedAnswer paracetamol))
                     (evaluating paracetamol empty "r-1")
-                |> Expect.equal "shown" (held paracetamol, [])
+                |> Expect.equal "shown, the pages on its filter" (held paracetamol, synced paracetamol)
             }
 
-            test "a refused answer keeps the picks, drops the scenarios, holds why, and tells nothing" {
+            test "a refused answer keeps the picks, drops the scenarios and holds why; the pages follow it" {
                 let busy = evaluating withOrder empty "r-1"
 
                 transition
@@ -625,14 +604,16 @@ let refusalTests =
                     busy
                 |> Expect.equal
                     "refused, as sent, without scenarios"
-                    (refused paracetamol OrderContextRefusal.NoDoseRules, [])
+                    (refused paracetamol OrderContextRefusal.NoDoseRules, synced withOrder)
             }
 
             test "a refused first evaluation holds the empty context and why" {
                 transition
                     (OrderContextMsg.Answered("r-1", refusedAnswer empty OrderContextRefusal.NoProducts))
                     (opening patient "r-1")
-                |> Expect.equal "the empty workbench, refused" (refused empty OrderContextRefusal.NoProducts, [])
+                |> Expect.equal
+                    "the empty workbench, refused"
+                    (refused empty OrderContextRefusal.NoProducts, synced empty)
             }
 
             test "the page shows the refusal while idle, a change while a request runs" {
@@ -660,7 +641,7 @@ let refusalTests =
                 let busy, _ = transition (OrderContextMsg.Command(asIs, "r-2")) shown
 
                 transition (OrderContextMsg.Answered("r-2", evaluatedAnswer again)) busy
-                |> Expect.equal "settled" (held again, [])
+                |> Expect.equal "settled" (held again, synced again)
             }
 
             test "a failure after a refusal restores the context refused, the refusal gone" {
@@ -709,7 +690,7 @@ let refusalTests =
                         (OrderContextMsg.Answered("r-1", refusedAnswer withOrder OrderContextRefusal.NoDoseRules))
                         busy
 
-                effects |> Expect.isEmpty "nothing goes out"
+                effects |> Expect.equal "only the pages follow" (synced withOrder)
                 landed |> dialog |> Expect.equal "the dialog closed" None
                 landed
                 |> view
@@ -955,7 +936,7 @@ let specificCommandTests =
                 |> Expect.equal "an index out of range" twoGenerics
             }
 
-            test "a filter pick goes out as is, evaluates, and syncs the pages to the filter it makes" {
+            test "a filter pick goes out as is and shows the filter it makes; the pages wait for the answer" {
                 let cmd = OrderViewCommand.SetNthFilterProperty(Shared.Models.OrderContext.Generic, 1)
                 let picked = twoGenerics |> Shared.Models.OrderContext.medicationChange (Some "paracetamol")
 
@@ -963,12 +944,8 @@ let specificCommandTests =
 
                 effects
                 |> Expect.equal
-                    "the call with the context as it is, the syncs with the filter picked"
-                    [
-                        OrderContextEffect.CallContext(cmd, twoGenerics, "r-1")
-                        OrderContextEffect.SyncFormulary picked.Filter
-                        OrderContextEffect.SyncParenteralia picked.Filter
-                    ]
+                    "the call with the context as it is, no sync"
+                    [ OrderContextEffect.CallContext(cmd, twoGenerics, "r-1") ]
 
                 state
                 |> OrderContextState.view
@@ -1031,4 +1008,83 @@ let patientChangeTests =
                 |> OrderContextState.admitted patientChanging
                 |> Expect.isTrue "the patient admitted"
             }
+        ]
+
+
+/// The formulary and parenteralia pages follow the answer, never the request.
+[<Tests>]
+let syncTests =
+    let answered ctx = Ok(OrderContextResponse.Evaluated ctx)
+
+    testList
+        "the pages follow the answer"
+        [
+            test "a filter command syncs on its answer and not before" {
+                let pick = OrderViewCommand.SetNthFilterProperty(Shared.Models.OrderContext.Generic, 0)
+                let busy, effects = transition (OrderContextMsg.Command(pick, "r-1")) (held empty)
+
+                effects |> Expect.equal "the call alone" (replacing pick empty "r-1")
+
+                transition (OrderContextMsg.Answered("r-1", answered paracetamol)) busy
+                |> snd
+                |> Expect.equal "the pages on the filter answered" (synced paracetamol)
+            }
+
+            test "a patient update syncs on its answer with the filter answered" {
+                let busy, effects = transition (OrderContextMsg.PatientChanged(Some other, "r-1")) (held paracetamol)
+
+                effects
+                |> Expect.equal "the call alone" (patientChanged other paracetamol "r-1")
+
+                let forOther = { paracetamol with OrderContext.Filter.Routes = [| "or" |] }
+
+                transition (OrderContextMsg.Answered("r-1", answered forOther)) busy
+                |> snd
+                |> Expect.equal "the pages on the filter for the other patient" (synced forOther)
+            }
+
+            test "a value pick syncs nothing" {
+                let step = OrderViewCommand.IncreaseScheduleFrequencyProperty
+                let busy, _ = transition (OrderContextMsg.Command(step, "r-1")) (held paracetamol)
+
+                transition (OrderContextMsg.Answered("r-1", answered paracetamol)) busy
+                |> snd
+                |> Expect.isEmpty "no fetch of either page"
+            }
+
+            test "a failure syncs nothing" {
+                let pick = OrderViewCommand.SetNthFilterProperty(Shared.Models.OrderContext.Generic, 0)
+                let busy, _ = transition (OrderContextMsg.Command(pick, "r-1")) (held paracetamol)
+
+                transition (OrderContextMsg.Answered("r-1", Error [| "not loaded" |])) busy
+                |> snd
+                |> Expect.equal "told, the pages as they were" [ OrderContextEffect.TellError [| "not loaded" |] ]
+            }
+
+            test "a stale answer syncs nothing" {
+                let pick = OrderViewCommand.SetNthFilterProperty(Shared.Models.OrderContext.Generic, 0)
+                let busy, _ = transition (OrderContextMsg.Command(pick, "r-1")) (held paracetamol)
+
+                transition (OrderContextMsg.Answered("r-9", answered paracetamol)) busy
+                |> snd
+                |> Expect.isEmpty "nothing"
+            }
+        ]
+
+
+[<Tests>]
+let answeredTests =
+    testList
+        "the context last answered"
+        [
+            test "is the one held while a request is under way, not the one sent" {
+                let pick = OrderViewCommand.SetNthFilterProperty(Shared.Models.OrderContext.Generic, 0)
+                let busy, _ = transition (OrderContextMsg.Command(pick, "r-1")) (held paracetamol)
+
+                busy
+                |> OrderContextState.answered
+                |> Expect.equal "the context held" (Some paracetamol)
+            }
+
+            test "is none without a patient" { noPatient |> OrderContextState.answered |> Expect.isNone "no context" }
         ]
