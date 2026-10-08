@@ -560,8 +560,7 @@ module SessionState =
                         )
                 }
 
-            { opened renewed state.MovedOn with Reopening = state.Reopening },
-            [ SessionEffect.SetPatient(Some patient) ]
+            { state with Phase = SessionPhase.Open renewed }, [ SessionEffect.SetPatient(Some patient) ]
         | SessionMsg.TokenRenewed _, _, _ -> state, []
 
         // only an open session can open a version, one refresh or open at a time; the request
@@ -618,14 +617,13 @@ module SessionState =
             | RecordNotice.NewerVersion head ->
                 let kept, news = MovedOn.receive state.MovedOn head
 
-                { opened current kept with Reopening = state.Reopening },
-                (if news then [ SessionEffect.TellMovedOn head ] else [])
+                { state with MovedOn = kept }, (if news then [ SessionEffect.TellMovedOn head ] else [])
             // the server ended the session: the gate says why and the close tells the server
             | RecordNotice.Ended ending -> ended ending, [ SessionEffect.CallCloseSession ]
         | SessionMsg.Told _, _, _ -> state, []
 
         // a signature refused for a newer version: the version is kept for the bar, not told
         // again, since the refusal said it
-        | SessionMsg.Blocked head, SessionPhase.Open current, None ->
-            { opened current (MovedOn.receive state.MovedOn head |> fst) with Reopening = state.Reopening }, []
+        | SessionMsg.Blocked head, SessionPhase.Open _, None ->
+            { state with MovedOn = MovedOn.receive state.MovedOn head |> fst }, []
         | SessionMsg.Blocked _, _, _ -> state, []

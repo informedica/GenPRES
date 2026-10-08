@@ -3,6 +3,7 @@ module Page
 
 
 /// A page of the application, one entry of the side menu.
+[<RequireQualifiedAccess>]
 type Page =
     | LifeSupport
     | ContinuousMeds

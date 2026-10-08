@@ -55,6 +55,8 @@ module TitleBar =
 
         let anchorElLang, setAnchorElLang = React.useState None
 
+        // the language label beside the disabled icon button opens the menu too, so the handler
+        // checks as well
         let handleOpenLangMenu =
             fun ev ->
                 if not busy then
@@ -427,7 +429,14 @@ module TitleBar =
                                 {menuItems}
                             </Menu>
                         </Box>
-                        <Button color="inherit" onClick={handleLoginClick} startIcon={loginButtonIcon} sx={loginButtonSx} disabled={busy}>{loginButtonText}</Button>
+                        <Button
+                            color="inherit"
+                            onClick={handleLoginClick}
+                            startIcon={loginButtonIcon}
+                            sx={loginButtonSx}
+                            disabled={busy}>
+                            {loginButtonText}
+                        </Button>
                     </Box>
                 </Toolbar>
             </AppBar>

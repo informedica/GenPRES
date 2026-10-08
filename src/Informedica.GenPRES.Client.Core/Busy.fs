@@ -74,16 +74,17 @@ let changes request page =
     | Request.Signature, _
     | Request.Load Load.Settings, _
     | Request.Load Load.Localization, _ -> true
-    | Request.Workbench, (Prescribe | LifeSupport | ContinuousMeds | Formulary | Parenteralia) -> true
-    | Request.Plan, (OrderPlan | Nutrition | Interactions) -> true
-    | Request.Load Load.BolusMedication, LifeSupport
-    | Request.Load Load.ContinuousMedication, ContinuousMeds
-    | Request.Load Load.Products, (LifeSupport | ContinuousMeds)
-    | Request.Load Load.Formulary, Formulary
-    | Request.Load Load.Parenteralia, Parenteralia
-    | Request.Load Load.Interactions, Interactions
-    | Request.Load Load.DrugNames, Interactions
-    | Request.Load(Load.LogFiles | Load.LogAnalysis | Load.Reload), Settings -> true
+    | Request.Workbench, (Page.Prescribe | Page.LifeSupport | Page.ContinuousMeds)
+    | Request.Workbench, (Page.Formulary | Page.Parenteralia)
+    | Request.Plan, (Page.OrderPlan | Page.Nutrition | Page.Interactions) -> true
+    | Request.Load Load.BolusMedication, Page.LifeSupport
+    | Request.Load Load.ContinuousMedication, Page.ContinuousMeds
+    | Request.Load Load.Products, (Page.LifeSupport | Page.ContinuousMeds)
+    | Request.Load Load.Formulary, Page.Formulary
+    | Request.Load Load.Parenteralia, Page.Parenteralia
+    | Request.Load Load.Interactions, Page.Interactions
+    | Request.Load Load.DrugNames, Page.Interactions
+    | Request.Load(Load.LogFiles | Load.LogAnalysis | Load.Reload), Page.Settings -> true
     | _ -> false
 
 

@@ -2,7 +2,6 @@ module Global
 
 open Feliz
 open Shared
-open Page
 
 
 type Pages = Page.Page
@@ -24,15 +23,15 @@ let pageToString terms locale page =
     let getTerm term = getLocalizedTerm terms locale $"{term}" term
 
     match page with
-    | LifeSupport -> Terms.``Emergency List`` |> getTerm
-    | ContinuousMeds -> Terms.``Continuous Medication List`` |> getTerm
-    | Prescribe -> Terms.``Prescribe`` |> getTerm
-    | Nutrition -> Terms.``Nutrition`` |> getTerm
-    | OrderPlan -> Terms.``Order Plan`` |> getTerm
-    | Formulary -> Terms.``Formulary`` |> getTerm
-    | Parenteralia -> Terms.``Parenteralia`` |> getTerm
-    | Interactions -> Terms.``Interactions`` |> getTerm
-    | Settings -> Terms.Settings |> getTerm
+    | Pages.LifeSupport -> Terms.``Emergency List`` |> getTerm
+    | Pages.ContinuousMeds -> Terms.``Continuous Medication List`` |> getTerm
+    | Pages.Prescribe -> Terms.``Prescribe`` |> getTerm
+    | Pages.Nutrition -> Terms.``Nutrition`` |> getTerm
+    | Pages.OrderPlan -> Terms.``Order Plan`` |> getTerm
+    | Pages.Formulary -> Terms.``Formulary`` |> getTerm
+    | Pages.Parenteralia -> Terms.``Parenteralia`` |> getTerm
+    | Pages.Interactions -> Terms.``Interactions`` |> getTerm
+    | Pages.Settings -> Terms.Settings |> getTerm
 
 
 type Context =

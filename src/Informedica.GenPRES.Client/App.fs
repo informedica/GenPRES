@@ -14,7 +14,6 @@ open Shared
 open Shared.Types
 open Shared.Models
 open Global
-open Page
 open SessionMachine
 open SigningMachine
 open OrderPlanMachine
@@ -567,11 +566,11 @@ module private Elmish =
 
             let page =
                 match paramsMap |> Map.tryFind "pg" with
-                | Some s when s = "el" -> Some LifeSupport
-                | Some s when s = "cm" -> Some ContinuousMeds
-                | Some s when s = "pr" -> Some Prescribe
-                | Some s when s = "fm" -> Some Formulary
-                | Some s when s = "pe" -> Some Parenteralia
+                | Some s when s = "el" -> Some Global.Pages.LifeSupport
+                | Some s when s = "cm" -> Some Global.Pages.ContinuousMeds
+                | Some s when s = "pr" -> Some Global.Pages.Prescribe
+                | Some s when s = "fm" -> Some Global.Pages.Formulary
+                | Some s when s = "pe" -> Some Global.Pages.Parenteralia
                 | _ -> None
 
             // ISO code, display name or the legacy codes (du, gr, sp): one parser with the server
@@ -687,7 +686,7 @@ module private Elmish =
                 }
             Ui =
                 {
-                    Page = page |> Option.defaultValue LifeSupport
+                    Page = page |> Option.defaultValue Global.Pages.LifeSupport
                     ShowDisclaimer = discl
                     Context =
                         {
@@ -1164,7 +1163,7 @@ module private Elmish =
         | OrderPlanEffect.CheckInteractions drugs -> state |> checkInteractions drugs
         | OrderPlanEffect.ResetWorkbench -> state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Reset(newRequest ())))
         // an order prescribed opens the plan page
-        | OrderPlanEffect.GoToPlanPage -> { state with Ui.Page = OrderPlan }, Cmd.none
+        | OrderPlanEffect.GoToPlanPage -> { state with Ui.Page = Global.Pages.OrderPlan }, Cmd.none
         | OrderPlanEffect.TellError errs ->
             (state, Cmd.none) |> processError ServerErrorPolicy.ErrorSource.OrderPlan errs
 
@@ -1424,7 +1423,7 @@ module private Elmish =
             // and said, since the patient is part of the filter
             match patientOf state with
             | Some _ ->
-                { state with Ui.Page = Prescribe },
+                { state with Ui.Page = Global.Pages.Prescribe },
                 Cmd.ofMsg (OrderContextMsg(OrderContextMsg.SeedFilter(seed, newRequest ())))
             | None -> noPatientForMedication state, Cmd.none
 
@@ -1518,8 +1517,8 @@ module private Elmish =
                 Admin.LogAnalysisReport = HasNotStartedYet
                 Admin.Reloading = HasNotStartedYet
                 Ui.Page =
-                    if state.Ui.Page = Settings then
-                        LifeSupport
+                    if state.Ui.Page = Global.Pages.Settings then
+                        Global.Pages.LifeSupport
                     else
                         state.Ui.Page
             },
@@ -1606,15 +1605,15 @@ module private Elmish =
                 | InProgress -> Cmd.none
                 | _ -> Cmd.ofMsg (LoadInteractionDrugNames Started)
 
-            if page = Settings && not state.Admin.IsAuthenticated then
+            if page = Global.Pages.Settings && not state.Admin.IsAuthenticated then
                 state, Cmd.none
-            else if page = Settings then
+            else if page = Global.Pages.Settings then
                 { state with Ui.Page = page }, retryDrugNames
             else
                 let loadCmds =
                     match page with
-                    | Formulary -> [ Cmd.ofMsg (LoadFormulary Started) ]
-                    | Parenteralia -> [ Cmd.ofMsg (LoadParenteralia Started) ]
+                    | Global.Pages.Formulary -> [ Cmd.ofMsg (LoadFormulary Started) ]
+                    | Global.Pages.Parenteralia -> [ Cmd.ofMsg (LoadParenteralia Started) ]
                     | _ -> []
 
                 { state with Ui.Page = page }, Cmd.batch (retryDrugNames :: loadCmds)
@@ -1697,7 +1696,7 @@ module private Elmish =
 
             { state with
                 Ui.ShowDisclaimer = discl
-                Ui.Page = page |> Option.defaultValue LifeSupport
+                Ui.Page = page |> Option.defaultValue Global.Pages.LifeSupport
                 // the path from the state; it also keeps the field apart from the Global.Context type
                 Ui.Context.Localization = language.Current
                 Ui.LanguageChosen = language.Chosen
@@ -1769,7 +1768,7 @@ module private Elmish =
 
         | LoadLocalization(Finished(Error s)) ->
             Logging.error "cannot load localization" s
-            state, Cmd.none
+            { state with Fetches.Localization = HasNotStartedYet }, Cmd.none
 
         | LoadNormalValues Started ->
             { state with Fetches.NormalValues = InProgress },
@@ -1781,7 +1780,7 @@ module private Elmish =
 
         | LoadNormalValues(Finished(Error s)) ->
             Logging.error "cannot load normal values" s
-            state, Cmd.none
+            { state with Fetches.NormalValues = HasNotStartedYet }, Cmd.none
 
 
         | LoadBolusMedication Started ->
@@ -1803,7 +1802,7 @@ module private Elmish =
 
         | LoadBolusMedication(Finished(Error s)) ->
             Logging.error "cannot load emergency treatment" s
-            state, Cmd.none
+            { state with Fetches.BolusMedication = HasNotStartedYet }, Cmd.none
 
         | LoadContinuousMedication Started ->
             { state with Fetches.ContinuousMedication = InProgress },
@@ -1815,7 +1814,7 @@ module private Elmish =
 
         | LoadContinuousMedication(Finished(Error s)) ->
             Logging.error "cannot load continuous medication" s
-            state, Cmd.none
+            { state with Fetches.ContinuousMedication = HasNotStartedYet }, Cmd.none
 
         | OnSelectContinuousMedicationItem item ->
             match state.Fetches.ContinuousMedication with
@@ -1859,7 +1858,7 @@ module private Elmish =
 
         | LoadProducts(Finished(Error s)) ->
             Logging.error "cannot load products" s
-            state, Cmd.none
+            { state with Fetches.Products = HasNotStartedYet }, Cmd.none
 
         | OrderContextMsg msg ->
             // an answer, whatever it says, settles a reload that waited on it

@@ -3,7 +3,6 @@ module Informedica.GenPRES.Client.Core.Tests.BusyTests
 open Expecto
 open Expecto.Flip
 open Shared.Api
-open Page
 open Busy
 open SessionMachine
 open SigningMachine
@@ -14,15 +13,15 @@ open Informedica.GenPRES.Client.Core.Tests.OrderPlanMachineTests.Fixtures
 
 let allPages =
     [
-        LifeSupport
-        ContinuousMeds
-        Prescribe
-        Nutrition
-        OrderPlan
-        Formulary
-        Parenteralia
-        Interactions
-        Settings
+        Page.Page.LifeSupport
+        Page.Page.ContinuousMeds
+        Page.Page.Prescribe
+        Page.Page.Nutrition
+        Page.Page.OrderPlan
+        Page.Page.Formulary
+        Page.Page.Parenteralia
+        Page.Page.Interactions
+        Page.Page.Settings
     ]
 
 
@@ -141,39 +140,47 @@ let tests =
             test "a workbench request disables the pages that show the workbench" {
                 Request.Workbench
                 |> disabled
-                |> Expect.equal "workbench pages" [ LifeSupport; ContinuousMeds; Prescribe; Formulary; Parenteralia ]
+                |> Expect.equal
+                    "workbench pages"
+                    [
+                        Page.Page.LifeSupport
+                        Page.Page.ContinuousMeds
+                        Page.Page.Prescribe
+                        Page.Page.Formulary
+                        Page.Page.Parenteralia
+                    ]
             }
 
             test "a plan request disables the pages that show the plan" {
                 Request.Plan
                 |> disabled
-                |> Expect.equal "plan pages" [ Nutrition; OrderPlan; Interactions ]
+                |> Expect.equal "plan pages" [ Page.Page.Nutrition; Page.Page.OrderPlan; Page.Page.Interactions ]
             }
 
             test "a page's own load disables that page alone" {
                 [
-                    Load.BolusMedication, [ LifeSupport ]
-                    Load.ContinuousMedication, [ ContinuousMeds ]
-                    Load.Products, [ LifeSupport; ContinuousMeds ]
-                    Load.Formulary, [ Formulary ]
-                    Load.Parenteralia, [ Parenteralia ]
-                    Load.Interactions, [ Interactions ]
-                    Load.DrugNames, [ Interactions ]
-                    Load.LogFiles, [ Settings ]
-                    Load.LogAnalysis, [ Settings ]
-                    Load.Reload, [ Settings ]
+                    Load.BolusMedication, [ Page.Page.LifeSupport ]
+                    Load.ContinuousMedication, [ Page.Page.ContinuousMeds ]
+                    Load.Products, [ Page.Page.LifeSupport; Page.Page.ContinuousMeds ]
+                    Load.Formulary, [ Page.Page.Formulary ]
+                    Load.Parenteralia, [ Page.Page.Parenteralia ]
+                    Load.Interactions, [ Page.Page.Interactions ]
+                    Load.DrugNames, [ Page.Page.Interactions ]
+                    Load.LogFiles, [ Page.Page.Settings ]
+                    Load.LogAnalysis, [ Page.Page.Settings ]
+                    Load.Reload, [ Page.Page.Settings ]
                     Load.Hospitals, []
                     Load.NormalValues, []
                 ]
                 |> List.iter (fun (load, pages) -> Request.Load load |> disabled |> Expect.equal $"%A{load}" pages)
             }
 
-            test "the drug names disable the Interactions page and hold nothing else" {
+            test "the drug names disable the Page.Page.Interactions page and hold nothing else" {
                 let out = idle [ Load.DrugNames ]
 
                 out |> Busy.any |> Expect.isFalse "the menu is free"
 
                 for p in allPages do
-                    out |> Busy.page p |> Expect.equal $"%A{p}" (p = Interactions)
+                    out |> Busy.page p |> Expect.equal $"%A{p}" (p = Page.Page.Interactions)
             }
         ]

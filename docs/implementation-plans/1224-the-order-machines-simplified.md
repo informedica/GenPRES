@@ -681,7 +681,12 @@ the order of the steps protects the work between pull requests, not patients; it
    - `AppEnv.IOrderPlan` follows, and the five views that build plan commands: `OrderPlan.fs`,
      `Prescribe.fs`, `Patient.fs`, `EnteralNutrition.fs`, `ParenteralNutrition.fs`.
 4. **The three rules, and the Session's refresh and open count as requests** (a fix under #1326
-   item 7). Decisions 1, 4 and 8.
+   item 7). Decisions 1, 4 and 8, in three pull requests: 4a the Session's refresh and open, the
+   busy policy, every reader of it and the follow-up loads, with their tests; 4b the pages' own
+   greying, `viewWhile` and `dialogWhile` out, and the Settings page; 4c the start-up gate,
+   `Ui.Started` and `StartupPolicy`. The page type moves to Client.Core in 4a, so the busy table
+   can name the pages. Until 4c, a start-up load that fails is no longer out, so it holds
+   nothing; 4c keeps the gate up for it instead.
    - `SessionState` gets `Reopening`, an option of a refresh or an open, beside `InFlight`;
      `Refresh` and `OpenVersion` set it; `Refreshed` and `Reopened` clear it, on any answer, `Ok
      None` and `Error` included; a second `Refresh` or `OpenVersion` while it is set is dropped,
@@ -918,8 +923,7 @@ Line counts:
 - **Step 3:** a prescription, a new nutrition context, a removal and a row filter each show one
   `CallPlan` over the plan held in the trail; a navigate into a removed context shows nothing
   sent.
-- **Step 4:** a page load: the gate shows until every load and the resume have answered, and
-  the hospital menu has its options when the application opens; a filter pick, then the menu
+- **Step 4a:** a filter pick, then the menu
   at once: the menu waits until the filter and the two page loads it starts have answered, and
   so do the title bar and the panel, with no moment in between where the menu opens; the held
   dialog's refresh: every page is disabled until it answers; after the sign click: every page
@@ -929,9 +933,13 @@ Line counts:
   move goes out meanwhile; a formulary page load: the page is disabled and the menu waits until
   it lands, while the panel waits too; the Interactions page with the server's drug names
   failing: the page retries on its own and the menu, the title bar and the panel stay usable,
-  also when the server check brings the names back after an outage; a page load with the
-  products unreachable: the gate names the products and offers Retry, and after thirty seconds
-  of a stalled load it says the same.
+  also when the server check brings the names back after an outage.
+- **Step 4b:** every page greys in one way only, through its Disabled wrapper; the Settings
+  page's reload greys the page and does not lift on a workbench answer.
+- **Step 4c:** a page load: the gate shows until every load and the resume have answered, and
+  the hospital menu has its options when the application opens; a page load with the products
+  unreachable: the gate names the products and offers Retry, and after thirty seconds of a
+  stalled load it says the same.
 - **Step 5:** the patient refresh after the weight changed in the EHR: the plan shows the orders
   for the new weight, the orders kept; the plan refresh: the last signed orders, the new and
   changed ones gone; a patient with no signed order plan: the plan refresh is absent and the

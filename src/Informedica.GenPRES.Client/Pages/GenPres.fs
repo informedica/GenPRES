@@ -18,7 +18,6 @@ module GenPres =
 
 
         open Global
-        open Page
 
 
         type State =
@@ -36,15 +35,15 @@ module GenPres =
 
         let pages =
             [
-                LifeSupport
-                ContinuousMeds
-                Prescribe
-                Nutrition
-                OrderPlan
-                Interactions
-                Formulary
-                Parenteralia
-                Settings
+                Global.Pages.LifeSupport
+                Global.Pages.ContinuousMeds
+                Global.Pages.Prescribe
+                Global.Pages.Nutrition
+                Global.Pages.OrderPlan
+                Global.Pages.Interactions
+                Global.Pages.Formulary
+                Global.Pages.Parenteralia
+                Global.Pages.Settings
             ]
 
 
@@ -58,15 +57,16 @@ module GenPres =
                             let b = p = page
 
                             match p |> pageToString terms lang with
-                            | s when p = LifeSupport -> Mui.Icons.FireExtinguisher |> Some, s, b, None, false
-                            | s when p = ContinuousMeds -> Mui.Icons.Vaccines |> Some, s, b, None, false
-                            | s when p = Prescribe -> Mui.Icons.Message |> Some, s, b, None, false
-                            | s when p = Nutrition -> Mui.Icons.LocalDiningIcon |> Some, s, b, None, false
-                            | s when p = OrderPlan -> Mui.Icons.SummarizeIcon |> Some, s, b, None, false
-                            | s when p = Interactions -> Mui.Icons.WarningAmber |> Some, s, b, None, false
-                            | s when p = Formulary -> Mui.Icons.LocalPharmacy |> Some, s, b, None, false
-                            | s when p = Parenteralia -> Mui.Icons.Bloodtype |> Some, s, b, None, false
-                            | s when p = Settings -> Mui.Icons.Settings |> Some, s, b, None, false
+                            | s when p = Global.Pages.LifeSupport ->
+                                Mui.Icons.FireExtinguisher |> Some, s, b, None, false
+                            | s when p = Global.Pages.ContinuousMeds -> Mui.Icons.Vaccines |> Some, s, b, None, false
+                            | s when p = Global.Pages.Prescribe -> Mui.Icons.Message |> Some, s, b, None, false
+                            | s when p = Global.Pages.Nutrition -> Mui.Icons.LocalDiningIcon |> Some, s, b, None, false
+                            | s when p = Global.Pages.OrderPlan -> Mui.Icons.SummarizeIcon |> Some, s, b, None, false
+                            | s when p = Global.Pages.Interactions -> Mui.Icons.WarningAmber |> Some, s, b, None, false
+                            | s when p = Global.Pages.Formulary -> Mui.Icons.LocalPharmacy |> Some, s, b, None, false
+                            | s when p = Global.Pages.Parenteralia -> Mui.Icons.Bloodtype |> Some, s, b, None, false
+                            | s when p = Global.Pages.Settings -> Mui.Icons.Settings |> Some, s, b, None, false
                             | s -> None, s, b, None, false
                         )
 
@@ -87,7 +87,7 @@ module GenPres =
                 |> List.map (fun p -> p |> pageToString terms lang, p)
                 |> List.tryFind (fst >> ((=) s))
                 |> Option.map snd
-                |> Option.defaultValue LifeSupport
+                |> Option.defaultValue Global.Pages.LifeSupport
                 |> updatePage
 
                 { state with
