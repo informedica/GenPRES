@@ -599,14 +599,6 @@ module OrderPlan =
                 |> Array.map _.Order.Id
             | _ -> [||]
 
-        // a plan change is one at a time: while one is under way the button is disabled,
-        // so a click never sends a command that would be discarded
-        let isRecalculating =
-            match orderPlan with
-            | OrderPlanView.Changing _ -> true
-            | OrderPlanView.NoPatient
-            | OrderPlanView.Settled _ -> false
-
         // removing is asked first: the button opens the question, confirming does it
         let confirmDeleteOpen, setConfirmDeleteOpen = React.useState false
 
@@ -658,7 +650,7 @@ module OrderPlan =
                 label = Terms.Delete |> getTerm "Verwijderen"
                 kind = Components.ActionBar.Kind.Destructive
                 onClick = onDelete
-                disabled = isRecalculating || nothingSelected
+                disabled = nothingSelected
                 icon = Some Mui.Icons.Delete
             |}
 
@@ -671,8 +663,6 @@ module OrderPlan =
                 | OrderPlanView.NoPatient
                 | OrderPlanView.Changing _ -> ()
 
-        let signRests = isRecalculating || counting.IsSome
-
         // the button stays while the plan changes, disabled, so the table below does not move up
         // and down with every answer
         let signAction =
@@ -680,7 +670,7 @@ module OrderPlan =
                 label = tr Terms.``Signing Sign``
                 kind = Components.ActionBar.Kind.Primary
                 onClick = fun () -> onSign ()
-                disabled = signRests
+                disabled = counting.IsSome
                 icon = Some Mui.Icons.Assignment
             |}
 
@@ -743,9 +733,6 @@ module OrderPlan =
                     height = "100%"
                     onRowClick = selectOrder
                     checkboxSelection = true
-                    // one change to the plan at a time: a checkbox toggled while it is busy
-                    // would be dropped, so the boxes are greyed meanwhile
-                    selectDisabled = isRecalculating
                     selectedRows = selectedRows
                     onSelectChange = filterOrders
                     showToolbar = true

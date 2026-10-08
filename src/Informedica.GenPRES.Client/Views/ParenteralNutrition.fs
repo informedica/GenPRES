@@ -70,7 +70,7 @@ module ParenteralNutrition =
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
                 onRemove: (unit -> unit) option
-                isRecalculating: bool
+                busy: bool
             |})
         =
         let slot =
@@ -81,7 +81,7 @@ module ParenteralNutrition =
                     planReopen = props.planReopen
                     planRestore = props.planRestore
                     localizationTerms = props.localizationTerms
-                    isRecalculating = props.isRecalculating
+                    busy = props.busy
                     fieldMinWidth = None
                 |}
 
@@ -128,7 +128,7 @@ module ParenteralNutrition =
                 let value = position |> Option.defaultValue 100
                 let sliderSx = if position.IsSome then null else box noHandleSx
                 let track: obj = if position.IsSome then box "normal" else box false
-                let disabled = slot.IsLoading || not slot.CanSetDoseQuantityPerc
+                let disabled = not slot.CanSetDoseQuantityPerc
 
                 // a dose set otherwise shows its exact share instead of a handle
                 let shareText =
@@ -205,7 +205,7 @@ module ParenteralNutrition =
                         label = Terms.``Prescribe`` |> getTerm "Voorschrijven"
                         kind = Components.ActionBar.Kind.Primary
                         onClick = ignore
-                        disabled = slot.IsLoading
+                        disabled = false
                         icon = None
                     |}
 
@@ -258,14 +258,6 @@ module ParenteralNutrition =
                 </Box>
             </Stack>
             """
-            |> fun fields ->
-                // the spinner lies over the details and takes no room, so the fields stay where
-                // they are while the order reloads
-                Components.LoadingOverlay.View
-                    {|
-                        isLoading = slot.IsLoading
-                        children = fields
-                    |}
 
         let filterSx = {| marginBottom = 2 |}
 
@@ -325,7 +317,7 @@ module ParenteralNutrition =
             </Stack>
             """
 
-        let orderDetails = if slot.Order.IsSome then details else slot.LoadingIndicator
+        let orderDetails = if slot.Order.IsSome then details else null
 
         let expanded, setExpanded = React.useState true
 
@@ -336,7 +328,7 @@ module ParenteralNutrition =
                 Components.RemoveIconButton.View
                     {|
                         onRemove = onRemove
-                        busy = props.isRecalculating
+                        busy = props.busy
                     |}
             | None -> null
 
@@ -398,7 +390,7 @@ module ParenteralNutrition =
                 planNavigate: string * Api.OrderViewCommand -> unit
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
-                isRecalculating: bool
+                busy: bool
             |})
         =
         let context: Global.Context = React.useContext Global.context
@@ -418,7 +410,7 @@ module ParenteralNutrition =
                     planRestore = props.planRestore
                     localizationTerms = props.localizationTerms
                     onRemove = Some onRemove
-                    isRecalculating = props.isRecalculating
+                    busy = props.busy
                 |}
 
         let slots =
@@ -439,7 +431,7 @@ module ParenteralNutrition =
                     {|
                         label = label
                         onClick = fun () -> props.planNew category
-                        disabled = props.isRecalculating
+                        disabled = false
                     |}
             )
 

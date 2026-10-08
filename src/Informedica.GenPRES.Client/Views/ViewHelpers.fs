@@ -13,7 +13,7 @@ module ViewHelpers =
 
 
     /// A filter select: what it offers is the pick rule's answer.
-    let filterSelect disabled isLoading lbl selected dispatch xs =
+    let filterSelect lbl selected dispatch xs =
         Components.PickField.View
             {|
                 label = lbl
@@ -21,8 +21,8 @@ module ViewHelpers =
                 selected = selected
                 onChange = dispatch
                 clearable = true
-                isLoading = isLoading
-                enabled = not disabled
+                isLoading = false
+                enabled = true
                 shape = Components.PickField.Shape.Scroll
             |}
 
@@ -621,7 +621,7 @@ module ViewHelpers =
 
     /// The same filter select, typed into rather than scrolled, for a list long enough that
     /// reading it is slower than naming it. The same rule decides what it offers.
-    let autoComplete disabled isLoading lbl selected dispatch xs =
+    let autoComplete lbl selected dispatch xs =
         Components.PickField.View
             {|
                 label = lbl
@@ -629,20 +629,18 @@ module ViewHelpers =
                 selected = selected
                 onChange = dispatch
                 clearable = true
-                isLoading = isLoading
-                enabled = not disabled
+                isLoading = false
+                enabled = true
                 shape = Components.PickField.Shape.Type
             |}
 
 
     /// A filter scrolled on a small screen and typed into on a large one.
-    let responsiveFilter isMobile disabled isLoading lbl selected dispatch xs =
+    let responsiveFilter isMobile lbl selected dispatch xs =
         if isMobile then
-            xs
-            |> Array.map (fun s -> s, s)
-            |> filterSelect disabled isLoading lbl selected dispatch
+            xs |> Array.map (fun s -> s, s) |> filterSelect lbl selected dispatch
         else
-            xs |> autoComplete disabled isLoading lbl selected dispatch
+            xs |> autoComplete lbl selected dispatch
 
 
     /// The text of an item, without the emphasis it is drawn with.
@@ -678,27 +676,6 @@ module ViewHelpers =
             Api.OrderViewCommand.ClearItemProperty(cmp, itm, prop, picks)
 
 
-    let inlineProgress isLoading =
-        if isLoading then
-            let progressSx =
-                {|
-                    display = "flex"
-                    justifyContent = "center"
-                    padding = 2
-                |}
-
-            JSX.jsx
-                $"""
-            import CircularProgress from '@mui/material/CircularProgress';
-            import Box from '@mui/material/Box';
-            <Box sx={progressSx}>
-                <CircularProgress size={24} />
-            </Box>
-            """
-        else
-            null
-
-
     /// A small spinner below a form's button while its request is under way.
     let busyProgress isBusy =
         if isBusy then
@@ -732,16 +709,6 @@ module ViewHelpers =
             <CircularProgress />
         </Box>
         """
-
-
-    /// The progress while a value is fetched, or fetched again over what is shown; nothing once
-    /// it is answered.
-    let progressOrEmpty (deferred: Deferred<'a>) =
-        match deferred with
-        | Resolved _ -> null
-        | HasNotStartedYet
-        | InProgress
-        | Refreshing _ -> circularProgress
 
 
     let backdropProgress isOpen (message: string) =

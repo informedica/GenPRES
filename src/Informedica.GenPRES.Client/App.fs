@@ -112,7 +112,7 @@ module private Elmish =
             LogFiles: Deferred<LogFileInfo[]>
             LogAnalysisReport: Deferred<string>
             // the resource reload from the settings page: InProgress from the request until the
-            // pages have refreshed over the reloaded resources
+            // server has reloaded
             Reloading: Deferred<unit>
         }
 
@@ -207,13 +207,12 @@ module private Elmish =
         | LoadLoginResult of attempt: int * AdminResult
         | Logout
 
-        // the token the request was made with: an answer to a token no longer held is dropped
         | ListLogFiles
-        | LoadLogFilesResult of token: string * AdminResult
+        | LoadLogFilesResult of AdminResult
         | AnalyzeLogFile of string
-        | LoadLogAnalysisResult of token: string * AdminResult
+        | LoadLogAnalysisResult of AdminResult
         | ReloadResources
-        | LoadReloadResult of token: string * AdminResult
+        | LoadReloadResult of AdminResult
 
 
     /// A computing answer of a member, typed by what the member answers
@@ -314,17 +313,8 @@ module private Elmish =
     let patientOf (state: State) = state.Lanes.Patient |> PatientState.patient
 
 
-    /// A reload settles when the refresh it started has answered: the order context over a
-    /// patient, else the formulary.
-    let settleReload (state: State) =
-        match state.Admin.Reloading with
-        | InProgress -> { state with Admin.Reloading = Resolved() }
-        | _ -> state
-
-
-    /// An admin answer applied. A reload done reloads what the pages show: the order context
-    /// over the patient, which takes the formulary and the parenteralia with it, or those two
-    /// alone when there is no patient; the reload stays pending until that refresh answered.
+    /// An admin answer applied. A reload done ends the reload; the pages it refreshes are
+    /// started where the answer lands.
     let applyAdmin (state: State) (response: Api.AdminResponse) =
         match response with
         | Api.AdminResponse.PasswordValidated(isValid, token) ->
@@ -343,26 +333,7 @@ module private Elmish =
                 Cmd.none
         | Api.AdminResponse.LogFilesListed files -> { state with Admin.LogFiles = Resolved files }, Cmd.none
         | Api.AdminResponse.LogFileAnalyzed report -> { state with Admin.LogAnalysisReport = Resolved report }, Cmd.none
-        | Api.AdminResponse.ResourcesReloaded ->
-            let refresh =
-                match patientOf state with
-                // the workbench evaluated again, as it is, whatever was in flight: a reload seed
-                // carries no choices
-                | Some _ ->
-                    let seed =
-                        {
-                            Source = SeedSource.Reload
-                            Indication = None
-                            Generic = None
-                            Route = None
-                            Form = None
-                            DoseType = None
-                        }
-
-                    Cmd.ofMsg (OrderContextMsg(OrderContextMsg.SeedFilter(seed, newRequest ())))
-                | None -> Cmd.batch [ Cmd.ofMsg (LoadFormulary Started); Cmd.ofMsg (LoadParenteralia Started) ]
-
-            state, refresh
+        | Api.AdminResponse.ResourcesReloaded -> { state with Admin.Reloading = Resolved() }, Cmd.none
 
 
     /// The result, and what the Session is told with it: the record moved on or the Session
@@ -1287,6 +1258,41 @@ module private Elmish =
         { state with Lanes.Patient = patient } |> runEffects applyPatientEffect effects
 
 
+    /// A step of the order context machine: the trail recorded, the effects applied.
+    let changeOrderContext msg (state: State) =
+        let workbench, effects =
+            OrderContextState.transitionWhile state.Lanes.Patient msg state.Lanes.OrderContext
+
+        StepTrail.record (fun no at -> Trail.orderContext no at msg (workbench, effects))
+
+        { state with Lanes.OrderContext = workbench }
+        |> runEffects applyOrderContextEffect effects
+
+
+    /// What the pages show refreshed over reloaded resources, out in the update that lands the
+    /// reload's answer: the workbench evaluated again as it is, which takes the formulary and the
+    /// parenteralia with it, or those two alone without a patient. A reload seed carries no
+    /// choices.
+    let refreshPages (state: State) =
+        match patientOf state with
+        | Some _ ->
+            let seed =
+                {
+                    Source = SeedSource.Reload
+                    Indication = None
+                    Generic = None
+                    Route = None
+                    Form = None
+                    DoseType = None
+                }
+
+            state |> changeOrderContext (OrderContextMsg.SeedFilter(seed, newRequest ()))
+        | None ->
+            let state, formulary = startFormulary state
+            let state, parenteralia = startParenteralia state
+            state, Cmd.batch [ formulary; parenteralia ]
+
+
     /// Whether the patient context is held: an identified patient whose plan has an order that
     /// is new or changed since the version last opened or signed. The panel cannot change the
     /// patient then, so that every order a signed version adds rests on one patient context.
@@ -1524,65 +1530,62 @@ module private Elmish =
             },
             Cmd.none
 
-        // an answer to a token no longer held (logged out, or logged in again since): dropped,
-        // so a late refusal cannot end the new login and a late answer cannot revive the old
-        | LoadLogFilesResult(token, Finished _)
-        | LoadLogAnalysisResult(token, Finished _)
-        | LoadReloadResult(token, Finished _) when token <> state.Admin.AuthToken -> state, Cmd.none
-
         | ListLogFiles ->
             match state.Admin.LogFiles with
             // one listing at a time, so an earlier answer cannot clear the error of a later one
             | InProgress
             | Refreshing _ -> state, Cmd.none
             | _ ->
-                let token = state.Admin.AuthToken
-
                 // the table shown stays until the answer
                 { state with Admin.LogFiles = state.Admin.LogFiles |> Deferred.refresh },
-                Api.AdminCommand.ListLogFiles token
-                |> createAdminMsg (fun result -> LoadLogFilesResult(token, result))
+                Api.AdminCommand.ListLogFiles state.Admin.AuthToken
+                |> createAdminMsg LoadLogFilesResult
 
-        | LoadLogFilesResult(_, Finished(Ok resp)) ->
+        | LoadLogFilesResult(Finished(Ok resp)) ->
             applyAdmin state resp |> clearError ServerErrorPolicy.ErrorSource.LogFiles
 
-        | LoadLogFilesResult(_, Finished(Error err)) ->
+        | LoadLogFilesResult(Finished(Error err)) ->
             ({ state with Admin.LogFiles = HasNotStartedYet }, Cmd.none)
             |> tokenError ServerErrorPolicy.ErrorSource.LogFiles err
 
-        | LoadLogFilesResult(_, Started) -> state, Cmd.none
+        | LoadLogFilesResult(Started) -> state, Cmd.none
 
         | AnalyzeLogFile fileName ->
-            let token = state.Admin.AuthToken
-
             { state with Admin.LogAnalysisReport = InProgress },
-            Api.AdminCommand.AnalyzeLogFile(token, fileName)
-            |> createAdminMsg (fun result -> LoadLogAnalysisResult(token, result))
+            Api.AdminCommand.AnalyzeLogFile(state.Admin.AuthToken, fileName)
+            |> createAdminMsg LoadLogAnalysisResult
 
-        | LoadLogAnalysisResult(_, Finished(Ok resp)) ->
+        | LoadLogAnalysisResult(Finished(Ok resp)) ->
             applyAdmin state resp |> clearError ServerErrorPolicy.ErrorSource.LogAnalysis
 
-        | LoadLogAnalysisResult(_, Finished(Error err)) ->
+        | LoadLogAnalysisResult(Finished(Error err)) ->
             ({ state with Admin.LogAnalysisReport = HasNotStartedYet }, Cmd.none)
             |> tokenError ServerErrorPolicy.ErrorSource.LogAnalysis err
 
-        | LoadLogAnalysisResult(_, Started) -> state, Cmd.none
+        | LoadLogAnalysisResult(Started) -> state, Cmd.none
 
         | ReloadResources ->
             let token = state.Admin.AuthToken
 
             { state with Admin.Reloading = InProgress },
-            Api.AdminCommand.ReloadResources token
-            |> createAdminMsg (fun result -> LoadReloadResult(token, result))
+            Api.AdminCommand.ReloadResources token |> createAdminMsg LoadReloadResult
 
-        | LoadReloadResult(_, Finished(Ok resp)) ->
-            applyAdmin state resp |> clearError ServerErrorPolicy.ErrorSource.Reload
+        // the reload ends on its own answer, and the pages it refreshes are out in the same update
+        | LoadReloadResult(Finished(Ok resp)) ->
+            let state, cmd = applyAdmin state resp |> clearError ServerErrorPolicy.ErrorSource.Reload
 
-        | LoadReloadResult(_, Finished(Error err)) ->
+            let state, refresh =
+                match resp with
+                | Api.AdminResponse.ResourcesReloaded -> refreshPages state
+                | _ -> state, Cmd.none
+
+            state, Cmd.batch [ cmd; refresh ]
+
+        | LoadReloadResult(Finished(Error err)) ->
             ({ state with Admin.Reloading = HasNotStartedYet }, Cmd.none)
             |> tokenError ServerErrorPolicy.ErrorSource.Reload err
 
-        | LoadReloadResult(_, Started) -> state, Cmd.none
+        | LoadReloadResult(Started) -> state, Cmd.none
 
         | AcceptDisclaimer -> { state with Ui.ShowDisclaimer = false }, Cmd.none
 
@@ -1860,19 +1863,7 @@ module private Elmish =
             Logging.error "cannot load products" s
             { state with Fetches.Products = HasNotStartedYet }, Cmd.none
 
-        | OrderContextMsg msg ->
-            // an answer, whatever it says, settles a reload that waited on it
-            let state =
-                match msg with
-                | OrderContextMsg.Answered _ -> settleReload state
-                | _ -> state
-
-            let workbench, effects =
-                OrderContextState.transitionWhile state.Lanes.Patient msg state.Lanes.OrderContext
-            StepTrail.record (fun no at -> Trail.orderContext no at msg (workbench, effects))
-
-            { state with Lanes.OrderContext = workbench }
-            |> runEffects applyOrderContextEffect effects
+        | OrderContextMsg msg -> state |> changeOrderContext msg
 
         // what the Session is told rides on the reply; the context goes to the machine under
         // the request it answers
@@ -1921,23 +1912,12 @@ module private Elmish =
             | Refreshing _ -> state, Cmd.none
             | _ -> startFormulary state
 
-        // without a patient the formulary is what a reload refreshes, so it settles the reload
         | LoadFormulary(Finished(Ok msg)) ->
-            let state =
-                if (patientOf state).IsNone then
-                    settleReload state
-                else
-                    state
             processApiMsg state msg applyFormulary
             |> clearError ServerErrorPolicy.ErrorSource.Formulary
             |> askFormularyAgain
 
         | LoadFormulary(Finished(Error err)) ->
-            let state =
-                if (patientOf state).IsNone then
-                    settleReload state
-                else
-                    state
             ({ state with Fetches.Formulary = HasNotStartedYet }, Cmd.none)
             |> processError ServerErrorPolicy.ErrorSource.Formulary err
             |> askFormularyAgain
@@ -2184,7 +2164,7 @@ type private ConcreteAppEnv
         member _.Page page = state |> busyOut |> Busy.page page
 
     interface AppEnv.IOrderContext with
-        member _.OrderContext = state.Lanes.OrderContext |> OrderContextState.viewWhile state.Lanes.Patient
+        member _.OrderContext = state.Lanes.OrderContext |> OrderContextState.view
 
         member _.OrderContextMsg cmd =
             OrderContextMsg(OrderContextMsg.Command(cmd, newRequest ())) |> dispatch
@@ -2194,12 +2174,12 @@ type private ConcreteAppEnv
 
         member _.Restore() = OrderContextMsg OrderContextMsg.Restore |> dispatch
 
-        member _.Dialog = state.Lanes.OrderContext |> OrderContextState.dialogWhile state.Lanes.Patient
+        member _.Dialog = state.Lanes.OrderContext |> OrderContextState.dialog
 
         member _.Select id = OrderContextMsg(OrderContextMsg.Select id) |> dispatch
 
     interface AppEnv.IOrderPlan with
-        member _.OrderPlan = state.Lanes.OrderPlan |> OrderPlanState.viewWhile state.Lanes.Patient
+        member _.OrderPlan = state.Lanes.OrderPlan |> OrderPlanState.view
 
         member _.Add orderId =
             match state.Lanes.OrderContext |> OrderContextState.narrowedTo orderId with

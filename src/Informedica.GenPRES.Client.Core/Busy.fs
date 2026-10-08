@@ -25,7 +25,7 @@ type Load =
     | DrugNames
     | LogFiles
     | LogAnalysis
-    /// The resource reload, until the pages have refreshed over the reloaded resources.
+    /// The resource reload, until the server has reloaded.
     | Reload
 
 
@@ -77,6 +77,10 @@ let changes request page =
     | Request.Workbench, (Page.Prescribe | Page.LifeSupport | Page.ContinuousMeds)
     | Request.Workbench, (Page.Formulary | Page.Parenteralia)
     | Request.Plan, (Page.OrderPlan | Page.Nutrition | Page.Interactions) -> true
+    // the Settings page waits for what a reload starts: the seed over the workbench, or the
+    // formulary and parenteralia loads without a patient
+    | Request.Workbench, Page.Settings
+    | Request.Load(Load.Formulary | Load.Parenteralia), Page.Settings -> true
     | Request.Load Load.BolusMedication, Page.LifeSupport
     | Request.Load Load.ContinuousMedication, Page.ContinuousMeds
     | Request.Load Load.Products, (Page.LifeSupport | Page.ContinuousMeds)

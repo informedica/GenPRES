@@ -176,12 +176,6 @@ module Interactions =
             | Refreshing names -> names
             | _ -> [||]
 
-        let isDrugNamesLoading =
-            match interactionDrugNames with
-            | InProgress
-            | Refreshing _ -> true
-            | _ -> false
-
         let planChips =
             planDrugs
             |> List.toArray
@@ -269,12 +263,6 @@ module Interactions =
             else
                 null
 
-        let loadingIndicator =
-            if isLoading then
-                JSX.jsx $"""<CircularProgress />"""
-            else
-                null
-
         let titleLabel = Terms.``Interactions`` |> getTerm "Interacties"
 
         let autocomplete =
@@ -288,7 +276,7 @@ module Interactions =
                             match opt with
                             | Some drug -> AddDrug drug |> dispatch
                             | None -> ()
-                    isLoading = isDrugNamesLoading
+                    isLoading = false
                     disabled = false
                     // the box holds no choice, but it does hold what is being typed, and the
                     // cross is how that is thrown away in one go
@@ -328,7 +316,6 @@ module Interactions =
         import TableContainer from '@mui/material/TableContainer';
         import TableHead from '@mui/material/TableHead';
         import TableRow from '@mui/material/TableRow';
-        import CircularProgress from '@mui/material/CircularProgress';
         import Divider from '@mui/material/Divider';
 
         <Box>
@@ -360,7 +347,6 @@ module Interactions =
                             </Button>
                         </Stack>
 
-                        {loadingIndicator}
 
                         <Divider />
 

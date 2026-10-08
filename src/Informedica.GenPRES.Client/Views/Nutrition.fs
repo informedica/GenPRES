@@ -44,13 +44,10 @@ module Nutrition =
                     needs = PatientReadiness.Needs.Calculation
                 |}
 
-        // the slots and the buttons rest while a change is under way: the plan takes one change
-        // at a time
-        let isRecalculating =
-            match orderPlan with
-            | OrderPlanView.Changing _ -> true
-            | OrderPlanView.NoPatient
-            | OrderPlanView.Settled _ -> false
+        // a request out that changes the page. The page is disabled then, but that stops clicks
+        // only: the slots' intake effect and their fields' step timers send without one, and the
+        // delete confirmation opens outside the page, so these check this themselves
+        let busy = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Page Global.Pages.Nutrition
 
         let content =
             match orderPlan with
@@ -65,7 +62,7 @@ module Nutrition =
                         planReopen = envOrderPlan.Reopen
                         planRestore = envOrderPlan.Restore
                         localizationTerms = localizationTerms
-                        isRecalculating = isRecalculating
+                        busy = busy
                     |}
 
                 let enteral = EnteralNutrition.Section sectionProps

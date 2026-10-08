@@ -137,7 +137,7 @@ let tests =
                     request |> disabled |> Expect.equal $"%A{request}" allPages
             }
 
-            test "a workbench request disables the pages that show the workbench" {
+            test "a workbench request disables the pages that show the workbench, and Settings for a reload" {
                 Request.Workbench
                 |> disabled
                 |> Expect.equal
@@ -148,6 +148,7 @@ let tests =
                         Page.Page.Prescribe
                         Page.Page.Formulary
                         Page.Page.Parenteralia
+                        Page.Page.Settings
                     ]
             }
 
@@ -157,13 +158,13 @@ let tests =
                 |> Expect.equal "plan pages" [ Page.Page.Nutrition; Page.Page.OrderPlan; Page.Page.Interactions ]
             }
 
-            test "a page's own load disables that page alone" {
+            test "a page's own load disables that page; the formulary and parenteralia loads Settings as well" {
                 [
                     Load.BolusMedication, [ Page.Page.LifeSupport ]
                     Load.ContinuousMedication, [ Page.Page.ContinuousMeds ]
                     Load.Products, [ Page.Page.LifeSupport; Page.Page.ContinuousMeds ]
-                    Load.Formulary, [ Page.Page.Formulary ]
-                    Load.Parenteralia, [ Page.Page.Parenteralia ]
+                    Load.Formulary, [ Page.Page.Formulary; Page.Page.Settings ]
+                    Load.Parenteralia, [ Page.Page.Parenteralia; Page.Page.Settings ]
                     Load.Interactions, [ Page.Page.Interactions ]
                     Load.DrugNames, [ Page.Page.Interactions ]
                     Load.LogFiles, [ Page.Page.Settings ]

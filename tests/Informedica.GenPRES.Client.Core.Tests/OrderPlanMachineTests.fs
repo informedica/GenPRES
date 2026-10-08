@@ -1082,14 +1082,6 @@ let patientChangeTests =
     testList
         "the order plan during a patient change"
         [
-            test "the plan held shows as a change under way, and settles when the change is done" {
-                (held one None |> OrderPlanState.viewWhile patientChanging,
-                 held one None |> OrderPlanState.viewWhile noPatientChange)
-                |> Expect.equal
-                    "changing, then settled"
-                    (OrderPlanView.Changing(one, None), OrderPlanView.Settled(one, None))
-            }
-
             test "a change from a page is dropped; the patient change itself reaches the plan" {
                 held one None
                 |> OrderPlanState.transitionWhile SigningMachine.SigningView.Idle patientChanging (pageMsg (add, "r-1"))

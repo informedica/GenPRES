@@ -386,15 +386,6 @@ module OrderPlanState =
         | OrderPlanCart.Opened(_, tp), None -> OrderPlanView.Settled(tp, state.Selected)
 
 
-    /// What the pages read while the patient may be changing: during a patient change the plan held
-    /// shows as a change under way, so that nothing is ordered for the patient being replaced.
-    let viewWhile (patient: PatientMachine.PatientState) (state: OrderPlanState) =
-        match view state with
-        | OrderPlanView.Settled(tp, selected) when PatientMachine.PatientState.changing patient ->
-            OrderPlanView.Changing(tp, selected)
-        | shown -> shown
-
-
     /// The request id the state waits on; None while no request is under way.
     let inFlightRequest (state: OrderPlanState) = state.InFlight |> Option.map snd
 
