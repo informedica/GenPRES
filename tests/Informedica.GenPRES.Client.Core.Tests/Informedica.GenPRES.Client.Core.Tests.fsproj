@@ -47,6 +47,7 @@
     <Compile Include="OrderPlanMachineTests.fs" />
     <Compile Include="OrderContextMachineTests.fs" />
     <Compile Include="BusyTests.fs" />
+    <Compile Include="StartupPolicyTests.fs" />
 
     <!-- policies over the contract alone, whose tests read the order plan machine's fixtures -->
     <Compile Include="ArgumentationPolicyTests.fs" />

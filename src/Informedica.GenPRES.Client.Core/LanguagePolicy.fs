@@ -52,8 +52,9 @@ module Language =
         }
 
 
-    /// The language once the server default arrives: the default, unless the url or the user
-    /// already chose.
+    /// The language once the server default arrives: the default, unless the url already chose.
+    /// The user cannot choose before, since the start-up holds the application until the
+    /// settings have landed.
     let onServerDefault (l: Locales) (language: Language) =
         if language.Chosen then
             language

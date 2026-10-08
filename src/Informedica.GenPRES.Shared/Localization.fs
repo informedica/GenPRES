@@ -290,6 +290,17 @@ type Terms =
     | ``Session Version Opened``
     // a refresh from the EHR that did not happen
     | ``Session Refresh Failed``
+    // the start-up gate: while the application starts, and when a load it cannot be used
+    // without failed, with {0} the loads named
+    | ``Startup Gate Starting``
+    | ``Startup Gate Starting Text``
+    | ``Startup Gate Failed``
+    | ``Startup Gate Failed Text``
+    | ``Startup Load Localization``
+    | ``Startup Load Normal Values``
+    | ``Startup Load Bolus Medication``
+    | ``Startup Load Continuous Medication``
+    | ``Startup Load Products``
 
 
 module Localization =
