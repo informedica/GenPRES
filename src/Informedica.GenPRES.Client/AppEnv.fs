@@ -20,6 +20,12 @@ type ISettings =
     abstract Settings: Deferred<Api.ServerSettings>
 
 
+/// Where the start-up is: the gate covers the application until it has started.
+[<Interface>]
+type IStartup =
+    abstract Startup: StartupPolicy.Startup
+
+
 /// What is out, and what it disables.
 [<Interface>]
 type IBusy =

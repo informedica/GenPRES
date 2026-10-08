@@ -247,11 +247,13 @@ What can start a request, and what each depends on:
      load and not by where it comes from, since the sheets are temporary storage and the same
      five become server calls later, then the formulary, parenteralia and drug-name loads, and
      the url's patient and medication. The gate stays over the application until the first
-     moment nothing is out. A required load that fails keeps the gate up, says which load
-     failed and offers Retry; today such a failure goes to the log only and the application
-     opens with an empty list in its place. A required load that neither answers nor fails
-     counts as failed after a time limit, thirty seconds, one value for every start-up load,
-     so a stalled connection is told and retried instead of leaving the gate up for good. The
+     moment nothing is out and the five required loads have loaded; the drug names never hold
+     it. A required load that fails keeps the gate up and says which load failed and that a
+     reload of the page tries again; before, such a failure went to the log only and the
+     application opened with an empty list in its place. No time limit and no Retry
+     (decided by the user, 2026-10-08): a reload of the page does what Retry would, losing
+     nothing at start-up, and a stalled load, which nobody has seen, leaves the gate up with
+     its spinner until the page is reloaded; both can be added when a stall is seen. The
      settings keep the client's own defaults when they fail, as today, and a failed server
      check shows the error banner. No click is possible before, so the language cannot be
      chosen before the settings land, the hospital menu has its options when it opens, no
@@ -696,24 +698,24 @@ the order of the steps protects the work between pull requests, not patients; it
    - `Busy` in Client.Core, the policy of decision 1: `Busy.any` over the five lanes, the counted
      field (step 9) and every data load in `FetchesState` and `AdminState` but the server
      check, and `Busy.page` over the same with the table of which request changes which page;
-     the drug names count for the Interactions page only, whatever started them, and for the
-     start-up gate on the first attempt. `App` passes the lanes, the
+     the drug names count for the Interactions page only, whatever started them, and never for
+     the start-up gate. `App` passes the lanes, the
      counted field and the state of the loads; `AppEnv` exposes both, and nothing else about
      greying.
    - `App` marks a follow-up load out in the update that lands the answer it follows: the
      formulary and parenteralia loads on a workbench answer, the interaction check on a plan
      answer, the seed on a reload's answer, by setting the load's state in that update before
      its `Started` message.
-   - `Ui.Started` in `App`, false from `init` until the first update in which `Busy.any` is
-     false and every required load has answered; `SessionGatePolicy.isGated` takes it as an
-     input, and the gate shows the start-up until then. The mount's `UrlChanged` applies as
-     today meanwhile.
-   - `StartupPolicy` in Client.Core, over the five required loads, the localization, the normal
-     values, the bolus medication, the continuous medication and the products: whether every
-     one has answered, which have failed, and the gate's text and Retry for a failure. Each
-     start-up load runs under one time limit of thirty seconds (`Async` with a timeout in
-     `App`), after which it is answered as failed. Retry starts the failed loads again. The
-     five failure handlers in `App` stop logging only and record the failure for the policy.
+   - `Ui.Started` in `App`, false from `init` until the first update in which the start-up is
+     done, and never false again; the gate shows the start-up until then. The mount's
+     `UrlChanged` applies as today meanwhile.
+   - `StartupPolicy` in Client.Core, over what is out and the five required loads, the
+     localization, the normal values, the bolus medication, the continuous medication and the
+     products: starting, started once nothing is out and all five have loaded, or failed with
+     the failed loads named; the gate's text, the session's gate going first; and whether the
+     gate covers the application, the session's or the start-up's. The five failure handlers
+     in `App` record the failure in `Fetches.Failed` for the policy. The texts are new terms
+     with English of their own, since the localization may be the load that failed.
    - The page menu (`Pages/GenPres.fs`), `Components/TitleBar.fs`, the patient panel and
      `Components.Notice`, which gets a disabled on its action, read `Busy.any`; every page reads
      `Busy.page` for itself through `Components.Disabled` from step 1, which then takes
@@ -733,8 +735,8 @@ the order of the steps protects the work between pull requests, not patients; it
      pages by a plan request, for a page by its own load, for the Interactions page alone by a
      retry, and clear otherwise; the drug names after the start-up set `Busy.page` for the
      Interactions page alone and not `Busy.any`; the gate is shown until the first update with
-     nothing out and every required load answered, and stays with the failed load named and
-     Retry offered when one fails or runs past the time limit; a workbench answer leaves the
+     nothing out and every required load loaded, and stays with the failed loads named when
+     one fails; the drug names never hold it; a workbench answer leaves the
      two page loads
      out in the same state; a workbench request during a refresh carries the token; a second
      `Refresh` during the first is dropped; a failed `Reopened` clears it.
@@ -938,8 +940,7 @@ Line counts:
   page's reload greys the page and does not lift on a workbench answer.
 - **Step 4c:** a page load: the gate shows until every load and the resume have answered, and
   the hospital menu has its options when the application opens; a page load with the products
-  unreachable: the gate names the products and offers Retry, and after thirty seconds of a
-  stalled load it says the same.
+  unreachable: the gate names the products and says to reload the page.
 - **Step 5:** the patient refresh after the weight changed in the EHR: the plan shows the orders
   for the new weight, the orders kept; the plan refresh: the last signed orders, the new and
   changed ones gone; a patient with no signed order plan: the plan refresh is absent and the

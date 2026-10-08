@@ -318,11 +318,11 @@ module GenPres =
                     localizationTerms = localizationTerms
                 |}
 
-        // the session gate: over the app while a launch is presented or resumed,
-        // and after a refusal; it cannot be dismissed, the machine decides when it goes
+        // the gate: over the app until it has started, while a launch is presented or resumed,
+        // and after a refusal; it cannot be dismissed, the machines decide when it goes
         let sessionGateOpen =
             (AppEnv.asEnv<AppEnv.ISession> props.appEnv).Session
-            |> SessionGatePolicy.isGated
+            |> StartupPolicy.isGated (AppEnv.asEnv<AppEnv.IStartup> props.appEnv).Startup
 
         let sessionGateView = Views.SessionGate.View {| appEnv = props.appEnv |}
 

@@ -70,6 +70,10 @@ module private Elmish =
             EmergencyListFilter: string[]
             ContinuousMedsFilter: string[]
             Snackbar: Snackbar
+            // the start-up has ended: nothing was out and every load the application cannot be
+            // used without had loaded, once. It never goes back, since any later request out
+            // would read as starting again and the gate would cover the application
+            Started: bool
         }
 
 
@@ -99,6 +103,8 @@ module private Elmish =
             // the drug names are asked again on a failure, three times
             DrugNameRetries: int
             ServerStatus: Deferred<bool>
+            // the start-up loads that failed, which keep the application on hold and are named
+            Failed: Busy.Load list
         }
 
 
@@ -645,6 +651,7 @@ module private Elmish =
                     InteractionDrugNames = HasNotStartedYet
                     DrugNameRetries = 0
                     ServerStatus = HasNotStartedYet
+                    Failed = []
                 }
             Admin =
                 {
@@ -671,6 +678,7 @@ module private Elmish =
                     EmergencyListFilter = [||]
                     ContinuousMedsFilter = [||]
                     Snackbar = Snackbar.closed
+                    Started = false
                 }
         }
 
@@ -1308,45 +1316,52 @@ module private Elmish =
 
     /// A medication chosen without a patient, from the url or a list, is dropped and said: the
     /// patient is part of the filter, so nothing waits for one.
-    /// The data loads out: every reading of the fetches and the admin, the server check excepted.
-    let loadsOut (state: State) =
-        let isOut deferred =
-            match deferred with
-            | InProgress
-            | Refreshing _ -> true
-            | HasNotStartedYet
-            | Resolved _ -> false
+    /// Every data load with its reading, the server check excepted.
+    let loads (state: State) =
+        let reading deferred = deferred |> Deferred.map ignore
 
         [
-            if isOut state.Fetches.Settings then
-                Busy.Load.Settings
-            if isOut state.Fetches.Localization then
-                Busy.Load.Localization
-            if isOut state.Fetches.Hospitals then
-                Busy.Load.Hospitals
-            if isOut state.Fetches.NormalValues then
-                Busy.Load.NormalValues
-            if isOut state.Fetches.BolusMedication then
-                Busy.Load.BolusMedication
-            if isOut state.Fetches.ContinuousMedication then
-                Busy.Load.ContinuousMedication
-            if isOut state.Fetches.Products then
-                Busy.Load.Products
-            if isOut state.Fetches.Formulary then
-                Busy.Load.Formulary
-            if isOut state.Fetches.Parenteralia then
-                Busy.Load.Parenteralia
-            if isOut state.Fetches.Interactions then
-                Busy.Load.Interactions
-            if isOut state.Fetches.InteractionDrugNames then
-                Busy.Load.DrugNames
-            if isOut state.Admin.LogFiles then
-                Busy.Load.LogFiles
-            if isOut state.Admin.LogAnalysisReport then
-                Busy.Load.LogAnalysis
-            if isOut state.Admin.Reloading then
-                Busy.Load.Reload
+            Busy.Load.Settings, reading state.Fetches.Settings
+            Busy.Load.Localization, reading state.Fetches.Localization
+            Busy.Load.Hospitals, reading state.Fetches.Hospitals
+            Busy.Load.NormalValues, reading state.Fetches.NormalValues
+            Busy.Load.BolusMedication, reading state.Fetches.BolusMedication
+            Busy.Load.ContinuousMedication, reading state.Fetches.ContinuousMedication
+            Busy.Load.Products, reading state.Fetches.Products
+            Busy.Load.Formulary, reading state.Fetches.Formulary
+            Busy.Load.Parenteralia, reading state.Fetches.Parenteralia
+            Busy.Load.Interactions, reading state.Fetches.Interactions
+            Busy.Load.DrugNames, reading state.Fetches.InteractionDrugNames
+            Busy.Load.LogFiles, reading state.Admin.LogFiles
+            Busy.Load.LogAnalysis, reading state.Admin.LogAnalysisReport
+            Busy.Load.Reload, reading state.Admin.Reloading
         ]
+
+
+    /// The data loads out.
+    let loadsOut (state: State) =
+        state
+        |> loads
+        |> List.choose (fun (load, reading) ->
+            match reading with
+            | InProgress
+            | Refreshing _ -> Some load
+            | HasNotStartedYet
+            | Resolved _ -> None
+        )
+
+
+    /// The data loads that have loaded.
+    let loaded (state: State) =
+        state
+        |> loads
+        |> List.choose (fun (load, reading) ->
+            match reading with
+            | Resolved _ -> Some load
+            | HasNotStartedYet
+            | InProgress
+            | Refreshing _ -> None
+        )
 
 
     /// The requests out in the lanes and the loads.
@@ -1358,6 +1373,25 @@ module private Elmish =
             state.Lanes.Session
             state.Lanes.Signing
             (loadsOut state)
+
+
+    /// A start-up load that failed, kept for the gate to name.
+    let recordFailed load (state: State) = { state with Fetches.Failed = load :: state.Fetches.Failed }
+
+
+    /// Where the start-up is; started once, it stays so.
+    let startup (state: State) =
+        if state.Ui.Started then
+            StartupPolicy.Startup.Started
+        else
+            StartupPolicy.status (busyOut state) (loaded state) state.Fetches.Failed
+
+
+    /// The start-up marked as ended at the first update in which it is.
+    let markStarted (state: State, cmd) =
+        match startup state with
+        | StartupPolicy.Startup.Started when not state.Ui.Started -> { state with Ui.Started = true }, cmd
+        | _ -> state, cmd
 
 
     let noPatientForMedication (state: State) =
@@ -1476,8 +1510,8 @@ module private Elmish =
         | LoadSettings(Finished(Ok settings)) ->
             StepTrail.confirmDemo settings.IsDemo
 
-            // the server default counts until the url or the User chooses; a choice made while
-            // the settings were in flight wins (LanguagePolicy.onServerDefault)
+            // the server default counts unless the url chose; the User cannot choose before the
+            // settings land, since the start-up holds the application until then
             { state with
                 Fetches.Settings = Resolved settings
                 Ui.IsDemo = settings.IsDemo
@@ -1771,7 +1805,10 @@ module private Elmish =
 
         | LoadLocalization(Finished(Error s)) ->
             Logging.error "cannot load localization" s
-            { state with Fetches.Localization = HasNotStartedYet }, Cmd.none
+
+            { state with Fetches.Localization = HasNotStartedYet }
+            |> recordFailed Busy.Load.Localization,
+            Cmd.none
 
         | LoadNormalValues Started ->
             { state with Fetches.NormalValues = InProgress },
@@ -1783,7 +1820,10 @@ module private Elmish =
 
         | LoadNormalValues(Finished(Error s)) ->
             Logging.error "cannot load normal values" s
-            { state with Fetches.NormalValues = HasNotStartedYet }, Cmd.none
+
+            { state with Fetches.NormalValues = HasNotStartedYet }
+            |> recordFailed Busy.Load.NormalValues,
+            Cmd.none
 
 
         | LoadBolusMedication Started ->
@@ -1805,7 +1845,10 @@ module private Elmish =
 
         | LoadBolusMedication(Finished(Error s)) ->
             Logging.error "cannot load emergency treatment" s
-            { state with Fetches.BolusMedication = HasNotStartedYet }, Cmd.none
+
+            { state with Fetches.BolusMedication = HasNotStartedYet }
+            |> recordFailed Busy.Load.BolusMedication,
+            Cmd.none
 
         | LoadContinuousMedication Started ->
             { state with Fetches.ContinuousMedication = InProgress },
@@ -1817,7 +1860,10 @@ module private Elmish =
 
         | LoadContinuousMedication(Finished(Error s)) ->
             Logging.error "cannot load continuous medication" s
-            { state with Fetches.ContinuousMedication = HasNotStartedYet }, Cmd.none
+
+            { state with Fetches.ContinuousMedication = HasNotStartedYet }
+            |> recordFailed Busy.Load.ContinuousMedication,
+            Cmd.none
 
         | OnSelectContinuousMedicationItem item ->
             match state.Fetches.ContinuousMedication with
@@ -1861,7 +1907,10 @@ module private Elmish =
 
         | LoadProducts(Finished(Error s)) ->
             Logging.error "cannot load products" s
-            { state with Fetches.Products = HasNotStartedYet }, Cmd.none
+
+            { state with Fetches.Products = HasNotStartedYet }
+            |> recordFailed Busy.Load.Products,
+            Cmd.none
 
         | OrderContextMsg msg -> state |> changeOrderContext msg
 
@@ -2041,6 +2090,10 @@ module private Elmish =
                 |> Cmd.fromAsync
 
 
+    /// A message applied, and the start-up marked as ended at the first update in which it is.
+    let updateStarted msg state = update msg state |> markStarted
+
+
     /// The lists calculated for the draft; empty without one, since no patient is not a fetch
     /// under way: the page says what is missing, and the spinner is for a fetch only.
     let calculateInterventions calc meds pat =
@@ -2137,7 +2190,7 @@ let private withGatedDebugger (program: Program<unit, State, Msg, unit>) =
 /// only. It records nothing until the server settings confirm the demo data, so it never runs against
 /// production; a release build records nothing at all.
 let private program () =
-    let program = Program.mkProgram init update (fun _ _ -> ())
+    let program = Program.mkProgram init updateStarted (fun _ _ -> ())
 #if DEBUG
     if StepTrail.isTraceOn () then
         window?genpresTrail <- StepTrail.text
@@ -2158,6 +2211,9 @@ type private ConcreteAppEnv
 
     interface AppEnv.ISettings with
         member _.Settings = state.Fetches.Settings
+
+    interface AppEnv.IStartup with
+        member _.Startup = startup state
 
     interface AppEnv.IBusy with
         member _.Any = state |> busyOut |> Busy.any
