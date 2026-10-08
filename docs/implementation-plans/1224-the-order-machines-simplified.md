@@ -126,6 +126,11 @@ What can start a request, and what each depends on:
      never reads the workbench, a workbench request never reads the plan. The one cross-reading,
      the prescription, reads the workbench at the click and nowhere else (decision 8), so a plan
      request greys no workbench control and a workbench request greys only the prescribe button.
+   - A request whose answer changes the patient, the panel's refresh and the signature, starts
+     only while the workbench and the plan are idle and greys both while it is out, since both
+     depend on the patient. The pages switch by the tab bar, not by the url, so a request sent
+     from one page is still out on the next; the sign button therefore reads the workbench as the
+     panel's busy does, and the signature greys the workbench as it greys the plan.
    - A change not from the user is the answer to the one request out, so it reaches machines that
      are idle.
    - Nothing then reaches a machine while it waits, and a machine holds no second guard for it:
@@ -140,7 +145,7 @@ What can start a request, and what each depends on:
      workbench and the plan are read through `viewWhile` and `dialogWhile`, which stay (user,
      2026-10-08) and take, beside the patient:
      - whether the Session has a refresh or an open of a signed version out;
-     - for the plan, whether a signature is under way (decision 4).
+     - whether a signature is under way (decision 4).
 
      Then every workbench and plan control greys during any of them, and the panel's Refresh
      through the panel's existing busy, without a list per button. The gaps are filled, not the
@@ -162,7 +167,11 @@ What can start a request, and what each depends on:
      the rest of the UI state. A Back press does not log the admin out or fetch every resource
      again.
    - An answer to a request from before finds no request under its id and is dropped, which is the
-     one use the request ids have beyond the tests.
+     one use the request ids have beyond the tests. The Session's resume gets one for this: today
+     its answer carries no id and lands on any resume out, so a url change during a resume would
+     take the first resume's answer for the second's and drop the second's. The Session's other
+     requests need none: starting over leaves no presentation, no close and no PIN request for
+     their answers to match.
    - A signature under way counts as unsigned work for the question below, since the sign button
      needs orders, not differences. On yes the signing lane starts over with the others, as a
      browser reload during a submission would: the submission's answer finds no request, and the
@@ -232,6 +241,15 @@ What can start a request, and what each depends on:
      way becomes the third input of `OrderPlanState.viewWhile`, beside the patient and the
      Session's refresh or open, and the plan shows as `Changing` from the sign click to the
      answer. That is what lets step 8 remove the signing half of `admitted`.
+   - **A signature under way greys the workbench too, and the sign button reads the workbench.**
+     The signed answer renews the token with the patient, which the panel sends on to the
+     workbench. The pages switch by the tab bar, so the user can send a filter request from the
+     prescribe page, switch to the plan page and click Sign; or click Sign and, while the
+     challenge request is out and the dialog not yet modal, switch to the prescribe page and send
+     one. Either way the patient would land on a workbench with a request out. So the signature
+     is the third input of `OrderContextState.viewWhile` and `dialogWhile` as well, and the sign
+     button is disabled while the workbench view is `Changing`, read through `IOrderContext` as
+     the panel's busy reads it.
    - **The two buttons that open a signed version read the plan.** The newer-version notice's
      action and the plan page's refresh (decision 9) send `OpenVersion`; neither reads
      `viewWhile`, and `Components.Notice` has no disabled on its action. Both are disabled while
@@ -297,8 +315,13 @@ What can start a request, and what each depends on:
      panel, which the plan and the workbench follow with `UpdatePatient` as after any edit. It is
      disabled while the plan has a new or changed order, as the panel's fields are.
    - The plan page's refresh opens the last signed order plan and nothing else: `OpenVersion` on
-     the head, which exists; the new and changed orders go with it. The held dialog's second way
-     out becomes that open.
+     the head; the new and changed orders go with it. The held dialog's second way out becomes
+     that open.
+   - A patient with no signed order plan yet has no head (`SessionOpened.Head` is an option), and
+     the user can add orders there. Then the plan page's refresh is disabled, since there is
+     nothing to open, and the held dialog shows the remove button alone: removing the new orders
+     is what the refresh would have done. Today's `refresh` covers this case by clearing the
+     patient and setting it again, so the plan opens empty; that goes with the head reopen.
    - The server's `refresh` keeps its name and loses the head reopen; no new command.
    - ADR-0007 and the use case record the two buttons.
 10. **A step being counted counts as a request.** Decided (user, 2026-10-08). A step button
@@ -349,17 +372,20 @@ One pull request per step, one open at a time.
    - `SessionState.reopening` is the query; `SessionRequest`, `SessionView`, `session` and `token`
      do not change.
    - `OrderContextState.viewWhile`, `dialogWhile` and `OrderPlanState.viewWhile` take it as a
-     second input beside the patient, and `OrderPlanState.viewWhile` the signature under way as a
-     third; App passes them. Every workbench and plan control then greys while one is set: the
-     prescribe button, the sign button, the held dialog's buttons, the row filter, the dialog's
-     fields and the nutrition pages among them, and the panel's Refresh through the panel's busy.
+     second input beside the patient, and the signature under way as a third; App passes them.
+     Every workbench and plan control then greys while one is set: the prescribe button, the sign
+     button, the held dialog's buttons, the row filter, the dialog's fields and the nutrition
+     pages among them, and the panel's Refresh through the panel's busy.
+   - `Views/OrderPlan.fs` disables the sign button while the workbench view is `Changing`, read
+     through `IOrderContext` as `Views/Patient.fs` reads it for the panel's busy.
    - `Components.Notice` gets a disabled on its action, and the newer-version notice's button is
      disabled while the plan view is `Changing`.
    - `Views/Settings.fs` disables the reload of the resources while the workbench changes, and the
      reload backdrop no longer lifts on a workbench answer.
    - Tests: a workbench request during a refresh carries the token; the workbench and plan views
-     are `Changing` while it is set; the plan view is `Changing` while a signature is requesting;
-     a second `Refresh` during the first is dropped; a failed `Reopened` clears it.
+     are `Changing` while it is set; the workbench, dialog and plan views are `Changing` while a
+     signature is requesting; a second `Refresh` during the first is dropped; a failed `Reopened`
+     clears it.
 5. **Two refreshes.** Decision 9.
    - Server: `refresh` no longer reopens the head, as a script first.
    - `SessionMachine.Refreshed` emits `SetPatient` only.
@@ -367,7 +393,8 @@ One pull request per step, one open at a time.
      plan has a new or changed order and through the panel's busy while the patient, the workbench
      or the plan has a request out, and gives the dialog "open the last signed order plan" through
      `OpenVersion` on the head.
-   - `Views/OrderPlan.fs` gets the same button, disabled while the plan view is `Changing`.
+   - `Views/OrderPlan.fs` gets the same button, disabled while the plan view is `Changing` and
+     while the Session has no signed order plan; the held dialog then shows remove alone.
    - ADR-0007 amended.
    - Tests: a refresh answered sends the patient and nothing to the plan; the plan follows the
      patient answer with `UpdatePatient`.
@@ -380,15 +407,19 @@ One pull request per step, one open at a time.
      state, `init` with the url, the Session resumed when there is one, the url's patient and
      medication applied as at launch; the url seed and the url patient during a running request
      go with it.
+   - `SessionMsg.Resume` and `Resumed` carry a request id, as the order machines' requests do, and
+     `SessionRequest.Resuming` holds it: a `Resumed` under another id falls to the closing arm.
+     The App's resume call passes the id back with the answer, and the trail shows it.
    - With new or changed orders the client asks the leave-page question first. No puts the
      previous url back through `Router.navigate`, which fires `UrlChanged`, so the restore is
      marked and that `UrlChanged` is not a change. `Router.navigate` pushes a new history entry:
      after no, the url the user left is the newest entry, what was forward of it is gone, and
      another Back asks again. `history.replaceState` would fire nothing and need no mark, but
      after Back it would overwrite the entry the user went back to, so it is not used.
-   - Tests: a url change during a workbench request drops that request's answer; the five lanes
-     after it equal the lanes after `init` with that url, and the fetches and the admin login are
-     as before; the mount's url change starts nothing over; with unsigned work or a signature under
+   - Tests: a url change during a workbench request drops that request's answer; a url change
+     during a resume drops the first resume's answer and takes the second's; the five lanes after
+     it equal the lanes after `init` with that url, and the fetches and the admin login are as
+     before; the mount's url change starts nothing over; with unsigned work or a signature under
      way nothing starts over until yes.
 8. **The guards out of the order machines.** Decisions 1, 3 and 4.
    - `admitted` and `transitionWhile` go from both machines, with their tests, the signing half of
@@ -456,12 +487,14 @@ Line counts:
   formulary page; a patient change shows the filter evaluated for the new patient on both pages; a
   dose step in the dialog fetches neither page; the formulary's selects grey while it fetches.
 - **Step 4:** the held dialog's refresh, then at once the prescribing page: the prescribe button
-  is greyed until the refresh answers; after the sign click, the row filter and the prescribe
-  button are greyed until the challenge answers; the newer-version notice's button is greyed
-  while the plan changes.
+  is greyed until the refresh answers; after the sign click, the row filter, the prescribe
+  button and the prescribe page's filter are greyed until the challenge answers; a filter pick
+  on the prescribe page, then the plan page at once: the sign button is greyed until the filter
+  answers; the newer-version notice's button is greyed while the plan changes.
 - **Step 5:** the patient refresh after the weight changed in the EHR: the plan shows the orders
   for the new weight, the orders kept; the plan refresh: the last signed orders, the new and
-  changed ones gone.
+  changed ones gone; a patient with no signed order plan: the plan refresh is greyed and the
+  held dialog offers remove alone.
 - **Step 6:** a prescription empties the workbench and shows the plan page at once, greyed until
   the order lands; a prescription that fails leaves an empty workbench and tells the error.
 - **Step 7:** a url with another medication during a filter request: the client starts over on
