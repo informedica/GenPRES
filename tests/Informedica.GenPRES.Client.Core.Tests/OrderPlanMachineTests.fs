@@ -129,6 +129,21 @@ module Fixtures =
 
     let transition = OrderPlanState.transition
 
+    /// The page's message for a wire command, the plan in it left out: the machine builds the
+    /// command over the plan it holds.
+    let pageMsg (cmd: OrderPlanCommand, request) =
+        let change =
+            match cmd with
+            | OrderPlanCommand.AddOrderContext(_, ctx) -> OrderPlanChange.Add ctx
+            | OrderPlanCommand.NewOrderContext(_, category) -> OrderPlanChange.New category
+            | OrderPlanCommand.RemoveOrderContexts(_, ids) -> OrderPlanChange.Remove ids
+            | OrderPlanCommand.FilterRows(ids, _) -> OrderPlanChange.Filter ids
+            | OrderPlanCommand.Navigate(_, id, ctxCmd, _) -> OrderPlanChange.Navigate(id, ctxCmd)
+            | OrderPlanCommand.UpdatePatient _
+            | OrderPlanCommand.Open _ -> invalidArg (nameof cmd) "no page sends this command"
+
+        OrderPlanMsg.Change(change, request)
+
 
 open Fixtures
 
@@ -261,7 +276,7 @@ let tests =
                     test "sent over the plan held, one at a time; a second while busy is dropped" {
                         let stale = { one with Filtered = [| "c-9" |] }
                         let cmd = OrderPlanCommand.RemoveOrderContexts(stale, [| "c-1" |])
-                        let busy, effects = transition (OrderPlanMsg.Command(cmd, "r-1")) shown
+                        let busy, effects = transition (pageMsg (cmd, "r-1")) shown
                         let rebased = OrderPlanCommand.RemoveOrderContexts(one, [| "c-1" |])
 
                         busy
@@ -272,7 +287,7 @@ let tests =
                         effects
                         |> Expect.equal "the rebased command" [ OrderPlanEffect.CallPlan(rebased, "r-1") ]
 
-                        transition (OrderPlanMsg.Command(cmd, "r-2")) busy
+                        transition (pageMsg (cmd, "r-2")) busy
                         |> Expect.equal "dropped while busy" (busy, [])
                     }
 
@@ -280,10 +295,7 @@ let tests =
                         let filtered = { one with Filtered = [| "c-1" |] }
                         let rows = OrderPlanCommand.FilterRows([| "c-1" |], one)
 
-                        let busy, _ =
-                            transition
-                                (OrderPlanMsg.Command(OrderPlanCommand.FilterRows([| "c-1" |], two), "r-1"))
-                                shown
+                        let busy, _ = transition (pageMsg (OrderPlanCommand.FilterRows([| "c-1" |], two), "r-1")) shown
 
                         busy
                         |> Expect.equal "the plan held, the rows in the command" (recalculating one None "r-1" rows)
@@ -320,25 +332,24 @@ let tests =
                     test "a failed filter change goes back to the original, and says why" {
                         // the plan sent differs from the one held, so that the test can tell which
                         // one a failed change leaves behind
-                        let busy, _ = transition (OrderPlanMsg.Filter([| "c-1" |], "r-1")) shown
+                        let busy, _ = transition (OrderPlanMsg.Change(OrderPlanChange.Filter [| "c-1" |], "r-1")) shown
 
                         transition (OrderPlanMsg.Answered("r-1", Error [| "no dose rules" |])) busy
                         |> Expect.equal
                             "the plan held, rows and totals in step"
                             (held one None, [ OrderPlanEffect.TellError [| "no dose rules" |] ])
 
-                        // a page's recalculation, the dialog open: back to the plan held, the dialog kept
-                        let filtered = { one with Filtered = [| "c-1" |] }
-
+                        // a page's change, the dialog open: back to the plan held, the dialog kept
                         let recalculating, _ =
                             transition
-                                (OrderPlanMsg.Command(OrderPlanCommand.FilterRows([| "c-1" |], one), "r-1"))
+                                (OrderPlanMsg.Change(OrderPlanChange.Remove [| "c-9" |], "r-1"))
                                 (held one (Some "c-1"))
 
                         transition (OrderPlanMsg.Answered("r-1", Error [| "no dose rules" |])) recalculating
                         |> Expect.equal
-                            "the plan held, the selection kept"
-                            (held one (Some "c-1"), [ OrderPlanEffect.TellError [| "no dose rules" |] ])
+                            "the plan held, the selection kept, the removal counted as it went out"
+                            (held one (Some "c-1") |> OrderPlanState.withWork PlanWork.Changed,
+                             [ OrderPlanEffect.TellError [| "no dose rules" |] ])
 
                         let opening = loading patient [||] "r-1"
 
@@ -387,7 +398,8 @@ let tests =
                         "the filter recalculates the totals over the rows chosen, the dialog closed; dropped while busy" {
                         let selected = held one (Some "c-1")
                         let filtered = { one with Filtered = [| "c-1" |] }
-                        let state, effects = transition (OrderPlanMsg.Filter([| "c-1" |], "r-1")) selected
+                        let state, effects =
+                            transition (OrderPlanMsg.Change(OrderPlanChange.Filter [| "c-1" |], "r-1")) selected
 
                         state
                         |> Expect.equal
@@ -401,7 +413,7 @@ let tests =
                                 OrderPlanEffect.CallPlan(OrderPlanCommand.FilterRows([| "c-1" |], one), "r-1")
                             ]
 
-                        transition (OrderPlanMsg.Filter([||], "r-2")) state
+                        transition (OrderPlanMsg.Change(OrderPlanChange.Filter [||], "r-2")) state
                         |> Expect.equal "dropped while busy" (state, [])
                     }
                 ]
@@ -484,14 +496,12 @@ let busyTests =
                         navigate (OrderViewCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 0))
                         remove
                     ] do
-                    transition (OrderPlanMsg.Command(cmd, "r-2")) busy
+                    transition (pageMsg (cmd, "r-2")) busy
                     |> Expect.equal "dropped, nothing sent" (busy, [])
             }
 
             test "the answer sends nothing more" {
-                transition
-                    (OrderPlanMsg.Command(navigate OrderViewCommand.IncreaseScheduleFrequencyProperty, "r-2"))
-                    busy
+                transition (pageMsg (navigate OrderViewCommand.IncreaseScheduleFrequencyProperty, "r-2")) busy
                 |> fst
                 |> transition (OrderPlanMsg.Answered("r-1", Ok answer))
                 |> Expect.equal
@@ -575,13 +585,11 @@ let workTests =
                 |> OrderPlanState.work
                 |> Expect.equal "as signed" PlanWork.AsSigned
 
-                transition (OrderPlanMsg.Command(remove, "r-1")) (held one None)
+                transition (pageMsg (remove, "r-1")) (held one None)
                 |> workOf
                 |> Expect.equal "one change" PlanWork.Changed
 
-                transition
-                    (OrderPlanMsg.Command(filterRows, "r-1"))
-                    (held one None |> OrderPlanState.withWork PlanWork.Changed)
+                transition (pageMsg (filterRows, "r-1")) (held one None |> OrderPlanState.withWork PlanWork.Changed)
                 |> workOf
                 |> Expect.equal "still one change" PlanWork.Changed
             }
@@ -589,7 +597,7 @@ let workTests =
             test "a command counts when it goes out, never when it is dropped" {
                 let busy = recalculating one None "r-1" (OrderPlanCommand.FilterRows(one.Filtered, one))
 
-                transition (OrderPlanMsg.Command(remove, "r-2")) busy
+                transition (pageMsg (remove, "r-2")) busy
                 |> workOf
                 |> Expect.equal "dropped while a request is under way: nothing changed" PlanWork.AsSigned
 
@@ -601,7 +609,7 @@ let workTests =
                         one.OrderContexts[0]
                     )
 
-                let dropped, _ = transition (OrderPlanMsg.Command(step, "r-2")) busy
+                let dropped, _ = transition (pageMsg (step, "r-2")) busy
 
                 dropped
                 |> OrderPlanState.work
@@ -612,7 +620,7 @@ let workTests =
                 |> Expect.equal "nothing goes out on the answer" PlanWork.AsSigned
 
                 // with nothing under way the step goes out, and counts
-                transition (OrderPlanMsg.Command(step, "r-3")) (held one None)
+                transition (pageMsg (step, "r-3")) (held one None)
                 |> workOf
                 |> Expect.equal "the one that goes out" PlanWork.Changed
             }
@@ -645,7 +653,7 @@ let heldTests =
 
     /// The answer to a command sent over the plan held, landed.
     let landed cmd answer state =
-        transition (OrderPlanMsg.Command(cmd, "r-1")) state
+        transition (pageMsg (cmd, "r-1")) state
         |> fst
         |> transition (OrderPlanMsg.Answered("r-1", answer))
 
@@ -699,7 +707,7 @@ let heldTests =
             test "the rows chosen do not hold" {
                 let filtered = { one with Filtered = [| "c-1" |] }
 
-                transition (OrderPlanMsg.Filter([| "c-1" |], "r-1")) (held one None)
+                transition (OrderPlanMsg.Change(OrderPlanChange.Filter [| "c-1" |], "r-1")) (held one None)
                 |> fst
                 |> transition (OrderPlanMsg.Answered("r-1", Ok filtered))
                 |> heldOf
@@ -757,16 +765,19 @@ let signingTests =
                 [
                     for name, view in underWay do
                         test name {
-                            transitionWhile view (OrderPlanMsg.Command(add, "r-1")) (held one None)
+                            transitionWhile view (pageMsg (add, "r-1")) (held one None)
                             |> Expect.equal "the command is dropped" (held one None, [])
 
-                            transitionWhile view (OrderPlanMsg.Filter([| "c-1" |], "r-1")) (held one None)
+                            transitionWhile
+                                view
+                                (OrderPlanMsg.Change(OrderPlanChange.Filter [| "c-1" |], "r-1"))
+                                (held one None)
                             |> Expect.equal "the filter is dropped" (held one None, [])
                         }
                 ]
 
             test "a change from a page goes out while idle" {
-                transitionWhile SigningMachine.SigningView.Idle (OrderPlanMsg.Command(add, "r-1")) (held one None)
+                transitionWhile SigningMachine.SigningView.Idle (pageMsg (add, "r-1")) (held one None)
                 |> snd
                 |> Expect.equal "the command goes out" [ OrderPlanEffect.CallPlan(add, "r-1") ]
             }
@@ -811,7 +822,7 @@ let signingTests =
             test "an order added before the sign is released by the signature, nothing added meanwhile" {
                 let added =
                     held one None
-                    |> transitionWhile SigningMachine.SigningView.Idle (OrderPlanMsg.Command(add, "r-1"))
+                    |> transitionWhile SigningMachine.SigningView.Idle (pageMsg (add, "r-1"))
                     |> fst
                     |> transitionWhile SigningMachine.SigningView.Idle (OrderPlanMsg.Answered("r-1", Ok two))
                     |> fst
@@ -822,7 +833,7 @@ let signingTests =
 
                 let meanwhile =
                     added
-                    |> transitionWhile SigningMachine.SigningView.Requesting (OrderPlanMsg.Command(another, "r-2"))
+                    |> transitionWhile SigningMachine.SigningView.Requesting (pageMsg (another, "r-2"))
                     |> fst
 
                 meanwhile |> Expect.equal "nothing added meanwhile" added
@@ -851,7 +862,7 @@ let argueTests =
                 let state, effects =
                     held two None
                     |> OrderPlanState.withOpened two.OrderContexts
-                    |> transition (OrderPlanMsg.Navigate("c-2", argue, "r-1"))
+                    |> transition (OrderPlanMsg.Change(OrderPlanChange.Navigate("c-2", argue), "r-1"))
 
                 effects
                 |> Expect.equal
@@ -880,7 +891,7 @@ let argueTests =
                     }
 
                 held two None
-                |> transition (OrderPlanMsg.Navigate("c-2", argue, "r-1"))
+                |> transition (OrderPlanMsg.Change(OrderPlanChange.Navigate("c-2", argue), "r-1"))
                 |> fst
                 |> transition (OrderPlanMsg.Answered("r-1", Ok argued))
                 |> fst
@@ -889,7 +900,7 @@ let argueTests =
             }
 
             test "not admitted while a signature is under way" {
-                let msg = OrderPlanMsg.Navigate("c-1", argue, "r-1")
+                let msg = OrderPlanMsg.Change(OrderPlanChange.Navigate("c-1", argue), "r-1")
 
                 OrderPlanState.admitted SigningMachine.SigningView.Requesting noPatientChange msg
                 |> Expect.isFalse "a change, held back like a command"
@@ -935,14 +946,14 @@ let navigateTests =
                 let sent = OrderPlanCommand.Navigate(two, "c-1", step, two.OrderContexts[0])
 
                 open'
-                |> OrderPlanState.transition (OrderPlanMsg.Navigate("c-1", step, "r-1"))
+                |> OrderPlanState.transition (OrderPlanMsg.Change(OrderPlanChange.Navigate("c-1", step), "r-1"))
                 |> snd
                 |> Expect.equal "the step over the context held" [ OrderPlanEffect.CallPlan(sent, "r-1") ]
             }
 
             test "goes nowhere for a context the plan does not hold" {
                 open'
-                |> OrderPlanState.transition (OrderPlanMsg.Navigate("gone", step, "r-1"))
+                |> OrderPlanState.transition (OrderPlanMsg.Change(OrderPlanChange.Navigate("gone", step), "r-1"))
                 |> Expect.equal "nothing sent" (open', [])
             }
         ]
@@ -1022,12 +1033,7 @@ let reopenTests =
 
                 let picked =
                     open'
-                    |> run
-                        [
-                            reopen "r-1"
-                            OrderPlanMsg.Answered("r-1", Ok answer)
-                            OrderPlanMsg.Command(pick, "r-2")
-                        ]
+                    |> run [ reopen "r-1"; OrderPlanMsg.Answered("r-1", Ok answer); pageMsg (pick, "r-2") ]
 
                 picked
                 |> move OrderPlanMsg.Restore
@@ -1042,7 +1048,7 @@ let reopenTests =
 
             test "a reopen while a request is under way is dropped and keeps nothing" {
                 let remove = OrderPlanCommand.RemoveOrderContexts(two, [| "c-2" |])
-                let busy = open' |> move (OrderPlanMsg.Command(remove, "r-1")) |> fst
+                let busy = open' |> move (pageMsg (remove, "r-1")) |> fst
 
                 busy |> move (reopen "r-2") |> Expect.equal "dropped, nothing sent" (busy, [])
 
@@ -1086,14 +1092,66 @@ let patientChangeTests =
 
             test "a change from a page is dropped; the patient change itself reaches the plan" {
                 held one None
-                |> OrderPlanState.transitionWhile
-                    SigningMachine.SigningView.Idle
-                    patientChanging
-                    (OrderPlanMsg.Command(add, "r-1"))
+                |> OrderPlanState.transitionWhile SigningMachine.SigningView.Idle patientChanging (pageMsg (add, "r-1"))
                 |> Expect.equal "the command is dropped" (held one None, [])
 
                 OrderPlanMsg.PatientChanged(Some other, "r-1")
                 |> OrderPlanState.admitted SigningMachine.SigningView.Idle patientChanging
                 |> Expect.isTrue "the patient admitted"
+            }
+        ]
+
+
+/// What a page wants of the plan, built into the wire command over the plan the machine holds.
+[<Tests>]
+let changeTests =
+    let step = OrderViewCommand.IncreaseScheduleFrequencyProperty
+
+    testList
+        "a page's change"
+        [
+            test "is built over the plan given, whatever plan the page was shown" {
+                let ctx = context "" "ibuprofen"
+
+                [
+                    OrderPlanChange.Add ctx, OrderPlanCommand.AddOrderContext(two, ctx)
+                    OrderPlanChange.New NutritionCategory.TPN,
+                    OrderPlanCommand.NewOrderContext(two, NutritionCategory.TPN)
+                    OrderPlanChange.Remove [| "c-2" |], OrderPlanCommand.RemoveOrderContexts(two, [| "c-2" |])
+                    OrderPlanChange.Filter [| "c-1" |], OrderPlanCommand.FilterRows([| "c-1" |], two)
+                    OrderPlanChange.Navigate("c-1", step),
+                    OrderPlanCommand.Navigate(two, "c-1", step, two.OrderContexts[0])
+                ]
+                |> List.iter (fun (change, expected) ->
+                    change
+                    |> OrderPlanChange.command two
+                    |> Expect.equal $"%A{change}" (Some expected)
+                )
+            }
+
+            test "into a context the plan no longer holds sends nothing" {
+                OrderPlanChange.Navigate("c-9", step)
+                |> OrderPlanChange.command two
+                |> Expect.isNone "no context"
+
+                transition (OrderPlanMsg.Change(OrderPlanChange.Navigate("c-9", step), "r-1")) shown
+                |> Expect.equal "nothing sent" (shown, [])
+            }
+
+            test "a prescription, a new nutrition context and a removal go out over the plan held" {
+                let ctx = context "" "ibuprofen"
+
+                [
+                    OrderPlanMsg.Change(OrderPlanChange.Add ctx, "r-1"), OrderPlanCommand.AddOrderContext(one, ctx)
+                    OrderPlanMsg.Change(OrderPlanChange.New NutritionCategory.TPN, "r-1"),
+                    OrderPlanCommand.NewOrderContext(one, NutritionCategory.TPN)
+                    OrderPlanMsg.Change(OrderPlanChange.Remove [| "c-1" |], "r-1"),
+                    OrderPlanCommand.RemoveOrderContexts(one, [| "c-1" |])
+                ]
+                |> List.iter (fun (msg, expected) ->
+                    transition msg shown
+                    |> snd
+                    |> Expect.equal $"%A{msg}" [ OrderPlanEffect.CallPlan(expected, "r-1") ]
+                )
             }
         ]

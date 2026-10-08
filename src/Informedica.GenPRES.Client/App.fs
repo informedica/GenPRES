@@ -2133,11 +2133,24 @@ type private ConcreteAppEnv
     interface AppEnv.IOrderPlan with
         member _.OrderPlan = state.Lanes.OrderPlan |> OrderPlanState.viewWhile state.Lanes.Patient
 
-        member _.OrderPlanCommand cmd =
-            OrderPlanMsg(OrderPlanMsg.Command(cmd, newRequest ())) |> dispatch
+        member _.Add orderId =
+            match state.Lanes.OrderContext |> OrderContextState.narrowedTo orderId with
+            | Some ctx ->
+                OrderPlanMsg(OrderPlanMsg.Change(OrderPlanChange.Add ctx, newRequest ()))
+                |> dispatch
+            | None -> Logging.warning "prescribe: the workbench shows no order with this id" orderId
+
+        member _.New category =
+            OrderPlanMsg(OrderPlanMsg.Change(OrderPlanChange.New category, newRequest ()))
+            |> dispatch
+
+        member _.Remove ids =
+            OrderPlanMsg(OrderPlanMsg.Change(OrderPlanChange.Remove ids, newRequest ()))
+            |> dispatch
 
         member _.Navigate(id, cmd) =
-            OrderPlanMsg(OrderPlanMsg.Navigate(id, cmd, newRequest ())) |> dispatch
+            OrderPlanMsg(OrderPlanMsg.Change(OrderPlanChange.Navigate(id, cmd), newRequest ()))
+            |> dispatch
 
         member _.Reopen(id, cmd) =
             OrderPlanMsg(OrderPlanMsg.Reopen(id, cmd, newRequest ())) |> dispatch
@@ -2147,7 +2160,8 @@ type private ConcreteAppEnv
         member _.Select id = OrderPlanMsg(OrderPlanMsg.Select id) |> dispatch
 
         member _.Filter ids =
-            OrderPlanMsg(OrderPlanMsg.Filter(ids, newRequest ())) |> dispatch
+            OrderPlanMsg(OrderPlanMsg.Change(OrderPlanChange.Filter ids, newRequest ()))
+            |> dispatch
 
         member _.Changed = state.Lanes.OrderPlan |> OrderPlanState.changed
 
