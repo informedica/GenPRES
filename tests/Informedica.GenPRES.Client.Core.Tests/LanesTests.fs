@@ -161,6 +161,43 @@ let tests =
                 |> Expect.isTrue "the Session's effects still come out"
             }
 
+            test "a Session resumed with saved orders and no patient: the plan opens them once the patient is in" {
+                let session =
+                    { SessionMachineTests.full with
+                        PatientContext =
+                            SessionMachineTests.full.PatientContext
+                            |> Option.map (fun context -> { context with Patient = None })
+                        Head = Some head
+                    }
+
+                let newId = counter ()
+
+                let lanes, _, _ =
+                    { Lanes.initial None with Session = SessionState.resuming }
+                    |> Lanes.transition newId (LanesMsg.Session(SessionMsg.Resumed(Ok(ResumeResult.Found session))))
+
+                // the user enters the patient, and it is answered
+                let lanes, _, _ =
+                    lanes
+                    |> Lanes.transition
+                        newId
+                        (LanesMsg.Patient(
+                            PatientMsg.Changed(Some measured, PatientDraftPolicy.Estimates.Renewed, "p-1")
+                        ))
+
+                let _, effects, _ =
+                    lanes
+                    |> Lanes.transition newId (LanesMsg.Patient(PatientMsg.Answered("p-1", Ok measured)))
+
+                effects
+                |> List.tryPick (
+                    function
+                    | LanesEffect.Plan(OrderPlanEffect.CallPlan(OrderPlanCommand.Open(_, contexts), _)) -> Some contexts
+                    | _ -> None
+                )
+                |> Expect.equal "the plan opens the saved orders" (Some head.OrderContexts)
+            }
+
             test "a prescription answered: the workbench is emptied in the same transition" {
                 let workbench = context "" "ibuprofen"
 

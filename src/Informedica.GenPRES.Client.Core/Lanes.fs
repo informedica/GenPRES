@@ -128,7 +128,8 @@ let route (newId: unit -> string) effect =
 
 
 /// The next lanes, the effects that come out and the steps taken, for a message: the messages its
-/// effects become are run in turn, in the order they arose, until none is left. The routes run
+/// effects become are run first, before the messages still waiting, so what an effect causes lands
+/// before anything that came after it; until none is left. The routes run
 /// one way, the Session to the patient and the plan, the patient to the workbench and the plan,
 /// the plan to the workbench, so the list empties: no machine passes an effect back to one before
 /// it.
@@ -139,6 +140,6 @@ let transition newId msg (lanes: LanesState) =
         | msg :: rest ->
             let lanes, emitted, taken = step msg lanes
             let follow = emitted |> List.collect (route newId)
-            run (rest @ follow) (lanes, effects @ emitted, steps @ taken)
+            run (follow @ rest) (lanes, effects @ emitted, steps @ taken)
 
     run [ msg ] (lanes, [], [])
