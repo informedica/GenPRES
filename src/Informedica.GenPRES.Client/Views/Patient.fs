@@ -248,6 +248,27 @@ module Patient =
                     keepOpen ()
                     s |> Msg.UpdateDepartment |> dispatch
 
+            // a list of one department picks it, once: no server answer picks a department
+            let only =
+                match options with
+                | [| (key, _) |] -> Some key
+                | _ -> None
+
+            let enabled = not busy && not launched
+
+            React.useEffect (
+                (fun () ->
+                    match only with
+                    | Some key when selected <> Some key && enabled -> changeDepartment (Some key)
+                    | _ -> ()
+                ),
+                [|
+                    box (only |> Option.defaultValue "")
+                    box (selected |> Option.defaultValue "")
+                    box enabled
+                |]
+            )
+
             Components.PickField.View
                 {|
                     label = Terms.``Patient Department`` |> getTerm "Afdeling"
@@ -258,7 +279,7 @@ module Patient =
                     // choice to take back; clearing a default already shown would change nothing
                     clearable = own.IsSome
                     isLoading = settings |> Deferred.toOption |> Option.isNone
-                    enabled = not busy && not launched
+                    enabled = enabled
                     shape = Components.PickField.Shape.Scroll
                 |}
 

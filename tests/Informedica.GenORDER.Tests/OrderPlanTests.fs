@@ -599,6 +599,141 @@ let evaluateTests =
                 |> Expect.equal "an evaluation that fails is the answer" (Error "no")
             }
 
+            test "a narrowing that leaves one generic without its choice is evaluated again, which picks it" {
+                let workbench =
+                    { pcmContext with
+                        Filter =
+                            { fresh with
+                                Indications = [| "voeding" |]
+                                Generics = [| "glucose" |]
+                                DoseTypes = [| disc |]
+                            }
+                    }
+
+                let rounds = ref 0
+
+                // the first evaluation offers more generics than the category allows and picks
+                // none; the next reads the list of one it is given as its choice, as the rule
+                // lookup does
+                let evaluate (ctx: OrderContext) =
+                    rounds.Value <- rounds.Value + 1
+
+                    let generics =
+                        if rounds.Value = 1 then
+                            [| "glucose"; "paracetamol" |]
+                        else
+                            ctx.Filter.Generics
+
+                    Ok
+                        { ctx with
+                            Filter =
+                                { ctx.Filter with
+                                    Indications = [| "voeding" |]
+                                    Indication = Some "voeding"
+                                    Generics = generics
+                                    Generic = generics |> Array.tryExactlyOne
+                                    DoseTypes = [| disc |]
+                                    DoseType = Some disc
+                                }
+                        }
+
+                match workbench |> NutritionRuleSet.discover evaluate with
+                | Ok r ->
+                    r.Filter.Generic |> Expect.equal "the one generic picked" (Some "glucose")
+                    rounds.Value |> Expect.equal "evaluated twice" 2
+                | Error e -> failtest $"{e}"
+            }
+
+            test "settling stops once an evaluation changes nothing the narrowing keeps" {
+                // a context made afresh, as for a patient without weight or height: a list of one
+                // and no choice, which no evaluation picks
+                let open' =
+                    { pcmContext with
+                        Filter =
+                            { fresh with
+                                Generics = [| "glucose" |]
+                                Generic = None
+                            }
+                    }
+
+                let rounds = ref 0
+
+                let evaluate (ctx: OrderContext) =
+                    rounds.Value <- rounds.Value + 1
+                    Ok ctx
+
+                open'
+                |> NutritionRuleSet.settle id id evaluate
+                |> Expect.equal "the context as it was" (Ok open')
+
+                rounds.Value |> Expect.equal "evaluated once" 1
+            }
+
+            test "settling stops after five rounds when every evaluation changes something" {
+                let open' =
+                    { pcmContext with
+                        Filter =
+                            { fresh with
+                                Generics = [| "glucose" |]
+                                Generic = None
+                            }
+                    }
+
+                let rounds = ref 0
+
+                let evaluate (ctx: OrderContext) =
+                    rounds.Value <- rounds.Value + 1
+
+                    Ok
+                        { ctx with
+                            Filter =
+                                { ctx.Filter with Routes = Array.append ctx.Filter.Routes [| $"r%i{rounds.Value}" |] }
+                        }
+
+                open'
+                |> NutritionRuleSet.settle id id evaluate
+                |> Result.isOk
+                |> Expect.isTrue "an answer"
+                rounds.Value |> Expect.equal "five rounds" 5
+            }
+
+            test "a narrowing that leaves no list of one without its choice is evaluated once" {
+                let workbench =
+                    { pcmContext with
+                        Filter =
+                            { fresh with
+                                Indications = [| "voeding" |]
+                                Generics = [| "glucose"; "paracetamol" |]
+                                DoseTypes = [| disc |]
+                            }
+                    }
+
+                let rounds = ref 0
+
+                let evaluate (ctx: OrderContext) =
+                    rounds.Value <- rounds.Value + 1
+
+                    Ok
+                        { ctx with
+                            Filter =
+                                { ctx.Filter with
+                                    Indications = [| "voeding" |]
+                                    Indication = Some "voeding"
+                                    Generics = [| "glucose"; "paracetamol" |]
+                                    Routes = [| "iv"; "or" |]
+                                    Forms = [| "vloeistof"; "poeder" |]
+                                    DoseTypes = [| disc |]
+                                    DoseType = Some disc
+                                }
+                        }
+
+                workbench
+                |> NutritionRuleSet.discover evaluate
+                |> Result.isOk
+                |> Expect.isTrue "evaluated"
+                rounds.Value |> Expect.equal "evaluated once" 1
+            }
+
             test "a plan context is evaluated in order: reconciled, the command, the intake on the answer" {
                 let seen = ResizeArray<string>()
 
@@ -1164,6 +1299,22 @@ let refusalTests =
                         let one = { fresh with Filter = { fresh.Filter with Routes = [| "or" |] } }
 
                         (OrderContext.picks one).Route |> Expect.equal "the one route" (Some "or")
+                    }
+
+                    test "a list of one without its choice leaves a choice open; chosen, or two, it does not" {
+                        let fresh = { EvaluateFixtures.pcmContext with Filter = EvaluateFixtures.fresh }
+                        fresh |> OrderContext.choicesOpen |> Expect.isFalse "two options in every list"
+
+                        let one = { fresh with Filter = { fresh.Filter with Generics = [| "paracetamol" |] } }
+                        one |> OrderContext.choicesOpen |> Expect.isTrue "one generic, none chosen"
+
+                        { one with Filter = { one.Filter with Generic = Some "paracetamol" } }
+                        |> OrderContext.choicesOpen
+                        |> Expect.isFalse "the one generic chosen"
+
+                        { fresh with Filter = { fresh.Filter with DoseTypes = [| EvaluateFixtures.disc |] } }
+                        |> OrderContext.choicesOpen
+                        |> Expect.isTrue "one dose type, none chosen"
                     }
                 ]
 
