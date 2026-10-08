@@ -77,17 +77,22 @@ module GoogleDocs =
     open Shared
     open Shared.Types
 
+    // a sheet that cannot be read or parsed answers as a failure: an exception that escaped
+    // would send no message at all, and the load would stay out for good
     let inline getUrl parseResponse msg url =
         async {
-            let! statusCode, responseText = Http.get url
+            try
+                let! statusCode, responseText = Http.get url
 
-            let result =
-                match statusCode with
-                | 200 -> responseText |> Csv.parseCSV |> parseResponse |> Ok |> Finished
-                | _ -> Finished(Error $"Status {statusCode} => {responseText}")
-                |> msg
+                let result =
+                    match statusCode with
+                    | 200 -> responseText |> Csv.parseCSV |> parseResponse |> Ok |> Finished
+                    | _ -> Finished(Error $"Status {statusCode} => {responseText}")
+                    |> msg
 
-            return result
+                return result
+            with ex ->
+                return Finished(Error ex.Message) |> msg
         }
 
 

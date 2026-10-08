@@ -269,9 +269,11 @@ What can start a request, and what each depends on:
      the seed that follows it. Not counted: the server check, which reads nothing a page shows,
      and the drug names after the start-up (below).
    - **A load that follows an answer is out from that same update.** The two page loads after a
-     workbench answer, the interaction check after a plan answer and the seed after a reload
-     are marked out in the update that lands the answer, not one message later, so the chain
-     has no gap in which the menu could open between an answer and its follow-up.
+     workbench answer, the interaction check after a plan answer, the seed after a reload, the
+     workbench, the plan and the two page loads after a patient answer, and the patient and the
+     orders after a Session answer are marked out in the update that lands the answer, not one
+     message later, so the chain has no gap in which the menu could open, or the start-up end,
+     between an answer and its follow-up.
    - **Rule 2: a page is disabled as a whole while a request out can change anything on it.**
      Which request changes which page is the policy's one table: a request that changes the
      patient, the panel's edit, every Session request and the signature, changes every page; a

@@ -910,8 +910,9 @@ module private Elmish =
 
     /// What one session effect changes, and the command it sends. A transport failure
     /// is a message, never an exception: an Error outcome for a presentation, CloseFailed for
-    /// a close that did not reach the server.
-    let applySessionEffect (effect: SessionEffect) (state: State) : State * Cmd<Msg> =
+    /// a close that did not reach the server. The patient and the orders the Session opened with
+    /// go to their machines through toPatient and loadCart, in this same update.
+    let applySessionEffect toPatient loadCart (effect: SessionEffect) (state: State) : State * Cmd<Msg> =
         match effect with
         | SessionEffect.CallPresentLaunch(launch, key) ->
             state,
@@ -1007,11 +1008,11 @@ module private Elmish =
             }
             |> Cmd.fromAsync
         | SessionEffect.GoTo url -> state, Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
-        | SessionEffect.SetPatient patient -> state, Cmd.ofMsg (UpdatePatient patient)
+        | SessionEffect.SetPatient patient -> state |> toPatient patient
         // the cart is the version the Session opened with, opened by the plan machine over the
         // patient as the server answers it; the machine keeps the version while that patient is
         // still on its way
-        | SessionEffect.LoadCart head -> state, Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Version(head, newRequest ())))
+        | SessionEffect.LoadCart head -> state |> loadCart head
         | SessionEffect.KeepKey thumbprint ->
             state,
             Cmd.ofEffect (fun _ ->
@@ -1201,20 +1202,50 @@ module private Elmish =
     /// The patient on the workbench, the plan and the formulary and parenteralia pages, which
     /// follow it: evaluated for a new one, again over a change. No patient, no workbench and no
     /// plan.
+    /// A step of the order context machine: the trail recorded, the effects applied.
+    let changeOrderContext msg (state: State) =
+        let workbench, effects =
+            OrderContextState.transitionWhile state.Lanes.Patient msg state.Lanes.OrderContext
+
+        StepTrail.record (fun no at -> Trail.orderContext no at msg (workbench, effects))
+
+        { state with Lanes.OrderContext = workbench }
+        |> runEffects applyOrderContextEffect effects
+
+
+    /// A step of the order plan machine: the trail recorded, the effects applied. A change from a
+    /// page is dropped while a signature is under way.
+    let changeOrderPlan msg (state: State) =
+        let plan, effects =
+            OrderPlanState.transitionWhile
+                (SigningState.view state.Lanes.Signing)
+                state.Lanes.Patient
+                msg
+                state.Lanes.OrderPlan
+
+        StepTrail.record (fun no at -> Trail.orderPlan no at msg (plan, effects))
+
+        { state with Lanes.OrderPlan = plan } |> runEffects applyOrderPlanEffect effects
+
+
     let setPatient (pat: Patient option) (state: State) : State * Cmd<Msg> =
-        { state with
-            Fetches.Formulary = { Formulary.empty with Patient = pat } |> Resolved
-            Fetches.Parenteralia = Parenteralia.empty |> Resolved
-            Ui.EmergencyListFilter = [||]
-            Ui.ContinuousMedsFilter = [||]
-        },
-        Cmd.batch
-            [
-                Cmd.ofMsg (OrderContextMsg(OrderContextMsg.PatientChanged(pat, newRequest ())))
-                Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.PatientChanged(pat, newRequest ())))
-                Cmd.ofMsg (LoadFormulary Started)
-                Cmd.ofMsg (LoadParenteralia Started)
-            ]
+        // the workbench, the plan and the two pages asked for the patient in this same update,
+        // so the answer is never followed by a moment with nothing out
+        let state =
+            { state with
+                Fetches.Formulary = { Formulary.empty with Patient = pat } |> Resolved
+                Fetches.Parenteralia = Parenteralia.empty |> Resolved
+                Ui.EmergencyListFilter = [||]
+                Ui.ContinuousMedsFilter = [||]
+            }
+
+        let state, workbench = state |> changeOrderContext (OrderContextMsg.PatientChanged(pat, newRequest ()))
+
+        let state, plan = state |> changeOrderPlan (OrderPlanMsg.PatientChanged(pat, newRequest ()))
+        let state, formulary = startFormulary state
+        let state, parenteralia = startParenteralia state
+
+        state, Cmd.batch [ workbench; plan; formulary; parenteralia ]
 
 
     /// What one patient effect changes, and the command it sends. A patient change answers under
@@ -1264,17 +1295,6 @@ module private Elmish =
         StepTrail.record (fun no at -> Trail.patient no at msg (patient, effects))
 
         { state with Lanes.Patient = patient } |> runEffects applyPatientEffect effects
-
-
-    /// A step of the order context machine: the trail recorded, the effects applied.
-    let changeOrderContext msg (state: State) =
-        let workbench, effects =
-            OrderContextState.transitionWhile state.Lanes.Patient msg state.Lanes.OrderContext
-
-        StepTrail.record (fun no at -> Trail.orderContext no at msg (workbench, effects))
-
-        { state with Lanes.OrderContext = workbench }
-        |> runEffects applyOrderContextEffect effects
 
 
     /// What the pages show refreshed over reloaded resources, out in the update that lands the
@@ -1787,7 +1807,15 @@ module private Elmish =
                 Lanes.Session = session
                 Lanes.Signing = signing
             }
-            |> runEffects applySessionEffect effects
+            |> runEffects
+                (applySessionEffect
+                    (fun patient ->
+                        changePatient (
+                            PatientMsg.Changed(patient, PatientDraftPolicy.Estimates.Renewed, newRequest ())
+                        )
+                    )
+                    (fun head -> changeOrderPlan (OrderPlanMsg.Version(head, newRequest ()))))
+                effects
 
         | SigningMsg msg ->
             let signing, effects = SigningState.transition msg state.Lanes.Signing
@@ -1924,17 +1952,7 @@ module private Elmish =
                     state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Answered(request, Ok response)))
                 )
 
-        | OrderPlanMsg msg ->
-            // a change from a page is dropped while a signature is under way
-            let plan, effects =
-                OrderPlanState.transitionWhile
-                    (SigningState.view state.Lanes.Signing)
-                    state.Lanes.Patient
-                    msg
-                    state.Lanes.OrderPlan
-            StepTrail.record (fun no at -> Trail.orderPlan no at msg (plan, effects))
-
-            { state with Lanes.OrderPlan = plan } |> runEffects applyOrderPlanEffect effects
+        | OrderPlanMsg msg -> state |> changeOrderPlan msg
 
         // what the Session is told rides on the reply; the plan goes to the machine under the
         // request it answers
