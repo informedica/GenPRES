@@ -86,10 +86,6 @@ type OrderPlanCartIntent =
     | Call of OrderPlanCommand
     /// Check the plan's drugs for interactions; fewer than two clears the warnings.
     | CheckInteractions of string list
-    /// Open the plan page, after an order was prescribed.
-    | GoToPlanPage
-    /// Clear the prescribing workbench, after an order was prescribed.
-    | ResetWorkbench
     /// Tell the user what went wrong.
     | Tell of string[]
 
@@ -120,16 +116,8 @@ module OrderPlanCart =
         |> List.singleton
 
 
-    /// The plan answered; its drugs are checked, and a prescribed order opens the plan page and
-    /// clears the workbench.
-    let private answered (pat: Patient) (sent: OrderPlanCommand) (tp: OrderPlan) =
-        let prescribed =
-            match sent with
-            | OrderPlanCommand.AddOrderContext _ ->
-                [ OrderPlanCartIntent.GoToPlanPage; OrderPlanCartIntent.ResetWorkbench ]
-            | _ -> []
-
-        OrderPlanCart.Opened(pat, tp), interactions tp @ prescribed
+    /// The plan answered; its drugs are checked.
+    let private answered (pat: Patient) (tp: OrderPlan) = OrderPlanCart.Opened(pat, tp), interactions tp
 
 
     /// The plan stage: the plan changes only on the patient and on an answer that landed;
@@ -165,7 +153,7 @@ module OrderPlanCart =
         // nothing is asked without a patient, so nothing lands
         | OrderPlanCartMsg.Landed _, OrderPlanCart.NoPatient _ -> plan, []
         // an answer lands for the patient held
-        | OrderPlanCartMsg.Landed(sent, Ok tp), OrderPlanCart.Opened(pat, _) -> answered pat sent tp
+        | OrderPlanCartMsg.Landed(_, Ok tp), OrderPlanCart.Opened(pat, _) -> answered pat tp
         // a failed change leaves the plan as it was; after a failed open, that is the empty plan
         | OrderPlanCartMsg.Landed(_, Error errs), OrderPlanCart.Opened _ -> plan, [ OrderPlanCartIntent.Tell errs ]
 
@@ -224,10 +212,6 @@ type OrderPlanEffect =
     | CallPlan of OrderPlanCommand * request: string
     /// Check the drugs for interactions; fewer than two clears the warnings.
     | CheckInteractions of string list
-    /// Open the plan page, after an order was prescribed.
-    | GoToPlanPage
-    /// Clear the prescribing workbench, after an order was prescribed.
-    | ResetWorkbench
     /// Tell the user what went wrong.
     | TellError of string[]
 
@@ -423,8 +407,6 @@ module OrderPlanState =
                     | OrderPlanCartIntent.Call cmd ->
                         call cmd { state with Work = state.Work |> PlanWork.afterCommand cmd }
                     | OrderPlanCartIntent.CheckInteractions drugs -> state, [ OrderPlanEffect.CheckInteractions drugs ]
-                    | OrderPlanCartIntent.GoToPlanPage -> state, [ OrderPlanEffect.GoToPlanPage ]
-                    | OrderPlanCartIntent.ResetWorkbench -> state, [ OrderPlanEffect.ResetWorkbench ]
                     | OrderPlanCartIntent.Tell errs -> state, [ OrderPlanEffect.TellError errs ]
 
                 state, effects @ added

@@ -198,7 +198,7 @@ let tests =
                 |> Expect.equal "the plan opens the saved orders" (Some head.OrderContexts)
             }
 
-            test "a prescription answered: the workbench is emptied in the same transition" {
+            test "a prescription answered: the plan alone, the workbench and the page already done at the click" {
                 let workbench = context "" "ibuprofen"
 
                 let lanes =
@@ -211,17 +211,11 @@ let tests =
                     lanes
                     |> Lanes.transition (counter ()) (LanesMsg.Plan(OrderPlanMsg.Answered("r-1", Ok two)))
 
-                steps
-                |> List.exists (
-                    function
-                    | LanesStep.Workbench(OrderContextMsg.Reset _, _, _) -> true
-                    | _ -> false
-                )
-                |> Expect.isTrue "the workbench reset"
+                steps |> List.length |> Expect.equal "the plan's step alone" 1
 
                 effects
-                |> List.contains (LanesEffect.Plan OrderPlanEffect.GoToPlanPage)
-                |> Expect.isTrue "the page switch comes out"
+                |> List.contains LanesEffect.GoToPlanPage
+                |> Expect.isFalse "no page switch"
             }
 
             test "the Session closed: the signing lane is set idle, a step without a message" {
@@ -379,7 +373,7 @@ let tests =
                 |> Expect.isTrue "the newer version is told"
             }
 
-            test "the prescribe click: the workbench narrowed to the order goes into the plan" {
+            test "the prescribe click: the order into the plan, the workbench emptied and the plan page opened" {
                 let workbench =
                     { context "" "paracetamol" with
                         Scenarios = [| scenario "o-1" "paracetamol"; scenario "o-2" "paracetamol" |]
@@ -391,21 +385,55 @@ let tests =
                         OrderContext = OrderContextState.held patient workbench
                     }
 
-                let _, _, steps = lanes |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-2", "r-1"))
+                let _, effects, steps = lanes |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-2", "r-1", "r-2"))
 
                 steps
                 |> List.choose (
                     function
                     | LanesStep.Plan(OrderPlanMsg.Change(OrderPlanChange.Add ctx, "r-1"), _, _) ->
-                        Some(ctx.Scenarios |> Array.map _.Order.Id)
+                        Some(ctx.Scenarios |> Array.map _.Order.Id |> String.concat ",")
+                    | LanesStep.Workbench(OrderContextMsg.Reset "r-2", _, _) -> Some "reset"
                     | _ -> None
                 )
-                |> Expect.equal "the order o-2 alone" [ [| "o-2" |] ]
+                |> Expect.equal "the order o-2 alone, then the reset" [ "o-2"; "reset" ]
+
+                effects
+                |> List.last
+                |> Expect.equal "the plan page opened" LanesEffect.GoToPlanPage
 
                 lanes
-                |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-9", "r-1"))
+                |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-9", "r-1", "r-2"))
                 |> fun (_, effects, steps) -> effects, steps
                 |> Expect.equal "nothing for an order the workbench does not show" ([], [])
+            }
+
+            test "the prescribe click while the plan is busy: the workbench keeps the order, the page stays" {
+                let workbench = { context "" "paracetamol" with Scenarios = [| scenario "o-1" "paracetamol" |] }
+
+                let lanes =
+                    { Lanes.initial (Some draft) with
+                        OrderPlan = recalculating one None "r-0" (OrderPlanCommand.UpdatePatient(patient, one))
+                        OrderContext = OrderContextState.held patient workbench
+                    }
+
+                let after, effects, steps =
+                    lanes |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-1", "r-1", "r-2"))
+
+                steps
+                |> List.exists (
+                    function
+                    | LanesStep.Workbench _ -> true
+                    | _ -> false
+                )
+                |> Expect.isFalse "no reset"
+
+                effects
+                |> List.contains LanesEffect.GoToPlanPage
+                |> Expect.isFalse "no page switch"
+
+                after.OrderContext
+                |> OrderContextState.narrowedTo "o-1"
+                |> Expect.isSome "the order is still on the workbench"
             }
 
             test "a message for one machine only runs that machine" {

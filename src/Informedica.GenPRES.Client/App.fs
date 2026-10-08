@@ -1112,10 +1112,6 @@ module private Elmish =
             |> Cmd.fromAsync
         // out in the same update as the plan answer it follows
         | OrderPlanEffect.CheckInteractions drugs -> state |> checkInteractions drugs
-        // the workbench is emptied in Lanes; nothing is left for the client
-        | OrderPlanEffect.ResetWorkbench -> state, Cmd.none
-        // an order prescribed opens the plan page
-        | OrderPlanEffect.GoToPlanPage -> { state with Ui.Page = Global.Pages.OrderPlan }, Cmd.none
         | OrderPlanEffect.TellError errs ->
             (state, Cmd.none) |> processError ServerErrorPolicy.ErrorSource.OrderPlan errs
 
@@ -1237,6 +1233,7 @@ module private Elmish =
         | LanesEffect.Workbench e -> state |> applyOrderContextEffect e
         | LanesEffect.Plan e -> state |> applyOrderPlanEffect e
         | LanesEffect.Session e -> state |> applySessionEffect e
+        | LanesEffect.GoToPlanPage -> { state with Ui.Page = Global.Pages.OrderPlan }, Cmd.none
 
 
     /// A message through the lanes: the machines' steps recorded in the trail, and what the
@@ -1872,7 +1869,7 @@ module private Elmish =
 
         | OrderPlanMsg msg -> state |> runLanes (LanesMsg.Plan msg)
 
-        | Prescribe orderId -> state |> runLanes (LanesMsg.Prescribe(orderId, newRequest ()))
+        | Prescribe orderId -> state |> runLanes (LanesMsg.Prescribe(orderId, newRequest (), newRequest ()))
 
         | OrderPlanAnswered(request, answer) ->
             // only the answer the plan waits for clears the plan's error: a late answer to a
