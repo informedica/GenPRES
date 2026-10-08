@@ -1,6 +1,6 @@
-/// Decides whether the patient context is held: the order plan has an order that is new or
-/// changed since the version last opened or signed. While it is held, the patient data cannot
-/// change, so every order a signed version adds rests on the same patient data. Also lists the
+/// Lists the orders of the order plan that are new or changed since the version last opened or
+/// signed: while there are any, the patient context is held and the patient data cannot change,
+/// so every order a signed version adds rests on the same patient data. Also lists the
 /// differences against that version, new, changed and removed, as the sign dialog shows them.
 module HeldContextPolicy
 
@@ -17,10 +17,6 @@ let changed (opened: OrderContext[]) (plan: OrderPlan) =
         |> Option.forall (fun o -> o <> ctx)
     )
     |> Array.map _.Id
-
-
-/// Whether the order plan has a new or changed order.
-let held (opened: OrderContext[]) (plan: OrderPlan) = changed opened plan |> Array.isEmpty |> not
 
 
 /// How an order context differs from the version last opened or signed.

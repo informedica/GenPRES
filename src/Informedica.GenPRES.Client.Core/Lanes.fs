@@ -134,8 +134,8 @@ let route (newId: unit -> string) effect =
     match effect with
     // the signature's renewed token, ended Session and refusal for a newer version go to the
     // Session, the patient as signed to the patient machine, and the plan signed to the plan
-    | LanesEffect.Signing(SigningEffect.RenewToken(token, patient, identity)) ->
-        [ LanesMsg.Session(SessionMsg.TokenRenewed(token, patient, identity)) ]
+    | LanesEffect.Signing(SigningEffect.RenewToken(token, patient, signed)) ->
+        [ LanesMsg.Session(SessionMsg.TokenRenewed(token, patient, signed)) ]
     | LanesEffect.Signing(SigningEffect.EndSession ending) -> [ LanesMsg.Session(SessionMsg.EndedByServer ending) ]
     | LanesEffect.Signing(SigningEffect.SetPatient patient) ->
         [

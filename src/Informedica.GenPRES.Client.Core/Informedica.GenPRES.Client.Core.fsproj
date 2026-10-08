@@ -46,6 +46,7 @@
     <Compile Include="SessionGatePolicy.fs" />
     <Compile Include="SigningPolicy.fs" />
     <Compile Include="UnsignedWorkPolicy.fs" />
+    <Compile Include="HeldPanelPolicy.fs" />
 
     <!-- the order machines -->
     <Compile Include="OrderPlanMachine.fs" />

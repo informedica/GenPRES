@@ -1,6 +1,7 @@
 /// The refresh: the EHR read again for the Session and projected at the time of the refresh
-/// with what the user measured over it, the head reopened on it under a fresh OpenedToken, the
-/// standing challenge spent and the notice dropped. No reading leaves the patient as it was.
+/// with what the user measured over it under a fresh OpenedToken, the standing challenge spent
+/// and the notice dropped; the order plan version the Session opened with stays. No reading
+/// leaves the patient as it was.
 module Informedica.GenPRES.Server.Tests.RefreshTests
 
 open System
@@ -137,7 +138,7 @@ let tests =
                 after |> Option.bind _.EhrData |> Expect.equal "the EHR data" before.EhrData
             }
 
-            test "a fresh token, the head reopened, the challenge spent and the notice dropped" {
+            test "a fresh token, the version kept, the challenge spent and the notice dropped" {
                 let challenge: Session.Challenge =
                     {
                         Nonce = "n-1"
@@ -158,7 +159,9 @@ let tests =
                 |> Option.bind _.OpenedToken
                 |> Expect.equal "fresh" (Some(OpenedToken "opened-1"))
 
-                state.Sessions["s1"].OpenedWith |> Expect.isNone "the head, none here"
+                state.Sessions["s1"].OpenedWith
+                |> Expect.equal "the version the Session opened with" (Some "old")
+
                 state.Challenges |> Expect.isEmpty "spent"
                 state.Notices |> Expect.isEmpty "dropped"
 

@@ -247,7 +247,7 @@ let tests =
                         Signing = SigningMachineTests.Fixtures.submitting
                     }
 
-                let _, effects, steps =
+                let lanes, effects, steps =
                     lanes
                     |> Lanes.transition (counter ()) (LanesMsg.Signing(SigningMachineTests.Fixtures.submitted "k-1"))
 
@@ -265,6 +265,65 @@ let tests =
                 effects
                 |> List.contains (LanesEffect.Signing(SigningEffect.TellSigned SigningMachineTests.Fixtures.signed))
                 |> Expect.isTrue "the message comes out"
+
+                match SessionState.view lanes.Session with
+                | SessionView.Open opened ->
+                    opened.Head
+                    |> Expect.equal "the head is the version signed" (Some SigningMachineTests.Fixtures.signed)
+                | view -> failtest $"not open: %A{view}"
+            }
+
+            test "a refresh answered: the patient goes out, the plan keeps its orders and follows the answer" {
+                let session = SessionMachineTests.full
+
+                let refreshed =
+                    { session with
+                        PatientContext =
+                            session.PatientContext
+                            |> Option.map (fun c -> { c with Patient = Some measured })
+                        Head = Some head
+                    }
+
+                let newId = counter ()
+
+                let lanes, _, steps =
+                    { Lanes.initial (Some draft) with
+                        Session = SessionState.opened session None
+                        OrderPlan = shown
+                    }
+                    |> Lanes.transition
+                        newId
+                        (LanesMsg.Session(SessionMsg.Refreshed(session.OpenedToken, Ok(Some refreshed))))
+
+                steps
+                |> List.exists (
+                    function
+                    | LanesStep.Plan _ -> true
+                    | _ -> false
+                )
+                |> Expect.isFalse "nothing to the plan"
+
+                let request =
+                    steps
+                    |> List.tryPick (
+                        function
+                        | LanesStep.Patient(PatientMsg.Changed(Some p, _, request), _, _) when p = measured ->
+                            Some request
+                        | _ -> None
+                    )
+                    |> Option.defaultWith (fun () -> failtest "the patient read again did not go out")
+
+                let _, effects, _ =
+                    lanes
+                    |> Lanes.transition newId (LanesMsg.Patient(PatientMsg.Answered(request, Ok measured)))
+
+                effects
+                |> List.exists (
+                    function
+                    | LanesEffect.Plan(OrderPlanEffect.CallPlan(OrderPlanCommand.UpdatePatient _, _)) -> true
+                    | _ -> false
+                )
+                |> Expect.isTrue "the plan updated to the patient"
             }
 
             test "a signature refused for a newer version: the Session keeps the version, the refusal is told" {

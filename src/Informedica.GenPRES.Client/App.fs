@@ -1274,17 +1274,9 @@ module private Elmish =
             state, Cmd.batch [ formulary; parenteralia ]
 
 
-    /// Whether the patient context is held: an identified patient whose plan has an order that
-    /// is new or changed since the version last opened or signed. The panel cannot change the
-    /// patient then, so that every order a signed version adds rests on one patient context.
-    /// Anonymous use and the url mode are never held.
+    /// Whether the patient context is held; the panel cannot change the patient then.
     let patientHeld (state: State) =
-        match SessionState.view state.Lanes.Session with
-        | SessionView.Open opened
-        | SessionView.Closing opened ->
-            (opened.PatientContext |> Option.bind _.Identity).IsSome
-            && state.Lanes.OrderPlan |> OrderPlanState.contextHeld
-        | _ -> false
+        HeldPanelPolicy.held (SessionState.view state.Lanes.Session) (OrderPlanState.changed state.Lanes.OrderPlan)
 
 
     /// A medication chosen without a patient, from the url or a list, is dropped and said: the

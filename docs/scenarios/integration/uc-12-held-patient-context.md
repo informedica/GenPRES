@@ -66,9 +66,10 @@ sequenceDiagram
    order plan has a new order, and the context is held.
 3. **The patient data takes no change.** The fields keep their values and refuse a change: the
    selects are read-only, the gender and access controls stay enabled and reject it. An attempt
-   to change one, by pointer or keyboard, asks why, with two ways out that drop the new and
-   changed orders: remove them, or refresh from the EHR (12b). The third way out, signing, is
-   the order plan's own button. An identified patient's panel has no reset (#1126).
+   to change one, by pointer or keyboard, asks why, with the ways out that drop the new and
+   changed orders: remove them, or open the last signed order plan once there is one (12b). The
+   third way out, signing, is the order plan's own button. The panel's refresh from the EHR asks
+   the same way (12f). An identified patient's panel has no reset (#1126).
 4. **User A signs.** The Client asks for a challenge over the order plan. The Server first
    checks that every new or changed context states the order plan's patient context, and refuses
    `ContextDiffers` when one does not.
@@ -105,9 +106,9 @@ checked.
 **Released three ways.** By the sign: the order plan is the new version, nothing in it is new or
 changed. By removing every new and changed order: nothing new or changed is left, though the
 order plan need not be the version it opened, since an order of that version that was changed
-and then removed stays removed; a removal holds nothing. By a refresh: a new launch, an explicit
-refresh in GenPRES that reads the EHR again and drops those orders, or a browser reload, which
-drops them with the Client's state. Also released when the Session ends, idle
+and then removed stays removed; a removal holds nothing. By opening the last signed order plan
+again, from the question or the order plan's own button; or by a new launch or a browser reload,
+which drops them with the Client's state. Also released when the Session ends, idle
 ([#1061](https://github.com/informedica/GenPRES/issues/1061)) or otherwise
 ([uc-08](uc-08-session-ends.md)).
 
@@ -136,12 +137,12 @@ remove or prescribe again.
 patient data can be changed at once. Releasing the hold does not restore the version it
 opened: an order of that version that was changed and then removed stays removed.
 
-**12b User A refreshes.** From the question of step 3, which says the new and changed orders are
-dropped. The Server reads the EHR again, projects it at the time of the refresh with the user's
-measurements over it, and reopens the head on it under a fresh OpenedToken; the standing
-challenge is spent and the notice dropped. The Session's patient becomes the one read again,
-the age with it, and the order plan is the head again, released; without a head it opens empty.
-A refresh that did not happen is told, and changes nothing.
+**12b User A opens the last signed order plan.** From the question of step 3, or from the order
+plan's own button, both shown once the Session has a signed order plan. The Client opens the
+Session's head, the last signed order plan it knows of, which follows every signature. The new
+and changed orders are dropped and the order plan is that version again, released. Without a
+signed order plan there is nothing to open: the question offers the removal alone, which drops
+the same orders.
 
 **12c The EHR reads other data at the sign.** The data notice is shown as in uc-03, saying that
 the version is signed on the data as it was and the new data applies after the sign; the version
@@ -157,6 +158,14 @@ orders keep the context they were composed on until they sign or drop them.
 Client state as they do today; the relaunch starts released. Once the carry-over of
 [#518](https://github.com/informedica/GenPRES/issues/518) is built, the order plan carried into
 the next Session carries its hold with it.
+
+**12f User A refreshes the patient data.** The panel's refresh reads the EHR again and nothing
+else. The Server projects the reading at the time of the refresh with the user's measurements
+over it, under a fresh OpenedToken; the standing challenge is spent and the notice dropped, and
+the order plan version the Session opened with stays. The Session's patient becomes the one read
+again, the age with it, and the order plan and the workbench follow it as after any edit, the
+order plan with its new and changed orders. While the context is held the refresh asks instead,
+as the fields do (step 3). A refresh that did not happen is told, and changes nothing.
 
 ## Before #1075
 
@@ -201,7 +210,7 @@ the notice's data, orders or not. The order plan could change while a signature 
 ---
 
 Read off `patientHeld` in `src/Informedica.GenPRES.Client/App.fs` and the panel in
-`Views/Patient.fs`; `HeldContextPolicy.fs`, `OrderPlanMachine.fs`, `SigningMachine.fs` and
+`Views/Patient.fs`; `HeldPanelPolicy.fs`, `HeldContextPolicy.fs`, `OrderPlanMachine.fs`, `SigningMachine.fs` and
 `SessionMachine.fs` in `src/Informedica.GenPRES.Client.Core/`; and `Session.challenge`,
 `Session.differingContexts` and `Session.refresh` in
 `src/Informedica.GenPRES.Server/ServerApi.Session.fs`. The design it changes

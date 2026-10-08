@@ -674,6 +674,21 @@ module OrderPlan =
                 icon = Some Mui.Icons.Assignment
             |}
 
+        // the last signed order plan opened again; the new and changed orders go with it. Shown
+        // only once there is one; disabled with the page, and while a step is counted, whose
+        // command would go to the plan being replaced
+        let openLastSignedAction =
+            HeldPanelPolicy.lastSigned session.Session
+            |> Option.map (fun signed ->
+                {|
+                    label = tr Terms.``Session Open Last Signed``
+                    kind = Components.ActionBar.Kind.Secondary
+                    onClick = fun () -> session.OpenVersion signed.Head.Id
+                    disabled = counting.IsSome
+                    icon = Some Mui.Icons.Restore
+                |}
+            )
+
         // the actions on one row: remove on the left, sign on the right
         let actionBar =
             match orderPlan with
@@ -684,6 +699,7 @@ module OrderPlan =
                         actions =
                             [|
                                 deleteAction
+                                yield! openLastSignedAction |> Option.toArray
                                 if SigningPolicy.canSign session.Session tp then
                                     signAction
                             |]

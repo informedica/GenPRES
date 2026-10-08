@@ -219,7 +219,7 @@ let tests =
                     "signed"
                     (SigningState.idle,
                      [
-                         SigningEffect.RenewToken(OpenedToken "t2", patient, None)
+                         SigningEffect.RenewToken(OpenedToken "t2", patient, signed)
                          SigningEffect.TellSigned signed
                      ])
 
@@ -286,7 +286,7 @@ let tests =
                     "signed after all"
                     (SigningState.idle,
                      [
-                         SigningEffect.RenewToken(OpenedToken "t2", patient, None)
+                         SigningEffect.RenewToken(OpenedToken "t2", patient, signed)
                          SigningEffect.TellSigned signed
                      ])
             }
@@ -301,7 +301,7 @@ let tests =
                 |> List.head
                 |> Expect.equal
                     "the identity with the token"
-                    (SigningEffect.RenewToken(OpenedToken "t2", patient, Some who))
+                    (SigningEffect.RenewToken(OpenedToken "t2", patient, named))
             }
 
             test "the plan submitted is the plan challenged, whatever the cart did meanwhile (ext 3b, 3c)" {

@@ -152,8 +152,9 @@ type SessionMsg =
     /// A signing answer said the server ended the session at the wrong-PIN limit.
     | EndedByServer of SessionEnding
     /// A signature renewed the token. The patient after the signature comes with it, and the
-    /// identity the signed version names, which the session is for from now on.
-    | TokenRenewed of OpenedToken * Patient * identity: NameAndBirthDate option
+    /// version signed, the last signed order plan from now on, with the identity it names,
+    /// which the session is for from now on.
+    | TokenRenewed of OpenedToken * Patient * SignedOrderPlan
     /// Open the version a notice named; it becomes the version the session opened with.
     | OpenVersion of id: string
     /// The answer to OpenVersion: the session as it now is, None when there was nothing to open,
@@ -543,19 +544,20 @@ module SessionState =
         | SessionMsg.EndedByServer ending, SessionPhase.Open _, None -> ended ending, [ SessionEffect.CallCloseSession ]
         | SessionMsg.EndedByServer _, _, _ -> state, []
 
-        // the new token for the next signature, and the patient and identity the signed version
-        // names, into the session's patient context and to the panel. A session without a patient
-        // context signs nothing, so there is none to fill
-        | SessionMsg.TokenRenewed(token, patient, identity), SessionPhase.Open session, None ->
+        // the new token for the next signature, the version signed as the session's head, and the
+        // patient and identity the signed version names, into the session's patient context and
+        // to the panel. A session without a patient context signs nothing, so there is none to fill
+        | SessionMsg.TokenRenewed(token, patient, signed), SessionPhase.Open session, None ->
             let renewed =
                 { session with
                     OpenedToken = Some token
+                    Head = Some signed
                     PatientContext =
                         session.PatientContext
                         |> Option.map (fun c ->
                             { c with
                                 Patient = Some patient
-                                Identity = identity
+                                Identity = signed.Identity
                             }
                         )
                 }
@@ -590,18 +592,11 @@ module SessionState =
             { state with Reopening = Some SessionReopening.Refresh }, [ SessionEffect.CallRefresh session.OpenedToken ]
         | SessionMsg.Refresh, _, _ -> state, []
 
-        // the session refreshed: the patient read again goes to the panel and the plan, and the
-        // latest version's orders into the cart, dropping the new and changed ones. Without a
-        // version the patient is cleared first, so the plan opens empty. The same guard as
-        // Reopened
+        // the session refreshed: the patient read again goes to the panel, which the plan and the
+        // workbench follow as after any edit; the plan keeps its new and changed orders. The same
+        // guard as Reopened
         | SessionMsg.Refreshed(from, Ok(Some session)), SessionPhase.Open current, None when current.OpenedToken = from ->
-            let patient = session.PatientContext |> Option.bind _.Patient
-
-            match session.PatientContext, session.Head with
-            | Some _, Some head ->
-                opened session (MovedOn.opened state.MovedOn head.Head),
-                [ SessionEffect.SetPatient patient; SessionEffect.LoadCart head ]
-            | _ -> opened session state.MovedOn, [ SessionEffect.SetPatient None; SessionEffect.SetPatient patient ]
+            opened session state.MovedOn, [ SessionEffect.SetPatient(session.PatientContext |> Option.bind _.Patient) ]
         // the user asked for the refresh, so a refresh that did not happen is told
         | SessionMsg.Refreshed(from, (Ok None | Error _)), SessionPhase.Open current, None when
             current.OpenedToken = from

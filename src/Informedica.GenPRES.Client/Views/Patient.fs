@@ -101,21 +101,13 @@ module Patient =
         // an open Session, since a launch without data opens a Session without one, and one
         // with a signed head opens identified from the head. Identified, the age is the
         // platform's, shown, not chosen, and the rest of the data is changed, never cleared
-        let patientContext =
-            match session with
-            | SessionMachine.SessionView.Open opened
-            | SessionMachine.SessionView.Closing opened -> opened.PatientContext
-            | _ -> None
+        let patientContext = HeldPanelPolicy.patientContext session
 
         let identity = patientContext |> Option.bind _.Identity
 
         let identified = identity.IsSome
 
-        // the patient context is held, for an identified patient only, while the plan has an
-        // order that is new or changed since the version last opened or signed: every order a
-        // signed version adds rests on one patient context, so the panel cannot change it until
-        // the plan is signed or those orders are removed
-        let held = identified && envPlan.Changed |> Array.isEmpty |> not
+        let held = HeldPanelPolicy.held session envPlan.Changed
 
         // held, the fields stay as they are but take no change: an attempt asks instead, with the
         // way out that removes the new and changed orders; signing is the plan's own button
@@ -317,16 +309,18 @@ module Patient =
             | OrderPlanView.NoPatient -> setHeldOpen false
             | OrderPlanView.Changing _ -> ()
 
-        // the EHR read again and the head reopened on it; the new and changed orders go with the
-        // reopen
-        let onRefresh () =
+        // the new and changed orders go with the open
+        let onOpenLastSigned id =
             setHeldOpen false
-            envSession.Refresh()
+            envSession.OpenVersion id
+
+        // the patient read from the EHR again; held, it asks instead, as the fields do
+        let onRefresh () = if held then setHeldOpen true else envSession.Refresh()
 
         let onHeldClose = fun _ -> setHeldOpen false
 
-        // the question, with the two ways out that drop the new and changed orders: remove them,
-        // or read the patient data from the EHR again; signing is the plan's own button
+        // the question, with the ways out that drop the new and changed orders; signing is the
+        // plan's own button
         let heldDialog =
             let title =
                 Terms.``Patient Context Held Title``
@@ -335,7 +329,7 @@ module Patient =
             let text =
                 Terms.``Patient Context Held``
                 |> getTerm
-                    "Het orderplan heeft nieuwe of gewijzigde orders. Onderteken het orderplan om de patiëntgegevens te wijzigen, of laat die orders vervallen: verwijder ze, of ververs de patiëntgegevens uit het EPD."
+                    "Het orderplan heeft nieuwe of gewijzigde orders. Onderteken het orderplan om de patiëntgegevens te wijzigen, of laat die orders vervallen."
 
             let actions =
                 Components.ActionBar.View
@@ -349,22 +343,28 @@ module Patient =
                                     disabled = false
                                     icon = None
                                 |}
-                                {|
-                                    label =
-                                        Terms.``Patient Context Held Remove``
-                                        |> getTerm "Verwijder nieuwe en gewijzigde orders"
-                                    kind = Components.ActionBar.Kind.Destructive
-                                    onClick = onRemoveChanged
-                                    disabled = false
-                                    icon = None
-                                |}
-                                {|
-                                    label = Terms.``Patient Context Held Refresh`` |> getTerm "Ververs uit het EPD"
-                                    kind = Components.ActionBar.Kind.Primary
-                                    onClick = onRefresh
-                                    disabled = false
-                                    icon = None
-                                |}
+                                for action in HeldPanelPolicy.heldActions session do
+                                    match action with
+                                    | HeldPanelPolicy.HeldAction.Remove ->
+                                        {|
+                                            label =
+                                                Terms.``Patient Context Held Remove``
+                                                |> getTerm "Verwijder nieuwe en gewijzigde orders"
+                                            kind = Components.ActionBar.Kind.Destructive
+                                            onClick = onRemoveChanged
+                                            disabled = false
+                                            icon = None
+                                        |}
+                                    | HeldPanelPolicy.HeldAction.OpenLastSigned id ->
+                                        {|
+                                            label =
+                                                Terms.``Session Open Last Signed``
+                                                |> getTerm "Open het laatst ondertekende orderplan"
+                                            kind = Components.ActionBar.Kind.Primary
+                                            onClick = fun () -> onOpenLastSigned id
+                                            disabled = false
+                                            icon = None
+                                        |}
                             |]
                     |}
 
@@ -386,24 +386,33 @@ module Patient =
             """
 
         // bounded and to the left, so the button is not as wide as the panel it sits in and is
-        // not where you click by default
+        // not where you click by default. The reset only for an anonymous patient; the refresh
+        // waits, as the panel does, for every request
         let resetBar =
-            if identified then
+            let actions =
+                [|
+                    if not identified then
+                        {|
+                            label = Terms.Reset |> getTerm "Reset"
+                            kind = Components.ActionBar.Kind.Secondary
+                            onClick = onReset
+                            disabled = busy
+                            icon = Some Mui.Icons.Delete
+                        |}
+                    if HeldPanelPolicy.canRefresh session then
+                        {|
+                            label = Terms.``Patient Refresh`` |> getTerm "Ververs uit het EPD"
+                            kind = Components.ActionBar.Kind.Secondary
+                            onClick = onRefresh
+                            disabled = busy
+                            icon = Some Mui.Icons.RefreshIcon
+                        |}
+                |]
+
+            if Array.isEmpty actions then
                 null
             else
-                Components.ActionBar.View
-                    {|
-                        actions =
-                            [|
-                                {|
-                                    label = Terms.Reset |> getTerm "Reset"
-                                    kind = Components.ActionBar.Kind.Secondary
-                                    onClick = onReset
-                                    disabled = busy
-                                    icon = Some Mui.Icons.RefreshIcon
-                                |}
-                            |]
-                    |}
+                Components.ActionBar.View {| actions = actions |}
 
         // a read-only field cannot be opened and has no cross: what it holds is not the user's;
         // a field that is not clearable can be changed, but not emptied

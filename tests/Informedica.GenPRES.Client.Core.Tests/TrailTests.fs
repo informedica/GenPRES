@@ -255,6 +255,12 @@ let tests =
                 [
                     let token = Some(OpenedToken "secret-token")
 
+                    let signed =
+                        { SessionMachineTests.signedVersion with
+                            Patient = pat
+                            Identity = Some identity
+                        }
+
                     let user: UserContext =
                         {
                             UserId = "u-1"
@@ -280,7 +286,7 @@ let tests =
                     let lines =
                         [
                             Trail.Session.msg (SessionMsg.SupplyPin("code-987", "1234"))
-                            Trail.Session.msg (SessionMsg.TokenRenewed(OpenedToken "secret-token", pat, Some identity))
+                            Trail.Session.msg (SessionMsg.TokenRenewed(OpenedToken "secret-token", pat, signed))
                             Trail.Session.msg (SessionMsg.PinAnswered(Ok(PinOutcome.Opened opened)))
                             Trail.Session.effect (SessionEffect.CallSupplyPin("code-987", "1234"))
                             Trail.Session.view (
@@ -296,9 +302,7 @@ let tests =
                             Trail.Signing.effect (
                                 SigningEffect.CallSubmit(OrderPlan.empty, "secret-token", "1234", "key-1")
                             )
-                            Trail.Signing.effect (
-                                SigningEffect.RenewToken(OpenedToken "secret-token", pat, Some identity)
-                            )
+                            Trail.Signing.effect (SigningEffect.RenewToken(OpenedToken "secret-token", pat, signed))
                             Trail.OrderContext.msg (
                                 OrderContextMsg.Command(
                                     OrderViewCommand.SetArgumentationProperty "Jan Jansen weighs more",

@@ -95,8 +95,9 @@ type SigningEffect =
     /// Submit the signature with the session's token; the answer names the key.
     | CallSubmit of OrderPlan * challenge: string * pin: string * key: string
     /// Renew the session after the signature: the new token, the patient as signed, and the
-    /// identity the version names, which the EHR may have changed in the data the user accepted.
-    | RenewToken of OpenedToken * Patient * identity: NameAndBirthDate option
+    /// version signed, with the identity it names, which the EHR may have changed in the data the
+    /// user accepted.
+    | RenewToken of OpenedToken * Patient * SignedOrderPlan
     /// End the session: the server ended it at the wrong-PIN limit.
     | EndSession of SessionEnding
     /// Set the patient to the data the notice showed, so the order plan uses it too.
@@ -262,7 +263,7 @@ module SigningState =
           Some(SigningRequest.Submission _) ->
             idle,
             [
-                SigningEffect.RenewToken(token, patient, signed.Identity)
+                SigningEffect.RenewToken(token, patient, signed)
                 SigningEffect.TellSigned signed
             ]
         // the dialog stays open and says what went wrong: tries left, or locked

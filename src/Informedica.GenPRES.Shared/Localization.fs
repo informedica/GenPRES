@@ -173,12 +173,14 @@ type Terms =
     | ``Patient Department Default``
     | ``Patient Department Chosen``
     | ``Patient Department Launched``
-    // the patient context held: asked when the panel's data is changed, with the way out that
-    // removes the order plan's new and changed orders
+    // the patient context held: asked when the panel's data is changed, with the ways out that
+    // drop the order plan's new and changed orders: remove them, or open the last signed order plan
     | ``Patient Context Held Title``
     | ``Patient Context Held``
     | ``Patient Context Held Remove``
-    | ``Patient Context Held Refresh``
+    | ``Session Open Last Signed``
+    // the panel's button that reads the patient from the EHR again
+    | ``Patient Refresh``
     // what needs a patient on a page that works without one, said with what is missing
     | ``Patient Needed Dose Check``
     | ``Patient Needed Plan Medication``
