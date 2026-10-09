@@ -441,34 +441,27 @@ let viewTests =
 
 
 [<Tests>]
-let stagesTests =
+let planTests =
     testList
-        "the two stages"
+        "what the plan holds"
         [
-            test "the plan alone knows no request: a failed change keeps the plan held, a landed one is checked" {
+            test "a failed change keeps the plan held, a landed one is checked" {
                 let filtered = { one with Filtered = [| "c-1" |] }
+                let rows = OrderPlanCommand.FilterRows([| "c-1" |], one)
 
-                OrderPlanCart.step
-                    (OrderPlanCartMsg.Landed(OrderPlanCommand.FilterRows([| "c-1" |], one), Error [| "not loaded" |]))
-                    (OrderPlanCart.Opened(patient, one))
-                |> Expect.equal
-                    "the original, told"
-                    (OrderPlanCart.Opened(patient, one), [ OrderPlanCartIntent.Tell [| "not loaded" |] ])
+                transition (OrderPlanMsg.Answered("r-1", Error [| "not loaded" |])) (recalculating one None "r-1" rows)
+                |> Expect.equal "the original, told" (held one None, [ OrderPlanEffect.TellError [| "not loaded" |] ])
 
-                OrderPlanCart.step
-                    (OrderPlanCartMsg.Landed(OrderPlanCommand.FilterRows([| "c-1" |], one), Ok filtered))
-                    (OrderPlanCart.Opened(patient, one))
+                transition (OrderPlanMsg.Answered("r-1", Ok filtered)) (recalculating one None "r-1" rows)
                 |> Expect.equal
                     "the plan answered, its drugs checked"
-                    (OrderPlanCart.Opened(patient, filtered),
-                     [ OrderPlanCartIntent.CheckInteractions [ "paracetamol" ] ])
+                    (held filtered None |> OrderPlanState.withOpened one.OrderContexts,
+                     [ OrderPlanEffect.CheckInteractions [ "paracetamol" ] ])
             }
 
             test "nothing lands without a patient; the dialog selects only over a plan held" {
-                OrderPlanCart.step
-                    (OrderPlanCartMsg.Landed(OrderPlanCommand.Open(draft, [||]), Ok one))
-                    (OrderPlanCart.NoPatient [||])
-                |> Expect.equal "no patient" (OrderPlanCart.NoPatient [||], [])
+                transition (OrderPlanMsg.Answered("r-1", Ok one)) noPatient
+                |> Expect.equal "no patient" (noPatient, [])
 
                 transition (OrderPlanMsg.SelectContext(Some "c-1")) (loading patient [||] "r-1")
                 |> Expect.equal "nothing to select yet" (loading patient [||] "r-1", [])
@@ -873,6 +866,19 @@ let reopenTests =
                 |> Expect.equal "nothing to put back" (open', [])
             }
 
+            test "a reopen for a context the plan no longer holds sends nothing and keeps nothing" {
+                let gone =
+                    OrderPlanMsg.ReopenField(
+                        "c-9",
+                        OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
+                        "r-1"
+                    )
+
+                let state, effects = open' |> move gone
+
+                (state, effects) |> Expect.equal "nothing sent" (open', [])
+                state |> OrderPlanState.isKept |> Expect.isFalse "nothing kept"
+            }
         ]
 
 
