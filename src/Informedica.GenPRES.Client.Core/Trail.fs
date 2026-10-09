@@ -749,6 +749,7 @@ module Loader =
     let alert (a: Alert.Alert) =
         match a with
         | Alert.Alert.DrugNamesNotLoaded -> "DrugNamesNotLoaded"
+        | Alert.Alert.InteractionsFound n -> $"InteractionsFound %i{n}"
 
 
     /// An answer by its load and its size; never the error text.
@@ -757,10 +758,10 @@ module Loader =
         let rows (xs: string[][]) = $"%i{xs.Length} rows"
         let named name _ = name
 
-        let drugNames (reply: Reply<InteractionResponse>) =
+        let interactionReply (reply: Reply<InteractionResponse>) =
             match reply.Response with
             | InteractionResponse.DrugNamesLoaded names -> $"%i{names.Length} names"
-            | InteractionResponse.InteractionsChecked _ -> "interactions"
+            | InteractionResponse.InteractionsChecked rows -> $"%i{rows.Length} interactions"
 
         let name, answer =
             match landing with
@@ -770,7 +771,9 @@ module Loader =
             | Landing.BolusMedication r -> "BolusMedication", r |> Part.result count
             | Landing.ContinuousMedication r -> "ContinuousMedication", r |> Part.result count
             | Landing.Products r -> "Products", r |> Part.result count
-            | Landing.DrugNames(from, r) -> $"DrugNames %s{Part.token from}", r |> Part.result drugNames
+            | Landing.DrugNames(from, r) -> $"DrugNames %s{Part.token from}", r |> Part.result interactionReply
+            | Landing.Interactions(check, from, r) ->
+                $"Interactions check %i{check} %s{Part.token from}", r |> Part.result interactionReply
             | Landing.Formulary(from, r) -> $"Formulary %s{Part.token from}", r |> Part.result (named "formulary")
             | Landing.Parenteralia(from, r) ->
                 $"Parenteralia %s{Part.token from}", r |> Part.result (named "parenteralia")
@@ -793,6 +796,7 @@ module Loader =
         | LoaderMsg.FormularyChanged f -> $"FormularyChanged %s{formulary f}"
         | LoaderMsg.ParenteraliaChanged p -> $"ParenteraliaChanged %s{parenteralia p}"
         | LoaderMsg.ResourcesReloaded -> "ResourcesReloaded"
+        | LoaderMsg.CheckInteractions drugs -> $"CheckInteractions %i{drugs.Length} drugs"
 
 
     /// A call to make.
@@ -807,12 +811,14 @@ module Loader =
         | LoaderEffect.FetchDrugNames -> "FetchDrugNames"
         | LoaderEffect.FetchFormulary f -> $"FetchFormulary %s{formulary f}"
         | LoaderEffect.FetchParenteralia p -> $"FetchParenteralia %s{parenteralia p}"
+        | LoaderEffect.FetchInteractions(check, drugs) -> $"FetchInteractions check %i{check} %i{drugs.Length} drugs"
         | LoaderEffect.SeedWorkbench seed ->
             $"SeedWorkbench %s{OrderContext.seedSource seed.Source} %i{OrderContext.seedChoices seed} choices"
         | LoaderEffect.CheckServer -> "CheckServer"
         | LoaderEffect.CheckServerLater seconds -> $"CheckServerLater %i{seconds}s"
         | LoaderEffect.AskAgainLater(l, seconds) -> $"AskAgainLater %s{load l} %i{seconds}s"
         | LoaderEffect.Alert a -> $"Alert %s{alert a}"
+        | LoaderEffect.WithdrawInteractionsFound -> "WithdrawInteractionsFound"
         | LoaderEffect.Failed(s, _) -> $"Failed %s{source s}"
         | LoaderEffect.Succeeded s -> $"Succeeded %s{source s}"
         | LoaderEffect.NoticeReceived(from, n) -> $"NoticeReceived %s{Part.token from} %s{Part.notice n}"
@@ -839,6 +845,8 @@ module Loader =
                 "parenteralia asked again"
             if state.DrugNameFailures > 0 then
                 $"drug names failed %i{state.DrugNameFailures}"
+            if state.InteractionCheck > 0 then
+                $"interaction check %i{state.InteractionCheck}"
             match state.Server with
             | Resolved true -> "server up"
             | Resolved false -> "server down"

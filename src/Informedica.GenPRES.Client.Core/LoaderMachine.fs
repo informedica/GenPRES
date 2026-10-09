@@ -1,11 +1,12 @@
 /// The data the client loads: the server settings, the localization, the normal values, the
 /// emergency and continuous medication lists, the products, the formulary and parenteralia pages
-/// and the drug names of the interactions page, each a reading. A start while the same load runs
-/// changes nothing; a failed load goes back to not started and, when the application cannot be used
-/// without it, is named for the gate. The hospitals are not loaded but read from the emergency
+/// and the drug names and interactions of the interactions page, each a reading. A start while the
+/// same load runs changes nothing; a failed load goes back to not started and, when the application
+/// cannot be used without it, is named for the gate. The hospitals are not loaded but read from the emergency
 /// medication when it lands. The server is checked until it answers, and the drug names are asked
 /// again after a failure, until the third. The formulary and parenteralia pages follow the
 /// workbench's filter and the patient, and a choice on either page is seeded over the workbench.
+/// Each interaction check is numbered, so that an answer to an earlier check is dropped.
 module LoaderMachine
 
 open Shared
@@ -36,6 +37,11 @@ type LoaderState =
         Hospitals: Deferred<string[]>
         /// The drug names the interactions page offers.
         DrugNames: Deferred<string[]>
+        /// The interactions of the drugs last checked.
+        Interactions: Deferred<DrugInteraction[]>
+        /// The number of the interaction check under way; an answer to an earlier check is dropped,
+        /// so it can neither replace the rows nor clear the error of a later one.
+        InteractionCheck: int
         /// The formulary page.
         Formulary: Deferred<Formulary>
         /// The workbench filter answered while the formulary loaded, asked for once the load lands.
@@ -67,6 +73,8 @@ type Landing =
     | Products of Result<Product list, string>
     /// The drug names, with the token the request was sent with.
     | DrugNames of from: OpenedToken option * Result<Reply<InteractionResponse>, string[]>
+    /// The interactions of a numbered check, with the token the request was sent with.
+    | Interactions of check: int * from: OpenedToken option * Result<Reply<InteractionResponse>, string[]>
     /// The formulary page, with the token the request was sent with.
     | Formulary of from: OpenedToken option * Result<Reply<Formulary>, string[]>
     /// The parenteralia page, with the token the request was sent with.
@@ -96,6 +104,8 @@ type LoaderMsg =
     | ParenteraliaChanged of Parenteralia
     /// The server reloaded its resources.
     | ResourcesReloaded
+    /// The interactions of these drugs asked for.
+    | CheckInteractions of drugs: string list
 
 
 /// What the App carries out: a call, whose answer comes back as a message, a wait, or what the
@@ -111,6 +121,8 @@ type LoaderEffect =
     | FetchDrugNames
     | FetchFormulary of Formulary
     | FetchParenteralia of Parenteralia
+    /// Ask for the interactions of these drugs, under the number of the check.
+    | FetchInteractions of check: int * drugs: string list
     /// Seed the workbench's filter.
     | SeedWorkbench of FilterSeed
     /// Ask the server whether it answers.
@@ -121,6 +133,8 @@ type LoaderEffect =
     | AskAgainLater of Load * seconds: int
     /// Show the alert on the snackbar.
     | Alert of Alert.Alert
+    /// Close the snackbar if it shows the interactions found, and nothing else.
+    | WithdrawInteractionsFound
     /// A request of this source failed with these errors.
     | Failed of ServerErrorPolicy.ErrorSource * string[]
     /// A request of this source succeeded.
@@ -143,6 +157,8 @@ module LoaderState =
             Products = HasNotStartedYet
             Hospitals = HasNotStartedYet
             DrugNames = HasNotStartedYet
+            Interactions = HasNotStartedYet
+            InteractionCheck = 0
             Formulary = HasNotStartedYet
             FormularyAskAgain = None
             Parenteralia = HasNotStartedYet
@@ -169,6 +185,7 @@ module LoaderState =
             Load.Formulary, reading state.Formulary
             Load.Parenteralia, reading state.Parenteralia
             Load.DrugNames, reading state.DrugNames
+            Load.Interactions, reading state.Interactions
         ]
 
 
@@ -440,6 +457,28 @@ let transition msg (state: LoaderState) =
             (fun state -> { state with ParenteraliaAskAgain = None })
             syncParenteralia
 
+    // an answer to an earlier check is dropped
+    | LoaderMsg.Landed(Landing.Interactions(check, _, _)) when check <> state.InteractionCheck -> state, []
+    | LoaderMsg.Landed(Landing.Interactions(_, from, Ok reply)) ->
+        let succeeded = LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Interactions
+
+        match reply.Response with
+        | InteractionResponse.InteractionsChecked rows ->
+            { state with Interactions = Resolved rows },
+            [
+                succeeded
+                if rows.Length > 0 then
+                    LoaderEffect.Alert(Alert.Alert.InteractionsFound rows.Length)
+                else
+                    LoaderEffect.WithdrawInteractionsFound
+                yield! told from reply
+            ]
+        // the check answers with the interactions only
+        | InteractionResponse.DrugNamesLoaded _ -> state, succeeded :: told from reply
+    | LoaderMsg.Landed(Landing.Interactions(_, _, Error errs)) ->
+        { state with Interactions = HasNotStartedYet },
+        [ LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Interactions, errs) ]
+
     | LoaderMsg.CheckServer ->
         let reading, effects = state.Server |> start LoaderEffect.CheckServer
         { state with Server = reading }, effects
@@ -576,5 +615,22 @@ let transition msg (state: LoaderState) =
                     }
             ]
         | None -> state |> startPages
+    // every check, the empty one too, ends the checks before it; the rows shown stay until the
+    // answer
+    | LoaderMsg.CheckInteractions drugs ->
+        let check = state.InteractionCheck + 1
+
+        if List.length drugs < 2 then
+            { state with
+                Interactions = HasNotStartedYet
+                InteractionCheck = check
+            },
+            [ LoaderEffect.WithdrawInteractionsFound ]
+        else
+            { state with
+                Interactions = state.Interactions |> Deferred.refresh
+                InteractionCheck = check
+            },
+            [ LoaderEffect.FetchInteractions(check, drugs) ]
 
     | _ -> state, []

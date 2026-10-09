@@ -413,6 +413,24 @@ let tests =
                 |> Expect.equal "the seed" "SeedWorkbench formulary 2 choices"
             }
 
+            test "the interactions read by their check and counts, never the drug names" {
+                let check = LoaderMachine.LoaderMsg.CheckInteractions [ "a"; "b" ]
+
+                Trail.loader 1 at check (LoaderMachine.LoaderState.initial |> LoaderMachine.transition check)
+                |> Trail.format
+                |> Expect.equal
+                    "the check"
+                    "#1 10:41:07.311 Loader CheckInteractions 2 drugs -> FetchInteractions check 1 2 drugs | out Interactions; interaction check 1"
+
+                LoaderMachine.Landing.Interactions(1, None, Error [| "down" |])
+                |> Trail.Loader.landing
+                |> Expect.equal "the failure" "Interactions check 1 no token Error"
+
+                LoaderMachine.LoaderEffect.Alert(Alert.Alert.InteractionsFound 3)
+                |> Trail.Loader.effect
+                |> Expect.equal "the alert" "Alert InteractionsFound 3"
+            }
+
             test "every machine names itself" {
                 let plan = OrderPlanState.noPatient
                 let signing = SigningState.idle
