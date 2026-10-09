@@ -241,7 +241,7 @@ let parse now segments =
         {
             Patient = age |> Option.bind (fun age -> parameters |> parsePatient age)
             Page = parameters |> Map.tryFind "pag" |> Option.bind parsePage
-            // ISO code, display name or the legacy codes (du, gr, sp): one parser with the server
+            // an ISO 639-1 code only: one parser with the server's default language
             Language = parameters |> Map.tryFind "lan" |> Option.bind Localization.tryParse
             Disclaimer = parameters |> Map.tryFind "dsc" <> Some "n"
             Medication = if given then Some medication else None
