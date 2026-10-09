@@ -1,5 +1,5 @@
 ---
-last_commit_released: 3fcaa90c618aeffac24a35ca1c13605ad1b2a9e7
+last_commit_released: 40ae022de8afac1acd5240df29c6d36c6a4d1014
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,61 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.44 - 2026-10-09
+
+### 🚀 Features
+
+* *(client)* Link the TPN intake slider to the dose ([16d415f1](https://github.com/informedica/GenPRES/commit/16d415f10e5acb8a3956b859cc824ce1b39f8b9f))
+* *(client)* Detect changed totals items ([1a2622f9](https://github.com/informedica/GenPRES/commit/1a2622f9294257415b2e0a4dc7306514bd5cd6b9))
+* *(client)* Send a patient change as one command ([1ae5e86a](https://github.com/informedica/GenPRES/commit/1ae5e86a74927854a18b67609d732af587d0d55c))
+* *(client)* Split the patient and plan refreshes ([23ca180f](https://github.com/informedica/GenPRES/commit/23ca180f3f202f03954c67854ff81ba46ea63373))
+* *(client)* Clear the workbench at the prescribe click ([1de7c792](https://github.com/informedica/GenPRES/commit/1de7c79240d098b81679f4d8b93d0d2ac9887b36))
+* *(client)* Leave the Session when the url moves on ([d07c1789](https://github.com/informedica/GenPRES/commit/d07c1789227a17753a3ad82d548c15d98bfe65d7))
+* *(client)* Start over on a url with a patient ([6198bf50](https://github.com/informedica/GenPRES/commit/6198bf50871cd4977e77084a4fd9dfadcd300da3))
+* *(client)* Open a launch url after the close ([4fc051a2](https://github.com/informedica/GenPRES/commit/4fc051a2f6c4e4f95494450adee587e0cf393bc5))
+* *(client)* Send the argumentation at the dialog's own close ([4e3b4387](https://github.com/informedica/GenPRES/commit/4e3b438786c87ca45dc8f7a0c21b962bac44eab5))
+* *(client)* Take the guards out of the machines ([f250b006](https://github.com/informedica/GenPRES/commit/f250b006a5528dabe7fcad43abe78e9e7607bc6c))
+* *(genorder)* Show the access of a scenario ([8a46cc48](https://github.com/informedica/GenPRES/commit/8a46cc4848b9aad50feea2fa3d76de7fe4a0b505))
+* *(genorder)* Set TPN dose quantity by percentage ([7427b060](https://github.com/informedica/GenPRES/commit/7427b06069ec196ac6f6b5b7ceee1d5cee5af3e7))
+* *(server)* Wire TPN dose quantity percentage ([5a2476ef](https://github.com/informedica/GenPRES/commit/5a2476ef1e4fe3cddeef34ee53d656afc9eb089e))
+* *(server)* Add the patient change command ([f1efa9d3](https://github.com/informedica/GenPRES/commit/f1efa9d37c5a0703120fb8a19128a1d7e40b24ab))
+* *(ui)* Put nutrition after prescribe in the menu ([200c09e7](https://github.com/informedica/GenPRES/commit/200c09e7a9d25810578d922108178c5a38ca1b96))
+* *(ui)* Put the filter before the search above lists ([2e0ad22a](https://github.com/informedica/GenPRES/commit/2e0ad22a9de2b510e638670817180885817f1ae8))
+* *(ui)* Align the TPN panel in three columns ([e119906a](https://github.com/informedica/GenPRES/commit/e119906a23a9db9e1133c5c87ca359ffcdc21998))
+* *(ui)* Light up changed totals ([50b66049](https://github.com/informedica/GenPRES/commit/50b6604920b38f1954ce8e08013c7831a843ff6d))
+* *(ui)* Light up the changed value only ([b9f62e49](https://github.com/informedica/GenPRES/commit/b9f62e494e1f23d1a76adeaa0c8124a8c4c92311))
+
+### 🐞 Bug Fixes
+
+* *(api)* Leave the order when a target is missing ([cfbaa469](https://github.com/informedica/GenPRES/commit/cfbaa469ec598563a234c40300a020d3c7fd06b7))
+* *(api)* Find an item in every same-named component ([3fd54174](https://github.com/informedica/GenPRES/commit/3fd54174229ec0824e7332f6d245a655ff0cba28))
+* *(api)* Keep the plan's own context for the argumentation ([9d1b7b93](https://github.com/informedica/GenPRES/commit/9d1b7b939d5b351e3d943a9cf0bc09f2cb66ce37))
+* *(client)* Hold the orders during a patient change ([12e5fd08](https://github.com/informedica/GenPRES/commit/12e5fd087e3c3e7000b99996f1dc1eb384562e76))
+* *(client)* Keep a seed's choices out of the trail ([c2372ce0](https://github.com/informedica/GenPRES/commit/c2372ce078bd1e6ec62c0727b4cdeccd70aed37f))
+* *(client)* Hold back a patient without measures ([19f9d037](https://github.com/informedica/GenPRES/commit/19f9d037bae9546f5027f248b50c7765217e747f))
+* *(client)* Send a field's arrow clicks as one command ([d91abfe1](https://github.com/informedica/GenPRES/commit/d91abfe1656e6de025a940c9f8c7121a6f0594ae))
+* *(client)* Let a reset go on its first click ([af70c90e](https://github.com/informedica/GenPRES/commit/af70c90e6dcf07a846d87485cb33c811da85dcda))
+* *(client)* Disable the lists during a request ([ae7fc412](https://github.com/informedica/GenPRES/commit/ae7fc412f111d726defd0ca3159be87904ed629b))
+* *(client)* Sync the pages on the workbench answer ([c75c0b94](https://github.com/informedica/GenPRES/commit/c75c0b94e44d3f9b53e9b981471b41c58ab43a61))
+* *(client)* Let a failed start-up load hold nothing ([11db44a0](https://github.com/informedica/GenPRES/commit/11db44a08caa058ce25da6d6914f15e536ec0975))
+* *(client)* Hold a nutrition field's timed step during a request ([07044302](https://github.com/informedica/GenPRES/commit/070443020e7583cdc3eb6bbdd09642e35b1ae40c))
+* *(client)* Hold the application until it has started ([5fb7631d](https://github.com/informedica/GenPRES/commit/5fb7631d14f495d97f683114d10083ab0b2cfc7a))
+* *(client)* Start a patient's follow-ups in its own update ([299352dd](https://github.com/informedica/GenPRES/commit/299352ddc3873cdc4beea36325a3b2f8312b77bd))
+* *(client)* Run follow-ups before waiting messages ([c0036efe](https://github.com/informedica/GenPRES/commit/c0036efe25461065f87500d6cec5c1c64a24e1d8))
+* *(client)* Clear the interactions at a start-over ([5cc7ecd7](https://github.com/informedica/GenPRES/commit/5cc7ecd79cf57be2b24785bfbfe555555a38adf3))
+* *(client)* Keep a launch opened again while it runs ([cfa60960](https://github.com/informedica/GenPRES/commit/cfa609604a934362e95575926650797aa6ae6d9f))
+* *(client)* Keep the first step click on a plan cell ([488f9219](https://github.com/informedica/GenPRES/commit/488f9219f8aed3339397e864e15d176857ead399))
+* *(client)* Read the count on every Nutrition render ([9f3ff185](https://github.com/informedica/GenPRES/commit/9f3ff185e6b3a6d9e956eb430ea6cc823d323580))
+* *(client)* Hold the session gate for a submission ([cf72e106](https://github.com/informedica/GenPRES/commit/cf72e106d237d0c852f0a5385f1c5ed311f967f5))
+* *(genorder)* Keep rule maxima in TPN percentage ([26cf572f](https://github.com/informedica/GenPRES/commit/26cf572f927ee09ef2047f5075d0e1f0f9233c25))
+* *(genorder)* Apply Div to the orderable dose quantity ([72375f66](https://github.com/informedica/GenPRES/commit/72375f663bca9bb38cc47647dac567365121e19c))
+* *(genorder)* Free the time on a TPN percentage ([e83d7a12](https://github.com/informedica/GenPRES/commit/e83d7a12db72abe494307f9dd9c8ec884f94bbaf))
+* *(genorder)* Settle what the nutrition narrowing leaves open ([9ae1de8a](https://github.com/informedica/GenPRES/commit/9ae1de8a55f4f2abc6b3c244563bd7d44c4f065d))
+* *(mcp)* Make tool parameters optional in the SDK schema ([39a18fad](https://github.com/informedica/GenPRES/commit/39a18fad611515ec17ba037df658079f918dab9f))
+* *(server)* Keep estimates and formulary patient ([534b9b56](https://github.com/informedica/GenPRES/commit/534b9b56c5a3cad65ccbf9b37b9e63d6ccb9c75b))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/3fcaa90c618aeffac24a35ca1c13605ad1b2a9e7..40ae022de8afac1acd5240df29c6d36c6a4d1014)</small></strong>
 
 ## 0.1.2-alpha.43 - 2026-10-01
 
