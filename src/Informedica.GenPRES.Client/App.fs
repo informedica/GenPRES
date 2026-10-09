@@ -1208,10 +1208,7 @@ module private Elmish =
     /// already fetched and asks for it again.
     let applyOrderContextEffect (effect: OrderContextEffect) (state: State) : State * Cmd<Msg> =
         match effect with
-        | OrderContextEffect.CallContext(cmd, ctx, request) ->
-            state, callContext (Api.OrderContextCommand.Command(cmd, ctx)) request state
-        | OrderContextEffect.CallPatientChanged(pat, ctx, request) ->
-            state, callContext (Api.OrderContextCommand.UpdatePatient(pat, ctx)) request state
+        | OrderContextEffect.CallContext(sent, request) -> state, callContext sent request state
         | OrderContextEffect.SyncPages filter ->
             let state, formCmd = syncFormulary filter state
             let state, parCmd = syncParenteralia filter state

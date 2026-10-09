@@ -55,8 +55,7 @@ let workbenchRequest effects =
     effects
     |> List.tryPick (
         function
-        | LanesEffect.Workbench(OrderContextEffect.CallPatientChanged(_, _, request))
-        | LanesEffect.Workbench(OrderContextEffect.CallContext(_, _, request)) -> Some request
+        | LanesEffect.Workbench(OrderContextEffect.CallContext(_, request)) -> Some request
         | _ -> None
     )
 

@@ -603,10 +603,10 @@ module OrderContext =
     /// An order context effect; a context by its id, never the filter or the error texts.
     let effect (effect: OrderContextEffect) =
         match effect with
-        | OrderContextEffect.CallContext(cmd, ctx, request) ->
+        | OrderContextEffect.CallContext(OrderContextCommand.Command(cmd, ctx), request) ->
             $"CallContext %s{command Part.contextId cmd ctx} %s{Part.shortId request}"
-        | OrderContextEffect.CallPatientChanged(_, ctx, request) ->
-            $"CallPatientChanged %s{Part.contextId ctx} %s{Part.shortId request}"
+        | OrderContextEffect.CallContext(OrderContextCommand.UpdatePatient(_, ctx), request) ->
+            $"CallContext UpdatePatient %s{Part.contextId ctx} %s{Part.shortId request}"
         | OrderContextEffect.SyncPages _ -> "SyncPages"
         | OrderContextEffect.TellError _ -> "TellError"
 

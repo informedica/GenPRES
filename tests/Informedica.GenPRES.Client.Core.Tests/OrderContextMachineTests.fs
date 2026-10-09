@@ -51,15 +51,22 @@ module Fixtures =
     /// A failure: told; the pages keep what they show.
     let restored (_: OrderContext) errs = [ OrderContextEffect.TellError errs ]
 
+    /// The call of a command over a context.
+    let callContext (cmd, ctx, request) =
+        OrderContextEffect.CallContext(OrderContextCommand.Command(cmd, ctx), request)
+
     /// An evaluation of the context: the call; the pages follow its answer.
-    let evaluated (ctx: OrderContext) request = [ OrderContextEffect.CallContext(asIs, ctx, request) ]
+    let evaluated (ctx: OrderContext) request = [ callContext (asIs, ctx, request) ]
 
     /// A patient change over the context: the call with the context as held; the pages follow its
     /// answer.
-    let patientChanged pat (ctx: OrderContext) request = [ OrderContextEffect.CallPatientChanged(pat, ctx, request) ]
+    let patientChanged pat (ctx: OrderContext) request =
+        [
+            OrderContextEffect.CallContext(OrderContextCommand.UpdatePatient(pat, ctx), request)
+        ]
 
-    /// A command that replaces any request: the call; the pages follow its answer.
-    let replacing cmd (ctx: OrderContext) request = [ OrderContextEffect.CallContext(cmd, ctx, request) ]
+    /// A command over a context: the call; the pages follow its answer.
+    let replacing cmd (ctx: OrderContext) request = [ callContext (cmd, ctx, request) ]
 
     /// The pages put on the filter of an answer.
     let synced (ctx: OrderContext) = [ OrderContextEffect.SyncPages ctx.Filter ]
@@ -98,9 +105,7 @@ let tests =
                         effects
                         |> Expect.equal
                             "the empty workbench evaluated"
-                            [
-                                OrderContextEffect.CallContext(OrderViewCommand.ClearAllFilterProperty, empty, "r-1")
-                            ]
+                            [ callContext (OrderViewCommand.ClearAllFilterProperty, empty, "r-1") ]
 
                         transition
                             (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol)))
@@ -220,11 +225,7 @@ let tests =
                             "a step calls alone"
                             (inFlight OrderViewCommand.IncreaseScheduleFrequencyProperty paracetamol paracetamol "r-2",
                              [
-                                 OrderContextEffect.CallContext(
-                                     OrderViewCommand.IncreaseScheduleFrequencyProperty,
-                                     paracetamol,
-                                     "r-2"
-                                 )
+                                 callContext (OrderViewCommand.IncreaseScheduleFrequencyProperty, paracetamol, "r-2")
                              ])
                     }
 
@@ -354,35 +355,19 @@ let viewTests =
 
 
 [<Tests>]
-let stagesTests =
+let workbenchTests =
     testList
-        "the two stages"
+        "what the workbench holds"
         [
-            test "the workbench alone knows no request: a failed change keeps the context held" {
+            test "a failed change keeps the context held, not the one sent" {
                 let stepped = { paracetamol with OrderContext.Filter.Route = Some "stepped" }
 
-                OrderContextWorkbench.step
-                    (OrderContextWorkbenchMsg.Landed(
-                        OrderContextCommand.Command(asIs, stepped),
-                        Error [| "not loaded" |]
-                    ))
-                    (OrderContextWorkbench.Evaluated(patient, paracetamol))
-                |> Expect.equal
-                    "the original, told"
-                    (OrderContextWorkbench.Evaluated(patient, paracetamol),
-                     [ OrderContextWorkbenchIntent.Tell [| "not loaded" |] ])
+                inFlight asIs stepped paracetamol "r-1"
+                |> transition (OrderContextMsg.Answered("r-1", Error [| "not loaded" |]))
+                |> Expect.equal "the original, told" (held paracetamol, restored paracetamol [| "not loaded" |])
             }
 
             test "nothing lands where nothing was asked: no patient" {
-                let landed =
-                    OrderContextWorkbenchMsg.Landed(
-                        OrderContextCommand.Command(asIs, paracetamol),
-                        Ok(OrderContextResponse.Evaluated paracetamol)
-                    )
-
-                OrderContextWorkbench.step landed (OrderContextWorkbench.NoPatient None)
-                |> Expect.equal "no patient" (OrderContextWorkbench.NoPatient None, [])
-
                 transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol))) noPatient
                 |> Expect.equal "no request under way to land on" (noPatient, [])
             }
@@ -559,6 +544,11 @@ let refusalTests =
                 busy
                 |> view
                 |> Expect.equal "changing meanwhile" (OrderContextView.Changing paracetamol)
+
+                busy
+                |> Expect.equal
+                    "the refusal gone while the request is out"
+                    (inFlight asIs paracetamol paracetamol "r-2")
             }
 
             test "the next evaluated answer clears the refusal" {
@@ -655,8 +645,7 @@ let argueTests =
             test "goes as a command over the context held, shown with the text meanwhile" {
                 let state, effects = held paracetamol |> transition (OrderContextMsg.Command(argue, "r-1"))
 
-                effects
-                |> Expect.equal "the call" [ OrderContextEffect.CallContext(argue, paracetamol, "r-1") ]
+                effects |> Expect.equal "the call" [ callContext (argue, paracetamol, "r-1") ]
 
                 state
                 |> OrderContextState.view
@@ -672,7 +661,7 @@ let argueTests =
                 let state, effects = held argued |> transition (OrderContextMsg.Command(reset, "r-1"))
 
                 effects
-                |> Expect.equal "the context held sent" [ OrderContextEffect.CallContext(reset, argued, "r-1") ]
+                |> Expect.equal "the context held sent" [ callContext (reset, argued, "r-1") ]
 
                 state
                 |> transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol)))
@@ -714,7 +703,7 @@ let reopenTests =
                 |> Expect.equal
                     "the clear goes out"
                     [
-                        OrderContextEffect.CallContext(
+                        callContext (
                             OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
                             { c1 with Patient = patient },
                             "r-1"
@@ -849,9 +838,7 @@ let specificCommandTests =
                 let state, effects = transition (OrderContextMsg.Command(cmd, "r-1")) (held twoGenerics)
 
                 effects
-                |> Expect.equal
-                    "the call with the context as it is, no sync"
-                    [ OrderContextEffect.CallContext(cmd, twoGenerics, "r-1") ]
+                |> Expect.equal "the call with the context as it is, no sync" [ callContext (cmd, twoGenerics, "r-1") ]
 
                 state
                 |> OrderContextState.view
@@ -862,9 +849,7 @@ let specificCommandTests =
                 let state, effects = transition (OrderContextMsg.Command(pickSecond, "r-1")) (held twoFrequencies)
 
                 effects
-                |> Expect.equal
-                    "the call with the context as it is"
-                    [ OrderContextEffect.CallContext(pickSecond, twoFrequencies, "r-1") ]
+                |> Expect.equal "the call with the context as it is" [ callContext (pickSecond, twoFrequencies, "r-1") ]
 
                 state
                 |> OrderContextState.context

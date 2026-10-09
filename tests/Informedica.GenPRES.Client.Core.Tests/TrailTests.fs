@@ -100,6 +100,15 @@ let tests =
                     "#3 10:41:07.311 OrderContext SeedFilter url 3 choices r-1 -> CallContext SeedFilter url 3 choices workbench r-1 | Changing workbench awaits r-1"
             }
 
+            test "a patient update reads as the call with UpdatePatient" {
+                let pat = OrderPlanMachineTests.Fixtures.patient
+                let ctx = OrderContextState.emptyFor pat
+
+                OrderContextEffect.CallContext(OrderContextCommand.UpdatePatient(pat, ctx), "r-1")
+                |> Trail.OrderContext.effect
+                |> Expect.equal "the effect" "CallContext UpdatePatient workbench r-1"
+            }
+
             test "a step without effects says none" {
                 Trail.format
                     {
