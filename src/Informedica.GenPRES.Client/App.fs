@@ -86,14 +86,6 @@ module private Elmish =
     /// What the server is asked for, once or again: the reading of each plain fetch.
     type FetchesState =
         {
-            NormalValues: Deferred<NormalValues>
-            BolusMedication: Deferred<BolusMedication list>
-            ContinuousMedication: Deferred<ContinuousMedication list>
-            Products: Deferred<Product list>
-            Localization: Deferred<string[][]>
-            Hospitals: Deferred<string[]>
-            // what the server was configured with: the default language, the demo flag
-            Settings: Deferred<Api.ServerSettings>
             Formulary: Deferred<Formulary>
             // a workbench filter met a formulary load under way: the page is asked again once
             // that load has landed and is shown
@@ -109,8 +101,6 @@ module private Elmish =
             // the drug names are asked again on a failure, three times
             DrugNameRetries: int
             ServerStatus: Deferred<bool>
-            // the start-up loads that failed, which keep the application on hold and are named
-            Failed: Busy.Load list
         }
 
 
@@ -133,6 +123,8 @@ module private Elmish =
         {
             // the lanes
             Lanes: LanesState
+            // the start-up loads
+            Loader: LoaderMachine.LoaderState
             // the plain fetches
             Fetches: FetchesState
             // the admin login and what it fetches
@@ -164,11 +156,8 @@ module private Elmish =
         // to the Session
         | PatientAnswered of request: string * Answer<Patient>
 
-        | LoadNormalValues of AsyncOperationStatus<Result<NormalValues, string>>
-
-        | LoadBolusMedication of AsyncOperationStatus<Result<BolusMedication list, string>>
-        | LoadContinuousMedication of AsyncOperationStatus<Result<ContinuousMedication list, string>>
-        | LoadProducts of AsyncOperationStatus<Result<Product list, string>>
+        // the start-up loads: the loads machine's messages
+        | LoaderMsg of LoaderMachine.LoaderMsg
         | OnSelectContinuousMedicationItem of string
         | OnSelectEmergencyListItem of string
         | UpdateEmergencyListFilter of string[]
@@ -199,13 +188,11 @@ module private Elmish =
         | LoadInteractionDrugNames of ApiResponse<Api.InteractionResponse>
 
         | UpdateLanguage of Localization.Locales
-        | LoadLocalization of AsyncOperationStatus<Result<string[][], string>>
 
         | UpdateHospital of string
         | CloseSnackbar
         | CheckServer of AsyncOperationStatus<Result<string, exn>>
         | DismissServerError
-        | LoadSettings of AsyncOperationStatus<Result<Api.ServerSettings, exn>>
 
         | Login of password: string
         // the attempt the answer belongs to: an answer of an earlier attempt is dropped
@@ -253,15 +240,30 @@ module private Elmish =
         |> Cmd.fromAsync
 
 
-    let loadSettings =
-        async {
-            try
-                let! settings = serverApi.getSettings ()
-                return LoadSettings(Finished(Ok settings))
-            with ex ->
-                return LoadSettings(Finished(Error ex))
-        }
-        |> Cmd.fromAsync
+    /// The call a loader effect asks for, its answer as the loader machine's message.
+    let fetch effect =
+        let landed landing result = LoaderMsg(LoaderMachine.LoaderMsg.Landed(landing result))
+
+        match effect with
+        | LoaderMachine.LoaderEffect.FetchSettings ->
+            Cmd.OfAsync.either
+                serverApi.getSettings
+                ()
+                (Ok >> landed LoaderMachine.Landing.Settings)
+                (fun ex -> Error ex.Message |> landed LoaderMachine.Landing.Settings)
+        | LoaderMachine.LoaderEffect.FetchLocalization ->
+            Cmd.OfAsync.perform GoogleDocs.loadLocalization () (landed LoaderMachine.Landing.Localization)
+        | LoaderMachine.LoaderEffect.FetchNormalValues ->
+            Cmd.OfAsync.perform GoogleDocs.loadNormalValues () (landed LoaderMachine.Landing.NormalValues)
+        | LoaderMachine.LoaderEffect.FetchBolusMedication ->
+            Cmd.OfAsync.perform GoogleDocs.loadBolusMedication () (landed LoaderMachine.Landing.BolusMedication)
+        | LoaderMachine.LoaderEffect.FetchContinuousMedication ->
+            Cmd.OfAsync.perform
+                GoogleDocs.loadContinuousMedication
+                ()
+                (landed LoaderMachine.Landing.ContinuousMedication)
+        | LoaderMachine.LoaderEffect.FetchProducts ->
+            Cmd.OfAsync.perform GoogleDocs.loadProducts () (landed LoaderMachine.Landing.Products)
 
 
     /// The OpenedToken the Session holds, sent with every computing request; none
@@ -449,15 +451,9 @@ module private Elmish =
         {
             // the url's patient and medication are applied by init, over these lanes
             Lanes = Lanes.initial pat
+            Loader = LoaderMachine.LoaderState.initial
             Fetches =
                 {
-                    NormalValues = HasNotStartedYet
-                    BolusMedication = HasNotStartedYet
-                    ContinuousMedication = HasNotStartedYet
-                    Products = HasNotStartedYet
-                    Localization = HasNotStartedYet
-                    Hospitals = HasNotStartedYet
-                    Settings = HasNotStartedYet
                     Formulary = HasNotStartedYet
                     FormularyAskAgain = false
                     Parenteralia = HasNotStartedYet
@@ -467,7 +463,6 @@ module private Elmish =
                     InteractionDrugNames = HasNotStartedYet
                     DrugNameRetries = 0
                     ServerStatus = HasNotStartedYet
-                    Failed = []
                 }
             Admin =
                 {
@@ -484,7 +479,7 @@ module private Elmish =
                     ShowDisclaimer = discl
                     Context =
                         {
-                            // the server default replaces this once LoadSettings resolves, unless the url chose
+                            // the server default replaces this once the settings land, unless the url chose
                             Localization = (LanguagePolicy.Language.initial lang).Current
                             Hospital = "UMCU"
                         }
@@ -689,7 +684,7 @@ module private Elmish =
     /// English the policy gives.
     let signingTerm (state: State) term =
         Global.getLocalizedTerm
-            state.Fetches.Localization
+            state.Loader.Localization
             state.Ui.Context.Localization
             (SigningPolicy.english term)
             term
@@ -1070,6 +1065,48 @@ module private Elmish =
         { state with Lanes = lanes } |> runEffects applyLanesEffect effects
 
 
+    /// What a failed start-up load is logged as; never in the trail.
+    let loadFailed landing =
+        match landing with
+        | LoaderMachine.Landing.Settings(Error err) -> Some("cannot load the server settings", err)
+        | LoaderMachine.Landing.Localization(Error err) -> Some("cannot load localization", err)
+        | LoaderMachine.Landing.NormalValues(Error err) -> Some("cannot load normal values", err)
+        | LoaderMachine.Landing.BolusMedication(Error err) -> Some("cannot load emergency treatment", err)
+        | LoaderMachine.Landing.ContinuousMedication(Error err) -> Some("cannot load continuous medication", err)
+        | LoaderMachine.Landing.Products(Error err) -> Some("cannot load products", err)
+        | _ -> None
+
+
+    /// A message through the loader machine: the step recorded in the trail and its calls made. The
+    /// settings landed also set the language default and the demo flag, until the shell takes them.
+    let runLoader msg (state: State) =
+        match msg with
+        | LoaderMachine.LoaderMsg.Landed landing ->
+            landing |> loadFailed |> Option.iter (fun (text, err) -> Logging.error text err)
+        | LoaderMachine.LoaderMsg.Start _ -> ()
+
+        let loader, effects = state.Loader |> LoaderMachine.transition msg
+
+        let state =
+            match msg with
+            // the server default counts unless the url chose; the User cannot choose before the
+            // settings land, since the start-up holds the application until then
+            | LoaderMachine.LoaderMsg.Landed(LoaderMachine.Landing.Settings(Ok settings)) ->
+                StepTrail.confirmDemo settings.IsDemo
+
+                { state with Ui.IsDemo = settings.IsDemo }
+                |> withLanguage (languageOf state |> LanguagePolicy.Language.onServerDefault settings.Language)
+            // no settings: the client keeps its own defaults, which is what it did before
+            | LoaderMachine.LoaderMsg.Landed(LoaderMachine.Landing.Settings(Error _)) ->
+                StepTrail.confirmDemo false
+                state
+            | _ -> state
+
+        StepTrail.record (fun no at -> Trail.loader no at msg (loader, effects))
+
+        { state with Loader = loader }, effects |> List.map fetch |> Cmd.batch
+
+
     /// What the pages show refreshed over reloaded resources, out in the update that lands the
     /// reload's answer: the workbench evaluated again as it is, which takes the formulary and the
     /// parenteralia with it, or those two alone without a patient. A reload seed carries no
@@ -1106,14 +1143,8 @@ module private Elmish =
     let loads (state: State) =
         let reading deferred = deferred |> Deferred.map ignore
 
-        [
-            Busy.Load.Settings, reading state.Fetches.Settings
-            Busy.Load.Localization, reading state.Fetches.Localization
-            Busy.Load.Hospitals, reading state.Fetches.Hospitals
-            Busy.Load.NormalValues, reading state.Fetches.NormalValues
-            Busy.Load.BolusMedication, reading state.Fetches.BolusMedication
-            Busy.Load.ContinuousMedication, reading state.Fetches.ContinuousMedication
-            Busy.Load.Products, reading state.Fetches.Products
+        LoaderMachine.LoaderState.readings state.Loader
+        @ [
             Busy.Load.Formulary, reading state.Fetches.Formulary
             Busy.Load.Parenteralia, reading state.Fetches.Parenteralia
             Busy.Load.Interactions, reading state.Fetches.Interactions
@@ -1125,29 +1156,11 @@ module private Elmish =
 
 
     /// The data loads out.
-    let loadsOut (state: State) =
-        state
-        |> loads
-        |> List.choose (fun (load, reading) ->
-            match reading with
-            | InProgress
-            | Refreshing _ -> Some load
-            | HasNotStartedYet
-            | Resolved _ -> None
-        )
+    let loadsOut (state: State) = state |> loads |> LoaderMachine.outOf
 
 
     /// The data loads that have loaded.
-    let loaded (state: State) =
-        state
-        |> loads
-        |> List.choose (fun (load, reading) ->
-            match reading with
-            | Resolved _ -> Some load
-            | HasNotStartedYet
-            | InProgress
-            | Refreshing _ -> None
-        )
+    let loaded (state: State) = state |> loads |> LoaderMachine.loadedOf
 
 
     /// The requests out in the lanes and the loads.
@@ -1162,16 +1175,12 @@ module private Elmish =
             (loadsOut state)
 
 
-    /// A start-up load that failed, kept for the gate to name.
-    let recordFailed load (state: State) = { state with Fetches.Failed = load :: state.Fetches.Failed }
-
-
     /// Where the start-up is; started once, it stays so.
     let startup (state: State) =
         if state.Ui.Started then
             StartupPolicy.Startup.Started
         else
-            StartupPolicy.status (busyOut state) (loaded state) state.Fetches.Failed
+            StartupPolicy.status (busyOut state) (loaded state) state.Loader.Failed
 
 
     /// The start-up marked as ended at the first update in which it is.
@@ -1184,7 +1193,7 @@ module private Elmish =
     let noPatientForMedication (state: State) =
         let message =
             Global.getLocalizedTerm
-                state.Fetches.Localization
+                state.Loader.Localization
                 state.Ui.Context.Localization
                 "Voer patient gegevens in"
                 Terms.``Patient enter patient data``
@@ -1311,12 +1320,16 @@ module private Elmish =
                     | None -> Cmd.ofMsg (SessionMsg SessionMsg.Resume)
                     | Some _ -> Cmd.none
                     checkServer
-                    Cmd.ofMsg (LoadSettings Started)
-                    Cmd.ofMsg (LoadNormalValues Started)
-                    Cmd.ofMsg (LoadBolusMedication Started)
-                    Cmd.ofMsg (LoadContinuousMedication Started)
-                    Cmd.ofMsg (LoadProducts Started)
-                    Cmd.ofMsg (LoadLocalization Started)
+                    for load in
+                        [
+                            Busy.Load.Settings
+                            Busy.Load.NormalValues
+                            Busy.Load.BolusMedication
+                            Busy.Load.ContinuousMedication
+                            Busy.Load.Products
+                            Busy.Load.Localization
+                        ] do
+                        Cmd.ofMsg (LoaderMsg(LoaderMachine.LoaderMsg.Start load))
                     Cmd.ofMsg (LoadFormulary Started)
                     Cmd.ofMsg (LoadParenteralia Started)
                     Cmd.ofMsg (LoadInteractionDrugNames Started)
@@ -1331,7 +1344,7 @@ module private Elmish =
     /// settings arrive, and never against production. The trail keeps the same gate through
     /// StepTrail.confirmDemo.
     let isTraceable (state: State) =
-        match state.Fetches.Settings with
+        match state.Loader.Settings with
         | Resolved settings
         | Refreshing settings -> settings.IsDemo
         | HasNotStartedYet
@@ -1426,25 +1439,7 @@ module private Elmish =
 
         | DismissServerError -> { state with Ui.ServerError = None }, Cmd.none
 
-        | LoadSettings Started -> { state with Fetches.Settings = InProgress }, loadSettings
-
-        | LoadSettings(Finished(Ok settings)) ->
-            StepTrail.confirmDemo settings.IsDemo
-
-            // the server default counts unless the url chose; the User cannot choose before the
-            // settings land, since the start-up holds the application until then
-            { state with
-                Fetches.Settings = Resolved settings
-                Ui.IsDemo = settings.IsDemo
-            }
-            |> withLanguage (languageOf state |> LanguagePolicy.Language.onServerDefault settings.Language),
-            Cmd.none
-
-        | LoadSettings(Finished(Error err)) ->
-            // no settings: the client keeps its own defaults, which is what it did before
-            Logging.error "cannot load the server settings" err
-            StepTrail.confirmDemo false
-            { state with Fetches.Settings = HasNotStartedYet }, Cmd.none
+        | LoaderMsg msg -> state |> runLoader msg
 
         | Login password ->
             let attempt = state.Admin.LoginAttempt + 1
@@ -1633,7 +1628,7 @@ module private Elmish =
                 | UrlPolicy.UrlAction.PutBack when launch.IsSome ->
                     let message =
                         Global.getLocalizedTerm
-                            state.Fetches.Localization
+                            state.Loader.Localization
                             state.Ui.Context.Localization
                             "De start vanuit het EPD is niet geopend: er wordt ondertekend. Open de patiënt opnieuw vanuit het EPD."
                             Terms.``Url Launch Signing``
@@ -1676,78 +1671,8 @@ module private Elmish =
 
         | SigningMsg msg -> state |> runLanes (LanesMsg.Signing msg)
 
-        | LoadLocalization Started ->
-            { state with Fetches.Localization = InProgress },
-            Cmd.fromAsync (GoogleDocs.loadLocalization LoadLocalization)
-
-        | LoadLocalization(Finished(Ok terms)) ->
-
-            { state with Fetches.Localization = terms |> Resolved }, Cmd.none
-
-        | LoadLocalization(Finished(Error s)) ->
-            Logging.error "cannot load localization" s
-
-            { state with Fetches.Localization = HasNotStartedYet }
-            |> recordFailed Busy.Load.Localization,
-            Cmd.none
-
-        | LoadNormalValues Started ->
-            { state with Fetches.NormalValues = InProgress },
-            Cmd.fromAsync (GoogleDocs.loadNormalValues LoadNormalValues)
-
-        // the client's normal values serve the panel summary only; the server estimates
-        | LoadNormalValues(Finished(Ok normalValues)) ->
-            { state with Fetches.NormalValues = normalValues |> Resolved }, Cmd.none
-
-        | LoadNormalValues(Finished(Error s)) ->
-            Logging.error "cannot load normal values" s
-
-            { state with Fetches.NormalValues = HasNotStartedYet }
-            |> recordFailed Busy.Load.NormalValues,
-            Cmd.none
-
-
-        | LoadBolusMedication Started ->
-            { state with Fetches.BolusMedication = InProgress },
-            Cmd.fromAsync (GoogleDocs.loadBolusMedication LoadBolusMedication)
-
-        | LoadBolusMedication(Finished(Ok meds)) ->
-            { state with
-                Fetches.BolusMedication = meds |> Resolved
-                Fetches.Hospitals =
-                    meds
-                    |> List.map _.Hospital
-                    |> List.distinct
-                    |> List.filter String.notEmpty
-                    |> List.toArray
-                    |> Resolved
-            },
-            Cmd.none
-
-        | LoadBolusMedication(Finished(Error s)) ->
-            Logging.error "cannot load emergency treatment" s
-
-            { state with Fetches.BolusMedication = HasNotStartedYet }
-            |> recordFailed Busy.Load.BolusMedication,
-            Cmd.none
-
-        | LoadContinuousMedication Started ->
-            { state with Fetches.ContinuousMedication = InProgress },
-            Cmd.fromAsync (GoogleDocs.loadContinuousMedication LoadContinuousMedication)
-
-        | LoadContinuousMedication(Finished(Ok meds)) ->
-
-            { state with Fetches.ContinuousMedication = meds |> Resolved }, Cmd.none
-
-        | LoadContinuousMedication(Finished(Error s)) ->
-            Logging.error "cannot load continuous medication" s
-
-            { state with Fetches.ContinuousMedication = HasNotStartedYet }
-            |> recordFailed Busy.Load.ContinuousMedication,
-            Cmd.none
-
         | OnSelectContinuousMedicationItem item ->
-            match state.Fetches.ContinuousMedication with
+            match state.Loader.ContinuousMedication with
             | Resolved meds ->
                 meds
                 |> List.tryFind (fun m -> item.EndsWith($".{m.Medication}"))
@@ -1763,7 +1688,7 @@ module private Elmish =
         | UpdateContinuousMedsFilter filter -> { state with Ui.ContinuousMedsFilter = filter }, Cmd.none
 
         | OnSelectEmergencyListItem item ->
-            match state.Fetches.BolusMedication with
+            match state.Loader.BolusMedication with
             | Resolved meds ->
                 meds
                 |> List.tryFind (fun m -> item.EndsWith($".{m.Hospital}.{m.Category}.{m.Generic}"))
@@ -1778,20 +1703,6 @@ module private Elmish =
                 )
                 |> Option.defaultValue (state, Cmd.none)
             | _ -> state, Cmd.none
-
-        | LoadProducts Started ->
-            { state with Fetches.Products = InProgress }, Cmd.fromAsync (GoogleDocs.loadProducts LoadProducts)
-
-        | LoadProducts(Finished(Ok prods)) ->
-
-            { state with Fetches.Products = prods |> Resolved }, Cmd.none
-
-        | LoadProducts(Finished(Error s)) ->
-            Logging.error "cannot load products" s
-
-            { state with Fetches.Products = HasNotStartedYet }
-            |> recordFailed Busy.Load.Products,
-            Cmd.none
 
         | OrderContextMsg msg -> state |> runLanes (LanesMsg.Workbench msg)
 
@@ -2082,10 +1993,10 @@ type private ConcreteAppEnv
     =
 
     interface AppEnv.ILocalization with
-        member _.LocalizationTerms = state.Fetches.Localization
+        member _.LocalizationTerms = state.Loader.Localization
 
     interface AppEnv.ISettings with
-        member _.Settings = state.Fetches.Settings
+        member _.Settings = state.Loader.Settings
 
     interface AppEnv.IStartup with
         member _.Startup = startup state
@@ -2147,7 +2058,7 @@ type private ConcreteAppEnv
         member _.Estimated =
             state.Lanes.Patient
             |> PatientState.draft
-            |> applyNormalValues state.Fetches.NormalValues
+            |> applyNormalValues state.Loader.NormalValues
         // the panel's edit is ignored while the patient context is held; the Session's patient
         // and a data notice accepted do not come this way
         member _.UpdatePatient p =
@@ -2352,7 +2263,7 @@ let View () =
     let bm =
         calculateInterventions
             EmergencyTreatment.calculate
-            state.Fetches.BolusMedication
+            state.Loader.BolusMedication
             (state.Lanes.Patient |> PatientState.draft)
 
     let cm =
@@ -2362,7 +2273,7 @@ let View () =
                 | Some w' -> ContinuousMedication.calculate w' meds
                 | None -> []
 
-        calculateInterventions calc state.Fetches.ContinuousMedication (state.Lanes.Patient |> PatientState.draft)
+        calculateInterventions calc state.Loader.ContinuousMedication (state.Lanes.Patient |> PatientState.draft)
 
     let appEnv = ConcreteAppEnv(state, dispatch, bm, cm) :> obj
 
@@ -2395,7 +2306,7 @@ let View () =
                 |}
         | None -> null
 
-    let getTerm = Global.getLocalizedTerm state.Fetches.Localization state.Ui.Context.Localization
+    let getTerm = Global.getLocalizedTerm state.Loader.Localization state.Ui.Context.Localization
 
     // the question before a url with a patient, a medication or a launch: it leaves the
     // launched Session, or drops the work not signed. The browser asks the second itself for a
@@ -2463,7 +2374,7 @@ let View () =
             updatePage = UpdatePage >> dispatch
             page = state.Ui.Page
             languages = Localization.languages
-            hospitals = state.Fetches.Hospitals
+            hospitals = state.Loader.Hospitals
             switchLang = UpdateLanguage >> dispatch
             switchHosp = UpdateHospital >> dispatch
         |}

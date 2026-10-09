@@ -41,4 +41,5 @@
 #load "../StartupPolicy.fs"
 #load "../UrlPolicy.fs"
 #load "../Url.fs"
+#load "../LoaderMachine.fs"
 #load "../Trail.fs"
