@@ -737,17 +737,11 @@ module OrderPlan =
                     reopen = reopen
                     restoreOrderScenario = envOrderPlan.RestoreField
                     closeOrder = handleModalClose
+                    busy = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Page Global.Pages.OrderPlan
                     localizationTerms = localizationTerms
                 |}
 
-        let orderDialog =
-            Components.DialogShell.View
-                {|
-                    isOpen = dialog.IsSome
-                    onClose = handleModalClose
-                    maxWidth = 500
-                    children = orderView
-                |}
+        let orderDialog = if dialog.IsSome then orderView else null
 
         // the bars above the table keep their height and the table takes what is left, so the
         // grid's footer stays above the totals bar instead of being pushed below the page

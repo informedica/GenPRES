@@ -521,17 +521,11 @@ module Prescribe =
                     reopen = envOrderContext.ReopenField
                     restoreOrderScenario = envOrderContext.RestoreField
                     closeOrder = handleModalClose
+                    busy = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Page Global.Pages.Prescribe
                     localizationTerms = localizationTerms
                 |}
 
-        let orderDialog =
-            Components.DialogShell.View
-                {|
-                    isOpen = dialog.IsSome
-                    onClose = handleModalClose
-                    maxWidth = 500
-                    children = orderView
-                |}
+        let orderDialog = if dialog.IsSome then orderView else null
 
         JSX.jsx
             $"""
