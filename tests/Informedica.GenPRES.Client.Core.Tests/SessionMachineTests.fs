@@ -1149,6 +1149,20 @@ module SessionMachineTests =
                         SessionState.resuming |> SessionState.changing |> Expect.isTrue "a resume"
                     }
 
+                    test "the same launch again while it is presented keeps it, and its outcome opens the Session" {
+                        let state, effects =
+                            run launching [ SessionMsg.UrlMovedOn; SessionMsg.PresentLaunch(launchA, keyB) ]
+
+                        (state, effects)
+                        |> Expect.equal "presenting A as before, the close not sent" (launching, [])
+
+                        transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened full))) state
+                        |> Expect.equal
+                            "open"
+                            (SessionState.opened full None,
+                             [ SessionEffect.SetPatient(Some patient); SessionEffect.KeepKey "thumb" ])
+                    }
+
                     test "an answer to no request is dropped" {
                         transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened full))) away
                         |> Expect.equal "dropped" (away, [])

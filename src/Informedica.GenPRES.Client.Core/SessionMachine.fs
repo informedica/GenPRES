@@ -525,6 +525,13 @@ module SessionState =
         | SessionMsg.Closed, SessionPhase.UrlMovedOn next, Some SessionRequest.Closing
         | SessionMsg.CloseFailed _, SessionPhase.UrlMovedOn next, Some SessionRequest.Closing -> follow next
 
+        // the same launch again while it is presented, after the url moved on: the presentation
+        // under way is the launch the url brings, so the lane takes its outcome as at any launch.
+        // Presenting it again would fail, since the server takes a launch once
+        | SessionMsg.PresentLaunch(launch, _), SessionPhase.UrlMovedOn _, Some(SessionRequest.Presenting _) when
+            state.Presentation |> Option.exists (fun (current, _) -> current = launch)
+            ->
+            { state with Phase = SessionPhase.Anonymous }, []
         // a presentation under way is not replaced by a second one for the same launch
         | SessionMsg.PresentLaunch(launch, _), _, Some(SessionRequest.Presenting _) when
             state.Presentation |> Option.exists (fun (current, _) -> current = launch)
