@@ -38,37 +38,39 @@ let tests =
             test "a url without segments carries nothing" { parse [] |> Expect.equal "none" Url.none }
 
             test "an age in days gives the patient's age" {
-                patient "?ad=400"
+                patient "?agd=400"
                 |> age
                 |> Expect.equal "1 year, 1 month, 5 days" (Some(1, 1, 0, 5))
-                patient "?ad=400" |> _.NotParsed |> Expect.isEmpty "parsed"
+                patient "?agd=400" |> _.NotParsed |> Expect.isEmpty "parsed"
             }
 
             test "a birth date gives the age at now, january and the first day by default" {
-                patient "?by=2020&bm=4&bd=15"
+                patient "?byr=2020&bmo=4&bdy=15"
                 |> age
                 |> Option.map (fun (y, m, _, _) -> y, m)
                 |> Expect.equal "6 years, 5 months" (Some(6, 5))
 
-                patient "?by=2025"
+                patient "?byr=2025"
                 |> age
                 |> Option.map (fun (y, m, _, _) -> y, m)
                 |> Expect.equal "born on 1 january: 1 year, 9 months" (Some(1, 9))
             }
 
             test "the birth year goes before the age in days; a year that is no number does not" {
-                patient "?by=2025&ad=10"
+                patient "?byr=2025&agd=10"
                 |> age
                 |> Option.map (fun (y, _, _, _) -> y)
                 |> Expect.equal "the birth year" (Some 1)
 
-                patient "?by=x&ad=10"
+                patient "?byr=x&agd=10"
                 |> age
                 |> Expect.equal "the age in days" (Some(0, 0, 1, 3))
             }
 
             test "weight, height, gestational age, department and central line are read" {
-                let p = (patient "?ad=10&wt=3500&ht=50&gw=30&gd=3&dp=NEO&cv=y").Patient |> Option.get
+                let p =
+                    (patient "?agd=10&wgt=3500&hgt=50&gaw=30&gad=3&dep=NEO&cvl=y").Patient
+                    |> Option.get
 
                 p.Weight.Measured |> Option.map int |> Expect.equal "weight in gram" (Some 3500)
                 p.Height.Measured |> Option.map int |> Expect.equal "height in cm" (Some 50)
@@ -83,7 +85,7 @@ let tests =
             }
 
             test "the central line only for y; weeks without days give 0 days" {
-                let p = (patient "?ad=10&cv=n&gw=30").Patient |> Option.get
+                let p = (patient "?agd=10&cvl=n&gaw=30").Patient |> Option.get
 
                 p.Access |> Expect.isEmpty "no central line"
 
@@ -93,12 +95,12 @@ let tests =
             }
 
             test "a patient url without a birth year or an age names its parameters, not their values" {
-                let url = patient "?pg=pr&wt=3500"
+                let url = patient "?pag=pr&wgt=3500"
 
                 url.Patient |> Expect.isNone "no patient"
                 url.Page |> Expect.equal "the page still read" (Some Page.Page.Prescribe)
 
-                url.NotParsed |> Expect.equal "the names" [ UrlPart.Patient [ "pg"; "wt" ] ]
+                url.NotParsed |> Expect.equal "the names" [ UrlPart.Patient [ "pag"; "wgt" ] ]
             }
 
             testList
@@ -111,30 +113,35 @@ let tests =
                             "pr", Some Page.Page.Prescribe
                             "fm", Some Page.Page.Formulary
                             "pe", Some Page.Page.Parenteralia
+                            "nu", Some Page.Page.Nutrition
+                            "op", Some Page.Page.OrderPlan
+                            "ia", Some Page.Page.Interactions
                             "xx", None
                         ] do
-                        test $"pg=%s{code}" { (patient $"?ad=10&pg=%s{code}").Page |> Expect.equal code page }
+                        test $"pag=%s{code}" { (patient $"?agd=10&pag=%s{code}").Page |> Expect.equal code page }
                 ]
 
             test "the language codes" {
-                (patient "?ad=10&la=en").Language
+                (patient "?agd=10&lan=en").Language
                 |> Expect.equal "en" (Some Localization.English)
 
-                (patient "?ad=10&la=du").Language
-                |> Expect.equal "the legacy du" (Some Localization.Dutch)
+                (patient "?agd=10&lan=nl").Language
+                |> Expect.equal "nl" (Some Localization.Dutch)
 
-                (patient "?ad=10&la=xx").Language |> Expect.isNone "unknown"
-                (patient "?ad=10").Language |> Expect.isNone "not given"
+                (patient "?agd=10&lan=du").Language |> Expect.isNone "the earlier du"
+
+                (patient "?agd=10&lan=xx").Language |> Expect.isNone "unknown"
+                (patient "?agd=10").Language |> Expect.isNone "not given"
             }
 
-            test "the disclaimer is shown unless dc=n" {
-                (patient "?ad=10").Disclaimer |> Expect.isTrue "not given"
-                (patient "?ad=10&dc=n").Disclaimer |> Expect.isFalse "n"
-                (patient "?ad=10&dc=y").Disclaimer |> Expect.isTrue "y"
+            test "the disclaimer is shown unless dsc=n" {
+                (patient "?agd=10").Disclaimer |> Expect.isTrue "not given"
+                (patient "?agd=10&dsc=n").Disclaimer |> Expect.isFalse "n"
+                (patient "?agd=10&dsc=y").Disclaimer |> Expect.isTrue "y"
             }
 
             test "a medication of one part, and none when no part is given" {
-                let med = (patient "?ad=10&md=paracetamol").Medication |> Option.get
+                let med = (patient "?agd=10&med=paracetamol").Medication |> Option.get
 
                 med.medication |> Expect.equal "the medication" (Some "paracetamol")
                 med.indication |> Expect.isNone "no indication"
@@ -142,18 +149,31 @@ let tests =
                 med.form |> Expect.isNone "no form"
                 med.dosetype |> Expect.isNone "no dose type"
 
-                (patient "?ad=10").Medication |> Expect.isNone "no part given"
+                (patient "?agd=10").Medication |> Expect.isNone "no part given"
             }
 
             test "every part of a medication" {
                 let med =
-                    (patient "?ad=10&in=pijn&md=paracetamol&rt=oraal&fr=tablet&dt=timed").Medication
+                    (patient "?agd=10&ind=pijn&med=paracetamol&rte=oraal&frm=tablet&dst=timed").Medication
                     |> Option.get
 
                 med.indication |> Expect.equal "indication" (Some "pijn")
                 med.route |> Expect.equal "route" (Some "oraal")
                 med.form |> Expect.equal "form" (Some "tablet")
                 med.dosetype |> Expect.equal "dose type" (Some(Timed ""))
+            }
+
+            test "the two-letter keys of the earlier scheme are not read" {
+                let url = patient "?ad=10&wt=3500&pg=pr&la=en&dc=n&md=paracetamol"
+
+                url.Patient |> Expect.isNone "no patient"
+                url.Page |> Expect.isNone "no page"
+                url.Language |> Expect.isNone "no language"
+                url.Disclaimer |> Expect.isTrue "the disclaimer shown"
+                url.Medication |> Expect.isNone "no medication"
+
+                url.NotParsed
+                |> Expect.equal "the names" [ UrlPart.Patient [ "ad"; "dc"; "la"; "md"; "pg"; "wt" ] ]
             }
 
             test "a launch url carries its token and nothing else" {
@@ -189,7 +209,7 @@ let tests =
             }
 
             test "a url that is neither names its first segment" {
-                parse [ "other"; "?ad=10" ]
+                parse [ "other"; "?agd=10" ]
                 |> Expect.equal "the route" { Url.none with NotParsed = [ UrlPart.Route "other" ] }
 
                 parse [ "patient" ]

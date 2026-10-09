@@ -443,10 +443,9 @@ module Localization =
 
     /// <summary>
     /// Parses a language given as an ISO 639-1 code (<c>en</c>, <c>nl</c>, <c>fr</c>, <c>de</c>,
-    /// <c>es</c>, <c>it</c>), a display name (<c>English</c>, <c>Nederlands</c>, ...) or one of
-    /// the client's legacy url codes (<c>du</c>, <c>gr</c>, <c>sp</c>). Case and surrounding
-    /// whitespace do not matter; anything else, including null, is <c>None</c>. One parser for
-    /// the <c>GENPRES_LANG</c> setting and the <c>la</c> url parameter. The sheet header keeps
+    /// <c>es</c>, <c>it</c>). Case and surrounding whitespace do not matter; anything else,
+    /// including a display name and null, is <c>None</c>. One parser for the
+    /// <c>GENPRES_LANG</c> setting and the <c>lan</c> url parameter. The sheet header keeps
     /// <c>tryFromString</c>: display names only.
     /// </summary>
     let tryParse (s: string) : Locales option =
@@ -455,15 +454,12 @@ module Localization =
         else
             match s.Trim().ToLower() with
             | "en" -> Some English
-            | "nl"
-            | "du" -> Some Dutch
+            | "nl" -> Some Dutch
             | "fr" -> Some French
-            | "de"
-            | "gr" -> Some German
-            | "es"
-            | "sp" -> Some Spanish
+            | "de" -> Some German
+            | "es" -> Some Spanish
             | "it" -> Some Italian
-            | s -> tryFromString s
+            | _ -> None
 
 
     /// Parses a `string[][]` from `Csv.parseCSV` into a `TranslationMap`.

@@ -282,7 +282,7 @@ let languageTests =
             }
 
             testList
-                "accepted spellings: ISO code, display name, legacy url code, any case"
+                "accepted spellings: an ISO 639-1 code, any case"
                 [
                     for raw, lang in
                         [
@@ -292,10 +292,6 @@ let languageTests =
                             "de", Shared.Localization.German
                             "es", Shared.Localization.Spanish
                             "it", Shared.Localization.Italian
-                            "du", Shared.Localization.Dutch
-                            "gr", Shared.Localization.German
-                            "sp", Shared.Localization.Spanish
-                            "Nederlands", Shared.Localization.Dutch
                         ] do
                         test $"'{raw}'" {
                             Map [ "GENPRES_LANG", raw ]

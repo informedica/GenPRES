@@ -166,8 +166,8 @@ module Config =
 
     /// <summary>
     /// The UI language from <c>GENPRES_LANG</c>: <c>defaultLanguage</c> when
-    /// unset, the parsed language when the value is one (ISO code, display
-    /// name or legacy url code, any case), otherwise the start-up error naming
+    /// unset, the parsed language when the value is one (an ISO 639-1 code,
+    /// any case), otherwise the start-up error naming
     /// the setting and the value.
     /// </summary>
     let language (settings: Settings) : Result<Shared.Localization.Locales, string> =
@@ -185,8 +185,8 @@ module Config =
                 let fallback = defaultLanguage |> Shared.Localization.toShortCode |> _.ToLower()
 
                 Error
-                    $"GENPRES_LANG=%s{raw} is not a language. Accepted: %s{accepted} \
-                      (or a display name such as Nederlands). Unset it for the default (%s{fallback})."
+                    $"GENPRES_LANG=%s{raw} is not a language. Accepted: %s{accepted}. \
+                      Unset it for the default (%s{fallback})."
 
 
     /// Banner display string for the language: the derived value, or the raw
