@@ -965,7 +965,10 @@ the order of the steps protects the work between pull requests, not patients; it
 10. **One layer: the order context machine.** Decision 6, over the machine steps 2 and 8 left. The
     refusal becomes a case of the workbench, `CallContext` and `CallPatientChanged` become one
     effect over the wire command, `context` and `view` share one match. Tests: the machine tests
-    through `transition` only, every case kept.
+    through `transition` only, every case kept. As built (#1372): the refusal case is held only with nothing out,
+    since a command from it sends over `Evaluated`; the closing arm leaves the state as it is,
+    a reopen's look included; `OrderContextState.landing` goes, unused; the machine went from
+    563 to 443 lines.
 11. **One layer: the order plan machine.** Decision 6, over the machine steps 3, 6 and 8 left.
 12. **The smaller things.** `Dialog.shown` leaves `OrderPlanMachine` for a module of its own in
     `Client.Core`, so the order context machine no longer depends on the plan machine for it.
