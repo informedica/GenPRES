@@ -43,7 +43,7 @@ module SessionGate =
                     Form = None
                 }
 
-        let onRetry = fun _ -> session.Retry()
+        let onRetry = fun _ -> session.RetryLaunch()
         let onContinue = fun _ -> session.OpenAnonymously()
 
         // the form's fields live here until they are sent; a local check runs first, the

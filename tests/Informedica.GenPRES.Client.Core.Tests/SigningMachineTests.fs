@@ -140,12 +140,12 @@ let tests =
 
                 let shown = { plan with Patient = otherData }
 
-                transition (SigningMsg.Accept false) (SigningState.noticed plan changed)
+                transition (SigningMsg.AcceptDataChange false) (SigningState.noticed plan changed)
                 |> Expect.equal
                     "over the reading"
                     (SigningState.requesting shown (Some "d-1") "d-1",
                      [
-                         SigningEffect.SetPatient otherData
+                         SigningEffect.SetNoticedPatient otherData
                          SigningEffect.CallChallenge(shown, Some "d-1", "d-1")
                      ])
 
@@ -155,39 +155,39 @@ let tests =
                         Token = "d-2"
                     }
 
-                transition (SigningMsg.Accept false) (SigningState.noticed plan unverified)
+                transition (SigningMsg.AcceptDataChange false) (SigningState.noticed plan unverified)
                 |> Expect.equal
                     "over the opened data"
                     (SigningState.requesting plan (Some "d-2") "d-2",
                      [ SigningEffect.CallChallenge(plan, Some "d-2", "d-2") ])
 
                 // held: the plan keeps the data its new and changed orders were composed on
-                transition (SigningMsg.Accept true) (SigningState.noticed plan changed)
+                transition (SigningMsg.AcceptDataChange true) (SigningState.noticed plan changed)
                 |> Expect.equal
                     "held: over the plan as it is, no patient set"
                     (SigningState.requesting plan (Some "d-1") "d-1",
                      [ SigningEffect.CallChallenge(plan, Some "d-1", "d-1") ])
 
-                transition (SigningMsg.Accept true) (SigningState.noticed plan unverified)
+                transition (SigningMsg.AcceptDataChange true) (SigningState.noticed plan unverified)
                 |> Expect.equal
                     "held, no reading: over the plan as it is"
                     (SigningState.requesting plan (Some "d-2") "d-2",
                      [ SigningEffect.CallChallenge(plan, Some "d-2", "d-2") ])
 
                 for state in [ SigningState.idle; requesting; challenged; submitting; unsent ] do
-                    transition (SigningMsg.Accept false) state
+                    transition (SigningMsg.AcceptDataChange false) state
                     |> Expect.equal $"{state}" (state, [])
             }
 
             test
                 "Confirm sends the PIN over the challenged plan under the caller's key, once at a time; Cancel drops the challenge but not a request in flight" {
-                transition (SigningMsg.Confirm("1234", "k-1")) challenged
+                transition (SigningMsg.ConfirmPin("1234", "k-1")) challenged
                 |> Expect.equal "sent" (submitting, [ SigningEffect.CallSubmit(plan, "c-1", "1234", "k-1") ])
 
-                transition (SigningMsg.Confirm("1234", "k-2")) submitting
+                transition (SigningMsg.ConfirmPin("1234", "k-2")) submitting
                 |> Expect.equal "not twice" (submitting, [])
 
-                transition (SigningMsg.Confirm("1234", "k-2")) SigningState.idle
+                transition (SigningMsg.ConfirmPin("1234", "k-2")) SigningState.idle
                 |> Expect.equal "nothing to confirm" (SigningState.idle, [])
 
                 for state in
@@ -219,7 +219,7 @@ let tests =
                     "signed"
                     (SigningState.idle,
                      [
-                         SigningEffect.RenewToken(OpenedToken "t2", patient, signed)
+                         SigningEffect.RenewSessionToken(OpenedToken "t2", patient, signed)
                          SigningEffect.TellSigned signed
                      ])
 
@@ -277,7 +277,7 @@ let tests =
                 |> Expect.equal "unsent, told" (unsent, [ SigningEffect.TellError "down" ])
 
                 // the caller mints a fresh key; the machine keeps the one the lost Submission had
-                transition (SigningMsg.Confirm("1234", "k-fresh")) unsent
+                transition (SigningMsg.ConfirmPin("1234", "k-fresh")) unsent
                 |> Expect.equal "same key" (submitting, [ SigningEffect.CallSubmit(plan, "c-1", "1234", "k-1") ])
 
                 // the signature had landed: the remembered answer is what comes back, under that key
@@ -286,7 +286,7 @@ let tests =
                     "signed after all"
                     (SigningState.idle,
                      [
-                         SigningEffect.RenewToken(OpenedToken "t2", patient, signed)
+                         SigningEffect.RenewSessionToken(OpenedToken "t2", patient, signed)
                          SigningEffect.TellSigned signed
                      ])
             }
@@ -301,14 +301,14 @@ let tests =
                 |> List.head
                 |> Expect.equal
                     "the identity with the token"
-                    (SigningEffect.RenewToken(OpenedToken "t2", patient, named))
+                    (SigningEffect.RenewSessionToken(OpenedToken "t2", patient, named))
             }
 
             test "the plan submitted is the plan challenged, whatever the cart did meanwhile (ext 3b, 3c)" {
                 let state, _ = transition (SigningMsg.Sign(plan, [||], "r-1")) SigningState.idle
                 let state, _ = transition (issued "r-1") state
                 // the cart moved on: the machine never sees it
-                let _, effects = transition (SigningMsg.Confirm("1234", "k-1")) state
+                let _, effects = transition (SigningMsg.ConfirmPin("1234", "k-1")) state
 
                 effects
                 |> Expect.equal "the challenged plan" [ SigningEffect.CallSubmit(plan, "c-1", "1234", "k-1") ]
@@ -347,21 +347,21 @@ let viewTests =
                 SigningState.idle |> SigningState.view |> Expect.equal "idle" SigningView.Idle
                 requesting
                 |> SigningState.view
-                |> Expect.equal "requesting" SigningView.Requesting
+                |> Expect.equal "requesting" SigningView.RequestingChallenge
             }
 
             test "noticed and challenged show the plan with the notice or the refusal" {
                 SigningState.noticed plan notice
                 |> SigningState.view
-                |> Expect.equal "noticed" (SigningView.Noticed(plan, notice))
+                |> Expect.equal "noticed" (SigningView.DataChanged(plan, notice))
 
                 challenged
                 |> SigningState.view
-                |> Expect.equal "challenged" (SigningView.Challenged(plan, None))
+                |> Expect.equal "challenged" (SigningView.AskingPin(plan, None))
 
                 SigningState.challenged "c-1" plan (Some(SigningRefusal.PinWrong 2))
                 |> SigningState.view
-                |> Expect.equal "refused" (SigningView.Challenged(plan, Some(SigningRefusal.PinWrong 2)))
+                |> Expect.equal "refused" (SigningView.AskingPin(plan, Some(SigningRefusal.PinWrong 2)))
             }
 
             test "submitting shows the plan without the key; a lost answer shows as challenged again" {
@@ -371,6 +371,6 @@ let viewTests =
 
                 unsent
                 |> SigningState.view
-                |> Expect.equal "unsent" (SigningView.Challenged(plan, None))
+                |> Expect.equal "unsent" (SigningView.AskingPin(plan, None))
             }
         ]

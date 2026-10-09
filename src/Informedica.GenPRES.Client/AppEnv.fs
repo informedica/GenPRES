@@ -136,16 +136,16 @@ type ISession =
     abstract Session: SessionMachine.SessionView
     // explicit close, from an open Session
     abstract Close: unit -> unit
-    // from Unreachable, or a refusal worth retrying
-    abstract Retry: unit -> unit
+    // from ServerUnreachable, or a refusal worth retrying
+    abstract RetryLaunch: unit -> unit
     // a fresh anonymous open that carries nothing over
     abstract OpenAnonymously: unit -> unit
     // the confirmation code and the chosen PIN, from the gate's form
     abstract SupplyPin: string -> string -> unit
     // the newest version the server told of, while the Session is on an older one
-    abstract MovedOn: OrderPlanHead option
+    abstract NewerPlan: OrderPlanHead option
     // take up that version
-    abstract OpenVersion: string -> unit
+    abstract OpenSignedPlan: string -> unit
     // read the patient from the EHR again; the plan and the workbench follow it
     abstract Refresh: unit -> unit
 

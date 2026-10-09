@@ -133,7 +133,9 @@ module SessionMachineTests =
                         effects |> Expect.isEmpty "nothing sent"
                         state |> SessionState.view |> Expect.equal "launching" (SessionView.Launching 1)
 
-                        transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.RedirectTo "https://idp"))) state
+                        transition
+                            (SessionMsg.LaunchOutcome(launchA, keyA, Ok(LaunchOutcome.RedirectTo "https://idp")))
+                            state
                         |> Expect.equal
                             "B presented, A's redirect not followed"
                             (SessionState.launching launchB keyA 1, [ SessionEffect.CallPresentLaunch(launchB, keyA) ])
@@ -151,7 +153,7 @@ module SessionMachineTests =
                             transition (SessionMsg.PresentLaunch(launchA, keyA)) state
                             |> Expect.equal name (waiting, effects)
 
-                        transition SessionMsg.Closed waiting
+                        transition SessionMsg.SessionClosed waiting
                         |> Expect.equal "presented" (launching, [ SessionEffect.CallPresentLaunch(launchA, keyA) ])
                     }
 
@@ -163,10 +165,10 @@ module SessionMachineTests =
                                     "Refused", SessionState.refused LaunchRefusal.NoRole
                                     // the same Launch kept after a refusal, or the server unreachable,
                                     // is presented afresh: only a presentation under way is kept
-                                    "Retryable, the same Launch",
+                                    "LaunchRetryable, the same Launch",
                                     SessionState.retryable LaunchRefusal.NoBrowserIdentity launchA keyA
-                                    "Unreachable", SessionState.unreachable launchB keyB
-                                    "Unreachable, the same Launch", SessionState.unreachable launchA keyA
+                                    "ServerUnreachable", SessionState.unreachable launchB keyB
+                                    "ServerUnreachable, the same Launch", SessionState.unreachable launchA keyA
                                 ] do
                                 test name {
                                     transition (SessionMsg.PresentLaunch(launchA, keyA)) state
@@ -180,14 +182,14 @@ module SessionMachineTests =
 
         let outcomeTests =
             testList
-                "Outcome"
+                "LaunchOutcome"
                 [
                     test "Opened sets the patient through UpdatePatient and keeps the session's key" {
-                        transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened full))) launching
+                        transition (SessionMsg.LaunchOutcome(launchA, keyA, Ok(LaunchOutcome.Opened full))) launching
                         |> Expect.equal
                             "open"
                             (SessionState.opened full None,
-                             [ SessionEffect.SetPatient(Some patient); SessionEffect.KeepKey "thumb" ])
+                             [ SessionEffect.SetPatient(Some patient); SessionEffect.KeepBrowserKey "thumb" ])
                     }
 
                     test "Opened over a record loads its head into the cart, after the patient" {
@@ -210,26 +212,26 @@ module SessionMachineTests =
 
                         let over = { full with Head = Some head }
 
-                        transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened over))) launching
+                        transition (SessionMsg.LaunchOutcome(launchA, keyA, Ok(LaunchOutcome.Opened over))) launching
                         |> Expect.equal
                             "open"
                             (SessionState.opened over None,
                              [
                                  SessionEffect.SetPatient(Some patient)
-                                 SessionEffect.KeepKey "thumb"
-                                 SessionEffect.LoadCart head
+                                 SessionEffect.KeepBrowserKey "thumb"
+                                 SessionEffect.LoadSignedPlan head
                              ])
 
                         // a resume opens the same way
                         transition (SessionMsg.Resumed(Ok(ResumeResult.Found over))) SessionState.resuming
                         |> snd
-                        |> List.contains (SessionEffect.LoadCart head)
+                        |> List.contains (SessionEffect.LoadSignedPlan head)
                         |> Expect.isTrue "loaded at resume"
 
                         // no patient, no cart to load, whatever the head says
                         let bare = { sessionWith None None with Head = Some head }
 
-                        transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened bare))) launching
+                        transition (SessionMsg.LaunchOutcome(launchA, keyA, Ok(LaunchOutcome.Opened bare))) launching
                         |> snd
                         |> Expect.equal "nothing to load" [ SessionEffect.SetPatient None ]
                     }
@@ -237,20 +239,20 @@ module SessionMachineTests =
                     test "Opened without a patient sets None; without a thumbprint prunes nothing" {
                         let bare = sessionWith None None
 
-                        transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened bare))) launching
+                        transition (SessionMsg.LaunchOutcome(launchA, keyA, Ok(LaunchOutcome.Opened bare))) launching
                         |> Expect.equal "open" (SessionState.opened bare None, [ SessionEffect.SetPatient None ])
                     }
 
                     test "RedirectTo goes to the url and stays Launching" {
                         transition
-                            (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.RedirectTo "/authorize?x")))
+                            (SessionMsg.LaunchOutcome(launchA, keyA, Ok(LaunchOutcome.RedirectTo "/authorize?x")))
                             launching
-                        |> Expect.equal "redirect" (launching, [ SessionEffect.GoTo "/authorize?x" ])
+                        |> Expect.equal "redirect" (launching, [ SessionEffect.GoToIdentityProvider "/authorize?x" ])
                     }
 
                     test "Refused NoBrowserIdentity keeps the Launch and key for a retry" {
                         transition
-                            (SessionMsg.Outcome(
+                            (SessionMsg.LaunchOutcome(
                                 launchA,
                                 keyA,
                                 Ok(LaunchOutcome.Refused LaunchRefusal.NoBrowserIdentity)
@@ -275,14 +277,14 @@ module SessionMachineTests =
                                 ] do
                                 test $"{refusal}" {
                                     transition
-                                        (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Refused refusal)))
+                                        (SessionMsg.LaunchOutcome(launchA, keyA, Ok(LaunchOutcome.Refused refusal)))
                                         launching
                                     |> Expect.equal "refused, no retry" (SessionState.refused refusal, [])
                                 }
                         ]
 
                     test "a transport error retries with the same Launch and key, attempts 1 -> 2 -> 3" {
-                        let err = SessionMsg.Outcome(launchA, keyA, Error "down")
+                        let err = SessionMsg.LaunchOutcome(launchA, keyA, Error "down")
 
                         transition err (SessionState.launching launchA keyA 1)
                         |> Expect.equal
@@ -295,15 +297,15 @@ module SessionMachineTests =
                             (SessionState.launching launchA keyA 3, [ SessionEffect.CallPresentLaunch(launchA, keyA) ])
                     }
 
-                    test "a transport error on the third attempt is Unreachable" {
+                    test "a transport error on the third attempt is ServerUnreachable" {
                         transition
-                            (SessionMsg.Outcome(launchA, keyA, Error "down"))
+                            (SessionMsg.LaunchOutcome(launchA, keyA, Error "down"))
                             (SessionState.launching launchA keyA 3)
                         |> Expect.equal "unreachable" (SessionState.unreachable launchA keyA, [])
                     }
 
-                    test "three errors in a row from Anonymous end Unreachable after three calls" {
-                        let err = SessionMsg.Outcome(launchA, keyA, Error "down")
+                    test "three errors in a row from Anonymous end ServerUnreachable after three calls" {
+                        let err = SessionMsg.LaunchOutcome(launchA, keyA, Error "down")
 
                         let state, effects =
                             run SessionState.anonymous [ SessionMsg.PresentLaunch(launchA, keyA); err; err; err ]
@@ -324,12 +326,16 @@ module SessionMachineTests =
                         "the stale-request guard"
                         [
                             test "an outcome for another Launch is dropped" {
-                                transition (SessionMsg.Outcome(launchB, keyA, Ok(LaunchOutcome.Opened full))) launching
+                                transition
+                                    (SessionMsg.LaunchOutcome(launchB, keyA, Ok(LaunchOutcome.Opened full)))
+                                    launching
                                 |> Expect.equal "unchanged" (launching, [])
                             }
 
                             test "an outcome for another key is dropped" {
-                                transition (SessionMsg.Outcome(launchA, keyB, Ok(LaunchOutcome.Opened full))) launching
+                                transition
+                                    (SessionMsg.LaunchOutcome(launchA, keyB, Ok(LaunchOutcome.Opened full)))
+                                    launching
                                 |> Expect.equal "unchanged" (launching, [])
                             }
 
@@ -340,7 +346,7 @@ module SessionMachineTests =
                                         [
                                             SessionMsg.PresentLaunch(launchA, keyA)
                                             SessionMsg.PresentLaunch(launchB, keyA)
-                                            SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened full))
+                                            SessionMsg.LaunchOutcome(launchA, keyA, Ok(LaunchOutcome.Opened full))
                                         ]
 
                                 state
@@ -367,14 +373,14 @@ module SessionMachineTests =
                                             "Resuming", SessionState.resuming
                                             "Refused", SessionState.refused LaunchRefusal.NoRole
                                             // the Launch is kept, but nothing is under way to answer
-                                            "Retryable",
+                                            "LaunchRetryable",
                                             SessionState.retryable LaunchRefusal.NoBrowserIdentity launchA keyA
-                                            "Unreachable", SessionState.unreachable launchA keyA
+                                            "ServerUnreachable", SessionState.unreachable launchA keyA
                                             "Closing", SessionState.closing full
                                         ] do
                                         test name {
                                             transition
-                                                (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened full)))
+                                                (SessionMsg.LaunchOutcome(launchA, keyA, Ok(LaunchOutcome.Opened full)))
                                                 state
                                             |> Expect.equal "unchanged" (state, [])
                                         }
@@ -385,16 +391,16 @@ module SessionMachineTests =
 
         let retryTests =
             testList
-                "Retry"
+                "RetryLaunch"
                 [
-                    test "from Unreachable presents the same Launch and key again, attempt 1" {
-                        transition SessionMsg.Retry (SessionState.unreachable launchA keyA)
+                    test "from ServerUnreachable presents the same Launch and key again, attempt 1" {
+                        transition SessionMsg.RetryLaunch (SessionState.unreachable launchA keyA)
                         |> Expect.equal "launching" (launching, [ SessionEffect.CallPresentLaunch(launchA, keyA) ])
                     }
 
                     test "from Refused with a retry presents the same Launch and key again" {
                         transition
-                            SessionMsg.Retry
+                            SessionMsg.RetryLaunch
                             (SessionState.retryable LaunchRefusal.NoBrowserIdentity launchA keyA)
                         |> Expect.equal "launching" (launching, [ SessionEffect.CallPresentLaunch(launchA, keyA) ])
                     }
@@ -410,7 +416,9 @@ module SessionMachineTests =
                                     "Open", SessionState.opened full None
                                     "Refused without retry", SessionState.refused LaunchRefusal.NoRole
                                 ] do
-                                test name { transition SessionMsg.Retry state |> Expect.equal "unchanged" (state, []) }
+                                test name {
+                                    transition SessionMsg.RetryLaunch state |> Expect.equal "unchanged" (state, [])
+                                }
                         ]
                 ]
 
@@ -421,7 +429,7 @@ module SessionMachineTests =
                 [
                     test "Resume from Anonymous asks for the session" {
                         transition SessionMsg.Resume SessionState.anonymous
-                        |> Expect.equal "resuming" (SessionState.resuming, [ SessionEffect.CallGetSession ])
+                        |> Expect.equal "resuming" (SessionState.resuming, [ SessionEffect.CallResume ])
                     }
 
                     test "Resume from any other state is a no-op" {
@@ -465,7 +473,7 @@ module SessionMachineTests =
                     test "from Ended the anonymous open carries nothing over, and a new launch presents" {
                         let ended = SessionState.ended SessionEnding.SupersededByLaunch
 
-                        transition SessionMsg.OpenAnonymous ended
+                        transition SessionMsg.ContinueAnonymous ended
                         |> Expect.equal "anonymous" (SessionState.anonymous, [ SessionEffect.SetPatient None ])
 
                         transition (SessionMsg.PresentLaunch(launchB, keyB)) ended
@@ -479,17 +487,17 @@ module SessionMachineTests =
                                 SessionState.retryable LaunchRefusal.NoBrowserIdentity launchA keyA
                                 SessionState.unreachable launchA keyA
                             ] do
-                            transition SessionMsg.OpenAnonymous state
+                            transition SessionMsg.ContinueAnonymous state
                             |> Expect.equal "anonymous" (SessionState.anonymous, [ SessionEffect.SetPatient None ])
 
                         for state in [ SessionState.anonymous; launching; SessionState.opened full None ] do
-                            transition SessionMsg.OpenAnonymous state
+                            transition SessionMsg.ContinueAnonymous state
                             |> Expect.equal "unchanged" (state, [])
                     }
 
                     test "a refusal at the callback keeps nothing, whatever was under way" {
                         for state in [ SessionState.anonymous; launching; SessionState.opened full None ] do
-                            transition (SessionMsg.RefusedAtCallback LaunchRefusal.LaunchSpent) state
+                            transition (SessionMsg.LaunchRefused LaunchRefusal.LaunchSpent) state
                             |> Expect.equal "refused, no retry" (SessionState.refused LaunchRefusal.LaunchSpent, [])
                     }
 
@@ -566,8 +574,8 @@ module SessionMachineTests =
             testList
                 "close, the endings, the token"
                 [
-                    test "Close from Open asks the server and is Closing until Closed" {
-                        transition SessionMsg.Close (SessionState.opened full None)
+                    test "CloseSession from Open asks the server and is Closing until SessionClosed" {
+                        transition SessionMsg.CloseSession (SessionState.opened full None)
                         |> Expect.equal "closing" (SessionState.closing full, [ SessionEffect.CallCloseSession ])
                     }
 
@@ -579,11 +587,11 @@ module SessionMachineTests =
                                 SessionState.refused LaunchRefusal.NoRole
                                 SessionState.closing full
                             ] do
-                            transition SessionMsg.Close state |> Expect.equal "unchanged" (state, [])
+                            transition SessionMsg.CloseSession state |> Expect.equal "unchanged" (state, [])
                     }
 
-                    test "Closed from Closing is Anonymous and clears the patient" {
-                        transition SessionMsg.Closed (SessionState.closing full)
+                    test "SessionClosed from Closing is Anonymous and clears the patient" {
+                        transition SessionMsg.SessionClosed (SessionState.closing full)
                         |> Expect.equal "anonymous" (SessionState.anonymous, [ SessionEffect.SetPatient None ])
                     }
 
@@ -604,7 +612,7 @@ module SessionMachineTests =
                             |> Expect.equal "unchanged" (state, [])
                     }
 
-                    test "Closed outside Closing is dropped" {
+                    test "SessionClosed outside Closing is dropped" {
                         for state in
                             [
                                 SessionState.opened full None
@@ -612,7 +620,8 @@ module SessionMachineTests =
                                 launching
                                 SessionState.resuming
                             ] do
-                            transition SessionMsg.Closed state |> Expect.equal "unchanged" (state, [])
+                            transition SessionMsg.SessionClosed state
+                            |> Expect.equal "unchanged" (state, [])
                     }
 
                     test "a launch during a close is presented once the close has answered" {
@@ -622,11 +631,11 @@ module SessionMachineTests =
                             run
                                 (SessionState.opened full None)
                                 [
-                                    SessionMsg.Close
+                                    SessionMsg.CloseSession
                                     // the launch waits: the close deletes the cookie the launch sets
                                     SessionMsg.PresentLaunch(launchB, keyB)
-                                    SessionMsg.Closed
-                                    SessionMsg.Outcome(launchB, keyB, Ok(LaunchOutcome.Opened newer))
+                                    SessionMsg.SessionClosed
+                                    SessionMsg.LaunchOutcome(launchB, keyB, Ok(LaunchOutcome.Opened newer))
                                 ]
 
                         state |> Expect.equal "the newer session open" (SessionState.opened newer None)
@@ -638,13 +647,13 @@ module SessionMachineTests =
                                 SessionEffect.CallCloseSession
                                 SessionEffect.CallPresentLaunch(launchB, keyB)
                                 SessionEffect.SetPatient(Some patient)
-                                SessionEffect.KeepKey "thumb-2"
+                                SessionEffect.KeepBrowserKey "thumb-2"
                             ]
                     }
 
-                    test "EndedByServer from Open is Ended and acknowledges it with a close; elsewhere dropped" {
+                    test "SignatureEndedSession from Open is Ended and acknowledges it with a close; elsewhere dropped" {
                         transition
-                            (SessionMsg.EndedByServer SessionEnding.WrongPinLimit)
+                            (SessionMsg.SignatureEndedSession SessionEnding.WrongPinLimit)
                             (SessionState.opened full None)
                         |> Expect.equal
                             "ended"
@@ -657,14 +666,14 @@ module SessionMachineTests =
                                 SessionState.resuming
                                 launching
                             ] do
-                            transition (SessionMsg.EndedByServer SessionEnding.WrongPinLimit) state
+                            transition (SessionMsg.SignatureEndedSession SessionEnding.WrongPinLimit) state
                             |> Expect.equal $"{state}" (state, [])
                     }
 
                     test
-                        "TokenRenewed from Open replaces the token, takes the version signed as the head and the patient and the identity, to the panel as at a resume; elsewhere dropped" {
+                        "SignatureRenewedToken from Open replaces the token, takes the version signed as the head and the patient and the identity, to the panel as at a resume; elsewhere dropped" {
                         transition
-                            (SessionMsg.TokenRenewed(OpenedToken "t2", aged, signedVersion))
+                            (SessionMsg.SignatureRenewedToken(OpenedToken "t2", aged, signedVersion))
                             (SessionState.opened full None)
                         |> Expect.equal
                             "renewed"
@@ -680,7 +689,7 @@ module SessionMachineTests =
                         let none = sessionWith (Some "thumb") None
 
                         transition
-                            (SessionMsg.TokenRenewed(OpenedToken "t2", aged, signedVersion))
+                            (SessionMsg.SignatureRenewedToken(OpenedToken "t2", aged, signedVersion))
                             (SessionState.opened none None)
                         |> Expect.equal
                             "the token only"
@@ -693,7 +702,7 @@ module SessionMachineTests =
                              [ SessionEffect.SetPatient(Some aged) ])
 
                         for state in [ SessionState.anonymous; SessionState.closing full; launching ] do
-                            transition (SessionMsg.TokenRenewed(OpenedToken "t2", aged, signedVersion)) state
+                            transition (SessionMsg.SignatureRenewedToken(OpenedToken "t2", aged, signedVersion)) state
                             |> Expect.equal $"{state}" (state, [])
                     }
 
@@ -703,9 +712,9 @@ module SessionMachineTests =
                                 SessionState.anonymous
                                 [
                                     SessionMsg.PresentLaunch(launchA, keyA)
-                                    SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened full))
-                                    SessionMsg.Close
-                                    SessionMsg.Closed
+                                    SessionMsg.LaunchOutcome(launchA, keyA, Ok(LaunchOutcome.Opened full))
+                                    SessionMsg.CloseSession
+                                    SessionMsg.SessionClosed
                                 ]
 
                         state |> Expect.equal "anonymous again" SessionState.anonymous
@@ -716,7 +725,7 @@ module SessionMachineTests =
                             [
                                 SessionEffect.CallPresentLaunch(launchA, keyA)
                                 SessionEffect.SetPatient(Some patient)
-                                SessionEffect.KeepKey "thumb"
+                                SessionEffect.KeepBrowserKey "thumb"
                                 SessionEffect.CallCloseSession
                                 SessionEffect.SetPatient None
                             ]
@@ -749,35 +758,38 @@ module SessionMachineTests =
                 }
 
             testList
-                "OpenVersion"
+                "OpenSignedPlan"
                 [
-                    test "OpenVersion from Open calls the server with the token it starts from; elsewhere dropped" {
+                    test "OpenSignedPlan from Open calls the server with the token it starts from; elsewhere dropped" {
                         let opening, effects =
-                            transition (SessionMsg.OpenVersion "plan-2") (SessionState.opened full None)
+                            transition (SessionMsg.OpenSignedPlan "plan-2") (SessionState.opened full None)
 
                         effects
-                        |> Expect.equal "call" [ SessionEffect.CallOpenVersion("plan-2", full.OpenedToken) ]
+                        |> Expect.equal "call" [ SessionEffect.CallOpenSignedPlan("plan-2", full.OpenedToken) ]
 
                         opening
                         |> SessionState.reopening
-                        |> Expect.equal "the open is out" (Some(SessionReopening.Open "plan-2"))
+                        |> Expect.equal "the open is out" (Some(SessionReopening.OpenSignedPlan "plan-2"))
 
                         for state in [ SessionState.anonymous; SessionState.closing full ] do
-                            transition (SessionMsg.OpenVersion "plan-2") state
+                            transition (SessionMsg.OpenSignedPlan "plan-2") state
                             |> Expect.equal "dropped" (state, [])
                     }
 
-                    test "Reopened with the Session replaces it, loads the version into the cart and tells it" {
+                    test "SignedPlanOpened with the Session replaces it, loads the version into the cart and tells it" {
                         transition
-                            (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened)))
+                            (SessionMsg.SignedPlanOpened(full.OpenedToken, Ok(Some reopened)))
                             (SessionState.opened full None)
                         |> Expect.equal
                             "reopened"
                             (SessionState.opened reopened None,
-                             [ SessionEffect.LoadCart head; SessionEffect.TellVersionOpened head.Head ])
+                             [
+                                 SessionEffect.LoadSignedPlan head
+                                 SessionEffect.TellSignedPlanOpened head.Head
+                             ])
                     }
 
-                    test "MovedOn.receive: news once per version, ordered by No, not by arrival (Rules 20 to 22)" {
+                    test "NewerPlan.receive: news once per version, ordered by No, not by arrival (Rules 20 to 22)" {
                         let first = head.Head
 
                         let second =
@@ -786,20 +798,20 @@ module SessionMachineTests =
                                 No = 3
                             }
 
-                        MovedOn.receive None first |> Expect.equal "first: news" (Some first, true)
+                        NewerPlan.receive None first |> Expect.equal "first: news" (Some first, true)
 
-                        MovedOn.receive (Some first) first
+                        NewerPlan.receive (Some first) first
                         |> Expect.equal "again: not news" (Some first, false)
 
-                        MovedOn.receive (Some first) second
+                        NewerPlan.receive (Some first) second
                         |> Expect.equal "newer: news" (Some second, true)
 
                         // replies land out of order: an older version told last is not news and is not kept
-                        MovedOn.receive (Some second) first
+                        NewerPlan.receive (Some second) first
                         |> Expect.equal "older: nothing" (Some second, false)
                     }
 
-                    test "MovedOn.opened: the notice is spent by a version at least as new, a newer notice stays" {
+                    test "NewerPlan.opened: the notice is spent by a version at least as new, a newer notice stays" {
                         let two = head.Head
 
                         let three =
@@ -808,38 +820,41 @@ module SessionMachineTests =
                                 No = 3
                             }
 
-                        MovedOn.opened (Some two) two |> Expect.isNone "the version told is open"
-                        MovedOn.opened (Some two) three |> Expect.isNone "a newer one is open"
-                        MovedOn.opened None two |> Expect.isNone "nothing kept"
+                        NewerPlan.opened (Some two) two |> Expect.isNone "the version told is open"
+                        NewerPlan.opened (Some two) three |> Expect.isNone "a newer one is open"
+                        NewerPlan.opened None two |> Expect.isNone "nothing kept"
 
-                        MovedOn.opened (Some three) two
+                        NewerPlan.opened (Some three) two
                         |> Expect.equal "version 3 told while 2 was opening: the offer stays" (Some three)
                     }
 
-                    test "Reopened with nothing to open, or a transport failure, leaves the Session as it was" {
-                        transition (SessionMsg.Reopened(full.OpenedToken, Ok None)) (SessionState.opened full None)
+                    test "SignedPlanOpened with nothing to open, or a transport failure, leaves the Session as it was" {
+                        transition
+                            (SessionMsg.SignedPlanOpened(full.OpenedToken, Ok None))
+                            (SessionState.opened full None)
                         |> Expect.equal "nothing to open" (SessionState.opened full None, [])
 
                         transition
-                            (SessionMsg.Reopened(full.OpenedToken, Error "offline"))
+                            (SessionMsg.SignedPlanOpened(full.OpenedToken, Error "offline"))
                             (SessionState.opened full None)
                         |> Expect.equal "failed" (SessionState.opened full None, [])
                     }
 
                     test "Refresh from Open calls the server with the token it starts from; elsewhere dropped" {
-                        let refreshing, effects = transition SessionMsg.Refresh (SessionState.opened full None)
+                        let refreshing, effects = transition SessionMsg.RefreshPatient (SessionState.opened full None)
 
-                        effects |> Expect.equal "call" [ SessionEffect.CallRefresh full.OpenedToken ]
+                        effects
+                        |> Expect.equal "call" [ SessionEffect.CallRefreshPatient full.OpenedToken ]
 
                         refreshing
                         |> SessionState.reopening
-                        |> Expect.equal "the refresh is out" (Some SessionReopening.Refresh)
+                        |> Expect.equal "the refresh is out" (Some SessionReopening.RefreshPatient)
 
                         for state in [ SessionState.anonymous; SessionState.closing full ] do
-                            transition SessionMsg.Refresh state |> Expect.equal "dropped" (state, [])
+                            transition SessionMsg.RefreshPatient state |> Expect.equal "dropped" (state, [])
                     }
 
-                    test "Refreshed sets the patient read again and nothing else, with a head or without" {
+                    test "PatientRefreshed sets the patient read again and nothing else, with a head or without" {
                         let refreshed =
                             { reopened with
                                 PatientContext =
@@ -847,7 +862,7 @@ module SessionMachineTests =
                             }
 
                         transition
-                            (SessionMsg.Refreshed(full.OpenedToken, Ok(Some refreshed)))
+                            (SessionMsg.PatientRefreshed(full.OpenedToken, Ok(Some refreshed)))
                             (SessionState.opened full None)
                         |> Expect.equal
                             "the patient alone"
@@ -856,7 +871,7 @@ module SessionMachineTests =
                         let noHead = { refreshed with Head = None }
 
                         transition
-                            (SessionMsg.Refreshed(full.OpenedToken, Ok(Some noHead)))
+                            (SessionMsg.PatientRefreshed(full.OpenedToken, Ok(Some noHead)))
                             (SessionState.opened full None)
                         |> Expect.equal
                             "the patient alone"
@@ -864,39 +879,43 @@ module SessionMachineTests =
                     }
 
                     test
-                        "Refreshed with nothing or a failure leaves the Session as it was and says so; a stale token says nothing" {
+                        "PatientRefreshed with nothing or a failure leaves the Session as it was and says so; a stale token says nothing" {
                         for answer in [ Ok None; Error "offline" ] do
-                            transition (SessionMsg.Refreshed(full.OpenedToken, answer)) (SessionState.opened full None)
+                            transition
+                                (SessionMsg.PatientRefreshed(full.OpenedToken, answer))
+                                (SessionState.opened full None)
                             |> Expect.equal
                                 $"%A{answer}"
-                                (SessionState.opened full None, [ SessionEffect.TellRefreshFailed ])
+                                (SessionState.opened full None, [ SessionEffect.TellPatientRefreshFailed ])
 
                         let newer = { full with OpenedToken = Some(OpenedToken "t-newer") }
 
                         transition
-                            (SessionMsg.Refreshed(full.OpenedToken, Ok(Some reopened)))
+                            (SessionMsg.PatientRefreshed(full.OpenedToken, Ok(Some reopened)))
                             (SessionState.opened newer None)
                         |> Expect.equal "stale: dropped" (SessionState.opened newer None, [])
                     }
 
-                    test "A second Refresh or OpenVersion while one is out is dropped" {
-                        for first in [ SessionMsg.Refresh; SessionMsg.OpenVersion "plan-2" ] do
+                    test "A second RefreshPatient or OpenSignedPlan while one is out is dropped" {
+                        for first in [ SessionMsg.RefreshPatient; SessionMsg.OpenSignedPlan "plan-2" ] do
                             let out, _ = transition first (SessionState.opened full None)
 
-                            for second in [ SessionMsg.Refresh; SessionMsg.OpenVersion "plan-3" ] do
+                            for second in [ SessionMsg.RefreshPatient; SessionMsg.OpenSignedPlan "plan-3" ] do
                                 transition second out |> Expect.equal $"%A{first}, then %A{second}" (out, [])
                     }
 
                     test "A refresh out leaves the token to the requests meanwhile, and a notice keeps it out" {
-                        let refreshing, _ = transition SessionMsg.Refresh (SessionState.opened full None)
+                        let refreshing, _ = transition SessionMsg.RefreshPatient (SessionState.opened full None)
 
                         refreshing |> SessionState.token |> Expect.equal "the token" full.OpenedToken
                         refreshing |> SessionState.inFlight |> Expect.isFalse "no other request"
 
-                        transition (SessionMsg.Told(full.OpenedToken, RecordNotice.NewerVersion head.Head)) refreshing
+                        transition
+                            (SessionMsg.NoticeReceived(full.OpenedToken, RecordNotice.NewerVersion head.Head))
+                            refreshing
                         |> fst
                         |> SessionState.reopening
-                        |> Expect.equal "still out" (Some SessionReopening.Refresh)
+                        |> Expect.equal "still out" (Some SessionReopening.RefreshPatient)
                     }
 
                     test "Every answer ends the refresh or the open: done, nothing, a failure or a stale token" {
@@ -904,18 +923,26 @@ module SessionMachineTests =
 
                         let cases =
                             [
-                                SessionMsg.Refresh, SessionMsg.Refreshed(full.OpenedToken, Ok(Some reopened)), full
-                                SessionMsg.Refresh, SessionMsg.Refreshed(full.OpenedToken, Ok None), full
-                                SessionMsg.Refresh, SessionMsg.Refreshed(full.OpenedToken, Error "offline"), full
-                                SessionMsg.Refresh, SessionMsg.Refreshed(full.OpenedToken, Ok None), newer
-                                SessionMsg.OpenVersion "plan-2",
-                                SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened)),
+                                SessionMsg.RefreshPatient,
+                                SessionMsg.PatientRefreshed(full.OpenedToken, Ok(Some reopened)),
                                 full
-                                SessionMsg.OpenVersion "plan-2", SessionMsg.Reopened(full.OpenedToken, Ok None), full
-                                SessionMsg.OpenVersion "plan-2",
-                                SessionMsg.Reopened(full.OpenedToken, Error "offline"),
+                                SessionMsg.RefreshPatient, SessionMsg.PatientRefreshed(full.OpenedToken, Ok None), full
+                                SessionMsg.RefreshPatient,
+                                SessionMsg.PatientRefreshed(full.OpenedToken, Error "offline"),
                                 full
-                                SessionMsg.OpenVersion "plan-2", SessionMsg.Reopened(full.OpenedToken, Ok None), newer
+                                SessionMsg.RefreshPatient, SessionMsg.PatientRefreshed(full.OpenedToken, Ok None), newer
+                                SessionMsg.OpenSignedPlan "plan-2",
+                                SessionMsg.SignedPlanOpened(full.OpenedToken, Ok(Some reopened)),
+                                full
+                                SessionMsg.OpenSignedPlan "plan-2",
+                                SessionMsg.SignedPlanOpened(full.OpenedToken, Ok None),
+                                full
+                                SessionMsg.OpenSignedPlan "plan-2",
+                                SessionMsg.SignedPlanOpened(full.OpenedToken, Error "offline"),
+                                full
+                                SessionMsg.OpenSignedPlan "plan-2",
+                                SessionMsg.SignedPlanOpened(full.OpenedToken, Ok None),
+                                newer
                             ]
 
                         for ask, answer, session in cases do
@@ -927,20 +954,22 @@ module SessionMachineTests =
                             |> Expect.isNone $"%A{answer} on %A{session.OpenedToken}"
                     }
 
-                    test "Reopened lands only on the open Session that still holds the token it started from" {
-                        transition (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened))) SessionState.anonymous
+                    test "SignedPlanOpened lands only on the open Session that still holds the token it started from" {
+                        transition
+                            (SessionMsg.SignedPlanOpened(full.OpenedToken, Ok(Some reopened)))
+                            SessionState.anonymous
                         |> Expect.equal "not open: dropped" (SessionState.anonymous, [])
 
                         transition
-                            (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened)))
+                            (SessionMsg.SignedPlanOpened(full.OpenedToken, Ok(Some reopened)))
                             (SessionState.closing full)
                         |> Expect.equal "closing: dropped" (SessionState.closing full, [])
 
-                        // a relaunch or an earlier OpenVersion changed the token meanwhile
+                        // a relaunch or an earlier OpenSignedPlan changed the token meanwhile
                         let newer = { full with OpenedToken = Some(OpenedToken "t-newer") }
 
                         transition
-                            (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened)))
+                            (SessionMsg.SignedPlanOpened(full.OpenedToken, Ok(Some reopened)))
                             (SessionState.opened newer None)
                         |> Expect.equal "stale: dropped" (SessionState.opened newer None, [])
 
@@ -948,10 +977,10 @@ module SessionMachineTests =
                         // token and is dropped, so the User sees the version the first one opened
                         let afterFirst, _ =
                             transition
-                                (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened)))
+                                (SessionMsg.SignedPlanOpened(full.OpenedToken, Ok(Some reopened)))
                                 (SessionState.opened full None)
 
-                        transition (SessionMsg.Reopened(full.OpenedToken, Ok(Some full))) afterFirst
+                        transition (SessionMsg.SignedPlanOpened(full.OpenedToken, Ok(Some full))) afterFirst
                         |> Expect.equal "second dropped" (SessionState.opened reopened None, [])
                     }
                 ]
@@ -979,7 +1008,7 @@ module SessionMachineTests =
                         state |> SessionState.view |> Expect.equal "anonymous" SessionView.Anonymous
                         state |> SessionState.token |> Expect.isNone "no token"
 
-                        transition SessionMsg.Closed state
+                        transition SessionMsg.SessionClosed state
                         |> Expect.equal "closed, no patient cleared" (SessionState.anonymous, [])
 
                         transition (SessionMsg.CloseFailed "down") state
@@ -991,7 +1020,7 @@ module SessionMachineTests =
 
                         (state, effects) |> Expect.equal "leaving, no second close" (away, [])
 
-                        transition SessionMsg.Closed state
+                        transition SessionMsg.SessionClosed state
                         |> Expect.equal "no patient cleared" (SessionState.anonymous, [])
                     }
 
@@ -1008,8 +1037,9 @@ module SessionMachineTests =
                     test "a refresh or an open out is closed, and its answer is dropped" {
                         for ask, answer in
                             [
-                                SessionMsg.Refresh, SessionMsg.Refreshed(full.OpenedToken, Ok(Some full))
-                                SessionMsg.OpenVersion "plan-5", SessionMsg.Reopened(full.OpenedToken, Ok(Some full))
+                                SessionMsg.RefreshPatient, SessionMsg.PatientRefreshed(full.OpenedToken, Ok(Some full))
+                                SessionMsg.OpenSignedPlan "plan-5",
+                                SessionMsg.SignedPlanOpened(full.OpenedToken, Ok(Some full))
                             ] do
                             let state, effects = run (SessionState.opened full None) [ ask; SessionMsg.UrlMovedOn ]
 
@@ -1037,7 +1067,7 @@ module SessionMachineTests =
                         |> Expect.equal "anonymous, no gate" SessionView.Anonymous
                         state |> SessionState.inFlight |> Expect.isTrue "the launch still out"
 
-                        transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened full))) state
+                        transition (SessionMsg.LaunchOutcome(launchA, keyA, Ok(LaunchOutcome.Opened full))) state
                         |> Expect.equal "closed at once" (away, [ SessionEffect.CallCloseSession ])
                     }
 
@@ -1051,7 +1081,7 @@ module SessionMachineTests =
                                 Ok(LaunchOutcome.Refused LaunchRefusal.NoBrowserIdentity)
                                 Error "down"
                             ] do
-                            transition (SessionMsg.Outcome(launchA, keyA, result)) state
+                            transition (SessionMsg.LaunchOutcome(launchA, keyA, result)) state
                             |> Expect.equal "anonymous" (SessionState.anonymous, [])
                     }
 
@@ -1089,7 +1119,7 @@ module SessionMachineTests =
                         |> SessionState.view
                         |> Expect.equal "launching, gated" (SessionView.Launching 1)
 
-                        transition SessionMsg.Closed state |> Expect.equal "presented" presentB
+                        transition SessionMsg.SessionClosed state |> Expect.equal "presented" presentB
                         transition (SessionMsg.CloseFailed "down") state
                         |> Expect.equal "presented" presentB
                     }
@@ -1100,15 +1130,15 @@ module SessionMachineTests =
                         state |> SessionState.view |> Expect.equal "launching" (SessionView.Launching 1)
 
                         let closing, effects =
-                            transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened full))) state
+                            transition (SessionMsg.LaunchOutcome(launchA, keyA, Ok(LaunchOutcome.Opened full))) state
 
                         (closing, effects)
                         |> Expect.equal "the old Session closed" (awayToB, [ SessionEffect.CallCloseSession ])
 
-                        transition SessionMsg.Closed closing |> Expect.equal "presented" presentB
+                        transition SessionMsg.SessionClosed closing |> Expect.equal "presented" presentB
 
                         transition
-                            (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Refused LaunchRefusal.NoRole)))
+                            (SessionMsg.LaunchOutcome(launchA, keyA, Ok(LaunchOutcome.Refused LaunchRefusal.NoRole)))
                             state
                         |> Expect.equal "refused: presented at once" presentB
                     }
@@ -1129,7 +1159,7 @@ module SessionMachineTests =
 
                         effects |> Expect.isEmpty "not presented over the launch out"
 
-                        transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened full))) state
+                        transition (SessionMsg.LaunchOutcome(launchA, keyA, Ok(LaunchOutcome.Opened full))) state
                         |> Expect.equal "the old Session closed" (awayToB, [ SessionEffect.CallCloseSession ])
                     }
 
@@ -1156,15 +1186,15 @@ module SessionMachineTests =
                         (state, effects)
                         |> Expect.equal "presenting A as before, the close not sent" (launching, [])
 
-                        transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened full))) state
+                        transition (SessionMsg.LaunchOutcome(launchA, keyA, Ok(LaunchOutcome.Opened full))) state
                         |> Expect.equal
                             "open"
                             (SessionState.opened full None,
-                             [ SessionEffect.SetPatient(Some patient); SessionEffect.KeepKey "thumb" ])
+                             [ SessionEffect.SetPatient(Some patient); SessionEffect.KeepBrowserKey "thumb" ])
                     }
 
                     test "an answer to no request is dropped" {
-                        transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened full))) away
+                        transition (SessionMsg.LaunchOutcome(launchA, keyA, Ok(LaunchOutcome.Opened full))) away
                         |> Expect.equal "dropped" (away, [])
 
                         transition (SessionMsg.PinAnswered(Ok(PinOutcome.Opened full))) away
@@ -1239,19 +1269,19 @@ module SessionMachineTests =
                 test "a refusal is retryable when the Launch is kept; the server unreachable carries no count" {
                     SessionState.retryable LaunchRefusal.NoBrowserIdentity launchA keyA
                     |> SessionState.view
-                    |> Expect.equal "retryable" (SessionView.Retryable LaunchRefusal.NoBrowserIdentity)
+                    |> Expect.equal "retryable" (SessionView.LaunchRetryable LaunchRefusal.NoBrowserIdentity)
 
                     SessionState.refused LaunchRefusal.NoBrowserIdentity
                     |> SessionState.view
-                    |> Expect.equal "refused" (SessionView.Refused LaunchRefusal.NoBrowserIdentity)
+                    |> Expect.equal "refused" (SessionView.LaunchRefused LaunchRefusal.NoBrowserIdentity)
 
                     SessionState.refused LaunchRefusal.NoRole
                     |> SessionState.view
-                    |> Expect.equal "no role" (SessionView.Refused LaunchRefusal.NoRole)
+                    |> Expect.equal "no role" (SessionView.LaunchRefused LaunchRefusal.NoRole)
 
                     SessionState.unreachable launchA keyA
                     |> SessionState.view
-                    |> Expect.equal "unreachable" SessionView.Unreachable
+                    |> Expect.equal "unreachable" SessionView.ServerUnreachable
                 }
 
                 test "the endings and the enrolment keep what the gate shows" {
@@ -1275,7 +1305,7 @@ module SessionMachineTests =
 
 
     [<Tests>]
-    let movedOnTests =
+    let newerPlanTests =
         let headNo (no: int) : OrderPlanHead =
             {
                 Id = $"plan-{no}"
@@ -1287,7 +1317,7 @@ module SessionMachineTests =
         let two = headNo 2
         let three = headNo 3
         let told head =
-            SessionMsg.Told(full.OpenedToken, RecordNotice.NewerVersion head)
+            SessionMsg.NoticeReceived(full.OpenedToken, RecordNotice.NewerVersion head)
         let transition = SessionState.transition
 
         testList
@@ -1299,7 +1329,7 @@ module SessionMachineTests =
                     transition (told two) opened
                     |> Expect.equal
                         "news: kept and told"
-                        (SessionState.opened full (Some two), [ SessionEffect.TellMovedOn two ])
+                        (SessionState.opened full (Some two), [ SessionEffect.TellNewerSignedPlan two ])
 
                     transition (told two) (SessionState.opened full (Some two))
                     |> Expect.equal "the same version again: kept, not told" (SessionState.opened full (Some two), [])
@@ -1307,19 +1337,19 @@ module SessionMachineTests =
                     transition (told three) (SessionState.opened full (Some two))
                     |> Expect.equal
                         "a newer one: kept and told"
-                        (SessionState.opened full (Some three), [ SessionEffect.TellMovedOn three ])
+                        (SessionState.opened full (Some three), [ SessionEffect.TellNewerSignedPlan three ])
 
                     // replies land out of order: an older version told last is not news and is not kept
                     transition (told two) (SessionState.opened full (Some three))
                     |> Expect.equal "an older one: nothing" (SessionState.opened full (Some three), [])
 
                     SessionState.opened full (Some two)
-                    |> SessionState.movedOn
+                    |> SessionState.newerPlan
                     |> Expect.equal "the bar reads it" (Some two)
                 }
 
                 test "a notice from another token, or with nothing open or a close under way, is dropped" {
-                    let stale = SessionMsg.Told(Some(OpenedToken "t-old"), RecordNotice.NewerVersion two)
+                    let stale = SessionMsg.NoticeReceived(Some(OpenedToken "t-old"), RecordNotice.NewerVersion two)
 
                     transition stale (SessionState.opened full None)
                     |> Expect.equal "stale: dropped" (SessionState.opened full None, [])
@@ -1328,32 +1358,35 @@ module SessionMachineTests =
                         transition (told two) state |> Expect.equal "dropped" (state, [])
 
                     // an anonymous reply carries no token; an anonymous Session is told nothing
-                    transition (SessionMsg.Told(None, RecordNotice.NewerVersion two)) SessionState.anonymous
+                    transition (SessionMsg.NoticeReceived(None, RecordNotice.NewerVersion two)) SessionState.anonymous
                     |> Expect.equal "anonymous: dropped" (SessionState.anonymous, [])
                 }
 
                 test "a reply's ending ends the Session and acknowledges it with a close, on the token it started from" {
                     transition
-                        (SessionMsg.Told(full.OpenedToken, RecordNotice.Ended SessionEnding.WrongPinLimit))
+                        (SessionMsg.NoticeReceived(full.OpenedToken, RecordNotice.Ended SessionEnding.WrongPinLimit))
                         (SessionState.opened full (Some two))
                     |> Expect.equal
                         "ended"
                         (SessionState.ended SessionEnding.WrongPinLimit, [ SessionEffect.CallCloseSession ])
 
                     transition
-                        (SessionMsg.Told(Some(OpenedToken "t-old"), RecordNotice.Ended SessionEnding.WrongPinLimit))
+                        (SessionMsg.NoticeReceived(
+                            Some(OpenedToken "t-old"),
+                            RecordNotice.Ended SessionEnding.WrongPinLimit
+                        ))
                         (SessionState.opened full None)
                     |> Expect.equal "stale: dropped" (SessionState.opened full None, [])
                 }
 
                 test "a signature refused because the record moved on keeps the head without telling it" {
-                    transition (SessionMsg.Blocked two) (SessionState.opened full None)
+                    transition (SessionMsg.SignatureBlocked two) (SessionState.opened full None)
                     |> Expect.equal "kept, not told" (SessionState.opened full (Some two), [])
 
-                    transition (SessionMsg.Blocked two) (SessionState.opened full (Some three))
+                    transition (SessionMsg.SignatureBlocked two) (SessionState.opened full (Some three))
                     |> Expect.equal "an older one: nothing" (SessionState.opened full (Some three), [])
 
-                    transition (SessionMsg.Blocked two) SessionState.anonymous
+                    transition (SessionMsg.SignatureBlocked two) SessionState.anonymous
                     |> Expect.equal "nothing open: dropped" (SessionState.anonymous, [])
                 }
 
@@ -1377,24 +1410,29 @@ module SessionMachineTests =
                         }
 
                     transition
-                        (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened)))
+                        (SessionMsg.SignedPlanOpened(full.OpenedToken, Ok(Some reopened)))
                         (SessionState.opened full (Some two))
                     |> Expect.equal
                         "spent"
                         (SessionState.opened reopened None,
-                         [ SessionEffect.LoadCart signedTwo; SessionEffect.TellVersionOpened two ])
+                         [
+                             SessionEffect.LoadSignedPlan signedTwo
+                             SessionEffect.TellSignedPlanOpened two
+                         ])
 
                     transition
-                        (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened)))
+                        (SessionMsg.SignedPlanOpened(full.OpenedToken, Ok(Some reopened)))
                         (SessionState.opened full (Some three))
                     |> fst
                     |> Expect.equal "the newer notice stays" (SessionState.opened reopened (Some three))
 
-                    transition (SessionMsg.Reopened(full.OpenedToken, Ok None)) (SessionState.opened full (Some two))
+                    transition
+                        (SessionMsg.SignedPlanOpened(full.OpenedToken, Ok None))
+                        (SessionState.opened full (Some two))
                     |> Expect.equal "nothing to open: kept" (SessionState.opened full (Some two), [])
 
                     transition
-                        (SessionMsg.TokenRenewed(OpenedToken "t2", aged, signedVersion))
+                        (SessionMsg.SignatureRenewedToken(OpenedToken "t2", aged, signedVersion))
                         (SessionState.opened full (Some two))
                     |> Expect.equal
                         "renewed, kept"
@@ -1402,7 +1440,7 @@ module SessionMachineTests =
                 }
 
                 test "the notice goes with the Session: a close, a launch, an ending" {
-                    transition SessionMsg.Close (SessionState.opened full (Some two))
+                    transition SessionMsg.CloseSession (SessionState.opened full (Some two))
                     |> Expect.equal "closing drops it" (SessionState.closing full, [ SessionEffect.CallCloseSession ])
 
                     transition (SessionMsg.CloseFailed "down") (SessionState.closing full)
@@ -1413,7 +1451,7 @@ module SessionMachineTests =
                     |> Expect.equal "a launch drops it" (SessionState.leaving (SessionFollow.Launch(launchB, keyB)))
 
                     transition
-                        (SessionMsg.EndedByServer SessionEnding.WrongPinLimit)
+                        (SessionMsg.SignatureEndedSession SessionEnding.WrongPinLimit)
                         (SessionState.opened full (Some two))
                     |> fst
                     |> Expect.equal "an ending drops it" (SessionState.ended SessionEnding.WrongPinLimit)

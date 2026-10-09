@@ -683,7 +683,7 @@ module OrderPlan =
                 {|
                     label = tr Terms.``Session Open Last Signed``
                     kind = Components.ActionBar.Kind.Secondary
-                    onClick = fun () -> session.OpenVersion signed.Head.Id
+                    onClick = fun () -> session.OpenSignedPlan signed.Head.Id
                     disabled = counting.IsSome
                     icon = Some Mui.Icons.Restore
                 |}
@@ -709,20 +709,20 @@ module OrderPlan =
         // the record moved on while this Session is on an older version; the bar says whose
         // and when, and offers the newest version. Nothing is blocked here: the guard is the
         // refusal at the signature
-        let movedOnBar =
-            match session.MovedOn with
+        let newerPlanBar =
+            match session.NewerPlan with
             | Some head ->
                 let bar =
                     Components.Notice.View
                         {|
                             kind = Components.Notice.Kind.Warning
                             title = None
-                            message = SigningPolicy.movedOnSentence tr head
+                            message = SigningPolicy.newerPlanSentence tr head
                             action =
                                 Some
                                     {|
                                         label = tr Terms.``Session Open Newest``
-                                        onClick = fun () -> session.OpenVersion head.Id
+                                        onClick = fun () -> session.OpenSignedPlan head.Id
                                         // the open changes every page: it waits while anything is out
                                         disabled = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Any
                                     |}
@@ -823,7 +823,7 @@ module OrderPlan =
         <Box sx={sxPlan}>
             <Box sx={sxBars}>
                 {patientNotice}
-                {movedOnBar}
+                {newerPlanBar}
                 {actionBar}
             </Box>
             <Box sx={sxTable}>

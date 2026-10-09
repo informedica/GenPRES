@@ -82,8 +82,8 @@ module SessionGatePolicyTests =
                             [
                                 "Launching", SessionView.Launching 1
                                 "Resuming", SessionView.Resuming
-                                "Unreachable", SessionView.Unreachable
-                                "Refused", SessionView.Refused LaunchRefusal.NoRole
+                                "Unreachable", SessionView.ServerUnreachable
+                                "Refused", SessionView.LaunchRefused LaunchRefusal.NoRole
                                 "Ended", SessionView.Ended SessionEnding.SupersededByLaunch
                                 "Ended at the PIN limit", SessionView.Ended SessionEnding.WrongPinLimit
                                 "Ended unreadable", SessionView.Ended SessionEnding.Unreadable
@@ -195,7 +195,7 @@ module SessionGatePolicyTests =
                 }
 
                 test "Unreachable offers a retry and names the attempts" {
-                    let gate = gateOf (SessionView.Unreachable)
+                    let gate = gateOf (SessionView.ServerUnreachable)
                     gate.Busy |> Expect.isFalse "not busy"
                     gate.Actions |> Expect.equal "retry" [ Action.Retry ]
                     gate.Body |> Expect.stringContains "attempts" "3 attempts"
@@ -207,7 +207,7 @@ module SessionGatePolicyTests =
                     [
                         for refusal in relaunchRefusals do
                             test $"{refusal}" {
-                                let gate = gateOf (SessionView.Refused refusal)
+                                let gate = gateOf (SessionView.LaunchRefused refusal)
                                 gate.Busy |> Expect.isFalse "not busy"
                                 gate.Actions |> Expect.isEmpty "no actions"
                                 // sentence-initial or after "and": the tail is the same
@@ -220,8 +220,8 @@ module SessionGatePolicyTests =
                     // never occurs; the gate keeps the rule regardless
                     for session in
                         [
-                            SessionView.Refused LaunchRefusal.NoRole
-                            SessionView.Retryable LaunchRefusal.NoRole
+                            SessionView.LaunchRefused LaunchRefusal.NoRole
+                            SessionView.LaunchRetryable LaunchRefusal.NoRole
                         ] do
                         let gate = gateOf session
                         gate.Actions |> Expect.equal "continue" [ Action.ContinueWithoutLaunch ]
@@ -229,14 +229,14 @@ module SessionGatePolicyTests =
                 }
 
                 test "NoBrowserIdentity with a retry offers it" {
-                    let gate = gateOf (SessionView.Retryable LaunchRefusal.NoBrowserIdentity)
+                    let gate = gateOf (SessionView.LaunchRetryable LaunchRefusal.NoBrowserIdentity)
 
                     gate.Actions |> Expect.equal "retry" [ Action.Retry ]
                     gate.Body |> Expect.stringContains "try again" "Try again"
                 }
 
                 test "NoBrowserIdentity without a retry asks for a relaunch" {
-                    let gate = gateOf (SessionView.Refused LaunchRefusal.NoBrowserIdentity)
+                    let gate = gateOf (SessionView.LaunchRefused LaunchRefusal.NoBrowserIdentity)
                     gate.Actions |> Expect.isEmpty "no actions"
                     gate.Body |> Expect.stringContains "relaunch" "Open GenPRES again from MainEHR."
                 }
@@ -257,7 +257,7 @@ module SessionGatePolicyTests =
                         }
 
                         test "Unreachable" {
-                            let gate = namedGateOf (SessionView.Unreachable)
+                            let gate = namedGateOf (SessionView.ServerUnreachable)
                             gate.Title |> Expect.equal "title" "<Session Gate Unreachable>"
 
                             gate.Body
@@ -278,13 +278,13 @@ module SessionGatePolicyTests =
                                 "<Session Refusal No Browser Identity> <Session Relaunch>"
                             ] do
                             test $"Refused {refusal} without a retry" {
-                                let gate = namedGateOf (SessionView.Refused refusal)
+                                let gate = namedGateOf (SessionView.LaunchRefused refusal)
                                 gate.Title |> Expect.equal "title" "<Session Gate Refused>"
                                 gate.Body |> Expect.equal "body" body
                             }
 
                         test "Refused NoBrowserIdentity with a retry" {
-                            let gate = namedGateOf (SessionView.Retryable LaunchRefusal.NoBrowserIdentity)
+                            let gate = namedGateOf (SessionView.LaunchRetryable LaunchRefusal.NoBrowserIdentity)
 
                             gate.Body
                             |> Expect.equal "body" "<Session Refusal No Browser Identity> <Session Retry>"
@@ -307,7 +307,7 @@ module SessionGatePolicyTests =
                         |> Expect.equal "translated" $"poging 2 van {SessionState.maxAttempts}"
                     | None -> failtest "expected a gate"
 
-                    match gateFor template (SessionView.Unreachable) with
+                    match gateFor template (SessionView.ServerUnreachable) with
                     | Some gate -> gate.Body |> Expect.equal "translated" "3 pogingen"
                     | None -> failtest "expected a gate"
                 }
@@ -351,9 +351,9 @@ module SessionGatePolicyTests =
                 test "product names keep their case in every body" {
                     let bodies =
                         [
-                            yield (gateOf (SessionView.Unreachable)).Body
+                            yield (gateOf (SessionView.ServerUnreachable)).Body
                             for refusal in relaunchRefusals @ [ LaunchRefusal.NoRole; LaunchRefusal.NoBrowserIdentity ] do
-                                yield (gateOf (SessionView.Refused refusal)).Body
+                                yield (gateOf (SessionView.LaunchRefused refusal)).Body
                         ]
 
                     for body in bodies do

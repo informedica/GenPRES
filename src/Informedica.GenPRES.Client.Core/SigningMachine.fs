@@ -19,10 +19,10 @@ type SigningPhase =
     /// Not signing.
     | Idle
     /// The patient data changed; the user accepts it or cancels.
-    | Noticed of OrderPlan * DataNotice
+    | DataChanged of OrderPlan * DataNotice
     /// The dialog asks for the PIN over this plan, under the server's challenge, with the last
     /// refusal if any.
-    | Challenged of challenge: string * OrderPlan * SigningRefusal option
+    | AskingPin of challenge: string * OrderPlan * SigningRefusal option
 
 
 /// The one request under way.
@@ -59,11 +59,11 @@ type SigningView =
     /// The dialog is closed.
     | Idle
     /// The dialog is closed while the challenge is asked.
-    | Requesting
+    | RequestingChallenge
     /// The patient data changed; the user accepts it or cancels.
-    | Noticed of OrderPlan * DataNotice
+    | DataChanged of OrderPlan * DataNotice
     /// The PIN is asked over the plan, with the last refusal if any.
-    | Challenged of OrderPlan * SigningRefusal option
+    | AskingPin of OrderPlan * SigningRefusal option
     /// The submission is under way; the plan is listed and the PIN field disabled.
     | Submitting of OrderPlan
 
@@ -78,9 +78,9 @@ type SigningMsg =
     | ChallengeAnswered of request: string * Result<SigningResponse, string>
     /// The data notice is accepted. The plan is signed over the new data, unless the patient
     /// context is held; then it keeps the data its new and changed orders were composed on.
-    | Accept of held: bool
+    | AcceptDataChange of held: bool
     /// The PIN, and a new idempotency key the caller made; the key is ignored on a retry.
-    | Confirm of pin: string * key: string
+    | ConfirmPin of pin: string * key: string
     /// The user cancels.
     | Cancel
     /// The answer to the submission under this key; Error is a transport failure.
@@ -97,11 +97,11 @@ type SigningEffect =
     /// Renew the session after the signature: the new token, the patient as signed, and the
     /// version signed, with the identity it names, which the EHR may have changed in the data the
     /// user accepted.
-    | RenewToken of OpenedToken * Patient * SignedOrderPlan
+    | RenewSessionToken of OpenedToken * Patient * SignedOrderPlan
     /// End the session: the server ended it at the wrong-PIN limit.
     | EndSession of SessionEnding
     /// Set the patient to the data the notice showed, so the order plan uses it too.
-    | SetPatient of Patient
+    | SetNoticedPatient of Patient
 
     /// Tell the user the plan is signed; the plan took no change while the signature was under
     /// way, so it is the version signed.
@@ -138,7 +138,7 @@ module SigningState =
     /// The data notice to accept or cancel.
     let noticed (plan: OrderPlan) (notice: DataNotice) =
         {
-            Phase = SigningPhase.Noticed(plan, notice)
+            Phase = SigningPhase.DataChanged(plan, notice)
             InFlight = None
             Unsent = None
             Differences = [||]
@@ -148,7 +148,7 @@ module SigningState =
     /// The PIN asked over the plan, with the last refusal if any.
     let challenged (challenge: string) (plan: OrderPlan) (refusal: SigningRefusal option) =
         {
-            Phase = SigningPhase.Challenged(challenge, plan, refusal)
+            Phase = SigningPhase.AskingPin(challenge, plan, refusal)
             InFlight = None
             Unsent = None
             Differences = [||]
@@ -158,7 +158,7 @@ module SigningState =
     /// The submission under way, under its key.
     let submitting (challenge: string) (plan: OrderPlan) (key: string) =
         {
-            Phase = SigningPhase.Challenged(challenge, plan, None)
+            Phase = SigningPhase.AskingPin(challenge, plan, None)
             InFlight = Some(SigningRequest.Submission key)
             Unsent = None
             Differences = [||]
@@ -169,7 +169,7 @@ module SigningState =
     /// retry.
     let unsent (challenge: string) (plan: OrderPlan) (key: string) =
         {
-            Phase = SigningPhase.Challenged(challenge, plan, None)
+            Phase = SigningPhase.AskingPin(challenge, plan, None)
             InFlight = None
             Unsent = Some key
             Differences = [||]
@@ -180,11 +180,11 @@ module SigningState =
     /// submission is under way.
     let view (state: SigningState) : SigningView =
         match state.Phase, state.InFlight with
-        | SigningPhase.Idle, Some(SigningRequest.Challenge _) -> SigningView.Requesting
+        | SigningPhase.Idle, Some(SigningRequest.Challenge _) -> SigningView.RequestingChallenge
         | SigningPhase.Idle, _ -> SigningView.Idle
-        | SigningPhase.Noticed(plan, notice), _ -> SigningView.Noticed(plan, notice)
-        | SigningPhase.Challenged(_, plan, _), Some(SigningRequest.Submission _) -> SigningView.Submitting plan
-        | SigningPhase.Challenged(_, plan, refusal), _ -> SigningView.Challenged(plan, refusal)
+        | SigningPhase.DataChanged(plan, notice), _ -> SigningView.DataChanged(plan, notice)
+        | SigningPhase.AskingPin(_, plan, _), Some(SigningRequest.Submission _) -> SigningView.Submitting plan
+        | SigningPhase.AskingPin(_, plan, refusal), _ -> SigningView.AskingPin(plan, refusal)
 
 
     /// The data notice accepted: the challenge is asked again, under the notice token as request
@@ -198,7 +198,7 @@ module SigningState =
 
             requesting shown (Some notice.Token) notice.Token,
             [
-                SigningEffect.SetPatient data
+                SigningEffect.SetNoticedPatient data
                 SigningEffect.CallChallenge(shown, Some notice.Token, notice.Token)
             ]
         | _ ->
@@ -240,15 +240,15 @@ module SigningState =
             idle, [ SigningEffect.TellError reason ]
         | SigningMsg.ChallengeAnswered _, _, _ -> state, []
 
-        | SigningMsg.Accept held, SigningPhase.Noticed(plan, notice), None -> accepted held plan notice
-        | SigningMsg.Accept _, _, _ -> state, []
+        | SigningMsg.AcceptDataChange held, SigningPhase.DataChanged(plan, notice), None -> accepted held plan notice
+        | SigningMsg.AcceptDataChange _, _, _ -> state, []
 
         // the plan submitted is the plan challenged, never the live cart; a retry after a lost
         // answer keeps its key, so the server answers what it already did
-        | SigningMsg.Confirm(pin, key), SigningPhase.Challenged(challenge, plan, _), None ->
+        | SigningMsg.ConfirmPin(pin, key), SigningPhase.AskingPin(challenge, plan, _), None ->
             let key = state.Unsent |> Option.defaultValue key
             submitting challenge plan key, [ SigningEffect.CallSubmit(plan, challenge, pin, key) ]
-        | SigningMsg.Confirm _, _, _ -> state, []
+        | SigningMsg.ConfirmPin _, _, _ -> state, []
 
         // a submission in flight cannot be cancelled; anything else is dropped with the dialog, and
         // the answer to a challenge asked then lands nowhere
@@ -259,37 +259,37 @@ module SigningState =
         | SigningMsg.SubmitAnswered(answered, _), _, Some(SigningRequest.Submission key) when answered <> key ->
             state, []
         | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Submitted(signed, token, patient))),
-          SigningPhase.Challenged _,
+          SigningPhase.AskingPin _,
           Some(SigningRequest.Submission _) ->
             idle,
             [
-                SigningEffect.RenewToken(token, patient, signed)
+                SigningEffect.RenewSessionToken(token, patient, signed)
                 SigningEffect.TellSigned signed
             ]
         // the dialog stays open and says what went wrong: tries left, or locked
         | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Refused(SigningRefusal.PinWrong _ as refusal))),
-          SigningPhase.Challenged(challenge, plan, _),
+          SigningPhase.AskingPin(challenge, plan, _),
           Some(SigningRequest.Submission _)
         | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Refused(SigningRefusal.Locked _ as refusal))),
-          SigningPhase.Challenged(challenge, plan, _),
+          SigningPhase.AskingPin(challenge, plan, _),
           Some(SigningRequest.Submission _) -> challenged challenge plan (Some refusal), []
         | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Refused SigningRefusal.PinLimit)),
-          SigningPhase.Challenged _,
+          SigningPhase.AskingPin _,
           Some(SigningRequest.Submission _) -> idle, [ SigningEffect.EndSession SessionEnding.WrongPinLimit ]
         | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Refused refusal)),
-          SigningPhase.Challenged _,
+          SigningPhase.AskingPin _,
           Some(SigningRequest.Submission _) -> idle, [ SigningEffect.TellRefused refusal ]
         // never an answer to a submission
         | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.ChallengeIssued _)),
-          SigningPhase.Challenged _,
+          SigningPhase.AskingPin _,
           Some(SigningRequest.Submission _)
         | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.DataNotice _)),
-          SigningPhase.Challenged _,
+          SigningPhase.AskingPin _,
           Some(SigningRequest.Submission _) -> idle, []
         // the answer was lost and the outcome is unknown: the dialog comes back without a refusal,
         // and the next Confirm retries under the same key
         | SigningMsg.SubmitAnswered(_, Error reason),
-          SigningPhase.Challenged(challenge, plan, _),
+          SigningPhase.AskingPin(challenge, plan, _),
           Some(SigningRequest.Submission key) -> unsent challenge plan key, [ SigningEffect.TellError reason ]
         | SigningMsg.SubmitAnswered _, _, _ -> state, []
 

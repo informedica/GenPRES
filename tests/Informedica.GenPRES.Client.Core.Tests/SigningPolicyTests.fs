@@ -125,7 +125,7 @@ let tests =
                         SignedAt = at
                     }
 
-                movedOnSentence english head
+                newerPlanSentence english head
                 |> Expect.equal "moved on" $"Stub Prescriber B signed a newer version at {time at}."
 
                 versionOpenedSentence english head
@@ -260,11 +260,11 @@ let tests =
             test "the dialog is up from the sign on: requesting, noticed, challenged or submitting" {
                 let plan = Shared.Models.OrderPlan.create patient [||]
                 dialogOpen SigningView.Idle |> Expect.isFalse "idle"
-                dialogOpen SigningView.Requesting
+                dialogOpen SigningView.RequestingChallenge
                 |> Expect.isTrue "requesting: modal from the sign on"
 
                 dialogOpen (
-                    SigningView.Noticed(
+                    SigningView.DataChanged(
                         plan,
                         {
                             Data = None
@@ -274,9 +274,9 @@ let tests =
                 )
                 |> Expect.isTrue "noticed"
 
-                dialogOpen (SigningView.Challenged(plan, None)) |> Expect.isTrue "challenged"
+                dialogOpen (SigningView.AskingPin(plan, None)) |> Expect.isTrue "challenged"
 
-                dialogOpen (SigningView.Challenged(plan, Some(SigningRefusal.PinWrong 2)))
+                dialogOpen (SigningView.AskingPin(plan, Some(SigningRefusal.PinWrong 2)))
                 |> Expect.isTrue "refused"
 
                 dialogOpen (SigningView.Submitting plan) |> Expect.isTrue "submitting"
@@ -286,10 +286,10 @@ let tests =
                 let plan = Shared.Models.OrderPlan.create patient [||]
 
                 underWay SigningView.Idle |> Expect.isFalse "idle"
-                underWay SigningView.Requesting |> Expect.isTrue "requesting"
+                underWay SigningView.RequestingChallenge |> Expect.isTrue "requesting"
 
                 underWay (
-                    SigningView.Noticed(
+                    SigningView.DataChanged(
                         plan,
                         {
                             Data = None
@@ -299,7 +299,7 @@ let tests =
                 )
                 |> Expect.isTrue "noticed"
 
-                underWay (SigningView.Challenged(plan, None)) |> Expect.isTrue "challenged"
+                underWay (SigningView.AskingPin(plan, None)) |> Expect.isTrue "challenged"
                 underWay (SigningView.Submitting plan) |> Expect.isTrue "submitting"
             }
         ]

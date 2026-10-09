@@ -129,7 +129,7 @@ let rec step msg (lanes: LanesState) =
 
         match notice with
         | Some notice ->
-            let lanes, told, toldTaken = step (LanesMsg.Session(SessionMsg.Told(from, notice))) lanes
+            let lanes, told, toldTaken = step (LanesMsg.Session(SessionMsg.NoticeReceived(from, notice))) lanes
             lanes, effects @ told, taken @ toldTaken
         | None -> lanes, effects, taken
     // nothing to add when the workbench no longer shows the order. The workbench is emptied and
@@ -168,23 +168,24 @@ let route (newId: unit -> string) effect =
     match effect with
     // the signature's renewed token, ended Session and refusal for a newer version go to the
     // Session, the patient as signed to the patient machine, and the plan signed to the plan
-    | LanesEffect.Signing(SigningEffect.RenewToken(token, patient, signed)) ->
-        [ LanesMsg.Session(SessionMsg.TokenRenewed(token, patient, signed)) ]
-    | LanesEffect.Signing(SigningEffect.EndSession ending) -> [ LanesMsg.Session(SessionMsg.EndedByServer ending) ]
-    | LanesEffect.Signing(SigningEffect.SetPatient patient) ->
+    | LanesEffect.Signing(SigningEffect.RenewSessionToken(token, patient, signed)) ->
+        [ LanesMsg.Session(SessionMsg.SignatureRenewedToken(token, patient, signed)) ]
+    | LanesEffect.Signing(SigningEffect.EndSession ending) ->
+        [ LanesMsg.Session(SessionMsg.SignatureEndedSession ending) ]
+    | LanesEffect.Signing(SigningEffect.SetNoticedPatient patient) ->
         [
             LanesMsg.Patient(PatientMsg.Changed(Some patient, PatientDraftPolicy.Estimates.Renewed, newId ()))
         ]
     | LanesEffect.Signing(SigningEffect.TellSigned _) -> [ LanesMsg.Plan OrderPlanMsg.Signed ]
     | LanesEffect.Signing(SigningEffect.TellRefused(SigningRefusal.Blocked head)) ->
-        [ LanesMsg.Session(SessionMsg.Blocked head) ]
+        [ LanesMsg.Session(SessionMsg.SignatureBlocked head) ]
     // the Session's patient goes to the patient machine, with the estimates renewed as for any
     // patient given from outside, and its saved orders to the plan
     | LanesEffect.Session(SessionEffect.SetPatient pat) ->
         [
             LanesMsg.Patient(PatientMsg.Changed(pat, PatientDraftPolicy.Estimates.Renewed, newId ()))
         ]
-    | LanesEffect.Session(SessionEffect.LoadCart head) -> [ LanesMsg.Plan(OrderPlanMsg.Version(head, newId ())) ]
+    | LanesEffect.Session(SessionEffect.LoadSignedPlan head) -> [ LanesMsg.Plan(OrderPlanMsg.Version(head, newId ())) ]
     // the patient answered goes to the workbench and the plan
     | LanesEffect.Patient(PatientEffect.SetPatient pat) ->
         [

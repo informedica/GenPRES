@@ -286,7 +286,9 @@ let tests =
                     let lines =
                         [
                             Trail.Session.msg (SessionMsg.SupplyPin("code-987", "1234"))
-                            Trail.Session.msg (SessionMsg.TokenRenewed(OpenedToken "secret-token", pat, signed))
+                            Trail.Session.msg (
+                                SessionMsg.SignatureRenewedToken(OpenedToken "secret-token", pat, signed)
+                            )
                             Trail.Session.msg (SessionMsg.PinAnswered(Ok(PinOutcome.Opened opened)))
                             Trail.Session.effect (SessionEffect.CallSupplyPin("code-987", "1234"))
                             Trail.Session.view (
@@ -298,11 +300,13 @@ let tests =
                                     None
                                 )
                             )
-                            Trail.Signing.msg (SigningMsg.Confirm("1234", "key-1"))
+                            Trail.Signing.msg (SigningMsg.ConfirmPin("1234", "key-1"))
                             Trail.Signing.effect (
                                 SigningEffect.CallSubmit(OrderPlan.empty, "secret-token", "1234", "key-1")
                             )
-                            Trail.Signing.effect (SigningEffect.RenewToken(OpenedToken "secret-token", pat, signed))
+                            Trail.Signing.effect (
+                                SigningEffect.RenewSessionToken(OpenedToken "secret-token", pat, signed)
+                            )
                             Trail.OrderContext.msg (
                                 OrderContextMsg.Command(
                                     OrderViewCommand.SetArgumentationProperty "Jan Jansen weighs more",

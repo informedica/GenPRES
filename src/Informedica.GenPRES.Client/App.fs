@@ -381,7 +381,7 @@ module private Elmish =
     let processApiMsg (state: State) (answer: Answer<'r>) (apply: State -> 'r -> State * Cmd<Msg>) =
         let told =
             match answer.Reply.Notice with
-            | Some notice -> Cmd.ofMsg (SessionMsg(SessionMsg.Told(answer.From, notice)))
+            | Some notice -> Cmd.ofMsg (SessionMsg(SessionMsg.NoticeReceived(answer.From, notice)))
             | None -> Cmd.none
 
         let state, cmd = apply state answer.Reply.Response
@@ -779,7 +779,7 @@ module private Elmish =
             | Choice1Of2 key -> return SessionMsg(SessionMsg.PresentLaunch(launch, key))
             | Choice2Of2 ex ->
                 Logging.error "could not make the browser key pair" ex.Message
-                return SessionMsg(SessionMsg.RefusedAtCallback LaunchRefusal.NoBrowserIdentity)
+                return SessionMsg(SessionMsg.LaunchRefused LaunchRefusal.NoBrowserIdentity)
         }
         |> Cmd.fromAsync
 
@@ -788,7 +788,7 @@ module private Elmish =
     let launchCmd (launchUrl: LaunchUrl option) : Cmd<Msg> =
         match launchUrl with
         | Some(LaunchUrl.Launch launch) -> presentLaunch launch
-        | Some(LaunchUrl.Refused refusal) -> Cmd.ofMsg (SessionMsg(SessionMsg.RefusedAtCallback refusal))
+        | Some(LaunchUrl.Refused refusal) -> Cmd.ofMsg (SessionMsg(SessionMsg.LaunchRefused refusal))
         | None -> Cmd.none
 
 
@@ -945,12 +945,12 @@ module private Elmish =
             async {
                 try
                     let! outcome = serverApi.processLaunch (Api.LaunchCommand.PresentLaunch(launch, key))
-                    return SessionMsg(SessionMsg.Outcome(launch, key, Ok outcome))
+                    return SessionMsg(SessionMsg.LaunchOutcome(launch, key, Ok outcome))
                 with ex ->
-                    return SessionMsg(SessionMsg.Outcome(launch, key, Error ex.Message))
+                    return SessionMsg(SessionMsg.LaunchOutcome(launch, key, Error ex.Message))
             }
             |> Cmd.fromAsync
-        | SessionEffect.CallGetSession ->
+        | SessionEffect.CallResume ->
             state,
             async {
                 try
@@ -972,45 +972,49 @@ module private Elmish =
             }
             |> Cmd.fromAsync
         // the version is open, or the record moved on: each said once, the machine decides
-        | SessionEffect.TellVersionOpened head ->
+        | SessionEffect.TellSignedPlanOpened head ->
             state
             |> tell (SigningPolicy.versionOpenedSentence (signingTerm state) head) "success",
             Cmd.none
-        | SessionEffect.TellRefreshFailed ->
+        | SessionEffect.TellPatientRefreshFailed ->
             state |> tell (signingTerm state Terms.``Session Refresh Failed``) "warning", Cmd.none
-        | SessionEffect.TellMovedOn head ->
-            state |> tell (SigningPolicy.movedOnSentence (signingTerm state) head) "warning", Cmd.none
-        | SessionEffect.CallOpenVersion(id, from) ->
+        | SessionEffect.TellNewerSignedPlan head ->
+            state
+            |> tell (SigningPolicy.newerPlanSentence (signingTerm state) head) "warning",
+            Cmd.none
+        | SessionEffect.CallOpenSignedPlan(id, from) ->
             state,
             async {
                 try
                     match! serverApi.processSession (Api.SessionCommand.OpenVersion id) with
-                    | Api.SessionResponse.SessionResp opened -> return SessionMsg(SessionMsg.Reopened(from, Ok opened))
+                    | Api.SessionResponse.SessionResp opened ->
+                        return SessionMsg(SessionMsg.SignedPlanOpened(from, Ok opened))
                     // never an answer to OpenVersion
-                    | _ -> return SessionMsg(SessionMsg.Reopened(from, Ok None))
+                    | _ -> return SessionMsg(SessionMsg.SignedPlanOpened(from, Ok None))
                 with ex ->
-                    return SessionMsg(SessionMsg.Reopened(from, Error ex.Message))
+                    return SessionMsg(SessionMsg.SignedPlanOpened(from, Error ex.Message))
             }
             |> Cmd.fromAsync
-        | SessionEffect.CallRefresh from ->
+        | SessionEffect.CallRefreshPatient from ->
             state,
             async {
                 try
                     match! serverApi.processSession Api.SessionCommand.Refresh with
-                    | Api.SessionResponse.SessionResp opened -> return SessionMsg(SessionMsg.Refreshed(from, Ok opened))
+                    | Api.SessionResponse.SessionResp opened ->
+                        return SessionMsg(SessionMsg.PatientRefreshed(from, Ok opened))
                     // never an answer to Refresh
-                    | _ -> return SessionMsg(SessionMsg.Refreshed(from, Ok None))
+                    | _ -> return SessionMsg(SessionMsg.PatientRefreshed(from, Ok None))
                 with ex ->
-                    return SessionMsg(SessionMsg.Refreshed(from, Error ex.Message))
+                    return SessionMsg(SessionMsg.PatientRefreshed(from, Error ex.Message))
             }
             |> Cmd.fromAsync
         | SessionEffect.CallCloseSession ->
             state,
             async {
                 // the server deletes the cookie whatever its close returns (finally), so an
-                // answer of any kind means Closed; only a request that never got there fails
+                // answer of any kind means SessionClosed; only a request that never got there fails
                 match! serverApi.processSession Api.SessionCommand.CloseSession |> Async.Catch with
-                | Choice1Of2 _ -> return SessionMsg SessionMsg.Closed
+                | Choice1Of2 _ -> return SessionMsg SessionMsg.SessionClosed
                 | Choice2Of2 ex -> return SessionMsg(SessionMsg.CloseFailed ex.Message)
             }
             |> Cmd.fromAsync
@@ -1033,12 +1037,13 @@ module private Elmish =
                     return SessionMsg(SessionMsg.PinAnswered(Error ex.Message))
             }
             |> Cmd.fromAsync
-        | SessionEffect.GoTo url -> state, Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
+        | SessionEffect.GoToIdentityProvider url ->
+            state, Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
         // the patient and the orders the Session opened with go to their machines in Lanes; nothing
         // is left for the client
         | SessionEffect.SetPatient _
-        | SessionEffect.LoadCart _ -> state, Cmd.none
-        | SessionEffect.KeepKey thumbprint ->
+        | SessionEffect.LoadSignedPlan _ -> state, Cmd.none
+        | SessionEffect.KeepBrowserKey thumbprint ->
             state,
             Cmd.ofEffect (fun _ ->
                 async {
@@ -1108,9 +1113,9 @@ module private Elmish =
                 |> Cmd.fromAsync
         // the token, the ended Session and the patient go to their machines in Lanes; nothing is
         // left for the client
-        | SigningEffect.RenewToken _
+        | SigningEffect.RenewSessionToken _
         | SigningEffect.EndSession _
-        | SigningEffect.SetPatient _ -> state, Cmd.none
+        | SigningEffect.SetNoticedPatient _ -> state, Cmd.none
         | SigningEffect.TellSigned signed ->
             state
             |> tell (SigningPolicy.signedSentence (signingTerm state) signed) "success",
@@ -2398,18 +2403,18 @@ type private ConcreteAppEnv
 
     interface AppEnv.ISession with
         member _.Session = state.Lanes.Session |> SessionState.view
-        member _.Close() = SessionMsg SessionMsg.Close |> dispatch
-        member _.Retry() = SessionMsg SessionMsg.Retry |> dispatch
+        member _.Close() = SessionMsg SessionMsg.CloseSession |> dispatch
+        member _.RetryLaunch() = SessionMsg SessionMsg.RetryLaunch |> dispatch
 
-        member _.OpenAnonymously() = SessionMsg SessionMsg.OpenAnonymous |> dispatch
+        member _.OpenAnonymously() = SessionMsg SessionMsg.ContinueAnonymous |> dispatch
 
         member _.SupplyPin code pin = SessionMsg(SessionMsg.SupplyPin(code, pin)) |> dispatch
 
-        member _.MovedOn = state.Lanes.Session |> SessionState.movedOn
+        member _.NewerPlan = state.Lanes.Session |> SessionState.newerPlan
 
-        member _.OpenVersion id = SessionMsg(SessionMsg.OpenVersion id) |> dispatch
+        member _.OpenSignedPlan id = SessionMsg(SessionMsg.OpenSignedPlan id) |> dispatch
 
-        member _.Refresh() = SessionMsg SessionMsg.Refresh |> dispatch
+        member _.Refresh() = SessionMsg SessionMsg.RefreshPatient |> dispatch
 
     interface AppEnv.ISigning with
         member _.Signing = state.Lanes.Signing |> SigningState.view
@@ -2427,11 +2432,12 @@ type private ConcreteAppEnv
         member _.Held = patientHeld state
 
         // held, the plan keeps the data its new and changed orders were composed on
-        member _.Accept() = SigningMsg(SigningMsg.Accept(patientHeld state)) |> dispatch
+        member _.Accept() =
+            SigningMsg(SigningMsg.AcceptDataChange(patientHeld state)) |> dispatch
 
         // one key per confirmation, so the commit takes effect once; the machine keeps it for a retry
         member _.Confirm pin =
-            SigningMsg(SigningMsg.Confirm(pin, Guid.NewGuid().ToString())) |> dispatch
+            SigningMsg(SigningMsg.ConfirmPin(pin, Guid.NewGuid().ToString())) |> dispatch
 
         member _.Cancel() = SigningMsg SigningMsg.Cancel |> dispatch
 

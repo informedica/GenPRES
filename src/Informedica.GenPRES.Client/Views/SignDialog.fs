@@ -56,7 +56,7 @@ module SignDialog =
         // asked can be cancelled, its answer then landing nowhere
         let busy =
             match phase with
-            | SigningView.Requesting
+            | SigningView.RequestingChallenge
             | SigningView.Submitting _ -> true
             | _ -> false
 
@@ -90,7 +90,7 @@ module SignDialog =
 
         let refusal =
             match phase with
-            | SigningView.Challenged(_, refusal) -> refusal
+            | SigningView.AskingPin(_, refusal) -> refusal
             | _ -> None
 
         let error =
@@ -104,7 +104,7 @@ module SignDialog =
 
         let notice =
             match phase with
-            | SigningView.Noticed(_, notice) -> Some notice
+            | SigningView.DataChanged(_, notice) -> Some notice
             | _ -> None
 
         // the orders that differ from the version last opened or signed, as they stood at the
@@ -112,8 +112,8 @@ module SignDialog =
         // as the version held it
         let orders =
             match phase with
-            | SigningView.Noticed _
-            | SigningView.Challenged _
+            | SigningView.DataChanged _
+            | SigningView.AskingPin _
             | SigningView.Submitting _ ->
                 signing.Differences
                 |> Array.choose (fun (ctx, difference) ->
@@ -121,16 +121,16 @@ module SignDialog =
                     |> Option.map (fun sc -> sc, difference, ctx.Argumentation)
                 )
             | SigningView.Idle
-            | SigningView.Requesting -> [||]
+            | SigningView.RequestingChallenge -> [||]
 
         // the plan is up for signing and none of its orders differs from the version
         let unchanged =
             match phase with
-            | SigningView.Noticed _
-            | SigningView.Challenged _
+            | SigningView.DataChanged _
+            | SigningView.AskingPin _
             | SigningView.Submitting _ -> orders |> Array.isEmpty
             | SigningView.Idle
-            | SigningView.Requesting -> false
+            | SigningView.RequestingChallenge -> false
 
         let differenceTag (difference: HeldContextPolicy.Difference) =
             let label, color =

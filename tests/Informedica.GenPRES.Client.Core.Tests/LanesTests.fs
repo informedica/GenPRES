@@ -232,7 +232,7 @@ let tests =
                 |> Expect.isTrue "the plan got the saved orders"
 
                 effects
-                |> List.contains (LanesEffect.Session(SessionEffect.LoadCart head))
+                |> List.contains (LanesEffect.Session(SessionEffect.LoadSignedPlan head))
                 |> Expect.isTrue "the Session's effects still come out"
             }
 
@@ -300,7 +300,9 @@ let tests =
                         Signing = SigningState.requesting one None "s-1"
                     }
 
-                let lanes, _, steps = lanes |> Lanes.transition (counter ()) (LanesMsg.Session SessionMsg.Close)
+                let lanes, _, steps =
+                    lanes
+                    |> Lanes.transition (counter ()) (LanesMsg.Session SessionMsg.CloseSession)
 
                 lanes.Signing |> SigningState.view |> Expect.equal "idle" SigningView.Idle
 
@@ -323,7 +325,7 @@ let tests =
                 steps
                 |> List.choose (
                     function
-                    | LanesStep.Session(SessionMsg.TokenRenewed _, _, _) -> Some "token"
+                    | LanesStep.Session(SessionMsg.SignatureRenewedToken _, _, _) -> Some "token"
                     | LanesStep.Patient(PatientMsg.Changed _, _, _) -> Some "patient"
                     | LanesStep.Plan(OrderPlanMsg.Signed, _, _) -> Some "signed"
                     | _ -> None
@@ -362,7 +364,7 @@ let tests =
                     }
                     |> Lanes.transition
                         newId
-                        (LanesMsg.Session(SessionMsg.Refreshed(session.OpenedToken, Ok(Some refreshed))))
+                        (LanesMsg.Session(SessionMsg.PatientRefreshed(session.OpenedToken, Ok(Some refreshed))))
 
                 steps
                 |> List.exists (
@@ -410,7 +412,7 @@ let tests =
                 steps
                 |> List.exists (
                     function
-                    | LanesStep.Session(SessionMsg.Blocked h, _, _) -> h = head.Head
+                    | LanesStep.Session(SessionMsg.SignatureBlocked h, _, _) -> h = head.Head
                     | _ -> false
                 )
                 |> Expect.isTrue "the Session got the version"
@@ -438,13 +440,13 @@ let tests =
                 |> List.map (
                     function
                     | LanesStep.Patient _ -> "Patient"
-                    | LanesStep.Session(SessionMsg.Told _, _, _) -> "Told"
+                    | LanesStep.Session(SessionMsg.NoticeReceived _, _, _) -> "NoticeReceived"
                     | _ -> "other"
                 )
-                |> Expect.equal "the answer, then the notice" [ "Patient"; "Told" ]
+                |> Expect.equal "the answer, then the notice" [ "Patient"; "NoticeReceived" ]
 
                 effects
-                |> List.contains (LanesEffect.Session(SessionEffect.TellMovedOn head.Head))
+                |> List.contains (LanesEffect.Session(SessionEffect.TellNewerSignedPlan head.Head))
                 |> Expect.isTrue "the newer version is told"
             }
 

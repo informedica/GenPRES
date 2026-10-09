@@ -279,9 +279,9 @@ module TitleBar =
             | SessionView.Anonymous
             | SessionView.Launching _
             | SessionView.Resuming
-            | SessionView.Refused _
-            | SessionView.Retryable _
-            | SessionView.Unreachable
+            | SessionView.LaunchRefused _
+            | SessionView.LaunchRetryable _
+            | SessionView.ServerUnreachable
             | SessionView.Ended _
             | SessionView.Enrolling _
             | SessionView.SupplyingPin _
