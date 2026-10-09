@@ -97,10 +97,6 @@ module private Elmish =
             // the number of the interaction check under way; an answer to an earlier check is
             // dropped, so it can neither replace the rows nor clear the error of a later one
             InteractionCheck: int
-            InteractionDrugNames: Deferred<string[]>
-            // the drug names are asked again on a failure, three times
-            DrugNameRetries: int
-            ServerStatus: Deferred<bool>
         }
 
 
@@ -185,13 +181,11 @@ module private Elmish =
 
         | CheckInteractions of string list
         | LoadInteractionsResult of check: int * ApiResponse<Api.InteractionResponse>
-        | LoadInteractionDrugNames of ApiResponse<Api.InteractionResponse>
 
         | UpdateLanguage of Localization.Locales
 
         | UpdateHospital of string
         | CloseSnackbar
-        | CheckServer of AsyncOperationStatus<Result<string, exn>>
         | DismissServerError
 
         | Login of password: string
@@ -227,43 +221,6 @@ module private Elmish =
         Remoting.createApi ()
         |> Remoting.withRouteBuilder Api.routerPaths
         |> Remoting.buildProxy<Api.IServerApi>
-
-
-    let checkServer =
-        async {
-            try
-                let! result = serverApi.testApi ()
-                return CheckServer(Finished(Ok result))
-            with ex ->
-                return CheckServer(Finished(Error ex))
-        }
-        |> Cmd.fromAsync
-
-
-    /// The call a loader effect asks for, its answer as the loader machine's message.
-    let fetch effect =
-        let landed landing result = LoaderMsg(LoaderMachine.LoaderMsg.Landed(landing result))
-
-        match effect with
-        | LoaderMachine.LoaderEffect.FetchSettings ->
-            Cmd.OfAsync.either
-                serverApi.getSettings
-                ()
-                (Ok >> landed LoaderMachine.Landing.Settings)
-                (fun ex -> Error ex.Message |> landed LoaderMachine.Landing.Settings)
-        | LoaderMachine.LoaderEffect.FetchLocalization ->
-            Cmd.OfAsync.perform GoogleDocs.loadLocalization () (landed LoaderMachine.Landing.Localization)
-        | LoaderMachine.LoaderEffect.FetchNormalValues ->
-            Cmd.OfAsync.perform GoogleDocs.loadNormalValues () (landed LoaderMachine.Landing.NormalValues)
-        | LoaderMachine.LoaderEffect.FetchBolusMedication ->
-            Cmd.OfAsync.perform GoogleDocs.loadBolusMedication () (landed LoaderMachine.Landing.BolusMedication)
-        | LoaderMachine.LoaderEffect.FetchContinuousMedication ->
-            Cmd.OfAsync.perform
-                GoogleDocs.loadContinuousMedication
-                ()
-                (landed LoaderMachine.Landing.ContinuousMedication)
-        | LoaderMachine.LoaderEffect.FetchProducts ->
-            Cmd.OfAsync.perform GoogleDocs.loadProducts () (landed LoaderMachine.Landing.Products)
 
 
     /// The OpenedToken the Session holds, sent with every computing request; none
@@ -391,8 +348,8 @@ module private Elmish =
                     withdrawInteractionsNotice state
 
             { newState with Fetches.Interactions = Resolved interactions }, Cmd.none
-        | Api.InteractionResponse.DrugNamesLoaded names ->
-            { state with Fetches.InteractionDrugNames = Resolved names }, Cmd.none
+        // the drug names land through the loader machine
+        | Api.InteractionResponse.DrugNamesLoaded _ -> state, Cmd.none
 
 
     let loadFormulary opened = createApiMsg serverApi.processFormulary opened LoadFormulary
@@ -460,9 +417,6 @@ module private Elmish =
                     ParenteraliaAskAgain = false
                     Interactions = HasNotStartedYet
                     InteractionCheck = 0
-                    InteractionDrugNames = HasNotStartedYet
-                    DrugNameRetries = 0
-                    ServerStatus = HasNotStartedYet
                 }
             Admin =
                 {
@@ -1077,13 +1031,93 @@ module private Elmish =
         | _ -> None
 
 
-    /// A message through the loader machine: the step recorded in the trail and its calls made. The
-    /// settings landed also set the language default and the demo flag, until the shell takes them.
+    /// What one loader effect changes, and the command it sends: an alert on the snackbar, the
+    /// error banner raised or cleared, the notice to the Session, a call whose answer comes back as
+    /// the loader machine's message, or a wait.
+    let applyLoaderEffect effect (state: State) =
+        let landed landing result = LoaderMsg(LoaderMachine.LoaderMsg.Landed(landing result))
+        let opened = tokenOf state.Lanes.Session
+
+        let later seconds msg =
+            async {
+                do! Async.Sleep(seconds * 1000)
+                return LoaderMsg msg
+            }
+            |> Cmd.fromAsync
+
+        match effect with
+        | LoaderMachine.LoaderEffect.FetchSettings ->
+            state,
+            Cmd.OfAsync.either
+                serverApi.getSettings
+                ()
+                (Ok >> landed LoaderMachine.Landing.Settings)
+                (fun ex -> Error ex.Message |> landed LoaderMachine.Landing.Settings)
+        | LoaderMachine.LoaderEffect.FetchLocalization ->
+            state, Cmd.OfAsync.perform GoogleDocs.loadLocalization () (landed LoaderMachine.Landing.Localization)
+        | LoaderMachine.LoaderEffect.FetchNormalValues ->
+            state, Cmd.OfAsync.perform GoogleDocs.loadNormalValues () (landed LoaderMachine.Landing.NormalValues)
+        | LoaderMachine.LoaderEffect.FetchBolusMedication ->
+            state, Cmd.OfAsync.perform GoogleDocs.loadBolusMedication () (landed LoaderMachine.Landing.BolusMedication)
+        | LoaderMachine.LoaderEffect.FetchContinuousMedication ->
+            state,
+            Cmd.OfAsync.perform
+                GoogleDocs.loadContinuousMedication
+                ()
+                (landed LoaderMachine.Landing.ContinuousMedication)
+        | LoaderMachine.LoaderEffect.FetchProducts ->
+            state, Cmd.OfAsync.perform GoogleDocs.loadProducts () (landed LoaderMachine.Landing.Products)
+        | LoaderMachine.LoaderEffect.FetchDrugNames ->
+            state,
+            Cmd.OfAsync.perform
+                serverApi.processInteraction
+                {
+                    Opened = opened
+                    Command = Api.InteractionCommand.GetDrugNames
+                }
+                (landed (fun result -> LoaderMachine.Landing.DrugNames(opened, result)))
+        | LoaderMachine.LoaderEffect.CheckServer ->
+            state,
+            Cmd.OfAsync.either
+                serverApi.testApi
+                ()
+                (fun _ -> LoaderMsg(LoaderMachine.LoaderMsg.ServerChecked(Ok())))
+                (fun ex -> LoaderMsg(LoaderMachine.LoaderMsg.ServerChecked(Error ex.Message)))
+        | LoaderMachine.LoaderEffect.CheckServerLater seconds ->
+            state, LoaderMachine.LoaderMsg.CheckServer |> later seconds
+        | LoaderMachine.LoaderEffect.AskAgainLater(load, seconds) ->
+            state, LoaderMachine.LoaderMsg.Start load |> later seconds
+        | LoaderMachine.LoaderEffect.Alert alert ->
+            let terms = Global.getLocalizedTerm state.Loader.Localization state.Ui.Context.Localization
+            let text = alert |> Views.AlertText.text terms
+            { state with Ui.Snackbar = Snackbar.shown text (Views.AlertText.severity alert) }, Cmd.none
+        // the server check runs again every few seconds while the server is down, so it shows
+        // the banner alone and no snackbar
+        | LoaderMachine.LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Server, errs) ->
+            Logging.error "server niet bereikbaar" errs
+
+            { state with
+                Ui.ServerError =
+                    ServerErrorPolicy.raised
+                        ServerErrorPolicy.ErrorSource.Server
+                        "De server is niet bereikbaar. Controleer of de server is gestart."
+                    |> Some
+            },
+            Cmd.none
+        | LoaderMachine.LoaderEffect.Failed(source, errs) -> (state, Cmd.none) |> processError source errs
+        | LoaderMachine.LoaderEffect.Succeeded source -> (state, Cmd.none) |> clearError source
+        | LoaderMachine.LoaderEffect.NoticeReceived(from, notice) ->
+            state, Cmd.ofMsg (SessionMsg(SessionMsg.NoticeReceived(from, notice)))
+
+
+    /// A message through the loader machine: the step recorded in the trail and its effects
+    /// carried out. The settings landed also set the language default and the demo flag, until the
+    /// shell takes them.
     let runLoader msg (state: State) =
         match msg with
         | LoaderMachine.LoaderMsg.Landed landing ->
             landing |> loadFailed |> Option.iter (fun (text, err) -> Logging.error text err)
-        | LoaderMachine.LoaderMsg.Start _ -> ()
+        | _ -> ()
 
         let loader, effects = state.Loader |> LoaderMachine.transition msg
 
@@ -1104,7 +1138,7 @@ module private Elmish =
 
         StepTrail.record (fun no at -> Trail.loader no at msg (loader, effects))
 
-        { state with Loader = loader }, effects |> List.map fetch |> Cmd.batch
+        { state with Loader = loader } |> runEffects applyLoaderEffect effects
 
 
     /// What the pages show refreshed over reloaded resources, out in the update that lands the
@@ -1148,7 +1182,6 @@ module private Elmish =
             Busy.Load.Formulary, reading state.Fetches.Formulary
             Busy.Load.Parenteralia, reading state.Fetches.Parenteralia
             Busy.Load.Interactions, reading state.Fetches.Interactions
-            Busy.Load.DrugNames, reading state.Fetches.InteractionDrugNames
             Busy.Load.LogFiles, reading state.Admin.LogFiles
             Busy.Load.LogAnalysis, reading state.Admin.LogAnalysisReport
             Busy.Load.Reload, reading state.Admin.Reloading
@@ -1319,7 +1352,7 @@ module private Elmish =
                     | None when seeds url -> Cmd.ofMsg (SessionMsg SessionMsg.UrlMovedOn)
                     | None -> Cmd.ofMsg (SessionMsg SessionMsg.Resume)
                     | Some _ -> Cmd.none
-                    checkServer
+                    Cmd.ofMsg (LoaderMsg LoaderMachine.LoaderMsg.CheckServer)
                     for load in
                         [
                             Busy.Load.Settings
@@ -1328,11 +1361,11 @@ module private Elmish =
                             Busy.Load.ContinuousMedication
                             Busy.Load.Products
                             Busy.Load.Localization
+                            Busy.Load.DrugNames
                         ] do
                         Cmd.ofMsg (LoaderMsg(LoaderMachine.LoaderMsg.Start load))
                     Cmd.ofMsg (LoadFormulary Started)
                     Cmd.ofMsg (LoadParenteralia Started)
-                    Cmd.ofMsg (LoadInteractionDrugNames Started)
                     applied
                 ]
 
@@ -1403,39 +1436,6 @@ module private Elmish =
 
         match msg with
         | CloseSnackbar -> { state with Ui.Snackbar = Snackbar.closed }, Cmd.none
-
-        | CheckServer Started -> { state with Fetches.ServerStatus = InProgress }, checkServer
-
-        | CheckServer(Finished(Ok _)) ->
-            let cmd =
-                match state.Fetches.InteractionDrugNames with
-                | HasNotStartedYet -> Cmd.ofMsg (LoadInteractionDrugNames Started)
-                | _ -> Cmd.none
-
-            { state with
-                Fetches.ServerStatus = Resolved true
-                Ui.ServerError =
-                    state.Ui.ServerError
-                    |> ServerErrorPolicy.clearedBy ServerErrorPolicy.ErrorSource.Server
-            },
-            cmd
-
-        | CheckServer(Finished(Error err)) ->
-            Logging.error "server niet bereikbaar" err
-
-            { state with
-                Fetches.ServerStatus = Resolved false
-                Ui.ServerError =
-                    ServerErrorPolicy.raised
-                        ServerErrorPolicy.ErrorSource.Server
-                        "De server is niet bereikbaar. Controleer of de server is gestart."
-                    |> Some
-            },
-            async {
-                do! Async.Sleep 5000
-                return CheckServer Started
-            }
-            |> Cmd.fromAsync
 
         | DismissServerError -> { state with Ui.ServerError = None }, Cmd.none
 
@@ -1555,10 +1555,10 @@ module private Elmish =
 
         | UpdatePage page ->
             let retryDrugNames =
-                match state.Fetches.InteractionDrugNames with
+                match state.Loader.DrugNames with
                 | Resolved _
                 | InProgress -> Cmd.none
-                | _ -> Cmd.ofMsg (LoadInteractionDrugNames Started)
+                | _ -> Cmd.ofMsg (LoaderMsg(LoaderMachine.LoaderMsg.Start Busy.Load.DrugNames))
 
             if page = Global.Pages.Settings && not state.Admin.IsAuthenticated then
                 state, Cmd.none
@@ -1842,39 +1842,6 @@ module private Elmish =
             |> processError ServerErrorPolicy.ErrorSource.Interactions err
         | LoadInteractionsResult _ -> state, Cmd.none
 
-        | LoadInteractionDrugNames Started ->
-            match state.Fetches.InteractionDrugNames with
-            | InProgress
-            | Refreshing _ -> state, Cmd.none
-            | _ ->
-                { state with Fetches.InteractionDrugNames = state.Fetches.InteractionDrugNames |> Deferred.refresh },
-                Api.InteractionCommand.GetDrugNames
-                |> createApiMsg serverApi.processInteraction (tokenOf state.Lanes.Session) LoadInteractionDrugNames
-
-        | LoadInteractionDrugNames(Finished(Ok msg)) ->
-            let state, cmd = processApiMsg state msg applyInteraction
-            { state with Fetches.DrugNameRetries = 0 }, cmd
-        | LoadInteractionDrugNames(Finished(Error _)) ->
-            let retries = state.Fetches.DrugNameRetries + 1
-
-            if retries >= 3 then
-                { state with
-                    Fetches.InteractionDrugNames = HasNotStartedYet
-                    Fetches.DrugNameRetries = retries
-                    Ui.Snackbar = Snackbar.shown "Interactie medicatie namen konden niet worden geladen" "warning"
-                },
-                Cmd.none
-            else
-                { state with
-                    Fetches.InteractionDrugNames = HasNotStartedYet
-                    Fetches.DrugNameRetries = retries
-                },
-                async {
-                    do! Async.Sleep 3000
-                    return LoadInteractionDrugNames Started
-                }
-                |> Cmd.fromAsync
-
 
     /// A message applied, and the start-up marked as ended at the first update in which it is.
     let updateStarted msg state = update msg state |> markStarted
@@ -2079,7 +2046,7 @@ type private ConcreteAppEnv
 
     interface AppEnv.IInteractions with
         member _.Interactions = state.Fetches.Interactions
-        member _.InteractionDrugNames = state.Fetches.InteractionDrugNames
+        member _.InteractionDrugNames = state.Loader.DrugNames
         member _.CheckInteractions drugs = CheckInteractions drugs |> dispatch
 
     interface AppEnv.IResources with

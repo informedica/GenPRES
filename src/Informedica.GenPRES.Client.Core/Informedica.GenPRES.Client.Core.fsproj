@@ -37,6 +37,7 @@
     <Compile Include="PlanWorkPolicy.fs" />
     <Compile Include="HeldContextPolicy.fs" />
     <Compile Include="ServerErrorPolicy.fs" />
+    <Compile Include="Alert.fs" />
 
     <!-- the session and signing machines -->
     <Compile Include="SessionMachine.fs" />

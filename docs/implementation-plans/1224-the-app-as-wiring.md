@@ -334,7 +334,8 @@ url and the Session's sentences hang on, then the composition.
    server check asked again after a failure, not after a success; a failure raising the error
    banner with the server sentence and no snackbar, the next success clearing it; the drug names
    asked again, given up. `App`: the two arms replaced; the waits carried out as `Cmd.OfAsync`
-   over the effect; the alert shown through `AlertText.text`.
+   over the effect; the alert shown through `AlertText.text`. The server sentence stays in the
+   App's arm for `Failed Server` until step 8a moves it into `ServerErrorPolicy.raised`.
 4. **The loader machine, the pages that follow the workbench.** The formulary and parenteralia loads
    with the filter synced; the ask-again marks holding the filter answered during a load, used when
    it lands; the patient set reloading both, the formulary over the patient as `startFormulary` does

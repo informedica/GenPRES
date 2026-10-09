@@ -357,6 +357,40 @@ let tests =
                 |> Expect.equal "nothing asked" "nothing asked"
             }
 
+            test "the server check and the drug names read by what they did, never an error text" {
+                let check = LoaderMachine.LoaderMsg.ServerChecked(Error "connection refused")
+
+                let state, effects =
+                    LoaderMachine.LoaderState.initial
+                    |> LoaderMachine.transition LoaderMachine.LoaderMsg.CheckServer
+                    |> fst
+                    |> LoaderMachine.transition check
+
+                Trail.loader 1 at check (state, effects)
+                |> Trail.format
+                |> Expect.equal
+                    "the failed check"
+                    "#1 10:41:07.311 Loader ServerChecked Error -> Failed Server, CheckServerLater 5s | server down"
+
+                let failed = LoaderMachine.LoaderMsg.Landed(LoaderMachine.Landing.DrugNames(None, Error [| "down" |]))
+
+                let state, effects =
+                    state
+                    |> LoaderMachine.transition (LoaderMachine.LoaderMsg.Start Busy.Load.DrugNames)
+                    |> fst
+                    |> LoaderMachine.transition failed
+
+                Trail.loader 2 at failed (state, effects)
+                |> Trail.format
+                |> Expect.equal
+                    "the failed names"
+                    "#2 10:41:07.311 Loader Landed DrugNames no token Error -> AskAgainLater DrugNames 3s | drug names failed 1; server down"
+
+                LoaderMachine.LoaderEffect.Alert Alert.Alert.DrugNamesNotLoaded
+                |> Trail.Loader.effect
+                |> Expect.equal "the alert" "Alert DrugNamesNotLoaded"
+            }
+
             test "every machine names itself" {
                 let plan = OrderPlanState.noPatient
                 let signing = SigningState.idle

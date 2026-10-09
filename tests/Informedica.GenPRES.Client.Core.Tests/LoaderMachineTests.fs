@@ -3,6 +3,7 @@ module Informedica.GenPRES.Client.Core.Tests.LoaderMachineTests
 open Expecto
 open Expecto.Flip
 open Shared.Types
+open Shared.Api
 open Busy
 open LoaderMachine
 
@@ -27,6 +28,20 @@ let bolus hospital : BolusMedication =
     }
 
 
+let drugNames names notice =
+    Landing.DrugNames(
+        Some(OpenedToken "t"),
+        Ok
+            {
+                Response = InteractionResponse.DrugNamesLoaded names
+                Notice = notice
+            }
+    )
+
+
+let drugNamesFailed = Landing.DrugNames(None, Error [| "down" |])
+
+
 let run msgs =
     msgs
     |> List.fold (fun (state, _) msg -> state |> transition msg) (LoaderState.initial, [])
@@ -48,6 +63,7 @@ let tests =
                             Load.BolusMedication, LoaderEffect.FetchBolusMedication
                             Load.ContinuousMedication, LoaderEffect.FetchContinuousMedication
                             Load.Products, LoaderEffect.FetchProducts
+                            Load.DrugNames, LoaderEffect.FetchDrugNames
                         ] do
                         test $"%A{load}" {
                             let state, effects = run [ LoaderMsg.Start load ]
@@ -63,6 +79,20 @@ let tests =
                 state
                 |> transition (LoaderMsg.Start Load.Products)
                 |> Expect.equal "unchanged" (state, [])
+            }
+
+            test "a start over loaded data keeps it shown while it is asked again" {
+                let state, effects =
+                    run
+                        [
+                            LoaderMsg.Start Load.DrugNames
+                            LoaderMsg.Landed(drugNames [| "a" |] None)
+                            LoaderMsg.Start Load.DrugNames
+                        ]
+
+                effects |> Expect.equal "the call" [ LoaderEffect.FetchDrugNames ]
+                state.DrugNames |> Expect.equal "still shown" (Refreshing [| "a" |])
+                state |> out |> Expect.equal "out" [ Load.DrugNames ]
             }
 
             test "a start of a load this machine does not hold changes nothing" {
@@ -132,4 +162,126 @@ let tests =
                 state.Hospitals |> Expect.equal "not started" HasNotStartedYet
                 state.Failed |> Expect.equal "named" [ Load.BolusMedication ]
             }
+
+            testList
+                "the server check"
+                [
+                    test "a failure raises the error with the server source and checks again, with no alert" {
+                        let state, effects =
+                            run [ LoaderMsg.CheckServer; LoaderMsg.ServerChecked(Error "connection refused") ]
+
+                        effects
+                        |> Expect.equal
+                            "raised and checked again"
+                            [
+                                LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Server, [| "connection refused" |])
+                                LoaderEffect.CheckServerLater serverWait
+                            ]
+
+                        state.Server |> Expect.equal "down" (Resolved false)
+                    }
+
+                    test "a success clears the error and is not checked again" {
+                        let state, effects =
+                            run
+                                [
+                                    LoaderMsg.Start Load.DrugNames
+                                    LoaderMsg.CheckServer
+                                    LoaderMsg.ServerChecked(Ok())
+                                ]
+
+                        effects
+                        |> Expect.equal "cleared" [ LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Server ]
+
+                        state.Server |> Expect.equal "up" (Resolved true)
+                    }
+
+                    test "a success asks the drug names that are not loaded nor out" {
+                        let state, effects =
+                            run
+                                [
+                                    LoaderMsg.Start Load.DrugNames
+                                    LoaderMsg.Landed drugNamesFailed
+                                    LoaderMsg.CheckServer
+                                    LoaderMsg.ServerChecked(Ok())
+                                ]
+
+                        effects
+                        |> Expect.equal
+                            "cleared and asked"
+                            [
+                                LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Server
+                                LoaderEffect.FetchDrugNames
+                            ]
+
+                        state |> out |> Expect.equal "out" [ Load.DrugNames ]
+                    }
+
+                    test "a check while one runs changes nothing" {
+                        let state, _ = run [ LoaderMsg.CheckServer ]
+
+                        state
+                        |> transition LoaderMsg.CheckServer
+                        |> Expect.equal "unchanged" (state, [])
+                    }
+                ]
+
+            testList
+                "the drug names"
+                [
+                    test "a failure asks again after a wait" {
+                        let state, effects = run [ LoaderMsg.Start Load.DrugNames; LoaderMsg.Landed drugNamesFailed ]
+
+                        effects
+                        |> Expect.equal "asked again" [ LoaderEffect.AskAgainLater(Load.DrugNames, drugNamesWait) ]
+
+                        state.DrugNames |> Expect.equal "not started" HasNotStartedYet
+                        state.Failed |> Expect.isEmpty "not named, the application runs without them"
+                    }
+
+                    test "the third failure gives up with an alert" {
+                        let tries =
+                            [
+                                for _ in 1..drugNameLimit do
+                                    LoaderMsg.Start Load.DrugNames
+                                    LoaderMsg.Landed drugNamesFailed
+                            ]
+
+                        let state, effects = run tries
+
+                        effects
+                        |> Expect.equal "the alert" [ LoaderEffect.Alert Alert.Alert.DrugNamesNotLoaded ]
+
+                        state.DrugNameFailures |> Expect.equal "three failures" drugNameLimit
+                    }
+
+                    test "an answer resolves the names and counts the failures again from none" {
+                        let state, effects =
+                            run
+                                [
+                                    LoaderMsg.Start Load.DrugNames
+                                    LoaderMsg.Landed drugNamesFailed
+                                    LoaderMsg.Start Load.DrugNames
+                                    LoaderMsg.Landed(drugNames [| "a"; "b" |] None)
+                                ]
+
+                        effects |> Expect.isEmpty "nothing told"
+                        state.DrugNames |> Expect.equal "resolved" (Resolved [| "a"; "b" |])
+                        state.DrugNameFailures |> Expect.equal "no failures" 0
+                    }
+
+                    test "a notice on the answer is passed on with the token the request was sent with" {
+                        let notice = RecordNotice.Ended SessionEnding.SupersededByLaunch
+
+                        let _, effects =
+                            run
+                                [
+                                    LoaderMsg.Start Load.DrugNames
+                                    LoaderMsg.Landed(drugNames [||] (Some notice))
+                                ]
+
+                        effects
+                        |> Expect.equal "the notice" [ LoaderEffect.NoticeReceived(Some(OpenedToken "t"), notice) ]
+                    }
+                ]
         ]
