@@ -81,6 +81,20 @@ let tests =
                 |> Expect.equal "unchanged" (state, [])
             }
 
+            test "a start over loaded data keeps it shown while it is asked again" {
+                let state, effects =
+                    run
+                        [
+                            LoaderMsg.Start Load.DrugNames
+                            LoaderMsg.Landed(drugNames [| "a" |] None)
+                            LoaderMsg.Start Load.DrugNames
+                        ]
+
+                effects |> Expect.equal "the call" [ LoaderEffect.FetchDrugNames ]
+                state.DrugNames |> Expect.equal "still shown" (Refreshing [| "a" |])
+                state |> out |> Expect.equal "out" [ Load.DrugNames ]
+            }
+
             test "a start of a load this machine does not hold changes nothing" {
                 LoaderState.initial
                 |> transition (LoaderMsg.Start Load.Formulary)

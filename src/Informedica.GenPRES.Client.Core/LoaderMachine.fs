@@ -188,12 +188,13 @@ let settle load result (state: LoaderState) =
     | Error _ -> HasNotStartedYet, state
 
 
-/// The reading set out, with its call, unless the same load is out already.
+/// The reading set out, with its call, unless the same load is out already. Data that has loaded
+/// stays shown while it is asked again.
 let start effect reading =
     if isOut reading then
         reading, []
     else
-        InProgress, [ effect ]
+        Deferred.refresh reading, [ effect ]
 
 
 /// The number of failures after which the drug names are no longer asked again.
