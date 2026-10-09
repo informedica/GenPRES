@@ -1,8 +1,9 @@
-/// The data the client loads at start-up: the server settings, the localization, the normal
-/// values, the emergency and continuous medication lists and the products, each a reading that
-/// is asked for once. A start while the same load runs changes nothing; a failed load goes back
+/// The data the client loads: the server settings, the localization, the normal values, the
+/// emergency and continuous medication lists, the products and the drug names of the interactions
+/// page, each a reading. A start while the same load runs changes nothing; a failed load goes back
 /// to not started and, when the application cannot be used without it, is named for the gate.
-/// The hospitals are not loaded but read from the emergency medication when it lands.
+/// The hospitals are not loaded but read from the emergency medication when it lands. The server
+/// is checked until it answers, and the drug names are asked again after a failure, until the third.
 module LoaderMachine
 
 open Shared
@@ -28,6 +29,12 @@ type LoaderState =
         Products: Deferred<Product list>
         /// The hospitals the emergency medication names.
         Hospitals: Deferred<string[]>
+        /// The drug names the interactions page offers.
+        DrugNames: Deferred<string[]>
+        /// The failures of the drug names since they last loaded.
+        DrugNameFailures: int
+        /// Whether the server answered its last check.
+        Server: Deferred<bool>
         /// The required loads that failed, which keep the application on hold and are named.
         Failed: Load list
     }
@@ -42,6 +49,8 @@ type Landing =
     | BolusMedication of Result<BolusMedication list, string>
     | ContinuousMedication of Result<ContinuousMedication list, string>
     | Products of Result<Product list, string>
+    /// The drug names, with the token the request was sent with.
+    | DrugNames of from: OpenedToken option * Result<Reply<InteractionResponse>, string[]>
 
 
 /// A message to the loader machine.
@@ -51,9 +60,14 @@ type LoaderMsg =
     | Start of Load
     /// A load's answer.
     | Landed of Landing
+    /// The server asked whether it answers.
+    | CheckServer
+    /// The server's answer, or the error of a server that did not answer.
+    | ServerChecked of Result<unit, string>
 
 
-/// A call for the App to make; the answer comes back as a Landed message.
+/// What the App carries out: a call, whose answer comes back as a message, a wait, or what the
+/// user and the Session are told.
 [<RequireQualifiedAccess>]
 type LoaderEffect =
     | FetchSettings
@@ -62,6 +76,21 @@ type LoaderEffect =
     | FetchBolusMedication
     | FetchContinuousMedication
     | FetchProducts
+    | FetchDrugNames
+    /// Ask the server whether it answers.
+    | CheckServer
+    /// Check the server again after this many seconds.
+    | CheckServerLater of seconds: int
+    /// Start the load again after this many seconds.
+    | AskAgainLater of Load * seconds: int
+    /// Show the alert on the snackbar.
+    | Alert of Alert.Alert
+    /// A request of this source failed with these errors.
+    | Failed of ServerErrorPolicy.ErrorSource * string[]
+    /// A request of this source succeeded.
+    | Succeeded of ServerErrorPolicy.ErrorSource
+    /// What the reply told the Session, with the token the request was sent with.
+    | NoticeReceived of from: OpenedToken option * RecordNotice
 
 
 /// Reading the loader machine's state.
@@ -77,6 +106,9 @@ module LoaderState =
             ContinuousMedication = HasNotStartedYet
             Products = HasNotStartedYet
             Hospitals = HasNotStartedYet
+            DrugNames = HasNotStartedYet
+            DrugNameFailures = 0
+            Server = HasNotStartedYet
             Failed = []
         }
 
@@ -93,6 +125,7 @@ module LoaderState =
             Load.BolusMedication, reading state.BolusMedication
             Load.ContinuousMedication, reading state.ContinuousMedication
             Load.Products, reading state.Products
+            Load.DrugNames, reading state.DrugNames
         ]
 
 
@@ -163,8 +196,20 @@ let start effect reading =
         InProgress, [ effect ]
 
 
-/// The next state and the calls to make for a message. A start while the same load runs, and a
-/// start of a load this machine does not hold, change nothing.
+/// The number of failures after which the drug names are no longer asked again.
+let drugNameLimit = 3
+
+
+/// The seconds before the drug names are asked again.
+let drugNamesWait = 3
+
+
+/// The seconds before the server is checked again.
+let serverWait = 5
+
+
+/// The next state and the effects for a message. A start while the same load runs, and a start
+/// of a load this machine does not hold, change nothing.
 let transition msg (state: LoaderState) =
     match msg with
     | LoaderMsg.Start Load.Settings ->
@@ -185,6 +230,9 @@ let transition msg (state: LoaderState) =
     | LoaderMsg.Start Load.Products ->
         let reading, effects = state.Products |> start LoaderEffect.FetchProducts
         { state with Products = reading }, effects
+    | LoaderMsg.Start Load.DrugNames ->
+        let reading, effects = state.DrugNames |> start LoaderEffect.FetchDrugNames
+        { state with DrugNames = reading }, effects
 
     | LoaderMsg.Landed(Landing.Settings result) ->
         let reading, state = state |> settle Load.Settings result
@@ -212,5 +260,55 @@ let transition msg (state: LoaderState) =
     | LoaderMsg.Landed(Landing.Products result) ->
         let reading, state = state |> settle Load.Products result
         { state with Products = reading }, []
+    | LoaderMsg.Landed(Landing.DrugNames(from, Ok reply)) ->
+        let told =
+            reply.Notice
+            |> Option.map (fun notice -> LoaderEffect.NoticeReceived(from, notice))
+            |> Option.toList
+
+        match reply.Response with
+        | InteractionResponse.DrugNamesLoaded names ->
+            { state with
+                DrugNames = Resolved names
+                DrugNameFailures = 0
+            },
+            told
+        // the drug names call answers with the drug names only
+        | InteractionResponse.InteractionsChecked _ -> state, told
+    | LoaderMsg.Landed(Landing.DrugNames(_, Error _)) ->
+        let failures = state.DrugNameFailures + 1
+
+        { state with
+            DrugNames = HasNotStartedYet
+            DrugNameFailures = failures
+        },
+        [
+            if failures >= drugNameLimit then
+                LoaderEffect.Alert Alert.Alert.DrugNamesNotLoaded
+            else
+                LoaderEffect.AskAgainLater(Load.DrugNames, drugNamesWait)
+        ]
+
+    | LoaderMsg.CheckServer ->
+        let reading, effects = state.Server |> start LoaderEffect.CheckServer
+        { state with Server = reading }, effects
+    // drug names that are not loaded nor out are asked again once the server answers
+    | LoaderMsg.ServerChecked(Ok()) ->
+        let drugNames, effects =
+            match state.DrugNames with
+            | HasNotStartedYet -> state.DrugNames |> start LoaderEffect.FetchDrugNames
+            | _ -> state.DrugNames, []
+
+        { state with
+            Server = Resolved true
+            DrugNames = drugNames
+        },
+        LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Server :: effects
+    | LoaderMsg.ServerChecked(Error err) ->
+        { state with Server = Resolved false },
+        [
+            LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Server, [| err |])
+            LoaderEffect.CheckServerLater serverWait
+        ]
 
     | _ -> state, []

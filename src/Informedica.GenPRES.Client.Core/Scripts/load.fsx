@@ -27,6 +27,7 @@
 #load "../PlanWorkPolicy.fs"
 #load "../HeldContextPolicy.fs"
 #load "../ServerErrorPolicy.fs"
+#load "../Alert.fs"
 #load "../SessionMachine.fs"
 #load "../SigningMachine.fs"
 #load "../SessionGatePolicy.fs"

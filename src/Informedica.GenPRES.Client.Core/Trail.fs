@@ -702,11 +702,36 @@ module Loader =
         | Load.Reload -> "Reload"
 
 
+    /// The kind of request an error answered.
+    let source (s: ServerErrorPolicy.ErrorSource) =
+        match s with
+        | ServerErrorPolicy.ErrorSource.OrderPlan -> "OrderPlan"
+        | ServerErrorPolicy.ErrorSource.Formulary -> "Formulary"
+        | ServerErrorPolicy.ErrorSource.Parenteralia -> "Parenteralia"
+        | ServerErrorPolicy.ErrorSource.Interactions -> "Interactions"
+        | ServerErrorPolicy.ErrorSource.Login -> "Login"
+        | ServerErrorPolicy.ErrorSource.LogFiles -> "LogFiles"
+        | ServerErrorPolicy.ErrorSource.LogAnalysis -> "LogAnalysis"
+        | ServerErrorPolicy.ErrorSource.Reload -> "Reload"
+        | ServerErrorPolicy.ErrorSource.Server -> "Server"
+
+
+    /// A sentence the snackbar shows, by its case.
+    let alert (a: Alert.Alert) =
+        match a with
+        | Alert.Alert.DrugNamesNotLoaded -> "DrugNamesNotLoaded"
+
+
     /// An answer by its load and its size; never the error text.
     let landing (landing: Landing) =
         let count (xs: 'a list) = $"%i{xs.Length} items"
         let rows (xs: string[][]) = $"%i{xs.Length} rows"
         let named name _ = name
+
+        let drugNames (reply: Reply<InteractionResponse>) =
+            match reply.Response with
+            | InteractionResponse.DrugNamesLoaded names -> $"%i{names.Length} names"
+            | InteractionResponse.InteractionsChecked _ -> "interactions"
 
         let name, answer =
             match landing with
@@ -716,15 +741,20 @@ module Loader =
             | Landing.BolusMedication r -> "BolusMedication", r |> Part.result count
             | Landing.ContinuousMedication r -> "ContinuousMedication", r |> Part.result count
             | Landing.Products r -> "Products", r |> Part.result count
+            | Landing.DrugNames(from, r) -> $"DrugNames %s{Part.token from}", r |> Part.result drugNames
 
         $"%s{name} %s{answer}"
 
 
     /// A loader message.
     let msg (msg: LoaderMsg) =
+        let answered () = "answered"
+
         match msg with
         | LoaderMsg.Start l -> $"Start %s{load l}"
         | LoaderMsg.Landed l -> $"Landed %s{landing l}"
+        | LoaderMsg.CheckServer -> "CheckServer"
+        | LoaderMsg.ServerChecked r -> $"ServerChecked %s{r |> Part.result answered}"
 
 
     /// A call to make.
@@ -736,9 +766,18 @@ module Loader =
         | LoaderEffect.FetchBolusMedication -> "FetchBolusMedication"
         | LoaderEffect.FetchContinuousMedication -> "FetchContinuousMedication"
         | LoaderEffect.FetchProducts -> "FetchProducts"
+        | LoaderEffect.FetchDrugNames -> "FetchDrugNames"
+        | LoaderEffect.CheckServer -> "CheckServer"
+        | LoaderEffect.CheckServerLater seconds -> $"CheckServerLater %i{seconds}s"
+        | LoaderEffect.AskAgainLater(l, seconds) -> $"AskAgainLater %s{load l} %i{seconds}s"
+        | LoaderEffect.Alert a -> $"Alert %s{alert a}"
+        | LoaderEffect.Failed(s, _) -> $"Failed %s{source s}"
+        | LoaderEffect.Succeeded s -> $"Succeeded %s{source s}"
+        | LoaderEffect.NoticeReceived(from, n) -> $"NoticeReceived %s{Part.token from} %s{Part.notice n}"
 
 
-    /// The loads out, the loads that landed and the ones that failed.
+    /// The loads out, the loads that landed, the ones that failed, the drug names' failures and
+    /// whether the server answered.
     let state (state: LoaderState) =
         let names loads = loads |> List.map load |> String.concat ", "
 
@@ -752,6 +791,14 @@ module Loader =
             match state.Failed with
             | [] -> ()
             | loads -> $"failed %s{names loads}"
+            if state.DrugNameFailures > 0 then
+                $"drug names failed %i{state.DrugNameFailures}"
+            match state.Server with
+            | Resolved true -> "server up"
+            | Resolved false -> "server down"
+            | InProgress
+            | Refreshing _ -> "server checking"
+            | HasNotStartedYet -> ()
         ]
         |> function
             | [] -> "nothing asked"
