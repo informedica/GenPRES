@@ -321,8 +321,10 @@ module GenPres =
         // the gate: over the app until it has started, while a launch is presented or resumed,
         // and after a refusal; it cannot be dismissed, the machines decide when it goes
         let sessionGateOpen =
-            (AppEnv.asEnv<AppEnv.ISession> props.appEnv).Session
-            |> StartupPolicy.isGated (AppEnv.asEnv<AppEnv.IStartup> props.appEnv).Startup
+            StartupPolicy.isGated
+                (AppEnv.asEnv<AppEnv.IStartup> props.appEnv).Startup
+                (AppEnv.asEnv<AppEnv.ISession> props.appEnv).Session
+                (AppEnv.asEnv<AppEnv.ISigning> props.appEnv).Signing
 
         let sessionGateView = Views.SessionGate.View {| appEnv = props.appEnv |}
 

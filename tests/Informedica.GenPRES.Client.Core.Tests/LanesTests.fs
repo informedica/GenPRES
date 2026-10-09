@@ -91,7 +91,7 @@ let tests =
                     | LanesStep.Workbench _ -> "OrderContext"
                     | LanesStep.Plan _ -> "OrderPlan"
                     | LanesStep.Session _ -> "Session"
-                    | LanesStep.SigningReset _ -> "Signing"
+                    | LanesStep.Signing _ -> "Signing"
                     | LanesStep.StartedOver _ -> "Lanes"
                 )
                 |> Expect.equal
@@ -293,7 +293,7 @@ let tests =
                 |> Expect.isFalse "no page switch"
             }
 
-            test "the Session closed: the signing lane is set idle, a step without a message" {
+            test "the Session closed: the signing lane is told, and goes idle" {
                 let lanes =
                     { Lanes.initial (Some draft) with
                         Session = SessionState.opened SessionMachineTests.full None
@@ -308,7 +308,52 @@ let tests =
 
                 steps
                 |> List.last
-                |> Expect.equal "the reset step" (LanesStep.SigningReset SigningState.idle)
+                |> Expect.equal "the signing step" (LanesStep.Signing(SigningMsg.SessionEnded, SigningState.idle, []))
+            }
+
+            test "the Session ended during a submission: the outcome is told when the answer lands, then idle" {
+                let submitting = SigningMachineTests.Fixtures.submitting
+
+                let lanes =
+                    { Lanes.initial (Some draft) with
+                        Session = SessionState.opened SessionMachineTests.full None
+                        Signing = submitting
+                    }
+
+                let lanes, _, _ =
+                    lanes
+                    |> Lanes.transition (counter ()) (LanesMsg.Session SessionMsg.CloseSession)
+
+                lanes.Signing
+                |> SigningState.view
+                |> Expect.equal "still submitting" (SigningState.view submitting)
+
+                // the close answered: told once, at the step that ended the Session
+                let lanes, _, steps =
+                    lanes
+                    |> Lanes.transition (counter ()) (LanesMsg.Session SessionMsg.SessionClosed)
+
+                steps
+                |> List.exists (
+                    function
+                    | LanesStep.Signing _ -> true
+                    | _ -> false
+                )
+                |> Expect.isFalse "no second signing step"
+
+                let lanes, effects, _ =
+                    lanes
+                    |> Lanes.transition (counter ()) (LanesMsg.Signing(SigningMachineTests.Fixtures.submitted "k-1"))
+
+                lanes.Signing |> SigningState.view |> Expect.equal "idle" SigningView.Idle
+
+                effects
+                |> List.choose (
+                    function
+                    | LanesEffect.Signing e -> Some e
+                    | _ -> None
+                )
+                |> Expect.equal "the outcome alone" [ SigningEffect.TellSigned SigningMachineTests.Fixtures.signed ]
             }
 
             test "a signature answered: the token, the patient and the signed plan land in the same transition" {

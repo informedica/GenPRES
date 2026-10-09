@@ -445,6 +445,7 @@ module Signing =
         | SigningMsg.ConfirmPin _ -> "ConfirmPin"
         | SigningMsg.Cancel -> "Cancel"
         | SigningMsg.SubmitAnswered(_, r) -> $"SubmitAnswered %s{r |> Part.result response}"
+        | SigningMsg.SessionEnded -> "SessionEnded"
 
 
     /// Never the challenge, the PIN, the notice token or the identity.
@@ -456,7 +457,6 @@ module Signing =
         | SigningEffect.CallSubmit(p, _, _, _) -> $"CallSubmit %s{Part.plan p}"
         | SigningEffect.RenewSessionToken(_, p, _) -> $"RenewSessionToken %s{Part.patient p}"
         | SigningEffect.EndSession e -> $"EndSession %s{Part.ending e}"
-        | SigningEffect.SetNoticedPatient p -> $"SetNoticedPatient %s{Part.patient p}"
         | SigningEffect.TellSigned s -> $"TellSigned %s{Part.signed s}"
         | SigningEffect.TellRefused r -> $"TellRefused %s{Part.signingRefusal r}"
         | SigningEffect.TellError _ -> "TellError"
@@ -700,10 +700,6 @@ let reset machine describeState (no: int) (at: DateTime) (why: string) state =
     }
 
 
-/// The signing state the App set back when the session left Open.
-let signingReset = reset "Signing" Signing.state
-
-
 /// The lanes set back when the url moved on, by the patient draft they start over on.
 let startedOver = reset "Lanes" (fun (lanes: Lanes.LanesState) -> Patient.state lanes.Patient)
 
@@ -724,7 +720,7 @@ let orderContext = step "OrderContext" OrderContext.msg OrderContext.effect Orde
 let patient = step "Patient" Patient.msg Patient.effect Patient.state
 
 
-/// A step the lanes took: a machine's step, or the signing lane set idle.
+/// A step the lanes took: a machine's step, or the lanes started over.
 let lanes no at step =
     match step with
     | Lanes.LanesStep.Signing(msg, state, effects) -> signing no at msg (state, effects)
@@ -732,5 +728,4 @@ let lanes no at step =
     | Lanes.LanesStep.Patient(msg, state, effects) -> patient no at msg (state, effects)
     | Lanes.LanesStep.Plan(msg, state, effects) -> orderPlan no at msg (state, effects)
     | Lanes.LanesStep.Workbench(msg, state, effects) -> orderContext no at msg (state, effects)
-    | Lanes.LanesStep.SigningReset signing -> signingReset no at "the session is no longer open" signing
     | Lanes.LanesStep.StartedOver state -> startedOver no at "the url moved on" state

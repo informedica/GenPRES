@@ -109,10 +109,8 @@ let tests =
                     }
 
                     test
-                        "a patient changed keeps the filter and evaluates it for the new patient, whatever was in flight superseded" {
-                        let busy = evaluating paracetamol paracetamol "r-1"
-
-                        let state, effects = transition (OrderContextMsg.PatientChanged(Some other, "r-2")) busy
+                        "a patient changed keeps the filter and evaluates it for the new patient; a failure restores the last evaluated, for the new patient" {
+                        let state, effects = transition (OrderContextMsg.PatientChanged(Some other, "r-2")) shown
 
                         let expected = { paracetamol with Patient = otherDraft }
 
@@ -124,38 +122,25 @@ let tests =
                         effects
                         |> Expect.equal "the patient change and the syncs" (patientChanged other paracetamol "r-2")
 
+                        transition (OrderContextMsg.Answered("r-2", Error [| "not loaded" |])) state
+                        |> Expect.equal
+                            "a failure restores the last evaluated, for the new patient"
+                            (heldFor other expected, restored expected [| "not loaded" |])
+                    }
+
+                    test "no patient: no workbench, whatever was in flight answers to nothing" {
+                        transition (OrderContextMsg.PatientChanged(None, "r-1")) shown
+                        |> Expect.equal "no patient" (noPatient, [])
+
+                        let busy = evaluating paracetamol paracetamol "r-1"
+                        let state, effects = transition (OrderContextMsg.PatientChanged(None, "r-2")) busy
+
+                        (state, effects) |> Expect.equal "no patient during a request" (noPatient, [])
+
                         transition
                             (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol)))
                             state
-                        |> Expect.equal "the older answer dropped" (state, [])
-                    }
-
-                    test
-                        "a patient changed while a selection is in flight keeps the selection, and what a refusal restores" {
-                        let chosen = { paracetamol with OrderContext.Filter.Generic = Some "ibuprofen" }
-                        let busy = evaluating chosen paracetamol "r-1"
-
-                        let state, effects = transition (OrderContextMsg.PatientChanged(Some other, "r-2")) busy
-
-                        let found = { paracetamol with Patient = otherDraft }
-
-                        state
-                        |> Expect.equal
-                            "the selection evaluated for the new patient"
-                            (OrderContextState.patientChanging other chosen found "r-2")
-
-                        effects
-                        |> Expect.equal "the patient change and the syncs" (patientChanged other chosen "r-2")
-
-                        transition (OrderContextMsg.Answered("r-2", Error [| "not loaded" |])) state
-                        |> Expect.equal
-                            "a refusal restores the last evaluated, for the new patient"
-                            (heldFor other found, restored found [| "not loaded" |])
-                    }
-
-                    test "no patient: no workbench" {
-                        transition (OrderContextMsg.PatientChanged(None, "r-1")) shown
-                        |> Expect.equal "no patient" (noPatient, [])
+                        |> Expect.equal "the answer dropped" (noPatient, [])
                     }
                 ]
 
@@ -177,21 +162,12 @@ let tests =
                             (inFlightFor other cmd emptyForOther emptyForOther "r-2", replacing cmd emptyForOther "r-2")
                     }
 
-                    test "a seed with a patient goes over the context held, and over the one shown during a request" {
+                    test "a seed with a patient goes over the context held" {
                         let cmd = FilterSeed.command urlSeed
 
                         transition (OrderContextMsg.SeedFilter(urlSeed, "r-1")) shown
                         |> snd
                         |> Expect.equal "over the context held" (replacing cmd paracetamol "r-1")
-
-                        let step = OrderViewCommand.IncreaseScheduleFrequencyProperty
-                        let busy, _ = transition (OrderContextMsg.Command(step, "r-1")) shown
-
-                        transition (OrderContextMsg.SeedFilter(urlSeed, "r-2")) busy
-                        |> snd
-                        |> Expect.equal
-                            "over the context shown"
-                            (replacing cmd (OrderPlanMachine.Dialog.shown step paracetamol) "r-2")
                     }
 
                     test "a seed waiting goes with a cleared patient" {
@@ -204,22 +180,9 @@ let tests =
                         |> Expect.equal "the empty workbench opened, nothing waited" (opening patient "r-3")
                     }
 
-                    test
-                        "a seed during the first evaluation supersedes it; a failed one goes back to the empty workbench" {
-                        let cmd = FilterSeed.command urlSeed
-
-                        let seeded, effects =
-                            transition (OrderContextMsg.SeedFilter(urlSeed, "r-2")) (opening patient "r-1")
-
-                        seeded
-                        |> Expect.equal "the seed sent over the empty workbench" (inFlight cmd empty empty "r-2")
-
-                        effects |> Expect.equal "the call and the syncs" (replacing cmd empty "r-2")
-
-                        transition
-                            (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol)))
-                            seeded
-                        |> Expect.equal "the first evaluation's answer is stale" (seeded, [])
+                    test "a seed waiting that fails goes back to the empty workbench" {
+                        let waiting, _ = transition (OrderContextMsg.SeedFilter(urlSeed, "r-1")) noPatient
+                        let seeded, _ = transition (OrderContextMsg.PatientChanged(Some patient, "r-2")) waiting
 
                         transition (OrderContextMsg.Answered("r-2", Error [| "refused" |])) seeded
                         |> Expect.equal "back to the empty workbench" (held empty, restored empty [| "refused" |])
@@ -391,37 +354,6 @@ let viewTests =
 
 
 [<Tests>]
-let busyTests =
-    let step = OrderViewCommand.IncreaseScheduleFrequencyProperty
-    let busy = inFlight step paracetamol paracetamol "r-1"
-
-    testList
-        "a command while a request is under way"
-        [
-            test "is dropped, the dialog's and the page's alike" {
-                for cmd in
-                    [
-                        step
-                        OrderViewCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 0)
-                        OrderViewCommand.ResetOrderScenario
-                        OrderViewCommand.SelectNthOrderScenario 0
-                    ] do
-                    transition (OrderContextMsg.Command(cmd, "r-2")) busy
-                    |> Expect.equal $"%A{cmd} dropped, nothing sent" (busy, [])
-            }
-
-            test "the answer sends nothing more" {
-                let answer = { paracetamol with OrderContext.Filter.Generics = [| "paracetamol"; "ibuprofen" |] }
-
-                transition (OrderContextMsg.Command(step, "r-2")) busy
-                |> fst
-                |> transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated answer)))
-                |> Expect.equal "the answer held, nothing sent" (held answer, [])
-            }
-        ]
-
-
-[<Tests>]
 let stagesTests =
     testList
         "the two stages"
@@ -534,11 +466,6 @@ let selectionTests =
                 |> fst
                 |> dialog
                 |> Expect.equal "a patient change" None
-
-                transition (OrderContextMsg.PatientChanged(Some other, "r-2")) busySelected
-                |> fst
-                |> dialog
-                |> Expect.equal "a patient change during a request" None
 
                 transition (OrderContextMsg.SeedFilter(urlSeed, "r-1")) selected
                 |> fst
@@ -843,27 +770,6 @@ let reopenTests =
                 |> Expect.equal "nothing to put back" (open', [])
             }
 
-            test "a reopen while a request is under way is dropped and keeps nothing" {
-                let busy =
-                    open'
-                    |> move (OrderContextMsg.Command(OrderViewCommand.IncreaseScheduleFrequencyProperty, "r-1"))
-                    |> fst
-
-                busy
-                |> move (
-                    OrderContextMsg.ReopenField(
-                        OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
-                        "r-2"
-                    )
-                )
-                |> Expect.equal "dropped, nothing sent" (busy, [])
-
-                let settled = busy |> run [ OrderContextMsg.Answered("r-1", answered c1) ]
-
-                settled
-                |> move OrderContextMsg.RestoreField
-                |> Expect.equal "nothing to put back" (settled, [])
-            }
         ]
 
 
@@ -965,41 +871,6 @@ let specificCommandTests =
                 |> Expect.equal "the pick shown while it runs" (Some secondFrequency)
             }
 
-            test "a patient change during a pick evaluates the pick for the new patient" {
-                let busy, _ = transition (OrderContextMsg.Command(pickSecond, "r-1")) (held twoFrequencies)
-
-                transition (OrderContextMsg.PatientChanged(Some other, "r-2")) busy
-                |> snd
-                |> Expect.equal "the context picked, for the other patient" (patientChanged other secondFrequency "r-2")
-            }
-        ]
-
-
-/// The workbench during a patient change: shown as a change under way, and a command from the page
-/// dropped, so that nothing is ordered for the patient being replaced.
-[<Tests>]
-let patientChangeTests =
-    let noPatientChange = PatientMachine.PatientState.init (Some draft)
-
-    let patientChanging =
-        noPatientChange
-        |> PatientMachine.PatientState.transition (
-            PatientMachine.PatientMsg.Changed(Some otherDraft, PatientDraftPolicy.Estimates.Kept, "p-1")
-        )
-        |> fst
-
-    testList
-        "the workbench during a patient change"
-        [
-            test "a command from the page is dropped; the patient change itself reaches the workbench" {
-                shown
-                |> OrderContextState.transitionWhile patientChanging (OrderContextMsg.Command(asIs, "r-1"))
-                |> Expect.equal "the command is dropped" (shown, [])
-
-                OrderContextMsg.PatientChanged(Some other, "r-1")
-                |> OrderContextState.admitted patientChanging
-                |> Expect.isTrue "the patient admitted"
-            }
         ]
 
 
@@ -1123,5 +994,37 @@ let narrowedToTests =
                 inFlight asIs twoForms twoForms "r-1"
                 |> OrderContextState.narrowedTo "o-1"
                 |> Expect.isNone "not settled"
+            }
+        ]
+
+
+/// With a request out nothing but its answer and the patient cleared reaches the workbench: its
+/// pages are disabled, and whatever comes anyway falls to the closing arm.
+[<Tests>]
+let requestOutTests =
+    let step = OrderViewCommand.IncreaseScheduleFrequencyProperty
+    let busy = evaluating paracetamol paracetamol "r-1"
+
+    testList
+        "the workbench with a request out"
+        [
+            test "a command, a reopen, a seed, a reset and a patient set leave the state and send nothing" {
+                for msg in
+                    [
+                        OrderContextMsg.Command(step, "r-2")
+                        OrderContextMsg.ReopenField(
+                            OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
+                            "r-2"
+                        )
+                        OrderContextMsg.SeedFilter(urlSeed, "r-2")
+                        OrderContextMsg.Reset "r-2"
+                        OrderContextMsg.PatientChanged(Some other, "r-2")
+                    ] do
+                    transition msg busy |> Expect.equal $"%A{msg}" (busy, [])
+            }
+
+            test "the patient cleared still resets it" {
+                transition (OrderContextMsg.PatientChanged(None, "r-2")) busy
+                |> Expect.equal "no patient" (noPatient, [])
             }
         ]

@@ -125,6 +125,81 @@ let tests =
                 |> Expect.equal "a refresh" [ Request.Session ]
             }
 
+            test "a signature is a request in each of its phases, and disables every page" {
+                let noticed =
+                    SigningState.noticed
+                        SigningMachineTests.Fixtures.plan
+                        {
+                            Data = None
+                            Token = "d-1"
+                        }
+
+                for name, signing in
+                    [
+                        "requesting", SigningMachineTests.Fixtures.requesting
+                        "noticed", noticed
+                        "challenged", SigningMachineTests.Fixtures.challenged
+                        "submitting", SigningMachineTests.Fixtures.submitting
+                    ] do
+                    let out =
+                        Busy.out
+                            false
+                            noPatientChange
+                            OrderContextState.noPatient
+                            shown
+                            SessionState.anonymous
+                            signing
+                            []
+
+                    out |> Expect.equal name [ Request.Signature ]
+                    out |> Busy.any |> Expect.isTrue $"%s{name}: the menu waits"
+
+                    for p in allPages do
+                        out |> Busy.page p |> Expect.isTrue $"%s{name}: %A{p}"
+            }
+
+            test "a workbench or a plan request disables the page that would send the next command or change" {
+                let workbench =
+                    Busy.out
+                        false
+                        noPatientChange
+                        (OrderContextState.opening patient "w-1")
+                        shown
+                        SessionState.anonymous
+                        SigningState.idle
+                        []
+
+                workbench |> Busy.page Page.Page.Prescribe |> Expect.isTrue "the Prescribe page"
+
+                let plan =
+                    Busy.out
+                        false
+                        noPatientChange
+                        OrderContextState.noPatient
+                        (recalculating one None "p-1" (OrderPlanCommand.FilterRows([||], one)))
+                        SessionState.anonymous
+                        SigningState.idle
+                        []
+
+                plan |> Busy.page Page.Page.OrderPlan |> Expect.isTrue "the OrderPlan page"
+                plan |> Busy.page Page.Page.Nutrition |> Expect.isTrue "the Nutrition page"
+            }
+
+            test "a patient change disables the pages of both order machines" {
+                let out =
+                    Busy.out
+                        false
+                        patientChanging
+                        OrderContextState.noPatient
+                        shown
+                        SessionState.anonymous
+                        SigningState.idle
+                        []
+
+                for p in [ Page.Page.Prescribe; Page.Page.OrderPlan; Page.Page.Nutrition ] do
+                    out |> Busy.page p |> Expect.isTrue $"%A{p}"
+            }
+
             test "a field counting step clicks disables every page but Nutrition, whose fields wait themselves" {
                 let out =
                     Busy.out
