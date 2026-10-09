@@ -57,6 +57,7 @@ The work hangs under [#1224](https://github.com/informedica/GenPRES/issues/1224)
 - [Problem description](#problem-description)
 - [Decisions](#decisions)
 - [Steps](#steps)
+- [As built](#as-built)
 - [Verification, per step](#verification-per-step)
 - [Out of scope](#out-of-scope)
 
@@ -1027,6 +1028,62 @@ Line counts:
   policy and the start-up input of the gate (step 4), in place of `viewWhile`, `dialogWhile`
   and the composed policies they replace.
   Accepted (user, 2026-10-08); the target above is for the two order machines.
+
+## As built
+
+Every step is merged. The order the steps landed in: 1, 2a, 2b, 3, 4a to 4c, 13a and 13b, 5, 6,
+7a to 7c, 9a and 9b, 8, 10, 11, 12. Two renames between 7c and 9a gave the machines' cases names
+that say which aspect they belong to; they belong to no step.
+
+| Step | Pull request |
+| ---- | ------------ |
+| Plan | #1351 |
+| 1 | #1352 |
+| 2a, 2b | #1353, #1354 |
+| 3 | #1355 |
+| 4a, 4b, 4c | #1356, #1357, #1358 |
+| 13 (plan, a, b) | #1359, #1360, #1361 |
+| 5 | #1362 |
+| 6 | #1363 |
+| 7a, 7b, 7c | #1364, #1365, #1366 |
+| Renames | #1367, #1368 |
+| 9a, 9b | #1369, #1370 |
+| 8 | #1371 |
+| 10 | #1372 |
+| 11 | #1373 |
+| 12 | this pull request |
+
+Line counts of the client's machines and of the App, before the plan (d0887a25) and after step
+12:
+
+| File | Before | After |
+| ---- | -----: | ----: |
+| `OrderContextMachine.fs` | 623 | 443 |
+| `OrderPlanMachine.fs` | 594 | 436 |
+| `CommandPreview.fs` | 0 | 11 |
+| `SigningMachine.fs` | 312 | 344 |
+| `SessionMachine.fs` | 591 | 729 |
+| `PatientMachine.fs` | 137 | 137 |
+| `Lanes.fs` | 0 | 209 |
+| `Busy.fs` | 0 | 113 |
+| `StartupPolicy.fs` | 0 | 110 |
+| `UrlPolicy.fs` | 0 | 95 |
+| `App.fs` | 2426 | 2742 |
+
+The two order machines lost 338 lines between them, their guards, stages and waiting changes
+gone. What grew is new behaviour, not a second line of defence: the Session's url moves, the
+two refreshes and the signed plan as its head; the signing machine's end with the Session; the
+wiring between the machines, the busy policy, the start-up gate and the url policy in
+Client.Core, where Expecto reaches them. App.fs grew with the start-up loads, the url handling
+and the counting, and lost the wiring that moved to `Lanes`.
+
+Step 12 as built: `Dialog.shown` became `CommandPreview.shown`, used by the order context
+machine alone, with its test in a file of its own. The seed's slot of its own,
+`NoPatient of awaiting`, stays, as decision 3 decides: a seed that arrives before the patient
+has nowhere else to wait. `LanguagePolicy.onServerDefault` kept its code, since a url language can still
+arrive before the settings during the start-up, and lost the test of a choice made while the
+settings were in flight. The stepping-flow document (`docs/domain/dose-quantity-stepping-flow.md`)
+no longer describes a command pending, a revision or an evaluating case.
 
 ## Verification, per step
 

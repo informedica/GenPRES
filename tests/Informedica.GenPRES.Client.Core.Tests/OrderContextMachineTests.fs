@@ -586,7 +586,7 @@ let refusalTests =
                 |> view
                 |> Expect.equal
                     "changing over the seed"
-                    (OrderContextView.Changing(OrderPlanMachine.Dialog.shown (FilterSeed.command urlSeed) paracetamol))
+                    (OrderContextView.Changing(CommandPreview.shown (FilterSeed.command urlSeed) paracetamol))
 
                 transition (OrderContextMsg.Reset "r-2") shown
                 |> fst
@@ -823,14 +823,6 @@ let specificCommandTests =
     testList
         "the specific commands"
         [
-            test "a command that cannot change the context shows it as it is" {
-                twoGenerics
-                |> OrderPlanMachine.Dialog.shown (
-                    OrderViewCommand.SetNthFilterProperty(Shared.Models.OrderContext.Generic, 2)
-                )
-                |> Expect.equal "an index out of range" twoGenerics
-            }
-
             test "a filter pick goes out as is and shows the filter it makes; the pages wait for the answer" {
                 let cmd = OrderViewCommand.SetNthFilterProperty(Shared.Models.OrderContext.Generic, 1)
                 let picked = twoGenerics |> Shared.Models.OrderContext.medicationChange (Some "paracetamol")

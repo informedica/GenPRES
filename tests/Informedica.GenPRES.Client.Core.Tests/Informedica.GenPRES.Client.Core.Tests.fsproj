@@ -45,6 +45,7 @@
     <Compile Include="HeldPanelPolicyTests.fs" />
 
     <!-- the order machines -->
+    <Compile Include="CommandPreviewTests.fs" />
     <Compile Include="OrderPlanMachineTests.fs" />
     <Compile Include="OrderContextMachineTests.fs" />
     <Compile Include="LanesTests.fs" />

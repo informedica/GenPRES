@@ -78,7 +78,7 @@ module OrderContextWorkbench =
     /// command changes it; for a patient update the context sent with the patient updated.
     let shown (sent: OrderContextCommand) =
         match sent with
-        | OrderContextCommand.Command(cmd, ctx) -> OrderPlanMachine.Dialog.shown cmd ctx
+        | OrderContextCommand.Command(cmd, ctx) -> CommandPreview.shown cmd ctx
         | OrderContextCommand.UpdatePatient(pat, ctx) -> { ctx with Patient = pat }
 
 

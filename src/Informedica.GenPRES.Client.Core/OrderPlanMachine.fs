@@ -60,19 +60,6 @@ module OrderPlanChange =
             |> Option.map (fun ctx -> OrderPlanCommand.Navigate(tp, id, cmd, ctx))
 
 
-/// The order dialog's commands, the same in both order machines: a step, a typed value or a
-/// reset. None goes out while a request is under way: the dialog's fields are disabled until
-/// the answer.
-module Dialog =
-
-    /// The context as the command changes it, shown while its request is under way; the context
-    /// itself when the command cannot change it.
-    let shown (cmd: OrderViewCommand) (ctx: OrderContext) =
-        match OrderViewCommand.preview cmd ctx with
-        | Ok changed -> changed
-        | Error _ -> ctx
-
-
 /// Everything the order plan machine holds, hidden from the pages, which read an OrderPlanView of
 /// it instead.
 type OrderPlanState =

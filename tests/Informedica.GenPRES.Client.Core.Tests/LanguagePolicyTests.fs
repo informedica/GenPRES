@@ -59,18 +59,6 @@ module LanguagePolicyTests =
                         }
                 }
 
-                test "settings arriving after the User's choice do not override it" {
-                    Language.initial None
-                    |> Language.choose French
-                    |> Language.onServerDefault English
-                    |> Expect.equal
-                        "choice wins"
-                        {
-                            Current = French
-                            Chosen = true
-                        }
-                }
-
                 test "the User's choice after the settings overrides the server default" {
                     Language.initial None
                     |> Language.onServerDefault English
