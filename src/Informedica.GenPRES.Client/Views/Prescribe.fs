@@ -87,7 +87,7 @@ module Prescribe =
 
         // the dialog is open while a scenario is selected: the selection is the state
         let dialog = envOrderContext.Dialog
-        let handleModalClose = fun () -> envOrderContext.Select None
+        let handleModalClose = fun () -> envOrderContext.SelectScenario None
 
         // the filter is put back as it was: bounded and to the left, since it discards what the
         // user built and must not be where you click by default
@@ -212,7 +212,7 @@ module Prescribe =
 
                 // the scenario selected, and the workbench narrowed to it and calculated
                 let handleEditClick () =
-                    envOrderContext.Select(Some sc.Order.Id)
+                    envOrderContext.SelectScenario(Some sc.Order.Id)
                     onClick sc
 
                 let cellSx =
@@ -518,8 +518,8 @@ module Prescribe =
                     editing = PlanContextPolicy.Editing.Workbench
                     orderContext = dialog |> Option.defaultValue OrderContextView.NoPatient
                     command = orderContextMsg
-                    reopen = envOrderContext.Reopen
-                    restoreOrderScenario = envOrderContext.Restore
+                    reopen = envOrderContext.ReopenField
+                    restoreOrderScenario = envOrderContext.RestoreField
                     closeOrder = handleModalClose
                     localizationTerms = localizationTerms
                 |}

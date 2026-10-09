@@ -215,13 +215,13 @@ type OrderContextMsg =
     /// Clear the workbench and evaluate it empty, after an order was prescribed.
     | Reset of request: string
     /// The scenario the dialog shows, by its order's id.
-    | Select of string option
+    | SelectScenario of string option
     /// A clear from the dialog that opens the field's list: the command goes out, and the state
     /// before it is kept to be put back.
-    | Reopen of OrderViewCommand * request: string
+    | ReopenField of OrderViewCommand * request: string
     /// The list of a reopen closed without a pick: the context kept is put back, and the answer to
     /// the clear is dropped.
-    | Restore
+    | RestoreField
 
 
 /// What the App carries out for the order context machine.
@@ -527,7 +527,7 @@ module OrderContextState =
                 @ (synced sent result |> Option.map OrderContextEffect.SyncPages |> Option.toList)
 
         // the selection needs no request
-        | OrderContextMsg.Select id, _, _ -> select id state, []
+        | OrderContextMsg.SelectScenario id, _, _ -> select id state, []
 
         // a patient change during a request: the context sent, as its command changes it, is
         // evaluated for the new patient; the dialog closes and the refusal is cleared
@@ -565,8 +565,8 @@ module OrderContextState =
         | OrderContextMsg.Command(cmd, request), _, _ -> run request (OrderContextWorkbenchMsg.Command cmd) state
         | OrderContextMsg.Reset request, _, _ -> run request OrderContextWorkbenchMsg.Reset state
         // taken by transition
-        | OrderContextMsg.Reopen _, _, _
-        | OrderContextMsg.Restore, _, _ -> state, []
+        | OrderContextMsg.ReopenField _, _, _
+        | OrderContextMsg.RestoreField, _, _ -> state, []
 
 
     /// The next state and effects for a message. A reopen keeps the state before it, which an
@@ -577,13 +577,13 @@ module OrderContextState =
     /// finds no request to land on after a restore.
     let transition (msg: OrderContextMsg) (state: OrderContextState) : OrderContextState * OrderContextEffect list =
         match msg with
-        | OrderContextMsg.Reopen(cmd, request) when state.InFlight.IsSome ->
+        | OrderContextMsg.ReopenField(cmd, request) when state.InFlight.IsSome ->
             move (OrderContextMsg.Command(cmd, request)) { state with Kept = None }
-        | OrderContextMsg.Reopen(cmd, request) ->
+        | OrderContextMsg.ReopenField(cmd, request) ->
             let kept = { state with Kept = None }
             let moved, effects = move (OrderContextMsg.Command(cmd, request)) kept
             { moved with Kept = Some kept }, effects
-        | OrderContextMsg.Restore ->
+        | OrderContextMsg.RestoreField ->
             match state.Kept with
             | Some kept -> kept, []
             | None -> state, []
@@ -596,13 +596,13 @@ module OrderContextState =
     let admitted (patient: PatientMachine.PatientState) (msg: OrderContextMsg) =
         match msg with
         | OrderContextMsg.Command _
-        | OrderContextMsg.Reopen _ -> not (PatientMachine.PatientState.changing patient)
+        | OrderContextMsg.ReopenField _ -> not (PatientMachine.PatientState.changing patient)
         | OrderContextMsg.PatientChanged _
         | OrderContextMsg.SeedFilter _
         | OrderContextMsg.Answered _
         | OrderContextMsg.Reset _
-        | OrderContextMsg.Select _
-        | OrderContextMsg.Restore -> true
+        | OrderContextMsg.SelectScenario _
+        | OrderContextMsg.RestoreField -> true
 
 
     /// The transition, with messages not admitted during a patient change ignored.

@@ -181,7 +181,7 @@ let tests =
             test "a reopen shows the request it awaits and the state it keeps" {
                 OrderContextState.held pat ctxPicked
                 |> OrderContextState.transition (
-                    OrderContextMsg.Reopen(
+                    OrderContextMsg.ReopenField(
                         OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
                         "r-9"
                     )
@@ -198,7 +198,7 @@ let tests =
                 [
                     Trail.OrderPlan.msg (
                         OrderPlanMsg.Change(
-                            OrderPlanChange.Navigate("ctx-1", OrderViewCommand.ResetOrderScenario),
+                            OrderPlanChange.OrderDialogCommand("ctx-1", OrderViewCommand.ResetOrderScenario),
                             "r-3"
                         )
                     )
@@ -207,7 +207,7 @@ let tests =
                 |> Expect.equal
                     "the lines"
                     [
-                        "Change Navigate ctx-1 ResetOrderScenario r-3"
+                        "Change OrderDialogCommand ctx-1 ResetOrderScenario r-3"
                         "CallPlan Navigate ctx-1 ResetOrderScenario r-3"
                     ]
             }
@@ -215,14 +215,14 @@ let tests =
             test "a page's change to the plan reads by what it wants" {
                 [
                     Trail.OrderPlan.msg (OrderPlanMsg.Change(OrderPlanChange.Add ctxPicked, "r-1"))
-                    Trail.OrderPlan.msg (OrderPlanMsg.Change(OrderPlanChange.New NutritionCategory.TPN, "r-2"))
+                    Trail.OrderPlan.msg (OrderPlanMsg.Change(OrderPlanChange.NewNutrition NutritionCategory.TPN, "r-2"))
                     Trail.OrderPlan.msg (OrderPlanMsg.Change(OrderPlanChange.Remove [| "c-1"; "c-2" |], "r-3"))
                 ]
                 |> Expect.equal
                     "the lines"
                     [
                         "Change Add ctx-1 pain/paracetamol/oral 0 scenarios r-1"
-                        "Change New TPN r-2"
+                        "Change NewNutrition TPN r-2"
                         "Change Remove 2 r-3"
                     ]
             }
@@ -315,7 +315,7 @@ let tests =
                             )
                             Trail.OrderPlan.msg (
                                 OrderPlanMsg.Change(
-                                    OrderPlanChange.Navigate(
+                                    OrderPlanChange.OrderDialogCommand(
                                         "ctx-1",
                                         OrderViewCommand.SetArgumentationProperty "Jan Jansen weighs more"
                                     ),
@@ -337,7 +337,7 @@ let tests =
                 let session = SessionState.anonymous
 
                 [
-                    Trail.orderPlan 1 at OrderPlanMsg.Restore (plan, []) |> _.Machine
+                    Trail.orderPlan 1 at OrderPlanMsg.RestoreField (plan, []) |> _.Machine
                     Trail.signing 2 at SigningMsg.Cancel (signing, []) |> _.Machine
                     Trail.session 3 at SessionMsg.Resume (session, []) |> _.Machine
                 ]

@@ -44,17 +44,17 @@ type IOrderContext =
     abstract OrderContext: OrderContextMachine.OrderContextView
     abstract OrderContextMsg: Api.OrderViewCommand -> unit
     // a clear from the dialog that opens the field's list, the workbench before it kept
-    abstract Reopen: Api.OrderViewCommand -> unit
+    abstract ReopenField: Api.OrderViewCommand -> unit
     // the list of a reopen closed without a pick: the workbench kept is put back
-    abstract Restore: unit -> unit
+    abstract RestoreField: unit -> unit
     // the workbench as the order dialog shows it; none while no scenario is selected
     abstract Dialog: OrderContextMachine.OrderContextView option
     // the scenario whose order the dialog shows, by its order's id; the client's own, no round trip
-    abstract Select: string option -> unit
+    abstract SelectScenario: string option -> unit
 
 
 /// The one plan, nutrition included, and the commands on it.
-/// Mangled, as IOrderContext is: the two share a Select on one object.
+/// Mangled, as IOrderContext is: the two share member names on one object.
 [<Interface; Fable.Core.Mangle>]
 type IOrderPlan =
     // the plan as the pages show it, the dialog's selection inside
@@ -62,19 +62,19 @@ type IOrderPlan =
     // the order with this id prescribed, from the workbench narrowed to its scenario
     abstract Add: orderId: string -> unit
     // a new nutrition context for the category
-    abstract New: NutritionCategory -> unit
+    abstract NewNutrition: NutritionCategory -> unit
     // the contexts with these ids removed
     abstract Remove: ids: string[] -> unit
-    // a command into the plan's context with this id, sent over the plan held
-    abstract Navigate: string * Api.OrderViewCommand -> unit
+    // a command from the order dialog into the plan's context with this id, sent over the plan held
+    abstract OrderDialogCommand: string * Api.OrderViewCommand -> unit
     // a clear from the dialog that opens the field's list, the plan before it kept
-    abstract Reopen: string * Api.OrderViewCommand -> unit
+    abstract ReopenField: string * Api.OrderViewCommand -> unit
     // the list of a reopen closed without a pick: the plan kept is put back, as signed or changed
-    abstract Restore: unit -> unit
+    abstract RestoreField: unit -> unit
     // the context whose order the dialog shows, by id; the client's own, no round trip
-    abstract Select: string option -> unit
+    abstract SelectContext: string option -> unit
     // the contexts the rows keep, by id; the totals follow
-    abstract Filter: string[] -> unit
+    abstract FilterRows: string[] -> unit
     // the contexts of the plan that are new or changed since the version last opened or
     // signed, by id; while there are any in an open Session the patient context is held
     abstract Changed: string[]

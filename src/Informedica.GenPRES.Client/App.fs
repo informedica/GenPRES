@@ -2326,41 +2326,41 @@ type private ConcreteAppEnv
         member _.OrderContextMsg cmd =
             OrderContextMsg(OrderContextMsg.Command(cmd, newRequest ())) |> dispatch
 
-        member _.Reopen cmd =
-            OrderContextMsg(OrderContextMsg.Reopen(cmd, newRequest ())) |> dispatch
+        member _.ReopenField cmd =
+            OrderContextMsg(OrderContextMsg.ReopenField(cmd, newRequest ())) |> dispatch
 
-        member _.Restore() = OrderContextMsg OrderContextMsg.Restore |> dispatch
+        member _.RestoreField() = OrderContextMsg OrderContextMsg.RestoreField |> dispatch
 
         member _.Dialog = state.Lanes.OrderContext |> OrderContextState.dialog
 
-        member _.Select id = OrderContextMsg(OrderContextMsg.Select id) |> dispatch
+        member _.SelectScenario id = OrderContextMsg(OrderContextMsg.SelectScenario id) |> dispatch
 
     interface AppEnv.IOrderPlan with
         member _.OrderPlan = state.Lanes.OrderPlan |> OrderPlanState.view
 
         member _.Add orderId = Prescribe orderId |> dispatch
 
-        member _.New category =
-            OrderPlanMsg(OrderPlanMsg.Change(OrderPlanChange.New category, newRequest ()))
+        member _.NewNutrition category =
+            OrderPlanMsg(OrderPlanMsg.Change(OrderPlanChange.NewNutrition category, newRequest ()))
             |> dispatch
 
         member _.Remove ids =
             OrderPlanMsg(OrderPlanMsg.Change(OrderPlanChange.Remove ids, newRequest ()))
             |> dispatch
 
-        member _.Navigate(id, cmd) =
-            OrderPlanMsg(OrderPlanMsg.Change(OrderPlanChange.Navigate(id, cmd), newRequest ()))
+        member _.OrderDialogCommand(id, cmd) =
+            OrderPlanMsg(OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand(id, cmd), newRequest ()))
             |> dispatch
 
-        member _.Reopen(id, cmd) =
-            OrderPlanMsg(OrderPlanMsg.Reopen(id, cmd, newRequest ())) |> dispatch
+        member _.ReopenField(id, cmd) =
+            OrderPlanMsg(OrderPlanMsg.ReopenField(id, cmd, newRequest ())) |> dispatch
 
-        member _.Restore() = OrderPlanMsg OrderPlanMsg.Restore |> dispatch
+        member _.RestoreField() = OrderPlanMsg OrderPlanMsg.RestoreField |> dispatch
 
-        member _.Select id = OrderPlanMsg(OrderPlanMsg.Select id) |> dispatch
+        member _.SelectContext id = OrderPlanMsg(OrderPlanMsg.SelectContext id) |> dispatch
 
-        member _.Filter ids =
-            OrderPlanMsg(OrderPlanMsg.Change(OrderPlanChange.Filter ids, newRequest ()))
+        member _.FilterRows ids =
+            OrderPlanMsg(OrderPlanMsg.Change(OrderPlanChange.FilterRows ids, newRequest ()))
             |> dispatch
 
         member _.Changed = state.Lanes.OrderPlan |> OrderPlanState.changed

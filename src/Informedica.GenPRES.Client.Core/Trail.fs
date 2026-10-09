@@ -290,11 +290,11 @@ module Part =
     let change (c: OrderPlanMachine.OrderPlanChange) =
         match c with
         | OrderPlanMachine.OrderPlanChange.Add ctx -> $"Add %s{context ctx}"
-        | OrderPlanMachine.OrderPlanChange.New category -> $"New %s{nutrition category}"
+        | OrderPlanMachine.OrderPlanChange.NewNutrition category -> $"NewNutrition %s{nutrition category}"
         | OrderPlanMachine.OrderPlanChange.Remove ids -> $"Remove %i{ids.Length}"
-        | OrderPlanMachine.OrderPlanChange.Filter ids -> $"Filter %i{ids.Length}"
-        | OrderPlanMachine.OrderPlanChange.Navigate(id, cmd) ->
-            $"Navigate %s{shortId id} %s{OrderViewCommand.toString (cmd, OrderContext.empty)}"
+        | OrderPlanMachine.OrderPlanChange.FilterRows ids -> $"FilterRows %i{ids.Length}"
+        | OrderPlanMachine.OrderPlanChange.OrderDialogCommand(id, cmd) ->
+            $"OrderDialogCommand %s{shortId id} %s{OrderViewCommand.toString (cmd, OrderContext.empty)}"
 
 
     /// A plan command by what it does, with a context as describeContext tells it; never the plan.
@@ -487,13 +487,13 @@ module OrderPlan =
     let msg (msg: OrderPlanMsg) =
         match msg with
         | OrderPlanMsg.PatientChanged(p, request) -> $"PatientChanged %s{Part.patientOption p} %s{Part.shortId request}"
-        | OrderPlanMsg.Version(s, request) -> $"Version %s{Part.signed s} %s{Part.shortId request}"
+        | OrderPlanMsg.OpenSignedPlan(s, request) -> $"OpenSignedPlan %s{Part.signed s} %s{Part.shortId request}"
         | OrderPlanMsg.Change(change, request) -> $"Change %s{Part.change change} %s{Part.shortId request}"
         | OrderPlanMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result Part.plan}"
-        | OrderPlanMsg.Select id -> $"Select %s{id |> Part.orNone Part.shortId}"
-        | OrderPlanMsg.Reopen(id, cmd, request) ->
-            $"Reopen %s{id} %s{OrderViewCommand.toString (cmd, OrderContext.empty)} %s{Part.shortId request}"
-        | OrderPlanMsg.Restore -> "Restore"
+        | OrderPlanMsg.SelectContext id -> $"SelectContext %s{id |> Part.orNone Part.shortId}"
+        | OrderPlanMsg.ReopenField(id, cmd, request) ->
+            $"ReopenField %s{id} %s{OrderViewCommand.toString (cmd, OrderContext.empty)} %s{Part.shortId request}"
+        | OrderPlanMsg.RestoreField -> "RestoreField"
         | OrderPlanMsg.Signed -> "Signed"
 
 
@@ -595,9 +595,9 @@ module OrderContext =
         | OrderContextMsg.Command(cmd, request) -> $"Command %s{commandAlone cmd} %s{Part.shortId request}"
         | OrderContextMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result response}"
         | OrderContextMsg.Reset request -> $"Reset %s{Part.shortId request}"
-        | OrderContextMsg.Select id -> $"Select %s{id |> Part.orNone Part.shortId}"
-        | OrderContextMsg.Reopen(cmd, request) -> $"Reopen %s{commandAlone cmd} %s{Part.shortId request}"
-        | OrderContextMsg.Restore -> "Restore"
+        | OrderContextMsg.SelectScenario id -> $"SelectScenario %s{id |> Part.orNone Part.shortId}"
+        | OrderContextMsg.ReopenField(cmd, request) -> $"ReopenField %s{commandAlone cmd} %s{Part.shortId request}"
+        | OrderContextMsg.RestoreField -> "RestoreField"
 
 
     /// An order context effect; a context by its id, never the filter or the error texts.

@@ -522,10 +522,10 @@ let selectionTests =
                 |> dialog
                 |> Expect.equal "the dialog shows the context sent" (Some(OrderContextView.Changing withOrder))
 
-                transition (OrderContextMsg.Select None) busySelected
+                transition (OrderContextMsg.SelectScenario None) busySelected
                 |> Expect.equal "closed, the request kept" (busy, [])
 
-                transition (OrderContextMsg.Select(Some "o-1")) (held withOrder)
+                transition (OrderContextMsg.SelectScenario(Some "o-1")) (held withOrder)
                 |> Expect.equal "selected through the machine" (selected, [])
             }
 
@@ -773,7 +773,7 @@ let reopenTests =
     let view = OrderContextState.view
 
     let reopen =
-        OrderContextMsg.Reopen(OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]), "r-1")
+        OrderContextMsg.ReopenField(OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]), "r-1")
 
     let answered ctx = Ok(OrderContextResponse.Evaluated ctx)
 
@@ -798,7 +798,7 @@ let reopenTests =
             }
 
             test "a restore before the answer puts the context back, and the late answer is dropped" {
-                let restored = open' |> run [ reopen; OrderContextMsg.Restore ]
+                let restored = open' |> run [ reopen; OrderContextMsg.RestoreField ]
 
                 restored |> Expect.equal "the state before the click" open'
 
@@ -815,7 +815,7 @@ let reopenTests =
                 |> Expect.equal "the list shows the answer" (OrderContextView.Settled reopened)
 
                 answered
-                |> move OrderContextMsg.Restore
+                |> move OrderContextMsg.RestoreField
                 |> Expect.equal "the state before the click" (open', [])
             }
 
@@ -833,13 +833,13 @@ let reopenTests =
                         ]
 
                 picked
-                |> move OrderContextMsg.Restore
+                |> move OrderContextMsg.RestoreField
                 |> Expect.equal "nothing to put back" (picked, [])
             }
 
             test "a restore without a reopen changes nothing" {
                 open'
-                |> move OrderContextMsg.Restore
+                |> move OrderContextMsg.RestoreField
                 |> Expect.equal "nothing to put back" (open', [])
             }
 
@@ -851,7 +851,7 @@ let reopenTests =
 
                 busy
                 |> move (
-                    OrderContextMsg.Reopen(
+                    OrderContextMsg.ReopenField(
                         OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
                         "r-2"
                     )
@@ -861,7 +861,7 @@ let reopenTests =
                 let settled = busy |> run [ OrderContextMsg.Answered("r-1", answered c1) ]
 
                 settled
-                |> move OrderContextMsg.Restore
+                |> move OrderContextMsg.RestoreField
                 |> Expect.equal "nothing to put back" (settled, [])
             }
         ]
