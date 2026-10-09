@@ -71,7 +71,7 @@ flowchart TD
 
     SERVER(["Server re-solve round-trip<br/>(see main flow above)"])
 
-    DONE["OrderContextAnswered -> OrderContextMsg.Answered(request, Ok ctx)<br/>landing on the request, then OrderContextWorkbench.step: Evaluated ctx<br/>App.fs, OrderContextMachine.fs"]
+    DONE["OrderContextAnswered -> OrderContextMsg.Answered(request, Ok ctx)<br/>lands on the request it names: Evaluated ctx<br/>App.fs, OrderContextMachine.fs"]
     BUMP["revision++<br/>Order.fs"]
     RESET["useLayoutEffect resets deltas to 0<br/>keyed on valueKey + revision<br/>QuantityField.fs"]
     FINAL["Render SOLVED value from server<br/>preliminary -> confirmed"]
@@ -88,13 +88,12 @@ flowchart TD
     style SERVER fill:#cfe8ff,stroke:#005bbb,color:#1a1a1a
 ```
 
-The machine is two stages (`OrderContextMachine.fs`): the `OrderContextWorkbench`, the
-context as the clinical model has it, which knows no request, and the one
-request under way (`InFlight`: the command and the context sent, and the id
-the answer must name). `transition` runs them in order. An answer passes the
-request first (`landing`) and reaches the workbench only when it names the
-request under way, so a stale answer is dropped by its id. A command passes
-the workbench first (`OrderContextWorkbench.step`) and reaches the request as an intent.
+The machine (`OrderContextMachine.fs`) holds the `OrderContextWorkbench`, the
+context as the clinical model has it, and the one request under way
+(`InFlight`: the command and the context sent, and the id the answer must
+name). One `transition` takes each message. An answer reaches the workbench
+only when it names the request under way, so a stale answer is dropped by its
+id. A command goes out over the workbench held while nothing is under way.
 While a request is under way the dialog's commands (a step, a value typed, a
 reset) wait as the one pending, the latest replacing an earlier one, and go out
 when the answer lands, a step over the context answered and a value typed over

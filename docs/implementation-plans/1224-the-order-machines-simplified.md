@@ -969,7 +969,11 @@ the order of the steps protects the work between pull requests, not patients; it
     since a command from it sends over `Evaluated`; the closing arm leaves the state as it is,
     a reopen's look included; `OrderContextState.landing` goes, unused; the machine went from
     563 to 443 lines.
-11. **One layer: the order plan machine.** Decision 6, over the machine steps 3, 6 and 8 left.
+11. **One layer: the order plan machine.** Decision 6, over the machine steps 3, 6 and 8 left. As
+    built (#1373): `send`, `change` and `opening` are the local helpers, `change` the one place
+    a command counts as a change to the plan; `landing` goes and `awaits` reads the request out
+    itself; a reopen for an order the plan no longer holds keeps nothing; the machine went from
+    526 to 449 lines.
 12. **The smaller things.** `Dialog.shown` leaves `OrderPlanMachine` for a module of its own in
     `Client.Core`, so the order context machine no longer depends on the plan machine for it.
     `LanguagePolicy.onServerDefault` loses the case of a choice made while the settings are in
