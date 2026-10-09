@@ -144,7 +144,7 @@ The machines barely shrank over plan B: `OrderContextMachine.fs` went from 579 t
   edit, so the plan keeps its orders for a patient the url replaced, without a question; and a
   page load on a url with a patient resumes the cookie's Session, which then shows the launched
   patient under the url's medication. A launch url arriving by navigation is presented over
-  whatever state there is: `Present` replaces an open Session, and the outcome's patient and
+  whatever state there is: `PresentLaunch` replaces an open Session, and the outcome's patient and
   head reach lanes that may have a request out.
 - **Plan commands carry a plan the machine throws away.** The pages build
   `AddOrderContext(tp, ctx)`, `NewOrderContext(tp, category)` and `RemoveOrderContexts(tp, ids)`
@@ -359,7 +359,7 @@ What can start a request, and what each depends on:
      opens with the Session's. A launch url is a launch, never a seed.
    - **A launch url arriving by navigation ends what is there and presents the launch.** Decided
      (user, 2026-10-08). The EHR can open the app in a tab where it already runs; today
-     `UrlChanged` presents the launch over whatever state there is, `Present` replaces an open
+     `UrlChanged` presents the launch over whatever state there is, `PresentLaunch` replaces an open
      Session, and the outcome's patient and head reach lanes that may have a request out. Under
      the two modes a launch url is handled as a seed url is, with the launch in place of the
      url's patient: the question about unsigned work first; then an open Session goes anonymous
@@ -851,8 +851,11 @@ the order of the steps protects the work between pull requests, not patients; it
    - `UrlChanged` with a launch url: the same, with the launch kept in the mark as what follows;
      the lane presents it (`CallPresentLaunch`) when `Closed`, `CloseFailed` or the moved-on
      outcome has landed and nothing is out, and the order lanes wait for its outcome as at
-     launch. With nothing out at all, it is presented at once. `Present` no longer replaces an
-     open phase or a presentation out.
+     launch. With nothing out at all, it is presented at once. `PresentLaunch` no longer replaces an
+     open phase or a presentation out: over an open Session or a request out it is the same as
+     `UrlMovedOn` with that launch. So the `App` starts the lanes over on a launch url as on a
+     url with a patient, and the launch's `PresentLaunch`, sent once its key is made, lands on a lane
+     that presents it when nothing is out.
    - `UrlChanged` without them: while `Busy.any` is set it is put back through the marked
      `Router.navigate` as after a no; otherwise it applies the page, the language and the
      disclaimer and nothing else, and no lane changes.
@@ -865,7 +868,9 @@ the order of the steps protects the work between pull requests, not patients; it
    - `init` with a patient or a medication in the url sends `MovedOn None` instead of `Resume`,
      which on the anonymous lane with nothing out returns the close, and applies the url;
      without them it resumes as today.
-   - While a signature is under way the url is put back as after a no, without a question.
+   - While a signature is under way the url is put back as after a no, without a question. A
+     launch url put back is gone, since Back does not bring it again as it does a patient url,
+     so the client tells the user to open the patient again from the EHR.
    - With a launched Session open the client always asks first, unsigned work or not, since the
      url ends the Session (decided, user, 2026-10-09). Without a Session it asks only with
      unsigned work.

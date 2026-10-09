@@ -186,6 +186,9 @@ type Terms =
     | ``Url Leave``
     | ``Url Leave Session Title``
     | ``Url Leave Session Text``
+    | ``Url Leave Launch Text``
+    // a launch that came during a signature is not opened
+    | ``Url Launch Signing``
     // the panel's button that reads the patient from the EHR again
     | ``Patient Refresh``
     // what needs a patient on a page that works without one, said with what is missing

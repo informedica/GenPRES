@@ -153,7 +153,7 @@ let tests =
                     workbenchRequest effects
                     |> Option.defaultWith (fun () -> failtest "no workbench request")
 
-                let started, effects, steps = lanes |> Lanes.transition newId (LanesMsg.StartOver(Some draft, None))
+                let started, effects, steps = lanes |> Lanes.transition newId (LanesMsg.StartOver(Some draft))
 
                 let atLoad = { Lanes.initial (Some draft) with Session = SessionState.leaving SessionFollow.Anonymous }
 
@@ -191,7 +191,7 @@ let tests =
                 let withSession =
                     { Lanes.initial None with Session = SessionState.opened SessionMachineTests.full None }
 
-                let started, effects, _ = withSession |> Lanes.transition newId (LanesMsg.StartOver(None, None))
+                let started, effects, _ = withSession |> Lanes.transition newId (LanesMsg.StartOver None)
 
                 started.Signing |> Expect.equal "idle" SigningState.idle
 

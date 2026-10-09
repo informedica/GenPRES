@@ -138,8 +138,9 @@ type PinOutcome =
 /// What moves the session machine.
 [<RequireQualifiedAccess>]
 type SessionMsg =
-    /// Present the launch, with the key pair made once per page load.
-    | Present of Launch * PublicKey
+    /// Present the launch, with the key pair made once per page load. With a session open or a
+    /// request out, it is presented once those are left, as for a launch url.
+    | PresentLaunch of Launch * PublicKey
     /// The server's answer to a presentation; Error is a transport failure.
     | Outcome of Launch * PublicKey * Result<LaunchOutcome, string>
     /// Present the same launch again, after the server was unreachable or refused with a retry.
@@ -156,9 +157,9 @@ type SessionMsg =
     | RefusedAtCallback of LaunchRefusal
     /// Continue without a session.
     | OpenAnonymous
-    /// The url brought a patient, a medication or a launch: the lane leaves the session, and
-    /// presents the launch after, if any.
-    | UrlMovedOn of next: (Launch * PublicKey) option
+    /// The url brought a patient, a medication or a launch: the lane leaves the session. A launch
+    /// comes after, by PresentLaunch.
+    | UrlMovedOn
     /// Close the session.
     | Close
     /// The session is closed.
@@ -479,13 +480,6 @@ module SessionState =
         launching launch key 1, [ SessionEffect.CallPresentLaunch(launch, key) ]
 
 
-    /// What follows the url: the launch it brought, or anonymous.
-    let following next =
-        next
-        |> Option.map SessionFollow.Launch
-        |> Option.defaultValue SessionFollow.Anonymous
-
-
     /// What follows a lane the url moved on past, now that nothing is out: anonymous, or the
     /// launch presented.
     let follow following =
@@ -494,25 +488,27 @@ module SessionState =
         | SessionFollow.Launch(launch, key) -> present launch key
 
 
+    /// The lane left for what follows. A launch or a PIN out stays out, since its answer sets the
+    /// cookie that only a close sent after it can delete; a close out stays out. Whatever else is
+    /// open or out is closed now, and its answer finds no request. With nothing out and no
+    /// session open a launch to follow is presented at once; otherwise the close goes, for the
+    /// session the cookie may still hold. The newest url decides what follows.
+    let moveOn following (state: SessionState) =
+        match state.Phase, state.InFlight, following with
+        | _, Some(SessionRequest.Presenting _ | SessionRequest.SupplyingPin), _ ->
+            { state with Phase = SessionPhase.UrlMovedOn following }, []
+        | _, Some SessionRequest.Closing, _ -> leaving following, []
+        | SessionPhase.Open _, _, _ -> leaving following, [ SessionEffect.CallCloseSession ]
+        | _, None, SessionFollow.Launch(launch, key) -> present launch key
+        | _ -> leaving following, [ SessionEffect.CallCloseSession ]
+
+
     /// The next state and effects for a message. Every new state is built through a constructor,
     /// so a launch kept to present again never outlives the state it belongs to.
     let transition (msg: SessionMsg) (state: SessionState) : SessionState * SessionEffect list =
         match msg, state.Phase, state.InFlight with
-        // the url moved on past the session. A launch or a PIN out stays out, since its answer
-        // sets the cookie that only a close sent after it can delete; a close out stays out.
-        // Whatever else is open or out is closed now, and its answer finds no request. With
-        // nothing out a launch to follow is presented at once; otherwise the close goes, for the
-        // session the cookie may still hold. The newest url decides what follows
-        | SessionMsg.UrlMovedOn next, _, Some(SessionRequest.Presenting _ | SessionRequest.SupplyingPin) ->
-            { state with Phase = SessionPhase.UrlMovedOn(following next) }, []
-        | SessionMsg.UrlMovedOn next, _, Some SessionRequest.Closing -> leaving (following next), []
-        | SessionMsg.UrlMovedOn next, SessionPhase.Open _, _ ->
-            leaving (following next), [ SessionEffect.CallCloseSession ]
-        | SessionMsg.UrlMovedOn(Some(launch, key)), _, None -> present launch key
-        | SessionMsg.UrlMovedOn next, _, _ -> leaving (following next), [ SessionEffect.CallCloseSession ]
-        // a launch after the url moved on waits until nothing is out, as a launch url does
-        | SessionMsg.Present(launch, key), SessionPhase.UrlMovedOn _, _ ->
-            { state with Phase = SessionPhase.UrlMovedOn(SessionFollow.Launch(launch, key)) }, []
+        // the url moved on past the session, with nothing to follow
+        | SessionMsg.UrlMovedOn, _, _ -> moveOn SessionFollow.Anonymous state
         // the answers the lane still waits on after the url moved on. A launch or a PIN that
         // opens a session closes it again, since the cookie it set must go; any other end of the
         // request leads to what follows. Nothing reaches the lanes
@@ -530,13 +526,14 @@ module SessionState =
         | SessionMsg.CloseFailed _, SessionPhase.UrlMovedOn next, Some SessionRequest.Closing -> follow next
 
         // a presentation under way is not replaced by a second one for the same launch
-        | SessionMsg.Present(launch, _), _, Some(SessionRequest.Presenting _) when
+        | SessionMsg.PresentLaunch(launch, _), _, Some(SessionRequest.Presenting _) when
             state.Presentation |> Option.exists (fun (current, _) -> current = launch)
             ->
             state, []
-        // otherwise Present starts a new presentation; a different launch replaces the one under
-        // way, whose outcome the guard below then drops
-        | SessionMsg.Present(launch, key), _, _ -> present launch key
+        // any other launch is presented once nothing is out, as a launch url is: an open session or
+        // a request out is left first, and the server's close deletes the cookie before the
+        // launch's answer sets the new one
+        | SessionMsg.PresentLaunch(launch, key), _, _ -> moveOn (SessionFollow.Launch(launch, key)) state
 
         // an outcome lands only on the presentation that sent it
         | SessionMsg.Outcome(launch, key, result), _, Some(SessionRequest.Presenting attempt) when
