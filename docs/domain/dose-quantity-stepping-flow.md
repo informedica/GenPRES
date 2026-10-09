@@ -9,8 +9,8 @@ flowchart TD
     subgraph CLIENT["Client (Fable/Elmish)"]
         UI["QuantityField step button<br/>Components/QuantityField.fs<br/>steps built in Views/ViewHelpers.fs"]
         MSG["dispatch OrderContextMsg.Command(cmd, ctx, request)<br/>OrderContextState.transition<br/>OrderContextMachine.fs"]
-        CALL["interpretOrderContextEffect<br/>CallContext(OrderContextCommand.Command(cmd, ctx), request) → processOrderContext<br/>App.fs"]
-        RESP["OrderContextAnswered → OrderContextMsg.Answered(request, Ok ctx)<br/>landing on the request, then OrderContextWorkbench.Evaluated ctx<br/>App.fs, OrderContextMachine.fs"]
+        CALL["the order context effect<br/>CallContext(OrderContextCommand.Command(cmd, ctx), request) → processOrderContext<br/>App.fs"]
+        RESP["OrderContextAnswered → OrderContextMsg.Answered(request, Ok ctx)<br/>lands on the request it names: OrderContextWorkbench.Evaluated ctx<br/>App.fs, OrderContextMachine.fs"]
         RENDER["Re-render the dose quantity field +<br/>enable/disable its step buttons<br/>Views/Order.fs"]
     end
 
@@ -50,14 +50,14 @@ flowchart TD
 
 ## Zoom-in: client-side optimistic stepping
 
-The client does **not** block while the server re-solves. It shows a
-*preliminary* stepped value immediately using local delta state, keeps the
-context it sent visible (`OrderContextView.Changing`), and reconciles when the
-server answer arrives. Rapid clicks accumulate into the delta and the click
-count until the debounced button fires one command; a further step on the same
-field while that command is in flight waits in the lane as the one pending and
-goes out over the answer, so two quick steps end two steps on; every other
-field rests until the answer, since the lane keeps one command pending.
+The client shows a *preliminary* stepped value immediately using local delta
+state, keeps the context it sent visible (`OrderContextView.Changing`), and
+reconciles when the server answer arrives. Rapid clicks accumulate into the
+delta and the click count until the debounced button fires one command. While
+a field counts its clicks it holds every page but Nutrition and the menu
+(`Request.Counting` in `Busy.fs`), and every other quantity field is disabled.
+Once the command is out, its page is disabled until the answer lands, the field
+stepped included.
 
 ```mermaid
 flowchart TD
@@ -67,13 +67,13 @@ flowchart TD
     DISPATCH["debounce fires: dispatch OrderContextMsg.Command<br/>(Increase/DecreaseOrderableDoseQuantityProperty(n, useCalc), ctx, request)<br/>OrderContextState.transition<br/>OrderContextMachine.fs"]
 
     REC["OrderContextWorkbench.Evaluated held stays; InFlight = ((cmd, sent), request)<br/>shown as OrderContextView.Changing sent<br/>OrderContextState.view, OrderContextMachine.fs"]
-    KEEP["No spinner on the field: isOptimisticStep = true<br/>the field stepped stays enabled, the others rest: selectFor, rests<br/>Order.fs<br/>a further step waits as the one pending: Pending<br/>OrderContextMachine.fs"]
+    KEEP["The page disabled while the request is out<br/>the preliminary value stays visible<br/>Busy.fs, Order.fs"]
 
     SERVER(["Server re-solve round-trip<br/>(see main flow above)"])
 
     DONE["OrderContextAnswered -> OrderContextMsg.Answered(request, Ok ctx)<br/>lands on the request it names: Evaluated ctx<br/>App.fs, OrderContextMachine.fs"]
-    BUMP["revision++<br/>Order.fs"]
-    RESET["useLayoutEffect resets deltas to 0<br/>keyed on valueKey + revision<br/>QuantityField.fs"]
+    BUMP["the field enabled again<br/>its own disabled goes from true to false<br/>QuantityField.fs"]
+    RESET["useLayoutEffect resets deltas to 0<br/>on that edge, also when the value repeats<br/>QuantityField.fs"]
     FINAL["Render SOLVED value from server<br/>preliminary -> confirmed"]
 
     CLICK --> DELTA --> PRELIM
@@ -93,14 +93,10 @@ context as the clinical model has it, and the one request under way
 (`InFlight`: the command and the context sent, and the id the answer must
 name). One `transition` takes each message. An answer reaches the workbench
 only when it names the request under way, so a stale answer is dropped by its
-id. A command goes out over the workbench held while nothing is under way.
-While a request is under way the dialog's commands (a step, a value typed, a
-reset) wait as the one pending, the latest replacing an earlier one, and go out
-when the answer lands, a step over the context answered and a value typed over
-the context it was typed into; every other command is dropped. A failed
-command, whether the server refused it or the call did not complete, goes back
-to the context held, the last one the server confirmed, never the one sent, and
-drops the command pending.
+id. A command goes out over the workbench held while nothing is under way; no
+second one can come meanwhile, since the page is disabled. A failed command,
+whether the server refused it or the call did not complete, goes back to the
+context held, the last one the server confirmed, never the one sent.
 
 ### View cases (`OrderContextView`, `OrderContextMachine.fs`)
 
@@ -111,11 +107,11 @@ can be in, and carry nothing of the request:
 | Case | Machine state | Meaning | UI effect |
 | ---- | ------------- | ------- | --------- |
 | `NoPatient` | `OrderContextWorkbench.NoPatient` | no patient, no workbench | empty |
-| `Evaluating` | `OrderContextWorkbench.Unevaluated`, the first evaluation under way | in flight, **no** prior value | loading placeholder / spinner |
-| `Changing of OrderContext` | `OrderContextWorkbench.Evaluated held`, `InFlight ((cmd, sent), request)` | in flight, **the context sent kept**, not yet confirmed | preliminary value stays visible; the field stepped may step again |
+| `Changing of OrderContext` | `OrderContextWorkbench.Evaluated held`, `InFlight (sent, request)` | in flight, **the context sent kept**, not yet confirmed | preliminary value stays visible; the page is disabled |
 | `Settled of OrderContext` | `OrderContextWorkbench.Evaluated ctx` with nothing under way | answer received | confirmed value |
+| `Refused of OrderContext * OrderContextRefusal` | `OrderContextWorkbench.Refused` with nothing under way | the server refused the context | the picks kept, the reason shown |
 
-Stepping shows **`Changing`** (not `Evaluating`), which is why the previous
+Stepping shows **`Changing`**, the context sent, which is why the previous
 dose quantity remains on screen as a preliminary result instead of blanking out.
 The orange nodes are the preliminary (awaiting-server) phase; green is the
 confirmed solver result.
@@ -126,12 +122,10 @@ confirmed solver result.
   solver. The client only dispatches
   `Increase/DecreaseOrderableDoseQuantityProperty(ntimes, useCalc)` and renders
   the result.
-- **One request in flight, one command pending**: the pure
-  `OrderContextState.transition` sends a command while nothing is under way;
-  while a request is in flight a further step waits as the one pending and
-  goes out over the answer, so two quick steps end two steps on. Only the
-  field stepped may step again meanwhile, and only on an order solved
-  through; the other fields rest until the answer.
+- **One request in flight**: the pure `OrderContextState.transition` sends a
+  command while nothing is under way. The page is disabled until the answer
+  lands, so a further step is clicked over the context answered; the clicks
+  counted before the send go as one command.
 - **`useCalc`** flag decides whether stepping uses calculated constraints vs
   defined ones (`OrderVariable.step`).
 - **The step math** (`OrderVariable.fs`): increase = `min + N*incr`,
@@ -153,8 +147,8 @@ confirmed solver result.
 | Click counting | `src/Informedica.GenPRES.Client/Components/ClickCountingButton.fs` | `ClickCountingButton` |
 | Steps and mode | `src/Informedica.GenPRES.Client/Views/ViewHelpers.fs` | `createDoseQtyStepper` |
 | Step message | `src/Informedica.GenPRES.Client/Views/Order.fs` | `Increase/DecreaseDoseQuantityProperty` |
-| Client machine | `src/Informedica.GenPRES.Client.Core/OrderContextMachine.fs` | `OrderContextMsg.Command`, `OrderContextWorkbench.step`, `OrderContextState.transition` |
-| Server call | `src/Informedica.GenPRES.Client/App.fs` | `interpretOrderContextEffect`, `OrderContextAnswered` |
+| Client machine | `src/Informedica.GenPRES.Client.Core/OrderContextMachine.fs` | `OrderContextMsg.Command`, `OrderContextState.transition` |
+| Server call | `src/Informedica.GenPRES.Client/App.fs` | `applyOrderContextEffect`, `OrderContextAnswered` |
 | Shared DTO | `src/Informedica.GenPRES.Shared/Api.fs` | `OrderContextCommand` |
 | Server cmd | `src/Informedica.GenPRES.Server/ServerApi.OrderContextCommand.fs` | `processCmd` |
 | Server service | `src/Informedica.GenPRES.Server/ServerApi.Services.fs` | `OrderContext.evaluate` |

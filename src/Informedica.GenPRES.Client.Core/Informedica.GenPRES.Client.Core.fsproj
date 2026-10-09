@@ -49,6 +49,7 @@
     <Compile Include="HeldPanelPolicy.fs" />
 
     <!-- the order machines -->
+    <Compile Include="CommandPreview.fs" />
     <Compile Include="OrderPlanMachine.fs" />
     <Compile Include="OrderContextMachine.fs" />
 
