@@ -63,7 +63,7 @@ type LanesEffect =
 
 
 /// A step the transition took, for the trail: a machine's message with its new state and
-/// effects, or the signing lane set idle, which no message asked for.
+/// effects, or the lanes started over, which no message of theirs asked for.
 [<RequireQualifiedAccess>]
 type LanesStep =
     | Signing of SigningMsg * SigningState * SigningEffect list
@@ -71,7 +71,6 @@ type LanesStep =
     | Workbench of OrderContextMsg * OrderContextState * OrderContextEffect list
     | Plan of OrderPlanMsg * OrderPlanState * OrderPlanEffect list
     | Session of SessionMsg * SessionState * SessionEffect list
-    | SigningReset of SigningState
     /// The patient, the workbench, the plan and the signing lane set back to their initial
     /// state, which no message of theirs asked for.
     | StartedOver of LanesState
@@ -89,7 +88,7 @@ let initial draft =
 
 
 /// The steps one message takes: its machine's step, and after a step of the Session the signing
-/// lane set idle when the Session is no longer open.
+/// lane told when the Session was open and no longer is.
 let rec step msg (lanes: LanesState) =
     match msg with
     | LanesMsg.Signing m ->
@@ -97,28 +96,29 @@ let rec step msg (lanes: LanesState) =
         { lanes with Signing = next }, effects |> List.map LanesEffect.Signing, [ LanesStep.Signing(m, next, effects) ]
     | LanesMsg.Session m ->
         let next, effects = SessionState.transition m lanes.Session
+        let before = SessionState.view lanes.Session
         let lanes = { lanes with Session = next }
         let taken = LanesStep.Session(m, next, effects)
+        let effects = effects |> List.map LanesEffect.Session
 
-        // a signature belongs to an open Session: whatever ends the Session drops it. The plan's
-        // work stays: unsigned is unsigned
-        match SessionState.view next, SigningState.view lanes.Signing with
-        | SessionView.Open _, _
-        | _, SigningView.Idle -> lanes, effects |> List.map LanesEffect.Session, [ taken ]
-        | _ ->
-            { lanes with Signing = SigningState.idle },
-            effects |> List.map LanesEffect.Session,
-            [ taken; LanesStep.SigningReset SigningState.idle ]
+        // a signature belongs to an open Session: whatever ends the Session ends it, but for a
+        // submission out, whose outcome is still told. Told once, at the step that ends it. The
+        // plan's work stays: unsigned is unsigned
+        match before, SessionState.view next, SigningState.view lanes.Signing with
+        | SessionView.Open _, SessionView.Open _, _
+        | _, _, SigningView.Idle -> lanes, effects, [ taken ]
+        | SessionView.Open _, _, _ ->
+            let lanes, told, toldTaken = step (LanesMsg.Signing SigningMsg.SessionEnded) lanes
+            lanes, effects @ told, taken :: toldTaken
+        | _ -> lanes, effects, [ taken ]
     | LanesMsg.Patient m ->
         let next, effects = PatientState.transition m lanes.Patient
         { lanes with Patient = next }, effects |> List.map LanesEffect.Patient, [ LanesStep.Patient(m, next, effects) ]
     | LanesMsg.Plan m ->
-        let next, effects =
-            OrderPlanState.transitionWhile (SigningState.view lanes.Signing) lanes.Patient m lanes.OrderPlan
-
+        let next, effects = OrderPlanState.transition m lanes.OrderPlan
         { lanes with OrderPlan = next }, effects |> List.map LanesEffect.Plan, [ LanesStep.Plan(m, next, effects) ]
     | LanesMsg.Workbench m ->
-        let next, effects = OrderContextState.transitionWhile lanes.Patient m lanes.OrderContext
+        let next, effects = OrderContextState.transition m lanes.OrderContext
 
         { lanes with OrderContext = next },
         effects |> List.map LanesEffect.Workbench,
@@ -167,15 +167,11 @@ let rec step msg (lanes: LanesState) =
 let route (newId: unit -> string) effect =
     match effect with
     // the signature's renewed token, ended Session and refusal for a newer version go to the
-    // Session, the patient as signed to the patient machine, and the plan signed to the plan
+    // Session, which passes the patient as signed on, and the plan signed to the plan
     | LanesEffect.Signing(SigningEffect.RenewSessionToken(token, patient, signed)) ->
         [ LanesMsg.Session(SessionMsg.SignatureRenewedToken(token, patient, signed)) ]
     | LanesEffect.Signing(SigningEffect.EndSession ending) ->
         [ LanesMsg.Session(SessionMsg.SignatureEndedSession ending) ]
-    | LanesEffect.Signing(SigningEffect.SetNoticedPatient patient) ->
-        [
-            LanesMsg.Patient(PatientMsg.Changed(Some patient, PatientDraftPolicy.Estimates.Renewed, newId ()))
-        ]
     | LanesEffect.Signing(SigningEffect.TellSigned _) -> [ LanesMsg.Plan OrderPlanMsg.Signed ]
     | LanesEffect.Signing(SigningEffect.TellRefused(SigningRefusal.Blocked head)) ->
         [ LanesMsg.Session(SessionMsg.SignatureBlocked head) ]
@@ -199,9 +195,8 @@ let route (newId: unit -> string) effect =
 /// The next lanes, the effects that come out and the steps taken, for a message: the messages its
 /// effects become are run first, before the messages still waiting, so what an effect causes lands
 /// before anything that came after it; until none is left. The routes run one way, the signing
-/// lane to the Session, the patient and the plan, the Session to the patient and the plan, the
-/// patient to the workbench and the plan, so the list empties: no machine passes an effect back
-/// to one before it.
+/// lane to the Session and the plan, the Session to the patient and the plan, the patient to the
+/// workbench and the plan, so the list empties: no machine passes an effect back to one before it.
 let transition newId msg (lanes: LanesState) =
     let rec run queue (lanes, effects, steps) =
         match queue with

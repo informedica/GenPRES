@@ -909,7 +909,9 @@ the order of the steps protects the work between pull requests, not patients; it
    - `admitted` and `transitionWhile` go from both machines, with their tests, the signing half of
      the plan's included, since step 4 disables every page from the sign click on.
    - The two cases of `move` that send over `OrderContextWorkbench.shown` go, and the unguarded
-     `Clear`; `NoPatient of awaiting` keeps the seed for the anonymous page load only.
+     `Clear`; `NoPatient of awaiting` keeps the seed for the anonymous page load only. As built:
+     a seed, a command, a reset and a patient set reach the workbench with nothing out; with a
+     request out they fall to the closing arm, as the plan's do.
    - The plan's `UpdatePatient` sends over the plan held with nothing out, the patient-during-open
      case goes, `Version` opens without replacing; a `Call` with a request out falls to the
      closing arm.
@@ -918,11 +920,16 @@ the order of the steps protects the work between pull requests, not patients; it
      request dropped, the selection cleared (decision 11). `Lanes` sets the signing lane idle
      when the Session is not open, unless a submission is out; `SigningMachine` goes idle
      itself when the submission's answer lands and the Session has ended meanwhile, telling the
-     outcome.
+     outcome. As built: `Lanes` sends the signing machine `SigningMsg.SessionEnded`, which
+     ends the signature or, with a submission out, marks it; the trail shows it as a signing
+     step, and the reset step `LanesStep.SigningReset` goes. The answer then tells only the
+     outcome: signed, refused or lost, with no token renewed and no Session ended.
    - `SigningMachine.accepted` no longer emits `SetPatient`: the new data reaches the panel with
      the signed answer, as when the patient context is held (decision 3). The step checks whether
      a stored version's totals are read anywhere, since the plan signed carries totals for the
-     patient before the notice.
+     patient before the notice. Checked: they are not. The server stores a signed plan with
+     empty totals (`ofSigned` in `ServerApi.Mappers.Session.fs`), the comparison with the head
+     leaves each order's intake out (`contextContent`), and every open recalculates.
    - #1327 is closed as removed.
    - Tests: an accepted notice with new data emits the challenge alone, over the plan with the new
      data when not held; a submission answered after the Session ended goes idle and tells the

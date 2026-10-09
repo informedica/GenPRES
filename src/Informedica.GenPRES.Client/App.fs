@@ -1116,11 +1116,10 @@ module private Elmish =
                         return SigningMsg(SigningMsg.SubmitAnswered(key, Error ex.Message))
                 }
                 |> Cmd.fromAsync
-        // the token, the ended Session and the patient go to their machines in Lanes; nothing is
-        // left for the client
+        // the token and the ended Session go to the Session in Lanes; nothing is left for the
+        // client
         | SigningEffect.RenewSessionToken _
-        | SigningEffect.EndSession _
-        | SigningEffect.SetNoticedPatient _ -> state, Cmd.none
+        | SigningEffect.EndSession _ -> state, Cmd.none
         | SigningEffect.TellSigned signed ->
             state
             |> tell (SigningPolicy.signedSentence (signingTerm state) signed) "success",

@@ -4,11 +4,11 @@
 /// only when it lands; a change passes the plan first and reaches the request stage as an intent.
 ///
 /// Four invariants:
-/// - one request is in flight at a time; a change sent meanwhile is dropped, and the pages grey
-///   their controls;
+/// - one request is in flight at a time: the pages are disabled while it is, so nothing but its
+///   answer and the patient cleared reaches the machine meanwhile;
 /// - an answer lands only on the request it names, so an older answer never replaces a newer
 ///   plan;
-/// - a patient change and a reopen start a new request that replaces the one in flight;
+/// - the patient cleared drops the request in flight, and its answer lands nowhere;
 /// - a failed change leaves the plan as it was, so the next action is the retry.
 module OrderPlanMachine
 
@@ -78,11 +78,11 @@ type OrderPlanCartMsg =
 /// What the plan stage asks of the request stage, which turns it into calls and effects.
 [<RequireQualifiedAccess>]
 type OrderPlanCartIntent =
-    /// Open the plan for the patient, empty or with a version's contexts; replaces any request.
+    /// Open the plan for the patient, empty or with a version's contexts.
     | Open of Patient * OrderContext[]
-    /// The plan held recalculated for the patient updated; replaces any request.
+    /// The plan held recalculated for the patient updated.
     | UpdatePatient of Patient * OrderPlan
-    /// Send a change from a page; one at a time.
+    /// Send a change from a page.
     | Call of OrderPlanCommand
     /// Check the plan's drugs for interactions; fewer than two clears the warnings.
     | CheckInteractions of string list
@@ -91,7 +91,8 @@ type OrderPlanCartIntent =
 
 
 /// The order dialog's commands, the same in both order machines: a step, a typed value or a
-/// reset. None goes out while a request is under way: the dialog's fields rest until the answer.
+/// reset. None goes out while a request is under way: the dialog's fields are disabled until
+/// the answer.
 module Dialog =
 
     /// The context as the command changes it, shown while its request is under way; the context
@@ -131,12 +132,12 @@ module OrderPlanCart =
         // empty plan, is opened
         | OrderPlanCartMsg.PatientChanged(Some pat), OrderPlanCart.NoPatient awaiting ->
             OrderPlanCart.Opened(pat, OrderPlan.create pat [||]), [ OrderPlanCartIntent.Open(pat, awaiting) ]
-        // the plan held is recalculated for the patient updated; an open under way is handled in
-        // transition
+        // the plan held is recalculated for the patient updated
         | OrderPlanCartMsg.PatientChanged(Some pat), OrderPlanCart.Opened(_, tp) ->
             OrderPlanCart.Opened(pat, tp), [ OrderPlanCartIntent.UpdatePatient(pat, tp) ]
 
-        // the signed version replaces the plan; before the patient arrives, its contexts wait
+        // the signed version is opened in place of the plan; before the patient arrives, its
+        // contexts wait
         | OrderPlanCartMsg.Version head, OrderPlanCart.NoPatient _ -> OrderPlanCart.NoPatient head.OrderContexts, []
         | OrderPlanCartMsg.Version head, OrderPlanCart.Opened(pat, _) ->
             OrderPlanCart.Opened(pat, OrderPlan.create pat [||]), [ OrderPlanCartIntent.Open(pat, head.OrderContexts) ]
@@ -382,13 +383,13 @@ module OrderPlanState =
         | _ -> None
 
 
-    /// Whether an answer to request is the one the plan waits for. An answer to a request an
-    /// open or a patient update has since replaced is not, and the machine drops it.
+    /// Whether an answer to request is the one the plan waits for. An answer to a request the
+    /// patient cleared or a start-over has since dropped is not, and the machine drops it.
     let awaits (request: string) (state: OrderPlanState) = landing request state.InFlight |> Option.isSome
 
 
-    /// The request stage: each intent becomes a request under the given id or an effect. A call
-    /// while a request is under way is dropped; an open or a patient update replaces it.
+    /// The request stage: each intent becomes a request under the given id or an effect. It runs
+    /// with nothing under way.
     let private apply (request: string) (intents: OrderPlanCartIntent list) (state: OrderPlanState) =
         let call (cmd: OrderPlanCommand) (state: OrderPlanState) =
             { state with InFlight = Some(cmd, request) }, [ OrderPlanEffect.CallPlan(cmd, request) ]
@@ -401,7 +402,6 @@ module OrderPlanState =
                     | OrderPlanCartIntent.Open(pat, ctxs) -> call (OrderPlanCommand.Open(pat, ctxs)) state
                     | OrderPlanCartIntent.UpdatePatient(pat, tp) ->
                         call (OrderPlanCommand.UpdatePatient(pat, tp)) state
-                    | OrderPlanCartIntent.Call _ when state.InFlight.IsSome -> state, []
                     // the one place a command goes out, so the one place it counts as a change to
                     // the plan
                     | OrderPlanCartIntent.Call cmd ->
@@ -415,8 +415,8 @@ module OrderPlanState =
 
 
     /// Runs the plan stage, then the request stage. The dialog closes on a patient change, a
-    /// reopen or a filter change that goes out, and keeps its selection only while its context
-    /// is in the plan. A cleared patient drops the request.
+    /// version opened or a row filter, and keeps its selection only while its context is in the
+    /// plan. A cleared patient drops the request.
     let private run (request: string) (msg: OrderPlanCartMsg) (state: OrderPlanState) =
         let plan, intents = OrderPlanCart.step msg state.Cart
 
@@ -425,8 +425,7 @@ module OrderPlanState =
             | _, OrderPlanCart.NoPatient _ -> None
             | OrderPlanCartMsg.PatientChanged _, _
             | OrderPlanCartMsg.Version _, _ -> None
-            | OrderPlanCartMsg.Change(OrderPlanChange.FilterRows _), OrderPlanCart.Opened _ when state.InFlight.IsNone ->
-                None
+            | OrderPlanCartMsg.Change(OrderPlanChange.FilterRows _), OrderPlanCart.Opened _ -> None
             | OrderPlanCartMsg.Landed(_, Ok tp), _ -> selectionIn tp state.Selected
             | _ -> state.Selected
 
@@ -447,9 +446,9 @@ module OrderPlanState =
 
     /// The next state and effects for a message, a reopen and a restore aside.
     let private move (msg: OrderPlanMsg) (state: OrderPlanState) : OrderPlanState * OrderPlanEffect list =
-        match msg with
+        match msg, state.InFlight with
         // only an answer to the request under way reaches the plan
-        | OrderPlanMsg.Answered(request, result) ->
+        | OrderPlanMsg.Answered(request, result), _ ->
             match landing request state.InFlight with
             | None -> state, []
             | Some sent ->
@@ -461,28 +460,15 @@ module OrderPlanState =
                 | _ -> landed, effects
 
         // the selection needs no request; nothing can be selected until the plan is open
-        | OrderPlanMsg.SelectContext id ->
-            match state.Cart, state.InFlight with
+        | OrderPlanMsg.SelectContext id, inFlight ->
+            match state.Cart, inFlight with
             | OrderPlanCart.Opened _, Some(OrderPlanCommand.Open _, _) -> state, []
             | OrderPlanCart.Opened _, _ -> { state with Selected = id }, []
             | OrderPlanCart.NoPatient _, _ -> state, []
 
-        // a patient change during an open: the same contexts are opened again for the new
-        // patient, the empty plan shown meanwhile
-        | OrderPlanMsg.PatientChanged(Some pat, request) ->
-            match state.Cart, state.InFlight with
-            | OrderPlanCart.Opened _, Some(OrderPlanCommand.Open(_, contexts), _) ->
-                apply
-                    request
-                    [ OrderPlanCartIntent.Open(pat, contexts) ]
-                    { state with
-                        Cart = OrderPlanCart.Opened(pat, OrderPlan.create pat [||])
-                        Selected = None
-                    }
-            | _ -> run request (OrderPlanCartMsg.PatientChanged(Some pat)) state
-
-        // no patient, or a version opened, leaves nothing unsigned
-        | OrderPlanMsg.PatientChanged(None, request) ->
+        // the patient cleared reaches every state and drops the request out; no patient, or a
+        // version opened, leaves nothing unsigned
+        | OrderPlanMsg.PatientChanged(None, request), _ ->
             run
                 request
                 (OrderPlanCartMsg.PatientChanged None)
@@ -490,7 +476,9 @@ module OrderPlanState =
                     Work = PlanWork.AsSigned
                     Opened = [||]
                 }
-        | OrderPlanMsg.OpenSignedPlan(head, request) ->
+        | OrderPlanMsg.PatientChanged(Some pat, request), None ->
+            run request (OrderPlanCartMsg.PatientChanged(Some pat)) state
+        | OrderPlanMsg.OpenSignedPlan(head, request), None ->
             run
                 request
                 (OrderPlanCartMsg.Version head)
@@ -498,12 +486,9 @@ module OrderPlanState =
                     Work = PlanWork.AsSigned
                     Opened = [||]
                 }
-        | OrderPlanMsg.Change(change, request) -> run request (OrderPlanCartMsg.Change change) state
-        // taken by transition
-        | OrderPlanMsg.ReopenField _
-        | OrderPlanMsg.RestoreField -> state, []
+        | OrderPlanMsg.Change(change, request), None -> run request (OrderPlanCartMsg.Change change) state
         // the plan is the version just signed
-        | OrderPlanMsg.Signed ->
+        | OrderPlanMsg.Signed, _ ->
             let opened =
                 match state.Cart with
                 | OrderPlanCart.Opened(_, tp) -> tp.OrderContexts
@@ -514,55 +499,28 @@ module OrderPlanState =
                 Opened = opened
             },
             []
+        // nothing else reaches the plan while a request is out, since its pages are disabled
+        // then; the reopen and the restore are taken by transition
+        | _ -> state, []
 
 
     /// The next state and effects for a message. A reopen keeps the state before it, which an
     /// answer carries along and a restore puts back; any other message ends the look, and the
-    /// state kept goes. A reopen while a request is under way keeps nothing and goes as a plain
-    /// command: the state kept would hold that request, and a restore would put it back in flight
-    /// after its answer. So the state kept has nothing under way, and the answer to the clear
-    /// finds no request to land on after a restore.
+    /// state kept goes. The state kept has nothing under way, so the answer to the clear finds
+    /// no request to land on after a restore. A message dropped while a request is out still ends
+    /// the look; none comes then, since its page is disabled.
     let transition (msg: OrderPlanMsg) (state: OrderPlanState) : OrderPlanState * OrderPlanEffect list =
-        match msg with
-        | OrderPlanMsg.ReopenField(id, cmd, request) when state.InFlight.IsSome ->
-            move (OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand(id, cmd), request)) { state with Kept = None }
-        | OrderPlanMsg.ReopenField(id, cmd, request) ->
+        match msg, state.InFlight with
+        | OrderPlanMsg.ReopenField(id, cmd, request), None ->
             let kept = { state with Kept = None }
+
             let moved, effects =
                 move (OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand(id, cmd), request)) kept
+
             { moved with Kept = Some kept }, effects
-        | OrderPlanMsg.RestoreField ->
+        | OrderPlanMsg.RestoreField, _ ->
             match state.Kept with
             | Some kept -> kept, []
             | None -> state, []
-        | OrderPlanMsg.Answered _ -> move msg state
+        | OrderPlanMsg.Answered _, _ -> move msg state
         | _ -> move msg { state with Kept = None }
-
-
-    /// Whether the message reaches the plan: changes from a page do not while a signature is under
-    /// way, so the plan signed is the plan shown, nor during a patient change, so that nothing is
-    /// ordered for the patient being replaced.
-    let admitted (signing: SigningMachine.SigningView) (patient: PatientMachine.PatientState) (msg: OrderPlanMsg) =
-        match msg with
-        | OrderPlanMsg.Change _
-        | OrderPlanMsg.ReopenField _ ->
-            not (SigningPolicy.underWay signing || PatientMachine.PatientState.changing patient)
-        | OrderPlanMsg.PatientChanged _
-        | OrderPlanMsg.OpenSignedPlan _
-        | OrderPlanMsg.Answered _
-        | OrderPlanMsg.SelectContext _
-        | OrderPlanMsg.RestoreField
-        | OrderPlanMsg.Signed -> true
-
-
-    /// The transition, with messages not admitted during a signature or a patient change ignored.
-    let transitionWhile
-        (signing: SigningMachine.SigningView)
-        (patient: PatientMachine.PatientState)
-        (msg: OrderPlanMsg)
-        (state: OrderPlanState)
-        =
-        if admitted signing patient msg then
-            transition msg state
-        else
-            state, []

@@ -33,6 +33,9 @@ type SigningRequest =
     | Challenge of OrderPlan * notice: string option * request: string
     /// The submission, under its key.
     | Submission of key: string
+    /// The submission, under its key, after the Session ended meanwhile: its answer ends the
+    /// signature with the outcome told.
+    | SubmissionAfterSessionEnd of key: string
 
 
 /// Everything the signing machine holds, hidden from the dialog, which reads a SigningView of it
@@ -85,6 +88,9 @@ type SigningMsg =
     | Cancel
     /// The answer to the submission under this key; Error is a transport failure.
     | SubmitAnswered of key: string * Result<SigningResponse, string>
+    /// The Session is no longer open: the signature ends, unless a submission is out, whose
+    /// outcome is still told when its answer lands.
+    | SessionEnded
 
 
 /// What the App carries out for the signing machine.
@@ -100,9 +106,6 @@ type SigningEffect =
     | RenewSessionToken of OpenedToken * Patient * SignedOrderPlan
     /// End the session: the server ended it at the wrong-PIN limit.
     | EndSession of SessionEnding
-    /// Set the patient to the data the notice showed, so the order plan uses it too.
-    | SetNoticedPatient of Patient
-
     /// Tell the user the plan is signed; the plan took no change while the signature was under
     /// way, so it is the version signed.
     | TellSigned of SignedOrderPlan
@@ -165,6 +168,11 @@ module SigningState =
         }
 
 
+    /// The submission under way after the Session ended, under its key.
+    let submittingAfterSessionEnd (challenge: string) (plan: OrderPlan) (key: string) =
+        { submitting challenge plan key with InFlight = Some(SigningRequest.SubmissionAfterSessionEnd key) }
+
+
     /// The submission's answer was lost: the PIN is asked again, and the key is kept for the
     /// retry.
     let unsent (challenge: string) (plan: OrderPlan) (key: string) =
@@ -183,27 +191,36 @@ module SigningState =
         | SigningPhase.Idle, Some(SigningRequest.Challenge _) -> SigningView.RequestingChallenge
         | SigningPhase.Idle, _ -> SigningView.Idle
         | SigningPhase.DataChanged(plan, notice), _ -> SigningView.DataChanged(plan, notice)
-        | SigningPhase.AskingPin(_, plan, _), Some(SigningRequest.Submission _) -> SigningView.Submitting plan
+        | SigningPhase.AskingPin(_, plan, _), Some(SigningRequest.Submission _)
+        | SigningPhase.AskingPin(_, plan, _), Some(SigningRequest.SubmissionAfterSessionEnd _) ->
+            SigningView.Submitting plan
         | SigningPhase.AskingPin(_, plan, refusal), _ -> SigningView.AskingPin(plan, refusal)
 
 
     /// The data notice accepted: the challenge is asked again, under the notice token as request
-    /// id. With new data and the patient context not held, the plan and the patient take the new
-    /// data. When held, the plan keeps the data its new and changed orders were composed on, and
-    /// the new data reaches the patient after the signature. Without new data the plan stays.
+    /// id. With new data and the patient context not held, the plan takes the new data. When held,
+    /// the plan keeps the data its new and changed orders were composed on. Either way the new
+    /// data reaches the patient with the signed answer. Without new data the plan stays.
     let accepted (held: bool) (plan: OrderPlan) (notice: DataNotice) =
-        match notice.Data with
-        | Some data when not held ->
-            let shown = { plan with Patient = data }
+        let plan =
+            match notice.Data with
+            | Some data when not held -> { plan with Patient = data }
+            | _ -> plan
 
-            requesting shown (Some notice.Token) notice.Token,
-            [
-                SigningEffect.SetNoticedPatient data
-                SigningEffect.CallChallenge(shown, Some notice.Token, notice.Token)
-            ]
-        | _ ->
-            requesting plan (Some notice.Token) notice.Token,
-            [ SigningEffect.CallChallenge(plan, Some notice.Token, notice.Token) ]
+        requesting plan (Some notice.Token) notice.Token,
+        [ SigningEffect.CallChallenge(plan, Some notice.Token, notice.Token) ]
+
+
+    /// What is told of a submission's answer that lands after the Session ended: its outcome only,
+    /// since there is no Session to renew or end. A challenge or a data notice is never an answer
+    /// to a submission, so neither tells anything.
+    let outcome (result: Result<SigningResponse, string>) =
+        match result with
+        | Ok(SigningResponse.Submitted(signed, _, _)) -> [ SigningEffect.TellSigned signed ]
+        | Ok(SigningResponse.Refused refusal) -> [ SigningEffect.TellRefused refusal ]
+        | Ok(SigningResponse.ChallengeIssued _)
+        | Ok(SigningResponse.DataNotice _) -> []
+        | Error reason -> [ SigningEffect.TellError reason ]
 
 
     /// The next state and effects for a message. Every new state is built through a constructor,
@@ -252,9 +269,16 @@ module SigningState =
 
         // a submission in flight cannot be cancelled; anything else is dropped with the dialog, and
         // the answer to a challenge asked then lands nowhere
-        | SigningMsg.Cancel, _, Some(SigningRequest.Submission _) -> state, []
+        | SigningMsg.Cancel, _, Some(SigningRequest.Submission _)
+        | SigningMsg.Cancel, _, Some(SigningRequest.SubmissionAfterSessionEnd _) -> state, []
         | SigningMsg.Cancel, _, _ -> idle, []
 
+        // after the Session ended, the answer to the submission ends the signature with its
+        // outcome told
+        | SigningMsg.SubmitAnswered(answered, result), _, Some(SigningRequest.SubmissionAfterSessionEnd key) when
+            answered = key
+            ->
+            idle, outcome result
         // an answer lands only on the submission it names
         | SigningMsg.SubmitAnswered(answered, _), _, Some(SigningRequest.Submission key) when answered <> key ->
             state, []
@@ -292,6 +316,13 @@ module SigningState =
           SigningPhase.AskingPin(challenge, plan, _),
           Some(SigningRequest.Submission key) -> unsent challenge plan key, [ SigningEffect.TellError reason ]
         | SigningMsg.SubmitAnswered _, _, _ -> state, []
+
+        // the submission out keeps waiting for its answer, which is all that is left of the
+        // signature; anything else ends with the Session, and an answer then lands nowhere
+        | SigningMsg.SessionEnded, SigningPhase.AskingPin(challenge, plan, _), Some(SigningRequest.Submission key) ->
+            submittingAfterSessionEnd challenge plan key, []
+        | SigningMsg.SessionEnded, _, Some(SigningRequest.SubmissionAfterSessionEnd _) -> state, []
+        | SigningMsg.SessionEnded, _, _ -> idle, []
 
 
     /// The next state and effects for a message, the differences carried along: taken from the

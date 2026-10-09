@@ -144,10 +144,7 @@ let tests =
                 |> Expect.equal
                     "over the reading"
                     (SigningState.requesting shown (Some "d-1") "d-1",
-                     [
-                         SigningEffect.SetNoticedPatient otherData
-                         SigningEffect.CallChallenge(shown, Some "d-1", "d-1")
-                     ])
+                     [ SigningEffect.CallChallenge(shown, Some "d-1", "d-1") ])
 
                 let unverified =
                     {
@@ -328,6 +325,40 @@ let tests =
                 (state |> SigningState.differences,
                  transition SigningMsg.Cancel state |> fst |> SigningState.differences)
                 |> Expect.equal "kept while under way, dropped when it ends" (differ, [||])
+            }
+
+            test "the Session ended: the signature ends, but for a submission out, which still tells its outcome" {
+                for state in [ requesting; challenged; unsent ] do
+                    transition SigningMsg.SessionEnded state
+                    |> Expect.equal $"{state} ends" (SigningState.idle, [])
+
+                let ended, effects = transition SigningMsg.SessionEnded submitting
+                effects |> Expect.isEmpty "nothing yet"
+
+                ended
+                |> SigningState.view
+                |> Expect.equal "still submitting" (SigningView.Submitting plan)
+
+                transition SigningMsg.SessionEnded ended
+                |> Expect.equal "told once is enough" (ended, [])
+
+                transition (submitted "k-1") ended
+                |> Expect.equal
+                    "signed: told, no token renewed"
+                    (SigningState.idle, [ SigningEffect.TellSigned signed ])
+
+                let refused = SigningMsg.SubmitAnswered("k-1", Ok(SigningResponse.Refused SigningRefusal.PinLimit))
+
+                transition refused ended
+                |> Expect.equal
+                    "refused: told, no Session to end"
+                    (SigningState.idle, [ SigningEffect.TellRefused SigningRefusal.PinLimit ])
+
+                transition (SigningMsg.SubmitAnswered("k-1", Error "lost")) ended
+                |> Expect.equal "lost: told, no retry" (SigningState.idle, [ SigningEffect.TellError "lost" ])
+
+                transition (submitted "k-other") ended
+                |> Expect.equal "another key lands nowhere" (ended, [])
             }
         ]
 

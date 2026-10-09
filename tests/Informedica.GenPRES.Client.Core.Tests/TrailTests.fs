@@ -227,16 +227,10 @@ let tests =
                     ]
             }
 
-            test "a reset by the App reads as a signing step without message or effects" {
-                Trail.signingReset 7 at "the session is no longer open" SigningState.idle
+            test "a lanes step reads as the step of its machine" {
+                Trail.lanes 7 at (Lanes.LanesStep.Signing(SigningMsg.SessionEnded, SigningState.idle, []))
                 |> Trail.format
-                |> Expect.equal "the line" "#7 10:41:07.311 Signing reset: the session is no longer open -> none | Idle"
-            }
-
-            test "a lanes step reads as the step of its machine, the reset included" {
-                Trail.lanes 7 at (Lanes.LanesStep.SigningReset SigningState.idle)
-                |> Trail.format
-                |> Expect.equal "the line" "#7 10:41:07.311 Signing reset: the session is no longer open -> none | Idle"
+                |> Expect.equal "the line" "#7 10:41:07.311 Signing SessionEnded -> none | Idle"
 
                 let session = SessionState.anonymous
 
