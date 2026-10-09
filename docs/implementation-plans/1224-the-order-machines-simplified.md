@@ -933,9 +933,16 @@ the order of the steps protects the work between pull requests, not patients; it
 9. **The order dialog's and the OrderPlan page's own senders.** Decisions 10 and 12. Before step
    8, after step 4.
    - The field being counted becomes App state (`Ui.Counting`, set and cleared by one message
-     the dialog and the OrderPlan page send from their timer), which `Busy` reads like a request
-     out: the page is disabled but the field counting, and the menu and the title bar wait. The
-     `disabledRef` check in `QuantityField.fs` and the OrderPlan page's own `counting` go.
+     the field itself sends through a React context, on its first click and when it sends),
+     which `Busy` reads like a request out: the page is disabled but the field counting, and the
+     menu and the title bar wait. Every other field reads the context and is disabled meanwhile.
+     The Nutrition page is the exception: its fields are on the page, which an inert page would
+     freeze, so the page stays enabled and its controls that send (remove, add, reset, the
+     intake) wait for the count themselves. The `disabledRef` check in `QuantityField.fs` and the
+     OrderPlan page's own `counting` go.
+   - The field drops its predicted value when the answer to its clicks has landed, told by its
+     own disabled going on and off again, instead of by a revision the views bumped on every new
+     view object; that bump also followed re-renders and lost a first click (#1345).
    - The order dialog's argumentation draft: the unmount send in `Views/Order.fs` goes; the
      dialog sends the draft on blur and before its own close, for which the modal's `onClose`
      moves from `Views/Prescribe.fs` and from `Views/OrderPlan.fs` into the dialog; a close

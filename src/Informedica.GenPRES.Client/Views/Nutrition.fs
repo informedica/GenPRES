@@ -45,8 +45,10 @@ module Nutrition =
                 |}
 
         // a request out that changes the page. The page is disabled then, but that stops clicks
-        // only: the slots' intake effect and their fields' step timers send without one, and the
-        // delete confirmation opens outside the page, so these check this themselves
+        // only: the slots' intake effect sends without one, and the delete confirmation opens
+        // outside the page, so these check this themselves. A field counting its step clicks does
+        // not disable the page, since the field is on it: the controls that send wait for the
+        // count themselves
         let busy = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Page Global.Pages.Nutrition
 
         let content =

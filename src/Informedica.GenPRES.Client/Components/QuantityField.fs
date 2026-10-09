@@ -21,10 +21,8 @@ module QuantityField =
 
     /// The steps a value offers and what a click does; absent steps draw disabled. The
     /// prediction maps counted small and large clicks to the key and label the value would
-    /// have, so the field can show it before the server confirms; the revision is bumped by the
-    /// caller on every answer, so a prediction is dropped even when the answer repeats the value.
-    /// A value whose large step is its small step has no large step: a stepable field then shows
-    /// only the inner buttons.
+    /// have, so the field can show it before the server confirms. A value whose large step is its
+    /// small step has no large step: a stepable field then shows only the inner buttons.
     type Steps =
         {|
             step: (int * int -> string * string) option
@@ -36,7 +34,6 @@ module QuantityField =
             increase: (int -> unit) option
             last: (int -> unit) option
             useDebounce: bool
-            revision: int
         |}
 
 
@@ -62,6 +59,17 @@ module QuantityField =
         | Stepable of Steps
         /// One value or a range the user cannot move from this field.
         | Fixed
+
+
+    /// Where the answer to the clicks a field sent is: none awaited, the clicks sent, or their
+    /// request out. The field knows the request is out by its own disabled, which its caller sets
+    /// while a request of the page is out, and only then; a field the caller disables for another
+    /// reason meanwhile keeps its predicted value until the value changes.
+    [<RequireQualifiedAccess>]
+    type Answer =
+        | Idle
+        | Sent
+        | Out
 
 
     /// The field: its label, the values allowed and the one chosen, what choosing does, how
@@ -337,7 +345,7 @@ module QuantityField =
         // value that follows the live click count (the badge) before the server confirms.
         // Small = single-step decrease/increase (the defined increment); Large = jump
         // decrease/increase (the server's larger calculated increment). Reset when the
-        // underlying value or the server revision changes.
+        // underlying value changes, or when the answer to the clicks sent has landed.
         let smallDelta, setSmallDelta = React.useState 0
         let largeDelta, setLargeDelta = React.useState 0
         let smallRef = React.useRef 0
@@ -348,20 +356,42 @@ module QuantityField =
         // option would create a new reference every render and reset on every render.
         let valueKey = props.values |> Array.tryHead |> Option.map fst |> Option.defaultValue ""
 
-        let revision = steps |> Option.map (fun s -> s.revision) |> Option.defaultValue 0
+        let reset () =
+            smallRef.current <- 0
+            largeRef.current <- 0
+            setSmallDelta 0
+            setLargeDelta 0
 
         // useLayoutEffect (not useEffect) so the deltas are reset BEFORE the browser
         // paints the frame on which the server's new value arrives — otherwise that frame
         // would briefly show newServerValue + staleDelta × increment.
+        React.useLayoutEffect (reset, [| box valueKey |])
+
+        // the answer to the clicks sent has landed once the field, disabled while their request is
+        // out, is enabled again; only then the prediction goes, also when the answer repeats the
+        // value. Right after the send the request may not be out yet, so the field first waits for
+        // the disable
+        let awaiting = React.useRef Answer.Idle
+
         React.useLayoutEffect (
             (fun () ->
-                smallRef.current <- 0
-                largeRef.current <- 0
-                setSmallDelta 0
-                setLargeDelta 0
+                match awaiting.current, props.disabled with
+                | Answer.Sent, true -> awaiting.current <- Answer.Out
+                | Answer.Out, false ->
+                    awaiting.current <- Answer.Idle
+                    reset ()
+                | _ -> ()
             ),
-            [| box valueKey; box revision |]
+            [| box props.disabled |]
         )
+
+        // while another field counts its clicks this one is disabled; the field counting stays
+        // enabled, and tells the App when it starts and when it has sent its clicks
+        let counting = React.useContext Global.counting
+        let selfCounting, setSelfCounting = React.useState false
+        let report = React.useRef counting.Report
+        report.current <- counting.Report
+        let disabled = props.disabled || (counting.Counting && not selfCounting)
 
         let stepFn = steps |> Option.bind (fun s -> s.step)
 
@@ -389,13 +419,22 @@ module QuantityField =
                 setLargeDelta next
 
         // the clicks of all four arrows go out as one command for their net count, 700 ms after
-        // the last click, so that no click is lost to the request of another arrow; a field
-        // disabled by then sends nothing, and its prediction goes
+        // the last click, so that no click is lost to the request of another arrow. Meanwhile
+        // every other field and the page wait, so nothing else is out when the clicks go
         let timerRef = React.useRef (None: int option)
-        let disabledRef = React.useRef props.disabled
-        disabledRef.current <- props.disabled
 
-        React.useEffect ((fun () -> fun () -> timerRef.current |> Option.iter JS.clearTimeout), [||])
+        // a field unmounted while it counts drops its clicks, and the count ends
+        React.useEffect (
+            (fun () ->
+                fun () ->
+                    match timerRef.current with
+                    | Some timer ->
+                        JS.clearTimeout timer
+                        report.current false
+                    | None -> ()
+            ),
+            [||]
+        )
 
         let send () =
             timerRef.current <- None
@@ -410,17 +449,24 @@ module QuantityField =
                 | _, None -> None
 
             match step with
-            | Some(f, n) when not disabledRef.current -> f n
-            | _ ->
-                smallRef.current <- 0
-                largeRef.current <- 0
-                setSmallDelta 0
-                setLargeDelta 0
+            | Some(f, n) ->
+                awaiting.current <- Answer.Sent
+                f n
+            | None -> reset ()
+
+            setSelfCounting false
+            report.current false
 
         let counted bump =
             fun () ->
                 bump ()
-                timerRef.current |> Option.iter JS.clearTimeout
+
+                match timerRef.current with
+                | Some timer -> JS.clearTimeout timer
+                | None ->
+                    setSelfCounting true
+                    report.current true
+
                 timerRef.current <- Some(JS.setTimeout send 700)
 
         // Override only the displayed LABEL with the optimistically stepped value, keeping
@@ -444,7 +490,7 @@ module QuantityField =
         // cross still clears the value.
         let median =
             match props.mode, props.values with
-            | Navigable steps, [| ("range", _) |] when not props.disabled -> steps.median
+            | Navigable steps, [| ("range", _) |] when not disabled -> steps.median
             | _ -> None
 
         let select =
@@ -455,7 +501,7 @@ module QuantityField =
                     values = displayValues
                     updateSelected = props.onChange
                     isLoading = props.isLoading
-                    disabled = props.disabled
+                    disabled = disabled
                     readOnly = props.readOnly
                     hasClear = props.hasClear
                     canStep = canStep
@@ -496,8 +542,8 @@ module QuantityField =
         // a pair rests while the other pair holds clicks, so the field's clicks are one pair's
         let button pair count (pick: Steps -> (int -> unit) option) bump icon =
             let useDebounce = steps |> Option.exists _.useDebounce
-            let disabled = props.disabled || StepPolicy.rests pair smallDelta largeDelta
-            stepButton disabled useDebounce count (steps |> Option.bind pick) (counted bump) icon
+            let rests = disabled || StepPolicy.rests pair smallDelta largeDelta
+            stepButton rests useDebounce count (steps |> Option.bind pick) (counted bump) icon
 
         // a stepable value without a large step leaves out the outer slots, which would step the
         // same as the inner ones; the inner buttons then close the group

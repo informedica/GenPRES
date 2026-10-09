@@ -250,7 +250,6 @@ module ViewHelpers =
     /// differs from the small one; without it a stepable field shows only the inner buttons.
     let createStepper
         dispatch
-        revision
         (mode: QuantityModePolicy.Mode)
         hasLarge
         setMin
@@ -298,7 +297,6 @@ module ViewHelpers =
                 else
                     None
             useDebounce = not navigable && solved
-            revision = revision
         |}
         |> stepsMode mode
 
@@ -464,16 +462,15 @@ module ViewHelpers =
 
     /// The steps of a frequency field: one increment per click, so no large step and no step
     /// text. The five messages come from the caller, as for createStepper.
-    let frequencyStepper dispatch revision mode setMin (decr: 'Msg) setMed (incr: 'Msg) setMax =
-        createStepper dispatch revision mode false setMin (fun _ -> decr) setMed (fun _ -> incr) setMax None None
+    let frequencyStepper dispatch mode setMin (decr: 'Msg) setMed (incr: 'Msg) setMax =
+        createStepper dispatch mode false setMin (fun _ -> decr) setMed (fun _ -> incr) setMax None None
 
 
     /// The steps of the orderable dose rate field, its large step and step text taken from the
     /// rate. The five messages come from the caller, as for createStepper.
-    let doseRateStepper dispatch revision mode (rate: OrderVariable) setMin decr setMed incr setMax =
+    let doseRateStepper dispatch mode (rate: OrderVariable) setMin decr setMed incr setMax =
         createStepper
             dispatch
-            revision
             mode
             (rate |> hasLargeStep)
             setMin
@@ -494,7 +491,6 @@ module ViewHelpers =
     /// which gives no steps unless every component has a single orderable quantity.
     let createDoseQtyStepper
         dispatch
-        revision
         (ord: Order)
         (setMin: 'Msg)
         (decr: int * bool -> 'Msg)
@@ -605,7 +601,6 @@ module ViewHelpers =
                     else
                         None
                 useDebounce = not navigable && solved
-                revision = revision
             |}
             |> stepsMode mode
 

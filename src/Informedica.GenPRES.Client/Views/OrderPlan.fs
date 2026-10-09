@@ -18,8 +18,8 @@ module OrderPlan =
     /// anchored to the cell. The cell is a button: a click, Enter or Space asks to open or close
     /// it, and the popper has its own close button. Which cell is open is the plan view's, so
     /// one is open at a time. A click or a key inside reaches no row, so the order dialog does
-    /// not open; a click on a step button tells the view that a step is counting. The popper
-    /// stays mounted while closed, so a step still counting its clicks is sent after the close.
+    /// not open. The popper stays mounted while closed, so a step still counting its clicks is
+    /// sent after the close.
     [<JSX.Component>]
     let PlanCell
         (props:
@@ -32,7 +32,6 @@ module OrderPlan =
                 disabled: bool
                 onToggle: unit -> unit
                 onClose: unit -> unit
-                onStep: unit -> unit
             |})
         =
         let anchor, setAnchor = React.useState<Browser.Types.Element option> None
@@ -52,14 +51,6 @@ module OrderPlan =
         let close (e: Browser.Types.Event) =
             e.stopPropagation ()
             props.onClose ()
-
-        // only a click on a step button counts: the label, the value or the space around them
-        // start no step; the close button keeps its own click
-        let stepped (e: Browser.Types.Event) =
-            e.stopPropagation ()
-
-            if not (isNull (e.target?closest ("button:not([disabled])"))) then
-                props.onStep ()
 
         let stop (e: Browser.Types.Event) = e.stopPropagation ()
 
@@ -138,7 +129,7 @@ module OrderPlan =
         >
             {props.text}{Mui.Icons.Edit}
             <Popper open={isOpen} anchorEl={anchorEl} placement="bottom-start" keepMounted={true} sx={popperSx}>
-                <Paper elevation={4} sx={paperSx} onClick={stepped} onKeyDown={stop}>
+                <Paper elevation={4} sx={paperSx} onClick={stop} onKeyDown={stop}>
                     {props.field}
                     <IconButton size="small" aria-label={props.closeLabel} title={props.closeLabel} onClick={close}>
                         {Mui.Icons.Close}
@@ -245,37 +236,8 @@ module OrderPlan =
                 <Box sx={medicationSx}>{Mui.Icons.CalculateIcon}{value}</Box>
                 """
 
-        // a new plan answer drops the value a step showed before the answer arrived
-        let revisionRef = React.useRef 0
-        let prevPlanRef = React.useRef orderPlan
-
-        if not (obj.ReferenceEquals(prevPlanRef.current, orderPlan)) then
-            prevPlanRef.current <- orderPlan
-
-            match orderPlan with
-            | OrderPlanView.Settled _ -> revisionRef.current <- revisionRef.current + 1
-            | OrderPlanView.Changing _
-            | OrderPlanView.NoPatient -> ()
-
-        let revision = revisionRef.current
-
         // the cell whose field is open, one at a time, by row id and column
         let openCell, setOpenCell = React.useState<string option> None
-
-        // the cell whose step buttons are counting clicks: a click counts for 700 ms before its
-        // step is sent, so meanwhile no other cell opens and the sign waits. Otherwise a step could
-        // be rejected by a signature started before it was sent, or be replaced by another step
-        // while the plan keeps one waiting. The mark goes a second after the last click, when the
-        // step is on its way and the changing plan holds the rest back
-        let counting, setCounting = React.useState<string option> None
-        let countingTimer = React.useRef (None: int option)
-
-        React.useEffect ((fun () -> fun () -> countingTimer.current |> Option.iter JS.clearTimeout), [||])
-
-        let markCounting (key: string) =
-            countingTimer.current |> Option.iter JS.clearTimeout
-            setCounting (Some key)
-            countingTimer.current <- Some(JS.setTimeout (fun () -> setCounting None) 1000)
 
         // the cells step only while the plan is settled and no signature is under way
         let cellsRest =
@@ -298,7 +260,6 @@ module OrderPlan =
                 | QuantityModePolicy.Field.Frequency ->
                     ViewHelpers.frequencyStepper
                         send
-                        revision
                         stepable
                         Api.OrderViewCommand.SetMinScheduleFrequencyProperty
                         Api.OrderViewCommand.DecreaseScheduleFrequencyProperty
@@ -309,7 +270,6 @@ module OrderPlan =
                 | QuantityModePolicy.Field.DoseQuantity ->
                     ViewHelpers.createDoseQtyStepper
                         send
-                        revision
                         ord
                         Api.OrderViewCommand.SetMinOrderableDoseQuantityProperty
                         Api.OrderViewCommand.DecreaseOrderableDoseQuantityProperty
@@ -320,7 +280,6 @@ module OrderPlan =
                 | QuantityModePolicy.Field.DoseRate ->
                     ViewHelpers.doseRateStepper
                         send
-                        revision
                         stepable
                         ovar
                         Api.OrderViewCommand.SetMinOrderableDoseRateProperty
@@ -373,10 +332,9 @@ module OrderPlan =
                         field = field
                         closeLabel = "sluiten"
                         isOpen = openCell = Some key
-                        disabled = cellsRest || counting |> Option.exists ((<>) key)
+                        disabled = cellsRest
                         onToggle = fun () -> setOpenCell (if openCell = Some key then None else Some key)
                         onClose = fun () -> setOpenCell None
-                        onStep = fun () -> markCounting key
                     |}
             | None -> Html.text value |> toJsx
 
@@ -658,8 +616,7 @@ module OrderPlan =
         let onSign =
             fun _ ->
                 match orderPlan with
-                | OrderPlanView.Settled(tp, _) when counting.IsNone -> signing.Sign tp
-                | OrderPlanView.Settled _
+                | OrderPlanView.Settled(tp, _) -> signing.Sign tp
                 | OrderPlanView.NoPatient
                 | OrderPlanView.Changing _ -> ()
 
@@ -670,12 +627,12 @@ module OrderPlan =
                 label = tr Terms.``Signing Sign``
                 kind = Components.ActionBar.Kind.Primary
                 onClick = fun () -> onSign ()
-                disabled = counting.IsSome
+                disabled = false
                 icon = Some Mui.Icons.Assignment
             |}
 
         // the last signed order plan opened again; the new and changed orders go with it. Shown
-        // only once there is one; disabled with the page, and while a step is counted, whose
+        // only once there is one; disabled with the page, also while a step is counted, whose
         // command would go to the plan being replaced
         let openLastSignedAction =
             HeldPanelPolicy.lastSigned session.Session
@@ -684,7 +641,7 @@ module OrderPlan =
                     label = tr Terms.``Session Open Last Signed``
                     kind = Components.ActionBar.Kind.Secondary
                     onClick = fun () -> session.OpenSignedPlan signed.Head.Id
-                    disabled = counting.IsSome
+                    disabled = false
                     icon = Some Mui.Icons.Restore
                 |}
             )

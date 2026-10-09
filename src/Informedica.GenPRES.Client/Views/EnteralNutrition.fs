@@ -158,6 +158,11 @@ module EnteralNutrition =
 
         let orderDetails = if slot.Order.IsSome then details else null
 
+        // the page is not disabled while a field counts its step clicks, since the field counting
+        // is on it; the controls that send wait for the count themselves
+        let counting = React.useContext Global.counting
+        let held = props.busy || counting.Counting
+
         let removeButton =
             match props.onRemove with
             | Some onRemove ->
@@ -165,7 +170,7 @@ module EnteralNutrition =
                 Components.RemoveIconButton.View
                     {|
                         onRemove = onRemove
-                        busy = props.busy
+                        busy = held
                     |}
             | None -> null
 
@@ -244,6 +249,11 @@ module EnteralNutrition =
 
         let slots = contexts |> Array.map slotOf
 
+        // the page is not disabled while a field counts its step clicks, since the field counting
+        // is on it; the controls that send wait for the count themselves
+        let counting = React.useContext Global.counting
+        let held = props.busy || counting.Counting
+
         // the buttons the plan admits a context for, as the server would rule
         let addButton category label =
             if plan |> OrderPlan.mayAdd category then
@@ -251,7 +261,7 @@ module EnteralNutrition =
                     {|
                         label = label
                         onClick = fun () -> props.planNew category
-                        disabled = false
+                        disabled = held
                     |}
             else
                 null
@@ -318,7 +328,7 @@ module EnteralNutrition =
             let handleConfirm =
                 fun () ->
                     match confirmDeleteTarget with
-                    | Some ncId when not props.busy -> props.planRemove [| ncId |]
+                    | Some ncId when not held -> props.planRemove [| ncId |]
                     | Some _
                     | None -> ()
 
