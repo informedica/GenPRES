@@ -334,6 +334,29 @@ let tests =
                         }
                 ]
 
+            test "a load reads by its name, an answer by its size, never an error text" {
+                let state, effects =
+                    LoaderMachine.LoaderState.initial
+                    |> LoaderMachine.transition (LoaderMachine.LoaderMsg.Start Busy.Load.Products)
+
+                Trail.loader 1 at (LoaderMachine.LoaderMsg.Start Busy.Load.Products) (state, effects)
+                |> Trail.format
+                |> Expect.equal "the start" "#1 10:41:07.311 Loader Start Products -> FetchProducts | out Products"
+
+                let landed = LoaderMachine.LoaderMsg.Landed(LoaderMachine.Landing.Products(Error "connection refused"))
+
+                Trail.loader 2 at landed (state |> LoaderMachine.transition landed)
+                |> Trail.format
+                |> Expect.equal "the failure" "#2 10:41:07.311 Loader Landed Products Error -> none | failed Products"
+
+                LoaderMachine.Landing.Products(Ok [])
+                |> Trail.Loader.landing
+                |> Expect.equal "an answer" "Products Ok 0 items"
+                LoaderMachine.LoaderState.initial
+                |> Trail.Loader.state
+                |> Expect.equal "nothing asked" "nothing asked"
+            }
+
             test "every machine names itself" {
                 let plan = OrderPlanState.noPatient
                 let signing = SigningState.idle

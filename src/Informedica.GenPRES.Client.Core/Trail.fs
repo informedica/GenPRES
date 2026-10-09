@@ -676,6 +676,88 @@ module Patient =
         |> String.concat " "
 
 
+/// The loader machine.
+[<RequireQualifiedAccess>]
+module Loader =
+
+    open Busy
+    open LoaderMachine
+
+    /// A load by name.
+    let load (l: Load) =
+        match l with
+        | Load.Settings -> "Settings"
+        | Load.Localization -> "Localization"
+        | Load.Hospitals -> "Hospitals"
+        | Load.NormalValues -> "NormalValues"
+        | Load.BolusMedication -> "BolusMedication"
+        | Load.ContinuousMedication -> "ContinuousMedication"
+        | Load.Products -> "Products"
+        | Load.Formulary -> "Formulary"
+        | Load.Parenteralia -> "Parenteralia"
+        | Load.Interactions -> "Interactions"
+        | Load.DrugNames -> "DrugNames"
+        | Load.LogFiles -> "LogFiles"
+        | Load.LogAnalysis -> "LogAnalysis"
+        | Load.Reload -> "Reload"
+
+
+    /// An answer by its load and its size; never the error text.
+    let landing (landing: Landing) =
+        let count (xs: 'a list) = $"%i{xs.Length} items"
+        let rows (xs: string[][]) = $"%i{xs.Length} rows"
+        let named name _ = name
+
+        let name, answer =
+            match landing with
+            | Landing.Settings r -> "Settings", r |> Part.result (named "settings")
+            | Landing.Localization r -> "Localization", r |> Part.result rows
+            | Landing.NormalValues r -> "NormalValues", r |> Part.result (named "normal values")
+            | Landing.BolusMedication r -> "BolusMedication", r |> Part.result count
+            | Landing.ContinuousMedication r -> "ContinuousMedication", r |> Part.result count
+            | Landing.Products r -> "Products", r |> Part.result count
+
+        $"%s{name} %s{answer}"
+
+
+    /// A loader message.
+    let msg (msg: LoaderMsg) =
+        match msg with
+        | LoaderMsg.Start l -> $"Start %s{load l}"
+        | LoaderMsg.Landed l -> $"Landed %s{landing l}"
+
+
+    /// A call to make.
+    let effect (effect: LoaderEffect) =
+        match effect with
+        | LoaderEffect.FetchSettings -> "FetchSettings"
+        | LoaderEffect.FetchLocalization -> "FetchLocalization"
+        | LoaderEffect.FetchNormalValues -> "FetchNormalValues"
+        | LoaderEffect.FetchBolusMedication -> "FetchBolusMedication"
+        | LoaderEffect.FetchContinuousMedication -> "FetchContinuousMedication"
+        | LoaderEffect.FetchProducts -> "FetchProducts"
+
+
+    /// The loads out, the loads that landed and the ones that failed.
+    let state (state: LoaderState) =
+        let names loads = loads |> List.map load |> String.concat ", "
+
+        [
+            match out state with
+            | [] -> ()
+            | loads -> $"out %s{names loads}"
+            match loaded state with
+            | [] -> ()
+            | loads -> $"loaded %s{names loads}"
+            match state.Failed with
+            | [] -> ()
+            | loads -> $"failed %s{names loads}"
+        ]
+        |> function
+            | [] -> "nothing asked"
+            | parts -> parts |> String.concat "; "
+
+
 /// One step of a machine, described with that machine's describers.
 let step machine describeMsg describeEffect describeState (no: int) (at: DateTime) msg (state, effects) =
     {
@@ -718,6 +800,9 @@ let orderContext = step "OrderContext" OrderContext.msg OrderContext.effect Orde
 
 /// A step of the patient machine.
 let patient = step "Patient" Patient.msg Patient.effect Patient.state
+
+/// A step of the loader machine.
+let loader = step "Loader" Loader.msg Loader.effect Loader.state
 
 
 /// A step the lanes took: a machine's step, or the lanes started over.

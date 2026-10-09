@@ -20,7 +20,7 @@ or writes a field of the state.
 flowchart LR
     View["Views: dispatch what the user wants, read Client's views"]
     App["App.fs: carry out an effect (server, sheets, router, history, keys, clock); no decision"]
-    Client["Client.transition: Lanes + Loads + Admin + Shell, routed one way"]
+    Client["Client.transition: Lanes + LoaderMachine + AdminMachine + ShellMachine, routed one way"]
     State[("ClientState")]
 
     View -- "ClientMsg" --> App
@@ -48,7 +48,7 @@ of `App.fs` named below exist today; the new ones are introduced where the plan 
 - **A closing arm**: the last arm of a `transition`, `| _ -> state, []`, which takes a message
   that cannot be acted on in the state it arrives in. It replaces a guard in the App or the view.
 - **A part**: what `Client.transition` composes: the `Lanes` composition of the five order
-  machines, and the three machines `Loads`, `Admin` and `Shell`.
+  machines, and the three machines `LoaderMachine`, `AdminMachine` and `ShellMachine`.
 - **A route**: an effect of one part that `Client.transition` turns into a message for another
   part in the same transition, one way.
 - **A reading**: a `Deferred` value of what a call brought, `HasNotStartedYet`, `InProgress`,
@@ -163,25 +163,28 @@ Elmish program with the debugger, and the view.
 ## Decisions
 
 1. **One transition for the client.** `Client.fs` in `Client.Core` composes four parts, `Lanes`,
-   `Loads`, `Admin` and `Shell`, into `ClientState`, `ClientMsg`, `ClientEffect` and
-   `Client.transition newRequest msg state`, as `Lanes` composes the five machines: a message runs
-   the part it is for, and a route passes an effect of one part on to another in the same
-   transition, one way; an effect that no part takes comes out for the App, in the order the parts
-   emitted it, and the App runs the effects in that order. `App.update` is `Client.transition` and
-   the effects carried out; `init` is `Client.initial url`, over the `UrlParts` of the page's url,
-   and `Client.pageLoad`, which returns the effects a page load starts. `Client` is a new module
-   above `Lanes`; `Lanes` keeps its routes; step 7 renames the cases that pass the patient data on,
-   adds one effect to two of its machines and stops the patient machine resending equal data. The
-   compile order of the project, each new file taking its place when its step adds it:
+   `LoaderMachine`, `AdminMachine` and `ShellMachine`, into `ClientState`, `ClientMsg`,
+   `ClientEffect` and `Client.transition newRequest msg state`, as `Lanes` composes the five
+   machines: a message runs the part it is for, and a route passes an effect of one part on to
+   another in the same transition, one way; an effect that no part takes comes out for the App, in
+   the order the parts emitted it, and the App runs the effects in that order. `App.update` is
+   `Client.transition` and the effects carried out; `init` is `Client.initial url`, over the
+   `UrlParts` of the page's url, and `Client.pageLoad`, which returns the effects a page load
+   starts. `Client` is a new module above `Lanes`; `Lanes` keeps its routes; step 7 renames the
+   cases that pass the patient data on, adds one effect to two of its machines and stops the patient
+   machine resending equal data. The compile order of the project, each new file taking its place
+   when its step adds it:
    - `Alert` before `SessionMachine`, since the Session machine shows alerts;
-   - after `Lanes`: `Busy`, `StartupPolicy`, `UrlPolicy`, `Url`, `Loads`, `Admin`, `Shell`,
-     `Client`, `Trail`. `Loads` needs `Busy.Load`, `Client` needs `Busy` and the two policies,
-     and `Trail` needs `Client` for the lines of its routes.
-2. **Each part is a machine with the shape the order machines have.** A state record, a message
-   DU, an effect DU, one `transition`, no guard: a message that cannot come, because the control
-   that sends it is disabled, falls to a closing arm. The test constructors are on the state
-   module.
-3. **Effects carry contract models, never client types.** `LoadsEffect` has one `Fetch` case per
+   - after `Lanes`: `Busy`, `StartupPolicy`, `UrlPolicy`, `Url`, `LoaderMachine`, `AdminMachine`,
+     `ShellMachine`, `Client`, `Trail`. `LoaderMachine` needs `Busy.Load`, `Client` needs `Busy` and
+     the two policies, and `Trail` needs `Client` for the lines of its routes.
+2. **Each part is a machine with the shape and the name the order machines have.** The three new
+   ones are `LoaderMachine`, `AdminMachine` and `ShellMachine`, in files of the same name, beside
+   `PatientMachine` and the others; `Client`, like `Lanes`, composes machines and keeps its name.
+   A state record, a message DU, an effect DU, one `transition`, no guard: a message that cannot
+   come, because the control that sends it is disabled, falls to a closing arm. The test
+   constructors are on the state module.
+3. **Effects carry contract models, never client types.** `LoaderEffect` has one `Fetch` case per
    load, carrying what the call needs: `FetchFormulary of Formulary`, `FetchParenteralia of
    Parenteralia`, `FetchInteractions of string list`, and the argument-free `FetchSettings`,
    `FetchLocalization`, `FetchNormalValues`, `FetchBolusMedication`, `FetchContinuousMedication`,
@@ -213,9 +216,9 @@ Elmish program with the debugger, and the view.
    longer used by `App`. What did not parse is a list of `UrlPart` cases on the result, not a log
    line; the App logs the list when it carries out the page load, as it logs today, and the shell
    does not show it.
-7. **The loads are one machine, the data loads keyed by `Busy.Load`.** `LoadsState` holds the eleven
+7. **The loads are one machine, the data loads keyed by `Busy.Load`.** `LoaderState` holds the eleven
    data readings and the server status, the failed start-up loads, the two ask-again marks, each a
-   `Filter option`, the interaction check number and the drug-name retries. `LoadsMsg.Start of Load`
+   `Filter option`, the interaction check number and the drug-name retries. `LoaderMsg.Start of Load`
    and `Landed of Landing`, where `Landing` has one case per load with the payload the call brought
    or the error as the server gave it, a `string[]` for the four calls under the session and a
    `string` for the others (the App turns an `exn` into its message, as wiring), and for the four
@@ -223,15 +226,16 @@ Elmish program with the debugger, and the view.
    Session. The messages that start loads from elsewhere: `PatientSet of Patient option`,
    `FilterAnswered of Filter`, `PageShown of Page`, `FormularyChanged of Formulary`,
    `ParenteraliaChanged of Parenteralia`, `DrugsChanged of string list`, `ResourcesReloaded`.
-   `Loads.out` lists the loads under way and `Loads.loaded` the loads that landed, over the eleven.
-   The hospitals stay a reading derived from the bolus medication when it lands. The server check is
-   no `Busy.Load`, since it reads nothing a page shows: it has its own messages, `CheckServer` and
-   `ServerChecked of Result<unit, string>`, and its own effect, `CheckServerLater`, so `Busy` does
-   not change. The admin's three readings are not in `Loads`: decision 8.
+   `LoaderMachine.out` lists the loads under way and `LoaderMachine.loaded` the loads that landed,
+   over the eleven. The hospitals stay a reading derived from the bolus medication when it lands.
+   The server check is no `Busy.Load`, since it reads nothing a page shows: it has its own messages,
+   `CheckServer` and `ServerChecked of Result<unit, string>`, and its own effect,
+   `CheckServerLater`, so `Busy` does not change. The admin's three readings are not in
+   `LoaderMachine`: decision 8.
 8. **The admin owns its three readings.** `AdminState` keeps the log listing, the analysis and
-   the reload, since each is a call under the token and a refused token logs out. `Admin.out`
-   lists them as `Busy.Load` values the same way `Loads.out` does, and `Client.busy` passes the
-   two lists together to `Busy.out`, so `Busy` and `StartupPolicy` do not change. A logout, by
+   the reload, since each is a call under the token and a refused token logs out. `AdminMachine.out`
+   lists them as `Busy.Load` values the same way `LoaderMachine.out` does, and `Client.busy` passes
+   the two lists together to `Busy.out`, so `Busy` and `StartupPolicy` do not change. A logout, by
    the user or by a refused token, is an effect, `LoggedOut`, which `Client` routes to the shell
    to leave the settings page.
 9. **The Session shows its own failures.** `SessionEffect.Alert of Alert` comes out of the
@@ -269,9 +273,9 @@ Elmish program with the debugger, and the view.
     panel while the patient is held, so no message comes then, and a change that still reaches
     the patient lane while held falls to a closing arm in `Client`. That the panel is disabled
     while held has not been confirmed in the browser; step 9b confirms it, see Verification.
-12. **The trail covers every step.** `Trail.fs` gets a line for each `Loads`, `Admin` and `Shell`
-    step and for the `Client` routes, as it has for the lanes; the page's patient parts stay out,
-    as today.
+12. **The trail covers every step.** `Trail.fs` gets a line for each `LoaderMachine`, `AdminMachine`
+    and `ShellMachine` step and for the `Client` routes, as it has for the lanes; the page's patient
+    parts stay out, as today.
 13. **Nothing is logged from Client.Core.** The trail is the record of what a step did; the App
     keeps its `Logging` lines for what it carries out (a call failed, a key could not be made, a
     url part did not parse).
@@ -312,24 +316,26 @@ url and the Session's sentences hang on, then the composition.
      no longer read, since no EHR links in with these urls. Tests: each new code; each parameter
      under its new key; the old keys not read. The parameter list in the `///` of `Url.parse`
      names the new keys. Committed as `feat`, with its own browser check.
-2. **The loads machine, the start-up loads.** `Alert.fs` with the cases of this step and
-   `Alert.severity`; `Views/AlertText.fs` with `AlertText.text`. `Loads.fs`: the state, `Start`
-   and `Landed` for the settings, the localization, the normal values, the bolus and continuous
+2. **The loader machine, the start-up loads.** `LoaderMachine.fs`: the state, `Start` and
+   `Landed` for the settings, the localization, the normal values, the bolus and continuous
    medication and the products; the hospitals derived when the bolus medication lands; a start
    while one runs is the closing arm; the failed start-up loads recorded, raising nothing;
-   `Loads.out` and `Loads.loaded`. Effects: the `Fetch` cases of these loads, `Alert of Alert`.
-   Tests: a load started once, answered, failed and recorded; the hospitals derived. `App`: the
-   arms replaced by `Loads.transition`; `loads`, `loadsOut`, `loaded` and `recordFailed`
-   replaced; the alerts of this step shown through `AlertText.text`.
-3. **The loads machine, the loads asked again.** The server check, with `CheckServer`,
-   `ServerChecked` and `CheckServerLater`, and the drug names, with `AskAgainLater`, giving up after
-   three and showing `Alert.DrugNamesNotLoaded`; the envelope's `From` on the drug names' landing.
-   `ServerChecked` is the landing that routes to `Failed Server` and `Succeeded Server` (decision
-   10). Tests: the server check asked again after a failure, not after a success; a failure raising
-   the error banner with the server sentence and no snackbar, the next success clearing it; the drug
-   names asked again, given up. `App`: the two arms replaced; the waits carried out as `Cmd.OfAsync`
-   over the effect.
-4. **The loads machine, the pages that follow the workbench.** The formulary and parenteralia loads
+   `LoaderMachine.out` and `LoaderMachine.loaded`. Effects: the `Fetch` cases of these loads. None
+   of these loads shows an alert, so the alerts start in step 3. Tests: a load started once,
+   answered, failed and recorded; the hospitals derived. `App`: the arms replaced by
+   `LoaderMachine.transition`; `loads`, `loadsOut`, `loaded` and `recordFailed` replaced; the sheet
+   loaders answer a `Result`.
+3. **The loader machine, the loads asked again.** `Alert.fs` with its first case,
+   `DrugNamesNotLoaded`, and `Alert.severity`; `Views/AlertText.fs` with `AlertText.text`. The
+   server check, with `CheckServer`, `ServerChecked` and `CheckServerLater`, and the drug names,
+   with `AskAgainLater`, giving up after three and showing `Alert.DrugNamesNotLoaded` through the
+   effect `Alert of Alert`; the envelope's `From` on the drug names' landing. `ServerChecked` is
+   the landing that routes to `Failed Server` and `Succeeded Server` (decision 10). Tests: the
+   server check asked again after a failure, not after a success; a failure raising the error
+   banner with the server sentence and no snackbar, the next success clearing it; the drug names
+   asked again, given up. `App`: the two arms replaced; the waits carried out as `Cmd.OfAsync`
+   over the effect; the alert shown through `AlertText.text`.
+4. **The loader machine, the pages that follow the workbench.** The formulary and parenteralia loads
    with the filter synced; the ask-again marks holding the filter answered during a load, used when
    it lands; the patient set reloading both, the formulary over the patient as `startFormulary` does
    today; a change on one page put on the other; and the seed to the workbench as an effect
@@ -338,17 +344,17 @@ url and the Session's sentences hang on, then the composition.
    again once; a page change seeds with its rule; the patient set reloads both pages with the
    patient. `App`: `syncFormulary`, `syncParenteralia`, `startFormulary`, `startParenteralia`,
    `askFormularyAgain`, `askParenteraliaAgain`, `patientPages`, `refreshPages`, `seedFromPage` go.
-5. **The loads machine, the interactions.** The check numbered, the earlier answer dropped, fewer
+5. **The loader machine, the interactions.** The check numbered, the earlier answer dropped, fewer
    than two drugs clearing the rows and withdrawing the notice, the notice as
    `Alert.InteractionsFound`; the envelope's `From` on the two landings. Tests: two checks out,
    the first answer dropped; one drug clears. `App`: `checkInteractions`, `applyInteraction`,
    `withdrawInteractionsNotice` go.
-6. **The admin machine.** `Admin.fs`: the login attempt, the token, the logout, the three
-   readings, `Admin.out`; an earlier login answer dropped; a token the server no longer takes
+6. **The admin machine.** `AdminMachine.fs`: the login attempt, the token, the logout, the three
+   readings, `AdminMachine.out`; an earlier login answer dropped; a token the server no longer takes
    logging out; the effects `LoggedOut`, `Alert Alert.InvalidPassword` and the reload done, which
    the loads take. Tests: a login answer of an earlier attempt lands nowhere; "Invalid token"
-   logs out; the reload done; `Admin.out` during a listing. `App`: the admin arms replaced;
-   `applyAdmin`, `tokenError` go; `busyOut` passes `Admin.out` beside `loadsOut`.
+   logs out; the reload done; `AdminMachine.out` during a listing. `App`: the admin arms replaced;
+   `applyAdmin`, `tokenError` go; `busyOut` passes `AdminMachine.out` beside `loadsOut`.
 7. **The lane machines**, in two pull requests:
    - **7a, the patient data named.** Four cases carry the `Patient` contract value under a name
      that reads as if the person changed: `SessionEffect.SetPatient`, `PatientEffect.SetPatient`,
@@ -388,7 +394,7 @@ url and the Session's sentences hang on, then the composition.
      makes no call once the token is renewed and sends no `PatientDataChanged`, the case the #1229
      script played. The trail line of the step. Commits as `fix`, since the behaviour changes.
 8. **The shell machine**, in two pull requests:
-   - **8a, the shell without the url.** `Shell.fs`: every field of `UiState` but the url: the
+   - **8a, the shell without the url.** `ShellMachine.fs`: every field of `UiState` but the url: the
      page (the settings page refused to a user not logged in, `LoggedOut` leaving it), the
      language through `LanguagePolicy`, the hospital, the disclaimer shown again and accepted,
      the snackbar as an `Alert` shown and closed, the error banner through `ServerErrorPolicy`
