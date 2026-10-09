@@ -103,5 +103,8 @@ let gate tr startup session =
 
 
 /// Whether the gate covers the application: until it has started, and while the session's
-/// gate does.
-let isGated startup session = startup <> Startup.Started || SessionGatePolicy.isGated session
+/// gate does. The session's gate waits for a signature under way: a submission out when the
+/// session ended still tells its outcome, and the gate follows it.
+let isGated startup session signing =
+    startup <> Startup.Started
+    || (SessionGatePolicy.isGated session && not (SigningPolicy.underWay signing))

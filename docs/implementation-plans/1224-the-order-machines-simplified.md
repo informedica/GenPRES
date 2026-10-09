@@ -923,7 +923,9 @@ the order of the steps protects the work between pull requests, not patients; it
      outcome. As built: `Lanes` sends the signing machine `SigningMsg.SessionEnded`, which
      ends the signature or, with a submission out, marks it; the trail shows it as a signing
      step, and the reset step `LanesStep.SigningReset` goes. The answer then tells only the
-     outcome: signed, refused or lost, with no token renewed and no Session ended.
+     outcome: signed, refused or lost, with no token renewed and no Session ended. The Session's
+     gate waits for that answer (`StartupPolicy.isGated` reads the signing view), so the
+     outcome is told before the gate covers the application.
    - `SigningMachine.accepted` no longer emits `SetPatient`: the new data reaches the panel with
      the signed answer, as when the patient context is held (decision 3). The step checks whether
      a stored version's totals are read anywhere, since the plan signed carries totals for the

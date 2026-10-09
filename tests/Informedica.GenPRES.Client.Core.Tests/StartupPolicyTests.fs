@@ -78,11 +78,26 @@ let tests =
             }
 
             test "the gate covers until started, and while the session's gate does" {
-                isGated Startup.Starting SessionView.Anonymous |> Expect.isTrue "starting"
-                isGated (Startup.Failed [ Load.Products ]) SessionView.Anonymous
+                let idle = SigningMachine.SigningView.Idle
+
+                isGated Startup.Starting SessionView.Anonymous idle |> Expect.isTrue "starting"
+                isGated (Startup.Failed [ Load.Products ]) SessionView.Anonymous idle
                 |> Expect.isTrue "failed"
-                isGated Startup.Started SessionView.Anonymous |> Expect.isFalse "started"
-                isGated Startup.Started SessionView.Resuming |> Expect.isTrue "resuming"
+                isGated Startup.Started SessionView.Anonymous idle |> Expect.isFalse "started"
+                isGated Startup.Started SessionView.Resuming idle |> Expect.isTrue "resuming"
+            }
+
+            test "the session's gate waits for a submission out when the session ended" {
+                let ended = SessionView.Ended Shared.Types.SessionEnding.WrongPinLimit
+                let submitting = SigningMachine.SigningView.Submitting SigningMachineTests.Fixtures.plan
+
+                isGated Startup.Started ended submitting |> Expect.isFalse "the outcome first"
+
+                isGated Startup.Started ended SigningMachine.SigningView.Idle
+                |> Expect.isTrue "then the gate"
+
+                isGated Startup.Starting SessionView.Anonymous submitting
+                |> Expect.isTrue "the start-up gate does not wait"
             }
 
             test "every start-up term has its own English" {
