@@ -111,19 +111,19 @@ kind:
   switched to Prescribe; without a patient it is dropped and said. The two list filters are state
   of the UI.
 - **The shell** (`UiState`). The page switch, which also starts the loads of the formulary and
-  parenteralia pages, retries the drug names and refuses the settings page to a user not logged
-  in; the language (`LanguagePolicy` decides, `App` applies); the hospital; the disclaimer, shown
-  again on a language or hospital change and accepted (`AcceptDisclaimer`); the snackbar with
-  sentences built in `App`, Dutch but for "Invalid password", and closed (`CloseSnackbar`); the
-  server error banner, raised by a failed call of one of the eight `ErrorSource` kinds (the plan
-  command, the formulary, the parenteralia, the interactions, the login, the log listing, the
-  analysis, the reload) and cleared by the next success of that kind (`processError`,
-  `clearError`, `ServerErrorPolicy.raised`, `clearedBy`, `DismissServerError`); `processError`
-  also shows the snackbar "Er ging iets mis, herladen" and builds the banner text from the
-  errors, the first three, each cut at 200 characters, joined with "; " after "Server fout: ";
-  a failed start-up load or drug names load raises nothing, it is logged and recorded for the
-  gate; the counting flag; the start-up ended flag (`markStarted`); the url
-  shown and the question open (`UrlPolicy` decides, `App` applies).
+  parenteralia pages, retries the drug names and refuses the settings page to a user not logged in;
+  the language (`LanguagePolicy` decides, `App` applies); the hospital; the disclaimer, shown again
+  on a language or hospital change and accepted (`AcceptDisclaimer`); the snackbar with sentences
+  built in `App`, Dutch but for "Invalid password", and closed (`CloseSnackbar`); the server error
+  banner, raised by a failed call of one of the nine `ErrorSource` kinds (the plan command, the
+  formulary, the parenteralia, the interactions, the login, the log listing, the analysis, the
+  reload, the server check) and cleared by the next success of that kind (`processError`,
+  `clearError`, `ServerErrorPolicy.raised`, `clearedBy`, `DismissServerError`); `processError` also
+  shows the snackbar "Er ging iets mis, herladen" and builds the banner text from the errors, the
+  first three, each cut at 200 characters, joined with "; " after "Server fout: "; a failed start-up
+  load or drug names load raises nothing, it is logged and recorded for the gate; the counting flag;
+  the start-up ended flag (`markStarted`); the url shown and the question open (`UrlPolicy` decides,
+  `App` applies).
 - **The url** (`parsePatient`, `parseLaunch` and the url comment above them; `applyPage`,
   `applyUrl`, `startOver`; the `UrlChanged`, `LeaveForUrl` and `StayOnUrl` arms). The parse of a
   `#/patient?...` or `#/session?...` url into the patient, the page, the language, the
@@ -213,22 +213,21 @@ Elmish program with the debugger, and the view.
    longer used by `App`. What did not parse is a list of `UrlPart` cases on the result, not a log
    line; the App logs the list when it carries out the page load, as it logs today, and the shell
    does not show it.
-7. **The loads are one machine, the data loads keyed by `Busy.Load`.** `LoadsState` holds the
-   eleven data readings and the server status, the failed start-up loads, the two ask-again
-   marks, the interaction check number and the drug-name retries. `LoadsMsg.Start of Load` and
-   `Landed of Landing`, where `Landing` has one case per load with the payload the call brought
+7. **The loads are one machine, the data loads keyed by `Busy.Load`.** `LoadsState` holds the eleven
+   data readings and the server status, the failed start-up loads, the two ask-again marks, each a
+   `Filter option`, the interaction check number and the drug-name retries. `LoadsMsg.Start of Load`
+   and `Landed of Landing`, where `Landing` has one case per load with the payload the call brought
    or the error as the server gave it, a `string[]` for the four calls under the session and a
-   `string` for the others (the App turns an `exn` into its message, as wiring), and for the
-   four calls under the session also the envelope's `From`, so that `Client` can route the
-   notice to the Session. The messages that start loads from elsewhere:
-   `PatientSet`, `FilterAnswered of Filter`, `PageShown of Page`, `FormularyChanged of
-   Formulary`, `ParenteraliaChanged of Parenteralia`, `DrugsChanged of string list`,
-   `ResourcesReloaded`. `Loads.out` lists the loads under way and `Loads.loaded` the loads that
-   landed, over the eleven. The hospitals stay a reading derived from the bolus medication when
-   it lands. The server check is no `Busy.Load`, since it reads nothing a page shows: it has its
-   own messages, `CheckServer` and `ServerChecked of Result<unit, string>`, and its own effect,
-   `CheckServerLater`, so `Busy` does not change. The admin's three readings are not in `Loads`:
-   decision 8.
+   `string` for the others (the App turns an `exn` into its message, as wiring), and for the four
+   calls under the session also the envelope's `From`, so that `Client` can route the notice to the
+   Session. The messages that start loads from elsewhere: `PatientSet of Patient option`,
+   `FilterAnswered of Filter`, `PageShown of Page`, `FormularyChanged of Formulary`,
+   `ParenteraliaChanged of Parenteralia`, `DrugsChanged of string list`, `ResourcesReloaded`.
+   `Loads.out` lists the loads under way and `Loads.loaded` the loads that landed, over the eleven.
+   The hospitals stay a reading derived from the bolus medication when it lands. The server check is
+   no `Busy.Load`, since it reads nothing a page shows: it has its own messages, `CheckServer` and
+   `ServerChecked of Result<unit, string>`, and its own effect, `CheckServerLater`, so `Busy` does
+   not change. The admin's three readings are not in `Loads`: decision 8.
 8. **The admin owns its three readings.** `AdminState` keeps the log listing, the analysis and
    the reload, since each is a call under the token and a refused token logs out. `Admin.out`
    lists them as `Busy.Load` values the same way `Loads.out` does, and `Client.busy` passes the
@@ -240,25 +239,29 @@ Elmish program with the debugger, and the view.
    the view before the message reaches it; the Session machine gains the effect and the two arms,
    nothing else (a small change in a machine this plan does not rewrite, as step 8 of the last
    plan did for the signing machine).
-10. **The error banner follows the eight sources, through effects.** The error banner stays a
-    `ServerErrorPolicy.ServerError`, raised and cleared through the policy. The shell takes
-    `Failed of ErrorSource * string[]` and `Succeeded of ErrorSource`: `Failed` raises the
-    error banner and shows `Alert.ServerFailed` on the snackbar, as `processError` does today;
-    `Succeeded` clears it, as `clearError` does. The banner text is built in
-    `ServerErrorPolicy.raised source errs`, which takes the `string[]` and cuts it as
-    `processError` does today, the first three, each at 200 characters, joined with "; " after
-    "Server fout: ", with a test; the cut is a decision, not wiring. Of the lanes only the plan
-    reaches the error banner: `OrderPlanEffect.TellError` routes to `Failed OrderPlan`, and the
-    plan machine gains the counterpart, `TellAnswered`, emitted on the answer it awaited, which
-    routes to `Succeeded OrderPlan`. Today `App` decides that on the incoming message with
-    `OrderPlanState.awaits`, before the machine runs, a check the machine makes itself: the
-    effect removes the second check. The other three lanes' `TellError` go to the snackbar, as
-    `App`'s `tell` does today: `Alert.PatientFailed`, `Alert.WorkbenchFailed` and
-    `Alert.SigningSendFailed`. Of the loads only the formulary, the parenteralia and the
-    interactions have a source: their landings route to `Failed` or `Succeeded`; the start-up
-    loads and the drug names route to neither, they are logged by the App and recorded for the
-    gate. The admin's calls route under their four sources. Every route reads an effect; no
-    route reads a message.
+10. **The error banner follows the nine sources, through effects.** The error banner stays a
+    `ServerErrorPolicy.ServerError`, raised and cleared through the policy. The shell takes `Failed
+    of ErrorSource * string[]` and `Succeeded of ErrorSource`: `Failed` raises the error banner and
+    shows `Alert.ServerFailed` on the snackbar, as `processError` does today, but for the `Server`
+    source, whose check runs every five seconds while the server is down and shows no snackbar
+    today; `Succeeded` clears it, as `clearError` does, and `Succeeded Server` clears it whatever
+    the source, as `clearedBy` does today. The banner text is built in `ServerErrorPolicy.raised
+    source errs`, which takes the `string[]` and cuts it as `processError` does today, the first
+    three, each at 200 characters, joined with "; " after "Server fout: ", with a test; the cut is a
+    decision, not wiring. For the `Server` source `raised` gives the sentence `App` holds today, "De
+    server is niet bereikbaar. Controleer of de server is gestart.", whatever the error, as `Alert`
+    keeps the snackbar's sentences in `Client.Core`; the App logs the error. Of the lanes only the
+    plan reaches the error banner: `OrderPlanEffect.TellError` routes to `Failed OrderPlan`, and the
+    plan machine gains the counterpart, `TellAnswered`, emitted on the `Ok` answer it awaited and
+    never beside `TellError`, which routes to `Succeeded OrderPlan`. Today `App` decides that on the
+    incoming message with `OrderPlanState.awaits`, before the machine runs, a check the machine
+    makes itself: the effect removes the second check. The other three lanes' `TellError` go to the
+    snackbar, as `App`'s `tell` does today: `Alert.PatientFailed`, `Alert.WorkbenchFailed` and
+    `Alert.SigningSendFailed`. Of the loads the formulary, the parenteralia, the interactions and
+    the server check have a source: their landings route to `Failed` or `Succeeded`; the start-up
+    loads and the drug names route to neither, they are logged by the App and recorded for the gate.
+    The admin's calls route under their four sources. Every route reads an effect; no route reads a
+    message.
 11. **The projection reads views and builds no message.** `Sign` sends the plan and a key; the
     `Client` transition takes the differences from the plan lane. `Accept` sends nothing but the
     accept; the transition reads whether the patient is held. The patient-held check on
@@ -319,20 +322,22 @@ url and the Session's sentences hang on, then the composition.
    arms replaced by `Loads.transition`; `loads`, `loadsOut`, `loaded` and `recordFailed`
    replaced; the alerts of this step shown through `AlertText.text`.
 3. **The loads machine, the loads asked again.** The server check, with `CheckServer`,
-   `ServerChecked` and `CheckServerLater`, and the drug names, with `AskAgainLater`, giving up
-   after three and showing `Alert.DrugNamesNotLoaded`; the envelope's `From` on the drug names'
-   landing. Tests: the server check asked again after a failure, not after a success; the drug
-   names asked again, given up. `App`: the two arms replaced; the waits carried out as
-   `Cmd.OfAsync` over the effect.
-4. **The loads machine, the pages that follow the workbench.** The formulary and parenteralia
-   loads with the filter synced, the ask-again marks, the patient set reloading both, a change on
-   one page put on the other, and the seed to the workbench as an effect (`SeedWorkbench of
-   FilterSeed`); the resources reloaded seeding the workbench or reloading the pages; the
-   envelope's `From` on the two landings. Tests: a filter answered during a load is asked again
-   once; a page change seeds with its rule; the patient set reloads both pages with the patient.
-   `App`: `syncFormulary`, `syncParenteralia`, `startFormulary`, `startParenteralia`,
-   `askFormularyAgain`, `askParenteraliaAgain`, `patientPages`, `refreshPages`, `seedFromPage`
-   go.
+   `ServerChecked` and `CheckServerLater`, and the drug names, with `AskAgainLater`, giving up after
+   three and showing `Alert.DrugNamesNotLoaded`; the envelope's `From` on the drug names' landing.
+   `ServerChecked` is the landing that routes to `Failed Server` and `Succeeded Server` (decision
+   10). Tests: the server check asked again after a failure, not after a success; a failure raising
+   the error banner with the server sentence and no snackbar, the next success clearing it; the drug
+   names asked again, given up. `App`: the two arms replaced; the waits carried out as `Cmd.OfAsync`
+   over the effect.
+4. **The loads machine, the pages that follow the workbench.** The formulary and parenteralia loads
+   with the filter synced; the ask-again marks holding the filter answered during a load, used when
+   it lands; the patient set reloading both, the formulary over the patient as `startFormulary` does
+   today; a change on one page put on the other; and the seed to the workbench as an effect
+   (`SeedWorkbench of FilterSeed`); the resources reloaded seeding the workbench or reloading the
+   pages; the envelope's `From` on the two landings. Tests: a filter answered during a load is asked
+   again once; a page change seeds with its rule; the patient set reloads both pages with the
+   patient. `App`: `syncFormulary`, `syncParenteralia`, `startFormulary`, `startParenteralia`,
+   `askFormularyAgain`, `askParenteraliaAgain`, `patientPages`, `refreshPages`, `seedFromPage` go.
 5. **The loads machine, the interactions.** The check numbered, the earlier answer dropped, fewer
    than two drugs clearing the rows and withdrawing the notice, the notice as
    `Alert.InteractionsFound`; the envelope's `From` on the two landings. Tests: two checks out,
@@ -358,28 +363,30 @@ url and the Session's sentences hang on, then the composition.
      right in review.
    - **7b, the two small changes.** Decision 9: `SessionEffect.Alert` with `CloseFailed` and
      `PinNotSent`, and the `SessionMsg` arm's match in `App` replaced by the effect shown
-     through `AlertText.text`. Decision 10: `OrderPlanEffect.TellAnswered` on the answer the
+     through `AlertText.text`. Decision 10: `OrderPlanEffect.TellAnswered` on the `Ok` answer the
      plan machine awaited, and the `awaits` check on `OrderPlanAnswered` in `App` replaced by
      the effect clearing the error banner. Their trail lines. Tests: the two Session arms
-     produce the alert, no other arm does; the plan's awaited answer produces `TellAnswered`, a
-     late answer does not.
-   - **7c, the same patient data sent once (#1229).** `PatientMachine.transition`: a `Changed`
-     whose patient data equals `PatientState.answered`, the completed data the orders were
+     produce the alert, no other arm does; the plan's awaited `Ok` answer produces `TellAnswered`, a
+     late answer does not, and an awaited `Error` produces `TellError` without it.
+   - **7c, the same patient data sent once (#1229).** `PatientMachine.transition`: a `Changed` whose
+     patient data is present and equals `PatientState.answered`, the completed data the orders were
      calculated for, while no change is in flight, keeps the state, the draft included, and emits
      nothing; the chain the Session's `SetPatientData` starts after a signature stops there, and no
-     second evaluation, plan recalculation or page reload goes out. The draft is kept so that a
-     weight cleared under `Estimates.Kept` stays cleared after a signature; today the answer fills
-     the estimate back in. With a change in flight the equal data is sent as today, so that the
-     newer request replaces the older; the panel takes no edit while a change is in flight, so that
-     case comes only from the Session. A draft that differs, a cleared weight included, is sent as
-     today. The comparison is on the client, since the server completes one patient per request and
-     holds no earlier value, and the call itself is the waste. Tests: the signed data answered again
-     produces no effect; an edit to the value of a draft as answered under `Estimates.Renewed`
-     produces no effect; equal data with a change in flight calls; a changed weight calls; a cleared
-     weight under `Estimates.Kept` and then the equal data from the Session keeps the cleared draft;
-     in `LanesTests`, a signature over data equal to what the lanes hold makes no call once the
-     token is renewed and sends no `PatientDataChanged`, the case the #1229 script played. The trail
-     line of the step. Commits as `fix`, since the behaviour changes.
+     second evaluation, plan recalculation or page reload goes out. A `Changed` with no patient
+     data, the panel's reset, clears as today, also over a draft that was never answered. The draft
+     is kept so that a weight cleared under `Estimates.Kept` stays cleared after a signature; today
+     the answer fills the estimate back in. With a change in flight the equal data is sent as today,
+     so that the newer request replaces the older; the panel takes no edit while a change is in
+     flight, so that case comes only from the Session. A draft that differs, a cleared weight
+     included, is sent as today. The comparison is on the client, since the server completes one
+     patient per request and holds no earlier value, and the call itself is the waste. Tests: the
+     signed data answered again produces no effect; a reset over an incomplete draft clears the
+     draft and emits `SetPatientData None`; an edit to the value of a draft as answered under
+     `Estimates.Renewed` produces no effect; equal data with a change in flight calls; a changed
+     weight calls; a cleared weight under `Estimates.Kept` and then the equal data from the Session
+     keeps the cleared draft; in `LanesTests`, a signature over data equal to what the lanes hold
+     makes no call once the token is renewed and sends no `PatientDataChanged`, the case the #1229
+     script played. The trail line of the step. Commits as `fix`, since the behaviour changes.
 8. **The shell machine**, in two pull requests:
    - **8a, the shell without the url.** `Shell.fs`: every field of `UiState` but the url: the
      page (the settings page refused to a user not logged in, `LoggedOut` leaving it), the
@@ -407,7 +414,7 @@ url and the Session's sentences hang on, then the composition.
    - **9b, the composition.** `Client.fs`: `ClientState` of the four parts, `ClientMsg`,
      `ClientEffect`, `Client.transition`, `Client.initial`, `Client.pageLoad`, with every route:
      - the settings landed to the shell's language and demo flag;
-     - the patient set to the loads and to the shell's list filters;
+     - the patient set, with the patient, to the loads and to the shell's list filters;
      - the shell's page shown to the loads;
      - the workbench's filter answered to the loads;
      - the plan's drugs to the loads;
@@ -420,9 +427,9 @@ url and the Session's sentences hang on, then the composition.
      - a landing's `From` to the Session;
      - every part's `Alert` to the shell's snackbar;
      - the plan's `TellError` and `TellAnswered` to the shell's `Failed` and `Succeeded`; the
-       formulary's, the parenteralia's and the interactions' landings, and the admin's answers,
-       to one or the other under their source; the patient's, the workbench's and the signing's
-       `TellError` as alerts to the snackbar (decision 10);
+       formulary's, the parenteralia's, the interactions' and the server check's landings, and the
+       admin's answers, to one or the other under their source; the patient's, the workbench's and
+       the signing's `TellError` as alerts to the snackbar (decision 10);
      - `GoToPlanPage` to the shell;
      - `Sign` with the plan's differences and `Accept` with the held flag (decision 11).
 
