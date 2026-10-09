@@ -31,6 +31,8 @@ module private Elmish =
             Message: string
             Open: bool
             Severity: string
+            /// The alert the message says, so that it can be withdrawn by its case.
+            Alert: Alert.Alert option
         }
 
 
@@ -42,6 +44,7 @@ module private Elmish =
                 Message = message
                 Open = true
                 Severity = severity
+                Alert = None
             }
 
 
@@ -51,6 +54,7 @@ module private Elmish =
                 Message = ""
                 Open = false
                 Severity = "error"
+                Alert = None
             }
 
 
@@ -83,16 +87,6 @@ module private Elmish =
         }
 
 
-    /// What the server is asked for, once or again: the reading of each plain fetch.
-    type FetchesState =
-        {
-            Interactions: Deferred<DrugInteraction[]>
-            // the number of the interaction check under way; an answer to an earlier check is
-            // dropped, so it can neither replace the rows nor clear the error of a later one
-            InteractionCheck: int
-        }
-
-
     /// The admin login, under the token it bought, and what it fetches.
     type AdminState =
         {
@@ -114,8 +108,6 @@ module private Elmish =
             Lanes: LanesState
             // the start-up loads
             Loader: LoaderMachine.LoaderState
-            // the plain fetches
-            Fetches: FetchesState
             // the admin login and what it fetches
             Admin: AdminState
             // the app-level UI
@@ -166,9 +158,6 @@ module private Elmish =
         // the prescribe click on the order with this id
         | Prescribe of orderId: string
 
-        | CheckInteractions of string list
-        | LoadInteractionsResult of check: int * ApiResponse<Api.InteractionResponse>
-
         | UpdateLanguage of Localization.Locales
 
         | UpdateHospital of string
@@ -187,9 +176,6 @@ module private Elmish =
         | ReloadResources
         | LoadReloadResult of AdminResult
 
-
-    /// A computing answer of a member, typed by what the member answers
-    and ApiResponse<'r> = AsyncOperationStatus<Result<Answer<'r>, string[]>>
 
     /// An admin answer: no envelope, so no token it started from and no notice
     and AdminResult = AsyncOperationStatus<Result<Api.AdminResponse, string[]>>
@@ -217,36 +203,6 @@ module private Elmish =
 
     /// A request id, minted at dispatch, so that an answer can name the request it answers.
     let newRequest () = Guid.NewGuid().ToString()
-
-
-    /// A computing request through the member given, with the OpenedToken the Session holds;
-    /// the answer comes back with the token it started from.
-    let createApiMsg
-        (call: Api.Request<'cmd> -> Async<Result<Api.Reply<'resp>, string[]>>)
-        (opened: OpenedToken option)
-        msg
-        (cmd: 'cmd)
-        =
-        async {
-            let! result =
-                call
-                    {
-                        Opened = opened
-                        Command = cmd
-                    }
-
-            return
-                result
-                |> Result.map (fun reply ->
-                    {
-                        From = opened
-                        Reply = reply
-                    }
-                )
-                |> Finished
-                |> msg
-        }
-        |> Cmd.fromAsync
 
 
     /// An admin command over the token the login bought; never Session-bound.
@@ -287,75 +243,6 @@ module private Elmish =
         | Api.AdminResponse.ResourcesReloaded -> { state with Admin.Reloading = Resolved() }, Cmd.none
 
 
-    /// The result, and what the Session is told with it: the record moved on or the Session
-    /// ended, as one message to the session machine, which decides whether the notice counts
-    /// (only when the request started from the token the open Session holds now).
-    let processApiMsg (state: State) (answer: Answer<'r>) (apply: State -> 'r -> State * Cmd<Msg>) =
-        let told =
-            match answer.Reply.Notice with
-            | Some notice -> Cmd.ofMsg (SessionMsg(SessionMsg.NoticeReceived(answer.From, notice)))
-            | None -> Cmd.none
-
-        let state, cmd = apply state answer.Reply.Response
-        state, Cmd.batch [ cmd; told ]
-
-
-    /// The interactions notice on the snackbar, and its withdrawal: only the notice itself is
-    /// withdrawn, never another message the snackbar shows meanwhile (the record moved on, a
-    /// refusal), since the interactions are checked on every answered plan.
-    let interactionsNotice n = $"Er zijn %i{n} interactie(s) gevonden"
-
-    let withdrawInteractionsNotice (state: State) =
-        if
-            state.Ui.Snackbar.Message.StartsWith "Er zijn "
-            && state.Ui.Snackbar.Message.EndsWith " interactie(s) gevonden"
-        then
-            { state with
-                Ui.Snackbar.Message = ""
-                Ui.Snackbar.Open = false
-            }
-        else
-            state
-
-
-    let applyInteraction (state: State) (response: Api.InteractionResponse) =
-        match response with
-        | Api.InteractionResponse.InteractionsChecked interactions ->
-            let newState =
-                if interactions.Length > 0 then
-                    { state with Ui.Snackbar = Snackbar.shown (interactionsNotice interactions.Length) "warning" }
-                else
-                    withdrawInteractionsNotice state
-
-            { newState with Fetches.Interactions = Resolved interactions }, Cmd.none
-        // the drug names land through the loader machine
-        | Api.InteractionResponse.DrugNamesLoaded _ -> state, Cmd.none
-
-
-    /// The interactions of the drugs checked, out from this update on.
-    let checkInteractions drugs (state: State) =
-        // every check, the empty one too, ends the checks before it
-        let check = state.Fetches.InteractionCheck + 1
-
-        if List.length drugs < 2 then
-            { withdrawInteractionsNotice state with
-                Fetches.Interactions = HasNotStartedYet
-                Fetches.InteractionCheck = check
-            },
-            Cmd.none
-        else
-            // the rows shown stay until the answer
-            { state with
-                Fetches.Interactions = state.Fetches.Interactions |> Deferred.refresh
-                Fetches.InteractionCheck = check
-            },
-            Api.InteractionCommand.CheckInteractions drugs
-            |> createApiMsg
-                serverApi.processInteraction
-                (tokenOf state.Lanes.Session)
-                (fun result -> LoadInteractionsResult(check, result))
-
-
     /// What the url of these segments carries, at this moment; the parts that did not parse are
     /// logged by name, never by value, since the values are patient data.
     let parseUrl sl =
@@ -382,11 +269,6 @@ module private Elmish =
             // the url's patient and medication are applied by init, over these lanes
             Lanes = Lanes.initial pat
             Loader = LoaderMachine.LoaderState.initial
-            Fetches =
-                {
-                    Interactions = HasNotStartedYet
-                    InteractionCheck = 0
-                }
             Admin =
                 {
                     IsAuthenticated = false
@@ -616,6 +498,15 @@ module private Elmish =
                 (landed (fun result -> LoaderMachine.Landing.Parenteralia(opened, result)))
         | LoaderMachine.LoaderEffect.SeedWorkbench seed ->
             state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.SeedFilter(seed, newRequest ())))
+        | LoaderMachine.LoaderEffect.FetchInteractions(check, drugs) ->
+            state,
+            Cmd.OfAsync.perform
+                serverApi.processInteraction
+                {
+                    Opened = opened
+                    Command = Api.InteractionCommand.CheckInteractions drugs
+                }
+                (landed (fun result -> LoaderMachine.Landing.Interactions(check, opened, result)))
         | LoaderMachine.LoaderEffect.FetchDrugNames ->
             state,
             Cmd.OfAsync.perform
@@ -639,7 +530,15 @@ module private Elmish =
         | LoaderMachine.LoaderEffect.Alert alert ->
             let terms = Global.getLocalizedTerm state.Loader.Localization state.Ui.Context.Localization
             let text = alert |> Views.AlertText.text terms
-            { state with Ui.Snackbar = Snackbar.shown text (Views.AlertText.severity alert) }, Cmd.none
+            { state with
+                Ui.Snackbar = { Snackbar.shown text (Views.AlertText.severity alert) with Alert = Some alert }
+            },
+            Cmd.none
+        // only the notice itself is withdrawn, never another message the snackbar shows meanwhile
+        | LoaderMachine.LoaderEffect.WithdrawInteractionsFound ->
+            match state.Ui.Snackbar.Alert with
+            | Some(Alert.Alert.InteractionsFound _) -> { state with Ui.Snackbar = Snackbar.closed }, Cmd.none
+            | _ -> state, Cmd.none
         // the server check runs again every few seconds while the server is down, so it shows
         // the banner alone and no snackbar
         | LoaderMachine.LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Server, errs) ->
@@ -918,7 +817,8 @@ module private Elmish =
             }
             |> Cmd.fromAsync
         // out in the same update as the plan answer it follows
-        | OrderPlanEffect.CheckInteractions drugs -> state |> checkInteractions drugs
+        | OrderPlanEffect.CheckInteractions drugs ->
+            state |> runLoader (LoaderMachine.LoaderMsg.CheckInteractions drugs)
         | OrderPlanEffect.TellError errs ->
             (state, Cmd.none) |> processError ServerErrorPolicy.ErrorSource.OrderPlan errs
 
@@ -1053,7 +953,6 @@ module private Elmish =
 
         LoaderMachine.LoaderState.readings state.Loader
         @ [
-            Busy.Load.Interactions, reading state.Fetches.Interactions
             Busy.Load.LogFiles, reading state.Admin.LogFiles
             Busy.Load.LogAnalysis, reading state.Admin.LogAnalysisReport
             Busy.Load.Reload, reading state.Admin.Reloading
@@ -1194,7 +1093,7 @@ module private Elmish =
     /// a page load. A launch is presented once the Session lane has nothing out.
     let startOver sl (url: Url.UrlParts) (state: State) =
         // a check still out is for the old plan, and is dropped
-        let state, _ = state |> checkInteractions []
+        let state, _ = state |> runLoader (LoaderMachine.LoaderMsg.CheckInteractions [])
         let state, leave = state |> runLanes (LanesMsg.StartOver url.Patient)
         let state, applied = state |> applyUrl sl url
         state, Cmd.batch [ leave; applied ]
@@ -1580,18 +1479,6 @@ module private Elmish =
             )
             |> clear
 
-        | CheckInteractions drugs -> checkInteractions drugs state
-
-        | LoadInteractionsResult(check, Finished _) when check <> state.Fetches.InteractionCheck -> state, Cmd.none
-
-        | LoadInteractionsResult(_, Finished(Ok msg)) ->
-            processApiMsg state msg applyInteraction
-            |> clearError ServerErrorPolicy.ErrorSource.Interactions
-        | LoadInteractionsResult(_, Finished(Error err)) ->
-            ({ state with Fetches.Interactions = HasNotStartedYet }, Cmd.none)
-            |> processError ServerErrorPolicy.ErrorSource.Interactions err
-        | LoadInteractionsResult _ -> state, Cmd.none
-
 
     /// A message applied, and the start-up marked as ended at the first update in which it is.
     let updateStarted msg state = update msg state |> markStarted
@@ -1797,9 +1684,10 @@ type private ConcreteAppEnv
             LoaderMsg(LoaderMachine.LoaderMsg.ParenteraliaChanged p) |> dispatch
 
     interface AppEnv.IInteractions with
-        member _.Interactions = state.Fetches.Interactions
+        member _.Interactions = state.Loader.Interactions
         member _.InteractionDrugNames = state.Loader.DrugNames
-        member _.CheckInteractions drugs = CheckInteractions drugs |> dispatch
+        member _.CheckInteractions drugs =
+            LoaderMsg(LoaderMachine.LoaderMsg.CheckInteractions drugs) |> dispatch
 
     interface AppEnv.IResources with
         member _.Reload = state.Admin.Reloading

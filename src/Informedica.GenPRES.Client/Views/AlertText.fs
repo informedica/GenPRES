@@ -12,6 +12,7 @@ module AlertText =
     let text (terms: string -> Terms -> string) alert =
         match alert with
         | Alert.Alert.DrugNamesNotLoaded -> "Interactie medicatie namen konden niet worden geladen"
+        | Alert.Alert.InteractionsFound n -> $"Er zijn %i{n} interactie(s) gevonden"
 
 
     /// The severity as the snackbar names it.

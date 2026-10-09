@@ -15,9 +15,12 @@ type Severity =
 type Alert =
     /// The drug names of the interactions page did not load, after three tries.
     | DrugNamesNotLoaded
+    /// The interactions checked found this many.
+    | InteractionsFound of int
 
 
 /// The severity an alert is shown with.
 let severity alert =
     match alert with
-    | Alert.DrugNamesNotLoaded -> Severity.Warning
+    | Alert.DrugNamesNotLoaded
+    | Alert.InteractionsFound _ -> Severity.Warning

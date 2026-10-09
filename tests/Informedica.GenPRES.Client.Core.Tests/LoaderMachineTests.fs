@@ -57,6 +57,18 @@ let answered (reply: 'a) =
 let drugNamesFailed = Landing.DrugNames(None, Error [| "down" |])
 
 
+let interaction =
+    {
+        Name = "a", "b"
+        Drug1 = "a"
+        Drug2 = "b"
+    }
+
+
+let interactions check rows =
+    Landing.Interactions(check, None, answered (InteractionResponse.InteractionsChecked rows))
+
+
 let run msgs =
     msgs
     |> List.fold (fun (state, _) msg -> state |> transition msg) (LoaderState.initial, [])
@@ -112,7 +124,7 @@ let tests =
 
             test "a start of a load this machine does not hold changes nothing" {
                 LoaderState.initial
-                |> transition (LoaderMsg.Start Load.Interactions)
+                |> transition (LoaderMsg.Start Load.LogFiles)
                 |> Expect.equal "unchanged" (LoaderState.initial, [])
             }
 
@@ -544,6 +556,106 @@ let tests =
 
                         effects
                         |> Expect.equal "the notice" [ LoaderEffect.NoticeReceived(Some(OpenedToken "t"), notice) ]
+                    }
+                ]
+
+            testList
+                "the interactions"
+                [
+                    test "a check of two drugs asks for them under the next number" {
+                        let state, effects = run [ LoaderMsg.CheckInteractions [ "a"; "b" ] ]
+
+                        effects
+                        |> Expect.equal "asked" [ LoaderEffect.FetchInteractions(1, [ "a"; "b" ]) ]
+                        state |> out |> Expect.equal "out" [ Load.Interactions ]
+                    }
+
+                    test "an answer to an earlier check is dropped" {
+                        let state, _ =
+                            run
+                                [
+                                    LoaderMsg.CheckInteractions [ "a"; "b" ]
+                                    LoaderMsg.CheckInteractions [ "a"; "c" ]
+                                ]
+
+                        state
+                        |> transition (LoaderMsg.Landed(interactions 1 [| interaction |]))
+                        |> Expect.equal "unchanged" (state, [])
+
+                        let state, effects = state |> transition (LoaderMsg.Landed(interactions 2 [||]))
+
+                        state.Interactions |> Expect.equal "the later answer" (Resolved [||])
+
+                        effects
+                        |> Expect.equal
+                            "succeeded, the notice withdrawn"
+                            [
+                                LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Interactions
+                                LoaderEffect.WithdrawInteractionsFound
+                            ]
+                    }
+
+                    test "interactions found are told by their number" {
+                        let _, effects =
+                            run
+                                [
+                                    LoaderMsg.CheckInteractions [ "a"; "b" ]
+                                    LoaderMsg.Landed(interactions 1 [| interaction; interaction |])
+                                ]
+
+                        effects
+                        |> Expect.equal
+                            "told"
+                            [
+                                LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Interactions
+                                LoaderEffect.Alert(Alert.Alert.InteractionsFound 2)
+                            ]
+                    }
+
+                    test "the rows shown stay while the drugs are checked again" {
+                        let state, _ =
+                            run
+                                [
+                                    LoaderMsg.CheckInteractions [ "a"; "b" ]
+                                    LoaderMsg.Landed(interactions 1 [| interaction |])
+                                    LoaderMsg.CheckInteractions [ "a"; "b"; "c" ]
+                                ]
+
+                        state.Interactions |> Expect.equal "still shown" (Refreshing [| interaction |])
+                    }
+
+                    test "one drug clears the rows, withdraws the notice and drops the check out" {
+                        let state, effects =
+                            run
+                                [
+                                    LoaderMsg.CheckInteractions [ "a"; "b" ]
+                                    LoaderMsg.CheckInteractions [ "a" ]
+                                ]
+
+                        effects |> Expect.equal "withdrawn" [ LoaderEffect.WithdrawInteractionsFound ]
+                        state.Interactions |> Expect.equal "cleared" HasNotStartedYet
+
+                        state
+                        |> transition (LoaderMsg.Landed(interactions 1 [| interaction |]))
+                        |> Expect.equal "the check out dropped" (state, [])
+                    }
+
+                    test "a failed check raises the error under its source" {
+                        let state, effects =
+                            run
+                                [
+                                    LoaderMsg.CheckInteractions [ "a"; "b" ]
+                                    LoaderMsg.Landed(Landing.Interactions(1, None, Error [| "down" |]))
+                                ]
+
+                        effects
+                        |> Expect.equal
+                            "raised"
+                            [
+                                LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Interactions, [| "down" |])
+                            ]
+
+                        state.Interactions |> Expect.equal "not started" HasNotStartedYet
                     }
                 ]
         ]
