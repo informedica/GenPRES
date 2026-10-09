@@ -705,7 +705,8 @@ module NutritionSlot =
         // the page is not disabled while a field counts its step clicks, since the field counting
         // is on it; what sends waits for the count. The fields themselves take busy alone: the
         // field counting must see its own request go out and come back
-        let held = busy || (React.useContext Global.counting).Counting
+        let counting = React.useContext Global.counting
+        let held = busy || counting.Counting
 
         let texts = ViewHelpers.quantityFieldTexts getTerm
         let select = ViewHelpers.orderSelect texts true busy

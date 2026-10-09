@@ -160,7 +160,8 @@ module EnteralNutrition =
 
         // the page is not disabled while a field counts its step clicks, since the field counting
         // is on it; the controls that send wait for the count themselves
-        let held = props.busy || (React.useContext Global.counting).Counting
+        let counting = React.useContext Global.counting
+        let held = props.busy || counting.Counting
 
         let removeButton =
             match props.onRemove with
@@ -250,7 +251,8 @@ module EnteralNutrition =
 
         // the page is not disabled while a field counts its step clicks, since the field counting
         // is on it; the controls that send wait for the count themselves
-        let held = props.busy || (React.useContext Global.counting).Counting
+        let counting = React.useContext Global.counting
+        let held = props.busy || counting.Counting
 
         // the buttons the plan admits a context for, as the server would rule
         let addButton category label =

@@ -90,7 +90,8 @@ module ParenteralNutrition =
 
         // the page is not disabled while a field counts its step clicks, since the field counting
         // is on it; the controls that send wait for the count themselves
-        let held = props.busy || (React.useContext Global.counting).Counting
+        let counting = React.useContext Global.counting
+        let held = props.busy || counting.Counting
 
         // the position while the user drags; otherwise the slider reads it from the order, and a
         // new order drops it
@@ -402,7 +403,8 @@ module ParenteralNutrition =
 
         // the page is not disabled while a field counts its step clicks, since the field counting
         // is on it; the controls that send wait for the count themselves
-        let held = props.busy || (React.useContext Global.counting).Counting
+        let counting = React.useContext Global.counting
+        let held = props.busy || counting.Counting
 
         let printOpen, setPrintOpen = React.useState false
 
