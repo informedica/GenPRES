@@ -51,6 +51,7 @@ let disabled request = allPages |> List.filter (fun p -> [ request ] |> Busy.pag
 /// Nothing out in any lane.
 let idle loads =
     Busy.out
+        false
         noPatientChange
         (OrderContextState.held patient (OrderContextState.emptyFor patient))
         shown
@@ -79,19 +80,40 @@ let tests =
                 let plan = recalculating one None "p-1" (OrderPlanCommand.FilterRows([||], one))
                 let signing = SigningState.requesting one None "s-1"
 
-                Busy.out patientChanging OrderContextState.noPatient shown SessionState.anonymous SigningState.idle []
+                Busy.out
+                    false
+                    patientChanging
+                    OrderContextState.noPatient
+                    shown
+                    SessionState.anonymous
+                    SigningState.idle
+                    []
                 |> Expect.equal "the patient" [ Request.Patient ]
 
-                Busy.out noPatientChange workbench shown SessionState.anonymous SigningState.idle []
+                Busy.out false noPatientChange workbench shown SessionState.anonymous SigningState.idle []
                 |> Expect.equal "the workbench" [ Request.Workbench ]
 
-                Busy.out noPatientChange OrderContextState.noPatient plan SessionState.anonymous SigningState.idle []
+                Busy.out
+                    false
+                    noPatientChange
+                    OrderContextState.noPatient
+                    plan
+                    SessionState.anonymous
+                    SigningState.idle
+                    []
                 |> Expect.equal "the plan" [ Request.Plan ]
 
-                Busy.out noPatientChange OrderContextState.noPatient shown SessionState.resuming SigningState.idle []
+                Busy.out
+                    false
+                    noPatientChange
+                    OrderContextState.noPatient
+                    shown
+                    SessionState.resuming
+                    SigningState.idle
+                    []
                 |> Expect.equal "the Session" [ Request.Session ]
 
-                Busy.out noPatientChange OrderContextState.noPatient shown SessionState.anonymous signing []
+                Busy.out false noPatientChange OrderContextState.noPatient shown SessionState.anonymous signing []
                 |> Expect.equal "the signature" [ Request.Signature ]
 
                 let refreshing =
@@ -99,8 +121,26 @@ let tests =
                     |> SessionState.transition SessionMsg.RefreshPatient
                     |> fst
 
-                Busy.out noPatientChange OrderContextState.noPatient shown refreshing SigningState.idle []
+                Busy.out false noPatientChange OrderContextState.noPatient shown refreshing SigningState.idle []
                 |> Expect.equal "a refresh" [ Request.Session ]
+            }
+
+            test "a field counting step clicks disables every page but Nutrition, whose fields wait themselves" {
+                let out =
+                    Busy.out
+                        true
+                        noPatientChange
+                        OrderContextState.noPatient
+                        shown
+                        SessionState.anonymous
+                        SigningState.idle
+                        []
+
+                out |> Expect.equal "the count" [ Request.Counting ]
+                out |> Busy.any |> Expect.isTrue "the menu and the title bar wait"
+
+                for p in allPages do
+                    out |> Busy.page p |> Expect.equal $"%A{p}" (p <> Page.Page.Nutrition)
             }
 
             test "every load out is a request" {
@@ -116,6 +156,7 @@ let tests =
                         Request.Plan
                         Request.Session
                         Request.Signature
+                        Request.Counting
                     ]
                     @ (allLoads |> List.map Request.Load)
 

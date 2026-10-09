@@ -88,6 +88,10 @@ module ParenteralNutrition =
         let context: Global.Context = React.useContext Global.context
         let getTerm = Global.getLocalizedTerm props.localizationTerms context.Localization
 
+        // the page is not disabled while a field counts its step clicks, since the field counting
+        // is on it; the controls that send wait for the count themselves
+        let held = props.busy || (React.useContext Global.counting).Counting
+
         // the position while the user drags; otherwise the slider reads it from the order, and a
         // new order drops it
         let dragged, setDragged = React.useState (None: int option)
@@ -128,7 +132,7 @@ module ParenteralNutrition =
                 let value = position |> Option.defaultValue 100
                 let sliderSx = if position.IsSome then null else box noHandleSx
                 let track: obj = if position.IsSome then box "normal" else box false
-                let disabled = not slot.CanSetDoseQuantityPerc
+                let disabled = not slot.CanSetDoseQuantityPerc || held
 
                 // a dose set otherwise shows its exact share instead of a handle
                 let shareText =
@@ -328,7 +332,7 @@ module ParenteralNutrition =
                 Components.RemoveIconButton.View
                     {|
                         onRemove = onRemove
-                        busy = props.busy
+                        busy = held
                     |}
             | None -> null
 
@@ -396,6 +400,10 @@ module ParenteralNutrition =
         let context: Global.Context = React.useContext Global.context
         let getTerm = Global.getLocalizedTerm props.localizationTerms context.Localization
 
+        // the page is not disabled while a field counts its step clicks, since the field counting
+        // is on it; the controls that send wait for the count themselves
+        let held = props.busy || (React.useContext Global.counting).Counting
+
         let printOpen, setPrintOpen = React.useState false
 
         let plan = props.plan
@@ -431,7 +439,7 @@ module ParenteralNutrition =
                     {|
                         label = label
                         onClick = fun () -> props.planNew category
-                        disabled = false
+                        disabled = held
                     |}
             )
 

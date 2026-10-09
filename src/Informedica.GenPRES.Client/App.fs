@@ -75,6 +75,8 @@ module private Elmish =
             // used without had loaded, once. It never goes back, since any later request out
             // would read as starting again and the gate would cover the application
             Started: bool
+            // a quantity field counts step clicks, from the first click until it sends them
+            Counting: bool
             // the url the app shows, against which a url change is told apart, and the newer url
             // the question about leaving waits on
             Url: UrlPolicy.UrlState
@@ -186,6 +188,8 @@ module private Elmish =
         /// No to that question: the url the app shows is put back.
         | StayOnUrl
         | AcceptDisclaimer
+        /// A quantity field starts counting step clicks, or has sent them.
+        | Counting of bool
         | SessionMsg of SessionMsg
         | SigningMsg of SigningMsg
 
@@ -721,6 +725,7 @@ module private Elmish =
                     ContinuousMedsFilter = [||]
                     Snackbar = Snackbar.closed
                     Started = false
+                    Counting = false
                     Url = UrlPolicy.UrlState.Shown sl
                 }
         }
@@ -1382,6 +1387,7 @@ module private Elmish =
     /// The requests out in the lanes and the loads.
     let busyOut (state: State) =
         Busy.out
+            state.Ui.Counting
             state.Lanes.Patient
             state.Lanes.OrderContext
             state.Lanes.OrderPlan
@@ -1771,6 +1777,8 @@ module private Elmish =
         | LoadReloadResult(Started) -> state, Cmd.none
 
         | AcceptDisclaimer -> { state with Ui.ShowDisclaimer = false }, Cmd.none
+
+        | Counting counting -> { state with Ui.Counting = counting }, Cmd.none
 
         | UpdateLanguage lang ->
             { state with Ui.ShowDisclaimer = true }
@@ -2665,6 +2673,13 @@ let View () =
                 onCancel = fun () -> StayOnUrl |> dispatch
             |}
 
+    // the quantity fields read whether one of them counts, and report their own count
+    let counting: Global.Counting =
+        {
+            Counting = state.Ui.Counting
+            Report = Counting >> dispatch
+        }
+
     let genPresProps =
         {|
             appEnv = appEnv
@@ -2708,6 +2723,7 @@ let View () =
                 {leaveDialog}
                 {Pages.GenPres.View genPresProps
                  |> toReact
+                 |> Components.Context.Counting counting
                  |> Components.Context.Context state.Ui.Context}
             </Box>
             <div>

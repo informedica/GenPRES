@@ -49,6 +49,25 @@ let defContext =
 let context = React.createContext (defaultValue = defContext)
 
 
+/// Whether a quantity field is counting step clicks now, and how a field reports that it starts
+/// counting or has sent its clicks. While one field counts, every other field is disabled.
+type Counting =
+    {
+        Counting: bool
+        Report: bool -> unit
+    }
+
+/// No field counting, and nothing to report to: the value outside the App.
+let defCounting =
+    {
+        Counting = false
+        Report = ignore
+    }
+
+/// The quantity fields' count, provided at the root of the App.
+let counting = React.createContext (defaultValue = defCounting)
+
+
 module Speech =
 
     open Fable.Core

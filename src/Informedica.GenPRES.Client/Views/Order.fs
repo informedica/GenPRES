@@ -681,24 +681,6 @@ module Order =
         let isFieldLoading field = isOrderLoading && changing = Some(field, true)
 
 
-        // Monotonic counter bumped on every new server response (a fresh Settled
-        // orderContext). Passed into stepped selects so they reset their optimistic
-        // step value even when the server returns the SAME value as before (e.g. a no-op
-        // step when already at the maximum) — in that case the displayed value never changes, so the
-        // value-based reset alone would leave the stale optimistic value on screen.
-        let revisionRef = React.useRef 0
-        let prevCtxRef = React.useRef props.orderContext
-
-        if not (obj.ReferenceEquals(prevCtxRef.current, props.orderContext)) then
-            prevCtxRef.current <- props.orderContext
-
-            match props.orderContext with
-            | OrderContextView.Settled _
-            | OrderContextView.Refused _ -> revisionRef.current <- revisionRef.current + 1
-            | _ -> ()
-
-        let revision = revisionRef.current
-
         // Decrease/increase steps — inner (useCalc = false) and outer/first-last
         // (useCalc = true) — are reflected immediately via an optimistic value, so the
         // field must NOT show a loading indicator that would suggest the value hasn't
@@ -1118,7 +1100,7 @@ module Order =
                 null
 
         let content =
-            let createStepper = ViewHelpers.createStepper dispatch revision
+            let createStepper = ViewHelpers.createStepper dispatch
 
             let contentSx =
                 {|
@@ -1497,7 +1479,6 @@ module Order =
 
                         ViewHelpers.frequencyStepper
                             dispatch
-                            revision
                             mode
                             SetMinFrequencyProperty
                             DecreaseFrequencyProperty
@@ -1525,7 +1506,6 @@ module Order =
                     let stepper =
                         ViewHelpers.createDoseQtyStepper
                             dispatch
-                            revision
                             ord
                             SetMinDoseQuantityProperty
                             DecreaseDoseQuantityProperty
@@ -1558,7 +1538,6 @@ module Order =
 
                         ViewHelpers.doseRateStepper
                             dispatch
-                            revision
                             mode
                             ord.Orderable.Dose.Rate
                             SetMinDoseRateProperty

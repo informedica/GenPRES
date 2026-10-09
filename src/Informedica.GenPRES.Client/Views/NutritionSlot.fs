@@ -567,20 +567,6 @@ module NutritionSlot =
         let ctx = props.nutritionContext
         let ncId = props.nutritionContext.Id
 
-        // Monotonic counter bumped whenever a new server response replaces the order
-        // context. Passed into stepped selects so they reset their optimistic step value
-        // even when the server returns the SAME value as before (e.g. a no-op step when
-        // already at the maximum), where the displayed value never changes and the
-        // value-based reset alone would leave the stale optimistic value on screen.
-        let revisionRef = React.useRef 0
-        let prevCtxRef = React.useRef ctx
-
-        if not (obj.ReferenceEquals(prevCtxRef.current, ctx)) then
-            prevCtxRef.current <- ctx
-            revisionRef.current <- revisionRef.current + 1
-
-        let revision = revisionRef.current
-
         let label =
             let name = OrderContext.label ctx
 
@@ -715,10 +701,13 @@ module NutritionSlot =
             )
 
         let busy = props.busy
-        let texts = ViewHelpers.quantityFieldTexts getTerm
 
-        // a field sends its counted steps from a timer, which the page's Disabled cannot stop: the
-        // field is disabled while a request is out, so the timer sends nothing then
+        // the page is not disabled while a field counts its step clicks, since the field counting
+        // is on it; what sends waits for the count. The fields themselves take busy alone: the
+        // field counting must see its own request go out and come back
+        let held = busy || (React.useContext Global.counting).Counting
+
+        let texts = ViewHelpers.quantityFieldTexts getTerm
         let select = ViewHelpers.orderSelect texts true busy
 
         let isTpn = ctx |> isOneOf [ NutritionCategory.TPN ]
@@ -730,7 +719,7 @@ module NutritionSlot =
         // value and the intake slider can take over
         let startIntake () =
             match shownOrder with
-            | Some ord when isTpn && not busy ->
+            | Some ord when isTpn && not held ->
                 match ord |> IntakePolicy.start sentFor.current with
                 | IntakePolicy.Start.Clear -> sentFor.current <- None
                 | IntakePolicy.Start.Wait -> ()
@@ -740,7 +729,7 @@ module NutritionSlot =
                     updateTraced StartDoseQuantityPercProperty state |> ignore
             | _ -> ()
 
-        React.useEffect (startIntake, [| box ctx; box busy |])
+        React.useEffect (startIntake, [| box ctx; box held |])
 
         // while the dose of the TPN is a part of the total, the composition stays as it is: a step
         // of a component would keep the rate of the part for the whole
@@ -783,7 +772,6 @@ module NutritionSlot =
 
                         ViewHelpers.createStepper
                             dispatch
-                            revision
                             mode
                             (cmp.OrderableQuantity |> ViewHelpers.hasLargeStep)
                             (SetMinComponentQuantityProperty cmpName)
@@ -899,7 +887,6 @@ module NutritionSlot =
                 let doseQtyNav =
                     ViewHelpers.createDoseQtyStepper
                         dispatch
-                        revision
                         ord
                         SetMinDoseQuantityProperty
                         DecreaseDoseQuantityProperty
@@ -940,7 +927,6 @@ module NutritionSlot =
 
                     ViewHelpers.frequencyStepper
                         dispatch
-                        revision
                         mode
                         SetMinFrequencyProperty
                         DecreaseFrequencyProperty
@@ -980,7 +966,6 @@ module NutritionSlot =
 
                     ViewHelpers.doseRateStepper
                         dispatch
-                        revision
                         mode
                         ord.Orderable.Dose.Rate
                         SetMinDoseRateProperty
@@ -1095,7 +1080,7 @@ module NutritionSlot =
                 label = Terms.Reset |> getTerm "Reset"
                 kind = Components.ActionBar.Kind.Secondary
                 onClick = onClickReset
-                disabled = false
+                disabled = held
                 icon = Some Mui.Icons.RefreshIcon
             |}
 

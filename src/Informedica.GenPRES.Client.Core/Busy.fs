@@ -44,13 +44,18 @@ type Request =
     | Session
     /// A signature, from the sign click until it is answered or cancelled.
     | Signature
+    /// A quantity field counting step clicks, from the first click until it sends them: what
+    /// it sends must not meet a request out.
+    | Counting
     /// A data load.
     | Load of Load
 
 
-/// The requests out in the five lanes and the loads.
-let out patient orderContext orderPlan session signing loads =
+/// The requests out: a field counting its step clicks, the five lanes and the loads.
+let out counting patient orderContext orderPlan session signing loads =
     [
+        if counting then
+            Request.Counting
         if PatientMachine.PatientState.changing patient then
             Request.Patient
         if (OrderContextMachine.OrderContextState.inFlightRequest orderContext).IsSome then
@@ -76,6 +81,10 @@ let changes request page =
     | Request.Signature, _
     | Request.Load Load.Settings, _
     | Request.Load Load.Localization, _ -> true
+    // the fields of the Nutrition page are on the page itself, so the field counting would be
+    // disabled with it; there the other fields wait for the count themselves
+    | Request.Counting, Page.Nutrition -> false
+    | Request.Counting, _ -> true
     | Request.Workbench, (Page.Prescribe | Page.LifeSupport | Page.ContinuousMeds)
     | Request.Workbench, (Page.Formulary | Page.Parenteralia)
     | Request.Plan, (Page.OrderPlan | Page.Nutrition | Page.Interactions) -> true
