@@ -609,9 +609,10 @@ What can start a request, and what each depends on:
     out, and the signing machine ends itself when the submission's answer lands on a Session
     that has ended meanwhile.
 12. **The argumentation draft is sent before the dialog's own close, and discarded by a close
-    from outside.** Decided (user, 2026-10-08). The dialog sends the text on blur
-    and before it closes itself, on Ok, Escape or the backdrop, so a command never goes out
-    from an unmount. A close from outside is the patient cleared (decision 11) or a url
+    from outside.** Decided (user, 2026-10-08). The dialog sends the text once,
+    as it closes itself, on Ok, Escape or the backdrop, so a command never goes out from an
+    unmount. A blur sends nothing (as built): the press on Ok blurs the field, and a draft sent
+    then would keep the page busy when the click lands, so Ok would refuse. A close from outside is the patient cleared (decision 11) or a url
     start-over, since no reset closes the dialog any more (step 1, decision 8); the first takes
     the order context with it, and the url asks about unsigned work first, so the draft is
     discarded with the rest and nothing is sent into a machine that just changed. Both pages
@@ -944,10 +945,12 @@ the order of the steps protects the work between pull requests, not patients; it
      own disabled going on and off again, instead of by a revision the views bumped on every new
      view object; that bump also followed re-renders and lost a first click (#1345).
    - The order dialog's argumentation draft: the unmount send in `Views/Order.fs` goes; the
-     dialog sends the draft on blur and before its own close, for which the modal's `onClose`
-     moves from `Views/Prescribe.fs` and from `Views/OrderPlan.fs` into the dialog; a close
-     from outside discards the draft. While its page is busy the dialog ignores Escape
-     (`disableEscapeKeyDown`) and the backdrop click (`onClose` with reason `backdropClick`).
+     dialog sends the draft once, at its own close (Ok, Escape, a click beside it), not on blur.
+     For that the dialog frames itself: it renders the modal, and `Views/Prescribe.fs` and
+     `Views/OrderPlan.fs` mount it only while an order is selected; a close from outside, the
+     selection gone, discards the draft. While its page is busy (`Busy.page`, a field counting
+     included) the dialog's own close does nothing and Ok rests, so Escape and a click beside
+     it leave it open.
    - Tests: `Busy.any` and `Busy.page` for the dialog's page and the OrderPlan page are set
      while a field is counted.
 10. **One layer: the order context machine.** Decision 6, over the machine steps 2 and 8 left. The

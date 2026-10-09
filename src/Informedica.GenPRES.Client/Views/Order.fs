@@ -441,6 +441,8 @@ module Order =
                 // the list of a reopen closed without a pick: the page puts back what it showed
                 restoreOrderScenario: unit -> unit
                 closeOrder: unit -> unit
+                // a request of the page out, or a field counting: the dialog does not close then
+                busy: bool
                 localizationTerms: Deferred<string[][]>
                 // what the user can change: everything on the workbench, less in the plan
                 editing: PlanContextPolicy.Editing
@@ -1000,10 +1002,8 @@ module Order =
 
         let fixPrecision = Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision
 
-        let onClickOk = fun () -> props.closeOrder ()
-
-        // the argumentation: the text the context holds, typed here and sent as a command when the
-        // field loses focus, so that a blur before Ok lands it; the draft follows the context
+        // the argumentation: the text the context holds, typed here and sent as a command once, by
+        // the dialog's own close; the draft follows the context
         let heldArgumentation = shownContext |> Option.bind _.Argumentation |> Option.defaultValue ""
 
         let argumentation, setArgumentation = React.useState heldArgumentation
@@ -1022,18 +1022,15 @@ module Order =
             then
                 props.command (Api.OrderViewCommand.SetArgumentationProperty text)
 
-        let onArgumentationBlur = fun _ -> argue argumentation
-
-        // Escape closes the dialog without a blur, so a draft not yet sent goes out when the
-        // dialog unmounts; through refs, since the cleanup runs with the first render's values
-        // otherwise. The field rests while a request runs, as the other fields do, so that a
-        // blur never comes while its command would be dropped
-        let draftRef = React.useRef argumentation
-        draftRef.current <- argumentation
-        let argueRef = React.useRef argue
-        argueRef.current <- argue
-
-        React.useEffectOnce (fun () -> fun () -> argueRef.current draftRef.current)
+        // the dialog's own close, by Ok, Escape or a click beside it, sends a draft not yet sent
+        // first. A blur sends nothing: the press on Ok blurs the field, and a draft sent then
+        // would keep the page busy when the click lands. While the page is busy the dialog stays
+        // open and Ok rests, so the draft never meets a request out. A close from outside, the
+        // selection gone, discards it
+        let close () =
+            if not props.busy then
+                argue argumentation
+                props.closeOrder ()
 
         let argumentationWanted = shownContext |> Option.exists ArgumentationPolicy.wanted
 
@@ -1064,8 +1061,8 @@ module Order =
                             {|
                                 label = Terms.``Ok `` |> getTerm "Ok"
                                 kind = Components.ActionBar.Kind.Primary
-                                onClick = onClickOk
-                                disabled = false
+                                onClick = close
+                                disabled = props.busy
                                 icon = None
                             |}
                         |]
@@ -1653,7 +1650,6 @@ module Order =
                         variant="outlined"
                         value={argumentation}
                         onChange={onArgumentation}
-                        onBlur={onArgumentationBlur}
                         disabled={isOrderLoading}
                         slotProps={inputProps}
                     />
@@ -1733,16 +1729,27 @@ module Order =
             </div>
             """
 
-        JSX.jsx
-            $"""
-        import Box from '@mui/material/Box';
-        import Card from '@mui/material/Card';
-        import CardActions from '@mui/material/CardActions';
-        import CardContent from '@mui/material/CardContent';
-        import Button from '@mui/material/Button';
-        import Typography from '@mui/material/Typography';
+        let card =
+            JSX.jsx
+                $"""
+            import Box from '@mui/material/Box';
+            import Card from '@mui/material/Card';
+            import CardActions from '@mui/material/CardActions';
+            import CardContent from '@mui/material/CardContent';
+            import Button from '@mui/material/Button';
+            import Typography from '@mui/material/Typography';
 
-        <Card variant="outlined" raised={true}>
-                {content}
-        </Card>
-        """
+            <Card variant="outlined" raised={true}>
+                    {content}
+            </Card>
+            """
+
+        // the dialog frames itself, so its close is its own; the page mounts it while an order is
+        // selected
+        Components.DialogShell.View
+            {|
+                isOpen = true
+                onClose = close
+                maxWidth = 500
+                children = card
+            |}
