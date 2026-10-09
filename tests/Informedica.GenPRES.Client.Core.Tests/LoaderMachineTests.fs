@@ -3,6 +3,7 @@ module Informedica.GenPRES.Client.Core.Tests.LoaderMachineTests
 open Expecto
 open Expecto.Flip
 open Shared.Types
+open Shared.Models
 open Shared.Api
 open Busy
 open LoaderMachine
@@ -37,6 +38,20 @@ let drugNames names notice =
                 Notice = notice
             }
     )
+
+
+let patient = Patient.empty
+
+
+let filter generic = { OrderContext.empty.Filter with Generic = Some generic }
+
+
+let answered (reply: 'a) =
+    Ok
+        {
+            Response = reply
+            Notice = None
+        }
 
 
 let drugNamesFailed = Landing.DrugNames(None, Error [| "down" |])
@@ -97,7 +112,7 @@ let tests =
 
             test "a start of a load this machine does not hold changes nothing" {
                 LoaderState.initial
-                |> transition (LoaderMsg.Start Load.Formulary)
+                |> transition (LoaderMsg.Start Load.Interactions)
                 |> Expect.equal "unchanged" (LoaderState.initial, [])
             }
 
@@ -162,6 +177,253 @@ let tests =
                 state.Hospitals |> Expect.equal "not started" HasNotStartedYet
                 state.Failed |> Expect.equal "named" [ Load.BolusMedication ]
             }
+
+            testList
+                "the formulary and parenteralia pages"
+                [
+                    test "the patient set asks both pages again, the formulary for that patient" {
+                        let state, effects = run [ LoaderMsg.PatientSet(Some patient) ]
+
+                        effects
+                        |> Expect.equal
+                            "both asked"
+                            [
+                                LoaderEffect.FetchFormulary { Formulary.empty with Patient = Some patient }
+                                LoaderEffect.FetchParenteralia Parenteralia.empty
+                            ]
+
+                        state |> out |> Expect.equal "both out" [ Load.Formulary; Load.Parenteralia ]
+                    }
+
+                    test "a filter answered puts its choices on both pages and asks them again" {
+                        let _, effects = run [ LoaderMsg.FilterAnswered(filter "paracetamol") ]
+
+                        effects
+                        |> Expect.equal
+                            "both asked with the generic"
+                            [
+                                LoaderEffect.FetchFormulary { Formulary.empty with Generic = Some "paracetamol" }
+                                LoaderEffect.FetchParenteralia { Parenteralia.empty with Generic = Some "paracetamol" }
+                            ]
+                    }
+
+                    test "a filter answered during a load is asked again once, the latest one" {
+                        let state, effects =
+                            run
+                                [
+                                    LoaderMsg.Start Load.Formulary
+                                    LoaderMsg.FilterAnswered(filter "paracetamol")
+                                    LoaderMsg.FilterAnswered(filter "morfine")
+                                ]
+
+                        effects |> Expect.isEmpty "both pages out, nothing asked"
+                        state.FormularyAskAgain
+                        |> Expect.equal "the latest held" (Some(filter "morfine"))
+
+                        let state, effects =
+                            state
+                            |> transition (LoaderMsg.Landed(Landing.Formulary(None, answered Formulary.empty)))
+
+                        effects
+                        |> Expect.equal
+                            "asked again with the latest"
+                            [
+                                LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Formulary
+                                LoaderEffect.FetchFormulary { Formulary.empty with Generic = Some "morfine" }
+                            ]
+
+                        let _, effects =
+                            state
+                            |> transition (LoaderMsg.Landed(Landing.Formulary(None, answered Formulary.empty)))
+
+                        effects
+                        |> Expect.equal "not again" [ LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Formulary ]
+                    }
+
+                    test "the patient set drops a filter held for the earlier patient" {
+                        let state, _ =
+                            run
+                                [
+                                    LoaderMsg.Start Load.Formulary
+                                    LoaderMsg.Start Load.Parenteralia
+                                    LoaderMsg.FilterAnswered(filter "morfine")
+                                    LoaderMsg.PatientSet None
+                                ]
+
+                        let state, formulary =
+                            state
+                            |> transition (LoaderMsg.Landed(Landing.Formulary(None, answered Formulary.empty)))
+
+                        formulary
+                        |> Expect.equal
+                            "not asked again"
+                            [ LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Formulary ]
+
+                        let _, parenteralia =
+                            state
+                            |> transition (LoaderMsg.Landed(Landing.Parenteralia(None, answered Parenteralia.empty)))
+
+                        parenteralia
+                        |> Expect.equal
+                            "not asked again"
+                            [ LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Parenteralia ]
+                    }
+
+                    test "a failed page raises the error under its source" {
+                        let state, effects =
+                            run
+                                [
+                                    LoaderMsg.Start Load.Parenteralia
+                                    LoaderMsg.Landed(Landing.Parenteralia(None, Error [| "down" |]))
+                                ]
+
+                        effects
+                        |> Expect.equal
+                            "raised"
+                            [
+                                LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Parenteralia, [| "down" |])
+                            ]
+
+                        state.Parenteralia |> Expect.equal "not started" HasNotStartedYet
+                    }
+
+                    test "a formulary change with a patient seeds the workbench with the formulary's rule" {
+                        let form =
+                            { Formulary.empty with
+                                Generic = Some "paracetamol"
+                                Route = Some "oraal"
+                            }
+
+                        let state, _ = run [ LoaderMsg.PatientSet(Some patient) ]
+
+                        let state =
+                            state
+                            |> transition (LoaderMsg.Landed(Landing.Formulary(None, answered Formulary.empty)))
+                            |> fst
+                            |> transition (LoaderMsg.Landed(Landing.Parenteralia(None, answered Parenteralia.empty)))
+                            |> fst
+
+                        let _, effects = state |> transition (LoaderMsg.FormularyChanged form)
+
+                        effects
+                        |> Expect.equal
+                            "asked and seeded"
+                            [
+                                LoaderEffect.FetchFormulary { form with Patient = Some patient }
+                                LoaderEffect.SeedWorkbench
+                                    {
+                                        Source = SeedSource.Formulary
+                                        Indication = None
+                                        Generic = Some "paracetamol"
+                                        Route = Some "oraal"
+                                        Form = None
+                                        DoseType = None
+                                    }
+                                LoaderEffect.FetchParenteralia
+                                    { Parenteralia.empty with
+                                        Generic = Some "paracetamol"
+                                        Route = Some "oraal"
+                                    }
+                            ]
+                    }
+
+                    test "a parenteralia change puts its choices on the formulary and clears the rest" {
+                        let form =
+                            { Formulary.empty with
+                                Indication = Some "pijn"
+                                Generic = Some "paracetamol"
+                                Route = Some "oraal"
+                                Form = Some "tablet"
+                                DoseType = Some(Once "")
+                            }
+
+                        let par =
+                            { Parenteralia.empty with
+                                Generic = Some "morfine"
+                                Route = Some "iv"
+                                Form = Some "injectievloeistof"
+                            }
+
+                        let state, _ =
+                            run
+                                [
+                                    LoaderMsg.Start Load.Formulary
+                                    LoaderMsg.Landed(Landing.Formulary(None, answered form))
+                                    LoaderMsg.ParenteraliaChanged par
+                                ]
+
+                        state.Formulary
+                        |> Expect.equal
+                            "the parenteralia's choices, no indication nor dose type"
+                            (Refreshing
+                                { form with
+                                    Indication = None
+                                    Generic = Some "morfine"
+                                    Route = Some "iv"
+                                    Form = Some "injectievloeistof"
+                                    DoseType = None
+                                })
+                    }
+
+                    test "a parenteralia change without a patient seeds nothing" {
+                        let par = { Parenteralia.empty with Generic = Some "morfine" }
+                        let _, effects = run [ LoaderMsg.ParenteraliaChanged par ]
+
+                        effects
+                        |> List.exists (
+                            function
+                            | LoaderEffect.SeedWorkbench _ -> true
+                            | _ -> false
+                        )
+                        |> Expect.isFalse "no seed"
+                    }
+
+                    test "the resources reloaded with a patient seed the workbench, without one ask both pages" {
+                        let state, _ =
+                            run
+                                [
+                                    LoaderMsg.PatientSet(Some patient)
+                                    LoaderMsg.Landed(Landing.Formulary(None, answered Formulary.empty))
+                                    LoaderMsg.Landed(Landing.Parenteralia(None, answered Parenteralia.empty))
+                                ]
+
+                        state
+                        |> transition LoaderMsg.ResourcesReloaded
+                        |> snd
+                        |> Expect.equal
+                            "seeded"
+                            [
+                                LoaderEffect.SeedWorkbench
+                                    {
+                                        Source = SeedSource.Reload
+                                        Indication = None
+                                        Generic = None
+                                        Route = None
+                                        Form = None
+                                        DoseType = None
+                                    }
+                            ]
+
+                        LoaderState.initial
+                        |> transition LoaderMsg.ResourcesReloaded
+                        |> snd
+                        |> Expect.equal
+                            "both asked"
+                            [
+                                LoaderEffect.FetchFormulary Formulary.empty
+                                LoaderEffect.FetchParenteralia Parenteralia.empty
+                            ]
+                    }
+
+                    test "a page shown asks its page and the drug names that gave up" {
+                        LoaderState.initial
+                        |> transition (LoaderMsg.PageShown Page.Page.Formulary)
+                        |> snd
+                        |> Expect.equal
+                            "the drug names and the formulary"
+                            [ LoaderEffect.FetchDrugNames; LoaderEffect.FetchFormulary Formulary.empty ]
+                    }
+                ]
 
             testList
                 "the server check"

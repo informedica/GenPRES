@@ -391,6 +391,28 @@ let tests =
                 |> Expect.equal "the alert" "Alert DrugNamesNotLoaded"
             }
 
+            test "the pages read by how many choices they hold, never their text" {
+                let shown = LoaderMachine.LoaderMsg.PageShown Page.Page.Parenteralia
+
+                Trail.loader 1 at shown (LoaderMachine.LoaderState.initial |> LoaderMachine.transition shown)
+                |> Trail.format
+                |> Expect.equal
+                    "the page shown"
+                    "#1 10:41:07.311 Loader PageShown Parenteralia -> FetchDrugNames, FetchParenteralia 0 choices | out Parenteralia, DrugNames"
+
+                LoaderMachine.LoaderEffect.SeedWorkbench
+                    {
+                        Source = SeedSource.Formulary
+                        Indication = None
+                        Generic = Some "paracetamol"
+                        Route = Some "oraal"
+                        Form = None
+                        DoseType = None
+                    }
+                |> Trail.Loader.effect
+                |> Expect.equal "the seed" "SeedWorkbench formulary 2 choices"
+            }
+
             test "every machine names itself" {
                 let plan = OrderPlanState.noPatient
                 let signing = SigningState.idle

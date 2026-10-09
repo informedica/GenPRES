@@ -716,6 +716,35 @@ module Loader =
         | ServerErrorPolicy.ErrorSource.Server -> "Server"
 
 
+    /// A page by its name.
+    let page (p: Page.Page) =
+        match p with
+        | Page.Page.LifeSupport -> "LifeSupport"
+        | Page.Page.ContinuousMeds -> "ContinuousMeds"
+        | Page.Page.Prescribe -> "Prescribe"
+        | Page.Page.Nutrition -> "Nutrition"
+        | Page.Page.OrderPlan -> "OrderPlan"
+        | Page.Page.Formulary -> "Formulary"
+        | Page.Page.Parenteralia -> "Parenteralia"
+        | Page.Page.Interactions -> "Interactions"
+        | Page.Page.Settings -> "Settings"
+
+
+    /// How many choices a page holds, never their text.
+    let choices (xs: string option list) = xs |> List.filter Option.isSome |> List.length
+
+
+    /// The formulary by how many choices it holds and its patient.
+    let formulary (f: Formulary) =
+        let n = choices [ f.Indication; f.Generic; f.Route; f.Form ]
+        let n = if f.DoseType.IsSome then n + 1 else n
+        $"%i{n} choices %s{Part.patientOption f.Patient}"
+
+
+    /// The parenteralia page by how many choices it holds.
+    let parenteralia (p: Parenteralia) = $"%i{choices [ p.Generic; p.Route; p.Form ]} choices"
+
+
     /// A sentence the snackbar shows, by its case.
     let alert (a: Alert.Alert) =
         match a with
@@ -742,6 +771,9 @@ module Loader =
             | Landing.ContinuousMedication r -> "ContinuousMedication", r |> Part.result count
             | Landing.Products r -> "Products", r |> Part.result count
             | Landing.DrugNames(from, r) -> $"DrugNames %s{Part.token from}", r |> Part.result drugNames
+            | Landing.Formulary(from, r) -> $"Formulary %s{Part.token from}", r |> Part.result (named "formulary")
+            | Landing.Parenteralia(from, r) ->
+                $"Parenteralia %s{Part.token from}", r |> Part.result (named "parenteralia")
 
         $"%s{name} %s{answer}"
 
@@ -755,6 +787,12 @@ module Loader =
         | LoaderMsg.Landed l -> $"Landed %s{landing l}"
         | LoaderMsg.CheckServer -> "CheckServer"
         | LoaderMsg.ServerChecked r -> $"ServerChecked %s{r |> Part.result answered}"
+        | LoaderMsg.PatientSet p -> $"PatientSet %s{Part.patientOption p}"
+        | LoaderMsg.FilterAnswered f -> $"FilterAnswered %s{Part.filter f}"
+        | LoaderMsg.PageShown p -> $"PageShown %s{page p}"
+        | LoaderMsg.FormularyChanged f -> $"FormularyChanged %s{formulary f}"
+        | LoaderMsg.ParenteraliaChanged p -> $"ParenteraliaChanged %s{parenteralia p}"
+        | LoaderMsg.ResourcesReloaded -> "ResourcesReloaded"
 
 
     /// A call to make.
@@ -767,6 +805,10 @@ module Loader =
         | LoaderEffect.FetchContinuousMedication -> "FetchContinuousMedication"
         | LoaderEffect.FetchProducts -> "FetchProducts"
         | LoaderEffect.FetchDrugNames -> "FetchDrugNames"
+        | LoaderEffect.FetchFormulary f -> $"FetchFormulary %s{formulary f}"
+        | LoaderEffect.FetchParenteralia p -> $"FetchParenteralia %s{parenteralia p}"
+        | LoaderEffect.SeedWorkbench seed ->
+            $"SeedWorkbench %s{OrderContext.seedSource seed.Source} %i{OrderContext.seedChoices seed} choices"
         | LoaderEffect.CheckServer -> "CheckServer"
         | LoaderEffect.CheckServerLater seconds -> $"CheckServerLater %i{seconds}s"
         | LoaderEffect.AskAgainLater(l, seconds) -> $"AskAgainLater %s{load l} %i{seconds}s"
@@ -776,8 +818,8 @@ module Loader =
         | LoaderEffect.NoticeReceived(from, n) -> $"NoticeReceived %s{Part.token from} %s{Part.notice n}"
 
 
-    /// The loads out, the loads that landed, the ones that failed, the drug names' failures and
-    /// whether the server answered.
+    /// The loads out, the loads that landed, the ones that failed, the pages to ask again once they
+    /// land, the drug names' failures and whether the server answered.
     let state (state: LoaderState) =
         let names loads = loads |> List.map load |> String.concat ", "
 
@@ -791,6 +833,10 @@ module Loader =
             match state.Failed with
             | [] -> ()
             | loads -> $"failed %s{names loads}"
+            if state.FormularyAskAgain.IsSome then
+                "formulary asked again"
+            if state.ParenteraliaAskAgain.IsSome then
+                "parenteralia asked again"
             if state.DrugNameFailures > 0 then
                 $"drug names failed %i{state.DrugNameFailures}"
             match state.Server with

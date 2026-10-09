@@ -1,15 +1,20 @@
 /// The data the client loads: the server settings, the localization, the normal values, the
-/// emergency and continuous medication lists, the products and the drug names of the interactions
-/// page, each a reading. A start while the same load runs changes nothing; a failed load goes back
-/// to not started and, when the application cannot be used without it, is named for the gate.
-/// The hospitals are not loaded but read from the emergency medication when it lands. The server
-/// is checked until it answers, and the drug names are asked again after a failure, until the third.
+/// emergency and continuous medication lists, the products, the formulary and parenteralia pages
+/// and the drug names of the interactions page, each a reading. A start while the same load runs
+/// changes nothing; a failed load goes back to not started and, when the application cannot be used
+/// without it, is named for the gate. The hospitals are not loaded but read from the emergency
+/// medication when it lands. The server is checked until it answers, and the drug names are asked
+/// again after a failure, until the third. The formulary and parenteralia pages follow the
+/// workbench's filter and the patient, and a choice on either page is seeded over the workbench.
 module LoaderMachine
 
 open Shared
 open Shared.Types
+open Shared.Models
 open Shared.Api
 open Busy
+open Page
+open OrderContextMachine
 
 
 /// The readings of the start-up loads, and the ones that failed.
@@ -31,6 +36,17 @@ type LoaderState =
         Hospitals: Deferred<string[]>
         /// The drug names the interactions page offers.
         DrugNames: Deferred<string[]>
+        /// The formulary page.
+        Formulary: Deferred<Formulary>
+        /// The workbench filter answered while the formulary loaded, asked for once the load lands.
+        FormularyAskAgain: Filter option
+        /// The parenteralia page.
+        Parenteralia: Deferred<Parenteralia>
+        /// The workbench filter answered while the parenteralia loaded, asked for once the load lands.
+        ParenteraliaAskAgain: Filter option
+        /// The patient the server last answered, which the formulary is asked for and whose presence
+        /// lets a page's choice seed the workbench.
+        Patient: Patient option
         /// The failures of the drug names since they last loaded.
         DrugNameFailures: int
         /// Whether the server answered its last check.
@@ -51,6 +67,10 @@ type Landing =
     | Products of Result<Product list, string>
     /// The drug names, with the token the request was sent with.
     | DrugNames of from: OpenedToken option * Result<Reply<InteractionResponse>, string[]>
+    /// The formulary page, with the token the request was sent with.
+    | Formulary of from: OpenedToken option * Result<Reply<Formulary>, string[]>
+    /// The parenteralia page, with the token the request was sent with.
+    | Parenteralia of from: OpenedToken option * Result<Reply<Parenteralia>, string[]>
 
 
 /// A message to the loader machine.
@@ -64,6 +84,18 @@ type LoaderMsg =
     | CheckServer
     /// The server's answer, or the error of a server that did not answer.
     | ServerChecked of Result<unit, string>
+    /// The patient the server answered, or none once cleared.
+    | PatientSet of Patient option
+    /// The filter the workbench answered.
+    | FilterAnswered of Filter
+    /// A page shown.
+    | PageShown of Page
+    /// The user changed a choice on the formulary page.
+    | FormularyChanged of Formulary
+    /// The user changed a choice on the parenteralia page.
+    | ParenteraliaChanged of Parenteralia
+    /// The server reloaded its resources.
+    | ResourcesReloaded
 
 
 /// What the App carries out: a call, whose answer comes back as a message, a wait, or what the
@@ -77,6 +109,10 @@ type LoaderEffect =
     | FetchContinuousMedication
     | FetchProducts
     | FetchDrugNames
+    | FetchFormulary of Formulary
+    | FetchParenteralia of Parenteralia
+    /// Seed the workbench's filter.
+    | SeedWorkbench of FilterSeed
     /// Ask the server whether it answers.
     | CheckServer
     /// Check the server again after this many seconds.
@@ -107,6 +143,11 @@ module LoaderState =
             Products = HasNotStartedYet
             Hospitals = HasNotStartedYet
             DrugNames = HasNotStartedYet
+            Formulary = HasNotStartedYet
+            FormularyAskAgain = None
+            Parenteralia = HasNotStartedYet
+            ParenteraliaAskAgain = None
+            Patient = None
             DrugNameFailures = 0
             Server = HasNotStartedYet
             Failed = []
@@ -125,6 +166,8 @@ module LoaderState =
             Load.BolusMedication, reading state.BolusMedication
             Load.ContinuousMedication, reading state.ContinuousMedication
             Load.Products, reading state.Products
+            Load.Formulary, reading state.Formulary
+            Load.Parenteralia, reading state.Parenteralia
             Load.DrugNames, reading state.DrugNames
         ]
 
@@ -209,6 +252,85 @@ let drugNamesWait = 3
 let serverWait = 5
 
 
+/// The formulary asked for again over the one shown, for the patient the server answered.
+let startFormulary (state: LoaderState) =
+    let form = { (state.Formulary |> Deferred.defaultValue Formulary.empty) with Patient = state.Patient }
+
+    let reading, effects = state.Formulary |> start (LoaderEffect.FetchFormulary form)
+    { state with Formulary = reading }, effects
+
+
+/// The parenteralia asked for again over the ones shown.
+let startParenteralia (state: LoaderState) =
+    let par = state.Parenteralia |> Deferred.defaultValue Parenteralia.empty
+    let reading, effects = state.Parenteralia |> start (LoaderEffect.FetchParenteralia par)
+    { state with Parenteralia = reading }, effects
+
+
+/// The formulary and the parenteralia asked for again.
+let startPages state =
+    let state, formulary = state |> startFormulary
+    let state, parenteralia = state |> startParenteralia
+    state, formulary @ parenteralia
+
+
+/// The workbench filter put on the formulary page and the page asked for with it; while the page
+/// loads, the filter is held and asked for once the load lands.
+let syncFormulary filter (state: LoaderState) =
+    if isOut state.Formulary then
+        { state with FormularyAskAgain = Some filter }, []
+    else
+        { state with
+            Formulary =
+                state.Formulary
+                |> Deferred.defaultValue Formulary.empty
+                |> FilterSync.syncFilterToFormulary filter
+                |> Resolved
+        }
+        |> startFormulary
+
+
+/// The workbench filter put on the parenteralia page and the page asked for with it; while the
+/// page loads, the filter is held and asked for once the load lands.
+let syncParenteralia filter (state: LoaderState) =
+    if isOut state.Parenteralia then
+        { state with ParenteraliaAskAgain = Some filter }, []
+    else
+        { state with
+            Parenteralia =
+                state.Parenteralia
+                |> Deferred.defaultValue Parenteralia.empty
+                |> FilterSync.syncFilterToParenteralia filter
+                |> Resolved
+        }
+        |> startParenteralia
+
+
+/// The seed of a page's choices over the workbench, only while there is a patient, as a page shows
+/// its choices only then.
+let seedWithPatient seed (state: LoaderState) =
+    match state.Patient with
+    | Some _ -> [ LoaderEffect.SeedWorkbench seed ]
+    | None -> []
+
+
+/// After a page load landed: the filter held during the load, if any, cleared and put on the page,
+/// which is asked for again.
+let askAgain held clear sync (state: LoaderState, effects) =
+    match held with
+    | Some filter ->
+        let state, again = state |> clear |> sync filter
+        state, effects @ again
+    | None -> state, effects
+
+
+/// What a reply told the Session, with the token the request was sent with.
+let told from (reply: Reply<'a>) =
+    reply.Notice
+    |> Option.map (fun notice -> LoaderEffect.NoticeReceived(from, notice))
+    |> Option.toList
+
+
 /// The next state and the effects for a message. A start while the same load runs, and a start
 /// of a load this machine does not hold, change nothing.
 let transition msg (state: LoaderState) =
@@ -231,6 +353,8 @@ let transition msg (state: LoaderState) =
     | LoaderMsg.Start Load.Products ->
         let reading, effects = state.Products |> start LoaderEffect.FetchProducts
         { state with Products = reading }, effects
+    | LoaderMsg.Start Load.Formulary -> state |> startFormulary
+    | LoaderMsg.Start Load.Parenteralia -> state |> startParenteralia
     | LoaderMsg.Start Load.DrugNames ->
         let reading, effects = state.DrugNames |> start LoaderEffect.FetchDrugNames
         { state with DrugNames = reading }, effects
@@ -262,20 +386,15 @@ let transition msg (state: LoaderState) =
         let reading, state = state |> settle Load.Products result
         { state with Products = reading }, []
     | LoaderMsg.Landed(Landing.DrugNames(from, Ok reply)) ->
-        let told =
-            reply.Notice
-            |> Option.map (fun notice -> LoaderEffect.NoticeReceived(from, notice))
-            |> Option.toList
-
         match reply.Response with
         | InteractionResponse.DrugNamesLoaded names ->
             { state with
                 DrugNames = Resolved names
                 DrugNameFailures = 0
             },
-            told
+            told from reply
         // the drug names call answers with the drug names only
-        | InteractionResponse.InteractionsChecked _ -> state, told
+        | InteractionResponse.InteractionsChecked _ -> state, told from reply
     | LoaderMsg.Landed(Landing.DrugNames(_, Error _)) ->
         let failures = state.DrugNameFailures + 1
 
@@ -289,6 +408,37 @@ let transition msg (state: LoaderState) =
             else
                 LoaderEffect.AskAgainLater(Load.DrugNames, drugNamesWait)
         ]
+
+    // a filter held during the load is asked for once the answer is shown
+    | LoaderMsg.Landed(Landing.Formulary(from, result)) ->
+        let state, effects =
+            match result with
+            | Ok reply ->
+                { state with Formulary = Resolved reply.Response },
+                LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Formulary
+                :: told from reply
+            | Error errs ->
+                { state with Formulary = HasNotStartedYet },
+                [ LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Formulary, errs) ]
+
+        (state, effects)
+        |> askAgain state.FormularyAskAgain (fun state -> { state with FormularyAskAgain = None }) syncFormulary
+    | LoaderMsg.Landed(Landing.Parenteralia(from, result)) ->
+        let state, effects =
+            match result with
+            | Ok reply ->
+                { state with Parenteralia = Resolved reply.Response },
+                LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Parenteralia
+                :: told from reply
+            | Error errs ->
+                { state with Parenteralia = HasNotStartedYet },
+                [ LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Parenteralia, errs) ]
+
+        (state, effects)
+        |> askAgain
+            state.ParenteraliaAskAgain
+            (fun state -> { state with ParenteraliaAskAgain = None })
+            syncParenteralia
 
     | LoaderMsg.CheckServer ->
         let reading, effects = state.Server |> start LoaderEffect.CheckServer
@@ -311,5 +461,120 @@ let transition msg (state: LoaderState) =
             LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Server, [| err |])
             LoaderEffect.CheckServerLater serverWait
         ]
+
+    // both pages for the new patient, the choices made for the earlier one gone
+    | LoaderMsg.PatientSet patient ->
+        { state with
+            Patient = patient
+            Formulary = Resolved { Formulary.empty with Patient = patient }
+            Parenteralia = Resolved Parenteralia.empty
+            FormularyAskAgain = None
+            ParenteraliaAskAgain = None
+        }
+        |> startPages
+    | LoaderMsg.FilterAnswered filter ->
+        let state, formulary = state |> syncFormulary filter
+        let state, parenteralia = state |> syncParenteralia filter
+        state, formulary @ parenteralia
+    // drug names that gave up are asked again when a page is shown
+    | LoaderMsg.PageShown page ->
+        let state, drugNames =
+            match state.DrugNames with
+            | HasNotStartedYet ->
+                let reading, effects = state.DrugNames |> start LoaderEffect.FetchDrugNames
+                { state with DrugNames = reading }, effects
+            | _ -> state, []
+
+        let state, pages =
+            match page with
+            | Page.Formulary -> state |> startFormulary
+            | Page.Parenteralia -> state |> startParenteralia
+            | _ -> state, []
+
+        state, drugNames @ pages
+    // the formulary's choices put on the parenteralia page and seeded over the workbench, with
+    // the formulary's rule
+    | LoaderMsg.FormularyChanged form ->
+        let state, formulary =
+            { state with
+                Formulary = Resolved form
+                Parenteralia =
+                    state.Parenteralia
+                    |> Deferred.map (fun par ->
+                        { par with
+                            Generic = form.Generic
+                            Route = form.Route
+                            Form = form.Form
+                        }
+                    )
+            }
+            |> startFormulary
+
+        let seeded =
+            state
+            |> seedWithPatient
+                {
+                    Source = SeedSource.Formulary
+                    Indication = form.Indication
+                    Generic = form.Generic
+                    Route = form.Route
+                    Form = form.Form
+                    DoseType = form.DoseType
+                }
+
+        let state, parenteralia = state |> startParenteralia
+        state, formulary @ seeded @ parenteralia
+    // the parenteralia page's choices put on the formulary and seeded over the workbench, with
+    // its rule
+    | LoaderMsg.ParenteraliaChanged par ->
+        let state, formulary =
+            { state with
+                Parenteralia = Resolved par
+                Formulary =
+                    state.Formulary
+                    |> Deferred.map (fun form ->
+                        { form with
+                            Indication = None
+                            Generic = par.Generic
+                            Route = par.Route
+                            Form = par.Form
+                            DoseType = None
+                        }
+                    )
+            }
+            |> startFormulary
+
+        let seeded =
+            state
+            |> seedWithPatient
+                {
+                    Source = SeedSource.Parenteralia
+                    Indication = None
+                    Generic = par.Generic
+                    Route = par.Route
+                    Form = par.Form
+                    DoseType = None
+                }
+
+        let state, parenteralia = state |> startParenteralia
+        state, formulary @ seeded @ parenteralia
+    // with a patient the workbench is evaluated again as it is, which takes both pages with it;
+    // without one, the pages alone are asked again
+    | LoaderMsg.ResourcesReloaded ->
+        match state.Patient with
+        | Some _ ->
+            state,
+            [
+                LoaderEffect.SeedWorkbench
+                    {
+                        Source = SeedSource.Reload
+                        Indication = None
+                        Generic = None
+                        Route = None
+                        Form = None
+                        DoseType = None
+                    }
+            ]
+        | None -> state |> startPages
 
     | _ -> state, []

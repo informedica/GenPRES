@@ -86,13 +86,6 @@ module private Elmish =
     /// What the server is asked for, once or again: the reading of each plain fetch.
     type FetchesState =
         {
-            Formulary: Deferred<Formulary>
-            // a workbench filter met a formulary load under way: the page is asked again once
-            // that load has landed and is shown
-            FormularyAskAgain: bool
-            Parenteralia: Deferred<Parenteralia>
-            // the same for the parenteralia page
-            ParenteraliaAskAgain: bool
             Interactions: Deferred<DrugInteraction[]>
             // the number of the interaction check under way; an answer to an earlier check is
             // dropped, so it can neither replace the rows nor clear the error of a later one
@@ -172,12 +165,6 @@ module private Elmish =
         | OrderPlanAnswered of request: string * Answer<OrderPlan>
         // the prescribe click on the order with this id
         | Prescribe of orderId: string
-
-        | UpdateFormulary of Formulary
-        | LoadFormulary of ApiResponse<Formulary>
-
-        | UpdateParenteralia of Parenteralia
-        | LoadParenteralia of ApiResponse<Parenteralia>
 
         | CheckInteractions of string list
         | LoadInteractionsResult of check: int * ApiResponse<Api.InteractionResponse>
@@ -313,13 +300,6 @@ module private Elmish =
         state, Cmd.batch [ cmd; told ]
 
 
-    let applyFormulary (state: State) (form: Formulary) = { state with Fetches.Formulary = Resolved form }, Cmd.none
-
-
-    let applyParenteralia (state: State) (par: Parenteralia) =
-        { state with Fetches.Parenteralia = Resolved par }, Cmd.none
-
-
     /// The interactions notice on the snackbar, and its withdrawal: only the notice itself is
     /// withdrawn, never another message the snackbar shows meanwhile (the record moved on, a
     /// refusal), since the interactions are checked on every answered plan.
@@ -350,13 +330,6 @@ module private Elmish =
             { newState with Fetches.Interactions = Resolved interactions }, Cmd.none
         // the drug names land through the loader machine
         | Api.InteractionResponse.DrugNamesLoaded _ -> state, Cmd.none
-
-
-    let loadFormulary opened = createApiMsg serverApi.processFormulary opened LoadFormulary
-
-
-    let loadParenteralia opened =
-        createApiMsg serverApi.processParenteralia opened LoadParenteralia
 
 
     /// The interactions of the drugs checked, out from this update on.
@@ -411,10 +384,6 @@ module private Elmish =
             Loader = LoaderMachine.LoaderState.initial
             Fetches =
                 {
-                    Formulary = HasNotStartedYet
-                    FormularyAskAgain = false
-                    Parenteralia = HasNotStartedYet
-                    ParenteraliaAskAgain = false
                     Interactions = HasNotStartedYet
                     InteractionCheck = 0
                 }
@@ -550,86 +519,6 @@ module private Elmish =
         { state with Ui.ServerError = state.Ui.ServerError |> ServerErrorPolicy.clearedBy source }, cmd
 
 
-    /// The formulary asked again over the one shown, which stays shown until the answer, and the
-    /// load out from this update on.
-    let startFormulary (state: State) =
-        // the patient the server answered, also over a formulary answered without one
-        let form =
-            { (state.Fetches.Formulary |> Deferred.defaultValue Formulary.empty) with
-                Patient = state.Lanes.Patient |> PatientState.answered
-            }
-
-        { state with Fetches.Formulary = state.Fetches.Formulary |> Deferred.refresh },
-        form |> loadFormulary (tokenOf state.Lanes.Session)
-
-
-    /// The parenteralia asked again over the ones shown, and the load out from this update on.
-    let startParenteralia (state: State) =
-        let par = state.Fetches.Parenteralia |> Deferred.defaultValue Parenteralia.empty
-
-        { state with Fetches.Parenteralia = state.Fetches.Parenteralia |> Deferred.refresh },
-        par |> loadParenteralia (tokenOf state.Lanes.Session)
-
-
-    /// The workbench filter put on the formulary page and the page loaded for it, out in the same
-    /// update, so nothing can be clicked between the answer and the load. While a load of the
-    /// page runs, the page is only marked, and asked again once that load has landed.
-    let syncFormulary filter (state: State) =
-        match state.Fetches.Formulary with
-        | InProgress
-        | Refreshing _ -> { state with Fetches.FormularyAskAgain = true }, Cmd.none
-        | HasNotStartedYet
-        | Resolved _ ->
-            { state with
-                Fetches.Formulary =
-                    state.Fetches.Formulary
-                    |> Deferred.defaultValue Formulary.empty
-                    |> FilterSync.syncFilterToFormulary filter
-                    |> Resolved
-            }
-            |> startFormulary
-
-
-    /// The workbench filter put on the parenteralia page and the page loaded for it, out in the
-    /// same update, or the page marked while a load of it runs.
-    let syncParenteralia filter (state: State) =
-        match state.Fetches.Parenteralia with
-        | InProgress
-        | Refreshing _ -> { state with Fetches.ParenteraliaAskAgain = true }, Cmd.none
-        | HasNotStartedYet
-        | Resolved _ ->
-            { state with
-                Fetches.Parenteralia =
-                    state.Fetches.Parenteralia
-                    |> Deferred.defaultValue Parenteralia.empty
-                    |> FilterSync.syncFilterToParenteralia filter
-                    |> Resolved
-            }
-            |> startParenteralia
-
-
-    /// After a formulary load landed and its answer is shown: asked again with the filter the
-    /// workbench last answered, when a workbench filter met that load.
-    let askFormularyAgain (state: State, cmd) =
-        match state.Fetches.FormularyAskAgain, state.Lanes.OrderContext |> OrderContextState.answered with
-        | true, Some ctx ->
-            let state, again = syncFormulary ctx.Filter { state with Fetches.FormularyAskAgain = false }
-            state, Cmd.batch [ cmd; again ]
-        | true, None -> { state with Fetches.FormularyAskAgain = false }, cmd
-        | false, _ -> state, cmd
-
-
-    /// After a parenteralia load landed and its answer is shown: asked again with the filter the
-    /// workbench last answered, when a workbench filter met that load.
-    let askParenteraliaAgain (state: State, cmd) =
-        match state.Fetches.ParenteraliaAskAgain, state.Lanes.OrderContext |> OrderContextState.answered with
-        | true, Some ctx ->
-            let state, again = syncParenteralia ctx.Filter { state with Fetches.ParenteraliaAskAgain = false }
-            state, Cmd.batch [ cmd; again ]
-        | true, None -> { state with Fetches.ParenteraliaAskAgain = false }, cmd
-        | false, _ -> state, cmd
-
-
     /// A sentence on the snackbar, in the severity it is said with.
     let tell message severity (state: State) = { state with Ui.Snackbar = Snackbar.shown message severity }
 
@@ -657,6 +546,148 @@ module private Elmish =
                 (state, [])
 
         state, cmds |> List.rev |> Cmd.batch
+
+
+    /// What a failed start-up load is logged as; never in the trail.
+    let loadFailed landing =
+        match landing with
+        | LoaderMachine.Landing.Settings(Error err) -> Some("cannot load the server settings", err)
+        | LoaderMachine.Landing.Localization(Error err) -> Some("cannot load localization", err)
+        | LoaderMachine.Landing.NormalValues(Error err) -> Some("cannot load normal values", err)
+        | LoaderMachine.Landing.BolusMedication(Error err) -> Some("cannot load emergency treatment", err)
+        | LoaderMachine.Landing.ContinuousMedication(Error err) -> Some("cannot load continuous medication", err)
+        | LoaderMachine.Landing.Products(Error err) -> Some("cannot load products", err)
+        | _ -> None
+
+
+    /// What one loader effect changes, and the command it sends: an alert on the snackbar, the
+    /// error banner raised or cleared, the notice to the Session, a call whose answer comes back as
+    /// the loader machine's message, or a wait.
+    let applyLoaderEffect effect (state: State) =
+        let landed landing result = LoaderMsg(LoaderMachine.LoaderMsg.Landed(landing result))
+        let opened = tokenOf state.Lanes.Session
+
+        let later seconds msg =
+            async {
+                do! Async.Sleep(seconds * 1000)
+                return LoaderMsg msg
+            }
+            |> Cmd.fromAsync
+
+        match effect with
+        | LoaderMachine.LoaderEffect.FetchSettings ->
+            state,
+            Cmd.OfAsync.either
+                serverApi.getSettings
+                ()
+                (Ok >> landed LoaderMachine.Landing.Settings)
+                (fun ex -> Error ex.Message |> landed LoaderMachine.Landing.Settings)
+        | LoaderMachine.LoaderEffect.FetchLocalization ->
+            state, Cmd.OfAsync.perform GoogleDocs.loadLocalization () (landed LoaderMachine.Landing.Localization)
+        | LoaderMachine.LoaderEffect.FetchNormalValues ->
+            state, Cmd.OfAsync.perform GoogleDocs.loadNormalValues () (landed LoaderMachine.Landing.NormalValues)
+        | LoaderMachine.LoaderEffect.FetchBolusMedication ->
+            state, Cmd.OfAsync.perform GoogleDocs.loadBolusMedication () (landed LoaderMachine.Landing.BolusMedication)
+        | LoaderMachine.LoaderEffect.FetchContinuousMedication ->
+            state,
+            Cmd.OfAsync.perform
+                GoogleDocs.loadContinuousMedication
+                ()
+                (landed LoaderMachine.Landing.ContinuousMedication)
+        | LoaderMachine.LoaderEffect.FetchProducts ->
+            state, Cmd.OfAsync.perform GoogleDocs.loadProducts () (landed LoaderMachine.Landing.Products)
+        | LoaderMachine.LoaderEffect.FetchFormulary form ->
+            state,
+            Cmd.OfAsync.perform
+                serverApi.processFormulary
+                {
+                    Opened = opened
+                    Command = form
+                }
+                (landed (fun result -> LoaderMachine.Landing.Formulary(opened, result)))
+        | LoaderMachine.LoaderEffect.FetchParenteralia par ->
+            state,
+            Cmd.OfAsync.perform
+                serverApi.processParenteralia
+                {
+                    Opened = opened
+                    Command = par
+                }
+                (landed (fun result -> LoaderMachine.Landing.Parenteralia(opened, result)))
+        | LoaderMachine.LoaderEffect.SeedWorkbench seed ->
+            state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.SeedFilter(seed, newRequest ())))
+        | LoaderMachine.LoaderEffect.FetchDrugNames ->
+            state,
+            Cmd.OfAsync.perform
+                serverApi.processInteraction
+                {
+                    Opened = opened
+                    Command = Api.InteractionCommand.GetDrugNames
+                }
+                (landed (fun result -> LoaderMachine.Landing.DrugNames(opened, result)))
+        | LoaderMachine.LoaderEffect.CheckServer ->
+            state,
+            Cmd.OfAsync.either
+                serverApi.testApi
+                ()
+                (fun _ -> LoaderMsg(LoaderMachine.LoaderMsg.ServerChecked(Ok())))
+                (fun ex -> LoaderMsg(LoaderMachine.LoaderMsg.ServerChecked(Error ex.Message)))
+        | LoaderMachine.LoaderEffect.CheckServerLater seconds ->
+            state, LoaderMachine.LoaderMsg.CheckServer |> later seconds
+        | LoaderMachine.LoaderEffect.AskAgainLater(load, seconds) ->
+            state, LoaderMachine.LoaderMsg.Start load |> later seconds
+        | LoaderMachine.LoaderEffect.Alert alert ->
+            let terms = Global.getLocalizedTerm state.Loader.Localization state.Ui.Context.Localization
+            let text = alert |> Views.AlertText.text terms
+            { state with Ui.Snackbar = Snackbar.shown text (Views.AlertText.severity alert) }, Cmd.none
+        // the server check runs again every few seconds while the server is down, so it shows
+        // the banner alone and no snackbar
+        | LoaderMachine.LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Server, errs) ->
+            Logging.error "server niet bereikbaar" errs
+
+            { state with
+                Ui.ServerError =
+                    ServerErrorPolicy.raised
+                        ServerErrorPolicy.ErrorSource.Server
+                        "De server is niet bereikbaar. Controleer of de server is gestart."
+                    |> Some
+            },
+            Cmd.none
+        | LoaderMachine.LoaderEffect.Failed(source, errs) -> (state, Cmd.none) |> processError source errs
+        | LoaderMachine.LoaderEffect.Succeeded source -> (state, Cmd.none) |> clearError source
+        | LoaderMachine.LoaderEffect.NoticeReceived(from, notice) ->
+            state, Cmd.ofMsg (SessionMsg(SessionMsg.NoticeReceived(from, notice)))
+
+
+    /// A message through the loader machine: the step recorded in the trail and its effects
+    /// carried out. The settings landed also set the language default and the demo flag, until the
+    /// shell takes them.
+    let runLoader msg (state: State) =
+        match msg with
+        | LoaderMachine.LoaderMsg.Landed landing ->
+            landing |> loadFailed |> Option.iter (fun (text, err) -> Logging.error text err)
+        | _ -> ()
+
+        let loader, effects = state.Loader |> LoaderMachine.transition msg
+
+        let state =
+            match msg with
+            // the server default counts unless the url chose; the User cannot choose before the
+            // settings land, since the start-up holds the application until then
+            | LoaderMachine.LoaderMsg.Landed(LoaderMachine.Landing.Settings(Ok settings)) ->
+                StepTrail.confirmDemo settings.IsDemo
+
+                { state with Ui.IsDemo = settings.IsDemo }
+                |> withLanguage (languageOf state |> LanguagePolicy.Language.onServerDefault settings.Language)
+            // no settings: the client keeps its own defaults, which is what it did before
+            | LoaderMachine.LoaderMsg.Landed(LoaderMachine.Landing.Settings(Error _)) ->
+                StepTrail.confirmDemo false
+                state
+            | _ -> state
+
+        StepTrail.record (fun no at -> Trail.loader no at msg (loader, effects))
+
+        { state with Loader = loader } |> runEffects applyLoaderEffect effects
 
 
     /// What one session effect changes, and the command it sends. A transport failure
@@ -928,10 +959,7 @@ module private Elmish =
     let applyOrderContextEffect (effect: OrderContextEffect) (state: State) : State * Cmd<Msg> =
         match effect with
         | OrderContextEffect.CallContext(sent, request) -> state, callContext sent request state
-        | OrderContextEffect.SyncPages filter ->
-            let state, formCmd = syncFormulary filter state
-            let state, parCmd = syncParenteralia filter state
-            state, Cmd.batch [ formCmd; parCmd ]
+        | OrderContextEffect.SyncPages filter -> state |> runLoader (LoaderMachine.LoaderMsg.FilterAnswered filter)
         | OrderContextEffect.TellError errs ->
             Logging.warning "order context error" errs
 
@@ -943,18 +971,11 @@ module private Elmish =
     /// The formulary and parenteralia pages for the patient, loaded in the update that lands
     /// it, and the lists' filters cleared; the workbench and the plan get the patient in Lanes.
     let patientPages (pat: Patient option) (state: State) =
-        let state =
-            { state with
-                Fetches.Formulary = { Formulary.empty with Patient = pat } |> Resolved
-                Fetches.Parenteralia = Parenteralia.empty |> Resolved
-                Ui.EmergencyListFilter = [||]
-                Ui.ContinuousMedsFilter = [||]
-            }
-
-        let state, formulary = startFormulary state
-        let state, parenteralia = startParenteralia state
-
-        state, Cmd.batch [ formulary; parenteralia ]
+        { state with
+            Ui.EmergencyListFilter = [||]
+            Ui.ContinuousMedsFilter = [||]
+        }
+        |> runLoader (LoaderMachine.LoaderMsg.PatientSet pat)
 
 
     /// What one patient effect changes, and the command it sends. A patient change answers under
@@ -1019,153 +1040,6 @@ module private Elmish =
         { state with Lanes = lanes } |> runEffects applyLanesEffect effects
 
 
-    /// What a failed start-up load is logged as; never in the trail.
-    let loadFailed landing =
-        match landing with
-        | LoaderMachine.Landing.Settings(Error err) -> Some("cannot load the server settings", err)
-        | LoaderMachine.Landing.Localization(Error err) -> Some("cannot load localization", err)
-        | LoaderMachine.Landing.NormalValues(Error err) -> Some("cannot load normal values", err)
-        | LoaderMachine.Landing.BolusMedication(Error err) -> Some("cannot load emergency treatment", err)
-        | LoaderMachine.Landing.ContinuousMedication(Error err) -> Some("cannot load continuous medication", err)
-        | LoaderMachine.Landing.Products(Error err) -> Some("cannot load products", err)
-        | _ -> None
-
-
-    /// What one loader effect changes, and the command it sends: an alert on the snackbar, the
-    /// error banner raised or cleared, the notice to the Session, a call whose answer comes back as
-    /// the loader machine's message, or a wait.
-    let applyLoaderEffect effect (state: State) =
-        let landed landing result = LoaderMsg(LoaderMachine.LoaderMsg.Landed(landing result))
-        let opened = tokenOf state.Lanes.Session
-
-        let later seconds msg =
-            async {
-                do! Async.Sleep(seconds * 1000)
-                return LoaderMsg msg
-            }
-            |> Cmd.fromAsync
-
-        match effect with
-        | LoaderMachine.LoaderEffect.FetchSettings ->
-            state,
-            Cmd.OfAsync.either
-                serverApi.getSettings
-                ()
-                (Ok >> landed LoaderMachine.Landing.Settings)
-                (fun ex -> Error ex.Message |> landed LoaderMachine.Landing.Settings)
-        | LoaderMachine.LoaderEffect.FetchLocalization ->
-            state, Cmd.OfAsync.perform GoogleDocs.loadLocalization () (landed LoaderMachine.Landing.Localization)
-        | LoaderMachine.LoaderEffect.FetchNormalValues ->
-            state, Cmd.OfAsync.perform GoogleDocs.loadNormalValues () (landed LoaderMachine.Landing.NormalValues)
-        | LoaderMachine.LoaderEffect.FetchBolusMedication ->
-            state, Cmd.OfAsync.perform GoogleDocs.loadBolusMedication () (landed LoaderMachine.Landing.BolusMedication)
-        | LoaderMachine.LoaderEffect.FetchContinuousMedication ->
-            state,
-            Cmd.OfAsync.perform
-                GoogleDocs.loadContinuousMedication
-                ()
-                (landed LoaderMachine.Landing.ContinuousMedication)
-        | LoaderMachine.LoaderEffect.FetchProducts ->
-            state, Cmd.OfAsync.perform GoogleDocs.loadProducts () (landed LoaderMachine.Landing.Products)
-        | LoaderMachine.LoaderEffect.FetchDrugNames ->
-            state,
-            Cmd.OfAsync.perform
-                serverApi.processInteraction
-                {
-                    Opened = opened
-                    Command = Api.InteractionCommand.GetDrugNames
-                }
-                (landed (fun result -> LoaderMachine.Landing.DrugNames(opened, result)))
-        | LoaderMachine.LoaderEffect.CheckServer ->
-            state,
-            Cmd.OfAsync.either
-                serverApi.testApi
-                ()
-                (fun _ -> LoaderMsg(LoaderMachine.LoaderMsg.ServerChecked(Ok())))
-                (fun ex -> LoaderMsg(LoaderMachine.LoaderMsg.ServerChecked(Error ex.Message)))
-        | LoaderMachine.LoaderEffect.CheckServerLater seconds ->
-            state, LoaderMachine.LoaderMsg.CheckServer |> later seconds
-        | LoaderMachine.LoaderEffect.AskAgainLater(load, seconds) ->
-            state, LoaderMachine.LoaderMsg.Start load |> later seconds
-        | LoaderMachine.LoaderEffect.Alert alert ->
-            let terms = Global.getLocalizedTerm state.Loader.Localization state.Ui.Context.Localization
-            let text = alert |> Views.AlertText.text terms
-            { state with Ui.Snackbar = Snackbar.shown text (Views.AlertText.severity alert) }, Cmd.none
-        // the server check runs again every few seconds while the server is down, so it shows
-        // the banner alone and no snackbar
-        | LoaderMachine.LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Server, errs) ->
-            Logging.error "server niet bereikbaar" errs
-
-            { state with
-                Ui.ServerError =
-                    ServerErrorPolicy.raised
-                        ServerErrorPolicy.ErrorSource.Server
-                        "De server is niet bereikbaar. Controleer of de server is gestart."
-                    |> Some
-            },
-            Cmd.none
-        | LoaderMachine.LoaderEffect.Failed(source, errs) -> (state, Cmd.none) |> processError source errs
-        | LoaderMachine.LoaderEffect.Succeeded source -> (state, Cmd.none) |> clearError source
-        | LoaderMachine.LoaderEffect.NoticeReceived(from, notice) ->
-            state, Cmd.ofMsg (SessionMsg(SessionMsg.NoticeReceived(from, notice)))
-
-
-    /// A message through the loader machine: the step recorded in the trail and its effects
-    /// carried out. The settings landed also set the language default and the demo flag, until the
-    /// shell takes them.
-    let runLoader msg (state: State) =
-        match msg with
-        | LoaderMachine.LoaderMsg.Landed landing ->
-            landing |> loadFailed |> Option.iter (fun (text, err) -> Logging.error text err)
-        | _ -> ()
-
-        let loader, effects = state.Loader |> LoaderMachine.transition msg
-
-        let state =
-            match msg with
-            // the server default counts unless the url chose; the User cannot choose before the
-            // settings land, since the start-up holds the application until then
-            | LoaderMachine.LoaderMsg.Landed(LoaderMachine.Landing.Settings(Ok settings)) ->
-                StepTrail.confirmDemo settings.IsDemo
-
-                { state with Ui.IsDemo = settings.IsDemo }
-                |> withLanguage (languageOf state |> LanguagePolicy.Language.onServerDefault settings.Language)
-            // no settings: the client keeps its own defaults, which is what it did before
-            | LoaderMachine.LoaderMsg.Landed(LoaderMachine.Landing.Settings(Error _)) ->
-                StepTrail.confirmDemo false
-                state
-            | _ -> state
-
-        StepTrail.record (fun no at -> Trail.loader no at msg (loader, effects))
-
-        { state with Loader = loader } |> runEffects applyLoaderEffect effects
-
-
-    /// What the pages show refreshed over reloaded resources, out in the update that lands the
-    /// reload's answer: the workbench evaluated again as it is, which takes the formulary and the
-    /// parenteralia with it, or those two alone without a patient. A reload seed carries no
-    /// choices.
-    let refreshPages (state: State) =
-        match patientOf state with
-        | Some _ ->
-            let seed =
-                {
-                    Source = SeedSource.Reload
-                    Indication = None
-                    Generic = None
-                    Route = None
-                    Form = None
-                    DoseType = None
-                }
-
-            state
-            |> runLanes (LanesMsg.Workbench(OrderContextMsg.SeedFilter(seed, newRequest ())))
-        | None ->
-            let state, formulary = startFormulary state
-            let state, parenteralia = startParenteralia state
-            state, Cmd.batch [ formulary; parenteralia ]
-
-
     /// Whether the patient context is held; the panel cannot change the patient then.
     let patientHeld (state: State) =
         HeldPanelPolicy.held (SessionState.view state.Lanes.Session) (OrderPlanState.changed state.Lanes.OrderPlan)
@@ -1179,8 +1053,6 @@ module private Elmish =
 
         LoaderMachine.LoaderState.readings state.Loader
         @ [
-            Busy.Load.Formulary, reading state.Fetches.Formulary
-            Busy.Load.Parenteralia, reading state.Fetches.Parenteralia
             Busy.Load.Interactions, reading state.Fetches.Interactions
             Busy.Load.LogFiles, reading state.Admin.LogFiles
             Busy.Load.LogAnalysis, reading state.Admin.LogAnalysisReport
@@ -1361,11 +1233,11 @@ module private Elmish =
                             Busy.Load.ContinuousMedication
                             Busy.Load.Products
                             Busy.Load.Localization
+                            Busy.Load.Formulary
+                            Busy.Load.Parenteralia
                             Busy.Load.DrugNames
                         ] do
                         Cmd.ofMsg (LoaderMsg(LoaderMachine.LoaderMsg.Start load))
-                    Cmd.ofMsg (LoadFormulary Started)
-                    Cmd.ofMsg (LoadParenteralia Started)
                     applied
                 ]
 
@@ -1394,24 +1266,6 @@ module private Elmish =
                 state, Cmd.batch [ cmd; Cmd.ofMsg Logout ]
             else
                 state, cmd
-
-        // a page's choices seeded over the workbench, only while it has a patient, as a page shows
-        // its choices only then
-        let seedFromPage source ind gen rte frm dt (state: State) =
-            match OrderContextState.patient state.Lanes.OrderContext with
-            | Some _ ->
-                let seed =
-                    {
-                        Source = source
-                        Indication = ind
-                        Generic = gen
-                        Route = rte
-                        Form = frm
-                        DoseType = dt
-                    }
-
-                Cmd.ofMsg (OrderContextMsg(OrderContextMsg.SeedFilter(seed, newRequest ())))
-            | None -> Cmd.none
 
         let selectMedicationItem generic indication route doseType state =
             let nonEmpty s = if s = "" then None else Some s
@@ -1526,7 +1380,7 @@ module private Elmish =
 
             let state, refresh =
                 match resp with
-                | Api.AdminResponse.ResourcesReloaded -> refreshPages state
+                | Api.AdminResponse.ResourcesReloaded -> state |> runLoader LoaderMachine.LoaderMsg.ResourcesReloaded
                 | _ -> state, Cmd.none
 
             state, Cmd.batch [ cmd; refresh ]
@@ -1554,24 +1408,11 @@ module private Elmish =
             Cmd.none
 
         | UpdatePage page ->
-            let retryDrugNames =
-                match state.Loader.DrugNames with
-                | Resolved _
-                | InProgress -> Cmd.none
-                | _ -> Cmd.ofMsg (LoaderMsg(LoaderMachine.LoaderMsg.Start Busy.Load.DrugNames))
-
             if page = Global.Pages.Settings && not state.Admin.IsAuthenticated then
                 state, Cmd.none
-            else if page = Global.Pages.Settings then
-                { state with Ui.Page = page }, retryDrugNames
             else
-                let loadCmds =
-                    match page with
-                    | Global.Pages.Formulary -> [ Cmd.ofMsg (LoadFormulary Started) ]
-                    | Global.Pages.Parenteralia -> [ Cmd.ofMsg (LoadParenteralia Started) ]
-                    | _ -> []
-
-                { state with Ui.Page = page }, Cmd.batch (retryDrugNames :: loadCmds)
+                { state with Ui.Page = page }
+                |> runLoader (LoaderMachine.LoaderMsg.PageShown page)
 
         | UpdatePatient dto ->
             state
@@ -1738,97 +1579,6 @@ module private Elmish =
                 )
             )
             |> clear
-
-        // asked again over the formulary shown, which stays shown until the answer; a second
-        // request while one runs is dropped
-        | LoadFormulary Started ->
-            match state.Fetches.Formulary with
-            | InProgress
-            | Refreshing _ -> state, Cmd.none
-            | _ -> startFormulary state
-
-        | LoadFormulary(Finished(Ok msg)) ->
-            processApiMsg state msg applyFormulary
-            |> clearError ServerErrorPolicy.ErrorSource.Formulary
-            |> askFormularyAgain
-
-        | LoadFormulary(Finished(Error err)) ->
-            ({ state with Fetches.Formulary = HasNotStartedYet }, Cmd.none)
-            |> processError ServerErrorPolicy.ErrorSource.Formulary err
-            |> askFormularyAgain
-
-        | UpdateFormulary form ->
-            let state =
-                { state with
-                    Fetches.Formulary = Resolved form
-                    Fetches.Parenteralia =
-                        state.Fetches.Parenteralia
-                        |> Deferred.map (fun par ->
-                            { par with
-                                Generic = form.Generic
-                                Route = form.Route
-                                Form = form.Form
-                            }
-                        )
-                }
-
-            state,
-            Cmd.batch
-                [
-                    Cmd.ofMsg (LoadFormulary Started)
-                    // the formulary's choices seeded over the workbench, with the formulary's rule
-                    seedFromPage
-                        SeedSource.Formulary
-                        form.Indication
-                        form.Generic
-                        form.Route
-                        form.Form
-                        form.DoseType
-                        state
-                    Cmd.ofMsg (LoadParenteralia Started)
-                ]
-
-        | LoadParenteralia Started ->
-            match state.Fetches.Parenteralia with
-            | InProgress
-            | Refreshing _ -> state, Cmd.none
-            | _ -> startParenteralia state
-
-        | LoadParenteralia(Finished(Ok msg)) ->
-            processApiMsg state msg applyParenteralia
-            |> clearError ServerErrorPolicy.ErrorSource.Parenteralia
-            |> askParenteraliaAgain
-
-        | LoadParenteralia(Finished(Error err)) ->
-            ({ state with Fetches.Parenteralia = HasNotStartedYet }, Cmd.none)
-            |> processError ServerErrorPolicy.ErrorSource.Parenteralia err
-            |> askParenteraliaAgain
-
-        | UpdateParenteralia par ->
-            let state =
-                { state with
-                    Fetches.Parenteralia = Resolved par
-                    Fetches.Formulary =
-                        state.Fetches.Formulary
-                        |> Deferred.map (fun form ->
-                            { form with
-                                Indication = None
-                                Generic = par.Generic
-                                Route = par.Route
-                                Form = par.Form
-                                DoseType = None
-                            }
-                        )
-                }
-
-            state,
-            Cmd.batch
-                [
-                    Cmd.ofMsg (LoadFormulary Started)
-                    // the parenteralia page's choices seeded over the workbench, with its rule
-                    seedFromPage SeedSource.Parenteralia None par.Generic par.Route par.Form None state
-                    Cmd.ofMsg (LoadParenteralia Started)
-                ]
 
         | CheckInteractions drugs -> checkInteractions drugs state
 
@@ -2037,12 +1787,14 @@ type private ConcreteAppEnv
                 EditPatient p |> dispatch
 
     interface AppEnv.IFormulary with
-        member _.Formulary = state.Fetches.Formulary
-        member _.UpdateFormulary f = UpdateFormulary f |> dispatch
+        member _.Formulary = state.Loader.Formulary
+        member _.UpdateFormulary f =
+            LoaderMsg(LoaderMachine.LoaderMsg.FormularyChanged f) |> dispatch
 
     interface AppEnv.IParenteralia with
-        member _.Parenteralia = state.Fetches.Parenteralia
-        member _.UpdateParenteralia p = UpdateParenteralia p |> dispatch
+        member _.Parenteralia = state.Loader.Parenteralia
+        member _.UpdateParenteralia p =
+            LoaderMsg(LoaderMachine.LoaderMsg.ParenteraliaChanged p) |> dispatch
 
     interface AppEnv.IInteractions with
         member _.Interactions = state.Fetches.Interactions
