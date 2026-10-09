@@ -179,6 +179,13 @@ type Terms =
     | ``Patient Context Held``
     | ``Patient Context Held Remove``
     | ``Session Open Last Signed``
+    // the question before a url with a patient or a medication: it drops the work not signed,
+    // or leaves the launched Session
+    | ``Url Leave Title``
+    | ``Url Leave Text``
+    | ``Url Leave``
+    | ``Url Leave Session Title``
+    | ``Url Leave Session Text``
     // the panel's button that reads the patient from the EHR again
     | ``Patient Refresh``
     // what needs a patient on a page that works without one, said with what is missing

@@ -75,6 +75,9 @@ module private Elmish =
             // used without had loaded, once. It never goes back, since any later request out
             // would read as starting again and the gate would cover the application
             Started: bool
+            // the url the app shows, against which a url change is told apart, and the newer url
+            // the question about the new and changed orders waits on
+            Url: UrlPolicy.UrlState
         }
 
 
@@ -124,6 +127,33 @@ module private Elmish =
         }
 
 
+    /// The medication a "#/patient?..." url carries, each part when given.
+    type UrlMedication =
+        {|
+            indication: string option
+            medication: string option
+            route: string option
+            form: string option
+            dosetype: DoseType option
+        |}
+
+
+    /// What a "#/patient?..." url carries.
+    type UrlParts =
+        {
+            /// The patient, when the url gives a birth date or an age.
+            Patient: Patient option
+            /// The page, when the url names one.
+            Page: Global.Pages option
+            /// The language, when the url names one.
+            Language: Localization.Locales option
+            /// Whether the disclaimer shows.
+            Disclaimer: bool
+            /// The medication, when the url gives any part of it.
+            Medication: UrlMedication option
+        }
+
+
     type State =
         {
             // the lanes
@@ -139,6 +169,10 @@ module private Elmish =
 
     type Msg =
         | UrlChanged of string list
+        /// Yes to the question before a url with a patient or a medication: start over on it.
+        | LeaveForUrl
+        /// No to that question: the url the app shows is put back.
+        | StayOnUrl
         | AcceptDisclaimer
         | SessionMsg of SessionMsg
         | SigningMsg of SigningMsg
@@ -412,8 +446,21 @@ module private Elmish =
                 (fun result -> LoadInteractionsResult(check, result))
 
 
-    // url needs to be in format: http://localhost:8080/#patient?by=2&bm=0&bd=1
-    // * pg : el (emergency list) cm (continuous medication) pr (prescribe)
+    let private tryParseInt key paramsMap =
+        match Map.tryFind key paramsMap with
+        | Some(Route.Int v) -> Some v
+        | _ -> None
+
+    let private parsePatientParams paramsMap =
+        tryParseInt "wt" paramsMap,
+        tryParseInt "ht" paramsMap,
+        tryParseInt "gw" paramsMap |> Option.map Measures.toWeek,
+        tryParseInt "gd" paramsMap |> Option.map Measures.toDay,
+        Map.tryFind "dp" paramsMap
+
+    // url needs to be in format: http://localhost:8080/#/patient?by=2&bm=0&bd=1
+    // * pg: el (emergency list) cm (continuous medication) pr (prescribe) fm (formulary)
+    //   pe (parenteralia)
     // * ad: age in days
     // * by: birth year
     // * bm: birth month
@@ -431,26 +478,24 @@ module private Elmish =
     // * fr: form
     // * in: indication
     // * dt: dosetype
-    let private tryParseInt key paramsMap =
-        match Map.tryFind key paramsMap with
-        | Some(Route.Int v) -> Some v
-        | _ -> None
-
-    let private parsePatientParams paramsMap =
-        tryParseInt "wt" paramsMap,
-        tryParseInt "ht" paramsMap,
-        tryParseInt "gw" paramsMap |> Option.map Measures.toWeek,
-        tryParseInt "gd" paramsMap |> Option.map Measures.toDay,
-        Map.tryFind "dp" paramsMap
-
+    //
     // The patient, page, language, disclaimer and medication carried by an
     // anonymous "#/patient?..." url. A "#/session..." url carries none of these:
     // the session supplies the patient, so it yields the defaults
     // without a warning.
     let parsePatient sl =
+        let none =
+            {
+                Patient = None
+                Page = None
+                Language = None
+                Disclaimer = true
+                Medication = None
+            }
+
         match sl with
-        | [] -> None, None, None, true, None
-        | "session" :: _ -> None, None, None, true, None
+        | [] -> none
+        | "session" :: _ -> none
         | [ "patient"; Route.Query queryParams ] ->
             let paramsMap = Map.ofList queryParams
 
@@ -553,15 +598,28 @@ module private Elmish =
                     form = paramsMap |> Map.tryFind "fr"
                     dosetype = paramsMap |> Map.tryFind "dt" |> Option.map DoseType.doseTypeFromString
                 |}
-                |> Some
 
-            pat, page, lang, discl, med
+            // no medication when the url gives no part of it
+            let given =
+                med.indication.IsSome
+                || med.medication.IsSome
+                || med.route.IsSome
+                || med.form.IsSome
+                || med.dosetype.IsSome
+
+            {
+                Patient = pat
+                Page = page
+                Language = lang
+                Disclaimer = discl
+                Medication = if given then Some med else None
+            }
 
         | _ ->
             // only the route segment: the rest of the url is never logged
             Logging.warning "could not parse url" (sl |> List.head)
 
-            None, None, None, true, None
+            none
 
 
     /// What a "#/session?..." url carries: the Launch MainEHR opened GenPRES with, or the
@@ -607,10 +665,9 @@ module private Elmish =
     let eraseLaunch () = Browser.Dom.history.replaceState (null, "", "#/session")
 
 
-    let initialState pat page lang discl =
+    let initialState sl pat page lang discl =
         {
-            // a medication in the url is seeded by UrlChanged, which the router fires on mount too,
-            // once the patient is set; the patient reaches the plan through UpdatePatient
+            // the url's patient and medication are applied by init, over these lanes
             Lanes = Lanes.initial pat
             Fetches =
                 {
@@ -658,6 +715,7 @@ module private Elmish =
                     ContinuousMedsFilter = [||]
                     Snackbar = Snackbar.closed
                     Started = false
+                    Url = UrlPolicy.UrlState.Shown sl
                 }
         }
 
@@ -686,6 +744,18 @@ module private Elmish =
             (state.Lanes.OrderPlan |> OrderPlanState.work)
 
 
+    /// Whether a launched Session is open, which a url with a patient or a medication leaves.
+    let launched (state: State) =
+        match SessionState.view state.Lanes.Session with
+        | SessionView.Open _
+        | SessionView.Closing _ -> true
+        | _ -> false
+
+
+    /// Whether a url carries a patient or a medication.
+    let seeds (url: UrlParts) = url.Patient.IsSome || url.Medication.IsSome
+
+
     /// Make the key pair, then present the Launch with its public key.
     /// A browser that cannot make a key cannot launch; that is reported as a missing browser
     /// identity, the refusal whose text asks for a retry and then a relaunch.
@@ -706,42 +776,6 @@ module private Elmish =
         | Some(LaunchUrl.Launch launch) -> presentLaunch launch
         | Some(LaunchUrl.Refused refusal) -> Cmd.ofMsg (SessionMsg(SessionMsg.RefusedAtCallback refusal))
         | None -> Cmd.none
-
-
-    let init () : State * Cmd<Msg> =
-        let url = Router.currentUrl ()
-        let launchUrl = url |> parseLaunch
-
-        if launchUrl.IsSome then
-            eraseLaunch ()
-
-        let pat, page, lang, discl, _ = url |> parsePatient
-
-        let cmds =
-            Cmd.batch
-                [
-                    // a page load without a Launch resumes on the cookie (reload, IdP return)
-                    match launchUrl with
-                    | None -> Cmd.ofMsg (SessionMsg SessionMsg.Resume)
-                    | Some _ -> launchCmd launchUrl
-                    checkServer
-                    Cmd.ofMsg (LoadSettings Started)
-                    Cmd.ofMsg (LoadNormalValues Started)
-                    Cmd.ofMsg (LoadBolusMedication Started)
-                    Cmd.ofMsg (LoadContinuousMedication Started)
-                    Cmd.ofMsg (LoadProducts Started)
-                    Cmd.ofMsg (LoadLocalization Started)
-                    Cmd.ofMsg (LoadFormulary Started)
-                    Cmd.ofMsg (LoadParenteralia Started)
-                    Cmd.ofMsg (LoadInteractionDrugNames Started)
-                    // the url's patient sent as a patient change, so the workbench and the plan get
-                    // it; a Session that resumes on a patient replaces it
-                    match pat with
-                    | Some _ -> Cmd.ofMsg (UpdatePatient pat)
-                    | None -> Cmd.none
-                ]
-
-        initialState pat page lang discl, cmds
 
 
     let applyNormalValues (normalValues: Deferred<NormalValues>) (pat: Patient option) =
@@ -1367,6 +1401,142 @@ module private Elmish =
         { state with Ui.Snackbar = Snackbar.shown message "warning" }
 
 
+    /// The page, the language and the disclaimer of a url applied, and the url kept as the one
+    /// the app shows; no lane changes.
+    let applyPage sl (url: UrlParts) (state: State) =
+        // only an `la` parameter changes the language; a navigation keeps the current one
+        let language = languageOf state |> LanguagePolicy.Language.onUrl url.Language
+
+        { state with
+            Ui.ShowDisclaimer = url.Disclaimer
+            Ui.Page = url.Page |> Option.defaultValue Global.Pages.LifeSupport
+            // the path from the state; it also keeps the field apart from the Global.Context type
+            Ui.Context.Localization = language.Current
+            Ui.LanguageChosen = language.Chosen
+            Ui.Url = UrlPolicy.UrlState.Shown sl
+        }
+
+
+    /// A url applied in full: its patient, its medication, its page and its launch.
+    let applyUrl sl (url: UrlParts) (state: State) =
+        let launchUrl = sl |> parseLaunch
+
+        if launchUrl.IsSome then
+            eraseLaunch ()
+
+        // an open Session supplies the patient: a launched patient is never assigned from the
+        // url. The page load and a start-over come here without one; only a launch url can
+        // still meet an open or closing Session
+        let anonymous =
+            match SessionState.view state.Lanes.Session with
+            | SessionView.Open _
+            | SessionView.Closing _ -> false
+            | _ -> true
+
+        let pat =
+            if anonymous then
+                url.Patient
+            else
+                state.Lanes.Patient |> PatientState.draft
+
+        // the url's patient taken here, not by a message of its own, and sent as a patient
+        // change; while a Session holds the patient the draft stays the one there was
+        let state, patientCmd =
+            if anonymous then
+                state
+                |> runLanes (
+                    LanesMsg.Patient(PatientMsg.Changed(pat, PatientDraftPolicy.Estimates.Renewed, newRequest ()))
+                )
+            else
+                state, Cmd.none
+
+        // a medication in the url is seeded over the workbench as it is, for the patient held
+        // or the one the url sets, which the workbench waits for; without a patient it is
+        // dropped and said, since the patient is part of the filter and nothing waits for one
+        let state, seed =
+            match url.Medication with
+            | None -> state, Cmd.none
+            | Some m when (patientOf state).IsSome ->
+                let seed =
+                    {
+                        Source = SeedSource.Url
+                        Indication = m.indication
+                        Generic = m.medication
+                        Route = m.route
+                        Form = m.form
+                        DoseType = m.dosetype
+                    }
+
+                state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.SeedFilter(seed, newRequest ())))
+            | Some m ->
+                Logging.warning "a medication in the url without a patient is dropped" m.medication
+                noPatientForMedication state, Cmd.none
+
+        // the address bar shows "#/session" once a launch url is erased
+        state |> applyPage (if launchUrl.IsSome then [ "session" ] else sl) url,
+        Cmd.batch
+            [
+                // a seed that comes before the patient waits for it in the workbench
+                patientCmd
+                seed
+                launchCmd launchUrl
+            ]
+
+
+    /// The url the app shows put back in the address bar. The url change that fires then is the
+    /// url the app shows, so it changes nothing.
+    let putBack (state: State) =
+        state, Cmd.ofEffect (fun _ -> Router.navigate (state.Ui.Url |> UrlPolicy.UrlState.shown |> Array.ofList))
+
+
+    /// The patient, the workbench, the plan, its interactions and the signing started over on a
+    /// url with a patient or a medication, the Session left, and the url applied as at a page
+    /// load.
+    let startOver sl (url: UrlParts) (state: State) =
+        // a check still out is for the old plan, and is dropped
+        let state, _ = state |> checkInteractions []
+        let state, leave = state |> runLanes (LanesMsg.StartOver(url.Patient, None))
+        let state, applied = state |> applyUrl sl url
+        state, Cmd.batch [ leave; applied ]
+
+
+    /// The page load: the url applied at once, so the router's first report, of the same url,
+    /// changes nothing; then the Session resumed, or left for a url with a patient or a
+    /// medication, and the loads started.
+    let init () : State * Cmd<Msg> =
+        let sl = Router.currentUrl ()
+        let url = sl |> parsePatient
+
+        let state, applied =
+            initialState sl url.Patient url.Page url.Language url.Disclaimer
+            |> applyUrl sl url
+
+        let cmds =
+            Cmd.batch
+                [
+                    // a page load without a Launch resumes on the cookie (reload, IdP return); one
+                    // with a patient or a medication leaves the Session the cookie may hold. A
+                    // launch is presented by the url applied
+                    match sl |> parseLaunch with
+                    | None when seeds url -> Cmd.ofMsg (SessionMsg(SessionMsg.UrlMovedOn None))
+                    | None -> Cmd.ofMsg (SessionMsg SessionMsg.Resume)
+                    | Some _ -> Cmd.none
+                    checkServer
+                    Cmd.ofMsg (LoadSettings Started)
+                    Cmd.ofMsg (LoadNormalValues Started)
+                    Cmd.ofMsg (LoadBolusMedication Started)
+                    Cmd.ofMsg (LoadContinuousMedication Started)
+                    Cmd.ofMsg (LoadProducts Started)
+                    Cmd.ofMsg (LoadLocalization Started)
+                    Cmd.ofMsg (LoadFormulary Started)
+                    Cmd.ofMsg (LoadParenteralia Started)
+                    Cmd.ofMsg (LoadInteractionDrugNames Started)
+                    applied
+                ]
+
+        state, cmds
+
+
 #if DEBUG
     /// A state may be traced only once the server has said it serves the demo data: never before the
     /// settings arrive, and never against production. The trail keeps the same gate through
@@ -1638,79 +1808,39 @@ module private Elmish =
             )
 
         | UrlChanged sl ->
-            let launchUrl = sl |> parseLaunch
+            // a question still open goes with any url change: the url it was about is no longer
+            // the one in the address bar. The change is then decided against the url shown alone,
+            // so the policy never sees an open question
+            let state = { state with Ui.Url = state.Ui.Url |> UrlPolicy.UrlState.close }
 
-            if launchUrl.IsSome then
-                eraseLaunch ()
+            match sl |> parseLaunch with
+            // for now a launch url is presented over what there is; it is to wait for the close of
+            // the Session there is first (#1224)
+            | Some _ -> state |> applyUrl sl (sl |> parsePatient)
+            | None ->
+                let url = sl |> parsePatient
+                let change = UrlPolicy.change state.Ui.Url sl (seeds url)
 
-            let pat, page, lang, discl, med = sl |> parsePatient
+                let underWay = state.Lanes.Signing |> SigningState.view |> SigningPolicy.underWay
 
-            // an open Session supplies the patient: url patient parameters count only while
-            // no Session holds one: a launched patient is never assigned from the url. The
-            // router fires UrlChanged on mount too, while a Resume may still be in flight,
-            // so only Open and Closing block the url patient
-            let anonymous =
-                match SessionState.view state.Lanes.Session with
-                | SessionView.Open _
-                | SessionView.Closing _ -> false
-                | _ -> true
+                let action = UrlPolicy.action change underWay (busyOut state) (hasUnsignedWork state) (launched state)
 
-            let pat =
-                if anonymous then
-                    pat
-                else
-                    state.Lanes.Patient |> PatientState.draft
+                // what the url change is and does, never the url: it holds patient data
+                Logging.log "url change" $"%A{change} -> %A{action}"
 
-            // only an `la` parameter changes the language; a navigation keeps the current one
-            let language = languageOf state |> LanguagePolicy.Language.onUrl lang
+                match action with
+                | UrlPolicy.UrlAction.ApplyPage -> state |> applyPage sl url, Cmd.none
+                | UrlPolicy.UrlAction.Ignore -> state, Cmd.none
+                | UrlPolicy.UrlAction.PutBack -> state |> putBack
+                | UrlPolicy.UrlAction.Ask -> { state with Ui.Url = state.Ui.Url |> UrlPolicy.UrlState.ask sl }, Cmd.none
+                | UrlPolicy.UrlAction.StartOver -> state |> startOver sl url
 
-            // the url's patient taken here, not by a message of its own, and sent as a patient
-            // change; while a Session holds the patient the draft stays the one there was
-            let state, patientCmd =
-                if anonymous then
-                    state
-                    |> runLanes (
-                        LanesMsg.Patient(PatientMsg.Changed(pat, PatientDraftPolicy.Estimates.Renewed, newRequest ()))
-                    )
-                else
-                    state, Cmd.none
+        | LeaveForUrl ->
+            match state.Ui.Url |> UrlPolicy.UrlState.asked with
+            | Some sl -> state |> startOver sl (sl |> parsePatient)
+            | None -> state, Cmd.none
 
-            // a medication in the url is seeded over the workbench as it is, for the patient held
-            // or the one the url sets, which the workbench waits for; without a patient it is
-            // dropped and said, since the patient is part of the filter and nothing waits for one
-            let state, seed =
-                match med with
-                | None -> state, Cmd.none
-                | Some m when (patientOf state).IsSome ->
-                    let seed =
-                        {
-                            Source = SeedSource.Url
-                            Indication = m.indication
-                            Generic = m.medication
-                            Route = m.route
-                            Form = m.form
-                            DoseType = m.dosetype
-                        }
-
-                    state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.SeedFilter(seed, newRequest ())))
-                | Some m ->
-                    Logging.warning "a medication in the url without a patient is dropped" m.medication
-                    noPatientForMedication state, Cmd.none
-
-            { state with
-                Ui.ShowDisclaimer = discl
-                Ui.Page = page |> Option.defaultValue Global.Pages.LifeSupport
-                // the path from the state; it also keeps the field apart from the Global.Context type
-                Ui.Context.Localization = language.Current
-                Ui.LanguageChosen = language.Chosen
-            },
-            Cmd.batch
-                [
-                    // a seed that comes before the patient waits for it in the workbench
-                    patientCmd
-                    seed
-                    launchCmd launchUrl
-                ]
+        | StayOnUrl -> { state with Ui.Url = state.Ui.Url |> UrlPolicy.UrlState.close } |> putBack
 
         | SessionMsg msg ->
             // a failed close is reported only when it was this session's close: a CloseFailed
@@ -2456,6 +2586,35 @@ let View () =
                 |}
         | None -> null
 
+    let getTerm = Global.getLocalizedTerm state.Fetches.Localization state.Ui.Context.Localization
+
+    // the question before a url with a patient or a medication: it leaves the launched Session,
+    // or drops the work not signed. The browser asks the second itself for a reload or a closed
+    // tab, but not for a change of the url
+    let title, text =
+        if launched state then
+            Terms.``Url Leave Session Title`` |> getTerm "Sessie verlaten?",
+            Terms.``Url Leave Session Text``
+            |> getTerm
+                "De sessie met de patiënt uit het EPD wordt gesloten en de patiënt uit de url wordt gebruikt, zonder sessie. Nieuwe en gewijzigde orders en de medicatie die wordt voorgeschreven gaan verloren. Wilt u doorgaan?"
+        else
+            Terms.``Url Leave Title`` |> getTerm "Orderplan verlaten?",
+            Terms.``Url Leave Text``
+            |> getTerm
+                "De nieuwe en gewijzigde orders en de medicatie die wordt voorgeschreven gaan verloren. Wilt u doorgaan?"
+
+    let leaveDialog =
+        Components.ConfirmDialog.View
+            {|
+                isOpen = (state.Ui.Url |> UrlPolicy.UrlState.asked).IsSome
+                title = title
+                text = text
+                confirmLabel = Terms.``Url Leave`` |> getTerm "Verlaten"
+                cancelLabel = Terms.Cancel |> getTerm "Annuleren"
+                onConfirm = fun () -> LeaveForUrl |> dispatch
+                onCancel = fun () -> StayOnUrl |> dispatch
+            |}
+
     let genPresProps =
         {|
             appEnv = appEnv
@@ -2496,6 +2655,7 @@ let View () =
                 <CssBaseline />
                 {serverErrorBanner}
                 {Components.Router.View {| onUrlChanged = UrlChanged >> dispatch |}}
+                {leaveDialog}
                 {Pages.GenPres.View genPresProps
                  |> toReact
                  |> Components.Context.Context state.Ui.Context}
