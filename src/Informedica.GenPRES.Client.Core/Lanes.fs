@@ -44,9 +44,10 @@ type LanesMsg =
     /// and the workbench is emptied under the reset request id.
     | Prescribe of orderId: string * request: string * reset: string
     /// The url brought a patient, a medication or a launch. The patient, the workbench, the plan
-    /// and the signing are emptied, as when the page loads with this patient. The Session is
-    /// closed, and the launch, if there is one, is opened after that.
-    | StartOver of draft: Patient option * next: (Launch * PublicKey) option
+    /// and the signing are emptied, as when the page loads with this patient, and the Session is
+    /// closed. A launch is not part of this message: the App presents it to the Session once its
+    /// browser key is made, and the Session opens it after the close has answered.
+    | StartOver of draft: Patient option
 
 
 /// The machines' effects, each as its machine emitted it.
@@ -155,9 +156,9 @@ let rec step msg (lanes: LanesState) =
                 lanes, effects, taken
         | None -> lanes, [], []
     // an answer to a request of a lane set back finds no request and is dropped
-    | LanesMsg.StartOver(draft, next) ->
+    | LanesMsg.StartOver draft ->
         let reset = { initial draft with Session = lanes.Session }
-        let lanes, effects, taken = step (LanesMsg.Session(SessionMsg.UrlMovedOn next)) reset
+        let lanes, effects, taken = step (LanesMsg.Session SessionMsg.UrlMovedOn) reset
         lanes, effects, LanesStep.StartedOver reset :: taken
 
 

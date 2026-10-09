@@ -352,7 +352,7 @@ module Session =
     /// shows the launch, the key, the mailed code, the PIN, the token or whom the Session is for.
     let msg (msg: SessionMsg) =
         match msg with
-        | SessionMsg.Present _ -> "Present"
+        | SessionMsg.PresentLaunch _ -> "PresentLaunch"
         | SessionMsg.Outcome(_, _, r) -> $"Outcome %s{r |> Part.result launchOutcome}"
         | SessionMsg.Retry -> "Retry"
         | SessionMsg.Resume -> "Resume"
@@ -361,8 +361,7 @@ module Session =
         | SessionMsg.PinAnswered r -> $"PinAnswered %s{r |> Part.result pinOutcome}"
         | SessionMsg.RefusedAtCallback r -> $"RefusedAtCallback %s{Part.launchRefusal r}"
         | SessionMsg.OpenAnonymous -> "OpenAnonymous"
-        | SessionMsg.UrlMovedOn None -> "UrlMovedOn"
-        | SessionMsg.UrlMovedOn(Some _) -> "UrlMovedOn launch"
+        | SessionMsg.UrlMovedOn -> "UrlMovedOn"
         | SessionMsg.Close -> "Close"
         | SessionMsg.Closed -> "Closed"
         | SessionMsg.CloseFailed _ -> "CloseFailed"

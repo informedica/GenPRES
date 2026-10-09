@@ -115,31 +115,51 @@ module SessionMachineTests =
 
         let presentTests =
             testList
-                "Present"
+                "PresentLaunch"
                 [
                     test "from Anonymous starts attempt 1 and calls the server" {
-                        transition (SessionMsg.Present(launchA, keyA)) SessionState.anonymous
+                        transition (SessionMsg.PresentLaunch(launchA, keyA)) SessionState.anonymous
                         |> Expect.equal "launching" (launching, [ SessionEffect.CallPresentLaunch(launchA, keyA) ])
                     }
 
                     test "the same Launch while it is in flight is a no-op, even with another key" {
-                        transition (SessionMsg.Present(launchA, keyB)) (SessionState.launching launchA keyA 2)
+                        transition (SessionMsg.PresentLaunch(launchA, keyB)) (SessionState.launching launchA keyA 2)
                         |> Expect.equal "unchanged" (SessionState.launching launchA keyA 2, [])
                     }
 
-                    test "another Launch supersedes the one in flight" {
-                        transition (SessionMsg.Present(launchB, keyA)) launching
+                    test "another Launch waits for the outcome of the one in flight" {
+                        let state, effects = transition (SessionMsg.PresentLaunch(launchB, keyA)) launching
+
+                        effects |> Expect.isEmpty "nothing sent"
+                        state |> SessionState.view |> Expect.equal "launching" (SessionView.Launching 1)
+
+                        transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.RedirectTo "https://idp"))) state
                         |> Expect.equal
-                            "launching B"
+                            "B presented, A's redirect not followed"
                             (SessionState.launching launchB keyA 1, [ SessionEffect.CallPresentLaunch(launchB, keyA) ])
                     }
 
+                    test "over an open Session or a request out, the launch is presented once the close has answered" {
+                        let waiting = SessionState.leaving (SessionFollow.Launch(launchA, keyA))
+
+                        for name, state, effects in
+                            [
+                                "Open", SessionState.opened full None, [ SessionEffect.CallCloseSession ]
+                                "Resuming", SessionState.resuming, [ SessionEffect.CallCloseSession ]
+                                "Closing", SessionState.closing full, []
+                            ] do
+                            transition (SessionMsg.PresentLaunch(launchA, keyA)) state
+                            |> Expect.equal name (waiting, effects)
+
+                        transition SessionMsg.Closed waiting
+                        |> Expect.equal "presented" (launching, [ SessionEffect.CallPresentLaunch(launchA, keyA) ])
+                    }
+
                     testList
-                        "starts a fresh presentation from every other state"
+                        "starts a fresh presentation with nothing out and no Session open"
                         [
                             for name, state in
                                 [
-                                    "Open", SessionState.opened full None
                                     "Refused", SessionState.refused LaunchRefusal.NoRole
                                     // the same Launch kept after a refusal, or the server unreachable,
                                     // is presented afresh: only a presentation under way is kept
@@ -147,11 +167,9 @@ module SessionMachineTests =
                                     SessionState.retryable LaunchRefusal.NoBrowserIdentity launchA keyA
                                     "Unreachable", SessionState.unreachable launchB keyB
                                     "Unreachable, the same Launch", SessionState.unreachable launchA keyA
-                                    "Resuming", SessionState.resuming
-                                    "Closing", SessionState.closing full
                                 ] do
                                 test name {
-                                    transition (SessionMsg.Present(launchA, keyA)) state
+                                    transition (SessionMsg.PresentLaunch(launchA, keyA)) state
                                     |> Expect.equal
                                         "launching"
                                         (launching, [ SessionEffect.CallPresentLaunch(launchA, keyA) ])
@@ -288,7 +306,7 @@ module SessionMachineTests =
                         let err = SessionMsg.Outcome(launchA, keyA, Error "down")
 
                         let state, effects =
-                            run SessionState.anonymous [ SessionMsg.Present(launchA, keyA); err; err; err ]
+                            run SessionState.anonymous [ SessionMsg.PresentLaunch(launchA, keyA); err; err; err ]
 
                         state |> Expect.equal "unreachable" (SessionState.unreachable launchA keyA)
 
@@ -315,18 +333,20 @@ module SessionMachineTests =
                                 |> Expect.equal "unchanged" (launching, [])
                             }
 
-                            test "an outcome after the presentation was superseded is dropped" {
+                            test "an outcome after a newer launch came closes its Session and reaches nothing" {
                                 let state, effects =
                                     run
                                         SessionState.anonymous
                                         [
-                                            SessionMsg.Present(launchA, keyA)
-                                            SessionMsg.Present(launchB, keyA)
+                                            SessionMsg.PresentLaunch(launchA, keyA)
+                                            SessionMsg.PresentLaunch(launchB, keyA)
                                             SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened full))
                                         ]
 
                                 state
-                                |> Expect.equal "still launching B" (SessionState.launching launchB keyA 1)
+                                |> Expect.equal
+                                    "A's Session closing, B waiting"
+                                    (SessionState.leaving (SessionFollow.Launch(launchB, keyA)))
 
                                 effects
                                 |> List.exists (
@@ -438,7 +458,7 @@ module SessionMachineTests =
                         transition (SessionMsg.Resumed(Ok(ResumeResult.Enrolling pending))) SessionState.resuming
                         |> Expect.equal "enrolling" (SessionState.enrolling pending None, [])
 
-                        transition (SessionMsg.Present(launchB, keyB)) (SessionState.enrolling pending None)
+                        transition (SessionMsg.PresentLaunch(launchB, keyB)) (SessionState.enrolling pending None)
                         |> Expect.equal "presents" (SessionState.present launchB keyB)
                     }
 
@@ -448,7 +468,7 @@ module SessionMachineTests =
                         transition SessionMsg.OpenAnonymous ended
                         |> Expect.equal "anonymous" (SessionState.anonymous, [ SessionEffect.SetPatient None ])
 
-                        transition (SessionMsg.Present(launchB, keyB)) ended
+                        transition (SessionMsg.PresentLaunch(launchB, keyB)) ended
                         |> Expect.equal "presents" (SessionState.present launchB keyB)
                     }
 
@@ -595,7 +615,7 @@ module SessionMachineTests =
                             transition SessionMsg.Closed state |> Expect.equal "unchanged" (state, [])
                     }
 
-                    test "a close that completes after a newer session opened does not touch it" {
+                    test "a launch during a close is presented once the close has answered" {
                         let newer = sessionWith (Some "thumb-2") (Some patient)
 
                         let state, effects =
@@ -603,19 +623,17 @@ module SessionMachineTests =
                                 (SessionState.opened full None)
                                 [
                                     SessionMsg.Close
-                                    // a new launch supersedes the close in flight
-                                    SessionMsg.Present(launchB, keyB)
-                                    SessionMsg.Outcome(launchB, keyB, Ok(LaunchOutcome.Opened newer))
-                                    // the old close completes now
+                                    // the launch waits: the close deletes the cookie the launch sets
+                                    SessionMsg.PresentLaunch(launchB, keyB)
                                     SessionMsg.Closed
+                                    SessionMsg.Outcome(launchB, keyB, Ok(LaunchOutcome.Opened newer))
                                 ]
 
-                        state
-                        |> Expect.equal "the newer session stays open" (SessionState.opened newer None)
+                        state |> Expect.equal "the newer session open" (SessionState.opened newer None)
 
                         effects
                         |> Expect.equal
-                            "no SetPatient None after the newer session opened"
+                            "no SetPatient None from the close"
                             [
                                 SessionEffect.CallCloseSession
                                 SessionEffect.CallPresentLaunch(launchB, keyB)
@@ -684,7 +702,7 @@ module SessionMachineTests =
                             run
                                 SessionState.anonymous
                                 [
-                                    SessionMsg.Present(launchA, keyA)
+                                    SessionMsg.PresentLaunch(launchA, keyA)
                                     SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened full))
                                     SessionMsg.Close
                                     SessionMsg.Closed
@@ -954,7 +972,7 @@ module SessionMachineTests =
                 "UrlMovedOn"
                 [
                     test "an open Session is closed, and the close's answer sends nothing, success or failure" {
-                        let state, effects = transition (SessionMsg.UrlMovedOn None) (SessionState.opened full None)
+                        let state, effects = transition SessionMsg.UrlMovedOn (SessionState.opened full None)
 
                         (state, effects)
                         |> Expect.equal "leaving" (away, [ SessionEffect.CallCloseSession ])
@@ -969,7 +987,7 @@ module SessionMachineTests =
                     }
 
                     test "the user's close out stays out, and its answer clears no patient" {
-                        let state, effects = transition (SessionMsg.UrlMovedOn None) (SessionState.closing full)
+                        let state, effects = transition SessionMsg.UrlMovedOn (SessionState.closing full)
 
                         (state, effects) |> Expect.equal "leaving, no second close" (away, [])
 
@@ -978,7 +996,7 @@ module SessionMachineTests =
                     }
 
                     test "a resume out is closed, and its answer is dropped" {
-                        let state, effects = transition (SessionMsg.UrlMovedOn None) SessionState.resuming
+                        let state, effects = transition SessionMsg.UrlMovedOn SessionState.resuming
 
                         (state, effects)
                         |> Expect.equal "leaving" (away, [ SessionEffect.CallCloseSession ])
@@ -993,7 +1011,7 @@ module SessionMachineTests =
                                 SessionMsg.Refresh, SessionMsg.Refreshed(full.OpenedToken, Ok(Some full))
                                 SessionMsg.OpenVersion "plan-5", SessionMsg.Reopened(full.OpenedToken, Ok(Some full))
                             ] do
-                            let state, effects = run (SessionState.opened full None) [ ask; SessionMsg.UrlMovedOn None ]
+                            let state, effects = run (SessionState.opened full None) [ ask; SessionMsg.UrlMovedOn ]
 
                             (state, effects |> List.last)
                             |> Expect.equal "leaving" (away, SessionEffect.CallCloseSession)
@@ -1003,15 +1021,15 @@ module SessionMachineTests =
                     }
 
                     test "with nothing out the close goes, for the Session the cookie may hold" {
-                        transition (SessionMsg.UrlMovedOn None) SessionState.anonymous
+                        transition SessionMsg.UrlMovedOn SessionState.anonymous
                         |> Expect.equal "leaving" (away, [ SessionEffect.CallCloseSession ])
 
-                        transition (SessionMsg.UrlMovedOn None) (SessionState.enrolling pending None)
+                        transition SessionMsg.UrlMovedOn (SessionState.enrolling pending None)
                         |> Expect.equal "enrolling left" (away, [ SessionEffect.CallCloseSession ])
                     }
 
                     test "a launch out stays out; the Session it opens is closed and reaches nothing" {
-                        let state, effects = transition (SessionMsg.UrlMovedOn None) launching
+                        let state, effects = transition SessionMsg.UrlMovedOn launching
 
                         effects |> Expect.isEmpty "nothing sent"
                         state
@@ -1024,7 +1042,7 @@ module SessionMachineTests =
                     }
 
                     test "a launch out that ends otherwise leaves the lane anonymous, and a redirect is not followed" {
-                        let state, _ = transition (SessionMsg.UrlMovedOn None) launching
+                        let state, _ = transition SessionMsg.UrlMovedOn launching
 
                         for result in
                             [
@@ -1038,7 +1056,7 @@ module SessionMachineTests =
                     }
 
                     test "a PIN out stays out; the Session it opens is closed, a refusal leaves the lane anonymous" {
-                        let state, effects = transition (SessionMsg.UrlMovedOn None) (SessionState.supplyingPin pending)
+                        let state, effects = transition SessionMsg.UrlMovedOn (SessionState.supplyingPin pending)
 
                         effects |> Expect.isEmpty "nothing sent"
                         state |> SessionState.view |> Expect.equal "anonymous" SessionView.Anonymous
@@ -1057,13 +1075,13 @@ module SessionMachineTests =
                     }
 
                     test "a launch with nothing out is presented at once" {
-                        transition (SessionMsg.UrlMovedOn(Some(launchB, keyB))) SessionState.anonymous
+                        transition (SessionMsg.PresentLaunch(launchB, keyB)) SessionState.anonymous
                         |> Expect.equal "presented" presentB
                     }
 
                     test "a launch over an open Session is presented once the close has answered, success or failure" {
                         let state, effects =
-                            transition (SessionMsg.UrlMovedOn(Some(launchB, keyB))) (SessionState.opened full None)
+                            transition (SessionMsg.PresentLaunch(launchB, keyB)) (SessionState.opened full None)
 
                         (state, effects)
                         |> Expect.equal "leaving" (awayToB, [ SessionEffect.CallCloseSession ])
@@ -1077,7 +1095,7 @@ module SessionMachineTests =
                     }
 
                     test "a launch over a launch out is presented once the old one has landed and is closed" {
-                        let state, _ = transition (SessionMsg.UrlMovedOn(Some(launchB, keyB))) launching
+                        let state, _ = transition (SessionMsg.PresentLaunch(launchB, keyB)) launching
 
                         state |> SessionState.view |> Expect.equal "launching" (SessionView.Launching 1)
 
@@ -1096,19 +1114,18 @@ module SessionMachineTests =
                     }
 
                     test "the newest url wins: a seed url clears a waiting launch, a newer launch replaces it" {
-                        transition (SessionMsg.UrlMovedOn None) awayToB
-                        |> Expect.equal "cleared" (away, [])
+                        transition SessionMsg.UrlMovedOn awayToB |> Expect.equal "cleared" (away, [])
 
-                        transition (SessionMsg.UrlMovedOn(Some(launchB, keyB))) away
+                        transition (SessionMsg.PresentLaunch(launchB, keyB)) away
                         |> Expect.equal "replaced" (awayToB, [])
                     }
 
                     test "a launch presented after the url moved on waits until nothing is out" {
-                        transition (SessionMsg.Present(launchB, keyB)) away
+                        transition (SessionMsg.PresentLaunch(launchB, keyB)) away
                         |> Expect.equal "waits for the close" (awayToB, [])
 
-                        let state, _ = transition (SessionMsg.UrlMovedOn None) launching
-                        let state, effects = transition (SessionMsg.Present(launchB, keyB)) state
+                        let state, _ = transition SessionMsg.UrlMovedOn launching
+                        let state, effects = transition (SessionMsg.PresentLaunch(launchB, keyB)) state
 
                         effects |> Expect.isEmpty "not presented over the launch out"
 
@@ -1120,7 +1137,7 @@ module SessionMachineTests =
                         away |> SessionState.inFlight |> Expect.isTrue "the close out"
                         away |> SessionState.changing |> Expect.isFalse "changes nothing"
 
-                        transition (SessionMsg.UrlMovedOn None) launching
+                        transition SessionMsg.UrlMovedOn launching
                         |> fst
                         |> SessionState.changing
                         |> Expect.isFalse "the launch out changes nothing"
@@ -1130,6 +1147,20 @@ module SessionMachineTests =
                         |> SessionState.changing
                         |> Expect.isTrue "the user's close"
                         SessionState.resuming |> SessionState.changing |> Expect.isTrue "a resume"
+                    }
+
+                    test "the same launch again while it is presented keeps it, and its outcome opens the Session" {
+                        let state, effects =
+                            run launching [ SessionMsg.UrlMovedOn; SessionMsg.PresentLaunch(launchA, keyB) ]
+
+                        (state, effects)
+                        |> Expect.equal "presenting A as before, the close not sent" (launching, [])
+
+                        transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened full))) state
+                        |> Expect.equal
+                            "open"
+                            (SessionState.opened full None,
+                             [ SessionEffect.SetPatient(Some patient); SessionEffect.KeepKey "thumb" ])
                     }
 
                     test "an answer to no request is dropped" {
@@ -1377,9 +1408,9 @@ module SessionMachineTests =
                     transition (SessionMsg.CloseFailed "down") (SessionState.closing full)
                     |> Expect.equal "reopened without it" (SessionState.opened full None, [])
 
-                    transition (SessionMsg.Present(launchB, keyB)) (SessionState.opened full (Some two))
+                    transition (SessionMsg.PresentLaunch(launchB, keyB)) (SessionState.opened full (Some two))
                     |> fst
-                    |> Expect.equal "a launch drops it" (SessionState.launching launchB keyB 1)
+                    |> Expect.equal "a launch drops it" (SessionState.leaving (SessionFollow.Launch(launchB, keyB)))
 
                     transition
                         (SessionMsg.EndedByServer SessionEnding.WrongPinLimit)
