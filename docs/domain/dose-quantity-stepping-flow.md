@@ -9,7 +9,7 @@ flowchart TD
     subgraph CLIENT["Client (Fable/Elmish)"]
         UI["QuantityField step button<br/>Components/QuantityField.fs<br/>steps built in Views/ViewHelpers.fs"]
         MSG["dispatch OrderContextMsg.Command(cmd, ctx, request)<br/>OrderContextState.transition<br/>OrderContextMachine.fs"]
-        CALL["interpretOrderContextEffect<br/>CallContext(cmd, ctx, request) → processOrderContext<br/>App.fs"]
+        CALL["interpretOrderContextEffect<br/>CallContext(OrderContextCommand.Command(cmd, ctx), request) → processOrderContext<br/>App.fs"]
         RESP["OrderContextAnswered → OrderContextMsg.Answered(request, Ok ctx)<br/>landing on the request, then OrderContextWorkbench.Evaluated ctx<br/>App.fs, OrderContextMachine.fs"]
         RENDER["Re-render the dose quantity field +<br/>enable/disable its step buttons<br/>Views/Order.fs"]
     end
