@@ -866,11 +866,16 @@ the order of the steps protects the work between pull requests, not patients; it
      which on the anonymous lane with nothing out returns the close, and applies the url;
      without them it resumes as today.
    - While a signature is under way the url is put back as after a no, without a question.
+   - With a launched Session open the client always asks first, unsigned work or not, since the
+     url ends the Session (decided, user, 2026-10-09). Without a Session it asks only with
+     unsigned work.
    - With unsigned work, in both modes, the client asks the leave-page question first. No puts the
-     previous url back through `Router.navigate`, which fires `UrlChanged`, so the restore is
-     marked and that `UrlChanged` is not a change. `Router.navigate` pushes a new history entry:
+     previous url back through `Router.navigate`, which fires `UrlChanged`. That `UrlChanged`
+     is not a change: the app keeps the url it shows, and a url equal to it is ignored, so the
+     restore needs no mark. A url change while the question is open closes it and is decided
+     anew. `Router.navigate` pushes a new history entry:
      after no, the url the user left is the newest entry, what was forward of it is gone, and
-     another Back asks again. `history.replaceState` would fire nothing and need no mark, but
+     another Back asks again. `history.replaceState` would fire nothing, but
      after Back it would overwrite the entry the user went back to, so it is not used.
    - Tests: a url with a medication during a workbench request drops that request's answer and
      the four lanes after it equal the lanes after `init` with that url; with an open Session
