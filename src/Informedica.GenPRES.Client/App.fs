@@ -1489,9 +1489,12 @@ module private Elmish =
         state, Cmd.ofEffect (fun _ -> Router.navigate (state.Ui.Url |> UrlPolicy.UrlState.shown |> Array.ofList))
 
 
-    /// The patient, the workbench, the plan and the signing started over on a url with a patient
-    /// or a medication, the Session left, and the url applied as at a page load.
+    /// The patient, the workbench, the plan, its interactions and the signing started over on a
+    /// url with a patient or a medication, the Session left, and the url applied as at a page
+    /// load.
     let startOver sl (url: UrlParts) (state: State) =
+        // a check still out is for the old plan, and is dropped
+        let state, _ = state |> checkInteractions []
         let state, leave = state |> runLanes (LanesMsg.StartOver(url.Patient, None))
         let state, applied = state |> applyUrl sl url
         state, Cmd.batch [ leave; applied ]
