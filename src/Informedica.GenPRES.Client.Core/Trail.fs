@@ -348,7 +348,8 @@ module Session =
     let reopened (r: Result<SessionOpened option, string>) = r |> Part.result (Part.orNone Part.opened)
 
 
-    /// Never the launch, the key, the code, the PIN, the token or the identity.
+    /// A Session message as one trail line: its name and the answer it carries. The line never
+    /// shows the launch, the key, the mailed code, the PIN, the token or whom the Session is for.
     let msg (msg: SessionMsg) =
         match msg with
         | SessionMsg.Present _ -> "Present"
@@ -360,6 +361,8 @@ module Session =
         | SessionMsg.PinAnswered r -> $"PinAnswered %s{r |> Part.result pinOutcome}"
         | SessionMsg.RefusedAtCallback r -> $"RefusedAtCallback %s{Part.launchRefusal r}"
         | SessionMsg.OpenAnonymous -> "OpenAnonymous"
+        | SessionMsg.UrlMovedOn None -> "UrlMovedOn"
+        | SessionMsg.UrlMovedOn(Some _) -> "UrlMovedOn launch"
         | SessionMsg.Close -> "Close"
         | SessionMsg.Closed -> "Closed"
         | SessionMsg.CloseFailed _ -> "CloseFailed"
@@ -698,6 +701,10 @@ let reset machine describeState (no: int) (at: DateTime) (why: string) state =
 let signingReset = reset "Signing" Signing.state
 
 
+/// The lanes set back when the url moved on, by the patient draft they start over on.
+let startedOver = reset "Lanes" (fun (lanes: Lanes.LanesState) -> Patient.state lanes.Patient)
+
+
 /// A step of the session machine.
 let session = step "Session" Session.msg Session.effect Session.state
 
@@ -723,3 +730,4 @@ let lanes no at step =
     | Lanes.LanesStep.Plan(msg, state, effects) -> orderPlan no at msg (state, effects)
     | Lanes.LanesStep.Workbench(msg, state, effects) -> orderContext no at msg (state, effects)
     | Lanes.LanesStep.SigningReset signing -> signingReset no at "the session is no longer open" signing
+    | Lanes.LanesStep.StartedOver state -> startedOver no at "the url moved on" state

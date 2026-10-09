@@ -92,6 +92,7 @@ let tests =
                     | LanesStep.Plan _ -> "OrderPlan"
                     | LanesStep.Session _ -> "Session"
                     | LanesStep.SigningReset _ -> "Signing"
+                    | LanesStep.StartedOver _ -> "Lanes"
                 )
                 |> Expect.equal
                     "the trail's order: the patient, the workbench, the plan"
@@ -126,6 +127,80 @@ let tests =
 
                     after.Head |> Expect.isNonEmpty "one answer in: the other is still out"
                     after |> List.last |> Expect.isEmpty "both in: nothing out"
+            }
+
+            test
+                "the url moves on during a workbench and a plan request: the lanes as at a page load, the answers dropped" {
+                let newId = counter ()
+
+                let lanes, effects, _ =
+                    Lanes.initial (Some measured)
+                    |> fun lanes ->
+                        play
+                            newId
+                            lanes
+                            [
+                                LanesMsg.Patient(
+                                    PatientMsg.Changed(Some measured, PatientDraftPolicy.Estimates.Renewed, "p-1")
+                                )
+                                LanesMsg.Patient(PatientMsg.Answered("p-1", Ok measured))
+                            ]
+                    |> List.last
+
+                let plan = planRequest effects |> Option.defaultWith (fun () -> failtest "no plan request")
+
+                let workbench =
+                    workbenchRequest effects
+                    |> Option.defaultWith (fun () -> failtest "no workbench request")
+
+                let started, effects, steps = lanes |> Lanes.transition newId (LanesMsg.StartOver(Some draft, None))
+
+                let atLoad = { Lanes.initial (Some draft) with Session = SessionState.leaving SessionFollow.Anonymous }
+
+                started |> Expect.equal "as at a page load, the Session leaving" atLoad
+
+                effects
+                |> Expect.equal "the close alone" [ LanesEffect.Session SessionEffect.CallCloseSession ]
+
+                steps
+                |> List.head
+                |> function
+                    | LanesStep.StartedOver _ -> ()
+                    | _ -> failtest "the start-over is the first step"
+
+                let answers =
+                    [
+                        LanesMsg.Plan(OrderPlanMsg.Answered(plan, Ok one))
+                        LanesMsg.Workbench(
+                            OrderContextMsg.Answered(
+                                workbench,
+                                Ok(OrderContextResponse.Evaluated(OrderContextState.emptyFor measured))
+                            )
+                        )
+                    ]
+
+                for answer in answers do
+                    let after, effects, _ = started |> Lanes.transition newId answer
+                    after |> Expect.equal "the answer dropped" started
+                    effects |> Expect.isEmpty "nothing sent"
+            }
+
+            test "the url moves on with an open Session: the Session closes and the signing lane is idle" {
+                let newId = counter ()
+
+                let withSession =
+                    { Lanes.initial None with Session = SessionState.opened SessionMachineTests.full None }
+
+                let started, effects, _ = withSession |> Lanes.transition newId (LanesMsg.StartOver(None, None))
+
+                started.Signing |> Expect.equal "idle" SigningState.idle
+
+                started.Session
+                |> SessionState.view
+                |> Expect.equal "anonymous" SessionView.Anonymous
+
+                effects
+                |> Expect.equal "the close alone" [ LanesEffect.Session SessionEffect.CallCloseSession ]
             }
 
             test "a Session resumed with saved orders: the patient and the version reach their machines at once" {

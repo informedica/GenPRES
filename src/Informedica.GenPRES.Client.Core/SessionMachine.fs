@@ -35,6 +35,16 @@ type SessionView =
     | EnrolmentFailed of PinRefusal
 
 
+/// What the session lane does once nothing is out any more, after the url moved on past the
+/// session.
+[<RequireQualifiedAccess>]
+type SessionFollow =
+    /// Stay anonymous: the url's patient or medication is used without a session.
+    | Anonymous
+    /// Present the launch the url brought, with the key made for this page load.
+    | Launch of Launch * PublicKey
+
+
 /// The session itself, without any request under way.
 [<RequireQualifiedAccess>]
 type SessionPhase =
@@ -55,6 +65,9 @@ type SessionPhase =
     /// The enrolment failed: the code was void or expired, or another patient became active in
     /// MainEHR. Only a new launch goes on.
     | EnrolmentFailed of PinRefusal
+    /// The url brought a patient, a medication or a launch. The session is left: a request still
+    /// out runs to its end without reaching the lanes, and then the lane does what follows.
+    | UrlMovedOn of SessionFollow
 
 
 /// The one request under way.
@@ -143,6 +156,9 @@ type SessionMsg =
     | RefusedAtCallback of LaunchRefusal
     /// Continue without a session.
     | OpenAnonymous
+    /// The url brought a patient, a medication or a launch: the lane leaves the session, and
+    /// presents the launch after, if any.
+    | UrlMovedOn of next: (Launch * PublicKey) option
     /// Close the session.
     | Close
     /// The session is closed.
@@ -378,6 +394,18 @@ module SessionState =
         }
 
 
+    /// No session, the close out, and what follows once it has answered. The url moved on past
+    /// the session: the close carries the cookie, and its answer sends nothing.
+    let leaving (following: SessionFollow) =
+        {
+            Phase = SessionPhase.UrlMovedOn following
+            InFlight = Some SessionRequest.Closing
+            Reopening = None
+            Presentation = None
+            MovedOn = None
+        }
+
+
     /// The open session, when nothing is under way; requests take their token from it.
     let session (state: SessionState) =
         match state.Phase, state.InFlight with
@@ -397,14 +425,26 @@ module SessionState =
     let inFlight (state: SessionState) = state.InFlight.IsSome
 
 
+    /// Whether a request is under way whose answer can change what the pages show. After the url
+    /// moved on with nothing to follow, none can: whatever is still out ends without reaching
+    /// the lanes, and the lane stays anonymous.
+    let changing (state: SessionState) =
+        match state.Phase with
+        | SessionPhase.UrlMovedOn SessionFollow.Anonymous -> false
+        | _ -> state.InFlight.IsSome
+
+
     /// The refresh or the open under way, if any.
     let reopening (state: SessionState) = state.Reopening
 
 
     /// What the pages read: the request when it can show on its own, else the phase. A refusal
-    /// with a launch kept is Retryable.
+    /// with a launch kept is Retryable. After the url moved on the lane reads as anonymous, or as
+    /// launching when a launch follows, whatever is still out.
     let view (state: SessionState) : SessionView =
         match state.Phase, state.InFlight, state.Presentation with
+        | SessionPhase.UrlMovedOn SessionFollow.Anonymous, _, _ -> SessionView.Anonymous
+        | SessionPhase.UrlMovedOn(SessionFollow.Launch _), _, _ -> SessionView.Launching 1
         | _, Some(SessionRequest.Presenting attempt), _ -> SessionView.Launching attempt
         | _, Some SessionRequest.Resuming, _ -> SessionView.Resuming
         | SessionPhase.Open opened, Some SessionRequest.Closing, _ -> SessionView.Closing opened
@@ -439,10 +479,56 @@ module SessionState =
         launching launch key 1, [ SessionEffect.CallPresentLaunch(launch, key) ]
 
 
+    /// What follows the url: the launch it brought, or anonymous.
+    let following next =
+        next
+        |> Option.map SessionFollow.Launch
+        |> Option.defaultValue SessionFollow.Anonymous
+
+
+    /// What follows a lane the url moved on past, now that nothing is out: anonymous, or the
+    /// launch presented.
+    let follow following =
+        match following with
+        | SessionFollow.Anonymous -> anonymous, []
+        | SessionFollow.Launch(launch, key) -> present launch key
+
+
     /// The next state and effects for a message. Every new state is built through a constructor,
     /// so a launch kept to present again never outlives the state it belongs to.
     let transition (msg: SessionMsg) (state: SessionState) : SessionState * SessionEffect list =
         match msg, state.Phase, state.InFlight with
+        // the url moved on past the session. A launch or a PIN out stays out, since its answer
+        // sets the cookie that only a close sent after it can delete; a close out stays out.
+        // Whatever else is open or out is closed now, and its answer finds no request. With
+        // nothing out a launch to follow is presented at once; otherwise the close goes, for the
+        // session the cookie may still hold. The newest url decides what follows
+        | SessionMsg.UrlMovedOn next, _, Some(SessionRequest.Presenting _ | SessionRequest.SupplyingPin) ->
+            { state with Phase = SessionPhase.UrlMovedOn(following next) }, []
+        | SessionMsg.UrlMovedOn next, _, Some SessionRequest.Closing -> leaving (following next), []
+        | SessionMsg.UrlMovedOn next, SessionPhase.Open _, _ ->
+            leaving (following next), [ SessionEffect.CallCloseSession ]
+        | SessionMsg.UrlMovedOn(Some(launch, key)), _, None -> present launch key
+        | SessionMsg.UrlMovedOn next, _, _ -> leaving (following next), [ SessionEffect.CallCloseSession ]
+        // a launch after the url moved on waits until nothing is out, as a launch url does
+        | SessionMsg.Present(launch, key), SessionPhase.UrlMovedOn _, _ ->
+            { state with Phase = SessionPhase.UrlMovedOn(SessionFollow.Launch(launch, key)) }, []
+        // the answers the lane still waits on after the url moved on. A launch or a PIN that
+        // opens a session closes it again, since the cookie it set must go; any other end of the
+        // request leads to what follows. Nothing reaches the lanes
+        | SessionMsg.Outcome(launch, key, result), SessionPhase.UrlMovedOn next, Some(SessionRequest.Presenting _) when
+            state.Presentation = Some(launch, key)
+            ->
+            match result with
+            | Ok(LaunchOutcome.Opened _) -> leaving next, [ SessionEffect.CallCloseSession ]
+            | _ -> follow next
+        | SessionMsg.PinAnswered(Ok(PinOutcome.Opened _)),
+          SessionPhase.UrlMovedOn next,
+          Some SessionRequest.SupplyingPin -> leaving next, [ SessionEffect.CallCloseSession ]
+        | SessionMsg.PinAnswered _, SessionPhase.UrlMovedOn next, Some SessionRequest.SupplyingPin
+        | SessionMsg.Closed, SessionPhase.UrlMovedOn next, Some SessionRequest.Closing
+        | SessionMsg.CloseFailed _, SessionPhase.UrlMovedOn next, Some SessionRequest.Closing -> follow next
+
         // a presentation under way is not replaced by a second one for the same launch
         | SessionMsg.Present(launch, _), _, Some(SessionRequest.Presenting _) when
             state.Presentation |> Option.exists (fun (current, _) -> current = launch)

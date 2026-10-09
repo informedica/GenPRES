@@ -43,6 +43,10 @@ type LanesMsg =
     /// The prescribe click: the workbench narrowed to the order with this id goes into the plan,
     /// and the workbench is emptied under the reset request id.
     | Prescribe of orderId: string * request: string * reset: string
+    /// The url brought a patient, a medication or a launch. The patient, the workbench, the plan
+    /// and the signing are emptied, as when the page loads with this patient. The Session is
+    /// closed, and the launch, if there is one, is opened after that.
+    | StartOver of draft: Patient option * next: (Launch * PublicKey) option
 
 
 /// The machines' effects, each as its machine emitted it.
@@ -67,6 +71,9 @@ type LanesStep =
     | Plan of OrderPlanMsg * OrderPlanState * OrderPlanEffect list
     | Session of SessionMsg * SessionState * SessionEffect list
     | SigningReset of SigningState
+    /// The patient, the workbench, the plan and the signing lane set back to their initial
+    /// state, which no message of theirs asked for.
+    | StartedOver of LanesState
 
 
 /// The lanes at the page load: the patient from the url, if any, and every other lane empty.
@@ -147,6 +154,11 @@ let rec step msg (lanes: LanesState) =
             else
                 lanes, effects, taken
         | None -> lanes, [], []
+    // an answer to a request of a lane set back finds no request and is dropped
+    | LanesMsg.StartOver(draft, next) ->
+        let reset = { initial draft with Session = lanes.Session }
+        let lanes, effects, taken = step (LanesMsg.Session(SessionMsg.UrlMovedOn next)) reset
+        lanes, effects, LanesStep.StartedOver reset :: taken
 
 
 /// The messages an effect becomes for other machines; none for an effect that only leaves the
