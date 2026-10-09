@@ -60,6 +60,7 @@
     <Compile Include="Busy.fs" />
     <Compile Include="StartupPolicy.fs" />
     <Compile Include="UrlPolicy.fs" />
+    <Compile Include="Url.fs" />
 
     <!-- the readable trail of the machines, for development -->
     <Compile Include="Trail.fs" />

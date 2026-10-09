@@ -129,44 +129,6 @@ module private Elmish =
         }
 
 
-    /// What a "#/session?..." url carries: the Launch MainEHR opened GenPRES with, or the
-    /// reason the return from the IdentityProvider refused it.
-    [<RequireQualifiedAccess>]
-    type LaunchUrl =
-        | Launch of Launch
-        | Refused of LaunchRefusal
-
-
-    /// The medication a "#/patient?..." url carries, each part when given.
-    type UrlMedication =
-        {|
-            indication: string option
-            medication: string option
-            route: string option
-            form: string option
-            dosetype: DoseType option
-        |}
-
-
-    /// What a url carries: a "#/patient?..." url its patient, page, language, disclaimer and
-    /// medication, a "#/session?..." url its launch or refusal.
-    type UrlParts =
-        {
-            /// The patient, when the url gives a birth date or an age.
-            Patient: Patient option
-            /// The page, when the url names one.
-            Page: Global.Pages option
-            /// The language, when the url names one.
-            Language: Localization.Locales option
-            /// Whether the disclaimer shows.
-            Disclaimer: bool
-            /// The medication, when the url gives any part of it.
-            Medication: UrlMedication option
-            /// The launch, or the refusal of one, of a "#/session?..." url.
-            Launch: LaunchUrl option
-        }
-
-
     type State =
         {
             // the lanes
@@ -462,209 +424,17 @@ module private Elmish =
                 (fun result -> LoadInteractionsResult(check, result))
 
 
-    let private tryParseInt key paramsMap =
-        match Map.tryFind key paramsMap with
-        | Some(Route.Int v) -> Some v
-        | _ -> None
+    /// What the url of these segments carries, at this moment; the parts that did not parse are
+    /// logged by name, never by value, since the values are patient data.
+    let parseUrl sl =
+        let url = sl |> Url.parse DateTime.Now
 
-    let private parsePatientParams paramsMap =
-        tryParseInt "wt" paramsMap,
-        tryParseInt "ht" paramsMap,
-        tryParseInt "gw" paramsMap |> Option.map Measures.toWeek,
-        tryParseInt "gd" paramsMap |> Option.map Measures.toDay,
-        Map.tryFind "dp" paramsMap
+        for part in url.NotParsed do
+            match part with
+            | Url.UrlPart.Patient parameters -> Logging.warning "could not parse url to patient" parameters
+            | Url.UrlPart.Route segment -> Logging.warning "could not parse url" segment
 
-    /// The fixed vocabulary of "#/session?refused={reason}"; an unknown reason is invalid.
-    let parseRefusal reason =
-        match reason with
-        | "expired" -> LaunchRefusal.LaunchExpired
-        | "spent" -> LaunchRefusal.LaunchSpent
-        | "invalid" -> LaunchRefusal.LaunchInvalid
-        | "no-identity" -> LaunchRefusal.NoBrowserIdentity
-        | "no-role" -> LaunchRefusal.NoRole
-        | "wrong-patient" -> LaunchRefusal.WrongActivePatient
-        | "enrolment" -> LaunchRefusal.EnrolmentRequired
-        | _ -> LaunchRefusal.LaunchInvalid
-
-
-    /// The launch token of a "#/session?launch={token}" url, opaque to the client, or the
-    /// refusal of a "#/session?refused={reason}" url. Both are erased the same way.
-    let parseLaunch sl =
-        match sl with
-        | [ "session"; Route.Query queryParams ] ->
-            let query = queryParams |> Map.ofList
-
-            match query |> Map.tryFind "launch", query |> Map.tryFind "refused" with
-            | Some token, _ -> Some(LaunchUrl.Launch(Launch token))
-            | None, Some reason -> Some(LaunchUrl.Refused(parseRefusal reason))
-            | None, None -> None
-        | _ -> None
-
-
-    // url needs to be in format: http://localhost:8080/#/patient?by=2&bm=0&bd=1
-    // * pg: el (emergency list) cm (continuous medication) pr (prescribe) fm (formulary)
-    //   pe (parenteralia)
-    // * ad: age in days
-    // * by: birth year
-    // * bm: birth month
-    // * bd: birth day
-    // * wt: weight (gram)
-    // * ht: height (cm)
-    // * gw: gestational age weeks
-    // * gd: gestational age days
-    // * la: language (en; du; fr; ge; sp; it; ch)
-    // * dc: show disclaimer (n;_)
-    // * cv: central venous line (y;_)
-    // * dp: department
-    // * md: medication
-    // * rt: route
-    // * fr: form
-    // * in: indication
-    // * dt: dosetype
-    //
-    // The patient, page, language, disclaimer and medication carried by an
-    // anonymous "#/patient?..." url. A "#/session..." url carries none of these:
-    // the session supplies the patient, so it yields the defaults
-    // without a warning.
-    let parsePatient sl =
-        let none =
-            {
-                Patient = None
-                Page = None
-                Language = None
-                Disclaimer = true
-                Medication = None
-                Launch = None
-            }
-
-        match sl with
-        | [] -> none
-        | "session" :: _ -> { none with Launch = parseLaunch sl }
-        | [ "patient"; Route.Query queryParams ] ->
-            let paramsMap = Map.ofList queryParams
-
-            let pat =
-                match Map.tryFind "by" paramsMap, Map.tryFind "ad" paramsMap with
-                | Some(Route.Int year), _ ->
-                    // birthday year is required
-                    let month =
-                        match Map.tryFind "bm" paramsMap with
-                        | Some(Route.Int months) -> months
-                        | _ -> 1 // january is the default
-
-                    let day =
-                        match Map.tryFind "bd" paramsMap with
-                        | Some(Route.Int days) -> days
-                        | _ -> 1 // first day of the month is the default
-
-                    let weight, height, gaWeeks, gaDays, dep = parsePatientParams paramsMap
-
-                    let cvl =
-                        match Map.tryFind "cv" paramsMap with
-                        | Some s when s = "y" -> true
-                        | _ -> false
-
-                    let age = Patient.Age.fromBirthDate DateTime.Now (DateTime(year, month, day))
-
-                    let patient =
-                        Patient.create
-                            (Some age.Years)
-                            (Some age.Months)
-                            (Some age.Weeks)
-                            (Some age.Days)
-                            weight
-                            height
-                            gaWeeks
-                            gaDays
-                            UnknownGender
-                            [
-                                if cvl then
-                                    CVL
-                            ]
-                            None
-                            dep
-
-                    patient
-                | _, Some(Route.Int days) ->
-                    let weight, height, gaWeeks, gaDays, dep = parsePatientParams paramsMap
-
-                    let cvl =
-                        match Map.tryFind "cv" paramsMap with
-                        | Some s when s = "y" -> [ CVL ]
-                        | _ -> []
-
-                    let age = Patient.Age.fromDays days
-
-                    let patient =
-                        Patient.create
-                            (Some age.Years)
-                            (Some age.Months)
-                            (Some age.Weeks)
-                            (Some age.Days)
-                            weight
-                            height
-                            gaWeeks
-                            gaDays
-                            UnknownGender
-                            cvl
-                            None
-                            dep
-
-                    patient
-
-                | _ ->
-                    // only the parameter names: the values are patient data
-                    Logging.warning "could not parse url to patient" (paramsMap |> Map.toList |> List.map fst)
-                    None
-
-            let page =
-                match paramsMap |> Map.tryFind "pg" with
-                | Some s when s = "el" -> Some Global.Pages.LifeSupport
-                | Some s when s = "cm" -> Some Global.Pages.ContinuousMeds
-                | Some s when s = "pr" -> Some Global.Pages.Prescribe
-                | Some s when s = "fm" -> Some Global.Pages.Formulary
-                | Some s when s = "pe" -> Some Global.Pages.Parenteralia
-                | _ -> None
-
-            // ISO code, display name or the legacy codes (du, gr, sp): one parser with the server
-            let lang = paramsMap |> Map.tryFind "la" |> Option.bind Localization.tryParse
-
-            let discl =
-                match paramsMap |> Map.tryFind "dc" with
-                | Some s when s = "n" -> false
-                | _ -> true
-
-            let med =
-                {|
-                    indication = paramsMap |> Map.tryFind "in"
-                    medication = paramsMap |> Map.tryFind "md"
-                    route = paramsMap |> Map.tryFind "rt"
-                    form = paramsMap |> Map.tryFind "fr"
-                    dosetype = paramsMap |> Map.tryFind "dt" |> Option.map DoseType.doseTypeFromString
-                |}
-
-            // no medication when the url gives no part of it
-            let given =
-                med.indication.IsSome
-                || med.medication.IsSome
-                || med.route.IsSome
-                || med.form.IsSome
-                || med.dosetype.IsSome
-
-            {
-                Patient = pat
-                Page = page
-                Language = lang
-                Disclaimer = discl
-                Medication = if given then Some med else None
-                Launch = None
-            }
-
-        | _ ->
-            // only the route segment: the rest of the url is never logged
-            Logging.warning "could not parse url" (sl |> List.head)
-
-            none
+        url
 
 
     /// Erase the Launch: replace the launch url with "#/session" in the
@@ -765,12 +535,12 @@ module private Elmish =
 
 
     /// Whether a url carries a patient, a medication or a launch.
-    let seeds (url: UrlParts) =
+    let seeds (url: Url.UrlParts) =
         url.Patient.IsSome
         || url.Medication.IsSome
         || (
             match url.Launch with
-            | Some(LaunchUrl.Launch _) -> true
+            | Some(Url.LaunchUrl.Launch _) -> true
             | _ -> false
         )
 
@@ -790,10 +560,10 @@ module private Elmish =
 
 
     /// The session command a "#/session?..." url asks for; a plain url asks for nothing.
-    let launchCmd (launchUrl: LaunchUrl option) : Cmd<Msg> =
+    let launchCmd (launchUrl: Url.LaunchUrl option) : Cmd<Msg> =
         match launchUrl with
-        | Some(LaunchUrl.Launch launch) -> presentLaunch launch
-        | Some(LaunchUrl.Refused refusal) -> Cmd.ofMsg (SessionMsg(SessionMsg.LaunchRefused refusal))
+        | Some(Url.LaunchUrl.Launch launch) -> presentLaunch launch
+        | Some(Url.LaunchUrl.Refused refusal) -> Cmd.ofMsg (SessionMsg(SessionMsg.LaunchRefused refusal))
         | None -> Cmd.none
 
 
@@ -1424,7 +1194,7 @@ module private Elmish =
 
     /// The page, the language and the disclaimer of a url applied, and the url kept as the one
     /// the app shows; no lane changes.
-    let applyPage sl (url: UrlParts) (state: State) =
+    let applyPage sl (url: Url.UrlParts) (state: State) =
         // only an `la` parameter changes the language; a navigation keeps the current one
         let language = languageOf state |> LanguagePolicy.Language.onUrl url.Language
 
@@ -1439,7 +1209,7 @@ module private Elmish =
 
 
     /// A url applied in full: its patient, its medication, its page and its launch.
-    let applyUrl sl (url: UrlParts) (state: State) =
+    let applyUrl sl (url: Url.UrlParts) (state: State) =
         // an open Session supplies the patient: a launched patient is never assigned from the
         // url. The page load and a start-over come here without one; only a launch url can
         // still meet an open or closing Session
@@ -1508,7 +1278,7 @@ module private Elmish =
     /// The patient, the workbench, the plan, its interactions and the signing started over on a
     /// url with a patient, a medication or a launch, the Session left, and the url applied as at
     /// a page load. A launch is presented once the Session lane has nothing out.
-    let startOver sl (url: UrlParts) (state: State) =
+    let startOver sl (url: Url.UrlParts) (state: State) =
         // a check still out is for the old plan, and is dropped
         let state, _ = state |> checkInteractions []
         let state, leave = state |> runLanes (LanesMsg.StartOver url.Patient)
@@ -1521,7 +1291,7 @@ module private Elmish =
     /// medication, and the loads started.
     let init () : State * Cmd<Msg> =
         let sl = Router.currentUrl ()
-        let url = sl |> parsePatient
+        let url = sl |> parseUrl
 
         if url.Launch.IsSome then
             eraseLaunch ()
@@ -1834,7 +1604,7 @@ module private Elmish =
             // so the policy never sees an open question
             let state = { state with Ui.Url = state.Ui.Url |> UrlPolicy.UrlState.close }
 
-            let url = sl |> parsePatient
+            let url = sl |> parseUrl
 
             // a launch url is erased at once, so its token survives neither the history nor a
             // copied url
@@ -1843,7 +1613,7 @@ module private Elmish =
 
             match url.Launch with
             // the return from the identity provider with a refusal: the gate says why
-            | Some(LaunchUrl.Refused _) -> state |> applyUrl sl url
+            | Some(Url.LaunchUrl.Refused _) -> state |> applyUrl sl url
             // a launch is decided as a url with a patient: it ends what is there
             | launch ->
                 let change = UrlPolicy.change state.Ui.Url sl (seeds url)
@@ -1875,7 +1645,7 @@ module private Elmish =
 
         | LeaveForUrl ->
             match state.Ui.Url |> UrlPolicy.UrlState.asked with
-            | Some sl -> state |> startOver sl (sl |> parsePatient)
+            | Some sl -> state |> startOver sl (sl |> parseUrl)
             | None -> state, Cmd.none
 
         | StayOnUrl -> { state with Ui.Url = state.Ui.Url |> UrlPolicy.UrlState.close } |> putBack
@@ -2633,7 +2403,7 @@ let View () =
     let asksLaunch =
         state.Ui.Url
         |> UrlPolicy.UrlState.asked
-        |> Option.bind (parsePatient >> _.Launch)
+        |> Option.bind Url.parseLaunch
         |> Option.isSome
 
     let title =
