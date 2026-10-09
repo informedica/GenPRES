@@ -38,7 +38,9 @@ type Request =
     | Workbench
     /// A plan request.
     | Plan
-    /// A Session request: the launch, the resume, the PIN, the close, a refresh or an open.
+    /// A Session request: the launch, the resume, the PIN, the close, a refresh or an open. A url
+    /// with a patient or a medication ends the Session; a request still out then does not count,
+    /// since its answer changes nothing on the screen.
     | Session
     /// A signature, from the sign click until it is answered or cancelled.
     | Signature
@@ -56,7 +58,7 @@ let out patient orderContext orderPlan session signing loads =
         if (OrderPlanMachine.OrderPlanState.inFlightRequest orderPlan).IsSome then
             Request.Plan
         if
-            SessionMachine.SessionState.inFlight session
+            SessionMachine.SessionState.changing session
             || (SessionMachine.SessionState.reopening session).IsSome
         then
             Request.Session
