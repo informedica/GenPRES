@@ -1051,7 +1051,7 @@ that say which aspect they belong to; they belong to no step.
 | 8 | #1371 |
 | 10 | #1372 |
 | 11 | #1373 |
-| 12 | this pull request |
+| 12 | #1374 |
 
 Line counts of the client's machines and of the App, before the plan (d0887a25) and after step
 12:
