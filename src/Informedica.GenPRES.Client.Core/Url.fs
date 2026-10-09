@@ -141,11 +141,11 @@ let parseLaunch segments =
 /// The age a "#/patient?..." url gives, from a birth year or else an age in days; now is the
 /// moment the age of a birth date is taken at.
 let parseAge now parameters =
-    match parameters |> tryInt "by", parameters |> tryInt "ad" with
+    match parameters |> tryInt "byr", parameters |> tryInt "agd" with
     | Some year, _ ->
         // january and the first day of the month when not given
-        let month = parameters |> tryInt "bm" |> Option.defaultValue 1
-        let day = parameters |> tryInt "bd" |> Option.defaultValue 1
+        let month = parameters |> tryInt "bmo" |> Option.defaultValue 1
+        let day = parameters |> tryInt "bdy" |> Option.defaultValue 1
 
         Patient.Age.fromBirthDate now (DateTime(year, month, day)) |> Some
     | _, Some days -> Patient.Age.fromDays days |> Some
@@ -155,7 +155,7 @@ let parseAge now parameters =
 /// The anonymous patient of a "#/patient?..." url of this age.
 let parsePatient (age: Patient.Age) parameters =
     let cvl =
-        match parameters |> Map.tryFind "cv" with
+        match parameters |> Map.tryFind "cvl" with
         | Some "y" -> [ CVL ]
         | _ -> []
 
@@ -164,17 +164,18 @@ let parsePatient (age: Patient.Age) parameters =
         (Some age.Months)
         (Some age.Weeks)
         (Some age.Days)
-        (parameters |> tryInt "wt")
-        (parameters |> tryInt "ht")
-        (parameters |> tryInt "gw" |> Option.map Measures.toWeek)
-        (parameters |> tryInt "gd" |> Option.map Measures.toDay)
+        (parameters |> tryInt "wgt")
+        (parameters |> tryInt "hgt")
+        (parameters |> tryInt "gaw" |> Option.map Measures.toWeek)
+        (parameters |> tryInt "gad" |> Option.map Measures.toDay)
         UnknownGender
         cvl
         None
-        (parameters |> Map.tryFind "dp")
+        (parameters |> Map.tryFind "dep")
 
 
-/// The page of a "pg" code.
+/// The page of a "pag" code. Settings, the admin page behind the password, has none, so that no
+/// link opens it.
 let parsePage code =
     match code with
     | "el" -> Some Page.Page.LifeSupport
@@ -182,32 +183,35 @@ let parsePage code =
     | "pr" -> Some Page.Page.Prescribe
     | "fm" -> Some Page.Page.Formulary
     | "pe" -> Some Page.Page.Parenteralia
+    | "nu" -> Some Page.Page.Nutrition
+    | "op" -> Some Page.Page.OrderPlan
+    | "ia" -> Some Page.Page.Interactions
     | _ -> None
 
 
 /// What the url of these segments carries; now is the moment the age of a birth date is taken
 /// at. A "#/session..." url carries none of the patient's parts: the session supplies the
-/// patient. A patient url, as in http://localhost:8080/#/patient?by=2&bm=0&bd=1, takes:
+/// patient. A patient url, as in http://localhost:5173/#/patient?byr=2020&bmo=3&bdy=1, takes:
 ///
-/// - pg: the page, el (emergency list), cm (continuous medication), pr (prescribe),
-///   fm (formulary) or pe (parenteralia)
-/// - ad: age in days
-/// - by: birth year
-/// - bm: birth month
-/// - bd: birth day
-/// - wt: weight (gram)
-/// - ht: height (cm)
-/// - gw: gestational age weeks
-/// - gd: gestational age days
-/// - la: language (en; du; fr; ge; sp; it; ch)
-/// - dc: show disclaimer (n;_)
-/// - cv: central venous line (y;_)
-/// - dp: department
-/// - md: medication
-/// - rt: route
-/// - fr: form
-/// - in: indication
-/// - dt: dosetype
+/// - pag: the page, el (emergency list), cm (continuous medication), pr (prescribe),
+///   fm (formulary), pe (parenteralia), nu (nutrition), op (order plan) or ia (interactions)
+/// - agd: age in days
+/// - byr: birth year
+/// - bmo: birth month, january when not given
+/// - bdy: birth day, the first when not given
+/// - wgt: weight (gram)
+/// - hgt: height (cm)
+/// - gaw: gestational age weeks
+/// - gad: gestational age days
+/// - lan: language, an ISO 639-1 code (en; nl; fr; de; es; it)
+/// - dsc: show disclaimer (n;_)
+/// - cvl: central venous line (y;_)
+/// - dep: department
+/// - med: medication
+/// - rte: route
+/// - frm: form
+/// - ind: indication
+/// - dst: dosetype
 let parse now segments =
     match segments with
     | [] -> none
@@ -219,11 +223,11 @@ let parse now segments =
 
         let medication =
             {|
-                indication = parameters |> Map.tryFind "in"
-                medication = parameters |> Map.tryFind "md"
-                route = parameters |> Map.tryFind "rt"
-                form = parameters |> Map.tryFind "fr"
-                dosetype = parameters |> Map.tryFind "dt" |> Option.map DoseType.doseTypeFromString
+                indication = parameters |> Map.tryFind "ind"
+                medication = parameters |> Map.tryFind "med"
+                route = parameters |> Map.tryFind "rte"
+                form = parameters |> Map.tryFind "frm"
+                dosetype = parameters |> Map.tryFind "dst" |> Option.map DoseType.doseTypeFromString
             |}
 
         // no medication when the url gives no part of it
@@ -236,10 +240,10 @@ let parse now segments =
 
         {
             Patient = age |> Option.bind (fun age -> parameters |> parsePatient age)
-            Page = parameters |> Map.tryFind "pg" |> Option.bind parsePage
-            // ISO code, display name or the legacy codes (du, gr, sp): one parser with the server
-            Language = parameters |> Map.tryFind "la" |> Option.bind Localization.tryParse
-            Disclaimer = parameters |> Map.tryFind "dc" <> Some "n"
+            Page = parameters |> Map.tryFind "pag" |> Option.bind parsePage
+            // an ISO 639-1 code only: one parser with the server's default language
+            Language = parameters |> Map.tryFind "lan" |> Option.bind Localization.tryParse
+            Disclaimer = parameters |> Map.tryFind "dsc" <> Some "n"
             Medication = if given then Some medication else None
             Launch = None
             NotParsed =

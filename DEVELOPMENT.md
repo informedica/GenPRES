@@ -529,9 +529,9 @@ SERVER_PORT=8085               # Kestrel's listen port (no GENPRES_ prefix); the
 #### Default language
 
 `GENPRES_LANG` is the UI language a browser starts in; the client asks the server for it at start-up
-and falls back to Dutch until then. Accepted values are `en`, `nl`, `fr`, `de`, `es`, `it` in any
-case (display names such as `Nederlands` work too). Unset means `nl`; any other value makes the
-server refuse to start. An `la=` URL parameter and a language the user picks both override it.
+and falls back to Dutch until then. Accepted values are the ISO 639-1 codes `en`, `nl`, `fr`, `de`,
+`es`, `it` in any case; a display name such as `Nederlands` is not. Unset means `nl`; any other value
+makes the server refuse to start. An `lan=` URL parameter and a language the user picks both override it.
 
 #### Password policy
 

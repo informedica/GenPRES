@@ -308,10 +308,10 @@ url and the Session's sentences hang on, then the composition.
    - **1b, the page codes and the parameter scheme (#915).** A code for the Nutrition, OrderPlan
      and Interactions pages; none for Settings, the admin page behind the password, so that no
      link opens it. Every query parameter under the three-letter scheme of
-     `docs/roadmap/feature-ehr-url-parameters.md`, with the old two-letter key read beside the
-     new one for the transition the document describes. Tests: each new code; each parameter
-     under both keys, the new one winning when both are given. The url comment moves to
-     `Url.fs` and lists the new keys. Committed as `feat`, with its own browser check.
+     `docs/roadmap/feature-ehr-url-parameters.md`, as a hard cutover: the two-letter keys are
+     no longer read, since no EHR links in with these urls. Tests: each new code; each parameter
+     under its new key; the old keys not read. The parameter list in the `///` of `Url.parse`
+     names the new keys. Committed as `feat`, with its own browser check.
 2. **The loads machine, the start-up loads.** `Alert.fs` with the cases of this step and
    `Alert.severity`; `Views/AlertText.fs` with `AlertText.text`. `Loads.fs`: the state, `Start`
    and `Landed` for the settings, the localization, the normal values, the bolus and continuous

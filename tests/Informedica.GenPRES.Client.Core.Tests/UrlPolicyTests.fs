@@ -6,9 +6,9 @@ open Busy
 open UrlPolicy
 
 
-let page = [ "patient"; "?pg=pr" ]
+let page = [ "patient"; "?pag=pr" ]
 let shown = UrlState.Shown page
-let seed = [ "patient"; "?ad=100&md=paracetamol" ]
+let seed = [ "patient"; "?agd=100&med=paracetamol" ]
 
 
 [<Tests>]
@@ -25,8 +25,8 @@ let tests =
                 asked |> UrlState.close |> Expect.equal "closed" (UrlState.Shown page)
 
                 asked
-                |> UrlState.ask [ "patient"; "?ad=10" ]
-                |> Expect.equal "a newer url replaces it" (UrlState.Asked(page, [ "patient"; "?ad=10" ]))
+                |> UrlState.ask [ "patient"; "?agd=10" ]
+                |> Expect.equal "a newer url replaces it" (UrlState.Asked(page, [ "patient"; "?agd=10" ]))
 
                 UrlState.Shown page |> UrlState.asked |> Expect.isNone "no question"
             }
@@ -37,7 +37,7 @@ let tests =
                 |> Expect.equal "the question's url shown" UrlChange.Unchanged
 
                 change shown seed true |> Expect.equal "seed" UrlChange.Seed
-                change shown [ "patient"; "?pg=fm" ] false
+                change shown [ "patient"; "?pag=fm" ] false
                 |> Expect.equal "page only" UrlChange.PageOnly
             }
 

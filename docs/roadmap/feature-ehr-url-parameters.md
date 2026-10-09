@@ -3,12 +3,12 @@
 ## Is your feature request related to a problem? Please describe
 
 GenPRES can be launched with a patient context pre-filled via URL query
-parameters (e.g. `#patient?by=2020&bm=3&bd=1&wt=12000&cv=y`). This is the
+parameters (e.g. `#patient?byr=2020&bmo=3&bdy=1&wgt=12000&cvl=y`). This is the
 integration point used when an external Electronic Health Record (EHR) links
 into GenPRES for a specific patient.
 
-The current parameter set (parsed in
-[App.fs](../../src/Informedica.GenPRES.Client/App.fs)) only covers
+The parameter set before the redesign below (now parsed in
+[Url.fs](../../src/Informedica.GenPRES.Client.Core/Url.fs)) only covers
 demographic/clinical values needed for dose calculation:
 
 | Param | Meaning |
@@ -74,8 +74,8 @@ shows the current key (blank = new field).
 | `fnm` | First name | string | — | new; confirmation display only |
 | `lnm` | Last name | string | — | new; confirmation display only |
 | `usr` | User context | string | — | new; ordering clinician login, for audit |
-| `pag` | Page | `el`/`cm`/`pr`/`fm`/`pe` | `pg` | |
-| `lan` | Language | `en`/`du`/`fr`/`gr`/`sp`/`it` | `la` | |
+| `pag` | Page | `el`/`cm`/`pr`/`fm`/`pe`/`nu`/`op`/`ia` | `pg` | Settings has no code |
+| `lan` | Language | `en`/`nl`/`fr`/`de`/`es`/`it` | `la` | ISO 639-1 |
 | `dsc` | Show disclaimer | `n` | `dc` | |
 | `ind` | Indication | string | `in` | |
 | `med` | Medication | string | `md` | |
@@ -110,17 +110,13 @@ rest of the scheme and simpler EHR string-building.)
 ### Migration / backwards compatibility
 
 A full key rename is a **breaking change** for any existing EHR deep-links.
-Options, in preference order:
 
-1. **Dual-read transition.** `parseUrl` accepts both new three-letter keys and
-   the legacy two-letter keys (legacy → new alias map), logs a deprecation
-   warning when a legacy key is seen, and drops legacy support after a
-   published date once EHR integrators have migrated.
-2. **Hard cutover.** Coordinate a single switch-over with EHR integrators;
-   simplest code, but requires all consumers to change at once.
-
-Recommendation: option 1. The alias map lives only in the parser and is cheap
-to remove later.
+Decided and built (#915): a **hard cutover**. The three-letter keys of the
+parameters GenPRES parses, and the page codes `nu`, `op` and `ia`, replace the
+legacy keys, which are no longer read: a url with them opens no patient, and
+only its parameter names are logged. No EHR links in with these urls, since the
+sealed launch, not a url, is how an EHR hands a patient to GenPRES, so there is
+no integrator to migrate.
 
 ### Required supporting changes
 
