@@ -56,11 +56,11 @@ module Nutrition =
                 let sectionProps =
                     {|
                         plan = plan
-                        planNew = envOrderPlan.New
+                        planNew = envOrderPlan.NewNutrition
                         planRemove = envOrderPlan.Remove
-                        planNavigate = envOrderPlan.Navigate
-                        planReopen = envOrderPlan.Reopen
-                        planRestore = envOrderPlan.Restore
+                        planNavigate = envOrderPlan.OrderDialogCommand
+                        planReopen = envOrderPlan.ReopenField
+                        planRestore = envOrderPlan.RestoreField
                         localizationTerms = localizationTerms
                         busy = busy
                     |}

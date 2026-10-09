@@ -226,7 +226,7 @@ let tests =
                 steps
                 |> List.exists (
                     function
-                    | LanesStep.Plan(OrderPlanMsg.Version(v, _), _, _) -> v = head
+                    | LanesStep.Plan(OrderPlanMsg.OpenSignedPlan(v, _), _, _) -> v = head
                     | _ -> false
                 )
                 |> Expect.isTrue "the plan got the saved orders"
@@ -518,7 +518,7 @@ let tests =
 
                 let _, _, steps =
                     lanes
-                    |> Lanes.transition (counter ()) (LanesMsg.Workbench(OrderContextMsg.Select None))
+                    |> Lanes.transition (counter ()) (LanesMsg.Workbench(OrderContextMsg.SelectScenario None))
 
                 steps |> List.length |> Expect.equal "one step" 1
             }

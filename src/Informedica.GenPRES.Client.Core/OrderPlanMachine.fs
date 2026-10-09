@@ -36,13 +36,13 @@ type OrderPlanChange =
     /// A workbench narrowed to one scenario, into the plan as a drug context.
     | Add of OrderContext
     /// A new nutrition context for the category.
-    | New of NutritionCategory
+    | NewNutrition of NutritionCategory
     /// The contexts with these ids removed.
     | Remove of ids: string[]
     /// The contexts the rows keep, by id; the totals follow.
-    | Filter of ids: string[]
+    | FilterRows of ids: string[]
     /// A command from the order dialog into the plan's context with this id.
-    | Navigate of contextId: string * OrderViewCommand
+    | OrderDialogCommand of contextId: string * OrderViewCommand
 
 
 /// Functions over OrderPlanChange.
@@ -53,10 +53,10 @@ module OrderPlanChange =
     let command (tp: OrderPlan) (change: OrderPlanChange) =
         match change with
         | OrderPlanChange.Add ctx -> Some(OrderPlanCommand.AddOrderContext(tp, ctx))
-        | OrderPlanChange.New category -> Some(OrderPlanCommand.NewOrderContext(tp, category))
+        | OrderPlanChange.NewNutrition category -> Some(OrderPlanCommand.NewOrderContext(tp, category))
         | OrderPlanChange.Remove ids -> Some(OrderPlanCommand.RemoveOrderContexts(tp, ids))
-        | OrderPlanChange.Filter ids -> Some(OrderPlanCommand.FilterRows(ids, tp))
-        | OrderPlanChange.Navigate(id, cmd) ->
+        | OrderPlanChange.FilterRows ids -> Some(OrderPlanCommand.FilterRows(ids, tp))
+        | OrderPlanChange.OrderDialogCommand(id, cmd) ->
             tp.OrderContexts
             |> Array.tryFind (fun c -> c.Id = id)
             |> Option.map (fun ctx -> OrderPlanCommand.Navigate(tp, id, cmd, ctx))
@@ -188,19 +188,19 @@ type OrderPlanMsg =
     /// The patient set, changed or cleared; the plan follows.
     | PatientChanged of Patient option * request: string
     /// The version the session opened with; it replaces the plan and any request.
-    | Version of SignedOrderPlan * request: string
+    | OpenSignedPlan of SignedOrderPlan * request: string
     /// What a page wants of the plan, built over the plan held.
     | Change of OrderPlanChange * request: string
     /// The answer to the request with this id; Error is a failure of the server or the call.
     | Answered of request: string * Result<OrderPlan, string[]>
     /// The context the dialog shows, by id.
-    | Select of string option
+    | SelectContext of string option
     /// A clear from the dialog that opens the field's list: the command goes out as a change, and
     /// the plan before it is kept to be put back.
-    | Reopen of contextId: string * OrderViewCommand * request: string
+    | ReopenField of contextId: string * OrderViewCommand * request: string
     /// The list of a reopen closed without a pick: the plan kept is put back, with whether it had
     /// changed since the version last opened or signed, and the answer to the clear is dropped.
-    | Restore
+    | RestoreField
     /// The plan was signed; it took no change meanwhile, so it is the version signed.
     | Signed
 
@@ -425,7 +425,7 @@ module OrderPlanState =
             | _, OrderPlanCart.NoPatient _ -> None
             | OrderPlanCartMsg.PatientChanged _, _
             | OrderPlanCartMsg.Version _, _ -> None
-            | OrderPlanCartMsg.Change(OrderPlanChange.Filter _), OrderPlanCart.Opened _ when state.InFlight.IsNone ->
+            | OrderPlanCartMsg.Change(OrderPlanChange.FilterRows _), OrderPlanCart.Opened _ when state.InFlight.IsNone ->
                 None
             | OrderPlanCartMsg.Landed(_, Ok tp), _ -> selectionIn tp state.Selected
             | _ -> state.Selected
@@ -461,7 +461,7 @@ module OrderPlanState =
                 | _ -> landed, effects
 
         // the selection needs no request; nothing can be selected until the plan is open
-        | OrderPlanMsg.Select id ->
+        | OrderPlanMsg.SelectContext id ->
             match state.Cart, state.InFlight with
             | OrderPlanCart.Opened _, Some(OrderPlanCommand.Open _, _) -> state, []
             | OrderPlanCart.Opened _, _ -> { state with Selected = id }, []
@@ -490,7 +490,7 @@ module OrderPlanState =
                     Work = PlanWork.AsSigned
                     Opened = [||]
                 }
-        | OrderPlanMsg.Version(head, request) ->
+        | OrderPlanMsg.OpenSignedPlan(head, request) ->
             run
                 request
                 (OrderPlanCartMsg.Version head)
@@ -500,8 +500,8 @@ module OrderPlanState =
                 }
         | OrderPlanMsg.Change(change, request) -> run request (OrderPlanCartMsg.Change change) state
         // taken by transition
-        | OrderPlanMsg.Reopen _
-        | OrderPlanMsg.Restore -> state, []
+        | OrderPlanMsg.ReopenField _
+        | OrderPlanMsg.RestoreField -> state, []
         // the plan is the version just signed
         | OrderPlanMsg.Signed ->
             let opened =
@@ -524,13 +524,14 @@ module OrderPlanState =
     /// finds no request to land on after a restore.
     let transition (msg: OrderPlanMsg) (state: OrderPlanState) : OrderPlanState * OrderPlanEffect list =
         match msg with
-        | OrderPlanMsg.Reopen(id, cmd, request) when state.InFlight.IsSome ->
-            move (OrderPlanMsg.Change(OrderPlanChange.Navigate(id, cmd), request)) { state with Kept = None }
-        | OrderPlanMsg.Reopen(id, cmd, request) ->
+        | OrderPlanMsg.ReopenField(id, cmd, request) when state.InFlight.IsSome ->
+            move (OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand(id, cmd), request)) { state with Kept = None }
+        | OrderPlanMsg.ReopenField(id, cmd, request) ->
             let kept = { state with Kept = None }
-            let moved, effects = move (OrderPlanMsg.Change(OrderPlanChange.Navigate(id, cmd), request)) kept
+            let moved, effects =
+                move (OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand(id, cmd), request)) kept
             { moved with Kept = Some kept }, effects
-        | OrderPlanMsg.Restore ->
+        | OrderPlanMsg.RestoreField ->
             match state.Kept with
             | Some kept -> kept, []
             | None -> state, []
@@ -544,12 +545,13 @@ module OrderPlanState =
     let admitted (signing: SigningMachine.SigningView) (patient: PatientMachine.PatientState) (msg: OrderPlanMsg) =
         match msg with
         | OrderPlanMsg.Change _
-        | OrderPlanMsg.Reopen _ -> not (SigningPolicy.underWay signing || PatientMachine.PatientState.changing patient)
+        | OrderPlanMsg.ReopenField _ ->
+            not (SigningPolicy.underWay signing || PatientMachine.PatientState.changing patient)
         | OrderPlanMsg.PatientChanged _
-        | OrderPlanMsg.Version _
+        | OrderPlanMsg.OpenSignedPlan _
         | OrderPlanMsg.Answered _
-        | OrderPlanMsg.Select _
-        | OrderPlanMsg.Restore
+        | OrderPlanMsg.SelectContext _
+        | OrderPlanMsg.RestoreField
         | OrderPlanMsg.Signed -> true
 
 

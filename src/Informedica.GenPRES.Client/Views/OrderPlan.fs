@@ -165,7 +165,7 @@ module OrderPlan =
         let orderContextMsg cmd =
             match orderPlan with
             | OrderPlanView.Settled(_, Some id)
-            | OrderPlanView.Changing(_, Some id) -> envOrderPlan.Navigate(id, cmd)
+            | OrderPlanView.Changing(_, Some id) -> envOrderPlan.OrderDialogCommand(id, cmd)
             | OrderPlanView.Settled(_, None)
             | OrderPlanView.Changing(_, None)
             | OrderPlanView.NoPatient -> ()
@@ -179,7 +179,7 @@ module OrderPlan =
         // selected context as the plan shows it, settled or changing as the plan is, is what
         // the dialog shows
         let dialog = OrderContextView.dialog orderPlan
-        let handleModalClose = fun () -> envOrderPlan.Select None
+        let handleModalClose = fun () -> envOrderPlan.SelectContext None
 
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
@@ -289,7 +289,7 @@ module OrderPlan =
         // the quantity field a cell steps, its commands sent into the row's own context, as the
         // order dialog builds the same field
         let cellField (tp: OrderPlan) (ctx: OrderContext) (ord: Order) (field, ovar: OrderVariable) =
-            let send cmd = envOrderPlan.Navigate(ctx.Id, cmd)
+            let send cmd = envOrderPlan.OrderDialogCommand(ctx.Id, cmd)
 
             let stepable = QuantityModePolicy.Mode.Stepable
 
@@ -575,7 +575,7 @@ module OrderPlan =
             | OrderPlanView.Changing(tp, _) ->
                 match contextOf tp id with
                 | None -> Logging.error "Order not found" id
-                | Some c -> envOrderPlan.Select(Some c.Id)
+                | Some c -> envOrderPlan.SelectContext(Some c.Id)
             | OrderPlanView.NoPatient -> ()
 
         // the rows checked, by order id, become the filter, by context id; only over a plan at
@@ -585,7 +585,7 @@ module OrderPlan =
             | OrderPlanView.Settled(tp, _) ->
                 ids
                 |> Array.choose (fun id -> contextOf tp id |> Option.map _.Id)
-                |> envOrderPlan.Filter
+                |> envOrderPlan.FilterRows
             | OrderPlanView.NoPatient
             | OrderPlanView.Changing _ -> ()
 
@@ -630,7 +630,7 @@ module OrderPlan =
         let reopen cmd =
             match orderPlan with
             | OrderPlanView.Settled(_, Some id)
-            | OrderPlanView.Changing(_, Some id) -> envOrderPlan.Reopen(id, cmd)
+            | OrderPlanView.Changing(_, Some id) -> envOrderPlan.ReopenField(id, cmd)
             | OrderPlanView.Settled(_, None)
             | OrderPlanView.Changing(_, None)
             | OrderPlanView.NoPatient -> ()
@@ -778,7 +778,7 @@ module OrderPlan =
                     orderContext = orderContext
                     command = orderContextMsg
                     reopen = reopen
-                    restoreOrderScenario = envOrderPlan.Restore
+                    restoreOrderScenario = envOrderPlan.RestoreField
                     closeOrder = handleModalClose
                     localizationTerms = localizationTerms
                 |}

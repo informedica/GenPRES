@@ -185,7 +185,8 @@ let route (newId: unit -> string) effect =
         [
             LanesMsg.Patient(PatientMsg.Changed(pat, PatientDraftPolicy.Estimates.Renewed, newId ()))
         ]
-    | LanesEffect.Session(SessionEffect.LoadSignedPlan head) -> [ LanesMsg.Plan(OrderPlanMsg.Version(head, newId ())) ]
+    | LanesEffect.Session(SessionEffect.LoadSignedPlan head) ->
+        [ LanesMsg.Plan(OrderPlanMsg.OpenSignedPlan(head, newId ())) ]
     // the patient answered goes to the workbench and the plan
     | LanesEffect.Patient(PatientEffect.SetPatient pat) ->
         [
