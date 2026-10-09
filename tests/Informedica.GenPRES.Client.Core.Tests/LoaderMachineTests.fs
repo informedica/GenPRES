@@ -240,6 +240,35 @@ let tests =
                         |> Expect.equal "not again" [ LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Formulary ]
                     }
 
+                    test "the patient set drops a filter held for the earlier patient" {
+                        let state, _ =
+                            run
+                                [
+                                    LoaderMsg.Start Load.Formulary
+                                    LoaderMsg.Start Load.Parenteralia
+                                    LoaderMsg.FilterAnswered(filter "morfine")
+                                    LoaderMsg.PatientSet None
+                                ]
+
+                        let state, formulary =
+                            state
+                            |> transition (LoaderMsg.Landed(Landing.Formulary(None, answered Formulary.empty)))
+
+                        formulary
+                        |> Expect.equal
+                            "not asked again"
+                            [ LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Formulary ]
+
+                        let _, parenteralia =
+                            state
+                            |> transition (LoaderMsg.Landed(Landing.Parenteralia(None, answered Parenteralia.empty)))
+
+                        parenteralia
+                        |> Expect.equal
+                            "not asked again"
+                            [ LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Parenteralia ]
+                    }
+
                     test "a failed page raises the error under its source" {
                         let state, effects =
                             run

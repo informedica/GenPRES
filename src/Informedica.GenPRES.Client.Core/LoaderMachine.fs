@@ -468,6 +468,8 @@ let transition msg (state: LoaderState) =
             Patient = patient
             Formulary = Resolved { Formulary.empty with Patient = patient }
             Parenteralia = Resolved Parenteralia.empty
+            FormularyAskAgain = None
+            ParenteraliaAskAgain = None
         }
         |> startPages
     | LoaderMsg.FilterAnswered filter ->
