@@ -96,7 +96,7 @@ let tests =
 
                 let refreshing =
                     SessionState.opened SessionMachineTests.full None
-                    |> SessionState.transition SessionMsg.Refresh
+                    |> SessionState.transition SessionMsg.RefreshPatient
                     |> fst
 
                 Busy.out noPatientChange OrderContextState.noPatient shown refreshing SigningState.idle []

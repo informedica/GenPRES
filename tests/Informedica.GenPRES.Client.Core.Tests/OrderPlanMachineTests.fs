@@ -744,9 +744,9 @@ let signingTests =
 
     let underWay =
         [
-            "requesting", SigningMachine.SigningView.Requesting
-            "noticed", SigningMachine.SigningView.Noticed(one, notice)
-            "challenged", SigningMachine.SigningView.Challenged(one, None)
+            "requesting", SigningMachine.SigningView.RequestingChallenge
+            "noticed", SigningMachine.SigningView.DataChanged(one, notice)
+            "challenged", SigningMachine.SigningView.AskingPin(one, None)
             "submitting", SigningMachine.SigningView.Submitting one
         ]
 
@@ -786,14 +786,14 @@ let signingTests =
                     OrderPlanMsg.Select(Some "c-1")
                     OrderPlanMsg.Signed
                 ]
-                |> List.forall (OrderPlanState.admitted SigningMachine.SigningView.Requesting noPatientChange)
+                |> List.forall (OrderPlanState.admitted SigningMachine.SigningView.RequestingChallenge noPatientChange)
                 |> Expect.isTrue "admitted"
             }
 
             test "a recalculation that lands after the signature, from a data notice accepted, stays released" {
                 // the notice's patient recalculates the order plan while the signature goes on;
                 // a recalculation changes only the totals, so its answer holds the contexts signed
-                let signing = SigningMachine.SigningView.Challenged(two, None)
+                let signing = SigningMachine.SigningView.AskingPin(two, None)
                 let recalculated = { two with Patient = otherDraft }
 
                 held two None
@@ -829,7 +829,7 @@ let signingTests =
 
                 let meanwhile =
                     added
-                    |> transitionWhile SigningMachine.SigningView.Requesting (pageMsg (another, "r-2"))
+                    |> transitionWhile SigningMachine.SigningView.RequestingChallenge (pageMsg (another, "r-2"))
                     |> fst
 
                 meanwhile |> Expect.equal "nothing added meanwhile" added
@@ -898,7 +898,7 @@ let argueTests =
             test "not admitted while a signature is under way" {
                 let msg = OrderPlanMsg.Change(OrderPlanChange.Navigate("c-1", argue), "r-1")
 
-                OrderPlanState.admitted SigningMachine.SigningView.Requesting noPatientChange msg
+                OrderPlanState.admitted SigningMachine.SigningView.RequestingChallenge noPatientChange msg
                 |> Expect.isFalse "a change, held back like a command"
 
                 OrderPlanState.admitted SigningMachine.SigningView.Idle noPatientChange msg
@@ -1056,7 +1056,7 @@ let reopenTests =
             }
 
             test "a reopen is not admitted while a signature is under way; a restore is" {
-                let signing = SigningMachine.SigningView.Requesting
+                let signing = SigningMachine.SigningView.RequestingChallenge
 
                 reopen "r-1"
                 |> OrderPlanState.admitted signing noPatientChange

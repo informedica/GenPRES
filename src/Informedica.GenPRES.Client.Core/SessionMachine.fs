@@ -20,11 +20,11 @@ type SessionView =
     /// The session is closing.
     | Closing of SessionOpened
     /// The server refused the launch.
-    | Refused of LaunchRefusal
+    | LaunchRefused of LaunchRefusal
     /// The server refused the launch, and the same launch can be presented again.
-    | Retryable of LaunchRefusal
+    | LaunchRetryable of LaunchRefusal
     /// The server did not answer the last attempt.
-    | Unreachable
+    | ServerUnreachable
     /// The server ended the session.
     | Ended of SessionEnding
     /// The launch waits on a PIN, with the last refusal of the form if any.
@@ -53,9 +53,9 @@ type SessionPhase =
     /// The session is open.
     | Open of SessionOpened
     /// The server refused the launch.
-    | Refused of LaunchRefusal
+    | LaunchRefused of LaunchRefusal
     /// The server did not answer the last attempt.
-    | Unreachable
+    | ServerUnreachable
     /// The server ended the session and said so once; the user continues anonymously or
     /// launches again.
     | Ended of SessionEnding
@@ -74,7 +74,7 @@ type SessionPhase =
 [<RequireQualifiedAccess>]
 type SessionRequest =
     /// The launch is presented; this attempt.
-    | Presenting of attempt: int
+    | PresentingLaunch of attempt: int
     /// The session read again, after a reload or a login.
     | Resuming
     /// The session closing.
@@ -88,9 +88,9 @@ type SessionRequest =
 [<RequireQualifiedAccess>]
 type SessionReopening =
     /// The EHR read again and the latest version reopened.
-    | Refresh
+    | RefreshPatient
     /// The version with this id opened.
-    | Open of id: string
+    | OpenSignedPlan of id: string
 
 
 /// Everything the session machine holds, hidden from the pages, which read a SessionView of it
@@ -109,7 +109,7 @@ type SessionState =
             Presentation: (Launch * PublicKey) option
             /// The newest order plan version, when the open session is on an older one; only
             /// while the session is open with no request under way.
-            MovedOn: OrderPlanHead option
+            NewerPlan: OrderPlanHead option
         }
 
 
@@ -142,9 +142,9 @@ type SessionMsg =
     /// request out, it is presented once those are left, as for a launch url.
     | PresentLaunch of Launch * PublicKey
     /// The server's answer to a presentation; Error is a transport failure.
-    | Outcome of Launch * PublicKey * Result<LaunchOutcome, string>
+    | LaunchOutcome of Launch * PublicKey * Result<LaunchOutcome, string>
     /// Present the same launch again, after the server was unreachable or refused with a retry.
-    | Retry
+    | RetryLaunch
     /// Read the session again, after a reload or a login.
     | Resume
     /// The answer to Resume.
@@ -154,40 +154,40 @@ type SessionMsg =
     /// The answer to SupplyPin; Error is a transport failure.
     | PinAnswered of Result<PinOutcome, string>
     /// The identity callback refused the launch (#/session?refused={reason}).
-    | RefusedAtCallback of LaunchRefusal
+    | LaunchRefused of LaunchRefusal
     /// Continue without a session.
-    | OpenAnonymous
+    | ContinueAnonymous
     /// The url brought a patient, a medication or a launch: the lane leaves the session. A launch
     /// comes after, by PresentLaunch.
     | UrlMovedOn
     /// Close the session.
-    | Close
+    | CloseSession
     /// The session is closed.
-    | Closed
+    | SessionClosed
     /// The close did not reach the server; the cookie, and so the session, are still there.
     | CloseFailed of reason: string
     /// A signing answer said the server ended the session at the wrong-PIN limit.
-    | EndedByServer of SessionEnding
+    | SignatureEndedSession of SessionEnding
     /// A signature renewed the token. The patient after the signature comes with it, and the
     /// version signed, the last signed order plan from now on, with the identity it names,
     /// which the session is for from now on.
-    | TokenRenewed of OpenedToken * Patient * SignedOrderPlan
+    | SignatureRenewedToken of OpenedToken * Patient * SignedOrderPlan
     /// Open the version a notice named; it becomes the version the session opened with.
-    | OpenVersion of id: string
-    /// The answer to OpenVersion: the session as it now is, None when there was nothing to open,
+    | OpenSignedPlan of id: string
+    /// The answer to OpenSignedPlan: the session as it now is, None when there was nothing to open,
     /// or a transport failure. The token the request started from lets the answer land only on
     /// the session that asked.
-    | Reopened of from: OpenedToken option * Result<SessionOpened option, string>
+    | SignedPlanOpened of from: OpenedToken option * Result<SessionOpened option, string>
     /// Read the EHR again and reopen the latest version on it: the way out of a held patient
     /// context that takes the EHR's data and drops the new and changed orders.
-    | Refresh
-    /// The answer to Refresh, as for Reopened, with the patient read again.
-    | Refreshed of from: OpenedToken option * Result<SessionOpened option, string>
+    | RefreshPatient
+    /// The answer to RefreshPatient, as for SignedPlanOpened, with the patient read again.
+    | PatientRefreshed of from: OpenedToken option * Result<SessionOpened option, string>
     /// What a reply said besides its answer: a newer version exists, or the server ended the
-    /// session. The token the request started from guards it, as for Reopened.
-    | Told of from: OpenedToken option * RecordNotice
+    /// session. The token the request started from guards it, as for SignedPlanOpened.
+    | NoticeReceived of from: OpenedToken option * RecordNotice
     /// A signature was refused because a newer version exists; this is the version to offer.
-    | Blocked of OrderPlanHead
+    | SignatureBlocked of OrderPlanHead
 
 
 /// What the App carries out for the session machine.
@@ -196,35 +196,35 @@ type SessionEffect =
     /// Present the launch to the server.
     | CallPresentLaunch of Launch * PublicKey
     /// Read the session from the server.
-    | CallGetSession
+    | CallResume
     /// Close the session on the server.
     | CallCloseSession
     /// Send the mailed code and the PIN to the server.
     | CallSupplyPin of code: string * pin: string
     /// Go to the url the server redirected to.
-    | GoTo of url: string
+    | GoToIdentityProvider of url: string
     /// Set the patient, so everything derived from it reloads.
     | SetPatient of Patient option
     /// Keep this private key and remove the others.
-    | KeepKey of thumbprint: string
+    | KeepBrowserKey of thumbprint: string
     /// The orders of the version the session opened with go into the cart; the patient reaches the
     /// plan machine a message later, so the plan machine keeps the orders until it has the patient.
-    | LoadCart of SignedOrderPlan
-    /// Ask the server to open the version; the token comes back in Reopened.
-    | CallOpenVersion of id: string * from: OpenedToken option
-    /// Ask the server to read the EHR again; the token comes back in Refreshed.
-    | CallRefresh of from: OpenedToken option
+    | LoadSignedPlan of SignedOrderPlan
+    /// Ask the server to open the version; the token comes back in SignedPlanOpened.
+    | CallOpenSignedPlan of id: string * from: OpenedToken option
+    /// Ask the server to read the EHR again; the token comes back in PatientRefreshed.
+    | CallRefreshPatient of from: OpenedToken option
     /// Tell the user the version is open.
-    | TellVersionOpened of OrderPlanHead
+    | TellSignedPlanOpened of OrderPlanHead
     /// Tell the user a newer version exists, once per version; the bar offers it.
-    | TellMovedOn of OrderPlanHead
+    | TellNewerSignedPlan of OrderPlanHead
     /// Tell the user the refresh did not happen; the orders stay as they are.
-    | TellRefreshFailed
+    | TellPatientRefreshFailed
 
 
 /// The newest version the session was told about, so the user is told once per version and the
 /// bar can offer it. It goes when that version is opened or the session ends.
-module MovedOn =
+module NewerPlan =
 
     /// The version to keep after a notice, and whether the notice is news. Versions are compared
     /// by number, not by arrival, since replies can land out of order: only a newer version is
@@ -246,7 +246,7 @@ module MovedOn =
 /// The constructors and the transition of the session machine.
 module SessionState =
 
-    /// The number of attempts to present a launch before the gate offers Retry.
+    /// The number of attempts to present a launch before the gate offers a retry.
     let maxAttempts = 3
 
 
@@ -270,7 +270,7 @@ module SessionState =
             InFlight = None
             Reopening = None
             Presentation = None
-            MovedOn = None
+            NewerPlan = None
         }
 
 
@@ -278,10 +278,10 @@ module SessionState =
     let launching (launch: Launch) (key: PublicKey) (attempt: int) =
         {
             Phase = SessionPhase.Anonymous
-            InFlight = Some(SessionRequest.Presenting attempt)
+            InFlight = Some(SessionRequest.PresentingLaunch attempt)
             Reopening = None
             Presentation = Some(launch, key)
-            MovedOn = None
+            NewerPlan = None
         }
 
 
@@ -292,18 +292,18 @@ module SessionState =
             InFlight = Some SessionRequest.Resuming
             Reopening = None
             Presentation = None
-            MovedOn = None
+            NewerPlan = None
         }
 
 
     /// The session open, with the newer version to offer if any.
-    let opened (session: SessionOpened) (movedOn: OrderPlanHead option) =
+    let opened (session: SessionOpened) (newerPlan: OrderPlanHead option) =
         {
             Phase = SessionPhase.Open session
             InFlight = None
             Reopening = None
             Presentation = None
-            MovedOn = movedOn
+            NewerPlan = newerPlan
         }
 
 
@@ -314,40 +314,40 @@ module SessionState =
             InFlight = Some SessionRequest.Closing
             Reopening = None
             Presentation = None
-            MovedOn = None
+            NewerPlan = None
         }
 
 
     /// The launch refused, with nothing to present again.
     let refused (refusal: LaunchRefusal) =
         {
-            Phase = SessionPhase.Refused refusal
+            Phase = SessionPhase.LaunchRefused refusal
             InFlight = None
             Reopening = None
             Presentation = None
-            MovedOn = None
+            NewerPlan = None
         }
 
 
     /// The launch refused, with the launch and key kept to present again.
     let retryable (refusal: LaunchRefusal) (launch: Launch) (key: PublicKey) =
         {
-            Phase = SessionPhase.Refused refusal
+            Phase = SessionPhase.LaunchRefused refusal
             InFlight = None
             Reopening = None
             Presentation = Some(launch, key)
-            MovedOn = None
+            NewerPlan = None
         }
 
 
     /// The server did not answer the last attempt; the launch and key are kept to present again.
     let unreachable (launch: Launch) (key: PublicKey) =
         {
-            Phase = SessionPhase.Unreachable
+            Phase = SessionPhase.ServerUnreachable
             InFlight = None
             Reopening = None
             Presentation = Some(launch, key)
-            MovedOn = None
+            NewerPlan = None
         }
 
 
@@ -358,7 +358,7 @@ module SessionState =
             InFlight = None
             Reopening = None
             Presentation = None
-            MovedOn = None
+            NewerPlan = None
         }
 
 
@@ -369,7 +369,7 @@ module SessionState =
             InFlight = None
             Reopening = None
             Presentation = None
-            MovedOn = None
+            NewerPlan = None
         }
 
 
@@ -380,7 +380,7 @@ module SessionState =
             InFlight = Some SessionRequest.SupplyingPin
             Reopening = None
             Presentation = None
-            MovedOn = None
+            NewerPlan = None
         }
 
 
@@ -391,7 +391,7 @@ module SessionState =
             InFlight = None
             Reopening = None
             Presentation = None
-            MovedOn = None
+            NewerPlan = None
         }
 
 
@@ -403,7 +403,7 @@ module SessionState =
             InFlight = Some SessionRequest.Closing
             Reopening = None
             Presentation = None
-            MovedOn = None
+            NewerPlan = None
         }
 
 
@@ -419,7 +419,7 @@ module SessionState =
 
 
     /// The newer version to offer, if any.
-    let movedOn (state: SessionState) = state.MovedOn
+    let newerPlan (state: SessionState) = state.NewerPlan
 
 
     /// Whether a launch, a resume, a PIN or a close is under way.
@@ -440,21 +440,21 @@ module SessionState =
 
 
     /// What the pages read: the request when it can show on its own, else the phase. A refusal
-    /// with a launch kept is Retryable. After the url moved on the lane reads as anonymous, or as
+    /// with a launch kept is LaunchRetryable. After the url moved on the lane reads as anonymous, or as
     /// launching when a launch follows, whatever is still out.
     let view (state: SessionState) : SessionView =
         match state.Phase, state.InFlight, state.Presentation with
         | SessionPhase.UrlMovedOn SessionFollow.Anonymous, _, _ -> SessionView.Anonymous
         | SessionPhase.UrlMovedOn(SessionFollow.Launch _), _, _ -> SessionView.Launching 1
-        | _, Some(SessionRequest.Presenting attempt), _ -> SessionView.Launching attempt
+        | _, Some(SessionRequest.PresentingLaunch attempt), _ -> SessionView.Launching attempt
         | _, Some SessionRequest.Resuming, _ -> SessionView.Resuming
         | SessionPhase.Open opened, Some SessionRequest.Closing, _ -> SessionView.Closing opened
         | SessionPhase.Enrolling(pending, _), Some SessionRequest.SupplyingPin, _ -> SessionView.SupplyingPin pending
         | SessionPhase.Anonymous, _, _ -> SessionView.Anonymous
         | SessionPhase.Open opened, _, _ -> SessionView.Open opened
-        | SessionPhase.Refused refusal, _, Some _ -> SessionView.Retryable refusal
-        | SessionPhase.Refused refusal, _, None -> SessionView.Refused refusal
-        | SessionPhase.Unreachable, _, _ -> SessionView.Unreachable
+        | SessionPhase.LaunchRefused refusal, _, Some _ -> SessionView.LaunchRetryable refusal
+        | SessionPhase.LaunchRefused refusal, _, None -> SessionView.LaunchRefused refusal
+        | SessionPhase.ServerUnreachable, _, _ -> SessionView.ServerUnreachable
         | SessionPhase.Ended ending, _, _ -> SessionView.Ended ending
         | SessionPhase.Enrolling(pending, refusal), _, _ -> SessionView.Enrolling(pending, refusal)
         | SessionPhase.EnrolmentFailed refusal, _, _ -> SessionView.EnrolmentFailed refusal
@@ -467,10 +467,10 @@ module SessionState =
         [
             SessionEffect.SetPatient(session.PatientContext |> Option.bind _.Patient)
             match session.KeyThumbprint with
-            | Some thumbprint -> SessionEffect.KeepKey thumbprint
+            | Some thumbprint -> SessionEffect.KeepBrowserKey thumbprint
             | None -> ()
             match session.PatientContext, session.Head with
-            | Some _, Some head -> SessionEffect.LoadCart head
+            | Some _, Some head -> SessionEffect.LoadSignedPlan head
             | _ -> ()
         ]
 
@@ -495,7 +495,7 @@ module SessionState =
     /// session the cookie may still hold. The newest url decides what follows.
     let moveOn following (state: SessionState) =
         match state.Phase, state.InFlight, following with
-        | _, Some(SessionRequest.Presenting _ | SessionRequest.SupplyingPin), _ ->
+        | _, Some(SessionRequest.PresentingLaunch _ | SessionRequest.SupplyingPin), _ ->
             { state with Phase = SessionPhase.UrlMovedOn following }, []
         | _, Some SessionRequest.Closing, _ -> leaving following, []
         | SessionPhase.Open _, _, _ -> leaving following, [ SessionEffect.CallCloseSession ]
@@ -512,9 +512,9 @@ module SessionState =
         // the answers the lane still waits on after the url moved on. A launch or a PIN that
         // opens a session closes it again, since the cookie it set must go; any other end of the
         // request leads to what follows. Nothing reaches the lanes
-        | SessionMsg.Outcome(launch, key, result), SessionPhase.UrlMovedOn next, Some(SessionRequest.Presenting _) when
-            state.Presentation = Some(launch, key)
-            ->
+        | SessionMsg.LaunchOutcome(launch, key, result),
+          SessionPhase.UrlMovedOn next,
+          Some(SessionRequest.PresentingLaunch _) when state.Presentation = Some(launch, key) ->
             match result with
             | Ok(LaunchOutcome.Opened _) -> leaving next, [ SessionEffect.CallCloseSession ]
             | _ -> follow next
@@ -522,18 +522,18 @@ module SessionState =
           SessionPhase.UrlMovedOn next,
           Some SessionRequest.SupplyingPin -> leaving next, [ SessionEffect.CallCloseSession ]
         | SessionMsg.PinAnswered _, SessionPhase.UrlMovedOn next, Some SessionRequest.SupplyingPin
-        | SessionMsg.Closed, SessionPhase.UrlMovedOn next, Some SessionRequest.Closing
+        | SessionMsg.SessionClosed, SessionPhase.UrlMovedOn next, Some SessionRequest.Closing
         | SessionMsg.CloseFailed _, SessionPhase.UrlMovedOn next, Some SessionRequest.Closing -> follow next
 
         // the same launch again while it is presented, after the url moved on: the presentation
         // under way is the launch the url brings, so the lane takes its outcome as at any launch.
         // Presenting it again would fail, since the server takes a launch once
-        | SessionMsg.PresentLaunch(launch, _), SessionPhase.UrlMovedOn _, Some(SessionRequest.Presenting _) when
+        | SessionMsg.PresentLaunch(launch, _), SessionPhase.UrlMovedOn _, Some(SessionRequest.PresentingLaunch _) when
             state.Presentation |> Option.exists (fun (current, _) -> current = launch)
             ->
             { state with Phase = SessionPhase.Anonymous }, []
         // a presentation under way is not replaced by a second one for the same launch
-        | SessionMsg.PresentLaunch(launch, _), _, Some(SessionRequest.Presenting _) when
+        | SessionMsg.PresentLaunch(launch, _), _, Some(SessionRequest.PresentingLaunch _) when
             state.Presentation |> Option.exists (fun (current, _) -> current = launch)
             ->
             state, []
@@ -543,12 +543,12 @@ module SessionState =
         | SessionMsg.PresentLaunch(launch, key), _, _ -> moveOn (SessionFollow.Launch(launch, key)) state
 
         // an outcome lands only on the presentation that sent it
-        | SessionMsg.Outcome(launch, key, result), _, Some(SessionRequest.Presenting attempt) when
+        | SessionMsg.LaunchOutcome(launch, key, result), _, Some(SessionRequest.PresentingLaunch attempt) when
             state.Presentation = Some(launch, key)
             ->
             match result with
             | Ok(LaunchOutcome.Opened session) -> onOpened session
-            | Ok(LaunchOutcome.RedirectTo url) -> state, [ SessionEffect.GoTo url ]
+            | Ok(LaunchOutcome.RedirectTo url) -> state, [ SessionEffect.GoToIdentityProvider url ]
             | Ok(LaunchOutcome.Refused refusal) ->
                 (if worthRetrying refusal then
                      retryable refusal launch key
@@ -558,17 +558,17 @@ module SessionState =
             | Error _ when attempt < maxAttempts ->
                 launching launch key (attempt + 1), [ SessionEffect.CallPresentLaunch(launch, key) ]
             | Error _ -> unreachable launch key, []
-        | SessionMsg.Outcome _, _, _ -> state, []
+        | SessionMsg.LaunchOutcome _, _, _ -> state, []
 
         // a retry sends the same launch and key, so the server answers as it did the first time
-        | SessionMsg.Retry, SessionPhase.Unreachable, None
-        | SessionMsg.Retry, SessionPhase.Refused _, None ->
+        | SessionMsg.RetryLaunch, SessionPhase.ServerUnreachable, None
+        | SessionMsg.RetryLaunch, SessionPhase.LaunchRefused _, None ->
             match state.Presentation with
             | Some(launch, key) -> present launch key
             | None -> state, []
-        | SessionMsg.Retry, _, _ -> state, []
+        | SessionMsg.RetryLaunch, _, _ -> state, []
 
-        | SessionMsg.Resume, SessionPhase.Anonymous, None -> resuming, [ SessionEffect.CallGetSession ]
+        | SessionMsg.Resume, SessionPhase.Anonymous, None -> resuming, [ SessionEffect.CallResume ]
         | SessionMsg.Resume, _, _ -> state, []
 
         | SessionMsg.Resumed(Ok(ResumeResult.Found session)), SessionPhase.Anonymous, Some SessionRequest.Resuming ->
@@ -584,13 +584,13 @@ module SessionState =
         | SessionMsg.Resumed _, _, _ -> state, []
 
         // the server used up the launch; nothing is left to retry
-        | SessionMsg.RefusedAtCallback refusal, _, _ -> refused refusal, []
+        | SessionMsg.LaunchRefused refusal, _, _ -> refused refusal, []
 
         // continuing anonymously keeps nothing from the launch
-        | SessionMsg.OpenAnonymous, SessionPhase.Refused _, None
-        | SessionMsg.OpenAnonymous, SessionPhase.Unreachable, None
-        | SessionMsg.OpenAnonymous, SessionPhase.Ended _, None -> anonymous, [ SessionEffect.SetPatient None ]
-        | SessionMsg.OpenAnonymous, _, _ -> state, []
+        | SessionMsg.ContinueAnonymous, SessionPhase.LaunchRefused _, None
+        | SessionMsg.ContinueAnonymous, SessionPhase.ServerUnreachable, None
+        | SessionMsg.ContinueAnonymous, SessionPhase.Ended _, None -> anonymous, [ SessionEffect.SetPatient None ]
+        | SessionMsg.ContinueAnonymous, _, _ -> state, []
 
         // the form is sent once at a time; the answer lands only on the request in flight
         | SessionMsg.SupplyPin(code, pin), SessionPhase.Enrolling(pending, _), None ->
@@ -616,13 +616,14 @@ module SessionState =
             enrolling pending None, []
         | SessionMsg.PinAnswered _, _, _ -> state, []
 
-        | SessionMsg.Close, SessionPhase.Open session, None -> closing session, [ SessionEffect.CallCloseSession ]
-        | SessionMsg.Close, _, _ -> state, []
+        | SessionMsg.CloseSession, SessionPhase.Open session, None ->
+            closing session, [ SessionEffect.CallCloseSession ]
+        | SessionMsg.CloseSession, _, _ -> state, []
 
-        // the patient leaves with the session. Closed lands only on a close under way, so a late
+        // the patient leaves with the session. SessionClosed lands only on a close under way, so a late
         // close never touches a newer session
-        | SessionMsg.Closed, _, Some SessionRequest.Closing -> anonymous, [ SessionEffect.SetPatient None ]
-        | SessionMsg.Closed, _, _ -> state, []
+        | SessionMsg.SessionClosed, _, Some SessionRequest.Closing -> anonymous, [ SessionEffect.SetPatient None ]
+        | SessionMsg.SessionClosed, _, _ -> state, []
 
         // a close that never reached the server closed nothing: the session stays open with its
         // patient
@@ -631,13 +632,14 @@ module SessionState =
 
         // the server ended the session at a signature: the gate says why and the close tells the
         // server; a close under way is left to complete
-        | SessionMsg.EndedByServer ending, SessionPhase.Open _, None -> ended ending, [ SessionEffect.CallCloseSession ]
-        | SessionMsg.EndedByServer _, _, _ -> state, []
+        | SessionMsg.SignatureEndedSession ending, SessionPhase.Open _, None ->
+            ended ending, [ SessionEffect.CallCloseSession ]
+        | SessionMsg.SignatureEndedSession _, _, _ -> state, []
 
         // the new token for the next signature, the version signed as the session's head, and the
         // patient and identity the signed version names, into the session's patient context and
         // to the panel. A session without a patient context signs nothing, so there is none to fill
-        | SessionMsg.TokenRenewed(token, patient, signed), SessionPhase.Open session, None ->
+        | SessionMsg.SignatureRenewedToken(token, patient, signed), SessionPhase.Open session, None ->
             let renewed =
                 { session with
                     OpenedToken = Some token
@@ -653,62 +655,75 @@ module SessionState =
                 }
 
             { state with Phase = SessionPhase.Open renewed }, [ SessionEffect.SetPatient(Some patient) ]
-        | SessionMsg.TokenRenewed _, _, _ -> state, []
+        | SessionMsg.SignatureRenewedToken _, _, _ -> state, []
 
         // only an open session can open a version, one refresh or open at a time; the request
         // carries its token
-        | SessionMsg.OpenVersion id, SessionPhase.Open session, None when state.Reopening.IsNone ->
-            { state with Reopening = Some(SessionReopening.Open id) },
-            [ SessionEffect.CallOpenVersion(id, session.OpenedToken) ]
-        | SessionMsg.OpenVersion _, _, _ -> state, []
+        | SessionMsg.OpenSignedPlan id, SessionPhase.Open session, None when state.Reopening.IsNone ->
+            { state with Reopening = Some(SessionReopening.OpenSignedPlan id) },
+            [ SessionEffect.CallOpenSignedPlan(id, session.OpenedToken) ]
+        | SessionMsg.OpenSignedPlan _, _, _ -> state, []
 
         // the session with the version opened: its orders go into the cart; the patient is
         // unchanged. The answer lands only on the open session that still holds the token the
         // request started from; nothing to open, or a failure, leaves the session as it was
-        | SessionMsg.Reopened(from, Ok(Some session)), SessionPhase.Open current, None when current.OpenedToken = from ->
+        | SessionMsg.SignedPlanOpened(from, Ok(Some session)), SessionPhase.Open current, None when
+            current.OpenedToken = from
+            ->
             match session.PatientContext, session.Head with
             // the version is open: told once; a newer version told meanwhile stays on offer
             | Some _, Some head ->
-                opened session (MovedOn.opened state.MovedOn head.Head),
-                [ SessionEffect.LoadCart head; SessionEffect.TellVersionOpened head.Head ]
-            | _ -> opened session state.MovedOn, []
+                opened session (NewerPlan.opened state.NewerPlan head.Head),
+                [
+                    SessionEffect.LoadSignedPlan head
+                    SessionEffect.TellSignedPlanOpened head.Head
+                ]
+            | _ -> opened session state.NewerPlan, []
         // any other answer ends the open too, a failure and an answer for an earlier session
         // included
-        | SessionMsg.Reopened _, _, _ -> { state with Reopening = None }, []
+        | SessionMsg.SignedPlanOpened _, _, _ -> { state with Reopening = None }, []
 
         // only an open session can be refreshed, one refresh or open at a time; the request
         // carries its token
-        | SessionMsg.Refresh, SessionPhase.Open session, None when state.Reopening.IsNone ->
-            { state with Reopening = Some SessionReopening.Refresh }, [ SessionEffect.CallRefresh session.OpenedToken ]
-        | SessionMsg.Refresh, _, _ -> state, []
+        | SessionMsg.RefreshPatient, SessionPhase.Open session, None when state.Reopening.IsNone ->
+            { state with Reopening = Some SessionReopening.RefreshPatient },
+            [ SessionEffect.CallRefreshPatient session.OpenedToken ]
+        | SessionMsg.RefreshPatient, _, _ -> state, []
 
         // the session refreshed: the patient read again goes to the panel, which the plan and the
         // workbench follow as after any edit; the plan keeps its new and changed orders. The same
-        // guard as Reopened
-        | SessionMsg.Refreshed(from, Ok(Some session)), SessionPhase.Open current, None when current.OpenedToken = from ->
-            opened session state.MovedOn, [ SessionEffect.SetPatient(session.PatientContext |> Option.bind _.Patient) ]
-        // the user asked for the refresh, so a refresh that did not happen is told
-        | SessionMsg.Refreshed(from, (Ok None | Error _)), SessionPhase.Open current, None when
+        // guard as SignedPlanOpened
+        | SessionMsg.PatientRefreshed(from, Ok(Some session)), SessionPhase.Open current, None when
             current.OpenedToken = from
             ->
-            { state with Reopening = None }, [ SessionEffect.TellRefreshFailed ]
-        | SessionMsg.Refreshed _, _, _ -> { state with Reopening = None }, []
+            opened session state.NewerPlan,
+            [ SessionEffect.SetPatient(session.PatientContext |> Option.bind _.Patient) ]
+        // the user asked for the refresh, so a refresh that did not happen is told
+        | SessionMsg.PatientRefreshed(from, (Ok None | Error _)), SessionPhase.Open current, None when
+            current.OpenedToken = from
+            ->
+            { state with Reopening = None }, [ SessionEffect.TellPatientRefreshFailed ]
+        | SessionMsg.PatientRefreshed _, _, _ -> { state with Reopening = None }, []
 
         // a notice counts only when its request started from the token the open session holds now,
-        // as for Reopened; the next request repeats what still holds
-        | SessionMsg.Told(from, notice), SessionPhase.Open current, None when current.OpenedToken = from ->
+        // as for SignedPlanOpened; the next request repeats what still holds
+        | SessionMsg.NoticeReceived(from, notice), SessionPhase.Open current, None when current.OpenedToken = from ->
             match notice with
             // kept, and told once per version
             | RecordNotice.NewerVersion head ->
-                let kept, news = MovedOn.receive state.MovedOn head
+                let kept, news = NewerPlan.receive state.NewerPlan head
 
-                { state with MovedOn = kept }, (if news then [ SessionEffect.TellMovedOn head ] else [])
+                { state with NewerPlan = kept },
+                (if news then
+                     [ SessionEffect.TellNewerSignedPlan head ]
+                 else
+                     [])
             // the server ended the session: the gate says why and the close tells the server
             | RecordNotice.Ended ending -> ended ending, [ SessionEffect.CallCloseSession ]
-        | SessionMsg.Told _, _, _ -> state, []
+        | SessionMsg.NoticeReceived _, _, _ -> state, []
 
         // a signature refused for a newer version: the version is kept for the bar, not told
         // again, since the refusal said it
-        | SessionMsg.Blocked head, SessionPhase.Open _, None ->
-            { state with MovedOn = MovedOn.receive state.MovedOn head |> fst }, []
-        | SessionMsg.Blocked _, _, _ -> state, []
+        | SessionMsg.SignatureBlocked head, SessionPhase.Open _, None ->
+            { state with NewerPlan = NewerPlan.receive state.NewerPlan head |> fst }, []
+        | SessionMsg.SignatureBlocked _, _, _ -> state, []

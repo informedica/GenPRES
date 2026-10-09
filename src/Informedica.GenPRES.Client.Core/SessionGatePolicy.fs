@@ -159,9 +159,9 @@ let isGated (session: SessionView) =
     | SessionView.Closing _ -> false
     | SessionView.Launching _
     | SessionView.Resuming
-    | SessionView.Unreachable
-    | SessionView.Refused _
-    | SessionView.Retryable _
+    | SessionView.ServerUnreachable
+    | SessionView.LaunchRefused _
+    | SessionView.LaunchRetryable _
     | SessionView.Ended _
     | SessionView.Enrolling _
     | SessionView.SupplyingPin _
@@ -219,7 +219,7 @@ let gateFor (tr: Terms -> string) (session: SessionView) : Gate option =
                 Form = None
             }
     // the server is given up on after the last attempt, so the count named is the maximum
-    | SessionView.Unreachable ->
+    | SessionView.ServerUnreachable ->
         Some
             {
                 Title = tr Terms.``Session Gate Unreachable``
@@ -234,8 +234,8 @@ let gateFor (tr: Terms -> string) (session: SessionView) : Gate option =
                 Actions = [ Action.Retry ]
                 Form = None
             }
-    | SessionView.Refused refusal -> Some(refused tr refusal None)
-    | SessionView.Retryable refusal -> Some(refused tr refusal (Some Action.Retry))
+    | SessionView.LaunchRefused refusal -> Some(refused tr refusal None)
+    | SessionView.LaunchRetryable refusal -> Some(refused tr refusal (Some Action.Retry))
     | SessionView.Ended ending ->
         Some
             {

@@ -353,44 +353,44 @@ module Session =
     let msg (msg: SessionMsg) =
         match msg with
         | SessionMsg.PresentLaunch _ -> "PresentLaunch"
-        | SessionMsg.Outcome(_, _, r) -> $"Outcome %s{r |> Part.result launchOutcome}"
-        | SessionMsg.Retry -> "Retry"
+        | SessionMsg.LaunchOutcome(_, _, r) -> $"LaunchOutcome %s{r |> Part.result launchOutcome}"
+        | SessionMsg.RetryLaunch -> "RetryLaunch"
         | SessionMsg.Resume -> "Resume"
         | SessionMsg.Resumed r -> $"Resumed %s{r |> Part.result resumeResult}"
         | SessionMsg.SupplyPin _ -> "SupplyPin"
         | SessionMsg.PinAnswered r -> $"PinAnswered %s{r |> Part.result pinOutcome}"
-        | SessionMsg.RefusedAtCallback r -> $"RefusedAtCallback %s{Part.launchRefusal r}"
-        | SessionMsg.OpenAnonymous -> "OpenAnonymous"
+        | SessionMsg.LaunchRefused r -> $"LaunchRefused %s{Part.launchRefusal r}"
+        | SessionMsg.ContinueAnonymous -> "ContinueAnonymous"
         | SessionMsg.UrlMovedOn -> "UrlMovedOn"
-        | SessionMsg.Close -> "Close"
-        | SessionMsg.Closed -> "Closed"
+        | SessionMsg.CloseSession -> "CloseSession"
+        | SessionMsg.SessionClosed -> "SessionClosed"
         | SessionMsg.CloseFailed _ -> "CloseFailed"
-        | SessionMsg.EndedByServer e -> $"EndedByServer %s{Part.ending e}"
-        | SessionMsg.TokenRenewed(_, p, _) -> $"TokenRenewed %s{Part.patient p}"
-        | SessionMsg.OpenVersion id -> $"OpenVersion %s{Part.shortId id}"
-        | SessionMsg.Reopened(from, r) -> $"Reopened %s{Part.token from} %s{reopened r}"
-        | SessionMsg.Refresh -> "Refresh"
-        | SessionMsg.Refreshed(from, r) -> $"Refreshed %s{Part.token from} %s{reopened r}"
-        | SessionMsg.Told(from, n) -> $"Told %s{Part.token from} %s{Part.notice n}"
-        | SessionMsg.Blocked h -> $"Blocked %s{Part.head h}"
+        | SessionMsg.SignatureEndedSession e -> $"SignatureEndedSession %s{Part.ending e}"
+        | SessionMsg.SignatureRenewedToken(_, p, _) -> $"SignatureRenewedToken %s{Part.patient p}"
+        | SessionMsg.OpenSignedPlan id -> $"OpenSignedPlan %s{Part.shortId id}"
+        | SessionMsg.SignedPlanOpened(from, r) -> $"SignedPlanOpened %s{Part.token from} %s{reopened r}"
+        | SessionMsg.RefreshPatient -> "RefreshPatient"
+        | SessionMsg.PatientRefreshed(from, r) -> $"PatientRefreshed %s{Part.token from} %s{reopened r}"
+        | SessionMsg.NoticeReceived(from, n) -> $"NoticeReceived %s{Part.token from} %s{Part.notice n}"
+        | SessionMsg.SignatureBlocked h -> $"SignatureBlocked %s{Part.head h}"
 
 
     /// Never the url, the key, the code or the PIN.
     let effect (effect: SessionEffect) =
         match effect with
         | SessionEffect.CallPresentLaunch _ -> "CallPresentLaunch"
-        | SessionEffect.CallGetSession -> "CallGetSession"
+        | SessionEffect.CallResume -> "CallResume"
         | SessionEffect.CallCloseSession -> "CallCloseSession"
         | SessionEffect.CallSupplyPin _ -> "CallSupplyPin"
-        | SessionEffect.GoTo _ -> "GoTo"
+        | SessionEffect.GoToIdentityProvider _ -> "GoToIdentityProvider"
         | SessionEffect.SetPatient p -> $"SetPatient %s{Part.patientOption p}"
-        | SessionEffect.KeepKey _ -> "KeepKey"
-        | SessionEffect.LoadCart s -> $"LoadCart %s{Part.signed s}"
-        | SessionEffect.CallOpenVersion(id, from) -> $"CallOpenVersion %s{Part.shortId id} %s{Part.token from}"
-        | SessionEffect.CallRefresh from -> $"CallRefresh %s{Part.token from}"
-        | SessionEffect.TellVersionOpened h -> $"TellVersionOpened %s{Part.head h}"
-        | SessionEffect.TellMovedOn h -> $"TellMovedOn %s{Part.head h}"
-        | SessionEffect.TellRefreshFailed -> "TellRefreshFailed"
+        | SessionEffect.KeepBrowserKey _ -> "KeepBrowserKey"
+        | SessionEffect.LoadSignedPlan s -> $"LoadSignedPlan %s{Part.signed s}"
+        | SessionEffect.CallOpenSignedPlan(id, from) -> $"CallOpenSignedPlan %s{Part.shortId id} %s{Part.token from}"
+        | SessionEffect.CallRefreshPatient from -> $"CallRefreshPatient %s{Part.token from}"
+        | SessionEffect.TellSignedPlanOpened h -> $"TellSignedPlanOpened %s{Part.head h}"
+        | SessionEffect.TellNewerSignedPlan h -> $"TellNewerSignedPlan %s{Part.head h}"
+        | SessionEffect.TellPatientRefreshFailed -> "TellPatientRefreshFailed"
 
 
     /// The state as the pages read it; never the name the enrolment shows.
@@ -401,9 +401,9 @@ module Session =
         | SessionView.Resuming -> "Resuming"
         | SessionView.Open so -> $"Open %s{Part.opened so}"
         | SessionView.Closing so -> $"Closing %s{Part.opened so}"
-        | SessionView.Refused r -> $"Refused %s{Part.launchRefusal r}"
-        | SessionView.Retryable r -> $"Retryable %s{Part.launchRefusal r}"
-        | SessionView.Unreachable -> "Unreachable"
+        | SessionView.LaunchRefused r -> $"LaunchRefused %s{Part.launchRefusal r}"
+        | SessionView.LaunchRetryable r -> $"LaunchRetryable %s{Part.launchRefusal r}"
+        | SessionView.ServerUnreachable -> "ServerUnreachable"
         | SessionView.Ended e -> $"Ended %s{Part.ending e}"
         | SessionView.Enrolling(_, r) -> $"Enrolling refusal %s{r |> Part.orNone Part.pinRefusal}"
         | SessionView.SupplyingPin _ -> "SupplyingPin"
@@ -437,8 +437,12 @@ module Signing =
             $"Sign %s{Part.plan p} %i{differences.Length} differences %s{Part.shortId request}"
         | SigningMsg.ChallengeAnswered(request, r) ->
             $"ChallengeAnswered %s{Part.shortId request} %s{r |> Part.result response}"
-        | SigningMsg.Accept held -> if held then "Accept holding the context" else "Accept"
-        | SigningMsg.Confirm _ -> "Confirm"
+        | SigningMsg.AcceptDataChange held ->
+            if held then
+                "AcceptDataChange holding the context"
+            else
+                "AcceptDataChange"
+        | SigningMsg.ConfirmPin _ -> "ConfirmPin"
         | SigningMsg.Cancel -> "Cancel"
         | SigningMsg.SubmitAnswered(_, r) -> $"SubmitAnswered %s{r |> Part.result response}"
 
@@ -450,9 +454,9 @@ module Signing =
             let withNotice = if notice.IsSome then " with notice" else ""
             $"CallChallenge %s{Part.plan p}%s{withNotice} %s{Part.shortId request}"
         | SigningEffect.CallSubmit(p, _, _, _) -> $"CallSubmit %s{Part.plan p}"
-        | SigningEffect.RenewToken(_, p, _) -> $"RenewToken %s{Part.patient p}"
+        | SigningEffect.RenewSessionToken(_, p, _) -> $"RenewSessionToken %s{Part.patient p}"
         | SigningEffect.EndSession e -> $"EndSession %s{Part.ending e}"
-        | SigningEffect.SetPatient p -> $"SetPatient %s{Part.patient p}"
+        | SigningEffect.SetNoticedPatient p -> $"SetNoticedPatient %s{Part.patient p}"
         | SigningEffect.TellSigned s -> $"TellSigned %s{Part.signed s}"
         | SigningEffect.TellRefused r -> $"TellRefused %s{Part.signingRefusal r}"
         | SigningEffect.TellError _ -> "TellError"
@@ -462,9 +466,9 @@ module Signing =
     let view (view: SigningView) =
         match view with
         | SigningView.Idle -> "Idle"
-        | SigningView.Requesting -> "Requesting"
-        | SigningView.Noticed(p, n) -> $"Noticed %s{Part.plan p} %s{Part.patientOption n.Data}"
-        | SigningView.Challenged(p, r) -> $"Challenged %s{Part.plan p} refusal %s{r |> Part.orNone Part.signingRefusal}"
+        | SigningView.RequestingChallenge -> "RequestingChallenge"
+        | SigningView.DataChanged(p, n) -> $"DataChanged %s{Part.plan p} %s{Part.patientOption n.Data}"
+        | SigningView.AskingPin(p, r) -> $"AskingPin %s{Part.plan p} refusal %s{r |> Part.orNone Part.signingRefusal}"
         | SigningView.Submitting p -> $"Submitting %s{Part.plan p}"
 
 

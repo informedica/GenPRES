@@ -68,10 +68,10 @@ module UnsignedWorkPolicyTests =
                         }
 
                         test "a signature under way is work" {
-                            hasUnsignedWork None (SigningView.Challenged(plan, None)) PlanWork.AsSigned
+                            hasUnsignedWork None (SigningView.AskingPin(plan, None)) PlanWork.AsSigned
                             |> Expect.isTrue "should be work"
 
-                            hasUnsignedWork None SigningView.Requesting PlanWork.AsSigned
+                            hasUnsignedWork None SigningView.RequestingChallenge PlanWork.AsSigned
                             |> Expect.isTrue "the challenge asked is work too"
                         }
 

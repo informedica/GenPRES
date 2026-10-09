@@ -312,7 +312,7 @@ module Patient =
         // the new and changed orders go with the open
         let onOpenLastSigned id =
             setHeldOpen false
-            envSession.OpenVersion id
+            envSession.OpenSignedPlan id
 
         // the patient read from the EHR again; held, it asks instead, as the fields do
         let onRefresh () = if held then setHeldOpen true else envSession.Refresh()

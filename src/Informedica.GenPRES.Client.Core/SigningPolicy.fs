@@ -81,7 +81,7 @@ let signedSentence (tr: Terms -> string) (signed: SignedOrderPlan) =
 
 
 /// The sentence when a newer version exists: who signed it, and when.
-let movedOnSentence (tr: Terms -> string) (head: OrderPlanHead) =
+let newerPlanSentence (tr: Terms -> string) (head: OrderPlanHead) =
     tr Terms.``Session Newer Version``
     |> TermText.fill [ head.By.DisplayName; time head.SignedAt ]
 
@@ -125,9 +125,9 @@ let canSign (session: SessionView) (plan: OrderPlan) =
 let underWay (signing: SigningView) =
     match signing with
     | SigningView.Idle -> false
-    | SigningView.Requesting
-    | SigningView.Noticed _
-    | SigningView.Challenged _
+    | SigningView.RequestingChallenge
+    | SigningView.DataChanged _
+    | SigningView.AskingPin _
     | SigningView.Submitting _ -> true
 
 
