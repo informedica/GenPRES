@@ -49,7 +49,7 @@ module private Effects =
 
 
     /// Turns a server reply into the message for the lane that sent the request. The response goes
-    /// to that lane, the notice goes to the Session, and the session token sent with the request
+    /// to that lane, the notice goes to the Session, and the Session's token sent with the request
     /// comes along.
     let answered lane opened (reply: Api.Reply<_>) =
         Msg.Lanes(LanesMsg.Answer(lane (Ok reply.Response), opened, reply.Notice))
@@ -58,14 +58,14 @@ module private Effects =
     /// Sends a command to the server with the Session's token and turns the outcome into the
     /// lane's message: a reply goes through answered, a refusal or a failed request comes back to
     /// the lane as an Error.
-    let underSession call command lane opened =
+    let underSession call cmd lane opened =
         async {
             try
                 match!
                     call
                         {
                             Api.Request.Opened = opened
-                            Api.Request.Command = command
+                            Api.Request.Command = cmd
                         }
                 with
                 | Ok reply -> return reply |> answered lane opened
@@ -77,7 +77,7 @@ module private Effects =
 
 
     /// Erase the Launch: replace the launch url with "#/session" in the
-    /// address bar and the history entry, so the token survives neither a
+    /// address bar and the history entry, so the launch's token survives neither a
     /// reload, the back button nor a copied url. Goes through the History API
     /// directly: Router.navigate would dispatch the navigation event and
     /// re-enter UrlChanged.
@@ -192,11 +192,11 @@ module private Effects =
         | _ -> Cmd.none
 
 
-    /// What an admin effect sends out of the client: a call under the token, whose answer comes back
+    /// What an admin effect sends out of the client: a call under the admin token, whose answer comes back
     /// as the admin machine's message; a failure is logged.
     let admin effect =
-        let call command landing =
-            Cmd.OfAsync.perform serverApi.processAdmin command (landing >> AdminMachine.AdminMsg.Landed >> Msg.Admin)
+        let call cmd landing =
+            Cmd.OfAsync.perform serverApi.processAdmin cmd (landing >> AdminMachine.AdminMsg.Landed >> Msg.Admin)
 
         match effect with
         | AdminMachine.AdminEffect.ValidatePassword(attempt, password) ->
@@ -384,12 +384,9 @@ module private Effects =
     /// an exception.
     let plan (effect: OrderPlanEffect) opened : Cmd<Msg> =
         match effect with
-        | OrderPlanEffect.CallPlan(command, request) ->
+        | OrderPlanEffect.CallPlan(cmd, request) ->
             opened
-            |> underSession
-                serverApi.processOrderPlan
-                command
-                (fun r -> LanesMsg.Plan(OrderPlanMsg.Answered(request, r)))
+            |> underSession serverApi.processOrderPlan cmd (fun r -> LanesMsg.Plan(OrderPlanMsg.Answered(request, r)))
         | OrderPlanEffect.TellError errs ->
             Logging.error "error" errs
             Cmd.none
@@ -401,11 +398,11 @@ module private Effects =
     /// transport failure is an Error answer.
     let workbench (effect: OrderContextEffect) opened : Cmd<Msg> =
         match effect with
-        | OrderContextEffect.CallContext(command, request) ->
+        | OrderContextEffect.CallContext(cmd, request) ->
             opened
             |> underSession
                 serverApi.processOrderContext
-                command
+                cmd
                 (fun r -> LanesMsg.Workbench(OrderContextMsg.Answered(request, r)))
         | OrderContextEffect.TellError errs ->
             Logging.warning "order context error" errs
@@ -618,23 +615,23 @@ type private Projection(state: State, dispatch: Msg -> unit) =
 
         member _.Estimated = Client.estimated state
 
-        member _.UpdatePatient p =
-            Msg.PanelChanged(p, PatientDraftPolicy.Estimates.Renewed, Elmish.newRequest ())
+        member _.UpdatePatient pat =
+            Msg.PanelChanged(pat, PatientDraftPolicy.Estimates.Renewed, Elmish.newRequest ())
             |> dispatch
 
-        member _.EditPatient p =
-            Msg.PanelChanged(p, PatientDraftPolicy.Estimates.Kept, Elmish.newRequest ())
+        member _.EditPatient pat =
+            Msg.PanelChanged(pat, PatientDraftPolicy.Estimates.Kept, Elmish.newRequest ())
             |> dispatch
 
     interface AppEnv.IFormulary with
         member _.Formulary = Client.formulary state
-        member _.UpdateFormulary f =
-            Msg.Loader(LoaderMachine.LoaderMsg.FormularyChanged f) |> dispatch
+        member _.UpdateFormulary form =
+            Msg.Loader(LoaderMachine.LoaderMsg.FormularyChanged form) |> dispatch
 
     interface AppEnv.IParenteralia with
         member _.Parenteralia = Client.parenteralia state
-        member _.UpdateParenteralia p =
-            Msg.Loader(LoaderMachine.LoaderMsg.ParenteraliaChanged p) |> dispatch
+        member _.UpdateParenteralia par =
+            Msg.Loader(LoaderMachine.LoaderMsg.ParenteraliaChanged par) |> dispatch
 
     interface AppEnv.IInteractions with
         member _.Interactions = Client.interactions state
@@ -697,10 +694,10 @@ type private Projection(state: State, dispatch: Msg -> unit) =
         member _.BolusMedication =
             calculateInterventions EmergencyTreatment.calculate (Client.bolusMedication state) (Client.draft state)
 
-        member _.OnSelectBolusMedicationItem s = Msg.EmergencyListItemChosen s |> dispatch
+        member _.OnSelectBolusMedicationItem itm = Msg.EmergencyListItemChosen itm |> dispatch
         member _.BolusMedicationFilter = Client.emergencyListFilter state
-        member _.OnBolusMedicationFilterChange f =
-            Msg.Shell(ShellMachine.ShellMsg.EmergencyListFiltered f) |> dispatch
+        member _.OnBolusMedicationFilterChange filter =
+            Msg.Shell(ShellMachine.ShellMsg.EmergencyListFiltered filter) |> dispatch
 
     interface AppEnv.IContinuousMedication with
         member _.ContinuousMedication =
@@ -712,12 +709,12 @@ type private Projection(state: State, dispatch: Msg -> unit) =
 
             calculateInterventions calc (Client.continuousMedication state) (Client.draft state)
 
-        member _.OnSelectContinuousMedicationItem s = Msg.ContinuousMedicationChosen s |> dispatch
+        member _.OnSelectContinuousMedicationItem itm = Msg.ContinuousMedicationChosen itm |> dispatch
 
         member _.ContinuousMedicationFilter = Client.continuousMedsFilter state
 
-        member _.OnContinuousMedicationFilterChange f =
-            Msg.Shell(ShellMachine.ShellMsg.ContinuousMedsFiltered f) |> dispatch
+        member _.OnContinuousMedicationFilterChange filter =
+            Msg.Shell(ShellMachine.ShellMsg.ContinuousMedsFiltered filter) |> dispatch
 
 
 [<JSX.Component>]
@@ -737,7 +734,7 @@ let View () =
 
     let appEnv = Projection(state, dispatch) :> obj
 
-    let sx =
+    let pageSx =
         if isMobile then
             {|
                 height = "100vh"
@@ -817,7 +814,7 @@ let View () =
 
     <React.StrictMode>
         <ThemeProvider theme={theme}>
-            <Box sx={sx}>
+            <Box sx={pageSx}>
                 <CssBaseline />
                 {serverErrorBanner}
                 {Components.Router.View {| onUrlChanged = onUrlChanged |}}
