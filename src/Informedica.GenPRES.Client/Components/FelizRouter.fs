@@ -47,7 +47,6 @@ module Router =
     [<Literal>]
     let customNavigationEvent = "CUSTOM_NAVIGATION_EVENT"
 
-    let inline hashPrefix str = "#/" + str
     let inline combine xs = String.concat "/" xs
 
     type RouterProps =

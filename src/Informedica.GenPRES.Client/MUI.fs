@@ -5,22 +5,6 @@ open Fable.Core
 module Icons =
 
     [<JSX.Component>]
-    let Home =
-        JSX.jsx
-            $"""
-        import Home from '@mui/icons-material/Home';
-        <Home />
-    """
-
-    [<JSX.Component>]
-    let AccountTree =
-        JSX.jsx
-            $"""
-        import AccountTree from '@mui/icons-material/AccountTree';
-        <AccountTree />
-    """
-
-    [<JSX.Component>]
     let Assignment =
         JSX.jsx
             $"""
@@ -29,79 +13,11 @@ module Icons =
     """
 
     [<JSX.Component>]
-    let Archive =
-        JSX.jsx
-            $"""
-        import Archive from '@mui/icons-material/Archive';
-        <Archive />
-    """
-
-    [<JSX.Component>]
     let Message =
         JSX.jsx
             $"""
         import Message from '@mui/icons-material/Message';
         <Message />
-    """
-
-    [<JSX.Component>]
-    let Tune =
-        JSX.jsx
-            $"""
-        import Tune from '@mui/icons-material/Tune';
-        <Tune />
-    """
-
-    [<JSX.Component>]
-    let PieChart =
-        JSX.jsx
-            $"""
-        import PieChart from '@mui/icons-material/PieChart';
-        <PieChart />
-    """
-
-    // MenuIcon
-    [<JSX.Component>]
-    let Menu =
-        JSX.jsx
-            $"""
-        import Menu from '@mui/icons-material/Menu';
-        <Menu />
-    """
-
-    //chevronRightIcon
-    [<JSX.Component>]
-    let ChevronRight =
-        JSX.jsx
-            $"""
-        import ChevronRight from '@mui/icons-material/ChevronRight';
-        <ChevronRight />
-    """
-
-    //chevronLeftIcon
-    [<JSX.Component>]
-    let ChevronLeft =
-        JSX.jsx
-            $"""
-        import ChevronLeft from '@mui/icons-material/ChevronLeft';
-        <ChevronLeft />
-    """
-    //emailIcon
-    [<JSX.Component>]
-    let Email =
-        JSX.jsx
-            $"""
-        import Email from '@mui/icons-material/Email';
-        <Email />
-    """
-
-    //phoneIcon
-    [<JSX.Component>]
-    let Phone =
-        JSX.jsx
-            $"""
-        import Phone from '@mui/icons-material/Phone';
-        <Phone />
     """
 
     //closeIcon
@@ -139,51 +55,6 @@ module Icons =
         <Person />
     """
 
-    // Announcement
-    [<JSX.Component>]
-    let Announcement =
-        JSX.jsx
-            $"""
-        import Announcement from '@mui/icons-material/Announcement';
-        <Announcement />
-    """
-
-    //contactMail
-    [<JSX.Component>]
-    let ContactMail =
-        JSX.jsx
-            $"""
-        import ContactMail from '@mui/icons-material/ContactMail';
-        <ContactMail />
-    """
-
-    // shortText
-    [<JSX.Component>]
-    let ShortText =
-        JSX.jsx
-            $"""
-        import ShortText from '@mui/icons-material/ShortText';
-        <ShortText />
-    """
-
-    //Contacts
-    [<JSX.Component>]
-    let Contacts =
-        JSX.jsx
-            $"""
-        import Contacts from '@mui/icons-material/Contacts';
-        <Contacts />
-    """
-
-    //playlistaddcheck
-    [<JSX.Component>]
-    let PlaylistAddCheck =
-        JSX.jsx
-            $"""
-        import PlaylistAddCheck from '@mui/icons-material/PlaylistAddCheck';
-        <PlaylistAddCheck />
-    """
-
     //Settings
     [<JSX.Component>]
     let Settings =
@@ -202,24 +73,6 @@ module Icons =
         <Restore />
     """
 
-    //ExitToApp
-    [<JSX.Component>]
-    let ExitToApp =
-        JSX.jsx
-            $"""
-        import ExitToApp from '@mui/icons-material/ExitToApp';
-        <ExitToApp />
-    """
-
-    // shareicon
-    [<JSX.Component>]
-    let Share =
-        JSX.jsx
-            $"""
-        import Share from '@mui/icons-material/Share';
-        <Share />
-    """
-
     // editIcon
     [<JSX.Component>]
     let Edit =
@@ -227,33 +80,6 @@ module Icons =
             $"""
         import Edit from '@mui/icons-material/Edit';
         <Edit />
-    """
-
-    //info icon
-    [<JSX.Component>]
-    let Info =
-        JSX.jsx
-            $"""
-        import Info from '@mui/icons-material/Info';
-        <Info />
-    """
-
-    //info icon
-    [<JSX.Component>]
-    let Create =
-        JSX.jsx
-            $"""
-        import Create from '@mui/icons-material/Create';
-        <Create />
-    """
-
-    //info icon
-    [<JSX.Component>]
-    let Medication =
-        JSX.jsx
-            $"""
-        import Medication from '@mui/icons-material/Medication';
-        <Medication />
     """
 
     //info icon
@@ -281,15 +107,6 @@ module Icons =
             $"""
         import Notes from '@mui/icons-material/Notes';
         <Notes />
-    """
-
-    //info icon
-    [<JSX.Component>]
-    let CampaignIcon =
-        JSX.jsx
-            $"""
-        import CampaignIcon from '@mui/icons-material/Campaign';
-        <CampaignIcon />
     """
 
     //info icon
@@ -367,13 +184,6 @@ module Icons =
         <LogoutIcon />
     """
 
-    let PsychologyIcon =
-        JSX.jsx
-            $"""
-        import PsychologyIcon from '@mui/icons-material/Psychology';
-        <PsychologyIcon />
-    """
-
     let CalculateIcon =
         JSX.jsx
             """
@@ -435,48 +245,6 @@ module Icons =
             $"""
      import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
      <SkipPreviousIcon/>
-    """
-
-    let PauseIcon =
-        JSX.jsx
-            $"""
-    import PauseIcon from '@mui/icons-material/Pause';
-    <PauseIcon/>
-    """
-
-    let AlignHorizontalCenterIcon =
-        JSX.jsx
-            $"""
-    import AlignHorizontalCenterIcon from '@mui/icons-material/AlignHorizontalCenter';
-    <AlignHorizontalCenterIcon/>
-    """
-
-    let KeyboardArrowUpIcon =
-        JSX.jsx
-            $"""
-    import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-    <KeyboardArrowUpIcon/>
-    """
-
-    let KeyboardArrowDownIcon =
-        JSX.jsx
-            $"""
-    import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-    <KeyboardArrowDownIcon/>
-    """
-
-    let KeyboardDoubleArrowUpIcon =
-        JSX.jsx
-            $"""
-    import KeyboardDoubleArrowUpIcon from '@mui/icons-material/KeyboardDoubleArrowUp';
-    <KeyboardDoubleArrowUpIcon/>
-    """
-
-    let KeyboardDoubleArrowDownIcon =
-        JSX.jsx
-            $"""
-    import KeyboardDoubleArrowDownIcon from '@mui/icons-material/KeyboardDoubleArrowDown';
-    <KeyboardDoubleArrowDownIcon/>
     """
 
     let KeyboardDoubleArrowLeftIcon =
@@ -586,8 +354,6 @@ type Theme =
 
             getContrastText: string -> string
         |}
-
-    abstract member shadows: string[]
 
     abstract member spacing: int -> string
 
@@ -799,38 +565,6 @@ module Colors =
         static member A200 = "#536dfe"
         static member A400 = "#3d5afe"
 
-    type Orange =
-        static member ``50`` = "#fff3e0"
-        static member ``100`` = "#ffe0b2"
-        static member ``200`` = "#ffcc80"
-        static member ``300`` = "#ffb74d"
-        static member ``400`` = "#ffa726"
-        static member ``500`` = "#ff9800"
-        static member ``600`` = "#fb8c00"
-        static member ``700`` = "#f57c00"
-        static member ``800`` = "#ef6c00"
-        static member ``900`` = "#e65100"
-        static member A100 = "#ffd180"
-        static member A200 = "#ffab40"
-        static member A400 = "#ff9100"
-        static member A700 = "#ff6d00"
-
-    type Red =
-        static member ``50`` = "#ffebee"
-        static member ``100`` = "#ffcdd2"
-        static member ``200`` = "#ef9a9a"
-        static member ``300`` = "#e57373"
-        static member ``400`` = "#ef5350"
-        static member ``500`` = "#f44336"
-        static member ``600`` = "#e53935"
-        static member ``700`` = "#d32f2f"
-        static member ``800`` = "#c62828"
-        static member ``900`` = "#b71c1c"
-        static member A100 = "#ff8a80"
-        static member A200 = "#ff5252"
-        static member A400 = "#ff1744"
-        static member A700 = "#d50000"
-
 /// The tokens a shared component spells its colours in. Each is a path into the theme's
 /// palette, resolved by sx, so a colour is stated once, in the theme, and a component names
 /// what it means rather than what it is. The hexes still in Mui.Colors are the ones the
@@ -852,22 +586,11 @@ module Styles =
     let warningBg = "severityBg.warning"
     let alertBg = "severityBg.alert"
 
-    /// Text that carries the value, and text that explains it.
-    let textColor = "text.primary"
+    /// Text that explains a value.
     let mutedTextColor = "text.secondary"
-    let disabledTextColor = "text.disabled"
 
     /// The accent of a selected row and a marked border.
     let accentColor = "primary.main"
-
-    /// Backgrounds: the page, a card, a hovered row, a subdued section such as a print header.
-    let pageBg = "background.default"
-    let paperBg = "background.paper"
-    let hoverBg = "action.hover"
-    let subtleBg = "grey.100"
-
-    /// A divider and a table border.
-    let dividerColor = "divider"
 
     /// The header band over a table or a section; a tint the palette has no name for yet.
     let headerBgColor = Colors.Blue.``50``

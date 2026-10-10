@@ -111,33 +111,6 @@ module EmergencyList =
                     ]
             |]
 
-        let speakAct s =
-            let speak = fun _ -> s |> Global.Speech.speak
-
-            JSX.jsx
-                $"""
-            import CardActions from '@mui/material/CardActions';
-            import IconButton from '@mui/material/IconButton';
-
-            <CardActions disableSpacing>
-                <IconButton onClick={speak} aria-label="Read aloud">
-                    {Mui.Icons.CampaignIcon}
-                </IconButton>
-            </CardActions>
-            """
-            |> toReact
-            |> Some
-
-        let repl s =
-            s
-            |> String.replace "ml" "milli liter"
-            |> String.replace "mg" "milli gram"
-            |> String.replace "mcg" "micro gram"
-            |> String.replace "/" " per "
-            |> String.replace " (" ", "
-            |> String.replace ")" ""
-            |> String.replace "-" " tot, "
-
         let rows =
             match interventions with
             | Resolved items ->
@@ -151,15 +124,6 @@ module EmergencyList =
                 |> List.toArray
                 |> Array.mapi (fun i m ->
                     let b = m.InterventionDoseText |> String.isNullOrWhiteSpace
-
-                    let sentence =
-                        let s =
-                            if b then
-                                m.SubstanceDoseText |> repl
-                            else
-                                m.InterventionDoseText |> repl
-
-                        $"{m.Name}, {s}"
 
                     {|
                         cells =
