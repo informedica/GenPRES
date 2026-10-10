@@ -126,13 +126,13 @@ Used by nothing (about 500 lines): `Calculations.fs` except `calcDuBois`, `Conve
 `weeksToDays`; Localization `TranslationMap`, `parseCSV`, `getTermFromMap`,
 `mergeTranslations`, `getTermOrDefault`, `fromString`, `tryFromString`; `Utils.DateTime`,
 `List.create`, `List.removeDuplicates`, `Decimal.Ten`, the unused `String` helpers; Types
-`Configuration`/`Setting`, `LoadedOrder`; Models `Age.create`, `getAgeInMonths`, `calcBMI`,
+`Configuration`/`Setting`, `LoadedOrder`; Models `getAgeInMonths`, `calcBMI`,
 `updateWeightGram`, `ValueUnit.toStringDecimalDutchShortWithPrec`, `LoadedOrder`,
 `OrderScenario.eqs`, `OrderContext.setScenarios`.
 
-Stays in Shared: the wire types, `Api.fs`, `Locales`, `Measures`, `Csv` except `parseCSV` (`NormalValues.ofRows` and
-`CsvTests` use `tryParseFloat` and the column readers), `NormalValues`,
-Patient `create`/`validate`/readers/`withEstimates`/`applyNormalValues`, the Age readers,
+Stays in Shared: the wire types, `Api.fs`, `Locales`, `Measures`, `Csv` (`NormalValues.ofRows` and
+`CsvTests` use `tryParseFloat` and the column readers; the Client reads the sheet responses with `parseCSV`), `NormalValues`,
+Patient `create`/`validate`/readers/`withEstimates`/`applyNormalValues`, `Age.create` (`fromDays` and `fromBirthDate` call it) and the Age readers,
 `Order.*.create`, `Totals.empty`, `OrderScenario.create`, the whole of group D,
 `NutritionCategory.label`, `Argumentation`, and the `String` functions the
 server reaches through `open Shared` (`split`, `notEmpty`, `isNullOrWhiteSpace`, `trim`, in
