@@ -484,7 +484,7 @@ let tests =
             test "the shell read by its page and what shows over it, never a url's patient" {
                 let chosen = ShellMachine.ShellMsg.PageChosen(Page.Page.Formulary, false)
 
-                Trail.shell 1 at chosen (ShellMachine.ShellState.initial Url.none |> ShellMachine.transition chosen)
+                Trail.shell 1 at chosen (ShellMachine.ShellState.initial |> ShellMachine.transition chosen)
                 |> Trail.format
                 |> Expect.equal
                     "the page chosen"
@@ -493,6 +493,27 @@ let tests =
                 ShellMachine.ShellMsg.ServerErrorRaised(ServerErrorPolicy.ErrorSource.OrderPlan, [| "down" |])
                 |> Trail.Shell.msg
                 |> Expect.equal "the failure" "ServerErrorRaised OrderPlan"
+            }
+
+            test "a url change read by what it carries, never its values or its token" {
+                let url =
+                    { Url.none with
+                        Page = Some Page.Page.Prescribe
+                        Patient = Some Shared.Models.Patient.empty
+                        Launch = Some(Url.LaunchUrl.Launch(Launch "secret"))
+                    }
+
+                let check: ShellMachine.UrlCheck =
+                    {
+                        SigningUnderWay = false
+                        Out = []
+                        UnsignedWork = true
+                        Launched = false
+                    }
+
+                ShellMachine.ShellMsg.UrlChanged([ "session"; "?launch=secret" ], url, check)
+                |> Trail.Shell.msg
+                |> Expect.equal "the change" "UrlChanged page Prescribe language none patient launch (unsigned work)"
             }
 
             test "every machine names itself" {

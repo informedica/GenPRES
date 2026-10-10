@@ -2,17 +2,44 @@ module Informedica.GenPRES.Client.Core.Tests.ShellMachineTests
 
 open Expecto
 open Expecto.Flip
+open Shared.Types
 open Shared.Api
 open Shared.Localization
 open ServerErrorPolicy
 open ShellMachine
 
 
-let initial = ShellState.initial Url.none
+let initial = ShellState.initial
 
 
 let run msgs =
     msgs |> List.fold (fun (state, _) msg -> state |> transition msg) (initial, [])
+
+
+let idle =
+    {
+        SigningUnderWay = false
+        Out = []
+        UnsignedWork = false
+        Launched = false
+    }
+
+
+let pat =
+    { Shared.Models.Patient.empty with Age = Some { Shared.Models.Patient.Age.ageZero with Age.Years = 10<year> } }
+
+
+let patientUrl = { Url.none with Patient = Some pat }
+
+
+let launch = Shared.Types.Launch "abc"
+
+
+let launchUrl = { Url.none with Launch = Some(Url.LaunchUrl.Launch launch) }
+
+
+/// The shell after a page load of these segments, with no patient.
+let loaded sl = initial |> transition (ShellMsg.PageLoaded(sl, Url.none)) |> fst
 
 
 let settings language =
@@ -103,10 +130,189 @@ let tests =
                                 Disclaimer = false
                             }
 
-                        let state, _ = run [ ShellMsg.UrlApplied url ]
+                        let state, _ = run [ ShellMsg.UrlChanged([ "patient?pag=pr" ], url, idle) ]
 
                         (state.Page, state.Language.Current, state.ShowDisclaimer)
                         |> Expect.equal "from the url" (Page.Page.Prescribe, French, false)
+                    }
+                ]
+
+            testList
+                "the page load"
+                [
+                    test "a url without a patient resumes the Session and shows the url" {
+                        let state, effects = initial |> transition (ShellMsg.PageLoaded([ "a" ], Url.none))
+
+                        (UrlPolicy.UrlState.shown state.Url, effects)
+                        |> Expect.equal
+                            "shown, resumed"
+                            ([ "a" ], [ ShellEffect.ResumeSession; ShellEffect.PatientFromUrl None ])
+                    }
+
+                    test "a url with a patient leaves the Session for the patient" {
+                        initial
+                        |> transition (ShellMsg.PageLoaded([ "p" ], patientUrl))
+                        |> snd
+                        |> Expect.equal "left" [ ShellEffect.LeaveSession; ShellEffect.PatientFromUrl(Some pat) ]
+                    }
+
+                    test "a launch url is erased, shown as the session url and presented" {
+                        let state, effects = initial |> transition (ShellMsg.PageLoaded([ "l" ], launchUrl))
+
+                        (UrlPolicy.UrlState.shown state.Url, effects)
+                        |> Expect.equal
+                            "erased, presented"
+                            ([ "session" ],
+                             [
+                                 ShellEffect.EraseLaunch
+                                 ShellEffect.PatientFromUrl None
+                                 ShellEffect.PresentLaunch launch
+                             ])
+                    }
+
+                    test "a medication in the url seeds the workbench with its parts" {
+                        let url =
+                            Url.parse
+                                (System.DateTime(2026, 1, 1))
+                                [ "patient"; "?agd=10&ind=pijn&med=paracetamol&rte=or" ]
+
+                        initial
+                        |> transition (ShellMsg.PageLoaded([ "m" ], url))
+                        |> snd
+                        |> List.choose (
+                            function
+                            | ShellEffect.SeedWorkbench seed ->
+                                Some(seed.Source, seed.Indication, seed.Generic, seed.Route)
+                            | _ -> None
+                        )
+                        |> Expect.equal
+                            "seeded"
+                            [ Shared.Types.SeedSource.Url, Some "pijn", Some "paracetamol", Some "or" ]
+                    }
+                ]
+
+            testList
+                "a url change"
+                [
+                    test "the url shown changes nothing" {
+                        let state = loaded [ "a" ]
+
+                        state
+                        |> transition (ShellMsg.UrlChanged([ "a" ], patientUrl, idle))
+                        |> Expect.equal "unchanged" (state, [])
+                    }
+
+                    test "a page alone is applied" {
+                        let state, effects =
+                            loaded [ "a" ]
+                            |> transition (
+                                ShellMsg.UrlChanged([ "b" ], { Url.none with Page = Some Page.Page.Formulary }, idle)
+                            )
+
+                        (UrlPolicy.UrlState.shown state.Url, state.Page, effects)
+                        |> Expect.equal "applied" ([ "b" ], Page.Page.Formulary, [])
+                    }
+
+                    test "a page alone is put back while a request is out" {
+                        let busy = { idle with Out = [ Busy.Request.Plan ] }
+
+                        loaded [ "a" ]
+                        |> transition (ShellMsg.UrlChanged([ "b" ], Url.none, busy))
+                        |> snd
+                        |> Expect.equal "put back" [ ShellEffect.PutBackUrl [ "a" ] ]
+                    }
+
+                    test "a launch put back is erased and told" {
+                        let state, effects =
+                            loaded [ "a" ]
+                            |> transition (
+                                ShellMsg.UrlChanged([ "l" ], launchUrl, { idle with SigningUnderWay = true })
+                            )
+
+                        (state.Snackbar, effects)
+                        |> Expect.equal
+                            "erased, told, put back"
+                            (Some Alert.Alert.LaunchNotOpened,
+                             [ ShellEffect.EraseLaunch; ShellEffect.PutBackUrl [ "a" ] ])
+                    }
+
+                    test "a patient over work not signed is asked about" {
+                        let state, effects =
+                            loaded [ "a" ]
+                            |> transition (ShellMsg.UrlChanged([ "p" ], patientUrl, { idle with UnsignedWork = true }))
+
+                        (UrlPolicy.UrlState.asked state.Url, UrlPolicy.UrlState.shown state.Url, effects)
+                        |> Expect.equal "asked" (Some [ "p" ], [ "a" ], [])
+                    }
+
+                    test "a patient over nothing starts the lanes over on it" {
+                        let state, effects =
+                            loaded [ "a" ] |> transition (ShellMsg.UrlChanged([ "p" ], patientUrl, idle))
+
+                        (UrlPolicy.UrlState.shown state.Url, effects)
+                        |> Expect.equal
+                            "started over"
+                            ([ "p" ], [ ShellEffect.StartOver(Some pat); ShellEffect.PatientFromUrl(Some pat) ])
+                    }
+
+                    test "a refused launch is applied in full, whatever holds" {
+                        let refused =
+                            { Url.none with Launch = Some(Url.LaunchUrl.Refused Shared.Types.LaunchRefusal.NoRole) }
+
+                        loaded [ "a" ]
+                        |> transition (ShellMsg.UrlChanged([ "r" ], refused, { idle with SigningUnderWay = true }))
+                        |> snd
+                        |> Expect.equal
+                            "refused"
+                            [
+                                ShellEffect.EraseLaunch
+                                ShellEffect.PatientFromUrl None
+                                ShellEffect.LaunchRefused Shared.Types.LaunchRefusal.NoRole
+                            ]
+                    }
+
+                    test "a later url change closes the question" {
+                        loaded [ "a" ]
+                        |> transition (ShellMsg.UrlChanged([ "p" ], patientUrl, { idle with Launched = true }))
+                        |> fst
+                        |> transition (ShellMsg.UrlChanged([ "a" ], Url.none, idle))
+                        |> fst
+                        |> _.Url
+                        |> Expect.equal "closed" (UrlPolicy.UrlState.Shown [ "a" ])
+                    }
+                ]
+
+            testList
+                "the question"
+                [
+                    let asked =
+                        loaded [ "a" ]
+                        |> transition (ShellMsg.UrlChanged([ "p" ], patientUrl, { idle with Launched = true }))
+                        |> fst
+
+                    test "yes starts the lanes over on the url asked about" {
+                        let state, effects = asked |> transition (ShellMsg.LeftForUrl([ "p" ], patientUrl))
+
+                        (state.Url, effects)
+                        |> Expect.equal
+                            "started over"
+                            (UrlPolicy.UrlState.Shown [ "p" ],
+                             [ ShellEffect.StartOver(Some pat); ShellEffect.PatientFromUrl(Some pat) ])
+                    }
+
+                    test "yes for another url than the one asked about does nothing" {
+                        asked
+                        |> transition (ShellMsg.LeftForUrl([ "q" ], patientUrl))
+                        |> Expect.equal "unchanged" (asked, [])
+                    }
+
+                    test "no puts the url shown back" {
+                        let state, effects = asked |> transition ShellMsg.UrlKept
+
+                        (state.Url, effects)
+                        |> Expect.equal
+                            "put back"
+                            (UrlPolicy.UrlState.Shown [ "a" ], [ ShellEffect.PutBackUrl [ "a" ] ])
                     }
                 ]
 

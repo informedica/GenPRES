@@ -952,6 +952,41 @@ module Shell =
     let language (l: Shared.Localization.Locales) = Shared.Localization.toString l
 
 
+    /// What a url carries, by page and language and by kind for the rest, never a value: the values
+    /// are patient data, and a launch holds a token.
+    let url (url: Url.UrlParts) =
+        [
+            $"page %s{url.Page |> Part.orNone Loader.page}"
+            $"language %s{url.Language |> Part.orNone language}"
+            if url.Patient.IsSome then
+                "patient"
+            if url.Medication.IsSome then
+                "medication"
+            match url.Launch with
+            | Some(Url.LaunchUrl.Launch _) -> "launch"
+            | Some(Url.LaunchUrl.Refused r) -> $"refused %s{Part.launchRefusal r}"
+            | None -> ()
+        ]
+        |> String.concat " "
+
+
+    /// What a url change is decided against.
+    let check (check: UrlCheck) =
+        [
+            if check.SigningUnderWay then
+                "signing"
+            if Busy.any check.Out then
+                "busy"
+            if check.UnsignedWork then
+                "unsigned work"
+            if check.Launched then
+                "launched"
+        ]
+        |> function
+            | [] -> "idle"
+            | parts -> parts |> String.concat ", "
+
+
     /// A shell message.
     let msg (msg: ShellMsg) =
         match msg with
@@ -966,10 +1001,10 @@ module Shell =
         | ShellMsg.SettingsLanded s ->
             let data = if s.IsDemo then "demo" else "production"
             $"SettingsLanded %s{data} %s{language s.Language}"
-        | ShellMsg.UrlApplied url ->
-            let page = url.Page |> Part.orNone Loader.page
-            let lang = url.Language |> Part.orNone language
-            $"UrlApplied page %s{page} language %s{lang}"
+        | ShellMsg.PageLoaded(_, u) -> $"PageLoaded %s{url u}"
+        | ShellMsg.UrlChanged(_, u, c) -> $"UrlChanged %s{url u} (%s{check c})"
+        | ShellMsg.LeftForUrl(_, u) -> $"LeftForUrl %s{url u}"
+        | ShellMsg.UrlKept -> "UrlKept"
         | ShellMsg.AlertRaised a -> $"AlertRaised %s{Part.alert a}"
         | ShellMsg.WithdrawInteractionsFound -> "WithdrawInteractionsFound"
         | ShellMsg.SnackbarClosed -> "SnackbarClosed"
@@ -987,6 +1022,16 @@ module Shell =
     let effect (effect: ShellEffect) =
         match effect with
         | ShellEffect.PageShown p -> $"PageShown %s{Loader.page p}"
+        | ShellEffect.PutBackUrl _ -> "PutBackUrl"
+        | ShellEffect.EraseLaunch -> "EraseLaunch"
+        | ShellEffect.PresentLaunch _ -> "PresentLaunch"
+        | ShellEffect.LaunchRefused r -> $"LaunchRefused %s{Part.launchRefusal r}"
+        | ShellEffect.StartOver p -> $"StartOver %s{Part.patientOption p}"
+        | ShellEffect.PatientFromUrl p -> $"PatientFromUrl %s{Part.patientOption p}"
+        | ShellEffect.SeedWorkbench seed ->
+            $"SeedWorkbench %s{OrderContext.seedSource seed.Source} %i{OrderContext.seedChoices seed} choices"
+        | ShellEffect.ResumeSession -> "ResumeSession"
+        | ShellEffect.LeaveSession -> "LeaveSession"
 
 
     /// The page, the language, and what shows over it.
@@ -994,6 +1039,8 @@ module Shell =
         [
             Loader.page state.Page
             language state.Language.Current
+            if (UrlPolicy.UrlState.asked state.Url).IsSome then
+                "url asked"
             if state.ShowDisclaimer then
                 "disclaimer"
             match state.Snackbar with
