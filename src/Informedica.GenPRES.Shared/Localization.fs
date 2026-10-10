@@ -1,9 +1,8 @@
 // Localization support for the GenPRES application.
 //
-// The current implementation fetches a "Localization" sheet from Google Sheets
-// at startup and stores translations as a `string[][]` matrix.  The column
-// indices that map to each language are hardcoded in `getTerm`, which means
-// **reordering columns in the spreadsheet silently breaks all translations**.
+// The client fetches the "Localization" sheet at startup and keeps it as a string[][] matrix,
+// one row per term. getTerm reads a language from a fixed column, so the sheet's column order
+// matters.
 namespace Shared
 
 
