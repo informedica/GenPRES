@@ -725,56 +725,15 @@ let View () =
     let state, dispatch = React.useElmish (program, [||])
     let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
 
-    // the browser asks before it leaves the page (back, a closed tab, a reload) while there is
-    // unsigned work; the listener is added once and reads the latest state through a ref
-    let stateRef = React.useRef state
-    stateRef.current <- state
-
-    React.useEffectOnce (fun () ->
-        let guard (ev: Browser.Types.Event) =
-            if Client.unsignedWork stateRef.current then
-                ev.preventDefault ()
-                // the browser shows its own dialog; older browsers need a returnValue for it
-                ev?returnValue <- ""
-
-        window.addEventListener ("beforeunload", guard)
-
-        fun () -> window.removeEventListener ("beforeunload", guard)
-    )
-
-    let handleClose =
-        fun (_: obj) (reason: string) ->
-            if reason <> "clickaway" then
-                Msg.Shell ShellMachine.ShellMsg.SnackbarClosed |> dispatch
-
-    let closeSnackbar _ = Msg.Shell ShellMachine.ShellMsg.SnackbarClosed |> dispatch
+    global.Hooks.LeaveGuard.useLeaveGuard (Client.unsignedWork state)
 
     let getTerm = Global.getLocalizedTerm (Client.localization state) (Client.language state)
-
-    // the alert on the snackbar in words; closed, it shows nothing
-    let snackbarOpen = state |> Client.snackbar |> Option.isSome
-
-    let severity =
-        Client.snackbar state
-        |> Option.map Views.AlertText.severity
-        |> Option.defaultValue "error"
-
-    let message =
-        Client.snackbar state
-        |> Option.map (Views.AlertText.text getTerm)
-        |> Option.defaultValue ""
 
     let context: Global.Context =
         {
             Localization = Client.language state
             Hospital = Client.hospital state
         }
-
-    let autoHide =
-        match severity with
-        | "success"
-        | "info" -> 3000 |> box
-        | _ -> null
 
     let appEnv = Projection(state, dispatch) :> obj
 
@@ -807,40 +766,23 @@ let View () =
                 |}
         | None -> null
 
-    // the question before a url with a patient, a medication or a launch: it leaves the
-    // launched Session, or drops the work not signed. The browser asks the second itself for a
-    // reload or a closed tab, but not for a change of the url
-    let title =
-        if Client.launched state then
-            Terms.``Url Leave Session Title`` |> getTerm "Sessie verlaten?"
-        else
-            Terms.``Url Leave Title`` |> getTerm "Orderplan verlaten?"
-
-    let text =
-        match Client.launched state, Client.asksLaunch state with
-        | true, true ->
-            Terms.``Url Leave Launch Text``
-            |> getTerm
-                "De sessie wordt gesloten en de nieuwe sessie uit het EPD wordt geopend. Nieuwe en gewijzigde orders en de medicatie die wordt voorgeschreven gaan verloren. Wilt u doorgaan?"
-        | true, false ->
-            Terms.``Url Leave Session Text``
-            |> getTerm
-                "De sessie met de patiënt uit het EPD wordt gesloten en de patiënt uit de url wordt gebruikt, zonder sessie. Nieuwe en gewijzigde orders en de medicatie die wordt voorgeschreven gaan verloren. Wilt u doorgaan?"
-        | false, _ ->
-            Terms.``Url Leave Text``
-            |> getTerm
-                "De nieuwe en gewijzigde orders en de medicatie die wordt voorgeschreven gaan verloren. Wilt u doorgaan?"
-
     let leaveDialog =
-        Components.ConfirmDialog.View
+        Views.LeaveDialog.View
             {|
                 isOpen = Client.urlAsked state
-                title = title
-                text = text
-                confirmLabel = Terms.``Url Leave`` |> getTerm "Verlaten"
-                cancelLabel = Terms.Cancel |> getTerm "Annuleren"
+                launched = Client.launched state
+                asksLaunch = Client.asksLaunch state
+                getTerm = getTerm
                 onConfirm = fun () -> Msg.Shell ShellMachine.ShellMsg.LeftForUrl |> dispatch
                 onCancel = fun () -> Msg.Shell ShellMachine.ShellMsg.UrlKept |> dispatch
+            |}
+
+    let alertSnackbar =
+        Views.AlertSnackbar.View
+            {|
+                alert = Client.snackbar state
+                getTerm = getTerm
+                onClose = fun () -> Msg.Shell ShellMachine.ShellMsg.SnackbarClosed |> dispatch
             |}
 
     let onUrlChanged sl = Msg.UrlChanged(sl, Elmish.parseUrl sl) |> dispatch
@@ -872,10 +814,6 @@ let View () =
     import CssBaseline from '@mui/material/CssBaseline';
     import React from "react";
     import Box from '@mui/material/Box';
-    import Snackbar from '@mui/material/Snackbar';
-    import IconButton from '@mui/material/IconButton';
-    import CloseIcon from '@mui/icons-material/Close';
-    import MuiAlert from '@mui/material/Alert';
 
     <React.StrictMode>
         <ThemeProvider theme={theme}>
@@ -889,17 +827,7 @@ let View () =
                  |> Components.Context.Counting counting
                  |> Components.Context.Context context}
             </Box>
-            <div>
-                <Snackbar
-                    open={snackbarOpen}
-                    autoHideDuration={autoHide}
-                    onClose={handleClose}
-                >
-                    <MuiAlert severity={severity} onClose={closeSnackbar} sx={ {| width = "100%" |} }>
-                        {message}
-                    </MuiAlert>
-                </Snackbar>
-            </div>
+            {alertSnackbar}
         </ThemeProvider>
     </React.StrictMode>
     """

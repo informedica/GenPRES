@@ -278,6 +278,7 @@
 !/src/Informedica.GenPRES.Client/Utils/
 !/src/Informedica.GenPRES.Client/Domain/
 !/src/Informedica.GenPRES.Client/Components/
+!/src/Informedica.GenPRES.Client/Hooks/
 !/src/Informedica.GenPRES.Client/Views/
 !/src/Informedica.GenPRES.Client/Pages/
 # Informedica.GenPRES.Client.Core
