@@ -27,7 +27,8 @@ two parts of the view that are views of their own.
   `applyOrderContextEffect`, `applyPatientEffect`, `applyEffect`. 470 lines, the most. Three of
   the lane calls, the plan, the workbench and the patient, repeat the same twelve lines: the call
   under the token, `Ok reply` answered through `answered`, `Error errs` and the exception answered
-  as an `Error`.
+  as an `Error`. Six of these functions take the client state, and each reads one thing from it,
+  the Session's `OpenedToken`; `applySessionEffect` takes it and reads nothing.
 - **The Elmish program**: `noteLanding`, `carryOut`, `init`, `update`, `program`.
 - **The trace gate and the debugger**, under `#if DEBUG`: `isTraceable`, `redacted`, `redactMsg`,
   `consoleTrace`, `gatedConnection`, `withGatedDebugger`. Development tooling, not the App.
@@ -90,8 +91,9 @@ part in the function name (`applyShellEffect`) where the trail qualifies them by
 ## Decisions
 
 1. **One file, nested modules, the code moved as it is.** `App.fs` stays the App: its wiring is
-   one thing, read top to bottom. The `module private Elmish` splits into nested modules at the
-   same indentation, so a move changes the module header and the qualifiers, not the lines;
+   one thing, read top to bottom. `Messages` and `Effects` split off the `module private Elmish`
+   as nested modules at the same indentation, so a move changes the module header and the
+   qualifiers, not the lines;
    the review is `git diff --color-moved=zebra --color-moved-ws=allow-indentation-change`. The
    `State` and `Msg` aliases move to the top of the file, as `type private`, which compiles and
    emits no JavaScript, so every `Msg.` and `State` in the file stays as it is. Six steps are
@@ -103,19 +105,28 @@ part in the function name (`applyShellEffect`) where the trail qualifies them by
    page load reads the same before and after every step.
 2. **The order of `App.fs`**: the two aliases, then a nested module per responsibility, then the
    type and the view:
-   - `module Messages`: `newRequest`, `session`, `signing`, `patient`, `workbench`, `plan`,
-     `answered`, `parseUrl`. The lane helpers drop the `Msg` suffix, since the module names
-     them: `Messages.session m`.
-   - `module Effects`: `serverApi`, `tokenOf`, then one function per part, named after the case
-     of `ClientEffect` or `LanesEffect` it takes, as the message helpers are: `shell`, `loader`,
-     `admin`, `session`, `signing`, `plan`, `workbench`, `patient`, and `apply`, which
-     `applyEffect` becomes. `Trail` names the two lanes `orderPlan` and `orderContext`; the App
-     keeps the lane names. `eraseLaunch` and `presentLaunch` stay beside `shell`, `callContext`
-     beside `workbench`. `signing` binds a `plan` in its first arm, which shadows `Effects.plan`
-     there; harmless, since `signing` never calls it, and the move leaves it.
-   - `noteLanding`, `carryOut`, `init`, `update` and `program` at the top level of the file, not
-     in a module: the functions an Elmish app is expected to have, under the names Elmish gives
-     them, where a reader looks for them.
+   - `module Messages`: the five lane helpers, `session`, `signing`, `patient`, `workbench`,
+     `plan`, without the `Msg` suffix, since the module names them: `Messages.session m`.
+   - `module Effects`: `serverApi`, `answered`, `underSession`, then one function per part,
+     named after the case of `ClientEffect` or `LanesEffect` it takes, as the message helpers
+     are: `shell`, `loader`, `admin`, `session`, `signing`, `plan`, `workbench`, `patient`, and
+     `apply`, which `applyEffect` becomes. Every function that needs the Session's token takes
+     it, `opened`, and none takes the client state: `Effects.apply opened effect`. `Trail` names
+     the two lanes `orderPlan` and `orderContext`; the App keeps the lane names. `eraseLaunch`
+     and `presentLaunch` stay beside `shell`. `signing` binds a `plan` in its first arm, which
+     shadows `Effects.plan` there; harmless, since `signing` never calls it, and the move leaves
+     it.
+   - `module Elmish`, as it is today, with `newRequest` and `parseUrl`, the inputs of the loop,
+     an id minted and the url read with the clock; `noteLanding`, `carryOut`, `init` and
+     `update`: the model, the message, `init` and `update` that an Elmish app has, in the module
+     that `Pages/GenPres.fs`, `Views/Order.fs` and `Views/NutritionSlot.fs` keep them in.
+     `carryOut` reads the token once, `Client.opened state`, and hands it to every effect. The
+     second `open Elmish`, the one that opens this module over the library's namespace, goes:
+     `program` calls `Elmish.init` and `Elmish.update`, the projection `Elmish.newRequest`, the
+     view `Elmish.parseUrl`.
+   - `program`, at the top level as today: `Program.mkProgram` over `Elmish.init` and
+     `Elmish.update`, with the trace and the debugger, composed where it runs, as
+     `React.useElmish` composes `init` and `updateTraced` inside the components' `View`.
    - `type Projection(state, dispatch)`: `ConcreteAppEnv` under the word the last plan uses for
      it, the projection, with `calculateInterventions` and the two lists computed inside it, so
      the view no longer computes them and the constructor takes two arguments.
@@ -148,37 +159,42 @@ part in the function name (`applyShellEffect`) where the trail qualifies them by
      text and the auto-hide as locals, over props: `alert: Alert option`, `getTerm`, `onClose`.
      The view keeps the two ways it closes: the close button and the auto-hide call `onClose`, a
      click outside the snackbar does not, as `handleClose` ignores the click-away reason today.
+   - `Components/LeaveGuard.fs`, module `Components.LeaveGuard`, one hook `useLeaveGuard` over
+     a `bool`, whether there is unsigned work: the browser's question before it leaves the page,
+     the listener added once and reading the latest value through a ref, as `View` has it today.
+     Browser behaviour, not layout, so it leaves `View` as the two views do.
      Beside `Views/AlertText.fs`, which gives it the words and already takes an `Alert`.
-   Neither view takes the client's state or message: no file under `Views`, `Pages` or
-   `Components` names a `Client` type, and a view is fed by props or by the `AppEnv`
+   Neither view nor the hook takes the client's state or message: no file under `Views`,
+   `Pages` or `Components` names a `Client` type, and a view is fed by props or by the `AppEnv`
    interfaces.
 4. **The nested modules stay private, for Fable.** Fable emits every public top-level binding
    of a file as an export of its module, and Vite's React Fast Refresh hot-swaps a file only
    when each export is a component or keeps its identity. Every file with a component exports
    components only, but the eleven in the table above; `Pages/GenPres.fs` keeps its wiring behind
-   a `module private Elmish` for that reason. So `Messages` and `Effects` are `module private`,
-   the five Elmish functions `let private`, `Projection` is `type private`, `redacted` leaves
+   a `module private Elmish` for that reason. So `Messages` and `Effects` are `module private`
+   as `Elmish` is, `Projection` is `type private`, `redacted` leaves
    with `Tracing.fs`, and `root` leaves with `Main.fs`. `Tracing.fs`, `MUI.fs` and `Main.fs`
-   hold no component; the two views export one `View` each. The components in the table stay as they are: after step 1
-   their failing exports widen a swap to the importers and never reload. The private is for
+   hold no component; the two views export one `View` each. The components in the table stay as
+   they are: after step 1 their failing exports widen a swap to the importers and never reload.
+   The private is for
    `App.fs` alone, where it keeps the entry's only importer a boundary.
 5. **The repeated lane call becomes one helper**, `Effects.underSession`, taking the server call,
-   the command, the function that makes the lane message of an answer, the request and the state;
-   `Api.Request` is generic, so one helper fits the plan, the workbench and the patient, and the
-   three arms call it. `callContext` goes. The session and the signing calls stay as they are:
-   each answers differently.
+   the command, the function that makes the lane message of an answer, which captures the
+   request as the three arms do today, and the token; `Api.Request` is generic, so one helper
+   fits the plan, the workbench and the patient, and the three arms call it. `callContext` goes.
+   The session and the signing calls stay as they are: each answers differently.
 6. **Names: one name per thing, one thing per name, in the whole file.** A name is the word
    the contract or the machine uses for the value, so that a reader who knows one knows the
    other, and the same value has the same name in every function:
    - the Session's `OpenedToken` is `opened`, as `Api.Request.Opened` has it, in code and in
      the comments; `tokenOf` goes, and `Client.opened state` takes its place, a one-line read in
-     `Client.fs` beside the other reads, over `SessionState.token`, so that no function in the
-     App reaches into the lanes; `token` is left to the admin's token; the url's token is the
-     launch, or the launch's token, never bare `token`;
+     `Client.fs` beside the other reads, over `SessionState.token`, called once in `carryOut`,
+     so that no function in the App reaches into the lanes; `token` is left to the admin's
+     token; the url's token is the launch, or the launch's token, never bare `token`;
    - a command is `command`, as `Api.Request.Command` has it, never `cmd` or `req`; a request id
      stays `request`;
-   - the two lists are `bolusInterventions` and `continuousInterventions`, what
-     `calculateInterventions` returns, inside `Projection`;
+   - the two lists have no name of their own: each is the body of its member in `Projection`,
+     computed when a page reads it, as every other member is;
    - the page box's style is `pageSx`;
    - a member's or a function's parameter is named for what it is: `patient`, `parenteralia`,
      `formulary`, `filter`, `item`, `command`. A single letter stays where it is today the usual
@@ -202,52 +218,58 @@ part in the function name (`applyShellEffect`) where the trail qualifies them by
 One pull request per step, one open at a time. All of it is source in the Client project, which
 Fable compiles and FSI does not reach, so there are no new tests; the verification is the build,
 the Fable output and the browser with the trail. The one line in `Client.Core`, `Client.opened`
-in step 8, is a read like the thirty-six of the last plan's step 10 and gets no test either.
+in step 3, is a read like the thirty-six of the last plan's step 10 and gets no test either.
 
 1. **The entry.** `Main.fs` with `root` and the render; `index.html` loads `output/Main.jsx`;
    `App.fs` ends with `View`. The fsproj adds the file after `App.fs`.
-2. **The messages, the effects and the Elmish module gone.** `State` and `Msg` to the top of
-   the file as `type private`; `Messages` and `Effects` split off the top of the `Elmish`
-   module, `Effects` with `serverApi`, `tokenOf`, the eight part functions, `eraseLaunch`,
-   `presentLaunch`, `callContext` and `apply`. What is left, `noteLanding`, `carryOut`, `init`,
-   `update`, `isTraceable` and `calculateInterventions`, moves to the top level, `let private`,
-   beside `program`, and the `Elmish` module and its `open` are gone. The call sites qualify:
-   `Effects.apply`, `Messages.session m`; the projection too. The diff is the headers, the 58
-   lane helper call sites, the nine effect calls and the sixty lines that lose their indentation;
-   about 190 lines.
-3. **One call under the session.** `Effects.underSession`; the plan, workbench and patient arms
-   through it; `callContext` removed. About thirty lines fewer.
-4. **The tracing out.** `Tracing.fs`; `isTraceable` and the debugger leave `App.fs`, and
-   `program` calls `Tracing.consoleTrace` and `Tracing.withGatedDebugger`.
+2. **The messages and the effects.** `State` and `Msg` to the top of the file as
+   `type private`; `Messages` and `Effects` split off the `Elmish` module, `Effects` with
+   `serverApi`, `tokenOf`, `answered`, the eight part functions, `eraseLaunch`, `presentLaunch`,
+   `callContext` and `apply`. The `Elmish` module keeps `newRequest`, `parseUrl`, `noteLanding`,
+   `carryOut`, `init`, `update`, `isTraceable` and `calculateInterventions` where they are, and
+   `program` stays at the top level. The call sites qualify: `Effects.apply`,
+   `Messages.session m`; the projection too. The diff is the headers, the 58 lane helper call
+   sites and the nine effect calls; about 85 lines.
+3. **The effects take the token.** `Client.opened` added to `Client.fs`; `carryOut` reads it
+   once and passes it: `Effects.apply opened effect`, and each part function that needs it
+   takes `opened` in place of the state; `tokenOf` removed. `Effects.underSession`; the plan,
+   workbench and patient arms through it; `callContext` removed. The rewritten lines take their
+   names here: `command` for `cmd` and `req`, `opened` for the signing call's `token`. About
+   thirty lines fewer.
+4. **The tracing out.** `Tracing.fs`; `isTraceable` leaves `Elmish` and the debugger leaves the
+   top level, and `program` calls `Tracing.consoleTrace` and `Tracing.withGatedDebugger`. The
+   second `open Elmish` goes, and the call sites qualify: `Elmish.init`, `Elmish.update`,
+   `Elmish.newRequest`, `Elmish.parseUrl`, `Elmish.calculateInterventions`.
 5. **The themes.** `Mui.Themes` in `MUI.fs`, written in F# over the two imports; `View` reads
    `Mui.Themes.desktop` and `Mui.Themes.mobile`; `themeDef`, `mobileDef`, `theme` and `mobile`
    leave `App.fs`.
-6. **The projection.** `type Projection`; `calculateInterventions`, `bm` and `cm` move into the
-   type; `View` constructs `Projection(state, dispatch)`.
-7. **The view's two parts.** `Views/LeaveDialog.fs` and `Views/AlertSnackbar.fs`; `View` reads
-   the props from `Client` and passes them, the two handlers dispatching, as it feeds
-   `ConfirmDialog` today.
-8. **The names.** The renames of decision 6, in one pull request after the moves, so that no
-   move diff carries a rename beyond the moved function's own name and its qualifiers:
-   `Client.opened` added to `Client.fs` and `tokenOf` removed, the one structural change of the
-   step, since the callers pass the client state; `token` to `opened` in `Effects.signing` and
-   in the doc comment of `answered`; `cmd` and `req` to `command` in `Effects.plan`,
-   `Effects.workbench` and the projection; `bm` and `cm`; `sx`; the projection's `p`, `f`, `s`
-   and `cmd`, each for what the member takes. Nothing moves.
+6. **The projection.** `type Projection`; `calculateInterventions` moves into the type, and the
+   two list members compute their list in their body, so a page that does not show a list costs
+   nothing; `bm` and `cm` go; `View` constructs `Projection(state, dispatch)`.
+7. **The view's three parts.** `Views/LeaveDialog.fs`, `Views/AlertSnackbar.fs` and
+   `Components/LeaveGuard.fs`; `View` reads the props from `Client` and passes them, the
+   handlers dispatching, as it feeds `ConfirmDialog` today, and calls
+   `useLeaveGuard (Client.unsignedWork state)`.
+8. **The names.** What decision 6 asks and no earlier step rewrote, in one pull request after
+   the moves, so that no move diff carries a rename beyond the moved function's own name and
+   its qualifiers: the projection's `p`, `f`, `s` and `cmd`, each for what the member takes;
+   `sx`; the doc comments of `answered` and `eraseLaunch`, which say "the token" for the opened
+   token and the launch's. Nothing moves.
 
 After step 8, by estimate:
 
 | File | Lines |
 | ---- | ----: |
-| `App.fs` | 860 |
+| `App.fs` | 830 |
 | `Tracing.fs` | 80 |
 | `Views/LeaveDialog.fs` | 50 |
 | `Views/AlertSnackbar.fs` | 50 |
+| `Components/LeaveGuard.fs` | 25 |
 | `Main.fs` | 10 |
 | `MUI.fs` | +50 |
 
-In `App.fs`: `Messages` 40, `Effects` 390, the Elmish functions 60, `Projection` 180, `View` 110,
-the rest doc comments and blank lines.
+In `App.fs`: `Messages` 15, `Effects` 380, `Elmish` 80, `Projection` 170, `View` 90, the rest
+doc comments and blank lines.
 
 ## Verification, per step
 
@@ -266,12 +288,16 @@ the rest doc comments and blank lines.
 - **Every step after 1, hot reload:** `dotnet run` with the dev server: an edit to `App.fs`
   swaps the view in place, the browser console shows no "Could not Fast Refresh" and no
   "createRoot" warning, and the page keeps its state. What shows in place is an edit to the
-  view, the two views, the projection, which is constructed on every render, and the themes.
+  view, the two views, the hook, the projection, which is constructed on every render, and the
+  themes.
   `React.useElmish` builds the program once, with no dependencies, so an edit to `Messages`,
-  `Effects`, the Elmish functions or `Tracing` runs after a reload of the page, as today.
+  `Effects`, `Elmish` or `Tracing` runs after a reload of the page, as today.
 - **Step 1:** the hot reload check above, for the first time; `npx vite build` finds the entry.
 - **Step 3:** a plan change, a workbench pick and a patient edit answer as before; the server
-  stopped, each raises the error banner under its source.
+  stopped, each raises the error banner under its source; a signature with the session open
+  goes through, without one is refused; `grep -nwE 'tokenOf|cmd|req' App.fs` and
+  `grep -n 'Lanes.Session' App.fs` find nothing, and in code `token` appears in `Effects.admin`
+  only.
 - **Step 4:** a debug build with the trace on shows the console trace and the Redux DevTools
   history from the first traceable state, the password redacted; a release build traces nothing
   and compiles `Tracing.fs` as an empty module.
@@ -281,11 +307,10 @@ the rest doc comments and blank lines.
 - **Step 6:** the emergency list and the continuous medication with and without a patient.
 - **Step 7:** the leave dialog's three texts, launched or not, with or without a launch in the
   url; the snackbar auto-hides on a success and stays on an error, its close button dismisses
-  it, and a click outside it leaves it open; `grep -c '^export'` reads 1 for each of the two
-  views.
-- **Step 8:** `grep -nwE 'tokenOf|cmd|req|bm|cm' App.fs` finds nothing, and
-  `grep -n 'Lanes.Session' App.fs` too; in code, `token` appears in `Effects.admin` only, and in
-  the comments only as the admin's or the launch's.
+  it, and a click outside it leaves it open; a reload with unsigned work asks, without it does
+  not; `grep -c '^export'` reads 1 for each of the two views and the hook.
+- **Step 8:** `grep -nw 'sx' App.fs` finds nothing; the comments say `token` only for the
+  admin's and the launch's.
 
 ## Out of scope
 
