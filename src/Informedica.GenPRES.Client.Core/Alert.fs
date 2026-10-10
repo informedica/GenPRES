@@ -17,10 +17,13 @@ type Alert =
     | DrugNamesNotLoaded
     /// The interactions checked found this many.
     | InteractionsFound of int
+    /// The server did not take the admin password.
+    | InvalidPassword
 
 
 /// The severity an alert is shown with.
 let severity alert =
     match alert with
+    | Alert.InvalidPassword -> Severity.Error
     | Alert.DrugNamesNotLoaded
     | Alert.InteractionsFound _ -> Severity.Warning

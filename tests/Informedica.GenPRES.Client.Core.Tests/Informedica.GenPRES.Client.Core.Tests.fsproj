@@ -54,6 +54,7 @@
     <Compile Include="UrlPolicyTests.fs" />
     <Compile Include="UrlTests.fs" />
     <Compile Include="LoaderMachineTests.fs" />
+    <Compile Include="AdminMachineTests.fs" />
 
     <!-- policies over the contract alone, whose tests read the order plan machine's fixtures -->
     <Compile Include="ArgumentationPolicyTests.fs" />

@@ -431,6 +431,24 @@ let tests =
                 |> Expect.equal "the alert" "Alert InteractionsFound 3"
             }
 
+            test "the admin read by what it did, never the password, the token or an error text" {
+                let login = AdminMachine.AdminMsg.Login "secret"
+
+                Trail.admin 1 at login (AdminMachine.AdminState.initial |> AdminMachine.transition login)
+                |> Trail.format
+                |> Expect.equal
+                    "the login"
+                    "#1 10:41:07.311 Admin Login -> ValidatePassword attempt 1 | logged out; attempt 1"
+
+                AdminMachine.Landing.LogFiles(Error [| "Invalid token" |])
+                |> Trail.Admin.landing
+                |> Expect.equal "the failure" "LogFiles Error"
+
+                AdminMachine.AdminEffect.FetchLogFiles "token"
+                |> Trail.Admin.effect
+                |> Expect.equal "the call" "FetchLogFiles"
+            }
+
             test "every machine names itself" {
                 let plan = OrderPlanState.noPatient
                 let signing = SigningState.idle
