@@ -13,6 +13,7 @@ module AlertText =
         match alert with
         | Alert.Alert.DrugNamesNotLoaded -> "Interactie medicatie namen konden niet worden geladen"
         | Alert.Alert.InteractionsFound n -> $"Er zijn %i{n} interactie(s) gevonden"
+        | Alert.Alert.InvalidPassword -> "Invalid password"
 
 
     /// The severity as the snackbar names it.

@@ -63,6 +63,7 @@
     <Compile Include="UrlPolicy.fs" />
     <Compile Include="Url.fs" />
     <Compile Include="LoaderMachine.fs" />
+    <Compile Include="AdminMachine.fs" />
 
     <!-- the readable trail of the machines, for development -->
     <Compile Include="Trail.fs" />

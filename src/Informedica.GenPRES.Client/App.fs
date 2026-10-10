@@ -87,21 +87,6 @@ module private Elmish =
         }
 
 
-    /// The admin login, under the token it bought, and what it fetches.
-    type AdminState =
-        {
-            IsAuthenticated: bool
-            AuthToken: string
-            // counts logins and logouts, so that a login answer of an earlier attempt is dropped
-            LoginAttempt: int
-            LogFiles: Deferred<LogFileInfo[]>
-            LogAnalysisReport: Deferred<string>
-            // the resource reload from the settings page: InProgress from the request until the
-            // server has reloaded
-            Reloading: Deferred<unit>
-        }
-
-
     type State =
         {
             // the lanes
@@ -109,7 +94,7 @@ module private Elmish =
             // the start-up loads
             Loader: LoaderMachine.LoaderState
             // the admin login and what it fetches
-            Admin: AdminState
+            Admin: AdminMachine.AdminState
             // the app-level UI
             Ui: UiState
         }
@@ -139,6 +124,8 @@ module private Elmish =
 
         // the start-up loads: the loads machine's messages
         | LoaderMsg of LoaderMachine.LoaderMsg
+        // the admin login and what it fetches: the admin machine's messages
+        | AdminMsg of AdminMachine.AdminMsg
         | OnSelectContinuousMedicationItem of string
         | OnSelectEmergencyListItem of string
         | UpdateEmergencyListFilter of string[]
@@ -164,21 +151,6 @@ module private Elmish =
         | CloseSnackbar
         | DismissServerError
 
-        | Login of password: string
-        // the attempt the answer belongs to: an answer of an earlier attempt is dropped
-        | LoadLoginResult of attempt: int * AdminResult
-        | Logout
-
-        | ListLogFiles
-        | LoadLogFilesResult of AdminResult
-        | AnalyzeLogFile of string
-        | LoadLogAnalysisResult of AdminResult
-        | ReloadResources
-        | LoadReloadResult of AdminResult
-
-
-    /// An admin answer: no envelope, so no token it started from and no notice
-    and AdminResult = AsyncOperationStatus<Result<Api.AdminResponse, string[]>>
 
     /// A computing reply with the OpenedToken the request started from, so that what the reply
     /// tells about the Session (moved on, ended) lands only on the Session that asked: a request
@@ -205,42 +177,10 @@ module private Elmish =
     let newRequest () = Guid.NewGuid().ToString()
 
 
-    /// An admin command over the token the login bought; never Session-bound.
-    let createAdminMsg msg cmd =
-        async {
-            let! result = serverApi.processAdmin cmd
-            return result |> Finished |> msg
-        }
-        |> Cmd.fromAsync
-
-
     /// The patient the workbench and the plan are for: the draft, once it meets the minimum, an
     /// age or a measured weight and height; below that there is no patient. Derived from the
     /// draft whenever it is read, so that the two cannot differ.
     let patientOf (state: State) = state.Lanes.Patient |> PatientState.patient
-
-
-    /// An admin answer applied. A reload done ends the reload; the pages it refreshes are
-    /// started where the answer lands.
-    let applyAdmin (state: State) (response: Api.AdminResponse) =
-        match response with
-        | Api.AdminResponse.PasswordValidated(isValid, token) ->
-            if isValid then
-                { state with
-                    Admin.IsAuthenticated = true
-                    Admin.AuthToken = token
-                },
-                Cmd.none
-            else
-                { state with
-                    Admin.IsAuthenticated = false
-                    Admin.AuthToken = ""
-                    Ui.Snackbar = Snackbar.shown "Invalid password" "error"
-                },
-                Cmd.none
-        | Api.AdminResponse.LogFilesListed files -> { state with Admin.LogFiles = Resolved files }, Cmd.none
-        | Api.AdminResponse.LogFileAnalyzed report -> { state with Admin.LogAnalysisReport = Resolved report }, Cmd.none
-        | Api.AdminResponse.ResourcesReloaded -> { state with Admin.Reloading = Resolved() }, Cmd.none
 
 
     /// What the url of these segments carries, at this moment; the parts that did not parse are
@@ -269,15 +209,7 @@ module private Elmish =
             // the url's patient and medication are applied by init, over these lanes
             Lanes = Lanes.initial pat
             Loader = LoaderMachine.LoaderState.initial
-            Admin =
-                {
-                    IsAuthenticated = false
-                    AuthToken = ""
-                    LoginAttempt = 0
-                    LogFiles = HasNotStartedYet
-                    LogAnalysisReport = HasNotStartedYet
-                    Reloading = HasNotStartedYet
-                }
+            Admin = AdminMachine.AdminState.initial
             Ui =
                 {
                     Page = page |> Option.defaultValue Global.Pages.LifeSupport
@@ -442,6 +374,13 @@ module private Elmish =
         | _ -> None
 
 
+    /// The alert shown on the snackbar, in the user's language, with the severity it is said with.
+    let alerted alert (state: State) =
+        let terms = Global.getLocalizedTerm state.Loader.Localization state.Ui.Context.Localization
+        let text = alert |> Views.AlertText.text terms
+        { state with Ui.Snackbar = { Snackbar.shown text (Views.AlertText.severity alert) with Alert = Some alert } }
+
+
     /// What one loader effect changes, and the command it sends: an alert on the snackbar, the
     /// error banner raised or cleared, the notice to the Session, a call whose answer comes back as
     /// the loader machine's message, or a wait.
@@ -527,13 +466,7 @@ module private Elmish =
             state, LoaderMachine.LoaderMsg.CheckServer |> later seconds
         | LoaderMachine.LoaderEffect.AskAgainLater(load, seconds) ->
             state, LoaderMachine.LoaderMsg.Start load |> later seconds
-        | LoaderMachine.LoaderEffect.Alert alert ->
-            let terms = Global.getLocalizedTerm state.Loader.Localization state.Ui.Context.Localization
-            let text = alert |> Views.AlertText.text terms
-            { state with
-                Ui.Snackbar = { Snackbar.shown text (Views.AlertText.severity alert) with Alert = Some alert }
-            },
-            Cmd.none
+        | LoaderMachine.LoaderEffect.Alert alert -> state |> alerted alert, Cmd.none
         // only the notice itself is withdrawn, never another message the snackbar shows meanwhile
         | LoaderMachine.LoaderEffect.WithdrawInteractionsFound ->
             match state.Ui.Snackbar.Alert with
@@ -587,6 +520,48 @@ module private Elmish =
         StepTrail.record (fun no at -> Trail.loader no at msg (loader, effects))
 
         { state with Loader = loader } |> runEffects applyLoaderEffect effects
+
+
+    /// What one admin effect changes, and the command it sends: a call under the token, whose
+    /// answer comes back as the admin machine's message, the reload done to the loads, the page
+    /// left on a logout, an alert, or the error banner raised or cleared.
+    let applyAdminEffect effect (state: State) =
+        let call command landing =
+            Cmd.OfAsync.perform serverApi.processAdmin command (landing >> AdminMachine.AdminMsg.Landed >> AdminMsg)
+
+        match effect with
+        | AdminMachine.AdminEffect.ValidatePassword(attempt, password) ->
+            state,
+            call
+                (Api.AdminCommand.ValidatePassword password)
+                (fun result -> AdminMachine.Landing.Login(attempt, result))
+        | AdminMachine.AdminEffect.FetchLogFiles token ->
+            state, call (Api.AdminCommand.ListLogFiles token) AdminMachine.Landing.LogFiles
+        | AdminMachine.AdminEffect.FetchLogAnalysis(token, fileName) ->
+            state, call (Api.AdminCommand.AnalyzeLogFile(token, fileName)) AdminMachine.Landing.LogAnalysis
+        | AdminMachine.AdminEffect.Reload token ->
+            state, call (Api.AdminCommand.ReloadResources token) AdminMachine.Landing.Reload
+        // the pages the reload refreshes are out in the same update
+        | AdminMachine.AdminEffect.ReloadDone -> state |> runLoader LoaderMachine.LoaderMsg.ResourcesReloaded
+        | AdminMachine.AdminEffect.LoggedOut ->
+            { state with
+                Ui.Page =
+                    if state.Ui.Page = Global.Pages.Settings then
+                        Global.Pages.LifeSupport
+                    else
+                        state.Ui.Page
+            },
+            Cmd.none
+        | AdminMachine.AdminEffect.Alert alert -> state |> alerted alert, Cmd.none
+        | AdminMachine.AdminEffect.Failed(source, errs) -> (state, Cmd.none) |> processError source errs
+        | AdminMachine.AdminEffect.Succeeded source -> (state, Cmd.none) |> clearError source
+
+
+    /// The admin machine run on a message: its state kept and its effects carried out.
+    let runAdmin msg (state: State) =
+        let admin, effects = state.Admin |> AdminMachine.transition msg
+        StepTrail.record (fun no at -> Trail.admin no at msg (admin, effects))
+        { state with Admin = admin } |> runEffects applyAdminEffect effects
 
 
     /// What one session effect changes, and the command it sends. A transport failure
@@ -952,11 +927,7 @@ module private Elmish =
         let reading deferred = deferred |> Deferred.map ignore
 
         LoaderMachine.LoaderState.readings state.Loader
-        @ [
-            Busy.Load.LogFiles, reading state.Admin.LogFiles
-            Busy.Load.LogAnalysis, reading state.Admin.LogAnalysisReport
-            Busy.Load.Reload, reading state.Admin.Reloading
-        ]
+        @ AdminMachine.AdminState.readings state.Admin
 
 
     /// The data loads out.
@@ -1157,15 +1128,6 @@ module private Elmish =
 
 
     let update (msg: Msg) (state: State) =
-        // a token the server no longer takes (expired, or a restart): the login is over
-        let tokenError source err (state, cmd) =
-            let state, cmd = processError source err (state, cmd)
-
-            if err |> Array.contains "Invalid token" then
-                state, Cmd.batch [ cmd; Cmd.ofMsg Logout ]
-            else
-                state, cmd
-
         let selectMedicationItem generic indication route doseType state =
             let nonEmpty s = if s = "" then None else Some s
 
@@ -1194,101 +1156,7 @@ module private Elmish =
 
         | LoaderMsg msg -> state |> runLoader msg
 
-        | Login password ->
-            let attempt = state.Admin.LoginAttempt + 1
-
-            { state with Admin.LoginAttempt = attempt },
-            Api.AdminCommand.ValidatePassword password
-            |> createAdminMsg (fun result -> LoadLoginResult(attempt, result))
-
-        // an answer of an earlier attempt: a login since logged out, or asked again
-        | LoadLoginResult(attempt, Finished _) when attempt <> state.Admin.LoginAttempt -> state, Cmd.none
-
-        | LoadLoginResult(_, Finished(Ok resp)) ->
-            applyAdmin state resp |> clearError ServerErrorPolicy.ErrorSource.Login
-
-        | LoadLoginResult(_, Finished(Error err)) ->
-            ({ state with
-                Admin.IsAuthenticated = false
-                Admin.AuthToken = ""
-             },
-             Cmd.none)
-            |> processError ServerErrorPolicy.ErrorSource.Login err
-
-        | LoadLoginResult(_, Started) -> state, Cmd.none
-
-        | Logout ->
-            { state with
-                Admin.IsAuthenticated = false
-                Admin.AuthToken = ""
-                Admin.LoginAttempt = state.Admin.LoginAttempt + 1
-                Admin.LogFiles = HasNotStartedYet
-                Admin.LogAnalysisReport = HasNotStartedYet
-                Admin.Reloading = HasNotStartedYet
-                Ui.Page =
-                    if state.Ui.Page = Global.Pages.Settings then
-                        Global.Pages.LifeSupport
-                    else
-                        state.Ui.Page
-            },
-            Cmd.none
-
-        | ListLogFiles ->
-            match state.Admin.LogFiles with
-            // one listing at a time, so an earlier answer cannot clear the error of a later one
-            | InProgress
-            | Refreshing _ -> state, Cmd.none
-            | _ ->
-                // the table shown stays until the answer
-                { state with Admin.LogFiles = state.Admin.LogFiles |> Deferred.refresh },
-                Api.AdminCommand.ListLogFiles state.Admin.AuthToken
-                |> createAdminMsg LoadLogFilesResult
-
-        | LoadLogFilesResult(Finished(Ok resp)) ->
-            applyAdmin state resp |> clearError ServerErrorPolicy.ErrorSource.LogFiles
-
-        | LoadLogFilesResult(Finished(Error err)) ->
-            ({ state with Admin.LogFiles = HasNotStartedYet }, Cmd.none)
-            |> tokenError ServerErrorPolicy.ErrorSource.LogFiles err
-
-        | LoadLogFilesResult(Started) -> state, Cmd.none
-
-        | AnalyzeLogFile fileName ->
-            { state with Admin.LogAnalysisReport = InProgress },
-            Api.AdminCommand.AnalyzeLogFile(state.Admin.AuthToken, fileName)
-            |> createAdminMsg LoadLogAnalysisResult
-
-        | LoadLogAnalysisResult(Finished(Ok resp)) ->
-            applyAdmin state resp |> clearError ServerErrorPolicy.ErrorSource.LogAnalysis
-
-        | LoadLogAnalysisResult(Finished(Error err)) ->
-            ({ state with Admin.LogAnalysisReport = HasNotStartedYet }, Cmd.none)
-            |> tokenError ServerErrorPolicy.ErrorSource.LogAnalysis err
-
-        | LoadLogAnalysisResult(Started) -> state, Cmd.none
-
-        | ReloadResources ->
-            let token = state.Admin.AuthToken
-
-            { state with Admin.Reloading = InProgress },
-            Api.AdminCommand.ReloadResources token |> createAdminMsg LoadReloadResult
-
-        // the reload ends on its own answer, and the pages it refreshes are out in the same update
-        | LoadReloadResult(Finished(Ok resp)) ->
-            let state, cmd = applyAdmin state resp |> clearError ServerErrorPolicy.ErrorSource.Reload
-
-            let state, refresh =
-                match resp with
-                | Api.AdminResponse.ResourcesReloaded -> state |> runLoader LoaderMachine.LoaderMsg.ResourcesReloaded
-                | _ -> state, Cmd.none
-
-            state, Cmd.batch [ cmd; refresh ]
-
-        | LoadReloadResult(Finished(Error err)) ->
-            ({ state with Admin.Reloading = HasNotStartedYet }, Cmd.none)
-            |> tokenError ServerErrorPolicy.ErrorSource.Reload err
-
-        | LoadReloadResult(Started) -> state, Cmd.none
+        | AdminMsg msg -> state |> runAdmin msg
 
         | AcceptDisclaimer -> { state with Ui.ShowDisclaimer = false }, Cmd.none
 
@@ -1514,7 +1382,7 @@ let redacted = "***"
 /// never opens a production server.
 let private redactMsg (msg: Msg) =
     match msg with
-    | Login _ -> Login redacted
+    | AdminMsg(AdminMachine.AdminMsg.Login _) -> AdminMsg(AdminMachine.AdminMsg.Login redacted)
     | _ -> msg
 
 
@@ -1691,7 +1559,7 @@ type private ConcreteAppEnv
 
     interface AppEnv.IResources with
         member _.Reload = state.Admin.Reloading
-        member _.ReloadResources() = ReloadResources |> dispatch
+        member _.ReloadResources() = AdminMsg AdminMachine.AdminMsg.ReloadResources |> dispatch
 
     interface AppEnv.ISession with
         member _.Session = state.Lanes.Session |> SessionState.view
@@ -1735,14 +1603,17 @@ type private ConcreteAppEnv
 
     interface AppEnv.IAuthentication with
         member _.IsAuthenticated = state.Admin.IsAuthenticated
-        member _.Login password = Login password |> dispatch
-        member _.Logout() = Logout |> dispatch
+        member _.Login password = AdminMsg(AdminMachine.AdminMsg.Login password) |> dispatch
+
+        member _.Logout() = AdminMsg AdminMachine.AdminMsg.Logout |> dispatch
 
     interface AppEnv.ILogAnalyzer with
         member _.LogFiles = state.Admin.LogFiles
         member _.LogAnalysisReport = state.Admin.LogAnalysisReport
-        member _.ListLogFiles() = ListLogFiles |> dispatch
-        member _.AnalyzeLogFile fileName = AnalyzeLogFile fileName |> dispatch
+        member _.ListLogFiles() = AdminMsg AdminMachine.AdminMsg.ListLogFiles |> dispatch
+
+        member _.AnalyzeLogFile fileName =
+            AdminMsg(AdminMachine.AdminMsg.AnalyzeLogFile fileName) |> dispatch
 
     interface AppEnv.IBolusMedication with
         member _.BolusMedication = bm

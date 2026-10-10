@@ -750,6 +750,7 @@ module Loader =
         match a with
         | Alert.Alert.DrugNamesNotLoaded -> "DrugNamesNotLoaded"
         | Alert.Alert.InteractionsFound n -> $"InteractionsFound %i{n}"
+        | Alert.Alert.InvalidPassword -> "InvalidPassword"
 
 
     /// An answer by its load and its size; never the error text.
@@ -859,6 +860,71 @@ module Loader =
             | parts -> parts |> String.concat "; "
 
 
+/// The admin machine, never with the password, the token or a log file's text.
+[<RequireQualifiedAccess>]
+module Admin =
+
+    open AdminMachine
+
+
+    /// An admin answer by what it brought.
+    let response (r: AdminResponse) =
+        match r with
+        | AdminResponse.PasswordValidated(true, _) -> "valid"
+        | AdminResponse.PasswordValidated(false, _) -> "invalid"
+        | AdminResponse.LogFilesListed files -> $"%i{files.Length} files"
+        | AdminResponse.LogFileAnalyzed _ -> "analyzed"
+        | AdminResponse.ResourcesReloaded -> "reloaded"
+
+
+    /// An answer by its call and what it brought; never the error text.
+    let landing (landing: Landing) =
+        match landing with
+        | Landing.Login(attempt, r) -> $"Login attempt %i{attempt} %s{r |> Part.result response}"
+        | Landing.LogFiles r -> $"LogFiles %s{r |> Part.result response}"
+        | Landing.LogAnalysis r -> $"LogAnalysis %s{r |> Part.result response}"
+        | Landing.Reload r -> $"Reload %s{r |> Part.result response}"
+
+
+    /// An admin message.
+    let msg (msg: AdminMsg) =
+        match msg with
+        | AdminMsg.Login _ -> "Login"
+        | AdminMsg.Logout -> "Logout"
+        | AdminMsg.ListLogFiles -> "ListLogFiles"
+        | AdminMsg.AnalyzeLogFile fileName -> $"AnalyzeLogFile %s{fileName}"
+        | AdminMsg.ReloadResources -> "ReloadResources"
+        | AdminMsg.Landed l -> $"Landed %s{landing l}"
+
+
+    /// A call to make, or what is told.
+    let effect (effect: AdminEffect) =
+        match effect with
+        | AdminEffect.ValidatePassword(attempt, _) -> $"ValidatePassword attempt %i{attempt}"
+        | AdminEffect.FetchLogFiles _ -> "FetchLogFiles"
+        | AdminEffect.FetchLogAnalysis(_, fileName) -> $"FetchLogAnalysis %s{fileName}"
+        | AdminEffect.Reload _ -> "Reload"
+        | AdminEffect.ReloadDone -> "ReloadDone"
+        | AdminEffect.LoggedOut -> "LoggedOut"
+        | AdminEffect.Alert a -> $"Alert %s{Loader.alert a}"
+        | AdminEffect.Failed(s, _) -> $"Failed %s{Loader.source s}"
+        | AdminEffect.Succeeded s -> $"Succeeded %s{Loader.source s}"
+
+
+    /// Whether logged in, the attempt, and the loads out.
+    let state (state: AdminState) =
+        let names loads = loads |> List.map Loader.load |> String.concat ", "
+
+        [
+            if state.IsAuthenticated then "logged in" else "logged out"
+            $"attempt %i{state.LoginAttempt}"
+            match out state with
+            | [] -> ()
+            | loads -> $"out %s{names loads}"
+        ]
+        |> String.concat "; "
+
+
 /// One step of a machine, described with that machine's describers.
 let step machine describeMsg describeEffect describeState (no: int) (at: DateTime) msg (state, effects) =
     {
@@ -904,6 +970,9 @@ let patient = step "Patient" Patient.msg Patient.effect Patient.state
 
 /// A step of the loader machine.
 let loader = step "Loader" Loader.msg Loader.effect Loader.state
+
+/// A step of the admin machine.
+let admin = step "Admin" Admin.msg Admin.effect Admin.state
 
 
 /// A step the lanes took: a machine's step, or the lanes started over.
