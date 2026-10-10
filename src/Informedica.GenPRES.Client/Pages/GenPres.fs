@@ -24,7 +24,6 @@ module GenPres =
             {
                 SideMenuItems: (JSX.Element option * string * bool * string option * bool)[]
                 SideMenuIsOpen: bool
-                Configuration: Configuration Option
             }
 
 
@@ -71,7 +70,6 @@ module GenPres =
                         )
 
                     SideMenuIsOpen = not isMobile
-                    Configuration = None
                 }
 
             state, Cmd.none
