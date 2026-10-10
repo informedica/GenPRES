@@ -37,6 +37,7 @@ flowchart LR
 - [Steps](#steps)
 - [Verification, per step](#verification-per-step)
 - [Out of scope](#out-of-scope)
+- [As built](#as-built)
 
 ## Words used in this plan
 
@@ -498,10 +499,61 @@ Line counts, by `wc -l` over the `.fs` files of each:
 - The stepper arithmetic in `Views/ViewHelpers.fs`: a plan of its own, or part of the dialog plan.
 - `calculateInterventions` (`EmergencyTreatment.calculate`, `ContinuousMedication.calculate` over
   the draft): left in the view, since #1214 retires it once the server solves the lists.
-- `Estimated` (`applyNormalValues` over the draft): left in the projection; a pure function over
-  contract models that moves to `Client.Core` with tests on its own, after this plan, since it
-  decides nothing the App decides.
 - The alerts' sentences on the localization sheet: a change of configuration once `Alert` exists.
 - The interactions page's manual drug list and the page menu: view state with no decision.
 - The lane machines beyond step 7.
 - The debugger and the trail's own gate.
+
+## As built
+
+| Step | Pull request |
+| ---- | ------------ |
+| Plan | #1376 |
+| 1a, 1b | #1377, #1378 |
+| 2 | #1380 |
+| 3 | #1381 |
+| 4 | #1382 |
+| 5 | #1383 |
+| 6 | #1384 |
+| 7a, 7b, 7c | #1385, #1386, #1387 |
+| 8a, 8b | #1388, #1389 |
+| 9a, 9b | #1391, #1392 |
+
+Line counts by `wc -l`, before the plan (593c667c) and after step 10:
+
+| File | Before | After |
+| ---- | -----: | ----: |
+| `App.fs` | 2742 | 1094 |
+| `Client.Core`, every `.fs` file | 5597 | 8164 |
+| `Client.fs` | 0 | 599 |
+| `LoaderMachine.fs` | 0 | 611 |
+| `AdminMachine.fs` | 0 | 195 |
+| `ShellMachine.fs` | 0 | 328 |
+| `Url.fs` | 0 | 254 |
+| `Alert.fs` | 0 | 71 |
+| `Trail.fs` | 731 | 1164 |
+| `Busy.fs` | 113 | 146 |
+| `UrlPolicy.fs` | 95 | 102 |
+| `ServerErrorPolicy.fs` | 54 | 62 |
+
+`App.fs` lost 1648 lines, against the 1200 the plan aimed at; what is left carries out effects,
+runs the program and the debugger, and projects the state for the view. `Client.Core` grew by
+2567 lines: the loads, the admin, the shell, the url and the composition, where Expecto reaches
+them, and a trail line for each of their steps.
+
+Differences from the plan:
+
+- Step 8b: the shell refuses a launch it cannot open with its own effect, `LaunchRefused`, which
+  the plan did not list; the yes to the url question is `ShellMsg.LeftForUrl`.
+- Step 9b: a client message that becomes nothing, a patient change while the patient is held,
+  is its own step, `Dropped`, so the trail shows it. The settings landing is an effect,
+  `LoaderEffect.SettingsLanded`, routed to the shell. The loader's and the admin's `Failed` and
+  `Succeeded` effects became `RequestFailed` and `RequestSucceeded`, and the busy readings moved
+  to `Busy`.
+- Step 10: every read of the projection, plain fields included, goes through a `Client`
+  function, so that the view and its environment never name a part of the state. The disclaimer
+  rule (shown for anonymous use only), whether the url question asks for a launch, and the busy
+  readings moved with them into `Client`. So did `Estimated`, the draft with the estimates from
+  the normal values, which this plan first left in the projection: it is a rule over two parts,
+  the loads and the patient. The emergency and continuous lists stay calculated in the view,
+  since #1214 retires that calculation.

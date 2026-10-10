@@ -140,6 +140,14 @@ let busy (state: ClientState) =
         (state |> loads |> Busy.outOf)
 
 
+/// Whether any request is out.
+let busyAny (state: ClientState) = state |> busy |> Busy.any
+
+
+/// Whether a request is out that changes this page.
+let busyPage page (state: ClientState) = state |> busy |> Busy.page page
+
+
 /// Where the start-up is; started once, it stays so.
 let startup (state: ClientState) =
     if state.Shell.Started then
@@ -156,6 +164,164 @@ let urlCheck (state: ClientState) =
         UnsignedWork = unsignedWork state
         Launched = launched state
     }
+
+
+/// The localization terms.
+let localization (state: ClientState) = state.Loader.Localization
+
+
+/// The settings the server sent.
+let settings (state: ClientState) = state.Loader.Settings
+
+
+/// The formulary page.
+let formulary (state: ClientState) = state.Loader.Formulary
+
+
+/// The parenteralia page.
+let parenteralia (state: ClientState) = state.Loader.Parenteralia
+
+
+/// The interactions found.
+let interactions (state: ClientState) = state.Loader.Interactions
+
+
+/// The drug names the interactions can be checked for.
+let drugNames (state: ClientState) = state.Loader.DrugNames
+
+
+/// The emergency list's medication.
+let bolusMedication (state: ClientState) = state.Loader.BolusMedication
+
+
+/// The continuous medication.
+let continuousMedication (state: ClientState) = state.Loader.ContinuousMedication
+
+
+/// The hospitals to choose from.
+let hospitals (state: ClientState) = state.Loader.Hospitals
+
+
+/// The resources reload.
+let reloading (state: ClientState) = state.Admin.Reloading
+
+
+/// Whether the admin is logged in.
+let isAuthenticated (state: ClientState) = state.Admin.IsAuthenticated
+
+
+/// The log files listed.
+let logFiles (state: ClientState) = state.Admin.LogFiles
+
+
+/// The report of the log file analysed.
+let logAnalysisReport (state: ClientState) = state.Admin.LogAnalysisReport
+
+
+/// The workbench as the page shows it.
+let orderContext (state: ClientState) = state.Lanes.OrderContext |> OrderContextState.view
+
+
+/// The workbench dialog, if one is open.
+let orderContextDialog (state: ClientState) = state.Lanes.OrderContext |> OrderContextState.dialog
+
+
+/// The order plan as the page shows it.
+let orderPlan (state: ClientState) = state.Lanes.OrderPlan |> OrderPlanState.view
+
+
+/// The orders new or changed since the last signed order plan.
+let changedOrders (state: ClientState) = state.Lanes.OrderPlan |> OrderPlanState.changed
+
+
+/// The patient as the panel shows it.
+let draft (state: ClientState) = state.Lanes.Patient |> PatientState.draft
+
+
+/// Whether a patient change is out.
+let changing (state: ClientState) = state.Lanes.Patient |> PatientState.changing
+
+
+/// The draft with the estimates from the normal values, once they have loaded.
+let estimated (state: ClientState) =
+    match state.Loader.NormalValues with
+    | Resolved nv -> state |> draft |> Option.map (Shared.Models.NormalValues.apply nv)
+    | _ -> draft state
+
+
+/// The Session as the page shows it.
+let session (state: ClientState) = state.Lanes.Session |> SessionState.view
+
+
+/// A newer signed order plan than the one open, if the Session holds one.
+let newerPlan (state: ClientState) = state.Lanes.Session |> SessionState.newerPlan
+
+
+/// The signing as the page shows it.
+let signing (state: ClientState) = state.Lanes.Signing |> SigningState.view
+
+
+/// The differences the signature is asked for.
+let differences (state: ClientState) = state.Lanes.Signing |> SigningState.differences
+
+
+/// The page shown.
+let page (state: ClientState) = state.Shell.Page
+
+
+/// The language the terms are shown in.
+let language (state: ClientState) = state.Shell.Language.Current
+
+
+/// The hospital chosen.
+let hospital (state: ClientState) = state.Shell.Hospital
+
+
+/// The alert in the snackbar, if one is shown.
+let snackbar (state: ClientState) = state.Shell.Snackbar
+
+
+/// The error banner, if it is raised.
+let serverError (state: ClientState) = state.Shell.ServerError
+
+
+/// Whether a quantity field counts.
+let counting (state: ClientState) = state.Shell.Counting
+
+
+/// Whether the server serves the demo data.
+let isDemo (state: ClientState) = state.Shell.IsDemo
+
+
+/// The emergency list's filter.
+let emergencyListFilter (state: ClientState) = state.Shell.EmergencyListFilter
+
+
+/// The continuous medication's filter.
+let continuousMedsFilter (state: ClientState) = state.Shell.ContinuousMedsFilter
+
+
+/// Whether the disclaimer shows: for anonymous use only, so a launched, resuming or refused
+/// Session never sees it, an anonymous open after a refusal does.
+let showDisclaimer (state: ClientState) =
+    state.Shell.ShowDisclaimer
+    && (
+        match session state with
+        | SessionView.Anonymous -> true
+        | _ -> false
+    )
+
+
+/// Whether the url question is open.
+let urlAsked (state: ClientState) = state.Shell.Url |> UrlPolicy.UrlState.asked |> Option.isSome
+
+
+/// Whether the url the question waits on carries a launch.
+let asksLaunch (state: ClientState) =
+    state.Shell.Url
+    |> UrlPolicy.UrlState.askedUrl
+    |> Option.bind _.Launch
+    |> Option.isSome
 
 
 /// The seed of an item on the emergency list, when the list has loaded and holds it.
