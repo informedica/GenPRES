@@ -158,8 +158,8 @@ part in the function name (`applyShellEffect`) where the trail qualifies them by
    components only, but the eleven in the table above; `Pages/GenPres.fs` keeps its wiring behind
    a `module private Elmish` for that reason. So `Messages` and `Effects` are `module private`,
    the five Elmish functions `let private`, `Projection` is `type private`, `redacted` leaves
-   with `Tracing.fs`, and `root` leaves with `Main.fs`. `Tracing.fs`, `MUI.fs` and `Main.fs` hold no component; the two
-   views export one `View` each. The components in the table stay as they are: after step 1
+   with `Tracing.fs`, and `root` leaves with `Main.fs`. `Tracing.fs`, `MUI.fs` and `Main.fs`
+   hold no component; the two views export one `View` each. The components in the table stay as they are: after step 1
    their failing exports widen a swap to the importers and never reload. The private is for
    `App.fs` alone, where it keeps the entry's only importer a boundary.
 5. **The repeated lane call becomes one helper**, `Effects.underSession`, taking the server call,
