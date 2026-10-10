@@ -511,20 +511,6 @@ module private Elmish =
     let update (msg: Msg) (state: State) = state |> Client.transition newRequest msg |> carryOut
 
 
-    /// The lists calculated for the draft; empty without one, since no patient is not a fetch
-    /// under way: the page says what is missing, and the spinner is for a fetch only.
-    let calculateInterventions calc meds pat =
-        meds
-        |> Deferred.bind (fun xs ->
-            match pat with
-            | None -> Resolved []
-            | Some p ->
-                let a = p |> Patient.getAgeInYears
-                let w = p |> Patient.getWeightInKg
-                xs |> calc a w |> Resolved
-        )
-
-
 /// The app as an Elmish program. A debug build with GENPRES_LOG on and GENPRES_PROD not 1 traces every message
 /// and the new state to the console, hands the history to the Redux DevTools browser extension, and keeps the
 /// readable trail of the machine steps, which window.genpresTrail() returns as text; for development testing
@@ -543,9 +529,23 @@ let private program () =
 #endif
 
 
-type private ConcreteAppEnv
-    (state: State, dispatch: Msg -> unit, bm: Deferred<Intervention list>, cm: Deferred<Intervention list>)
-    =
+/// The lists calculated for the draft; empty without one, since no patient is not a fetch
+/// under way: the page says what is missing, and the spinner is for a fetch only.
+let private calculateInterventions calc meds pat =
+    meds
+    |> Deferred.bind (fun xs ->
+        match pat with
+        | None -> Resolved []
+        | Some p ->
+            let a = p |> Patient.getAgeInYears
+            let w = p |> Patient.getWeightInKg
+            xs |> calc a w |> Resolved
+    )
+
+
+/// What the views read from the client state, and the messages they send, through the AppEnv
+/// interfaces.
+type private Projection(state: State, dispatch: Msg -> unit) =
 
     interface AppEnv.ILocalization with
         member _.LocalizationTerms = Client.localization state
@@ -694,14 +694,23 @@ type private ConcreteAppEnv
             Msg.Admin(AdminMachine.AdminMsg.AnalyzeLogFile fileName) |> dispatch
 
     interface AppEnv.IBolusMedication with
-        member _.BolusMedication = bm
+        member _.BolusMedication =
+            calculateInterventions EmergencyTreatment.calculate (Client.bolusMedication state) (Client.draft state)
+
         member _.OnSelectBolusMedicationItem s = Msg.EmergencyListItemChosen s |> dispatch
         member _.BolusMedicationFilter = Client.emergencyListFilter state
         member _.OnBolusMedicationFilterChange f =
             Msg.Shell(ShellMachine.ShellMsg.EmergencyListFiltered f) |> dispatch
 
     interface AppEnv.IContinuousMedication with
-        member _.ContinuousMedication = cm
+        member _.ContinuousMedication =
+            let calc =
+                fun _ w meds ->
+                    match w with
+                    | Some w' -> ContinuousMedication.calculate w' meds
+                    | None -> []
+
+            calculateInterventions calc (Client.continuousMedication state) (Client.draft state)
 
         member _.OnSelectContinuousMedicationItem s = Msg.ContinuousMedicationChosen s |> dispatch
 
@@ -767,19 +776,7 @@ let View () =
         | "info" -> 3000 |> box
         | _ -> null
 
-    let bm =
-        Elmish.calculateInterventions EmergencyTreatment.calculate (Client.bolusMedication state) (Client.draft state)
-
-    let cm =
-        let calc =
-            fun _ w meds ->
-                match w with
-                | Some w' -> ContinuousMedication.calculate w' meds
-                | None -> []
-
-        Elmish.calculateInterventions calc (Client.continuousMedication state) (Client.draft state)
-
-    let appEnv = ConcreteAppEnv(state, dispatch, bm, cm) :> obj
+    let appEnv = Projection(state, dispatch) :> obj
 
     let sx =
         if isMobile then
