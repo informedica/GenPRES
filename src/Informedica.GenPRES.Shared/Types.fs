@@ -39,18 +39,6 @@ module Types =
         | FloatOptionData
 
 
-    type Configuration = Setting list
-
-    and Setting =
-        {
-            Department: string
-            MinAge: int
-            MaxAge: int
-            MinWeight: float
-            MaxWeight: float
-        }
-
-
     type NormalValue =
         {
             Sex: string
@@ -275,15 +263,6 @@ module Types =
 
     type OrderLoader =
         {
-            Component: string option
-            Item: string option
-            Order: Order
-        }
-
-
-    type LoadedOrder =
-        {
-            UseAdjust: bool
             Component: string option
             Item: string option
             Order: Order

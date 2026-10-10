@@ -315,19 +315,6 @@ module Models =
                 | xs -> xs |> List.sum |> Some
 
 
-        let getAgeInMonths p =
-            [
-                p |> getAgeYears |> Option.map (fun ys -> (ys |> float) * 12.)
-                p |> getAgeMonths |> Option.map (fun ms -> (ms |> float) / 1.)
-                p |> getAgeWeeks |> Option.map (fun ws -> (ws |> float) / 4.)
-                p |> getAgeDays |> Option.map (fun ds -> (ds |> float) / 30.)
-            ]
-            |> List.choose id
-            |> function
-                | [] -> None
-                | xs -> xs |> List.sum |> Some
-
-
         let getAgeInDays p =
             [
                 p |> getAgeYears |> Option.map (fun ys -> (ys |> float) * 365.)
@@ -373,17 +360,6 @@ module Models =
                 pat.Height.Measured
             else
                 pat.Height.Estimated
-
-
-        let calcBMI (pat: Patient) =
-            match pat.Weight.Measured, pat.Weight.Estimated, pat.Height.Measured, pat.Height.Estimated with
-            | Some w, _, Some h, _
-            | None, Some w, None, Some h ->
-                if h > 0<cm> then
-                    float w / 1000. / float h ** 2. |> Some
-                else
-                    None
-            | _ -> None
 
 
         let calcBSA (pat: Patient) =
@@ -588,11 +564,6 @@ module Models =
                 Department = dep
             }
             |> Some
-
-
-        let updateWeightGram gr pat =
-
-            { (pat |> get) with Weight = { pat.Weight with Measured = gr |> Some } }
 
 
         /// The estimates written, the measured values left as they are.
@@ -1483,34 +1454,6 @@ module Models =
                 }
 
 
-        (*
-            /// <summary>
-            /// Get the user readable string version in Dutch with verbosity short and
-            /// value as decimal with a fixed precision
-            /// </summary>
-            /// <param name="prec">The precision</param>
-            /// <param name="vu">The ValueUnit</param>
-            /// <example>
-            /// <code>
-            /// toStringDecimalDutchShortWithPrec 2 (ValueUnit ([|1N/3N; 2N/3N; 3N/5N|], Mass (KiloGram 1N)))
-            /// = "0,33;0,67;0,6 kg"
-            /// </code>
-            /// </example>
-            let toStringDecimalDutchShortWithPrec prec (vu: ValueUnit) =
-                let v, u = vu.Value, vu.Unit
-
-                let vs =
-                    v
-                    |> Array.map (snd >> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision prec)
-                    |> Array.distinct
-                    |> Array.toReadableString
-
-                let us = u |> unitToReadableDutchString
-
-                vs + " " + us
-            *)
-
-
         module Variable =
 
             let create n nonZ min minIncl incr max maxIncl vals =
@@ -1770,17 +1713,6 @@ module Models =
                 }
 
 
-        module LoadedOrder =
-
-            let create adj cmp itm o =
-                {
-                    UseAdjust = adj
-                    Component = cmp
-                    Item = itm
-                    Order = o
-                }
-
-
     module Totals =
 
         let empty: Totals =
@@ -1879,9 +1811,6 @@ module Models =
                 ProductIds = ids
                 Access = acc
             }
-
-
-        let eqs (sc1: OrderScenario) (sc2: OrderScenario) = sc1.Order.Id = sc2.Order.Id
 
 
     module DoseType =
@@ -1995,7 +1924,6 @@ module Models =
             | OrderCategory.Drug -> ctx.Filter.Generic |> Option.defaultValue ""
 
 
-        /// The nutrition category of a context, none for a drug.
         /// The nutrition category of a context, none for a drug. A display copy of the
         /// domain's `PlanContext.nutritionCategory`; the agreement test in the server tests keeps
         /// them equal.
@@ -2011,8 +1939,6 @@ module Models =
         /// server tests keeps them equal.
         let contribution (ctx: OrderContext) = ctx.Scenarios |> Array.tryExactlyOne
 
-
-        let setScenarios srs ctx : OrderContext = { ctx with Scenarios = srs }
 
         /// A choice a page offers in the filter it builds.
         type FilterField =

@@ -1,21 +1,8 @@
 // Localization support for the GenPRES application.
 //
-// The current implementation fetches a "Localization" sheet from Google Sheets
-// at startup and stores translations as a `string[][]` matrix.  The column
-// indices that map to each language are hardcoded in `getTerm`, which means
-// **reordering columns in the spreadsheet silently breaks all translations**.
-//
-// An improved, more idiomatic approach is the `TranslationMap` API further down in this file
-// (`parseCSV`, `getTermFromMap`, `mergeTranslations`), not yet used by the client:
-//   - Parse the CSV by column *headers* (language display names) so the
-//     implementation is robust to spreadsheet column reordering.
-//   - Store translations as `TranslationMap` (`Map<string, Map<Locales, string>>`)
-//     instead of `string[][]` — no magic column indices.
-//   - `tryLocaleFromString` returns `Option` instead of throwing.
-//   - Static fallback translations embedded in the binary so the UI works
-//     without a network connection.
-//   - `mergeTranslations` overlays remote sheet data over the static fallback
-//     so a partial sheet load degrades gracefully.
+// The client fetches the "Localization" sheet at startup and keeps it as a string[][] matrix,
+// one row per term. getTerm reads a language from a fixed column, so the sheet's column order
+// matters.
 namespace Shared
 
 
@@ -367,24 +354,6 @@ module Localization =
     //        | Chinees -> "中文"
 
 
-    /// Converts a display name string to a `Locales` value.
-    ///
-    /// ⚠️  This function **throws** for unknown input.  Consider using
-    /// `tryFromString` below, which returns `Option<Locales>` instead.
-    let fromString (s: string) =
-        let s = s.Trim().ToLower()
-
-        match s with
-        | _ when s = "english" -> English
-        | _ when s = "nederlands" -> Dutch
-        | _ when s = "français" -> French
-        | _ when s = "español" -> Spanish
-        | _ when s = "deutsch" -> German
-        | _ when s = "italiano" -> Italian
-        //        | _ when s = "中文" -> Chinees
-        | _ -> raise (System.FormatException $"{s} is not a known language")
-
-
     let languages = [| English; Dutch; French; German; Spanish; Italian |]
 
 
@@ -393,9 +362,7 @@ module Localization =
     ///
     /// ⚠️  Column positions are **hardcoded** (English = 1, Dutch = 2, …).
     /// Reordering columns in the spreadsheet will silently return wrong
-    /// translations.  See `parseCSV` below for a header-based parser that is
-    /// robust to column reordering and uses a typed `TranslationMap` instead of
-    /// `string[][]`.
+    /// translations.
     let getTerm (terms: string[][]) locale term =
         let term = $"{term}".Trim()
 
@@ -419,34 +386,11 @@ module Localization =
             r
 
 
-    // ── Typed translation map (header-based, robust to column reordering) ────
-
-    /// A typed translation map: term-key → locale → translated string.
-    /// Replaces the opaque `string[][]` representation for new code paths.
-    type TranslationMap = Map<string, Map<Locales, string>>
-
-
-    /// Converts a display name string to a `Locales` value, returning `None`
-    /// for unknown names instead of throwing (unlike `fromString`).
-    let tryFromString (s: string) : Locales option =
-        let s = s.Trim().ToLower()
-
-        match s with
-        | "english" -> Some English
-        | "nederlands" -> Some Dutch
-        | "français" -> Some French
-        | "español" -> Some Spanish
-        | "deutsch" -> Some German
-        | "italiano" -> Some Italian
-        | _ -> None
-
-
     /// <summary>
     /// Parses a language given as an ISO 639-1 code (<c>en</c>, <c>nl</c>, <c>fr</c>, <c>de</c>,
     /// <c>es</c>, <c>it</c>). Case and surrounding whitespace do not matter; anything else,
     /// including a display name and null, is <c>None</c>. One parser for the
-    /// <c>GENPRES_LANG</c> setting and the <c>lan</c> url parameter. The sheet header keeps
-    /// <c>tryFromString</c>: display names only.
+    /// <c>GENPRES_LANG</c> setting and the <c>lan</c> url parameter.
     /// </summary>
     let tryParse (s: string) : Locales option =
         if isNull s then
@@ -460,73 +404,3 @@ module Localization =
             | "es" -> Some Spanish
             | "it" -> Some Italian
             | _ -> None
-
-
-    /// Parses a `string[][]` from `Csv.parseCSV` into a `TranslationMap`.
-    ///
-    /// The first row is expected to contain column headers. Any column whose
-    /// header matches a known locale display name (via `tryFromString`) is
-    /// treated as a translation column. The first column holds the term key.
-    ///
-    /// Robust to column reordering in the source spreadsheet.
-    let parseCSV (csv: string[][]) : TranslationMap =
-        if csv.Length < 2 then
-            Map.empty
-        else
-            let headers = csv[0]
-
-            let localeColumns =
-                headers
-                |> Array.mapi (fun i header -> i, tryFromString header)
-                |> Array.choose (fun (i, opt) -> opt |> Option.map (fun l -> i, l))
-
-            csv
-            |> Array.skip 1
-            |> Array.choose (fun row ->
-                if row.Length > 0 && row[0] |> String.notEmpty then
-                    let termKey = row[0].Trim()
-
-                    let translations =
-                        localeColumns
-                        |> Array.choose (fun (colIdx, locale) ->
-                            if colIdx < row.Length && row[colIdx] |> String.notEmpty then
-                                Some(locale, row[colIdx].Trim())
-                            else
-                                None
-                        )
-                        |> Map.ofArray
-
-                    Some(termKey, translations)
-                else
-                    None
-            )
-            |> Map.ofArray
-
-
-    /// Looks up a translated string in a `TranslationMap`.
-    /// Returns `None` when the term or locale is absent.
-    let getTermFromMap (translations: TranslationMap) (locale: Locales) (term: Terms) : string option =
-        let key = $"{term}".Trim()
-        translations |> Map.tryFind key |> Option.bind (Map.tryFind locale)
-
-
-    /// Merges `remote` onto `fallback`: per-locale entries in `remote` take
-    /// precedence; terms missing from `remote` are kept from `fallback`.
-    let mergeTranslations (fallback: TranslationMap) (remote: TranslationMap) : TranslationMap =
-        remote
-        |> Map.fold
-            (fun acc termKey remoteLocales ->
-                let merged =
-                    match Map.tryFind termKey acc with
-                    | None -> remoteLocales
-                    | Some fallbackLocales ->
-                        Map.fold (fun m locale txt -> Map.add locale txt m) fallbackLocales remoteLocales
-
-                Map.add termKey merged acc
-            )
-            fallback
-
-
-    /// Looks up a term, falling back to `defVal` when absent.
-    let getTermOrDefault (translations: TranslationMap) (locale: Locales) (defVal: string) (term: Terms) : string =
-        getTermFromMap translations locale term |> Option.defaultValue defVal

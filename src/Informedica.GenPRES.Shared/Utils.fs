@@ -38,10 +38,6 @@ module String =
     let isNullOrEmpty (s: String) = String.IsNullOrEmpty(s)
 
 
-    /// True when `s` has at least one character, white space included.
-    let notNullOrEmpty = isNullOrEmpty >> not
-
-
     let replace (s1: string) s2 (s: string) = s.Replace(s1, s2)
 
 
@@ -70,62 +66,11 @@ module String =
     let contains = fun (s1: string) (s2: string) -> (s2 |> get).Contains(s1)
 
 
-    let toLower s = (s |> get).ToLower()
-
-
-    let toUpper s = (s |> get).ToUpper()
-
-
     let trim (s: string) = s.Trim()
-
-
-    /// Get a substring starting at `start` with length `length`
-    let subString start length s =
-        if start < 0 || s |> String.length < start + length || start + length < 0 then
-            ""
-        else
-            let s' = if length < 0 then start + length else start
-            let l' = if length < 0 then -1 * length else length
-            s.Substring(s', l')
-
-
-    /// Get the first character of a string
-    /// as a string
-    let firstStringChar = subString 0 1
 
 
     /// Get the length of s
     let length s = (s |> get).Length
-
-
-    /// Return the rest of a string as a string
-    let restString s = if s = "" then "" else subString 1 ((s |> length) - 1) s
-
-
-    /// Removes the last 'n' characters from the input string 's'.
-    /// If the resulting string length is less than 0, an empty string is returned.
-    ///
-    /// Parameters:
-    ///   - n: Number of characters to remove from the end of the string.
-    ///   - s: Input string.
-    ///
-    /// Returns:
-    ///   - Modified string with the last 'n' characters removed.
-    let remove n s =
-        let l = String.length s - n
-        if l < 0 then "" else s |> subString 0 l
-
-
-    /// Make the first char of a string upper case
-    let firstToUpper = firstStringChar >> toUpper
-
-
-    /// Make the first character upper and the rest lower of a string
-    let capitalize s =
-        if s = "" then
-            ""
-        else
-            (s |> firstToUpper) + (s |> restString |> toLower)
 
 
     /// Remove trailing characters from a string
@@ -216,9 +161,6 @@ module Math =
 module List =
 
 
-    let create x = x :: []
-
-
     let inline findNearestMax n ns =
         match ns with
         | [] -> n
@@ -229,18 +171,6 @@ module List =
             |> List.sort
             |> List.rev
             |> List.fold (fun x a -> if (a - x) < (n - x) then x else a) n
-
-
-    let removeDuplicates xs =
-        xs
-        |> List.fold
-            (fun xs x ->
-                if xs |> List.exists ((=) x) then
-                    xs
-                else
-                    [ x ] |> List.append xs
-            )
-            []
 
 
     /// Get the nearest index in a list to a target value.
@@ -255,48 +185,10 @@ module List =
             deltas |> List.findIndex ((=) minDelta)
 
 
-module DateTime =
-
-
-    let apply f (dt: DateTime) = f dt
-
-
-    let get = apply id
-
-
-    let optionToDate (yr: int option) mo dy =
-        match yr, mo, dy with
-        | Some y, Some m, Some d -> DateTime(y, m, d) |> Some
-        | _ -> None
-
-
-    let dateDiff dt1 dt2 = (dt1 |> get) - (dt2 |> get)
-
-
-    let dateDiffDays dt1 dt2 = (dateDiff dt1 dt2).Days
-
-
-    let dateDiffMonths dt1 dt2 =
-        (dateDiffDays dt1 dt2) |> float |> (fun x -> x / 365.) |> ((*) 12.)
-
-
-    let dateDiffYearsMonths dt1 dt2 =
-        let mos = (dateDiffMonths dt1 dt2) |> int
-        (mos / 12), (mos % 12)
-
-
 [<RequireQualifiedAccess>]
 module Decimal =
 
     open System.Globalization
-
-
-    //----------------------------------------------------------------------------
-    // Constants
-    //----------------------------------------------------------------------------
-
-
-    let Ten = 10m
 
 
     //----------------------------------------------------------------------------
