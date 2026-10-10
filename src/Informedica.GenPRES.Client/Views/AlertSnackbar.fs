@@ -36,10 +36,13 @@ module AlertSnackbar =
             | "info" -> 3000 |> box
             | _ -> null
 
+        // MUI calls this with the event and the reason at once; a curried F# function would take
+        // the event only and never run, so it is a Func of two arguments
         let closeUnlessClickAway =
-            fun (_: obj) (reason: string) ->
+            System.Func<obj, string, unit>(fun _ reason ->
                 if reason <> "clickaway" then
                     props.onClose ()
+            )
 
         let close _ = props.onClose ()
 
