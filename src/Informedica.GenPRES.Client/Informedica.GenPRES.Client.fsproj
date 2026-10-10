@@ -44,7 +44,10 @@
     <Compile Include="./Components/ListToolbar.fs" />
     <Compile Include="./Components/PrintTable.fs" />
     <Compile Include="./Components/ResponsiveTable.fs" />
+    <Compile Include="./Hooks/LeaveGuard.fs" />
     <Compile Include="./Views/AlertText.fs" />
+    <Compile Include="./Views/AlertSnackbar.fs" />
+    <Compile Include="./Views/LeaveDialog.fs" />
     <Compile Include="./Views/ViewHelpers.fs" />
     <Compile Include="./Views/Disclaimer.fs" />
     <Compile Include="./Views/SessionGate.fs" />
