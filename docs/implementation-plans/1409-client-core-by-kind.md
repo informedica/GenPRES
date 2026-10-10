@@ -109,10 +109,10 @@ and its tests.
 | A. List calculations and display | `ContinuousMedication.calculate` (Models 1304–1376); `TextBlock.fromString` (Utils 481–532) | ~125 | client only; no tests. What stays and why: below the table |
 | B. Display helpers | `Variable.renderValue(s)`, `OrderVariable` display, `Order.isSolved`, `OrderLoader` (and type), `Totals.intakeRows`/`substanceToField`, `DoseType`, `Severity` (and type), `TextBlock.flatten`, `OrderContext.label` | ~320 | client only |
 | C. Patient display and editors, Terms | `Localization.Terms`, `getTerm`, `toFlag`; `Patient.toString`, `calcBSA` (and `Calculations.BSA.calcDuBois`, `Conversions`), the client getters, `toggle*`, `set*`, `edit*`; `Age.toString`, `gestAgeToString`, `fromBirthDate`; the `RenalFunction` module | ~760 | client only |
-| D. Command preview chain | Api `preview` and `module Ctx`; `OrderContext` filterFields, chain, clear*, applyChange, *Change; the `Target` module, `values`, `Picks.withinOrder`, scenario … clear; `OrderVariable.setVu`/`setVar`/`setOvar` | ~500 | client; three Server.Tests agreement files; **stays in Shared** |
+| D. Command preview chain | Api `preview` and `module Ctx`; `OrderContext` `filterFields`, `chain`, `clear*`, `applyChange`, `*Change`; the `Target` module, `values`, `Picks.withinOrder`, scenario … clear; `OrderVariable.setVu`/`setVar`/`setOvar` | ~500 | client; three Server.Tests agreement files; **stays in Shared** |
 
-Group A is small because the emergency and continuous code is headed for the server (#582,
-#1208). The sheet parsers (`EmergencyTreatment.parse`, `ContinuousMedication.parse`,
+Group A is small because the emergency and continuous code is headed for the server
+(#582, #1208). The sheet parsers (`EmergencyTreatment.parse`, `ContinuousMedication.parse`,
 `Products.parse`, their `create*`, `Csv.parseCSV`) and the non-medication interventions (tube
 size and length, defibrillation and cardioversion joules) stay in Shared for #582 to move to
 the server. `EmergencyTreatment.calculate` builds the interventions and the bolus medication in
