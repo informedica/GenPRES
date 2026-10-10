@@ -506,6 +506,8 @@ Line counts, by `wc -l` over the `.fs` files of each:
 
 ## As built
 
+Every step is merged.
+
 | Step | Pull request |
 | ---- | ------------ |
 | Plan | #1376 |
@@ -518,6 +520,7 @@ Line counts, by `wc -l` over the `.fs` files of each:
 | 7a, 7b, 7c | #1385, #1386, #1387 |
 | 8a, 8b | #1388, #1389 |
 | 9a, 9b | #1391, #1392 |
+| 10 | #1394 |
 
 Line counts by `wc -l`, before the plan (593c667c) and after step 10:
 
