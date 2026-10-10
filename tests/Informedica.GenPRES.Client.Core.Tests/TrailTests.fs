@@ -101,7 +101,7 @@ let tests =
             }
 
             test "a patient update reads as the call with UpdatePatient" {
-                let pat = OrderPlanMachineTests.Fixtures.patient
+                let pat = OrderFixtures.patient
                 let ctx = OrderContextState.emptyFor pat
 
                 OrderContextEffect.CallContext(OrderContextCommand.UpdatePatient(pat, ctx), "r-1")
@@ -564,7 +564,7 @@ let exampleTests =
 /// A scenario on the line: the plan fixtures' scenario with its component.
 module ScenarioLine =
 
-    open Informedica.GenPRES.Client.Core.Tests.OrderPlanMachineTests.Fixtures
+    open Informedica.GenPRES.Client.Core.Tests.OrderFixtures
 
     let one = { scenario "order-0001-abcd" "paracetamol" with Component = Some "paracetamol" }
 

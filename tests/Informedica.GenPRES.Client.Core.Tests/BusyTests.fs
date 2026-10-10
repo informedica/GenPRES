@@ -8,6 +8,7 @@ open SessionMachine
 open SigningMachine
 open OrderPlanMachine
 open OrderContextMachine
+open Informedica.GenPRES.Client.Core.Tests.OrderFixtures
 open Informedica.GenPRES.Client.Core.Tests.OrderPlanMachineTests.Fixtures
 
 
