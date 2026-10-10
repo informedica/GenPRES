@@ -54,8 +54,9 @@ module private Elmish =
     let planMsg m = Msg.Lanes(LanesMsg.Plan m)
 
 
-    /// A reply under the session for the lane message it answers: the answer reaches its machine,
-    /// the notice the Session, with the token the request was sent with.
+    /// Turns a server reply into the message for the lane that sent the request. The response goes
+    /// to that lane, the notice goes to the Session, and the session token sent with the request
+    /// comes along.
     let answered lane opened (reply: Api.Reply<_>) =
         Msg.Lanes(LanesMsg.Answer(lane (Ok reply.Response), opened, reply.Notice))
 
@@ -892,8 +893,6 @@ responsiveFontSizes(createTheme({
 let private mobile: obj = jsNative
 
 
-// Entry point must be in a separate file
-// for Vite Hot Reload to work
 [<JSX.Component>]
 let View () =
     let state, dispatch = React.useElmish (program, [||])
@@ -1088,7 +1087,3 @@ let View () =
         </ThemeProvider>
     </React.StrictMode>
     """
-
-
-let root = ReactDomClient.createRoot (document.getElementById "genpres-app")
-root.render (View() |> toReact)
