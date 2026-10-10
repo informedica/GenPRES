@@ -418,6 +418,64 @@ let tests =
                 ]
 
             testList
+                "what the page reads"
+                [
+                    testList
+                        "the disclaimer shows for anonymous use only"
+                        [
+                            for name, session, expected in
+                                [
+                                    "anonymous", SessionState.anonymous, true
+                                    "resuming", SessionState.resuming, false
+                                    "launched", SessionState.opened HeldPanelPolicyTests.identified None, false
+                                    "refused", SessionState.refused LaunchRefusal.NoBrowserIdentity, false
+                                ] do
+                                test name {
+                                    let state = initial Url.none
+
+                                    { state with Lanes = { state.Lanes with Session = session } }
+                                    |> showDisclaimer
+                                    |> Expect.equal "shown" expected
+                                }
+                        ]
+
+                    test "the disclaimer accepted no longer shows" {
+                        initial Url.none
+                        |> play [ ClientMsg.Shell ShellMsg.DisclaimerAccepted ]
+                        |> stateOf
+                        |> showDisclaimer
+                        |> Expect.isFalse "accepted"
+                    }
+
+                    testList
+                        "the url question asks for a launch when its url carries one"
+                        [
+                            for name, url, expected in
+                                [
+                                    "a launch", Some [ "session"; "?launch=abc" ], true
+                                    "a patient", Some [ "patient"; "?agd=10" ], false
+                                    "no question", None, false
+                                ] do
+                                test name {
+                                    let state = initial Url.none
+
+                                    let shown = UrlPolicy.UrlState.Shown []
+
+                                    let asked =
+                                        match url with
+                                        | Some sl ->
+                                            shown
+                                            |> UrlPolicy.UrlState.ask sl (Url.parse (System.DateTime(2026, 1, 1)) sl)
+                                        | None -> shown
+
+                                    { state with Shell = { state.Shell with Url = asked } }
+                                    |> asksLaunch
+                                    |> Expect.equal "asks for a launch" expected
+                                }
+                        ]
+                ]
+
+            testList
                 "the patient held and the signature"
                 [
                     test "a panel change while the patient is held falls to the closing arm" {

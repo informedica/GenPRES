@@ -95,15 +95,6 @@ module private Elmish =
         |> Cmd.fromAsync
 
 
-    let applyNormalValues (normalValues: Deferred<NormalValues>) (pat: Patient option) =
-        match normalValues, pat with
-        | Resolved nv, Some p ->
-            p
-            |> Patient.applyNormalValues (Some nv.Weights) (Some nv.Heights) (Some nv.NeoWeights) (Some nv.NeoHeights)
-            |> Some
-        | _ -> pat
-
-
     /// What a shell effect sends out of the client: the url put back or erased, a launch presented.
     let applyShellEffect effect =
         match effect with
@@ -546,7 +537,7 @@ module private Elmish =
     /// settings arrive, and never against production. The trail keeps the same gate through
     /// StepTrail.confirmDemo.
     let isTraceable (state: State) =
-        match state.Loader.Settings with
+        match Client.settings state with
         | Resolved settings
         | Refreshing settings -> settings.IsDemo
         | HasNotStartedYet
@@ -671,20 +662,20 @@ type private ConcreteAppEnv
     =
 
     interface AppEnv.ILocalization with
-        member _.LocalizationTerms = state.Loader.Localization
+        member _.LocalizationTerms = Client.localization state
 
     interface AppEnv.ISettings with
-        member _.Settings = state.Loader.Settings
+        member _.Settings = Client.settings state
 
     interface AppEnv.IStartup with
         member _.Startup = Client.startup state
 
     interface AppEnv.IBusy with
-        member _.Any = state |> Client.busy |> Busy.any
-        member _.Page page = state |> Client.busy |> Busy.page page
+        member _.Any = Client.busyAny state
+        member _.Page page = Client.busyPage page state
 
     interface AppEnv.IOrderContext with
-        member _.OrderContext = state.Lanes.OrderContext |> OrderContextState.view
+        member _.OrderContext = Client.orderContext state
 
         member _.OrderContextMsg cmd =
             workbenchMsg (OrderContextMsg.Command(cmd, newRequest ())) |> dispatch
@@ -694,12 +685,12 @@ type private ConcreteAppEnv
 
         member _.RestoreField() = workbenchMsg OrderContextMsg.RestoreField |> dispatch
 
-        member _.Dialog = state.Lanes.OrderContext |> OrderContextState.dialog
+        member _.Dialog = Client.orderContextDialog state
 
         member _.SelectScenario id = workbenchMsg (OrderContextMsg.SelectScenario id) |> dispatch
 
     interface AppEnv.IOrderPlan with
-        member _.OrderPlan = state.Lanes.OrderPlan |> OrderPlanState.view
+        member _.OrderPlan = Client.orderPlan state
 
         member _.Add orderId =
             Msg.Lanes(LanesMsg.Prescribe(orderId, newRequest (), newRequest ())) |> dispatch
@@ -727,17 +718,15 @@ type private ConcreteAppEnv
             planMsg (OrderPlanMsg.Change(OrderPlanChange.FilterRows ids, newRequest ()))
             |> dispatch
 
-        member _.Changed = state.Lanes.OrderPlan |> OrderPlanState.changed
+        member _.Changed = Client.changedOrders state
 
     interface AppEnv.IPatient with
-        member _.Draft = state.Lanes.Patient |> PatientState.draft
+        member _.Draft = Client.draft state
 
-        member _.Changing = state.Lanes.Patient |> PatientState.changing
+        member _.Changing = Client.changing state
 
-        member _.Estimated =
-            state.Lanes.Patient
-            |> PatientState.draft
-            |> applyNormalValues state.Loader.NormalValues
+        member _.Estimated = Client.estimated state
+
         member _.UpdatePatient p =
             Msg.PanelChanged(p, PatientDraftPolicy.Estimates.Renewed, newRequest ())
             |> dispatch
@@ -747,27 +736,27 @@ type private ConcreteAppEnv
             |> dispatch
 
     interface AppEnv.IFormulary with
-        member _.Formulary = state.Loader.Formulary
+        member _.Formulary = Client.formulary state
         member _.UpdateFormulary f =
             Msg.Loader(LoaderMachine.LoaderMsg.FormularyChanged f) |> dispatch
 
     interface AppEnv.IParenteralia with
-        member _.Parenteralia = state.Loader.Parenteralia
+        member _.Parenteralia = Client.parenteralia state
         member _.UpdateParenteralia p =
             Msg.Loader(LoaderMachine.LoaderMsg.ParenteraliaChanged p) |> dispatch
 
     interface AppEnv.IInteractions with
-        member _.Interactions = state.Loader.Interactions
-        member _.InteractionDrugNames = state.Loader.DrugNames
+        member _.Interactions = Client.interactions state
+        member _.InteractionDrugNames = Client.drugNames state
         member _.CheckInteractions drugs =
             Msg.Loader(LoaderMachine.LoaderMsg.CheckInteractions drugs) |> dispatch
 
     interface AppEnv.IResources with
-        member _.Reload = state.Admin.Reloading
+        member _.Reload = Client.reloading state
         member _.ReloadResources() = Msg.Admin AdminMachine.AdminMsg.ReloadResources |> dispatch
 
     interface AppEnv.ISession with
-        member _.Session = state.Lanes.Session |> SessionState.view
+        member _.Session = Client.session state
         member _.Close() = sessionMsg SessionMsg.CloseSession |> dispatch
         member _.RetryLaunch() = sessionMsg SessionMsg.RetryLaunch |> dispatch
 
@@ -775,19 +764,19 @@ type private ConcreteAppEnv
 
         member _.SupplyPin code pin = sessionMsg (SessionMsg.SupplyPin(code, pin)) |> dispatch
 
-        member _.NewerPlan = state.Lanes.Session |> SessionState.newerPlan
+        member _.NewerPlan = Client.newerPlan state
 
         member _.OpenSignedPlan id = sessionMsg (SessionMsg.OpenSignedPlan id) |> dispatch
 
         member _.Refresh() = sessionMsg SessionMsg.RefreshPatient |> dispatch
 
     interface AppEnv.ISigning with
-        member _.Signing = state.Lanes.Signing |> SigningState.view
+        member _.Signing = Client.signing state
 
-        member _.Differences = state.Lanes.Signing |> SigningState.differences
+        member _.Differences = Client.differences state
 
         // one request id per Sign, so the answer lands on this request and no other
-        member _.Sign plan = Msg.Sign(plan, Guid.NewGuid().ToString()) |> dispatch
+        member _.Sign plan = Msg.Sign(plan, newRequest ()) |> dispatch
 
         member _.Held = Client.held state
 
@@ -795,19 +784,19 @@ type private ConcreteAppEnv
 
         // one key per confirmation, so the commit takes effect once; the machine keeps it for a retry
         member _.Confirm pin =
-            signingMsg (SigningMsg.ConfirmPin(pin, Guid.NewGuid().ToString())) |> dispatch
+            signingMsg (SigningMsg.ConfirmPin(pin, newRequest ())) |> dispatch
 
         member _.Cancel() = signingMsg SigningMsg.Cancel |> dispatch
 
     interface AppEnv.IAuthentication with
-        member _.IsAuthenticated = state.Admin.IsAuthenticated
+        member _.IsAuthenticated = Client.isAuthenticated state
         member _.Login password = Msg.Admin(AdminMachine.AdminMsg.Login password) |> dispatch
 
         member _.Logout() = Msg.Admin AdminMachine.AdminMsg.Logout |> dispatch
 
     interface AppEnv.ILogAnalyzer with
-        member _.LogFiles = state.Admin.LogFiles
-        member _.LogAnalysisReport = state.Admin.LogAnalysisReport
+        member _.LogFiles = Client.logFiles state
+        member _.LogAnalysisReport = Client.logAnalysisReport state
         member _.ListLogFiles() = Msg.Admin AdminMachine.AdminMsg.ListLogFiles |> dispatch
 
         member _.AnalyzeLogFile fileName =
@@ -816,7 +805,7 @@ type private ConcreteAppEnv
     interface AppEnv.IBolusMedication with
         member _.BolusMedication = bm
         member _.OnSelectBolusMedicationItem s = Msg.EmergencyListItemChosen s |> dispatch
-        member _.BolusMedicationFilter = state.Shell.EmergencyListFilter
+        member _.BolusMedicationFilter = Client.emergencyListFilter state
         member _.OnBolusMedicationFilterChange f =
             Msg.Shell(ShellMachine.ShellMsg.EmergencyListFiltered f) |> dispatch
 
@@ -825,7 +814,7 @@ type private ConcreteAppEnv
 
         member _.OnSelectContinuousMedicationItem s = Msg.ContinuousMedicationChosen s |> dispatch
 
-        member _.ContinuousMedicationFilter = state.Shell.ContinuousMedsFilter
+        member _.ContinuousMedicationFilter = Client.continuousMedsFilter state
 
         member _.OnContinuousMedicationFilterChange f =
             Msg.Shell(ShellMachine.ShellMsg.ContinuousMedsFiltered f) |> dispatch
@@ -934,25 +923,25 @@ let View () =
 
     let closeSnackbar _ = Msg.Shell ShellMachine.ShellMsg.SnackbarClosed |> dispatch
 
-    let getTerm = Global.getLocalizedTerm state.Loader.Localization state.Shell.Language.Current
+    let getTerm = Global.getLocalizedTerm (Client.localization state) (Client.language state)
 
     // the alert on the snackbar in words; closed, it shows nothing
-    let snackbarOpen = state.Shell.Snackbar.IsSome
+    let snackbarOpen = state |> Client.snackbar |> Option.isSome
 
     let severity =
-        state.Shell.Snackbar
+        Client.snackbar state
         |> Option.map Views.AlertText.severity
         |> Option.defaultValue "error"
 
     let message =
-        state.Shell.Snackbar
+        Client.snackbar state
         |> Option.map (Views.AlertText.text getTerm)
         |> Option.defaultValue ""
 
     let context: Global.Context =
         {
-            Localization = state.Shell.Language.Current
-            Hospital = state.Shell.Hospital
+            Localization = Client.language state
+            Hospital = Client.hospital state
         }
 
     let autoHide =
@@ -962,10 +951,7 @@ let View () =
         | _ -> null
 
     let bm =
-        calculateInterventions
-            EmergencyTreatment.calculate
-            state.Loader.BolusMedication
-            (state.Lanes.Patient |> PatientState.draft)
+        calculateInterventions EmergencyTreatment.calculate (Client.bolusMedication state) (Client.draft state)
 
     let cm =
         let calc =
@@ -974,7 +960,7 @@ let View () =
                 | Some w' -> ContinuousMedication.calculate w' meds
                 | None -> []
 
-        calculateInterventions calc state.Loader.ContinuousMedication (state.Lanes.Patient |> PatientState.draft)
+        calculateInterventions calc (Client.continuousMedication state) (Client.draft state)
 
     let appEnv = ConcreteAppEnv(state, dispatch, bm, cm) :> obj
 
@@ -995,7 +981,7 @@ let View () =
     let theme = if isMobile then mobile else theme
 
     let serverErrorBanner =
-        match state.Shell.ServerError with
+        match Client.serverError state with
         | Some error ->
             Components.Notice.View
                 {|
@@ -1010,12 +996,6 @@ let View () =
     // the question before a url with a patient, a medication or a launch: it leaves the
     // launched Session, or drops the work not signed. The browser asks the second itself for a
     // reload or a closed tab, but not for a change of the url
-    let asksLaunch =
-        state.Shell.Url
-        |> UrlPolicy.UrlState.askedUrl
-        |> Option.bind _.Launch
-        |> Option.isSome
-
     let title =
         if Client.launched state then
             Terms.``Url Leave Session Title`` |> getTerm "Sessie verlaten?"
@@ -1023,7 +1003,7 @@ let View () =
             Terms.``Url Leave Title`` |> getTerm "Orderplan verlaten?"
 
     let text =
-        match Client.launched state, asksLaunch with
+        match Client.launched state, Client.asksLaunch state with
         | true, true ->
             Terms.``Url Leave Launch Text``
             |> getTerm
@@ -1040,7 +1020,7 @@ let View () =
     let leaveDialog =
         Components.ConfirmDialog.View
             {|
-                isOpen = (state.Shell.Url |> UrlPolicy.UrlState.asked).IsSome
+                isOpen = Client.urlAsked state
                 title = title
                 text = text
                 confirmLabel = Terms.``Url Leave`` |> getTerm "Verlaten"
@@ -1052,28 +1032,20 @@ let View () =
     // the quantity fields read whether one of them counts, and report their own count
     let counting: Global.Counting =
         {
-            Counting = state.Shell.Counting
+            Counting = Client.counting state
             Report = ShellMachine.ShellMsg.CountingChanged >> Msg.Shell >> dispatch
         }
 
     let genPresProps =
         {|
             appEnv = appEnv
-            // the disclaimer is for anonymous use only: a launched, resuming or
-            // refused session never sees it; an anonymous open after a refusal does
-            showDisclaimer =
-                state.Shell.ShowDisclaimer
-                && (
-                    match SessionState.view state.Lanes.Session with
-                    | SessionView.Anonymous -> true
-                    | _ -> false
-                )
-            isDemo = state.Shell.IsDemo
+            showDisclaimer = Client.showDisclaimer state
+            isDemo = Client.isDemo state
             acceptDisclaimer = fun _ -> Msg.Shell ShellMachine.ShellMsg.DisclaimerAccepted |> dispatch
             updatePage = Msg.PageChosen >> dispatch
-            page = state.Shell.Page
+            page = Client.page state
             languages = Localization.languages
-            hospitals = state.Loader.Hospitals
+            hospitals = Client.hospitals state
             switchLang = ShellMachine.ShellMsg.LanguageChosen >> Msg.Shell >> dispatch
             switchHosp = ShellMachine.ShellMsg.HospitalChosen >> Msg.Shell >> dispatch
         |}
