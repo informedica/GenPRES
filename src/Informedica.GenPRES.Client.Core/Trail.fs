@@ -831,13 +831,16 @@ module Loader =
         | LoaderEffect.FetchInteractions(check, drugs) -> $"FetchInteractions check %i{check} %i{drugs.Length} drugs"
         | LoaderEffect.SeedWorkbench seed ->
             $"SeedWorkbench %s{OrderContext.seedSource seed.Source} %i{OrderContext.seedChoices seed} choices"
+        | LoaderEffect.SettingsLanded s ->
+            let data = if s.IsDemo then "demo" else "production"
+            $"SettingsLanded %s{data}"
         | LoaderEffect.CheckServer -> "CheckServer"
         | LoaderEffect.CheckServerLater seconds -> $"CheckServerLater %i{seconds}s"
         | LoaderEffect.AskAgainLater(l, seconds) -> $"AskAgainLater %s{load l} %i{seconds}s"
         | LoaderEffect.Alert a -> $"Alert %s{Part.alert a}"
         | LoaderEffect.WithdrawInteractionsFound -> "WithdrawInteractionsFound"
-        | LoaderEffect.Failed(s, _) -> $"Failed %s{source s}"
-        | LoaderEffect.Succeeded s -> $"Succeeded %s{source s}"
+        | LoaderEffect.RequestFailed(s, _) -> $"RequestFailed %s{source s}"
+        | LoaderEffect.RequestSucceeded s -> $"RequestSucceeded %s{source s}"
         | LoaderEffect.NoticeReceived(from, n) -> $"NoticeReceived %s{Part.token from} %s{Part.notice n}"
 
 
@@ -923,8 +926,8 @@ module Admin =
         | AdminEffect.ReloadDone -> "ReloadDone"
         | AdminEffect.LoggedOut -> "LoggedOut"
         | AdminEffect.Alert a -> $"Alert %s{Part.alert a}"
-        | AdminEffect.Failed(s, _) -> $"Failed %s{Loader.source s}"
-        | AdminEffect.Succeeded s -> $"Succeeded %s{Loader.source s}"
+        | AdminEffect.RequestFailed(s, _) -> $"RequestFailed %s{Loader.source s}"
+        | AdminEffect.RequestSucceeded s -> $"RequestSucceeded %s{Loader.source s}"
 
 
     /// Whether logged in, the attempt, and the loads out.
@@ -1003,7 +1006,7 @@ module Shell =
             $"SettingsLanded %s{data} %s{language s.Language}"
         | ShellMsg.PageLoaded(_, u) -> $"PageLoaded %s{url u}"
         | ShellMsg.UrlChanged(_, u, c) -> $"UrlChanged %s{url u} (%s{check c})"
-        | ShellMsg.LeftForUrl(_, u) -> $"LeftForUrl %s{url u}"
+        | ShellMsg.LeftForUrl -> "LeftForUrl"
         | ShellMsg.UrlKept -> "UrlKept"
         | ShellMsg.AlertRaised a -> $"AlertRaised %s{Part.alert a}"
         | ShellMsg.WithdrawInteractionsFound -> "WithdrawInteractionsFound"
@@ -1055,6 +1058,28 @@ module Shell =
                 "started"
         ]
         |> String.concat "; "
+
+
+/// The client's own messages, read by what they ask, never the patient data or the plan.
+module Client =
+
+    open Client
+
+
+    /// A client message.
+    let msg (msg: ClientMsg) =
+        match msg with
+        | ClientMsg.Lanes _ -> "Lanes"
+        | ClientMsg.Loader m -> $"Loader %s{Loader.msg m}"
+        | ClientMsg.Admin m -> $"Admin %s{Admin.msg m}"
+        | ClientMsg.Shell m -> $"Shell %s{Shell.msg m}"
+        | ClientMsg.PageChosen p -> $"PageChosen %s{Loader.page p}"
+        | ClientMsg.PanelChanged(_, _, request) -> $"PanelChanged %s{Part.shortId request}"
+        | ClientMsg.UrlChanged(_, u) -> $"UrlChanged %s{Shell.url u}"
+        | ClientMsg.EmergencyListItemChosen item -> $"EmergencyListItemChosen %s{item}"
+        | ClientMsg.ContinuousMedicationChosen item -> $"ContinuousMedicationChosen %s{item}"
+        | ClientMsg.Sign(_, request) -> $"Sign %s{Part.shortId request}"
+        | ClientMsg.AcceptDataChange -> "AcceptDataChange"
 
 
 /// One step of a machine, described with that machine's describers.
@@ -1119,3 +1144,21 @@ let lanes no at step =
     | Lanes.LanesStep.Plan(msg, state, effects) -> orderPlan no at msg (state, effects)
     | Lanes.LanesStep.Workbench(msg, state, effects) -> orderContext no at msg (state, effects)
     | Lanes.LanesStep.StartedOver state -> startedOver no at "the url moved on" state
+
+
+/// A step the client took: a step of the lanes, the loads, the admin or the shell.
+let client no at step =
+    match step with
+    | Client.ClientStep.Lanes step -> lanes no at step
+    | Client.ClientStep.Loader(msg, state, effects) -> loader no at msg (state, effects)
+    | Client.ClientStep.Admin(msg, state, effects) -> admin no at msg (state, effects)
+    | Client.ClientStep.Shell(msg, state, effects) -> shell no at msg (state, effects)
+    | Client.ClientStep.Dropped msg ->
+        {
+            No = no
+            At = at
+            Machine = "Client"
+            Msg = $"%s{Client.msg msg} dropped"
+            Effects = []
+            State = "unchanged"
+        }

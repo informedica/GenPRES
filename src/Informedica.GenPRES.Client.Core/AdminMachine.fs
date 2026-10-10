@@ -76,9 +76,9 @@ type AdminEffect =
     /// Show the alert on the snackbar.
     | Alert of Alert.Alert
     /// A request of this source failed with these errors.
-    | Failed of ServerErrorPolicy.ErrorSource * string[]
+    | RequestFailed of ServerErrorPolicy.ErrorSource * string[]
     /// A request of this source succeeded.
-    | Succeeded of ServerErrorPolicy.ErrorSource
+    | RequestSucceeded of ServerErrorPolicy.ErrorSource
 
 
 /// Reading the admin machine's state.
@@ -108,7 +108,7 @@ module AdminState =
 
 
 /// The admin loads out.
-let out state = state |> AdminState.readings |> LoaderMachine.outOf
+let out state = state |> AdminState.readings |> Busy.outOf
 
 
 /// The login over and its readings gone; a later login answer of the attempt before is dropped.
@@ -142,9 +142,9 @@ let settle source reset result (state: AdminState) =
     match result with
     | Ok response ->
         let state, effects = state |> answered response
-        state, AdminEffect.Succeeded source :: effects
+        state, AdminEffect.RequestSucceeded source :: effects
     | Error errs ->
-        let failed = AdminEffect.Failed(source, errs)
+        let failed = AdminEffect.RequestFailed(source, errs)
 
         if errs |> Array.contains "Invalid token" then
             let state, effects = state |> loggedOut
@@ -162,7 +162,7 @@ let transition msg (state: AdminState) =
     | AdminMsg.Logout -> state |> loggedOut
     // one listing at a time, so an earlier answer cannot clear the error of a later one; the table
     // shown stays until the answer
-    | AdminMsg.ListLogFiles when LoaderMachine.isOut state.LogFiles -> state, []
+    | AdminMsg.ListLogFiles when Busy.isOut state.LogFiles -> state, []
     | AdminMsg.ListLogFiles ->
         { state with LogFiles = state.LogFiles |> Deferred.refresh }, [ AdminEffect.FetchLogFiles state.AuthToken ]
     | AdminMsg.AnalyzeLogFile fileName ->
@@ -173,14 +173,14 @@ let transition msg (state: AdminState) =
     | AdminMsg.Landed(Landing.Login(attempt, _)) when attempt <> state.LoginAttempt -> state, []
     | AdminMsg.Landed(Landing.Login(_, Ok response)) ->
         let state, effects = state |> answered response
-        state, AdminEffect.Succeeded ServerErrorPolicy.ErrorSource.Login :: effects
+        state, AdminEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Login :: effects
     // a failed login drops the token, but the page and the readings stay
     | AdminMsg.Landed(Landing.Login(_, Error errs)) ->
         { state with
             IsAuthenticated = false
             AuthToken = ""
         },
-        [ AdminEffect.Failed(ServerErrorPolicy.ErrorSource.Login, errs) ]
+        [ AdminEffect.RequestFailed(ServerErrorPolicy.ErrorSource.Login, errs) ]
     | AdminMsg.Landed(Landing.LogFiles result) ->
         state
         |> settle ServerErrorPolicy.ErrorSource.LogFiles (fun s -> { s with LogFiles = HasNotStartedYet }) result

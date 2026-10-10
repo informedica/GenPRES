@@ -240,7 +240,7 @@ let tests =
                         |> Expect.equal
                             "asked again with the latest"
                             [
-                                LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Formulary
+                                LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Formulary
                                 LoaderEffect.FetchFormulary { Formulary.empty with Generic = Some "morfine" }
                             ]
 
@@ -249,7 +249,9 @@ let tests =
                             |> transition (LoaderMsg.Landed(Landing.Formulary(None, answered Formulary.empty)))
 
                         effects
-                        |> Expect.equal "not again" [ LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Formulary ]
+                        |> Expect.equal
+                            "not again"
+                            [ LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Formulary ]
                     }
 
                     test "the patient set drops a filter held for the earlier patient" {
@@ -269,7 +271,7 @@ let tests =
                         formulary
                         |> Expect.equal
                             "not asked again"
-                            [ LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Formulary ]
+                            [ LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Formulary ]
 
                         let _, parenteralia =
                             state
@@ -278,7 +280,7 @@ let tests =
                         parenteralia
                         |> Expect.equal
                             "not asked again"
-                            [ LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Parenteralia ]
+                            [ LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Parenteralia ]
                     }
 
                     test "a failed page raises the error under its source" {
@@ -293,7 +295,7 @@ let tests =
                         |> Expect.equal
                             "raised"
                             [
-                                LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Parenteralia, [| "down" |])
+                                LoaderEffect.RequestFailed(ServerErrorPolicy.ErrorSource.Parenteralia, [| "down" |])
                             ]
 
                         state.Parenteralia |> Expect.equal "not started" HasNotStartedYet
@@ -448,7 +450,10 @@ let tests =
                         |> Expect.equal
                             "raised and checked again"
                             [
-                                LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Server, [| "connection refused" |])
+                                LoaderEffect.RequestFailed(
+                                    ServerErrorPolicy.ErrorSource.Server,
+                                    [| "connection refused" |]
+                                )
                                 LoaderEffect.CheckServerLater serverWait
                             ]
 
@@ -465,7 +470,7 @@ let tests =
                                 ]
 
                         effects
-                        |> Expect.equal "cleared" [ LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Server ]
+                        |> Expect.equal "cleared" [ LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Server ]
 
                         state.Server |> Expect.equal "up" (Resolved true)
                     }
@@ -484,7 +489,7 @@ let tests =
                         |> Expect.equal
                             "cleared and asked"
                             [
-                                LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Server
+                                LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Server
                                 LoaderEffect.FetchDrugNames
                             ]
 
@@ -590,7 +595,7 @@ let tests =
                         |> Expect.equal
                             "succeeded, the notice withdrawn"
                             [
-                                LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Interactions
+                                LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Interactions
                                 LoaderEffect.WithdrawInteractionsFound
                             ]
                     }
@@ -607,7 +612,7 @@ let tests =
                         |> Expect.equal
                             "told"
                             [
-                                LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Interactions
+                                LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Interactions
                                 LoaderEffect.Alert(Alert.Alert.InteractionsFound 2)
                             ]
                     }
@@ -652,7 +657,7 @@ let tests =
                         |> Expect.equal
                             "raised"
                             [
-                                LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Interactions, [| "down" |])
+                                LoaderEffect.RequestFailed(ServerErrorPolicy.ErrorSource.Interactions, [| "down" |])
                             ]
 
                         state.Interactions |> Expect.equal "not started" HasNotStartedYet

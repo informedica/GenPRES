@@ -370,7 +370,7 @@ let tests =
                 |> Trail.format
                 |> Expect.equal
                     "the failed check"
-                    "#1 10:41:07.311 Loader ServerChecked Error -> Failed Server, CheckServerLater 5s | server down"
+                    "#1 10:41:07.311 Loader ServerChecked Error -> RequestFailed Server, CheckServerLater 5s | server down"
 
                 let failed = LoaderMachine.LoaderMsg.Landed(LoaderMachine.Landing.DrugNames(None, Error [| "down" |]))
 
@@ -493,6 +493,27 @@ let tests =
                 ShellMachine.ShellMsg.ServerErrorRaised(ServerErrorPolicy.ErrorSource.OrderPlan, [| "down" |])
                 |> Trail.Shell.msg
                 |> Expect.equal "the failure" "ServerErrorRaised OrderPlan"
+            }
+
+            test "a dropped client message says so, never the patient data" {
+                Client.ClientStep.Dropped(
+                    Client.ClientMsg.PanelChanged(
+                        Some Shared.Models.Patient.empty,
+                        PatientDraftPolicy.Estimates.Kept,
+                        "p-1"
+                    )
+                )
+                |> Trail.client 1 at
+                |> Trail.format
+                |> Expect.equal "the line" "#1 10:41:07.311 Client PanelChanged p-1 dropped -> none | unchanged"
+            }
+
+            test "a client step is the line of the part that took it" {
+                let chosen = ShellMachine.ShellMsg.PageChosen(Page.Page.Formulary, false)
+                let shell, effects = ShellMachine.ShellState.initial |> ShellMachine.transition chosen
+
+                Trail.client 1 at (Client.ClientStep.Shell(chosen, shell, effects))
+                |> Expect.equal "the shell's line" (Trail.shell 1 at chosen (shell, effects))
             }
 
             test "a url change read by what it carries, never its values or its token" {

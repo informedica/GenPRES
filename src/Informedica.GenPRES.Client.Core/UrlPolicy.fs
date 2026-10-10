@@ -11,8 +11,8 @@ type UrlState =
     | Shown of string list
     /// The url the app shows, and the newer url with a patient, a medication or a launch that
     /// waits for the answer to whether the launched Session, or the new and changed orders, may
-    /// go.
-    | Asked of shown: string list * asked: string list
+    /// go, as segments and as read when it came.
+    | Asked of shown: string list * asked: string list * Url.UrlParts
 
 
 /// Reading and changing the url the app shows.
@@ -22,24 +22,31 @@ module UrlState =
     let shown url =
         match url with
         | UrlState.Shown sl
-        | UrlState.Asked(sl, _) -> sl
+        | UrlState.Asked(sl, _, _) -> sl
 
 
     /// The url the question waits on, if it is open.
     let asked url =
         match url with
-        | UrlState.Asked(_, sl) -> Some sl
+        | UrlState.Asked(_, sl, _) -> Some sl
         | _ -> None
 
 
-    /// The question opened on this url, over the url the app shows.
-    let ask asked url = UrlState.Asked(shown url, asked)
+    /// What the url the question waits on carries, if it is open.
+    let askedUrl url =
+        match url with
+        | UrlState.Asked(_, _, parts) -> Some parts
+        | _ -> None
+
+
+    /// The question opened on this url, as segments and as read, over the url the app shows.
+    let ask asked parts url = UrlState.Asked(shown url, asked, parts)
 
 
     /// The question closed; the url the app shows stays.
     let close url =
         match url with
-        | UrlState.Asked(sl, _) -> UrlState.Shown sl
+        | UrlState.Asked(sl, _, _) -> UrlState.Shown sl
         | _ -> url
 
 
@@ -75,7 +82,7 @@ type UrlAction =
 let change url sl seeds =
     match url with
     | UrlState.Shown current
-    | UrlState.Asked(current, _) when current = sl -> UrlChange.Unchanged
+    | UrlState.Asked(current, _, _) when current = sl -> UrlChange.Unchanged
     | _ when seeds -> UrlChange.Seed
     | _ -> UrlChange.PageOnly
 

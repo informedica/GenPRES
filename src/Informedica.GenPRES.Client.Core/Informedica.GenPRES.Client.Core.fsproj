@@ -60,11 +60,12 @@
     <!-- what is out, and what it disables -->
     <Compile Include="Busy.fs" />
     <Compile Include="StartupPolicy.fs" />
-    <Compile Include="UrlPolicy.fs" />
     <Compile Include="Url.fs" />
+    <Compile Include="UrlPolicy.fs" />
     <Compile Include="LoaderMachine.fs" />
     <Compile Include="AdminMachine.fs" />
     <Compile Include="ShellMachine.fs" />
+    <Compile Include="Client.fs" />
 
     <!-- the readable trail of the machines, for development -->
     <Compile Include="Trail.fs" />
