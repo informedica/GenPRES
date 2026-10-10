@@ -842,3 +842,10 @@ type Hooks =
     static member inline useMediaQuery(query: string) : bool = HookImports.useMediaQuery query
 
     static member inline useMediaQuery(getQuery: Theme -> string) : bool = HookImports.useMediaQuery_theme getQuery
+
+    /// Whether the window is at most 1200 pixels wide, where the pages switch to their mobile layout.
+    static member inline useIsMobile() = Hooks.useMediaQuery "(max-width:1200px)"
+
+    /// Whether the window is at most 900 pixels wide, where a few views stack what they show side by
+    /// side.
+    static member inline useIsNarrow() = Hooks.useMediaQuery "(max-width:900px)"

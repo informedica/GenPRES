@@ -126,7 +126,7 @@ module Formulary =
 
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
-        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
+        let isMobile = Mui.Hooks.useIsMobile ()
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
 
@@ -143,11 +143,7 @@ module Formulary =
                     needs = PatientReadiness.Needs.DoseCheck
                 |}
 
-        let stackDirection =
-            if Mui.Hooks.useMediaQuery "(max-width:900px)" then
-                "column"
-            else
-                "row"
+        let stackDirection = if Mui.Hooks.useIsNarrow () then "column" else "row"
 
         let markdownBoxSx = {| color = Mui.Colors.Indigo.``900`` |}
 

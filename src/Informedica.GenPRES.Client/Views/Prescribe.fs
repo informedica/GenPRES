@@ -25,7 +25,7 @@ module Prescribe =
 
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
-        let isMobile = Mui.Hooks.useMediaQuery "(max-width:900px)"
+        let isMobile = Mui.Hooks.useIsNarrow ()
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
 

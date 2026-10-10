@@ -9,7 +9,7 @@ module Localization =
     open Fable.Core.JsInterop
 
 
-    //    [<ReactComponent>]
+    [<JSX.Component>]
     let View
         (props:
             {|

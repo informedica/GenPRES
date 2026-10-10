@@ -450,7 +450,7 @@ module Order =
         =
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
-        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
+        let isMobile = Mui.Hooks.useIsMobile ()
 
         let getTerm = Global.getLocalizedTerm props.localizationTerms lang
 

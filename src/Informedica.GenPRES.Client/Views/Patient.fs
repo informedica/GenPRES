@@ -79,7 +79,7 @@ module Patient =
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
 
-        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
+        let isMobile = Mui.Hooks.useIsMobile ()
 
         let isExpanded, setExpanded = React.useState (patient |> canCalculate |> not)
 
