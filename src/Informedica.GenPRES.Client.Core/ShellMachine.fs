@@ -81,8 +81,8 @@ type ShellMsg =
     | PageLoaded of string list * Url.UrlParts
     /// The url changed in the address bar, as segments and as read.
     | UrlChanged of string list * Url.UrlParts * UrlCheck
-    /// Yes to the question: leave for the url it asked about, as segments and as read now.
-    | LeftForUrl of string list * Url.UrlParts
+    /// Yes to the question: leave for the url it asked about.
+    | LeftForUrl
     /// No to the question: the url the app shows is put back.
     | UrlKept
     /// Show the alert on the snackbar.
@@ -229,7 +229,7 @@ let urlChanged sl (url: Url.UrlParts) (check: UrlCheck) state =
         | UrlPolicy.UrlAction.PutBack when launch.IsSome ->
             { state with Snackbar = Some Alert.Alert.LaunchNotOpened }, [ ShellEffect.PutBackUrl back ]
         | UrlPolicy.UrlAction.PutBack -> state, [ ShellEffect.PutBackUrl back ]
-        | UrlPolicy.UrlAction.Ask -> { state with Url = state.Url |> UrlPolicy.UrlState.ask sl }, []
+        | UrlPolicy.UrlAction.Ask -> { state with Url = state.Url |> UrlPolicy.UrlState.ask sl url }, []
         | UrlPolicy.UrlAction.StartOver -> state |> startedOver sl url
 
 
@@ -288,7 +288,10 @@ let transition msg (state: ShellState) =
                 ShellEffect.EraseLaunch
             yield! effects
         ]
-    | ShellMsg.LeftForUrl(sl, url) when UrlPolicy.UrlState.asked state.Url = Some sl -> state |> startedOver sl url
+    | ShellMsg.LeftForUrl ->
+        match state.Url with
+        | UrlPolicy.UrlState.Asked(_, sl, url) -> state |> startedOver sl url
+        | _ -> state, []
     | ShellMsg.UrlKept ->
         let state = { state with Url = state.Url |> UrlPolicy.UrlState.close }
         state, [ ShellEffect.PutBackUrl(UrlPolicy.UrlState.shown state.Url) ]

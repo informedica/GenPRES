@@ -291,7 +291,7 @@ let tests =
                         |> fst
 
                     test "yes starts the lanes over on the url asked about" {
-                        let state, effects = asked |> transition (ShellMsg.LeftForUrl([ "p" ], patientUrl))
+                        let state, effects = asked |> transition ShellMsg.LeftForUrl
 
                         (state.Url, effects)
                         |> Expect.equal
@@ -300,10 +300,10 @@ let tests =
                              [ ShellEffect.StartOver(Some pat); ShellEffect.PatientFromUrl(Some pat) ])
                     }
 
-                    test "yes for another url than the one asked about does nothing" {
-                        asked
-                        |> transition (ShellMsg.LeftForUrl([ "q" ], patientUrl))
-                        |> Expect.equal "unchanged" (asked, [])
+                    test "yes without a question does nothing" {
+                        let state = loaded [ "a" ]
+
+                        state |> transition ShellMsg.LeftForUrl |> Expect.equal "unchanged" (state, [])
                     }
 
                     test "no puts the url shown back" {

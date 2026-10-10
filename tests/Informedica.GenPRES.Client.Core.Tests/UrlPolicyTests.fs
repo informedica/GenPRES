@@ -17,23 +17,23 @@ let tests =
         "UrlPolicy"
         [
             test "the question opens over the url shown and closes back to it" {
-                let asked = UrlState.Shown page |> UrlState.ask seed
+                let asked = UrlState.Shown page |> UrlState.ask seed Url.none
 
-                asked |> Expect.equal "asked" (UrlState.Asked(page, seed))
+                asked |> Expect.equal "asked" (UrlState.Asked(page, seed, Url.none))
                 asked |> UrlState.shown |> Expect.equal "the url shown stays" page
                 asked |> UrlState.asked |> Expect.equal "the url asked" (Some seed)
                 asked |> UrlState.close |> Expect.equal "closed" (UrlState.Shown page)
 
                 asked
-                |> UrlState.ask [ "patient"; "?agd=10" ]
-                |> Expect.equal "a newer url replaces it" (UrlState.Asked(page, [ "patient"; "?agd=10" ]))
+                |> UrlState.ask [ "patient"; "?agd=10" ] Url.none
+                |> Expect.equal "a newer url replaces it" (UrlState.Asked(page, [ "patient"; "?agd=10" ], Url.none))
 
                 UrlState.Shown page |> UrlState.asked |> Expect.isNone "no question"
             }
 
             test "the url shown is unchanged, also while asked; the rest by what it carries" {
                 change shown page false |> Expect.equal "unchanged" UrlChange.Unchanged
-                change (UrlState.Asked(page, seed)) page false
+                change (UrlState.Asked(page, seed, Url.none)) page false
                 |> Expect.equal "the question's url shown" UrlChange.Unchanged
 
                 change shown seed true |> Expect.equal "seed" UrlChange.Seed

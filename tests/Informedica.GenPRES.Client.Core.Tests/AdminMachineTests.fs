@@ -47,7 +47,7 @@ let tests =
                         let state, effects = run loggedIn
 
                         effects
-                        |> Expect.equal "succeeded" [ AdminEffect.Succeeded ServerErrorPolicy.ErrorSource.Login ]
+                        |> Expect.equal "succeeded" [ AdminEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Login ]
 
                         state.IsAuthenticated |> Expect.isTrue "logged in"
                         state.AuthToken |> Expect.equal "the token" "token"
@@ -65,7 +65,7 @@ let tests =
                         |> Expect.equal
                             "told"
                             [
-                                AdminEffect.Succeeded ServerErrorPolicy.ErrorSource.Login
+                                AdminEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Login
                                 AdminEffect.Alert Alert.Alert.InvalidPassword
                             ]
 
@@ -102,7 +102,7 @@ let tests =
                         effects
                         |> Expect.equal
                             "raised"
-                            [ AdminEffect.Failed(ServerErrorPolicy.ErrorSource.Login, [| "down" |]) ]
+                            [ AdminEffect.RequestFailed(ServerErrorPolicy.ErrorSource.Login, [| "down" |]) ]
 
                         state.IsAuthenticated |> Expect.isFalse "not logged in"
                         state.AuthToken |> Expect.equal "no token" ""
@@ -154,7 +154,9 @@ let tests =
                             )
 
                         effects
-                        |> Expect.equal "succeeded" [ AdminEffect.Succeeded ServerErrorPolicy.ErrorSource.LogFiles ]
+                        |> Expect.equal
+                            "succeeded"
+                            [ AdminEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.LogFiles ]
 
                         state.LogFiles |> Expect.equal "shown" (Resolved [| file |])
                     }
@@ -181,7 +183,7 @@ let tests =
                         |> Expect.equal
                             "done"
                             [
-                                AdminEffect.Succeeded ServerErrorPolicy.ErrorSource.Reload
+                                AdminEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Reload
                                 AdminEffect.ReloadDone
                             ]
 
@@ -201,7 +203,9 @@ let tests =
                         effects
                         |> Expect.equal
                             "raised"
-                            [ AdminEffect.Failed(ServerErrorPolicy.ErrorSource.Reload, [| "down" |]) ]
+                            [
+                                AdminEffect.RequestFailed(ServerErrorPolicy.ErrorSource.Reload, [| "down" |])
+                            ]
 
                         state.Reloading |> Expect.equal "not started" HasNotStartedYet
                         state.IsAuthenticated |> Expect.isTrue "still logged in"
@@ -221,7 +225,7 @@ let tests =
                         |> Expect.equal
                             "raised and logged out"
                             [
-                                AdminEffect.Failed(ServerErrorPolicy.ErrorSource.LogFiles, [| "Invalid token" |])
+                                AdminEffect.RequestFailed(ServerErrorPolicy.ErrorSource.LogFiles, [| "Invalid token" |])
                                 AdminEffect.LoggedOut
                             ]
 

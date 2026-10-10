@@ -111,3 +111,36 @@ let any out =
 
 /// Whether the page is disabled: a request out can change anything on it.
 let page p out = out |> List.exists (fun request -> changes request p)
+
+
+/// The loads of these readings that are out.
+let outOf (readings: (Load * Deferred<unit>) list) =
+    readings
+    |> List.choose (fun (load, reading) ->
+        match reading with
+        | InProgress
+        | Refreshing _ -> Some load
+        | HasNotStartedYet
+        | Resolved _ -> None
+    )
+
+
+/// The loads of these readings that have loaded.
+let loadedOf (readings: (Load * Deferred<unit>) list) =
+    readings
+    |> List.choose (fun (load, reading) ->
+        match reading with
+        | Resolved _ -> Some load
+        | HasNotStartedYet
+        | InProgress
+        | Refreshing _ -> None
+    )
+
+
+/// Whether a reading is out.
+let isOut reading =
+    match reading with
+    | InProgress
+    | Refreshing _ -> true
+    | HasNotStartedYet
+    | Resolved _ -> false

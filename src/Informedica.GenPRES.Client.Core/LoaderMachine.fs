@@ -125,6 +125,8 @@ type LoaderEffect =
     | FetchInteractions of check: int * drugs: string list
     /// Seed the workbench's filter.
     | SeedWorkbench of FilterSeed
+    /// The server settings landed: the default language and the demo flag.
+    | SettingsLanded of ServerSettings
     /// Ask the server whether it answers.
     | CheckServer
     /// Check the server again after this many seconds.
@@ -136,9 +138,9 @@ type LoaderEffect =
     /// Close the snackbar if it shows the interactions found, and nothing else.
     | WithdrawInteractionsFound
     /// A request of this source failed with these errors.
-    | Failed of ServerErrorPolicy.ErrorSource * string[]
+    | RequestFailed of ServerErrorPolicy.ErrorSource * string[]
     /// A request of this source succeeded.
-    | Succeeded of ServerErrorPolicy.ErrorSource
+    | RequestSucceeded of ServerErrorPolicy.ErrorSource
     /// What the reply told the Session, with the token the request was sent with.
     | NoticeReceived of from: OpenedToken option * RecordNotice
 
@@ -189,30 +191,6 @@ module LoaderState =
         ]
 
 
-/// The loads of these readings that are out.
-let outOf (readings: (Load * Deferred<unit>) list) =
-    readings
-    |> List.choose (fun (load, reading) ->
-        match reading with
-        | InProgress
-        | Refreshing _ -> Some load
-        | HasNotStartedYet
-        | Resolved _ -> None
-    )
-
-
-/// The loads of these readings that have loaded.
-let loadedOf (readings: (Load * Deferred<unit>) list) =
-    readings
-    |> List.choose (fun (load, reading) ->
-        match reading with
-        | Resolved _ -> Some load
-        | HasNotStartedYet
-        | InProgress
-        | Refreshing _ -> None
-    )
-
-
 /// The start-up loads out.
 let out state = state |> LoaderState.readings |> outOf
 
@@ -228,15 +206,6 @@ let hospitals (meds: BolusMedication list) =
     |> List.distinct
     |> List.filter String.notEmpty
     |> List.toArray
-
-
-/// Whether a reading is out.
-let isOut reading =
-    match reading with
-    | InProgress
-    | Refreshing _ -> true
-    | HasNotStartedYet
-    | Resolved _ -> false
 
 
 /// The reading of an answer, and the load named as failed when it is required and did not come.
@@ -378,7 +347,13 @@ let transition msg (state: LoaderState) =
 
     | LoaderMsg.Landed(Landing.Settings result) ->
         let reading, state = state |> settle Load.Settings result
-        { state with Settings = reading }, []
+
+        { state with Settings = reading },
+        [
+            match result with
+            | Ok settings -> LoaderEffect.SettingsLanded settings
+            | Error _ -> ()
+        ]
     | LoaderMsg.Landed(Landing.Localization result) ->
         let reading, state = state |> settle Load.Localization result
         { state with Localization = reading }, []
@@ -432,11 +407,11 @@ let transition msg (state: LoaderState) =
             match result with
             | Ok reply ->
                 { state with Formulary = Resolved reply.Response },
-                LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Formulary
+                LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Formulary
                 :: told from reply
             | Error errs ->
                 { state with Formulary = HasNotStartedYet },
-                [ LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Formulary, errs) ]
+                [ LoaderEffect.RequestFailed(ServerErrorPolicy.ErrorSource.Formulary, errs) ]
 
         (state, effects)
         |> askAgain state.FormularyAskAgain (fun state -> { state with FormularyAskAgain = None }) syncFormulary
@@ -445,11 +420,11 @@ let transition msg (state: LoaderState) =
             match result with
             | Ok reply ->
                 { state with Parenteralia = Resolved reply.Response },
-                LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Parenteralia
+                LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Parenteralia
                 :: told from reply
             | Error errs ->
                 { state with Parenteralia = HasNotStartedYet },
-                [ LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Parenteralia, errs) ]
+                [ LoaderEffect.RequestFailed(ServerErrorPolicy.ErrorSource.Parenteralia, errs) ]
 
         (state, effects)
         |> askAgain
@@ -460,7 +435,7 @@ let transition msg (state: LoaderState) =
     // an answer to an earlier check is dropped
     | LoaderMsg.Landed(Landing.Interactions(check, _, _)) when check <> state.InteractionCheck -> state, []
     | LoaderMsg.Landed(Landing.Interactions(_, from, Ok reply)) ->
-        let succeeded = LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Interactions
+        let succeeded = LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Interactions
 
         match reply.Response with
         | InteractionResponse.InteractionsChecked rows ->
@@ -477,7 +452,7 @@ let transition msg (state: LoaderState) =
         | InteractionResponse.DrugNamesLoaded _ -> state, succeeded :: told from reply
     | LoaderMsg.Landed(Landing.Interactions(_, _, Error errs)) ->
         { state with Interactions = HasNotStartedYet },
-        [ LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Interactions, errs) ]
+        [ LoaderEffect.RequestFailed(ServerErrorPolicy.ErrorSource.Interactions, errs) ]
 
     | LoaderMsg.CheckServer ->
         let reading, effects = state.Server |> start LoaderEffect.CheckServer
@@ -493,11 +468,11 @@ let transition msg (state: LoaderState) =
             Server = Resolved true
             DrugNames = drugNames
         },
-        LoaderEffect.Succeeded ServerErrorPolicy.ErrorSource.Server :: effects
+        LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Server :: effects
     | LoaderMsg.ServerChecked(Error err) ->
         { state with Server = Resolved false },
         [
-            LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Server, [| err |])
+            LoaderEffect.RequestFailed(ServerErrorPolicy.ErrorSource.Server, [| err |])
             LoaderEffect.CheckServerLater serverWait
         ]
 

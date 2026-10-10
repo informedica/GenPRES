@@ -25,78 +25,10 @@ open Lanes
 module private Elmish =
 
 
-    type State =
-        {
-            // the lanes
-            Lanes: LanesState
-            // the start-up loads
-            Loader: LoaderMachine.LoaderState
-            // the admin login and what it fetches
-            Admin: AdminMachine.AdminState
-            // the url, the page, the language, the snackbar, the error banner and the rest around
-            // the pages
-            Shell: ShellMachine.ShellState
-        }
+    type State = Client.ClientState
 
 
-    type Msg =
-        | UrlChanged of string list
-        /// Yes to the question before a url with a patient, a medication or a launch: start over on
-        /// it.
-        | LeaveForUrl
-        /// No to that question: the url the app shows is put back.
-        | StayOnUrl
-        /// The lanes started over on a url's patient, the Session left.
-        | StartOver of Patient option
-        /// The patient of a url, for the patient panel unless a Session holds the patient.
-        | PatientFromUrl of Patient option
-        /// The medication of a url seeded over the workbench, once there is a patient.
-        | SeedFromUrl of FilterSeed
-        | SessionMsg of SessionMsg
-        | SigningMsg of SigningMsg
-
-        | UpdatePage of Global.Pages
-        | UpdatePatient of Patient option
-        | EditPatient of Patient option
-        // the patient: the patient machine's messages
-        | PatientMsg of PatientMsg
-        // the server's answer to a patient change: the patient goes to its machine and the notice
-        // to the Session
-        | PatientAnswered of request: string * Answer<Patient>
-
-        // the start-up loads: the loads machine's messages
-        | LoaderMsg of LoaderMachine.LoaderMsg
-        // the admin login and what it fetches: the admin machine's messages
-        | AdminMsg of AdminMachine.AdminMsg
-        | OnSelectContinuousMedicationItem of string
-        | OnSelectEmergencyListItem of string
-
-        // the prescribing workbench: the order-context machine's messages
-        | OrderContextMsg of OrderContextMsg
-        // the server's answer to a workbench request: the context goes to its machine and the
-        // notice to the Session
-        | OrderContextAnswered of request: string * Answer<OrderContextResponse>
-
-        // the one plan, nutrition included: the order-plan machine's messages
-        | OrderPlanMsg of OrderPlanMsg
-        // the server's answer to a plan request: the plan goes to its machine and the notice to
-        // the Session
-        | OrderPlanAnswered of request: string * Answer<OrderPlan>
-        // the prescribe click on the order with this id
-        | Prescribe of orderId: string
-
-        // the page, the language, the snackbar and the rest around the pages: the shell's messages
-        | ShellMsg of ShellMachine.ShellMsg
-
-
-    /// A computing reply with the OpenedToken the request started from, so that what the reply
-    /// tells about the Session (moved on, ended) lands only on the Session that asked: a request
-    /// of a Session since closed or replaced must not end or warn the current one.
-    and Answer<'r> =
-        {
-            From: OpenedToken option
-            Reply: Api.Reply<'r>
-        }
+    type Msg = Client.ClientMsg
 
 
     let serverApi =
@@ -114,10 +46,18 @@ module private Elmish =
     let newRequest () = Guid.NewGuid().ToString()
 
 
-    /// The patient the workbench and the plan are for: the draft, once it meets the minimum, an
-    /// age or a measured weight and height; below that there is no patient. Derived from the
-    /// draft whenever it is read, so that the two cannot differ.
-    let patientOf (state: State) = state.Lanes.Patient |> PatientState.patient
+    /// A message to one of the lanes' machines.
+    let sessionMsg m = Msg.Lanes(LanesMsg.Session m)
+    let signingMsg m = Msg.Lanes(LanesMsg.Signing m)
+    let patientMsg m = Msg.Lanes(LanesMsg.Patient m)
+    let workbenchMsg m = Msg.Lanes(LanesMsg.Workbench m)
+    let planMsg m = Msg.Lanes(LanesMsg.Plan m)
+
+
+    /// A reply under the session for the lane message it answers: the answer reaches its machine,
+    /// the notice the Session, with the token the request was sent with.
+    let answered lane opened (reply: Api.Reply<_>) =
+        Msg.Lanes(LanesMsg.Answer(lane (Ok reply.Response), opened, reply.Notice))
 
 
     /// What the url of these segments carries, at this moment; the parts that did not parse are
@@ -141,44 +81,16 @@ module private Elmish =
     let eraseLaunch () = Browser.Dom.history.replaceState (null, "", "#/session")
 
 
-    let initialState (url: Url.UrlParts) =
-        {
-            // the url's patient and medication are applied by init, over these lanes
-            Lanes = Lanes.initial url.Patient
-            Loader = LoaderMachine.LoaderState.initial
-            Admin = AdminMachine.AdminState.initial
-            Shell = ShellMachine.ShellState.initial
-        }
-
-
-    /// Whether leaving the page would lose work, as the policy tells it from the workbench,
-    /// the signing phase and the plan's work.
-    let hasUnsignedWork (state: State) =
-        UnsignedWorkPolicy.hasUnsignedWork
-            (state.Lanes.OrderContext |> OrderContextState.context)
-            (state.Lanes.Signing |> SigningState.view)
-            (state.Lanes.OrderPlan |> OrderPlanState.work)
-
-
-    /// Whether a launched Session is open, which a url with a patient, a medication or a launch
-    /// leaves.
-    let launched (state: State) =
-        match SessionState.view state.Lanes.Session with
-        | SessionView.Open _
-        | SessionView.Closing _ -> true
-        | _ -> false
-
-
     /// Make the key pair, then present the Launch with its public key.
     /// A browser that cannot make a key cannot launch; that is reported as a missing browser
     /// identity, the refusal whose text asks for a retry and then a relaunch.
     let presentLaunch (launch: Launch) : Cmd<Msg> =
         async {
             match! Keys.generate () |> Async.Catch with
-            | Choice1Of2 key -> return SessionMsg(SessionMsg.PresentLaunch(launch, key))
+            | Choice1Of2 key -> return sessionMsg (SessionMsg.PresentLaunch(launch, key))
             | Choice2Of2 ex ->
                 Logging.error "could not make the browser key pair" ex.Message
-                return SessionMsg(SessionMsg.LaunchRefused LaunchRefusal.NoBrowserIdentity)
+                return sessionMsg (SessionMsg.LaunchRefused LaunchRefusal.NoBrowserIdentity)
         }
         |> Cmd.fromAsync
 
@@ -192,115 +104,54 @@ module private Elmish =
         | _ -> pat
 
 
-    /// Every effect a machine returned applied in turn: what each one changes, and the command
-    /// it sends, in the order the machine put them in.
-    let runEffects apply effects (state: State) =
-        let state, cmds =
-            effects
-            |> List.fold
-                (fun (state, cmds) effect ->
-                    let state, cmd = state |> apply effect
-                    state, cmd :: cmds
-                )
-                (state, [])
-
-        state, cmds |> List.rev |> Cmd.batch
-
-
-    /// What one shell effect sends: the page shown goes to the loads, and what a url brings to the
-    /// lanes and the Session, each as a message of its own.
-    let applyShellEffect effect (state: State) =
+    /// What a shell effect sends out of the client: the url put back or erased, a launch presented.
+    let applyShellEffect effect =
         match effect with
-        | ShellMachine.ShellEffect.PageShown page ->
-            state, Cmd.ofMsg (LoaderMsg(LoaderMachine.LoaderMsg.PageShown page))
-        | ShellMachine.ShellEffect.PutBackUrl sl -> state, Cmd.ofEffect (fun _ -> Router.navigate (Array.ofList sl))
+        | ShellMachine.ShellEffect.PutBackUrl sl -> Cmd.ofEffect (fun _ -> Router.navigate (Array.ofList sl))
         // erased at once, not as a command: the router's first report then reads the erased url,
         // the one the app shows, and changes nothing
         | ShellMachine.ShellEffect.EraseLaunch ->
             eraseLaunch ()
-            state, Cmd.none
-        | ShellMachine.ShellEffect.PresentLaunch launch -> state, presentLaunch launch
-        | ShellMachine.ShellEffect.LaunchRefused refusal ->
-            state, Cmd.ofMsg (SessionMsg(SessionMsg.LaunchRefused refusal))
-        | ShellMachine.ShellEffect.StartOver pat -> state, Cmd.ofMsg (StartOver pat)
-        | ShellMachine.ShellEffect.PatientFromUrl pat -> state, Cmd.ofMsg (PatientFromUrl pat)
-        | ShellMachine.ShellEffect.SeedWorkbench seed -> state, Cmd.ofMsg (SeedFromUrl seed)
-        | ShellMachine.ShellEffect.ResumeSession -> state, Cmd.ofMsg (SessionMsg SessionMsg.Resume)
-        | ShellMachine.ShellEffect.LeaveSession -> state, Cmd.ofMsg (SessionMsg SessionMsg.UrlMovedOn)
+            Cmd.none
+        | ShellMachine.ShellEffect.PresentLaunch launch -> presentLaunch launch
+        | _ -> Cmd.none
 
 
-    /// The shell machine run on a message: its state kept and its effects carried out.
-    let runShell msg (state: State) =
-        let shell, effects = state.Shell |> ShellMachine.transition msg
-        StepTrail.record (fun no at -> Trail.shell no at msg (shell, effects))
-        { state with Shell = shell } |> runEffects applyShellEffect effects
-
-
-    /// An alert on the snackbar.
-    let alerted alert (state: State) = state |> runShell (ShellMachine.ShellMsg.AlertRaised alert)
-
-
-    /// A failed request of source, logged under this text, and raised on the error banner.
-    let failed text source errs (state: State) =
-        Logging.error text errs
-        state |> runShell (ShellMachine.ShellMsg.ServerErrorRaised(source, errs))
-
-
-    /// A successful answer of source, which clears the banner it raised.
-    let succeeded source (state: State) =
-        state |> runShell (ShellMachine.ShellMsg.ServerErrorCleared source)
-
-
-    /// What a failed start-up load is logged as; never in the trail.
-    let loadFailed landing =
-        match landing with
-        | LoaderMachine.Landing.Settings(Error err) -> Some("cannot load the server settings", err)
-        | LoaderMachine.Landing.Localization(Error err) -> Some("cannot load localization", err)
-        | LoaderMachine.Landing.NormalValues(Error err) -> Some("cannot load normal values", err)
-        | LoaderMachine.Landing.BolusMedication(Error err) -> Some("cannot load emergency treatment", err)
-        | LoaderMachine.Landing.ContinuousMedication(Error err) -> Some("cannot load continuous medication", err)
-        | LoaderMachine.Landing.Products(Error err) -> Some("cannot load products", err)
-        | _ -> None
-
-
-    /// What one loader effect changes, and the command it sends: an alert on the snackbar, the
-    /// error banner raised or cleared, the notice to the Session, a call whose answer comes back as
-    /// the loader machine's message, or a wait.
+    /// What a loader effect sends out of the client: a call, whose answer comes back as the loader
+    /// machine's message, or a wait; a failure is logged.
     let applyLoaderEffect effect (state: State) =
-        let landed landing result = LoaderMsg(LoaderMachine.LoaderMsg.Landed(landing result))
+        let landed landing result = Msg.Loader(LoaderMachine.LoaderMsg.Landed(landing result))
+
         let opened = tokenOf state.Lanes.Session
 
         let later seconds msg =
             async {
                 do! Async.Sleep(seconds * 1000)
-                return LoaderMsg msg
+                return Msg.Loader msg
             }
             |> Cmd.fromAsync
 
         match effect with
         | LoaderMachine.LoaderEffect.FetchSettings ->
-            state,
             Cmd.OfAsync.either
                 serverApi.getSettings
                 ()
                 (Ok >> landed LoaderMachine.Landing.Settings)
                 (fun ex -> Error ex.Message |> landed LoaderMachine.Landing.Settings)
         | LoaderMachine.LoaderEffect.FetchLocalization ->
-            state, Cmd.OfAsync.perform GoogleDocs.loadLocalization () (landed LoaderMachine.Landing.Localization)
+            Cmd.OfAsync.perform GoogleDocs.loadLocalization () (landed LoaderMachine.Landing.Localization)
         | LoaderMachine.LoaderEffect.FetchNormalValues ->
-            state, Cmd.OfAsync.perform GoogleDocs.loadNormalValues () (landed LoaderMachine.Landing.NormalValues)
+            Cmd.OfAsync.perform GoogleDocs.loadNormalValues () (landed LoaderMachine.Landing.NormalValues)
         | LoaderMachine.LoaderEffect.FetchBolusMedication ->
-            state, Cmd.OfAsync.perform GoogleDocs.loadBolusMedication () (landed LoaderMachine.Landing.BolusMedication)
+            Cmd.OfAsync.perform GoogleDocs.loadBolusMedication () (landed LoaderMachine.Landing.BolusMedication)
         | LoaderMachine.LoaderEffect.FetchContinuousMedication ->
-            state,
             Cmd.OfAsync.perform
                 GoogleDocs.loadContinuousMedication
                 ()
                 (landed LoaderMachine.Landing.ContinuousMedication)
         | LoaderMachine.LoaderEffect.FetchProducts ->
-            state, Cmd.OfAsync.perform GoogleDocs.loadProducts () (landed LoaderMachine.Landing.Products)
+            Cmd.OfAsync.perform GoogleDocs.loadProducts () (landed LoaderMachine.Landing.Products)
         | LoaderMachine.LoaderEffect.FetchFormulary form ->
-            state,
             Cmd.OfAsync.perform
                 serverApi.processFormulary
                 {
@@ -309,7 +160,6 @@ module private Elmish =
                 }
                 (landed (fun result -> LoaderMachine.Landing.Formulary(opened, result)))
         | LoaderMachine.LoaderEffect.FetchParenteralia par ->
-            state,
             Cmd.OfAsync.perform
                 serverApi.processParenteralia
                 {
@@ -317,10 +167,7 @@ module private Elmish =
                     Command = par
                 }
                 (landed (fun result -> LoaderMachine.Landing.Parenteralia(opened, result)))
-        | LoaderMachine.LoaderEffect.SeedWorkbench seed ->
-            state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.SeedFilter(seed, newRequest ())))
         | LoaderMachine.LoaderEffect.FetchInteractions(check, drugs) ->
-            state,
             Cmd.OfAsync.perform
                 serverApi.processInteraction
                 {
@@ -329,7 +176,6 @@ module private Elmish =
                 }
                 (landed (fun result -> LoaderMachine.Landing.Interactions(check, opened, result)))
         | LoaderMachine.LoaderEffect.FetchDrugNames ->
-            state,
             Cmd.OfAsync.perform
                 serverApi.processInteraction
                 {
@@ -338,196 +184,153 @@ module private Elmish =
                 }
                 (landed (fun result -> LoaderMachine.Landing.DrugNames(opened, result)))
         | LoaderMachine.LoaderEffect.CheckServer ->
-            state,
             Cmd.OfAsync.either
                 serverApi.testApi
                 ()
-                (fun _ -> LoaderMsg(LoaderMachine.LoaderMsg.ServerChecked(Ok())))
-                (fun ex -> LoaderMsg(LoaderMachine.LoaderMsg.ServerChecked(Error ex.Message)))
-        | LoaderMachine.LoaderEffect.CheckServerLater seconds ->
-            state, LoaderMachine.LoaderMsg.CheckServer |> later seconds
-        | LoaderMachine.LoaderEffect.AskAgainLater(load, seconds) ->
-            state, LoaderMachine.LoaderMsg.Start load |> later seconds
-        | LoaderMachine.LoaderEffect.Alert alert -> state |> alerted alert
-        | LoaderMachine.LoaderEffect.WithdrawInteractionsFound ->
-            state |> runShell ShellMachine.ShellMsg.WithdrawInteractionsFound
-        | LoaderMachine.LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Server as source, errs) ->
-            state |> failed "server niet bereikbaar" source errs
-        | LoaderMachine.LoaderEffect.Failed(source, errs) -> state |> failed "error" source errs
-        | LoaderMachine.LoaderEffect.Succeeded source -> state |> succeeded source
-        | LoaderMachine.LoaderEffect.NoticeReceived(from, notice) ->
-            state, Cmd.ofMsg (SessionMsg(SessionMsg.NoticeReceived(from, notice)))
+                (fun _ -> Msg.Loader(LoaderMachine.LoaderMsg.ServerChecked(Ok())))
+                (fun ex -> Msg.Loader(LoaderMachine.LoaderMsg.ServerChecked(Error ex.Message)))
+        | LoaderMachine.LoaderEffect.CheckServerLater seconds -> LoaderMachine.LoaderMsg.CheckServer |> later seconds
+        | LoaderMachine.LoaderEffect.AskAgainLater(load, seconds) -> LoaderMachine.LoaderMsg.Start load |> later seconds
+        | LoaderMachine.LoaderEffect.RequestFailed(ServerErrorPolicy.ErrorSource.Server, errs) ->
+            Logging.error "server niet bereikbaar" errs
+            Cmd.none
+        | LoaderMachine.LoaderEffect.RequestFailed(_, errs) ->
+            Logging.error "error" errs
+            Cmd.none
+        | _ -> Cmd.none
 
 
-    /// A message through the loader machine: the step recorded in the trail and its effects
-    /// carried out. The settings landed go to the shell, for the language default and the demo
-    /// flag.
-    let runLoader msg (state: State) =
-        match msg with
-        | LoaderMachine.LoaderMsg.Landed landing ->
-            landing |> loadFailed |> Option.iter (fun (text, err) -> Logging.error text err)
+    /// A landing noted before the client takes it: the settings open the trail when the server serves
+    /// the demo data, and a failed start-up load is logged, never in the trail. No settings: the client
+    /// keeps its own defaults, and the trail records nothing.
+    let noteLanding landing =
+        match landing with
+        | LoaderMachine.Landing.Settings(Ok settings) -> StepTrail.confirmDemo settings.IsDemo
+        | LoaderMachine.Landing.Settings(Error err) ->
+            StepTrail.confirmDemo false
+            Logging.error "cannot load the server settings" err
+        | LoaderMachine.Landing.Localization(Error err) -> Logging.error "cannot load localization" err
+        | LoaderMachine.Landing.NormalValues(Error err) -> Logging.error "cannot load normal values" err
+        | LoaderMachine.Landing.BolusMedication(Error err) -> Logging.error "cannot load emergency treatment" err
+        | LoaderMachine.Landing.ContinuousMedication(Error err) -> Logging.error "cannot load continuous medication" err
+        | LoaderMachine.Landing.Products(Error err) -> Logging.error "cannot load products" err
         | _ -> ()
 
-        let loader, effects = state.Loader |> LoaderMachine.transition msg
-        StepTrail.record (fun no at -> Trail.loader no at msg (loader, effects))
-        let state = { state with Loader = loader }
 
-        let state, settled =
-            match msg with
-            | LoaderMachine.LoaderMsg.Landed(LoaderMachine.Landing.Settings(Ok settings)) ->
-                StepTrail.confirmDemo settings.IsDemo
-                state |> runShell (ShellMachine.ShellMsg.SettingsLanded settings)
-            // no settings: the client keeps its own defaults, which is what it did before
-            | LoaderMachine.LoaderMsg.Landed(LoaderMachine.Landing.Settings(Error _)) ->
-                StepTrail.confirmDemo false
-                state, Cmd.none
-            | _ -> state, Cmd.none
-
-        let state, cmd = state |> runEffects applyLoaderEffect effects
-        state, Cmd.batch [ settled; cmd ]
-
-
-    /// What one admin effect changes, and the command it sends: a call under the token, whose
-    /// answer comes back as the admin machine's message, the reload done to the loads, the page
-    /// left on a logout, an alert, or the error banner raised or cleared.
-    let applyAdminEffect effect (state: State) =
+    /// What an admin effect sends out of the client: a call under the token, whose answer comes back
+    /// as the admin machine's message; a failure is logged.
+    let applyAdminEffect effect =
         let call command landing =
-            Cmd.OfAsync.perform serverApi.processAdmin command (landing >> AdminMachine.AdminMsg.Landed >> AdminMsg)
+            Cmd.OfAsync.perform serverApi.processAdmin command (landing >> AdminMachine.AdminMsg.Landed >> Msg.Admin)
 
         match effect with
         | AdminMachine.AdminEffect.ValidatePassword(attempt, password) ->
-            state,
             call
                 (Api.AdminCommand.ValidatePassword password)
                 (fun result -> AdminMachine.Landing.Login(attempt, result))
         | AdminMachine.AdminEffect.FetchLogFiles token ->
-            state, call (Api.AdminCommand.ListLogFiles token) AdminMachine.Landing.LogFiles
+            call (Api.AdminCommand.ListLogFiles token) AdminMachine.Landing.LogFiles
         | AdminMachine.AdminEffect.FetchLogAnalysis(token, fileName) ->
-            state, call (Api.AdminCommand.AnalyzeLogFile(token, fileName)) AdminMachine.Landing.LogAnalysis
+            call (Api.AdminCommand.AnalyzeLogFile(token, fileName)) AdminMachine.Landing.LogAnalysis
         | AdminMachine.AdminEffect.Reload token ->
-            state, call (Api.AdminCommand.ReloadResources token) AdminMachine.Landing.Reload
-        // the pages the reload refreshes are out in the same update
-        | AdminMachine.AdminEffect.ReloadDone -> state |> runLoader LoaderMachine.LoaderMsg.ResourcesReloaded
-        | AdminMachine.AdminEffect.LoggedOut -> state |> runShell ShellMachine.ShellMsg.LoggedOut
-        | AdminMachine.AdminEffect.Alert alert -> state |> alerted alert
-        | AdminMachine.AdminEffect.Failed(source, errs) -> state |> failed "error" source errs
-        | AdminMachine.AdminEffect.Succeeded source -> state |> succeeded source
+            call (Api.AdminCommand.ReloadResources token) AdminMachine.Landing.Reload
+        | AdminMachine.AdminEffect.RequestFailed(_, errs) ->
+            Logging.error "error" errs
+            Cmd.none
+        | _ -> Cmd.none
 
 
-    /// The admin machine run on a message: its state kept and its effects carried out.
-    let runAdmin msg (state: State) =
-        let admin, effects = state.Admin |> AdminMachine.transition msg
-        StepTrail.record (fun no at -> Trail.admin no at msg (admin, effects))
-        { state with Admin = admin } |> runEffects applyAdminEffect effects
-
-
-    /// What one session effect changes, and the command it sends. A transport failure
+    /// What a session effect sends out of the client. A transport failure
     /// is a message, never an exception: an Error outcome for a presentation, CloseFailed for
     /// a close that did not reach the server.
-    let applySessionEffect (effect: SessionEffect) (state: State) : State * Cmd<Msg> =
+    let applySessionEffect (effect: SessionEffect) (state: State) : Cmd<Msg> =
         match effect with
         | SessionEffect.CallPresentLaunch(launch, key) ->
-            state,
             async {
                 try
                     let! outcome = serverApi.processLaunch (Api.LaunchCommand.PresentLaunch(launch, key))
-                    return SessionMsg(SessionMsg.LaunchOutcome(launch, key, Ok outcome))
+                    return sessionMsg (SessionMsg.LaunchOutcome(launch, key, Ok outcome))
                 with ex ->
-                    return SessionMsg(SessionMsg.LaunchOutcome(launch, key, Error ex.Message))
+                    return sessionMsg (SessionMsg.LaunchOutcome(launch, key, Error ex.Message))
             }
             |> Cmd.fromAsync
         | SessionEffect.CallResume ->
-            state,
             async {
                 try
                     match! serverApi.processSession Api.SessionCommand.GetSession with
                     | Api.SessionResponse.SessionResp(Some session) ->
-                        return SessionMsg(SessionMsg.Resumed(Ok(ResumeResult.Found session)))
+                        return sessionMsg (SessionMsg.Resumed(Ok(ResumeResult.Found session)))
                     | Api.SessionResponse.SessionResp None
                     | Api.SessionResponse.SessionClosed ->
-                        return SessionMsg(SessionMsg.Resumed(Ok ResumeResult.NotFound))
+                        return sessionMsg (SessionMsg.Resumed(Ok ResumeResult.NotFound))
                     | Api.SessionResponse.SessionEnded ending ->
-                        return SessionMsg(SessionMsg.Resumed(Ok(ResumeResult.Ended ending)))
+                        return sessionMsg (SessionMsg.Resumed(Ok(ResumeResult.Ended ending)))
                     | Api.SessionResponse.EnrolmentPending pending ->
-                        return SessionMsg(SessionMsg.Resumed(Ok(ResumeResult.Enrolling pending)))
+                        return sessionMsg (SessionMsg.Resumed(Ok(ResumeResult.Enrolling pending)))
                     // never an answer to GetSession
                     | Api.SessionResponse.PinRefused _ ->
-                        return SessionMsg(SessionMsg.Resumed(Ok ResumeResult.NotFound))
+                        return sessionMsg (SessionMsg.Resumed(Ok ResumeResult.NotFound))
                 with ex ->
-                    return SessionMsg(SessionMsg.Resumed(Error ex.Message))
+                    return sessionMsg (SessionMsg.Resumed(Error ex.Message))
             }
             |> Cmd.fromAsync
         // the version is open, or the record moved on: each said once, the machine decides
-        | SessionEffect.TellSignedPlanOpened head -> state |> alerted (Alert.Alert.SignedPlanOpened head)
-        | SessionEffect.TellPatientRefreshFailed -> state |> alerted Alert.Alert.PatientRefreshFailed
-        | SessionEffect.TellNewerSignedPlan head -> state |> alerted (Alert.Alert.NewerSignedPlan head)
         | SessionEffect.CallOpenSignedPlan(id, from) ->
-            state,
             async {
                 try
                     match! serverApi.processSession (Api.SessionCommand.OpenVersion id) with
                     | Api.SessionResponse.SessionResp opened ->
-                        return SessionMsg(SessionMsg.SignedPlanOpened(from, Ok opened))
+                        return sessionMsg (SessionMsg.SignedPlanOpened(from, Ok opened))
                     // never an answer to OpenVersion
-                    | _ -> return SessionMsg(SessionMsg.SignedPlanOpened(from, Ok None))
+                    | _ -> return sessionMsg (SessionMsg.SignedPlanOpened(from, Ok None))
                 with ex ->
-                    return SessionMsg(SessionMsg.SignedPlanOpened(from, Error ex.Message))
+                    return sessionMsg (SessionMsg.SignedPlanOpened(from, Error ex.Message))
             }
             |> Cmd.fromAsync
         | SessionEffect.CallRefreshPatient from ->
-            state,
             async {
                 try
                     match! serverApi.processSession Api.SessionCommand.Refresh with
                     | Api.SessionResponse.SessionResp opened ->
-                        return SessionMsg(SessionMsg.PatientRefreshed(from, Ok opened))
+                        return sessionMsg (SessionMsg.PatientRefreshed(from, Ok opened))
                     // never an answer to Refresh
-                    | _ -> return SessionMsg(SessionMsg.PatientRefreshed(from, Ok None))
+                    | _ -> return sessionMsg (SessionMsg.PatientRefreshed(from, Ok None))
                 with ex ->
-                    return SessionMsg(SessionMsg.PatientRefreshed(from, Error ex.Message))
+                    return sessionMsg (SessionMsg.PatientRefreshed(from, Error ex.Message))
             }
             |> Cmd.fromAsync
         | SessionEffect.CallCloseSession ->
-            state,
             async {
                 // the server deletes the cookie whatever its close returns (finally), so an
                 // answer of any kind means SessionClosed; only a request that never got there fails
                 match! serverApi.processSession Api.SessionCommand.CloseSession |> Async.Catch with
-                | Choice1Of2 _ -> return SessionMsg SessionMsg.SessionClosed
+                | Choice1Of2 _ -> return sessionMsg SessionMsg.SessionClosed
                 | Choice2Of2 ex ->
                     Logging.error "could not close the session on the server" ex.Message
-                    return SessionMsg(SessionMsg.CloseFailed ex.Message)
+                    return sessionMsg (SessionMsg.CloseFailed ex.Message)
             }
             |> Cmd.fromAsync
         | SessionEffect.CallSupplyPin(code, pin) ->
-            state,
             async {
                 try
                     match! serverApi.processSession (Api.SessionCommand.SupplyPin(code, pin)) with
                     | Api.SessionResponse.SessionResp(Some session) ->
-                        return SessionMsg(SessionMsg.PinAnswered(Ok(PinOutcome.Opened session)))
+                        return sessionMsg (SessionMsg.PinAnswered(Ok(PinOutcome.Opened session)))
                     | Api.SessionResponse.PinRefused refusal ->
-                        return SessionMsg(SessionMsg.PinAnswered(Ok(PinOutcome.Refused refusal)))
+                        return sessionMsg (SessionMsg.PinAnswered(Ok(PinOutcome.Refused refusal)))
                     // never an answer to SupplyPin: the attempt is gone, whatever happened
                     | Api.SessionResponse.SessionResp None
                     | Api.SessionResponse.SessionClosed
                     | Api.SessionResponse.SessionEnded _
                     | Api.SessionResponse.EnrolmentPending _ ->
-                        return SessionMsg(SessionMsg.PinAnswered(Ok(PinOutcome.Refused PinRefusal.AttemptExpired)))
+                        return sessionMsg (SessionMsg.PinAnswered(Ok(PinOutcome.Refused PinRefusal.AttemptExpired)))
                 with ex ->
                     Logging.error "could not send the PIN to the server" ex.Message
-                    return SessionMsg(SessionMsg.PinAnswered(Error ex.Message))
+                    return sessionMsg (SessionMsg.PinAnswered(Error ex.Message))
             }
             |> Cmd.fromAsync
-        | SessionEffect.Alert alert -> state |> alerted alert
-        | SessionEffect.GoToIdentityProvider url ->
-            state, Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
-        // the patient and the orders the Session opened with go to their machines in Lanes; nothing
-        // is left for the client
-        | SessionEffect.SetPatientData _
-        | SessionEffect.LoadSignedPlan _ -> state, Cmd.none
+        | SessionEffect.GoToIdentityProvider url -> Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
         | SessionEffect.KeepBrowserKey thumbprint ->
-            state,
             Cmd.ofEffect (fun _ ->
                 async {
                     match! Keys.keep thumbprint |> Async.Catch with
@@ -536,23 +339,23 @@ module private Elmish =
                 }
                 |> Async.StartImmediate
             )
+        | _ -> Cmd.none
 
 
-    /// What one signing effect changes, and the command it sends. The machine names the plan,
+    /// What a signing effect sends out of the client. The machine names the plan,
     /// the challenge, the PIN, the request id and the key; the OpenedToken comes from the open
     /// Session here, and every answer carries the request id or the key it answers, so the
     /// machine can drop one that belongs to an earlier Session. Without an open Session nothing
     /// is sent: the answer is a refusal.
-    let applySigningEffect (effect: SigningEffect) (state: State) : State * Cmd<Msg> =
+    let applySigningEffect (effect: SigningEffect) (state: State) : Cmd<Msg> =
         let token = tokenOf state.Lanes.Session
 
         match effect with
         | SigningEffect.CallChallenge(plan, notice, request) ->
-            state,
             match token with
             | None ->
                 Cmd.ofMsg (
-                    SigningMsg(
+                    signingMsg (
                         SigningMsg.ChallengeAnswered(request, Ok(SigningResponse.Refused SigningRefusal.NoSession))
                     )
                 )
@@ -562,17 +365,16 @@ module private Elmish =
                         let! answer =
                             serverApi.processSigning (Api.SigningCommand.RequestSignChallenge(plan, opened, notice))
 
-                        return SigningMsg(SigningMsg.ChallengeAnswered(request, Ok answer))
+                        return signingMsg (SigningMsg.ChallengeAnswered(request, Ok answer))
                     with ex ->
-                        return SigningMsg(SigningMsg.ChallengeAnswered(request, Error ex.Message))
+                        return signingMsg (SigningMsg.ChallengeAnswered(request, Error ex.Message))
                 }
                 |> Cmd.fromAsync
         | SigningEffect.CallSubmit(plan, challenge, pin, key) ->
-            state,
             match token with
             | None ->
                 Cmd.ofMsg (
-                    SigningMsg(SigningMsg.SubmitAnswered(key, Ok(SigningResponse.Refused SigningRefusal.NoSession)))
+                    signingMsg (SigningMsg.SubmitAnswered(key, Ok(SigningResponse.Refused SigningRefusal.NoSession)))
                 )
             | Some opened ->
                 async {
@@ -589,32 +391,26 @@ module private Elmish =
                                     }
                             )
 
-                        return SigningMsg(SigningMsg.SubmitAnswered(key, Ok answer))
+                        return signingMsg (SigningMsg.SubmitAnswered(key, Ok answer))
                     with ex ->
-                        return SigningMsg(SigningMsg.SubmitAnswered(key, Error ex.Message))
+                        return signingMsg (SigningMsg.SubmitAnswered(key, Error ex.Message))
                 }
                 |> Cmd.fromAsync
-        // the token and the ended Session go to the Session in Lanes; nothing is left for the
-        // client
-        | SigningEffect.RenewSessionToken _
-        | SigningEffect.EndSession _ -> state, Cmd.none
-        | SigningEffect.TellSigned signed -> state |> alerted (Alert.Alert.OrderPlanSigned signed)
-        | SigningEffect.TellRefused refusal -> state |> alerted (Alert.Alert.SigningRefused refusal)
         | SigningEffect.TellError reason ->
             Logging.error "could not send the signature to the server" reason
-            state |> alerted Alert.Alert.SigningSendFailed
+            Cmd.none
+        | _ -> Cmd.none
 
 
-    /// What one order-plan effect changes, and the command it sends. A plan call answers under
+    /// What an order-plan effect sends out of the client. A plan call answers under
     /// the request it was sent for, so the machine can drop an answer to an earlier request;
-    /// the notice rides on the reply and is told by `update`; a transport failure is an Error
-    /// answer, never an exception.
-    let applyOrderPlanEffect (effect: OrderPlanEffect) (state: State) : State * Cmd<Msg> =
+    /// the notice rides on the reply to the Session; a transport failure is an Error answer, never
+    /// an exception.
+    let applyOrderPlanEffect (effect: OrderPlanEffect) (state: State) : Cmd<Msg> =
         match effect with
         | OrderPlanEffect.CallPlan(cmd, request) ->
             let opened = tokenOf state.Lanes.Session
 
-            state,
             async {
                 try
                     match!
@@ -626,23 +422,17 @@ module private Elmish =
                     with
                     | Ok reply ->
                         return
-                            OrderPlanAnswered(
-                                request,
-                                {
-                                    From = opened
-                                    Reply = reply
-                                }
-                            )
-                    | Error errs -> return OrderPlanMsg(OrderPlanMsg.Answered(request, Error errs))
+                            reply
+                            |> answered (fun r -> LanesMsg.Plan(OrderPlanMsg.Answered(request, r))) opened
+                    | Error errs -> return planMsg (OrderPlanMsg.Answered(request, Error errs))
                 with ex ->
-                    return OrderPlanMsg(OrderPlanMsg.Answered(request, Error [| ex.Message |]))
+                    return planMsg (OrderPlanMsg.Answered(request, Error [| ex.Message |]))
             }
             |> Cmd.fromAsync
-        // out in the same update as the plan answer it follows
-        | OrderPlanEffect.CheckInteractions drugs ->
-            state |> runLoader (LoaderMachine.LoaderMsg.CheckInteractions drugs)
-        | OrderPlanEffect.TellError errs -> state |> failed "error" ServerErrorPolicy.ErrorSource.OrderPlan errs
-        | OrderPlanEffect.TellAnswered -> state |> succeeded ServerErrorPolicy.ErrorSource.OrderPlan
+        | OrderPlanEffect.TellError errs ->
+            Logging.error "error" errs
+            Cmd.none
+        | _ -> Cmd.none
 
 
     /// A workbench request, answered under the request id it was sent for.
@@ -660,52 +450,35 @@ module private Elmish =
                 with
                 | Ok reply ->
                     return
-                        OrderContextAnswered(
-                            request,
-                            {
-                                From = opened
-                                Reply = reply
-                            }
-                        )
-                | Error errs -> return OrderContextMsg(OrderContextMsg.Answered(request, Error errs))
+                        reply
+                        |> answered (fun r -> LanesMsg.Workbench(OrderContextMsg.Answered(request, r))) opened
+                | Error errs -> return workbenchMsg (OrderContextMsg.Answered(request, Error errs))
             with ex ->
-                return OrderContextMsg(OrderContextMsg.Answered(request, Error [| ex.Message |]))
+                return workbenchMsg (OrderContextMsg.Answered(request, Error [| ex.Message |]))
         }
         |> Cmd.fromAsync
 
 
-    /// What one order-context effect changes, and the command it sends. A workbench call
-    /// answers under the request it was sent for; the notice rides on the reply and is told by
-    /// `update`; a transport failure is an Error answer. A filter sync both syncs what is
-    /// already fetched and asks for it again.
-    let applyOrderContextEffect (effect: OrderContextEffect) (state: State) : State * Cmd<Msg> =
+    /// What an order-context effect sends out of the client. A workbench call
+    /// answers under the request it was sent for; the notice rides on the reply to the Session; a
+    /// transport failure is an Error answer.
+    let applyOrderContextEffect (effect: OrderContextEffect) (state: State) : Cmd<Msg> =
         match effect with
-        | OrderContextEffect.CallContext(sent, request) -> state, callContext sent request state
-        | OrderContextEffect.SyncPages filter -> state |> runLoader (LoaderMachine.LoaderMsg.FilterAnswered filter)
+        | OrderContextEffect.CallContext(sent, request) -> callContext sent request state
         | OrderContextEffect.TellError errs ->
             Logging.warning "order context error" errs
-
-            state
-            |> alerted (Alert.Alert.WorkbenchFailed(errs |> Array.tryHead |> Option.defaultValue "Er ging iets mis"))
-
-
-    /// The formulary and parenteralia pages for the patient, loaded in the update that lands
-    /// it, and the lists' filters cleared; the workbench and the plan get the patient in Lanes.
-    let patientPages (pat: Patient option) (state: State) =
-        let state, cleared = state |> runShell ShellMachine.ShellMsg.ListFiltersCleared
-        let state, pages = state |> runLoader (LoaderMachine.LoaderMsg.PatientSet pat)
-        state, Cmd.batch [ cleared; pages ]
+            Cmd.none
+        | _ -> Cmd.none
 
 
-    /// What one patient effect changes, and the command it sends. A patient change answers under
-    /// the request it was sent for; the notice rides on the reply and is told by update; a
-    /// transport failure is an Error answer.
-    let applyPatientEffect (effect: PatientEffect) (state: State) : State * Cmd<Msg> =
+    /// What a patient effect sends out of the client. A patient change answers under
+    /// the request it was sent for; the notice rides on the reply to the Session; a transport
+    /// failure is an Error answer.
+    let applyPatientEffect (effect: PatientEffect) (state: State) : Cmd<Msg> =
         match effect with
         | PatientEffect.CallPatient(pat, request) ->
             let opened = tokenOf state.Lanes.Session
 
-            state,
             async {
                 try
                     match!
@@ -717,99 +490,45 @@ module private Elmish =
                     with
                     | Ok reply ->
                         return
-                            PatientAnswered(
-                                request,
-                                {
-                                    From = opened
-                                    Reply = reply
-                                }
-                            )
-                    | Error errs -> return PatientMsg(PatientMsg.Answered(request, Error errs))
+                            reply
+                            |> answered (fun r -> LanesMsg.Patient(PatientMsg.Answered(request, r))) opened
+                    | Error errs -> return patientMsg (PatientMsg.Answered(request, Error errs))
                 with ex ->
-                    return PatientMsg(PatientMsg.Answered(request, Error [| ex.Message |]))
+                    return patientMsg (PatientMsg.Answered(request, Error [| ex.Message |]))
             }
             |> Cmd.fromAsync
-        | PatientEffect.SetPatientData pat -> state |> patientPages pat
         | PatientEffect.TellError errs ->
             Logging.warning "patient change error" errs
-
-            state
-            |> alerted (
-                Alert.Alert.PatientChangeFailed(errs |> Array.tryHead |> Option.defaultValue "Er ging iets mis")
-            )
+            Cmd.none
+        | _ -> Cmd.none
 
 
-    /// What one effect of the lanes leaves for the client, carried out by its machine's apply.
-    let applyLanesEffect effect state =
+    /// What an effect of the client sends out of it, each by its part's apply; the routed ones send
+    /// nothing, since the client passed them on itself.
+    let applyEffect effect (state: State) =
         match effect with
-        | LanesEffect.Signing e -> state |> applySigningEffect e
-        | LanesEffect.Patient e -> state |> applyPatientEffect e
-        | LanesEffect.Workbench e -> state |> applyOrderContextEffect e
-        | LanesEffect.Plan e -> state |> applyOrderPlanEffect e
-        | LanesEffect.Session e -> state |> applySessionEffect e
-        | LanesEffect.GoToPlanPage -> state |> runShell (ShellMachine.ShellMsg.MovedToPage Global.Pages.OrderPlan)
+        | Client.ClientEffect.Lanes(LanesEffect.Signing e) -> state |> applySigningEffect e
+        | Client.ClientEffect.Lanes(LanesEffect.Patient e) -> state |> applyPatientEffect e
+        | Client.ClientEffect.Lanes(LanesEffect.Workbench e) -> state |> applyOrderContextEffect e
+        | Client.ClientEffect.Lanes(LanesEffect.Plan e) -> state |> applyOrderPlanEffect e
+        | Client.ClientEffect.Lanes(LanesEffect.Session e) -> state |> applySessionEffect e
+        | Client.ClientEffect.Loader e -> state |> applyLoaderEffect e
+        | Client.ClientEffect.Admin e -> applyAdminEffect e
+        | Client.ClientEffect.Shell e -> applyShellEffect e
+        | _ -> Cmd.none
 
 
-    /// A message through the lanes: the machines' steps recorded in the trail, and what the
-    /// effects leave for the client carried out, all in this update.
-    let runLanes msg (state: State) =
-        let lanes, effects, steps = Lanes.transition newRequest msg state.Lanes
-        steps
-        |> List.iter (fun step -> StepTrail.record (fun no at -> Trail.lanes no at step))
+    /// The client's steps recorded in the trail, each landing noted first, and its effects carried
+    /// out in the order they came, each over the state the transition left.
+    let carryOut (state: State, effects, steps) =
+        for step in steps do
+            match step with
+            | Client.ClientStep.Loader(LoaderMachine.LoaderMsg.Landed landing, _, _) -> noteLanding landing
+            | _ -> ()
 
-        { state with Lanes = lanes } |> runEffects applyLanesEffect effects
+            StepTrail.record (fun no at -> Trail.client no at step)
 
-
-    /// Whether the patient context is held; the panel cannot change the patient then.
-    let patientHeld (state: State) =
-        HeldPanelPolicy.held (SessionState.view state.Lanes.Session) (OrderPlanState.changed state.Lanes.OrderPlan)
-
-
-    /// A medication chosen without a patient, from the url or a list, is dropped and said: the
-    /// patient is part of the filter, so nothing waits for one.
-    /// Every data load with its reading, the server check excepted.
-    let loads (state: State) =
-        let reading deferred = deferred |> Deferred.map ignore
-
-        LoaderMachine.LoaderState.readings state.Loader
-        @ AdminMachine.AdminState.readings state.Admin
-
-
-    /// The data loads out.
-    let loadsOut (state: State) = state |> loads |> LoaderMachine.outOf
-
-
-    /// The data loads that have loaded.
-    let loaded (state: State) = state |> loads |> LoaderMachine.loadedOf
-
-
-    /// The requests out in the lanes and the loads.
-    let busyOut (state: State) =
-        Busy.out
-            state.Shell.Counting
-            state.Lanes.Patient
-            state.Lanes.OrderContext
-            state.Lanes.OrderPlan
-            state.Lanes.Session
-            state.Lanes.Signing
-            (loadsOut state)
-
-
-    /// Where the start-up is; started once, it stays so.
-    let startup (state: State) =
-        if state.Shell.Started then
-            StartupPolicy.Startup.Started
-        else
-            StartupPolicy.status (busyOut state) (loaded state) state.Loader.Failed
-
-
-    /// The start-up marked as ended at the first update in which it is.
-    let markStarted (state: State, cmd) =
-        match startup state with
-        | StartupPolicy.Startup.Started when not state.Shell.Started ->
-            let state, ended = state |> runShell ShellMachine.ShellMsg.StartupEnded
-            state, Cmd.batch [ cmd; ended ]
-        | _ -> state, cmd
+        state, effects |> List.map (fun effect -> state |> applyEffect effect) |> Cmd.batch
 
 
     /// The page load: the url applied at once, so the router's first report, of the same url,
@@ -819,29 +538,7 @@ module private Elmish =
         let sl = Router.currentUrl ()
         let url = sl |> parseUrl
 
-        let state, applied = initialState url |> runShell (ShellMachine.ShellMsg.PageLoaded(sl, url))
-
-        let cmds =
-            Cmd.batch
-                [
-                    applied
-                    Cmd.ofMsg (LoaderMsg LoaderMachine.LoaderMsg.CheckServer)
-                    for load in
-                        [
-                            Busy.Load.Settings
-                            Busy.Load.NormalValues
-                            Busy.Load.BolusMedication
-                            Busy.Load.ContinuousMedication
-                            Busy.Load.Products
-                            Busy.Load.Localization
-                            Busy.Load.Formulary
-                            Busy.Load.Parenteralia
-                            Busy.Load.DrugNames
-                        ] do
-                        Cmd.ofMsg (LoaderMsg(LoaderMachine.LoaderMsg.Start load))
-                ]
-
-        state, cmds
+        Client.initial url |> Client.pageLoad newRequest sl url |> carryOut
 
 
 #if DEBUG
@@ -857,168 +554,8 @@ module private Elmish =
 #endif
 
 
-    let update (msg: Msg) (state: State) =
-        let selectMedicationItem generic indication route doseType state =
-            let nonEmpty s = if s = "" then None else Some s
-
-            let seed =
-                {
-                    Source = SeedSource.MedicationList
-                    Indication = indication |> nonEmpty
-                    Generic = Some generic
-                    Route = route |> nonEmpty
-                    Form = None
-                    DoseType = doseType |> nonEmpty |> Option.map DoseType.doseTypeFromString
-                }
-
-            // the medication chosen is evaluated for the patient held; without one it is dropped
-            // and said, since the patient is part of the filter
-            match patientOf state with
-            | Some _ ->
-                let state, page = state |> runShell (ShellMachine.ShellMsg.MovedToPage Global.Pages.Prescribe)
-                state,
-                Cmd.batch
-                    [
-                        page
-                        Cmd.ofMsg (OrderContextMsg(OrderContextMsg.SeedFilter(seed, newRequest ())))
-                    ]
-            | None -> state |> alerted Alert.Alert.NoPatientForMedication
-
-        match msg with
-        | ShellMsg msg -> state |> runShell msg
-
-        | LoaderMsg msg -> state |> runLoader msg
-
-        | AdminMsg msg -> state |> runAdmin msg
-
-        // the settings page is behind the admin login
-        | UpdatePage page ->
-            state
-            |> runShell (ShellMachine.ShellMsg.PageChosen(page, state.Admin.IsAuthenticated))
-
-        | UpdatePatient dto ->
-            state
-            |> runLanes (LanesMsg.Patient(PatientMsg.Changed(dto, PatientDraftPolicy.Estimates.Renewed, newRequest ())))
-
-        | EditPatient dto ->
-            state
-            |> runLanes (LanesMsg.Patient(PatientMsg.Changed(dto, PatientDraftPolicy.Estimates.Kept, newRequest ())))
-
-        | PatientMsg msg -> state |> runLanes (LanesMsg.Patient msg)
-
-        | PatientAnswered(request, answer) ->
-            state
-            |> runLanes (
-                LanesMsg.Answer(
-                    LanesMsg.Patient(PatientMsg.Answered(request, Ok answer.Reply.Response)),
-                    answer.From,
-                    answer.Reply.Notice
-                )
-            )
-
-        | UrlChanged sl ->
-            let check: ShellMachine.UrlCheck =
-                {
-                    SigningUnderWay = state.Lanes.Signing |> SigningState.view |> SigningPolicy.underWay
-                    Out = busyOut state
-                    UnsignedWork = hasUnsignedWork state
-                    Launched = launched state
-                }
-
-            state |> runShell (ShellMachine.ShellMsg.UrlChanged(sl, parseUrl sl, check))
-
-        | LeaveForUrl ->
-            match state.Shell.Url |> UrlPolicy.UrlState.asked with
-            | Some sl -> state |> runShell (ShellMachine.ShellMsg.LeftForUrl(sl, parseUrl sl))
-            | None -> state, Cmd.none
-
-        | StayOnUrl -> state |> runShell ShellMachine.ShellMsg.UrlKept
-
-        | StartOver pat ->
-            // a check still out is for the old plan, and is dropped
-            let state, _ = state |> runLoader (LoaderMachine.LoaderMsg.CheckInteractions [])
-            state |> runLanes (LanesMsg.StartOver pat)
-
-        // an open Session supplies the patient: a launched patient is never assigned from the url
-        | PatientFromUrl _ when launched state -> state, Cmd.none
-        | PatientFromUrl pat ->
-            state
-            |> runLanes (LanesMsg.Patient(PatientMsg.Changed(pat, PatientDraftPolicy.Estimates.Renewed, newRequest ())))
-
-        // the patient is part of the filter, so a medication without one is dropped and said
-        | SeedFromUrl seed ->
-            match patientOf state with
-            | Some _ -> state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.SeedFilter(seed, newRequest ())))
-            | None ->
-                Logging.warning "a medication in the url without a patient is dropped" seed.Generic
-                state |> alerted Alert.Alert.NoPatientForMedication
-
-        | SessionMsg msg ->
-            // a failed close is reported only when it was this session's close: a CloseFailed
-            // that arrives after a newer launch superseded the Closing session is dropped by
-            // the machine and must not put an error over the newer session
-            state |> runLanes (LanesMsg.Session msg)
-
-        | SigningMsg msg -> state |> runLanes (LanesMsg.Signing msg)
-
-        | OnSelectContinuousMedicationItem item ->
-            match state.Loader.ContinuousMedication with
-            | Resolved meds ->
-                meds
-                |> List.tryFind (fun m -> item.EndsWith($".{m.Medication}"))
-                |> Option.map (fun m -> selectMedicationItem m.Generic m.Indication "INTRAVENEUS" m.DoseType state)
-                |> Option.defaultWith (fun () ->
-                    Logging.warning $"could not find continuous medication with item: {item}" item
-                    state, Cmd.none
-                )
-            | _ -> state, Cmd.none
-
-        | OnSelectEmergencyListItem item ->
-            match state.Loader.BolusMedication with
-            | Resolved meds ->
-                meds
-                |> List.tryFind (fun m -> item.EndsWith($".{m.Hospital}.{m.Category}.{m.Generic}"))
-                |> Option.map (fun m ->
-                    let generic =
-                        if m.TemplateGeneric = "" then
-                            m.Generic
-                        else
-                            m.TemplateGeneric
-
-                    selectMedicationItem generic m.TemplateIndication m.TemplateRoute m.TemplateDoseType state
-                )
-                |> Option.defaultValue (state, Cmd.none)
-            | _ -> state, Cmd.none
-
-        | OrderContextMsg msg -> state |> runLanes (LanesMsg.Workbench msg)
-
-        | OrderContextAnswered(request, answer) ->
-            state
-            |> runLanes (
-                LanesMsg.Answer(
-                    LanesMsg.Workbench(OrderContextMsg.Answered(request, Ok answer.Reply.Response)),
-                    answer.From,
-                    answer.Reply.Notice
-                )
-            )
-
-        | OrderPlanMsg msg -> state |> runLanes (LanesMsg.Plan msg)
-
-        | Prescribe orderId -> state |> runLanes (LanesMsg.Prescribe(orderId, newRequest (), newRequest ()))
-
-        | OrderPlanAnswered(request, answer) ->
-            state
-            |> runLanes (
-                LanesMsg.Answer(
-                    LanesMsg.Plan(OrderPlanMsg.Answered(request, Ok answer.Reply.Response)),
-                    answer.From,
-                    answer.Reply.Notice
-                )
-            )
-
-
-    /// A message applied, and the start-up marked as ended at the first update in which it is.
-    let updateStarted msg state = update msg state |> markStarted
+    /// A message through the client, and its effects carried out.
+    let update (msg: Msg) (state: State) = state |> Client.transition newRequest msg |> carryOut
 
 
     /// The lists calculated for the draft; empty without one, since no patient is not a fetch
@@ -1051,7 +588,7 @@ let redacted = "***"
 /// never opens a production server.
 let private redactMsg (msg: Msg) =
     match msg with
-    | AdminMsg(AdminMachine.AdminMsg.Login _) -> AdminMsg(AdminMachine.AdminMsg.Login redacted)
+    | Msg.Admin(AdminMachine.AdminMsg.Login _) -> Msg.Admin(AdminMachine.AdminMsg.Login redacted)
     | _ -> msg
 
 
@@ -1117,7 +654,7 @@ let private withGatedDebugger (program: Program<unit, State, Msg, unit>) =
 /// only. It records nothing until the server settings confirm the demo data, so it never runs against
 /// production; a release build records nothing at all.
 let private program () =
-    let program = Program.mkProgram init updateStarted (fun _ _ -> ())
+    let program = Program.mkProgram init update (fun _ _ -> ())
 #if DEBUG
     if StepTrail.isTraceOn () then
         window?genpresTrail <- StepTrail.text
@@ -1140,53 +677,54 @@ type private ConcreteAppEnv
         member _.Settings = state.Loader.Settings
 
     interface AppEnv.IStartup with
-        member _.Startup = startup state
+        member _.Startup = Client.startup state
 
     interface AppEnv.IBusy with
-        member _.Any = state |> busyOut |> Busy.any
-        member _.Page page = state |> busyOut |> Busy.page page
+        member _.Any = state |> Client.busy |> Busy.any
+        member _.Page page = state |> Client.busy |> Busy.page page
 
     interface AppEnv.IOrderContext with
         member _.OrderContext = state.Lanes.OrderContext |> OrderContextState.view
 
         member _.OrderContextMsg cmd =
-            OrderContextMsg(OrderContextMsg.Command(cmd, newRequest ())) |> dispatch
+            workbenchMsg (OrderContextMsg.Command(cmd, newRequest ())) |> dispatch
 
         member _.ReopenField cmd =
-            OrderContextMsg(OrderContextMsg.ReopenField(cmd, newRequest ())) |> dispatch
+            workbenchMsg (OrderContextMsg.ReopenField(cmd, newRequest ())) |> dispatch
 
-        member _.RestoreField() = OrderContextMsg OrderContextMsg.RestoreField |> dispatch
+        member _.RestoreField() = workbenchMsg OrderContextMsg.RestoreField |> dispatch
 
         member _.Dialog = state.Lanes.OrderContext |> OrderContextState.dialog
 
-        member _.SelectScenario id = OrderContextMsg(OrderContextMsg.SelectScenario id) |> dispatch
+        member _.SelectScenario id = workbenchMsg (OrderContextMsg.SelectScenario id) |> dispatch
 
     interface AppEnv.IOrderPlan with
         member _.OrderPlan = state.Lanes.OrderPlan |> OrderPlanState.view
 
-        member _.Add orderId = Prescribe orderId |> dispatch
+        member _.Add orderId =
+            Msg.Lanes(LanesMsg.Prescribe(orderId, newRequest (), newRequest ())) |> dispatch
 
         member _.NewNutrition category =
-            OrderPlanMsg(OrderPlanMsg.Change(OrderPlanChange.NewNutrition category, newRequest ()))
+            planMsg (OrderPlanMsg.Change(OrderPlanChange.NewNutrition category, newRequest ()))
             |> dispatch
 
         member _.Remove ids =
-            OrderPlanMsg(OrderPlanMsg.Change(OrderPlanChange.Remove ids, newRequest ()))
+            planMsg (OrderPlanMsg.Change(OrderPlanChange.Remove ids, newRequest ()))
             |> dispatch
 
         member _.OrderDialogCommand(id, cmd) =
-            OrderPlanMsg(OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand(id, cmd), newRequest ()))
+            planMsg (OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand(id, cmd), newRequest ()))
             |> dispatch
 
         member _.ReopenField(id, cmd) =
-            OrderPlanMsg(OrderPlanMsg.ReopenField(id, cmd, newRequest ())) |> dispatch
+            planMsg (OrderPlanMsg.ReopenField(id, cmd, newRequest ())) |> dispatch
 
-        member _.RestoreField() = OrderPlanMsg OrderPlanMsg.RestoreField |> dispatch
+        member _.RestoreField() = planMsg OrderPlanMsg.RestoreField |> dispatch
 
-        member _.SelectContext id = OrderPlanMsg(OrderPlanMsg.SelectContext id) |> dispatch
+        member _.SelectContext id = planMsg (OrderPlanMsg.SelectContext id) |> dispatch
 
         member _.FilterRows ids =
-            OrderPlanMsg(OrderPlanMsg.Change(OrderPlanChange.FilterRows ids, newRequest ()))
+            planMsg (OrderPlanMsg.Change(OrderPlanChange.FilterRows ids, newRequest ()))
             |> dispatch
 
         member _.Changed = state.Lanes.OrderPlan |> OrderPlanState.changed
@@ -1200,106 +738,97 @@ type private ConcreteAppEnv
             state.Lanes.Patient
             |> PatientState.draft
             |> applyNormalValues state.Loader.NormalValues
-        // the panel's edit is ignored while the patient context is held; the Session's patient
-        // and a data notice accepted do not come this way
         member _.UpdatePatient p =
-            if not (patientHeld state) then
-                UpdatePatient p |> dispatch
+            Msg.PanelChanged(p, PatientDraftPolicy.Estimates.Renewed, newRequest ())
+            |> dispatch
 
         member _.EditPatient p =
-            if not (patientHeld state) then
-                EditPatient p |> dispatch
+            Msg.PanelChanged(p, PatientDraftPolicy.Estimates.Kept, newRequest ())
+            |> dispatch
 
     interface AppEnv.IFormulary with
         member _.Formulary = state.Loader.Formulary
         member _.UpdateFormulary f =
-            LoaderMsg(LoaderMachine.LoaderMsg.FormularyChanged f) |> dispatch
+            Msg.Loader(LoaderMachine.LoaderMsg.FormularyChanged f) |> dispatch
 
     interface AppEnv.IParenteralia with
         member _.Parenteralia = state.Loader.Parenteralia
         member _.UpdateParenteralia p =
-            LoaderMsg(LoaderMachine.LoaderMsg.ParenteraliaChanged p) |> dispatch
+            Msg.Loader(LoaderMachine.LoaderMsg.ParenteraliaChanged p) |> dispatch
 
     interface AppEnv.IInteractions with
         member _.Interactions = state.Loader.Interactions
         member _.InteractionDrugNames = state.Loader.DrugNames
         member _.CheckInteractions drugs =
-            LoaderMsg(LoaderMachine.LoaderMsg.CheckInteractions drugs) |> dispatch
+            Msg.Loader(LoaderMachine.LoaderMsg.CheckInteractions drugs) |> dispatch
 
     interface AppEnv.IResources with
         member _.Reload = state.Admin.Reloading
-        member _.ReloadResources() = AdminMsg AdminMachine.AdminMsg.ReloadResources |> dispatch
+        member _.ReloadResources() = Msg.Admin AdminMachine.AdminMsg.ReloadResources |> dispatch
 
     interface AppEnv.ISession with
         member _.Session = state.Lanes.Session |> SessionState.view
-        member _.Close() = SessionMsg SessionMsg.CloseSession |> dispatch
-        member _.RetryLaunch() = SessionMsg SessionMsg.RetryLaunch |> dispatch
+        member _.Close() = sessionMsg SessionMsg.CloseSession |> dispatch
+        member _.RetryLaunch() = sessionMsg SessionMsg.RetryLaunch |> dispatch
 
-        member _.OpenAnonymously() = SessionMsg SessionMsg.ContinueAnonymous |> dispatch
+        member _.OpenAnonymously() = sessionMsg SessionMsg.ContinueAnonymous |> dispatch
 
-        member _.SupplyPin code pin = SessionMsg(SessionMsg.SupplyPin(code, pin)) |> dispatch
+        member _.SupplyPin code pin = sessionMsg (SessionMsg.SupplyPin(code, pin)) |> dispatch
 
         member _.NewerPlan = state.Lanes.Session |> SessionState.newerPlan
 
-        member _.OpenSignedPlan id = SessionMsg(SessionMsg.OpenSignedPlan id) |> dispatch
+        member _.OpenSignedPlan id = sessionMsg (SessionMsg.OpenSignedPlan id) |> dispatch
 
-        member _.Refresh() = SessionMsg SessionMsg.RefreshPatient |> dispatch
+        member _.Refresh() = sessionMsg SessionMsg.RefreshPatient |> dispatch
 
     interface AppEnv.ISigning with
         member _.Signing = state.Lanes.Signing |> SigningState.view
 
         member _.Differences = state.Lanes.Signing |> SigningState.differences
 
-        // one request id per Sign, so the answer lands on this request and no other; the orders
-        // that differ are taken now, so what reaches the order plan meanwhile leaves them as signed
-        member _.Sign plan =
-            let differences = state.Lanes.OrderPlan |> OrderPlanState.differences plan
+        // one request id per Sign, so the answer lands on this request and no other
+        member _.Sign plan = Msg.Sign(plan, Guid.NewGuid().ToString()) |> dispatch
 
-            SigningMsg(SigningMsg.Sign(plan, differences, Guid.NewGuid().ToString()))
-            |> dispatch
+        member _.Held = Client.held state
 
-        member _.Held = patientHeld state
-
-        // held, the plan keeps the data its new and changed orders were composed on
-        member _.Accept() =
-            SigningMsg(SigningMsg.AcceptDataChange(patientHeld state)) |> dispatch
+        member _.Accept() = Msg.AcceptDataChange |> dispatch
 
         // one key per confirmation, so the commit takes effect once; the machine keeps it for a retry
         member _.Confirm pin =
-            SigningMsg(SigningMsg.ConfirmPin(pin, Guid.NewGuid().ToString())) |> dispatch
+            signingMsg (SigningMsg.ConfirmPin(pin, Guid.NewGuid().ToString())) |> dispatch
 
-        member _.Cancel() = SigningMsg SigningMsg.Cancel |> dispatch
+        member _.Cancel() = signingMsg SigningMsg.Cancel |> dispatch
 
     interface AppEnv.IAuthentication with
         member _.IsAuthenticated = state.Admin.IsAuthenticated
-        member _.Login password = AdminMsg(AdminMachine.AdminMsg.Login password) |> dispatch
+        member _.Login password = Msg.Admin(AdminMachine.AdminMsg.Login password) |> dispatch
 
-        member _.Logout() = AdminMsg AdminMachine.AdminMsg.Logout |> dispatch
+        member _.Logout() = Msg.Admin AdminMachine.AdminMsg.Logout |> dispatch
 
     interface AppEnv.ILogAnalyzer with
         member _.LogFiles = state.Admin.LogFiles
         member _.LogAnalysisReport = state.Admin.LogAnalysisReport
-        member _.ListLogFiles() = AdminMsg AdminMachine.AdminMsg.ListLogFiles |> dispatch
+        member _.ListLogFiles() = Msg.Admin AdminMachine.AdminMsg.ListLogFiles |> dispatch
 
         member _.AnalyzeLogFile fileName =
-            AdminMsg(AdminMachine.AdminMsg.AnalyzeLogFile fileName) |> dispatch
+            Msg.Admin(AdminMachine.AdminMsg.AnalyzeLogFile fileName) |> dispatch
 
     interface AppEnv.IBolusMedication with
         member _.BolusMedication = bm
-        member _.OnSelectBolusMedicationItem s = OnSelectEmergencyListItem s |> dispatch
+        member _.OnSelectBolusMedicationItem s = Msg.EmergencyListItemChosen s |> dispatch
         member _.BolusMedicationFilter = state.Shell.EmergencyListFilter
         member _.OnBolusMedicationFilterChange f =
-            ShellMsg(ShellMachine.ShellMsg.EmergencyListFiltered f) |> dispatch
+            Msg.Shell(ShellMachine.ShellMsg.EmergencyListFiltered f) |> dispatch
 
     interface AppEnv.IContinuousMedication with
         member _.ContinuousMedication = cm
 
-        member _.OnSelectContinuousMedicationItem s = OnSelectContinuousMedicationItem s |> dispatch
+        member _.OnSelectContinuousMedicationItem s = Msg.ContinuousMedicationChosen s |> dispatch
 
         member _.ContinuousMedicationFilter = state.Shell.ContinuousMedsFilter
 
         member _.OnContinuousMedicationFilterChange f =
-            ShellMsg(ShellMachine.ShellMsg.ContinuousMedsFiltered f) |> dispatch
+            Msg.Shell(ShellMachine.ShellMsg.ContinuousMedsFiltered f) |> dispatch
 
 
 [<Literal>]
@@ -1388,7 +917,7 @@ let View () =
 
     React.useEffectOnce (fun () ->
         let guard (ev: Browser.Types.Event) =
-            if hasUnsignedWork stateRef.current then
+            if Client.unsignedWork stateRef.current then
                 ev.preventDefault ()
                 // the browser shows its own dialog; older browsers need a returnValue for it
                 ev?returnValue <- ""
@@ -1401,9 +930,9 @@ let View () =
     let handleClose =
         fun (_: obj) (reason: string) ->
             if reason <> "clickaway" then
-                ShellMsg ShellMachine.ShellMsg.SnackbarClosed |> dispatch
+                Msg.Shell ShellMachine.ShellMsg.SnackbarClosed |> dispatch
 
-    let closeSnackbar _ = ShellMsg ShellMachine.ShellMsg.SnackbarClosed |> dispatch
+    let closeSnackbar _ = Msg.Shell ShellMachine.ShellMsg.SnackbarClosed |> dispatch
 
     let getTerm = Global.getLocalizedTerm state.Loader.Localization state.Shell.Language.Current
 
@@ -1474,7 +1003,7 @@ let View () =
                     title = Some "Server probleem"
                     message = error.Message
                     action = None
-                    onClose = Some(fun () -> dispatch (ShellMsg ShellMachine.ShellMsg.ServerErrorDismissed))
+                    onClose = Some(fun () -> dispatch (Msg.Shell ShellMachine.ShellMsg.ServerErrorDismissed))
                 |}
         | None -> null
 
@@ -1483,18 +1012,18 @@ let View () =
     // reload or a closed tab, but not for a change of the url
     let asksLaunch =
         state.Shell.Url
-        |> UrlPolicy.UrlState.asked
-        |> Option.bind Url.parseLaunch
+        |> UrlPolicy.UrlState.askedUrl
+        |> Option.bind _.Launch
         |> Option.isSome
 
     let title =
-        if launched state then
+        if Client.launched state then
             Terms.``Url Leave Session Title`` |> getTerm "Sessie verlaten?"
         else
             Terms.``Url Leave Title`` |> getTerm "Orderplan verlaten?"
 
     let text =
-        match launched state, asksLaunch with
+        match Client.launched state, asksLaunch with
         | true, true ->
             Terms.``Url Leave Launch Text``
             |> getTerm
@@ -1516,15 +1045,15 @@ let View () =
                 text = text
                 confirmLabel = Terms.``Url Leave`` |> getTerm "Verlaten"
                 cancelLabel = Terms.Cancel |> getTerm "Annuleren"
-                onConfirm = fun () -> LeaveForUrl |> dispatch
-                onCancel = fun () -> StayOnUrl |> dispatch
+                onConfirm = fun () -> Msg.Shell ShellMachine.ShellMsg.LeftForUrl |> dispatch
+                onCancel = fun () -> Msg.Shell ShellMachine.ShellMsg.UrlKept |> dispatch
             |}
 
     // the quantity fields read whether one of them counts, and report their own count
     let counting: Global.Counting =
         {
             Counting = state.Shell.Counting
-            Report = ShellMachine.ShellMsg.CountingChanged >> ShellMsg >> dispatch
+            Report = ShellMachine.ShellMsg.CountingChanged >> Msg.Shell >> dispatch
         }
 
     let genPresProps =
@@ -1540,13 +1069,13 @@ let View () =
                     | _ -> false
                 )
             isDemo = state.Shell.IsDemo
-            acceptDisclaimer = fun _ -> ShellMsg ShellMachine.ShellMsg.DisclaimerAccepted |> dispatch
-            updatePage = UpdatePage >> dispatch
+            acceptDisclaimer = fun _ -> Msg.Shell ShellMachine.ShellMsg.DisclaimerAccepted |> dispatch
+            updatePage = Msg.PageChosen >> dispatch
             page = state.Shell.Page
             languages = Localization.languages
             hospitals = state.Loader.Hospitals
-            switchLang = ShellMachine.ShellMsg.LanguageChosen >> ShellMsg >> dispatch
-            switchHosp = ShellMachine.ShellMsg.HospitalChosen >> ShellMsg >> dispatch
+            switchLang = ShellMachine.ShellMsg.LanguageChosen >> Msg.Shell >> dispatch
+            switchHosp = ShellMachine.ShellMsg.HospitalChosen >> Msg.Shell >> dispatch
         |}
 
     JSX.jsx
@@ -1566,7 +1095,7 @@ let View () =
             <Box sx={sx}>
                 <CssBaseline />
                 {serverErrorBanner}
-                {Components.Router.View {| onUrlChanged = UrlChanged >> dispatch |}}
+                {Components.Router.View {| onUrlChanged = (fun sl -> Msg.UrlChanged(sl, parseUrl sl)) >> dispatch |}}
                 {leaveDialog}
                 {Pages.GenPres.View genPresProps
                  |> toReact

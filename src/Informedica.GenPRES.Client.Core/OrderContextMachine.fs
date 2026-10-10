@@ -39,6 +39,21 @@ module FilterSeed =
         OrderViewCommand.SeedFilter(seed.Source, seed.Indication, seed.Generic, seed.Route, seed.Form, seed.DoseType)
 
 
+    /// The seed of an item chosen on a medication list: its generic, and its indication, route and
+    /// dose type where the list gives one.
+    let ofListItem generic indication route doseType =
+        let given s = if s = "" then None else Some s
+
+        {
+            Source = SeedSource.MedicationList
+            Indication = indication |> given
+            Generic = Some generic
+            Route = route |> given
+            Form = None
+            DoseType = doseType |> given |> Option.map DoseType.doseTypeFromString
+        }
+
+
 /// The workbench itself, without any request under way.
 [<RequireQualifiedAccess>]
 type OrderContextWorkbench =

@@ -63,6 +63,7 @@
     <Compile Include="LoaderMachineTests.fs" />
     <Compile Include="AdminMachineTests.fs" />
     <Compile Include="ShellMachineTests.fs" />
+    <Compile Include="ClientTests.fs" />
 
     <!-- the readable trail of the machines -->
     <Compile Include="TrailTests.fs" />
