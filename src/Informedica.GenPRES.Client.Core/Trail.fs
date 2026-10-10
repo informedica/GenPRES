@@ -66,6 +66,16 @@ module Part =
     let shortId (id: string) = if id.Length > 8 then id.Substring(0, 8) else id
 
 
+    /// A sentence the snackbar shows, by its case.
+    let alert (a: Alert.Alert) =
+        match a with
+        | Alert.Alert.DrugNamesNotLoaded -> "DrugNamesNotLoaded"
+        | Alert.Alert.InteractionsFound n -> $"InteractionsFound %i{n}"
+        | Alert.Alert.InvalidPassword -> "InvalidPassword"
+        | Alert.Alert.CloseFailed -> "CloseFailed"
+        | Alert.Alert.PinNotSent -> "PinNotSent"
+
+
     /// The value described, or none.
     let orNone (describe: 'a -> string) (x: 'a option) = x |> Option.map describe |> Option.defaultValue "none"
 
@@ -391,6 +401,7 @@ module Session =
         | SessionEffect.TellSignedPlanOpened h -> $"TellSignedPlanOpened %s{Part.head h}"
         | SessionEffect.TellNewerSignedPlan h -> $"TellNewerSignedPlan %s{Part.head h}"
         | SessionEffect.TellPatientRefreshFailed -> "TellPatientRefreshFailed"
+        | SessionEffect.Alert a -> $"Alert %s{Part.alert a}"
 
 
     /// The state as the pages read it; never the name the enrolment shows.
@@ -505,6 +516,7 @@ module OrderPlan =
             $"CallPlan %s{Part.planCommand Part.contextId cmd} %s{Part.shortId request}"
         | OrderPlanEffect.CheckInteractions drugs -> $"CheckInteractions %i{drugs.Length} drugs"
         | OrderPlanEffect.TellError _ -> "TellError"
+        | OrderPlanEffect.TellAnswered -> "TellAnswered"
 
 
     /// The order plan state as the pages read it.
@@ -746,14 +758,6 @@ module Loader =
     let parenteralia (p: Parenteralia) = $"%i{choices [ p.Generic; p.Route; p.Form ]} choices"
 
 
-    /// A sentence the snackbar shows, by its case.
-    let alert (a: Alert.Alert) =
-        match a with
-        | Alert.Alert.DrugNamesNotLoaded -> "DrugNamesNotLoaded"
-        | Alert.Alert.InteractionsFound n -> $"InteractionsFound %i{n}"
-        | Alert.Alert.InvalidPassword -> "InvalidPassword"
-
-
     /// An answer by its load and its size; never the error text.
     let landing (landing: Landing) =
         let count (xs: 'a list) = $"%i{xs.Length} items"
@@ -819,7 +823,7 @@ module Loader =
         | LoaderEffect.CheckServer -> "CheckServer"
         | LoaderEffect.CheckServerLater seconds -> $"CheckServerLater %i{seconds}s"
         | LoaderEffect.AskAgainLater(l, seconds) -> $"AskAgainLater %s{load l} %i{seconds}s"
-        | LoaderEffect.Alert a -> $"Alert %s{alert a}"
+        | LoaderEffect.Alert a -> $"Alert %s{Part.alert a}"
         | LoaderEffect.WithdrawInteractionsFound -> "WithdrawInteractionsFound"
         | LoaderEffect.Failed(s, _) -> $"Failed %s{source s}"
         | LoaderEffect.Succeeded s -> $"Succeeded %s{source s}"
@@ -907,7 +911,7 @@ module Admin =
         | AdminEffect.Reload _ -> "Reload"
         | AdminEffect.ReloadDone -> "ReloadDone"
         | AdminEffect.LoggedOut -> "LoggedOut"
-        | AdminEffect.Alert a -> $"Alert %s{Loader.alert a}"
+        | AdminEffect.Alert a -> $"Alert %s{Part.alert a}"
         | AdminEffect.Failed(s, _) -> $"Failed %s{Loader.source s}"
         | AdminEffect.Succeeded s -> $"Succeeded %s{Loader.source s}"
 

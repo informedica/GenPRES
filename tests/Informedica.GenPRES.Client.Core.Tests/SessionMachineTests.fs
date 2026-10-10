@@ -564,7 +564,7 @@ module SessionMachineTests =
                             |> Expect.equal $"{terminal}" (SessionState.enrolmentFailed terminal, [])
 
                         transition (SessionMsg.PinAnswered(Error "down")) supplying
-                        |> Expect.equal "form back" (enrolling, [])
+                        |> Expect.equal "form back, told" (enrolling, [ SessionEffect.Alert Alert.Alert.PinNotSent ])
 
                         // an answer lands only on the request in flight
                         transition (SessionMsg.PinAnswered(Ok(PinOutcome.Opened session))) enrolling
@@ -598,9 +598,11 @@ module SessionMachineTests =
                         |> Expect.equal "anonymous" (SessionState.anonymous, [ SessionEffect.SetPatientData None ])
                     }
 
-                    test "CloseFailed from Closing returns to Open with the same session and no effects" {
+                    test "CloseFailed from Closing returns to Open with the same session and tells the user" {
                         transition (SessionMsg.CloseFailed "down") (SessionState.closing full)
-                        |> Expect.equal "still open" (SessionState.opened full None, [])
+                        |> Expect.equal
+                            "still open, told"
+                            (SessionState.opened full None, [ SessionEffect.Alert Alert.Alert.CloseFailed ])
                     }
 
                     test "CloseFailed outside Closing is dropped" {
@@ -612,6 +614,17 @@ module SessionMachineTests =
                                 SessionState.resuming
                             ] do
                             transition (SessionMsg.CloseFailed "down") state
+                            |> Expect.equal "unchanged" (state, [])
+                    }
+
+                    test "a PIN that did not reach the server tells nothing outside its request" {
+                        for state in
+                            [
+                                SessionState.opened full None
+                                SessionState.anonymous
+                                SessionState.closing full
+                            ] do
+                            transition (SessionMsg.PinAnswered(Error "down")) state
                             |> Expect.equal "unchanged" (state, [])
                     }
 
@@ -1025,6 +1038,9 @@ module SessionMachineTests =
 
                         transition SessionMsg.SessionClosed state
                         |> Expect.equal "no patient cleared" (SessionState.anonymous, [])
+
+                        transition (SessionMsg.CloseFailed "down") state
+                        |> Expect.equal "a late failure tells nothing" (SessionState.anonymous, [])
                     }
 
                     test "a resume out is closed, and its answer is dropped" {
@@ -1450,7 +1466,9 @@ module SessionMachineTests =
                     |> Expect.equal "closing drops it" (SessionState.closing full, [ SessionEffect.CallCloseSession ])
 
                     transition (SessionMsg.CloseFailed "down") (SessionState.closing full)
-                    |> Expect.equal "reopened without it" (SessionState.opened full None, [])
+                    |> Expect.equal
+                        "reopened without it"
+                        (SessionState.opened full None, [ SessionEffect.Alert Alert.Alert.CloseFailed ])
 
                     transition (SessionMsg.PresentLaunch(launchB, keyB)) (SessionState.opened full (Some two))
                     |> fst

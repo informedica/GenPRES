@@ -167,7 +167,11 @@ let tests =
                         transition (OrderPlanMsg.Answered("r-1", Ok one)) asked
                         |> Expect.equal
                             "shown, its one drug checked"
-                            (held one None, [ OrderPlanEffect.CheckInteractions [ "paracetamol" ] ])
+                            (held one None,
+                             [
+                                 OrderPlanEffect.CheckInteractions [ "paracetamol" ]
+                                 OrderPlanEffect.TellAnswered
+                             ])
                     }
 
                     test "a patient changed recalculates the plan held over the new patient, the dialog closed" {
@@ -221,7 +225,11 @@ let tests =
                         transition (OrderPlanMsg.Answered("r-1", Ok two)) opening
                         |> Expect.equal
                             "the newer shown, two drugs checked"
-                            (held two None, [ OrderPlanEffect.CheckInteractions [ "paracetamol"; "ibuprofen" ] ])
+                            (held two None,
+                             [
+                                 OrderPlanEffect.CheckInteractions [ "paracetamol"; "ibuprofen" ]
+                                 OrderPlanEffect.TellAnswered
+                             ])
                     }
 
                     test "the version arriving before its patient is kept and opened when the patient does" {
@@ -287,7 +295,10 @@ let tests =
                         |> Expect.equal
                             "the selection's context went with the change"
                             (held one None |> OrderPlanState.withOpened two.OrderContexts,
-                             [ OrderPlanEffect.CheckInteractions [ "paracetamol" ] ])
+                             [
+                                 OrderPlanEffect.CheckInteractions [ "paracetamol" ]
+                                 OrderPlanEffect.TellAnswered
+                             ])
 
                         let kept = recalculating two (Some "c-1") "r-1" cmd
 
@@ -295,7 +306,10 @@ let tests =
                         |> Expect.equal
                             "the selection still holds"
                             (held one (Some "c-1") |> OrderPlanState.withOpened two.OrderContexts,
-                             [ OrderPlanEffect.CheckInteractions [ "paracetamol" ] ])
+                             [
+                                 OrderPlanEffect.CheckInteractions [ "paracetamol" ]
+                                 OrderPlanEffect.TellAnswered
+                             ])
 
                         transition (OrderPlanMsg.Answered("r-9", Ok one)) kept
                         |> Expect.equal "a stale answer dropped" (kept, [])
@@ -341,7 +355,10 @@ let tests =
                         |> Expect.equal
                             "shown and checked"
                             (held two None |> OrderPlanState.withOpened one.OrderContexts,
-                             [ OrderPlanEffect.CheckInteractions [ "paracetamol"; "ibuprofen" ] ])
+                             [
+                                 OrderPlanEffect.CheckInteractions [ "paracetamol"; "ibuprofen" ]
+                                 OrderPlanEffect.TellAnswered
+                             ])
                     }
                 ]
 
@@ -456,7 +473,10 @@ let planTests =
                 |> Expect.equal
                     "the plan answered, its drugs checked"
                     (held filtered None |> OrderPlanState.withOpened one.OrderContexts,
-                     [ OrderPlanEffect.CheckInteractions [ "paracetamol" ] ])
+                     [
+                         OrderPlanEffect.CheckInteractions [ "paracetamol" ]
+                         OrderPlanEffect.TellAnswered
+                     ])
             }
 
             test "nothing lands without a patient; the dialog selects only over a plan held" {

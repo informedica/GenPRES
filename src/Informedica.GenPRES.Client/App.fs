@@ -644,7 +644,9 @@ module private Elmish =
                 // answer of any kind means SessionClosed; only a request that never got there fails
                 match! serverApi.processSession Api.SessionCommand.CloseSession |> Async.Catch with
                 | Choice1Of2 _ -> return SessionMsg SessionMsg.SessionClosed
-                | Choice2Of2 ex -> return SessionMsg(SessionMsg.CloseFailed ex.Message)
+                | Choice2Of2 ex ->
+                    Logging.error "could not close the session on the server" ex.Message
+                    return SessionMsg(SessionMsg.CloseFailed ex.Message)
             }
             |> Cmd.fromAsync
         | SessionEffect.CallSupplyPin(code, pin) ->
@@ -663,9 +665,11 @@ module private Elmish =
                     | Api.SessionResponse.EnrolmentPending _ ->
                         return SessionMsg(SessionMsg.PinAnswered(Ok(PinOutcome.Refused PinRefusal.AttemptExpired)))
                 with ex ->
+                    Logging.error "could not send the PIN to the server" ex.Message
                     return SessionMsg(SessionMsg.PinAnswered(Error ex.Message))
             }
             |> Cmd.fromAsync
+        | SessionEffect.Alert alert -> state |> alerted alert, Cmd.none
         | SessionEffect.GoToIdentityProvider url ->
             state, Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
         // the patient and the orders the Session opened with go to their machines in Lanes; nothing
@@ -796,6 +800,7 @@ module private Elmish =
             state |> runLoader (LoaderMachine.LoaderMsg.CheckInteractions drugs)
         | OrderPlanEffect.TellError errs ->
             (state, Cmd.none) |> processError ServerErrorPolicy.ErrorSource.OrderPlan errs
+        | OrderPlanEffect.TellAnswered -> (state, Cmd.none) |> clearError ServerErrorPolicy.ErrorSource.OrderPlan
 
 
     /// A workbench request, answered under the request id it was sent for.
@@ -1257,24 +1262,6 @@ module private Elmish =
             // a failed close is reported only when it was this session's close: a CloseFailed
             // that arrives after a newer launch superseded the Closing session is dropped by
             // the machine and must not put an error over the newer session
-            let state =
-                match msg, SessionState.view state.Lanes.Session with
-                | SessionMsg.CloseFailed reason, SessionView.Closing _ ->
-                    Logging.error "could not close the session on the server" reason
-
-                    { state with
-                        Ui.Snackbar = Snackbar.shown "De sessie kon niet worden gesloten. Probeer het opnieuw." "error"
-                    }
-                // the same for a PIN that never reached the server: the form comes back as it was
-                | SessionMsg.PinAnswered(Error reason), SessionView.SupplyingPin _ ->
-                    Logging.error "could not send the PIN to the server" reason
-
-                    { state with
-                        Ui.Snackbar =
-                            Snackbar.shown "De pincode kon niet worden verstuurd. Probeer het opnieuw." "error"
-                    }
-                | _ -> state
-
             state |> runLanes (LanesMsg.Session msg)
 
         | SigningMsg msg -> state |> runLanes (LanesMsg.Signing msg)
@@ -1329,14 +1316,6 @@ module private Elmish =
         | Prescribe orderId -> state |> runLanes (LanesMsg.Prescribe(orderId, newRequest (), newRequest ()))
 
         | OrderPlanAnswered(request, answer) ->
-            // only the answer the plan waits for clears the plan's error: a late answer to a
-            // request since replaced is dropped by the machine and says nothing of the one under way
-            let clear =
-                if state.Lanes.OrderPlan |> OrderPlanState.awaits request then
-                    clearError ServerErrorPolicy.ErrorSource.OrderPlan
-                else
-                    id
-
             state
             |> runLanes (
                 LanesMsg.Answer(
@@ -1345,7 +1324,6 @@ module private Elmish =
                     answer.Reply.Notice
                 )
             )
-            |> clear
 
 
     /// A message applied, and the start-up marked as ended at the first update in which it is.
