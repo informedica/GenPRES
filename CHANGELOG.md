@@ -1,5 +1,5 @@
 ---
-last_commit_released: 40ae022de8afac1acd5240df29c6d36c6a4d1014
+last_commit_released: 3ad128ae0de3c770b7f9513a3dc7daa2895b7d55
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,21 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.45 - 2026-10-10
+
+### 🚀 Features
+
+* *(client)* Three-letter url keys and page codes ([bd799f0b](https://github.com/informedica/GenPRES/commit/bd799f0b75109cc7cc9b7802a74fe03001357e01))
+
+### 🐞 Bug Fixes
+
+* *(client)* Keep loaded data shown while asked again ([4ce16c39](https://github.com/informedica/GenPRES/commit/4ce16c39b2f13ef09344f2fe2b7d77cb9187c589))
+* *(client)* Send the same patient data only once ([6f025308](https://github.com/informedica/GenPRES/commit/6f025308f09e70b90a90d0221693fed9ad2d3378))
+* *(client)* Let the alert snackbar close itself ([0e132524](https://github.com/informedica/GenPRES/commit/0e132524b2a940ca0bb16786044a1d14d7f391cb))
+* *(client)* Render the language menu as a component ([db2f4fa5](https://github.com/informedica/GenPRES/commit/db2f4fa53d15d7efe2586a3e9fe006501aaa1eb9))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/40ae022de8afac1acd5240df29c6d36c6a4d1014..3ad128ae0de3c770b7f9513a3dc7daa2895b7d55)</small></strong>
 
 ## 0.1.2-alpha.44 - 2026-10-09
 
