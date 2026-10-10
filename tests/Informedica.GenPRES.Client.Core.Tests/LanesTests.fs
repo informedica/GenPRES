@@ -102,7 +102,7 @@ let tests =
                 |> Expect.equal "the workbench and the plan out" [ Busy.Request.Workbench; Busy.Request.Plan ]
 
                 effects
-                |> List.contains (LanesEffect.Patient(PatientEffect.SetPatient(Some measured)))
+                |> List.contains (LanesEffect.Patient(PatientEffect.SetPatientData(Some measured)))
                 |> Expect.isTrue "the client part of the patient comes out, for the page loads"
 
                 let plan = planRequest effects |> Option.defaultWith (fun () -> failtest "no plan request")

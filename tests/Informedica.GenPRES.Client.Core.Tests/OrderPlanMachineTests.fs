@@ -157,7 +157,7 @@ let tests =
                 "the patient"
                 [
                     test "a patient set opens the empty plan under the request; the answer shows it" {
-                        let asked, effects = transition (OrderPlanMsg.PatientChanged(Some patient, "r-1")) noPatient
+                        let asked, effects = transition (OrderPlanMsg.PatientDataChanged(Some patient, "r-1")) noPatient
 
                         asked |> Expect.equal "asked" (loading patient [||] "r-1")
 
@@ -172,7 +172,7 @@ let tests =
 
                     test "a patient changed recalculates the plan held over the new patient, the dialog closed" {
                         let state, effects =
-                            transition (OrderPlanMsg.PatientChanged(Some other, "r-2")) (held one (Some "c-1"))
+                            transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (held one (Some "c-1"))
 
                         let update = OrderPlanCommand.UpdatePatient(otherDraft, one)
 
@@ -193,7 +193,7 @@ let tests =
                     test "no patient: no plan, whatever was in flight answers to nothing" {
                         let busy = recalculating one None "r-1" (OrderPlanCommand.FilterRows(one.Filtered, one))
 
-                        let state, effects = transition (OrderPlanMsg.PatientChanged(None, "r-2")) busy
+                        let state, effects = transition (OrderPlanMsg.PatientDataChanged(None, "r-2")) busy
                         state |> Expect.equal "no patient" noPatient
                         effects |> Expect.isEmpty "nothing to do"
 
@@ -232,7 +232,7 @@ let tests =
                         (kept, effects)
                         |> Expect.equal "kept, nothing asked yet" (OrderPlanState.awaiting two.OrderContexts, [])
 
-                        transition (OrderPlanMsg.PatientChanged(Some patient, "r-2")) kept
+                        transition (OrderPlanMsg.PatientDataChanged(Some patient, "r-2")) kept
                         |> Expect.equal
                             "the version's contexts opened for the patient"
                             (loading patient two.OrderContexts "r-2",
@@ -240,7 +240,7 @@ let tests =
                                  OrderPlanEffect.CallPlan(OrderPlanCommand.Open(draft, two.OrderContexts), "r-2")
                              ])
 
-                        transition (OrderPlanMsg.PatientChanged(None, "r-3")) kept
+                        transition (OrderPlanMsg.PatientDataChanged(None, "r-3")) kept
                         |> Expect.equal "no patient after all: the version is let go" (noPatient, [])
                     }
                 ]
@@ -537,7 +537,7 @@ let workTests =
                 |> Expect.equal "a version opened" PlanWork.AsSigned
 
                 transition
-                    (OrderPlanMsg.PatientChanged(None, "r-1"))
+                    (OrderPlanMsg.PatientDataChanged(None, "r-1"))
                     (held one None |> OrderPlanState.withWork PlanWork.Changed)
                 |> workOf
                 |> Expect.equal "no patient, nothing to sign" PlanWork.AsSigned
@@ -635,7 +635,7 @@ let heldTests =
                 |> heldOf
                 |> Expect.isFalse "the version is being opened"
 
-                transition (OrderPlanMsg.PatientChanged(None, "r-1")) holding
+                transition (OrderPlanMsg.PatientDataChanged(None, "r-1")) holding
                 |> heldOf
                 |> Expect.isFalse "no patient, nothing held"
             }
@@ -956,14 +956,14 @@ let requestOutTests =
                             OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
                             "r-2"
                         )
-                        OrderPlanMsg.PatientChanged(Some other, "r-2")
+                        OrderPlanMsg.PatientDataChanged(Some other, "r-2")
                         OrderPlanMsg.OpenSignedPlan(head, "r-2")
                     ] do
                     transition msg busy |> Expect.equal $"%A{msg}" (busy, [])
             }
 
             test "the patient cleared still resets it" {
-                transition (OrderPlanMsg.PatientChanged(None, "r-2")) busy
+                transition (OrderPlanMsg.PatientDataChanged(None, "r-2")) busy
                 |> Expect.equal "no patient" (noPatient, [])
             }
         ]

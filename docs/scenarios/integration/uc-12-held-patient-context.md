@@ -169,7 +169,7 @@ as the fields do (step 3). A refresh that did not happen is told, and changes no
 
 ## Before #1075
 
-A change to the patient context sent `PatientChanged` to the order context and the order plan
+A change to the patient context sent `PatientDataChanged` to the order context and the order plan
 (`updatePatient` in `App.fs`). The order plan recomputed its totals with the new patient; the
 contexts kept the patient they were created with (`OrderPlanMachine.step`). The order plan's
 patient, its totals and the patient data of a signed version followed the edit, and nothing

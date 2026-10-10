@@ -28,9 +28,9 @@ type PatientMsg =
 type PatientEffect =
     /// Send the patient change under this request id.
     | CallPatient of Patient * request: string
-    /// Put the patient on the workbench, the plan and the formulary and parenteralia pages; none
-    /// clears them.
-    | SetPatient of Patient option
+    /// Put the patient data on the workbench, the plan and the formulary and parenteralia pages;
+    /// none clears them.
+    | SetPatientData of Patient option
     /// Tell the user what went wrong.
     | TellError of string[]
 
@@ -103,7 +103,7 @@ module PatientState =
                     Answered = None
                     InFlight = None
                 },
-                [ PatientEffect.SetPatient None ]
+                [ PatientEffect.SetPatientData None ]
 
         | PatientMsg.Answered(request, result) ->
             match state.InFlight, result with
@@ -120,7 +120,7 @@ module PatientState =
                         Answered = Some pat
                         InFlight = None
                     },
-                    [ PatientEffect.SetPatient(Some pat) ]
+                    [ PatientEffect.SetPatientData(Some pat) ]
                 | _ ->
                     { state with
                         Draft = draft
