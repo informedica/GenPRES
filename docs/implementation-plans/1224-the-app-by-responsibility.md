@@ -183,23 +183,25 @@ part in the function name (`applyShellEffect`) where the trail qualifies them by
    request as the three arms do today, and the token; `Api.Request` is generic, so one helper
    fits the plan, the workbench and the patient, and the three arms call it. `callContext` goes.
    The session and the signing calls stay as they are: each answers differently.
-6. **Names: one name per thing, one thing per name, in the whole file.** A name is the word
-   the contract or the machine uses for the value, so that a reader who knows one knows the
-   other, and the same value has the same name in every function:
+6. **Names: consistent and unambiguous, in the whole file.** The same thing has the same name
+   in every function, and no name stands for two things. A short name is fine where the context
+   makes it clear: in a member that takes a patient, `pat` can only be the patient, and in a call
+   that sends a command, `cmd` can only be the command. A name is ambiguous when the file uses it
+   for something else too, as it did `token` for both the Session's token and the admin's:
    - the Session's `OpenedToken` is `opened`, as `Api.Request.Opened` has it, in code and in
      the comments; `tokenOf` goes, and `Client.opened state` takes its place, a one-line read in
      `Client.fs` beside the other reads, over `SessionState.token`, called once in `carryOut`,
      so that no function in the App reaches into the lanes; `token` is left to the admin's
      token; the url's token is the launch, or the launch's token, never bare `token`;
-   - a command is `command`, as `Api.Request.Command` has it, never `cmd` or `req`; a request id
-     stays `request`;
+   - a command is `cmd`, in the effects, `underSession` and the projection alike, never `req`
+     or `command`; a request id stays `request`;
    - the two lists have no name of their own: each is the body of its member in `Projection`,
      computed when a page reads it, as every other member is;
    - the page box's style is `pageSx`;
-   - a member's or a function's parameter is named for what it is: `patient`, `parenteralia`,
-     `formulary`, `filter`, `item`, `command`. A single letter stays where it is today the usual
-     thing: the argument of a one-line lambda, a bound case or exception, `e`, `m`, `ex`, `r`,
-     and a local in a body, which the coding instructions keep short;
+   - a member's or a function's parameter says what it is, short where that stays clear: `pat`,
+     `par`, `form`, `itm`, `filter`, `cmd`. A single letter stays where it is the usual thing: the
+     argument of a one-line lambda, a bound case or exception, `e`, `m`, `ex`, `r`, and a local
+     in a body, which the coding instructions keep short;
    - a function is named for its one job, and two functions with one job share no name:
      `Effects.apply` carries one effect out as a command, `carryOut` records a transition's
      steps and carries its effects out, as the machines' `transition` and `Client.run` differ;
@@ -252,9 +254,10 @@ in step 3, is a read like the thirty-six of the last plan's step 10 and gets no 
    `useLeaveGuard (Client.unsignedWork state)`.
 8. **The names.** What decision 6 asks and no earlier step rewrote, in one pull request after
    the moves, so that no move diff carries a rename beyond the moved function's own name and
-   its qualifiers: the projection's `p`, `f`, `s` and `cmd`, each for what the member takes;
-   `sx`; the doc comments of `answered` and `eraseLaunch`, which say "the token" for the opened
-   token and the launch's. Nothing moves.
+   its qualifiers: the projection's `p`, `f` and `s`, each a short name for what the member
+   takes, `pat`, `par`, `form`, `itm` and `filter`; `command` back to `cmd` in the effects and
+   `underSession`, as decision 6 has it; `sx`; the doc comments of `answered` and `eraseLaunch`,
+   which say "the token" for the opened token and the launch's. Nothing moves.
 
 After step 8, by estimate:
 
@@ -309,8 +312,8 @@ doc comments and blank lines.
   url; the snackbar auto-hides on a success and stays on an error, its close button dismisses
   it, and a click outside it leaves it open; a reload with unsigned work asks, without it does
   not; `grep -c '^export'` reads 1 for each of the two views and the hook.
-- **Step 8:** `grep -nwE 'cmd|sx' App.fs` finds nothing; the comments say `token` only for the
-  admin's and the launch's.
+- **Step 8:** in code, `grep -nwE 'command|sx' App.fs` finds nothing; the comments say `token`
+  only for the admin's and the launch's.
 
 ## Out of scope
 
