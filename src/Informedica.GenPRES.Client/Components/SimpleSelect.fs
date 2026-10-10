@@ -54,7 +54,7 @@ module SimpleSelect =
             |})
         =
 
-        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
+        let isMobile = Mui.Hooks.useIsMobile ()
 
         let selectSlotProps =
             if isMobile then

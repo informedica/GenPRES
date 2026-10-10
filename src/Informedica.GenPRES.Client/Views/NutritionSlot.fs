@@ -578,7 +578,7 @@ module NutritionSlot =
             | Some NutritionCategory.ElectrolyteGlucose -> Terms.``Nutrition Electrolytes Glucose`` |> getTerm name
             | None -> name
 
-        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
+        let isMobile = Mui.Hooks.useIsMobile ()
 
         let fixPrecision = Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision
 

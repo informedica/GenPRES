@@ -214,7 +214,7 @@ module EnteralNutrition =
         let context: Global.Context = React.useContext Global.context
         let getTerm = Global.getLocalizedTerm props.localizationTerms context.Localization
 
-        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
+        let isMobile = Mui.Hooks.useIsMobile ()
 
         let expanded, setExpanded = React.useState true
         let confirmDeleteTarget, setConfirmDeleteTarget = React.useState<string option> None

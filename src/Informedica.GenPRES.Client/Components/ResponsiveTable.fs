@@ -292,7 +292,7 @@ module ResponsiveTable =
             | Some f, Some cb -> f, cb
             | _ -> localState, setLocalState
 
-        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
+        let isMobile = Mui.Hooks.useIsMobile ()
 
         // the text typed into the search, matched against every cell of a row
         let query, setQuery = React.useState ""

@@ -201,7 +201,7 @@ module Totals =
                 $"table{i + 1}", Components.BasicTable.View {| rows = mapRow props.intake col |} |> toReact
             )
 
-        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
+        let isMobile = Mui.Hooks.useIsMobile ()
 
         if isMobile then
             Unchecked.defaultof<JSX.Element>

@@ -719,7 +719,7 @@ type private Projection(state: State, dispatch: Msg -> unit) =
 [<JSX.Component>]
 let View () =
     let state, dispatch = React.useElmish (program, [||])
-    let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
+    let isMobile = Mui.Hooks.useIsMobile ()
 
     global.Hooks.LeaveGuard.useLeaveGuard (Client.unsignedWork state)
 
