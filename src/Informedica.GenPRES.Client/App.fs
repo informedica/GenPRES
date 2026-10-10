@@ -711,78 +711,6 @@ type private ConcreteAppEnv
             Msg.Shell(ShellMachine.ShellMsg.ContinuousMedsFiltered f) |> dispatch
 
 
-[<Literal>]
-let private themeDef =
-    """
-responsiveFontSizes(createTheme({
-    typography: { fontSize: 12 },
-    palette: {
-        mode: 'light',
-        // the four severities the client shows: Valid, Caution, Warning, Alert. MUI's own
-        // light-mode shades, all three, so nothing derived replaces a built-in one
-        success: { main: '#2e7d32', light: '#4caf50', dark: '#1b5e20' },
-        info: { main: '#0288d1', light: '#03a9f4', dark: '#01579b' },
-        warning: { main: '#ed6c02', light: '#ff9800', dark: '#e65100' },
-        error: { main: '#d32f2f', light: '#ef5350', dark: '#c62828' },
-        // the tint behind a caution, a warning or an alert, as an alert box has it
-        severityBg: { caution: '#e5f6fd', warning: '#fff4e5', alert: '#fdeded' },
-        // the accent the tables and headers use
-        primary: { main: '#1976d2', light: '#42a5f5', dark: '#1565c0' },
-    },
-    spacing: 6,
-    components: {
-        MuiTable: { defaultProps: { size: 'medium' } },
-        MuiTextField: { defaultProps: { size: 'medium' } },
-        MuiButton: { defaultProps: { size: 'medium' } },
-        MuiIconButton: { defaultProps: { size: 'medium' } },
-        MuiToolbar: { defaultProps: { variant: 'dense' } },
-        MuiAutocomplete: { defaultProps: { size: 'medium' } },
-    }
-}), { factor: 2 })
-"""
-
-
-[<Import("createTheme", from = "@mui/material/styles")>]
-[<Emit(themeDef)>]
-let private theme: obj = jsNative
-
-
-[<Literal>]
-let private mobileDef =
-    """
-responsiveFontSizes(createTheme({
-    typography: { fontSize: 11 },
-    palette: {
-        mode: 'light',
-        // the four severities the client shows: Valid, Caution, Warning, Alert. MUI's own
-        // light-mode shades, all three, so nothing derived replaces a built-in one
-        success: { main: '#2e7d32', light: '#4caf50', dark: '#1b5e20' },
-        info: { main: '#0288d1', light: '#03a9f4', dark: '#01579b' },
-        warning: { main: '#ed6c02', light: '#ff9800', dark: '#e65100' },
-        error: { main: '#d32f2f', light: '#ef5350', dark: '#c62828' },
-        // the tint behind a caution, a warning or an alert, as an alert box has it
-        severityBg: { caution: '#e5f6fd', warning: '#fff4e5', alert: '#fdeded' },
-        // the accent the tables and headers use
-        primary: { main: '#1976d2', light: '#42a5f5', dark: '#1565c0' },
-    },
-    spacing: 6,
-    components: {
-        MuiTable: { defaultProps: { size: 'small' } },
-        MuiTextField: { defaultProps: { size: 'small' } },
-        MuiButton: { defaultProps: { size: 'small' } },
-        MuiIconButton: { defaultProps: { size: 'small' } },
-        MuiToolbar: { defaultProps: { variant: 'dense' } },
-        MuiAutocomplete: { defaultProps: { size: 'small' } },
-    }
-}), { factor: 2 })
-"""
-
-
-[<Import("createTheme", from = "@mui/material/styles")>]
-[<Emit(mobileDef)>]
-let private mobile: obj = jsNative
-
-
 [<JSX.Component>]
 let View () =
     let state, dispatch = React.useElmish (program, [||])
@@ -867,7 +795,7 @@ let View () =
                 mb = 0
             |}
 
-    let theme = if isMobile then mobile else theme
+    let theme = if isMobile then Mui.Themes.mobile else Mui.Themes.desktop
 
     let serverErrorBanner =
         match Client.serverError state with
@@ -944,7 +872,6 @@ let View () =
     JSX.jsx
         $"""
     import {{ ThemeProvider }} from '@mui/material/styles';
-    import {{ responsiveFontSizes }} from '@mui/material/styles';
     import CssBaseline from '@mui/material/CssBaseline';
     import React from "react";
     import Box from '@mui/material/Box';

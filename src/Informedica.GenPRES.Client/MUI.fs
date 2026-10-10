@@ -936,6 +936,94 @@ module Styles =
             sx
 
 
+/// The app's two MUI themes: the same palette and spacing, with a smaller font and smaller
+/// components on a narrow screen.
+module Themes =
+
+    open Fable.Core.JsInterop
+
+
+    let createTheme (options: obj) : obj = import "createTheme" "@mui/material/styles"
+
+
+    let responsiveFontSizes (theme: obj, options: obj) : obj = import "responsiveFontSizes" "@mui/material/styles"
+
+
+    /// A theme with this base font size and this default size for tables, fields and buttons.
+    let themeOf fontSize size =
+        let sized = {| defaultProps = {| size = size |} |}
+
+        let theme =
+            createTheme
+                {|
+                    typography = {| fontSize = fontSize |}
+                    palette =
+                        {|
+                            mode = "light"
+                            // the four severities the client shows: Valid, Caution, Warning, Alert. MUI's own
+                            // light-mode shades, all three, so nothing derived replaces a built-in one
+                            success =
+                                {|
+                                    main = "#2e7d32"
+                                    light = "#4caf50"
+                                    dark = "#1b5e20"
+                                |}
+                            info =
+                                {|
+                                    main = "#0288d1"
+                                    light = "#03a9f4"
+                                    dark = "#01579b"
+                                |}
+                            warning =
+                                {|
+                                    main = "#ed6c02"
+                                    light = "#ff9800"
+                                    dark = "#e65100"
+                                |}
+                            error =
+                                {|
+                                    main = "#d32f2f"
+                                    light = "#ef5350"
+                                    dark = "#c62828"
+                                |}
+                            // the tint behind a caution, a warning or an alert, as an alert box has it
+                            severityBg =
+                                {|
+                                    caution = "#e5f6fd"
+                                    warning = "#fff4e5"
+                                    alert = "#fdeded"
+                                |}
+                            // the accent the tables and headers use
+                            primary =
+                                {|
+                                    main = "#1976d2"
+                                    light = "#42a5f5"
+                                    dark = "#1565c0"
+                                |}
+                        |}
+                    spacing = 6
+                    components =
+                        {|
+                            MuiTable = sized
+                            MuiTextField = sized
+                            MuiButton = sized
+                            MuiIconButton = sized
+                            MuiToolbar = {| defaultProps = {| variant = "dense" |} |}
+                            MuiAutocomplete = sized
+                        |}
+                |}
+
+        responsiveFontSizes (theme, {| factor = 2 |})
+
+
+    /// The theme of a wide screen.
+    let desktop = themeOf 12 "medium"
+
+
+    /// The theme of a narrow screen, up to 1200 pixels.
+    let mobile = themeOf 11 "small"
+
+
 module TypoGraphy =
 
     open Shared.Types
