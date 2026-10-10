@@ -328,4 +328,61 @@ doc comments and blank lines.
 
 ## As built
 
-Filled in per step, with the pull request numbers.
+Every step is merged.
+
+| Step | Pull request | Changed lines |
+| ---- | ------------ | ------------: |
+| Plan | #1396 | |
+| 1 | #1397 | 25 |
+| 2 | #1398 | 242 |
+| 3 | #1399 | 166 |
+| 4 | #1400 | 226 |
+| 5 | #1401 | 163 |
+| 6 | #1402 | 61 |
+| 7 | #1403 | 259 |
+| 8 | #1405 | 88 |
+
+Line counts by `wc -l`, before step 1 (3c561d0d) and after step 8:
+
+| File | Before | After |
+| ---- | -----: | ----: |
+| `App.fs` | 1094 | 830 |
+| `Main.fs` | 0 | 11 |
+| `Tracing.fs` | 0 | 96 |
+| `Views/LeaveDialog.fs` | 0 | 60 |
+| `Views/AlertSnackbar.fs` | 0 | 65 |
+| `Hooks/LeaveGuard.fs` | 0 | 30 |
+| `MUI.fs` | 1033 | 1121 |
+| `Client.fs` | 599 | 604 |
+
+In `App.fs`: `Messages` 11, `Effects` 403, `Elmish` 71, `program` 15, `calculateInterventions` and
+`Projection` 190, `View` 110. The file reads top to bottom as the plan ordered it: the aliases, the
+messages, the effects, the loop, the program, the projection and the view.
+
+Differences from the plan:
+
+- Step 2: 242 changed lines, not about 85. The estimate counted each renamed call site once; a
+  diff counts it as one line removed and one added. The author kept the step as one pull request.
+- Step 3: the session the server returns in `Effects.session` was bound as `opened`, the name the
+  step gave the Session's token; it is bound as `session` now, as the other arms of that function
+  had it.
+- Step 4: `Tracing.fs` has its own private `State` and `Msg` aliases, so the moved code is the old
+  code without its `private`; the plan expected the full type names in three signatures. The
+  module requires a qualified name, as `StepTrail` does. The router's url handler became a named
+  function, `onUrlChanged`, because the qualified `Elmish.parseUrl` made its line too long.
+  226 changed lines, accepted by the author.
+- Step 5: `createTheme` and `responsiveFontSizes` are imported in the function style of the
+  `useMediaQuery` imports in `MUI.fs`, which Fable emits as two re-exports beside the themes.
+- Step 6: `calculateInterventions` is a private function beside `Projection`, not inside it.
+  Bound with `let` in the class, Fable exported it from `App.jsx` although the type is private.
+- Step 7: the hook is in `Hooks/LeaveGuard.fs`, not in `Components`, since it renders nothing.
+  `App.fs` opens `Fable.React`, which has a value named `Hooks`, so the call is
+  `global.Hooks.LeaveGuard.useLeaveGuard`. The step brought a bug to light, fixed in a commit of
+  its own: Fable passed the snackbar's close handler to MUI as a curried function, which MUI
+  called with both arguments at once, so the handler never ran and a success never hid itself.
+  The handler is now a `System.Func` of two arguments. 259 changed lines, accepted by the author.
+- Step 8: decision 6 was reframed. Names are consistent and unambiguous, and short where the
+  context makes them clear: `pat`, `par`, `form`, `itm`, `filter`, and `cmd` for a command
+  everywhere, which took back the `command` of step 3.
+- Verification: the export count needs a debug Fable build, `dotnet run` or
+  `dotnet fable -c Debug`; a plain `dotnet fable` is a release build and never emits `redacted`.
