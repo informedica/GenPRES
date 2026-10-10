@@ -295,9 +295,9 @@ doc comments and blank lines.
 - **Step 1:** the hot reload check above, for the first time; `npx vite build` finds the entry.
 - **Step 3:** a plan change, a workbench pick and a patient edit answer as before; the server
   stopped, each raises the error banner under its source; a signature with the session open
-  goes through, without one is refused; `grep -nwE 'tokenOf|cmd|req' App.fs` and
-  `grep -n 'Lanes.Session' App.fs` find nothing, and in code `token` appears in `Effects.admin`
-  only.
+  goes through, without one is refused; `grep -nwE 'tokenOf|req' App.fs` and
+  `grep -n 'Lanes.Session' App.fs` find nothing, `cmd` is gone from `Effects`, and in code
+  `token` appears in `Effects.admin` only. The projection keeps its `cmd` until step 8.
 - **Step 4:** a debug build with the trace on shows the console trace and the Redux DevTools
   history from the first traceable state, the password redacted; a release build traces nothing
   and compiles `Tracing.fs` as an empty module.
@@ -309,7 +309,7 @@ doc comments and blank lines.
   url; the snackbar auto-hides on a success and stays on an error, its close button dismisses
   it, and a click outside it leaves it open; a reload with unsigned work asks, without it does
   not; `grep -c '^export'` reads 1 for each of the two views and the hook.
-- **Step 8:** `grep -nw 'sx' App.fs` finds nothing; the comments say `token` only for the
+- **Step 8:** `grep -nwE 'cmd|sx' App.fs` finds nothing; the comments say `token` only for the
   admin's and the launch's.
 
 ## Out of scope
