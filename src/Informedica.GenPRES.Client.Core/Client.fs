@@ -253,6 +253,11 @@ let estimated (state: ClientState) =
 let session (state: ClientState) = state.Lanes.Session |> SessionState.view
 
 
+/// The OpenedToken the Session holds, sent with every computing request; none without an open
+/// Session.
+let opened (state: ClientState) = state.Lanes.Session |> SessionState.token
+
+
 /// A newer signed order plan than the one open, if the Session holds one.
 let newerPlan (state: ClientState) = state.Lanes.Session |> SessionState.newerPlan
 

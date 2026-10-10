@@ -48,16 +48,32 @@ module private Effects =
         |> Remoting.buildProxy<Api.IServerApi>
 
 
-    /// The OpenedToken the Session holds, sent with every computing request; none
-    /// without an open Session.
-    let tokenOf = SessionState.token
-
-
     /// Turns a server reply into the message for the lane that sent the request. The response goes
     /// to that lane, the notice goes to the Session, and the session token sent with the request
     /// comes along.
     let answered lane opened (reply: Api.Reply<_>) =
         Msg.Lanes(LanesMsg.Answer(lane (Ok reply.Response), opened, reply.Notice))
+
+
+    /// Sends a command to the server with the Session's token and turns the outcome into the
+    /// lane's message: a reply goes through answered, a refusal or a failed request comes back to
+    /// the lane as an Error.
+    let underSession call command lane opened =
+        async {
+            try
+                match!
+                    call
+                        {
+                            Api.Request.Opened = opened
+                            Api.Request.Command = command
+                        }
+                with
+                | Ok reply -> return reply |> answered lane opened
+                | Error errs -> return Msg.Lanes(lane (Error errs))
+            with ex ->
+                return Msg.Lanes(lane (Error [| ex.Message |]))
+        }
+        |> Cmd.fromAsync
 
 
     /// Erase the Launch: replace the launch url with "#/session" in the
@@ -97,10 +113,8 @@ module private Effects =
 
     /// What a loader effect sends out of the client: a call, whose answer comes back as the loader
     /// machine's message, or a wait; a failure is logged.
-    let loader effect (state: State) =
+    let loader effect opened =
         let landed landing result = Msg.Loader(LoaderMachine.LoaderMsg.Landed(landing result))
-
-        let opened = tokenOf state.Lanes.Session
 
         let later seconds msg =
             async {
@@ -204,7 +218,7 @@ module private Effects =
     /// What a session effect sends out of the client. A transport failure
     /// is a message, never an exception: an Error outcome for a presentation, CloseFailed for
     /// a close that did not reach the server.
-    let session (effect: SessionEffect) (state: State) : Cmd<Msg> =
+    let session (effect: SessionEffect) : Cmd<Msg> =
         match effect with
         | SessionEffect.CallPresentLaunch(launch, key) ->
             async {
@@ -240,8 +254,8 @@ module private Effects =
             async {
                 try
                     match! serverApi.processSession (Api.SessionCommand.OpenVersion id) with
-                    | Api.SessionResponse.SessionResp opened ->
-                        return Messages.session (SessionMsg.SignedPlanOpened(from, Ok opened))
+                    | Api.SessionResponse.SessionResp session ->
+                        return Messages.session (SessionMsg.SignedPlanOpened(from, Ok session))
                     // never an answer to OpenVersion
                     | _ -> return Messages.session (SessionMsg.SignedPlanOpened(from, Ok None))
                 with ex ->
@@ -252,8 +266,8 @@ module private Effects =
             async {
                 try
                     match! serverApi.processSession Api.SessionCommand.Refresh with
-                    | Api.SessionResponse.SessionResp opened ->
-                        return Messages.session (SessionMsg.PatientRefreshed(from, Ok opened))
+                    | Api.SessionResponse.SessionResp session ->
+                        return Messages.session (SessionMsg.PatientRefreshed(from, Ok session))
                     // never an answer to Refresh
                     | _ -> return Messages.session (SessionMsg.PatientRefreshed(from, Ok None))
                 with ex ->
@@ -305,16 +319,14 @@ module private Effects =
 
 
     /// What a signing effect sends out of the client. The machine names the plan,
-    /// the challenge, the PIN, the request id and the key; the OpenedToken comes from the open
-    /// Session here, and every answer carries the request id or the key it answers, so the
+    /// the challenge, the PIN, the request id and the key; the OpenedToken is the one the open
+    /// Session holds, and every answer carries the request id or the key it answers, so the
     /// machine can drop one that belongs to an earlier Session. Without an open Session nothing
     /// is sent: the answer is a refusal.
-    let signing (effect: SigningEffect) (state: State) : Cmd<Msg> =
-        let token = tokenOf state.Lanes.Session
-
+    let signing (effect: SigningEffect) opened : Cmd<Msg> =
         match effect with
         | SigningEffect.CallChallenge(plan, notice, request) ->
-            match token with
+            match opened with
             | None ->
                 Cmd.ofMsg (
                     Messages.signing (
@@ -333,7 +345,7 @@ module private Effects =
                 }
                 |> Cmd.fromAsync
         | SigningEffect.CallSubmit(plan, challenge, pin, key) ->
-            match token with
+            match opened with
             | None ->
                 Cmd.ofMsg (
                     Messages.signing (
@@ -370,65 +382,31 @@ module private Effects =
     /// the request it was sent for, so the machine can drop an answer to an earlier request;
     /// the notice rides on the reply to the Session; a transport failure is an Error answer, never
     /// an exception.
-    let plan (effect: OrderPlanEffect) (state: State) : Cmd<Msg> =
+    let plan (effect: OrderPlanEffect) opened : Cmd<Msg> =
         match effect with
-        | OrderPlanEffect.CallPlan(cmd, request) ->
-            let opened = tokenOf state.Lanes.Session
-
-            async {
-                try
-                    match!
-                        serverApi.processOrderPlan
-                            {
-                                Opened = opened
-                                Command = cmd
-                            }
-                    with
-                    | Ok reply ->
-                        return
-                            reply
-                            |> answered (fun r -> LanesMsg.Plan(OrderPlanMsg.Answered(request, r))) opened
-                    | Error errs -> return Messages.plan (OrderPlanMsg.Answered(request, Error errs))
-                with ex ->
-                    return Messages.plan (OrderPlanMsg.Answered(request, Error [| ex.Message |]))
-            }
-            |> Cmd.fromAsync
+        | OrderPlanEffect.CallPlan(command, request) ->
+            opened
+            |> underSession
+                serverApi.processOrderPlan
+                command
+                (fun r -> LanesMsg.Plan(OrderPlanMsg.Answered(request, r)))
         | OrderPlanEffect.TellError errs ->
             Logging.error "error" errs
             Cmd.none
         | _ -> Cmd.none
 
 
-    /// A workbench request, answered under the request id it was sent for.
-    let callContext req request (state: State) =
-        let opened = tokenOf state.Lanes.Session
-
-        async {
-            try
-                match!
-                    serverApi.processOrderContext
-                        {
-                            Opened = opened
-                            Command = req
-                        }
-                with
-                | Ok reply ->
-                    return
-                        reply
-                        |> answered (fun r -> LanesMsg.Workbench(OrderContextMsg.Answered(request, r))) opened
-                | Error errs -> return Messages.workbench (OrderContextMsg.Answered(request, Error errs))
-            with ex ->
-                return Messages.workbench (OrderContextMsg.Answered(request, Error [| ex.Message |]))
-        }
-        |> Cmd.fromAsync
-
-
     /// What an order-context effect sends out of the client. A workbench call
     /// answers under the request it was sent for; the notice rides on the reply to the Session; a
     /// transport failure is an Error answer.
-    let workbench (effect: OrderContextEffect) (state: State) : Cmd<Msg> =
+    let workbench (effect: OrderContextEffect) opened : Cmd<Msg> =
         match effect with
-        | OrderContextEffect.CallContext(sent, request) -> callContext sent request state
+        | OrderContextEffect.CallContext(command, request) ->
+            opened
+            |> underSession
+                serverApi.processOrderContext
+                command
+                (fun r -> LanesMsg.Workbench(OrderContextMsg.Answered(request, r)))
         | OrderContextEffect.TellError errs ->
             Logging.warning "order context error" errs
             Cmd.none
@@ -438,29 +416,14 @@ module private Effects =
     /// What a patient effect sends out of the client. A patient change answers under
     /// the request it was sent for; the notice rides on the reply to the Session; a transport
     /// failure is an Error answer.
-    let patient (effect: PatientEffect) (state: State) : Cmd<Msg> =
+    let patient (effect: PatientEffect) opened : Cmd<Msg> =
         match effect with
         | PatientEffect.CallPatient(pat, request) ->
-            let opened = tokenOf state.Lanes.Session
-
-            async {
-                try
-                    match!
-                        serverApi.processPatient
-                            {
-                                Opened = opened
-                                Command = Api.PatientCommand.ChangePatient pat
-                            }
-                    with
-                    | Ok reply ->
-                        return
-                            reply
-                            |> answered (fun r -> LanesMsg.Patient(PatientMsg.Answered(request, r))) opened
-                    | Error errs -> return Messages.patient (PatientMsg.Answered(request, Error errs))
-                with ex ->
-                    return Messages.patient (PatientMsg.Answered(request, Error [| ex.Message |]))
-            }
-            |> Cmd.fromAsync
+            opened
+            |> underSession
+                serverApi.processPatient
+                (Api.PatientCommand.ChangePatient pat)
+                (fun r -> LanesMsg.Patient(PatientMsg.Answered(request, r)))
         | PatientEffect.TellError errs ->
             Logging.warning "patient change error" errs
             Cmd.none
@@ -469,14 +432,14 @@ module private Effects =
 
     /// What an effect of the client sends out of it, each by its part's apply; the routed ones send
     /// nothing, since the client passed them on itself.
-    let apply effect (state: State) =
+    let apply opened effect =
         match effect with
-        | Client.ClientEffect.Lanes(LanesEffect.Signing e) -> state |> signing e
-        | Client.ClientEffect.Lanes(LanesEffect.Patient e) -> state |> patient e
-        | Client.ClientEffect.Lanes(LanesEffect.Workbench e) -> state |> workbench e
-        | Client.ClientEffect.Lanes(LanesEffect.Plan e) -> state |> plan e
-        | Client.ClientEffect.Lanes(LanesEffect.Session e) -> state |> session e
-        | Client.ClientEffect.Loader e -> state |> loader e
+        | Client.ClientEffect.Lanes(LanesEffect.Signing e) -> opened |> signing e
+        | Client.ClientEffect.Lanes(LanesEffect.Patient e) -> opened |> patient e
+        | Client.ClientEffect.Lanes(LanesEffect.Workbench e) -> opened |> workbench e
+        | Client.ClientEffect.Lanes(LanesEffect.Plan e) -> opened |> plan e
+        | Client.ClientEffect.Lanes(LanesEffect.Session e) -> session e
+        | Client.ClientEffect.Loader e -> opened |> loader e
         | Client.ClientEffect.Admin e -> admin e
         | Client.ClientEffect.Shell e -> shell e
         | _ -> Cmd.none
@@ -520,7 +483,7 @@ module private Elmish =
 
 
     /// The client's steps recorded in the trail, each landing noted first, and its effects carried
-    /// out in the order they came, each over the state the transition left.
+    /// out in the order they came, each with the Session's token in the state the transition left.
     let carryOut (state: State, effects, steps) =
         for step in steps do
             match step with
@@ -529,7 +492,9 @@ module private Elmish =
 
             StepTrail.record (fun no at -> Trail.client no at step)
 
-        state, effects |> List.map (fun effect -> state |> Effects.apply effect) |> Cmd.batch
+        let opened = Client.opened state
+
+        state, effects |> List.map (Effects.apply opened) |> Cmd.batch
 
 
     /// The page load: the url applied at once, so the router's first report, of the same url,
