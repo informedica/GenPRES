@@ -68,14 +68,6 @@ let defCounting =
 let counting = React.createContext (defaultValue = defCounting)
 
 
-module Speech =
-
-    open Fable.Core
-
-    [<Emit("window.speechSynthesis.speak(new SpeechSynthesisUtterance($0));")>]
-    let speak s = ()
-
-
 /// The labels of the print header and the signature line, and the word for a value not known.
 type PrintLabels =
     {|

@@ -34,7 +34,6 @@ module private Messages =
     /// A message to one of the lanes' machines.
     let session m = Msg.Lanes(LanesMsg.Session m)
     let signing m = Msg.Lanes(LanesMsg.Signing m)
-    let patient m = Msg.Lanes(LanesMsg.Patient m)
     let workbench m = Msg.Lanes(LanesMsg.Workbench m)
     let plan m = Msg.Lanes(LanesMsg.Plan m)
 
