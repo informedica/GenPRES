@@ -388,6 +388,60 @@ let tests =
                 | view -> failtest $"not open: %A{view}"
             }
 
+            test "a signature over the patient data the lanes hold sends nothing more once the token is renewed" {
+                let newId = counter ()
+                let pat = measured |> asPatient
+                let ctx = { OrderContextMachineTests.Fixtures.paracetamol with Patient = pat }
+
+                // the patient set and answered, the workbench and the plan answered for it
+                let lanes, _, _ =
+                    play
+                        newId
+                        { Lanes.initial (Some measured) with
+                            Session = SessionState.opened SessionMachineTests.full None
+                            Signing = SigningMachineTests.Fixtures.submitting
+                        }
+                        [
+                            LanesMsg.Patient(
+                                PatientMsg.Changed(Some measured, PatientDraftPolicy.Estimates.Renewed, "p-0")
+                            )
+                            LanesMsg.Patient(PatientMsg.Answered("p-0", Ok pat))
+                            LanesMsg.Workbench(OrderContextMsg.Answered("id-1", Ok(OrderContextResponse.Evaluated ctx)))
+                            LanesMsg.Plan(OrderPlanMsg.Answered("id-2", Ok one))
+                        ]
+                    |> List.last
+
+                // the signature answered with the patient as signed, the same data
+                let signed = { SigningMachineTests.Fixtures.signed with Patient = pat }
+
+                let submitted =
+                    SigningMsg.SubmitAnswered("k-1", Ok(SigningResponse.Submitted(signed, OpenedToken "t2", pat)))
+
+                let after, effects, steps = lanes |> Lanes.transition newId (LanesMsg.Signing submitted)
+
+                effects
+                |> List.filter (
+                    function
+                    | LanesEffect.Patient(PatientEffect.CallPatient _)
+                    | LanesEffect.Workbench(OrderContextEffect.CallContext _)
+                    | LanesEffect.Plan(OrderPlanEffect.CallPlan _) -> true
+                    | _ -> false
+                )
+                |> Expect.isEmpty "no call"
+
+                steps
+                |> List.exists (
+                    function
+                    | LanesStep.Workbench(OrderContextMsg.PatientDataChanged _, _, _)
+                    | LanesStep.Plan(OrderPlanMsg.PatientDataChanged _, _, _) -> true
+                    | _ -> false
+                )
+                |> Expect.isFalse "no patient data changed"
+
+                PatientState.answered after.Patient
+                |> Expect.equal "the patient as before" (PatientState.answered lanes.Patient)
+            }
+
             test "a refresh answered: the patient goes out, the plan keeps its orders and follows the answer" {
                 let session = SessionMachineTests.full
 

@@ -86,11 +86,16 @@ module PatientState =
     /// is sent and the patient is cleared. After an edit that renews the estimates the draft takes
     /// the answered patient; after any other edit it is kept, so a cleared weight stays cleared. A
     /// failure puts back the draft the change started from, the one the orders were calculated for.
+    /// The patient data the orders were calculated for, given again while no change is under way, is
+    /// not sent again: the state, the draft included, stays as it is.
     /// An answered patient without a weight or a height, measured or estimated, is held back: every
     /// request would be refused for it, so the pages keep the patient they have, and the notice on
     /// the page says what is missing.
     let transition (msg: PatientMsg) (state: PatientState) : PatientState * PatientEffect list =
         match msg with
+        // the Session gives the patient as signed after a signature; the draft is kept, so a weight
+        // cleared before the signature stays cleared
+        | PatientMsg.Changed(Some pat, _, _) when state.InFlight.IsNone && state.Answered = Some pat -> state, []
         | PatientMsg.Changed(dto, estimates, request) ->
             let before = state.Draft
             let state = { state with Draft = dto }

@@ -459,6 +459,28 @@ let tests =
                 |> Expect.equal "the plan's answer" "TellAnswered"
             }
 
+            test "the patient data given again shows the change and nothing out" {
+                let held =
+                    PatientMachineTests.Fixtures.changing PatientDraftPolicy.Estimates.Kept "r-1"
+                    |> PatientMachine.PatientState.transition (
+                        PatientMachine.PatientMsg.Answered("r-1", Ok PatientMachineTests.Fixtures.answered)
+                    )
+                    |> fst
+
+                let again =
+                    PatientMachine.PatientMsg.Changed(
+                        Some PatientMachineTests.Fixtures.answered,
+                        PatientDraftPolicy.Estimates.Renewed,
+                        "r-2"
+                    )
+
+                Trail.patient 1 at again (held |> PatientMachine.PatientState.transition again)
+                |> Trail.format
+                |> Expect.equal
+                    "the line"
+                    "#1 10:41:07.311 Patient Changed patient 10.0 y est 32.0 kg est 140 cm gender unknown estimates renewed r-2 -> none | patient 10.0 y no weight no height gender unknown"
+            }
+
             test "every machine names itself" {
                 let plan = OrderPlanState.noPatient
                 let signing = SigningState.idle

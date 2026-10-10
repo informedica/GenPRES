@@ -149,4 +149,77 @@ let tests =
                     "the draft before the edit, nothing awaited, told"
                     (Some older, None, [ PatientEffect.TellError [| "failed" |] ])
             }
+
+            testList
+                "the same patient data sent once"
+                [
+                    // the patient answered under kept estimates: the draft as typed, the answer held
+                    let held =
+                        transition (PatientMsg.Answered("r-1", Ok answered)) (changing kept "r-1")
+                        |> fst
+
+                    test "the patient data answered, given again, is not sent and changes nothing" {
+                        held
+                        |> transition (PatientMsg.Changed(Some answered, renewed, "r-2"))
+                        |> Expect.equal "unchanged, nothing sent" (held, [])
+                    }
+
+                    test "a reset over a draft never answered clears the draft and the patient" {
+                        let state, effects = transition (PatientMsg.Changed(None, renewed, "r-2")) (changing kept "r-1")
+
+                        (PatientState.draft state, PatientState.changing state, effects)
+                        |> Expect.equal "cleared" (None, false, [ PatientEffect.SetPatientData None ])
+                    }
+
+                    test "an edit to the value the draft took under renewed estimates is not sent" {
+                        let renewedOnce =
+                            transition (PatientMsg.Answered("r-1", Ok answered)) (changing renewed "r-1")
+                            |> fst
+
+                        renewedOnce
+                        |> transition (PatientMsg.Changed(PatientState.draft renewedOnce, renewed, "r-2"))
+                        |> Expect.equal "unchanged, nothing sent" (renewedOnce, [])
+                    }
+
+                    test "the same data while a change is under way is sent, so the newer request replaces it" {
+                        let state, effects =
+                            held
+                            |> transition (PatientMsg.Changed(Some draft, kept, "r-2"))
+                            |> fst
+                            |> transition (PatientMsg.Changed(Some answered, renewed, "r-3"))
+
+                        (PatientState.inFlightRequest state, effects)
+                        |> Expect.equal "sent" (Some "r-3", [ PatientEffect.CallPatient(answered, "r-3") ])
+                    }
+
+                    test "a changed weight is sent" {
+                        let heavier = { answered with Weight = { answered.Weight with Measured = Some 35000<gram> } }
+
+                        held
+                        |> transition (PatientMsg.Changed(Some heavier, kept, "r-2"))
+                        |> snd
+                        |> Expect.equal "sent" [ PatientEffect.CallPatient(heavier, "r-2") ]
+                    }
+
+                    test "a weight cleared under kept estimates stays cleared when the same data comes again" {
+                        let measuredWeight =
+                            { answered with Weight = { answered.Weight with Measured = Some 35000<gram> } }
+
+                        let cleared = { measuredWeight with Weight = { measuredWeight.Weight with Measured = None } }
+
+                        // the weight cleared on the panel; the server fills the estimate back in
+                        let state =
+                            PatientState.init (Some measuredWeight)
+                            |> transition (PatientMsg.Changed(Some cleared, kept, "r-1"))
+                            |> fst
+                            |> transition (PatientMsg.Answered("r-1", Ok answered))
+                            |> fst
+
+                        // the Session gives the patient as signed, which is the data answered
+                        let state, effects = state |> transition (PatientMsg.Changed(Some answered, renewed, "r-2"))
+
+                        (PatientState.draft state, effects)
+                        |> Expect.equal "the draft as cleared, nothing sent" (Some cleared, [])
+                    }
+                ]
         ]
