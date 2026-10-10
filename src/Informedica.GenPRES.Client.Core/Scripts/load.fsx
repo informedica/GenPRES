@@ -44,4 +44,5 @@
 #load "../Url.fs"
 #load "../LoaderMachine.fs"
 #load "../AdminMachine.fs"
+#load "../ShellMachine.fs"
 #load "../Trail.fs"
