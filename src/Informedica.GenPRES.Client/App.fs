@@ -507,19 +507,6 @@ module private Elmish =
         Client.initial url |> Client.pageLoad newRequest sl url |> carryOut
 
 
-#if DEBUG
-    /// A state may be traced only once the server has said it serves the demo data: never before the
-    /// settings arrive, and never against production. The trail keeps the same gate through
-    /// StepTrail.confirmDemo.
-    let isTraceable (state: State) =
-        match Client.settings state with
-        | Resolved settings
-        | Refreshing settings -> settings.IsDemo
-        | HasNotStartedYet
-        | InProgress -> false
-#endif
-
-
     /// A message through the client, and its effects carried out.
     let update (msg: Msg) (state: State) = state |> Client.transition newRequest msg |> carryOut
 
@@ -538,93 +525,17 @@ module private Elmish =
         )
 
 
-open Elmish
-
-#if DEBUG
-open Elmish.Debug
-open Thoth.Json
-
-
-/// What the trace shows in place of the admin password.
-let redacted = "***"
-
-
-/// The message as the trace records it, with the admin password redacted: a development password may be the one
-/// a production server takes. The admin token stays, because a demo server signs it under its own mode, so it
-/// never opens a production server.
-let private redactMsg (msg: Msg) =
-    match msg with
-    | Msg.Admin(AdminMachine.AdminMsg.Login _) -> Msg.Admin(AdminMachine.AdminMsg.Login redacted)
-    | _ -> msg
-
-
-/// The console trace, silent while the state is not traceable.
-let private consoleTrace (msg: Msg) (state: State) _ =
-    if isTraceable state then
-        Browser.Dom.console.log ("New message:", redactMsg msg)
-        Browser.Dom.console.log ("Updated state:", state)
-
-
-/// A connection to the Redux DevTools extension that passes nothing on while the state is not traceable: the
-/// deflater hands it None for such a state. The history starts with the first traceable state, and every
-/// message it passes on is redacted.
-let private gatedConnection (inner: Fable.Import.RemoteDev.Connection) =
-    let mutable started = false
-
-    { new Fable.Import.RemoteDev.Connection with
-        member _.init(_, _) = ()
-        member _.subscribe listener = inner.subscribe listener
-        member _.unsubscribe = inner.unsubscribe
-        member _.error e = inner.error e
-
-        member _.send(msg, state) =
-            match unbox<obj option> state with
-            | None -> ()
-            | Some json when not started ->
-                started <- true
-                inner.init (json, None)
-            | Some json -> inner.send (unbox<Msg> msg |> redactMsg |> box, json)
-    }
-
-
-/// The Redux DevTools debugger over the gated connection, with the coders the debugger itself uses.
-let private withGatedDebugger (program: Program<unit, State, Msg, unit>) =
-    let coders = Extra.empty |> Extra.withDecimal |> Extra.withInt64 |> Extra.withUInt64
-
-    let encoder = Encode.Auto.generateEncoder<State>(extra = coders)
-    let decoder = Decode.Auto.generateDecoder<State>(extra = coders)
-
-    let deflate (state: State) =
-        if isTraceable state then Some(encoder state) else None
-        |> box
-
-    let inflate (json: obj) =
-        match Decode.fromValue "$" decoder json with
-        | Ok state -> state
-        | Error err -> invalidOp err
-
-    try
-        let connection =
-            Debugger.connectViaExtension<Msg>(Fable.Import.RemoteDev.ExtensionOptions())
-            |> gatedConnection
-        program |> Program.withDebuggerUsing deflate inflate connection
-    with ex ->
-        Browser.Dom.console.error ("[ELMISH DEBUGGER] continuing without the debugger", ex.Message)
-        program
-#endif
-
-
 /// The app as an Elmish program. A debug build with GENPRES_LOG on and GENPRES_PROD not 1 traces every message
 /// and the new state to the console, hands the history to the Redux DevTools browser extension, and keeps the
 /// readable trail of the machine steps, which window.genpresTrail() returns as text; for development testing
 /// only. It records nothing until the server settings confirm the demo data, so it never runs against
 /// production; a release build records nothing at all.
 let private program () =
-    let program = Program.mkProgram init update (fun _ _ -> ())
+    let program = Program.mkProgram Elmish.init Elmish.update (fun _ _ -> ())
 #if DEBUG
     if StepTrail.isTraceOn () then
         window?genpresTrail <- StepTrail.text
-        program |> Program.withTrace consoleTrace |> withGatedDebugger
+        program |> Program.withTrace Tracing.consoleTrace |> Tracing.withGatedDebugger
     else
         program
 #else
@@ -653,10 +564,12 @@ type private ConcreteAppEnv
         member _.OrderContext = Client.orderContext state
 
         member _.OrderContextMsg cmd =
-            Messages.workbench (OrderContextMsg.Command(cmd, newRequest ())) |> dispatch
+            Messages.workbench (OrderContextMsg.Command(cmd, Elmish.newRequest ()))
+            |> dispatch
 
         member _.ReopenField cmd =
-            Messages.workbench (OrderContextMsg.ReopenField(cmd, newRequest ())) |> dispatch
+            Messages.workbench (OrderContextMsg.ReopenField(cmd, Elmish.newRequest ()))
+            |> dispatch
 
         member _.RestoreField() = Messages.workbench OrderContextMsg.RestoreField |> dispatch
 
@@ -669,29 +582,31 @@ type private ConcreteAppEnv
         member _.OrderPlan = Client.orderPlan state
 
         member _.Add orderId =
-            Msg.Lanes(LanesMsg.Prescribe(orderId, newRequest (), newRequest ())) |> dispatch
+            Msg.Lanes(LanesMsg.Prescribe(orderId, Elmish.newRequest (), Elmish.newRequest ()))
+            |> dispatch
 
         member _.NewNutrition category =
-            Messages.plan (OrderPlanMsg.Change(OrderPlanChange.NewNutrition category, newRequest ()))
+            Messages.plan (OrderPlanMsg.Change(OrderPlanChange.NewNutrition category, Elmish.newRequest ()))
             |> dispatch
 
         member _.Remove ids =
-            Messages.plan (OrderPlanMsg.Change(OrderPlanChange.Remove ids, newRequest ()))
+            Messages.plan (OrderPlanMsg.Change(OrderPlanChange.Remove ids, Elmish.newRequest ()))
             |> dispatch
 
         member _.OrderDialogCommand(id, cmd) =
-            Messages.plan (OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand(id, cmd), newRequest ()))
+            Messages.plan (OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand(id, cmd), Elmish.newRequest ()))
             |> dispatch
 
         member _.ReopenField(id, cmd) =
-            Messages.plan (OrderPlanMsg.ReopenField(id, cmd, newRequest ())) |> dispatch
+            Messages.plan (OrderPlanMsg.ReopenField(id, cmd, Elmish.newRequest ()))
+            |> dispatch
 
         member _.RestoreField() = Messages.plan OrderPlanMsg.RestoreField |> dispatch
 
         member _.SelectContext id = Messages.plan (OrderPlanMsg.SelectContext id) |> dispatch
 
         member _.FilterRows ids =
-            Messages.plan (OrderPlanMsg.Change(OrderPlanChange.FilterRows ids, newRequest ()))
+            Messages.plan (OrderPlanMsg.Change(OrderPlanChange.FilterRows ids, Elmish.newRequest ()))
             |> dispatch
 
         member _.Changed = Client.changedOrders state
@@ -704,11 +619,11 @@ type private ConcreteAppEnv
         member _.Estimated = Client.estimated state
 
         member _.UpdatePatient p =
-            Msg.PanelChanged(p, PatientDraftPolicy.Estimates.Renewed, newRequest ())
+            Msg.PanelChanged(p, PatientDraftPolicy.Estimates.Renewed, Elmish.newRequest ())
             |> dispatch
 
         member _.EditPatient p =
-            Msg.PanelChanged(p, PatientDraftPolicy.Estimates.Kept, newRequest ())
+            Msg.PanelChanged(p, PatientDraftPolicy.Estimates.Kept, Elmish.newRequest ())
             |> dispatch
 
     interface AppEnv.IFormulary with
@@ -752,7 +667,7 @@ type private ConcreteAppEnv
         member _.Differences = Client.differences state
 
         // one request id per Sign, so the answer lands on this request and no other
-        member _.Sign plan = Msg.Sign(plan, newRequest ()) |> dispatch
+        member _.Sign plan = Msg.Sign(plan, Elmish.newRequest ()) |> dispatch
 
         member _.Held = Client.held state
 
@@ -760,7 +675,7 @@ type private ConcreteAppEnv
 
         // one key per confirmation, so the commit takes effect once; the machine keeps it for a retry
         member _.Confirm pin =
-            Messages.signing (SigningMsg.ConfirmPin(pin, newRequest ())) |> dispatch
+            Messages.signing (SigningMsg.ConfirmPin(pin, Elmish.newRequest ())) |> dispatch
 
         member _.Cancel() = Messages.signing SigningMsg.Cancel |> dispatch
 
@@ -925,7 +840,7 @@ let View () =
         | _ -> null
 
     let bm =
-        calculateInterventions EmergencyTreatment.calculate (Client.bolusMedication state) (Client.draft state)
+        Elmish.calculateInterventions EmergencyTreatment.calculate (Client.bolusMedication state) (Client.draft state)
 
     let cm =
         let calc =
@@ -934,7 +849,7 @@ let View () =
                 | Some w' -> ContinuousMedication.calculate w' meds
                 | None -> []
 
-        calculateInterventions calc (Client.continuousMedication state) (Client.draft state)
+        Elmish.calculateInterventions calc (Client.continuousMedication state) (Client.draft state)
 
     let appEnv = ConcreteAppEnv(state, dispatch, bm, cm) :> obj
 
@@ -1003,6 +918,8 @@ let View () =
                 onCancel = fun () -> Msg.Shell ShellMachine.ShellMsg.UrlKept |> dispatch
             |}
 
+    let onUrlChanged sl = Msg.UrlChanged(sl, Elmish.parseUrl sl) |> dispatch
+
     // the quantity fields read whether one of them counts, and report their own count
     let counting: Global.Counting =
         {
@@ -1041,7 +958,7 @@ let View () =
             <Box sx={sx}>
                 <CssBaseline />
                 {serverErrorBanner}
-                {Components.Router.View {| onUrlChanged = (fun sl -> Msg.UrlChanged(sl, parseUrl sl)) >> dispatch |}}
+                {Components.Router.View {| onUrlChanged = onUrlChanged |}}
                 {leaveDialog}
                 {Pages.GenPres.View genPresProps
                  |> toReact
