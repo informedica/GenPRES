@@ -11,6 +11,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- the contract data the order tests share -->
+    <Compile Include="OrderFixtures.fs" />
+
     <!-- the rest -->
     <Compile Include="DeferredTests.fs" />
     <Compile Include="TermTextTests.fs" />
@@ -23,11 +26,15 @@
     <Compile Include="PatientMachineTests.fs" />
     <Compile Include="PickPolicyTests.fs" />
     <Compile Include="StepPolicyTests.fs" />
+    <Compile Include="DialogTabPolicyTests.fs" />
     <Compile Include="SeverityReasonPolicyTests.fs" />
+    <Compile Include="ArgumentationPolicyTests.fs" />
     <Compile Include="QuantityModePolicyTests.fs" />
     <Compile Include="IntakePolicyTests.fs" />
     <Compile Include="FieldOpenPolicyTests.fs" />
     <Compile Include="PickListTests.fs" />
+    <Compile Include="PlanContextPolicyTests.fs" />
+    <Compile Include="PlanCellPolicyTests.fs" />
     <Compile Include="SectionFoldPolicyTests.fs" />
     <Compile Include="TotalsChangePolicyTests.fs" />
     <Compile Include="PlanWorkPolicyTests.fs" />
@@ -56,12 +63,6 @@
     <Compile Include="LoaderMachineTests.fs" />
     <Compile Include="AdminMachineTests.fs" />
     <Compile Include="ShellMachineTests.fs" />
-
-    <!-- policies over the contract alone, whose tests read the order plan machine's fixtures -->
-    <Compile Include="ArgumentationPolicyTests.fs" />
-    <Compile Include="DialogTabPolicyTests.fs" />
-    <Compile Include="PlanContextPolicyTests.fs" />
-    <Compile Include="PlanCellPolicyTests.fs" />
 
     <!-- the readable trail of the machines -->
     <Compile Include="TrailTests.fs" />

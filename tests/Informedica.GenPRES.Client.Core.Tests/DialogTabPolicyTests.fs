@@ -4,7 +4,7 @@ module Informedica.GenPRES.Client.Core.Tests.DialogTabPolicyTests
 open Expecto
 open Expecto.Flip
 open Shared.Types
-open Informedica.GenPRES.Client.Core.Tests.OrderPlanMachineTests.Fixtures
+open Informedica.GenPRES.Client.Core.Tests.OrderFixtures
 
 
 /// A scenario whose order has two components, each with a substance, the second's after an

@@ -398,8 +398,7 @@ let workbenchTests =
 [<Tests>]
 let selectionTests =
     // a context whose one scenario has an order the dialog can select
-    let withOrder =
-        { paracetamol with Scenarios = [| OrderPlanMachineTests.Fixtures.scenario "o-1" "paracetamol" |] }
+    let withOrder = { paracetamol with Scenarios = [| OrderFixtures.scenario "o-1" "paracetamol" |] }
 
     let select = OrderContextState.select
     let dialog = OrderContextState.dialog
@@ -489,8 +488,7 @@ let selectionTests =
 [<Tests>]
 let refusalTests =
     // a context whose one scenario has an order the dialog can select
-    let withOrder =
-        { paracetamol with Scenarios = [| OrderPlanMachineTests.Fixtures.scenario "o-1" "paracetamol" |] }
+    let withOrder = { paracetamol with Scenarios = [| OrderFixtures.scenario "o-1" "paracetamol" |] }
 
     let refused = OrderContextState.refused patient
     let view = OrderContextState.view
@@ -675,7 +673,7 @@ let reopenTests =
     let context id name =
         { paracetamol with
             Id = id
-            Scenarios = [| OrderPlanMachineTests.Fixtures.scenario $"o-{id}" name |]
+            Scenarios = [| OrderFixtures.scenario $"o-{id}" name |]
         }
 
     let c1 = context "c-1" "paracetamol"
@@ -790,7 +788,7 @@ let specificCommandTests =
 
     // a context whose one scenario offers two frequencies
     let twoFrequencies =
-        let sc = OrderPlanMachineTests.Fixtures.scenario "o-1" "paracetamol"
+        let sc = OrderFixtures.scenario "o-1" "paracetamol"
 
         let freq =
             { sc.Order.Schedule.Frequency with
@@ -942,8 +940,7 @@ let answeredTests =
 /// The workbench narrowed to the order prescribed, as it goes into the plan.
 [<Tests>]
 let narrowedToTests =
-    let scenario id form =
-        { OrderPlanMachineTests.Fixtures.scenario id "paracetamol" with Form = form }
+    let scenario id form = { OrderFixtures.scenario id "paracetamol" with Form = form }
 
     let twoForms = { paracetamol with Scenarios = [| scenario "o-1" "tablet"; scenario "o-2" "zetpil" |] }
 

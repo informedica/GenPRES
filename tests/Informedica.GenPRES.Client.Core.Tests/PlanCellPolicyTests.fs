@@ -62,7 +62,7 @@ module PlanCellPolicyTests =
         { Shared.Models.OrderContext.empty with
             Id = "c-1"
             Patient = patient
-            Scenarios = [| { OrderPlanMachineTests.Fixtures.scenario "o-1" "test" with Order = ord } |]
+            Scenarios = [| { OrderFixtures.scenario "o-1" "test" with Order = ord } |]
         }
 
     let planOf ctx = Shared.Models.OrderPlan.create patient [| ctx |]

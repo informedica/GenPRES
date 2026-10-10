@@ -10,6 +10,7 @@ open SigningMachine
 open OrderPlanMachine
 open OrderContextMachine
 open Lanes
+open Informedica.GenPRES.Client.Core.Tests.OrderFixtures
 open Informedica.GenPRES.Client.Core.Tests.OrderPlanMachineTests.Fixtures
 
 

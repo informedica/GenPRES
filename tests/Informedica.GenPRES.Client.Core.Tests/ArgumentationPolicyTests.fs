@@ -5,7 +5,7 @@ open Expecto
 open Expecto.Flip
 open Shared.Types
 open Shared.Api
-open Informedica.GenPRES.Client.Core.Tests.OrderPlanMachineTests.Fixtures
+open Informedica.GenPRES.Client.Core.Tests.OrderFixtures
 
 
 let text = "Sepsis, hogere dosis in overleg met de apotheek"

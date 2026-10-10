@@ -12,7 +12,7 @@ module PlanContextPolicyTests =
 
 
     /// An OrderScenario with its order id and its name set, every other field a default.
-    let scenario = OrderPlanMachineTests.Fixtures.scenario
+    let scenario = OrderFixtures.scenario
 
 
     let ten = { Shared.Models.Patient.Age.ageZero with Age.Years = 10<year> }
