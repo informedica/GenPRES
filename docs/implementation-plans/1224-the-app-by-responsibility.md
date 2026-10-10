@@ -28,7 +28,7 @@ two parts of the view that are views of their own.
   the lane calls, the plan, the workbench and the patient, repeat the same twelve lines: the call
   under the token, `Ok reply` answered through `answered`, `Error errs` and the exception answered
   as an `Error`.
-- **The Elmish loop**: `noteLanding`, `carryOut`, `init`, `update`, `program`.
+- **The Elmish program**: `noteLanding`, `carryOut`, `init`, `update`, `program`.
 - **The trace gate and the debugger**, under `#if DEBUG`: `isTraceable`, `redacted`, `redactMsg`,
   `consoleTrace`, `gatedConnection`, `withGatedDebugger`. Development tooling, not the App.
 - **The projection**: `ConcreteAppEnv`, with `calculateInterventions` and the two lists it takes
@@ -113,8 +113,9 @@ part in the function name (`applyShellEffect`) where the trail qualifies them by
      keeps the lane names. `eraseLaunch` and `presentLaunch` stay beside `shell`, `callContext`
      beside `workbench`. `signing` binds a `plan` in its first arm, which shadows `Effects.plan`
      there; harmless, since `signing` never calls it, and the move leaves it.
-   - `module Loop`: `noteLanding`, `carryOut`, `init`, `update`, `program`. Not `Program`, which
-     `Elmish.Program` takes.
+   - `noteLanding`, `carryOut`, `init`, `update` and `program` at the top level of the file, not
+     in a module: the functions an Elmish app is expected to have, under the names Elmish gives
+     them, where a reader looks for them.
    - `type Projection(state, dispatch)`: `ConcreteAppEnv` under the word the last plan uses for
      it, the projection, with `calculateInterventions` and the two lists computed inside it, so
      the view no longer computes them and the constructor takes two arguments.
@@ -127,7 +128,7 @@ part in the function name (`applyShellEffect`) where the trail qualifies them by
      own React template. It goes first, so that every later step's hot reload check means
      something.
    - `Tracing.fs`, module `Tracing`, before `App.fs`: `isTraceable`, `redacted`, `redactMsg`,
-     `consoleTrace`, `gatedConnection`, `withGatedDebugger`, public, since `Loop.program` calls
+     `consoleTrace`, `gatedConnection`, `withGatedDebugger`, public, since `program` calls
      `consoleTrace` and `withGatedDebugger` and the debugger calls `isTraceable`. The module
      header stays outside the `#if DEBUG`, the body inside: an empty file that is not the last
      does not compile.
@@ -145,6 +146,8 @@ part in the function name (`applyShellEffect`) where the trail qualifies them by
      `asksLaunch`, `getTerm`, `onConfirm`, `onCancel`.
    - `Views/AlertSnackbar.fs`, module `Views.AlertSnackbar`, one `View` with the severity, the
      text and the auto-hide as locals, over props: `alert: Alert option`, `getTerm`, `onClose`.
+     The view keeps the two ways it closes: the close button and the auto-hide call `onClose`, a
+     click outside the snackbar does not, as `handleClose` ignores the click-away reason today.
      Beside `Views/AlertText.fs`, which gives it the words and already takes an `Alert`.
    Neither view takes the client's state or message: no file under `Views`, `Pages` or
    `Components` names a `Client` type, and a view is fed by props or by the `AppEnv`
@@ -153,9 +156,9 @@ part in the function name (`applyShellEffect`) where the trail qualifies them by
    of a file as an export of its module, and Vite's React Fast Refresh hot-swaps a file only
    when each export is a component or keeps its identity. Every file with a component exports
    components only, but the eleven in the table above; `Pages/GenPres.fs` keeps its wiring behind
-   a `module private Elmish` for that reason. So `Messages`, `Effects` and `Loop` are
-   `module private`, `Projection` is `type private`, `redacted` leaves with `Tracing.fs`, and
-   `root` leaves with `Main.fs`. `Tracing.fs`, `MUI.fs` and `Main.fs` hold no component; the two
+   a `module private Elmish` for that reason. So `Messages` and `Effects` are `module private`,
+   the five Elmish functions `let private`, `Projection` is `type private`, `redacted` leaves
+   with `Tracing.fs`, and `root` leaves with `Main.fs`. `Tracing.fs`, `MUI.fs` and `Main.fs` hold no component; the two
    views export one `View` each. The components in the table stay as they are: after step 1
    their failing exports widen a swap to the importers and never reload. The private is for
    `App.fs` alone, where it keeps the entry's only importer a boundary.
@@ -182,7 +185,7 @@ part in the function name (`applyShellEffect`) where the trail qualifies them by
      thing: the argument of a one-line lambda, a bound case or exception, `e`, `m`, `ex`, `r`,
      and a local in a body, which the coding instructions keep short;
    - a function is named for its one job, and two functions with one job share no name:
-     `Effects.apply` carries one effect out as a command, `Loop.carryOut` records a transition's
+     `Effects.apply` carries one effect out as a command, `carryOut` records a transition's
      steps and carries its effects out, as the machines' `transition` and `Client.run` differ;
    - the parts keep the names of their cases, `shell`, `loader`, `admin`, `session`, `signing`,
      `plan`, `workbench`, `patient`, in `Messages` and in `Effects` alike, so that
@@ -203,16 +206,19 @@ in step 8, is a read like the thirty-six of the last plan's step 10 and gets no 
 
 1. **The entry.** `Main.fs` with `root` and the render; `index.html` loads `output/Main.jsx`;
    `App.fs` ends with `View`. The fsproj adds the file after `App.fs`.
-2. **The messages and the effects.** `State` and `Msg` to the top of the file as
-   `type private`; `Messages` and `Effects` split off the top of the `Elmish` module, `Effects`
-   with `serverApi`, `tokenOf`, the eight part functions, `eraseLaunch`, `presentLaunch`,
-   `callContext` and `apply`. The rest of `Elmish` stays and qualifies: `Effects.apply`,
-   `Messages.session m`; the projection too. The 58 lane helper call sites and the nine effect
-   calls are the diff beside the headers.
+2. **The messages, the effects and the Elmish module gone.** `State` and `Msg` to the top of
+   the file as `type private`; `Messages` and `Effects` split off the top of the `Elmish`
+   module, `Effects` with `serverApi`, `tokenOf`, the eight part functions, `eraseLaunch`,
+   `presentLaunch`, `callContext` and `apply`. What is left, `noteLanding`, `carryOut`, `init`,
+   `update`, `isTraceable` and `calculateInterventions`, moves to the top level, `let private`,
+   beside `program`, and the `Elmish` module and its `open` are gone. The call sites qualify:
+   `Effects.apply`, `Messages.session m`; the projection too. The diff is the headers, the 58
+   lane helper call sites, the nine effect calls and the sixty lines that lose their indentation;
+   about 190 lines.
 3. **One call under the session.** `Effects.underSession`; the plan, workbench and patient arms
    through it; `callContext` removed. About thirty lines fewer.
-4. **The tracing out, the loop named.** `Tracing.fs`; what is left of `Elmish` becomes `Loop`,
-   with `program`. `App.fs` opens `Elmish` once, for `Program.mkProgram` in `Loop`.
+4. **The tracing out.** `Tracing.fs`; `isTraceable` and the debugger leave `App.fs`, and
+   `program` calls `Tracing.consoleTrace` and `Tracing.withGatedDebugger`.
 5. **The themes.** `Mui.Themes` in `MUI.fs`, written in F# over the two imports; `View` reads
    `Mui.Themes.desktop` and `Mui.Themes.mobile`; `themeDef`, `mobileDef`, `theme` and `mobile`
    leave `App.fs`.
@@ -240,8 +246,8 @@ After step 8, by estimate:
 | `Main.fs` | 10 |
 | `MUI.fs` | +50 |
 
-In `App.fs`: `Messages` 40, `Effects` 390, `Loop` 60, `Projection` 180, `View` 110, the rest doc
-comments and blank lines.
+In `App.fs`: `Messages` 40, `Effects` 390, the Elmish functions 60, `Projection` 180, `View` 110,
+the rest doc comments and blank lines.
 
 ## Verification, per step
 
@@ -261,8 +267,8 @@ comments and blank lines.
   swaps the view in place, the browser console shows no "Could not Fast Refresh" and no
   "createRoot" warning, and the page keeps its state. What shows in place is an edit to the
   view, the two views, the projection, which is constructed on every render, and the themes.
-  `React.useElmish` builds the loop once, with no dependencies, so an edit to `Messages`,
-  `Effects`, `Loop` or `Tracing` runs after a reload of the page, as today.
+  `React.useElmish` builds the program once, with no dependencies, so an edit to `Messages`,
+  `Effects`, the Elmish functions or `Tracing` runs after a reload of the page, as today.
 - **Step 1:** the hot reload check above, for the first time; `npx vite build` finds the entry.
 - **Step 3:** a plan change, a workbench pick and a patient edit answer as before; the server
   stopped, each raises the error banner under its source.
@@ -274,8 +280,9 @@ comments and blank lines.
   `createTheme`; the desktop and the mobile page look as before.
 - **Step 6:** the emergency list and the continuous medication with and without a patient.
 - **Step 7:** the leave dialog's three texts, launched or not, with or without a launch in the
-  url; the snackbar auto-hides on a success and stays on an error; `grep -c '^export'` reads 1
-  for each of the two views.
+  url; the snackbar auto-hides on a success and stays on an error, its close button dismisses
+  it, and a click outside it leaves it open; `grep -c '^export'` reads 1 for each of the two
+  views.
 - **Step 8:** `grep -nwE 'tokenOf|cmd|req|bm|cm' App.fs` finds nothing, and
   `grep -n 'Lanes.Session' App.fs` too; in code, `token` appears in `Effects.admin` only, and in
   the comments only as the admin's or the launch's.
