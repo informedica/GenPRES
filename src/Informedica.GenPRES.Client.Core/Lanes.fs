@@ -175,19 +175,19 @@ let route (newId: unit -> string) effect =
     | LanesEffect.Signing(SigningEffect.TellSigned _) -> [ LanesMsg.Plan OrderPlanMsg.Signed ]
     | LanesEffect.Signing(SigningEffect.TellRefused(SigningRefusal.Blocked head)) ->
         [ LanesMsg.Session(SessionMsg.SignatureBlocked head) ]
-    // the Session's patient goes to the patient machine, with the estimates renewed as for any
-    // patient given from outside, and its saved orders to the plan
-    | LanesEffect.Session(SessionEffect.SetPatient pat) ->
+    // the Session's patient data goes to the patient machine, with the estimates renewed as for
+    // any patient data given from outside, and its saved orders to the plan
+    | LanesEffect.Session(SessionEffect.SetPatientData pat) ->
         [
             LanesMsg.Patient(PatientMsg.Changed(pat, PatientDraftPolicy.Estimates.Renewed, newId ()))
         ]
     | LanesEffect.Session(SessionEffect.LoadSignedPlan head) ->
         [ LanesMsg.Plan(OrderPlanMsg.OpenSignedPlan(head, newId ())) ]
-    // the patient answered goes to the workbench and the plan
-    | LanesEffect.Patient(PatientEffect.SetPatient pat) ->
+    // the patient data answered goes to the workbench and the plan
+    | LanesEffect.Patient(PatientEffect.SetPatientData pat) ->
         [
-            LanesMsg.Workbench(OrderContextMsg.PatientChanged(pat, newId ()))
-            LanesMsg.Plan(OrderPlanMsg.PatientChanged(pat, newId ()))
+            LanesMsg.Workbench(OrderContextMsg.PatientDataChanged(pat, newId ()))
+            LanesMsg.Plan(OrderPlanMsg.PatientDataChanged(pat, newId ()))
         ]
     | _ -> []
 

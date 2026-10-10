@@ -70,13 +70,13 @@ let tests =
             test "a step is one line with its number, time, machine, message, effects and state" {
                 let state, effects =
                     OrderContextState.noPatient
-                    |> OrderContextState.transition (OrderContextMsg.PatientChanged(Some pat, "r-1"))
+                    |> OrderContextState.transition (OrderContextMsg.PatientDataChanged(Some pat, "r-1"))
 
-                Trail.orderContext 12 at (OrderContextMsg.PatientChanged(Some pat, "r-1")) (state, effects)
+                Trail.orderContext 12 at (OrderContextMsg.PatientDataChanged(Some pat, "r-1")) (state, effects)
                 |> Trail.format
                 |> Expect.equal
                     "the line"
-                    "#12 10:41:07.311 OrderContext PatientChanged patient 3.0 y 14.0 kg no height gender unknown r-1 -> CallContext ClearAllFilterProperty workbench r-1 | Changing workbench awaits r-1"
+                    "#12 10:41:07.311 OrderContext PatientDataChanged patient 3.0 y 14.0 kg no height gender unknown r-1 -> CallContext ClearAllFilterProperty workbench r-1 | Changing workbench awaits r-1"
             }
 
             test "a seed shows its source and how many choices, never their text" {
@@ -468,7 +468,7 @@ let tests =
 let exampleTests =
     test "a patient, an answer, a pick and a refusal read as four lines" {
         [
-            OrderContextMsg.PatientChanged(Some pat, "r-1")
+            OrderContextMsg.PatientDataChanged(Some pat, "r-1")
             OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated ctx))
             OrderContextMsg.Command(OrderViewCommand.SetNthFilterProperty(OrderContext.Generic, 0), "r-2")
             OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Refused(ctxPicked, OrderContextRefusal.NoProducts)))
@@ -486,7 +486,7 @@ let exampleTests =
         |> Expect.equal
             "the lines"
             [
-                "#1 10:41:08.311 OrderContext PatientChanged patient 3.0 y 14.0 kg no height gender unknown r-1 -> CallContext ClearAllFilterProperty workbench r-1 | Changing workbench awaits r-1"
+                "#1 10:41:08.311 OrderContext PatientDataChanged patient 3.0 y 14.0 kg no height gender unknown r-1 -> CallContext ClearAllFilterProperty workbench r-1 | Changing workbench awaits r-1"
                 "#2 10:41:09.311 OrderContext Answered r-1 Ok Evaluated workbench no picks 0 scenarios -> SyncPages | Settled workbench"
                 "#3 10:41:10.311 OrderContext Command SetNthFilterProperty Generic nth=0 r-2 -> CallContext SetNthFilterProperty Generic nth=0 workbench r-2 | Changing workbench awaits r-2"
                 "#4 10:41:11.311 OrderContext Answered r-2 Ok Refused ctx-1 pain/paracetamol/oral 0 scenarios NoProducts -> SyncPages | Refused ctx-1 NoProducts"

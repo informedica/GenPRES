@@ -189,7 +189,10 @@ module SessionMachineTests =
                         |> Expect.equal
                             "open"
                             (SessionState.opened full None,
-                             [ SessionEffect.SetPatient(Some patient); SessionEffect.KeepBrowserKey "thumb" ])
+                             [
+                                 SessionEffect.SetPatientData(Some patient)
+                                 SessionEffect.KeepBrowserKey "thumb"
+                             ])
                     }
 
                     test "Opened over a record loads its head into the cart, after the patient" {
@@ -217,7 +220,7 @@ module SessionMachineTests =
                             "open"
                             (SessionState.opened over None,
                              [
-                                 SessionEffect.SetPatient(Some patient)
+                                 SessionEffect.SetPatientData(Some patient)
                                  SessionEffect.KeepBrowserKey "thumb"
                                  SessionEffect.LoadSignedPlan head
                              ])
@@ -233,14 +236,14 @@ module SessionMachineTests =
 
                         transition (SessionMsg.LaunchOutcome(launchA, keyA, Ok(LaunchOutcome.Opened bare))) launching
                         |> snd
-                        |> Expect.equal "nothing to load" [ SessionEffect.SetPatient None ]
+                        |> Expect.equal "nothing to load" [ SessionEffect.SetPatientData None ]
                     }
 
                     test "Opened without a patient sets None; without a thumbprint prunes nothing" {
                         let bare = sessionWith None None
 
                         transition (SessionMsg.LaunchOutcome(launchA, keyA, Ok(LaunchOutcome.Opened bare))) launching
-                        |> Expect.equal "open" (SessionState.opened bare None, [ SessionEffect.SetPatient None ])
+                        |> Expect.equal "open" (SessionState.opened bare None, [ SessionEffect.SetPatientData None ])
                     }
 
                     test "RedirectTo goes to the url and stays Launching" {
@@ -357,7 +360,7 @@ module SessionMachineTests =
                                 effects
                                 |> List.exists (
                                     function
-                                    | SessionEffect.SetPatient _ -> true
+                                    | SessionEffect.SetPatientData _ -> true
                                     | _ -> false
                                 )
                                 |> Expect.isFalse "no patient set from the stale outcome"
@@ -442,7 +445,7 @@ module SessionMachineTests =
                         |> Expect.equal "open" (SessionState.onOpened full)
                     }
 
-                    test "Resumed without a session is Anonymous and keeps the url patient (no SetPatient)" {
+                    test "Resumed without a session is Anonymous and keeps the url patient (no SetPatientData)" {
                         transition (SessionMsg.Resumed(Ok ResumeResult.NotFound)) SessionState.resuming
                         |> Expect.equal "anonymous" (SessionState.anonymous, [])
                     }
@@ -474,7 +477,7 @@ module SessionMachineTests =
                         let ended = SessionState.ended SessionEnding.SupersededByLaunch
 
                         transition SessionMsg.ContinueAnonymous ended
-                        |> Expect.equal "anonymous" (SessionState.anonymous, [ SessionEffect.SetPatient None ])
+                        |> Expect.equal "anonymous" (SessionState.anonymous, [ SessionEffect.SetPatientData None ])
 
                         transition (SessionMsg.PresentLaunch(launchB, keyB)) ended
                         |> Expect.equal "presents" (SessionState.present launchB keyB)
@@ -488,7 +491,7 @@ module SessionMachineTests =
                                 SessionState.unreachable launchA keyA
                             ] do
                             transition SessionMsg.ContinueAnonymous state
-                            |> Expect.equal "anonymous" (SessionState.anonymous, [ SessionEffect.SetPatient None ])
+                            |> Expect.equal "anonymous" (SessionState.anonymous, [ SessionEffect.SetPatientData None ])
 
                         for state in [ SessionState.anonymous; launching; SessionState.opened full None ] do
                             transition SessionMsg.ContinueAnonymous state
@@ -592,7 +595,7 @@ module SessionMachineTests =
 
                     test "SessionClosed from Closing is Anonymous and clears the patient" {
                         transition SessionMsg.SessionClosed (SessionState.closing full)
-                        |> Expect.equal "anonymous" (SessionState.anonymous, [ SessionEffect.SetPatient None ])
+                        |> Expect.equal "anonymous" (SessionState.anonymous, [ SessionEffect.SetPatientData None ])
                     }
 
                     test "CloseFailed from Closing returns to Open with the same session and no effects" {
@@ -642,11 +645,11 @@ module SessionMachineTests =
 
                         effects
                         |> Expect.equal
-                            "no SetPatient None from the close"
+                            "no SetPatientData None from the close"
                             [
                                 SessionEffect.CallCloseSession
                                 SessionEffect.CallPresentLaunch(launchB, keyB)
-                                SessionEffect.SetPatient(Some patient)
+                                SessionEffect.SetPatientData(Some patient)
                                 SessionEffect.KeepBrowserKey "thumb-2"
                             ]
                     }
@@ -677,13 +680,13 @@ module SessionMachineTests =
                             (SessionState.opened full None)
                         |> Expect.equal
                             "renewed"
-                            (SessionState.opened (renewed full) None, [ SessionEffect.SetPatient(Some aged) ])
+                            (SessionState.opened (renewed full) None, [ SessionEffect.SetPatientData(Some aged) ])
 
-                        // the same SetPatient a resume of the renewed Session gives
+                        // the same SetPatientData a resume of the renewed Session gives
                         SessionState.onOpened (renewed full)
                         |> snd
                         |> List.head
-                        |> Expect.equal "as at a resume" (SessionEffect.SetPatient(Some aged))
+                        |> Expect.equal "as at a resume" (SessionEffect.SetPatientData(Some aged))
 
                         // a Session without a patient context: the token only
                         let none = sessionWith (Some "thumb") None
@@ -699,7 +702,7 @@ module SessionMachineTests =
                                     Head = Some signedVersion
                                 }
                                 None,
-                             [ SessionEffect.SetPatient(Some aged) ])
+                             [ SessionEffect.SetPatientData(Some aged) ])
 
                         for state in [ SessionState.anonymous; SessionState.closing full; launching ] do
                             transition (SessionMsg.SignatureRenewedToken(OpenedToken "t2", aged, signedVersion)) state
@@ -724,10 +727,10 @@ module SessionMachineTests =
                             "effects in order"
                             [
                                 SessionEffect.CallPresentLaunch(launchA, keyA)
-                                SessionEffect.SetPatient(Some patient)
+                                SessionEffect.SetPatientData(Some patient)
                                 SessionEffect.KeepBrowserKey "thumb"
                                 SessionEffect.CallCloseSession
-                                SessionEffect.SetPatient None
+                                SessionEffect.SetPatientData None
                             ]
                     }
                 ]
@@ -866,7 +869,7 @@ module SessionMachineTests =
                             (SessionState.opened full None)
                         |> Expect.equal
                             "the patient alone"
-                            (SessionState.opened refreshed None, [ SessionEffect.SetPatient(Some aged) ])
+                            (SessionState.opened refreshed None, [ SessionEffect.SetPatientData(Some aged) ])
 
                         let noHead = { refreshed with Head = None }
 
@@ -875,7 +878,7 @@ module SessionMachineTests =
                             (SessionState.opened full None)
                         |> Expect.equal
                             "the patient alone"
-                            (SessionState.opened noHead None, [ SessionEffect.SetPatient(Some aged) ])
+                            (SessionState.opened noHead None, [ SessionEffect.SetPatientData(Some aged) ])
                     }
 
                     test
@@ -1190,7 +1193,10 @@ module SessionMachineTests =
                         |> Expect.equal
                             "open"
                             (SessionState.opened full None,
-                             [ SessionEffect.SetPatient(Some patient); SessionEffect.KeepBrowserKey "thumb" ])
+                             [
+                                 SessionEffect.SetPatientData(Some patient)
+                                 SessionEffect.KeepBrowserKey "thumb"
+                             ])
                     }
 
                     test "an answer to no request is dropped" {
@@ -1436,7 +1442,7 @@ module SessionMachineTests =
                         (SessionState.opened full (Some two))
                     |> Expect.equal
                         "renewed, kept"
-                        (SessionState.opened (renewed full) (Some two), [ SessionEffect.SetPatient(Some aged) ])
+                        (SessionState.opened (renewed full) (Some two), [ SessionEffect.SetPatientData(Some aged) ])
                 }
 
                 test "the notice goes with the Session: a close, a launch, an ending" {

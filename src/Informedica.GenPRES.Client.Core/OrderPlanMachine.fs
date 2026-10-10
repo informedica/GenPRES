@@ -87,8 +87,8 @@ type OrderPlanState =
 /// the answer can name it.
 [<RequireQualifiedAccess>]
 type OrderPlanMsg =
-    /// The patient set, changed or cleared; the plan follows.
-    | PatientChanged of Patient option * request: string
+    /// The patient data set, changed or cleared; the plan follows.
+    | PatientDataChanged of Patient option * request: string
     /// The version the session opened with; it replaces the plan and any request.
     | OpenSignedPlan of SignedOrderPlan * request: string
     /// What a page wants of the plan, built over the plan held.
@@ -382,12 +382,12 @@ module OrderPlanState =
 
         // the patient cleared reaches every state and drops the request out; no patient leaves
         // nothing unsigned
-        | OrderPlanMsg.PatientChanged(None, _), _, _ -> noPatient, []
+        | OrderPlanMsg.PatientDataChanged(None, _), _, _ -> noPatient, []
         // the first plan for a patient: the waiting version, or an empty plan, is opened
-        | OrderPlanMsg.PatientChanged(Some pat, request), OrderPlanCart.NoPatient awaiting, None ->
+        | OrderPlanMsg.PatientDataChanged(Some pat, request), OrderPlanCart.NoPatient awaiting, None ->
             opening pat awaiting request state
         // the plan held is recalculated for the patient updated
-        | OrderPlanMsg.PatientChanged(Some pat, request), OrderPlanCart.Opened(_, tp), None ->
+        | OrderPlanMsg.PatientDataChanged(Some pat, request), OrderPlanCart.Opened(_, tp), None ->
             send
                 (OrderPlanCommand.UpdatePatient(pat, tp))
                 request

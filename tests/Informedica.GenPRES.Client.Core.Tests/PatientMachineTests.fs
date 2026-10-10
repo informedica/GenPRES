@@ -59,7 +59,7 @@ let tests =
                 (PatientState.draft state, PatientState.inFlightRequest state, effects)
                 |> Expect.equal
                     "the draft, nothing awaited, the patient cleared"
-                    (Some below, None, [ PatientEffect.SetPatient None ])
+                    (Some below, None, [ PatientEffect.SetPatientData None ])
             }
 
             test "after an edit that renews the estimates the draft takes the answered patient" {
@@ -68,14 +68,14 @@ let tests =
                 (PatientState.draft state, PatientState.inFlightRequest state, effects)
                 |> Expect.equal
                     "the answer on the panel and on the rest"
-                    (Some answered, None, [ PatientEffect.SetPatient(Some answered) ])
+                    (Some answered, None, [ PatientEffect.SetPatientData(Some answered) ])
             }
 
             test "after any other edit the draft is kept, the answered patient goes to the rest" {
                 let state, effects = transition (PatientMsg.Answered("r-1", Ok answered)) (changing kept "r-1")
 
                 (PatientState.draft state, effects)
-                |> Expect.equal "the draft as typed" (Some draft, [ PatientEffect.SetPatient(Some answered) ])
+                |> Expect.equal "the draft as typed" (Some draft, [ PatientEffect.SetPatientData(Some answered) ])
             }
 
             test "an answered patient without a weight or a height is held back, the pages keep theirs" {

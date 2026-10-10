@@ -383,7 +383,7 @@ module Session =
         | SessionEffect.CallCloseSession -> "CallCloseSession"
         | SessionEffect.CallSupplyPin _ -> "CallSupplyPin"
         | SessionEffect.GoToIdentityProvider _ -> "GoToIdentityProvider"
-        | SessionEffect.SetPatient p -> $"SetPatient %s{Part.patientOption p}"
+        | SessionEffect.SetPatientData p -> $"SetPatientData %s{Part.patientOption p}"
         | SessionEffect.KeepBrowserKey _ -> "KeepBrowserKey"
         | SessionEffect.LoadSignedPlan s -> $"LoadSignedPlan %s{Part.signed s}"
         | SessionEffect.CallOpenSignedPlan(id, from) -> $"CallOpenSignedPlan %s{Part.shortId id} %s{Part.token from}"
@@ -486,7 +486,8 @@ module OrderPlan =
     /// Never the argumentation.
     let msg (msg: OrderPlanMsg) =
         match msg with
-        | OrderPlanMsg.PatientChanged(p, request) -> $"PatientChanged %s{Part.patientOption p} %s{Part.shortId request}"
+        | OrderPlanMsg.PatientDataChanged(p, request) ->
+            $"PatientDataChanged %s{Part.patientOption p} %s{Part.shortId request}"
         | OrderPlanMsg.OpenSignedPlan(s, request) -> $"OpenSignedPlan %s{Part.signed s} %s{Part.shortId request}"
         | OrderPlanMsg.Change(change, request) -> $"Change %s{Part.change change} %s{Part.shortId request}"
         | OrderPlanMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result Part.plan}"
@@ -588,8 +589,8 @@ module OrderContext =
     /// Never the argumentation.
     let msg (msg: OrderContextMsg) =
         match msg with
-        | OrderContextMsg.PatientChanged(p, request) ->
-            $"PatientChanged %s{Part.patientOption p} %s{Part.shortId request}"
+        | OrderContextMsg.PatientDataChanged(p, request) ->
+            $"PatientDataChanged %s{Part.patientOption p} %s{Part.shortId request}"
         | OrderContextMsg.SeedFilter(seed, request) ->
             $"SeedFilter %s{seedSource seed.Source} %i{seedChoices seed} choices %s{Part.shortId request}"
         | OrderContextMsg.Command(cmd, request) -> $"Command %s{commandAlone cmd} %s{Part.shortId request}"
@@ -660,7 +661,7 @@ module Patient =
     let effect (effect: PatientEffect) =
         match effect with
         | PatientEffect.CallPatient(p, request) -> $"CallPatient %s{Part.patient p} %s{Part.shortId request}"
-        | PatientEffect.SetPatient p -> $"SetPatient %s{Part.patientOption p}"
+        | PatientEffect.SetPatientData p -> $"SetPatientData %s{Part.patientOption p}"
         | PatientEffect.TellError _ -> "TellError"
 
 

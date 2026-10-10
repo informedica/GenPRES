@@ -670,7 +670,7 @@ module private Elmish =
             state, Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
         // the patient and the orders the Session opened with go to their machines in Lanes; nothing
         // is left for the client
-        | SessionEffect.SetPatient _
+        | SessionEffect.SetPatientData _
         | SessionEffect.LoadSignedPlan _ -> state, Cmd.none
         | SessionEffect.KeepBrowserKey thumbprint ->
             state,
@@ -885,7 +885,7 @@ module private Elmish =
                     return PatientMsg(PatientMsg.Answered(request, Error [| ex.Message |]))
             }
             |> Cmd.fromAsync
-        | PatientEffect.SetPatient pat -> state |> patientPages pat
+        | PatientEffect.SetPatientData pat -> state |> patientPages pat
         | PatientEffect.TellError errs ->
             Logging.warning "patient change error" errs
 

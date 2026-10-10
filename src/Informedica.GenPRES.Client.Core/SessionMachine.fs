@@ -203,8 +203,8 @@ type SessionEffect =
     | CallSupplyPin of code: string * pin: string
     /// Go to the url the server redirected to.
     | GoToIdentityProvider of url: string
-    /// Set the patient, so everything derived from it reloads.
-    | SetPatient of Patient option
+    /// Set the patient data, so everything derived from it reloads.
+    | SetPatientData of Patient option
     /// Keep this private key and remove the others.
     | KeepBrowserKey of thumbprint: string
     /// The orders of the version the session opened with go into the cart; the patient reaches the
@@ -465,7 +465,7 @@ module SessionState =
     let onOpened (session: SessionOpened) =
         opened session None,
         [
-            SessionEffect.SetPatient(session.PatientContext |> Option.bind _.Patient)
+            SessionEffect.SetPatientData(session.PatientContext |> Option.bind _.Patient)
             match session.KeyThumbprint with
             | Some thumbprint -> SessionEffect.KeepBrowserKey thumbprint
             | None -> ()
@@ -589,7 +589,7 @@ module SessionState =
         // continuing anonymously keeps nothing from the launch
         | SessionMsg.ContinueAnonymous, SessionPhase.LaunchRefused _, None
         | SessionMsg.ContinueAnonymous, SessionPhase.ServerUnreachable, None
-        | SessionMsg.ContinueAnonymous, SessionPhase.Ended _, None -> anonymous, [ SessionEffect.SetPatient None ]
+        | SessionMsg.ContinueAnonymous, SessionPhase.Ended _, None -> anonymous, [ SessionEffect.SetPatientData None ]
         | SessionMsg.ContinueAnonymous, _, _ -> state, []
 
         // the form is sent once at a time; the answer lands only on the request in flight
@@ -622,7 +622,7 @@ module SessionState =
 
         // the patient leaves with the session. SessionClosed lands only on a close under way, so a late
         // close never touches a newer session
-        | SessionMsg.SessionClosed, _, Some SessionRequest.Closing -> anonymous, [ SessionEffect.SetPatient None ]
+        | SessionMsg.SessionClosed, _, Some SessionRequest.Closing -> anonymous, [ SessionEffect.SetPatientData None ]
         | SessionMsg.SessionClosed, _, _ -> state, []
 
         // a close that never reached the server closed nothing: the session stays open with its
@@ -654,7 +654,7 @@ module SessionState =
                         )
                 }
 
-            { state with Phase = SessionPhase.Open renewed }, [ SessionEffect.SetPatient(Some patient) ]
+            { state with Phase = SessionPhase.Open renewed }, [ SessionEffect.SetPatientData(Some patient) ]
         | SessionMsg.SignatureRenewedToken _, _, _ -> state, []
 
         // only an open session can open a version, one refresh or open at a time; the request
@@ -697,7 +697,9 @@ module SessionState =
             current.OpenedToken = from
             ->
             opened session state.NewerPlan,
-            [ SessionEffect.SetPatient(session.PatientContext |> Option.bind _.Patient) ]
+            [
+                SessionEffect.SetPatientData(session.PatientContext |> Option.bind _.Patient)
+            ]
         // the user asked for the refresh, so a refresh that did not happen is told
         | SessionMsg.PatientRefreshed(from, (Ok None | Error _)), SessionPhase.Open current, None when
             current.OpenedToken = from

@@ -113,8 +113,8 @@ type OrderContextState =
 /// so the answer can name it.
 [<RequireQualifiedAccess>]
 type OrderContextMsg =
-    /// The patient set, changed or cleared; the workbench is evaluated for it.
-    | PatientChanged of Patient option * request: string
+    /// The patient data set, changed or cleared; the workbench is evaluated for it.
+    | PatientDataChanged of Patient option * request: string
     /// A seed of the filter, sent as a command over the context shown; it waits for a patient.
     | SeedFilter of FilterSeed * request: string
     /// A command from the page, sent over the context held.
@@ -399,10 +399,10 @@ module OrderContextState =
             | None -> state, []
 
         // the patient cleared reaches every state: no workbench, and the request out is dropped
-        | OrderContextMsg.PatientChanged(None, _), _, _ -> noPatient, []
+        | OrderContextMsg.PatientDataChanged(None, _), _, _ -> noPatient, []
         // the first patient: the empty workbench is shown while it is evaluated, with the seed
         // waiting, if any
-        | OrderContextMsg.PatientChanged(Some pat, request), None, None ->
+        | OrderContextMsg.PatientDataChanged(Some pat, request), None, None ->
             let empty = emptyFor pat
 
             let cmd =
@@ -412,7 +412,7 @@ module OrderContextState =
 
             call cmd empty request (renewed (OrderContextWorkbench.Evaluated(pat, empty)))
         // the patient changed: the workbench keeps its filter and is evaluated again
-        | OrderContextMsg.PatientChanged(Some pat, request), Some(_, ctx), None ->
+        | OrderContextMsg.PatientDataChanged(Some pat, request), Some(_, ctx), None ->
             send
                 (OrderContextCommand.UpdatePatient(pat, ctx))
                 request
