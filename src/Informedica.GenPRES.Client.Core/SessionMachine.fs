@@ -220,6 +220,8 @@ type SessionEffect =
     | TellNewerSignedPlan of OrderPlanHead
     /// Tell the user the refresh did not happen; the orders stay as they are.
     | TellPatientRefreshFailed
+    /// Show the alert on the snackbar.
+    | Alert of Alert.Alert
 
 
 /// The newest version the session was told about, so the user is told once per version and the
@@ -611,9 +613,9 @@ module SessionState =
         | SessionMsg.PinAnswered(Ok(PinOutcome.Refused refusal)),
           SessionPhase.Enrolling _,
           Some SessionRequest.SupplyingPin -> enrolmentFailed refusal, []
-        // the request never arrived: the form comes back as it was
+        // the request never arrived: the form comes back as it was, and the user is told
         | SessionMsg.PinAnswered(Error _), SessionPhase.Enrolling(pending, _), Some SessionRequest.SupplyingPin ->
-            enrolling pending None, []
+            enrolling pending None, [ SessionEffect.Alert Alert.Alert.PinNotSent ]
         | SessionMsg.PinAnswered _, _, _ -> state, []
 
         | SessionMsg.CloseSession, SessionPhase.Open session, None ->
@@ -626,8 +628,10 @@ module SessionState =
         | SessionMsg.SessionClosed, _, _ -> state, []
 
         // a close that never reached the server closed nothing: the session stays open with its
-        // patient
-        | SessionMsg.CloseFailed _, SessionPhase.Open session, Some SessionRequest.Closing -> opened session None, []
+        // patient, and the user is told. A late failure, of a close a newer session has replaced,
+        // falls to the closing arm and tells nothing
+        | SessionMsg.CloseFailed _, SessionPhase.Open session, Some SessionRequest.Closing ->
+            opened session None, [ SessionEffect.Alert Alert.Alert.CloseFailed ]
         | SessionMsg.CloseFailed _, _, _ -> state, []
 
         // the server ended the session at a signature: the gate says why and the close tells the

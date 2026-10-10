@@ -449,6 +449,16 @@ let tests =
                 |> Expect.equal "the call" "FetchLogFiles"
             }
 
+            test "the lanes' alerts and the plan's answer read by their case" {
+                SessionEffect.Alert Alert.Alert.CloseFailed
+                |> Trail.Session.effect
+                |> Expect.equal "the session's alert" "Alert CloseFailed"
+
+                OrderPlanEffect.TellAnswered
+                |> Trail.OrderPlan.effect
+                |> Expect.equal "the plan's answer" "TellAnswered"
+            }
+
             test "every machine names itself" {
                 let plan = OrderPlanState.noPatient
                 let signing = SigningState.idle

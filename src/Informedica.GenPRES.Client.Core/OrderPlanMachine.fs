@@ -116,6 +116,8 @@ type OrderPlanEffect =
     | CheckInteractions of string list
     /// Tell the user what went wrong.
     | TellError of string[]
+    /// The answer the plan waited for landed; an error it raised can go.
+    | TellAnswered
 
 
 /// What the pages read of the OrderPlanState. Pages render Settled and Changing alike, so the
@@ -361,7 +363,7 @@ module OrderPlanState =
                     Selected = selectionIn tp state.Selected
                     Opened = opened
                 },
-                [ interactions tp ]
+                [ interactions tp; OrderPlanEffect.TellAnswered ]
             | Error errs -> state, [ OrderPlanEffect.TellError errs ]
         | OrderPlanMsg.Answered _, _, _ -> state, []
 

@@ -14,6 +14,8 @@ module AlertText =
         | Alert.Alert.DrugNamesNotLoaded -> "Interactie medicatie namen konden niet worden geladen"
         | Alert.Alert.InteractionsFound n -> $"Er zijn %i{n} interactie(s) gevonden"
         | Alert.Alert.InvalidPassword -> "Invalid password"
+        | Alert.Alert.CloseFailed -> "De sessie kon niet worden gesloten. Probeer het opnieuw."
+        | Alert.Alert.PinNotSent -> "De pincode kon niet worden verstuurd. Probeer het opnieuw."
 
 
     /// The severity as the snackbar names it.

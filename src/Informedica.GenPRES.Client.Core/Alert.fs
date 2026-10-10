@@ -19,11 +19,17 @@ type Alert =
     | InteractionsFound of int
     /// The server did not take the admin password.
     | InvalidPassword
+    /// The close of the session never reached the server; the session stays open.
+    | CloseFailed
+    /// The PIN never reached the server; the form comes back as it was.
+    | PinNotSent
 
 
 /// The severity an alert is shown with.
 let severity alert =
     match alert with
-    | Alert.InvalidPassword -> Severity.Error
+    | Alert.InvalidPassword
+    | Alert.CloseFailed
+    | Alert.PinNotSent -> Severity.Error
     | Alert.DrugNamesNotLoaded
     | Alert.InteractionsFound _ -> Severity.Warning
