@@ -64,6 +64,7 @@
     <Compile Include="Url.fs" />
     <Compile Include="LoaderMachine.fs" />
     <Compile Include="AdminMachine.fs" />
+    <Compile Include="ShellMachine.fs" />
 
     <!-- the readable trail of the machines, for development -->
     <Compile Include="Trail.fs" />

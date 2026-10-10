@@ -481,6 +481,20 @@ let tests =
                     "#1 10:41:07.311 Patient Changed patient 10.0 y est 32.0 kg est 140 cm gender unknown estimates renewed r-2 -> none | patient 10.0 y no weight no height gender unknown"
             }
 
+            test "the shell read by its page and what shows over it, never a url's patient" {
+                let chosen = ShellMachine.ShellMsg.PageChosen(Page.Page.Formulary, false)
+
+                Trail.shell 1 at chosen (ShellMachine.ShellState.initial Url.none |> ShellMachine.transition chosen)
+                |> Trail.format
+                |> Expect.equal
+                    "the page chosen"
+                    "#1 10:41:07.311 Shell PageChosen Formulary logged out -> PageShown Formulary | Formulary; Nederlands; disclaimer"
+
+                ShellMachine.ShellMsg.ServerErrorRaised(ServerErrorPolicy.ErrorSource.OrderPlan, [| "down" |])
+                |> Trail.Shell.msg
+                |> Expect.equal "the failure" "ServerErrorRaised OrderPlan"
+            }
+
             test "every machine names itself" {
                 let plan = OrderPlanState.noPatient
                 let signing = SigningState.idle

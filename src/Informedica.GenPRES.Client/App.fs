@@ -25,68 +25,6 @@ open Lanes
 module private Elmish =
 
 
-    /// The snackbar: a message with a severity, shown or not.
-    type Snackbar =
-        {
-            Message: string
-            Open: bool
-            Severity: string
-            /// The alert the message says, so that it can be withdrawn by its case.
-            Alert: Alert.Alert option
-        }
-
-
-    module Snackbar =
-
-        /// The message shown, with its severity.
-        let shown (message: string) (severity: string) =
-            {
-                Message = message
-                Open = true
-                Severity = severity
-                Alert = None
-            }
-
-
-        /// Nothing shown: the empty message, the severity back to error.
-        let closed =
-            {
-                Message = ""
-                Open = false
-                Severity = "error"
-                Alert = None
-            }
-
-
-    /// The app-level UI: the page, the disclaimer, the language and the hospital, the demo
-    /// flag, the server error and the list filters.
-    type UiState =
-        {
-            Page: Global.Pages
-            ShowDisclaimer: bool
-            // the language the views read, and the hospital
-            Context: Context
-            // the url or the User chose the language (LanguagePolicy); the server default no
-            // longer applies. The language itself lives in Context, where the views read it
-            LanguageChosen: bool
-            IsDemo: bool
-            // the error on the banner, with the kind of request that raised it
-            ServerError: ServerErrorPolicy.ServerError option
-            EmergencyListFilter: string[]
-            ContinuousMedsFilter: string[]
-            Snackbar: Snackbar
-            // the start-up has ended: nothing was out and every load the application cannot be
-            // used without had loaded, once. It never goes back, since any later request out
-            // would read as starting again and the gate would cover the application
-            Started: bool
-            // a quantity field counts step clicks, from the first click until it sends them
-            Counting: bool
-            // the url the app shows, against which a url change is told apart, and the newer url
-            // the question about leaving waits on
-            Url: UrlPolicy.UrlState
-        }
-
-
     type State =
         {
             // the lanes
@@ -95,8 +33,11 @@ module private Elmish =
             Loader: LoaderMachine.LoaderState
             // the admin login and what it fetches
             Admin: AdminMachine.AdminState
-            // the app-level UI
-            Ui: UiState
+            // the page, the language, the snackbar, the error banner and the rest around the pages
+            Shell: ShellMachine.ShellState
+            // the url the app shows, against which a url change is told apart, and the newer url
+            // the question about leaving waits on
+            Url: UrlPolicy.UrlState
         }
 
 
@@ -107,9 +48,6 @@ module private Elmish =
         | LeaveForUrl
         /// No to that question: the url the app shows is put back.
         | StayOnUrl
-        | AcceptDisclaimer
-        /// A quantity field starts counting step clicks, or has sent them.
-        | Counting of bool
         | SessionMsg of SessionMsg
         | SigningMsg of SigningMsg
 
@@ -128,8 +66,6 @@ module private Elmish =
         | AdminMsg of AdminMachine.AdminMsg
         | OnSelectContinuousMedicationItem of string
         | OnSelectEmergencyListItem of string
-        | UpdateEmergencyListFilter of string[]
-        | UpdateContinuousMedsFilter of string[]
 
         // the prescribing workbench: the order-context machine's messages
         | OrderContextMsg of OrderContextMsg
@@ -145,11 +81,8 @@ module private Elmish =
         // the prescribe click on the order with this id
         | Prescribe of orderId: string
 
-        | UpdateLanguage of Localization.Locales
-
-        | UpdateHospital of string
-        | CloseSnackbar
-        | DismissServerError
+        // the page, the language, the snackbar and the rest around the pages: the shell's messages
+        | ShellMsg of ShellMachine.ShellMsg
 
 
     /// A computing reply with the OpenedToken the request started from, so that what the reply
@@ -204,47 +137,14 @@ module private Elmish =
     let eraseLaunch () = Browser.Dom.history.replaceState (null, "", "#/session")
 
 
-    let initialState sl pat page lang discl =
+    let initialState sl (url: Url.UrlParts) =
         {
             // the url's patient and medication are applied by init, over these lanes
-            Lanes = Lanes.initial pat
+            Lanes = Lanes.initial url.Patient
             Loader = LoaderMachine.LoaderState.initial
             Admin = AdminMachine.AdminState.initial
-            Ui =
-                {
-                    Page = page |> Option.defaultValue Global.Pages.LifeSupport
-                    ShowDisclaimer = discl
-                    Context =
-                        {
-                            // the server default replaces this once the settings land, unless the url chose
-                            Localization = (LanguagePolicy.Language.initial lang).Current
-                            Hospital = "UMCU"
-                        }
-                    LanguageChosen = (LanguagePolicy.Language.initial lang).Chosen
-                    IsDemo = false
-                    ServerError = None
-                    EmergencyListFilter = [||]
-                    ContinuousMedsFilter = [||]
-                    Snackbar = Snackbar.closed
-                    Started = false
-                    Counting = false
-                    Url = UrlPolicy.UrlState.Shown sl
-                }
-        }
-
-
-    /// The language as LanguagePolicy sees it, and the state after the policy answered.
-    let languageOf (state: State) : LanguagePolicy.Language =
-        {
-            Current = state.Ui.Context.Localization
-            Chosen = state.Ui.LanguageChosen
-        }
-
-
-    let withLanguage (language: LanguagePolicy.Language) (state: State) =
-        { state with
-            Ui.Context.Localization = language.Current
-            Ui.LanguageChosen = language.Chosen
+            Shell = ShellMachine.ShellState.initial url
+            Url = UrlPolicy.UrlState.Shown sl
         }
 
 
@@ -308,45 +208,6 @@ module private Elmish =
         | _ -> pat
 
 
-    /// An error from the server said and kept: the first three messages, each cut to a
-    /// readable length, under the sentence that asks for a reload. The banner keeps the kind of
-    /// request that raised it, so the next success of that kind clears it. The command passes
-    /// through.
-    let processError source err (state: State, cmd) =
-        let errMsg =
-            err
-            |> Array.truncate 3
-            |> Array.map (fun (s: string) -> if s.Length > 200 then s[..199] + "..." else s)
-            |> String.concat "; "
-
-        Logging.error "error" err
-
-        { state with
-            Ui.Snackbar = Snackbar.shown "Er ging iets mis, herladen" "error"
-            Ui.ServerError = Some(ServerErrorPolicy.raised source $"Server fout: {errMsg}")
-        },
-        cmd
-
-
-    /// A successful answer of source: the banner goes when that source raised it.
-    let clearError source (state: State, cmd) =
-        { state with Ui.ServerError = state.Ui.ServerError |> ServerErrorPolicy.clearedBy source }, cmd
-
-
-    /// A sentence on the snackbar, in the severity it is said with.
-    let tell message severity (state: State) = { state with Ui.Snackbar = Snackbar.shown message severity }
-
-
-    /// A term of the signing vocabulary in the language the user reads, falling back to the
-    /// English the policy gives.
-    let signingTerm (state: State) term =
-        Global.getLocalizedTerm
-            state.Loader.Localization
-            state.Ui.Context.Localization
-            (SigningPolicy.english term)
-            term
-
-
     /// Every effect a machine returned applied in turn: what each one changes, and the command
     /// it sends, in the order the machine put them in.
     let runEffects apply effects (state: State) =
@@ -362,6 +223,35 @@ module private Elmish =
         state, cmds |> List.rev |> Cmd.batch
 
 
+    /// What one shell effect sends: the page shown goes to the loads, as a message of its own.
+    let applyShellEffect effect (state: State) =
+        match effect with
+        | ShellMachine.ShellEffect.PageShown page ->
+            state, Cmd.ofMsg (LoaderMsg(LoaderMachine.LoaderMsg.PageShown page))
+
+
+    /// The shell machine run on a message: its state kept and its effects carried out.
+    let runShell msg (state: State) =
+        let shell, effects = state.Shell |> ShellMachine.transition msg
+        StepTrail.record (fun no at -> Trail.shell no at msg (shell, effects))
+        { state with Shell = shell } |> runEffects applyShellEffect effects
+
+
+    /// An alert on the snackbar.
+    let alerted alert (state: State) = state |> runShell (ShellMachine.ShellMsg.AlertRaised alert)
+
+
+    /// A failed request of source, logged under this text, and raised on the error banner.
+    let failed text source errs (state: State) =
+        Logging.error text errs
+        state |> runShell (ShellMachine.ShellMsg.ServerErrorRaised(source, errs))
+
+
+    /// A successful answer of source, which clears the banner it raised.
+    let succeeded source (state: State) =
+        state |> runShell (ShellMachine.ShellMsg.ServerErrorCleared source)
+
+
     /// What a failed start-up load is logged as; never in the trail.
     let loadFailed landing =
         match landing with
@@ -372,13 +262,6 @@ module private Elmish =
         | LoaderMachine.Landing.ContinuousMedication(Error err) -> Some("cannot load continuous medication", err)
         | LoaderMachine.Landing.Products(Error err) -> Some("cannot load products", err)
         | _ -> None
-
-
-    /// The alert shown on the snackbar, in the user's language, with the severity it is said with.
-    let alerted alert (state: State) =
-        let terms = Global.getLocalizedTerm state.Loader.Localization state.Ui.Context.Localization
-        let text = alert |> Views.AlertText.text terms
-        { state with Ui.Snackbar = { Snackbar.shown text (Views.AlertText.severity alert) with Alert = Some alert } }
 
 
     /// What one loader effect changes, and the command it sends: an alert on the snackbar, the
@@ -466,34 +349,20 @@ module private Elmish =
             state, LoaderMachine.LoaderMsg.CheckServer |> later seconds
         | LoaderMachine.LoaderEffect.AskAgainLater(load, seconds) ->
             state, LoaderMachine.LoaderMsg.Start load |> later seconds
-        | LoaderMachine.LoaderEffect.Alert alert -> state |> alerted alert, Cmd.none
-        // only the notice itself is withdrawn, never another message the snackbar shows meanwhile
+        | LoaderMachine.LoaderEffect.Alert alert -> state |> alerted alert
         | LoaderMachine.LoaderEffect.WithdrawInteractionsFound ->
-            match state.Ui.Snackbar.Alert with
-            | Some(Alert.Alert.InteractionsFound _) -> { state with Ui.Snackbar = Snackbar.closed }, Cmd.none
-            | _ -> state, Cmd.none
-        // the server check runs again every few seconds while the server is down, so it shows
-        // the banner alone and no snackbar
-        | LoaderMachine.LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Server, errs) ->
-            Logging.error "server niet bereikbaar" errs
-
-            { state with
-                Ui.ServerError =
-                    ServerErrorPolicy.raised
-                        ServerErrorPolicy.ErrorSource.Server
-                        "De server is niet bereikbaar. Controleer of de server is gestart."
-                    |> Some
-            },
-            Cmd.none
-        | LoaderMachine.LoaderEffect.Failed(source, errs) -> (state, Cmd.none) |> processError source errs
-        | LoaderMachine.LoaderEffect.Succeeded source -> (state, Cmd.none) |> clearError source
+            state |> runShell ShellMachine.ShellMsg.WithdrawInteractionsFound
+        | LoaderMachine.LoaderEffect.Failed(ServerErrorPolicy.ErrorSource.Server as source, errs) ->
+            state |> failed "server niet bereikbaar" source errs
+        | LoaderMachine.LoaderEffect.Failed(source, errs) -> state |> failed "error" source errs
+        | LoaderMachine.LoaderEffect.Succeeded source -> state |> succeeded source
         | LoaderMachine.LoaderEffect.NoticeReceived(from, notice) ->
             state, Cmd.ofMsg (SessionMsg(SessionMsg.NoticeReceived(from, notice)))
 
 
     /// A message through the loader machine: the step recorded in the trail and its effects
-    /// carried out. The settings landed also set the language default and the demo flag, until the
-    /// shell takes them.
+    /// carried out. The settings landed go to the shell, for the language default and the demo
+    /// flag.
     let runLoader msg (state: State) =
         match msg with
         | LoaderMachine.LoaderMsg.Landed landing ->
@@ -501,25 +370,22 @@ module private Elmish =
         | _ -> ()
 
         let loader, effects = state.Loader |> LoaderMachine.transition msg
+        StepTrail.record (fun no at -> Trail.loader no at msg (loader, effects))
+        let state = { state with Loader = loader }
 
-        let state =
+        let state, settled =
             match msg with
-            // the server default counts unless the url chose; the User cannot choose before the
-            // settings land, since the start-up holds the application until then
             | LoaderMachine.LoaderMsg.Landed(LoaderMachine.Landing.Settings(Ok settings)) ->
                 StepTrail.confirmDemo settings.IsDemo
-
-                { state with Ui.IsDemo = settings.IsDemo }
-                |> withLanguage (languageOf state |> LanguagePolicy.Language.onServerDefault settings.Language)
+                state |> runShell (ShellMachine.ShellMsg.SettingsLanded settings)
             // no settings: the client keeps its own defaults, which is what it did before
             | LoaderMachine.LoaderMsg.Landed(LoaderMachine.Landing.Settings(Error _)) ->
                 StepTrail.confirmDemo false
-                state
-            | _ -> state
+                state, Cmd.none
+            | _ -> state, Cmd.none
 
-        StepTrail.record (fun no at -> Trail.loader no at msg (loader, effects))
-
-        { state with Loader = loader } |> runEffects applyLoaderEffect effects
+        let state, cmd = state |> runEffects applyLoaderEffect effects
+        state, Cmd.batch [ settled; cmd ]
 
 
     /// What one admin effect changes, and the command it sends: a call under the token, whose
@@ -543,18 +409,10 @@ module private Elmish =
             state, call (Api.AdminCommand.ReloadResources token) AdminMachine.Landing.Reload
         // the pages the reload refreshes are out in the same update
         | AdminMachine.AdminEffect.ReloadDone -> state |> runLoader LoaderMachine.LoaderMsg.ResourcesReloaded
-        | AdminMachine.AdminEffect.LoggedOut ->
-            { state with
-                Ui.Page =
-                    if state.Ui.Page = Global.Pages.Settings then
-                        Global.Pages.LifeSupport
-                    else
-                        state.Ui.Page
-            },
-            Cmd.none
-        | AdminMachine.AdminEffect.Alert alert -> state |> alerted alert, Cmd.none
-        | AdminMachine.AdminEffect.Failed(source, errs) -> (state, Cmd.none) |> processError source errs
-        | AdminMachine.AdminEffect.Succeeded source -> (state, Cmd.none) |> clearError source
+        | AdminMachine.AdminEffect.LoggedOut -> state |> runShell ShellMachine.ShellMsg.LoggedOut
+        | AdminMachine.AdminEffect.Alert alert -> state |> alerted alert
+        | AdminMachine.AdminEffect.Failed(source, errs) -> state |> failed "error" source errs
+        | AdminMachine.AdminEffect.Succeeded source -> state |> succeeded source
 
 
     /// The admin machine run on a message: its state kept and its effects carried out.
@@ -601,16 +459,9 @@ module private Elmish =
             }
             |> Cmd.fromAsync
         // the version is open, or the record moved on: each said once, the machine decides
-        | SessionEffect.TellSignedPlanOpened head ->
-            state
-            |> tell (SigningPolicy.versionOpenedSentence (signingTerm state) head) "success",
-            Cmd.none
-        | SessionEffect.TellPatientRefreshFailed ->
-            state |> tell (signingTerm state Terms.``Session Refresh Failed``) "warning", Cmd.none
-        | SessionEffect.TellNewerSignedPlan head ->
-            state
-            |> tell (SigningPolicy.newerPlanSentence (signingTerm state) head) "warning",
-            Cmd.none
+        | SessionEffect.TellSignedPlanOpened head -> state |> alerted (Alert.Alert.SignedPlanOpened head)
+        | SessionEffect.TellPatientRefreshFailed -> state |> alerted Alert.Alert.PatientRefreshFailed
+        | SessionEffect.TellNewerSignedPlan head -> state |> alerted (Alert.Alert.NewerSignedPlan head)
         | SessionEffect.CallOpenSignedPlan(id, from) ->
             state,
             async {
@@ -669,7 +520,7 @@ module private Elmish =
                     return SessionMsg(SessionMsg.PinAnswered(Error ex.Message))
             }
             |> Cmd.fromAsync
-        | SessionEffect.Alert alert -> state |> alerted alert, Cmd.none
+        | SessionEffect.Alert alert -> state |> alerted alert
         | SessionEffect.GoToIdentityProvider url ->
             state, Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
         // the patient and the orders the Session opened with go to their machines in Lanes; nothing
@@ -748,18 +599,11 @@ module private Elmish =
         // client
         | SigningEffect.RenewSessionToken _
         | SigningEffect.EndSession _ -> state, Cmd.none
-        | SigningEffect.TellSigned signed ->
-            state
-            |> tell (SigningPolicy.signedSentence (signingTerm state) signed) "success",
-            Cmd.none
-        | SigningEffect.TellRefused refusal ->
-            state
-            |> tell (SigningPolicy.refusalSentence (signingTerm state) refusal) "warning",
-            Cmd.none
+        | SigningEffect.TellSigned signed -> state |> alerted (Alert.Alert.OrderPlanSigned signed)
+        | SigningEffect.TellRefused refusal -> state |> alerted (Alert.Alert.SigningRefused refusal)
         | SigningEffect.TellError reason ->
             Logging.error "could not send the signature to the server" reason
-
-            state |> tell (signingTerm state Terms.``Signing Send Failed``) "error", Cmd.none
+            state |> alerted Alert.Alert.SigningSendFailed
 
 
     /// What one order-plan effect changes, and the command it sends. A plan call answers under
@@ -798,9 +642,8 @@ module private Elmish =
         // out in the same update as the plan answer it follows
         | OrderPlanEffect.CheckInteractions drugs ->
             state |> runLoader (LoaderMachine.LoaderMsg.CheckInteractions drugs)
-        | OrderPlanEffect.TellError errs ->
-            (state, Cmd.none) |> processError ServerErrorPolicy.ErrorSource.OrderPlan errs
-        | OrderPlanEffect.TellAnswered -> (state, Cmd.none) |> clearError ServerErrorPolicy.ErrorSource.OrderPlan
+        | OrderPlanEffect.TellError errs -> state |> failed "error" ServerErrorPolicy.ErrorSource.OrderPlan errs
+        | OrderPlanEffect.TellAnswered -> state |> succeeded ServerErrorPolicy.ErrorSource.OrderPlan
 
 
     /// A workbench request, answered under the request id it was sent for.
@@ -844,18 +687,15 @@ module private Elmish =
             Logging.warning "order context error" errs
 
             state
-            |> tell (errs |> Array.tryHead |> Option.defaultValue "Er ging iets mis") "warning",
-            Cmd.none
+            |> alerted (Alert.Alert.WorkbenchFailed(errs |> Array.tryHead |> Option.defaultValue "Er ging iets mis"))
 
 
     /// The formulary and parenteralia pages for the patient, loaded in the update that lands
     /// it, and the lists' filters cleared; the workbench and the plan get the patient in Lanes.
     let patientPages (pat: Patient option) (state: State) =
-        { state with
-            Ui.EmergencyListFilter = [||]
-            Ui.ContinuousMedsFilter = [||]
-        }
-        |> runLoader (LoaderMachine.LoaderMsg.PatientSet pat)
+        let state, cleared = state |> runShell ShellMachine.ShellMsg.ListFiltersCleared
+        let state, pages = state |> runLoader (LoaderMachine.LoaderMsg.PatientSet pat)
+        state, Cmd.batch [ cleared; pages ]
 
 
     /// What one patient effect changes, and the command it sends. A patient change answers under
@@ -895,8 +735,9 @@ module private Elmish =
             Logging.warning "patient change error" errs
 
             state
-            |> tell (errs |> Array.tryHead |> Option.defaultValue "Er ging iets mis") "warning",
-            Cmd.none
+            |> alerted (
+                Alert.Alert.PatientChangeFailed(errs |> Array.tryHead |> Option.defaultValue "Er ging iets mis")
+            )
 
 
     /// What one effect of the lanes leaves for the client, carried out by its machine's apply.
@@ -907,7 +748,7 @@ module private Elmish =
         | LanesEffect.Workbench e -> state |> applyOrderContextEffect e
         | LanesEffect.Plan e -> state |> applyOrderPlanEffect e
         | LanesEffect.Session e -> state |> applySessionEffect e
-        | LanesEffect.GoToPlanPage -> { state with Ui.Page = Global.Pages.OrderPlan }, Cmd.none
+        | LanesEffect.GoToPlanPage -> state |> runShell (ShellMachine.ShellMsg.MovedToPage Global.Pages.OrderPlan)
 
 
     /// A message through the lanes: the machines' steps recorded in the trail, and what the
@@ -946,7 +787,7 @@ module private Elmish =
     /// The requests out in the lanes and the loads.
     let busyOut (state: State) =
         Busy.out
-            state.Ui.Counting
+            state.Shell.Counting
             state.Lanes.Patient
             state.Lanes.OrderContext
             state.Lanes.OrderPlan
@@ -957,7 +798,7 @@ module private Elmish =
 
     /// Where the start-up is; started once, it stays so.
     let startup (state: State) =
-        if state.Ui.Started then
+        if state.Shell.Started then
             StartupPolicy.Startup.Started
         else
             StartupPolicy.status (busyOut state) (loaded state) state.Loader.Failed
@@ -966,35 +807,17 @@ module private Elmish =
     /// The start-up marked as ended at the first update in which it is.
     let markStarted (state: State, cmd) =
         match startup state with
-        | StartupPolicy.Startup.Started when not state.Ui.Started -> { state with Ui.Started = true }, cmd
+        | StartupPolicy.Startup.Started when not state.Shell.Started ->
+            let state, ended = state |> runShell ShellMachine.ShellMsg.StartupEnded
+            state, Cmd.batch [ cmd; ended ]
         | _ -> state, cmd
-
-
-    let noPatientForMedication (state: State) =
-        let message =
-            Global.getLocalizedTerm
-                state.Loader.Localization
-                state.Ui.Context.Localization
-                "Voer patient gegevens in"
-                Terms.``Patient enter patient data``
-
-        { state with Ui.Snackbar = Snackbar.shown message "warning" }
 
 
     /// The page, the language and the disclaimer of a url applied, and the url kept as the one
     /// the app shows; no lane changes.
     let applyPage sl (url: Url.UrlParts) (state: State) =
-        // only an `la` parameter changes the language; a navigation keeps the current one
-        let language = languageOf state |> LanguagePolicy.Language.onUrl url.Language
-
-        { state with
-            Ui.ShowDisclaimer = url.Disclaimer
-            Ui.Page = url.Page |> Option.defaultValue Global.Pages.LifeSupport
-            // the path from the state; it also keeps the field apart from the Global.Context type
-            Ui.Context.Localization = language.Current
-            Ui.LanguageChosen = language.Chosen
-            Ui.Url = UrlPolicy.UrlState.Shown sl
-        }
+        { state with Url = UrlPolicy.UrlState.Shown sl }
+        |> runShell (ShellMachine.ShellMsg.UrlApplied url)
 
 
     /// A url applied in full: its patient, its medication, its page and its launch.
@@ -1045,23 +868,26 @@ module private Elmish =
                 state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.SeedFilter(seed, newRequest ())))
             | Some m ->
                 Logging.warning "a medication in the url without a patient is dropped" m.medication
-                noPatientForMedication state, Cmd.none
+                state |> alerted Alert.Alert.NoPatientForMedication
 
         // the address bar shows "#/session" once a launch url is erased
-        state |> applyPage (if url.Launch.IsSome then [ "session" ] else sl) url,
+        let state, page = state |> applyPage (if url.Launch.IsSome then [ "session" ] else sl) url
+
+        state,
         Cmd.batch
             [
                 // a seed that comes before the patient waits for it in the workbench
                 patientCmd
                 seed
                 launchCmd url.Launch
+                page
             ]
 
 
     /// The url the app shows put back in the address bar. The url change that fires then is the
     /// url the app shows, so it changes nothing.
     let putBack (state: State) =
-        state, Cmd.ofEffect (fun _ -> Router.navigate (state.Ui.Url |> UrlPolicy.UrlState.shown |> Array.ofList))
+        state, Cmd.ofEffect (fun _ -> Router.navigate (state.Url |> UrlPolicy.UrlState.shown |> Array.ofList))
 
 
     /// The patient, the workbench, the plan, its interactions and the signing started over on a
@@ -1085,9 +911,7 @@ module private Elmish =
         if url.Launch.IsSome then
             eraseLaunch ()
 
-        let state, applied =
-            initialState sl url.Patient url.Page url.Language url.Disclaimer
-            |> applyUrl sl url
+        let state, applied = initialState sl url |> applyUrl sl url
 
         let cmds =
             Cmd.batch
@@ -1150,41 +974,26 @@ module private Elmish =
             // and said, since the patient is part of the filter
             match patientOf state with
             | Some _ ->
-                { state with Ui.Page = Global.Pages.Prescribe },
-                Cmd.ofMsg (OrderContextMsg(OrderContextMsg.SeedFilter(seed, newRequest ())))
-            | None -> noPatientForMedication state, Cmd.none
+                let state, page = state |> runShell (ShellMachine.ShellMsg.MovedToPage Global.Pages.Prescribe)
+                state,
+                Cmd.batch
+                    [
+                        page
+                        Cmd.ofMsg (OrderContextMsg(OrderContextMsg.SeedFilter(seed, newRequest ())))
+                    ]
+            | None -> state |> alerted Alert.Alert.NoPatientForMedication
 
         match msg with
-        | CloseSnackbar -> { state with Ui.Snackbar = Snackbar.closed }, Cmd.none
-
-        | DismissServerError -> { state with Ui.ServerError = None }, Cmd.none
+        | ShellMsg msg -> state |> runShell msg
 
         | LoaderMsg msg -> state |> runLoader msg
 
         | AdminMsg msg -> state |> runAdmin msg
 
-        | AcceptDisclaimer -> { state with Ui.ShowDisclaimer = false }, Cmd.none
-
-        | Counting counting -> { state with Ui.Counting = counting }, Cmd.none
-
-        | UpdateLanguage lang ->
-            { state with Ui.ShowDisclaimer = true }
-            |> withLanguage (languageOf state |> LanguagePolicy.Language.choose lang),
-            Cmd.none
-
-        | UpdateHospital hosp ->
-            { state with
-                Ui.ShowDisclaimer = true
-                Ui.Context.Hospital = hosp
-            },
-            Cmd.none
-
+        // the settings page is behind the admin login
         | UpdatePage page ->
-            if page = Global.Pages.Settings && not state.Admin.IsAuthenticated then
-                state, Cmd.none
-            else
-                { state with Ui.Page = page }
-                |> runLoader (LoaderMachine.LoaderMsg.PageShown page)
+            state
+            |> runShell (ShellMachine.ShellMsg.PageChosen(page, state.Admin.IsAuthenticated))
 
         | UpdatePatient dto ->
             state
@@ -1210,7 +1019,7 @@ module private Elmish =
             // a question still open goes with any url change: the url it was about is no longer
             // the one in the address bar. The change is then decided against the url shown alone,
             // so the policy never sees an open question
-            let state = { state with Ui.Url = state.Ui.Url |> UrlPolicy.UrlState.close }
+            let state = { state with Url = state.Url |> UrlPolicy.UrlState.close }
 
             let url = sl |> parseUrl
 
@@ -1224,7 +1033,7 @@ module private Elmish =
             | Some(Url.LaunchUrl.Refused _) -> state |> applyUrl sl url
             // a launch is decided as a url with a patient: it ends what is there
             | launch ->
-                let change = UrlPolicy.change state.Ui.Url sl (seeds url)
+                let change = UrlPolicy.change state.Url sl (seeds url)
 
                 let underWay = state.Lanes.Signing |> SigningState.view |> SigningPolicy.underWay
 
@@ -1234,29 +1043,24 @@ module private Elmish =
                 Logging.log "url change" $"%A{change} -> %A{action}"
 
                 match action with
-                | UrlPolicy.UrlAction.ApplyPage -> state |> applyPage sl url, Cmd.none
+                | UrlPolicy.UrlAction.ApplyPage -> state |> applyPage sl url
                 | UrlPolicy.UrlAction.Ignore -> state, Cmd.none
                 // a launch put back is gone, since Back does not bring it again as it does a
                 // patient url: the user is told to open the patient again from the EHR
                 | UrlPolicy.UrlAction.PutBack when launch.IsSome ->
-                    let message =
-                        Global.getLocalizedTerm
-                            state.Loader.Localization
-                            state.Ui.Context.Localization
-                            "De start vanuit het EPD is niet geopend: er wordt ondertekend. Open de patiënt opnieuw vanuit het EPD."
-                            Terms.``Url Launch Signing``
-
-                    { state with Ui.Snackbar = Snackbar.shown message "warning" } |> putBack
+                    let state, told = state |> alerted Alert.Alert.LaunchNotOpened
+                    let state, back = state |> putBack
+                    state, Cmd.batch [ told; back ]
                 | UrlPolicy.UrlAction.PutBack -> state |> putBack
-                | UrlPolicy.UrlAction.Ask -> { state with Ui.Url = state.Ui.Url |> UrlPolicy.UrlState.ask sl }, Cmd.none
+                | UrlPolicy.UrlAction.Ask -> { state with Url = state.Url |> UrlPolicy.UrlState.ask sl }, Cmd.none
                 | UrlPolicy.UrlAction.StartOver -> state |> startOver sl url
 
         | LeaveForUrl ->
-            match state.Ui.Url |> UrlPolicy.UrlState.asked with
+            match state.Url |> UrlPolicy.UrlState.asked with
             | Some sl -> state |> startOver sl (sl |> parseUrl)
             | None -> state, Cmd.none
 
-        | StayOnUrl -> { state with Ui.Url = state.Ui.Url |> UrlPolicy.UrlState.close } |> putBack
+        | StayOnUrl -> { state with Url = state.Url |> UrlPolicy.UrlState.close } |> putBack
 
         | SessionMsg msg ->
             // a failed close is reported only when it was this session's close: a CloseFailed
@@ -1277,10 +1081,6 @@ module private Elmish =
                     state, Cmd.none
                 )
             | _ -> state, Cmd.none
-
-        | UpdateEmergencyListFilter filter -> { state with Ui.EmergencyListFilter = filter }, Cmd.none
-
-        | UpdateContinuousMedsFilter filter -> { state with Ui.ContinuousMedsFilter = filter }, Cmd.none
 
         | OnSelectEmergencyListItem item ->
             match state.Loader.BolusMedication with
@@ -1596,17 +1396,19 @@ type private ConcreteAppEnv
     interface AppEnv.IBolusMedication with
         member _.BolusMedication = bm
         member _.OnSelectBolusMedicationItem s = OnSelectEmergencyListItem s |> dispatch
-        member _.BolusMedicationFilter = state.Ui.EmergencyListFilter
-        member _.OnBolusMedicationFilterChange f = UpdateEmergencyListFilter f |> dispatch
+        member _.BolusMedicationFilter = state.Shell.EmergencyListFilter
+        member _.OnBolusMedicationFilterChange f =
+            ShellMsg(ShellMachine.ShellMsg.EmergencyListFiltered f) |> dispatch
 
     interface AppEnv.IContinuousMedication with
         member _.ContinuousMedication = cm
 
         member _.OnSelectContinuousMedicationItem s = OnSelectContinuousMedicationItem s |> dispatch
 
-        member _.ContinuousMedicationFilter = state.Ui.ContinuousMedsFilter
+        member _.ContinuousMedicationFilter = state.Shell.ContinuousMedsFilter
 
-        member _.OnContinuousMedicationFilterChange f = UpdateContinuousMedsFilter f |> dispatch
+        member _.OnContinuousMedicationFilterChange f =
+            ShellMsg(ShellMachine.ShellMsg.ContinuousMedsFiltered f) |> dispatch
 
 
 [<Literal>]
@@ -1708,10 +1510,33 @@ let View () =
     let handleClose =
         fun (_: obj) (reason: string) ->
             if reason <> "clickaway" then
-                CloseSnackbar |> dispatch
+                ShellMsg ShellMachine.ShellMsg.SnackbarClosed |> dispatch
+
+    let closeSnackbar _ = ShellMsg ShellMachine.ShellMsg.SnackbarClosed |> dispatch
+
+    let getTerm = Global.getLocalizedTerm state.Loader.Localization state.Shell.Language.Current
+
+    // the alert on the snackbar in words; closed, it shows nothing
+    let snackbarOpen = state.Shell.Snackbar.IsSome
+
+    let severity =
+        state.Shell.Snackbar
+        |> Option.map Views.AlertText.severity
+        |> Option.defaultValue "error"
+
+    let message =
+        state.Shell.Snackbar
+        |> Option.map (Views.AlertText.text getTerm)
+        |> Option.defaultValue ""
+
+    let context: Global.Context =
+        {
+            Localization = state.Shell.Language.Current
+            Hospital = state.Shell.Hospital
+        }
 
     let autoHide =
-        match state.Ui.Snackbar.Severity with
+        match severity with
         | "success"
         | "info" -> 3000 |> box
         | _ -> null
@@ -1750,7 +1575,7 @@ let View () =
     let theme = if isMobile then mobile else theme
 
     let serverErrorBanner =
-        match state.Ui.ServerError with
+        match state.Shell.ServerError with
         | Some error ->
             Components.Notice.View
                 {|
@@ -1758,17 +1583,15 @@ let View () =
                     title = Some "Server probleem"
                     message = error.Message
                     action = None
-                    onClose = Some(fun () -> dispatch DismissServerError)
+                    onClose = Some(fun () -> dispatch (ShellMsg ShellMachine.ShellMsg.ServerErrorDismissed))
                 |}
         | None -> null
-
-    let getTerm = Global.getLocalizedTerm state.Loader.Localization state.Ui.Context.Localization
 
     // the question before a url with a patient, a medication or a launch: it leaves the
     // launched Session, or drops the work not signed. The browser asks the second itself for a
     // reload or a closed tab, but not for a change of the url
     let asksLaunch =
-        state.Ui.Url
+        state.Url
         |> UrlPolicy.UrlState.asked
         |> Option.bind Url.parseLaunch
         |> Option.isSome
@@ -1797,7 +1620,7 @@ let View () =
     let leaveDialog =
         Components.ConfirmDialog.View
             {|
-                isOpen = (state.Ui.Url |> UrlPolicy.UrlState.asked).IsSome
+                isOpen = (state.Url |> UrlPolicy.UrlState.asked).IsSome
                 title = title
                 text = text
                 confirmLabel = Terms.``Url Leave`` |> getTerm "Verlaten"
@@ -1809,8 +1632,8 @@ let View () =
     // the quantity fields read whether one of them counts, and report their own count
     let counting: Global.Counting =
         {
-            Counting = state.Ui.Counting
-            Report = Counting >> dispatch
+            Counting = state.Shell.Counting
+            Report = ShellMachine.ShellMsg.CountingChanged >> ShellMsg >> dispatch
         }
 
     let genPresProps =
@@ -1819,20 +1642,20 @@ let View () =
             // the disclaimer is for anonymous use only: a launched, resuming or
             // refused session never sees it; an anonymous open after a refusal does
             showDisclaimer =
-                state.Ui.ShowDisclaimer
+                state.Shell.ShowDisclaimer
                 && (
                     match SessionState.view state.Lanes.Session with
                     | SessionView.Anonymous -> true
                     | _ -> false
                 )
-            isDemo = state.Ui.IsDemo
-            acceptDisclaimer = fun _ -> AcceptDisclaimer |> dispatch
+            isDemo = state.Shell.IsDemo
+            acceptDisclaimer = fun _ -> ShellMsg ShellMachine.ShellMsg.DisclaimerAccepted |> dispatch
             updatePage = UpdatePage >> dispatch
-            page = state.Ui.Page
+            page = state.Shell.Page
             languages = Localization.languages
             hospitals = state.Loader.Hospitals
-            switchLang = UpdateLanguage >> dispatch
-            switchHosp = UpdateHospital >> dispatch
+            switchLang = ShellMachine.ShellMsg.LanguageChosen >> ShellMsg >> dispatch
+            switchHosp = ShellMachine.ShellMsg.HospitalChosen >> ShellMsg >> dispatch
         |}
 
     JSX.jsx
@@ -1845,7 +1668,7 @@ let View () =
     import Snackbar from '@mui/material/Snackbar';
     import IconButton from '@mui/material/IconButton';
     import CloseIcon from '@mui/icons-material/Close';
-    import Alert from '@mui/material/Alert';
+    import MuiAlert from '@mui/material/Alert';
 
     <React.StrictMode>
         <ThemeProvider theme={theme}>
@@ -1857,17 +1680,17 @@ let View () =
                 {Pages.GenPres.View genPresProps
                  |> toReact
                  |> Components.Context.Counting counting
-                 |> Components.Context.Context state.Ui.Context}
+                 |> Components.Context.Context context}
             </Box>
             <div>
                 <Snackbar
-                    open={state.Ui.Snackbar.Open}
+                    open={snackbarOpen}
                     autoHideDuration={autoHide}
                     onClose={handleClose}
                 >
-                    <Alert severity={state.Ui.Snackbar.Severity} onClose={fun _ -> CloseSnackbar |> dispatch} sx={ {| width = "100%" |} }>
-                        {state.Ui.Snackbar.Message}
-                    </Alert>
+                    <MuiAlert severity={severity} onClose={closeSnackbar} sx={ {| width = "100%" |} }>
+                        {message}
+                    </MuiAlert>
                 </Snackbar>
             </div>
         </ThemeProvider>

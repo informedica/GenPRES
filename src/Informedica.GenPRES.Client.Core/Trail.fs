@@ -74,6 +74,17 @@ module Part =
         | Alert.Alert.InvalidPassword -> "InvalidPassword"
         | Alert.Alert.CloseFailed -> "CloseFailed"
         | Alert.Alert.PinNotSent -> "PinNotSent"
+        | Alert.Alert.RequestFailed -> "RequestFailed"
+        | Alert.Alert.NoPatientForMedication -> "NoPatientForMedication"
+        | Alert.Alert.LaunchNotOpened -> "LaunchNotOpened"
+        | Alert.Alert.PatientChangeFailed _ -> "PatientChangeFailed"
+        | Alert.Alert.WorkbenchFailed _ -> "WorkbenchFailed"
+        | Alert.Alert.SigningSendFailed -> "SigningSendFailed"
+        | Alert.Alert.OrderPlanSigned _ -> "OrderPlanSigned"
+        | Alert.Alert.SigningRefused _ -> "SigningRefused"
+        | Alert.Alert.SignedPlanOpened _ -> "SignedPlanOpened"
+        | Alert.Alert.NewerSignedPlan _ -> "NewerSignedPlan"
+        | Alert.Alert.PatientRefreshFailed -> "PatientRefreshFailed"
 
 
     /// The value described, or none.
@@ -930,6 +941,75 @@ module Admin =
         |> String.concat "; "
 
 
+/// The shell, never a url's patient or an error text.
+[<RequireQualifiedAccess>]
+module Shell =
+
+    open ShellMachine
+
+
+    /// A language by its name.
+    let language (l: Shared.Localization.Locales) = Shared.Localization.toString l
+
+
+    /// A shell message.
+    let msg (msg: ShellMsg) =
+        match msg with
+        | ShellMsg.PageChosen(p, loggedIn) ->
+            let login = if loggedIn then "logged in" else "logged out"
+            $"PageChosen %s{Loader.page p} %s{login}"
+        | ShellMsg.MovedToPage p -> $"MovedToPage %s{Loader.page p}"
+        | ShellMsg.LoggedOut -> "LoggedOut"
+        | ShellMsg.LanguageChosen l -> $"LanguageChosen %s{language l}"
+        | ShellMsg.HospitalChosen h -> $"HospitalChosen %s{h}"
+        | ShellMsg.DisclaimerAccepted -> "DisclaimerAccepted"
+        | ShellMsg.SettingsLanded s ->
+            let data = if s.IsDemo then "demo" else "production"
+            $"SettingsLanded %s{data} %s{language s.Language}"
+        | ShellMsg.UrlApplied url ->
+            let page = url.Page |> Part.orNone Loader.page
+            let lang = url.Language |> Part.orNone language
+            $"UrlApplied page %s{page} language %s{lang}"
+        | ShellMsg.AlertRaised a -> $"AlertRaised %s{Part.alert a}"
+        | ShellMsg.WithdrawInteractionsFound -> "WithdrawInteractionsFound"
+        | ShellMsg.SnackbarClosed -> "SnackbarClosed"
+        | ShellMsg.ServerErrorRaised(s, _) -> $"ServerErrorRaised %s{Loader.source s}"
+        | ShellMsg.ServerErrorCleared s -> $"ServerErrorCleared %s{Loader.source s}"
+        | ShellMsg.ServerErrorDismissed -> "ServerErrorDismissed"
+        | ShellMsg.CountingChanged c -> $"CountingChanged %b{c}"
+        | ShellMsg.StartupEnded -> "StartupEnded"
+        | ShellMsg.EmergencyListFiltered f -> $"EmergencyListFiltered %i{f.Length}"
+        | ShellMsg.ContinuousMedsFiltered f -> $"ContinuousMedsFiltered %i{f.Length}"
+        | ShellMsg.ListFiltersCleared -> "ListFiltersCleared"
+
+
+    /// A shell effect.
+    let effect (effect: ShellEffect) =
+        match effect with
+        | ShellEffect.PageShown p -> $"PageShown %s{Loader.page p}"
+
+
+    /// The page, the language, and what shows over it.
+    let state (state: ShellState) =
+        [
+            Loader.page state.Page
+            language state.Language.Current
+            if state.ShowDisclaimer then
+                "disclaimer"
+            match state.Snackbar with
+            | Some a -> $"snackbar %s{Part.alert a}"
+            | None -> ()
+            match state.ServerError with
+            | Some e -> $"banner %s{Loader.source e.Source}"
+            | None -> ()
+            if state.Counting then
+                "counting"
+            if state.Started then
+                "started"
+        ]
+        |> String.concat "; "
+
+
 /// One step of a machine, described with that machine's describers.
 let step machine describeMsg describeEffect describeState (no: int) (at: DateTime) msg (state, effects) =
     {
@@ -978,6 +1058,9 @@ let loader = step "Loader" Loader.msg Loader.effect Loader.state
 
 /// A step of the admin machine.
 let admin = step "Admin" Admin.msg Admin.effect Admin.state
+
+/// A step of the shell machine.
+let shell = step "Shell" Shell.msg Shell.effect Shell.state
 
 
 /// A step the lanes took: a machine's step, or the lanes started over.

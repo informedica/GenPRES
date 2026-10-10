@@ -38,11 +38,19 @@ type ServerError =
     }
 
 
-/// The error a failed request of source raises.
-let raised source message =
+/// The error a failed request of source raises: for the server check, the sentence that it does
+/// not answer; for any other source the first three errors, each cut at 200 characters.
+let raised source (errs: string[]) =
+    let cut (s: string) = if s.Length > 200 then s[..199] + "..." else s
+
     {
         Source = source
-        Message = message
+        Message =
+            match source with
+            | ErrorSource.Server -> "De server is niet bereikbaar. Controleer of de server is gestart."
+            | _ ->
+                let errs = errs |> Array.truncate 3 |> Array.map cut |> String.concat "; "
+                $"Server fout: %s{errs}"
     }
 
 

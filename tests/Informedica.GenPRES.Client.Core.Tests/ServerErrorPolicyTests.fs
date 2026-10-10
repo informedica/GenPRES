@@ -32,14 +32,29 @@ module ServerErrorPolicyTests =
                 testList
                     "raised"
                     [
-                        test "keeps the source and the message" {
-                            raised ErrorSource.OrderPlan "Server fout: x"
+                        test "keeps the source and the errors after the sentence" {
+                            raised ErrorSource.OrderPlan [| "x"; "y" |]
                             |> Expect.equal
                                 "should hold both"
                                 {
                                     Source = ErrorSource.OrderPlan
-                                    Message = "Server fout: x"
+                                    Message = "Server fout: x; y"
                                 }
+                        }
+
+                        test "four errors are cut to three, each at 200 characters" {
+                            let long = String.replicate 250 "a"
+                            let cut = String.replicate 200 "a"
+
+                            (raised ErrorSource.Formulary [| long; "b"; "c"; "d" |]).Message
+                            |> Expect.equal "three, the first cut" $"Server fout: %s{cut}...; b; c"
+                        }
+
+                        test "the server check gives the sentence that it does not answer, whatever the error" {
+                            (raised ErrorSource.Server [| "connection refused" |]).Message
+                            |> Expect.equal
+                                "the sentence"
+                                "De server is niet bereikbaar. Controleer of de server is gestart."
                         }
                     ]
 
@@ -48,14 +63,14 @@ module ServerErrorPolicyTests =
                     [
                         for source in sources do
                             test $"a success of %A{source} clears the error it raised" {
-                                Some(raised source "error")
+                                Some(raised source [| "error" |])
                                 |> clearedBy source
                                 |> Expect.isNone "should be cleared"
                             }
 
                         for source in sources do
                             test $"the server check clears an error of %A{source}" {
-                                Some(raised source "error")
+                                Some(raised source [| "error" |])
                                 |> clearedBy ErrorSource.Server
                                 |> Expect.isNone "should be cleared"
                             }
@@ -64,25 +79,25 @@ module ServerErrorPolicyTests =
                             for answer in sources do
                                 if raiser <> answer && answer <> ErrorSource.Server then
                                     test $"a success of %A{answer} keeps an error of %A{raiser}" {
-                                        let error = Some(raised raiser "error")
+                                        let error = Some(raised raiser [| "error" |])
 
                                         error |> clearedBy answer |> Expect.equal "should be kept" error
                                     }
 
                         test "a formulary answer keeps an order plan error" {
-                            let error = Some(raised ErrorSource.OrderPlan "error")
+                            let error = Some(raised ErrorSource.OrderPlan [| "error" |])
 
                             error |> clearedBy ErrorSource.Formulary |> Expect.equal "should be kept" error
                         }
 
                         test "a log file listing keeps a failed reload" {
-                            let error = Some(raised ErrorSource.Reload "error")
+                            let error = Some(raised ErrorSource.Reload [| "error" |])
 
                             error |> clearedBy ErrorSource.LogFiles |> Expect.equal "should be kept" error
                         }
 
                         test "an unreachable server stays after an order plan answer" {
-                            let error = Some(raised ErrorSource.Server "unreachable")
+                            let error = Some(raised ErrorSource.Server [| "unreachable" |])
 
                             error |> clearedBy ErrorSource.OrderPlan |> Expect.equal "should be kept" error
                         }
