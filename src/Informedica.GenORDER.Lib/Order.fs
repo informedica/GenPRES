@@ -21,6 +21,30 @@ module Order =
     module Mapping = EquationMapping
     module Increment = Informedica.GenSolver.Lib.Variable.ValueRange.Increment
 
+
+    /// The maximum number of values a pruned variable keeps, per schedule. The Max caps apply with
+    /// useMaxNumberOfValues.
+    type ValueCaps =
+        {
+            /// Continuous order.
+            Continuous: int
+            /// Continuous order with useMaxNumberOfValues.
+            ContinuousMax: int
+            /// Once or discontinuous order.
+            Discontinuous: int
+            /// Once or discontinuous order with useMaxNumberOfValues and a single component.
+            DiscontinuousMaxSingle: int
+            /// Once or discontinuous order with useMaxNumberOfValues and more than one component.
+            DiscontinuousMaxMultiple: int
+            /// Timed order with at most two components.
+            TimedFew: int
+            /// Timed order with at most two components and useMaxNumberOfValues.
+            TimedMaxFew: int
+            /// Timed order with more than two components, with or without useMaxNumberOfValues.
+            TimedMany: int
+        }
+
+
     /// Types and functions to deal
     /// with an Orderable, i.e., something
     /// that can be ordered.
@@ -3326,6 +3350,25 @@ module Order =
         | Continuous _ -> { ord with Order.Orderable.Dose.Rate = ord.Orderable.Dose.Rate |> Rate.setMedianValue }
 
 
+    /// The share of the orderable in itself, a constant of 1 x that the shares of the components add
+    /// up to. It is not part of the Order; only the equations use it.
+    let orderableShare (ord: Order) =
+        let name =
+            [ ord.Id |> Id.toString; ord.Orderable.Name |> Name.toString ]
+            |> Name.create
+            |> Name.add Mapping.Literals.orb
+            |> Name.add Mapping.Literals.cnc
+
+        let one =
+            Units.Count.times
+            |> ValueUnit.singleWithValue 1N
+            |> ValueRange.ValueSet.create
+            |> Some
+        let cs = OrderVariable.Constraints.create None None None one
+
+        OrderVariable.create name None None None one cs cs
+
+
     /// <summary>
     /// Map an Order to a list of Equations using a Product Equation
     /// mapping and a Sum Equation mapping
@@ -3334,7 +3377,7 @@ module Order =
     /// <param name="ord">The Order</param>
     /// <returns>A list of OrderEquations</returns>
     let mapToOrderEquations eqMapping ord =
-        let ovars = ord |> toOrdVars
+        let ovars = (ord |> toOrdVars) @ [ ord |> orderableShare ]
 
         let map repl eqMapping =
             let eqs, c =
@@ -3681,6 +3724,59 @@ module Order =
         @ roundedSteps (Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour)
 
 
+    module ValueCaps =
+
+
+        /// The caps an order is pruned with.
+        let defaults =
+            {
+                Continuous = 100
+                ContinuousMax = 1_000
+                Discontinuous = 10
+                DiscontinuousMaxSingle = 100
+                DiscontinuousMaxMultiple = 20
+                TimedFew = 20
+                TimedMaxFew = 10
+                TimedMany = 5
+            }
+
+
+        /// The same cap n for every schedule.
+        let all n =
+            {
+                Continuous = n
+                ContinuousMax = n
+                Discontinuous = n
+                DiscontinuousMaxSingle = n
+                DiscontinuousMaxMultiple = n
+                TimedFew = n
+                TimedMaxFew = n
+                TimedMany = n
+            }
+
+
+        /// The cap for an order, by its schedule and number of components.
+        let capOf caps useMaxNumberOfValues ord =
+            let count = ord.Orderable.Components |> List.length
+
+            match ord.Schedule with
+            | Continuous _ ->
+                if useMaxNumberOfValues then
+                    caps.ContinuousMax
+                else
+                    caps.Continuous
+            | Once
+            | Discontinuous _ ->
+                if not useMaxNumberOfValues then caps.Discontinuous
+                elif count > 1 then caps.DiscontinuousMaxMultiple
+                else caps.DiscontinuousMaxSingle
+            | OnceTimed _
+            | Timed _ ->
+                if count > 2 then caps.TimedMany
+                elif useMaxNumberOfValues then caps.TimedMaxFew
+                else caps.TimedFew
+
+
     /// <summary>
     /// Loop through all the OrderVariables in an Order to
     /// turn min incr max to values
@@ -3689,11 +3785,12 @@ module Order =
     /// The component quantities, the dose quantity and the rate are pruned to rounded steps. The time
     /// of a timed order is left free, so the rate determines how long the dose quantity runs.
     /// </remarks>
+    /// <param name="caps">The maximum number of values a pruned variable keeps, per schedule</param>
     /// <param name="useMaxNumberOfValues">Whether to use max number of values or restrict the number of values</param>
     /// <param name="skipRate">Whether to skip the orderable dose rate variable (for staged expansion of timed orders)</param>
     /// <param name="logger">The logger</param>
     /// <param name="ord">The Order</param>
-    let minIncrMaxToValues useMaxNumberOfValues skipRate logger ord =
+    let minIncrMaxToValues caps useMaxNumberOfValues skipRate logger ord =
         let mutable isSolved = false
 
         let rec loop ord =
@@ -3723,30 +3820,7 @@ module Order =
                     else
                         flag <- true
 
-                        let n =
-                            match ord.Schedule with
-                            | Continuous _ -> if useMaxNumberOfValues then 1_000 else 100
-                            | Once
-                            | Discontinuous _ ->
-                                if useMaxNumberOfValues then
-                                    if ord.Orderable.Components |> List.length > 1 then
-                                        20
-                                    else
-                                        100
-                                else
-                                    10
-                            | OnceTimed _
-                            | Timed _ ->
-                                if useMaxNumberOfValues then
-                                    if ord.Orderable.Components |> List.length > 2 then
-                                        5
-                                    else
-                                        10
-                                else if ord.Orderable.Components |> List.length > 2 then
-                                    5
-                                else
-                                    20
-                            |> Some
+                        let n = ord |> ValueCaps.capOf caps useMaxNumberOfValues |> Some
 
                         ovar
                         |> OrderVariable.minIncrMaxToValues pruneSteps n

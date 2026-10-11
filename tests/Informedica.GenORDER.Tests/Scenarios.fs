@@ -1171,6 +1171,98 @@ Components:
 """
 
 
+/// Amoxicilline/clavulaanzuur powder diluted with NaCl 0,9%: two components, and two items in the
+/// first whose concentrations stand in a fixed ratio of ten to one.
+let amoxClavText =
+    """
+Id: 303000f0-98b7-4db5-a0f2-a8a7642df9fc
+Name: amoxicilline/clavulaanzuur
+Quantity:
+Quantities:
+Route: INTRAVENEUS
+OrderType: DiscontinuousOrder
+Adjust: 14.5 kg
+Frequencies: 3 x/day
+Time:
+Dose: [dun] ml
+Div:
+DoseCount: 1 x
+Components:
+
+	Name: amoxicilline/clavulaanzuur
+	Form: poeder voor injectievloeistof
+	Quantities: 10;20 ml
+	Divisible: 10
+	Dose:
+	Solution:
+	Substances:
+
+		Name: amoxicilline
+		Quantities: 500;1000 mg
+		Concentrations: 50 mg/ml
+		Dose: amoxicilline, [dun] mg, [per-time-adj] 100 mg/kg/day, [per-time] max 6000 mg/day
+		Solution:  [conc] 20 mg/ml
+
+		Name: clavulaanzuur
+		Quantities: 50;100;200 mg
+		Concentrations: 5;10 mg/ml
+		Dose: clavulaanzuur, [dun] mg, [per-time-adj] 10 mg/kg/day, [per-time] max 600 mg/day
+		Solution:
+
+	Name: NaCl 0,9%
+	Form: vloeistof
+	Quantities: 1 ml
+	Divisible: 10
+	Dose:
+	Solution:
+	Substances:
+
+		Name: natrium
+		Quantities:
+		Concentrations: 0.155 mmol/ml
+		Dose:
+		Solution:
+
+		Name: chloor
+		Quantities:
+		Concentrations: 0.155 mmol/ml
+		Dose:
+		Solution:
+"""
+
+
+/// A 5 mg prednisolon tablet dividable in quarters, 1 to 2 mg/kg for 30 kg: 6 to 12 tablets on a
+/// quarter grid, 25 values.
+let prednisolonText =
+    """
+Id: 2b1e1c1a-0000-4000-8000-000000001302
+Name: prednisolon
+Quantity:
+Quantities:
+Route: ORAAL
+OrderType: DiscontinuousOrder
+Adjust: 30 kg
+Frequencies: 1 x/dag
+Time:
+Dose:
+Div:
+DoseCount: 1 x
+Components:
+	Name: prednisolon
+	Form: tablet
+	Quantities: 1 stuk
+	Divisible: 4
+	Dose:
+	Solution:
+	Substances:
+
+		Name: prednisolon
+		Concentrations: 5 mg/stuk
+		Dose: prednisolon, [qty-adj] 1 - 2 mg/kg/dosis
+		Solution:
+"""
+
+
 /// Fully populated medication for testing all Medication fields
 let fullMedication =
     let volUnit = Units.Volume.milliLiter
