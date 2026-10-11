@@ -454,3 +454,4 @@ Per step:
 | The plan | #1420 | With the script that holds the fixes and their tests. |
 | Step 1, the rounded prune, the common increment and the free time | #1422 | One pull request over the size limit by the maintainer's decision; the dose quantity pruned like a component when the dose count has no values; the script trimmed to what the second pull request needs. |
 | Step 2, the tie equations, the caps as a parameter and the fixtures | #1424 | The ties only for an order with more than one component; the caps through the real pipeline; the maintainer adds the sheet rows; the script removed. |
+| Step 3, the message on a failed pick | #1426 | A fourth refusal reason without detail; a snackbar warning with the dialog kept on the order before the change; the norm dose step of CalcMinMax keeps the order before, so the scenario list is unchanged; the message-list evaluate now answers the context before the change. |
