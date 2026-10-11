@@ -644,6 +644,27 @@ let refusalTests =
                 |> Expect.equal "the context held, not refused" (OrderContextView.Settled argued)
             }
 
+            test "a selection that cannot be calculated keeps the dialog on the scenario selected" {
+                let scenario id = OrderFixtures.scenario id "paracetamol"
+
+                let argued =
+                    { paracetamol with
+                        Scenarios = [| scenario "o-1"; scenario "o-2" |]
+                        Argumentation = Some "Sepsis"
+                    }
+
+                let narrowed = { argued with Scenarios = [| scenario "o-2" |] }
+
+                let busy =
+                    inFlight (OrderViewCommand.SelectNthOrderScenario 1) argued argued "r-1"
+                    |> OrderContextState.select (Some "o-2")
+
+                transition (OrderContextMsg.Answered("r-1", refusedAnswer narrowed OrderContextRefusal.NotSolved)) busy
+                |> fst
+                |> dialog
+                |> Expect.equal "the one scenario selected" (Some(OrderContextView.Settled narrowed))
+            }
+
             test "a failed change still keeps the context held and the order, and says why" {
                 let busy = evaluating withOrder withOrder "r-1" |> OrderContextState.select (Some "o-1")
 
