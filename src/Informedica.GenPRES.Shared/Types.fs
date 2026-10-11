@@ -839,8 +839,9 @@ module Types =
         | Refused of SigningRefusal
 
 
-    /// Why an evaluation answers no scenarios: the picks of the filter match no dose rule. The
-    /// same three cases as GenORDER's Refusal, in the contract's own words.
+    /// Why an evaluation is refused: the picks of the filter match no dose rule, or the order
+    /// cannot be solved with a change to it. The same cases as GenORDER's Refusal, in the
+    /// contract's own words.
     [<RequireQualifiedAccess>]
     type OrderContextRefusal =
         /// No dose rule exists for the picks at all.
@@ -850,6 +851,8 @@ module Types =
         /// Dose rules cover the picks and the patient, and none of them can be prescribed: no
         /// product, or no dose type.
         | NoProducts
+        /// The order cannot be solved with the change; the order stays as it was.
+        | NotSolved
 
 
     /// The answer to an order-context command. A payload like `LaunchOutcome`: the context

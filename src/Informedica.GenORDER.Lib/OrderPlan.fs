@@ -94,7 +94,8 @@ module PlanContext =
     /// look the rules up, a pick the rules no longer offer for the patient is a refusal with
     /// the context as it was sent, not a pick dropped in silence; a reload refreshes the rules
     /// first, so that the pick is checked against them as they are now. Every other command
-    /// runs over the context reconciled. The intake is recorded over the answer, evaluated or
+    /// runs over the context reconciled, and one over the scenario's order is refused with the
+    /// context before the change when the order cannot be solved. The intake is recorded over the answer, evaluated or
     /// refused, from the totals data read after any reload; the id and the category stay the
     /// plan's. An evaluation that fails is the answer.
     let evaluateSent

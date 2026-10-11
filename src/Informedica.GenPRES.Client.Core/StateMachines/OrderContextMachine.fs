@@ -126,6 +126,8 @@ module OrderContextMachine =
         | SyncPages of Filter
         /// Tell the user what went wrong.
         | TellError of string[]
+        /// Tell the user the change could not be applied.
+        | TellNotSolved
 
 
     /// What the page reads of the OrderContextState. The page renders Settled, Refused and Changing
@@ -363,6 +365,9 @@ module OrderContextMachine =
                 let workbench, told =
                     match result with
                     | Ok(OrderContextResponse.Evaluated ctx) -> OrderContextWorkbench.Evaluated(pat, ctx), []
+                    // a change that cannot be applied keeps the order as it was, the dialog open
+                    | Ok(OrderContextResponse.Refused(back, OrderContextRefusal.NotSolved)) ->
+                        OrderContextWorkbench.Evaluated(pat, back), [ OrderContextEffect.TellNotSolved ]
                     | Ok(OrderContextResponse.Refused(back, refusal)) ->
                         OrderContextWorkbench.Refused(pat, { back with Scenarios = [||] }, refusal), []
                     // a failed change leaves the workbench as it was, not as sent

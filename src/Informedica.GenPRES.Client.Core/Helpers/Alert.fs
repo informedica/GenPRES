@@ -50,6 +50,8 @@ module Alert =
         | NewerSignedPlan of OrderPlanHead
         /// The patient could not be read again from the EHR; the orders stay as they are.
         | PatientRefreshFailed
+        /// The change could not be applied; the order stays as it was.
+        | ChangeNotApplied
 
 
     /// The severity an alert is shown with.
@@ -68,6 +70,7 @@ module Alert =
         | Alert.WorkbenchFailed _
         | Alert.SigningRefused _
         | Alert.NewerSignedPlan _
-        | Alert.PatientRefreshFailed -> Severity.Warning
+        | Alert.PatientRefreshFailed
+        | Alert.ChangeNotApplied -> Severity.Warning
         | Alert.OrderPlanSigned _
         | Alert.SignedPlanOpened _ -> Severity.Success

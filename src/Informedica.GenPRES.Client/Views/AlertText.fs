@@ -6,6 +6,7 @@ module AlertText =
 
     open Informedica.GenPRES.Client.Core.Models
     open Informedica.GenPRES.Client.Core.Helpers
+    open Informedica.GenPRES.Client.Core.Policies
     open Informedica.GenPRES.Client.Core.MachinePolicies
 
     open Informedica.GenPRES.Shared
@@ -39,6 +40,10 @@ module AlertText =
         | Alert.Alert.SignedPlanOpened head -> SigningPolicy.versionOpenedSentence signing head
         | Alert.Alert.NewerSignedPlan head -> SigningPolicy.newerPlanSentence signing head
         | Alert.Alert.PatientRefreshFailed -> signing Terms.``Session Refresh Failed``
+        | Alert.Alert.ChangeNotApplied ->
+            let term = Terms.``Prescribe Refusal Not solved``
+
+            terms (OrderContextRefusalPolicy.english term) term
 
 
     /// The severity as the snackbar names it.

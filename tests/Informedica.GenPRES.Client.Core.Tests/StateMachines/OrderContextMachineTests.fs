@@ -620,6 +620,25 @@ let refusalTests =
                 |> Expect.equal "refused" (OrderContextView.Refused(paracetamol, OrderContextRefusal.NoDoseRules))
             }
 
+            test "a value that cannot be applied keeps the order and the dialog, and says so" {
+                let busy = evaluating withOrder withOrder "r-1" |> OrderContextState.select (Some "o-1")
+
+                let landed, effects =
+                    transition
+                        (OrderContextMsg.Answered("r-1", refusedAnswer withOrder OrderContextRefusal.NotSolved))
+                        busy
+
+                effects
+                |> List.head
+                |> Expect.equal "told first" OrderContextEffect.TellNotSolved
+                landed
+                |> dialog
+                |> Expect.equal "the dialog kept" (Some(OrderContextView.Settled withOrder))
+                landed
+                |> view
+                |> Expect.equal "settled, not refused" (OrderContextView.Settled withOrder)
+            }
+
             test "a failed change still keeps the context held and the order, and says why" {
                 let busy = evaluating withOrder withOrder "r-1" |> OrderContextState.select (Some "o-1")
 

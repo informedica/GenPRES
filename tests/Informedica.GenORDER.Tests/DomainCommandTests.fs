@@ -189,6 +189,60 @@ let inPlan ctx cmd =
     |> Result.toOption
 
 
+/// An order that cannot be solved: the full medication through the stages before the solve, each
+/// carrying its order on as the application does.
+let unsolvable =
+    lazy
+        let run cmd ord =
+            match ord |> cmd |> OrderProcessor.processPipeline OrderLogging.noOp with
+            | Ok o
+            | Error(o, _) -> o
+
+        match Scenarios.fullMedication |> Medication.toOrder start with
+        | Ok ord -> ord |> run CalcMinMax |> run IncreaseIncrements |> run CalcValues
+        | Error e -> failtest $"could not build the order: %A{e}"
+
+
+[<Tests>]
+let notSolvedTests =
+    testList
+        "an order that cannot be solved"
+        [
+            test "a solve that fails refuses the context as sent" {
+                let sent = contextOf unsolvable.Value
+
+                match sent |> OrderContext.UpdateOrderScenario |> evaluate with
+                | Ok(Refused(OrderContext.UpdateOrderScenario ctx, Refusal.NotSolved)) ->
+                    ctx |> Expect.equal "the context as sent" sent
+                | other -> failtest $"expected a refusal, got %A{other}"
+            }
+
+            test "a value pick that cannot be solved refuses the context before the pick" {
+                let sent = contextOf unsolvable.Value
+                let pick = OrderContext.SetNthOrderValue(sent, SetNthOrderableDoseQuantity 0)
+
+                match pick |> evaluate with
+                | Ok(Refused(OrderContext.SetNthOrderValue(ctx, _), Refusal.NotSolved)) ->
+                    ctx |> Expect.equal "the context before the pick" sent
+                | other -> failtest $"expected a refusal, got %A{other}"
+            }
+
+            test "the message-list evaluate answers the context before the change" {
+                let sent = contextOf unsolvable.Value
+                let evaluate = OrderContext.evaluate start OrderLogging.noOp (OrderPlanTests.NoRules())
+
+                match sent |> OrderContext.UpdateOrderScenario |> evaluate with
+                | Ok(OrderContext.UpdateOrderScenario ctx) -> ctx |> Expect.equal "the context as sent" sent
+                | other -> failtest $"expected the context, got %A{other}"
+
+                // until now the pick came back set and unsolved
+                match OrderContext.SetNthOrderValue(sent, SetNthOrderableDoseQuantity 0) |> evaluate with
+                | Ok(OrderContext.SetNthOrderValue(ctx, _)) -> ctx |> Expect.equal "the context before the pick" sent
+                | other -> failtest $"expected the context, got %A{other}"
+            }
+        ]
+
+
 [<Tests>]
 let seedTests =
     let seed source ind gen rte frm dt = pcmContext |> OrderContext.seedFilter source ind gen rte frm dt

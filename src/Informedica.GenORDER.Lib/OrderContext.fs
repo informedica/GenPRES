@@ -1226,6 +1226,8 @@ Scenarios: {scenarios}
             |> updateFilterIfOneScenario
 
 
+    /// The context with the command processed on its one scenario's order. An order that cannot
+    /// be solved refuses the context as it was sent.
     let processScenarioOrder (logger: Logger) cmd (ctx: OrderContext) =
         match ctx.Scenarios |> Array.tryExactlyOne with
         | None ->
@@ -1234,22 +1236,14 @@ Scenarios: {scenarios}
             |> Logging.OrderMessage.OrderEventMessage
             |> Logging.logError logger
 
-            ctx
+            Evaluated ctx
         | Some sc ->
-            { ctx with
-                Scenarios =
-                    [|
-                        { sc with
-                            Order =
-                                sc.Order
-                                |> cmd
-                                |> OrderProcessor.processPipeline logger
-                                |> Result.defaultValue sc.Order
-                        }
-                        |> OrderScenario.setOrderTableFormat
-                    |]
-            }
-            |> updateFilterIfOneScenario
+            match sc.Order |> cmd |> OrderProcessor.processPipeline logger with
+            | Ok ord ->
+                { ctx with Scenarios = [| { sc with Order = ord } |> OrderScenario.setOrderTableFormat |] }
+                |> updateFilterIfOneScenario
+                |> Evaluated
+            | Error _ -> Refused(ctx, Refusal.NotSolved)
 
 
     /// The scenario after a field's arrow cleared a value: a cleared pick reopens the order with the
@@ -1380,8 +1374,17 @@ Scenarios: {scenarios}
         ctx |> getScenarios start logger provider
 
 
-    /// The command evaluated, as an outcome. The two commands that look the rules up can be
-    /// refused; every other command is evaluated as it is.
+    /// A refused outcome answers the command as it was sent, so a value that cannot be solved
+    /// leaves the order as it was before the value was set.
+    let refusedAsSent sent outcome =
+        match outcome with
+        | Refused(_, refusal) -> Refused(sent, refusal)
+        | Evaluated _ -> outcome
+
+
+    /// The command evaluated, as an outcome. The two commands that look the rules up are refused
+    /// when no rule fits the picks; a command over the scenario's order is refused when the order
+    /// cannot be solved; every other command is evaluated as it is.
     let rec evaluateOutcome (start: System.DateTime) logger provider cmd : Result<Outcome<Command>, Message list> =
         // Helper to process property commands when there's exactly one scenario with an order
         let processPropertyCmd ctx propCmd wrapResult =
@@ -1389,8 +1392,7 @@ Scenarios: {scenarios}
             | Some _ ->
                 ctx
                 |> processScenarioOrder logger (fun o -> ChangeProperty(o, propCmd))
-                |> wrapResult
-                |> Evaluated
+                |> Outcome.map wrapResult
                 |> Ok
             | None ->
                 // No single scenario, return ctx unchanged
@@ -1417,25 +1419,22 @@ Scenarios: {scenarios}
         | SelectOrderScenario ctx ->
             ctx
             |> processScenarioOrder logger CalcValues
-            |> SelectOrderScenario
-            |> Evaluated
+            |> Outcome.map SelectOrderScenario
             |> Ok
         | UpdateOrderScenario ctx ->
             ctx
             |> processScenarioOrder logger SolveOrder
-            |> UpdateOrderScenario
-            |> Evaluated
+            |> Outcome.map UpdateOrderScenario
             |> Ok
         | ReopenOrderScenario(ctx, picks) ->
-            (ctx |> reopenScenarioOrder logger picks, picks)
-            |> ReopenOrderScenario
-            |> Evaluated
+            ctx
+            |> reopenScenarioOrder logger picks
+            |> Outcome.map (fun ctx -> ReopenOrderScenario(ctx, picks))
             |> Ok
         | ResetOrderScenario ctx ->
             ctx
             |> processScenarioOrder logger ReCalcValues
-            |> ResetOrderScenario
-            |> Evaluated
+            |> Outcome.map ResetOrderScenario
             |> Ok
         // Frequency property commands
         | DecreaseScheduleFrequencyProperty ctx ->
@@ -1529,9 +1528,11 @@ Scenarios: {scenarios}
         | SetNthOrderValue(ctx, change) ->
             Ok(ctx |> changeOrder logger change)
             |> evaluateAs UpdateOrderScenario (fun ctx -> SetNthOrderValue(ctx, change))
+            |> Result.map (refusedAsSent cmd)
         | ClearOrderValue(ctx, change, picks) ->
             Ok(ctx |> changeOrder logger change)
             |> evaluateAs (fun ctx -> ReopenOrderScenario(ctx, picks)) (fun ctx -> ClearOrderValue(ctx, change, picks))
+            |> Result.map (refusedAsSent cmd)
         | UpdatePatient(ctx, pat) ->
             Ok { ctx with Patient = pat }
             |> evaluateAs UpdateOrderContext (fun ctx -> UpdatePatient(ctx, pat))
@@ -1548,7 +1549,9 @@ Scenarios: {scenarios}
         |> evaluateOutcome start logger provider
         |> Result.bind (
             function
-            | Evaluated cmd -> Ok cmd
+            | Evaluated cmd
+            // an order that cannot be solved has always answered the context as it was sent
+            | Refused(cmd, Refusal.NotSolved) -> Ok cmd
             | Refused _ -> Error [ ErrorMsg(noDoseRulesMessage, None) ]
         )
 

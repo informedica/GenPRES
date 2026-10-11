@@ -45,6 +45,7 @@ let tests =
                         Terms.``Prescribe Refusal No dose rules``
                         Terms.``Prescribe Refusal Patient``
                         Terms.``Prescribe Refusal No products``
+                        Terms.``Prescribe Refusal Not solved``
                         Terms.``Prescribe Refusal Contact``
                     ] do
                     english term |> Expect.notEqual $"{term} has English" $"{term}"
@@ -113,6 +114,17 @@ let tests =
                         "<Prescribe Refusal Patient>"
                         "<Prescribe Refusal No products>"
                     ]
+            }
+
+            test "a value that cannot be applied gets no notice; the snackbar says it without picks" {
+                notice english salbutamol OrderContextRefusal.NotSolved
+                |> Expect.isNone "the order stays, no notice"
+
+                bodyTerm OrderContextRefusal.NotSolved
+                |> Expect.equal "its own term" Terms.``Prescribe Refusal Not solved``
+
+                (english Terms.``Prescribe Refusal Not solved``).Contains "{0}"
+                |> Expect.isFalse "takes no picks"
             }
 
             test "a patient without a weight or a height gets no notice for the patient case" {

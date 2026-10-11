@@ -334,6 +334,7 @@ module OrderContextService =
         | Refusal.NoDoseRules -> OrderContextRefusal.NoDoseRules
         | Refusal.NoDoseRulesForPatient -> OrderContextRefusal.NoDoseRulesForPatient
         | Refusal.NoProducts -> OrderContextRefusal.NoProducts
+        | Refusal.NotSolved -> OrderContextRefusal.NotSolved
 
 
     /// The outcome mapped out as the contract's response, with the environment's demo flag.

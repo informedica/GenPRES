@@ -128,11 +128,15 @@ Taken 2026-10-11 by the maintainer, during the second pull request and its revie
 | The "Equations" sheet | The maintainer adds the two rows; the pull request does not change the sheet |
 | The implementation script | Removed; everything in it moved to the source and the GenORDER tests |
 
-Open for the maintainer, proposed below:
+Taken 2026-10-11 by the maintainer, before the third step:
 
-| Question | Proposal |
+| Question | Decision |
 |---|---|
-| The message on a failed pick | Step 3, the issue's second expectation, in this plan; it can be dropped to a plan of its own. It also covers a solve that fails inside `Order.minIncrMaxToValues`, which logs the error and returns the order of the pass before, so the pipeline reports success |
+| The message on a failed pick | Step 3 in this plan, one pull request over GenORDER, the contract and the client |
+| What the wire carries | A fourth refusal case, `NotSolved`, without detail, on the existing refusal path; the solver's messages stay in the server log |
+| What the prescriber sees | A short message on the snackbar, a warning, while the dose dialog stays open on the order as it was before the change; not the refusal notice, which empties the scenarios and closes the dialog. The text names a change, not a value: a scenario selected, a reset, a frequency button and a reopen are refused the same way |
+| A solve that fails inside `Order.minIncrMaxToValues` | A failed pick too: it returns an error with the order of the pass before, instead of that order as a success. The value step of `CalcMinMax` for a norm dose keeps the order before on that error, so the scenario list, which keeps only the orders that solve, lists the same scenarios as before |
+| The message-list evaluate | Answers the context before the change, where it answered the value set and unsolved; a change for `OrderPlan.evaluate` and the MCP tools, accepted as the better answer |
 
 ## What the code does today
 
@@ -388,10 +392,20 @@ migrated by the maintainer or by the agent when told to.
    discontinuous cap of 10, its 25 quarter tablets with that cap at 30 and `6;8;10;12` at 5; with every cap at 5 and at 3 no component of
    any fixture keeps more values than the cap.
    `fix(genorder): tie item concentrations to the component share`.
-3. **The message on a failed pick, GenORDER and the client.** `processScenarioOrder` keeps the
-   old order on an error as now and carries the solver's message out, so the client can show
-   why a pick was not applied. The shape of that message on the wire and in the dialog is
-   decided with the maintainer before this step starts; it may become a plan of its own.
+3. **The message on a failed pick, GenORDER, the contract and the client.** `Refusal.NotSolved`
+   and `OrderContextRefusal.NotSolved`, mapped by the server's `refusalToModel`.
+   `Order.minIncrMaxToValues` returns a `Result`; on a failed solve the error carries the order of
+   the pass before, as the success did until now. The norm dose value step of `CalcMinMax` keeps
+   the order before on that error, so no scenario drops from the list. `OrderContext.processScenarioOrder` answers an
+   outcome: the context as sent, refused with `NotSolved`, when the pipeline fails. A value pick or
+   clear (`SetNthOrderValue`, `ClearOrderValue`) is refused with the context before the value was
+   set. The message-list `OrderContext.evaluate` answers that context too, where it answered the
+   value set and unsolved until now. In the client the machine keeps the order and the dialog on
+   `NotSolved` and emits `TellNotSolved`, routed to `Alert.ChangeNotApplied` with the term `Prescribe Refusal Not solved` and a row in
+   `localization.tsv`. Tests: the refusal over an unsolvable order for a solve, a value pick and the
+   message-list evaluate, which answers the context before the pick; the machine keeps the dialog and tells; no notice for `NotSolved`; the
+   server maps every case; fullMedication's golden order now reports the error of `CalcValues`.
+   `fix(genorder): report a pick that cannot be solved`.
 
 ## Left out
 
