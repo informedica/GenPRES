@@ -420,19 +420,19 @@ module OrderProcessor =
 
     /// Process an order that has been cleared
     /// by setting relevant variables to non-zero positive
-    /// values and solving the order again
-    let processClearedOrder logger ord =
+    /// values and solving the order again, pruned with the caps given
+    let processClearedOrderWith caps logger ord =
         // small helpers to clarify post-processing after property changes
         let solveAndToValues skipRate =
             solveMinMax "Process Cleared Order" true logger
-            >> Result.map (minIncrMaxToValues true skipRate logger)
+            >> Result.map (minIncrMaxToValues caps true skipRate logger)
 
         let defaultInc = 100
 
         let solveIncrIncrAndToValues skipRate =
             solveMinMax "Process Cleared Order" true logger
             >> Result.bind (increaseIncrements logger defaultInc defaultInc)
-            >> Result.map (minIncrMaxToValues true skipRate logger)
+            >> Result.map (minIncrMaxToValues caps true skipRate logger)
 
         let hasTimeNotContinuous =
             ord.Schedule |> Schedule.hasTime && ord.Schedule |> Schedule.isContinuous |> not
@@ -489,6 +489,10 @@ module OrderProcessor =
             | _ ->
                 logUnmatched "timed"
                 ord |> solveOrder "Process Cleared Order" true logger
+
+
+    /// Process an order that has been cleared, pruned with the default caps.
+    let processClearedOrder logger ord = processClearedOrderWith ValueCaps.defaults logger ord
 
 
     type GenSolverExceptionMsg = Informedica.GenSolver.Lib.Types.Exceptions.Message
@@ -606,10 +610,11 @@ module OrderProcessor =
     /// Process an order through a pipeline of steps
     /// depending on the command given
     /// </summary>
+    /// <param name="caps">The maximum number of values a pruned variable keeps, per schedule</param>
     /// <param name="logger">The logger</param>
     /// <param name="cmd">The command to process</param>
     /// <returns>A Result with the processed Order or a list of error messages</returns>
-    let rec processPipeline logger cmd =
+    let rec processPipelineWith caps logger cmd =
 
         let runStep (step: Step) (ord: Order) =
             if step.Guard(classify ord) then
@@ -658,14 +663,14 @@ module OrderProcessor =
 
         let increaseIncrementStep ord = ord |> increaseIncrements logger 10 10
 
-        let calcValuesStep useMax skipRate ord = ord |> minIncrMaxToValues useMax skipRate logger |> Ok
+        let calcValuesStep useMax skipRate ord = ord |> minIncrMaxToValues caps useMax skipRate logger |> Ok
 
         let solveStep ord = solveOrder "Solve Order Step" true logger ord
 
         let calcNormDoseStep = solveNormDose logger
 
         let processClearedStep ord =
-            match processClearedOrder logger ord with
+            match processClearedOrderWith caps logger ord with
             | Ok o -> Ok o
             | Error _ -> solveOrder "Error in Cleared Step Solve again" true logger ord
 
@@ -823,7 +828,7 @@ module OrderProcessor =
 
         | Reopen(ord, picks) ->
             match ord |> clearedPick picks with
-            | None -> SolveOrder ord |> processPipeline logger
+            | None -> SolveOrder ord |> processPipelineWith caps logger
             | Some earlier ->
                 // the earlier picks as they arrived, put back over the reset order
                 let arrived =
@@ -848,7 +853,7 @@ module OrderProcessor =
                         |> Events.OrderScenario
                         |> Logging.logWarning logger
 
-                        SolveOrder ord |> processPipeline logger
+                        SolveOrder ord |> processPipelineWith caps logger
 
         | ChangeProperty(ord, cmd) -> //ord |> processChangeProperty cmd |> Ok
             [
@@ -864,3 +869,7 @@ module OrderProcessor =
                 }
             ]
             |> runPipeline ord
+
+
+    /// Process an order through the pipeline of the command given, pruned with the default caps.
+    let processPipeline logger cmd = processPipelineWith ValueCaps.defaults logger cmd

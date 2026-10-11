@@ -1842,6 +1842,8 @@ module EquationsTests =
             "[orb]_dos_ptm_adj = sum([cmp]_dos_ptm_adj)", "....."
             "[orb]_dos_rte_adj = sum([cmp]_dos_rte_adj)", "....."
             "[orb]_dos_tot_adj = sum([cmp]_dos_tot_adj)", "....."
+            "[itm]_orb_cnc = [itm]_cmp_cnc * [cmp]_orb_cnc", "xxxxx"
+            "[orb]_orb_cnc = sum([cmp]_orb_cnc)", "xxxxx"
         ]
 
     // (dose-type index used by getEquations, position in the marker string, name)
@@ -1862,14 +1864,34 @@ module EquationsTests =
         testList
             "EquationMapping embedded equations vs sheet"
             [
-                test "golden table has all 65 sheet rows" {
-                    golden |> List.length |> Expect.equal "65 rows transcribed" 65
+                test "golden table has all 67 sheet rows" {
+                    golden |> List.length |> Expect.equal "67 rows transcribed" 67
                 }
 
                 for indx, pos, name in doseTypes do
                     test $"getEquations {name} matches the Equations sheet" {
                         EquationMapping.getEquations indx
                         |> Expect.equal $"embedded {name} equations equal the sheet" (expectedFor pos)
+                    }
+
+                for name, med, expected in [ "pcmSupp", Scenarios.pcmSupp, false; "amfo", Scenarios.amfo, true ] do
+                    test $"the tie equations are mapped for %s{name}: %b{expected}" {
+                        match med |> Medication.toOrder Scenarios.testStart with
+                        | Error e -> failtest $"could not build the order: %A{e}"
+                        | Ok ord ->
+                            let sumEqs, prodEqs =
+                                EquationMapping.getEquations EquationMapping.Literals.discontinuous
+                                |> EquationMapping.getEqsMapping ord
+
+                            let eqs =
+                                match sumEqs, prodEqs with
+                                | SumMapping s, ProductMapping p -> s @ p
+                                | _ -> []
+
+                            // only the two tie equations have an orderable concentration on the left
+                            eqs
+                            |> List.exists (String.split " = " >> List.head >> fun lhs -> lhs.EndsWith "_orb_cnc")
+                            |> Expect.equal "tie equations present" expected
                     }
 
                 test "getEquations is memoised: repeat calls return the same instance" {
@@ -2837,6 +2859,211 @@ module OrderPlanDtoTests =
             ]
 
 
+module ReachablePickTests =
+
+    module Quantity = OrderVariable.Quantity
+    module Rate = OrderVariable.Rate
+    module Concentration = OrderVariable.Concentration
+
+    let private logger = Logging.noOp
+
+    // the CI runner shares its few cores between the test projects, so it gets three times as long
+    let private slack =
+        if System.Environment.GetEnvironmentVariable "CI" |> isNull then
+            1L
+        else
+            3L
+
+    /// The user waits for the pipeline once and for every pick.
+    let private maxPipelineMs = 3000L * slack
+
+    let private maxPickMs = 1000L * slack
+
+
+    let private parse text =
+        text
+        |> Medication.fromString
+        |> function
+            | Ok med -> med
+            | Error errs -> failtest $"could not parse the medication: %A{errs}"
+
+
+    /// Every fixture the dialog is checked on, the single-component ones included. The tpn without
+    /// KCl keeps more than two components and takes a fifth of the time of the full tpn, whose
+    /// solved order the golden orders hold.
+    let private fixtures () =
+        [
+            "amox/clav", Scenarios.amoxClavText |> parse
+            "amfo", Scenarios.amfo
+            "morfCont", Scenarios.morfCont
+            "tpn without KCl",
+            { Scenarios.tpn with Components = Scenarios.tpn.Components |> List.filter (fun c -> c.Name <> "KCl 7,4%") }
+            "pcmSupp", Scenarios.pcmSupp
+            "pcmDrink", Scenarios.pcmDrink
+            "cotrim", Scenarios.cotrim
+            "prednisolon", Scenarios.prednisolonText |> parse
+        ]
+
+
+    let private valuesOf ovar =
+        ovar
+        |> OrderVariable.getVar
+        |> Variable.getValueRange
+        |> Variable.ValueRange.getValSet
+        |> Option.map (Variable.ValueRange.ValueSet.toValueUnit >> ValueUnit.getValue)
+        |> Option.defaultValue [||]
+
+
+    /// The full processing an order goes through before a prescriber sees it, pruned with the caps
+    /// given.
+    let private processedWith caps (ord: Order) =
+        let run cmd ord = ord |> cmd |> OrderProcessor.processPipelineWith caps logger
+
+        ord
+        |> run CalcMinMax
+        |> Result.bind (run IncreaseIncrements)
+        |> Result.bind (run CalcValues)
+        |> Result.bind (run SolveOrder)
+
+
+    let private processed = processedWith Order.ValueCaps.defaults
+
+
+    /// The solved order of a medication and the time the processing took.
+    let private solvedWith process med =
+        match med |> Medication.toOrder Scenarios.testStart with
+        | Error e -> failtest $"could not build the order: %A{e}"
+        | Ok ord ->
+            let sw = System.Diagnostics.Stopwatch.StartNew()
+            let res = ord |> process
+            sw.Stop()
+
+            match res with
+            | Error(_, msgs) -> failtest $"the processing failed: %A{msgs |> List.truncate 1}"
+            | Ok ord -> sw.ElapsedMilliseconds, ord
+
+
+    /// The lists the dialog offers as picks, with more than one value: the component quantities, the
+    /// rate and, with at most two components, the item concentrations.
+    let private offered (ord: Order) =
+        let cmps = ord.Orderable.Components
+
+        [
+            for cmp in cmps do
+                cmp.OrderableQuantity |> Quantity.toOrdVar
+
+                if cmps |> List.length <= 2 then
+                    for itm in cmp.Items do
+                        itm.OrderableConcentration |> Concentration.toOrdVar
+            ord.Orderable.Dose.Rate |> Rate.toOrdVar
+        ]
+        |> List.filter (fun ovar -> ovar |> valuesOf |> Array.length > 1)
+
+
+    /// Every offered value picked and solved, timed: the names of the picks that fail and the
+    /// slowest pick in ms.
+    let private timedPicks (ord: Order) =
+        let results =
+            [
+                for ovar in ord |> offered do
+                    for nth in 0 .. (ovar |> valuesOf |> Array.length) - 1 do
+                        let picked = ovar |> OrderVariable.setNthValue nth
+                        let sw = System.Diagnostics.Stopwatch.StartNew()
+                        let res = ord |> Order.fromOrdVars [ picked ] |> Order.solveOrder "pick" false logger
+                        sw.Stop()
+
+                        ovar |> OrderVariable.getName |> Variable.Name.toString,
+                        res |> Result.isOk,
+                        sw.ElapsedMilliseconds
+            ]
+
+        results
+        |> List.filter (fun (_, ok, _) -> not ok)
+        |> List.map (fun (n, _, _) -> n),
+        results |> List.map (fun (_, _, ms) -> ms) |> List.fold max 0L
+
+
+    let private itemConcentrations (ord: Order) =
+        ord.Orderable.Components
+        |> List.collect _.Items
+        |> List.map (fun itm ->
+            itm.Name |> Name.toString, itm.OrderableConcentration |> Concentration.toOrdVar |> valuesOf
+        )
+        |> Map.ofList
+
+
+    let private componentValues (ord: Order) =
+        ord.Orderable.Components
+        |> List.map (_.OrderableQuantity >> Quantity.toOrdVar >> valuesOf)
+
+
+    // the timings are run in sequence, so other tests do not slow them down
+    let tests =
+        testSequenced
+        <| testList
+            "the picks the dialog offers"
+            [
+                test "amox/clav: the clavulaanzuur concentrations are a tenth of the amoxicilline concentrations" {
+                    let _, ord = Scenarios.amoxClavText |> parse |> solvedWith processed
+                    let cncs = ord |> itemConcentrations
+
+                    cncs["clavulaanzuur"]
+                    |> Expect.equal "a tenth" (cncs["amoxicilline"] |> Array.map (fun c -> c / 10N))
+
+                    cncs["amoxicilline"] |> Array.length > 1 |> Expect.isTrue "a choice remains"
+                }
+
+                for name, med in fixtures () do
+                    test
+                        $"%s{name}: the processing takes at most %i{maxPipelineMs} ms and every offered pick solves within %i{maxPickMs} ms" {
+                        let ms, ord = med |> solvedWith processed
+                        let failing, slowest = ord |> timedPicks
+
+                        ms <= maxPipelineMs |> Expect.isTrue $"the processing took %i{ms} ms"
+                        failing |> List.distinct |> Expect.equal "no failing picks" []
+                        slowest <= maxPickMs |> Expect.isTrue $"the slowest pick took %i{slowest} ms"
+                    }
+
+                test "prednisolon under the default discontinuous cap of 10 keeps the whole tablets" {
+                    Scenarios.prednisolonText
+                    |> parse
+                    |> solvedWith (processedWith Order.ValueCaps.defaults)
+                    |> snd
+                    |> componentValues
+                    |> Expect.equal "6 to 12" [ [| 6N .. 12N |] ]
+                }
+
+                test "prednisolon with a discontinuous cap of 30 keeps all 25 quarter tablets" {
+                    Scenarios.prednisolonText
+                    |> parse
+                    |> solvedWith (processedWith { Order.ValueCaps.defaults with Discontinuous = 30 })
+                    |> snd
+                    |> componentValues
+                    |> Expect.equal "6 to 12 by 1/4" [ [| 6N .. (1N / 4N) .. 12N |] ]
+                }
+
+                test "prednisolon with a discontinuous cap of 5 keeps every second tablet" {
+                    Scenarios.prednisolonText
+                    |> parse
+                    |> solvedWith (processedWith { Order.ValueCaps.defaults with Discontinuous = 5 })
+                    |> snd
+                    |> componentValues
+                    |> Expect.equal "6 to 12 by 2" [ [| 6N .. 2N .. 12N |] ]
+                }
+
+                for cap in [ 5; 3 ] do
+                    for name, med in fixtures () do
+                        test $"%s{name}: with every cap at %i{cap} no component keeps more than %i{cap} values" {
+                            let ms, ord = med |> solvedWith (processedWith (Order.ValueCaps.all cap))
+
+                            for vs in ord |> componentValues do
+                                vs |> Array.length <= cap |> Expect.isTrue $"%A{vs}"
+
+                            ms <= maxPipelineMs |> Expect.isTrue $"the processing took %i{ms} ms"
+                        }
+            ]
+
+
 [<Tests>]
 let tests =
     testList
@@ -2859,6 +3086,7 @@ let tests =
             ConstraintsTests.tests
             GoldenOrderTests.tests
             IncreaseQuantityIncrementTests.tests
+            ReachablePickTests.tests
             OrderBuilderTests.tests
             MedicationTextTests.MedicationTextFormatTests.tests
             MedicationTextTests.MedicationTextScenarioTests.tests

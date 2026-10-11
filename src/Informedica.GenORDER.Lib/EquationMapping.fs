@@ -104,6 +104,16 @@ module EquationMapping =
     let contOnly = [ Literals.continuous ]
 
 
+    /// An item's concentration in the orderable is its concentration in the component times the
+    /// component's share, and the shares add up to one. Only mapped for an order with more than one
+    /// component: with one, the share is 1 x and the other equations already tie the items.
+    let tieEquations =
+        [
+            "[itm]_orb_cnc = [itm]_cmp_cnc * [cmp]_orb_cnc"
+            "[orb]_orb_cnc = sum([cmp]_orb_cnc)"
+        ]
+
+
     let equations: (string * int list) list =
         [
             "[itm]_cmp_qty = [itm]_cmp_cnc * [cmp]_cmp_qty", allDoseTypes
@@ -160,6 +170,7 @@ module EquationMapping =
             "[orb]_dos_qty_adj = [orb]_dos_rte_adj * [ord]_sch_tme", contOnly
             "[orb]_dos_ptm_adj = [orb]_dos_qty_adj * [ord]_sch_frq", discTimed
             "[orb]_orb_qty = sum([cmp]_orb_qty)", allDoseTypes
+            yield! tieEquations |> List.map (fun e -> e, allDoseTypes)
         ]
 
 
@@ -196,6 +207,12 @@ module EquationMapping =
     /// A tuple of <c>SumMapping</c> and <c>ProductMapping</c>
     /// </returns>
     let getEqsMapping (ord: Order) (eqs: string list) =
+        let eqs =
+            if ord.Orderable.Components |> List.length > 1 then
+                eqs
+            else
+                eqs |> List.filter (fun e -> tieEquations |> List.contains e |> not)
+
         let sumEqs = eqs |> List.filter (String.contains "sum")
 
         let prodEqs = eqs |> List.filter (String.contains "sum" >> not)

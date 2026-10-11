@@ -92,8 +92,8 @@ let all: GoldenTotals list =
             Totals =
                 [
                     "Volume", "#1,47# - #22,7# mL||/kg||/dag||"
-                    "Energy", "#0,13# - #8,77# kCal||/kg||/dag||"
-                    "Carbohydrate", "#0,03# - #2,19# g||/kg||/dag||"
+                    "Energy", "#0,29# - #8,61# kCal||/kg||/dag||"
+                    "Carbohydrate", "#0,07# - #2,15# g||/kg||/dag||"
                 ]
         }
         {
@@ -152,9 +152,9 @@ let all: GoldenTotals list =
 let together =
     [
         "Volume", "#32# - #141# mL||/kg||/dag||"
-        "Energy", "#2,87# - #33,5# kCal||/kg||/dag||"
+        "Energy", "#3,03# - #33,3# kCal||/kg||/dag||"
         "Protein", "#1,17# - #2,93# g||/kg||/dag||"
-        "Carbohydrate", "#0,14# - #11,2# g||/kg||/dag||"
+        "Carbohydrate", "#0,18# - #11,1# g||/kg||/dag||"
         "Sodium", "#4,15# - #5,17# mmol||/kg||/dag||"
         "Potassium", "#2,96# - #3,93# mmol||/kg||/dag||"
         "Chloride", "#3,85# - #5,28# mmol||/kg||/dag||"

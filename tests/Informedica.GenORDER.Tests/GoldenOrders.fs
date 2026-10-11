@@ -94,21 +94,21 @@ Schedule
 []_sch_frq [1 x/dag]
 Orderable
 [amfotericine b liposomaal]_ord_qty <0 mL..>
-[amfotericine b liposomaal]_orb_qty [61;62;63 mL .. 315;316;317 mL]
+[amfotericine b liposomaal]_orb_qty [61;62;63 mL .. 267;316;317 mL]
 [amfotericine b liposomaal]_ord_cnt <0 x..>
 [amfotericine b liposomaal]_dos_cnt [1 x]
-[amfotericine b liposomaal]_dos_qty [61;62;63 mL .. 315;316;317 mL]
-[amfotericine b liposomaal]_dos_ptm [61;62;63 mL/dag .. 315;316;317 mL/dag]
+[amfotericine b liposomaal]_dos_qty [61;62;63 mL .. 267;316;317 mL]
+[amfotericine b liposomaal]_dos_ptm [61;62;63 mL/dag .. 267;316;317 mL/dag]
 [amfotericine b liposomaal]_dos_rte <0 ..>
 [amfotericine b liposomaal]_dos_tot <0 ..>
-[amfotericine b liposomaal]_dos_qty_adj [4,36;4,43;4,5 mL/kg .. 22,5;22,6 mL/kg]
-[amfotericine b liposomaal]_dos_ptm_adj [4,36;4,43;4,5 mL/kg/dag .. 22,5;22,6 mL/kg/dag]
+[amfotericine b liposomaal]_dos_qty_adj [4,36;4,43;4,5 mL/kg .. 19,1;22,6 mL/kg]
+[amfotericine b liposomaal]_dos_ptm_adj [4,36;4,43;4,5 mL/kg/dag .. 19,1;22,6 mL/kg/dag]
 [amfotericine b liposomaal]_dos_rte_adj <0 ..>
 [amfotericine b liposomaal]_dos_tot_adj <0 ..>
 [amfotericine b liposomaal.amfotericine b liposomaal]_cmp_qty [1 mL]
 [amfotericine b liposomaal.amfotericine b liposomaal]_orb_qty [11;12;13;14;15;16;17 mL]
 [amfotericine b liposomaal.amfotericine b liposomaal]_orb_cnt [11;12;13;14;15;16;17 x]
-[amfotericine b liposomaal.amfotericine b liposomaal]_orb_cnc [0,03 x .. 0,27;0,28 x]
+[amfotericine b liposomaal.amfotericine b liposomaal]_orb_cnc [0,05 x .. 0,23;0,24;0,25 x]
 [amfotericine b liposomaal.amfotericine b liposomaal]_ord_qty <0 mL..>
 [amfotericine b liposomaal.amfotericine b liposomaal]_ord_cnt <0 x..>
 [amfotericine b liposomaal.amfotericine b liposomaal]_dos_qty [11;12;13;14;15;16;17 mL]
@@ -122,7 +122,7 @@ Orderable
 [amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_cmp_qty [72 mg]
 [amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_orb_qty [792;864;936;1 008;1 080;1 152;1 224 mg]
 [amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_cmp_cnc [72 mg/mL]
-[amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_orb_cnc [2,5;2,51 mg/mL .. 19,4;19,7;20,1 mg/mL]
+[amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_orb_cnc [3,65;3,75;3,82 mg/mL .. 16,6;17,5;18,3 mg/mL]
 [amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_dos_qty [792;864;936;1 008;1 080;1 152;1 224 mg]
 [amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_dos_ptm [792;864;936;1 008;1 080;1 152;1 224 mg/dag]
 [amfotericine b liposomaal.amfotericine b liposomaal.saccharose]_dos_rte <0 ..>
@@ -134,7 +134,7 @@ Orderable
 [amfotericine b liposomaal.amfotericine b liposomaal.amfotericine b liposomaal]_cmp_qty [4 mg]
 [amfotericine b liposomaal.amfotericine b liposomaal.amfotericine b liposomaal]_orb_qty [44;48;52;56;60;64;68 mg]
 [amfotericine b liposomaal.amfotericine b liposomaal.amfotericine b liposomaal]_cmp_cnc [4 mg/mL]
-[amfotericine b liposomaal.amfotericine b liposomaal.amfotericine b liposomaal]_orb_cnc [0,2 mg/mL .. 1,08;1,1;1,11 mg/mL]
+[amfotericine b liposomaal.amfotericine b liposomaal.amfotericine b liposomaal]_orb_cnc [0,2;0,21 mg/mL .. 0,92;0,97;1,01 mg/mL]
 [amfotericine b liposomaal.amfotericine b liposomaal.amfotericine b liposomaal]_dos_qty [44;48;52;56;60;64;68 mg]
 [amfotericine b liposomaal.amfotericine b liposomaal.amfotericine b liposomaal]_dos_ptm [44;48;52;56;60;64;68 mg/dag]
 [amfotericine b liposomaal.amfotericine b liposomaal.amfotericine b liposomaal]_dos_rte <0 ..>
@@ -146,7 +146,7 @@ Orderable
 [amfotericine b liposomaal.gluc 10%]_cmp_qty [1 mL]
 [amfotericine b liposomaal.gluc 10%]_orb_qty [50;100;150;200;250;300 mL]
 [amfotericine b liposomaal.gluc 10%]_orb_cnt [50;100;150;200;250;300 x]
-[amfotericine b liposomaal.gluc 10%]_orb_cnc [0,16 x .. 0,96;0,97 x]
+[amfotericine b liposomaal.gluc 10%]_orb_cnc [0,75;0,76;0,77 x .. 0,95 x]
 [amfotericine b liposomaal.gluc 10%]_ord_qty <0 mL..>
 [amfotericine b liposomaal.gluc 10%]_ord_cnt <0 x..>
 [amfotericine b liposomaal.gluc 10%]_dos_qty [50;100;150;200;250;300 mL]
@@ -160,7 +160,7 @@ Orderable
 [amfotericine b liposomaal.gluc 10%.energie]_cmp_qty [0,4 kCal]
 [amfotericine b liposomaal.gluc 10%.energie]_orb_qty [20;40;60;80;100;120 kCal]
 [amfotericine b liposomaal.gluc 10%.energie]_cmp_cnc [0,4 kCal/mL]
-[amfotericine b liposomaal.gluc 10%.energie]_orb_cnc [0,06 kCal/mL .. 1,9;1,94;1,97 kCal/mL]
+[amfotericine b liposomaal.gluc 10%.energie]_orb_cnc [0,3;0,31 kCal/mL .. 0,38 kCal/mL]
 [amfotericine b liposomaal.gluc 10%.energie]_dos_qty [20;40;60;80;100;120 kCal]
 [amfotericine b liposomaal.gluc 10%.energie]_dos_ptm [20;40;60;80;100;120 kCal/dag]
 [amfotericine b liposomaal.gluc 10%.energie]_dos_rte <0 ..>
@@ -172,7 +172,7 @@ Orderable
 [amfotericine b liposomaal.gluc 10%.koolhydraat]_cmp_qty [0,1 g]
 [amfotericine b liposomaal.gluc 10%.koolhydraat]_orb_qty [5;10;15;20;25;30 g]
 [amfotericine b liposomaal.gluc 10%.koolhydraat]_cmp_cnc [0,1 g/mL]
-[amfotericine b liposomaal.gluc 10%.koolhydraat]_orb_cnc [0,02 g/mL .. 0,48;0,49 g/mL]
+[amfotericine b liposomaal.gluc 10%.koolhydraat]_orb_cnc [0,07;0,08 g/mL .. 0,09 g/mL]
 [amfotericine b liposomaal.gluc 10%.koolhydraat]_dos_qty [5;10;15;20;25;30 g]
 [amfotericine b liposomaal.gluc 10%.koolhydraat]_dos_ptm [5;10;15;20;25;30 g/dag]
 [amfotericine b liposomaal.gluc 10%.koolhydraat]_dos_rte <0 ..>
@@ -523,12 +523,12 @@ Orderable
 [samenstelling c.gluc 10%]_cmp_qty [1 mL]
 [samenstelling c.gluc 10%]_orb_qty [200;400;600 mL]
 [samenstelling c.gluc 10%]_orb_cnt [200;400;600 x]
-[samenstelling c.gluc 10%]_orb_cnc [0,24;0,27 x .. 0,95 x]
+[samenstelling c.gluc 10%]_orb_cnc [0,24;0,27 x .. 0,63;0,64;0,72 x]
 [samenstelling c.gluc 10%]_ord_qty <0 mL..>
 [samenstelling c.gluc 10%]_ord_cnt <0 x..>
 [samenstelling c.gluc 10%]_dos_qty [200;400;600 mL]
 [samenstelling c.gluc 10%]_dos_ptm [200;400;600 mL/dag]
-[samenstelling c.gluc 10%]_dos_rte [4,82 mL/uur..55,8 mL/uur]
+[samenstelling c.gluc 10%]_dos_rte [4,82 mL/uur..28,9 mL/uur]
 [samenstelling c.gluc 10%]_dos_tot <0 ..>
 [samenstelling c.gluc 10%]_dos_qty_adj [18,2;36,4;54,5 mL/kg]
 [samenstelling c.gluc 10%]_dos_ptm_adj [18,2;36,4;54,5 mL/kg/dag]
@@ -537,14 +537,14 @@ Orderable
 [samenstelling c.gluc 10%.koolhydraat]_cmp_qty [0,1 g]
 [samenstelling c.gluc 10%.koolhydraat]_orb_qty [20;40;60 g]
 [samenstelling c.gluc 10%.koolhydraat]_cmp_cnc [0,1 g/mL]
-[samenstelling c.gluc 10%.koolhydraat]_orb_cnc [0,02;0,03 g/mL .. 0,14 g/mL]
+[samenstelling c.gluc 10%.koolhydraat]_orb_cnc [0,02;0,03 g/mL .. 0,06;0,07 g/mL]
 [samenstelling c.gluc 10%.koolhydraat]_dos_qty [20;40;60 g]
 [samenstelling c.gluc 10%.koolhydraat]_dos_ptm [20;40;60 g/dag]
-[samenstelling c.gluc 10%.koolhydraat]_dos_rte [0,48 g/uur..5,58 g/uur]
+[samenstelling c.gluc 10%.koolhydraat]_dos_rte [0,48 g/uur..2,89 g/uur]
 [samenstelling c.gluc 10%.koolhydraat]_dos_tot <0 ..>
 [samenstelling c.gluc 10%.koolhydraat]_dos_qty_adj [1,82;3,64;5,45 g/kg]
 [samenstelling c.gluc 10%.koolhydraat]_dos_ptm_adj [1,82;3,64;5,45 g/kg/dag]
-[samenstelling c.gluc 10%.koolhydraat]_dos_rte_adj [0,04 g/kg/uur..0,51 g/kg/uur]
+[samenstelling c.gluc 10%.koolhydraat]_dos_rte_adj [0,04 g/kg/uur..0,26 g/kg/uur]
 [samenstelling c.gluc 10%.koolhydraat]_dos_tot_adj <0 ..>
 []_adj_qty [11 kg]
 """
@@ -763,12 +763,12 @@ Orderable
 [samenstelling c.gluc 10%]_cmp_qty [1 mL]
 [samenstelling c.gluc 10%]_orb_qty [200;400;600 mL]
 [samenstelling c.gluc 10%]_orb_cnt [200;400;600 x]
-[samenstelling c.gluc 10%]_orb_cnc [0,24;0,27 x .. 0,95 x]
+[samenstelling c.gluc 10%]_orb_cnc [0,24;0,27 x .. 0,63;0,64;0,72 x]
 [samenstelling c.gluc 10%]_ord_qty <0 mL..>
 [samenstelling c.gluc 10%]_ord_cnt <0 x..>
 [samenstelling c.gluc 10%]_dos_qty [200;400;600 mL]
 [samenstelling c.gluc 10%]_dos_ptm [200;400;600 mL/dag]
-[samenstelling c.gluc 10%]_dos_rte [4,82 mL/uur..55,8 mL/uur]
+[samenstelling c.gluc 10%]_dos_rte [4,82 mL/uur..28,9 mL/uur]
 [samenstelling c.gluc 10%]_dos_tot <0 ..>
 [samenstelling c.gluc 10%]_dos_qty_adj [18,2;36,4;54,5 mL/kg]
 [samenstelling c.gluc 10%]_dos_ptm_adj [18,2;36,4;54,5 mL/kg/dag]
@@ -777,26 +777,26 @@ Orderable
 [samenstelling c.gluc 10%.energie]_cmp_qty [0,4 kCal]
 [samenstelling c.gluc 10%.energie]_orb_qty [80;160;240 kCal]
 [samenstelling c.gluc 10%.energie]_cmp_cnc [0,4 kCal/mL]
-[samenstelling c.gluc 10%.energie]_orb_cnc [0,1;0,11 kCal/mL .. 0,56 kCal/mL]
+[samenstelling c.gluc 10%.energie]_orb_cnc [0,1;0,11 kCal/mL .. 0,25;0,29 kCal/mL]
 [samenstelling c.gluc 10%.energie]_dos_qty [80;160;240 kCal]
 [samenstelling c.gluc 10%.energie]_dos_ptm [80;160;240 kCal/dag]
-[samenstelling c.gluc 10%.energie]_dos_rte [1,93 kCal/uur..22,3 kCal/uur]
+[samenstelling c.gluc 10%.energie]_dos_rte [1,93 kCal/uur..11,6 kCal/uur]
 [samenstelling c.gluc 10%.energie]_dos_tot <0 ..>
 [samenstelling c.gluc 10%.energie]_dos_qty_adj [7,27;14,5;21,8 kCal/kg]
 [samenstelling c.gluc 10%.energie]_dos_ptm_adj [7,27;14,5;21,8 kCal/kg/dag]
-[samenstelling c.gluc 10%.energie]_dos_rte_adj [0,18 kCal/kg/uur..2,03 kCal/kg/uur]
+[samenstelling c.gluc 10%.energie]_dos_rte_adj [0,18 kCal/kg/uur..1,05 kCal/kg/uur]
 [samenstelling c.gluc 10%.energie]_dos_tot_adj <0 ..>
 [samenstelling c.gluc 10%.koolhydraat]_cmp_qty [0,1 g]
 [samenstelling c.gluc 10%.koolhydraat]_orb_qty [20;40;60 g]
 [samenstelling c.gluc 10%.koolhydraat]_cmp_cnc [0,1 g/mL]
-[samenstelling c.gluc 10%.koolhydraat]_orb_cnc [0,02;0,03 g/mL .. 0,14 g/mL]
+[samenstelling c.gluc 10%.koolhydraat]_orb_cnc [0,02;0,03 g/mL .. 0,06;0,07 g/mL]
 [samenstelling c.gluc 10%.koolhydraat]_dos_qty [20;40;60 g]
 [samenstelling c.gluc 10%.koolhydraat]_dos_ptm [20;40;60 g/dag]
-[samenstelling c.gluc 10%.koolhydraat]_dos_rte [0,48 g/uur..5,58 g/uur]
+[samenstelling c.gluc 10%.koolhydraat]_dos_rte [0,48 g/uur..2,89 g/uur]
 [samenstelling c.gluc 10%.koolhydraat]_dos_tot <0 ..>
 [samenstelling c.gluc 10%.koolhydraat]_dos_qty_adj [1,82;3,64;5,45 g/kg]
 [samenstelling c.gluc 10%.koolhydraat]_dos_ptm_adj [1,82;3,64;5,45 g/kg/dag]
-[samenstelling c.gluc 10%.koolhydraat]_dos_rte_adj [0,04 g/kg/uur..0,51 g/kg/uur]
+[samenstelling c.gluc 10%.koolhydraat]_dos_rte_adj [0,04 g/kg/uur..0,26 g/kg/uur]
 [samenstelling c.gluc 10%.koolhydraat]_dos_tot_adj <0 ..>
 []_adj_qty [11 kg]
 """
@@ -829,7 +829,7 @@ Orderable
 [Test Medication Complete.Main Component]_cmp_qty [1 mL]
 [Test Medication Complete.Main Component]_orb_qty [10 mL..0,5 mL..49,5 mL]
 [Test Medication Complete.Main Component]_orb_cnt <0 x..>
-[Test Medication Complete.Main Component]_orb_cnc <0 x..1 x>
+[Test Medication Complete.Main Component]_orb_cnc [0,05 x..0,2 x]
 [Test Medication Complete.Main Component]_ord_qty <0 mL..>
 [Test Medication Complete.Main Component]_ord_cnt <0 x..>
 [Test Medication Complete.Main Component]_dos_qty [15 mL..75 mL]
@@ -869,10 +869,10 @@ Orderable
 [Test Medication Complete.Diluent Component.sodium]_cmp_qty [0,15 mmol]
 [Test Medication Complete.Diluent Component.sodium]_orb_qty [0,08 mmol..0,08 mmol..6,16 mmol]
 [Test Medication Complete.Diluent Component.sodium]_cmp_cnc [0,15 mmol/mL]
-[Test Medication Complete.Diluent Component.sodium]_orb_cnc <0 ..>
-[Test Medication Complete.Diluent Component.sodium]_dos_qty <0 ..>
-[Test Medication Complete.Diluent Component.sodium]_dos_ptm <0 ..>
-[Test Medication Complete.Diluent Component.sodium]_dos_rte <0 ..>
+[Test Medication Complete.Diluent Component.sodium]_orb_cnc <0 mmol/mL..0,15 mmol/mL>
+[Test Medication Complete.Diluent Component.sodium]_dos_qty <0 mmol..1,54 mmol>
+[Test Medication Complete.Diluent Component.sodium]_dos_ptm <0 mmol/dag..>
+[Test Medication Complete.Diluent Component.sodium]_dos_rte <0 mmol/uur..>
 [Test Medication Complete.Diluent Component.sodium]_dos_tot <0 ..>
 [Test Medication Complete.Diluent Component.sodium]_dos_qty_adj <0 ..>
 [Test Medication Complete.Diluent Component.sodium]_dos_ptm_adj <0 ..>

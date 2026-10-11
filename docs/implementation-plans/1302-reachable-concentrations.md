@@ -2,9 +2,9 @@
 
 The dose dialog offers only values the order can reach. Drafted 2026-10-11. Line numbers are
 from `master` at `33f05274`. The fixes and their tests are prototyped in
-`src/Informedica.GenORDER.Lib/Scripts/Issue1302.fsx`. With the first pull request the script keeps only
-what the second still needs (`TieFix`, `CapsFix`, the amox/clav and prednisolon fixtures, the timed
-pick helpers); the earlier prototypes are in the version merged with the plan (#1420).
+`src/Informedica.GenORDER.Lib/Scripts/Issue1302.fsx`. The second pull request moved the rest of it
+into the source and the GenORDER tests and removed the script; the prototypes are in the version
+merged with the plan (#1420).
 
 - [Problem description](#problem-description)
 - [Decisions](#decisions)
@@ -116,11 +116,22 @@ Taken 2026-10-11 by the maintainer, on the code review of the first pull request
 | The dose count | Not a count of administrations: the inverse of the share of the orderable quantity given per dose (`[orb]_orb_qty = [orb]_dos_cnt * [orb]_dos_qty`), so a fractional value such as 2,86 x is valid |
 | Dead code | `Component.increaseQuantityIncrement`, `Order.maximizeRate`, `Order.minimizeTime`, `Schedule.setMinTime`, the `minTime` parameter and the duplicate `reCalcValuesStep` are removed. The cleared-order path passed `minTime = true` only for continuous and discontinuous orders, where it did nothing, so a clear behaves as before |
 
+Taken 2026-10-11 by the maintainer, during the second pull request and its review:
+
+| Question | Decision |
+|---|---|
+| The variable that holds one for the share sum | A constant mapped into the equations, not a field on `Orderable`; `Order.orderableShare`, added to the variables of `Order.mapToOrderEquations` only |
+| The ties and an order with one component | Not mapped: `EquationMapping.getEqsMapping` leaves out both rows when the order has one component, whose share is 1 x and whose items the other equations already tie |
+| The caps in the tests | Through the real pipeline: `OrderProcessor.processPipelineWith` and `processClearedOrderWith` take the caps, `processPipeline` and `processClearedOrder` pass `ValueCaps.defaults` |
+| The tpn in the pick test | tpn without KCl, more than two components at a fifth of the time; the full tpn and tpnComplete are pinned by their golden orders only, no test picks every value on them |
+| Time limits on CI | Three times the local limits when `CI` is set; the runner shares its cores between the test projects |
+| The "Equations" sheet | The maintainer adds the two rows; the pull request does not change the sheet |
+| The implementation script | Removed; everything in it moved to the source and the GenORDER tests |
+
 Open for the maintainer, proposed below:
 
 | Question | Proposal |
 |---|---|
-| The variable that holds one for the share sum | A constant mapped into the equations, not a field on `Orderable`; see [Chosen approach](#chosen-approach) |
 | The message on a failed pick | Step 3, the issue's second expectation, in this plan; it can be dropped to a plan of its own. It also covers a solve that fails inside `Order.minIncrMaxToValues`, which logs the error and returns the order of the pass before, so the pipeline reports success |
 
 ## What the code does today
@@ -303,7 +314,7 @@ and the rate, otherwise also the item concentrations.
 | tpn | 0.9 s | 19 | 0 | 309 ms | Samenstelling C `150;200;250`, NaCl `60;65;70`, glucose `200;400;600 mL`, rate `20..5..40 mL/uur` |
 | tpnComplete | 1.7 s | 19 | 0 | 650 ms | as tpn |
 | pcmSupp, pcmDrink, cotrim | < 0.1 s | 0 to 3 | 0 | 2 ms | unchanged |
-| prednisolon, 5 mg tablet in quarters | < 0.1 s | 25 | 0 | 1 ms | `6..1/4..12`: 25 values, under the single-component cap of 100; with that cap at 10 `6..12`, at 5 `6;8;10;12` |
+| prednisolon, 5 mg tablet in quarters | < 0.1 s | 25 | 0 | 1 ms | `6..1/4..12`: 25 values, under the single-component cap of 100 that the reset uses; the four commands of `OrderProcessor` prune with the discontinuous cap of 10 and give the whole tablets `6..12`, with that cap at 30 the 25 quarter tablets, at 5 `6;8;10;12` |
 
 With every cap lowered to 5 and to 3, no component of any fixture keeps more values than the cap and
 every pipeline stays within 3 s.
@@ -365,16 +376,16 @@ migrated by the maintainer or by the agent when told to.
    `fix(genorder): offer reachable rounded dose values`.
 2. **The tie equations, the caps as a parameter and the fixtures, GenORDER.** The two rows in
    `EquationMapping.equations`, the constant in `Order.mapToOrderEquations`, the golden table in
-   `EquationsTests` extended by the two rows with marker `xxxxx` (67 rows), and the "Equations"
-   sheet gets the two rows so the sheet and the code agree. The numbers in
-   `Order.minIncrMaxToValues` become a `ValueCaps` record with today's values as the default, passed
-   by `OrderProcessor`. `Scenarios.amoxClavText`, `Scenarios.amoxClav` and the prednisolon fixture
+   `EquationsTests` extended by the two rows with marker `xxxxx` (67 rows); the maintainer adds the
+   two rows to the "Equations" sheet. The numbers in `Order.minIncrMaxToValues` become a `ValueCaps`
+   record with today's values as the default; `OrderProcessor.processPipelineWith` takes the caps and
+   `processPipeline` passes the default. `Scenarios.amoxClavText` and `Scenarios.prednisolonText`
    (5 mg tablets dividable in quarters, 1 to 2 mg/kg for 30 kg) go to `Scenarios.fs`, and the helpers
-   that pick every value of the lists the dialog offers and solve, timed (`pickablesFor`,
-   `timedPicksWith`, `measure`), to the test project. Tests: the clavulaanzuur list is a tenth of the amoxicilline
-   list; on every fixture every pick of the lists the dialog must offer solves, within 1 s, and the
-   pipeline within 3 s; prednisolon keeps its 25 quarter tablets under the default caps, `6..12` with
-   a single-component cap of 10 and `6;8;10;12` with 5; with every cap at 5 and at 3 no component of
+   that pick every value of the lists the dialog offers and solve, timed, to `ReachablePickTests` in
+   the test project. Tests: the clavulaanzuur list is a tenth of the amoxicilline list; on every
+   fixture (tpn without KCl in place of tpn and tpnComplete) every pick of the lists the dialog must
+   offer solves, within 1 s, and the pipeline within 3 s, three times that on CI; prednisolon keeps the whole tablets `6..12` under the default
+   discontinuous cap of 10, its 25 quarter tablets with that cap at 30 and `6;8;10;12` at 5; with every cap at 5 and at 3 no component of
    any fixture keeps more values than the cap.
    `fix(genorder): tie item concentrations to the component share`.
 3. **The message on a failed pick, GenORDER and the client.** `processScenarioOrder` keeps the
@@ -417,9 +428,8 @@ Per step:
 - `dotnet run BenchmarkBuild`, since the benchmark is outside the solution
 - `dotnet fsi scripts/CheckDependencyRule.fsx`
 - `dotnet fantomas --check`
-- `cd src/Informedica.GenORDER.Lib/Scripts && dotnet fsi Issue1302.fsx`: every test green, and
-  the printed report shows 0 failing picks on every fixture under the rounded prune, the pipeline
-  within 3 s and every pick within 1 s
+- the `ReachablePickTests` in `tests/Informedica.GenORDER.Tests/Tests.fs`: 0 failing picks on every
+  fixture, the pipeline within 3 s and every pick within 1 s
 - the maintainer repeats the issue's steps in the browser: the concentration list holds 10
   values and every one applies
 
@@ -429,3 +439,4 @@ Per step:
 |---|---|---|
 | The plan | #1420 | With the script that holds the fixes and their tests. |
 | Step 1, the rounded prune, the common increment and the free time | #1422 | One pull request over the size limit by the maintainer's decision; the dose quantity pruned like a component when the dose count has no values; the script trimmed to what the second pull request needs. |
+| Step 2, the tie equations, the caps as a parameter and the fixtures | #1424 | The ties only for an order with more than one component; the caps through the real pipeline; the maintainer adds the sheet rows; the script removed. |
