@@ -546,6 +546,57 @@ module Tests =
                                                     (5N |> ValueUnit.singleWithUnit u |> Increment.create)
 
                                     }
+
+                                    test "a range that already holds at most maxCount values keeps its increment" {
+                                        let u = Units.Volume.milliLiter
+
+                                        let vr =
+                                            Variable.ValueRange.create
+                                                (20N |> ValueUnit.singleWithUnit u |> Minimum.create true |> Some)
+                                                (1N |> ValueUnit.singleWithUnit u |> Increment.create |> Some)
+                                                (24N |> ValueUnit.singleWithUnit u |> Maximum.create true |> Some)
+                                                None
+
+                                        vr
+                                        |> Variable.ValueRange.increaseIncrement
+                                            10N
+                                            ([ 5N; 10N ] |> List.map (ValueUnit.singleWithUnit u >> Increment.create))
+                                        |> Expect.equal "should keep 20 to 24 mL by 1 mL" vr
+                                    }
+
+                                    let rateRange () =
+                                        let u = Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour
+
+                                        let incrs =
+                                            [ 1N / 10N; 1N / 2N; 1N; 5N; 10N; 50N; 100N; 500N ]
+                                            |> List.map (ValueUnit.singleWithUnit u >> Increment.create)
+
+                                        u,
+                                        incrs,
+                                        Variable.ValueRange.create
+                                            (10N |> ValueUnit.singleWithUnit u |> Minimum.create true |> Some)
+                                            (5N |> ValueUnit.singleWithUnit u |> Increment.create |> Some)
+                                            (40N |> ValueUnit.singleWithUnit u |> Maximum.create true |> Some)
+                                            None
+
+                                    test "a rate increased a second time keeps its increment when it already fits" {
+                                        let _, incrs, vr = rateRange ()
+
+                                        vr
+                                        |> Variable.ValueRange.increaseIncrement 10N incrs
+                                        |> Expect.equal "should keep 10 to 40 mL/hour by 5 mL/hour" vr
+                                    }
+
+                                    test "a range with more than maxCount values still gets a larger increment" {
+                                        let u, incrs, vr = rateRange ()
+
+                                        vr
+                                        |> Variable.ValueRange.increaseIncrement 5N incrs
+                                        |> Variable.ValueRange.getIncr
+                                        |> Expect.equal
+                                            "should be 10 mL/hour"
+                                            (10N |> ValueUnit.singleWithUnit u |> Increment.create |> Some)
+                                    }
                                 ]
 
                         ]
@@ -821,79 +872,99 @@ module Tests =
                             testList
                                 "prune"
                                 [
-                                    test "prune with increment retains min and max when not multiples of incr*m" {
-                                        let values = [| yield 3N; yield! [| 5N .. 5N .. 100N |]; yield 107N |]
+                                    let mL = Units.Volume.milliLiter
+                                    let stuk = Units.General.general "stuk"
 
-                                        let incrVu = Units.Volume.milliLiter |> ValueUnit.singleWithValue 5N |> Some
+                                    // the rounded steps an order passes, in mL and in mL/hour
+                                    let steps =
+                                        let steps u =
+                                            [ 1N / 10N; 1N / 2N; 1N; 5N; 10N; 50N; 100N; 500N ]
+                                            |> List.map (ValueUnit.singleWithUnit u)
 
-                                        let result =
-                                            Units.Volume.milliLiter
-                                            |> ValueUnit.withValue values
-                                            |> ValueSet.create
-                                            |> ValueSet.prune incrVu 5
-                                            |> fun (ValueSet vu) -> vu |> ValueUnit.getValue
+                                        steps mL @ steps (mL |> ValueUnit.per Units.Time.hour)
 
-                                        result |> Array.min |> Expect.equal "min should be 3" 3N
-                                        result |> Array.max |> Expect.equal "max should be 107" 107N
+                                    let prune unit incr n values =
+                                        unit
+                                        |> ValueUnit.withValue values
+                                        |> ValueSet.create
+                                        |> ValueSet.prune steps incr n
+                                        |> fun (ValueSet vu) -> vu |> ValueUnit.getValue
+
+                                    let incrOf unit v = unit |> ValueUnit.singleWithValue v |> Some
+
+                                    test "prune with increment takes the finest step that leaves at most n values" {
+                                        [| 110N .. 275N |]
+                                        |> prune mL (incrOf mL 1N) 5
+                                        |> Expect.equal "should be the multiples of 50 mL" [| 150N; 200N; 250N |]
                                     }
 
-                                    test "prune with increment keeps result within n elements" {
-                                        let values = [| yield 3N; yield! [| 5N .. 5N .. 100N |]; yield 107N |]
-                                        let incrVu = Units.Volume.milliLiter |> ValueUnit.singleWithValue 5N |> Some
+                                    test "prune 10 to 20 mL by 0.5 mL to at most 20 keeps the whole millilitres" {
+                                        [| 10N .. (1N / 2N) .. 20N |]
+                                        |> prune mL (incrOf mL (1N / 2N)) 20
+                                        |> Expect.equal "should be every whole mL from 10 to 20" [| 10N .. 20N |]
+                                    }
 
-                                        let result =
-                                            Units.Volume.milliLiter
-                                            |> ValueUnit.withValue values
-                                            |> ValueSet.create
-                                            |> ValueSet.prune incrVu 5
-                                            |> fun (ValueSet vu) -> vu |> ValueUnit.getValue
+                                    test "prune with a step that overshoots takes the multiples of the finer step" {
+                                        [| 1N .. 640N |]
+                                        |> prune mL (incrOf mL 1N) 5
+                                        |> Expect.equal "should be the multiples of 200 mL" [| 200N; 400N; 600N |]
+                                    }
 
-                                        result |> Array.length <= 5 |> Expect.isTrue "should be <= 5 elements"
+                                    test "prune with increment drops a min and max that are not on the step" {
+                                        [| yield 3N; yield! [| 5N .. 5N .. 100N |]; yield 107N |]
+                                        |> prune mL (incrOf mL 5N) 5
+                                        |> Expect.equal "should be the multiples of 50 mL" [| 50N; 100N |]
+                                    }
+
+                                    test "prune with increment keeps min and max when fewer than two multiples remain" {
+                                        [| 3N; 10N; 107N |]
+                                        |> prune mL (incrOf mL 5N) 2
+                                        |> Expect.equal "should keep min, the one multiple and max" [| 3N; 10N; 107N |]
+                                    }
+
+                                    test "prune of a unit group without steps takes 1 as the step" {
+                                        [| 6N .. (1N / 4N) .. 12N |]
+                                        |> prune stuk (incrOf stuk (1N / 4N)) 10
+                                        |> Expect.equal "should be the whole tablets" [| 6N .. 12N |]
+                                    }
+
+                                    test
+                                        "prune of a unit group without steps takes the multiples of 1 when 1 leaves too many" {
+                                        [| 6N .. (1N / 4N) .. 12N |]
+                                        |> prune stuk (incrOf stuk (1N / 4N)) 5
+                                        |> Expect.equal "should be every second tablet" [| 6N; 8N; 10N; 12N |]
+                                    }
+
+                                    test "prune with an increment in L prunes as the same increment in mL" {
+                                        let inMilliLiter = [| 5N .. 5N .. 1000N |] |> prune mL (incrOf mL 5N) 50
+
+                                        [| 5N .. 5N .. 1000N |]
+                                        |> prune mL (incrOf Units.Volume.liter (5N / 1000N)) 50
+                                        |> Expect.equal "should equal the prune by 5 mL" inMilliLiter
+
+                                        inMilliLiter
+                                        |> Expect.equal "should be the multiples of 50 mL" [| 50N .. 50N .. 1000N |]
+                                    }
+
+                                    test
+                                        "prune with an increment no step is a multiple of takes the multiples of the increment" {
+                                        [| 3N .. 3N .. 90N |]
+                                        |> prune mL (incrOf mL 3N) 10
+                                        |> Expect.equal "should be the multiples of 9 mL" [| 9N .. 9N .. 90N |]
+                                    }
+
+                                    test "prune with at most n values leaves the set as it is" {
+                                        [| 3N; 107N |]
+                                        |> prune mL (incrOf mL 5N) 5
+                                        |> Expect.equal "should return both elements" [| 3N; 107N |]
                                     }
 
                                     test "prune without increment retains min and max" {
-                                        let values = [| 3N; 7N; 11N; 15N; 19N; 23N; 27N; 31N; 35N; 39N |]
-
                                         let result =
-                                            Units.Volume.milliLiter
-                                            |> ValueUnit.withValue values
-                                            |> ValueSet.create
-                                            |> ValueSet.prune None 4
-                                            |> fun (ValueSet vu) -> vu |> ValueUnit.getValue
+                                            [| 3N; 7N; 11N; 15N; 19N; 23N; 27N; 31N; 35N; 39N |] |> prune mL None 4
 
                                         result |> Array.min |> Expect.equal "min should be 3" 3N
                                         result |> Array.max |> Expect.equal "max should be 39" 39N
-                                    }
-
-                                    test "prune with 2 elements returns both" {
-                                        let values = [| 3N; 107N |]
-
-                                        let incrVu = Units.Volume.milliLiter |> ValueUnit.singleWithValue 5N |> Some
-
-                                        let result =
-                                            Units.Volume.milliLiter
-                                            |> ValueUnit.withValue values
-                                            |> ValueSet.create
-                                            |> ValueSet.prune incrVu 5
-                                            |> fun (ValueSet vu) -> vu |> ValueUnit.getValue
-
-                                        result |> Expect.equal "should return both elements" [| 3N; 107N |]
-                                    }
-
-                                    test "prune 5 to 1000 mL to at most 50 keeps min and max" {
-                                        let incrVu =
-                                            Units.Volume.liter |> ValueUnit.singleWithValue (5N / 1000N) |> Some
-
-                                        let result =
-                                            Units.Volume.milliLiter
-                                            |> ValueUnit.withValue [| 5N .. 5N .. 1000N |]
-                                            |> ValueSet.create
-                                            |> ValueSet.prune incrVu 50
-                                            |> fun (ValueSet vu) -> vu |> ValueUnit.getValue
-
-                                        result |> Array.length <= 50 |> Expect.isTrue "should be <= 50 elements"
-                                        result |> Array.min |> Expect.equal "min should be 5" 5N
-                                        result |> Array.max |> Expect.equal "max should be 1000" 1000N
                                     }
                                 ]
 

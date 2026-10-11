@@ -257,6 +257,57 @@ module Pipeline =
                         |> Expect.isFalse "CalcValues should not have ValueSetOverflow"
                 }
 
+                test "kaliumchloride OnceTimed: every rate pick solves and keeps the time within 60 to 120 min" {
+                    let solved =
+                        [
+                            "CalcMinMax", CalcMinMax
+                            "IncreaseIncrements", IncreaseIncrements
+                            "CalcValues", CalcValues
+                            "SolveOrder", SolveOrder
+                        ]
+                        |> List.fold
+                            (fun ord (stage, cmd) ->
+                                match OrderProcessor.processPipeline noLogger (cmd ord) with
+                                | Ok ord -> ord
+                                | Error(_, msgs) -> failtest $"%s{stage} failed: %A{msgs}"
+                            )
+                            (mkOnceTimedOrder ())
+
+                    // the time follows from the dose quantity and the picked rate
+                    let minutes ord =
+                        ord
+                        |> Order.toOrdVars
+                        |> List.find (fun ovar -> (ovar |> OV.getName |> Variable.Name.toString).EndsWith "_sch_tme")
+                        |> OV.getValSetValueUnit
+                        |> Option.map (ValueUnit.convertTo Units.Time.minute >> ValueUnit.getValue)
+                        |> Option.defaultValue [||]
+
+                    let rate = solved.Orderable.Dose.Rate |> OV.Rate.toOrdVar
+
+                    let count =
+                        rate
+                        |> OV.getValSetValueUnit
+                        |> Option.map (ValueUnit.getValue >> Array.length)
+                        |> Option.defaultValue 0
+
+                    count > 1 |> Expect.isTrue "more than one rate to pick"
+
+                    for nth in 0 .. count - 1 do
+                        match
+                            solved
+                            |> Order.fromOrdVars [ rate |> OV.setNthValue nth ]
+                            |> Order.solveOrder "pick" false noLogger
+                        with
+                        | Error(_, msgs) -> failtest $"rate pick %i{nth} failed: %A{msgs}"
+                        | Ok ord ->
+                            let time = ord |> minutes
+                            time |> Array.isEmpty |> Expect.isFalse "a time"
+
+                            time
+                            |> Array.forall (fun m -> m >= 60N && m <= 120N)
+                            |> Expect.isTrue $"time %A{time} min within 60 to 120"
+                }
+
                 test "paracetamol suppository (non-timed) is unaffected by staged expansion" {
                     let ord =
                         Scenarios.pcmSupp
@@ -1937,6 +1988,166 @@ module OrderProcessorTests =
             ]
 
 
+module IncreaseQuantityIncrementTests =
+
+    module Increment = Variable.ValueRange.Increment
+
+    /// The order of a scenario after the minimum and maximum calculation, before any increase.
+    let private minMax med =
+        match med |> Medication.toOrder Scenarios.testStart with
+        | Error e -> failtest $"could not build the order: %A{e}"
+        | Ok ord ->
+            match ord |> Order.applyConstraints |> Order.calcMinMax Logging.noOp with
+            | Ok ord -> ord
+            | Error _ -> failtest "could not calculate the minimum and maximum"
+
+
+    let private increase maxCount med =
+        let incrs = Order.roundedSteps Units.Volume.milliLiter |> List.map Increment.create
+
+        let ord = med |> minMax
+        ord,
+        ord.Orderable
+        |> Order.Orderable.increaseQuantityIncrement Logging.noOp (BigRational.fromInt maxCount) incrs
+
+
+    let private incrOf qty =
+        qty
+        |> OrderVariable.Quantity.toOrdVar
+        |> OrderVariable.getVar
+        |> _.Values
+        |> Variable.ValueRange.getIncr
+        |> Option.map (Increment.toValueUnit >> ValueUnit.getValue)
+
+
+    /// The increments of the components, and of the total unless it is a fixed value.
+    let private incrsOf (orb: Orderable) =
+        [
+            yield orb.OrderableQuantity
+            yield! orb.Components |> List.map _.OrderableQuantity
+        ]
+        |> List.filter (OrderVariable.Quantity.isSolved >> not)
+        |> List.map incrOf
+
+
+    let tests =
+        testList
+            "Orderable.increaseQuantityIncrement"
+            [
+                test "amfo: no step fits 10 values, so every quantity gets the coarsest that keeps two, 1 mL" {
+                    Scenarios.amfo
+                    |> increase 10
+                    |> snd
+                    |> incrsOf
+                    |> List.distinct
+                    |> Expect.equal "one increment of 1 mL" [ Some [| 1N |] ]
+                }
+
+                test "amfo: with a cap of 1000 every quantity gets the finest step on which each component fits, 0.5 mL" {
+                    Scenarios.amfo
+                    |> increase 1000
+                    |> snd
+                    |> incrsOf
+                    |> List.distinct
+                    |> Expect.equal "one increment of 0.5 mL" [ Some [| 1N / 2N |] ]
+                }
+
+                test "tpn: KCl 20 to 24 mL keeps its five values, so the sum keeps 1 mL" {
+                    let _, orb = Scenarios.tpn |> increase 10
+
+                    orb
+                    |> incrsOf
+                    |> List.distinct
+                    |> Expect.equal "one increment of 1 mL" [ Some [| 1N |] ]
+
+                    orb.Components
+                    |> List.find (fun cmp -> cmp.Name |> Variable.Name.toString = "KCl 7,4%")
+                    |> _.OrderableQuantity
+                    |> OrderVariable.Quantity.toOrdVar
+                    |> OrderVariable.toString false
+                    |> Expect.stringContains "20 to 24 mL by 1 mL" "20 mL..1 mL..24 mL"
+                }
+
+                test "morfCont: a fixed total does not block the choice of the components' increment" {
+                    Scenarios.morfCont
+                    |> increase 10
+                    |> snd
+                    |> incrsOf
+                    |> List.distinct
+                    |> Expect.equal "one increment of 1 mL" [ Some [| 1N |] ]
+                }
+
+                test "morfCont: a fixed total off a step drops that step, so a finer one is chosen" {
+                    let ord = Scenarios.morfCont |> minMax
+
+                    // a fixed total of 52 mL is not a multiple of 5 mL, the step that would fit a cap of 2
+                    let orb =
+                        { ord.Orderable with
+                            OrderableQuantity =
+                                ord.Orderable.OrderableQuantity
+                                |> OrderVariable.Quantity.toOrdVar
+                                |> OrderVariable.map (ValueUnit.setValue [| 52N |])
+                                |> Quantity
+                        }
+
+                    let incrs = Order.roundedSteps Units.Volume.milliLiter |> List.map Increment.create
+
+                    orb
+                    |> Order.Orderable.increaseQuantityIncrement Logging.noOp (BigRational.fromInt 2) incrs
+                    |> incrsOf
+                    |> List.distinct
+                    |> Expect.equal "one increment of 1 mL" [ Some [| 1N |] ]
+                }
+
+                test "amfo with a dose count of 1 to 3 x: the dose quantity is pruned on rounded steps" {
+                    let med =
+                        { Scenarios.amfo with
+                            DoseCount =
+                                Informedica.GenCore.Lib.Ranges.MinMax.createInclIncl
+                                    (1N |> ValueUnit.singleWithUnit Units.Count.times)
+                                    (3N |> ValueUnit.singleWithUnit Units.Count.times)
+                        }
+
+                    // every stage must succeed, so the rounded dose values are shown to solve
+                    let run ord (stage, cmd) =
+                        match ord |> cmd |> OrderProcessor.processPipeline Logging.noOp with
+                        | Ok ord -> ord
+                        | Error(_, msgs) -> failtest $"%s{stage} failed: %A{msgs}"
+
+                    match med |> Medication.toOrder Scenarios.testStart with
+                    | Error e -> failtest $"could not build the order: %A{e}"
+                    | Ok ord ->
+                        [
+                            "CalcMinMax", CalcMinMax
+                            "IncreaseIncrements", IncreaseIncrements
+                            "CalcValues", CalcValues
+                            "SolveOrder", SolveOrder
+                        ]
+                        |> List.fold run ord
+                        |> _.Orderable.Dose.Quantity
+                        |> OrderVariable.Quantity.toOrdVar
+                        |> OrderVariable.getValSetValueUnit
+                        |> Option.map ValueUnit.getValue
+                        |> Expect.equal "50 to 300 mL by 50 mL" (Some [| 50N .. 50N .. 300N |])
+                }
+
+                test "amfo with a fixed dose count: the dose quantity increment is left as it is" {
+                    let ord = Scenarios.amfo |> minMax
+
+                    let incrs = Order.roundedSteps Units.Volume.milliLiter |> List.map Increment.create
+
+                    ord
+                    |> Order.increaseDoseQuantityIncrement (BigRational.fromInt 10) incrs
+                    |> Expect.equal "the same order" ord
+                }
+
+                test "pcmDrink: every component already fits, so the orderable is left as it is" {
+                    let ord, orb = Scenarios.pcmDrink |> increase 10
+                    orb |> Expect.equal "the same orderable" ord.Orderable
+                }
+            ]
+
+
 module DtoTests =
 
     open Informedica.Utils.Lib.BCL
@@ -2647,6 +2858,7 @@ let tests =
             OrderVariableTests.tests
             ConstraintsTests.tests
             GoldenOrderTests.tests
+            IncreaseQuantityIncrementTests.tests
             OrderBuilderTests.tests
             MedicationTextTests.MedicationTextFormatTests.tests
             MedicationTextTests.MedicationTextScenarioTests.tests

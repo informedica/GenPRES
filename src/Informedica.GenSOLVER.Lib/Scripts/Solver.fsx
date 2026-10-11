@@ -163,7 +163,7 @@ let max =
     |> Some
 
 { Variable.empty ("test" |> Variable.Name.createExc) with Values = Variable.ValueRange.create min incr max None }
-|> Variable.minIncrMaxToValues (Some 10)
+|> Variable.minIncrMaxToValues [] (Some 10)
 
 
 open Informedica.Utils.Lib

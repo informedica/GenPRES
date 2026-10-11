@@ -2,7 +2,9 @@
 
 The dose dialog offers only values the order can reach. Drafted 2026-10-11. Line numbers are
 from `master` at `33f05274`. The fixes and their tests are prototyped in
-`src/Informedica.GenORDER.Lib/Scripts/Issue1302.fsx`.
+`src/Informedica.GenORDER.Lib/Scripts/Issue1302.fsx`. With the first pull request the script keeps only
+what the second still needs (`TieFix`, `CapsFix`, the amox/clav and prednisolon fixtures, the timed
+pick helpers); the earlier prototypes are in the version merged with the plan (#1420).
 
 - [Problem description](#problem-description)
 - [Decisions](#decisions)
@@ -49,6 +51,21 @@ Four defects, the first three around the count cap, the fourth in the equations:
 With defects 1 to 3 fixed, amox/clav still offers 138 picks over 6 lists of which 90 fail,
 every one a defect 4 case.
 
+Two more defects showed once the rounded prune ran through the golden pipeline (`CalcMinMax`,
+`IncreaseIncrements`, `CalcValues`, `SolveOrder`) on tpn:
+
+- **Defect 5: an increment is raised when the range already fits.** `ValueRange.increaseIncrement` takes
+   the first larger increment without checking the current count. KCl 7,4% `20..1..24 mL` (5
+   values, cap 10) became the single value `20 mL`; with one increment missing,
+   `Orderable.increaseQuantityIncrement` gave up on all components, so tpn's harmonization never
+   ran. The second increase, from the `IncreaseIncrements` command, raised the tpn rate from 5
+   to 10 mL/uur although its 7 values already fit.
+- **Defect 6: the time is fixed before the rate is chosen.** The value step called `minimizeTime`, which
+   sets a timed order's time to its minimum (20 uur). With `[orb]_dos_qty = [orb]_dos_rte *
+   [ord]_sch_tme` the rate then decides the quantity: 10 mL/uur became a 200 mL grid on the
+   total that the pruned components could not add up to, the glucose solve failed silently and
+   glucose stayed a range.
+
 ## Decisions
 
 Taken 2026-10-11 by the maintainer, during the investigation.
@@ -58,16 +75,53 @@ Taken 2026-10-11 by the maintainer, during the investigation.
 | Both cap defects are bugs | Yes, the increment and the prune; fixed in one go, prototyped in a script first |
 | The prune ends | An off-grid minimum or maximum is dropped; the ends are kept only when fewer than two values would remain |
 | Count caps | The caps in `Order.minIncrMaxToValues` stay as they are (20 for a two-component discontinuous order, 10 without the full count, 5 for a timed order with more than two components, 100 and 1,000 continuous) |
-| Loop order of `Order.minIncrMaxToValues` | Unchanged: components first, the dose quantity derived last and never pruned. Measured and rejected: the sum first; the largest count first with the dose quantity in the list, with the cap once (3 to 9 s pipelines) or always (amfo 172, tpn 32, tpnComplete 76 unreachable picks against 0 today); the largest component first without the dose quantity (identical to today); a min-max solve between the passes (identical, or worse with the dose quantity in the list) |
+| Loop order of `Order.minIncrMaxToValues` | Unchanged: components first, the dose quantity derived last (pruned like a component since the review, only reached with a dose count without values). Measured and rejected: the sum first; the largest count first with the dose quantity in the list, with the cap once (3 to 9 s pipelines) or always (amfo 172, tpn 32, tpnComplete 76 unreachable picks against 0 today); the largest component first without the dose quantity (identical to today); a min-max solve between the passes (identical, or worse with the dose quantity in the list) |
 | Fixtures must stay fast | A pipeline that takes more than a few seconds on a fixture is out, whatever its reachability |
 | The ratio between the items | Fixed with equations, not with a filter of the lists; the equations must hold for any number of items, and items of different unit groups are never added together |
+
+Taken 2026-10-11 by the maintainer, after step 1 was first migrated and the golden orders of amfo, tpn
+and tpnComplete changed (Samenstelling C went from the off-grid minimum 110 mL to 217 mL, the fourth
+multiple of an arbitrary 31 mL grid):
+
+| Question | Decision |
+|---|---|
+| The grid a prune keeps | Rounded values, not the smallest arbitrary multiple that fits: the finest step of a list given by the caller that leaves at most the cap |
+| The step list | `0.1;0.5;1;5;10;50;100;500`, in mL for quantities and in mL/uur for rates, one list shared by the prune and the increment increase |
+| A unit group without steps | 1 in the unit of the values, then multiples of 1; a tablet dividable in quarters prunes to whole tablets |
+| A step that overshoots | When a step leaves too many values and the next leaves fewer than two, multiples of the finer step are taken (glucose 1 to 640 mL with a cap of 5 gives `200;400;600`, not `500` with the ends) |
+| The ends | The old prune always kept the minimum and the maximum. The rounded prune drops an off-grid end and keeps the ends only when fewer than two values would remain |
+| What is pruned | Component quantities for any number of components, the dose quantity and the rate (see the review decisions below for the dose quantity) |
+| `Order.maximizeRate` | Removed: it had no caller |
+| The caps | Parameters, a `ValueCaps` record with today's values as the default, so a test can lower them and exercise the prune |
+| Time | A test asserts the pipeline within 3 s and every pick within 1 s, on every fixture |
+| Orders with more than two components | Only the component quantities and the rate must be reachable picks; the item concentrations are not offered as picks there, there is no use case. Filed as #1421 |
+
+Taken 2026-10-11 by the maintainer, after the golden pipeline left the tpn glucose a range:
+
+| Question | Decision |
+|---|---|
+| The increment of a sum | The total and every component of a sum share one increment, as the code already did; the change is which one: the finest rounded step on which every component fits the cap, else the coarsest on which the total and every component keep at least two values. The per-component raise before it goes |
+| A range that already fits | Keeps its increment; `ValueRange.increaseIncrement` leaves it as it is |
+| The rate and the time | The orderable rate, the only rate that is pruned, determines how long the dose quantity of a timed order runs; the value step leaves the time free instead of setting it to its minimum |
+| Pull requests | The rounded prune, the common increment, the fit check and the free time are one pull request, not split, although it is over the 200 source line limit. The tie equations, the caps as a parameter and the amox/clav and prednisolon fixtures are the second |
+
+Taken 2026-10-11 by the maintainer, on the code review of the first pull request:
+
+| Question | Decision |
+|---|---|
+| A dose rule bound that is off the grid | Not offered (the reviewer's point 1, option c). tpn Samenstelling C loses 110 mL, the 10 mL/kg minimum, and amfo loses its top concentration of 2 mg/mL; the offered range starts at 150 mL and ends at 1,11 mg/mL. Keeping the ends of a range when a pick on them solved was tried and rejected: the ends of a component quantity are derived, so it also brought back 1 mL of glucose in the tpn and still missed the amfo 2 mg/mL, which is a bound on the item concentration. Neither the defined nor the calculated constraints of a pruned variable tell a rule bound from a derived end. A follow-up starts from the defined constraints of the dose and concentration variables |
+| The common increment and an open quantity | Only quantities with a minimum and a maximum count towards the choice; a solved quantity, such as a fixed total, has no increment and no choice and is left out |
+| A failed `setIncr` | All or none: when one quantity cannot take the common increment the orderable is left as it is |
+| The dose quantity | A measurable amount like a component quantity: pruned with the same cap and rounded steps, and its increment raised after the components, to a step that is a multiple of their common increment. Only with a dose count without values (a range, or no constraint): with a dose count that has values the dose quantity is the orderable quantity divided by it and follows the components' increment, and raising it would break the sum (measured: amfo and tpn fail with a fixed dose count of 1 x). Without the cap, a dose count of 1 to 3 x turned the amfo dose quantity into 2,926 values (pipeline 2.3 s) and the tpn one into 531; with it `50..50..300 mL` (0.95 s) and `400;600;800 mL` (0.7 s). With a fixed dose count the loop never converts the dose quantity, so the fixtures do not change |
+| The dose count | Not a count of administrations: the inverse of the share of the orderable quantity given per dose (`[orb]_orb_qty = [orb]_dos_cnt * [orb]_dos_qty`), so a fractional value such as 2,86 x is valid |
+| Dead code | `Component.increaseQuantityIncrement`, `Order.maximizeRate`, `Order.minimizeTime`, `Schedule.setMinTime`, the `minTime` parameter and the duplicate `reCalcValuesStep` are removed. The cleared-order path passed `minTime = true` only for continuous and discontinuous orders, where it did nothing, so a clear behaves as before |
 
 Open for the maintainer, proposed below:
 
 | Question | Proposal |
 |---|---|
 | The variable that holds one for the share sum | A constant mapped into the equations, not a field on `Orderable`; see [Chosen approach](#chosen-approach) |
-| The message on a failed pick | Step 5, the issue's second expectation, in this plan; it can be dropped to a plan of its own |
+| The message on a failed pick | Step 3, the issue's second expectation, in this plan; it can be dropped to a plan of its own. It also covers a solve that fails inside `Order.minIncrMaxToValues`, which logs the error and returns the order of the pass before, so the pipeline reports success |
 
 ## What the code does today
 
@@ -128,8 +182,12 @@ For the cap defects:
   so the later variables expand without a cap: amfo 9.3 s, tpnComplete 6.1 s.
 - **Harmonize to the coarsest component increment.** Collapses the powder to 500 mg only and
   the dialog to one concentration.
-- **Harmonize to the coarser of the finest component need and the total's need.** Chosen. Amox
-  and powder keep 450 and 500 mg on a 1 mL grid, NaCl 11 to 18 mL, no prune, 10 concentrations.
+- **Harmonize to the coarser of the finest component need and the total's need.** Right for
+  amox/clav, wrong for tpn: the total needs 100 mL, which NaCl `60..72` and KCl `20..24` cannot
+  follow, so the sum gets mixed increments and the solve fails.
+- **One increment for the sum, chosen by what every member can follow.** Chosen. The finest
+  rounded step on which every component fits the cap, else the coarsest on which every member
+  keeps at least two values: 1 mL for amox/clav and for tpn.
 
 For the cross products:
 
@@ -151,21 +209,48 @@ For the variable that holds one:
 
 ## Chosen approach
 
-Four source changes and one behaviour change, each a PR under 200 source lines.
+Two pull requests, and a third step for the message on a failed pick.
 
-### Fix 1, the common grid
+### Fix 1, the common increment of the sum
 
-`Orderable.increaseQuantityIncrement` computes the per-component increments as now and also the
-increment the orderable quantity needs for `maxCount`. The grid is the larger of the finest
-component increment and the orderable's; it is applied to the orderable quantity and every
-component as now. Script: `OrderableFix.increaseQuantityIncrement`.
+`Orderable.increaseQuantityIncrement` chooses one increment for the orderable quantity and every
+component from the step list: the finest on which every component holds at most `maxCount` values,
+else the coarsest on which the orderable quantity and every component keep at least two. When every
+component already fits on its own increment nothing changes. The increment is set directly with
+`ValueRange.setIncr`, so a quantity that already fits gets it too. The raise of each component on its
+own before the choice is gone. `Order.increaseIncrements` takes its increments from the shared step
+list, so 20 mL gives way to 50, 100 and 500 mL.
 
-### Fix 2 and 3, prune
+`ValueRange.increaseIncrement` leaves a range that already holds at most `maxCount` values as it is.
+Only quantities with a minimum and a maximum count towards the choice, a solved quantity is left out
+of the counts, a step that a solved quantity is not a multiple of is skipped, and when one quantity
+cannot take the increment the orderable stays as it is.
 
-`ValueSet.prune` converts the increment to the unit of the values before the multiple test,
-and the filter keeps multiples only. When fewer than two multiples remain, the minimum and the
-maximum come back. Script: `ValueSetFix.prune`. Two existing tests in
-`tests/Informedica.GenSOLVER.Tests/Tests.fs:822-900` assert the old end-keeping and change.
+### Fix 5, the free time
+
+`Order.minIncrMaxToValues` no longer sets the time of a timed order to its minimum before it turns
+ranges into values in the value step: the time follows from the dose quantity and the rate. The
+cleared-order path already left a timed order's time free. `Order.minimizeTime`,
+`Schedule.setMinTime` and the `minTime` parameter are removed. The dose quantity is turned into
+values with the same cap and rounded steps as a component quantity. `Order.increaseIncrements` raises
+the dose quantity's increment after the components and before the rate
+(`Order.increaseDoseQuantityIncrement`), to a step that is a multiple of the orderable quantity's
+increment, and only when the dose count has no values (a range, or no constraint).
+
+### Fix 2 and 3, the rounded prune
+
+`ValueSet.prune steps incr n` keeps the multiples of the finest step that leaves at most n values. A
+step counts when it is in the unit group of the values and a multiple of the increment, compared in
+the unit of the values. Without a step for the unit group the step is 1, then multiples of 1. When a
+step leaves too many values and the next fewer than two, the multiples of the finer step times m are
+taken. Off-grid ends are dropped and come back only when fewer than two values remain. In the source
+with the first pull request. The two end-keeping tests in `tests/Informedica.GenSOLVER.Tests/Tests.fs` change.
+
+`Variable.minIncrMaxToValues` and `OrderVariable.minIncrMaxToValues` pass the steps through.
+`Order.minIncrMaxToValues` passes the shared step list in mL and mL/uur. `Order.maximizeRate`, which
+had no caller, is removed. In the second pull request `Order.minIncrMaxToValues` takes a `ValueCaps`
+record instead of the numbers in its body. Script: `CapsFix.ValueCaps`,
+`CapsFix.minIncrMaxToValuesWith`.
 
 ### Fix 4, the tie equations
 
@@ -198,49 +283,112 @@ gives `[id.name]_orb_cnc`, as the mapping writes it). Script: `TieFix`.
 
 The ties change nothing on amfo, morfCont, tpn and tpnComplete.
 
+The table above counts a list as pickable when it holds a value set. Under the numeric prune the
+item concentrations of tpn and tpnComplete stay ranges, so their 0 hides them. The rounded grids
+turn them into value sets, and 950 (tpn) and 2,202 (tpnComplete) of their picks fail: a component's
+share is its quantity over the total, the total is the sum of four components, and the solver checks
+each equation on its own. With two components the share sum is a relation between two shares and the
+ties make the lists exact; with four it is not.
+
+### Measured, the rounded prune, all fixes, today's caps
+
+Picks are the lists the dialog must offer: with more than two components the component quantities
+and the rate, otherwise also the item concentrations.
+
+| | pipeline | picks | failing | slowest pick | component grids |
+|---|---|---|---|---|---|
+| amox/clav | 0.2 s | 48 | 0 | 16 ms | powder `9;10`, NaCl `12..17 mL` |
+| amfo | 0.4 s | 21 | 0 | 39 ms | amfo `10,5..0,5..17,5 mL`, glucose `50..50..300 mL` |
+| morfCont | 0.1 s | 8 | 0 | 18 ms | unchanged |
+| tpn | 0.9 s | 19 | 0 | 309 ms | Samenstelling C `150;200;250`, NaCl `60;65;70`, glucose `200;400;600 mL`, rate `20..5..40 mL/uur` |
+| tpnComplete | 1.7 s | 19 | 0 | 650 ms | as tpn |
+| pcmSupp, pcmDrink, cotrim | < 0.1 s | 0 to 3 | 0 | 2 ms | unchanged |
+| prednisolon, 5 mg tablet in quarters | < 0.1 s | 25 | 0 | 1 ms | `6..1/4..12`: 25 values, under the single-component cap of 100; with that cap at 10 `6..12`, at 5 `6;8;10;12` |
+
+With every cap lowered to 5 and to 3, no component of any fixture keeps more values than the cap and
+every pipeline stays within 3 s.
+
+### Measured, the golden pipeline on the compiled source of the first pull request
+
+`CalcMinMax`, `IncreaseIncrements`, `CalcValues` and `SolveOrder` through `OrderProcessor`, on the
+built `Informedica.GenORDER.Lib.dll`, without the tie equations. Every pick of the component
+quantities and the orderable rate, solved with `Order.solveOrder`:
+
+| | pipeline | quantity and rate picks | failing | slowest pick |
+|---|---|---|---|---|
+| amox/clav | 0.3 s | 4 | 0 | 8 ms |
+| amfo | 0.4 s | 13 | 0 | 44 ms |
+| morfCont | 0.1 s | 26 | 0 | 14 ms |
+| tpn | 0.9 s | 19 | 0 | 312 ms |
+| tpnComplete | 1.7 s | 19 | 0 | 633 ms |
+| pcmSupp, pcmDrink, cotrim, prednisolon | < 0.1 s | 0 to 8 | 0 | 3 ms |
+
+tpn: Samenstelling C `150;200;250`, NaCl `60;65;70`, KCl `20..24`, glucose `200;400;600 mL`, rate
+`20;25;30;35;40 mL/uur`, time 20,8 to 24 uur. The nine pipelines in parallel take 1.7 s. pcmDrink
+keeps `5..12 mL` and offers 4 x/dag again: 7, 8 and 9 mL give 67,2 to 86,4 mg/kg/dag, inside the rule
+of 60 to 90; the old 5 mL grid made it unreachable. The item concentrations of amfo still fail on 893
+of 1,021 picks, defect 4, fixed by the tie equations in the second pull request.
+
 ## Confidence
 
-High for fixes 1 to 3 and the item tie: small functions, each measured on five fixtures, with
-the pick-every-value check green. Medium for the share sum: it works on the five fixtures and the
-constant is invisible outside the solve, but it adds one sum equation per order to every solve,
-and the fixtures cover no order with a component whose share is not a plain volume ratio.
-Low for step 5 until the client side is looked at.
+High for fixes 1 to 3 and the item tie: small functions, each measured on nine fixtures, with
+the pick-every-value check and the time limits green. Medium for the share sum: it makes the lists
+exact with two components and not with more, the constant is invisible outside the solve, but it
+adds one sum equation per order to every solve, and the fixtures cover no order with a component
+whose share is not a plain volume ratio and none with three components.
+Low for step 3 until the client side is looked at.
 
 ## Steps
 
 One PR at a time, in this order. Each step waits for the maintainer's go; the script code is
 migrated by the maintainer or by the agent when told to.
 
-1. **Prune, GenSOLVER.** `ValueSet.prune` as `ValueSetFix.prune` in the script. The two
-   end-keeping tests in `tests/Informedica.GenSOLVER.Tests/Tests.fs` become: an off-grid minimum
-   and maximum are dropped, `[3; 5..5..100; 107]` pruned to 5 gives `20;40;60;80;100`; the ends
-   come back only when fewer than two values would remain; `10..0.5..20 mL` pruned to 20 gives
-   the whole millilitres; an increment given in litres prunes as the same increment in
-   millilitres. `fix(gensolver): prune in the unit of the values and drop off-grid ends`.
-2. **The amox/clav fixture, GenORDER tests.** `Scenarios.amoxClavText` and `Scenarios.amoxClav`
-   from the logged medication text, built as `pcmSuppText` and `pcmSupp` are; the helpers from
-   the script that pick every value of every pickable list and solve (`pickables`,
-   `unreachableAnyPick`) go to the test project. A test that the original pipeline leaves
-   unreachable amoxicilline picks pins the defect. `test(genorder): add the amox/clav fixture`.
-3. **The common grid, GenORDER.** `Orderable.increaseQuantityIncrement` as
-   `OrderableFix.increaseQuantityIncrement`. Tests: NaCl, powder and total get the 1 mL grid;
-   every amoxicilline pick solves; the diluent keeps a whole-millilitre grid without holes; the
-   fixtures amfo, morfCont, tpn and tpnComplete solve within a few seconds with every pick of
-   every pickable list reachable. The step 2 test flips to its fixed expectation.
-   `fix(genorder): harmonize the quantity increment to the grid the total needs`.
-4. **The tie equations, GenORDER.** The two rows in `EquationMapping.equations`, the constant in
-   `Order.mapToOrderEquations`, the golden table in `EquationsTests` extended by the two rows
-   with marker `xxxxx` (67 rows), and the "Equations" sheet gets the two rows so the sheet and
-   the code agree. Tests: the clavulaanzuur list is a tenth of the amoxicilline list; every pick
-   of every pickable list of amox/clav solves; the four fixtures unchanged and within a few
-   seconds. `fix(genorder): tie item concentrations to the component share`.
-5. **The message on a failed pick, GenORDER and the client.** `processScenarioOrder` keeps the
+1. **The rounded prune, the common increment and the free time, GenSOLVER and GenORDER.**
+   `ValueSet.prune` keeps rounded steps, with the steps as a parameter through
+   `ValueRange.prune`, `Variable.minIncrMaxToValues` and `OrderVariable.minIncrMaxToValues`;
+   `Order.minIncrMaxToValues` passes the shared step list in mL and mL/uur; `Order.maximizeRate`
+   is removed; `ValueRange.increaseIncrement` leaves a range that fits;
+   `Orderable.increaseQuantityIncrement` chooses one increment for the sum; the value step leaves the
+   time free. GenSOLVER tests: the finest step that fits; a step that overshoots gives the multiples
+   of the finer step; off-grid ends dropped, back when fewer than two values remain;
+   `10..0.5..20 mL` to the whole millilitres; an increment in litres as in millilitres; tablets on 1
+   and its multiples; a range that fits keeps its increment, also a rate increased a second time; a
+   range that does not fit still gets a larger one; an increment no step is a multiple of gives the
+   multiples of that increment. GenORDER tests of `Orderable.increaseQuantityIncrement`: the
+   coarsest step that keeps two values, the finest step that fits, KCl keeping its five values, a
+   fixed total that does not block the choice, a fixed total off a step that makes a finer step win,
+   an orderable that already fits left as it is; amfo with a dose count of 1 to 3 x gets the dose
+   quantity `50..50..300 mL`. Dead
+   code removed. The golden orders of amfo, pcmDrink, tpn and tpnComplete, the pcmDrink totals and
+   the pcmDrink reopen test are regenerated and reviewed.
+   Over the 200 source line limit, by the maintainer's decision.
+   `fix(genorder): offer reachable rounded dose values`.
+2. **The tie equations, the caps as a parameter and the fixtures, GenORDER.** The two rows in
+   `EquationMapping.equations`, the constant in `Order.mapToOrderEquations`, the golden table in
+   `EquationsTests` extended by the two rows with marker `xxxxx` (67 rows), and the "Equations"
+   sheet gets the two rows so the sheet and the code agree. The numbers in
+   `Order.minIncrMaxToValues` become a `ValueCaps` record with today's values as the default, passed
+   by `OrderProcessor`. `Scenarios.amoxClavText`, `Scenarios.amoxClav` and the prednisolon fixture
+   (5 mg tablets dividable in quarters, 1 to 2 mg/kg for 30 kg) go to `Scenarios.fs`, and the helpers
+   that pick every value of the lists the dialog offers and solve, timed (`pickablesFor`,
+   `timedPicksWith`, `measure`), to the test project. Tests: the clavulaanzuur list is a tenth of the amoxicilline
+   list; on every fixture every pick of the lists the dialog must offer solves, within 1 s, and the
+   pipeline within 3 s; prednisolon keeps its 25 quarter tablets under the default caps, `6..12` with
+   a single-component cap of 10 and `6;8;10;12` with 5; with every cap at 5 and at 3 no component of
+   any fixture keeps more values than the cap.
+   `fix(genorder): tie item concentrations to the component share`.
+3. **The message on a failed pick, GenORDER and the client.** `processScenarioOrder` keeps the
    old order on an error as now and carries the solver's message out, so the client can show
    why a pick was not applied. The shape of that message on the wire and in the dialog is
    decided with the maintainer before this step starts; it may become a plan of its own.
 
 ## Left out
 
+- **Item concentrations of an order with more than two components.** The solver still computes
+  them as cross products of a component quantity and every total, and most of their values are
+  unreachable (tpn 950, tpnComplete 2,202 under the rounded prune). They are not offered as picks,
+  so the dialog is not affected, but the solver spends time on the lists: tpnComplete takes 1.7 s
+  for the pipeline and up to 650 ms for one pick. Filed as #1421.
 - **A solver that checks whole combinations.** The ties make the amox/clav lists exact because
   every item has a single component concentration. An item with several component
   concentrations, from several products in one component, keeps a cross product between its
@@ -250,6 +398,13 @@ migrated by the maintainer or by the agent when told to.
   component quantity in a unit other than mL, so the share sum is untested there.
 - **The order plan store.** Nothing changes on the wire or in the stored JSON under the
   chosen approach; the field alternative would.
+- **The invariants of a component quantity.** Every component quantity must have a defined increment
+  and, after the minimum and maximum calculation, a minimum and a maximum: without them the
+  preparation is not described, the loop skips the component and the dose quantity becomes a range
+  of its own. To be enforced when a medication is converted to an order.
+- **Dose rule bounds off the grid.** An off-grid end of a pruned range is not offered, also when it
+  is a rule bound (tpn 10 mL/kg Samenstelling C, amfo 2 mg/mL). Offering it needs the bounds of the
+  dose and concentration variables traced back to the values of the pruned quantity that reach them.
 - **The "Equations" sheet.** Documentation of the embedded list; the maintainer adds the two
   rows, the golden test pins them.
 
@@ -259,10 +414,12 @@ Per step:
 
 - `dotnet run build` and `dotnet test tests/Informedica.GenSOLVER.Tests/` or
   `dotnet test tests/Informedica.GenORDER.Tests/`
+- `dotnet run BenchmarkBuild`, since the benchmark is outside the solution
 - `dotnet fsi scripts/CheckDependencyRule.fsx`
 - `dotnet fantomas --check`
-- `cd src/Informedica.GenORDER.Lib/Scripts && dotnet fsi Issue1302.fsx`: 30 tests green, and
-  the printed fixture report shows 0 unreachable for amox/clav under both ties
+- `cd src/Informedica.GenORDER.Lib/Scripts && dotnet fsi Issue1302.fsx`: every test green, and
+  the printed report shows 0 failing picks on every fixture under the rounded prune, the pipeline
+  within 3 s and every pick within 1 s
 - the maintainer repeats the issue's steps in the browser: the concentration list holds 10
   values and every one applies
 
@@ -271,3 +428,4 @@ Per step:
 | Step | Pull request | Note |
 |---|---|---|
 | The plan | #1420 | With the script that holds the fixes and their tests. |
+| Step 1, the rounded prune, the common increment and the free time | #1422 | One pull request over the size limit by the maintainer's decision; the dose quantity pruned like a component when the dose count has no values; the script trimmed to what the second pull request needs. |
