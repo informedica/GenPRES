@@ -805,7 +805,7 @@ Orderable
         {
             Name = "fullMedication"
             Medication = Scenarios.fullMedication
-            Errors = [ "CalcMinMax"; "SolveOrder" ]
+            Errors = [ "CalcMinMax"; "CalcValues"; "SolveOrder" ]
             Order =
                 """
 Route

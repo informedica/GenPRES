@@ -3790,6 +3790,7 @@ module Order =
     /// <param name="skipRate">Whether to skip the orderable dose rate variable (for staged expansion of timed orders)</param>
     /// <param name="logger">The logger</param>
     /// <param name="ord">The Order</param>
+    /// <returns>The order with values, or the order before the values that could not be solved, with the messages.</returns>
     let minIncrMaxToValues caps useMaxNumberOfValues skipRate logger ord =
         let mutable isSolved = false
 
@@ -3830,7 +3831,7 @@ module Order =
                 )
 
             if not flag then
-                ord
+                Ok ord
             else
                 ord
                 |> fromOrdVars ovars
@@ -3844,18 +3845,18 @@ module Order =
                         |> Exceptions.OrderCouldNotBeSolved
                         |> Logging.logError logger
 
-                        ord
+                        // the order before the values that could not be solved
+                        Error(ord, err |> snd)
 
         ord
         |> loop
-        |> fun ord ->
+        |> Result.bind (fun ord ->
             // make sure that an order is solved at least once
             if not isSolved then
-                ord
-                |> solveOrder "Min Incr Max to Values final Loop" true logger
-                |> Result.defaultValue ord
+                ord |> solveOrder "Min Incr Max to Values final Loop" true logger
             else
-                ord
+                Ok ord
+        )
 
 
     let solveNormDose logger ord =

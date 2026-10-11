@@ -91,6 +91,7 @@ module Trail =
             | Alert.Alert.SignedPlanOpened _ -> "SignedPlanOpened"
             | Alert.Alert.NewerSignedPlan _ -> "NewerSignedPlan"
             | Alert.Alert.PatientRefreshFailed -> "PatientRefreshFailed"
+            | Alert.Alert.ChangeNotApplied -> "ChangeNotApplied"
 
 
         /// The value described, or none.
@@ -304,6 +305,7 @@ module Trail =
             | OrderContextRefusal.NoDoseRules -> "NoDoseRules"
             | OrderContextRefusal.NoDoseRulesForPatient -> "NoDoseRulesForPatient"
             | OrderContextRefusal.NoProducts -> "NoProducts"
+            | OrderContextRefusal.NotSolved -> "NotSolved"
 
 
         /// What a reply told besides its answer.
@@ -642,6 +644,7 @@ module Trail =
                 $"CallContext UpdatePatient %s{Part.contextId ctx} %s{Part.shortId request}"
             | OrderContextEffect.SyncPages _ -> "SyncPages"
             | OrderContextEffect.TellError _ -> "TellError"
+            | OrderContextEffect.TellNotSolved -> "TellNotSolved"
 
 
         /// The order context state as the page reads it; a context by its id.

@@ -620,6 +620,51 @@ let refusalTests =
                 |> Expect.equal "refused" (OrderContextView.Refused(paracetamol, OrderContextRefusal.NoDoseRules))
             }
 
+            test "a change that cannot be applied keeps the context held and the dialog, and says so" {
+                // a reset goes out without the argumentation, so the answer lacks it
+                let argued = { withOrder with Argumentation = Some "Sepsis" }
+
+                let busy =
+                    inFlight OrderViewCommand.ResetOrderScenario withOrder argued "r-1"
+                    |> OrderContextState.select (Some "o-1")
+
+                let landed, effects =
+                    transition
+                        (OrderContextMsg.Answered("r-1", refusedAnswer withOrder OrderContextRefusal.NotSolved))
+                        busy
+
+                effects
+                |> List.head
+                |> Expect.equal "told first" OrderContextEffect.TellNotSolved
+                landed
+                |> dialog
+                |> Expect.equal "the dialog kept" (Some(OrderContextView.Settled argued))
+                landed
+                |> view
+                |> Expect.equal "the context held, not refused" (OrderContextView.Settled argued)
+            }
+
+            test "a selection that cannot be calculated keeps the dialog on the scenario selected" {
+                let scenario id = OrderFixtures.scenario id "paracetamol"
+
+                let argued =
+                    { paracetamol with
+                        Scenarios = [| scenario "o-1"; scenario "o-2" |]
+                        Argumentation = Some "Sepsis"
+                    }
+
+                let narrowed = { argued with Scenarios = [| scenario "o-2" |] }
+
+                let busy =
+                    inFlight (OrderViewCommand.SelectNthOrderScenario 1) argued argued "r-1"
+                    |> OrderContextState.select (Some "o-2")
+
+                transition (OrderContextMsg.Answered("r-1", refusedAnswer narrowed OrderContextRefusal.NotSolved)) busy
+                |> fst
+                |> dialog
+                |> Expect.equal "the one scenario selected" (Some(OrderContextView.Settled narrowed))
+            }
+
             test "a failed change still keeps the context held and the order, and says why" {
                 let busy = evaluating withOrder withOrder "r-1" |> OrderContextState.select (Some "o-1")
 

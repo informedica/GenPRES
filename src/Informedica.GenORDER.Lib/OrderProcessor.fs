@@ -425,14 +425,14 @@ module OrderProcessor =
         // small helpers to clarify post-processing after property changes
         let solveAndToValues skipRate =
             solveMinMax "Process Cleared Order" true logger
-            >> Result.map (minIncrMaxToValues caps true skipRate logger)
+            >> Result.bind (minIncrMaxToValues caps true skipRate logger)
 
         let defaultInc = 100
 
         let solveIncrIncrAndToValues skipRate =
             solveMinMax "Process Cleared Order" true logger
             >> Result.bind (increaseIncrements logger defaultInc defaultInc)
-            >> Result.map (minIncrMaxToValues caps true skipRate logger)
+            >> Result.bind (minIncrMaxToValues caps true skipRate logger)
 
         let hasTimeNotContinuous =
             ord.Schedule |> Schedule.hasTime && ord.Schedule |> Schedule.isContinuous |> not
@@ -663,11 +663,17 @@ module OrderProcessor =
 
         let increaseIncrementStep ord = ord |> increaseIncrements logger 10 10
 
-        let calcValuesStep useMax skipRate ord = ord |> minIncrMaxToValues caps useMax skipRate logger |> Ok
+        let calcValuesStep useMax skipRate ord = ord |> minIncrMaxToValues caps useMax skipRate logger
 
         let solveStep ord = solveOrder "Solve Order Step" true logger ord
 
         let calcNormDoseStep = solveNormDose logger
+
+        // the scenario list keeps only the orders that solve, so a failure here keeps the order before
+        let tolerantCalcValuesStep useMax skipRate ord =
+            match calcValuesStep useMax skipRate ord with
+            | Ok o -> Ok o
+            | Error _ -> Ok ord
 
         let processClearedStep ord =
             match processClearedOrderWith caps logger ord with
@@ -768,7 +774,7 @@ module OrderProcessor =
                     {
                         Name = "solve-order: ensure-dose-values-1"
                         Guard = _.CanSetNormDose >> not
-                        Run = calcValuesStep (ord.Orderable.Components |> List.length <= 2) hasTimeNotContinuous
+                        Run = tolerantCalcValuesStep (ord.Orderable.Components |> List.length <= 2) hasTimeNotContinuous
                     }
 
                     {

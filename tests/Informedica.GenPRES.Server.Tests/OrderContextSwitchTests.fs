@@ -97,6 +97,24 @@ let tests =
                 | other -> failtest $"expected the refusal, got: %A{other}"
             }
 
+            test "every refusal maps to the contract's case of the same name" {
+                [
+                    Refusal.NoDoseRules
+                    Refusal.NoDoseRulesForPatient
+                    Refusal.NoProducts
+                    Refusal.NotSolved
+                ]
+                |> List.map OrderContextService.refusalToModel
+                |> Expect.equal
+                    "the same cases"
+                    [
+                        OrderContextRefusal.NoDoseRules
+                        OrderContextRefusal.NoDoseRulesForPatient
+                        OrderContextRefusal.NoProducts
+                        OrderContextRefusal.NotSolved
+                    ]
+            }
+
             testAsync "the port receives the verb over the parsed context, id and category included" {
                 let seen = ref None
 

@@ -497,6 +497,10 @@ module Order =
         // the picks before a reopen, put back when its list closes without a pick
         let heldPicks = React.useRef<string[] option> None
 
+        // the order a pick, a reopen or a reset was sent from and the picks before it, until its
+        // answer lands
+        let sentFrom = React.useRef<(Order * string[] option) option> None
+
         // the variable a step moves and the order it started from, until its answer lands
         let stepping = React.useRef<(string * Order) option> None
 
@@ -523,6 +527,8 @@ module Order =
 
                 match located, s with
                 | Some(t, _), None when isReopen ->
+                    sentFrom.current <- shownOrder |> Option.map (fun o -> o, heldPicks.current)
+
                     props.reopen (
                         heldPicks.current
                         |> Option.defaultValue [||]
@@ -535,7 +541,10 @@ module Order =
                         let changed = ol.Order |> Models.OrderContext.Target.map t (OrderVariable.setOvar s)
 
                         shownOrder
-                        |> Option.iter (fun before -> setPicks (picks |> PickListPolicy.afterChange before changed))
+                        |> Option.iter (fun before ->
+                            sentFrom.current <- Some(before, picks)
+                            setPicks (picks |> PickListPolicy.afterChange before changed)
+                        )
 
                         props.command (ViewHelpers.setNthCommand t n)
                     | None -> Logging.warning "a value the field does not offer is not sent" key
@@ -548,6 +557,7 @@ module Order =
             | OrderContextView.Settled _
             | OrderContextView.Refused _
             | OrderContextView.Changing _ ->
+                sentFrom.current <- shownOrder |> Option.map (fun o -> o, picks)
                 setPicks initialPicks
                 props.command Api.OrderViewCommand.ResetOrderScenario
             | OrderContextView.NoPatient -> ()
@@ -664,15 +674,20 @@ module Order =
                     setChanging None
                     setReopenedFrom None
 
-                    match stepping.current, ctx.Scenarios |> Array.tryExactlyOne with
-                    | Some(name, before), Some sc -> setPicks (picks |> PickListPolicy.afterStep name before sc.Order)
+                    match stepping.current, sentFrom.current, ctx.Scenarios |> Array.tryExactlyOne with
+                    | Some(name, before), _, Some sc ->
+                        setPicks (picks |> PickListPolicy.afterStep name before sc.Order)
+                    | None, Some(sent, before), Some sc ->
+                        setPicks (picks |> PickListPolicy.afterAnswer sent sc.Order before)
                     | _ -> ()
 
                     stepping.current <- None
+                    sentFrom.current <- None
                 | OrderContextView.Refused _ ->
                     setChanging None
                     setReopenedFrom None
                     stepping.current <- None
+                    sentFrom.current <- None
                 | _ -> ()
             ),
             [| box props.orderContext |]

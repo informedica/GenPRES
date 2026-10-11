@@ -64,6 +64,8 @@ type Terms =
     | ``Prescribe Refusal No dose rules``
     | ``Prescribe Refusal Patient``
     | ``Prescribe Refusal No products``
+    // a change in the dose dialog that the order cannot be calculated with
+    | ``Prescribe Refusal Not solved``
     // whom to tell, one sentence for every site
     | ``Prescribe Refusal Contact``
     | ``Order``
