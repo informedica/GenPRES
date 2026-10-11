@@ -257,6 +257,57 @@ module Pipeline =
                         |> Expect.isFalse "CalcValues should not have ValueSetOverflow"
                 }
 
+                test "kaliumchloride OnceTimed: every rate pick solves and keeps the time within 60 to 120 min" {
+                    let solved =
+                        [
+                            "CalcMinMax", CalcMinMax
+                            "IncreaseIncrements", IncreaseIncrements
+                            "CalcValues", CalcValues
+                            "SolveOrder", SolveOrder
+                        ]
+                        |> List.fold
+                            (fun ord (stage, cmd) ->
+                                match OrderProcessor.processPipeline noLogger (cmd ord) with
+                                | Ok ord -> ord
+                                | Error(_, msgs) -> failtest $"%s{stage} failed: %A{msgs}"
+                            )
+                            (mkOnceTimedOrder ())
+
+                    // the time follows from the dose quantity and the picked rate
+                    let minutes ord =
+                        ord
+                        |> Order.toOrdVars
+                        |> List.find (fun ovar -> (ovar |> OV.getName |> Variable.Name.toString).EndsWith "_sch_tme")
+                        |> OV.getValSetValueUnit
+                        |> Option.map (ValueUnit.convertTo Units.Time.minute >> ValueUnit.getValue)
+                        |> Option.defaultValue [||]
+
+                    let rate = solved.Orderable.Dose.Rate |> OV.Rate.toOrdVar
+
+                    let count =
+                        rate
+                        |> OV.getValSetValueUnit
+                        |> Option.map (ValueUnit.getValue >> Array.length)
+                        |> Option.defaultValue 0
+
+                    count > 1 |> Expect.isTrue "more than one rate to pick"
+
+                    for nth in 0 .. count - 1 do
+                        match
+                            solved
+                            |> Order.fromOrdVars [ rate |> OV.setNthValue nth ]
+                            |> Order.solveOrder "pick" false noLogger
+                        with
+                        | Error(_, msgs) -> failtest $"rate pick %i{nth} failed: %A{msgs}"
+                        | Ok ord ->
+                            let time = ord |> minutes
+                            time |> Array.isEmpty |> Expect.isFalse "a time"
+
+                            time
+                            |> Array.forall (fun m -> m >= 60N && m <= 120N)
+                            |> Expect.isTrue $"time %A{time} min within 60 to 120"
+                }
+
                 test "paracetamol suppository (non-timed) is unaffected by staged expansion" {
                     let ord =
                         Scenarios.pcmSupp
@@ -2057,15 +2108,21 @@ module IncreaseQuantityIncrementTests =
                                     (3N |> ValueUnit.singleWithUnit Units.Count.times)
                         }
 
-                    let run ord cmd =
+                    // every stage must succeed, so the rounded dose values are shown to solve
+                    let run ord (stage, cmd) =
                         match ord |> cmd |> OrderProcessor.processPipeline Logging.noOp with
                         | Ok ord -> ord
-                        | Error(ord, _) -> ord
+                        | Error(_, msgs) -> failtest $"%s{stage} failed: %A{msgs}"
 
                     match med |> Medication.toOrder Scenarios.testStart with
                     | Error e -> failtest $"could not build the order: %A{e}"
                     | Ok ord ->
-                        [ CalcMinMax; IncreaseIncrements; CalcValues; SolveOrder ]
+                        [
+                            "CalcMinMax", CalcMinMax
+                            "IncreaseIncrements", IncreaseIncrements
+                            "CalcValues", CalcValues
+                            "SolveOrder", SolveOrder
+                        ]
                         |> List.fold run ord
                         |> _.Orderable.Dose.Quantity
                         |> OrderVariable.Quantity.toOrdVar
