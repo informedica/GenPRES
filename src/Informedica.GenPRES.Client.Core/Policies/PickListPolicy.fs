@@ -58,6 +58,12 @@ module PickListPolicy =
         )
 
 
+    /// The picks once the answer to a change is shown: those from before the change when the answer
+    /// is the order the change was sent from, since the change was not applied; otherwise the picks
+    /// as the change left them.
+    let afterAnswer (sent: Order) (answered: Order) before picks = if answered = sent then before else picks
+
+
     /// The picks a reopen of the variable with this name keeps: those made before it.
     let beforeReopen name picks = picks |> Option.map (Array.takeWhile ((<>) name))
 

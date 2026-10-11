@@ -119,6 +119,25 @@ module PickListPolicyTests =
                     None |> PickListPolicy.afterStep "dos" before stepped |> Expect.isNone "unknown"
                 }
 
+                test "an answer that is the order sent puts the picks from before the change back" {
+                    let after = order (ovar "frq" false three) (ovar "dos" false one)
+                    let earlier = Some [| "dos"; "frq" |]
+                    let changed = Some [| "frq"; "dos" |]
+
+                    changed
+                    |> PickListPolicy.afterAnswer before before earlier
+                    |> Expect.equal "not applied, as before the change" earlier
+
+                    changed
+                    |> PickListPolicy.afterAnswer before after earlier
+                    |> Expect.equal "applied, as the change left them" changed
+
+                    // a reset empties the picks before it is sent
+                    Some [||]
+                    |> PickListPolicy.afterAnswer before before earlier
+                    |> Expect.equal "a refused reset keeps the picks" earlier
+                }
+
                 test "a reopen keeps the picks made before the reopened one" {
                     Some [| "frq"; "dos"; "rate" |]
                     |> PickListPolicy.beforeReopen "dos"

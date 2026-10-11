@@ -365,9 +365,10 @@ module OrderContextMachine =
                 let workbench, told =
                     match result with
                     | Ok(OrderContextResponse.Evaluated ctx) -> OrderContextWorkbench.Evaluated(pat, ctx), []
-                    // a change that cannot be applied keeps the order as it was, the dialog open
-                    | Ok(OrderContextResponse.Refused(back, OrderContextRefusal.NotSolved)) ->
-                        OrderContextWorkbench.Evaluated(pat, back), [ OrderContextEffect.TellNotSolved ]
+                    // a change that cannot be applied leaves the workbench as it was, not as answered: a
+                    // reset is sent without the argumentation; the dialog stays open
+                    | Ok(OrderContextResponse.Refused(_, OrderContextRefusal.NotSolved)) ->
+                        OrderContextWorkbench.Evaluated(pat, held), [ OrderContextEffect.TellNotSolved ]
                     | Ok(OrderContextResponse.Refused(back, refusal)) ->
                         OrderContextWorkbench.Refused(pat, { back with Scenarios = [||] }, refusal), []
                     // a failed change leaves the workbench as it was, not as sent

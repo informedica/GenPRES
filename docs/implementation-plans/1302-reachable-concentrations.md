@@ -400,8 +400,10 @@ migrated by the maintainer or by the agent when told to.
    outcome: the context as sent, refused with `NotSolved`, when the pipeline fails. A value pick or
    clear (`SetNthOrderValue`, `ClearOrderValue`) is refused with the context before the value was
    set. The message-list `OrderContext.evaluate` answers that context too, where it answered the
-   value set and unsolved until now. In the client the machine keeps the order and the dialog on
-   `NotSolved` and emits `TellNotSolved`, routed to `Alert.ChangeNotApplied` with the term `Prescribe Refusal Not solved` and a row in
+   value set and unsolved until now. In the client the machine keeps the context it held, with its
+   argumentation, and the dialog on `NotSolved`, and emits `TellNotSolved`, routed to
+   `Alert.ChangeNotApplied`; `PickListPolicy.afterAnswer` puts the dialog's picks from before the
+   change back when the answer is the order the change was sent from with the term `Prescribe Refusal Not solved` and a row in
    `localization.tsv`. Tests: the refusal over an unsolvable order for a solve, a value pick and the
    message-list evaluate, which answers the context before the pick; the machine keeps the dialog and tells; no notice for `NotSolved`; the
    server maps every case; fullMedication's golden order now reports the error of `CalcValues`.

@@ -620,8 +620,13 @@ let refusalTests =
                 |> Expect.equal "refused" (OrderContextView.Refused(paracetamol, OrderContextRefusal.NoDoseRules))
             }
 
-            test "a value that cannot be applied keeps the order and the dialog, and says so" {
-                let busy = evaluating withOrder withOrder "r-1" |> OrderContextState.select (Some "o-1")
+            test "a change that cannot be applied keeps the context held and the dialog, and says so" {
+                // a reset goes out without the argumentation, so the answer lacks it
+                let argued = { withOrder with Argumentation = Some "Sepsis" }
+
+                let busy =
+                    inFlight OrderViewCommand.ResetOrderScenario withOrder argued "r-1"
+                    |> OrderContextState.select (Some "o-1")
 
                 let landed, effects =
                     transition
@@ -633,10 +638,10 @@ let refusalTests =
                 |> Expect.equal "told first" OrderContextEffect.TellNotSolved
                 landed
                 |> dialog
-                |> Expect.equal "the dialog kept" (Some(OrderContextView.Settled withOrder))
+                |> Expect.equal "the dialog kept" (Some(OrderContextView.Settled argued))
                 landed
                 |> view
-                |> Expect.equal "settled, not refused" (OrderContextView.Settled withOrder)
+                |> Expect.equal "the context held, not refused" (OrderContextView.Settled argued)
             }
 
             test "a failed change still keeps the context held and the order, and says why" {
