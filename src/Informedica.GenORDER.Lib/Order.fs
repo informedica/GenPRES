@@ -1319,19 +1319,6 @@ module Order =
 
 
             /// <summary>
-            /// Increase the increment of a Component to a maximum
-            /// count using a list of increments.
-            /// </summary>
-            /// <param name="maxCount">The maximum count</param>
-            /// <param name="incrs">The list of increments</param>
-            /// <param name="cmp">The Component</param>
-            let increaseQuantityIncrement maxCount incrs cmp =
-                { (cmp |> inf) with
-                    OrderableQuantity = cmp.OrderableQuantity |> Quantity.increaseIncrement maxCount incrs
-                }
-
-
-            /// <summary>
             /// Harmonize the valid concentration value indices across all items in a component.
             /// </summary>
             /// <remarks>
@@ -1891,48 +1878,131 @@ module Order =
         /// <param name="incrs">The list of increments</param>
         /// <param name="orb">The Orderable</param>
         let increaseQuantityIncrement logger maxCount incrs orb =
-            // check if all relevant OrderVariables have an increment
-            if
-                (orb |> inf).Components
-                |> List.map _.OrderableQuantity
-                |> List.forall Quantity.hasIncrement
-                |> not
-            then
+            let cmpQuantities = (orb |> inf).Components |> List.map _.OrderableQuantity
+            // the orderable quantity is the sum of the components, so all share one increment
+            let quantities = orb.OrderableQuantity :: cmpQuantities
+
+            let rangeOf qty = (qty |> Quantity.toOrdVar |> OrderVariable.getVar).Values
+
+            let baseValue incr =
+                incr |> Variable.ValueRange.Increment.toValueUnit |> ValueUnit.getBaseValue
+
+            // the number of values of a quantity on increment incr
+            let count incr qty =
+                let vr = qty |> rangeOf
+
+                match vr |> Variable.ValueRange.getMin, vr |> Variable.ValueRange.getMax with
+                | Some min, Some max ->
+                    try
+                        Variable.ValueRange.minIncrMaxCount min incr max |> Some
+                    with _ ->
+                        None
+                | _ -> None
+
+            // a quantity without a minimum and a maximum has no count and does not restrict the choice
+            let fits incr qty = qty |> count incr |> Option.forall (fun n -> n <= maxCount)
+
+            let keepsTwo incr qty =
+                qty |> count incr |> Option.forall (fun n -> n >= BigRational.two)
+
+            // an increment a quantity can take is a multiple of its own increment
+            let follows incr qty =
+                match qty |> rangeOf |> Variable.ValueRange.getIncr with
+                | Some own ->
+                    Array.allPairs (incr |> baseValue) (own |> baseValue)
+                    |> Array.forall (fun (i, o) -> i |> BigRational.isMultiple o)
+                | None -> false
+
+            let fitsNow =
+                cmpQuantities
+                |> List.filter (Quantity.isSolved >> not)
+                |> List.forall (fun qty ->
+                    qty
+                    |> rangeOf
+                    |> Variable.ValueRange.getIncr
+                    |> Option.exists (fun incr -> qty |> fits incr)
+                )
+
+            let bounded =
+                cmpQuantities
+                |> List.exists (fun qty ->
+                    qty
+                    |> rangeOf
+                    |> Variable.ValueRange.getIncr
+                    |> Option.bind (fun incr -> qty |> count incr)
+                    |> Option.isSome
+                )
+
+            // a solved quantity, such as a fixed total, has no increment and no choice to keep
+            let open' = quantities |> List.filter (Quantity.isSolved >> not)
+
+            if open' |> List.forall Quantity.hasIncrement |> not || not bounded || fitsNow then
                 orb
             else
-                // first calculate the minimum increment increase for the orderable and components
-                { orb with
-                    Components = orb.Components |> List.map (Component.increaseQuantityIncrement maxCount incrs)
-                }
-                |> _.Components
-                |> List.map (fun c -> (c.OrderableQuantity |> Quantity.toOrdVar |> OrderVariable.getVar).Values)
-                |> List.choose Variable.ValueRange.getIncr
+                // the finest increment on which every component fits maxCount, else the coarsest
+                // on which every quantity keeps at least two values
+                incrs
+                |> List.filter (fun incr -> open' |> List.forall (follows incr))
+                // a solved quantity, such as a fixed total, must lie on the step
+                |> List.filter (fun incr ->
+                    quantities
+                    |> List.filter Quantity.isSolved
+                    |> List.forall (fun qty ->
+                        qty
+                        |> Quantity.toOrdVar
+                        |> OrderVariable.getValSetValueUnit
+                        |> Option.map ValueUnit.getBaseValue
+                        |> Option.forall (
+                            Array.allPairs (incr |> baseValue)
+                            >> Array.forall (fun (i, v) -> v |> BigRational.isMultiple i)
+                        )
+                    )
+                )
+                |> List.filter (fun incr -> open' |> List.forall (keepsTwo incr))
+                |> List.sortBy baseValue
                 |> function
                     | [] -> orb
-                    | incrs ->
-                        if incrs |> List.length <> (orb.Components |> List.length) then
-                            orb
-                        else
-                            let incr =
-                                incrs
-                                |> List.minBy (fun incr ->
-                                    incr |> Variable.ValueRange.Increment.toValueUnit |> ValueUnit.getBaseValue
-                                )
+                    | candidates ->
+                        let incr =
+                            candidates
+                            |> List.tryFind (fun incr -> cmpQuantities |> List.forall (fits incr))
+                            |> Option.defaultValue (candidates |> List.last)
 
-                            Logging.logDebugLazy
-                                logger
-                                (fun () ->
-                                    $"Increase quantity increment to {incr |> Variable.ValueRange.Increment.toString false}"
-                                    |> Events.OrderScenario
-                                )
-                            // apply the minimum increment increase to the orderable and components
+                        Logging.logDebugLazy
+                            logger
+                            (fun () ->
+                                $"Increase quantity increment to {incr |> Variable.ValueRange.Increment.toString false}"
+                                |> Events.OrderScenario
+                            )
+
+                        // set directly, so a quantity that already fits gets the common increment too
+                        let setIncr qty =
+                            let ovar = qty |> Quantity.toOrdVar
+
+                            try
+                                { ovar with
+                                    OrderVariable.Variable.Values =
+                                        ovar.Variable.Values |> Variable.ValueRange.setIncr incr
+                                }
+                                |> Quantity
+                                |> Some
+                            with _ ->
+                                None
+
+                        let cmpQuantities = orb.Components |> List.choose (_.OrderableQuantity >> setIncr)
+
+                        // all or none: a sum with mixed increments cannot be solved
+                        match orb.OrderableQuantity |> setIncr with
+                        | Some orbQuantity when cmpQuantities.Length = orb.Components.Length ->
                             { orb with
-                                OrderableQuantity =
-                                    orb.OrderableQuantity |> Quantity.increaseIncrement maxCount [ incr ]
+                                OrderableQuantity = orbQuantity
                                 Components =
-                                    orb.Components
-                                    |> List.map (Component.increaseQuantityIncrement maxCount [ incr ])
+                                    List.map2
+                                        (fun cmp qty -> { cmp with OrderableQuantity = qty })
+                                        orb.Components
+                                        cmpQuantities
                             }
+                        | _ -> orb
 
 
         /// <summary>
@@ -2373,9 +2443,6 @@ module Order =
             | Continuous tme -> tme |> f |> Continuous
             | Timed(frq, tme) -> (frq, tme |> f) |> Timed
             | _ -> schedule
-
-
-        let setMinTime = applyToTime Time.setMinValue
 
 
         module Print =
@@ -3469,6 +3536,54 @@ module Order =
     let solveOrder msg printErr logger = solve msg false printErr logger
 
 
+    /// The rounded steps in unit u: an increment is raised along them and a prune keeps their multiples.
+    let roundedSteps u =
+        [ 1N / 10N; 1N / 2N; 1N; 5N; 10N; 50N; 100N; 500N ]
+        |> List.map (ValueUnit.singleWithUnit u)
+
+
+    /// Raise the increment of the orderable dose quantity to a step in incrs that is a multiple of the
+    /// increment of the orderable quantity. Only when the dose count has no values (a range, or no
+    /// constraint): with a dose count that has values, the dose quantity is the orderable quantity
+    /// divided by it and follows the increment of the components. A dose quantity that already fits
+    /// maxCount keeps its increment.
+    let increaseDoseQuantityIncrement maxCount incrs (ord: Order) =
+        let countHasValues =
+            ord.Orderable.DoseCount
+            |> OrderVariable.Count.toOrdVar
+            |> OrderVariable.getValSetValueUnit
+            |> Option.isSome
+
+        if countHasValues then
+            ord
+        else
+            let baseValue incr =
+                incr |> ValueRange.Increment.toValueUnit |> ValueUnit.getBaseValue
+
+            let incrs =
+                match
+                    ord.Orderable.OrderableQuantity
+                    |> Quantity.toOrdVar
+                    |> OrderVariable.getVar
+                    |> _.Values
+                    |> ValueRange.getIncr
+                with
+                | Some orbIncr ->
+                    incrs
+                    |> List.filter (fun incr ->
+                        Array.allPairs (incr |> baseValue) (orbIncr |> baseValue)
+                        |> Array.forall (fun (i, o) -> i |> BigRational.isMultiple o)
+                    )
+                | None -> incrs
+
+            let dose =
+                { ord.Orderable.Dose with
+                    Quantity = ord.Orderable.Dose.Quantity |> Quantity.increaseIncrement maxCount incrs
+                }
+
+            { ord with Orderable = { ord.Orderable with Dose = dose } }
+
+
     /// <summary>
     /// Increase the Orderable Quantity Increment of an Order.
     /// This allows speedy calculation by avoiding large amount
@@ -3488,10 +3603,7 @@ module Order =
             let orbQty = ord.Orderable.OrderableQuantity |> Quantity.toOrdVar
             // the increments used to increase
             // TODO: use increment from constraint
-            let incrs u =
-                [ 1N / 10N; 1N / 2N; 1N; 5N; 10N; 20N ]
-                |> List.map (ValueUnit.singleWithUnit u)
-                |> List.map ValueRange.Increment.create
+            let incrs u = roundedSteps u |> List.map ValueRange.Increment.create
             // only increase incr for volume units
             if
                 orbQty.Variable
@@ -3523,6 +3635,18 @@ module Order =
 
                         ord // original order
                     | Ok ord ->
+                        // the dose quantity after the components, on a multiple of their increment
+                        let ord =
+                            let doseOrd =
+                                ord |> increaseDoseQuantityIncrement maxQtyCount (incrs Units.Volume.milliLiter)
+
+                            if doseOrd = ord then
+                                ord
+                            else
+                                doseOrd
+                                |> solveMinMax "Increase Dose Quantity Increment" false logger
+                                |> Result.defaultValue ord
+
                         let incrOrd =
                             ord // increased increment order
                             |> increaseRateIncrement
@@ -3551,62 +3675,25 @@ module Order =
         |> Ok
 
 
-    let maximizeRate logger ord =
-        // only maximize for timed orders
-        if (ord |> inf).Schedule |> Schedule.isTimed |> not then
-            ord
-        else
-            match ord.Orderable.Dose.Rate |> Rate.toOrdVar with
-            | rte when rte |> OrderVariable.isSolved |> not ->
-                let maxRte = rte |> OrderVariable.minIncrMaxToValues (Some 100) |> OrderVariable.setMaxValue
-
-                let ovars =
-                    ord
-                    |> toOrdVars
-                    // first check if max rate can be set
-                    |> List.map (fun ovar ->
-                        if ovar.Variable.Name = rte.Variable.Name then
-                            maxRte
-                        else
-                            ovar
-                    )
-
-                ord
-                |> fromOrdVars ovars
-                |> solveOrder "Maximize Rate" false logger
-                |> Result.map (fun ord ->
-                    Logging.logDebugLazy
-                        logger
-                        (fun () ->
-                            $"max rate set to: {maxRte |> OrderVariable.toString true}"
-                            |> Events.OrderScenario
-                        )
-
-                    ord
-                )
-                |> Result.defaultValue ord
-            | _ -> ord
-
-
-    let minimizeTime logger (ord: Order) =
-        if ord.Schedule |> Schedule.isTimed |> not then
-            ord
-        else
-            { (ord |> inf) with Schedule = ord.Schedule |> Schedule.setMinTime }
-            |> solveOrder "Minimize Time" false logger
-            |> Result.defaultValue ord
+    /// The rounded steps a pruned quantity or rate keeps the multiples of, in mL and in mL/uur.
+    let pruneSteps =
+        roundedSteps Units.Volume.milliLiter
+        @ roundedSteps (Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour)
 
 
     /// <summary>
     /// Loop through all the OrderVariables in an Order to
     /// turn min incr max to values
     /// </summary>
+    /// <remarks>
+    /// The component quantities, the dose quantity and the rate are pruned to rounded steps. The time
+    /// of a timed order is left free, so the rate determines how long the dose quantity runs.
+    /// </remarks>
     /// <param name="useMaxNumberOfValues">Whether to use max number of values or restrict the number of values</param>
-    /// <param name="minTime">Whether to minimize the time before processing</param>
     /// <param name="skipRate">Whether to skip the orderable dose rate variable (for staged expansion of timed orders)</param>
     /// <param name="logger">The logger</param>
     /// <param name="ord">The Order</param>
-    let minIncrMaxToValues useMaxNumberOfValues minTime skipRate logger ord =
+    let minIncrMaxToValues useMaxNumberOfValues skipRate logger ord =
         let mutable isSolved = false
 
         let rec loop ord =
@@ -3662,7 +3749,7 @@ module Order =
                             |> Some
 
                         ovar
-                        |> OrderVariable.minIncrMaxToValues n
+                        |> OrderVariable.minIncrMaxToValues pruneSteps n
                         |> fun ovar ->
                             Events.MinIncrMaxToValues ovar |> Logging.logInfo logger
                             ovar
@@ -3685,7 +3772,7 @@ module Order =
 
                         ord
 
-        if minTime then ord |> minimizeTime logger else ord
+        ord
         |> loop
         |> fun ord ->
             // make sure that an order is solved at least once

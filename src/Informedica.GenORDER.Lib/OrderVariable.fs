@@ -892,16 +892,17 @@ module OrderVariable =
     /// Calculate a ValueSet for a Variable of an OrderVariable if the Value
     /// of the Variable is a MinIncrMax
     /// </summary>
-    /// <param name="ovar">The OrderVariable to change min incr max to a ValueSet</param>
+    /// <param name="steps">The rounded steps the prune keeps the multiples of</param>
     /// <param name="n">Prune the ValueSet to max n values</param>
+    /// <param name="ovar">The OrderVariable to change min incr max to a ValueSet</param>
     /// <returns>An OrderVariable with a Variable with a ValueSet if this can be calculated</returns>
-    let minIncrMaxToValues n (ovar: OrderVariable) =
+    let minIncrMaxToValues steps n (ovar: OrderVariable) =
         { ovar with
             Variable =
                 if ovar.Variable |> Variable.isMinIncrMax |> not then
                     ovar.Variable
                 else
-                    ovar.Variable |> Variable.minIncrMaxToValues n
+                    ovar.Variable |> Variable.minIncrMaxToValues steps n
         }
 
 
@@ -1999,7 +2000,7 @@ module OrderVariable =
 
 
         /// Materialize Min/Incr/Max of a Quantity into a ValueSet
-        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues None >> Quantity
+        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues [] None >> Quantity
 
 
         let stepQuantity step useCalc n qty =
@@ -2144,7 +2145,7 @@ module OrderVariable =
 
 
         /// Materialize Min/Incr/Max of a PerTime into a ValueSet
-        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues None >> PerTime
+        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues [] None >> PerTime
 
 
     module Rate =
@@ -2243,7 +2244,7 @@ module OrderVariable =
 
 
         /// Materialize Min/Incr/Max of a Rate into a ValueSet
-        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues None >> Rate
+        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues [] None >> Rate
 
 
         /// <summary>
@@ -2388,7 +2389,7 @@ module OrderVariable =
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> Total
 
         /// Materialize Min/Incr/Max of a Total into a ValueSet
-        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues None >> Total
+        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues [] None >> Total
 
 
     /// Type and functions that represent an adjusted quantity,

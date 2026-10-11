@@ -1,45 +1,30 @@
-// Issue #1302: the dose dialog offers a substance concentration the order cannot reach.
+// Issue #1302: the dose dialog offers values the order cannot reach.
 //
-// Played out on the logged scenario (amoxicilline/clavulaanzuur IV in NaCl 0,9%, 14.5 kg,
-// 3 x/day) and checked on the amfo, morfCont, tpn and tpnComplete fixtures. Three defects:
+// The first pull request moved the fixes of the count cap into the source:
 //
-// 1. Orderable.increaseQuantityIncrement harmonizes the component increments to the SMALLEST
-//    one, so the diluent keeps a grid far finer than the count cap asks for (21 values at
-//    0.5 mL where the cap is 10).
-// 2. ValueSet.prune compares the increment in base units (1/2000 L) with values in mL, so the
-//    later prune of that diluent set thins it to multiples of 1.5 mL instead of a clean coarser
-//    grid.
-// 3. ValueSet.prune always keeps the minimum and the maximum, also off the grid it chose; such
-//    an end has no partner once the other variables follow the grid.
+// - ValueSet.prune keeps the multiples of the finest rounded step that fits the cap, from a step
+//   list the caller gives (Order.pruneSteps: 0.1;0.5;1;5;10;50;100;500 in mL and mL/uur), and 1
+//   then multiples of 1 for a unit group without steps; off-grid ends are dropped.
+// - ValueRange.increaseIncrement leaves a range that already fits the cap.
+// - Orderable.increaseQuantityIncrement gives the orderable quantity and every component one
+//   increment, the finest rounded step on which every component fits the cap, else the coarsest on
+//   which every quantity keeps two values.
+// - The dose quantity is raised and pruned like a component quantity when the dose count is a range.
+// - The time of a timed order is left free, so the rate determines it.
 //
-// The concentration offered is item quantity / orderable quantity over value sets; the sum
-// equation ties the item quantity to its own component volume, which the division does not
-// know. So any thinning of one summand to a coarser grid than the other leaves offered
-// concentrations that no combination reaches, and the final solve fails on the pick.
+// This script keeps what the second pull request still needs, measured on the compiled source of
+// the first:
 //
-// Fix 1: the common grid is the coarser of what the finest component needs and what the total
-// (the orderable quantity) needs for the count cap.
-// Fix 2: prune converts the increment to the unit of the values before testing multiples.
-// Fix 3: prune drops an off-grid end, unless fewer than two values would remain.
+// - Fix 4, the tie equations: an item's orderable concentration is its component concentration
+//   times the component's share, and the shares add up to one. Without them the item
+//   concentrations of a two-component order are cross products: amfo offers 1,021 of them, 893
+//   unreachable.
+// - The caps as a parameter (ValueCaps), so tests can lower them.
+// - The amox/clav fixture from the log of 2026-10-11 and a prednisolon tablet fixture, and the
+//   helpers that pick every offered value and time the pipeline and every pick.
 //
-// The loop order of Order.minIncrMaxToValues stays as it is: components first, the dose
-// quantity derived last and never pruned. Three other orders were measured and rejected: the sum
-// first, and the largest count first with or without the sum in the list. A prune does not
-// shrink the other ranges, so the later passes prune just the same; a pruned sum leaves derived
-// lists full of picks no combination reaches; the sorted components give the same result as the
-// current order on every fixture.
-//
-// 4. Lists derived from two value sets are cross products. With fixes 1 to 3 amox/clav still
-//    offers clavulaanzuur and natrium concentrations and NaCl volumes that no combination
-//    reaches, with no prune involved: the fixed concentrations of the items in a component tie
-//    them to the component volume and so to each other, and no equation states that tie for the
-//    orderable concentrations.
-//
-// Fix 4: two equations, one per item and one per orderable. The item's orderable concentration
-// is its component concentration times the component's share of the orderable, and the shares
-// of the components add up to one. Neither adds items together, so unit groups do not matter,
-// and both hold for any number of items and components. The second needs an orderable variable
-// that holds one, which the Order type does not have yet; the script maps it in for the solve.
+// With more than two components the item concentrations are not offered as picks (#1421). The
+// earlier prototypes are in the version of this script merged with the plan (#1420).
 
 #I __SOURCE_DIRECTORY__
 System.Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
@@ -57,293 +42,14 @@ open Informedica.GenOrder.Lib
 module Variable = Informedica.GenSolver.Lib.Variable
 module ValueRange = Informedica.GenSolver.Lib.Variable.ValueRange
 module ValueSet = Informedica.GenSolver.Lib.Variable.ValueRange.ValueSet
-module Increment = Informedica.GenSolver.Lib.Variable.ValueRange.Increment
 module Quantity = Informedica.GenOrder.Lib.OrderVariable.Quantity
 module Rate = Informedica.GenOrder.Lib.OrderVariable.Rate
 module Concentration = Informedica.GenOrder.Lib.OrderVariable.Concentration
-module Component = Informedica.GenOrder.Lib.Order.Orderable.Component
 module Name = Informedica.GenSolver.Lib.Variable.Name
 module Schedule = Informedica.GenOrder.Lib.Order.Schedule
 
 
 let logger = Informedica.GenOrder.Lib.Logging.noOp
-
-
-// ---------------------------------------------------------------------------------------------
-// Fix 2: ValueSet.prune, GenSOLVER Variable.fs
-// ---------------------------------------------------------------------------------------------
-
-/// Prune a value set to at most n values: keep the values that are a multiple of m times the
-/// increment for the smallest m that fits. The increment is compared in the unit of the values,
-/// not in base units. A minimum or maximum off that grid is dropped, where the original always
-/// kept them: an off-grid end has no partner once the other variables follow the grid. Only when
-/// fewer than two values would remain are the ends kept.
-module ValueSetFix =
-
-    let prune incr n =
-        let rec loop mn mx m incr (xs: BigRational[]) =
-            let filtered = xs |> Array.filter (fun x -> (x / (incr * m)).Denominator = 1I)
-
-            if filtered |> Array.length <= (max n 2) then
-                if filtered |> Array.length >= 2 then
-                    filtered
-                else
-                    [| yield mn; yield! filtered; yield mx |] |> Array.distinct
-            else
-                loop mn mx (m + 1N) incr xs
-
-        fun (ValueSet vu) ->
-            let u = vu |> ValueUnit.getUnit
-
-            let v =
-                // the increment in the unit of the values, where the original read its base value
-                match incr |> Option.map (ValueUnit.convertTo u >> ValueUnit.getValue) with
-                | Some [| incr |] ->
-                    let xs = vu |> ValueUnit.getValue |> Array.distinct
-                    let mn = xs |> Array.min
-                    let mx = xs |> Array.max
-                    xs |> loop mn mx 1N incr
-                | _ -> vu |> ValueUnit.getValue |> Array.prune n
-
-            vu |> ValueUnit.setValue v |> ValueSet.create
-
-
-module ValueRangeFix =
-
-    let prune incr n = ValueRange.map id id id id id id id (ValueSetFix.prune incr n)
-
-
-module VariableFix =
-
-    let minIncrMaxToValues n (var: Variable) =
-        if var |> Variable.isMinIncrMax |> not then
-            var
-        else
-            { var with
-                Values =
-                    match
-                        var.Values |> ValueRange.getMin, var.Values |> ValueRange.getIncr, var.Values |> ValueRange.getMax
-                    with
-                    | Some min, Some incr, Some max -> ValueSet.minIncrMaxToValueSet min incr max |> ValSet
-                    | _ -> var.Values
-                    |> fun vr ->
-                        match n with
-                        | None -> vr
-                        | Some n ->
-                            let incr = var.Values |> ValueRange.getIncr |> Option.map Increment.toValueUnit
-                            vr |> ValueRangeFix.prune incr n
-            }
-
-
-module OrderVariableFix =
-
-    let minIncrMaxToValues n (ovar: OrderVariable) =
-        { ovar with Variable = ovar.Variable |> VariableFix.minIncrMaxToValues n }
-
-
-// ---------------------------------------------------------------------------------------------
-// Fix 1: Orderable.increaseQuantityIncrement, GenORDER Order.fs
-// ---------------------------------------------------------------------------------------------
-
-module OrderableFix =
-
-    let private incrBase incr =
-        incr |> Increment.toValueUnit |> ValueUnit.getBaseValue
-
-    let private incrOf (qty: Quantity) =
-        (qty |> Quantity.toOrdVar |> OrderVariable.getVar).Values |> ValueRange.getIncr
-
-    /// The quantity increments of an orderable and its components raised to one common grid: the
-    /// coarser of the finest increment a component needs and the increment the orderable
-    /// quantity, the sum of the components, needs to stay within maxCount values. The original
-    /// took the finest component increment alone, which left a wide component with many more
-    /// values than maxCount.
-    let increaseQuantityIncrement logger maxCount incrs (orb: Orderable) =
-        if
-            orb.Components
-            |> List.map _.OrderableQuantity
-            |> List.forall Quantity.hasIncrement
-            |> not
-        then
-            orb
-        else
-            let cmpIncrs =
-                orb.Components
-                |> List.map (Component.increaseQuantityIncrement maxCount incrs)
-                |> List.choose (_.OrderableQuantity >> incrOf)
-
-            if cmpIncrs |> List.length <> (orb.Components |> List.length) then
-                orb
-            else
-                let finestCmp = cmpIncrs |> List.minBy incrBase
-
-                let orbIncr =
-                    orb.OrderableQuantity |> Quantity.increaseIncrement maxCount incrs |> incrOf
-
-                let incr =
-                    match orbIncr with
-                    | Some orbIncr -> [ finestCmp; orbIncr ] |> List.maxBy incrBase
-                    | None -> finestCmp
-
-                Logging.logDebugLazy
-                    logger
-                    (fun () ->
-                        $"Increase quantity increment to {incr |> Increment.toString false}"
-                        |> Events.OrderScenario
-                    )
-
-                { orb with
-                    OrderableQuantity = orb.OrderableQuantity |> Quantity.increaseIncrement maxCount [ incr ]
-                    Components =
-                        orb.Components
-                        |> List.map (Component.increaseQuantityIncrement maxCount [ incr ])
-                }
-
-
-module OrderFix =
-
-    open Informedica.GenOrder.Lib.Order
-
-    let increaseQuantityIncrement logger maxCount incrs (ord: Order) =
-        { ord with Orderable = ord.Orderable |> OrderableFix.increaseQuantityIncrement logger maxCount incrs }
-
-
-    /// Order.increaseIncrements with the fixed quantity increment and the min-max solve given;
-    /// the rest is the original.
-    let increaseIncrementsWith solveMinMax logger maxQtyCount maxRateCount (ord: Order) =
-        let maxQtyCount = maxQtyCount |> BigRational.fromInt
-        let maxRateCount = maxRateCount |> BigRational.fromInt
-
-        if ord.Schedule |> Schedule.isContinuous then
-            ord
-        else
-            let orbQty = ord.Orderable.OrderableQuantity |> Quantity.toOrdVar
-
-            let incrs u =
-                [ 1N / 10N; 1N / 2N; 1N; 5N; 10N; 20N ]
-                |> List.map (ValueUnit.singleWithUnit u)
-                |> List.map Increment.create
-
-            if
-                orbQty.Variable
-                |> Variable.getUnit
-                |> Option.map (ValueUnit.Group.unitToGroup >> (=) Group.VolumeGroup >> not)
-                |> Option.defaultValue false
-            then
-                ord
-            else
-                let incrOrd =
-                    ord |> increaseQuantityIncrement logger maxQtyCount (incrs Units.Volume.milliLiter)
-
-                if ord = incrOrd then
-                    Ok ord
-                else
-                    incrOrd |> Events.OrderIncreaseQuantityIncrement |> Logging.logInfo logger
-                    incrOrd |> solveMinMax "Increase Quantity Increment" false logger
-                |> function
-                    | Error _ -> ord
-                    | Ok ord ->
-                        let incrOrd =
-                            ord
-                            |> increaseRateIncrement
-                                maxRateCount
-                                (incrs (Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour))
-
-                        if incrOrd = ord then
-                            Ok ord
-                        else
-                            incrOrd |> Events.OrderIncreaseRateIncrement |> Logging.logInfo logger
-                            incrOrd |> solveMinMax "Increase Rate Increment" false logger
-                        |> function
-                            | Error _ -> ord
-                            | Ok ord -> ord
-        |> Ok
-
-
-    let increaseIncrements logger = increaseIncrementsWith solveMinMax logger
-
-
-    /// Order.minIncrMaxToValues with the fixed prune and the solve given; the rest is the
-    /// original. One variable is converted and pruned per pass, and the order is solved before
-    /// the next pass.
-    let minIncrMaxToValuesWith solveOrder useMaxNumberOfValues minTime skipRate logger (ord: Order) =
-        let mutable isSolved = false
-
-        let rec loop (ord: Order) =
-            let mutable flag = false
-
-            let ovars =
-                [
-                    yield! ord.Orderable.Components |> List.map (_.OrderableQuantity >> Quantity.toOrdVar)
-                    ord.Orderable.Dose.Quantity |> Quantity.toOrdVar
-                    if not skipRate then
-                        ord.Orderable.Dose.Rate |> Rate.toOrdVar
-                ]
-                |> List.map (fun ovar ->
-                    if
-                        flag
-                        || ovar.DefinedConstraints.Incr |> Option.isNone
-                        || ovar.Variable |> Variable.isMinIncrMax |> not
-                    then
-                        ovar
-                    else
-                        flag <- true
-
-                        let n =
-                            match ord.Schedule with
-                            | Continuous _ -> if useMaxNumberOfValues then 1_000 else 100
-                            | Once
-                            | Discontinuous _ ->
-                                if useMaxNumberOfValues then
-                                    if ord.Orderable.Components |> List.length > 1 then 20 else 100
-                                else
-                                    10
-                            | OnceTimed _
-                            | Timed _ ->
-                                if useMaxNumberOfValues then
-                                    if ord.Orderable.Components |> List.length > 2 then 5 else 10
-                                else if ord.Orderable.Components |> List.length > 2 then
-                                    5
-                                else
-                                    20
-                            |> Some
-
-                        ovar
-                        |> OrderVariableFix.minIncrMaxToValues n
-                        |> fun ovar ->
-                            Events.MinIncrMaxToValues ovar |> Logging.logInfo logger
-                            ovar
-                )
-
-            if not flag then
-                ord
-            else
-                ord
-                |> fromOrdVars ovars
-                |> solveOrder "Min Incr Max to Values" true logger
-                |> function
-                    | Ok ord ->
-                        isSolved <- true
-                        loop ord
-                    | Error err ->
-                        (err |> snd |> List.map (sprintf "%A") |> String.concat "\n", err |> fst)
-                        |> Exceptions.OrderCouldNotBeSolved
-                        |> Logging.logError logger
-
-                        ord
-
-        if minTime then ord |> minimizeTime logger else ord
-        |> loop
-        |> fun ord ->
-            if not isSolved then
-                ord
-                |> solveOrder "Min Incr Max to Values final Loop" true logger
-                |> Result.defaultValue ord
-            else
-                ord
-
-
-    let minIncrMaxToValues useMaxNumberOfValues = minIncrMaxToValuesWith solveOrder useMaxNumberOfValues
 
 
 // ---------------------------------------------------------------------------------------------
@@ -472,7 +178,134 @@ module TieFix =
 
 
 // ---------------------------------------------------------------------------------------------
-// The scenario: the medication as the server logged it on 2026-10-11
+// The caps as a parameter, for Order.minIncrMaxToValues: the loop of the source with the numbers
+// in its body taken from a ValueCaps record.
+// ---------------------------------------------------------------------------------------------
+
+module CapsFix =
+
+    open Informedica.GenOrder.Lib.Order
+
+    /// The maximum number of values a pruned variable keeps, per schedule. Max is the cap with
+    /// useMaxNumberOfValues; Few is an order with at most two components, Many one with more.
+    type ValueCaps =
+        {
+            /// Continuous order.
+            Continuous: int
+            /// Continuous order with useMaxNumberOfValues.
+            ContinuousMax: int
+            /// Once or discontinuous order.
+            Discontinuous: int
+            /// Once or discontinuous order with useMaxNumberOfValues and a single component.
+            DiscontinuousMaxSingle: int
+            /// Once or discontinuous order with useMaxNumberOfValues and more than one component.
+            DiscontinuousMaxMultiple: int
+            /// Timed order with at most two components.
+            TimedFew: int
+            /// Timed order with at most two components and useMaxNumberOfValues.
+            TimedMaxFew: int
+            /// Timed order with more than two components, with or without useMaxNumberOfValues.
+            TimedMany: int
+        }
+
+
+    /// The caps Order.minIncrMaxToValues uses today.
+    let defaultCaps =
+        {
+            Continuous = 100
+            ContinuousMax = 1_000
+            Discontinuous = 10
+            DiscontinuousMaxSingle = 100
+            DiscontinuousMaxMultiple = 20
+            TimedFew = 20
+            TimedMaxFew = 10
+            TimedMany = 5
+        }
+
+
+    /// The same cap for every schedule.
+    let allCaps n =
+        {
+            Continuous = n
+            ContinuousMax = n
+            Discontinuous = n
+            DiscontinuousMaxSingle = n
+            DiscontinuousMaxMultiple = n
+            TimedFew = n
+            TimedMaxFew = n
+            TimedMany = n
+        }
+
+
+    /// The cap for an order.
+    let capOf caps useMaxNumberOfValues (ord: Order) =
+        let count = ord.Orderable.Components |> List.length
+
+        match ord.Schedule with
+        | Continuous _ -> if useMaxNumberOfValues then caps.ContinuousMax else caps.Continuous
+        | Once
+        | Discontinuous _ ->
+            if not useMaxNumberOfValues then caps.Discontinuous
+            elif count > 1 then caps.DiscontinuousMaxMultiple
+            else caps.DiscontinuousMaxSingle
+        | OnceTimed _
+        | Timed _ ->
+            if count > 2 then caps.TimedMany
+            elif useMaxNumberOfValues then caps.TimedMaxFew
+            else caps.TimedFew
+
+
+    /// Order.minIncrMaxToValues with the caps and the solve given; the rest is the source.
+    let minIncrMaxToValuesWith caps solveOrder useMaxNumberOfValues skipRate logger (ord: Order) =
+        let mutable isSolved = false
+
+        let rec loop (ord: Order) =
+            let mutable flag = false
+
+            let ovars =
+                [
+                    yield! ord.Orderable.Components |> List.map (_.OrderableQuantity >> Quantity.toOrdVar)
+                    ord.Orderable.Dose.Quantity |> Quantity.toOrdVar
+                    if not skipRate then
+                        ord.Orderable.Dose.Rate |> Rate.toOrdVar
+                ]
+                |> List.map (fun ovar ->
+                    if
+                        flag
+                        || ovar.DefinedConstraints.Incr |> Option.isNone
+                        || ovar.Variable |> Variable.isMinIncrMax |> not
+                    then
+                        ovar
+                    else
+                        flag <- true
+
+                        ovar
+                        |> OrderVariable.minIncrMaxToValues pruneSteps (ord |> capOf caps useMaxNumberOfValues |> Some)
+                )
+
+            if not flag then
+                ord
+            else
+                ord
+                |> fromOrdVars ovars
+                |> solveOrder "Min Incr Max to Values" true logger
+                |> function
+                    | Ok ord ->
+                        isSolved <- true
+                        loop ord
+                    | Error _ -> ord
+
+        ord
+        |> loop
+        |> fun ord ->
+            if not isSolved then
+                ord |> solveOrder "Min Incr Max to Values final Loop" true logger |> Result.defaultValue ord
+            else
+                ord
+
+
+// ---------------------------------------------------------------------------------------------
+// The fixtures and the pipelines
 // ---------------------------------------------------------------------------------------------
 
 let amoxClavText =
@@ -581,28 +414,6 @@ let pickConcentration nth ord =
     |> Order.solveOrder "final-solve" false logger
 
 
-/// The CalcMinMax pipeline, the reset (ReCalcValues) and the final solve of OrderProcessor, with
-/// the increment step and the values step passed in so the original and the fixed functions run
-/// through the same steps.
-let calcAndReset increaseIncrements minIncrMaxToValues ord =
-    // two components, discontinuous: useMax true, no rate stage
-    ord
-    |> Order.applyConstraints
-    |> Order.calcMinMax logger
-    |> Result.bind (increaseIncrements logger 10 10)
-    |> Result.map Order.setCalculatedConstraints
-    |> Result.map (minIncrMaxToValues true true false logger)
-    |> Result.bind (Order.solveNormDose logger)
-    // the reset
-    |> Result.map Order.applyCalculatedConstraints
-    |> Result.map (minIncrMaxToValues true false false logger)
-    |> Result.bind (Order.solveOrder "final-solve" false logger)
-
-
-let original = calcAndReset Order.increaseIncrements Order.minIncrMaxToValues
-let fixed' = calcAndReset OrderFix.increaseIncrements OrderFix.minIncrMaxToValues
-
-
 /// Every offered concentration tried: the ones whose pick fails to solve.
 let unreachablePicks ord =
     ord
@@ -611,87 +422,84 @@ let unreachablePicks ord =
     |> Array.filter (fun (nth, _) -> ord |> pickConcentration nth |> Result.isError)
 
 
-let report name (res: Result<Order, Order * _>) =
-    match res with
-    | Error(_, msgs) -> printfn $"%s{name}: pipeline failed: %A{msgs}"
-    | Ok ord ->
-        let offered = ord |> offeredConcentrations
-        let bad = ord |> unreachablePicks
-        let naclQty = (ord |> findComponent nacl).OrderableQuantity |> Quantity.toOrdVar |> valuesOf
+/// The golden pipeline of the compiled source: the four commands through OrderProcessor.
+let compiledPipeline (ord: Order) =
+    let run cmd ord =
+        match ord |> cmd |> OrderProcessor.processPipeline logger with
+        | Ok ord -> Ok ord
+        | Error(ord, msgs) -> Error(ord, msgs)
 
-        printfn $"%s{name}:"
-        let naclText = naclQty |> Array.map string |> String.concat ";"
-        printfn $"  NaCl orderable quantity: %s{naclText} mL"
-        let totalText = ord.Orderable.OrderableQuantity |> Quantity.toOrdVar |> valuesOf |> Array.map string |> String.concat ";"
-        printfn $"  orderable quantity: %s{totalText} mL"
-        printfn $"  offered amoxicilline concentrations: %i{offered.Length}"
-        printfn $"  unreachable picks: %i{bad.Length} %A{bad |> Array.map (snd >> string)}"
+    ord
+    |> run CalcMinMax
+    |> Result.bind (run IncreaseIncrements)
+    |> Result.bind (run CalcValues)
+    |> Result.bind (run SolveOrder)
 
 
-// ---------------------------------------------------------------------------------------------
-// The fixes on the other fixtures: amfo (2 components, discontinuous), morfCont (2 components,
-// continuous), tpn and tpnComplete (4 components, timed). The pipeline mirrors OrderProcessor:
-// CalcMinMax, CalcValues when the client would send it, ReCalcValues as a reset, and the final
-// solve, with the fixed increment step and the values step given.
-// ---------------------------------------------------------------------------------------------
-
-let pipelineWith calcMinMax increaseIncrements minIncrMaxToValues solveNormDose solveOrder (ord: Order) =
+/// The pipeline of OrderProcessor, CalcMinMax, the client's CalcValues for two components or less,
+/// the reset and the final solve, with the min-max solve, the values step, the norm dose and the
+/// final solve given, so the tie equations can be added.
+let pipelineWith calcMinMax minIncrMaxToValues solveNormDose solveOrder (ord: Order) =
     let twoOrLess = ord.Orderable.Components |> List.length <= 2
 
     let hasTimeNotContinuous =
         ord.Schedule |> Schedule.hasTime && ord.Schedule |> Schedule.isContinuous |> not
 
-    let toValues useMax minTime skipRate ord =
-        ord |> minIncrMaxToValues useMax minTime skipRate logger
+    let toValues useMax skipRate ord =
+        ord |> minIncrMaxToValues useMax skipRate logger
 
     ord
     |> Order.applyConstraints
     |> calcMinMax logger
-    |> Result.bind (increaseIncrements logger 10 10)
+    |> Result.bind (Order.increaseIncrements logger 10 10)
     |> Result.map Order.setCalculatedConstraints
     |> Result.bind (fun ord ->
         if ord |> Order.hasNormDose && twoOrLess then
-            ord |> toValues true true hasTimeNotContinuous |> solveNormDose logger
+            ord |> toValues true hasTimeNotContinuous |> solveNormDose logger
         else
             Ok ord
     )
-    // calc-values, as the client sends it for two components or less
     |> Result.map (fun ord ->
         if twoOrLess then
             ord
-            |> toValues false true hasTimeNotContinuous
-            |> fun ord -> if hasTimeNotContinuous then ord |> toValues false true false else ord
+            |> toValues false hasTimeNotContinuous
+            |> fun ord -> if hasTimeNotContinuous then ord |> toValues false false else ord
         else
             ord
     )
-    // the reset
     |> Result.map Order.applyCalculatedConstraints
-    |> Result.map (toValues twoOrLess false hasTimeNotContinuous)
-    |> Result.map (fun ord -> if hasTimeNotContinuous then ord |> toValues twoOrLess false false else ord)
+    |> Result.map (toValues twoOrLess hasTimeNotContinuous)
+    |> Result.map (fun ord -> if hasTimeNotContinuous then ord |> toValues twoOrLess false else ord)
     |> Result.bind (solveOrder "final-solve" false logger)
-
-
-let pipeline =
-    pipelineWith Order.calcMinMax OrderFix.increaseIncrements OrderFix.minIncrMaxToValues Order.solveNormDose Order.solveOrder
-
-
-let tiedPipelineWith extra extraOvars =
-    pipelineWith
-        (TieFix.calcMinMax extra extraOvars)
-        (OrderFix.increaseIncrementsWith (TieFix.solveMinMax extra extraOvars))
-        (OrderFix.minIncrMaxToValuesWith (TieFix.solveOrder extra extraOvars))
-        (TieFix.solveNormDose extra extraOvars)
-        (TieFix.solveOrder extra extraOvars)
 
 
 let noOvars (_: Order) : OrderVariable list = []
 
 let itemTie = [ TieFix.tieEquation ]
+
 let bothTies = [ TieFix.tieEquation; TieFix.shareSumEquation ]
+
 let shareOvar (ord: Order) = [ TieFix.orderableShare ord ]
 
-let tiedPipeline = tiedPipelineWith itemTie noOvars
-let bothPipeline = tiedPipelineWith bothTies shareOvar
+let solveBoth = TieFix.solveOrder bothTies shareOvar
+
+
+/// The tied pipeline with the ties, the extra variables and the caps given.
+let tiedPipelineWith caps extra extraOvars =
+    let solve = TieFix.solveOrder extra extraOvars
+
+    pipelineWith
+        (TieFix.calcMinMax extra extraOvars)
+        (CapsFix.minIncrMaxToValuesWith caps solve)
+        (TieFix.solveNormDose extra extraOvars)
+        solve
+
+
+let itemTiePipeline = tiedPipelineWith CapsFix.defaultCaps itemTie noOvars
+
+let bothPipelineWith caps = tiedPipelineWith caps bothTies shareOvar
+
+let bothPipeline = bothPipelineWith CapsFix.defaultCaps
 
 
 /// The item orderable concentrations and component orderable quantities that hold a value set of
@@ -725,31 +533,24 @@ let unreachableAnyPick solveOrder (ord: Order) =
     ord |> unreachableAnyPickWithError solveOrder |> List.map (fun (n, v, _) -> n, v)
 
 
+/// Every value of every list in lists picked and solved: the name and value of the ones that fail.
+let unreachableIn lists solveOrder (ord: Order) =
+    [
+        for ovar in ord |> lists do
+            for nth in 0 .. (ovar |> valuesOf |> Array.length) - 1 do
+                let picked = ovar |> OrderVariable.setNthValue nth
+
+                match ord |> Order.fromOrdVars [ picked ] |> solveOrder "pick" false logger with
+                | Ok _ -> ()
+                | Error _ -> yield ovar |> OrderVariable.getName |> Name.toString, (ovar |> valuesOf)[nth]
+    ]
+
+
 /// The short name of a variable: the last name part and the variable kind.
 let shortName (name: string) =
     let parts = name.TrimStart('[').Split("]_")
     let path = parts[0].Split('.')
     $"%s{path[path.Length - 1]}_%s{parts[1]}"
-
-
-/// The unreachable picks per list, with the first error of the first failing pick.
-let explainUnreachable solveOrder (ord: Order) =
-    ord
-    |> unreachableAnyPickWithError solveOrder
-    |> List.groupBy (fun (n, _, _) -> n)
-    |> List.iter (fun (n, xs) ->
-        let total = ord |> pickables |> List.find (fun o -> o |> OrderVariable.getName |> Name.toString = n) |> valuesOf
-
-        let _, v, err = xs |> List.head
-
-        let errText =
-            err
-            |> Option.map (fun e -> $"%A{e}".Replace("\n", " "))
-            |> Option.defaultValue ""
-            |> fun t -> if t.Length > 200 then t.Substring(0, 200) else t
-
-        printfn $"    %s{shortName n}: %i{xs.Length} of %i{total.Length} unreachable, first %s{string v}: %s{errText}"
-    )
 
 
 /// The solved order of a medication, with the time the pipeline took.
@@ -766,230 +567,238 @@ let solvedFixtureWith pipeline (med: Medication) =
         | Ok ord -> Ok(sw.ElapsedMilliseconds, ord)
 
 
-let solvedFixture = solvedFixtureWith pipeline
-
-
-let reportFixtureWith pipeline solveOrder name (med: Medication) =
-    match med |> solvedFixtureWith pipeline with
-    | Error e -> printfn $"%s{name}: %s{e}"
-    | Ok(ms, ord) ->
-        let lists = ord |> pickables
-        let picks = lists |> List.sumBy (valuesOf >> Array.length)
-        let bad = ord |> unreachableAnyPick solveOrder
-        printfn $"%s{name}: pipeline %i{ms} ms, %i{picks} picks over %i{lists.Length} lists, %i{bad.Length} unreachable"
-        if bad.Length > 0 then ord |> explainUnreachable solveOrder
-
-
-let reportFixture = reportFixtureWith pipeline Order.solveOrder
-
-let reportTied = reportFixtureWith tiedPipeline (TieFix.solveOrder itemTie noOvars)
-
-let reportBoth = reportFixtureWith bothPipeline (TieFix.solveOrder bothTies shareOvar)
-
-
 let amoxClavMedication () =
     amoxClavText |> Medication.fromString |> Result.defaultWith (fun e -> failwith (String.concat "\n" e))
 
 
-let fixtures =
+/// A tablet dividable in quarters: 1 - 2 mg/kg for 30 kg of 5 mg tablets is 6 to 12 tablets on a
+/// quarter grid, 25 values.
+let prednisolonText =
+    """
+Id: 2b1e1c1a-0000-4000-8000-000000001302
+Name: prednisolon
+Quantity:
+Quantities:
+Route: ORAAL
+OrderType: DiscontinuousOrder
+Adjust: 30 kg
+Frequencies: 1 x/dag
+Time:
+Dose:
+Div:
+DoseCount: 1 x
+Components:
+	Name: prednisolon
+	Form: tablet
+	Quantities: 1 stuk
+	Divisible: 4
+	Dose:
+	Solution:
+	Substances:
+
+		Name: prednisolon
+		Concentrations: 5 mg/stuk
+		Dose: prednisolon, [qty-adj] 1 - 2 mg/kg/dosis
+		Solution:
+"""
+
+
+let prednisolon () =
+    prednisolonText |> Medication.fromString |> Result.defaultWith (fun e -> invalidOp (String.concat "\n" e))
+
+
+/// Every fixture, the single-component ones included.
+let allFixtures () =
     [
+        "amox/clav", amoxClavMedication ()
         "amfo", Scenarios.amfo
         "morfCont", Scenarios.morfCont
         "tpn", Scenarios.tpn
         "tpnComplete", Scenarios.tpnComplete
+        "pcmSupp", Scenarios.pcmSupp
+        "pcmDrink", Scenarios.pcmDrink
+        "cotrim", Scenarios.cotrim
+        "prednisolon", prednisolon ()
     ]
+
+
+/// The lists the dialog must offer as picks. With more than two components only the component
+/// quantities and the rate; the item concentrations have no use as picks there.
+let pickablesFor (ord: Order) =
+    if ord.Orderable.Components |> List.length > 2 then
+        [
+            for cmp in ord.Orderable.Components do
+                cmp.OrderableQuantity |> Quantity.toOrdVar
+            ord.Orderable.Dose.Rate |> Rate.toOrdVar
+        ]
+        |> List.filter (fun ovar -> ovar |> valuesOf |> Array.length > 1)
+    else
+        ord |> pickables
+
+
+/// The unreachable picks of the lists the dialog must offer: with more than two components the item
+/// concentrations are not offered.
+let unreachableOffered solveOrder (ord: Order) =
+    let offered =
+        ord |> pickablesFor |> List.map (OrderVariable.getName >> Name.toString)
+
+    ord
+    |> unreachableAnyPick solveOrder
+    |> List.filter (fun (n, _) -> offered |> List.contains n)
+
+
+/// The component quantities and the rate that hold more than one value: the picks the first pull
+/// request makes reachable without the tie equations.
+let quantityAndRatePicks (ord: Order) =
+    [
+        for cmp in ord.Orderable.Components do
+            cmp.OrderableQuantity |> Quantity.toOrdVar
+        ord.Orderable.Dose.Rate |> Rate.toOrdVar
+    ]
+    |> List.filter (fun ovar -> ovar |> valuesOf |> Array.length > 1)
+
+
+/// Every pick of every list the dialog must offer, solved and timed: the number of picks, the
+/// number that fail and the slowest in ms.
+let timedPicksWith lists solveOrder (ord: Order) =
+    let results =
+        [
+            for ovar in ord |> lists do
+                for nth in 0 .. (ovar |> valuesOf |> Array.length) - 1 do
+                    let picked = ovar |> OrderVariable.setNthValue nth
+                    let sw = System.Diagnostics.Stopwatch.StartNew()
+                    let ok = ord |> Order.fromOrdVars [ picked ] |> solveOrder "pick" false logger |> Result.isOk
+                    sw.Stop()
+                    ok, sw.ElapsedMilliseconds
+        ]
+
+    results.Length,
+    results |> List.filter (fst >> not) |> List.length,
+    results |> List.map snd |> List.fold max 0L
+
+
+/// The pipeline time, the picks, the failing picks and the slowest pick of a fixture.
+type Measured =
+    {
+        PipelineMs: int64
+        Picks: int
+        Failing: int
+        SlowestPickMs: int64
+        Order: Order
+    }
+
+
+let measure pipeline lists solveOrder (med: Medication) =
+    med
+    |> solvedFixtureWith pipeline
+    |> Result.map (fun (ms, ord) ->
+        let picks, failing, slowest = ord |> timedPicksWith lists solveOrder
+
+        {
+            PipelineMs = ms
+            Picks = picks
+            Failing = failing
+            SlowestPickMs = slowest
+            Order = ord
+        }
+    )
+
+
+/// Every fixture measured once: the compiled pipeline with the quantity and rate picks, and the
+/// pipeline with both ties with every pick the dialog offers.
+let measured =
+    lazy
+        (allFixtures ()
+         |> List.map (fun (name, med) ->
+             name,
+             (med |> measure compiledPipeline quantityAndRatePicks Order.solveOrder,
+              med |> measure bothPipeline pickablesFor solveBoth)
+         )
+         |> Map.ofList)
+
+
+/// The user waits for the pipeline once and for every pick.
+let maxPipelineMs = 3000L
+
+let maxPickMs = 1000L
+
+
+let fmtValues (xs: BigRational[]) =
+    xs |> Array.map (fun x -> (BigRational.toDouble x).ToString("0.##")) |> String.concat ";"
+
+
+/// The component quantities of a solved order.
+let componentValues (ord: Order) =
+    ord.Orderable.Components |> List.map (_.OrderableQuantity >> Quantity.toOrdVar >> valuesOf)
+
+
+let report () =
+    for name, (compiled, tied) in measured.Value |> Map.toList do
+        for label, m in [ "compiled", compiled; "both ties", tied ] do
+            match m with
+            | Error e -> printfn $"%-12s{name} %-10s{label}: %s{e}"
+            | Ok m ->
+                printfn
+                    $"%-12s{name} %-10s{label}: pipeline %5i{m.PipelineMs} ms, %4i{m.Picks} picks, %4i{m.Failing} failing, slowest pick %4i{m.SlowestPickMs} ms"
 
 
 // ---------------------------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------------------------
 
-let mL = Units.Volume.milliLiter
-
-let pruneValues incr n values =
-    let (ValueSet vu) =
-        mL |> ValueUnit.withValue values |> ValueSet.create |> ValueSetFix.prune incr n
-
-    vu |> ValueUnit.getValue
-
-
 let tests =
     testList
         "issue 1302"
         [
             testList
-                "ValueSet.prune compares the increment in the unit of the values"
+                "the compiled pipeline of the first pull request"
                 [
-                    test "10..0.5..20 mL pruned to 20 keeps the whole-millilitre grid" {
-                        let incr = mL |> ValueUnit.singleWithValue (1N / 2N) |> Some
-
-                        [| 10N .. (1N / 2N) .. 20N |]
-                        |> pruneValues incr 20
-                        |> Expect.equal "every whole mL from 10 to 20" [| 10N .. 20N |]
+                    test "amox/clav: every offered amoxicilline concentration solves" {
+                        match amoxClavOrder () |> compiledPipeline with
+                        | Error(_, msgs) -> failtest $"%A{msgs}"
+                        | Ok ord ->
+                            ord |> unreachablePicks |> Array.map snd |> Expect.equal "no unreachable picks" [||]
+                            (ord |> offeredConcentrations |> Array.length) > 1 |> Expect.isTrue "a choice remains"
                     }
 
-                    test "the original prune kept multiples of 1.5 mL and 10.5 mL" {
-                        let incr = mL |> ValueUnit.singleWithValue (1N / 2N) |> Some
+                    test "amox/clav: the diluent keeps a whole-millilitre grid without holes" {
+                        match amoxClavOrder () |> compiledPipeline with
+                        | Error(_, msgs) -> failtest $"%A{msgs}"
+                        | Ok ord ->
+                            let xs = (ord |> findComponent nacl).OrderableQuantity |> Quantity.toOrdVar |> valuesOf
 
-                        let (ValueSet vu) =
-                            mL
-                            |> ValueUnit.withValue [| 10N .. (1N / 2N) .. 20N |]
-                            |> ValueSet.create
-                            |> ValueSet.prune incr 20
-
-                        vu
-                        |> ValueUnit.getValue
-                        |> Expect.equal
-                            "the logged NaCl set"
-                            [| 10N; 21N / 2N; 12N; 27N / 2N; 15N; 33N / 2N; 18N; 39N / 2N; 20N |]
+                            xs |> Expect.equal "every whole mL from min to max" [| Array.min xs .. Array.max xs |]
                     }
 
-                    test "an increment given in litres prunes as the same increment in millilitres" {
-                        let inL = Units.Volume.liter |> ValueUnit.singleWithValue (5N / 1000N) |> Some
-                        let inMl = mL |> ValueUnit.singleWithValue 5N |> Some
-                        let values = [| 5N .. 5N .. 1000N |]
-
-                        values
-                        |> pruneValues inL 50
-                        |> Expect.equal "same result" (values |> pruneValues inMl 50)
-                    }
-
-                    test "an off-grid min and max are dropped and the count stays within n" {
-                        let incr = mL |> ValueUnit.singleWithValue 5N |> Some
-
-                        [| yield 3N; yield! [| 5N .. 5N .. 100N |]; yield 107N |]
-                        |> pruneValues incr 5
-                        |> Expect.equal "multiples of 20 mL" [| 20N; 40N; 60N; 80N; 100N |]
-                    }
-
-                    test "the ends are kept only when fewer than two values would remain" {
-                        let incr = mL |> ValueUnit.singleWithValue 1N |> Some
-
-                        [| 3N; 4N; 5N; 6N; 7N |]
-                        |> pruneValues incr 2
-                        |> Expect.equal "the two multiples of 2, ends dropped" [| 4N; 6N |]
-
-                        [| 3N; 4N; 5N |]
-                        |> pruneValues incr 2
-                        |> Expect.equal "one multiple of 2 only, so the ends come back" [| 3N; 4N; 5N |]
-                    }
-                ]
-
-            testList
-                "Orderable.increaseQuantityIncrement harmonizes to the grid the total needs"
-                [
-                    test "the diluent gets the 1 mL grid of the total, not the 0.5 mL of the powder" {
-                        let ord =
-                            amoxClavOrder ()
-                            |> Order.applyConstraints
-                            |> Order.calcMinMax logger
-                            |> Result.bind (OrderFix.increaseIncrements logger 10 10)
-                            |> Result.defaultWith (fun (o, _) -> o)
-
-                        let incrOf name =
-                            (ord |> findComponent name).OrderableQuantity
-                            |> Quantity.toOrdVar
-                            |> valueRangeOf
-                            |> ValueRange.getIncr
-                            |> Option.map (Increment.toValueUnit >> ValueUnit.getValue)
-
-                        incrOf nacl |> Expect.equal "NaCl increment" (Some [| 1N |])
-                        incrOf cmpName |> Expect.equal "powder increment" (Some [| 1N |])
-
-                        ord.Orderable.OrderableQuantity
-                        |> Quantity.toOrdVar
-                        |> valueRangeOf
-                        |> ValueRange.getIncr
-                        |> Option.map (Increment.toValueUnit >> ValueUnit.getValue)
-                        |> Expect.equal "orderable increment" (Some [| 1N |])
-                    }
-
-                    test "the original left the diluent at 0.5 mL, 21 values for a cap of 10" {
-                        let ord =
-                            amoxClavOrder ()
-                            |> Order.applyConstraints
-                            |> Order.calcMinMax logger
-                            |> Result.bind (Order.increaseIncrements logger 10 10)
-                            |> Result.defaultWith (fun (o, _) -> o)
-
-                        (ord |> findComponent nacl).OrderableQuantity
-                        |> Quantity.toOrdVar
-                        |> valueRangeOf
-                        |> ValueRange.getIncr
-                        |> Option.map (Increment.toValueUnit >> ValueUnit.getValue)
-                        |> Expect.equal "NaCl increment" (Some [| 1N / 2N |])
-                    }
-                ]
-
-            testList
-                "the scenario"
-                [
-                    let solved name pipeline =
-                        match amoxClavOrder () |> pipeline with
-                        | Ok ord -> ord
-                        | Error(_, msgs) -> failtest $"%s{name} pipeline failed: %A{msgs}"
-
-                    test "the original pipeline offers concentrations the order cannot reach" {
-                        solved "original" original
-                        |> unreachablePicks
-                        |> Array.isEmpty
-                        |> Expect.isFalse "unreachable picks exist"
-                    }
-
-                    test "with both fixes every offered amoxicilline concentration solves" {
-                        solved "fixed" fixed'
-                        |> unreachablePicks
-                        |> Array.map snd
-                        |> Expect.equal "no unreachable picks" [||]
-                    }
-
-                    test "with both fixes the dialog still offers more than one concentration" {
-                        (solved "fixed" fixed' |> offeredConcentrations |> Array.length) > 1
-                        |> Expect.isTrue "a choice remains"
-                    }
-
-                    test "with both fixes the amoxicilline list is reachable, the other lists are reported" {
-                        solved "fixed" fixed'
-                        |> unreachablePicks
-                        |> Array.map snd
-                        |> Expect.equal "no unreachable amoxicilline pick" [||]
-                    }
-
-                    test "with both fixes the diluent keeps a whole-millilitre grid without holes" {
-                        let xs =
-                            (solved "fixed" fixed' |> findComponent nacl).OrderableQuantity
-                            |> Quantity.toOrdVar
-                            |> valuesOf
-
-                        xs
-                        |> Expect.equal "every whole mL from min to max" [| Array.min xs .. Array.max xs |]
-                    }
-                ]
-
-            testList
-                "the fixtures under fixes 1 to 3"
-                [
-                    for name, med in fixtures do
-                        test $"%s{name}: the pipeline solves within a few seconds" {
-                            match med |> solvedFixture with
+                    for name, _ in allFixtures () do
+                        test $"%s{name}: the pipeline takes at most %i{maxPipelineMs} ms" {
+                            match measured.Value[name] |> fst with
                             | Error e -> failtest e
-                            | Ok(ms, _) -> ms < 3000L |> Expect.isTrue $"%i{ms} ms"
+                            | Ok m -> m.PipelineMs <= maxPipelineMs |> Expect.isTrue $"%i{m.PipelineMs} ms"
                         }
 
-                        test $"%s{name}: every pick of every pickable list solves" {
-                            match med |> solvedFixture with
+                        test $"%s{name}: every quantity and rate pick solves within %i{maxPickMs} ms" {
+                            match measured.Value[name] |> fst with
                             | Error e -> failtest e
-                            | Ok(_, ord) -> ord |> unreachableAnyPick Order.solveOrder |> Expect.equal "no unreachable picks" []
+                            | Ok m ->
+                                m.Failing |> Expect.equal "no failing picks" 0
+                                m.SlowestPickMs <= maxPickMs |> Expect.isTrue $"slowest %i{m.SlowestPickMs} ms"
                         }
                 ]
 
             testList
                 "fix 4, the tie equations"
                 [
-                    let solveBoth = TieFix.solveOrder bothTies shareOvar
+                    test "amfo: without the ties most item concentrations are unreachable" {
+                        match Scenarios.amfo |> solvedFixtureWith compiledPipeline with
+                        | Error e -> failtest e
+                        | Ok(_, ord) ->
+                            (ord |> unreachableIn pickables Order.solveOrder |> List.length) > 0
+                            |> Expect.isTrue "unreachable item concentrations"
+                    }
 
-                    test "amox/clav: the item tie alone makes the clavulaanzuur list a tenth of the amoxicilline list" {
-                        match amoxClavMedication () |> solvedFixtureWith tiedPipeline with
+                    test "amox/clav: the item tie makes the clavulaanzuur list a tenth of the amoxicilline list" {
+                        match amoxClavMedication () |> solvedFixtureWith itemTiePipeline with
                         | Error e -> failtest e
                         | Ok(_, ord) ->
                             let conc name =
@@ -1003,49 +812,63 @@ let tests =
                             |> Expect.equal "a tenth" (conc "amoxicilline" |> Array.map (fun c -> c / 10N))
                     }
 
-                    test "amox/clav: with both ties every pick of every pickable list solves" {
-                        match amoxClavMedication () |> solvedFixtureWith bothPipeline with
+                    for name, _ in allFixtures () do
+                        test $"%s{name}: with both ties the pipeline takes at most %i{maxPipelineMs} ms" {
+                            match measured.Value[name] |> snd with
+                            | Error e -> failtest e
+                            | Ok m -> m.PipelineMs <= maxPipelineMs |> Expect.isTrue $"%i{m.PipelineMs} ms"
+                        }
+
+                        test $"%s{name}: with both ties every offered pick solves within %i{maxPickMs} ms" {
+                            match measured.Value[name] |> snd with
+                            | Error e -> failtest e
+                            | Ok m ->
+                                m.Failing |> Expect.equal "no failing picks" 0
+                                m.SlowestPickMs <= maxPickMs |> Expect.isTrue $"slowest %i{m.SlowestPickMs} ms"
+                        }
+                ]
+
+            testList
+                "the caps are parameters"
+                [
+                    let componentsUnder caps med =
+                        match med |> solvedFixtureWith (bothPipelineWith caps) with
                         | Error e -> failtest e
-                        | Ok(_, ord) ->
-                            ord |> unreachableAnyPick solveBoth |> Expect.equal "no unreachable picks" []
-                            (ord |> pickables |> List.length) > 1 |> Expect.isTrue "lists remain"
+                        | Ok(ms, ord) -> ms, ord |> componentValues
+
+                    test "prednisolon under today's caps keeps all 25 quarter tablets" {
+                        prednisolon ()
+                        |> componentsUnder CapsFix.defaultCaps
+                        |> snd
+                        |> Expect.equal "6 to 12 by 1/4" [ [| 6N .. (1N / 4N) .. 12N |] ]
                     }
 
-                    for name, med in fixtures do
-                        test $"%s{name}: with both ties the pipeline solves within a few seconds" {
-                            match med |> solvedFixtureWith bothPipeline with
-                            | Error e -> failtest e
-                            | Ok(ms, _) -> ms < 3000L |> Expect.isTrue $"%i{ms} ms"
-                        }
+                    test "prednisolon with a single-component cap of 10 keeps the whole tablets" {
+                        prednisolon ()
+                        |> componentsUnder { CapsFix.defaultCaps with DiscontinuousMaxSingle = 10 }
+                        |> snd
+                        |> Expect.equal "6 to 12" [ [| 6N .. 12N |] ]
+                    }
 
-                        test $"%s{name}: with both ties every pick of every pickable list solves" {
-                            match med |> solvedFixtureWith bothPipeline with
-                            | Error e -> failtest e
-                            | Ok(_, ord) -> ord |> unreachableAnyPick solveBoth |> Expect.equal "no unreachable picks" []
-                        }
+                    test "prednisolon with a single-component cap of 5 keeps every second tablet" {
+                        prednisolon ()
+                        |> componentsUnder { CapsFix.defaultCaps with DiscontinuousMaxSingle = 5 }
+                        |> snd
+                        |> Expect.equal "6 to 12 by 2" [ [| 6N .. 2N .. 12N |] ]
+                    }
+
+                    for cap in [ 5; 3 ] do
+                        for name, med in allFixtures () do
+                            test $"%s{name}: with every cap at %i{cap} no component keeps more than %i{cap} values" {
+                                let ms, cmps = med |> componentsUnder (CapsFix.allCaps cap)
+
+                                cmps |> List.iter (fun vs -> vs.Length <= cap |> Expect.isTrue $"%s{fmtValues vs}")
+                                ms <= maxPipelineMs |> Expect.isTrue $"%i{ms} ms"
+                            }
                 ]
         ]
 
 
-amoxClavOrder () |> original |> report "original"
-amoxClavOrder () |> fixed' |> report "fixed"
-
-printfn "\n== every pickable list under the fixes, current loop order =="
-amoxClavMedication () |> reportFixture "amox/clav"
-
-for name, med in fixtures do
-    reportFixture name med
-
-printfn "\n== with the tie equation [itm]_orb_cnc = [itm]_cmp_cnc * [cmp]_orb_cnc =="
-amoxClavMedication () |> reportTied "amox/clav"
-
-for name, med in fixtures do
-    reportTied name med
-
-printfn "\n== with both ties, the item tie and [orb]_orb_cnc = sum([cmp]_orb_cnc) with [orb]_orb_cnc = 1 =="
-amoxClavMedication () |> reportBoth "amox/clav"
-
-for name, med in fixtures do
-    reportBoth name med
+report ()
 
 runTestsWithCLIArgs [] [||] tests

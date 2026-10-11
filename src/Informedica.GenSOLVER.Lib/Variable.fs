@@ -976,33 +976,74 @@ module Variable =
 
 
             /// <summary>
-            /// Prune the <c>ValueUnit</c> of a <c>ValueSet</c>. This means that
-            /// the number of values is reduced to a constant PRUNE.
+            /// Prune the <c>ValueUnit</c> of a <c>ValueSet</c> to at most n values on rounded steps.
             /// </summary>
             /// <remarks>
-            /// The minimum and maximum values are always kept.
+            /// With an increment, the multiples of the finest step that leaves at most n values are
+            /// kept. A step counts when it is in the unit group of the values and is a multiple of
+            /// the increment, compared in the unit of the values. Without a step for the unit group
+            /// the step is 1, then multiples of 1. When a step leaves more than n values and the
+            /// next fewer than two, or there is no next step, the multiples of that step times m are
+            /// kept. The minimum and maximum come back only when fewer than two values remain.
+            /// Without an increment, n values are kept spread over the set.
             /// </remarks>
-            let prune incr n =
-                let rec loop mn mx m incr (xs: BigRational[]) =
-                    let filtered =
-                        xs
-                        |> Array.filter (fun x -> x = mn || x = mx || (x / (incr * m)).Denominator = 1I)
-
-                    if filtered |> Array.length <= (max n 2) then
-                        filtered
-                    else
-                        loop mn mx (m + 1N) incr xs
-
+            let prune steps incr n =
                 fun vu ->
                     let u = vu |> ValueUnit.getUnit
+                    let xs = vu |> ValueUnit.getValue |> Array.distinct
+
+                    // off-grid ends are dropped, unless fewer than two values would remain
+                    let withEnds ys =
+                        if ys |> Array.length >= 2 then
+                            ys
+                        else
+                            [| xs |> Array.min; yield! ys; xs |> Array.max |]
+                            |> Array.distinct
+                            |> Array.sort
+
+                    let onGrid s = xs |> Array.filter (BigRational.isMultiple s)
+
+                    let rec timesM s m =
+                        let ys = onGrid (s * m)
+                        if ys |> Array.length <= n then ys else timesM s (m + 1N)
+
+                    let rec pick steps =
+                        match steps with
+                        | [] -> [||]
+                        | [ s ] ->
+                            if onGrid s |> Array.length <= n then
+                                onGrid s
+                            else
+                                timesM s 2N
+                        | s :: (next :: _ as rest) ->
+                            if onGrid s |> Array.length <= n then onGrid s
+                            elif onGrid next |> Array.length < 2 then timesM s 2N
+                            else pick rest
 
                     let v =
-                        match incr |> Option.map ValueUnit.getBaseValue with
+                        match
+                            incr
+                            |> Option.filter (ValueUnit.eqsGroup vu)
+                            |> Option.map (ValueUnit.convertTo u >> ValueUnit.getValue)
+                        with
+                        | _ when xs |> Array.length <= n -> vu |> ValueUnit.getValue
                         | Some [| incr |] ->
-                            let xs = vu |> ValueUnit.convertTo u |> ValueUnit.getValue |> Array.distinct
-                            let mn = xs |> Array.min
-                            let mx = xs |> Array.max
-                            xs |> loop mn mx 1N incr
+                            let ofGroup =
+                                steps
+                                |> List.filter (ValueUnit.eqsGroup vu)
+                                |> List.collect (ValueUnit.convertTo u >> ValueUnit.getValue >> Array.toList)
+
+                            let usable =
+                                (if ofGroup |> List.isEmpty then [ 1N ] else ofGroup)
+                                |> List.filter (BigRational.isMultiple incr)
+                                |> List.distinct
+                                |> List.sort
+
+                            // no rounded step fits the increment: the multiples of the increment
+                            if usable |> List.isEmpty then
+                                timesM incr 1N |> withEnds
+                            else
+                                usable |> pick |> withEnds
                         | _ -> vu |> ValueUnit.getValue |> Array.prune n
 
                     vu |> ValueUnit.setValue v
@@ -1325,7 +1366,7 @@ module Variable =
         /// Only a <c>ValueSet</c> can be pruned. The other <c>ValueRange</c>s
         /// are left untouched.
         /// </remarks>
-        let prune incr n = map id id id id id id id (ValueSet.prune incr n)
+        let prune steps incr n = map id id id id id id id (ValueSet.prune steps incr n)
 
 
         /// <summary>
@@ -2290,6 +2331,7 @@ module Variable =
         /// <param name="vr">The ValueRange</param>
         /// <returns>The resulting (more restrictive) <c>ValueRange</c></returns>
         /// <remarks>
+        /// A ValueRange that already holds at most maxCount values is left as it is.
         /// When there is no increment in the list that can be used to increase
         /// the increment of the ValueRange to the maximum count, the largest possible
         /// increment is used.
@@ -2309,6 +2351,8 @@ module Variable =
         /// </example>
         let increaseIncrement maxCount incrs vr =
             match vr with
+            // a range that already fits keeps its increment
+            | MinIncrMax(min, incr, max) when minIncrMaxCount min incr max <= maxCount -> vr
             | MinIncrMax(min, incr, max) ->
                 // only use increments larger than the original
                 let incrs =
@@ -3342,10 +3386,11 @@ module Variable =
     /// Calculate a ValueSet for a Variable if the Value of the
     /// Variable is a MinIncrMax
     /// </summary>
-    /// <param name="var">The variable to change min incr max to a ValueSet</param>
+    /// <param name="steps">The rounded steps the prune keeps the multiples of</param>
     /// <param name="n">Prune the ValueSet to n</param>
+    /// <param name="var">The variable to change min incr max to a ValueSet</param>
     /// <returns>A Variable with a ValueSet if this can be calculated</returns>
-    let minIncrMaxToValues n var =
+    let minIncrMaxToValues steps n var =
         if var |> isMinIncrMax |> not then
             var
         else
@@ -3364,7 +3409,7 @@ module Variable =
                                 vr
                             else
                                 let incr = var.Values |> ValueRange.getIncr |> Option.map Increment.toValueUnit
-                                vr |> ValueRange.prune incr n.Value
+                                vr |> ValueRange.prune steps incr n.Value
                 }
             with e ->
                 raise e

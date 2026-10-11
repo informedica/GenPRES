@@ -109,7 +109,7 @@ let all: GoldenTotals list =
         {
             Name = "pcmDrink"
             Medication = Scenarios.pcmDrink
-            Totals = [ ("Volume", "#2# mL||/kg||/dag||") ]
+            Totals = [ ("Volume", "#1,8# - #2,4# mL||/kg||/dag||") ]
         }
         {
             Name = "cotrim"
@@ -151,7 +151,7 @@ let all: GoldenTotals list =
 /// The totals over all the recorded scenarios at once, the way an order plan takes them.
 let together =
     [
-        "Volume", "#32,2# - #141# mL||/kg||/dag||"
+        "Volume", "#32# - #141# mL||/kg||/dag||"
         "Energy", "#2,87# - #33,5# kCal||/kg||/dag||"
         "Protein", "#1,17# - #2,93# g||/kg||/dag||"
         "Carbohydrate", "#0,14# - #11,2# g||/kg||/dag||"
