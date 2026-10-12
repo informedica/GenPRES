@@ -2726,6 +2726,52 @@ module IncreaseQuantityIncrementTests =
                     |> Expect.equal "the same order" ord
                 }
 
+                test "a quantity of 10 to 5000 mL is raised to steps of at most 50 mL" {
+                    let ml = ValueUnit.singleWithUnit Units.Volume.milliLiter
+
+                    let wide =
+                        Variable.ValueRange.minIncrMaxToValueRange
+                            (ml 10N |> Variable.ValueRange.Minimum.create true)
+                            (ml 1N |> Increment.create)
+                            (ml 5000N |> Variable.ValueRange.Maximum.create true)
+
+                    // set in place of the range, which a solve would only narrow
+                    let widen qty =
+                        let ovar = qty |> OrderVariable.Quantity.toOrdVar
+                        { ovar with OrderVariable.Variable.Values = wide } |> Quantity
+
+                    let ord = Scenarios.pcmDrink |> minMax
+
+                    { ord.Orderable with
+                        OrderableQuantity = ord.Orderable.OrderableQuantity |> widen
+                        Components =
+                            ord.Orderable.Components
+                            |> List.map (fun cmp -> { cmp with OrderableQuantity = cmp.OrderableQuantity |> widen })
+                    }
+                    |> Order.Orderable.increaseQuantityIncrement
+                        Logging.noOp
+                        (BigRational.fromInt 10)
+                        Order.quantityIncrements
+                    |> incrsOf
+                    |> List.distinct
+                    |> Expect.equal "one increment of 50 mL" [ Some [| 50N |] ]
+                }
+
+                test "a rate of 50 to 500 mL/uur is raised to steps of at most 10 mL/uur" {
+                    Scenarios.naclLargeRateText
+                    |> TestOrder.parse
+                    |> TestOrder.toOrder
+                    |> TestOrder.solve CalcMinMax
+                    |> TestOrder.solve IncreaseIncrements
+                    |> _.Orderable.Dose.Rate
+                    |> OrderVariable.Rate.toOrdVar
+                    |> OrderVariable.getVar
+                    |> _.Values
+                    |> Variable.ValueRange.getIncr
+                    |> Option.map (Increment.toValueUnit >> ValueUnit.getValue)
+                    |> Expect.equal "an increment of 10 mL/uur" (Some [| 10N |])
+                }
+
                 test "pcmDrink: every component already fits, so the orderable is left as it is" {
                     let ord, orb = Scenarios.pcmDrink |> increase 10
                     orb |> Expect.equal "the same orderable" ord.Orderable
