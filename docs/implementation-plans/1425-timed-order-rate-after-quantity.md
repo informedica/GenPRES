@@ -155,8 +155,10 @@ pipelines that assume a timed order has rate values after `CalcValues`. `CanSetN
 (`OrderProcessor.fs:581`) asks for rate values for an order with a time; with the rate a range it
 never holds for a timed order, so the guard of "ensure-dose-values-1" always passes and the quantity
 values are calculated on every `CalcMinMax`. That gives the same result, but costs time each run.
-Step 1 drops the rate from `CanSetNormDose` for a timed or once timed order. The reachable pick
-tests are the other risk. Step 0 measures this before any source change.
+Step 1 drops the rate from `CanSetNormDose` for a timed or once timed order. Another risk is a
+pipeline that gives values without holding the rate back: for an order with more than two
+components the values come from "ensure-values-1" in `SolveOrder`, not from `CalcValues`. The
+reachable pick tests are the last risk. Step 0 measures this before any source change.
 
 ## Steps
 
@@ -187,7 +189,11 @@ One PR per step, after the maintainer's go.
 
    In `OrderProcessor.fs`:
    - `CalcValues` and `reCalcSteps` run the rate stage only when the dose quantity has one value;
-   - `solveSteps` gets a rate stage, guarded by "the dose quantity has one value and the rate has
+   - "ensure-values-1" in `solveSteps` holds the rate back for a timed or once timed order, with
+     the same `hasTimeNotContinuous` the other pipelines use. For an order with more than two
+     components `CalcValues` does nothing (its guard, `OrderProcessor.fs:798`), so for tpn this
+     step gives the first values;
+   - `solveSteps` gets a rate stage after it, guarded by "the dose quantity has one value and the rate has
      no values", so it does not run on every solve. It covers a pick, and also a cleared rate: a
      `SolveOrder` runs process-cleared, which holds the rate back, and then `solveSteps`;
    - `CanSetNormDose` no longer asks for rate values for a timed or once timed order.
@@ -196,6 +202,8 @@ One PR per step, after the maintainer's go.
    scenario with a norm dose gets its rate list straight away. Tests:
    - after `CalcMinMax`, the tpn dose quantity starts at 191 mL and amfo timed at 22 mL;
    - after `CalcValues`, the rate of tpn and amfo timed is a range and the time is a range;
+   - tpn through `CalcMinMax` and `SolveOrder`, without `CalcValues`: the dose quantity is a list
+     and the rate is still a range;
    - after a dose quantity pick, the rate has values and every rate puts the time within its
      limits;
    - the once timed KCl order (`kaliumchlorideOnceTimedText`) gets its rate list at once, its dose
