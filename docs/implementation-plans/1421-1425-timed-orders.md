@@ -519,7 +519,8 @@ the agent when told to.
 
 ## As built
 
-Steps 1 to 3 are merged; #1425 is open.
+Steps 1 to 3 are merged. #1425 got a plan of its own, `1425-timed-order-rate-after-quantity.md`,
+built in #1451.
 
 | Step | Pull request | Note |
 |---|---|---|
