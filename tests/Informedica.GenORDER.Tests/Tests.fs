@@ -2588,7 +2588,7 @@ module IncreaseQuantityIncrementTests =
 
 
     let private increase maxCount med =
-        let incrs = Order.roundedSteps Units.Volume.milliLiter |> List.map Increment.create
+        let incrs = Order.quantityIncrements
 
         let ord = med |> minMax
         ord,
@@ -2675,7 +2675,7 @@ module IncreaseQuantityIncrementTests =
                                 |> Quantity
                         }
 
-                    let incrs = Order.roundedSteps Units.Volume.milliLiter |> List.map Increment.create
+                    let incrs = Order.quantityIncrements
 
                     orb
                     |> Order.Orderable.increaseQuantityIncrement Logging.noOp (BigRational.fromInt 2) incrs
@@ -2719,7 +2719,7 @@ module IncreaseQuantityIncrementTests =
                 test "amfo with a fixed dose count: the dose quantity increment is left as it is" {
                     let ord = Scenarios.amfo |> minMax
 
-                    let incrs = Order.roundedSteps Units.Volume.milliLiter |> List.map Increment.create
+                    let incrs = Order.quantityIncrements
 
                     ord
                     |> Order.increaseDoseQuantityIncrement (BigRational.fromInt 10) incrs
@@ -3657,6 +3657,17 @@ module ReachablePickTests =
                     |> Quantity.toOrdVar
                     |> valuesOf
                     |> Expect.equal "130 to 280 mL by 50" [| 130N; 180N; 230N; 280N |]
+                }
+
+                test "a rate of 50 to 500 mL/uur is pruned to 60 to 480 by 30, three times the largest step" {
+                    Scenarios.naclLargeRateText
+                    |> parse
+                    |> solvedWith processed
+                    |> snd
+                    |> _.Orderable.Dose.Rate
+                    |> Rate.toOrdVar
+                    |> valuesOf
+                    |> Expect.equal "60 to 480 by 30" [| 60N .. 30N .. 480N |]
                 }
 
                 // the timings are run in sequence, so other tests do not slow them down
