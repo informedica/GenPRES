@@ -185,3 +185,103 @@ for name, med in timed do
     with
     | Error _ -> printfn "  processing failed"
     | Ok ord -> ord |> show $"reset, solved: %b{ord |> Order.isSolved}"
+
+
+// The narrowest rate window per fixture after CalcMinMax: the smallest dose quantity over the
+// shortest time minus over the longest, in mL/uur, against the pump's grid of 0,1 mL/uur.
+printfn "\n\n######## the narrowest rate window"
+
+open Informedica.GenUnits.Lib
+
+let rateWindow (ord: Order) =
+    let minMax ovar =
+        let vr = ovar |> OrderVariable.getVar |> _.Values
+        vr |> Variable.ValueRange.getMin |> Option.map Variable.ValueRange.Minimum.toValueUnit,
+        vr |> Variable.ValueRange.getMax |> Option.map Variable.ValueRange.Maximum.toValueUnit
+
+    let mlPerHour = Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour
+
+    match ord.Schedule with
+    | Timed(_, tme)
+    | OnceTimed tme ->
+        match tme |> Time.toOrdVar |> minMax, ord.Orderable.Dose.Quantity |> Quantity.toOrdVar |> minMax with
+        | (Some tMin, Some tMax), (Some qMin, _) ->
+            (qMin / tMin) - (qMin / tMax)
+            |> ValueUnit.convertTo mlPerHour
+            |> ValueUnit.toStringDecimalDutchShortWithPrec 2
+        | _ -> "no window"
+    | _ -> "not timed"
+
+
+for name, med in timed do
+    match
+        med
+        |> Medication.toOrder Scenarios.testStart
+        |> Result.mapError ignore
+        |> Result.bind (run CalcMinMax >> Result.mapError ignore)
+    with
+    | Error _ -> printfn $"  %s{name}: CalcMinMax failed"
+    | Ok ord -> printfn $"  %s{name}: %s{ord |> rateWindow}"
+
+
+// A rate cleared as the client clears it: the rate cleared, then Reopen with the earlier picks.
+// First a rate that is not a pick, as a median rate is; then a rate picked from the list a reset
+// offers, with the dose quantity picked again.
+printfn "\n\n######## a cleared rate"
+
+let rateOf (o: Order) = o.Orderable.Dose.Rate |> Rate.toOrdVar
+
+let showRate label (o: Order) =
+    printfn $"    %s{label}: %s{o |> rateOf |> OrderVariable.toString false |> short}"
+
+let clearRate (o: Order) =
+    o |> Order.fromOrdVars [ o |> rateOf |> OrderVariable.clear ]
+
+let pickNth n (ovar: OrderVariable) (o: Order) =
+    o |> Order.fromOrdVars [ ovar |> OrderVariable.setNthValue n ] |> run SolveOrder
+
+let reopen picks (o: Order) =
+    Reopen(o, picks) |> OrderProcessor.processPipeline logger
+
+let pickMiddleDoseQuantity (o: Order) =
+    let qty = o.Orderable.Dose.Quantity |> Quantity.toOrdVar
+    let n = qty |> valuesOf |> Array.length
+
+    if n > 1 then
+        o |> pickNth (n / 2) qty |> Result.map (fun o -> o, [ OrderProcessor.nameOf qty ])
+    else
+        Ok(o, [])
+
+
+for name, med in timed do
+    printfn $"\n===== %s{name}"
+
+    match
+        med
+        |> Medication.toOrder Scenarios.testStart
+        |> Result.mapError ignore
+        |> Result.bind (run CalcMinMax >> Result.mapError ignore)
+        |> Result.bind (run CalcValues >> Result.mapError ignore)
+        |> Result.bind (run SolveOrder >> Result.mapError ignore)
+        |> Result.bind (pickMiddleDoseQuantity >> Result.mapError ignore)
+    with
+    | Error _ -> printfn "  processing failed"
+    | Ok(ord, picks) ->
+        ord |> showRate "after the dose quantity"
+
+        match ord |> clearRate |> reopen picks with
+        | Error _ -> printfn "    the rate cleared: failed"
+        | Ok cleared ->
+            cleared |> showRate "the rate cleared"
+
+            let rte = cleared |> rateOf
+
+            if rte |> valuesOf |> Array.length > 1 then
+                match cleared |> pickNth 0 rte with
+                | Error _ -> printfn "    the first rate picked: failed"
+                | Ok picked ->
+                    picked |> showRate $"the first rate picked, solved: %b{picked |> Order.isSolved}"
+
+                    match picked |> clearRate |> reopen (picks @ [ OrderProcessor.nameOf rte ]) with
+                    | Error _ -> printfn "    the picked rate cleared: failed"
+                    | Ok o -> o |> showRate "the picked rate cleared"

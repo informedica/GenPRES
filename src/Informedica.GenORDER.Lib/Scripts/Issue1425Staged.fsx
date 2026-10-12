@@ -5,7 +5,9 @@
 // - OrderProcessor: a copy of OrderProcessor.fs in which CanSetNormDose asks for rate values only
 //   for a continuous order, "ensure-values-1" holds the rate back, and CalcValues, reCalcSteps and
 //   solveSteps give the rate its values only once the dose quantity has one value; CalcValues and
-//   solveSteps then pick the median rate, so the order solves, and reCalcSteps offers the list
+//   solveSteps then pick the median rate, so the order solves; reCalcSteps, a reopen and a solve
+//   of an order with a cleared value offer the list, and a cleared rate that is not a pick reopens
+//   with every pick put back
 // Diff the OrderProcessor module below with OrderProcessor.fs to see the changes.
 
 namespace Informedica.GenOrder.Lib
@@ -841,7 +843,9 @@ module OrderProcessor =
             }
 
         // the values ensured, solved, and the component quantity picked, as a solve ends
-        let solveSteps ord =
+        // rateStep makes the rate list once the dose quantity has one value: with its median for a
+        // selection or a new pick, without it after a clear or a reopen, so the list comes back
+        let solveSteps rateStep ord =
             [
                 {
                     Name = "solve-order: ensure-values-1"
@@ -857,7 +861,7 @@ module OrderProcessor =
                 {
                     Name = "solve-order: calc-rate-values"
                     Guard = (fun _ -> true)
-                    Run = rateStageWithMedian (ord.Orderable.Components |> List.length <= 2)
+                    Run = rateStep (ord.Orderable.Components |> List.length <= 2)
                 }
             ]
 
@@ -944,16 +948,35 @@ module OrderProcessor =
                     Guard = (fun os -> os.DoseIsSolved && os.IsCleared)
                     Run = processClearedStep
                 }
-                yield! solveSteps ord
+                // an order that arrives with a cleared value gets the rate list back
+                yield!
+                    ord
+                    |> solveSteps (
+                        if ord |> isCleared then
+                            rateStage
+                        else
+                            rateStageWithMedian
+                    )
             ]
             |> runPipeline ord
 
         | ReCalcValues ord -> reCalcSteps ord @ [ finalSolveStep ] |> runPipeline ord
 
         | Reopen(ord, picks) ->
+            // a rate of a timed or once timed order cleared without being a pick, as its median is,
+            // reopens with every pick put back, so the rate list comes back
+            let rateNotAPick =
+                match ord with
+                | RateCleared when ord |> rateWaits ->
+                    let rte = ord.Orderable.Dose.Rate |> Rate.toOrdVar |> nameOf
+                    picks |> List.contains rte |> not
+                | _ -> false
+
             match ord |> clearedPick picks with
-            | None -> SolveOrder ord |> processPipelineWith caps logger
-            | Some earlier ->
+            | None when rateNotAPick |> not -> SolveOrder ord |> processPipelineWith caps logger
+            | cleared ->
+                let earlier = cleared |> Option.defaultValue picks
+
                 // the earlier picks as they arrived, put back over the reset order
                 let arrived =
                     ord
@@ -967,7 +990,8 @@ module OrderProcessor =
                         Guard = (fun _ -> true)
                         Run = Order.fromOrdVars arrived >> Ok
                     }
-                    yield! solveSteps ord
+                    // a reopen gives the rate list back, without the median
+                    yield! solveSteps rateStage ord
                 ]
                 |> runPipeline ord
                 |> function
