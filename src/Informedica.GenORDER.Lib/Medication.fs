@@ -255,6 +255,15 @@ module Medication =
             parseMinMax s
 
 
+        /// The labeled fields of a line, "[label] value [label] value", as pairs of the label, with its
+        /// brackets, and the trimmed value.
+        let parseLabeledFields (s: string) =
+            [
+                for m in Text.RegularExpressions.Regex.Matches(s, @"\[([^\]]+)\]\s*([^[]*)") do
+                    $"[%s{m.Groups[1].Value.Trim()}]", m.Groups[2].Value.Trim()
+            ]
+
+
         /// Parse DoseLimit from comma-separated constraint string with explicit field labels
         /// Format: "targetName, [field-label] constraint1, [field-label] constraint2, ..."
         /// e.g., "paracetamol, [qty-adj] 10 - 20 mg/kg/dosis"
@@ -313,10 +322,8 @@ module Medication =
                         | _ -> NoLimitTarget, s
                     | _ -> raise (System.FormatException $"{firstLabelPos} not valid")
 
-                // Split constraints by field labels using regex
-                // Pattern matches: [label] value until next [label] or end
-                let constraintRegex = Text.RegularExpressions.Regex(@"\[([^\]]+)\]\s*([^[]*)")
-                let matches = constraintRegex.Matches(constraintsStr)
+                // Split constraints by field labels: [label] value until next [label] or end
+                let fields = constraintsStr |> parseLabeledFields
 
                 // Parse constraints into appropriate MinMax fields
                 let mutable dl = { DoseLimit.limit with DoseLimitTarget = target }
@@ -354,11 +361,9 @@ module Medication =
                         (fun (dl: DoseLimit) mm -> { dl with RateAdjust = mm })
                     ]
 
-                // Process regex matches for labeled fields
-                for m in matches do
-                    let labelContent = m.Groups[1].Value // e.g., "qty-adj"
-                    let valueStr = m.Groups[2].Value.Trim().TrimEnd(',').Trim()
-                    let fullLabel = $"[{labelContent}]"
+                // Process the labeled fields
+                for fullLabel, value in fields do
+                    let valueStr = value.TrimEnd(',').Trim()
 
                     // Skip empty values - they represent default/unset fields
                     if valueStr |> String.isNullOrWhiteSpace then
@@ -380,7 +385,7 @@ module Medication =
                         | None -> errors <- $"Unknown field label: {fullLabel}" :: errors
 
                 // If no labeled matches and we have constraintsStr, return error requiring labels
-                if matches.Count = 0 && constraintsStr |> String.notEmpty then
+                if fields |> List.isEmpty && constraintsStr |> String.notEmpty then
                     errors <-
                         "DoseLimit fields must use labels like [qty], [qty-adj], [per-time], etc. Unlabeled input is not supported."
                         :: errors
@@ -398,40 +403,34 @@ module Medication =
             if s |> String.isNullOrWhiteSpace then
                 Ok None
             else
-                // Match labeled fields: [label] value
-                let labeledFieldRegex = System.Text.RegularExpressions.Regex(@"\[([^\]]+)\]\s*([^[]*)")
-
-                let matches = labeledFieldRegex.Matches(s)
+                let fields = s |> parseLabeledFields
 
                 let mutable sl = SolutionLimit.limit
                 let mutable errors = []
 
-                for m in matches do
-                    let label = m.Groups[1].Value.Trim().ToLowerInvariant()
-                    let valueStr = m.Groups[2].Value.Trim()
-
+                for label, valueStr in fields do
                     if valueStr |> String.notEmpty then
-                        match label with
-                        | "qts" ->
+                        match label.ToLowerInvariant() with
+                        | "[qts]" ->
                             match parseValueUnitOpt valueStr with
                             | Ok vuOpt -> sl <- { sl with Quantities = vuOpt }
                             | Error e -> errors <- $"[qts]: {e}" :: errors
-                        | "qty" ->
+                        | "[qty]" ->
                             match parseMinMax valueStr with
                             | Ok mm -> sl <- { sl with Quantity = mm }
                             | Error e -> errors <- $"[qty]: {e}" :: errors
-                        | "qty-adj" ->
+                        | "[qty-adj]" ->
                             match parseMinMax valueStr with
                             | Ok mm -> sl <- { sl with QuantityAdj = mm }
                             | Error e -> errors <- $"[qty-adj]: {e}" :: errors
-                        | "conc" ->
+                        | "[conc]" ->
                             match parseMinMax valueStr with
                             | Ok mm -> sl <- { sl with Concentration = mm }
                             | Error e -> errors <- $"[conc]: {e}" :: errors
-                        | _ -> errors <- $"Unknown SolutionLimit label: [{label}]" :: errors
+                        | _ -> errors <- $"Unknown SolutionLimit label: {label}" :: errors
 
                 // If no labeled matches and we have input, return error requiring labels
-                if matches.Count = 0 then
+                if fields |> List.isEmpty then
                     errors <-
                         "SolutionLimit fields must use labels like [qty], [qty-adj], [conc]. Unlabeled input is not supported."
                         :: errors
@@ -503,15 +502,6 @@ module Medication =
                     }
             else
                 Error errors
-
-
-        /// The labeled fields of a line, "[label] value [label] value", as pairs of the label, with its
-        /// brackets, and the trimmed value.
-        let parseLabeledFields (s: string) =
-            [
-                for m in Text.RegularExpressions.Regex.Matches(s, @"\[([^\]]+)\]\s*([^[]*)") do
-                    $"[%s{m.Groups[1].Value.Trim()}]", m.Groups[2].Value.Trim()
-            ]
 
 
         /// Parse a product line of a component: "[id] 1234 [qts] 20 ml [amoxicilline] 50 mg/ml",
