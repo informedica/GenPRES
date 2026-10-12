@@ -5,6 +5,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <GenerateProgramFile>false</GenerateProgramFile>
     <WarnOn>3390;$(WarnOn)</WarnOn>
+    <!-- the tests run in parallel and allocate heavily; one heap per core keeps them from waiting on the GC -->
+    <ServerGarbageCollection>true</ServerGarbageCollection>
     <!-- temp fix for: https://github.com/fsprojects/Paket/issues/4307 -->
     <NoWarn>$(NoWarn);NU1510</NoWarn>
   </PropertyGroup>

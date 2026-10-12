@@ -412,6 +412,11 @@ do. There is now one copy, the inventory of what is actually built: the Core Lib
 Discont: Discontinuous  
 Cont: Continuous
 
+An order with more than two components, every item in one strength, leaves out the equations
+that multiply an item orderable concentration by an orderable total, and keeps the tie of that
+concentration to the component share. A timed or once timed order of that kind also gets
+equation 39, which the table marks for continuous orders only.
+
 ### Appendix D.2. DoseType Specific Variables
 
 Note on rate vs per-time:

@@ -1407,3 +1407,173 @@ let fullMedication =
                 }
             ]
     }
+
+
+/// The medication with the substances of the named component changed by f.
+let mapSubstances cmpName f (med: Types.Medication) =
+    { med with
+        Components =
+            med.Components
+            |> List.map (fun c ->
+                if c.Name = cmpName then
+                    { c with Substances = c.Substances |> List.map f }
+                else
+                    c
+            )
+    }
+
+
+/// The medication with a third component, NaCl 0,9%, a copy of its last component with only natrium
+/// 0,154 mmol/mL and no limits of its own.
+let withNaCl (med: Types.Medication) =
+    let last = med.Components |> List.last
+
+    let natrium =
+        { Medication.substanceItem with
+            Name = "natrium"
+            Concentrations =
+                (154N / 1000N)
+                |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> ValueUnit.per Units.Volume.milliLiter)
+                |> Some
+        }
+
+    { med with
+        Components =
+            med.Components
+            @ [
+                { last with
+                    Name = "NaCl 0,9%"
+                    Dose = None
+                    Substances = [ natrium ]
+                }
+            ]
+    }
+
+
+/// The tpn with the kalium of KCl 7,4% at most 0,04 mmol/mL, below the 0,02 to 0,06 mmol/mL the
+/// component allows: a concentration limit that binds.
+let tpnKaliumConcentrationBinding =
+    tpn
+    |> mapSubstances
+        "KCl 7,4%"
+        (fun sub ->
+            match sub.Solution with
+            | Some sl when sub.Name = "kalium" ->
+                { sub with
+                    Solution =
+                        { sl with
+                            Concentration =
+                                { sl.Concentration with
+                                    Max =
+                                        (4N / 100N)
+                                        |> ValueUnit.singleWithUnit (
+                                            Units.Molar.milliMole |> ValueUnit.per Units.Volume.milliLiter
+                                        )
+                                        |> Limit.inclusive
+                                        |> Some
+                                }
+                        }
+                        |> Some
+                }
+            | _ -> sub
+        )
+
+
+/// The tpn with the kalium of KCl 7,4% at most 0,09 mmol/kg/uur, where its 2 mL/kg over 20 to 24 uur
+/// runs at 0,083 to 0,1 mmol/kg/uur: an item rate limit that binds.
+let tpnKaliumRateBinding =
+    let du =
+        Units.Molar.milliMole
+        |> ValueUnit.per Units.Weight.kiloGram
+        |> ValueUnit.per Units.Time.hour
+
+    tpn
+    |> mapSubstances
+        "KCl 7,4%"
+        (fun sub ->
+            if sub.Name = "kalium" then
+                { sub with
+                    Dose =
+                        { DoseLimit.limit with
+                            DoseLimitTarget = "kalium" |> LimitTarget.SubstanceLimitTarget
+                            AdjustUnit = Units.Weight.kiloGram |> Some
+                            RateAdjust =
+                                { MinMax.empty with
+                                    Max = (9N / 100N) |> ValueUnit.singleWithUnit du |> Limit.inclusive |> Some
+                                }
+                        }
+                        |> Some
+                }
+            else
+                sub
+        )
+
+
+/// The morfCont with NaCl 0,9%: continuous with three components, the morfine in two strengths. The
+/// natrium is fixed at 1,54 mmol, 10 mL, so the two diluents do not offer each other every volume.
+let morfContWithNaCl =
+    morfCont
+    |> withNaCl
+    |> mapSubstances
+        "NaCl 0,9%"
+        (fun sub ->
+            { sub with
+                Solution =
+                    { SolutionLimit.limit with
+                        SolutionLimitTarget = "natrium" |> SubstanceLimitTarget
+                        Quantity =
+                            (154N / 100N)
+                            |> ValueUnit.singleWithUnit Units.Molar.milliMole
+                            |> MinMax.createExact
+                    }
+                    |> Some
+            }
+        )
+
+
+/// The morfCont with NaCl 0,9% and the morfine in one strength, 1 mg/mL.
+let morfContWithNaClOneStrength =
+    morfContWithNaCl
+    |> mapSubstances
+        "morfine"
+        (fun sub ->
+            if sub.Name = "morfin" then
+                { sub with
+                    Concentrations =
+                        1N
+                        |> ValueUnit.singleWithUnit (Units.Mass.milliGram |> ValueUnit.per Units.Volume.milliLiter)
+                        |> Some
+                }
+            else
+                sub
+        )
+
+
+/// The amfo with NaCl 0,9%, the amfotericine b liposomaal in two strengths, 2 and 4 mg/mL, as a timed
+/// order over one to two hours.
+let amfoWithNaClTwoStrengthsTimed =
+    let med =
+        amfo
+        |> withNaCl
+        |> mapSubstances
+            "amfotericine b liposomaal"
+            (fun sub ->
+                if sub.Name = "amfotericine b liposomaal" then
+                    { sub with
+                        Concentrations =
+                            [| 2N; 4N |]
+                            |> ValueUnit.withUnit (Units.Mass.milliGram |> ValueUnit.per Units.Volume.milliLiter)
+                            |> Some
+                    }
+                else
+                    sub
+            )
+
+    { med with
+        OrderType = TimedOrder
+        Time =
+            { MinMax.empty with
+                Min = 1N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
+                Max = 2N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
+            }
+    }
