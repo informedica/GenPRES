@@ -166,7 +166,7 @@ module Types =
     /// A product a component can be made of: its strengths, paired, as one product holds them.
     type ComponentProduct =
         {
-            /// The GPK of the product
+            /// The id of the product: a GPK, PRK or HPK
             Id: string
             /// The quantities of the product as the component counts them: 1 mL for a liquid
             /// that needs no reconstitution, the product's own quantities otherwise

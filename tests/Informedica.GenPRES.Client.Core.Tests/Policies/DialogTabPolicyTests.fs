@@ -38,6 +38,7 @@ let twoComponents =
             OrderableConcentration = ovar
             Dose = sc.Order.Orderable.Dose
             Items = items
+            Products = [||]
         }
 
     { sc with

@@ -68,6 +68,7 @@ module QuantityModePolicyTests =
             solvedVar
             (dose solvedVar)
             [||]
+            [||]
 
 
     /// A discontinuous order whose component orderable quantities and dose quantity are given.
