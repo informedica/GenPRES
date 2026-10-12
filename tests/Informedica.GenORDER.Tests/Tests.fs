@@ -3128,10 +3128,8 @@ module ReachablePickTests =
         |> Option.map (Variable.ValueRange.Maximum.toValueUnit >> ValueUnit.getValue >> Array.head)
 
 
-    // the timings are run in sequence, so other tests do not slow them down
     let tests =
-        testSequenced
-        <| testList
+        testList
             "the picks the dialog offers"
             [
                 test "amox/clav: the clavulaanzuur concentrations are a tenth of the amoxicilline concentrations" {
@@ -3237,27 +3235,33 @@ module ReachablePickTests =
                     |> Expect.isTrue $"%A{qts}"
                 }
 
-                for name, med in fixtures () do
-                    test
-                        $"%s{name}: the processing takes at most %i{maxPipelineMs} ms and every offered pick solves within %i{maxPickMs} ms" {
-                        let ms, ord = med |> solvedWith processed
-                        let failing, slowest = ord |> timedPicks
+                // the timings are run in sequence, so other tests do not slow them down
+                testSequenced
+                <| testList
+                    "timed"
+                    [
+                        for name, med in fixtures () do
+                            test
+                                $"%s{name}: the processing takes at most %i{maxPipelineMs} ms and every offered pick solves within %i{maxPickMs} ms" {
+                                let ms, ord = med |> solvedWith processed
+                                let failing, slowest = ord |> timedPicks
 
-                        ms <= maxPipelineMs |> Expect.isTrue $"the processing took %i{ms} ms"
-                        failing |> List.distinct |> Expect.equal "no failing picks" []
-                        slowest <= maxPickMs |> Expect.isTrue $"the slowest pick took %i{slowest} ms"
-                    }
+                                ms <= maxPipelineMs |> Expect.isTrue $"the processing took %i{ms} ms"
+                                failing |> List.distinct |> Expect.equal "no failing picks" []
+                                slowest <= maxPickMs |> Expect.isTrue $"the slowest pick took %i{slowest} ms"
+                            }
 
-                for cap in [ 5; 3 ] do
-                    for name, med in fixtures () do
-                        test $"%s{name}: with every cap at %i{cap} no component keeps more than %i{cap} values" {
-                            let ms, ord = med |> solvedWith (processedWith (Order.ValueCaps.all cap))
+                        for cap in [ 5; 3 ] do
+                            for name, med in fixtures () do
+                                test $"%s{name}: with every cap at %i{cap} no component keeps more than %i{cap} values" {
+                                    let ms, ord = med |> solvedWith (processedWith (Order.ValueCaps.all cap))
 
-                            for vs in ord |> componentValues do
-                                vs |> Array.length <= cap |> Expect.isTrue $"%A{vs}"
+                                    for vs in ord |> componentValues do
+                                        vs |> Array.length <= cap |> Expect.isTrue $"%A{vs}"
 
-                            ms <= maxPipelineMs |> Expect.isTrue $"the processing took %i{ms} ms"
-                        }
+                                    ms <= maxPipelineMs |> Expect.isTrue $"the processing took %i{ms} ms"
+                                }
+                    ]
             ]
 
 
