@@ -1859,6 +1859,45 @@ module EquationsTests =
     let private expectedFor pos =
         golden |> List.filter (fun (_, m) -> m[pos] = 'x') |> List.map fst
 
+
+    let private parse text =
+        text
+        |> Medication.fromString
+        |> function
+            | Ok med -> med
+            | Error errs -> failtest $"could not parse the medication: %A{errs}"
+
+
+    let private toOrder med =
+        match med |> Medication.toOrder Scenarios.testStart with
+        | Error e -> failtest $"could not build the order: %A{e}"
+        | Ok ord -> ord
+
+
+    let private items (ord: Order) = ord.Orderable.Components |> List.collect _.Items
+
+
+    let private mappedEquations indx ord =
+        match EquationMapping.getEquations indx |> EquationMapping.getEqsMapping ord with
+        | SumMapping s, ProductMapping p -> s @ p
+        | _ -> []
+
+
+    let private nameOf ovar = ovar |> OrderVariable.getName |> Variable.Name.toString
+
+
+    /// The number of mapped equations each item orderable concentration takes part in.
+    let private itemConcentrationCounts indx ord =
+        let eqs = ord |> mappedEquations indx
+
+        ord
+        |> items
+        |> List.map (fun itm ->
+            let n = itm.OrderableConcentration |> OrderVariable.Concentration.toOrdVar |> nameOf
+            eqs |> List.filter (String.contains n) |> List.length
+        )
+        |> List.distinct
+
     [<Tests>]
     let tests =
         testList
@@ -1893,6 +1932,87 @@ module EquationsTests =
                             |> List.exists (String.split " = " >> List.head >> fun lhs -> lhs.EndsWith "_orb_cnc")
                             |> Expect.equal "tie equations present" expected
                     }
+
+                test "every tpn item comes in one strength" {
+                    Scenarios.tpn
+                    |> toOrder
+                    |> items
+                    |> List.forall EquationMapping.hasOneStrength
+                    |> Expect.isTrue "one strength"
+                }
+
+                test "the morfine of morfCont comes in two strengths" {
+                    Scenarios.morfCont
+                    |> toOrder
+                    |> items
+                    |> List.find (fun itm -> itm.Name |> Name.toString = "morfin")
+                    |> EquationMapping.hasOneStrength
+                    |> Expect.isFalse "two strengths"
+                }
+
+                test "an item without a concentration does not come in one strength" {
+                    let itm = Scenarios.tpn |> toOrder |> items |> List.head
+
+                    { itm with
+                        ComponentConcentration =
+                            itm.ComponentConcentration
+                            |> OrderVariable.Concentration.toOrdVar
+                            |> OrderVariable.setConstraints (OrderVariable.Constraints.create None None None None)
+                            |> Concentration
+                    }
+                    |> EquationMapping.hasOneStrength
+                    |> Expect.isFalse "no strength"
+                }
+
+                for name, med, expected in
+                    [
+                        "tpn", (fun () -> Scenarios.tpn), true
+                        "amfo with NaCl", (fun () -> Scenarios.amfo |> Scenarios.withNaCl), true
+                        "morfCont with NaCl, one strength", (fun () -> Scenarios.morfContWithNaClOneStrength), true
+                        "morfCont with NaCl", (fun () -> Scenarios.morfContWithNaCl), false
+                        "amfo with NaCl, two strengths, timed",
+                        (fun () -> Scenarios.amfoWithNaClTwoStrengthsTimed),
+                        false
+                        "amox/clav", (fun () -> Scenarios.amoxClavText |> parse), false
+                    ] do
+                    test $"%s{name} leaves out the item concentration products: %b{expected}" {
+                        med ()
+                        |> toOrder
+                        |> EquationMapping.leavesOutItemConcentrationProducts
+                        |> Expect.equal "leaves out" expected
+                    }
+
+                for name, indx, med in
+                    [
+                        "tpn", EquationMapping.Literals.timed, Scenarios.tpn
+                        "tpn once timed",
+                        EquationMapping.Literals.onceTimed,
+                        { Scenarios.tpn with
+                            OrderType = OnceTimedOrder
+                            Frequencies = None
+                        }
+                    ] do
+                    test $"%s{name} maps each item concentration in the tie only, and maps the component rates" {
+                        let ord = med |> toOrder
+
+                        ord |> itemConcentrationCounts indx |> Expect.equal "the tie only" [ 1 ]
+
+                        let eqs = ord |> mappedEquations indx
+
+                        ord.Orderable.Components
+                        |> List.forall (fun cmp ->
+                            let n = cmp.Dose.Rate |> OrderVariable.Rate.toOrdVar |> nameOf
+                            eqs |> List.exists (String.startsWith $"%s{n} = ")
+                        )
+                        |> Expect.isTrue "a component rate equation for each component"
+                    }
+
+                test "morfCont with NaCl maps each item concentration in the tie and the six products" {
+                    Scenarios.morfContWithNaCl
+                    |> toOrder
+                    |> itemConcentrationCounts EquationMapping.Literals.continuous
+                    |> Expect.equal "the tie and six products" [ 7 ]
+                }
 
                 test "getEquations is memoised: repeat calls return the same instance" {
                     // memoize used to be applied per call, so every call built and
@@ -2902,6 +3022,9 @@ module ReachablePickTests =
             "pcmDrink", Scenarios.pcmDrink
             "cotrim", Scenarios.cotrim
             "prednisolon", Scenarios.prednisolonText |> parse
+            "tpn, kalium concentration limit binding", Scenarios.tpnKaliumConcentrationBinding
+            "morfCont with NaCl", Scenarios.morfContWithNaCl
+            "morfCont with NaCl, one strength", Scenarios.morfContWithNaClOneStrength
         ]
 
 
@@ -2930,12 +3053,12 @@ module ReachablePickTests =
 
 
     /// The solved order of a medication and the time the processing took.
-    let private solvedWith process med =
+    let private solvedWith processOrder med =
         match med |> Medication.toOrder Scenarios.testStart with
         | Error e -> failtest $"could not build the order: %A{e}"
         | Ok ord ->
             let sw = System.Diagnostics.Stopwatch.StartNew()
-            let res = ord |> process
+            let res = ord |> processOrder
             sw.Stop()
 
             match res with
@@ -2997,10 +3120,16 @@ module ReachablePickTests =
         |> List.map (_.OrderableQuantity >> Quantity.toOrdVar >> valuesOf)
 
 
-    // the timings are run in sequence, so other tests do not slow them down
+    let private maxOf ovar =
+        ovar
+        |> OrderVariable.getVar
+        |> Variable.getValueRange
+        |> Variable.ValueRange.getMax
+        |> Option.map (Variable.ValueRange.Maximum.toValueUnit >> ValueUnit.getValue >> Array.head)
+
+
     let tests =
-        testSequenced
-        <| testList
+        testList
             "the picks the dialog offers"
             [
                 test "amox/clav: the clavulaanzuur concentrations are a tenth of the amoxicilline concentrations" {
@@ -3012,17 +3141,6 @@ module ReachablePickTests =
 
                     cncs["amoxicilline"] |> Array.length > 1 |> Expect.isTrue "a choice remains"
                 }
-
-                for name, med in fixtures () do
-                    test
-                        $"%s{name}: the processing takes at most %i{maxPipelineMs} ms and every offered pick solves within %i{maxPickMs} ms" {
-                        let ms, ord = med |> solvedWith processed
-                        let failing, slowest = ord |> timedPicks
-
-                        ms <= maxPipelineMs |> Expect.isTrue $"the processing took %i{ms} ms"
-                        failing |> List.distinct |> Expect.equal "no failing picks" []
-                        slowest <= maxPickMs |> Expect.isTrue $"the slowest pick took %i{slowest} ms"
-                    }
 
                 test "prednisolon under the default discontinuous cap of 10 keeps the whole tablets" {
                     Scenarios.prednisolonText
@@ -3051,16 +3169,99 @@ module ReachablePickTests =
                     |> Expect.equal "6 to 12 by 2" [ [| 6N .. 2N .. 12N |] ]
                 }
 
-                for cap in [ 5; 3 ] do
-                    for name, med in fixtures () do
-                        test $"%s{name}: with every cap at %i{cap} no component keeps more than %i{cap} values" {
-                            let ms, ord = med |> solvedWith (processedWith (Order.ValueCaps.all cap))
+                test "a binding kalium concentration limit raises the first tpn dose quantity from 430 to 530 mL" {
+                    let firstDoseQuantity med =
+                        med
+                        |> solvedWith processed
+                        |> snd
+                        |> _.Orderable.Dose.Quantity
+                        |> Quantity.toOrdVar
+                        |> valuesOf
+                        |> Array.head
 
-                            for vs in ord |> componentValues do
-                                vs |> Array.length <= cap |> Expect.isTrue $"%A{vs}"
+                    (Scenarios.tpn |> firstDoseQuantity, Scenarios.tpnKaliumConcentrationBinding |> firstDoseQuantity)
+                    |> Expect.equal "430 and 530 mL" (430N, 530N)
+                }
 
-                            ms <= maxPipelineMs |> Expect.isTrue $"the processing took %i{ms} ms"
-                        }
+                test "tpn with a binding kalium rate limit keeps the kalium rate under 0,09 mmol/kg/uur" {
+                    let _, ord = Scenarios.tpnKaliumRateBinding |> solvedWith processed
+
+                    let itms =
+                        ord.Orderable.Components
+                        |> List.collect (fun cmp -> cmp.Items |> List.map (fun itm -> cmp.Name, itm))
+
+                    itms
+                    |> List.find (fun (cmp, itm) ->
+                        cmp |> Name.toString = "KCl 7,4%" && itm.Name |> Name.toString = "kalium"
+                    )
+                    |> snd
+                    |> _.Dose.RateAdjust
+                    |> OrderVariable.RateAdjust.toOrdVar
+                    |> maxOf
+                    |> Option.exists (fun mx -> mx <= 9N / 100N)
+                    |> Expect.isTrue "at most 0,09 mmol/kg/uur"
+
+                    itms
+                    |> List.forall (snd >> _.Dose.Rate >> Rate.toOrdVar >> maxOf >> Option.isSome)
+                    |> Expect.isTrue "every item rate has a maximum"
+                }
+
+                test "morfCont with NaCl offers rates from 0,7 to 2,8 mL/uur" {
+                    let rates =
+                        Scenarios.morfContWithNaCl
+                        |> solvedWith processed
+                        |> snd
+                        |> _.Orderable.Dose.Rate
+                        |> Rate.toOrdVar
+                        |> valuesOf
+
+                    (rates |> Array.head, rates |> Array.last)
+                    |> Expect.equal "0,7 to 2,8 mL/uur" (7N / 10N, 28N / 10N)
+                }
+
+                // stop-gap until #1433: the first solve harmonizes the amfotericine down to 2 mg/mL, so this
+                // order keeps its products for its two defined strengths but solves with one
+                test "amfo with NaCl in two strengths, timed, keeps the dose quantities 230, 235 and 335 mL" {
+                    let qts =
+                        Scenarios.amfoWithNaClTwoStrengthsTimed
+                        |> solvedWith processed
+                        |> snd
+                        |> _.Orderable.Dose.Quantity
+                        |> Quantity.toOrdVar
+                        |> valuesOf
+
+                    [ 230N; 235N; 335N ]
+                    |> List.forall (fun q -> qts |> Array.contains q)
+                    |> Expect.isTrue $"%A{qts}"
+                }
+
+                // the timings are run in sequence, so other tests do not slow them down
+                testSequenced
+                <| testList
+                    "timed"
+                    [
+                        for name, med in fixtures () do
+                            test
+                                $"%s{name}: the processing takes at most %i{maxPipelineMs} ms and every offered pick solves within %i{maxPickMs} ms" {
+                                let ms, ord = med |> solvedWith processed
+                                let failing, slowest = ord |> timedPicks
+
+                                ms <= maxPipelineMs |> Expect.isTrue $"the processing took %i{ms} ms"
+                                failing |> List.distinct |> Expect.equal "no failing picks" []
+                                slowest <= maxPickMs |> Expect.isTrue $"the slowest pick took %i{slowest} ms"
+                            }
+
+                        for cap in [ 5; 3 ] do
+                            for name, med in fixtures () do
+                                test $"%s{name}: with every cap at %i{cap} no component keeps more than %i{cap} values" {
+                                    let ms, ord = med |> solvedWith (processedWith (Order.ValueCaps.all cap))
+
+                                    for vs in ord |> componentValues do
+                                        vs |> Array.length <= cap |> Expect.isTrue $"%A{vs}"
+
+                                    ms <= maxPipelineMs |> Expect.isTrue $"the processing took %i{ms} ms"
+                                }
+                    ]
             ]
 
 

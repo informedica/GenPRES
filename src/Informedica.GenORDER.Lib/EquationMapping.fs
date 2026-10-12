@@ -6,6 +6,8 @@ module EquationMapping =
     open Informedica.Utils.Lib.BCL
     open WrappedString
 
+    module ValueSet = Informedica.GenSolver.Lib.Variable.ValueRange.ValueSet
+
     module Literals =
 
         [<Literal>]
@@ -114,6 +116,11 @@ module EquationMapping =
         ]
 
 
+    /// A component's rate is its share of the orderable rate. Mapped for a continuous order, and for
+    /// a timed or once timed order that leaves out its item concentration products.
+    let componentRateEquation = "[cmp]_dos_rte = [cmp]_orb_cnc * [orb]_dos_rte"
+
+
     let equations: (string * int list) list =
         [
             "[itm]_cmp_qty = [itm]_cmp_cnc * [cmp]_cmp_qty", allDoseTypes
@@ -151,7 +158,7 @@ module EquationMapping =
             "[cmp]_dos_ptm = [cmp]_orb_cnc * [orb]_dos_ptm", discTimed
             "[cmp]_dos_ptm = [cmp]_dos_qty * [ord]_sch_frq", discTimed
             "[cmp]_dos_ptm = [cmp]_dos_ptm_adj * [ord]_adj_qty", discTimed
-            "[cmp]_dos_rte = [cmp]_orb_cnc * [orb]_dos_rte", contOnly
+            componentRateEquation, contOnly
             "[cmp]_dos_rte = [cmp]_dos_rte_adj * [ord]_adj_qty", contOnly
             "[cmp]_dos_qty_adj = [cmp]_orb_cnc * [orb]_dos_qty_adj", allDoseTypes
             "[cmp]_dos_qty_adj = [cmp]_dos_rte_adj * [ord]_sch_tme", contOnly
@@ -198,6 +205,21 @@ module EquationMapping =
     let getEquations indx = memoizedGetEquations indx
 
 
+    /// Whether an item comes in exactly one strength: its defined component concentration holds
+    /// one value. An item without a concentration does not count as one.
+    let hasOneStrength (itm: Item) =
+        (itm.ComponentConcentration |> OrderVariable.Concentration.toOrdVar).DefinedConstraints.Values
+        |> Option.exists (ValueSet.count >> (=) 1)
+
+
+    /// Whether an order can solve its item orderable concentrations through the component share
+    /// alone: more than two components and every item in exactly one strength. With several
+    /// strengths the share alone loses the exact item concentration.
+    let leavesOutItemConcentrationProducts (ord: Order) =
+        ord.Orderable.Components |> List.length > 2
+        && ord.Orderable.Components |> List.collect _.Items |> List.forall hasOneStrength
+
+
     /// <summary>
     /// Create an Equations mapping for an <c>Order</c>
     /// </summary>
@@ -212,6 +234,21 @@ module EquationMapping =
                 eqs
             else
                 eqs |> List.filter (fun e -> tieEquations |> List.contains e |> not)
+
+        // The products of an item orderable concentration with an orderable total only list cross
+        // products; the tie to the component share gives the same values. A timed order then needs
+        // the component rate, so an item rate limit still bounds the orderable rate.
+        let eqs =
+            if ord |> leavesOutItemConcentrationProducts |> not then
+                eqs
+            else
+                eqs
+                |> List.filter (fun e -> e.Contains "[itm]_orb_cnc" |> not || tieEquations |> List.contains e)
+                |> fun eqs ->
+                    match ord.Schedule with
+                    | Timed _
+                    | OnceTimed _ -> eqs @ [ componentRateEquation ]
+                    | _ -> eqs
 
         let sumEqs = eqs |> List.filter (String.contains "sum")
 

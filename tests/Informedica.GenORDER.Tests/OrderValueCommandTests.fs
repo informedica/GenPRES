@@ -163,16 +163,19 @@ let fields (ord: Order) =
     |> List.distinctBy _.Name
 
 
-let fixtures =
-    lazy
-        [
-            "paracetamol rectal", built Scenarios.pcmSupp
-            "paracetamol drink", built Scenarios.pcmDrink
-            "morfine continuous", built Scenarios.morfCont
-            "amfotericine", built Scenarios.amfo
-            "cotrimoxazol", built Scenarios.cotrim
-            "parenteral nutrition", built Scenarios.tpn
-        ]
+/// The scenarios the value commands are checked on, by name.
+let scenarios =
+    [
+        "paracetamol rectal", Scenarios.pcmSupp
+        "paracetamol drink", Scenarios.pcmDrink
+        "morfine continuous", Scenarios.morfCont
+        "amfotericine", Scenarios.amfo
+        "cotrimoxazol", Scenarios.cotrim
+        "parenteral nutrition", Scenarios.tpn
+    ]
+
+
+let fixtures = lazy (scenarios |> List.map (fun (name, med) -> name, built med))
 
 
 let change cmd ord =

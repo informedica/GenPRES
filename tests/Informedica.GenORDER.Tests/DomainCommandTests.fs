@@ -42,6 +42,22 @@ let refusedFilter outcome =
     | _ -> None
 
 
+/// The order of each value command scenario as the dialog first shows it, built once, when a test
+/// first asks for it.
+let builtScenarios =
+    OrderValueCommandTests.scenarios
+    |> List.map (fun (name, med) -> name, lazy (med |> OrderValueCommandTests.built))
+    |> Map.ofList
+
+
+/// The fields of a value command scenario. The fields follow the names of the components and items,
+/// so the order before any calculation gives them.
+let fieldsOf med =
+    med
+    |> Medication.toOrder Scenarios.testStart
+    |> Result.map OrderValueCommandTests.fields
+
+
 [<Tests>]
 let tests =
     testList
@@ -120,14 +136,19 @@ let tests =
                 |> Expect.isTrue "an error"
             }
 
-            test "a value pick gives the order of today's update with the variable set" {
-                [
-                    for name, ord in OrderValueCommandTests.fixtures.Value do
-                        for f in OrderValueCommandTests.fields ord do
-                            match ord |> f.Get with
+            for name, med in OrderValueCommandTests.scenarios do
+                match med |> fieldsOf with
+                | Error e -> test $"the %s{name} order builds" { failtest $"could not build the order: %A{e}" }
+                | Ok fields ->
+                    for field in fields do
+                        test
+                            $"a value pick gives the order of today's update with the variable set: %s{name} %s{field.Name}" {
+                            let ord = builtScenarios[name].Value
+
+                            match ord |> field.Get with
                             | Some ovar when ovar.Variable |> Variable.count > 1 ->
                                 let ctx = contextOf ord
-                                let set = ord |> OrderValueCommandTests.change (f.SetNth 0)
+                                let set = ord |> OrderValueCommandTests.change (field.SetNth 0)
 
                                 let expected =
                                     { ctx with Scenarios = [| { ctx.Scenarios[0] with Order = set } |] }
@@ -135,29 +156,27 @@ let tests =
                                     |> evaluate
                                     |> variablesOf
 
-                                let actual = OrderContext.SetNthOrderValue(ctx, f.SetNth 0) |> evaluate |> variablesOf
-
-                                if actual <> expected then
-                                    $"%s{name} %s{f.Name}"
+                                OrderContext.SetNthOrderValue(ctx, field.SetNth 0)
+                                |> evaluate
+                                |> variablesOf
+                                |> Expect.equal "the same order" expected
                             | _ -> ()
-                ]
-                |> fun msgs -> msgs |> Expect.isEmpty $"the same order: %A{msgs}"
-            }
+                        }
 
-            test "a value clear gives the order of today's reopen with the variable cleared" {
-                [
-                    for name, ord in OrderValueCommandTests.fixtures.Value do
-                        let ctx = contextOf ord
-                        // every variable a pick, so each clear reopens with the picks before it
-                        let picks =
-                            OrderValueCommandTests.fields ord
-                            |> List.choose (fun f -> f.Get ord)
-                            |> List.map OrderProcessor.nameOf
+                        test
+                            $"a value clear gives the order of today's reopen with the variable cleared: %s{name} %s{field.Name}" {
+                            let ord = builtScenarios[name].Value
 
-                        for f in OrderValueCommandTests.fields ord do
-                            match ord |> f.Get with
+                            match ord |> field.Get with
                             | Some ovar when ovar.Variable |> Variable.count > 1 ->
-                                let cleared = ord |> OrderValueCommandTests.change f.Clear
+                                let ctx = contextOf ord
+                                // every variable a pick, so the clear reopens with the picks before it
+                                let picks =
+                                    OrderValueCommandTests.fields ord
+                                    |> List.choose (fun f -> f.Get ord)
+                                    |> List.map OrderProcessor.nameOf
+
+                                let cleared = ord |> OrderValueCommandTests.change field.Clear
 
                                 let expected =
                                     ({ ctx with Scenarios = [| { ctx.Scenarios[0] with Order = cleared } |] }, picks)
@@ -165,15 +184,12 @@ let tests =
                                     |> evaluate
                                     |> variablesOf
 
-                                let actual =
-                                    OrderContext.ClearOrderValue(ctx, f.Clear, picks) |> evaluate |> variablesOf
-
-                                if actual <> expected then
-                                    $"%s{name} %s{f.Name}"
+                                OrderContext.ClearOrderValue(ctx, field.Clear, picks)
+                                |> evaluate
+                                |> variablesOf
+                                |> Expect.equal "the same order" expected
                             | _ -> ()
-                ]
-                |> fun msgs -> msgs |> Expect.isEmpty $"the same order: %A{msgs}"
-            }
+                        }
         ]
 
 
