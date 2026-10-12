@@ -88,6 +88,39 @@ module Result =
         | Error err -> failtest $"{err}"
 
 
+/// The steps the tests take a medication through to a solved order, failing the test on the way.
+module TestOrder =
+
+    /// The medication the text holds.
+    let parse text =
+        match text |> Medication.fromString with
+        | Ok med -> med
+        | Error errs -> failtest $"could not parse the medication: %A{errs}"
+
+
+    /// The order of the medication, starting at the start of the test scenarios.
+    let toOrder med =
+        match med |> Medication.toOrder Scenarios.testStart with
+        | Ok ord -> ord
+        | Error e -> failtest $"could not build the order: %A{e}"
+
+
+    /// The order processed by the command.
+    let solve cmd ord =
+        ord
+        |> cmd
+        |> OrderProcessor.processPipeline OrderLogging.noOp
+        |> Result.defaultWith (fun (_, msgs) -> failtest $"not solved: %A{msgs}")
+
+
+    /// The values of an order variable, none when it holds no value set.
+    let valuesOf ovar =
+        ovar
+        |> OrderVariable.getValSetValueUnit
+        |> Option.map ValueUnit.getValue
+        |> Option.defaultValue [||]
+
+
 // --- New tests for fluent pipeline guard/order behavior ---
 module Pipeline =
     open Informedica.GenOrder.Lib.Order
@@ -694,23 +727,18 @@ module ToOrderDto =
 
 
 // Add your test modules here
-module ComponentProductTests =
+/// Component limits of a dose rule, as GenFORM gives them, holding products and no limits.
+module RuleFixtures =
 
-    open Informedica.GenOrder.Lib.Types
-
-
-    let private logger = Logging.noOp
+    let mgPerMl = Units.Mass.milliGram |> ValueUnit.per Units.Volume.milliLiter
 
 
-    let private mgPerMl = Units.Mass.milliGram |> ValueUnit.per Units.Volume.milliLiter
-
-
-    let private ml = ValueUnit.singleWithUnit Units.Volume.milliLiter
+    let ml = ValueUnit.singleWithUnit Units.Volume.milliLiter
 
 
     /// A product of the rule: a GPK, its form quantity, whether it needs reconstitution, and the
     /// strength of each substance in mg/mL.
-    let private product gpk qty reconst substs =
+    let product gpk qty reconst substs =
         { Product.create "amoxicilline/clavulaanzuur" "poeder" "INTRAVENEUS" (substs |> Array.map fst) with
             GPK = gpk
             FormQuantities = qty
@@ -728,7 +756,7 @@ module ComponentProductTests =
 
 
     /// A component limit holding the products, without limits.
-    let private componentLimit name products : ComponentLimit =
+    let componentLimit name products : ComponentLimit =
         {
             Name = name
             ProductIds = [||]
@@ -736,6 +764,20 @@ module ComponentProductTests =
             Products = products
             SubstanceLimits = [||]
         }
+
+
+    /// A liquid that needs no reconstitution, in a bottle of 100 mL.
+    let liquidLimit =
+        componentLimit "paracetamol" [| product "33" (ml 100N) false [| "paracetamol", 24N |] |]
+
+
+module ComponentProductTests =
+
+    open Informedica.GenOrder.Lib.Types
+    open RuleFixtures
+
+
+    let private logger = Logging.noOp
 
 
     /// Amoxicilline/clavulaanzuur in two products: 500/50 mg in 10 mL and 1000/200 mg in 20 mL.
@@ -746,11 +788,6 @@ module ComponentProductTests =
                 product "11" (ml 10N) true [| "amoxicilline", 50N; "clavulaanzuur", 5N |]
                 product "22" (ml 20N) true [| "amoxicilline", 50N; "clavulaanzuur", 10N |]
             |]
-
-
-    /// A liquid that needs no reconstitution, in a bottle of 100 mL.
-    let private liquidLimit =
-        componentLimit "paracetamol" [| product "33" (ml 100N) false [| "paracetamol", 24N |] |]
 
 
     let private parse text =
@@ -968,6 +1005,162 @@ module ComponentProductTests =
                     |> Medication.fromString
                     |> Result.isError
                     |> Expect.isTrue "an error"
+                }
+            ]
+
+
+module ProductNarrowingTests =
+
+    open TestOrder
+
+    module Concentration = OrderVariable.Concentration
+    module Quantity = OrderVariable.Quantity
+
+
+    let private noLog = OrderLogging.noOp
+
+
+    /// The order as the first evaluation leaves it.
+    let private built med = med |> toOrder |> solve CalcMinMax
+
+
+    let private amoxClav = "amoxicilline/clavulaanzuur"
+
+
+    let private item n (ord: Order) =
+        ord.Orderable.Components
+        |> List.collect _.Items
+        |> List.find (_.Name >> Name.toString >> String.equalsCapInsens n)
+
+
+    let private strengths n =
+        item n >> _.ComponentConcentration >> Concentration.toOrdVar >> valuesOf
+
+
+    let private quantities n = item n >> _.ComponentQuantity >> Quantity.toOrdVar >> valuesOf
+
+
+    let private cmpQuantities (ord: Order) =
+        ord.Orderable.Components
+        |> List.head
+        |> _.ComponentQuantity
+        |> Quantity.toOrdVar
+        |> valuesOf
+
+
+    /// The order with the nth strength of the clavulaanzuur picked and solved.
+    let private pickClav n ord =
+        ord
+        |> OrderProcessor.processChangeProperty noLog (SetNthItemComponentConcentration(amoxClav, "clavulaanzuur", n))
+        |> solve SolveOrder
+
+
+    /// The text with one text replaced by another, failing the test when the text does not hold it.
+    let private replaced (oldText: string) newText (text: string) =
+        if text |> String.contains oldText |> not then
+            failtest $"the fixture no longer holds: %s{oldText}"
+
+        text.Replace(oldText, newText)
+
+
+    let tests =
+        testList
+            "the products narrow the strengths"
+            [
+                test "amoxicilline/clavulaanzuur at 5 mg/mL clavulaanzuur keeps the 500/50 mg product and its 10 mL" {
+                    let ord = Scenarios.amoxClavText |> parse |> built
+
+                    ord
+                    |> strengths "clavulaanzuur"
+                    |> Expect.equal "the dose leaves 5 mg/mL" [| 5N |]
+                    ord |> Order.productIds |> Expect.equal "one product" [| "amox-clav-500-50" |]
+                    ord |> cmpQuantities |> Expect.equal "its 10 mL" [| 10N |]
+                }
+
+                test "both strengths of clavulaanzuur keep both products" {
+                    let ord = Scenarios.amoxClavWithoutClavDoseText |> parse |> built
+
+                    ord |> strengths "clavulaanzuur" |> Expect.equal "both strengths" [| 5N; 10N |]
+
+                    ord
+                    |> Order.productIds
+                    |> Expect.equal "both products" [| "amox-clav-500-50"; "amox-clav-1000-200" |]
+                }
+
+                test "a pick of 10 mg/mL clavulaanzuur leaves one product, 20 mL and 200 mg clavulaanzuur" {
+                    let ord = Scenarios.amoxClavWithoutClavDoseText |> parse |> built |> pickClav 1
+
+                    ord |> Order.productIds |> Expect.equal "one product" [| "amox-clav-1000-200" |]
+                    ord |> cmpQuantities |> Expect.equal "20 mL" [| 20N |]
+                    ord |> quantities "clavulaanzuur" |> Expect.equal "200 mg" [| 200N |]
+                }
+
+                test "a pick of 10 mg/mL clavulaanzuur, then cleared, gives both products and strengths back" {
+                    let ord = Scenarios.amoxClavWithoutClavDoseText |> parse |> built |> pickClav 1
+
+                    let picks =
+                        [
+                            ord
+                            |> item "clavulaanzuur"
+                            |> _.ComponentConcentration
+                            |> Concentration.toOrdVar
+                            |> OrderProcessor.nameOf
+                        ]
+
+                    let ord =
+                        ord
+                        |> OrderProcessor.processChangeProperty
+                            noLog
+                            (ClearItemComponentConcentration(amoxClav, "clavulaanzuur"))
+                        |> fun cleared -> solve (fun o -> Reopen(o, picks)) cleared
+
+                    ord |> strengths "clavulaanzuur" |> Expect.equal "both strengths" [| 5N; 10N |]
+
+                    ord
+                    |> Order.productIds
+                    |> Expect.equal "both products" [| "amox-clav-500-50"; "amox-clav-1000-200" |]
+                }
+
+                test "products that give every combination keep every strength" {
+                    let ord = Scenarios.amoxClavEveryCombinationText |> parse |> built
+
+                    ord
+                    |> strengths "amoxicilline"
+                    |> Expect.equal "both amoxicilline strengths" [| 25N; 50N |]
+                    ord
+                    |> strengths "clavulaanzuur"
+                    |> Expect.equal "both clavulaanzuur strengths" [| 5N; 10N |]
+                    ord |> Order.productIds |> Array.length |> Expect.equal "four products" 4
+                }
+
+                test "a component with products of which none applies is refused" {
+                    Scenarios.amoxClavText
+                    |> replaced "[clavulaanzuur] 5 mg/ml" "[clavulaanzuur] 7 mg/ml"
+                    |> replaced "[clavulaanzuur] 10 mg/ml" "[clavulaanzuur] 7 mg/ml"
+                    |> parse
+                    |> toOrder
+                    |> CalcMinMax
+                    |> OrderProcessor.processPipeline noLog
+                    |> Result.isError
+                    |> Expect.isTrue "refused"
+                }
+
+                test "a component without products keeps every strength, as a plan stored without products" {
+                    let med = Scenarios.amoxClavWithoutClavDoseText |> parse
+
+                    { med with Components = med.Components |> List.map (fun pc -> { pc with Products = [] }) }
+                    |> built
+                    |> strengths "clavulaanzuur"
+                    |> Expect.equal "both strengths" [| 5N; 10N |]
+                }
+
+                test "a liquid built from a rule compares its product at 1 mL" {
+                    { Scenarios.pcmDrink with
+                        Components = [| RuleFixtures.liquidLimit |] |> Medication.createComponents noLog
+                    }
+                    |> built
+                    |> Order.productIds
+                    |> Expect.equal "the product applies" [| "33" |]
                 }
             ]
 
@@ -3497,20 +3690,16 @@ module ReachablePickTests =
                     |> Expect.equal "0,7 to 2,8 mL/uur" (7N / 10N, 28N / 10N)
                 }
 
-                // stop-gap until #1433: the first solve harmonizes the amfotericine down to 2 mg/mL, so this
-                // order keeps its products for its two defined strengths but solves with one
-                test "amfo with NaCl in two strengths, timed, keeps the dose quantities 230, 235 and 335 mL" {
-                    let qts =
-                        Scenarios.amfoWithNaClTwoStrengthsTimed
-                        |> solvedWith processed
-                        |> snd
-                        |> _.Orderable.Dose.Quantity
-                        |> Quantity.toOrdVar
-                        |> valuesOf
-
-                    [ 230N; 235N; 335N ]
-                    |> List.forall (fun q -> qts |> Array.contains q)
-                    |> Expect.isTrue $"%A{qts}"
+                // the dose limits leave the amfotericine at 2 mg/mL, but the solver sets the step and the
+                // maximum of the dose quantity while 4 mg/mL is still among its values, and never widens them
+                test "amfo with NaCl in two strengths, timed, offers the dose quantities 130, 180, 230 and 280 mL" {
+                    Scenarios.amfoWithNaClTwoStrengthsTimed
+                    |> solvedWith processed
+                    |> snd
+                    |> _.Orderable.Dose.Quantity
+                    |> Quantity.toOrdVar
+                    |> valuesOf
+                    |> Expect.equal "130 to 280 mL by 50" [| 130N; 180N; 230N; 280N |]
                 }
 
                 // the timings are run in sequence, so other tests do not slow them down
@@ -3550,6 +3739,7 @@ let tests =
         [
             MedicationOrderTests.tests
             ComponentProductTests.tests
+            ProductNarrowingTests.tests
             TypeTests.tests
             DtoTests.tests
             OrderPlanDtoTests.tests

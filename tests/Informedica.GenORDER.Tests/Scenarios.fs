@@ -1233,6 +1233,133 @@ Components:
 """
 
 
+/// Amoxicilline/clavulaanzuur without the dose limit of the clavulaanzuur. With it, the ratio of the
+/// clavulaanzuur dose to the amoxicilline dose leaves 5 mg/mL alone; without it both strengths, 5
+/// and 10 mg/mL, survive the solve.
+let amoxClavWithoutClavDoseText =
+    """
+Id: 303000f0-98b7-4db5-a0f2-a8a7642df9fc
+Name: amoxicilline/clavulaanzuur
+Quantity:
+Quantities:
+Route: INTRAVENEUS
+OrderType: DiscontinuousOrder
+Adjust: 14.5 kg
+Frequencies: 3 x/day
+Time:
+Dose: [dun] ml
+Div:
+DoseCount: 1 x
+Components:
+
+	Name: amoxicilline/clavulaanzuur
+	Form: poeder voor injectievloeistof
+	Quantities: 10;20 ml
+	Divisible: 10
+	Dose:
+	Solution:
+	Product: [id] amox-clav-500-50 [qts] 10 ml [amoxicilline] 50 mg/ml [clavulaanzuur] 5 mg/ml
+	Product: [id] amox-clav-1000-200 [qts] 20 ml [amoxicilline] 50 mg/ml [clavulaanzuur] 10 mg/ml
+	Substances:
+
+		Name: amoxicilline
+		Quantities: 500;1000 mg
+		Concentrations: 50 mg/ml
+		Dose: amoxicilline, [dun] mg, [per-time-adj] 100 mg/kg/day, [per-time] max 6000 mg/day
+		Solution:  [conc] 20 mg/ml
+
+		Name: clavulaanzuur
+		Quantities: 50;100;200 mg
+		Concentrations: 5;10 mg/ml
+		Dose:
+		Solution:
+
+	Name: NaCl 0,9%
+	Form: vloeistof
+	Quantities: 1 ml
+	Divisible: 10
+	Dose:
+	Solution:
+	Substances:
+
+		Name: natrium
+		Quantities:
+		Concentrations: 0.155 mmol/ml
+		Dose:
+		Solution:
+
+		Name: chloor
+		Quantities:
+		Concentrations: 0.155 mmol/ml
+		Dose:
+		Solution:
+"""
+
+
+/// Amoxicilline/clavulaanzuur without the dose limit of the clavulaanzuur in four products, one for
+/// every combination of 25 or 50 mg/mL amoxicilline with 5 or 10 mg/mL clavulaanzuur.
+let amoxClavEveryCombinationText =
+    """
+Id: 303000f0-98b7-4db5-a0f2-a8a7642df9fc
+Name: amoxicilline/clavulaanzuur
+Quantity:
+Quantities:
+Route: INTRAVENEUS
+OrderType: DiscontinuousOrder
+Adjust: 14.5 kg
+Frequencies: 3 x/day
+Time:
+Dose: [dun] ml
+Div:
+DoseCount: 1 x
+Components:
+
+	Name: amoxicilline/clavulaanzuur
+	Form: poeder voor injectievloeistof
+	Quantities: 10;20 ml
+	Divisible: 10
+	Dose:
+	Solution:
+	Product: [id] amox-clav-500-50 [qts] 10 ml [amoxicilline] 50 mg/ml [clavulaanzuur] 5 mg/ml
+	Product: [id] amox-clav-250-50 [qts] 10 ml [amoxicilline] 25 mg/ml [clavulaanzuur] 5 mg/ml
+	Product: [id] amox-clav-500-200 [qts] 20 ml [amoxicilline] 25 mg/ml [clavulaanzuur] 10 mg/ml
+	Product: [id] amox-clav-1000-200 [qts] 20 ml [amoxicilline] 50 mg/ml [clavulaanzuur] 10 mg/ml
+	Substances:
+
+		Name: amoxicilline
+		Quantities: 250;500;1000 mg
+		Concentrations: 25;50 mg/ml
+		Dose: amoxicilline, [dun] mg, [per-time-adj] 100 mg/kg/day, [per-time] max 6000 mg/day
+		Solution:  [conc] 20 mg/ml
+
+		Name: clavulaanzuur
+		Quantities: 50;100;200 mg
+		Concentrations: 5;10 mg/ml
+		Dose:
+		Solution:
+
+	Name: NaCl 0,9%
+	Form: vloeistof
+	Quantities: 1 ml
+	Divisible: 10
+	Dose:
+	Solution:
+	Substances:
+
+		Name: natrium
+		Quantities:
+		Concentrations: 0.155 mmol/ml
+		Dose:
+		Solution:
+
+		Name: chloor
+		Quantities:
+		Concentrations: 0.155 mmol/ml
+		Dose:
+		Solution:
+"""
+
+
 /// A 5 mg prednisolon tablet dividable in quarters, 1 to 2 mg/kg for 30 kg: 6 to 12 tablets on a
 /// quarter grid, 25 values.
 let prednisolonText =

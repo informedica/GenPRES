@@ -848,7 +848,6 @@ module Types =
         type Event =
             | MinIncrMaxToValues of OrderVariable
             | MedicationCreated of string
-            | ComponentItemsHarmonized of string
             | SolverReplaceUnit of (Name * Unit)
             | OrderIncreaseQuantityIncrement of Order
             | OrderIncreaseRateIncrement of Order

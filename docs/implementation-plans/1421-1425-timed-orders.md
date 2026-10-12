@@ -139,7 +139,7 @@ rule does not rely on it: it leaves the products out only when every item has ex
 |---|---|
 | What is left out | The products of an item orderable concentration with an orderable total. The tie stays: it gives the item concentrations the same values, and an item concentration limit keeps bounding the component share through it |
 | For which orders | More than two components and every item in exactly one strength, on any schedule. Read from the defined constraint of each item's component concentration, so no state, and `Order.solve` does not change. "Exactly one" rather than "not more than one": an item without a concentration, which valid input never has, keeps today's equations |
-| How an item rate keeps its bounds | A timed or once timed order the rule applies to gets the component rate equation in place of the item rate product; a continuous order has it already. Only there: mapped for every timed order, the equation removes dose quantities from an order that keeps its products (amfo with NaCl in two strengths, timed: 230, 235 and 335 mL) |
+| How an item rate keeps its bounds | A timed or once timed order the rule applies to gets the component rate equation in place of the item rate product; a continuous order has it already. Only there: mapped for every timed order, the equation removes dose quantities from an order that keeps its products (amfo with NaCl in two strengths, timed: 230, 235 and 335 mL while harmonize ran; step 2c moves them, see there) |
 | Where the rule lives | One public function, `EquationMapping.leavesOutItemConcentrationProducts`, with `EquationMapping.hasOneStrength`, used by `getEqsMapping`. The equation list does not change, so neither do the "Equations" sheet and its golden table |
 | The commit type | `fix(genorder)`: it changes which equations act, not only how fast; the PR says so |
 
@@ -267,6 +267,15 @@ two strengths and the order keeps its products, which is correct. But the fixtur
 two strengths solves with one after its first solve, so its test does not exercise two strengths
 that survive. The test says so until #1433 is fixed.
 
+Found while building step 2c: with harmonize gone and no products on the order, both orders still
+solve to one strength. Their dose limits decide it, not harmonize. The amoxicilline at 100 mg/kg/day
+and the clavulaanzuur at 10 mg/kg/day, in one dose in mL, fit only 5 mg/mL clavulaanzuur; the
+amfotericine likewise solves to 2 mg/mL. Harmonize only removed the 4 mg/mL earlier, within the
+first solve. Without it the solver removes 4 mg/mL later, after it has set the step and the maximum
+of the dose quantity with 4 mg/mL still among the values, and it never widens them: the dose
+quantities of amfo with NaCl in two strengths, timed, go from 175 to 335 mL to 130, 180, 230 and
+280 mL. Every value offered is within the old range.
+
 ### Where the product is lost
 
 The product is there until the medication is built. A dose rule holds, per component, its products
@@ -317,12 +326,14 @@ update the list, and the solve itself cannot see a product, since the `Component
   quantities is among the values of the component quantity. A field without a value set, such as a
   range after the min-max solve, excludes no product, as in `filterProducts`. The products that
   apply are derived from the values each time, not stored. Each item then keeps only the strengths
-  of the products that apply: the step changes the values of its variable, never its defined
-  constraints. When that removes a value, the order is solved again, as harmonize does today.
+  of the products that apply, and the component quantity only their form quantities: the step
+  changes the values of the variables, never their defined constraints. The component quantity was
+  added while building step 2c: amoxicilline/clavulaanzuur solves to 5 mg/mL clavulaanzuur with a
+  component quantity of 10 or 20 mL, and 20 mL at 5 mg/mL is in no product. When that removes a value, the order is solved again, as harmonize does today.
   Repeated, it settles: a step only removes values.
 - **One rule decides that a product applies.** `PrescriptionRule.filterProducts` judges products
   on the first evaluation today, through `ComponentItem`s that `OrderContext.evaluateOrder` builds.
-  Step 2c defines the rule once, as `ComponentProduct.applies` in GenORDER, and both the first
+  Step 2c defines the rule once, as `Component.productApplies` in GenORDER, and both the first
   evaluation and every later solve use it; `OrderScenario.ProductsIds` comes from the products that
   apply, so `filterProducts` and the `ComponentItem` shape leave this path. The solve never writes
   the products on the order: they are set when the order is built or read, as the items are.
@@ -434,28 +445,34 @@ the agent when told to.
      mappers, and the client's pass-through. Tests: an order mapped to the Shared type and back
      keeps its products. `feat(api): carry the products of a component`, its body listing the
      projects it touches.
-   - **2c, GenORDER.** `ComponentProduct.applies`, used by the first evaluation in place of
-     `filterProducts` and by the product step in place of harmonize, and `OrderScenario.ProductsIds`
-     following the products that apply. Tests:
-     amoxicilline/clavulaanzuur keeps 5 and 10 mg/mL and both products; a pick of 10 mg/mL
-     clavulaanzuur leaves one product and 200 mg clavulaanzuur; amfotericine in two strengths
-     beside saccharose keeps 2 and 4 mg/mL after its first solve, so the fixture of #1421 exercises
-     two surviving strengths and its stop-gap comment goes; a component whose products give every
-     combination keeps them all; a pick of 10 mg/mL clavulaanzuur, then cleared, gives both
-     products and both strengths back; a component with products of which none applies to the
-     values is refused; a liquid built from a rule keeps its products, compared at 1 mL; an order
-     whose components carry no products solves as today; a
-     plan stored under structure version 5, read and solved again, keeps every strength of its
-     items. The golden orders that move are listed in the commit. To decide there: reading a
-     component Dto drops a product strength whose value does not read, so a damaged stored plan
-     narrows less; whether that should fail the read instead.
+   - **2c, GenORDER.** `Component.productApplies`, used by every solve in place of harmonize and
+     by `Order.productIds`, from which `OrderScenario.ProductsIds` is set when the scenario is
+     created and after every command; `filterProducts` and `ComponentItem` leave GenFORM. Each solve
+     narrows the item strengths and the component quantity to the products that apply, and refuses
+     a component whose products none apply, reported as the solver's empty value set. Tests, on
+     `amoxClavText` and on two fixtures beside it, `amoxClavWithoutClavDoseText` (both strengths
+     survive the solve) and `amoxClavEveryCombinationText`: amoxicilline/clavulaanzuur at 5 mg/mL
+     keeps the 500/50 mg product and its 10 mL; without the clavulaanzuur dose limit it keeps 5 and
+     10 mg/mL and both products; a pick of 10 mg/mL leaves one product, 20 mL and 200 mg
+     clavulaanzuur, and cleared gives both back; four products for every combination keep every
+     strength; products of which none applies are refused; a component without products keeps every
+     strength; a liquid built from a rule keeps its product, compared at 1 mL. A plan stored under
+     JSON structure version 5 reads with no products in the server test of step 2a, and an order
+     without products keeps every strength in the GenORDER test above, so no read and solve test of
+     its own. The amfo with NaCl in two strengths, timed, offers 130, 180, 230 and 280 mL, see the
+     finding in the #1433 section; its stop-gap comment goes. A product strength whose value does not
+     read is still dropped when a component Dto is read, by decision: there is no production
+     database yet.
      `fix(genorder): pair item strengths by product`.
 
 3. **The rounded steps capped, GenORDER.** `Order.roundedSteps` with a largest step,
    `Order.quantitySteps` up to 50 mL and `Order.rateSteps` up to 10 mL/uur, used by
    `increaseIncrements` and `pruneSteps`. The fixture `naclLargeRateText` and its test: the rate
    offers 60 to 480 mL/uur by 30. Measured on the 21 fixtures before it is committed; the tpn and
-   tpnComplete golden orders regenerated, with what moved in the commit.
+   tpnComplete golden orders regenerated, with what moved in the commit. Found in step 2c: the
+   solver sets the step and the maximum of a dose quantity while a strength it removes later is
+   still among the values, and never widens them; the amfo with NaCl in two strengths, timed, is
+   the case to measure.
 
 
 ## Left out
@@ -465,8 +482,16 @@ the agent when told to.
   offers quantities the limit refuses. The kind of defect #1302 removed for the concentrations,
   here for an item rate; not caused by this plan.
 - **Orders with an item in more than one strength.** They keep their products and their processing
-  time, by decision: the tie alone loses their exact concentration. That harmonize drops one of
-  their strengths is #1433, step 2.
+  time, by decision: the tie alone loses their exact concentration.
+- **The products that apply, stored on the scenario.** `OrderScenario.ProductsIds` holds what
+  `Order.productIds` derives from the scenario's order, kept fresh where the scenario is created and
+  after every command. The domain record could drop the field and the scenario Dto and the contract
+  derive it.
+- **The index functions left without a caller.** `ValueRange.getIndices` and `pickIndices`,
+  `ValueSet.getIndices` and `pickIndices` in GenSOLVER and `ValueUnit.getIndices` and `pickIndices`
+  in GenUNITS served harmonize alone; they go with their property tests in a refactor of their own.
+- **A message of its own for a component no product applies to.** The solve reports it as the
+  solver's empty value set, since the solve returns the solver's messages.
 - **#1425.** See "The finding on #1425" above.
 - **The item rate lists.** They are most of the time left in a pick of tpnComplete. Keeping them as
   ranges loses the item rate limits; a fix needs the solver to bound a product without listing it.
