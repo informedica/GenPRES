@@ -50,18 +50,6 @@ let amfoTimed =
     }
 
 
-/// Amfo as a timed order over exactly two hours: a fixed time, so the rate alone sets the dose
-/// quantity.
-let amfoTimedFixed =
-    { amfoTimed with
-        Time =
-            { MinMax.empty with
-                Min = 2N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
-                Max = 2N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
-            }
-    }
-
-
 /// The tpn with the kalium of KCl 7,4% at most 0.04 mmol/mL in the orderable, below the 0.02 to
 /// 0.06 mmol/mL the component list allows: the limit binds.
 let tpnBinding =
@@ -261,7 +249,6 @@ let fixtures () =
         "amox/clav", Scenarios.amoxClavText |> parse
         "amfo", Scenarios.amfo
         "amfo timed", amfoTimed
-        "amfo over 2 uur", amfoTimedFixed
         "morfCont", Scenarios.morfCont
         "morfCont with NaCl", Scenarios.morfCont |> withNaCl
         "morfine timed with NaCl", morfTimedWithNaCl

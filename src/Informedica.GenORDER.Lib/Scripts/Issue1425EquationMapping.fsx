@@ -1,7 +1,7 @@
 // Issue #1421: EquationMapping.fs with one change, loaded in place of the source by
 // Issue1425Load.fsx. Marked "1421" below.
 //
-// An order with more than two components and no item in more than one strength solves its item
+// An order with more than two components and every item in exactly one strength solves its item
 // orderable concentrations through the tie [itm]_orb_cnc = [itm]_cmp_cnc * [cmp]_orb_cnc alone:
 // the products with an orderable total (3 for once, 4 once timed, 5 discontinuous, 6 continuous
 // and timed) are left out, and a timed or once timed order gets the component rate equation in
@@ -231,16 +231,17 @@ module EquationMapping =
         | _ -> false
 
 
-    /// Whether an item comes in more than one component concentration, from more than one product:
-    /// read from its defined constraint, so a solve that settles the strength does not change it.
-    let hasStrengths (itm: Item) =
+    /// Whether an item comes in exactly one component concentration, one strength: read from its
+    /// defined constraint, so a solve that settles the strength does not change it. An item without
+    /// a concentration, which valid input never has, does not count as one.
+    let hasOneStrength (itm: Item) =
         (itm.ComponentConcentration |> OrderVariable.Concentration.toOrdVar).DefinedConstraints.Values
         |> Option.map Informedica.GenSolver.Lib.Variable.ValueRange.ValueSet.count
-        |> Option.exists (fun n -> n > 1)
+        |> Option.exists (fun n -> n = 1)
 
 
     /// Whether an order solves its item orderable concentrations through the tie alone, without the
-    /// products with an orderable total: more than two components and no item in more than one
+    /// products with an orderable total: more than two components and every item in exactly one
     /// strength. The products are cross products nobody picks. With one strength per item the tie,
     /// a single concentration times the component share, gives the same values; with several it
     /// multiplies the strengths by the share as if they were independent, though each strength
@@ -260,7 +261,7 @@ module EquationMapping =
         && items |> List.exists hasOneOrderableQuantity |> not
 #else
 #if !ANYSTRENGTH
-        && items |> List.exists hasStrengths |> not
+        && items |> List.forall hasOneStrength
 #endif
 #endif
 #endif
