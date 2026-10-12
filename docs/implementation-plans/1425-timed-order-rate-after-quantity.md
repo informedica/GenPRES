@@ -125,7 +125,7 @@ list it is a list again.
 
 ## Decisions
 
-Decided by the maintainer on 2026-10-12:
+Decided by the maintainer on 2026-10-12, decision 5 after step 0:
 
 1. **The rate once the dose quantity has one value** gets a value list pruned with the rate caps,
    as today but later, so the order still solves to one value without a pick. For tpn, 1330 mL over
@@ -138,6 +138,10 @@ Decided by the maintainer on 2026-10-12:
 4. **The bound by the rate and time limits** stays in the min and max solve. The issue says the
    time and the rate never narrow the quantity, but without the bound the dialog would offer a
    quantity that cannot be given within the time limits.
+5. **The rate gets its median** when its list is first made, when the scenario is selected or
+   after a pick, as the norm dose gets the median dose quantity. Measured in step 0: on the grid of
+   0,1 mL/uur the window of a dose quantity holds several rates, so without the median no completed
+   timed order would solve. A reset or a reopen offers the list to pick from.
 
 The bound is enough to keep the rate and time limits from conflicting with the dose quantity. For
 one quantity the time limits allow the rates from the quantity divided by the longest time to the
@@ -147,6 +151,101 @@ which is the bound. So every quantity the dialog offers has a rate within its li
 exception is a window narrower than the pump's grid of 0,1 mL/uur: a very small quantity with tight
 time limits may have no rate on the grid. The narrowest window is 1,6 mL/uur for tpn and 11 mL/uur
 for amfo timed; step 0 measures it on every fixture.
+
+## Measured in step 0
+
+`Scripts/Issue1425Staged.fsx` holds the prototype: `Order.increaseIncrements` without the rate
+raise, and a copy of `OrderProcessor.fs` with the changes of step 1, the median rate of decision 5
+included. `Issue1425Load.fsx` loads it in place of `OrderProcessor.fs` under the define `STAGED`.
+Run from `src/Informedica.GenORDER.Lib/Scripts`:
+
+```bash
+dotnet fsi Issue1425Probe.fsx
+dotnet fsi --define:STAGED Issue1425Probe.fsx
+dotnet fsi Issue1425Measure.fsx
+dotnet fsi --define:STAGED Issue1425Measure.fsx
+dotnet fsi Issue1425Compare.fsx
+dotnet fsi --define:STAGED Issue1425Compare.fsx
+```
+
+The two measure runs ran one after the other, so their timings count. The probe now also runs the
+pipelines: `CalcMinMax`, `CalcValues` and `SolveOrder`; a dose quantity pick solved by `SolveOrder`;
+every component quantity picked in turn and solved by `SolveOrder`, as the dose dialog completes an
+order; and a reset by `ReCalcValues`. The compare script completes an order with `Order.solveOrder`
+alone, which skips the rate stage, so under `STAGED` its completed timed orders keep a rate range;
+the probe gives the completed numbers.
+
+**What does not move.** The 12 fixtures that are not timed: no variable differs, processed or
+completed.
+
+**After `CalcMinMax`.** The dose quantity starts where the limits allow:
+
+| fixture | today | staged |
+|---|---|---|
+| tpn, tpnComplete | from 200 mL | from 191 mL |
+| tpn, kalium rate limit binding | from 203 mL | from 191 mL |
+| tpn without KCl | from 200 mL | from 180 mL |
+| amfo timed, amfo with NaCl in two strengths timed, tpn with the kalium limit binding | as staged | from 22, 50 and 500 mL |
+| kcl once timed | time 64 to 96 min | time 60 to 120 min |
+
+The once timed KCl shows that the raise narrowed the time too: the rate of 20 to 30 mL/uur by 5 left
+64 to 96 minutes for 32 mL, where the time limits allow 60 to 120.
+
+**Processed**, after `CalcValues` and `SolveOrder`. On every timed fixture with a list of dose
+quantities the rate is a range and the time is 20 to 24 uur or 1 to 2 uur:
+
+| fixture | dose quantities today | staged | rate today | staged |
+|---|---|---|---|---|
+| tpn, tpnComplete, kalium rate limit binding | 121, from 430 mL | 136, from 380 mL | 20 to 40 by 5 | 15,9 to 41,5 mL/uur |
+| tpn without KCl | 12, from 410 mL | 20, from 360 mL | 20, 30, 40 | 15 to 41 mL/uur |
+| tpn, kalium limit binding | 91, from 530 mL | the same | 25 to 40 by 5 | 22,1 to 41,5 mL/uur |
+| amfo timed | 34, from 61 mL | the same | 14 values, 40 to 300 | 30,5 to 317 mL/uur |
+| amfo with NaCl, two strengths, timed | 130 to 280 mL | the same | 100 to 250 by 50 | 65 to 280 mL/uur |
+| morfine timed with NaCl | 50 mL | the same | 2,1 to 2,5 by 0,1, to pick | 2,3 mL/uur, the median |
+| kcl once timed | 32 mL | the same | 20, 25, 30, to pick | 24 mL/uur, the median |
+
+So the dose quantity of tpn now goes down to 380 mL: the component pruning gives it more values once
+the rounded rate no longer bounds it. The morfine and the KCl orders have one dose quantity from the
+start, so their rate gets its list at once, and the median of it; today the prescriber picks it.
+
+**After a dose quantity pick**, solved by `SolveOrder`, the rate gets its list on the pump's grid
+and the median of it: tpn at 588 mL gets 27 mL/uur of 25 to 29, amfo timed at 164 mL 130 mL/uur of
+90 to 160, the amfo with NaCl in two strengths at 230 mL 180 mL/uur of 120 to 210. Each rate puts
+the time within its limits.
+
+**Completed**, every component quantity picked in turn and solved by `SolveOrder`:
+
+| fixture | today | staged |
+|---|---|---|
+| tpn, tpnComplete | 530 mL at 25 mL/uur | 380 mL at 18 mL/uur |
+| tpn, kalium rate limit binding | 530 mL at 25 mL/uur | 380 mL at 17 mL/uur |
+| tpn, kalium limit binding | 530 mL at 25 mL/uur | the same |
+| tpn without KCl | 660 mL at 30 mL/uur | 360 mL at 17 mL/uur |
+| amfo with NaCl, two strengths, timed | 130 mL at 100 mL/uur | the same |
+| amfo timed | 61 mL, the rate 40 or 60 to pick | 61 mL at 50 mL/uur |
+| morfine timed with NaCl | 50 mL, 5 rates to pick | 50 mL at 2,3 mL/uur |
+| kcl once timed | 32 mL, 3 rates to pick | 32 mL at 24 mL/uur |
+
+Today six of the nine timed fixtures solve once their components are picked, because the coarse
+rate of 5 or 50 mL/uur leaves one rate in the window. Staged, all nine solve, by the median rate.
+
+**Reset**, a completed order through `ReCalcValues`. A rate that gets its list there keeps it to
+pick from: the morfine offers 2,1 to 2,5 mL/uur. Where the dose quantity is a list again the rate is
+a range, as after `CalcValues`. Today every timed fixture offers a rate list after a reset.
+
+**Timings and picks.** The processing is faster on every timed fixture: tpn 593 to 492 ms,
+tpnComplete 928 to 754 ms, amfo timed 674 to 432 ms, tpn without KCl 388 to 252 ms. The slowest
+pick of tpnComplete goes from 381 to 237 ms. The dialog offers fewer picks, as the rate has no list
+before the dose quantity: tpn 15 where 20, morfine 6 where 11. The tpn with the kalium rate limit
+binding still fails 1 of its picks; no pick fails that did not fail today.
+
+**The narrowest rate window**, the smallest dose quantity over the shortest time minus over the
+longest, against the grid of 0,1 mL/uur: tpn 1,59, tpn without KCl 1,5, tpn with the kalium limit
+binding 4,17, amfo timed 11, amfo with NaCl in two strengths 25, the once timed KCl 16, and the
+morfine 0,4 mL/uur. Each holds at least four steps of the grid.
+
+**The golden orders** run against the compiled library, not against the script; the compare output
+shows the timed ones move, so tpn and tpnComplete are regenerated in step 1.
 
 ## Confidence
 
@@ -196,6 +295,9 @@ One PR per step, after the maintainer's go.
    - `solveSteps` gets a rate stage after it, guarded by "the dose quantity has one value and the rate has
      no values", so it does not run on every solve. It covers a pick, and also a cleared rate: a
      `SolveOrder` runs process-cleared, which holds the rate back, and then `solveSteps`;
+   - where `CalcValues` and `solveSteps` make the rate list, the rate gets its median and the
+     order is solved again; `reCalcSteps` makes the list without it, so a reset or a reopen offers
+     the list;
    - `CanSetNormDose` no longer asks for rate values for a timed or once timed order.
 
    The norm dose sets the median dose quantity (`Order.setMedianDoseValue`, `Order.fs:3441`), so a
@@ -206,10 +308,13 @@ One PR per step, after the maintainer's go.
      and the rate is still a range;
    - after a dose quantity pick, the rate has values and every rate puts the time within its
      limits;
-   - the once timed KCl order (`kaliumchlorideOnceTimedText`) gets its rate list at once, its dose
-     quantity having one value after `CalcMinMax`;
+   - a completed tpn solves with the median rate, 18 mL/uur at 380 mL;
+   - the once timed KCl gets the median rate, 24 mL/uur, when the scenario is selected;
+   - a reset of a completed order offers the rate list, the morfine 2,1 to 2,5 mL/uur;
    - a rate cleared after a pick gets its list again;
-   - `naclLargeRateText` still offers 60 to 480 mL/uur by 30, its dose quantity having one value;
+   - `naclLargeRateText`, its dose quantity having one value from the start: the test of PR #1443
+     "pruned to 60 to 480 by 30" becomes "gets the median, 270 mL/uur, of 60 to 480 by 30", and a
+     reset offers 50 to 500 mL/uur by 50, as today (measured on the staged script);
    - the test of PR #1443 "a rate of 50 to 500 mL/uur is raised to steps of at most 10 mL/uur"
      becomes "keeps its step of 0,1 mL/uur";
    - the rate stepper commands, to the minimum, the median and the maximum, on a rate that is a
