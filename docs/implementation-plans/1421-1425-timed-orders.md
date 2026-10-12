@@ -291,7 +291,7 @@ update the list, and the solve itself cannot see a product, since the `Component
 | One component per product | Each item has one strength, but the orderable sums its components, so two products mix in one order, and nothing in the equations keeps all but one at zero. Rejected |
 | A ratio of each item to a reference item | `[itm]_cmp_cnc = [ref]_cmp_cnc * [itm]_ratio` pairs exactly when the reference has one strength; with several, the ratios and the reference strengths cross again. Rejected |
 | One medication, so one scenario, per combination of strengths | Exact, but the dialog shows a scenario per product where the solve can tell which products apply. Rejected by decision |
-| The products on the component, narrowed by every solve | One scenario; solving the order leaves the list of products that still apply, most of the time one, sometimes more, and the item strengths follow those products. Chosen |
+| The products on the component, those that apply derived after every solve | One scenario; solving the order leaves the list of products that still apply, most of the time one, sometimes more, and the item strengths follow those products. Chosen |
 
 ### Chosen approach
 
@@ -299,7 +299,12 @@ update the list, and the solve itself cannot see a product, since the `Component
   distinct strengths it builds today, the products of the component as a new record in GenORDER's
   types, `ComponentProduct`: `Id`, the GPK; `FormQuantities`, a `ValueUnit option` that can hold
   several values; and `Strengths`, the strength per substance name. The order's `Component` gets a
-  list of them, so a solve can read them without the rule.
+  list of them, so a solve can read them without the rule. The list is defined data: set when the
+  order is built and never narrowed.
+- **The form quantities are the component's.** `createComponents` gives a liquid that needs no
+  reconstitution a component quantity of 1 mL, while its products carry their package volume. A
+  product keeps its form quantities as `createComponents` maps them, 1 mL for such a liquid and
+  the product's own quantities otherwise, so the narrowing compares like with like.
 - **The products cross the client.** The server maps an order to the Shared `Component` field by
   field (`ServerApi.Mappers.Order.fs`), and every value command sends that order back. The Shared
   `Component` (`Shared/Types.fs:212`), both mappers and the client's pass-through carry the
@@ -307,15 +312,23 @@ update the list, and the solve itself cannot see a product, since the `Component
   rule at hand to put them back.
 - **The text format carries them.** A component in the medication text format gets an optional
   Products block, so a fixture such as `amoxClavText` can list its two products.
-- **Each solve narrows the products, in place of harmonize.** After a solve, a product applies when
+- **Each solve narrows the values, in place of harmonize.** After a solve, a product applies when
   each of its substance strengths is among the values its item still has, and one of its form
   quantities is among the values of the component quantity. A field without a value set, such as a
-  range after the min-max solve, excludes no product, as in `filterProducts`. Each item then keeps
-  only the strengths of the products that apply. When that removes a value, the order is solved
-  again, as harmonize does today. Repeated, it settles: a step only removes values.
+  range after the min-max solve, excludes no product, as in `filterProducts`. The products that
+  apply are derived from the values each time, not stored. Each item then keeps only the strengths
+  of the products that apply: the step changes the values of its variable, never its defined
+  constraints. When that removes a value, the order is solved again, as harmonize does today.
+  Repeated, it settles: a step only removes values.
+- **A cleared pick brings its products back.** Reopening resets the values from the defined
+  constraints, and the products that apply are derived again from those values, so the strengths
+  and products a pick removed return when it is cleared.
 - **No products, no narrowing.** A component without products is left as it is. That covers order
   plans stored under JSON structure version 5 and earlier, text medications without a Products
   block, and the fixtures built by hand.
+- **Products, but none applies, is an error.** When a component has products and none of them
+  applies to the solved values, the values form a combination no product has. The solve returns an
+  error, and the pick that led to it is refused as any failing pick is today.
 - **One strength per item costs nothing.** When every item of a component has one strength, every
   product applies, so the step removes no value and solves nothing again: tpn and tpnComplete keep
   their processing time.
@@ -408,6 +421,7 @@ the agent when told to.
      without products read as before. No value changes; the golden orders stay. Tests:
      amoxicilline/clavulaanzuur from a rule carries its two products with their strengths; a `Dto`
      round trip keeps them; the text round trip in `MedicationTextTests` keeps a Products block; a
+     liquid without reconstitution from a rule carries its products with a form quantity of 1 mL; a
      plan without products still reads. `feat(genorder): carry the products of a component`.
    - **2b, contract, server and client.** The Shared `Component` with its products, both server
      mappers, and the client's pass-through. Tests: an order mapped to the Shared type and back
@@ -419,7 +433,10 @@ the agent when told to.
      clavulaanzuur leaves one product and 200 mg clavulaanzuur; amfotericine in two strengths
      beside saccharose keeps 2 and 4 mg/mL after its first solve, so the fixture of #1421 exercises
      two surviving strengths and its stop-gap comment goes; a component whose products give every
-     combination keeps them all; an order whose components carry no products solves as today; a
+     combination keeps them all; a pick of 10 mg/mL clavulaanzuur, then cleared, gives both
+     products and both strengths back; a component with products of which none applies to the
+     values is refused; a liquid built from a rule keeps its products, compared at 1 mL; an order
+     whose components carry no products solves as today; a
      plan stored under structure version 5, read and solved again, keeps every strength of its
      items. The golden orders that move are listed in the commit.
      `fix(genorder): pair item strengths by product`.
