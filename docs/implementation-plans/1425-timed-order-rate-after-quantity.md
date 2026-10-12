@@ -391,3 +391,17 @@ One PR per step, after the maintainer's go.
   orders and the fixtures that are not timed, the probe for the completed and cleared timed orders
 - the maintainer opens tpn and amfo timed in the browser: the rate and time show as ranges until
   the dose quantity is picked, then the rate offers its list
+
+## As built
+
+All steps are merged; #1425 is closed. Step 2 was folded into step 1 by the maintainer's decision,
+which reverses decision 7.
+
+| Step | Pull request | Note |
+|---|---|---|
+| The plan | #1448 | The rate after the dose quantity, the bound by the rate and time limits kept; the probe that shows a solve keeps the rate a range. Review: the rate held back in the first values step of `SolveOrder` too, the path tpn takes. |
+| Step 0, the prototype measured | #1450 | `Issue1425Staged.fsx` under the define `STAGED`. Decision 5, the median rate, after the measurement showed no completed timed order would solve without it; decision 6, a cleared rate gives its list back, after the review found a cleared median came back as the same median. |
+| Step 1, the rate after the dose quantity | #1451 | With the removal of the rate raise, planned as step 2: 207 changed source lines, over the limit by the maintainer's decision. `rateWaits` replaces four inline copies of the same check. `Issue1425Order.fsx`, the rejected first attempt, removed with the rate raise it built on; the fixtures moved to `Scenarios.fs`. Closed #1425. |
+
+The nutrition slot and the dose dialog show the time as a range since #1447, which the plan relies
+on for a rate that is a range.
