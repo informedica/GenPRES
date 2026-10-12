@@ -385,13 +385,22 @@ Measured on the source with #1421:
 - The cap on the raise alone moves no golden order. The cap on the prune moves tpn and
   tpnComplete: gluc 10% offers 150, 300, 450 and 600 mL where it offers 200, 400 and 600, the
   orderable quantity tops at 794 mL where at 744, and the time becomes the range 20 to 24 uur where
-  it is a list. Why the time becomes a range is to be traced in that step.
+  it is a list.
+- Traced in step 3: the solver multiplies two value lists only while the product of their counts is
+  at most `MAX_CALC_COUNT`, 500 (`Variable.fs`, the value set calculation); above it keeps the
+  minimum and the maximum. With the fourth value of gluc 10% the dose quantity of tpn grows from 77
+  to 121 values, and 121 times its 5 rates is 605, so the time keeps the range 20 to 24 uur where
+  77 times 5, 385, gives it 73 values. Accepted: the range is right, and the rate is still picked.
 - A rate of 50 to 500 mL/uur, NaCl 0,9% 1000 mL over 2 to 20 uur, offers 50 to 500 mL/uur by 50
   today and 60 to 480 mL/uur by 30 with the cap: when no step leaves few enough values, the prune
   keeps the multiples of the largest step times 2, 3 and so on. Accepted.
 
-The work is kept, untracked, in `localDocs/step-cap/`: the changed files and a patch on the
-source with #1421.
+Measured in step 3 on the 21 fixtures, against the source after step 2c: 14 do not move; amfo timed
+offers a rate of 40 to 300 mL/uur by 20 where 50 to 300 by 50; the four tpn fixtures move as above;
+the amfo with NaCl in two strengths, timed, keeps 130, 180, 230 and 280 mL, so the cap does not
+touch the step set while 4 mg/mL was still among the values. Every processing and every pick stays
+within its limit, the slowest pick of tpnComplete goes from 543 to 381 ms, and the tpn with a
+binding kalium rate limit fails 1 of its picks where 2.
 
 ## Steps
 
@@ -473,7 +482,8 @@ the agent when told to.
    tpnComplete golden orders regenerated, with what moved in the commit. Found in step 2c: the
    solver sets the step and the maximum of a dose quantity while a strength it removes later is
    still among the values, and never widens them; the amfo with NaCl in two strengths, timed, is
-   the case to measure.
+   the case to measure. Measured: the cap leaves it at 130, 180, 230 and 280 mL, so that finding
+   stays open.
 
 
 ## Left out

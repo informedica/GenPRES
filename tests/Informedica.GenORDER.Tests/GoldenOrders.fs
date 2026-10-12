@@ -404,24 +404,24 @@ Route
 INTRAVENEUS
 Schedule
 []_sch_frq [1 x/dag]
-[]_sch_tme [20,8;20,9 uur .. 23,1;23,7;24 uur]
+[]_sch_tme [20 uur..24 uur]
 Orderable
 [samenstelling c]_ord_qty <0 mL..>
-[samenstelling c]_orb_qty [430;431;432 mL .. 743;744;830 mL]
+[samenstelling c]_orb_qty [430;431;432 mL .. 793;794;830 mL]
 [samenstelling c]_ord_cnt <0 x..>
 [samenstelling c]_dos_cnt [1 x]
-[samenstelling c]_dos_qty [430;431;432 mL .. 743;744;830 mL]
-[samenstelling c]_dos_ptm [430;431;432 mL/dag .. 743;744;830 mL/dag]
+[samenstelling c]_dos_qty [430;431;432 mL .. 793;794;830 mL]
+[samenstelling c]_dos_ptm [430;431;432 mL/dag .. 793;794;830 mL/dag]
 [samenstelling c]_dos_rte [20;25;30;35;40 mL/uur]
 [samenstelling c]_dos_tot <0 ..>
-[samenstelling c]_dos_qty_adj [39,1;39,2;39,3 mL/kg .. 67,5;67,6;75,5 mL/kg]
-[samenstelling c]_dos_ptm_adj [39,1;39,2;39,3 mL/kg/dag .. 67,5;67,6;75,5 mL/kg/dag]
+[samenstelling c]_dos_qty_adj [39,1;39,2;39,3 mL/kg .. 72,1;72,2;75,5 mL/kg]
+[samenstelling c]_dos_ptm_adj [39,1;39,2;39,3 mL/kg/dag .. 72,1;72,2;75,5 mL/kg/dag]
 [samenstelling c]_dos_rte_adj [1,82;2,27;2,73;3,18;3,64 mL/kg/uur]
 [samenstelling c]_dos_tot_adj <0 ..>
 [samenstelling c.Samenstelling C]_cmp_qty [1 mL]
 [samenstelling c.Samenstelling C]_orb_qty [150;200;250 mL]
 [samenstelling c.Samenstelling C]_orb_cnt [150;200;250 x]
-[samenstelling c.Samenstelling C]_orb_cnc [0,18;0,2 x .. 0,58 x]
+[samenstelling c.Samenstelling C]_orb_cnc [0,18;0,19 x .. 0,58 x]
 [samenstelling c.Samenstelling C]_ord_qty <0 mL..>
 [samenstelling c.Samenstelling C]_ord_cnt <0 x..>
 [samenstelling c.Samenstelling C]_dos_qty [150;200;250 mL]
@@ -497,7 +497,7 @@ Orderable
 [samenstelling c.KCl 7,4%]_cmp_qty [1 mL]
 [samenstelling c.KCl 7,4%]_orb_qty [20;21;22;23;24 mL]
 [samenstelling c.KCl 7,4%]_orb_cnt [20;21;22;23;24 x]
-[samenstelling c.KCl 7,4%]_orb_cnc [0,02;0,03 x .. 0,06 x]
+[samenstelling c.KCl 7,4%]_orb_cnc [0,02 x..0,06 x]
 [samenstelling c.KCl 7,4%]_ord_qty <0 mL..>
 [samenstelling c.KCl 7,4%]_ord_cnt <0 x..>
 [samenstelling c.KCl 7,4%]_dos_qty [20;21;22;23;24 mL]
@@ -511,7 +511,7 @@ Orderable
 [samenstelling c.KCl 7,4%.kalium]_cmp_qty [1 mmol]
 [samenstelling c.KCl 7,4%.kalium]_orb_qty [20;21;22;23;24 mmol]
 [samenstelling c.KCl 7,4%.kalium]_cmp_cnc [1 mmol/mL]
-[samenstelling c.KCl 7,4%.kalium]_orb_cnc [0,02;0,03 mmol/mL .. 0,06 mmol/mL]
+[samenstelling c.KCl 7,4%.kalium]_orb_cnc [0,02 mmol/mL..0,06 mmol/mL]
 [samenstelling c.KCl 7,4%.kalium]_dos_qty [20;21;22;23;24 mmol]
 [samenstelling c.KCl 7,4%.kalium]_dos_ptm [20;21;22;23;24 mmol/dag]
 [samenstelling c.KCl 7,4%.kalium]_dos_rte [0,48 mmol/uur..2,23 mmol/uur]
@@ -521,29 +521,29 @@ Orderable
 [samenstelling c.KCl 7,4%.kalium]_dos_rte_adj [0,04 mmol/kg/uur..0,2 mmol/kg/uur]
 [samenstelling c.KCl 7,4%.kalium]_dos_tot_adj <0 ..>
 [samenstelling c.gluc 10%]_cmp_qty [1 mL]
-[samenstelling c.gluc 10%]_orb_qty [200;400;600 mL]
-[samenstelling c.gluc 10%]_orb_cnt [200;400;600 x]
-[samenstelling c.gluc 10%]_orb_cnc [0,24;0,27 x .. 0,63;0,64;0,72 x]
+[samenstelling c.gluc 10%]_orb_qty [150;300;450;600 mL]
+[samenstelling c.gluc 10%]_orb_cnt [150;300;450;600 x]
+[samenstelling c.gluc 10%]_orb_cnc [0,2 x .. 0,71;0,72 x]
 [samenstelling c.gluc 10%]_ord_qty <0 mL..>
 [samenstelling c.gluc 10%]_ord_cnt <0 x..>
-[samenstelling c.gluc 10%]_dos_qty [200;400;600 mL]
-[samenstelling c.gluc 10%]_dos_ptm [200;400;600 mL/dag]
-[samenstelling c.gluc 10%]_dos_rte [4,82 mL/uur..28,9 mL/uur]
+[samenstelling c.gluc 10%]_dos_qty [150;300;450;600 mL]
+[samenstelling c.gluc 10%]_dos_ptm [150;300;450;600 mL/dag]
+[samenstelling c.gluc 10%]_dos_rte [4,03 mL/uur..28,9 mL/uur]
 [samenstelling c.gluc 10%]_dos_tot <0 ..>
-[samenstelling c.gluc 10%]_dos_qty_adj [18,2;36,4;54,5 mL/kg]
-[samenstelling c.gluc 10%]_dos_ptm_adj [18,2;36,4;54,5 mL/kg/dag]
+[samenstelling c.gluc 10%]_dos_qty_adj [13,6;27,3;40,9;54,5 mL/kg]
+[samenstelling c.gluc 10%]_dos_ptm_adj [13,6;27,3;40,9;54,5 mL/kg/dag]
 [samenstelling c.gluc 10%]_dos_rte_adj <0 ..>
 [samenstelling c.gluc 10%]_dos_tot_adj <0 ..>
 [samenstelling c.gluc 10%.koolhydraat]_cmp_qty [0,1 g]
-[samenstelling c.gluc 10%.koolhydraat]_orb_qty [20;40;60 g]
+[samenstelling c.gluc 10%.koolhydraat]_orb_qty [15;30;45;60 g]
 [samenstelling c.gluc 10%.koolhydraat]_cmp_cnc [0,1 g/mL]
-[samenstelling c.gluc 10%.koolhydraat]_orb_cnc [0,02;0,03 g/mL .. 0,06;0,07 g/mL]
-[samenstelling c.gluc 10%.koolhydraat]_dos_qty [20;40;60 g]
-[samenstelling c.gluc 10%.koolhydraat]_dos_ptm [20;40;60 g/dag]
-[samenstelling c.gluc 10%.koolhydraat]_dos_rte [0,48 g/uur..2,89 g/uur]
+[samenstelling c.gluc 10%.koolhydraat]_orb_cnc [0,02 g/mL .. 0,07 g/mL]
+[samenstelling c.gluc 10%.koolhydraat]_dos_qty [15;30;45;60 g]
+[samenstelling c.gluc 10%.koolhydraat]_dos_ptm [15;30;45;60 g/dag]
+[samenstelling c.gluc 10%.koolhydraat]_dos_rte [0,4 g/uur..2,89 g/uur]
 [samenstelling c.gluc 10%.koolhydraat]_dos_tot <0 ..>
-[samenstelling c.gluc 10%.koolhydraat]_dos_qty_adj [1,82;3,64;5,45 g/kg]
-[samenstelling c.gluc 10%.koolhydraat]_dos_ptm_adj [1,82;3,64;5,45 g/kg/dag]
+[samenstelling c.gluc 10%.koolhydraat]_dos_qty_adj [1,36;2,73;4,09;5,45 g/kg]
+[samenstelling c.gluc 10%.koolhydraat]_dos_ptm_adj [1,36;2,73;4,09;5,45 g/kg/dag]
 [samenstelling c.gluc 10%.koolhydraat]_dos_rte_adj [0,04 g/kg/uur..0,26 g/kg/uur]
 [samenstelling c.gluc 10%.koolhydraat]_dos_tot_adj <0 ..>
 []_adj_qty [11 kg]
@@ -560,24 +560,24 @@ Route
 INTRAVENEUS
 Schedule
 []_sch_frq [1 x/dag]
-[]_sch_tme [20,8;20,9 uur .. 23,1;23,7;24 uur]
+[]_sch_tme [20 uur..24 uur]
 Orderable
 [samenstelling c]_ord_qty <0 mL..>
-[samenstelling c]_orb_qty [430;431;432 mL .. 743;744;830 mL]
+[samenstelling c]_orb_qty [430;431;432 mL .. 793;794;830 mL]
 [samenstelling c]_ord_cnt <0 x..>
 [samenstelling c]_dos_cnt [1 x]
-[samenstelling c]_dos_qty [430;431;432 mL .. 743;744;830 mL]
-[samenstelling c]_dos_ptm [430;431;432 mL/dag .. 743;744;830 mL/dag]
+[samenstelling c]_dos_qty [430;431;432 mL .. 793;794;830 mL]
+[samenstelling c]_dos_ptm [430;431;432 mL/dag .. 793;794;830 mL/dag]
 [samenstelling c]_dos_rte [20;25;30;35;40 mL/uur]
 [samenstelling c]_dos_tot <0 ..>
-[samenstelling c]_dos_qty_adj [39,1;39,2;39,3 mL/kg .. 67,5;67,6;75,5 mL/kg]
-[samenstelling c]_dos_ptm_adj [39,1;39,2;39,3 mL/kg/dag .. 67,5;67,6;75,5 mL/kg/dag]
+[samenstelling c]_dos_qty_adj [39,1;39,2;39,3 mL/kg .. 72,1;72,2;75,5 mL/kg]
+[samenstelling c]_dos_ptm_adj [39,1;39,2;39,3 mL/kg/dag .. 72,1;72,2;75,5 mL/kg/dag]
 [samenstelling c]_dos_rte_adj [1,82;2,27;2,73;3,18;3,64 mL/kg/uur]
 [samenstelling c]_dos_tot_adj <0 ..>
 [samenstelling c.Samenstelling C]_cmp_qty [1 mL]
 [samenstelling c.Samenstelling C]_orb_qty [150;200;250 mL]
 [samenstelling c.Samenstelling C]_orb_cnt [150;200;250 x]
-[samenstelling c.Samenstelling C]_orb_cnc [0,18;0,2 x .. 0,58 x]
+[samenstelling c.Samenstelling C]_orb_cnc [0,18;0,19 x .. 0,58 x]
 [samenstelling c.Samenstelling C]_ord_qty <0 mL..>
 [samenstelling c.Samenstelling C]_ord_cnt <0 x..>
 [samenstelling c.Samenstelling C]_dos_qty [150;200;250 mL]
@@ -725,7 +725,7 @@ Orderable
 [samenstelling c.KCl 7,4%]_cmp_qty [1 mL]
 [samenstelling c.KCl 7,4%]_orb_qty [20;21;22;23;24 mL]
 [samenstelling c.KCl 7,4%]_orb_cnt [20;21;22;23;24 x]
-[samenstelling c.KCl 7,4%]_orb_cnc [0,02;0,03 x .. 0,06 x]
+[samenstelling c.KCl 7,4%]_orb_cnc [0,02 x..0,06 x]
 [samenstelling c.KCl 7,4%]_ord_qty <0 mL..>
 [samenstelling c.KCl 7,4%]_ord_cnt <0 x..>
 [samenstelling c.KCl 7,4%]_dos_qty [20;21;22;23;24 mL]
@@ -739,7 +739,7 @@ Orderable
 [samenstelling c.KCl 7,4%.kalium]_cmp_qty [1 mmol]
 [samenstelling c.KCl 7,4%.kalium]_orb_qty [20;21;22;23;24 mmol]
 [samenstelling c.KCl 7,4%.kalium]_cmp_cnc [1 mmol/mL]
-[samenstelling c.KCl 7,4%.kalium]_orb_cnc [0,02;0,03 mmol/mL .. 0,06 mmol/mL]
+[samenstelling c.KCl 7,4%.kalium]_orb_cnc [0,02 mmol/mL..0,06 mmol/mL]
 [samenstelling c.KCl 7,4%.kalium]_dos_qty [20;21;22;23;24 mmol]
 [samenstelling c.KCl 7,4%.kalium]_dos_ptm [20;21;22;23;24 mmol/dag]
 [samenstelling c.KCl 7,4%.kalium]_dos_rte [0,48 mmol/uur..2,23 mmol/uur]
@@ -751,7 +751,7 @@ Orderable
 [samenstelling c.KCl 7,4%.chloor]_cmp_qty [1 mmol]
 [samenstelling c.KCl 7,4%.chloor]_orb_qty [20;21;22;23;24 mmol]
 [samenstelling c.KCl 7,4%.chloor]_cmp_cnc [1 mmol/mL]
-[samenstelling c.KCl 7,4%.chloor]_orb_cnc [0,02;0,03 mmol/mL .. 0,06 mmol/mL]
+[samenstelling c.KCl 7,4%.chloor]_orb_cnc [0,02 mmol/mL..0,06 mmol/mL]
 [samenstelling c.KCl 7,4%.chloor]_dos_qty [20;21;22;23;24 mmol]
 [samenstelling c.KCl 7,4%.chloor]_dos_ptm [20;21;22;23;24 mmol/dag]
 [samenstelling c.KCl 7,4%.chloor]_dos_rte [0,48 mmol/uur..2,23 mmol/uur]
@@ -761,41 +761,41 @@ Orderable
 [samenstelling c.KCl 7,4%.chloor]_dos_rte_adj [0,04 mmol/kg/uur..0,2 mmol/kg/uur]
 [samenstelling c.KCl 7,4%.chloor]_dos_tot_adj <0 ..>
 [samenstelling c.gluc 10%]_cmp_qty [1 mL]
-[samenstelling c.gluc 10%]_orb_qty [200;400;600 mL]
-[samenstelling c.gluc 10%]_orb_cnt [200;400;600 x]
-[samenstelling c.gluc 10%]_orb_cnc [0,24;0,27 x .. 0,63;0,64;0,72 x]
+[samenstelling c.gluc 10%]_orb_qty [150;300;450;600 mL]
+[samenstelling c.gluc 10%]_orb_cnt [150;300;450;600 x]
+[samenstelling c.gluc 10%]_orb_cnc [0,2 x .. 0,71;0,72 x]
 [samenstelling c.gluc 10%]_ord_qty <0 mL..>
 [samenstelling c.gluc 10%]_ord_cnt <0 x..>
-[samenstelling c.gluc 10%]_dos_qty [200;400;600 mL]
-[samenstelling c.gluc 10%]_dos_ptm [200;400;600 mL/dag]
-[samenstelling c.gluc 10%]_dos_rte [4,82 mL/uur..28,9 mL/uur]
+[samenstelling c.gluc 10%]_dos_qty [150;300;450;600 mL]
+[samenstelling c.gluc 10%]_dos_ptm [150;300;450;600 mL/dag]
+[samenstelling c.gluc 10%]_dos_rte [4,03 mL/uur..28,9 mL/uur]
 [samenstelling c.gluc 10%]_dos_tot <0 ..>
-[samenstelling c.gluc 10%]_dos_qty_adj [18,2;36,4;54,5 mL/kg]
-[samenstelling c.gluc 10%]_dos_ptm_adj [18,2;36,4;54,5 mL/kg/dag]
+[samenstelling c.gluc 10%]_dos_qty_adj [13,6;27,3;40,9;54,5 mL/kg]
+[samenstelling c.gluc 10%]_dos_ptm_adj [13,6;27,3;40,9;54,5 mL/kg/dag]
 [samenstelling c.gluc 10%]_dos_rte_adj <0 ..>
 [samenstelling c.gluc 10%]_dos_tot_adj <0 ..>
 [samenstelling c.gluc 10%.energie]_cmp_qty [0,4 kCal]
-[samenstelling c.gluc 10%.energie]_orb_qty [80;160;240 kCal]
+[samenstelling c.gluc 10%.energie]_orb_qty [60;120;180;240 kCal]
 [samenstelling c.gluc 10%.energie]_cmp_cnc [0,4 kCal/mL]
-[samenstelling c.gluc 10%.energie]_orb_cnc [0,1;0,11 kCal/mL .. 0,25;0,29 kCal/mL]
-[samenstelling c.gluc 10%.energie]_dos_qty [80;160;240 kCal]
-[samenstelling c.gluc 10%.energie]_dos_ptm [80;160;240 kCal/dag]
-[samenstelling c.gluc 10%.energie]_dos_rte [1,93 kCal/uur..11,6 kCal/uur]
+[samenstelling c.gluc 10%.energie]_orb_cnc [0,08 kCal/mL .. 0,29 kCal/mL]
+[samenstelling c.gluc 10%.energie]_dos_qty [60;120;180;240 kCal]
+[samenstelling c.gluc 10%.energie]_dos_ptm [60;120;180;240 kCal/dag]
+[samenstelling c.gluc 10%.energie]_dos_rte [1,61 kCal/uur..11,6 kCal/uur]
 [samenstelling c.gluc 10%.energie]_dos_tot <0 ..>
-[samenstelling c.gluc 10%.energie]_dos_qty_adj [7,27;14,5;21,8 kCal/kg]
-[samenstelling c.gluc 10%.energie]_dos_ptm_adj [7,27;14,5;21,8 kCal/kg/dag]
-[samenstelling c.gluc 10%.energie]_dos_rte_adj [0,18 kCal/kg/uur..1,05 kCal/kg/uur]
+[samenstelling c.gluc 10%.energie]_dos_qty_adj [5,45;10,9;16,4;21,8 kCal/kg]
+[samenstelling c.gluc 10%.energie]_dos_ptm_adj [5,45;10,9;16,4;21,8 kCal/kg/dag]
+[samenstelling c.gluc 10%.energie]_dos_rte_adj [0,15 kCal/kg/uur..1,05 kCal/kg/uur]
 [samenstelling c.gluc 10%.energie]_dos_tot_adj <0 ..>
 [samenstelling c.gluc 10%.koolhydraat]_cmp_qty [0,1 g]
-[samenstelling c.gluc 10%.koolhydraat]_orb_qty [20;40;60 g]
+[samenstelling c.gluc 10%.koolhydraat]_orb_qty [15;30;45;60 g]
 [samenstelling c.gluc 10%.koolhydraat]_cmp_cnc [0,1 g/mL]
-[samenstelling c.gluc 10%.koolhydraat]_orb_cnc [0,02;0,03 g/mL .. 0,06;0,07 g/mL]
-[samenstelling c.gluc 10%.koolhydraat]_dos_qty [20;40;60 g]
-[samenstelling c.gluc 10%.koolhydraat]_dos_ptm [20;40;60 g/dag]
-[samenstelling c.gluc 10%.koolhydraat]_dos_rte [0,48 g/uur..2,89 g/uur]
+[samenstelling c.gluc 10%.koolhydraat]_orb_cnc [0,02 g/mL .. 0,07 g/mL]
+[samenstelling c.gluc 10%.koolhydraat]_dos_qty [15;30;45;60 g]
+[samenstelling c.gluc 10%.koolhydraat]_dos_ptm [15;30;45;60 g/dag]
+[samenstelling c.gluc 10%.koolhydraat]_dos_rte [0,4 g/uur..2,89 g/uur]
 [samenstelling c.gluc 10%.koolhydraat]_dos_tot <0 ..>
-[samenstelling c.gluc 10%.koolhydraat]_dos_qty_adj [1,82;3,64;5,45 g/kg]
-[samenstelling c.gluc 10%.koolhydraat]_dos_ptm_adj [1,82;3,64;5,45 g/kg/dag]
+[samenstelling c.gluc 10%.koolhydraat]_dos_qty_adj [1,36;2,73;4,09;5,45 g/kg]
+[samenstelling c.gluc 10%.koolhydraat]_dos_ptm_adj [1,36;2,73;4,09;5,45 g/kg/dag]
 [samenstelling c.gluc 10%.koolhydraat]_dos_rte_adj [0,04 g/kg/uur..0,26 g/kg/uur]
 [samenstelling c.gluc 10%.koolhydraat]_dos_tot_adj <0 ..>
 []_adj_qty [11 kg]

@@ -67,8 +67,6 @@ module Issue1425Shadow =
                 ord
             else
                 let orbQty = ord.Orderable.OrderableQuantity |> Quantity.toOrdVar
-                let incrs u = Src.roundedSteps u |> List.map ValueRange.Increment.create
-
                 if
                     orbQty.Variable
                     |> Informedica.GenSolver.Lib.Variable.getUnit
@@ -79,7 +77,7 @@ module Issue1425Shadow =
                 else
                     let incrOrd =
                         ord
-                        |> Src.increaseQuantityIncrement logger maxQtyCount (incrs Units.Volume.milliLiter)
+                        |> Src.increaseQuantityIncrement logger maxQtyCount Src.quantityIncrements
 
                     if ord = incrOrd then
                         Ok ord
@@ -91,7 +89,7 @@ module Issue1425Shadow =
                             let ord =
                                 let doseOrd =
                                     ord
-                                    |> Src.increaseDoseQuantityIncrement maxQtyCount (incrs Units.Volume.milliLiter)
+                                    |> Src.increaseDoseQuantityIncrement maxQtyCount Src.quantityIncrements
 
                                 if doseOrd = ord then
                                     ord
@@ -101,7 +99,7 @@ module Issue1425Shadow =
                                     |> Result.defaultValue ord
 
                             let steps =
-                                incrs (Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour)
+                                Src.rateIncrements
                                 |> rateSteps (ord |> rateWindow)
 
                             // no step fits: the rate keeps its increment

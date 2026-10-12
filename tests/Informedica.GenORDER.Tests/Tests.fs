@@ -2588,7 +2588,7 @@ module IncreaseQuantityIncrementTests =
 
 
     let private increase maxCount med =
-        let incrs = Order.roundedSteps Units.Volume.milliLiter |> List.map Increment.create
+        let incrs = Order.quantityIncrements
 
         let ord = med |> minMax
         ord,
@@ -2675,7 +2675,7 @@ module IncreaseQuantityIncrementTests =
                                 |> Quantity
                         }
 
-                    let incrs = Order.roundedSteps Units.Volume.milliLiter |> List.map Increment.create
+                    let incrs = Order.quantityIncrements
 
                     orb
                     |> Order.Orderable.increaseQuantityIncrement Logging.noOp (BigRational.fromInt 2) incrs
@@ -2719,11 +2719,57 @@ module IncreaseQuantityIncrementTests =
                 test "amfo with a fixed dose count: the dose quantity increment is left as it is" {
                     let ord = Scenarios.amfo |> minMax
 
-                    let incrs = Order.roundedSteps Units.Volume.milliLiter |> List.map Increment.create
+                    let incrs = Order.quantityIncrements
 
                     ord
                     |> Order.increaseDoseQuantityIncrement (BigRational.fromInt 10) incrs
                     |> Expect.equal "the same order" ord
+                }
+
+                test "a quantity of 10 to 5000 mL is raised to steps of at most 50 mL" {
+                    let ml = ValueUnit.singleWithUnit Units.Volume.milliLiter
+
+                    let wide =
+                        Variable.ValueRange.minIncrMaxToValueRange
+                            (ml 10N |> Variable.ValueRange.Minimum.create true)
+                            (ml 1N |> Increment.create)
+                            (ml 5000N |> Variable.ValueRange.Maximum.create true)
+
+                    // set in place of the range, which a solve would only narrow
+                    let widen qty =
+                        let ovar = qty |> OrderVariable.Quantity.toOrdVar
+                        { ovar with OrderVariable.Variable.Values = wide } |> Quantity
+
+                    let ord = Scenarios.pcmDrink |> minMax
+
+                    { ord.Orderable with
+                        OrderableQuantity = ord.Orderable.OrderableQuantity |> widen
+                        Components =
+                            ord.Orderable.Components
+                            |> List.map (fun cmp -> { cmp with OrderableQuantity = cmp.OrderableQuantity |> widen })
+                    }
+                    |> Order.Orderable.increaseQuantityIncrement
+                        Logging.noOp
+                        (BigRational.fromInt 10)
+                        Order.quantityIncrements
+                    |> incrsOf
+                    |> List.distinct
+                    |> Expect.equal "one increment of 50 mL" [ Some [| 50N |] ]
+                }
+
+                test "a rate of 50 to 500 mL/uur is raised to steps of at most 10 mL/uur" {
+                    Scenarios.naclLargeRateText
+                    |> TestOrder.parse
+                    |> TestOrder.toOrder
+                    |> TestOrder.solve CalcMinMax
+                    |> TestOrder.solve IncreaseIncrements
+                    |> _.Orderable.Dose.Rate
+                    |> OrderVariable.Rate.toOrdVar
+                    |> OrderVariable.getVar
+                    |> _.Values
+                    |> Variable.ValueRange.getIncr
+                    |> Option.map (Increment.toValueUnit >> ValueUnit.getValue)
+                    |> Expect.equal "an increment of 10 mL/uur" (Some [| 10N |])
                 }
 
                 test "pcmDrink: every component already fits, so the orderable is left as it is" {
@@ -3657,6 +3703,17 @@ module ReachablePickTests =
                     |> Quantity.toOrdVar
                     |> valuesOf
                     |> Expect.equal "130 to 280 mL by 50" [| 130N; 180N; 230N; 280N |]
+                }
+
+                test "a rate of 50 to 500 mL/uur is pruned to 60 to 480 by 30, three times the largest step" {
+                    Scenarios.naclLargeRateText
+                    |> parse
+                    |> solvedWith processed
+                    |> snd
+                    |> _.Orderable.Dose.Rate
+                    |> Rate.toOrdVar
+                    |> valuesOf
+                    |> Expect.equal "60 to 480 by 30" [| 60N .. 30N .. 480N |]
                 }
 
                 // the timings are run in sequence, so other tests do not slow them down

@@ -3689,10 +3689,28 @@ module Order =
     let solveOrder msg printErr logger = solve msg false printErr logger
 
 
-    /// The rounded steps in unit u: an increment is raised along them and a prune keeps their multiples.
-    let roundedSteps u =
+    /// The rounded steps in unit u up to maxStep: an increment is raised along them and a prune keeps
+    /// their multiples.
+    let roundedSteps maxStep u =
         [ 1N / 10N; 1N / 2N; 1N; 5N; 10N; 50N; 100N; 500N ]
+        |> List.filter (fun step -> step <= maxStep)
         |> List.map (ValueUnit.singleWithUnit u)
+
+
+    /// The rounded steps of a quantity in mL, up to 50 mL.
+    let quantitySteps = roundedSteps 50N Units.Volume.milliLiter
+
+
+    /// The rounded steps of a rate in mL/uur, up to 10 mL/uur.
+    let rateSteps = roundedSteps 10N (Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour)
+
+
+    /// The increments a quantity in mL is raised along.
+    let quantityIncrements = quantitySteps |> List.map ValueRange.Increment.create
+
+
+    /// The increments a rate in mL/uur is raised along.
+    let rateIncrements = rateSteps |> List.map ValueRange.Increment.create
 
 
     /// Raise the increment of the orderable dose quantity to a step in incrs that is a multiple of the
@@ -3754,9 +3772,7 @@ module Order =
             ord
         else
             let orbQty = ord.Orderable.OrderableQuantity |> Quantity.toOrdVar
-            // the increments used to increase
-            // TODO: use increment from constraint
-            let incrs u = roundedSteps u |> List.map ValueRange.Increment.create
+            // TODO: use the increments from the constraints
             // only increase incr for volume units
             if
                 orbQty.Variable
@@ -3766,9 +3782,7 @@ module Order =
             then
                 ord
             else
-                let incrOrd =
-                    ord
-                    |> increaseQuantityIncrement logger maxQtyCount (incrs Units.Volume.milliLiter)
+                let incrOrd = ord |> increaseQuantityIncrement logger maxQtyCount quantityIncrements
 
                 if ord = incrOrd then
                     Ok ord
@@ -3790,8 +3804,7 @@ module Order =
                     | Ok ord ->
                         // the dose quantity after the components, on a multiple of their increment
                         let ord =
-                            let doseOrd =
-                                ord |> increaseDoseQuantityIncrement maxQtyCount (incrs Units.Volume.milliLiter)
+                            let doseOrd = ord |> increaseDoseQuantityIncrement maxQtyCount quantityIncrements
 
                             if doseOrd = ord then
                                 ord
@@ -3802,9 +3815,7 @@ module Order =
 
                         let incrOrd =
                             ord // increased increment order
-                            |> increaseRateIncrement
-                                maxRateCount
-                                (incrs (Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour))
+                            |> increaseRateIncrement maxRateCount rateIncrements
 
                         if incrOrd = ord then
                             Ok ord
@@ -3829,9 +3840,7 @@ module Order =
 
 
     /// The rounded steps a pruned quantity or rate keeps the multiples of, in mL and in mL/uur.
-    let pruneSteps =
-        roundedSteps Units.Volume.milliLiter
-        @ roundedSteps (Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour)
+    let pruneSteps = quantitySteps @ rateSteps
 
 
     module ValueCaps =

@@ -1706,3 +1706,37 @@ let amfoWithNaClTwoStrengthsTimed =
                 Max = 2N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
             }
     }
+
+
+/// NaCl 0,9% for an adult: 1000 mL over 2 to 20 uur, a timed order whose rate runs from 50 to
+/// 500 mL/uur, more values than a cap keeps.
+let naclLargeRateText =
+    """
+Id: nacl-large-rate
+Name: NaCl 0,9%
+Quantity:
+Quantities:
+Route: INTRAVENEUS
+OrderType: TimedOrder
+Adjust: 70 kg
+Frequencies: 1 x/dag
+Time: 120 min - 1200 min
+Dose: [dun] ml, [qty] 1000 ml/dosis
+Div:
+DoseCount: 1 x
+Components:
+
+	Name: NaCl 0,9%
+	Form: infuusvloeistof
+	Quantities: 1 ml
+	Divisible: 1
+	Dose:
+	Solution:
+	Substances:
+
+		Name: natrium
+		Quantities:
+		Concentrations: 0.154 mmol/ml
+		Dose:
+		Solution:
+"""
