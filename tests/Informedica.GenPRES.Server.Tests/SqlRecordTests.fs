@@ -78,10 +78,16 @@ let v4FixtureText () =
     File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v4.json"))
 
 
-/// The same version as this release writes it, structure version 5: the version 4 fixture
-/// upgraded, parsed and written, with the access on every scenario, any.
-let currentFixtureText () =
+/// The stored fixture of structure version 5: the version 4 fixture upgraded, parsed and
+/// written, with the access on every scenario, any.
+let v5FixtureText () =
     File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v5.json"))
+
+
+/// The same version as this release writes it, structure version 6: the version 5 fixture
+/// upgraded, parsed and written, with the products on every component, none.
+let currentFixtureText () =
+    File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v6.json"))
 
 
 let parse (text: string) =
@@ -339,23 +345,42 @@ let tests =
                 | other -> failtest $"expected a parsed version, got %A{other}"
             }
 
-            test "this release reads and writes structure version 5; 1 to 4 are left as they are, 0 and 6 are reasons" {
+            test "this release reads and writes structure version 6; 1 to 5 are left as they are, 0 and 7 are reasons" {
                 let json = currentFixtureText ()
 
                 (SqlDatabase.jsonVersionRead, SqlDatabase.jsonVersionWritten)
-                |> Expect.equal "read and written" (5, 5)
+                |> Expect.equal "read and written" (6, 6)
 
                 SqlDatabase.upgrade 1 json |> Expect.equal "1 leaves the JSON" (Ok json)
                 SqlDatabase.upgrade 2 json |> Expect.equal "2 leaves the JSON" (Ok json)
                 SqlDatabase.upgrade 3 json |> Expect.equal "3 to 4 leaves the JSON" (Ok json)
                 SqlDatabase.upgrade 4 json |> Expect.equal "4 to 5 leaves the JSON" (Ok json)
-                SqlDatabase.upgrade 5 json |> Expect.equal "5 is current" (Ok json)
+                SqlDatabase.upgrade 5 json |> Expect.equal "5 to 6 leaves the JSON" (Ok json)
+                SqlDatabase.upgrade 6 json |> Expect.equal "6 is current" (Ok json)
 
                 SqlDatabase.upgrade 0 json
                 |> Expect.equal "0" (Error "JSON structure version 0 does not exist")
 
-                SqlDatabase.upgrade 6 json
-                |> Expect.equal "6" (Error "JSON structure version 6 is newer than this release knows")
+                SqlDatabase.upgrade 7 json
+                |> Expect.equal "7" (Error "JSON structure version 7 is newer than this release knows")
+            }
+
+            test "a stored version 5 row, without the products, reads with none and is written with them" {
+                let text = v5FixtureText ()
+                text.Contains "\"Products\"" |> Expect.isFalse "no products in the row"
+
+                match text |> SqlDatabase.upgrade 5 |> Result.map parse with
+                | Ok(Ok v) ->
+                    v.Plan.Contexts
+                    |> Array.collect _.Context.Scenarios
+                    |> Array.collect (_.Order.Orderable.Components >> List.toArray)
+                    |> Array.collect (_.Products >> List.toArray)
+                    |> Expect.isEmpty "no products on any component"
+
+                    v
+                    |> SqlDatabase.toJson
+                    |> Expect.equal "the current fixture" (currentFixtureText ())
+                | other -> failtest $"expected a parsed version, got %A{other}"
             }
 
             test "a stored version 4 row, without the access, reads with any access and is written with it" {

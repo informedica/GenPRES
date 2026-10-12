@@ -320,6 +320,12 @@ update the list, and the solve itself cannot see a product, since the `Component
   of the products that apply: the step changes the values of its variable, never its defined
   constraints. When that removes a value, the order is solved again, as harmonize does today.
   Repeated, it settles: a step only removes values.
+- **One rule decides that a product applies.** `PrescriptionRule.filterProducts` judges products
+  on the first evaluation today, through `ComponentItem`s that `OrderContext.evaluateOrder` builds.
+  Step 2c defines the rule once, as `ComponentProduct.applies` in GenORDER, and both the first
+  evaluation and every later solve use it; `OrderScenario.ProductsIds` comes from the products that
+  apply, so `filterProducts` and the `ComponentItem` shape leave this path. The solve never writes
+  the products on the order: they are set when the order is built or read, as the items are.
 - **A cleared pick brings its products back.** Reopening resets the values from the defined
   constraints, and the products that apply are derived again from those values, so the strengths
   and products a pick removed return when it is cleared.
@@ -422,13 +428,15 @@ the agent when told to.
      amoxicilline/clavulaanzuur from a rule carries its two products with their strengths; a `Dto`
      round trip keeps them; the text round trip in `MedicationTextTests` keeps a Products block; a
      liquid without reconstitution from a rule carries its products with a form quantity of 1 mL; a
-     plan without products still reads. `feat(genorder): carry the products of a component`.
+     plan without products still reads; `amoxClavText` lists its two products.
+     `feat(genorder): carry the products of a component`.
    - **2b, contract, server and client.** The Shared `Component` with its products, both server
      mappers, and the client's pass-through. Tests: an order mapped to the Shared type and back
      keeps its products. `feat(api): carry the products of a component`, its body listing the
      projects it touches.
-   - **2c, GenORDER.** The product step in place of harmonize, and `OrderScenario.ProductsIds`
-     following the products that apply. `amoxClavText` lists its two products. Tests:
+   - **2c, GenORDER.** `ComponentProduct.applies`, used by the first evaluation in place of
+     `filterProducts` and by the product step in place of harmonize, and `OrderScenario.ProductsIds`
+     following the products that apply. Tests:
      amoxicilline/clavulaanzuur keeps 5 and 10 mg/mL and both products; a pick of 10 mg/mL
      clavulaanzuur leaves one product and 200 mg clavulaanzuur; amfotericine in two strengths
      beside saccharose keeps 2 and 4 mg/mL after its first solve, so the fixture of #1421 exercises
@@ -438,7 +446,9 @@ the agent when told to.
      values is refused; a liquid built from a rule keeps its products, compared at 1 mL; an order
      whose components carry no products solves as today; a
      plan stored under structure version 5, read and solved again, keeps every strength of its
-     items. The golden orders that move are listed in the commit.
+     items. The golden orders that move are listed in the commit. To decide there: reading a
+     component Dto drops a product strength whose value does not read, so a damaged stored plan
+     narrows less; whether that should fail the read instead.
      `fix(genorder): pair item strengths by product`.
 
 3. **The rounded steps capped, GenORDER.** `Order.roundedSteps` with a largest step,
