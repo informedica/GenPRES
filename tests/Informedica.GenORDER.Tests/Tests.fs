@@ -113,6 +113,12 @@ module TestOrder =
         |> Result.defaultWith (fun (_, msgs) -> failtest $"not solved: %A{msgs}")
 
 
+    /// The order of the medication as the dose dialog gets it: CalcMinMax when the scenario is made,
+    /// CalcValues when it is selected, SolveOrder after it.
+    let processed med =
+        med |> toOrder |> solve CalcMinMax |> solve CalcValues |> solve SolveOrder
+
+
     /// The values of an order variable, none when it holds no value set.
     let valuesOf ovar =
         ovar
@@ -290,7 +296,8 @@ module Pipeline =
                         |> Expect.isFalse "CalcValues should not have ValueSetOverflow"
                 }
 
-                test "kaliumchloride OnceTimed: every rate pick solves and keeps the time within 60 to 120 min" {
+                test
+                    "kaliumchloride OnceTimed: the median rate cleared gives its list back, and every rate pick keeps the time within 60 to 120 min" {
                     let solved =
                         [
                             "CalcMinMax", CalcMinMax
@@ -315,7 +322,21 @@ module Pipeline =
                         |> Option.map (ValueUnit.convertTo Units.Time.minute >> ValueUnit.getValue)
                         |> Option.defaultValue [||]
 
-                    let rate = solved.Orderable.Dose.Rate |> OV.Rate.toOrdVar
+                    // the rate gets its median; cleared as the client clears it, its list comes back. The dose
+                    // quantity counts as picked: it is the median the norm dose set, not a pick, and without it
+                    // among the picks the reopen gives the dose quantity its list back and the rate a range
+                    let reopened =
+                        let qty = solved.Orderable.Dose.Quantity |> OV.Quantity.toOrdVar |> OrderProcessor.nameOf
+
+                        solved
+                        |> Order.fromOrdVars [ solved.Orderable.Dose.Rate |> OV.Rate.toOrdVar |> OV.clear ]
+                        |> fun ord -> Reopen(ord, [ qty ])
+                        |> OrderProcessor.processPipeline noLogger
+                        |> function
+                            | Ok ord -> ord
+                            | Error(_, msgs) -> failtest $"the reopen failed: %A{msgs}"
+
+                    let rate = reopened.Orderable.Dose.Rate |> OV.Rate.toOrdVar
 
                     let count =
                         rate
@@ -327,7 +348,7 @@ module Pipeline =
 
                     for nth in 0 .. count - 1 do
                         match
-                            solved
+                            reopened
                             |> Order.fromOrdVars [ rate |> OV.setNthValue nth ]
                             |> Order.solveOrder "pick" false noLogger
                         with
@@ -2757,7 +2778,7 @@ module IncreaseQuantityIncrementTests =
                     |> Expect.equal "one increment of 50 mL" [ Some [| 50N |] ]
                 }
 
-                test "a rate of 50 to 500 mL/uur is raised to steps of at most 10 mL/uur" {
+                test "a timed rate of 50 to 500 mL/uur keeps its step of 0,1 mL/uur" {
                     Scenarios.naclLargeRateText
                     |> TestOrder.parse
                     |> TestOrder.toOrder
@@ -2769,7 +2790,7 @@ module IncreaseQuantityIncrementTests =
                     |> _.Values
                     |> Variable.ValueRange.getIncr
                     |> Option.map (Increment.toValueUnit >> ValueUnit.getValue)
-                    |> Expect.equal "an increment of 10 mL/uur" (Some [| 10N |])
+                    |> Expect.equal "an increment of 0,1 mL/uur" (Some [| 1N / 10N |])
                 }
 
                 test "pcmDrink: every component already fits, so the orderable is left as it is" {
@@ -3643,7 +3664,7 @@ module ReachablePickTests =
                     |> Expect.equal "6 to 12 by 2" [ [| 6N .. 2N .. 12N |] ]
                 }
 
-                test "a binding kalium concentration limit raises the first tpn dose quantity from 430 to 530 mL" {
+                test "a binding kalium concentration limit raises the first tpn dose quantity from 380 to 530 mL" {
                     let firstDoseQuantity med =
                         med
                         |> solvedWith processed
@@ -3654,7 +3675,7 @@ module ReachablePickTests =
                         |> Array.head
 
                     (Scenarios.tpn |> firstDoseQuantity, Scenarios.tpnKaliumConcentrationBinding |> firstDoseQuantity)
-                    |> Expect.equal "430 and 530 mL" (430N, 530N)
+                    |> Expect.equal "380 and 530 mL" (380N, 530N)
                 }
 
                 test "tpn with a binding kalium rate limit keeps the kalium rate under 0,09 mmol/kg/uur" {
@@ -3705,7 +3726,7 @@ module ReachablePickTests =
                     |> Expect.equal "130 to 280 mL by 50" [| 130N; 180N; 230N; 280N |]
                 }
 
-                test "a rate of 50 to 500 mL/uur is pruned to 60 to 480 by 30, three times the largest step" {
+                test "a rate of 50 to 500 mL/uur is pruned to 60 to 480 by 30 and gets its median, 270 mL/uur" {
                     Scenarios.naclLargeRateText
                     |> parse
                     |> solvedWith processed
@@ -3713,7 +3734,7 @@ module ReachablePickTests =
                     |> _.Orderable.Dose.Rate
                     |> Rate.toOrdVar
                     |> valuesOf
-                    |> Expect.equal "60 to 480 by 30" [| 60N .. 30N .. 480N |]
+                    |> Expect.equal "the median of 60 to 480 by 30" [| 270N |]
                 }
 
                 // the timings are run in sequence, so other tests do not slow them down
@@ -3746,6 +3767,229 @@ module ReachablePickTests =
             ]
 
 
+/// The rate of a timed or once timed order gets its values only once the dose quantity has one
+/// value, and then the median of them; a cleared rate gives its list back. The orders come from
+/// TestOrder.processed, the commands the dose dialog sends; ReachablePickTests keeps its own, which
+/// also runs IncreaseIncrements, times the run and takes the caps.
+module RateAfterQuantityTests =
+
+    open TestOrder
+
+    module Quantity = OrderVariable.Quantity
+    module Rate = OrderVariable.Rate
+
+
+    let private doseQuantity (ord: Order) = ord.Orderable.Dose.Quantity |> Quantity.toOrdVar
+
+
+    let private rate (ord: Order) = ord.Orderable.Dose.Rate |> Rate.toOrdVar
+
+
+    let private time (ord: Order) =
+        match ord.Schedule |> Order.Schedule.toOrdVars |> snd with
+        | Some tme -> tme
+        | None -> failtest "a timed order without a time"
+
+
+    let private isRange ovar = ovar |> OrderVariable.getVar |> Variable.isMinIncrMax
+
+
+    let private minimumOf ovar =
+        ovar
+        |> OrderVariable.getVar
+        |> Variable.getValueRange
+        |> Variable.ValueRange.getMin
+        |> Option.map (Variable.ValueRange.Minimum.toValueUnit >> ValueUnit.getValue)
+
+
+    let private hours ovar =
+        ovar
+        |> OrderVariable.getValSetValueUnit
+        |> Option.map (ValueUnit.convertTo Units.Time.hour >> ValueUnit.getValue)
+        |> Option.defaultValue [||]
+
+
+    /// The order with the nth value of the order variable picked, solved as a pick from the dialog is.
+    let private pick n ovar ord =
+        ord
+        |> Order.fromOrdVars [ ovar |> OrderVariable.setNthValue n ]
+        |> solve SolveOrder
+
+
+    let private pickMiddleDoseQuantity ord =
+        let qty = ord |> doseQuantity
+        let n = qty |> valuesOf |> Array.length
+        ord |> pick (n / 2) qty, [ qty |> OrderProcessor.nameOf ]
+
+
+    /// The rate cleared as the client clears it: then Reopen with the earlier picks.
+    let private clearRate picks (ord: Order) =
+        ord
+        |> Order.fromOrdVars [ ord |> rate |> OrderVariable.clear ]
+        |> solve (fun ord -> Reopen(ord, picks))
+
+
+    /// Every component quantity picked in turn, as the dialog completes an order.
+    let private complete (ord: Order) =
+        ord.Orderable.Components
+        |> List.map _.Name
+        |> List.fold
+            (fun (o: Order) name ->
+                let qty =
+                    o.Orderable.Components
+                    |> List.find (fun c -> c.Name = name)
+                    |> _.OrderableQuantity
+                    |> Quantity.toOrdVar
+
+                if qty |> valuesOf |> Array.length <= 1 then
+                    o
+                else
+                    o |> pick 0 qty
+            )
+            ord
+
+
+    let tests =
+        testList
+            "the rate of a timed order after the dose quantity"
+            [
+                test
+                    "after CalcMinMax the dose quantity starts where the limits allow: tpn at 191 mL, amfo timed at 22 mL" {
+                    let first med = med |> toOrder |> solve CalcMinMax |> doseQuantity |> minimumOf
+
+                    (Scenarios.tpn |> first, Scenarios.amfoTimed |> first)
+                    |> Expect.equal "191 and 22 mL" (Some [| 191N |], Some [| 22N |])
+                }
+
+                test "processed, tpn and amfo timed keep the rate and the time ranges while the dose quantity is a list" {
+                    for med in [ Scenarios.tpn; Scenarios.amfoTimed ] do
+                        let ord = med |> processed
+
+                        ord |> doseQuantity |> valuesOf |> Array.length > 1
+                        |> Expect.isTrue "a list of dose quantities"
+
+                        ord |> rate |> isRange |> Expect.isTrue "the rate a range"
+                        ord |> time |> valuesOf |> Expect.isEmpty "the time without values"
+                }
+
+                test "tpn through CalcMinMax and SolveOrder, without CalcValues, keeps the rate a range" {
+                    let ord = Scenarios.tpn |> toOrder |> solve CalcMinMax |> solve SolveOrder
+
+                    ord |> doseQuantity |> valuesOf |> Array.length > 1
+                    |> Expect.isTrue "a list of dose quantities"
+
+                    ord |> rate |> isRange |> Expect.isTrue "the rate a range"
+                }
+
+                test "a tpn dose quantity pick gives the rate the median of its list, the time within 20 to 24 uur" {
+                    let ord, _ = Scenarios.tpn |> processed |> pickMiddleDoseQuantity
+
+                    ord
+                    |> rate
+                    |> valuesOf
+                    |> Expect.equal "27 mL/uur, the median of 25 to 29" [| 27N |]
+
+                    ord
+                    |> time
+                    |> hours
+                    |> Array.forall (fun h -> h >= 20N && h <= 24N)
+                    |> Expect.isTrue "the time within 20 to 24 uur"
+                }
+
+                test "a completed tpn solves with the median rate, 18 mL/uur at 380 mL" {
+                    let ord = Scenarios.tpn |> processed |> complete
+
+                    ord |> Order.isSolved |> Expect.isTrue "solved"
+                    ord |> doseQuantity |> valuesOf |> Expect.equal "380 mL" [| 380N |]
+                    ord |> rate |> valuesOf |> Expect.equal "18 mL/uur" [| 18N |]
+                }
+
+                test "the once timed KCl gets the median rate, 24 mL/uur, when the scenario is selected" {
+                    Scenarios.kaliumchlorideOnceTimedText
+                    |> parse
+                    |> toOrder
+                    |> solve CalcMinMax
+                    |> solve CalcValues
+                    |> rate
+                    |> valuesOf
+                    |> Expect.equal "24 mL/uur" [| 24N |]
+                }
+
+                test "a reset of the morfine timed with NaCl offers the rate list, 2,1 to 2,5 mL/uur" {
+                    Scenarios.morfTimedWithNaCl
+                    |> processed
+                    |> solve ReCalcValues
+                    |> rate
+                    |> valuesOf
+                    |> Expect.equal "2,1 to 2,5 by 0,1" [| 21N / 10N .. 1N / 10N .. 25N / 10N |]
+                }
+
+                // a reset prunes with the larger cap, as today: reCalcSteps passes useMax and CalcValues does
+                // not, so the reset list differs from the 60 to 480 by 30 the processing makes
+                test "a reset of the NaCl of 50 to 500 mL/uur offers the rate list, 50 to 500 by 50" {
+                    Scenarios.naclLargeRateText
+                    |> parse
+                    |> processed
+                    |> solve ReCalcValues
+                    |> rate
+                    |> valuesOf
+                    |> Expect.equal "50 to 500 by 50" [| 50N .. 50N .. 500N |]
+                }
+
+                test
+                    "the median rate of tpn cleared gives its list back, a pick from it solves, cleared again the list comes back" {
+                    let ord, picks = Scenarios.tpn |> processed |> pickMiddleDoseQuantity
+                    let rates = [| 25N .. 29N |]
+
+                    let cleared = ord |> clearRate picks
+                    cleared |> rate |> valuesOf |> Expect.equal "25 to 29 mL/uur" rates
+
+                    let picked = cleared |> pick 0 (cleared |> rate)
+                    picked |> Order.isSolved |> Expect.isTrue "solved with the picked rate"
+
+                    picked
+                    |> clearRate (picks @ [ picked |> rate |> OrderProcessor.nameOf ])
+                    |> rate
+                    |> valuesOf
+                    |> Expect.equal "25 to 29 mL/uur again" rates
+                }
+
+                test "the median rate of the morfine timed with NaCl cleared gives its list back, 2,1 to 2,5 mL/uur" {
+                    Scenarios.morfTimedWithNaCl
+                    |> processed
+                    |> clearRate []
+                    |> rate
+                    |> valuesOf
+                    |> Expect.equal "2,1 to 2,5 by 0,1" [| 21N / 10N .. 1N / 10N .. 25N / 10N |]
+                }
+
+                test "the rate stepper sets a rate that is a range to its minimum, its median and its maximum" {
+                    let ord = Scenarios.tpn |> processed
+                    let range = ord |> rate |> OrderVariable.getVar |> Variable.getValueRange
+
+                    let bound get toVu =
+                        range
+                        |> get
+                        |> Option.map (toVu >> ValueUnit.getValue)
+                        |> Option.defaultValue [||]
+
+                    let lo = bound Variable.ValueRange.getMin Variable.ValueRange.Minimum.toValueUnit
+                    let hi = bound Variable.ValueRange.getMax Variable.ValueRange.Maximum.toValueUnit
+
+                    let stepped cmd =
+                        ord |> solve (fun ord -> ChangeProperty(ord, cmd)) |> rate |> valuesOf
+
+                    SetMinOrderableDoseRate |> stepped |> Expect.equal "the minimum" lo
+                    SetMaxOrderableDoseRate |> stepped |> Expect.equal "the maximum" hi
+
+                    SetMedianOrderableDoseRate
+                    |> stepped
+                    |> Array.forall (fun v -> v > lo[0] && v < hi[0])
+                    |> Expect.isTrue "the median between them"
+                }
+            ]
+
+
 [<Tests>]
 let tests =
     testList
@@ -3771,6 +4015,7 @@ let tests =
             GoldenOrderTests.tests
             IncreaseQuantityIncrementTests.tests
             ReachablePickTests.tests
+            RateAfterQuantityTests.tests
             OrderBuilderTests.tests
             MedicationTextTests.MedicationTextFormatTests.tests
             MedicationTextTests.MedicationTextScenarioTests.tests

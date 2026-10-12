@@ -106,7 +106,6 @@ module OrderLogging =
 
         | Events.OrderIncreaseQuantityIncrement _ -> $"increased quantity increment"
 
-        | Events.OrderIncreaseRateIncrement _ -> $"increased rate increment"
 
         | Events.GenFormErrors errs ->
             let msgs = errs |> List.map FormLogging.formatMessage |> String.concat "\n"

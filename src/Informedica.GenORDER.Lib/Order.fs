@@ -312,17 +312,6 @@ module Order =
 
 
             /// <summary>
-            /// Increase the increment of a Dose to a maximum
-            /// count using a list of increments.
-            /// </summary>
-            /// <param name="maxCount">The maximum count</param>
-            /// <param name="incrs">The list of increments</param>
-            /// <param name="dos">The Dose</param>
-            let increaseRateIncrement maxCount incrs dos =
-                { (dos |> inf) with Rate = dos.Rate |> Rate.increaseIncrement maxCount incrs }
-
-
-            /// <summary>
             /// Set min, max or median dose value
             /// </summary>
             /// <param name="set">The function to set the value</param>
@@ -2123,17 +2112,6 @@ module Order =
                         | _ -> orb
 
 
-        /// <summary>
-        /// Increase the Rate increment of an Orderable to a maximum
-        /// count using a list of increments.
-        /// </summary>
-        /// <param name="maxCount">The maximum count</param>
-        /// <param name="incrs">The list of increments</param>
-        /// <param name="orb">The Orderable</param>
-        let increaseRateIncrement maxCount incrs orb =
-            { (orb |> inf) with Dose = orb.Dose |> Dose.increaseRateIncrement maxCount incrs }
-
-
         let setDoseUnit sn du (orb: Orderable) =
             { orb with Components = orb.Components |> List.map (Component.setDoseUnit sn du) }
 
@@ -3180,7 +3158,7 @@ module Order =
                         match ord.Schedule |> Schedule.toOrdVars with
                         | Some frq, Some tme -> [ frq; tme ]
                         | _ -> []
-                    // leave out Orderable.Dose.Rate because drip rate always has values or is solved
+                    // leave out Orderable.Dose.Rate: it gets its values only once the dose quantity has one
                     ord.Orderable.Dose.PerTime |> PerTime.toOrdVar
                     ord.Orderable.Dose.Quantity |> Quantity.toOrdVar
                     // get the rest
@@ -3223,7 +3201,7 @@ module Order =
                         match ord.Schedule |> Schedule.toOrdVars with
                         | _, Some tme -> [ tme ]
                         | _ -> []
-                    // leave out Orderable.Dose.Rate because drip rate always has values or is solved
+                    // leave out Orderable.Dose.Rate: it gets its values only once the dose quantity has one
                     ord.Orderable.Dose.PerTime |> PerTime.toOrdVar
                     ord.Orderable.Dose.Quantity |> Quantity.toOrdVar
                     // get the rest
@@ -3369,17 +3347,6 @@ module Order =
     /// <param name="ord">The Order</param>
     let increaseQuantityIncrement logger maxCount incrs ord =
         { (ord |> inf) with Orderable = ord.Orderable |> Orderable.increaseQuantityIncrement logger maxCount incrs }
-
-
-    /// <summary>
-    /// Increase the Rate increment of an Order to a maximum
-    /// count using a list of increments.
-    /// </summary>
-    /// <param name="maxCount">The maximum count</param>
-    /// <param name="incrs">The list of increments</param>
-    /// <param name="ord">The Order</param>
-    let increaseRateIncrement maxCount incrs ord =
-        { (ord |> inf) with Orderable = ord.Orderable |> Orderable.increaseRateIncrement maxCount incrs }
 
 
     let hasNormDose ord =
@@ -3709,10 +3676,6 @@ module Order =
     let quantityIncrements = quantitySteps |> List.map ValueRange.Increment.create
 
 
-    /// The increments a rate in mL/uur is raised along.
-    let rateIncrements = rateSteps |> List.map ValueRange.Increment.create
-
-
     /// Raise the increment of the orderable dose quantity to a step in incrs that is a multiple of the
     /// increment of the orderable quantity. Only when the dose count has no values (a range, or no
     /// constraint): with a dose count that has values, the dose quantity is the orderable quantity
@@ -3762,11 +3725,9 @@ module Order =
     /// </summary>
     /// <param name="logger">The OrderLogger to use</param>
     /// <param name="maxQtyCount">The maximum count of the Orderable Quantity</param>
-    /// <param name="maxRateCount">The maximum count of the Rate</param>
     /// <param name="ord">The Order to increase the increment of</param>
-    let increaseIncrements logger maxQtyCount maxRateCount ord =
+    let increaseIncrements logger maxQtyCount ord =
         let maxQtyCount = maxQtyCount |> BigRational.fromInt
-        let maxRateCount = maxRateCount |> BigRational.fromInt
 
         if (ord |> inf).Schedule |> Schedule.isContinuous then
             ord
@@ -3803,39 +3764,14 @@ module Order =
                         ord // original order
                     | Ok ord ->
                         // the dose quantity after the components, on a multiple of their increment
-                        let ord =
-                            let doseOrd = ord |> increaseDoseQuantityIncrement maxQtyCount quantityIncrements
+                        let doseOrd = ord |> increaseDoseQuantityIncrement maxQtyCount quantityIncrements
 
-                            if doseOrd = ord then
-                                ord
-                            else
-                                doseOrd
-                                |> solveMinMax "Increase Dose Quantity Increment" false logger
-                                |> Result.defaultValue ord
-
-                        let incrOrd =
-                            ord // increased increment order
-                            |> increaseRateIncrement maxRateCount rateIncrements
-
-                        if incrOrd = ord then
-                            Ok ord
+                        if doseOrd = ord then
+                            ord
                         else
-                            incrOrd |> Events.OrderIncreaseRateIncrement |> Logging.logInfo logger
-
-                            incrOrd |> solveMinMax "Increase Rate Increment" false logger
-
-                        |> function
-                            | Error(_, errs) ->
-                                Logging.logDebugLazy
-                                    logger
-                                    (fun () ->
-                                        $"""Could not increase orderable rate increment:
-{errs |> List.map string |> String.concat "\n"}"""
-                                        |> Events.OrderScenario
-                                    )
-
-                                ord // increased increment order
-                            | Ok ord -> ord // increased increment and rate order
+                            doseOrd
+                            |> solveMinMax "Increase Dose Quantity Increment" false logger
+                            |> Result.defaultValue ord
         |> Ok
 
 

@@ -36,7 +36,7 @@ let show stage (ord: Order) =
             printfn $"  %s{s}"
 
 
-for name, med in [ "morfCont with NaCl", Scenarios.morfCont |> withNaCl; "morfine timed with NaCl", morfTimedWithNaCl ] do
+for name, med in [ "morfCont with NaCl", Scenarios.morfCont |> withNaCl; "morfine timed with NaCl", Scenarios.morfTimedWithNaCl ] do
     printfn $"\n===== %s{name}"
 
     match med |> Medication.toOrder Scenarios.testStart with
