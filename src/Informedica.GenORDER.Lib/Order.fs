@@ -1213,6 +1213,7 @@ module Order =
                     OrderableConcentration = orb_cnc
                     Dose = dos
                     Items = ii
+                    Products = []
                 }
 
 
@@ -1306,6 +1307,7 @@ module Order =
                 cmp.Items
                 |> List.map (Item.fromOrdVars ovars)
                 |> create cmp.Id cmp.Name cmp.Form cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos
+                |> fun c -> { c with Products = cmp.Products }
 
 
             /// <summary>
@@ -1324,6 +1326,7 @@ module Order =
                 cmp.Items
                 |> List.map Item.applyConstraints
                 |> create cmp.Id cmp.Name cmp.Form cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos
+                |> fun c -> { c with Products = cmp.Products }
 
 
             let isOrderableConcentrationCleared cmp = (cmp |> inf).OrderableConcentration |> Concentration.isCleared
@@ -1602,6 +1605,57 @@ module Order =
                 module Concentration = OrderVariable.Concentration
                 module CT = OrderVariable.Count
 
+                /// The strength of one substance of a product.
+                type StrengthDto() =
+                    member val Substance = "" with get, set
+                    member val Strength: ValueUnit.Dto.Dto option = None with get, set
+
+
+                /// A product a component can be made of.
+                type ProductDto() =
+                    member val Id = "" with get, set
+                    member val FormQuantities: ValueUnit.Dto.Dto option = None with get, set
+                    member val Strengths: StrengthDto list = [] with get, set
+
+
+                let productToDto (p: ComponentProduct) =
+                    let vuToDto = ValueUnit.Dto.toDto true ValueUnit.Dto.dutch
+                    let dto = ProductDto()
+
+                    dto.Id <- p.Id
+                    dto.FormQuantities <- p.FormQuantities |> Option.bind vuToDto
+
+                    dto.Strengths <-
+                        p.Strengths
+                        |> List.map (fun ps ->
+                            let s = StrengthDto()
+                            s.Substance <- ps.Substance
+                            s.Strength <- ps.Strength |> vuToDto
+                            s
+                        )
+
+                    dto
+
+
+                let productFromDto (dto: ProductDto) =
+                    {
+                        Id = dto.Id
+                        FormQuantities = dto.FormQuantities |> Option.bind ValueUnit.Dto.fromDto
+                        Strengths =
+                            dto.Strengths
+                            |> List.choose (fun s ->
+                                s.Strength
+                                |> Option.bind ValueUnit.Dto.fromDto
+                                |> Option.map (fun vu ->
+                                    {
+                                        Substance = s.Substance
+                                        Strength = vu
+                                    }
+                                )
+                            )
+                    }
+
+
                 type Dto() =
                     member val Id = "" with get, set
                     member val Name = "" with get, set
@@ -1614,6 +1668,7 @@ module Order =
                     member val OrderableConcentration = OrderVariable.Dto.dto () with get, set
                     member val Dose = Dose.Dto.dto () with get, set
                     member val Items: Item.Dto.Dto list = [] with get, set
+                    member val Products: ProductDto list = [] with get, set
 
 
                 let fromDto (dto: Dto) =
@@ -1631,7 +1686,10 @@ module Order =
 
                     let dos = dto.Dose |> Dose.Dto.fromDto
 
-                    create id n s cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos ii
+                    // a Dto written without products keeps the default, an empty list
+                    { create id n s cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos ii with
+                        Products = dto.Products |> List.map productFromDto
+                    }
 
 
                 let toDto (cmp: Component) =
@@ -1648,6 +1706,7 @@ module Order =
                     dto.OrderableConcentration <- cmp.OrderableConcentration |> Concentration.toDto
                     dto.Dose <- cmp.Dose |> Dose.Dto.toDto
                     dto.Items <- cmp.Items |> List.map Item.Dto.toDto
+                    dto.Products <- cmp.Products |> List.map productToDto
 
                     let getLevel b =
                         if b then

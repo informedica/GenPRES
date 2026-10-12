@@ -1195,6 +1195,8 @@ Components:
 	Divisible: 10
 	Dose:
 	Solution:
+	Product: [id] amox-clav-500-50 [qts] 10 ml [amoxicilline] 50 mg/ml [clavulaanzuur] 5 mg/ml
+	Product: [id] amox-clav-1000-200 [qts] 20 ml [amoxicilline] 50 mg/ml [clavulaanzuur] 10 mg/ml
 	Substances:
 
 		Name: amoxicilline

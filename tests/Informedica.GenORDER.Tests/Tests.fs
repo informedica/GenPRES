@@ -694,6 +694,284 @@ module ToOrderDto =
 
 
 // Add your test modules here
+module ComponentProductTests =
+
+    open Informedica.GenOrder.Lib.Types
+
+
+    let private logger = Logging.noOp
+
+
+    let private mgPerMl = Units.Mass.milliGram |> ValueUnit.per Units.Volume.milliLiter
+
+
+    let private ml = ValueUnit.singleWithUnit Units.Volume.milliLiter
+
+
+    /// A product of the rule: a GPK, its form quantity, whether it needs reconstitution, and the
+    /// strength of each substance in mg/mL.
+    let private product gpk qty reconst substs =
+        { Product.create "amoxicilline/clavulaanzuur" "poeder" "INTRAVENEUS" (substs |> Array.map fst) with
+            GPK = gpk
+            FormQuantities = qty
+            RequiresReconstitution = reconst
+            Substances =
+                substs
+                |> Array.map (fun (n, c) ->
+                    {
+                        Name = n
+                        Concentration = c |> ValueUnit.singleWithUnit mgPerMl |> Some
+                        MolarConcentration = None
+                    }
+                )
+        }
+
+
+    /// A component limit holding the products, without limits.
+    let private componentLimit name products : ComponentLimit =
+        {
+            Name = name
+            ProductIds = [||]
+            Limit = None
+            Products = products
+            SubstanceLimits = [||]
+        }
+
+
+    /// Amoxicilline/clavulaanzuur in two products: 500/50 mg in 10 mL and 1000/200 mg in 20 mL.
+    let private amoxClavLimit =
+        componentLimit
+            "amoxicilline/clavulaanzuur"
+            [|
+                product "11" (ml 10N) true [| "amoxicilline", 50N; "clavulaanzuur", 5N |]
+                product "22" (ml 20N) true [| "amoxicilline", 50N; "clavulaanzuur", 10N |]
+            |]
+
+
+    /// A liquid that needs no reconstitution, in a bottle of 100 mL.
+    let private liquidLimit =
+        componentLimit "paracetamol" [| product "33" (ml 100N) false [| "paracetamol", 24N |] |]
+
+
+    let private parse text =
+        match text |> Medication.fromString with
+        | Ok med -> med
+        | Error errs -> failtest $"could not parse: %A{errs}"
+
+
+    let private toOrder med =
+        match med |> Medication.toOrder Scenarios.testStart with
+        | Ok ord -> ord
+        | Error e -> failtest $"could not build the order: %A{e}"
+
+
+    let tests =
+        testList
+            "the products of a component"
+            [
+                test "amoxicilline/clavulaanzuur from a rule carries its two products with their strengths" {
+                    let pc = [| amoxClavLimit |] |> Medication.createComponents logger |> List.exactlyOne
+
+                    pc.Products
+                    |> Expect.equal
+                        "two products"
+                        [
+                            {
+                                Id = "11"
+                                FormQuantities = Some(ml 10N)
+                                Strengths =
+                                    [
+                                        {
+                                            Substance = "amoxicilline"
+                                            Strength = 50N |> ValueUnit.singleWithUnit mgPerMl
+                                        }
+                                        {
+                                            Substance = "clavulaanzuur"
+                                            Strength = 5N |> ValueUnit.singleWithUnit mgPerMl
+                                        }
+                                    ]
+                            }
+                            {
+                                Id = "22"
+                                FormQuantities = Some(ml 20N)
+                                Strengths =
+                                    [
+                                        {
+                                            Substance = "amoxicilline"
+                                            Strength = 50N |> ValueUnit.singleWithUnit mgPerMl
+                                        }
+                                        {
+                                            Substance = "clavulaanzuur"
+                                            Strength = 10N |> ValueUnit.singleWithUnit mgPerMl
+                                        }
+                                    ]
+                            }
+                        ]
+                }
+
+                test "the distinct strengths of the substances are as before" {
+                    let pc = [| amoxClavLimit |] |> Medication.createComponents logger |> List.exactlyOne
+
+                    pc.Substances
+                    |> List.map (fun s -> s.Name, s.Concentrations |> Option.map ValueUnit.getValue)
+                    |> Expect.equal
+                        "amoxicilline 50, clavulaanzuur 5 and 10"
+                        [ "amoxicilline", Some [| 50N |]; "clavulaanzuur", Some [| 5N; 10N |] ]
+                }
+
+                test "a product whose strength the unit group filter leaves out of its item is dropped" {
+                    let molar = Units.Molar.milliMole |> ValueUnit.per Units.Volume.milliLiter
+
+                    let pc =
+                        [|
+                            componentLimit
+                                "amoxicilline/clavulaanzuur"
+                                [|
+                                    yield! amoxClavLimit.Products
+                                    { product "33" (ml 20N) true [| "amoxicilline", 50N; "clavulaanzuur", 10N |] with
+                                        Substances =
+                                            [|
+                                                {
+                                                    Name = "amoxicilline"
+                                                    Concentration = 50N |> ValueUnit.singleWithUnit mgPerMl |> Some
+                                                    MolarConcentration = None
+                                                }
+                                                {
+                                                    Name = "clavulaanzuur"
+                                                    Concentration = 1N |> ValueUnit.singleWithUnit molar |> Some
+                                                    MolarConcentration = None
+                                                }
+                                            |]
+                                    }
+                                |]
+                        |]
+                        |> Medication.createComponents logger
+                        |> List.exactlyOne
+
+                    pc.Products |> List.map _.Id |> Expect.equal "the mg/mL products" [ "11"; "22" ]
+                }
+
+                test "a liquid without reconstitution carries its products with a form quantity of 1 mL" {
+                    let pc = [| liquidLimit |] |> Medication.createComponents logger |> List.exactlyOne
+
+                    pc.Quantities |> Expect.equal "the component counts per mL" (Some(ml 1N))
+
+                    pc.Products
+                    |> List.map _.FormQuantities
+                    |> Expect.equal "the product counted per mL, not per bottle" [ Some(ml 1N) ]
+                }
+
+                test "the order's component carries the products of the medication" {
+                    let med = Scenarios.amoxClavText |> parse
+                    let ord = med |> toOrder
+
+                    ord.Orderable.Components
+                    |> List.map _.Products
+                    |> Expect.equal "the products" (med.Components |> List.map _.Products)
+                }
+
+                test "the products survive the calculation of the order" {
+                    let med = Scenarios.amoxClavText |> parse
+
+                    let solve cmd ord =
+                        ord
+                        |> cmd
+                        |> OrderProcessor.processPipeline OrderLogging.noOp
+                        |> Result.defaultWith (fun (_, msgs) -> failtest $"not solved: %A{msgs}")
+
+                    med
+                    |> toOrder
+                    |> solve CalcMinMax
+                    |> solve CalcValues
+                    |> _.Orderable.Components
+                    |> List.map _.Products
+                    |> Expect.equal "the products" (med.Components |> List.map _.Products)
+                }
+
+                test "the products survive a component Dto round trip" {
+                    let cmp =
+                        Scenarios.amoxClavText
+                        |> parse
+                        |> toOrder
+                        |> _.Orderable.Components
+                        |> List.head
+
+                    cmp
+                    |> Order.Orderable.Component.Dto.toDto
+                    |> Order.Orderable.Component.Dto.fromDto
+                    |> _.Products
+                    |> Expect.equal "the same products" cmp.Products
+                }
+
+                test "a component Dto written without products reads as a component without products" {
+                    let dto =
+                        Scenarios.amfo
+                        |> toOrder
+                        |> _.Orderable.Components
+                        |> List.head
+                        |> Order.Orderable.Component.Dto.toDto
+
+                    dto.Products |> Expect.isEmpty "no products in the Dto"
+
+                    dto
+                    |> Order.Orderable.Component.Dto.fromDto
+                    |> _.Products
+                    |> Expect.isEmpty "no products read"
+                }
+
+                test "the text format keeps the products in a round trip" {
+                    let med = Scenarios.amoxClavText |> parse
+
+                    med.Components
+                    |> List.collect _.Products
+                    |> List.length
+                    |> Expect.equal "two products" 2
+
+                    med
+                    |> Medication.toString
+                    |> String.concat "\n"
+                    |> parse
+                    |> Expect.equal "the same medication" med
+                }
+
+                test "a text medication without products prints no product line" {
+                    Scenarios.prednisolonText
+                    |> parse
+                    |> Medication.toString
+                    |> List.exists (String.contains "Product:")
+                    |> Expect.isFalse "no product line"
+                }
+
+                test "a product with a strength that does not parse is an error" {
+                    Scenarios.amoxClavText.Replace("[clavulaanzuur] 10 mg/ml", "[clavulaanzuur] 10 mg/")
+                    |> Medication.fromString
+                    |> Result.isError
+                    |> Expect.isTrue "an error"
+                }
+
+                test "a product naming a substance the component does not have is an error" {
+                    Scenarios.amoxClavText.Replace("[clavulaanzuur] 10 mg/ml", "[clavulanaat] 10 mg/ml")
+                    |> Medication.fromString
+                    |> Result.isError
+                    |> Expect.isTrue "an error"
+                }
+
+                test "a product with a blank id is an error" {
+                    Scenarios.amoxClavText.Replace("[id] amox-clav-500-50 ", "[id] ")
+                    |> Medication.fromString
+                    |> Result.isError
+                    |> Expect.isTrue "an error"
+                }
+
+                test "a product without an id is an error" {
+                    Scenarios.amoxClavText.Replace("[id] amox-clav-500-50 ", "")
+                    |> Medication.fromString
+                    |> Result.isError
+                    |> Expect.isTrue "an error"
+                }
+            ]
+
+
 module MedicationOrderTests =
 
 
@@ -3271,6 +3549,7 @@ let tests =
         "GenOrder Tests"
         [
             MedicationOrderTests.tests
+            ComponentProductTests.tests
             TypeTests.tests
             DtoTests.tests
             OrderPlanDtoTests.tests
