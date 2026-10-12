@@ -1,4 +1,4 @@
-# Implementation plan for issue #1421, with the finding on #1425
+# Implementation plan for issue #1421, with the findings on #1425 and #1433
 
 Two problems in how GenORDER calculates orders, both met in parenteral nutrition and timed
 infusions:
@@ -9,6 +9,11 @@ infusions:
 - **#1425.** The rate of a timed order is raised to a rounded step that, times the time, narrows the
   dose quantity. A first fix was measured and changes nothing the dialog offers; the issue needs its
   own plan, recorded below.
+- **#1433.** Harmonizing the item concentrations of a component drops a real strength of an item
+  when the items of the component have different numbers of strengths. It met #1421 in the fixture
+  for an item in two strengths, recorded below with a step of its own.
+- **The rounded steps.** Capping the steps an increment is raised along and a pruned list keeps,
+  met while measuring #1421: a step of its own, after #1421.
 
 Drafted 2026-10-11, for review. Line numbers are from `master` at `8e3df9a3`.
 
@@ -47,6 +52,8 @@ kept, untracked, in `localDocs/1425-runs/`; the three versions that are timed (n
 - [Fixtures](#fixtures)
 - [#1421, the item concentrations by share](#1421-the-item-concentrations-by-share)
 - [The finding on #1425](#the-finding-on-1425)
+- [#1433, harmonize drops a strength](#1433-harmonize-drops-a-strength)
+- [The rounded steps](#the-rounded-steps)
 - [Steps](#steps)
 - [Left out](#left-out)
 - [Verification](#verification)
@@ -240,10 +247,56 @@ stepper (`ViewHelpers.ovarValsWithRange`), so it needs no change for that. Wheth
 pruning, which narrows the dose quantity on its own, falls under the issue is a question for the
 issue.
 
+## #1433, harmonize drops a strength
+
+`Order.solve` runs `Orderable.harmonizeItemConcentrations` after every solve. Per component it
+reads, for each item, the positions of its component concentration values within its defined
+values, and when the items differ it applies the shortest list to every item. The position was
+meant to name a product, but the values are sorted and made distinct, so it does not. In a
+component whose items have different numbers of strengths, harmonize keeps the lowest strengths of
+the longer list before any pick:
+
+| order | defined | after the first solve |
+|---|---|---|
+| amoxicilline/clavulaanzuur | clavulaanzuur 5;10 mg/mL | 5 mg/mL |
+| amfo with NaCl in two strengths, timed | amfotericine 2;4 mg/mL, beside saccharose 72 mg/mL | 2 mg/mL |
+
+How it meets #1421: `hasOneStrength` reads the defined values, so the amfotericine still counts as
+two strengths and the order keeps its products, which is correct. But the fixture for an item in
+two strengths solves with one after its first solve, so its test does not exercise two strengths
+that survive. The test says so until #1433 is fixed.
+
+The issue gives two options: remove harmonize, so that no strength is dropped but no pairing of
+strengths across the items of one product is enforced either; or represent the product in the
+medication, so equations pair the strengths. The decision is the second: a strength of one item
+goes with the strength of the other items of the same product, and that pairing is solved, not
+read from positions. Harmonize goes once the pairing is represented. How the product is carried,
+one concentration per product on the substance item or one component per product, is designed in
+that step's own plan, with the golden orders that move.
+
+## The rounded steps
+
+`Order.roundedSteps` holds the steps an increment is raised along and a pruned list keeps the
+multiples of: 0,1; 0,5; 1; 5; 10; 50; 100 and 500, in mL for a quantity and in mL/uur for a rate.
+The decision: quantities stop at 50 mL and rates at 10 mL/uur, for the raise and for the prune.
+
+Measured on the source with #1421:
+
+- The cap on the raise alone moves no golden order. The cap on the prune moves tpn and
+  tpnComplete: gluc 10% offers 150, 300, 450 and 600 mL where it offers 200, 400 and 600, the
+  orderable quantity tops at 794 mL where at 744, and the time becomes the range 20 to 24 uur where
+  it is a list. Why the time becomes a range is to be traced in that step.
+- A rate of 50 to 500 mL/uur, NaCl 0,9% 1000 mL over 2 to 20 uur, offers 50 to 500 mL/uur by 50
+  today and 60 to 480 mL/uur by 30 with the cap: when no step leaves few enough values, the prune
+  keeps the multiples of the largest step times 2, 3 and so on. Accepted.
+
+The work is kept, untracked, in `localDocs/step-cap/`: the changed files and a patch on the
+source with #1421.
+
 ## Steps
 
-One PR, after the maintainer's go; the script code is migrated by the maintainer or by the agent
-when told to.
+One PR per step, after the maintainer's go; the script code is migrated by the maintainer or by
+the agent when told to.
 
 1. **The item concentrations of more than two components by share, GenORDER (#1421).**
    `EquationMapping.hasOneStrength` and `EquationMapping.leavesOutItemConcentrationProducts`;
@@ -274,6 +327,25 @@ when told to.
 
    About 25 source lines. `fix(genorder): solve item concentrations by share`.
 
+   In the same PR, its own commit: the GenORDER tests in parallel, the value command tests of the
+   domain one per scenario field, only the timed pick tests in sequence, and server garbage
+   collection for the test project. `test(genorder): run the slow order tests in parallel`.
+
+2. **The product represented, so every strength of an item is kept, GenORDER (#1433).** Its own
+   plan first: how the medication carries the product and which equations pair the strengths of
+   its items. Then `harmonizeItemConcentrations`, its step in `Order.solve` and its event go, and
+   the index functions if nothing else uses them. Tests: amoxicilline/clavulaanzuur keeps 5 and
+   10 mg/mL, offers 200 mg clavulaanzuur and pairs each with its own amoxicilline strength;
+   amfotericine in two strengths beside saccharose keeps 2 and 4 mg/mL; a component with two items
+   in two strengths each keeps both, paired by product. The golden orders that move are listed in
+   the commit.
+
+3. **The rounded steps capped, GenORDER.** `Order.roundedSteps` with a largest step,
+   `Order.quantitySteps` up to 50 mL and `Order.rateSteps` up to 10 mL/uur, used by
+   `increaseIncrements` and `pruneSteps`. The fixture `naclLargeRateText` and its test: the rate
+   offers 60 to 480 mL/uur by 30. Measured on the 21 fixtures before it is committed; the tpn and
+   tpnComplete golden orders regenerated, with what moved in the commit.
+
 
 ## Left out
 
@@ -282,7 +354,8 @@ when told to.
   offers quantities the limit refuses. The kind of defect #1302 removed for the concentrations,
   here for an item rate; not caused by this plan.
 - **Orders with an item in more than one strength.** They keep their products and their processing
-  time, by decision: the tie alone loses their exact concentration.
+  time, by decision: the tie alone loses their exact concentration. That harmonize drops one of
+  their strengths is #1433, step 2.
 - **#1425.** See "The finding on #1425" above.
 - **The item rate lists.** They are most of the time left in a pick of tpnComplete. Keeping them as
   ranges loses the item rate limits; a fix needs the solver to bound a product without listing it.
