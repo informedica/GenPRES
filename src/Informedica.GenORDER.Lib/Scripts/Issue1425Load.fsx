@@ -1,6 +1,8 @@
 // load.fsx with the GenORDER sources in place of the DLL, so every version is timed on the same
 // compile. --define:VARIANT loads the equation changes of #1421 (DROPALL and NOCMPRATE the rejected
-// versions), --define:RATEWINDOW the rate step of #1425; without them the sources as they are.
+// versions), --define:RATEWINDOW the rate step of #1425, --define:STAGED the rate after the dose
+// quantity of #1425 (Issue1425Staged.fsx in place of OrderProcessor.fs); without them the sources
+// as they are.
 
 #I __SOURCE_DIRECTORY__
 
@@ -40,7 +42,11 @@ fsi.AddPrinter<System.DateTime> _.ToShortDateString()
 #if RATEWINDOW
 #load "Issue1425Order.fsx"
 #endif
+#if STAGED
+#load "Issue1425Staged.fsx"
+#else
 #load "../OrderProcessor.fs"
+#endif
 #load "../Totals.fs"
 #load "../Dtos.fs"
 #load "../Medication.fs"
