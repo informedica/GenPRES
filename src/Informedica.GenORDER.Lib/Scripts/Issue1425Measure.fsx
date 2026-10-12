@@ -3,8 +3,6 @@
 //
 //   dotnet fsi Issue1425Measure.fsx                    the sources as they are today
 //   dotnet fsi --define:VARIANT Issue1425Measure.fsx   the sources with the changes:
-//     - with --define:RATEWINDOW, Issue1425Order.fsx: the rate step of a timed order fits the
-//       rate window (#1425)
 //     - Issue1425EquationMapping.fsx: the item orderable concentrations of a non-continuous
 //       order with more than two components through the tie alone, and the component rate tied
 //       to the orderable rate for timed orders (#1421)
@@ -36,18 +34,6 @@ let parse text =
     match text |> Medication.fromString with
     | Ok med -> med
     | Error errs -> invalidOp $"could not parse: %A{errs}"
-
-
-/// Amfo as a timed order over one to two hours: two components, the dose quantity a range.
-let amfoTimed =
-    { Scenarios.amfo with
-        OrderType = TimedOrder
-        Time =
-            { MinMax.empty with
-                Min = 1N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
-                Max = 2N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
-            }
-    }
 
 
 /// The tpn with the kalium of KCl 7,4% at most 0.04 mmol/mL in the orderable, below the 0.02 to
@@ -181,26 +167,7 @@ let amfoTwoStrengths =
 let amfoTwoStrengthsTimed =
     { amfoTwoStrengths with
         OrderType = TimedOrder
-        Time = amfoTimed.Time
-    }
-
-
-/// morfCont with NaCl 0,9% as a timed order, once a day over 20 to 24 uur: a fixed orderable
-/// quantity of 50 mL, a morfine quantity fixed at 10 mg by its solution limit, morfine in two
-/// strengths and a morfine rate limit, on a schedule the rule applies to.
-let morfTimedWithNaCl =
-    { (Scenarios.morfCont |> withNaCl) with
-        OrderType = TimedOrder
-        Frequencies =
-            Units.Count.times
-            |> ValueUnit.per Units.Time.day
-            |> ValueUnit.singleWithValue 1N
-            |> Some
-        Time =
-            { MinMax.empty with
-                Min = 20N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
-                Max = 24N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
-            }
+        Time = Scenarios.amfoTimed.Time
     }
 
 
@@ -248,10 +215,10 @@ let fixtures () =
     [
         "amox/clav", Scenarios.amoxClavText |> parse
         "amfo", Scenarios.amfo
-        "amfo timed", amfoTimed
+        "amfo timed", Scenarios.amfoTimed
         "morfCont", Scenarios.morfCont
         "morfCont with NaCl", Scenarios.morfCont |> withNaCl
-        "morfine timed with NaCl", morfTimedWithNaCl
+        "morfine timed with NaCl", Scenarios.morfTimedWithNaCl
         "morfCont with NaCl, no fixed quantity", morfContWithNaClFree
         "morfCont with NaCl, one strength", morfContWithNaClOneStrength
         "amfo with NaCl", Scenarios.amfo |> withNaCl

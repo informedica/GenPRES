@@ -1708,6 +1708,37 @@ let amfoWithNaClTwoStrengthsTimed =
     }
 
 
+/// Amfo as a timed order over one to two hours: its dose quantity is a list until it is picked,
+/// so its rate stays a range until then.
+let amfoTimed =
+    { amfo with
+        OrderType = TimedOrder
+        Time =
+            { MinMax.empty with
+                Min = 1N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
+                Max = 2N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
+            }
+    }
+
+
+/// morfCont with NaCl 0,9% as a timed order, once a day over 20 to 24 uur: its dose quantity has
+/// one value, 50 mL, from the start, so its rate gets its list at once.
+let morfTimedWithNaCl =
+    { (morfCont |> withNaCl) with
+        OrderType = TimedOrder
+        Frequencies =
+            Units.Count.times
+            |> ValueUnit.per Units.Time.day
+            |> ValueUnit.singleWithValue 1N
+            |> Some
+        Time =
+            { MinMax.empty with
+                Min = 20N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
+                Max = 24N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
+            }
+    }
+
+
 /// NaCl 0,9% for an adult: 1000 mL over 2 to 20 uur, a timed order whose rate runs from 50 to
 /// 500 mL/uur, more values than a cap keeps.
 let naclLargeRateText =

@@ -2218,15 +2218,6 @@ module OrderVariable =
         let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues [] None >> Rate
 
 
-        /// <summary>
-        /// Increase the increment of a Rate until the resulting ValueRange
-        /// contains at most maxCount values.
-        /// </summary>
-        /// <param name="maxCount">The maximum number of values in the ValueRange</param>
-        /// <param name="incrs">The list of increments to choose from</param>
-        let increaseIncrement maxCount incrs = toOrdVar >> increaseIncrement maxCount incrs >> Rate
-
-
         /// Check whether a Rate is solved
         let isSolved = toOrdVar >> isSolved
 

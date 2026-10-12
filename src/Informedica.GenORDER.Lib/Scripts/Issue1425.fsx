@@ -31,17 +31,6 @@ let parse text =
     | Error errs -> invalidOp $"could not parse: %A{errs}"
 
 
-/// Amfo as a timed order over one to two hours: two components, the dose quantity a range.
-let amfoTimed =
-    { Scenarios.amfo with
-        OrderType = TimedOrder
-        Time =
-            { MinMax.empty with
-                Min = 1N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
-                Max = 2N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
-            }
-    }
-
 
 let fixtures () =
     [
@@ -51,7 +40,7 @@ let fixtures () =
         "tpnComplete", Scenarios.tpnComplete
         "fullMedication", Scenarios.fullMedication
         "kcl once timed", Scenarios.kaliumchlorideOnceTimedText |> parse
-        "amfo timed", amfoTimed
+        "amfo timed", Scenarios.amfoTimed
     ]
 
 

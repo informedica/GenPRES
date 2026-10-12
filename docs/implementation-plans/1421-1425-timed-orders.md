@@ -25,7 +25,7 @@ It is prototyped and measured in `src/Informedica.GenORDER.Lib/Scripts/`:
 |---|---|
 | `Issue1425.fsx` | the first probes on the compiled library: the dose quantity with and without the time and rate limits, the cost of the item concentration equations |
 | `Issue1425EquationMapping.fsx` | `EquationMapping.fs` with the changes of #1421 |
-| `Issue1425Order.fsx` | `Order.increaseIncrements` with the rate step limited to the rate window: the first attempt at #1425, kept as evidence |
+| `Issue1425Order.fsx` | `Order.increaseIncrements` with the rate step limited to the rate window: the first attempt at #1425, kept as evidence until #1425 removed the rate raise it builds on; it is in the git history |
 | `Issue1425Load.fsx` | `load.fsx` with the GenORDER sources in place of the DLL, so every version is timed on the same compile |
 | `Issue1425Measure.fsx` | the whole processing and every pick of the dose dialog, timed, per fixture |
 | `Issue1425Compare.fsx` | every variable of every fixture, processed and completed, printed to diff |
@@ -43,7 +43,7 @@ The versions, one define or a combination per run:
 | `VARIANT SETTLED` | as `VARIANT`, and only while a component quantity has more than one value | `m-settled`, `c-settled` |
 | `VARIANT DROPALL` | as `VARIANT`, the tie left out too | `m-dropall`, `c-dropall` |
 | `VARIANT NOCMPRATE` | as `VARIANT`, without the component rate equation in place of the item rate product | `m-nocmprate`, `c-nocmprate` |
-| `RATEWINDOW` | the first attempt at #1425 alone, without the change of #1421 | `m-ratewindow`, `c-ratewindow` |
+| `RATEWINDOW` | the first attempt at #1425 alone, without the change of #1421; removed with its script | `m-ratewindow`, `c-ratewindow` |
 
 Run `dotnet fsi [--define:X ...] Issue1425Measure.fsx` (`m-`), `Issue1425Compare.fsx` (`c-`) or
 `Issue1425Trace.fsx` (`t-`) and diff with the run without defines. The run files of this plan are
