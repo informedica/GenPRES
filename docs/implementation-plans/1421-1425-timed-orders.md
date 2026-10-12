@@ -15,7 +15,8 @@ infusions:
 - **The rounded steps.** Capping the steps an increment is raised along and a pruned list keeps,
   met while measuring #1421: a step of its own, after #1421.
 
-Drafted 2026-10-11, for review. Line numbers are from `master` at `8e3df9a3`.
+Drafted 2026-10-11, for review. Line numbers are from `master` at `8e3df9a3`, those in the #1433
+section from `master` at `21bfee5a`.
 
 The fix is in the GenORDER library alone: no change to the contract, the server or the client code.
 It is prototyped and measured in `src/Informedica.GenORDER.Lib/Scripts/`:
@@ -266,13 +267,94 @@ two strengths and the order keeps its products, which is correct. But the fixtur
 two strengths solves with one after its first solve, so its test does not exercise two strengths
 that survive. The test says so until #1433 is fixed.
 
-The issue gives two options: remove harmonize, so that no strength is dropped but no pairing of
-strengths across the items of one product is enforced either; or represent the product in the
-medication, so equations pair the strengths. The decision is the second: a strength of one item
-goes with the strength of the other items of the same product, and that pairing is solved, not
-read from positions. Harmonize goes once the pairing is represented. How the product is carried,
-one concentration per product on the substance item or one component per product, is designed in
-that step's own plan, with the golden orders that move.
+### Where the product is lost
+
+The product is there until the medication is built. A dose rule holds, per component, its products
+(`ComponentLimit.Products`), and each product its substances with their concentrations.
+`Medication.createComponents` (`Medication.fs:1026`) groups the substances of all products of a
+component by name and keeps, per substance, the distinct concentrations. From there on an item has a
+list of strengths and nothing says which strength of one item goes with which strength of another.
+Harmonize (`Order.fs:1374`, run from `Order.solve` at `Order.fs:3495`) tries to recover the pairing
+from positions in those lists, which are sorted and distinct, so it cannot.
+
+After a scenario is first evaluated, `PrescriptionRule.filterProducts` (`PrescriptionRule.fs:335`)
+keeps the products whose substances match the solved item concentrations, and the scenario keeps
+their ids (`OrderScenario.ProductsIds`). That happens once, outside the solve: a later pick does not
+update the list, and the solve itself cannot see a product, since the `Component` of an order
+(`Types.fs:157`) holds none.
+
+### Approaches considered
+
+| Approach | Result |
+|---|---|
+| Remove harmonize only | No strength is dropped, but strengths of different products combine freely: 1000 mg amoxicilline with 100 mg clavulaanzuur in 20 mL. Rejected by decision |
+| One component per product | Each item has one strength, but the orderable sums its components, so two products mix in one order, and nothing in the equations keeps all but one at zero. Rejected |
+| A ratio of each item to a reference item | `[itm]_cmp_cnc = [ref]_cmp_cnc * [itm]_ratio` pairs exactly when the reference has one strength; with several, the ratios and the reference strengths cross again. Rejected |
+| One medication, so one scenario, per combination of strengths | Exact, but the dialog shows a scenario per product where the solve can tell which products apply. Rejected by decision |
+| The products on the component, those that apply derived after every solve | One scenario; solving the order leaves the list of products that still apply, most of the time one, sometimes more, and the item strengths follow those products. Chosen |
+
+### Chosen approach
+
+- **The products travel with the component.** `Medication.createComponents` keeps, beside the
+  distinct strengths it builds today, the products of the component as a new record in GenORDER's
+  types, `ComponentProduct`: `Id`, the GPK; `FormQuantities`, a `ValueUnit option` that can hold
+  several values; and `Strengths`, the strength per substance name. The order's `Component` gets a
+  list of them, so a solve can read them without the rule. The list is defined data: set when the
+  order is built and never narrowed.
+- **The form quantities are the component's.** `createComponents` gives a liquid that needs no
+  reconstitution a component quantity of 1 mL, while its products carry their package volume. A
+  product keeps its form quantities as `createComponents` maps them, 1 mL for such a liquid and
+  the product's own quantities otherwise, so the narrowing compares like with like.
+- **The products cross the client.** The server maps an order to the Shared `Component` field by
+  field (`ServerApi.Mappers.Order.fs`), and every value command sends that order back. The Shared
+  `Component` (`Shared/Types.fs:212`), both mappers and the client's pass-through carry the
+  products too; otherwise the first pick returns an order without them, and the server has no
+  rule at hand to put them back.
+- **The text format carries them.** A component in the medication text format gets an optional
+  Products block, so a fixture such as `amoxClavText` can list its two products.
+- **Each solve narrows the values, in place of harmonize.** After a solve, a product applies when
+  each of its substance strengths is among the values its item still has, and one of its form
+  quantities is among the values of the component quantity. A field without a value set, such as a
+  range after the min-max solve, excludes no product, as in `filterProducts`. The products that
+  apply are derived from the values each time, not stored. Each item then keeps only the strengths
+  of the products that apply: the step changes the values of its variable, never its defined
+  constraints. When that removes a value, the order is solved again, as harmonize does today.
+  Repeated, it settles: a step only removes values.
+- **A cleared pick brings its products back.** Reopening resets the values from the defined
+  constraints, and the products that apply are derived again from those values, so the strengths
+  and products a pick removed return when it is cleared.
+- **No products, no narrowing.** A component without products is left as it is. That covers order
+  plans stored under JSON structure version 5 and earlier, text medications without a Products
+  block, and the fixtures built by hand.
+- **Products, but none applies, is an error.** When a component has products and none of them
+  applies to the solved values, the values form a combination no product has. The solve returns an
+  error, and the pick that led to it is refused as any failing pick is today.
+- **One strength per item costs nothing.** When every item of a component has one strength, every
+  product applies, so the step removes no value and solves nothing again: tpn and tpnComplete keep
+  their processing time.
+- **The pairing follows from picks.** With amoxicilline 50 mg/mL and clavulaanzuur 5 or 10 mg/mL,
+  both products apply and both strengths stay. A pick of 10 mg/mL clavulaanzuur leaves the
+  1000/200 mg product alone, and every item follows it. A combination no product has cannot
+  survive a solve that picks one of its strengths.
+- **The scenario shows the products that apply.** `OrderScenario.ProductsIds` follows the products
+  left on the order after each solve, not only after the first evaluation.
+- **Harmonize goes:** `Component.harmonizeItemConcentrations` and
+  `Orderable.harmonizeItemConcentrations` in `Order.fs`, the event `ComponentItemsHarmonized`
+  (`Types.fs:823`, `OrderLogging.fs:107`), and `OrderVariable.getIndices` and `applyIndices` with
+  their wrappers, once nothing else uses them.
+- **What the solve still allows.** Before a pick, the equations can combine a strength of one item
+  with one of another inside a single solve, as they do today: two lists of strengths are two
+  variables. What the products remove is every value no product has, after each solve; a full
+  cross product of strengths therefore stays as it is, which is correct.
+- **The order's shape changes.** The `Component` with its products reaches the order `Dto` and,
+  through it, the stored order plan, which the store writes as JSON under a structure version
+  (`jsonVersionRead` and `jsonVersionWritten`, now 5, in `ServerApi.SqlAdapters.fs`). The version
+  moves to 6, with an upgrade that reads a plan written without products. That touches the server
+  as well as GenORDER.
+
+Decided in review: the narrowing reads the product's form quantity as well as its substance
+strengths, as `filterProducts` does today; and only the scenario holds the products that apply for
+now. Showing them in the dose dialog is a client change of its own, later.
 
 ## The rounded steps
 
@@ -331,14 +413,33 @@ the agent when told to.
    domain one per scenario field, only the timed pick tests in sequence, and server garbage
    collection for the test project. `test(genorder): run the slow order tests in parallel`.
 
-2. **The product represented, so every strength of an item is kept, GenORDER (#1433).** Its own
-   plan first: how the medication carries the product and which equations pair the strengths of
-   its items. Then `harmonizeItemConcentrations`, its step in `Order.solve` and its event go, and
-   the index functions if nothing else uses them. Tests: amoxicilline/clavulaanzuur keeps 5 and
-   10 mg/mL, offers 200 mg clavulaanzuur and pairs each with its own amoxicilline strength;
-   amfotericine in two strengths beside saccharose keeps 2 and 4 mg/mL; a component with two items
-   in two strengths each keeps both, paired by product. The golden orders that move are listed in
-   the commit.
+2. **The products narrowed by every solve (#1433).** Three PRs, so each stays under 200 source
+   lines:
+   - **2a, GenORDER.** `ComponentProduct` in the types; `Medication.createComponents` keeps the
+     products; the order's `Component` and its `Dto` carry them; the text format gets an optional
+     Products block; the order plan's JSON structure version moves from 5 to 6, with plans written
+     without products read as before. No value changes; the golden orders stay. Tests:
+     amoxicilline/clavulaanzuur from a rule carries its two products with their strengths; a `Dto`
+     round trip keeps them; the text round trip in `MedicationTextTests` keeps a Products block; a
+     liquid without reconstitution from a rule carries its products with a form quantity of 1 mL; a
+     plan without products still reads. `feat(genorder): carry the products of a component`.
+   - **2b, contract, server and client.** The Shared `Component` with its products, both server
+     mappers, and the client's pass-through. Tests: an order mapped to the Shared type and back
+     keeps its products. `feat(api): carry the products of a component`, its body listing the
+     projects it touches.
+   - **2c, GenORDER.** The product step in place of harmonize, and `OrderScenario.ProductsIds`
+     following the products that apply. `amoxClavText` lists its two products. Tests:
+     amoxicilline/clavulaanzuur keeps 5 and 10 mg/mL and both products; a pick of 10 mg/mL
+     clavulaanzuur leaves one product and 200 mg clavulaanzuur; amfotericine in two strengths
+     beside saccharose keeps 2 and 4 mg/mL after its first solve, so the fixture of #1421 exercises
+     two surviving strengths and its stop-gap comment goes; a component whose products give every
+     combination keeps them all; a pick of 10 mg/mL clavulaanzuur, then cleared, gives both
+     products and both strengths back; a component with products of which none applies to the
+     values is refused; a liquid built from a rule keeps its products, compared at 1 mL; an order
+     whose components carry no products solves as today; a
+     plan stored under structure version 5, read and solved again, keeps every strength of its
+     items. The golden orders that move are listed in the commit.
+     `fix(genorder): pair item strengths by product`.
 
 3. **The rounded steps capped, GenORDER.** `Order.roundedSteps` with a largest step,
    `Order.quantitySteps` up to 50 mL and `Order.rateSteps` up to 10 mL/uur, used by
