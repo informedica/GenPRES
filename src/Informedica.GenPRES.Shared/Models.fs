@@ -1064,7 +1064,7 @@ module Models =
 
         module Component =
 
-            let create id nm sh cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos ii =
+            let create id nm sh cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos ii pp =
                 {
                     Id = id
                     Name = nm
@@ -1077,6 +1077,7 @@ module Models =
                     OrderableConcentration = orb_cnc
                     Dose = dos
                     Items = ii
+                    Products = pp
                 }
 
 
