@@ -775,6 +775,7 @@ module ComponentProductTests =
 
     open Informedica.GenOrder.Lib.Types
     open RuleFixtures
+    open TestOrder
 
 
     let private logger = Logging.noOp
@@ -788,18 +789,6 @@ module ComponentProductTests =
                 product "11" (ml 10N) true [| "amoxicilline", 50N; "clavulaanzuur", 5N |]
                 product "22" (ml 20N) true [| "amoxicilline", 50N; "clavulaanzuur", 10N |]
             |]
-
-
-    let private parse text =
-        match text |> Medication.fromString with
-        | Ok med -> med
-        | Error errs -> failtest $"could not parse: %A{errs}"
-
-
-    let private toOrder med =
-        match med |> Medication.toOrder Scenarios.testStart with
-        | Ok ord -> ord
-        | Error e -> failtest $"could not build the order: %A{e}"
 
 
     let tests =
@@ -909,12 +898,6 @@ module ComponentProductTests =
 
                 test "the products survive the calculation of the order" {
                     let med = Scenarios.amoxClavText |> parse
-
-                    let solve cmd ord =
-                        ord
-                        |> cmd
-                        |> OrderProcessor.processPipeline OrderLogging.noOp
-                        |> Result.defaultWith (fun (_, msgs) -> failtest $"not solved: %A{msgs}")
 
                     med
                     |> toOrder
@@ -2240,6 +2223,9 @@ module OrderVariableTests =
 
 module EquationsTests =
 
+    open TestOrder
+
+
     // Golden reference: the full "Equations" sheet. Each entry is the equation
     // string ("Short Name" column) and a 5-char marker for which dose types mark
     // it with an "x", in column order discontinuous, continuous, timed, once,
@@ -2329,20 +2315,6 @@ module EquationsTests =
 
     let private expectedFor pos =
         golden |> List.filter (fun (_, m) -> m[pos] = 'x') |> List.map fst
-
-
-    let private parse text =
-        text
-        |> Medication.fromString
-        |> function
-            | Ok med -> med
-            | Error errs -> failtest $"could not parse the medication: %A{errs}"
-
-
-    let private toOrder med =
-        match med |> Medication.toOrder Scenarios.testStart with
-        | Error e -> failtest $"could not build the order: %A{e}"
-        | Ok ord -> ord
 
 
     let private items (ord: Order) = ord.Orderable.Components |> List.collect _.Items
@@ -3452,6 +3424,8 @@ module OrderPlanDtoTests =
 
 module ReachablePickTests =
 
+    open TestOrder
+
     module Quantity = OrderVariable.Quantity
     module Rate = OrderVariable.Rate
     module Concentration = OrderVariable.Concentration
@@ -3469,14 +3443,6 @@ module ReachablePickTests =
     let private maxPipelineMs = 3000L * slack
 
     let private maxPickMs = 1000L * slack
-
-
-    let private parse text =
-        text
-        |> Medication.fromString
-        |> function
-            | Ok med -> med
-            | Error errs -> failtest $"could not parse the medication: %A{errs}"
 
 
     /// Every fixture the dialog is checked on, the single-component ones included. The tpn without
@@ -3497,15 +3463,6 @@ module ReachablePickTests =
             "morfCont with NaCl", Scenarios.morfContWithNaCl
             "morfCont with NaCl, one strength", Scenarios.morfContWithNaClOneStrength
         ]
-
-
-    let private valuesOf ovar =
-        ovar
-        |> OrderVariable.getVar
-        |> Variable.getValueRange
-        |> Variable.ValueRange.getValSet
-        |> Option.map (Variable.ValueRange.ValueSet.toValueUnit >> ValueUnit.getValue)
-        |> Option.defaultValue [||]
 
 
     /// The full processing an order goes through before a prescriber sees it, pruned with the caps
