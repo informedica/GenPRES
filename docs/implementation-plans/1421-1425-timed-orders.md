@@ -519,7 +519,7 @@ the agent when told to.
 
 ## As built
 
-Steps 1 and 2 are merged; step 3 and #1425 are open.
+Steps 1 to 3 are merged; #1425 is open.
 
 | Step | Pull request | Note |
 |---|---|---|
@@ -529,3 +529,4 @@ Steps 1 and 2 are merged; step 3 and #1425 are open.
 | Step 2a, the products of a component in GenORDER | #1439 | About 360 source lines, over the limit by the maintainer's decision, to keep the text format with the products; the labeled-field parser shared with the limit parsers. Review: the products kept through a calculation, a blank product id refused. |
 | Step 2b, the products through the contract | #1440 | The Shared component, both server mappers, the client passing them through. The product id described as a GPK, PRK or HPK. |
 | Step 2c, the strengths paired by product | #1441 | The component quantity narrowed too; the dose limits, not harmonize, found to leave one strength; the amfo with NaCl in two strengths, timed, moved to 130 to 280 mL. About 350 source lines, mostly removed, in one pull request by the maintainer's decision; the order test helpers shared in a commit of its own. |
+| Step 3, the rounded steps capped | #1443 | The quantity steps capped at 50 mL and the rate steps at 10 mL/uur. The tpn time became the range 20 to 24 uur, which the nutrition slot does not show (#1445). Review: two tests that the raised steps stop at the cap. |
