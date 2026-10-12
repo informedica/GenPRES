@@ -522,7 +522,11 @@ module Medication =
                     )
                 )
 
-            match fields |> List.tryFind (fst >> (=) ProductLabels.Id) with
+            match
+                fields
+                |> List.tryFind (fst >> (=) ProductLabels.Id)
+                |> Option.filter (snd >> String.notEmpty)
+            with
             | None -> Error $"A product needs an {ProductLabels.Id}: {s}"
             | Some(_, id) ->
                 match

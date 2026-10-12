@@ -870,6 +870,24 @@ module ComponentProductTests =
                     |> Expect.equal "the products" (med.Components |> List.map _.Products)
                 }
 
+                test "the products survive the calculation of the order" {
+                    let med = Scenarios.amoxClavText |> parse
+
+                    let solve cmd ord =
+                        ord
+                        |> cmd
+                        |> OrderProcessor.processPipeline OrderLogging.noOp
+                        |> Result.defaultWith (fun (_, msgs) -> failtest $"not solved: %A{msgs}")
+
+                    med
+                    |> toOrder
+                    |> solve CalcMinMax
+                    |> solve CalcValues
+                    |> _.Orderable.Components
+                    |> List.map _.Products
+                    |> Expect.equal "the products" (med.Components |> List.map _.Products)
+                }
+
                 test "the products survive a component Dto round trip" {
                     let cmp =
                         Scenarios.amoxClavText
@@ -933,6 +951,13 @@ module ComponentProductTests =
 
                 test "a product naming a substance the component does not have is an error" {
                     Scenarios.amoxClavText.Replace("[clavulaanzuur] 10 mg/ml", "[clavulanaat] 10 mg/ml")
+                    |> Medication.fromString
+                    |> Result.isError
+                    |> Expect.isTrue "an error"
+                }
+
+                test "a product with a blank id is an error" {
+                    Scenarios.amoxClavText.Replace("[id] amox-clav-500-50 ", "[id] ")
                     |> Medication.fromString
                     |> Result.isError
                     |> Expect.isTrue "an error"

@@ -1307,6 +1307,7 @@ module Order =
                 cmp.Items
                 |> List.map (Item.fromOrdVars ovars)
                 |> create cmp.Id cmp.Name cmp.Form cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos
+                |> fun c -> { c with Products = cmp.Products }
 
 
             /// <summary>
@@ -1325,6 +1326,7 @@ module Order =
                 cmp.Items
                 |> List.map Item.applyConstraints
                 |> create cmp.Id cmp.Name cmp.Form cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos
+                |> fun c -> { c with Products = cmp.Products }
 
 
             let isOrderableConcentrationCleared cmp = (cmp |> inf).OrderableConcentration |> Concentration.isCleared
