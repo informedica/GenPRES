@@ -104,8 +104,6 @@ module OrderLogging =
 
         | Events.MedicationCreated m -> $"Medication created:\n\n{m}\n"
 
-        | Events.ComponentItemsHarmonized s -> s
-
         | Events.OrderIncreaseQuantityIncrement _ -> $"increased quantity increment"
 
         | Events.OrderIncreaseRateIncrement _ -> $"increased rate increment"

@@ -280,15 +280,6 @@ module Types =
         | NoProduct
 
 
-    type ComponentItem =
-        {
-            ComponentName: string
-            ComponentQuantity: ValueUnit
-            ItemName: string
-            ItemConcentration: ValueUnit
-        }
-
-
     type LimitTarget =
         | NoLimitTarget
         | OrderableLimitTarget

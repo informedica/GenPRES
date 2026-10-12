@@ -933,28 +933,6 @@ module OrderVariable =
         { ovar with Variable = ovar.Variable |> Variable.setValueRange vr }
 
 
-    /// Get the indices of the Values of the Variable of an OrderVariable
-    /// that are within the Constraints of the OrderVariable
-    let getIndices (ovar: OrderVariable) =
-        ovar.Variable
-        |> Variable.getValueRange
-        |> ValueRange.getIndices (ovar.DefinedConstraints |> Constraints.toValueRange)
-
-
-    /// <summary>
-    /// Apply the indices to the Values of the Variable of an OrderVariable
-    /// </summary>
-    /// <param name="indices">The indices to apply</param>
-    /// <param name="ovar">The OrderVariable</param>
-    let applyIndices (indices: int[]) (ovar: OrderVariable) =
-        { ovar with
-            OrderVariable.Variable.Values =
-                ovar.DefinedConstraints
-                |> Constraints.toValueRange
-                |> ValueRange.pickIndices indices
-        }
-
-
     /// Check whether the Values of the Variable of an OrderVariable
     /// are non-zero positive or have an exclusive Minimum of zero
     let isNonZeroPositive (ovar: OrderVariable) =
@@ -1805,10 +1783,6 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> Concentration
 
 
-        /// Apply selected indices to the values of a Concentration
-        let applyIndices indices = toOrdVar >> applyIndices indices >> Concentration
-
-
         /// Check whether a Concentration is non-zero positive
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
@@ -1935,9 +1909,6 @@ module OrderVariable =
 
         /// Apply the constraints of a Quantity to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Quantity
-
-
-        let applyIndices indices = toOrdVar >> applyIndices indices >> Quantity
 
 
         /// Check whether a Quantity is non-zero positive

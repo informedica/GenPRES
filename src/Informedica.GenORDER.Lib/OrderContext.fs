@@ -128,9 +128,8 @@ module OrderScenario =
 
         let useRenalRule = pr.RenalRules |> Array.isEmpty |> not
 
-        pr.DoseRule.ComponentLimits
-        |> Array.collect _.Products
-        |> Array.map _.GPK
+        ord
+        |> Order.productIds
         |> create
             no
             (pr.DoseRule.Generic |> Generic.toString)
@@ -508,7 +507,7 @@ module OrderContext =
 
         /// <summary>
         /// Evaluates a single order against a prescription rule.
-        /// Processes the order through the pipeline and filters products based on results.
+        /// Processes the order through the pipeline and sets the dose units of its substances.
         /// </summary>
         /// <param name="logger">Logger for diagnostics</param>
         /// <param name="pr">The prescription rule to evaluate against</param>
@@ -531,33 +530,6 @@ module OrderContext =
                                 acc |> Order.setDoseUnit sn dl.DoseUnit
                             )
                             ord
-
-                    // Extract component items for product filtering
-                    let compItems =
-                        [
-                            for cmp in ord.Orderable.Components do
-                                let cmpQty =
-                                    cmp.ComponentQuantity
-                                    |> OrderVariable.Quantity.toOrdVar
-                                    |> OrderVariable.getValSetValueUnit
-
-                                if cmpQty.IsSome then
-                                    for itm in cmp.Items do
-                                        let itmQty =
-                                            itm.ComponentConcentration
-                                            |> OrderVariable.Concentration.toOrdVar
-                                            |> OrderVariable.getValSetValueUnit
-
-                                        if itmQty.IsSome then
-                                            {
-                                                ComponentName = cmp.Name |> Name.toString
-                                                ComponentQuantity = cmpQty.Value
-                                                ItemName = itm.Name |> Name.toString
-                                                ItemConcentration = itmQty.Value
-                                            }
-                        ]
-
-                    let pr = pr |> PrescriptionRule.filterProducts compItems
 
                     Ok(ord, pr)
                 | Error(ord, m) -> Error(ord, pr, m)
@@ -1240,7 +1212,16 @@ Scenarios: {scenarios}
         | Some sc ->
             match sc.Order |> cmd |> OrderProcessor.processPipeline logger with
             | Ok ord ->
-                { ctx with Scenarios = [| { sc with Order = ord } |> OrderScenario.setOrderTableFormat |] }
+                { ctx with
+                    Scenarios =
+                        [|
+                            { sc with
+                                Order = ord
+                                ProductsIds = ord |> Order.productIds
+                            }
+                            |> OrderScenario.setOrderTableFormat
+                        |]
+                }
                 |> updateFilterIfOneScenario
                 |> Evaluated
             | Error _ -> Refused(ctx, Refusal.NotSolved)
