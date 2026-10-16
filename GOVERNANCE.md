@@ -24,7 +24,7 @@ GenPRES aims to provide safe, accurate, and reliable medication dosing calculati
 ### Project Lead
 
 - Overall project direction and priorities
-- Final authority on releases and major changes
+- Final authority on development releases and major changes (certified versions: see [Medical Device Governance](#medical-device-governance))
 - Oversight of the MDR certification process
 - Conflict resolution
 - Community health and growth
@@ -127,11 +127,19 @@ We use **lazy consensus** for most decisions:
 
 **Release Schedule:** there is no calendar cadence. ShipIt keeps a release PR current on every push to `master`; the release manager merges it when a release is warranted (see [ROADMAP.md](ROADMAP.md#release-cadence)).
 
+**Certified versions:** a release from `master` is a development release. A version only becomes a certified medical device through the route described in [Medical Device Governance](#medical-device-governance).
+
 ## Medical Device Governance
 
 GenPRES is not MDR certified yet. We are working on MDR certification.
 
-How a certified version is frozen and maintained is proposed in [ADR-0006](docs/adr/0006-accredited-scope-and-maintenance-lines.md).
+This document governs the open source development of GenPRES on `master`. Everything that concerns GenPRES as a medical device is governed by the software development plan (SW-TPL-01) in the MDR documentation of UMC Utrecht, which takes precedence over this document where the two differ. In particular, that plan governs:
+
+- **Certified versions.** Which GenPRES versions are certified is determined by the MDR documentation, not by a release in this repository. Each certified version is maintained on its own release branch (for example `release/1.0`), whose tip is the released medical device. Only changes approved under the change control of UMC Utrecht are applied to a release branch. See also [ADR-0006](docs/adr/0006-accredited-scope-and-maintenance-lines.md).
+- **The medication rule base in production.** Changes are made by qualified pharmacists, signed off by a second pharmacist, and versioned as a complete set.
+- **Problems and feedback from users.** Users of a certified version report problems through UMC Utrecht; reports that concern the software are transferred to an issue in this repository.
+
+Contributions to `master` reach a certified version only through this route.
 
 **Documentation:**
 
