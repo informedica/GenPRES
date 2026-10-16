@@ -43,24 +43,31 @@ What exists today:
 
 ## Approaches considered
 
-1. **Playwright for .NET, driven from an Expecto test project in F#.** One language and one test
-   framework, as in every other test project. Playwright starts a real browser, can hold, delay,
-   fail or count any request to the server (`page.RouteAsync`), reads the page's trail through
-   `page.EvaluateAsync`, handles Back, reloads, several browser contexts (two Sessions) and native
-   dialogs.
-2. **Playwright Test in TypeScript.** The same browser engine and the best tooling, but a second
-   language, a second test runner and npm test packages beside the F# ones, outside `dotnet test`.
-3. **Fable.Mocha component tests** in a browser or a simulated DOM. They test one component at a
+1. **Puppeteer for .NET (PuppeteerSharp), driven from an Expecto test project in F#.** One
+   language and one test framework, as in every other test project. PuppeteerSharp starts a real
+   Chrome and talks to it over the DevTools protocol, with no Node process in between. With request
+   interception on (`page.SetRequestInterceptionAsync` and the `page.Request` event) it can hold,
+   delay, fail or count any request to the server. It reads the page's trail through
+   `page.EvaluateExpressionAsync` and handles Back, reloads, several browser contexts (two Sessions)
+   and native dialogs. Puppeteer is also what has already been used to write browser tests
+   alongside this work, and it was found sufficient.
+2. **Playwright for .NET** in the same Expecto project. It can do everything the checks need, and
+   it adds locators that wait by themselves and a route API that is easier to use than
+   interception. It drives the browser through a bundled Node driver, though, and it would be a
+   second browser tool next to the Puppeteer tests that already exist.
+3. **Playwright Test or Puppeteer in TypeScript.** The same browsers, but a second language, a
+   second test runner and npm test packages beside the F# ones, outside `dotnet test`.
+4. **Fable.Mocha component tests** in a browser or a simulated DOM. They test one component at a
    time. They cannot check what the #1224 plan needed: the server's timing, the busy rules across
    pages, the url, Back and the Session.
-4. **Canopy or Selenium.** F#, but without built-in request interception, which most checks need,
+5. **Canopy or Selenium.** F#, but without built-in request interception, which most checks need,
    and known to be flaky on timing.
-5. **Keep the manual list.** No cost now; every later change to the client repeats the hand checks,
+6. **Keep the manual list.** No cost now; every later change to the client repeats the hand checks,
    and the hard cases stay unchecked.
 
 ## Chosen approach
 
-Approach 1: **Playwright for .NET in an Expecto project**, `tests/Informedica.GenPRES.Browser.Tests`,
+Approach 1: **PuppeteerSharp in an Expecto project**, `tests/Informedica.GenPRES.Browser.Tests`,
 run by its own FAKE target against the development server.
 
 - **The real client and the real server.** The target starts the server (`GENPRES_PROD=0`,
@@ -68,9 +75,12 @@ run by its own FAKE target against the development server.
   the tests and stops both. The trail exists only in the development build, so the tests run
   against Vite, not against a bundle.
 - **Holding a request instead of waiting.** A check like "the page is disabled while the filter
-  request is out" holds that one request at the browser's network layer (`page.RouteAsync` on
-  `/api/<type>/processOrderContext`), asserts what the page shows, releases the request and
-  asserts again. No test sleeps. The same mechanism fails a request (a transport failure, or a
+  request is out" holds that one request at the browser's network layer, asserts what the page
+  shows, releases the request and asserts again. Interception is on for every page. One handler
+  per page lets every request through at once, except one the test has asked to hold for
+  `/api/<type>/processOrderContext`. That request waits on a task the test completes, and then
+  goes on with `ContinueAsync`. No test sleeps: where Playwright would wait by itself, a helper
+  waits explicitly, with `WaitForSelectorAsync` or `WaitForFunctionAsync`. The same mechanism fails a request (a transport failure, or a
   server error answer), counts requests (a dose step fetches neither page; two page loads never
   run at once), and holds one request while the test does something else (a url change, a second
   pick, a superseding launch).
@@ -95,7 +105,7 @@ run by its own FAKE target against the development server.
 
 ## Confidence
 
-Medium. The interception approach and the oracles are sound; three things are unknown until
+Medium. The interception approach and the oracles are sound; four things are unknown until
 step 1 has run:
 
 - **Where the rules come from in a test run.** The demo medication files are in the repository,
@@ -105,6 +115,10 @@ step 1 has run:
 - **Start-up time of Vite and the server** on a CI runner, which decides whether a CI job is
   practical.
 - **How many selectors are missing**, which decides the size of the client changes per step.
+- **The cost of interception under Vite.** With interception on, every request goes through the
+  handler, including the many module requests of the development server, and the browser cache is
+  bypassed. Step 1 measures the page load with interception on and off. If the difference matters,
+  interception is switched on only around the requests a test holds or fails.
 
 ## Coverage
 
@@ -241,11 +255,12 @@ lists its result in the pull request.
 1. **The harness.**
    - Rules: establish where the rules come from in a test run (see Confidence) and add a local
      copy of the demo sheet if the server cannot run without the live one.
-   - Project: `tests/Informedica.GenPRES.Browser.Tests` (Expecto, `Microsoft.Playwright`), in the
+   - Project: `tests/Informedica.GenPRES.Browser.Tests` (Expecto, `PuppeteerSharp`), in the
      solution and in the dependency rule's ring map, with `scripts/ProjectGraph.fsx --write`.
-   - Target: `dotnet run BrowserTests`. It starts the server and Vite with the test settings,
-     waits until both answer, installs the browser when it is missing (Chromium only), runs the
-     tests, and stops both whatever the outcome. `ServerTests` filters the project out.
+   - Target: `dotnet run BrowserTests`. It starts the server and Vite with the test settings and
+     waits until both answer. It downloads Chrome with PuppeteerSharp's `BrowserFetcher` when it is
+     missing (Chrome only), runs the tests, and stops both whatever the outcome. `ServerTests`
+     filters the project out.
    - Helpers:
      - open the client at a url, in English, and wait for the start-up gate to go;
      - read the trail;
@@ -278,7 +293,7 @@ lists its result in the pull request.
     - `DEVELOPMENT.md`: how to run the target and add a test.
     - `docs/user-guide/testing-workflows.md`: which manual workflows are now automated.
     - The two #1224 plans' "Verification, per step" point to the suites.
-11. **A CI job, after agreement.** A separate job, on Ubuntu only, Chromium only, running
+11. **A CI job, after agreement.** A separate job, on Ubuntu only, Chrome only, running
     `dotnet run BrowserTests` and uploading the trail and a screenshot of a failing test. Changes
     to the workflows are agreed first, and the job follows the general approach #598 settles.
     Until then the target runs locally, before a pull request that touches the client.
