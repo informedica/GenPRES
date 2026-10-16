@@ -452,3 +452,25 @@ let clearMarkTests =
                 |> Expect.equal "the bounds" (true, true, true)
             }
         ]
+
+
+[<Tests>]
+let productTests =
+    testList
+        "the products of a component"
+        [
+            test "an order to the contract model and back keeps the products of its components" {
+                match Scenarios.amoxClavText |> Medication.fromString with
+                | Error errs -> failtest $"could not parse: %A{errs}"
+                | Ok med ->
+                    med
+                    |> Medication.toOrderDto Scenarios.testStart
+                    |> Mappers.Order.mapFromOrderToShared [||]
+                    |> Mappers.Order.mapFromSharedToOrder
+                    |> Order.Dto.fromDto
+                    |> Result.defaultWith (fun msgs -> failtest $"could not read: %A{msgs}")
+                    |> _.Orderable.Components
+                    |> List.map _.Products
+                    |> Expect.equal "the products" (med.Components |> List.map _.Products)
+            }
+        ]

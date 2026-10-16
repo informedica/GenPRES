@@ -209,6 +209,28 @@ module Types =
         }
 
 
+    /// The strength of one substance of a product.
+    type ProductStrength =
+        {
+            /// The name of the substance
+            Substance: string
+            /// The concentration of the substance in the product
+            Strength: ValueUnit
+        }
+
+
+    /// A product a component can be made of: its strengths, paired, as one product holds them.
+    type ComponentProduct =
+        {
+            /// The id of the product: a GPK, PRK or HPK
+            Id: string
+            /// The quantities of the product as the component counts them
+            FormQuantities: ValueUnit option
+            /// The strength of each substance of the product
+            Strengths: ProductStrength[]
+        }
+
+
     type Component =
         {
             Id: string
@@ -222,6 +244,8 @@ module Types =
             OrderableConcentration: OrderVariable
             Dose: Dose
             Items: Item[]
+            /// The products the component can be made of
+            Products: ComponentProduct[]
         }
 
 

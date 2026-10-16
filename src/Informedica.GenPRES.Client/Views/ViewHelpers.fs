@@ -609,12 +609,12 @@ module ViewHelpers =
             |> stepsMode mode
 
 
-    /// A value shown and not changed. `display` is built from `orderFixed`, since a field that
-    /// takes no change has nothing for a cross to clear.
+    /// A value shown and not changed, or its range when it has no value yet. `display` is built from
+    /// `orderFixed`, since a field that takes no change has nothing for a cross to clear.
     let ovarDisplay display (name: string) (format: decimal -> string) minWidth (ovar: OrderVariable) =
         let mark = ovar |> markOf
         let label = ovar |> ovarLabel name
-        let vals = ovar |> ovarVals format
+        let vals = ovar |> ovarValsWithRange format 3
         display false label None ignore noSteps mark minWidth vals
 
 

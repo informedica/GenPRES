@@ -1587,7 +1587,7 @@ module Order =
                     let severity = ord.Schedule.Time |> markOf
 
                     ord.Schedule.Time
-                    |> ViewHelpers.ovarVals (fixPrecision 2)
+                    |> ViewHelpers.ovarValsWithRange (fixPrecision 2) 2
                     |> Array.distinctBy snd
                     |> selectFor
                         "time"

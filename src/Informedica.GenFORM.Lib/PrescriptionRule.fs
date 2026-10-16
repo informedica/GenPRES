@@ -330,53 +330,6 @@ module PrescriptionRule =
         |> filter doseRules solutionRules renalRules routeMapping
 
 
-    /// Filter the Products in a PrescriptionRule to match
-    /// the given FormQuantities and Substances.
-    let filterProducts (cmpItems: ComponentItem list) (pr: PrescriptionRule) =
-        let eqs vu1 vu2 =
-            if vu1 |> ValueUnit.eqsGroup vu2 |> not then
-                false
-            else
-                vu1 |> ValueUnit.eqs vu2
-
-        { pr with
-            DoseRule =
-                { pr.DoseRule with
-                    ComponentLimits =
-                        pr.DoseRule.ComponentLimits
-                        |> Array.map (fun dl ->
-                            { dl with
-                                Products =
-                                    dl.Products
-                                    |> Array.filter (fun p ->
-                                        let cmpItems =
-                                            cmpItems |> List.filter (fun itm -> itm.ComponentName = p.Generic)
-
-                                        cmpItems
-                                        |> List.map _.ComponentQuantity
-                                        |> List.exists (ValueUnit.eqs p.FormQuantities)
-                                        && p.Substances
-                                           |> Array.forall (fun subst ->
-                                               cmpItems
-                                               |> List.exists (fun itm ->
-                                                   if itm.ItemName |> String.equalsCapInsens subst.Name |> not then
-                                                       false
-                                                   else
-                                                       (subst.Concentration
-                                                        |> Option.map (eqs itm.ItemConcentration)
-                                                        |> Option.defaultValue false
-                                                        || subst.MolarConcentration
-                                                           |> Option.map (eqs itm.ItemConcentration)
-                                                           |> Option.defaultValue false)
-                                               )
-                                           )
-                                    )
-                            }
-                        )
-                }
-        }
-
-
     /// Get the string representation of an array of PrescriptionRules. getLink is
     /// forwarded to DoseRule.Print.toMarkdown; pass Api.getNKFLinkProvider provider,
     /// or Source.noLinks when no external links are wanted.

@@ -88,6 +88,45 @@ module Result =
         | Error err -> failtest $"{err}"
 
 
+/// The steps the tests take a medication through to a solved order, failing the test on the way.
+module TestOrder =
+
+    /// The medication the text holds.
+    let parse text =
+        match text |> Medication.fromString with
+        | Ok med -> med
+        | Error errs -> failtest $"could not parse the medication: %A{errs}"
+
+
+    /// The order of the medication, starting at the start of the test scenarios.
+    let toOrder med =
+        match med |> Medication.toOrder Scenarios.testStart with
+        | Ok ord -> ord
+        | Error e -> failtest $"could not build the order: %A{e}"
+
+
+    /// The order processed by the command.
+    let solve cmd ord =
+        ord
+        |> cmd
+        |> OrderProcessor.processPipeline OrderLogging.noOp
+        |> Result.defaultWith (fun (_, msgs) -> failtest $"not solved: %A{msgs}")
+
+
+    /// The order of the medication as the dose dialog gets it: CalcMinMax when the scenario is made,
+    /// CalcValues when it is selected, SolveOrder after it.
+    let processed med =
+        med |> toOrder |> solve CalcMinMax |> solve CalcValues |> solve SolveOrder
+
+
+    /// The values of an order variable, none when it holds no value set.
+    let valuesOf ovar =
+        ovar
+        |> OrderVariable.getValSetValueUnit
+        |> Option.map ValueUnit.getValue
+        |> Option.defaultValue [||]
+
+
 // --- New tests for fluent pipeline guard/order behavior ---
 module Pipeline =
     open Informedica.GenOrder.Lib.Order
@@ -257,7 +296,8 @@ module Pipeline =
                         |> Expect.isFalse "CalcValues should not have ValueSetOverflow"
                 }
 
-                test "kaliumchloride OnceTimed: every rate pick solves and keeps the time within 60 to 120 min" {
+                test
+                    "kaliumchloride OnceTimed: the median rate cleared gives its list back, and every rate pick keeps the time within 60 to 120 min" {
                     let solved =
                         [
                             "CalcMinMax", CalcMinMax
@@ -282,7 +322,21 @@ module Pipeline =
                         |> Option.map (ValueUnit.convertTo Units.Time.minute >> ValueUnit.getValue)
                         |> Option.defaultValue [||]
 
-                    let rate = solved.Orderable.Dose.Rate |> OV.Rate.toOrdVar
+                    // the rate gets its median; cleared as the client clears it, its list comes back. The dose
+                    // quantity counts as picked: it is the median the norm dose set, not a pick, and without it
+                    // among the picks the reopen gives the dose quantity its list back and the rate a range
+                    let reopened =
+                        let qty = solved.Orderable.Dose.Quantity |> OV.Quantity.toOrdVar |> OrderProcessor.nameOf
+
+                        solved
+                        |> Order.fromOrdVars [ solved.Orderable.Dose.Rate |> OV.Rate.toOrdVar |> OV.clear ]
+                        |> fun ord -> Reopen(ord, [ qty ])
+                        |> OrderProcessor.processPipeline noLogger
+                        |> function
+                            | Ok ord -> ord
+                            | Error(_, msgs) -> failtest $"the reopen failed: %A{msgs}"
+
+                    let rate = reopened.Orderable.Dose.Rate |> OV.Rate.toOrdVar
 
                     let count =
                         rate
@@ -294,7 +348,7 @@ module Pipeline =
 
                     for nth in 0 .. count - 1 do
                         match
-                            solved
+                            reopened
                             |> Order.fromOrdVars [ rate |> OV.setNthValue nth ]
                             |> Order.solveOrder "pick" false noLogger
                         with
@@ -694,6 +748,427 @@ module ToOrderDto =
 
 
 // Add your test modules here
+/// Component limits of a dose rule, as GenFORM gives them, holding products and no limits.
+module RuleFixtures =
+
+    let mgPerMl = Units.Mass.milliGram |> ValueUnit.per Units.Volume.milliLiter
+
+
+    let ml = ValueUnit.singleWithUnit Units.Volume.milliLiter
+
+
+    /// A product of the rule: a GPK, its form quantity, whether it needs reconstitution, and the
+    /// strength of each substance in mg/mL.
+    let product gpk qty reconst substs =
+        { Product.create "amoxicilline/clavulaanzuur" "poeder" "INTRAVENEUS" (substs |> Array.map fst) with
+            GPK = gpk
+            FormQuantities = qty
+            RequiresReconstitution = reconst
+            Substances =
+                substs
+                |> Array.map (fun (n, c) ->
+                    {
+                        Name = n
+                        Concentration = c |> ValueUnit.singleWithUnit mgPerMl |> Some
+                        MolarConcentration = None
+                    }
+                )
+        }
+
+
+    /// A component limit holding the products, without limits.
+    let componentLimit name products : ComponentLimit =
+        {
+            Name = name
+            ProductIds = [||]
+            Limit = None
+            Products = products
+            SubstanceLimits = [||]
+        }
+
+
+    /// A liquid that needs no reconstitution, in a bottle of 100 mL.
+    let liquidLimit =
+        componentLimit "paracetamol" [| product "33" (ml 100N) false [| "paracetamol", 24N |] |]
+
+
+module ComponentProductTests =
+
+    open Informedica.GenOrder.Lib.Types
+    open RuleFixtures
+    open TestOrder
+
+
+    let private logger = Logging.noOp
+
+
+    /// Amoxicilline/clavulaanzuur in two products: 500/50 mg in 10 mL and 1000/200 mg in 20 mL.
+    let private amoxClavLimit =
+        componentLimit
+            "amoxicilline/clavulaanzuur"
+            [|
+                product "11" (ml 10N) true [| "amoxicilline", 50N; "clavulaanzuur", 5N |]
+                product "22" (ml 20N) true [| "amoxicilline", 50N; "clavulaanzuur", 10N |]
+            |]
+
+
+    let tests =
+        testList
+            "the products of a component"
+            [
+                test "amoxicilline/clavulaanzuur from a rule carries its two products with their strengths" {
+                    let pc = [| amoxClavLimit |] |> Medication.createComponents logger |> List.exactlyOne
+
+                    pc.Products
+                    |> Expect.equal
+                        "two products"
+                        [
+                            {
+                                Id = "11"
+                                FormQuantities = Some(ml 10N)
+                                Strengths =
+                                    [
+                                        {
+                                            Substance = "amoxicilline"
+                                            Strength = 50N |> ValueUnit.singleWithUnit mgPerMl
+                                        }
+                                        {
+                                            Substance = "clavulaanzuur"
+                                            Strength = 5N |> ValueUnit.singleWithUnit mgPerMl
+                                        }
+                                    ]
+                            }
+                            {
+                                Id = "22"
+                                FormQuantities = Some(ml 20N)
+                                Strengths =
+                                    [
+                                        {
+                                            Substance = "amoxicilline"
+                                            Strength = 50N |> ValueUnit.singleWithUnit mgPerMl
+                                        }
+                                        {
+                                            Substance = "clavulaanzuur"
+                                            Strength = 10N |> ValueUnit.singleWithUnit mgPerMl
+                                        }
+                                    ]
+                            }
+                        ]
+                }
+
+                test "the distinct strengths of the substances are as before" {
+                    let pc = [| amoxClavLimit |] |> Medication.createComponents logger |> List.exactlyOne
+
+                    pc.Substances
+                    |> List.map (fun s -> s.Name, s.Concentrations |> Option.map ValueUnit.getValue)
+                    |> Expect.equal
+                        "amoxicilline 50, clavulaanzuur 5 and 10"
+                        [ "amoxicilline", Some [| 50N |]; "clavulaanzuur", Some [| 5N; 10N |] ]
+                }
+
+                test "a product whose strength the unit group filter leaves out of its item is dropped" {
+                    let molar = Units.Molar.milliMole |> ValueUnit.per Units.Volume.milliLiter
+
+                    let pc =
+                        [|
+                            componentLimit
+                                "amoxicilline/clavulaanzuur"
+                                [|
+                                    yield! amoxClavLimit.Products
+                                    { product "33" (ml 20N) true [| "amoxicilline", 50N; "clavulaanzuur", 10N |] with
+                                        Substances =
+                                            [|
+                                                {
+                                                    Name = "amoxicilline"
+                                                    Concentration = 50N |> ValueUnit.singleWithUnit mgPerMl |> Some
+                                                    MolarConcentration = None
+                                                }
+                                                {
+                                                    Name = "clavulaanzuur"
+                                                    Concentration = 1N |> ValueUnit.singleWithUnit molar |> Some
+                                                    MolarConcentration = None
+                                                }
+                                            |]
+                                    }
+                                |]
+                        |]
+                        |> Medication.createComponents logger
+                        |> List.exactlyOne
+
+                    pc.Products |> List.map _.Id |> Expect.equal "the mg/mL products" [ "11"; "22" ]
+                }
+
+                test "a liquid without reconstitution carries its products with a form quantity of 1 mL" {
+                    let pc = [| liquidLimit |] |> Medication.createComponents logger |> List.exactlyOne
+
+                    pc.Quantities |> Expect.equal "the component counts per mL" (Some(ml 1N))
+
+                    pc.Products
+                    |> List.map _.FormQuantities
+                    |> Expect.equal "the product counted per mL, not per bottle" [ Some(ml 1N) ]
+                }
+
+                test "the order's component carries the products of the medication" {
+                    let med = Scenarios.amoxClavText |> parse
+                    let ord = med |> toOrder
+
+                    ord.Orderable.Components
+                    |> List.map _.Products
+                    |> Expect.equal "the products" (med.Components |> List.map _.Products)
+                }
+
+                test "the products survive the calculation of the order" {
+                    let med = Scenarios.amoxClavText |> parse
+
+                    med
+                    |> toOrder
+                    |> solve CalcMinMax
+                    |> solve CalcValues
+                    |> _.Orderable.Components
+                    |> List.map _.Products
+                    |> Expect.equal "the products" (med.Components |> List.map _.Products)
+                }
+
+                test "the products survive a component Dto round trip" {
+                    let cmp =
+                        Scenarios.amoxClavText
+                        |> parse
+                        |> toOrder
+                        |> _.Orderable.Components
+                        |> List.head
+
+                    cmp
+                    |> Order.Orderable.Component.Dto.toDto
+                    |> Order.Orderable.Component.Dto.fromDto
+                    |> _.Products
+                    |> Expect.equal "the same products" cmp.Products
+                }
+
+                test "a component Dto written without products reads as a component without products" {
+                    let dto =
+                        Scenarios.amfo
+                        |> toOrder
+                        |> _.Orderable.Components
+                        |> List.head
+                        |> Order.Orderable.Component.Dto.toDto
+
+                    dto.Products |> Expect.isEmpty "no products in the Dto"
+
+                    dto
+                    |> Order.Orderable.Component.Dto.fromDto
+                    |> _.Products
+                    |> Expect.isEmpty "no products read"
+                }
+
+                test "the text format keeps the products in a round trip" {
+                    let med = Scenarios.amoxClavText |> parse
+
+                    med.Components
+                    |> List.collect _.Products
+                    |> List.length
+                    |> Expect.equal "two products" 2
+
+                    med
+                    |> Medication.toString
+                    |> String.concat "\n"
+                    |> parse
+                    |> Expect.equal "the same medication" med
+                }
+
+                test "a text medication without products prints no product line" {
+                    Scenarios.prednisolonText
+                    |> parse
+                    |> Medication.toString
+                    |> List.exists (String.contains "Product:")
+                    |> Expect.isFalse "no product line"
+                }
+
+                test "a product with a strength that does not parse is an error" {
+                    Scenarios.amoxClavText.Replace("[clavulaanzuur] 10 mg/ml", "[clavulaanzuur] 10 mg/")
+                    |> Medication.fromString
+                    |> Result.isError
+                    |> Expect.isTrue "an error"
+                }
+
+                test "a product naming a substance the component does not have is an error" {
+                    Scenarios.amoxClavText.Replace("[clavulaanzuur] 10 mg/ml", "[clavulanaat] 10 mg/ml")
+                    |> Medication.fromString
+                    |> Result.isError
+                    |> Expect.isTrue "an error"
+                }
+
+                test "a product with a blank id is an error" {
+                    Scenarios.amoxClavText.Replace("[id] amox-clav-500-50 ", "[id] ")
+                    |> Medication.fromString
+                    |> Result.isError
+                    |> Expect.isTrue "an error"
+                }
+
+                test "a product without an id is an error" {
+                    Scenarios.amoxClavText.Replace("[id] amox-clav-500-50 ", "")
+                    |> Medication.fromString
+                    |> Result.isError
+                    |> Expect.isTrue "an error"
+                }
+            ]
+
+
+module ProductNarrowingTests =
+
+    open TestOrder
+
+    module Concentration = OrderVariable.Concentration
+    module Quantity = OrderVariable.Quantity
+
+
+    let private noLog = OrderLogging.noOp
+
+
+    /// The order as the first evaluation leaves it.
+    let private built med = med |> toOrder |> solve CalcMinMax
+
+
+    let private amoxClav = "amoxicilline/clavulaanzuur"
+
+
+    let private item n (ord: Order) =
+        ord.Orderable.Components
+        |> List.collect _.Items
+        |> List.find (_.Name >> Name.toString >> String.equalsCapInsens n)
+
+
+    let private strengths n =
+        item n >> _.ComponentConcentration >> Concentration.toOrdVar >> valuesOf
+
+
+    let private quantities n = item n >> _.ComponentQuantity >> Quantity.toOrdVar >> valuesOf
+
+
+    let private cmpQuantities (ord: Order) =
+        ord.Orderable.Components
+        |> List.head
+        |> _.ComponentQuantity
+        |> Quantity.toOrdVar
+        |> valuesOf
+
+
+    /// The order with the nth strength of the clavulaanzuur picked and solved.
+    let private pickClav n ord =
+        ord
+        |> OrderProcessor.processChangeProperty noLog (SetNthItemComponentConcentration(amoxClav, "clavulaanzuur", n))
+        |> solve SolveOrder
+
+
+    /// The text with one text replaced by another, failing the test when the text does not hold it.
+    let private replaced (oldText: string) newText (text: string) =
+        if text |> String.contains oldText |> not then
+            failtest $"the fixture no longer holds: %s{oldText}"
+
+        text.Replace(oldText, newText)
+
+
+    let tests =
+        testList
+            "the products narrow the strengths"
+            [
+                test "amoxicilline/clavulaanzuur at 5 mg/mL clavulaanzuur keeps the 500/50 mg product and its 10 mL" {
+                    let ord = Scenarios.amoxClavText |> parse |> built
+
+                    ord
+                    |> strengths "clavulaanzuur"
+                    |> Expect.equal "the dose leaves 5 mg/mL" [| 5N |]
+                    ord |> Order.productIds |> Expect.equal "one product" [| "amox-clav-500-50" |]
+                    ord |> cmpQuantities |> Expect.equal "its 10 mL" [| 10N |]
+                }
+
+                test "both strengths of clavulaanzuur keep both products" {
+                    let ord = Scenarios.amoxClavWithoutClavDoseText |> parse |> built
+
+                    ord |> strengths "clavulaanzuur" |> Expect.equal "both strengths" [| 5N; 10N |]
+
+                    ord
+                    |> Order.productIds
+                    |> Expect.equal "both products" [| "amox-clav-500-50"; "amox-clav-1000-200" |]
+                }
+
+                test "a pick of 10 mg/mL clavulaanzuur leaves one product, 20 mL and 200 mg clavulaanzuur" {
+                    let ord = Scenarios.amoxClavWithoutClavDoseText |> parse |> built |> pickClav 1
+
+                    ord |> Order.productIds |> Expect.equal "one product" [| "amox-clav-1000-200" |]
+                    ord |> cmpQuantities |> Expect.equal "20 mL" [| 20N |]
+                    ord |> quantities "clavulaanzuur" |> Expect.equal "200 mg" [| 200N |]
+                }
+
+                test "a pick of 10 mg/mL clavulaanzuur, then cleared, gives both products and strengths back" {
+                    let ord = Scenarios.amoxClavWithoutClavDoseText |> parse |> built |> pickClav 1
+
+                    let picks =
+                        [
+                            ord
+                            |> item "clavulaanzuur"
+                            |> _.ComponentConcentration
+                            |> Concentration.toOrdVar
+                            |> OrderProcessor.nameOf
+                        ]
+
+                    let ord =
+                        ord
+                        |> OrderProcessor.processChangeProperty
+                            noLog
+                            (ClearItemComponentConcentration(amoxClav, "clavulaanzuur"))
+                        |> fun cleared -> solve (fun o -> Reopen(o, picks)) cleared
+
+                    ord |> strengths "clavulaanzuur" |> Expect.equal "both strengths" [| 5N; 10N |]
+
+                    ord
+                    |> Order.productIds
+                    |> Expect.equal "both products" [| "amox-clav-500-50"; "amox-clav-1000-200" |]
+                }
+
+                test "products that give every combination keep every strength" {
+                    let ord = Scenarios.amoxClavEveryCombinationText |> parse |> built
+
+                    ord
+                    |> strengths "amoxicilline"
+                    |> Expect.equal "both amoxicilline strengths" [| 25N; 50N |]
+                    ord
+                    |> strengths "clavulaanzuur"
+                    |> Expect.equal "both clavulaanzuur strengths" [| 5N; 10N |]
+                    ord |> Order.productIds |> Array.length |> Expect.equal "four products" 4
+                }
+
+                test "a component with products of which none applies is refused" {
+                    Scenarios.amoxClavText
+                    |> replaced "[clavulaanzuur] 5 mg/ml" "[clavulaanzuur] 7 mg/ml"
+                    |> replaced "[clavulaanzuur] 10 mg/ml" "[clavulaanzuur] 7 mg/ml"
+                    |> parse
+                    |> toOrder
+                    |> CalcMinMax
+                    |> OrderProcessor.processPipeline noLog
+                    |> Result.isError
+                    |> Expect.isTrue "refused"
+                }
+
+                test "a component without products keeps every strength, as a plan stored without products" {
+                    let med = Scenarios.amoxClavWithoutClavDoseText |> parse
+
+                    { med with Components = med.Components |> List.map (fun pc -> { pc with Products = [] }) }
+                    |> built
+                    |> strengths "clavulaanzuur"
+                    |> Expect.equal "both strengths" [| 5N; 10N |]
+                }
+
+                test "a liquid built from a rule compares its product at 1 mL" {
+                    { Scenarios.pcmDrink with
+                        Components = [| RuleFixtures.liquidLimit |] |> Medication.createComponents noLog
+                    }
+                    |> built
+                    |> Order.productIds
+                    |> Expect.equal "the product applies" [| "33" |]
+                }
+            ]
+
+
 module MedicationOrderTests =
 
 
@@ -1769,6 +2244,9 @@ module OrderVariableTests =
 
 module EquationsTests =
 
+    open TestOrder
+
+
     // Golden reference: the full "Equations" sheet. Each entry is the equation
     // string ("Short Name" column) and a 5-char marker for which dose types mark
     // it with an "x", in column order discontinuous, continuous, timed, once,
@@ -1858,20 +2336,6 @@ module EquationsTests =
 
     let private expectedFor pos =
         golden |> List.filter (fun (_, m) -> m[pos] = 'x') |> List.map fst
-
-
-    let private parse text =
-        text
-        |> Medication.fromString
-        |> function
-            | Ok med -> med
-            | Error errs -> failtest $"could not parse the medication: %A{errs}"
-
-
-    let private toOrder med =
-        match med |> Medication.toOrder Scenarios.testStart with
-        | Error e -> failtest $"could not build the order: %A{e}"
-        | Ok ord -> ord
 
 
     let private items (ord: Order) = ord.Orderable.Components |> List.collect _.Items
@@ -2145,7 +2609,7 @@ module IncreaseQuantityIncrementTests =
 
 
     let private increase maxCount med =
-        let incrs = Order.roundedSteps Units.Volume.milliLiter |> List.map Increment.create
+        let incrs = Order.quantityIncrements
 
         let ord = med |> minMax
         ord,
@@ -2232,7 +2696,7 @@ module IncreaseQuantityIncrementTests =
                                 |> Quantity
                         }
 
-                    let incrs = Order.roundedSteps Units.Volume.milliLiter |> List.map Increment.create
+                    let incrs = Order.quantityIncrements
 
                     orb
                     |> Order.Orderable.increaseQuantityIncrement Logging.noOp (BigRational.fromInt 2) incrs
@@ -2276,11 +2740,57 @@ module IncreaseQuantityIncrementTests =
                 test "amfo with a fixed dose count: the dose quantity increment is left as it is" {
                     let ord = Scenarios.amfo |> minMax
 
-                    let incrs = Order.roundedSteps Units.Volume.milliLiter |> List.map Increment.create
+                    let incrs = Order.quantityIncrements
 
                     ord
                     |> Order.increaseDoseQuantityIncrement (BigRational.fromInt 10) incrs
                     |> Expect.equal "the same order" ord
+                }
+
+                test "a quantity of 10 to 5000 mL is raised to steps of at most 50 mL" {
+                    let ml = ValueUnit.singleWithUnit Units.Volume.milliLiter
+
+                    let wide =
+                        Variable.ValueRange.minIncrMaxToValueRange
+                            (ml 10N |> Variable.ValueRange.Minimum.create true)
+                            (ml 1N |> Increment.create)
+                            (ml 5000N |> Variable.ValueRange.Maximum.create true)
+
+                    // set in place of the range, which a solve would only narrow
+                    let widen qty =
+                        let ovar = qty |> OrderVariable.Quantity.toOrdVar
+                        { ovar with OrderVariable.Variable.Values = wide } |> Quantity
+
+                    let ord = Scenarios.pcmDrink |> minMax
+
+                    { ord.Orderable with
+                        OrderableQuantity = ord.Orderable.OrderableQuantity |> widen
+                        Components =
+                            ord.Orderable.Components
+                            |> List.map (fun cmp -> { cmp with OrderableQuantity = cmp.OrderableQuantity |> widen })
+                    }
+                    |> Order.Orderable.increaseQuantityIncrement
+                        Logging.noOp
+                        (BigRational.fromInt 10)
+                        Order.quantityIncrements
+                    |> incrsOf
+                    |> List.distinct
+                    |> Expect.equal "one increment of 50 mL" [ Some [| 50N |] ]
+                }
+
+                test "a timed rate of 50 to 500 mL/uur keeps its step of 0,1 mL/uur" {
+                    Scenarios.naclLargeRateText
+                    |> TestOrder.parse
+                    |> TestOrder.toOrder
+                    |> TestOrder.solve CalcMinMax
+                    |> TestOrder.solve IncreaseIncrements
+                    |> _.Orderable.Dose.Rate
+                    |> OrderVariable.Rate.toOrdVar
+                    |> OrderVariable.getVar
+                    |> _.Values
+                    |> Variable.ValueRange.getIncr
+                    |> Option.map (Increment.toValueUnit >> ValueUnit.getValue)
+                    |> Expect.equal "an increment of 0,1 mL/uur" (Some [| 1N / 10N |])
                 }
 
                 test "pcmDrink: every component already fits, so the orderable is left as it is" {
@@ -2981,6 +3491,8 @@ module OrderPlanDtoTests =
 
 module ReachablePickTests =
 
+    open TestOrder
+
     module Quantity = OrderVariable.Quantity
     module Rate = OrderVariable.Rate
     module Concentration = OrderVariable.Concentration
@@ -2998,14 +3510,6 @@ module ReachablePickTests =
     let private maxPipelineMs = 3000L * slack
 
     let private maxPickMs = 1000L * slack
-
-
-    let private parse text =
-        text
-        |> Medication.fromString
-        |> function
-            | Ok med -> med
-            | Error errs -> failtest $"could not parse the medication: %A{errs}"
 
 
     /// Every fixture the dialog is checked on, the single-component ones included. The tpn without
@@ -3026,15 +3530,6 @@ module ReachablePickTests =
             "morfCont with NaCl", Scenarios.morfContWithNaCl
             "morfCont with NaCl, one strength", Scenarios.morfContWithNaClOneStrength
         ]
-
-
-    let private valuesOf ovar =
-        ovar
-        |> OrderVariable.getVar
-        |> Variable.getValueRange
-        |> Variable.ValueRange.getValSet
-        |> Option.map (Variable.ValueRange.ValueSet.toValueUnit >> ValueUnit.getValue)
-        |> Option.defaultValue [||]
 
 
     /// The full processing an order goes through before a prescriber sees it, pruned with the caps
@@ -3169,7 +3664,7 @@ module ReachablePickTests =
                     |> Expect.equal "6 to 12 by 2" [ [| 6N .. 2N .. 12N |] ]
                 }
 
-                test "a binding kalium concentration limit raises the first tpn dose quantity from 430 to 530 mL" {
+                test "a binding kalium concentration limit raises the first tpn dose quantity from 380 to 530 mL" {
                     let firstDoseQuantity med =
                         med
                         |> solvedWith processed
@@ -3180,7 +3675,7 @@ module ReachablePickTests =
                         |> Array.head
 
                     (Scenarios.tpn |> firstDoseQuantity, Scenarios.tpnKaliumConcentrationBinding |> firstDoseQuantity)
-                    |> Expect.equal "430 and 530 mL" (430N, 530N)
+                    |> Expect.equal "380 and 530 mL" (380N, 530N)
                 }
 
                 test "tpn with a binding kalium rate limit keeps the kalium rate under 0,09 mmol/kg/uur" {
@@ -3219,20 +3714,27 @@ module ReachablePickTests =
                     |> Expect.equal "0,7 to 2,8 mL/uur" (7N / 10N, 28N / 10N)
                 }
 
-                // stop-gap until #1433: the first solve harmonizes the amfotericine down to 2 mg/mL, so this
-                // order keeps its products for its two defined strengths but solves with one
-                test "amfo with NaCl in two strengths, timed, keeps the dose quantities 230, 235 and 335 mL" {
-                    let qts =
-                        Scenarios.amfoWithNaClTwoStrengthsTimed
-                        |> solvedWith processed
-                        |> snd
-                        |> _.Orderable.Dose.Quantity
-                        |> Quantity.toOrdVar
-                        |> valuesOf
+                // the dose limits leave the amfotericine at 2 mg/mL, but the solver sets the step and the
+                // maximum of the dose quantity while 4 mg/mL is still among its values, and never widens them
+                test "amfo with NaCl in two strengths, timed, offers the dose quantities 130, 180, 230 and 280 mL" {
+                    Scenarios.amfoWithNaClTwoStrengthsTimed
+                    |> solvedWith processed
+                    |> snd
+                    |> _.Orderable.Dose.Quantity
+                    |> Quantity.toOrdVar
+                    |> valuesOf
+                    |> Expect.equal "130 to 280 mL by 50" [| 130N; 180N; 230N; 280N |]
+                }
 
-                    [ 230N; 235N; 335N ]
-                    |> List.forall (fun q -> qts |> Array.contains q)
-                    |> Expect.isTrue $"%A{qts}"
+                test "a rate of 50 to 500 mL/uur is pruned to 60 to 480 by 30 and gets its median, 270 mL/uur" {
+                    Scenarios.naclLargeRateText
+                    |> parse
+                    |> solvedWith processed
+                    |> snd
+                    |> _.Orderable.Dose.Rate
+                    |> Rate.toOrdVar
+                    |> valuesOf
+                    |> Expect.equal "the median of 60 to 480 by 30" [| 270N |]
                 }
 
                 // the timings are run in sequence, so other tests do not slow them down
@@ -3265,12 +3767,237 @@ module ReachablePickTests =
             ]
 
 
+/// The rate of a timed or once timed order gets its values only once the dose quantity has one
+/// value, and then the median of them; a cleared rate gives its list back. The orders come from
+/// TestOrder.processed, the commands the dose dialog sends; ReachablePickTests keeps its own, which
+/// also runs IncreaseIncrements, times the run and takes the caps.
+module RateAfterQuantityTests =
+
+    open TestOrder
+
+    module Quantity = OrderVariable.Quantity
+    module Rate = OrderVariable.Rate
+
+
+    let private doseQuantity (ord: Order) = ord.Orderable.Dose.Quantity |> Quantity.toOrdVar
+
+
+    let private rate (ord: Order) = ord.Orderable.Dose.Rate |> Rate.toOrdVar
+
+
+    let private time (ord: Order) =
+        match ord.Schedule |> Order.Schedule.toOrdVars |> snd with
+        | Some tme -> tme
+        | None -> failtest "a timed order without a time"
+
+
+    let private isRange ovar = ovar |> OrderVariable.getVar |> Variable.isMinIncrMax
+
+
+    let private minimumOf ovar =
+        ovar
+        |> OrderVariable.getVar
+        |> Variable.getValueRange
+        |> Variable.ValueRange.getMin
+        |> Option.map (Variable.ValueRange.Minimum.toValueUnit >> ValueUnit.getValue)
+
+
+    let private hours ovar =
+        ovar
+        |> OrderVariable.getValSetValueUnit
+        |> Option.map (ValueUnit.convertTo Units.Time.hour >> ValueUnit.getValue)
+        |> Option.defaultValue [||]
+
+
+    /// The order with the nth value of the order variable picked, solved as a pick from the dialog is.
+    let private pick n ovar ord =
+        ord
+        |> Order.fromOrdVars [ ovar |> OrderVariable.setNthValue n ]
+        |> solve SolveOrder
+
+
+    let private pickMiddleDoseQuantity ord =
+        let qty = ord |> doseQuantity
+        let n = qty |> valuesOf |> Array.length
+        ord |> pick (n / 2) qty, [ qty |> OrderProcessor.nameOf ]
+
+
+    /// The rate cleared as the client clears it: then Reopen with the earlier picks.
+    let private clearRate picks (ord: Order) =
+        ord
+        |> Order.fromOrdVars [ ord |> rate |> OrderVariable.clear ]
+        |> solve (fun ord -> Reopen(ord, picks))
+
+
+    /// Every component quantity picked in turn, as the dialog completes an order.
+    let private complete (ord: Order) =
+        ord.Orderable.Components
+        |> List.map _.Name
+        |> List.fold
+            (fun (o: Order) name ->
+                let qty =
+                    o.Orderable.Components
+                    |> List.find (fun c -> c.Name = name)
+                    |> _.OrderableQuantity
+                    |> Quantity.toOrdVar
+
+                if qty |> valuesOf |> Array.length <= 1 then
+                    o
+                else
+                    o |> pick 0 qty
+            )
+            ord
+
+
+    let tests =
+        testList
+            "the rate of a timed order after the dose quantity"
+            [
+                test
+                    "after CalcMinMax the dose quantity starts where the limits allow: tpn at 191 mL, amfo timed at 22 mL" {
+                    let first med = med |> toOrder |> solve CalcMinMax |> doseQuantity |> minimumOf
+
+                    (Scenarios.tpn |> first, Scenarios.amfoTimed |> first)
+                    |> Expect.equal "191 and 22 mL" (Some [| 191N |], Some [| 22N |])
+                }
+
+                test "processed, tpn and amfo timed keep the rate and the time ranges while the dose quantity is a list" {
+                    for med in [ Scenarios.tpn; Scenarios.amfoTimed ] do
+                        let ord = med |> processed
+
+                        ord |> doseQuantity |> valuesOf |> Array.length > 1
+                        |> Expect.isTrue "a list of dose quantities"
+
+                        ord |> rate |> isRange |> Expect.isTrue "the rate a range"
+                        ord |> time |> valuesOf |> Expect.isEmpty "the time without values"
+                }
+
+                test "tpn through CalcMinMax and SolveOrder, without CalcValues, keeps the rate a range" {
+                    let ord = Scenarios.tpn |> toOrder |> solve CalcMinMax |> solve SolveOrder
+
+                    ord |> doseQuantity |> valuesOf |> Array.length > 1
+                    |> Expect.isTrue "a list of dose quantities"
+
+                    ord |> rate |> isRange |> Expect.isTrue "the rate a range"
+                }
+
+                test "a tpn dose quantity pick gives the rate the median of its list, the time within 20 to 24 uur" {
+                    let ord, _ = Scenarios.tpn |> processed |> pickMiddleDoseQuantity
+
+                    ord
+                    |> rate
+                    |> valuesOf
+                    |> Expect.equal "27 mL/uur, the median of 25 to 29" [| 27N |]
+
+                    ord
+                    |> time
+                    |> hours
+                    |> Array.forall (fun h -> h >= 20N && h <= 24N)
+                    |> Expect.isTrue "the time within 20 to 24 uur"
+                }
+
+                test "a completed tpn solves with the median rate, 18 mL/uur at 380 mL" {
+                    let ord = Scenarios.tpn |> processed |> complete
+
+                    ord |> Order.isSolved |> Expect.isTrue "solved"
+                    ord |> doseQuantity |> valuesOf |> Expect.equal "380 mL" [| 380N |]
+                    ord |> rate |> valuesOf |> Expect.equal "18 mL/uur" [| 18N |]
+                }
+
+                test "the once timed KCl gets the median rate, 24 mL/uur, when the scenario is selected" {
+                    Scenarios.kaliumchlorideOnceTimedText
+                    |> parse
+                    |> toOrder
+                    |> solve CalcMinMax
+                    |> solve CalcValues
+                    |> rate
+                    |> valuesOf
+                    |> Expect.equal "24 mL/uur" [| 24N |]
+                }
+
+                test "a reset of the morfine timed with NaCl offers the rate list, 2,1 to 2,5 mL/uur" {
+                    Scenarios.morfTimedWithNaCl
+                    |> processed
+                    |> solve ReCalcValues
+                    |> rate
+                    |> valuesOf
+                    |> Expect.equal "2,1 to 2,5 by 0,1" [| 21N / 10N .. 1N / 10N .. 25N / 10N |]
+                }
+
+                // a reset prunes with the larger cap, as today: reCalcSteps passes useMax and CalcValues does
+                // not, so the reset list differs from the 60 to 480 by 30 the processing makes
+                test "a reset of the NaCl of 50 to 500 mL/uur offers the rate list, 50 to 500 by 50" {
+                    Scenarios.naclLargeRateText
+                    |> parse
+                    |> processed
+                    |> solve ReCalcValues
+                    |> rate
+                    |> valuesOf
+                    |> Expect.equal "50 to 500 by 50" [| 50N .. 50N .. 500N |]
+                }
+
+                test
+                    "the median rate of tpn cleared gives its list back, a pick from it solves, cleared again the list comes back" {
+                    let ord, picks = Scenarios.tpn |> processed |> pickMiddleDoseQuantity
+                    let rates = [| 25N .. 29N |]
+
+                    let cleared = ord |> clearRate picks
+                    cleared |> rate |> valuesOf |> Expect.equal "25 to 29 mL/uur" rates
+
+                    let picked = cleared |> pick 0 (cleared |> rate)
+                    picked |> Order.isSolved |> Expect.isTrue "solved with the picked rate"
+
+                    picked
+                    |> clearRate (picks @ [ picked |> rate |> OrderProcessor.nameOf ])
+                    |> rate
+                    |> valuesOf
+                    |> Expect.equal "25 to 29 mL/uur again" rates
+                }
+
+                test "the median rate of the morfine timed with NaCl cleared gives its list back, 2,1 to 2,5 mL/uur" {
+                    Scenarios.morfTimedWithNaCl
+                    |> processed
+                    |> clearRate []
+                    |> rate
+                    |> valuesOf
+                    |> Expect.equal "2,1 to 2,5 by 0,1" [| 21N / 10N .. 1N / 10N .. 25N / 10N |]
+                }
+
+                test "the rate stepper sets a rate that is a range to its minimum, its median and its maximum" {
+                    let ord = Scenarios.tpn |> processed
+                    let range = ord |> rate |> OrderVariable.getVar |> Variable.getValueRange
+
+                    let bound get toVu =
+                        range
+                        |> get
+                        |> Option.map (toVu >> ValueUnit.getValue)
+                        |> Option.defaultValue [||]
+
+                    let lo = bound Variable.ValueRange.getMin Variable.ValueRange.Minimum.toValueUnit
+                    let hi = bound Variable.ValueRange.getMax Variable.ValueRange.Maximum.toValueUnit
+
+                    let stepped cmd =
+                        ord |> solve (fun ord -> ChangeProperty(ord, cmd)) |> rate |> valuesOf
+
+                    SetMinOrderableDoseRate |> stepped |> Expect.equal "the minimum" lo
+                    SetMaxOrderableDoseRate |> stepped |> Expect.equal "the maximum" hi
+
+                    SetMedianOrderableDoseRate
+                    |> stepped
+                    |> Array.forall (fun v -> v > lo[0] && v < hi[0])
+                    |> Expect.isTrue "the median between them"
+                }
+            ]
+
+
 [<Tests>]
 let tests =
     testList
         "GenOrder Tests"
         [
             MedicationOrderTests.tests
+            ComponentProductTests.tests
+            ProductNarrowingTests.tests
             TypeTests.tests
             DtoTests.tests
             OrderPlanDtoTests.tests
@@ -3288,6 +4015,7 @@ let tests =
             GoldenOrderTests.tests
             IncreaseQuantityIncrementTests.tests
             ReachablePickTests.tests
+            RateAfterQuantityTests.tests
             OrderBuilderTests.tests
             MedicationTextTests.MedicationTextFormatTests.tests
             MedicationTextTests.MedicationTextScenarioTests.tests

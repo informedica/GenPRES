@@ -153,6 +153,30 @@ module Types =
         }
 
 
+    /// The strength of one substance of a product.
+    type ProductStrength =
+        {
+            /// The name of the substance
+            Substance: string
+            /// The concentration of the substance in the product
+            Strength: ValueUnit
+        }
+
+
+    /// A product a component can be made of: its strengths, paired, as one product holds them.
+    type ComponentProduct =
+        {
+            /// The id of the product: a GPK, PRK or HPK
+            Id: string
+            /// The quantities of the product as the component counts them: 1 mL for a liquid
+            /// that needs no reconstitution, the product's own quantities otherwise
+            FormQuantities: ValueUnit option
+            /// The strength of each substance of the product; a substance without a concentration
+            /// has no strength here
+            Strengths: ProductStrength list
+        }
+
+
     /// Models a Component in an Orderable
     type Component =
         {
@@ -178,6 +202,8 @@ module Types =
             Dose: Dose
             /// The Items in a Component
             Items: Item list
+            /// The products the component can be made of; empty when none are known
+            Products: ComponentProduct list
         }
 
 
@@ -422,6 +448,8 @@ module Types =
             Solution: SolutionLimit option
             /// The list of substances contained in the product
             Substances: SubstanceItem list
+            /// The products the component can be made of; empty when none are known
+            Products: ComponentProduct list
         }
 
     /// A substance in a product. A substance maps to an Item in a Component.
@@ -820,10 +848,8 @@ module Types =
         type Event =
             | MinIncrMaxToValues of OrderVariable
             | MedicationCreated of string
-            | ComponentItemsHarmonized of string
             | SolverReplaceUnit of (Name * Unit)
             | OrderIncreaseQuantityIncrement of Order
-            | OrderIncreaseRateIncrement of Order
             | OrderSolveStarted of Order
             | OrderSolveFinished of Order
             | OrderSolveConstraintsStarted of Order * Constraint list

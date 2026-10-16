@@ -1195,6 +1195,8 @@ Components:
 	Divisible: 10
 	Dose:
 	Solution:
+	Product: [id] amox-clav-500-50 [qts] 10 ml [amoxicilline] 50 mg/ml [clavulaanzuur] 5 mg/ml
+	Product: [id] amox-clav-1000-200 [qts] 20 ml [amoxicilline] 50 mg/ml [clavulaanzuur] 10 mg/ml
 	Substances:
 
 		Name: amoxicilline
@@ -1207,6 +1209,133 @@ Components:
 		Quantities: 50;100;200 mg
 		Concentrations: 5;10 mg/ml
 		Dose: clavulaanzuur, [dun] mg, [per-time-adj] 10 mg/kg/day, [per-time] max 600 mg/day
+		Solution:
+
+	Name: NaCl 0,9%
+	Form: vloeistof
+	Quantities: 1 ml
+	Divisible: 10
+	Dose:
+	Solution:
+	Substances:
+
+		Name: natrium
+		Quantities:
+		Concentrations: 0.155 mmol/ml
+		Dose:
+		Solution:
+
+		Name: chloor
+		Quantities:
+		Concentrations: 0.155 mmol/ml
+		Dose:
+		Solution:
+"""
+
+
+/// Amoxicilline/clavulaanzuur without the dose limit of the clavulaanzuur. With it, the ratio of the
+/// clavulaanzuur dose to the amoxicilline dose leaves 5 mg/mL alone; without it both strengths, 5
+/// and 10 mg/mL, survive the solve.
+let amoxClavWithoutClavDoseText =
+    """
+Id: 303000f0-98b7-4db5-a0f2-a8a7642df9fc
+Name: amoxicilline/clavulaanzuur
+Quantity:
+Quantities:
+Route: INTRAVENEUS
+OrderType: DiscontinuousOrder
+Adjust: 14.5 kg
+Frequencies: 3 x/day
+Time:
+Dose: [dun] ml
+Div:
+DoseCount: 1 x
+Components:
+
+	Name: amoxicilline/clavulaanzuur
+	Form: poeder voor injectievloeistof
+	Quantities: 10;20 ml
+	Divisible: 10
+	Dose:
+	Solution:
+	Product: [id] amox-clav-500-50 [qts] 10 ml [amoxicilline] 50 mg/ml [clavulaanzuur] 5 mg/ml
+	Product: [id] amox-clav-1000-200 [qts] 20 ml [amoxicilline] 50 mg/ml [clavulaanzuur] 10 mg/ml
+	Substances:
+
+		Name: amoxicilline
+		Quantities: 500;1000 mg
+		Concentrations: 50 mg/ml
+		Dose: amoxicilline, [dun] mg, [per-time-adj] 100 mg/kg/day, [per-time] max 6000 mg/day
+		Solution:  [conc] 20 mg/ml
+
+		Name: clavulaanzuur
+		Quantities: 50;100;200 mg
+		Concentrations: 5;10 mg/ml
+		Dose:
+		Solution:
+
+	Name: NaCl 0,9%
+	Form: vloeistof
+	Quantities: 1 ml
+	Divisible: 10
+	Dose:
+	Solution:
+	Substances:
+
+		Name: natrium
+		Quantities:
+		Concentrations: 0.155 mmol/ml
+		Dose:
+		Solution:
+
+		Name: chloor
+		Quantities:
+		Concentrations: 0.155 mmol/ml
+		Dose:
+		Solution:
+"""
+
+
+/// Amoxicilline/clavulaanzuur without the dose limit of the clavulaanzuur in four products, one for
+/// every combination of 25 or 50 mg/mL amoxicilline with 5 or 10 mg/mL clavulaanzuur.
+let amoxClavEveryCombinationText =
+    """
+Id: 303000f0-98b7-4db5-a0f2-a8a7642df9fc
+Name: amoxicilline/clavulaanzuur
+Quantity:
+Quantities:
+Route: INTRAVENEUS
+OrderType: DiscontinuousOrder
+Adjust: 14.5 kg
+Frequencies: 3 x/day
+Time:
+Dose: [dun] ml
+Div:
+DoseCount: 1 x
+Components:
+
+	Name: amoxicilline/clavulaanzuur
+	Form: poeder voor injectievloeistof
+	Quantities: 10;20 ml
+	Divisible: 10
+	Dose:
+	Solution:
+	Product: [id] amox-clav-500-50 [qts] 10 ml [amoxicilline] 50 mg/ml [clavulaanzuur] 5 mg/ml
+	Product: [id] amox-clav-250-50 [qts] 10 ml [amoxicilline] 25 mg/ml [clavulaanzuur] 5 mg/ml
+	Product: [id] amox-clav-500-200 [qts] 20 ml [amoxicilline] 25 mg/ml [clavulaanzuur] 10 mg/ml
+	Product: [id] amox-clav-1000-200 [qts] 20 ml [amoxicilline] 50 mg/ml [clavulaanzuur] 10 mg/ml
+	Substances:
+
+		Name: amoxicilline
+		Quantities: 250;500;1000 mg
+		Concentrations: 25;50 mg/ml
+		Dose: amoxicilline, [dun] mg, [per-time-adj] 100 mg/kg/day, [per-time] max 6000 mg/day
+		Solution:  [conc] 20 mg/ml
+
+		Name: clavulaanzuur
+		Quantities: 50;100;200 mg
+		Concentrations: 5;10 mg/ml
+		Dose:
 		Solution:
 
 	Name: NaCl 0,9%
@@ -1577,3 +1706,68 @@ let amfoWithNaClTwoStrengthsTimed =
                 Max = 2N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
             }
     }
+
+
+/// Amfo as a timed order over one to two hours: its dose quantity is a list until it is picked,
+/// so its rate stays a range until then.
+let amfoTimed =
+    { amfo with
+        OrderType = TimedOrder
+        Time =
+            { MinMax.empty with
+                Min = 1N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
+                Max = 2N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
+            }
+    }
+
+
+/// morfCont with NaCl 0,9% as a timed order, once a day over 20 to 24 uur: its dose quantity has
+/// one value, 50 mL, from the start, so its rate gets its list at once.
+let morfTimedWithNaCl =
+    { (morfCont |> withNaCl) with
+        OrderType = TimedOrder
+        Frequencies =
+            Units.Count.times
+            |> ValueUnit.per Units.Time.day
+            |> ValueUnit.singleWithValue 1N
+            |> Some
+        Time =
+            { MinMax.empty with
+                Min = 20N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
+                Max = 24N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
+            }
+    }
+
+
+/// NaCl 0,9% for an adult: 1000 mL over 2 to 20 uur, a timed order whose rate runs from 50 to
+/// 500 mL/uur, more values than a cap keeps.
+let naclLargeRateText =
+    """
+Id: nacl-large-rate
+Name: NaCl 0,9%
+Quantity:
+Quantities:
+Route: INTRAVENEUS
+OrderType: TimedOrder
+Adjust: 70 kg
+Frequencies: 1 x/dag
+Time: 120 min - 1200 min
+Dose: [dun] ml, [qty] 1000 ml/dosis
+Div:
+DoseCount: 1 x
+Components:
+
+	Name: NaCl 0,9%
+	Form: infuusvloeistof
+	Quantities: 1 ml
+	Divisible: 1
+	Dose:
+	Solution:
+	Substances:
+
+		Name: natrium
+		Quantities:
+		Concentrations: 0.154 mmol/ml
+		Dose:
+		Solution:
+"""

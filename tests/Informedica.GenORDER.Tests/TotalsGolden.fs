@@ -121,7 +121,7 @@ let all: GoldenTotals list =
             Medication = Scenarios.tpn
             Totals =
                 [
-                    "Volume", "#13,3# - #55,3# mL||/kg||/dag||"
+                    "Volume", "#12,7# - #55,3# mL||/kg||/dag||"
                     "Protein", "#0,59# - #1,47# g||/kg||/dag||"
                     "Carbohydrate", "#0,01# - #4,27# g||/kg||/dag||"
                     "Sodium", "#2,07# - #2,58# mmol||/kg||/dag||"
@@ -133,7 +133,7 @@ let all: GoldenTotals list =
             Medication = Scenarios.tpnComplete
             Totals =
                 [
-                    "Volume", "#13,3# - #55,3# mL||/kg||/dag||"
+                    "Volume", "#12,7# - #55,3# mL||/kg||/dag||"
                     "Energy", "#2,37# - #22,9# kCal||/kg||/dag||"
                     "Protein", "#0,59# - #1,47# g||/kg||/dag||"
                     "Carbohydrate", "#0,01# - #4,27# g||/kg||/dag||"
@@ -151,7 +151,7 @@ let all: GoldenTotals list =
 /// The totals over all the recorded scenarios at once, the way an order plan takes them.
 let together =
     [
-        "Volume", "#32# - #141# mL||/kg||/dag||"
+        "Volume", "#30,8# - #141# mL||/kg||/dag||"
         "Energy", "#3,03# - #33,3# kCal||/kg||/dag||"
         "Protein", "#1,17# - #2,93# g||/kg||/dag||"
         "Carbohydrate", "#0,18# - #11,1# g||/kg||/dag||"

@@ -159,10 +159,10 @@ module SqlDatabase =
 
 
     /// The highest JSON structure version this release reads.
-    let jsonVersionRead = 5
+    let jsonVersionRead = 6
 
     /// The JSON structure version this release writes.
-    let jsonVersionWritten = 5
+    let jsonVersionWritten = 6
 
 
     /// Brings plan JSON written under a structure version to the structure this release
@@ -170,8 +170,9 @@ module SqlDatabase =
     /// on every order context, version 2 to 3 the picks on every order scenario: both fields
     /// read as none when absent. Version 3 to 4 removed the picks again: a field the read does
     /// not know is ignored. Version 4 to 5 added the access on every order scenario, read as
-    /// any access when absent. So the steps leave the JSON as it is, and no read path
-    /// recomputes a digest of a stored version.
+    /// any access when absent. Version 5 to 6 added the products on every component, read as
+    /// none when absent. So the steps leave the JSON as it is, and no read path recomputes a
+    /// digest of a stored version.
     let upgrade (version: int) (json: string) : Result<string, string> =
         if version < 1 then
             Error $"JSON structure version %i{version} does not exist"

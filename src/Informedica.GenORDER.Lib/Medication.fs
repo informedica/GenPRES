@@ -119,6 +119,16 @@ module Medication =
                 Ok()
 
 
+    /// The labels of a product line in the medication text format.
+    module ProductLabels =
+
+        /// The label of the product's id
+        let Id = "[id]"
+
+        /// The label of the product's form quantities
+        let Quantities = SolutionLimit.FieldLabels.Quantities
+
+
     /// Parser module to parse Medication text back to Medication record
     module Parser =
 
@@ -245,6 +255,15 @@ module Medication =
             parseMinMax s
 
 
+        /// The labeled fields of a line, "[label] value [label] value", as pairs of the label, with its
+        /// brackets, and the trimmed value.
+        let parseLabeledFields (s: string) =
+            [
+                for m in Text.RegularExpressions.Regex.Matches(s, @"\[([^\]]+)\]\s*([^[]*)") do
+                    $"[%s{m.Groups[1].Value.Trim()}]", m.Groups[2].Value.Trim()
+            ]
+
+
         /// Parse DoseLimit from comma-separated constraint string with explicit field labels
         /// Format: "targetName, [field-label] constraint1, [field-label] constraint2, ..."
         /// e.g., "paracetamol, [qty-adj] 10 - 20 mg/kg/dosis"
@@ -303,10 +322,8 @@ module Medication =
                         | _ -> NoLimitTarget, s
                     | _ -> raise (System.FormatException $"{firstLabelPos} not valid")
 
-                // Split constraints by field labels using regex
-                // Pattern matches: [label] value until next [label] or end
-                let constraintRegex = Text.RegularExpressions.Regex(@"\[([^\]]+)\]\s*([^[]*)")
-                let matches = constraintRegex.Matches(constraintsStr)
+                // Split constraints by field labels: [label] value until next [label] or end
+                let fields = constraintsStr |> parseLabeledFields
 
                 // Parse constraints into appropriate MinMax fields
                 let mutable dl = { DoseLimit.limit with DoseLimitTarget = target }
@@ -344,11 +361,9 @@ module Medication =
                         (fun (dl: DoseLimit) mm -> { dl with RateAdjust = mm })
                     ]
 
-                // Process regex matches for labeled fields
-                for m in matches do
-                    let labelContent = m.Groups[1].Value // e.g., "qty-adj"
-                    let valueStr = m.Groups[2].Value.Trim().TrimEnd(',').Trim()
-                    let fullLabel = $"[{labelContent}]"
+                // Process the labeled fields
+                for fullLabel, value in fields do
+                    let valueStr = value.TrimEnd(',').Trim()
 
                     // Skip empty values - they represent default/unset fields
                     if valueStr |> String.isNullOrWhiteSpace then
@@ -370,7 +385,7 @@ module Medication =
                         | None -> errors <- $"Unknown field label: {fullLabel}" :: errors
 
                 // If no labeled matches and we have constraintsStr, return error requiring labels
-                if matches.Count = 0 && constraintsStr |> String.notEmpty then
+                if fields |> List.isEmpty && constraintsStr |> String.notEmpty then
                     errors <-
                         "DoseLimit fields must use labels like [qty], [qty-adj], [per-time], etc. Unlabeled input is not supported."
                         :: errors
@@ -388,40 +403,34 @@ module Medication =
             if s |> String.isNullOrWhiteSpace then
                 Ok None
             else
-                // Match labeled fields: [label] value
-                let labeledFieldRegex = System.Text.RegularExpressions.Regex(@"\[([^\]]+)\]\s*([^[]*)")
-
-                let matches = labeledFieldRegex.Matches(s)
+                let fields = s |> parseLabeledFields
 
                 let mutable sl = SolutionLimit.limit
                 let mutable errors = []
 
-                for m in matches do
-                    let label = m.Groups[1].Value.Trim().ToLowerInvariant()
-                    let valueStr = m.Groups[2].Value.Trim()
-
+                for label, valueStr in fields do
                     if valueStr |> String.notEmpty then
-                        match label with
-                        | "qts" ->
+                        match label.ToLowerInvariant() with
+                        | "[qts]" ->
                             match parseValueUnitOpt valueStr with
                             | Ok vuOpt -> sl <- { sl with Quantities = vuOpt }
                             | Error e -> errors <- $"[qts]: {e}" :: errors
-                        | "qty" ->
+                        | "[qty]" ->
                             match parseMinMax valueStr with
                             | Ok mm -> sl <- { sl with Quantity = mm }
                             | Error e -> errors <- $"[qty]: {e}" :: errors
-                        | "qty-adj" ->
+                        | "[qty-adj]" ->
                             match parseMinMax valueStr with
                             | Ok mm -> sl <- { sl with QuantityAdj = mm }
                             | Error e -> errors <- $"[qty-adj]: {e}" :: errors
-                        | "conc" ->
+                        | "[conc]" ->
                             match parseMinMax valueStr with
                             | Ok mm -> sl <- { sl with Concentration = mm }
                             | Error e -> errors <- $"[conc]: {e}" :: errors
-                        | _ -> errors <- $"Unknown SolutionLimit label: [{label}]" :: errors
+                        | _ -> errors <- $"Unknown SolutionLimit label: {label}" :: errors
 
                 // If no labeled matches and we have input, return error requiring labels
-                if matches.Count = 0 then
+                if fields |> List.isEmpty then
                     errors <-
                         "SolutionLimit fields must use labels like [qty], [qty-adj], [conc]. Unlabeled input is not supported."
                         :: errors
@@ -495,10 +504,61 @@ module Medication =
                 Error errors
 
 
+        /// Parse a product line of a component: "[id] 1234 [qts] 20 ml [amoxicilline] 50 mg/ml",
+        /// the id, the optional form quantities, and the strength of each substance under its name.
+        let parseComponentProduct (s: string) : Result<ComponentProduct, string> =
+            let fields = s |> parseLabeledFields
+
+            let strengths =
+                fields
+                |> List.filter (fun (label, _) -> label <> ProductLabels.Id && label <> ProductLabels.Quantities)
+                |> List.map (fun (label, v) ->
+                    parseValueUnit v
+                    |> Result.map (fun vu ->
+                        {
+                            Substance = label.Trim('[', ']')
+                            Strength = vu
+                        }
+                    )
+                )
+
+            match
+                fields
+                |> List.tryFind (fst >> (=) ProductLabels.Id)
+                |> Option.filter (snd >> String.notEmpty)
+            with
+            | None -> Error $"A product needs an {ProductLabels.Id}: {s}"
+            | Some(_, id) ->
+                match
+                    fields
+                    |> List.tryFind (fst >> (=) ProductLabels.Quantities)
+                    |> Option.map snd
+                    |> Option.defaultValue ""
+                    |> parseValueUnitOpt,
+                    strengths |> List.choose Result.toOption,
+                    strengths
+                    |> List.choose (
+                        function
+                        | Error e -> Some e
+                        | Ok _ -> None
+                    )
+                with
+                | Ok qts, strs, [] ->
+                    Ok
+                        {
+                            Id = id
+                            FormQuantities = qts
+                            Strengths = strs
+                        }
+                | Error e, _, errs -> Error(e :: errs |> String.concat "; ")
+                | _, _, errs -> Error(errs |> String.concat "; ")
+
+
         /// Parse ProductComponent from field map and nested substances
         let parseProductComponent
             (fields: Map<string, string>)
             (substances: SubstanceItem list)
+            (products: ComponentProduct list)
             : Result<ProductComponent, string list>
             =
             let mutable errors = []
@@ -542,6 +602,16 @@ module Medication =
                         errors <- e :: errors
                         None
 
+            // a product strength must name a substance of the component
+            for p in products do
+                for ps in p.Strengths do
+                    if
+                        substances
+                        |> List.exists (fun si -> si.Name |> String.equalsCapInsens ps.Substance)
+                        |> not
+                    then
+                        errors <- $"Product {p.Id} names no substance of the component: {ps.Substance}" :: errors
+
             if errors.IsEmpty then
                 Ok
                     {
@@ -552,6 +622,7 @@ module Medication =
                         Dose = dose
                         Solution = solution
                         Substances = substances
+                        Products = products
                     }
             else
                 Error errors
@@ -570,6 +641,7 @@ module Medication =
             let mutable currentComponentFields = Map.empty
             let mutable currentSubstances = []
             let mutable currentSubstanceFields = Map.empty
+            let mutable currentProducts = []
 
             let mutable parseErrors: string list = []
 
@@ -587,7 +659,12 @@ module Medication =
                 finishSubstance ()
 
                 if not currentComponentFields.IsEmpty then
-                    match parseProductComponent currentComponentFields (currentSubstances |> List.rev) with
+                    match
+                        parseProductComponent
+                            currentComponentFields
+                            (currentSubstances |> List.rev)
+                            (currentProducts |> List.rev)
+                    with
                     | Ok pc -> components <- pc :: components
                     | Error errs ->
                         for e in errs do
@@ -595,6 +672,7 @@ module Medication =
 
                     currentComponentFields <- Map.empty
                     currentSubstances <- []
+                    currentProducts <- []
 
             for indent, key, value in lines do
                 match indent with
@@ -610,6 +688,11 @@ module Medication =
 
                     if key = "Substances" then
                         () // Marker for substances section
+                    // a component may list several products, one line each
+                    elif key = "Product" then
+                        match parseComponentProduct value with
+                        | Ok p -> currentProducts <- p :: currentProducts
+                        | Error e -> parseErrors <- e :: parseErrors
                     else
                         currentComponentFields <- currentComponentFields |> Map.add key value
                 | 2 ->
@@ -905,6 +988,7 @@ module Medication =
                 Solution = None
                 Dose = None
                 Substances = []
+                Products = []
             }
 
         let create nme frm qts div dos sol sbs : ProductComponent =
@@ -916,6 +1000,7 @@ module Medication =
                 Dose = dos
                 Solution = sol
                 Substances = sbs
+                Products = []
             }
 
         let toString (prodCmp: ProductComponent) =
@@ -990,6 +1075,19 @@ module Medication =
                 $"\tDivisible: %s{cmp.Divisible |> optToStr BigRational.toString}"
                 $"\tDose: %s{cmp.Dose |> limitOptToString}"
                 $"\tSolution: %s{cmp.Solution |> optToStr slToStr}"
+                // one line per product, none when the products are not known
+                for p in cmp.Products do
+                    [
+                        $"%s{ProductLabels.Id} %s{p.Id}"
+                        match p.FormQuantities with
+                        | Some qts ->
+                            $"%s{ProductLabels.Quantities} %s{qts |> ValueUnit.toStringDecimalEngShortWithoutGroup}"
+                        | None -> ()
+                        for ps in p.Strengths do
+                            $"[%s{ps.Substance}] %s{ps.Strength |> ValueUnit.toStringDecimalEngShortWithoutGroup}"
+                    ]
+                    |> String.concat " "
+                    |> fun line -> $"\tProduct: %s{line}"
                 $"\tSubstances:"
 
                 for sub in cmp.Substances do
@@ -1054,6 +1152,53 @@ module Medication =
 
         limits
         |> Array.map (fun lim ->
+            // the component quantity rule, shared with the products below
+            let oneMl = 1N |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+
+            let qts =
+                lim.Products
+                |> Array.map _.FormQuantities
+                |> filterByUnitGroup $"Component '{lim.Name}' FormQuantities"
+                |> ValueUnit.collect
+
+            // a liquid that needs no reconstitution is counted per mL, not per package
+            let perMl =
+                let isVol =
+                    qts
+                    |> Option.map (fun vu -> vu |> ValueUnit.eqsGroup oneMl)
+                    |> Option.defaultValue false
+
+                let hasReconst = lim.Products |> Array.forall _.RequiresReconstitution
+
+                isVol && hasReconst |> not
+
+            let quantities = if perMl then Some oneMl else qts
+
+            // the dose limit of a substance decides whether its strength is molar
+            let substanceLimit n =
+                lim.SubstanceLimits
+                |> Array.tryFind (fun l ->
+                    match l.DoseLimitTarget with
+                    | SubstanceLimitTarget s -> s |> String.equalsCapInsens n
+                    | _ -> false
+                )
+
+            // the strength of a substance: molar when its dose limit doses in moles
+            let strengthOf n (s: Substance) =
+                match substanceLimit n with
+                | Some dl when dl.DoseUnit |> ValueUnit.Group.eqsGroup Units.Molar.mole -> s.MolarConcentration
+                | _ -> s.Concentration
+
+            let madeOf (sis: SubstanceItem list) (p: ComponentProduct) =
+                p.Strengths
+                |> List.forall (fun ps ->
+                    sis
+                    |> List.exists (fun si ->
+                        si.Name |> String.equalsCapInsens ps.Substance
+                        && si.Concentrations |> Option.exists (ValueUnit.eqsGroup ps.Strength)
+                    )
+                )
+
             let shape =
                 lim.Products
                 |> tryHead _.Form
@@ -1070,23 +1215,7 @@ module Medication =
                     else
                         lim.Name
                 Form = shape
-                Quantities =
-                    let oneMl = 1N |> ValueUnit.singleWithUnit Units.Volume.milliLiter
-
-                    let qts =
-                        lim.Products
-                        |> Array.map _.FormQuantities
-                        |> filterByUnitGroup $"Component '{lim.Name}' FormQuantities"
-                        |> ValueUnit.collect
-
-                    let isVol =
-                        qts
-                        |> Option.map (fun vu -> vu |> ValueUnit.eqsGroup oneMl)
-                        |> Option.defaultValue false
-
-                    let hasReconst = lim.Products |> Array.forall _.RequiresReconstitution
-
-                    if isVol && hasReconst |> not then Some oneMl else qts
+                Quantities = quantities
                 Divisible = lim.Products |> Array.choose _.Divisible |> Array.tryHead
                 Solution = None
                 Dose = lim.Limit
@@ -1095,13 +1224,7 @@ module Medication =
                     |> Array.collect (fun p -> p.Substances |> Array.map (fun s -> (s, p)))
                     |> Array.groupBy (fst >> _.Name)
                     |> Array.map (fun (n, xs) ->
-                        let dl =
-                            lim.SubstanceLimits
-                            |> Array.tryFind (fun l ->
-                                match l.DoseLimitTarget with
-                                | SubstanceLimitTarget s -> s |> String.equalsCapInsens n
-                                | _ -> false
-                            )
+                        let dl = substanceLimit n
 
                         {
                             Name = n
@@ -1120,25 +1243,41 @@ module Medication =
                                     |> filterByUnitGroup $"Component '{lim.Name}' Substance '{n}' Quantities"
                                     |> ValueUnit.collect
                             Concentrations =
-                                match dl with
-                                | Some dl when dl.DoseUnit |> ValueUnit.Group.eqsGroup Units.Molar.mole ->
-                                    xs
-                                    |> Array.choose (fst >> _.MolarConcentration)
-                                    |> Array.distinct
-                                    |> filterByUnitGroup $"Component '{lim.Name}' Substance '{n}' MolarConcentrations"
-                                    |> ValueUnit.collect
-                                | _ ->
-                                    xs
-                                    |> Array.choose (fst >> _.Concentration)
-                                    |> Array.distinct
-                                    |> filterByUnitGroup $"Component '{lim.Name}' Substance '{n}' Concentrations"
-                                    |> ValueUnit.collect
+                                xs
+                                |> Array.choose (fst >> strengthOf n)
+                                |> Array.distinct
+                                |> filterByUnitGroup $"Component '{lim.Name}' Substance '{n}' Concentrations"
+                                |> ValueUnit.collect
                             Dose = dl
                             Solution = None
                         }
                     )
                     |> Array.toList
+                Products =
+                    lim.Products
+                    |> Array.map (fun p ->
+                        {
+                            Id = p.GPK
+                            FormQuantities = if perMl then Some oneMl else Some p.FormQuantities
+                            Strengths =
+                                p.Substances
+                                |> Array.choose (fun sub ->
+                                    sub
+                                    |> strengthOf sub.Name
+                                    |> Option.map (fun vu ->
+                                        {
+                                            Substance = sub.Name
+                                            Strength = vu
+                                        }
+                                    )
+                                )
+                                |> Array.toList
+                        }
+                    )
+                    |> Array.toList
             }
+            // a product whose strength the unit group filter left out of its item can never be made
+            |> fun pc -> { pc with Products = pc.Products |> List.filter (madeOf pc.Substances) }
         )
         |> Array.toList
 
@@ -1359,6 +1498,7 @@ module Medication =
                         Items =
                             pc.Substances
                             |> List.map (fun si -> Order.Orderable.Item.createNew med.Id med.Name pc.Name si.Name)
+                        Products = pc.Products
                     }
                 )
 

@@ -66,6 +66,7 @@ let tests =
                         OrderableConcentration = ovar
                         Dose = ord.Orderable.Dose
                         Items = [| item |]
+                        Products = [||]
                     }
 
                 { ord with Orderable = { ord.Orderable with Components = [| comp |] } }
