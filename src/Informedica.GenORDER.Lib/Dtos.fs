@@ -8,6 +8,7 @@ namespace Informedica.GenOrder.Lib
 
 open System
 open Newtonsoft.Json
+open FsToolkit.ErrorHandling
 open Informedica.Utils.Lib.BCL
 open Informedica.GenForm.Lib
 // after GenForm, so that the TextBlock cases win over its Message cases
@@ -23,6 +24,21 @@ module DtoResult =
 
     /// A string a serializer left null is read as blank.
     let orBlank (s: string) = if isNull s then "" else s
+
+
+    /// A blank string is written as null, so a serializer that leaves nulls out leaves it out;
+    /// orBlank reads it back.
+    let blankToNull s = if s |> String.isNullOrEmpty then null else s
+
+
+    /// Every item of an array a serializer left null or not, read with its index in its path,
+    /// "Components[0]"; every error of every item when one fails.
+    let items path read xs =
+        xs
+        |> orEmpty
+        |> Array.toList
+        |> List.mapi (fun i x -> x |> read $"%s{path}[%i{i}]")
+        |> List.sequenceValidationA
 
 
     let sequence (rs: Result<'a, 'e> list) : Result<'a list, 'e list> =

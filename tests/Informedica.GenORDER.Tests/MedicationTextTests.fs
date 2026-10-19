@@ -1243,3 +1243,341 @@ module MedicationTextScenarioTests =
                         | Error e -> failtest $"should be able to run %s{name}: %s{e}"
                     }
             ]
+
+
+/// The medication text as a YAML document: the round trip from the scenario records, the shape of
+/// the text, the targets the places give, and the errors of a text that does not read.
+module MedicationTextYamlTests =
+
+    /// The medication records of the scenarios.
+    let records =
+        [
+            "pcmSupp", Scenarios.pcmSupp
+            "amfo", Scenarios.amfo
+            "morfCont", Scenarios.morfCont
+            "pcmDrink", Scenarios.pcmDrink
+            "cotrim", Scenarios.cotrim
+            "tpnComplete", Scenarios.tpnComplete
+            "tpn", Scenarios.tpn
+            "fullMedication", Scenarios.fullMedication
+            "morfContWithNaCl", Scenarios.morfContWithNaCl
+            "morfContWithNaClOneStrength", Scenarios.morfContWithNaClOneStrength
+            "amfoWithNaClTwoStrengthsTimed", Scenarios.amfoWithNaClTwoStrengthsTimed
+            "amfoTimed", Scenarios.amfoTimed
+            "morfTimedWithNaCl", Scenarios.morfTimedWithNaCl
+        ]
+
+
+    /// What the old text cannot hold: an exclusive minimum and maximum, the value 1/3, a value
+    /// list with a repeat in an unsorted order, an adjust unit on a dose limit.
+    let losslessMedication =
+        let mg = Units.Mass.milliGram
+        let kg = Units.Weight.kiloGram
+        let day = Units.Time.day
+        let mgPerKgPerDay = mg |> ValueUnit.per kg |> ValueUnit.per day
+
+        { Scenarios.pcmSupp with
+            Id = "lossless"
+            Frequencies =
+                [| 3N; 2N; 3N |]
+                |> ValueUnit.withUnit (Units.Count.times |> ValueUnit.per day)
+                |> Some
+            Dose =
+                { DoseLimit.limit with
+                    DoseLimitTarget = OrderableLimitTarget
+                    DoseUnit = mg
+                    AdjustUnit = Some kg
+                    PerTimeAdjust =
+                        {
+                            Min = 1N / 3N |> ValueUnit.singleWithUnit mgPerKgPerDay |> Exclusive |> Some
+                            Max = 90N |> ValueUnit.singleWithUnit mgPerKgPerDay |> Exclusive |> Some
+                        }
+                }
+                |> Some
+        }
+
+
+    let all = records @ [ "losslessMedication", losslessMedication ]
+
+
+    /// The medication with every limit targeted as its place gives it: the orderable at
+    /// medication level, a component or a substance by its name below it. The text holds no
+    /// target, so this is what a medication reads back as.
+    let withPlaceTargets (med: Medication) =
+        let dose t =
+            Option.map (fun (dl: DoseLimit) -> { dl with DoseLimitTarget = t })
+        let sol t =
+            Option.map (fun (sl: SolutionLimit) -> { sl with SolutionLimitTarget = t })
+
+        { med with
+            Dose = med.Dose |> dose OrderableLimitTarget
+            Components =
+                med.Components
+                |> List.map (fun pc ->
+                    { pc with
+                        Dose = pc.Dose |> dose (ComponentLimitTarget pc.Name)
+                        Solution = pc.Solution |> sol (ComponentLimitTarget pc.Name)
+                        Substances =
+                            pc.Substances
+                            |> List.map (fun si ->
+                                { si with
+                                    Dose = si.Dose |> dose (SubstanceLimitTarget si.Name)
+                                    Solution = si.Solution |> sol (SubstanceLimitTarget si.Name)
+                                }
+                            )
+                    }
+                )
+        }
+
+
+    /// Every limit target of a medication with its place.
+    let targets (med: Medication) =
+        [
+            match med.Dose with
+            | Some dl -> "Dose", dl.DoseLimitTarget
+            | None -> ()
+
+            for pc in med.Components do
+                match pc.Dose with
+                | Some dl -> $"%s{pc.Name}.Dose", dl.DoseLimitTarget
+                | None -> ()
+
+                match pc.Solution with
+                | Some sl -> $"%s{pc.Name}.Solution", sl.SolutionLimitTarget
+                | None -> ()
+
+                for si in pc.Substances do
+                    match si.Dose with
+                    | Some dl -> $"%s{pc.Name}.%s{si.Name}.Dose", dl.DoseLimitTarget
+                    | None -> ()
+
+                    match si.Solution with
+                    | Some sl -> $"%s{pc.Name}.%s{si.Name}.Solution", sl.SolutionLimitTarget
+                    | None -> ()
+        ]
+
+
+    /// A medication text that holds the fields the error tests change.
+    let validText =
+        """
+Id: "1"
+Name: paracetamol
+OrderType: DiscontinuousOrder
+Components:
+  - Name: paracetamol
+    Form: zetpil
+    Products:
+      - Id: "12345"
+        Strengths:
+          - Substance: paracetamol
+            Strength: { Value: [500], Unit: mg/piece }
+    Substances:
+      - Name: paracetamol
+        Concentrations: { Value: [500], Unit: mg/piece }
+        Dose:
+          QuantityAdjust:
+            Max: { Value: [20], Unit: mg/kg, Inclusive: true }
+"""
+
+
+    /// The error test text with a replaced by b; a must be in it.
+    let replace a b =
+        if validText |> String.contains a then
+            validText |> String.replace a b
+        else
+            invalidArg (nameof a) a
+
+
+    let errorsOf text =
+        match text |> MedicationText.fromString with
+        | Ok _ -> []
+        | Error errs -> errs
+
+
+    let fractionRegex = String.regex "(-?\\d+/\\d+)"
+
+
+    /// The fractions of a text that have a finite decimal form; the writer writes none.
+    let fractionsWithDecimalForm text =
+        [
+            for m in fractionRegex.Matches(text) do
+                m.Groups[1].Value
+        ]
+        |> List.filter (
+            BigRational.tryParseExact
+            >> Option.bind BigRational.toDecimalString
+            >> Option.isSome
+        )
+
+
+    let tests =
+        testList
+            "Medication text as YAML"
+            [
+                test "the error test text is read" { validText |> errorsOf |> Expect.isEmpty "no errors" }
+
+                test "OrderType.all lists every case of OrderType" {
+                    Order.OrderType.all
+                    |> Array.distinct
+                    |> Array.length
+                    |> Expect.equal
+                        "one entry per case"
+                        (Microsoft.FSharp.Reflection.FSharpType.GetUnionCases typeof<OrderType>).Length
+                }
+
+                testList
+                    "round trip"
+                    [
+                        for n, med in all do
+                            test $"%s{n} comes back as the same record" {
+                                let exp = med |> withPlaceTargets
+                                let text = med |> MedicationText.toString
+
+                                match text |> MedicationText.fromString with
+                                | Error errs -> failtest $"%A{errs}\n%s{text}"
+                                | Ok act ->
+                                    let expText = exp |> MedicationText.toString
+                                    let actText = act |> MedicationText.toString
+
+                                    act |> Expect.equal $"expected:\n%s{expText}\nactual:\n%s{actText}" exp
+                            }
+                    ]
+
+                testList
+                    "the text"
+                    [
+                        for n, med in all do
+                            test $"%s{n} holds no fraction with a finite decimal form" {
+                                med
+                                |> MedicationText.toString
+                                |> fractionsWithDecimalForm
+                                |> Expect.isEmpty "only fractions without a decimal form are written as one"
+                            }
+
+                        test "losslessMedication holds an exclusive limit and 1/3" {
+                            let text = losslessMedication |> MedicationText.toString
+
+                            text |> String.contains "Inclusive: false" |> Expect.isTrue text
+                            text |> String.contains "1/3" |> Expect.isTrue text
+                        }
+
+                        test "an Id of digits and the name yes are quoted, a plain route is not" {
+                            let text =
+                                { Scenarios.pcmSupp with
+                                    Id = "12345"
+                                    Name = "yes"
+                                }
+                                |> MedicationText.toString
+
+                            text |> String.contains "Id: \"12345\"" |> Expect.isTrue text
+                            text |> String.contains "Name: \"yes\"" |> Expect.isTrue text
+                            text |> String.contains "Route: RECTAAL" |> Expect.isTrue text
+                        }
+                    ]
+
+                testList
+                    "the limit targets"
+                    [
+                        for n, med in all do
+                            test $"every limit of %s{n} read gets the target of its place" {
+                                match med |> MedicationText.toString |> MedicationText.fromString with
+                                | Error errs -> failtest $"%A{errs}"
+                                | Ok act ->
+                                    let exp = act |> withPlaceTargets |> targets
+
+                                    act |> targets |> Expect.equal "the targets of the places" exp
+                            }
+                    ]
+
+                testList
+                    "the products"
+                    [
+                        for n, med in all do
+                            test $"every product of %s{n} is made of its substances" {
+                                med.Components
+                                |> List.collect (fun pc ->
+                                    pc.Products
+                                    |> List.filter (Medication.ProductComponent.madeOf pc.Substances >> not)
+                                    |> List.map (fun p -> $"%s{pc.Name} %s{p.Id}")
+                                )
+                                |> Expect.isEmpty "every product is made of its substances"
+                            }
+                    ]
+
+                test "a value of 500/1 in a text reads as 500" {
+                    let text = replace "[500], Unit: mg/piece }\n    Sub" "[\"500/1\"], Unit: mg/piece }\n    Sub"
+
+                    match text |> MedicationText.fromString with
+                    | Error errs -> failtest $"%A{errs}"
+                    | Ok med ->
+                        med.Components[0].Products[0].Strengths[0].Strength
+                        |> ValueUnit.getValue
+                        |> Expect.equal "500" [| 500N |]
+                }
+
+                testList
+                    "errors"
+                    [
+                        let max = "Components[0].Substances[0].Dose.QuantityAdjust.Max"
+
+                        test "a wrong number names its path" {
+                            replace "Value: [20]" "Value: [abc]"
+                            |> errorsOf
+                            |> Expect.equal "not a number" [ DtoError.NotANumber($"%s{max}.Value[0]", "abc") ]
+                        }
+
+                        test "a unit with an unknown group names its path" {
+                            replace "Unit: mg/kg," "Unit: \"mg[Banana]/kg\","
+                            |> errorsOf
+                            |> Expect.equal "unknown unit" [ DtoError.UnknownUnit($"%s{max}.Unit", "mg[Banana]/kg") ]
+                        }
+
+                        test "an empty document names the medication" {
+                            "" |> errorsOf |> Expect.equal "missing" [ DtoError.Missing "Medication" ]
+                        }
+
+                        test "an unknown key is unreadable" {
+                            replace "Form: zetpil" "Form: zetpil\n    Colour: white"
+                            |> errorsOf
+                            |> function
+                                | [ DtoError.Unreadable m ] -> m |> Expect.stringContains "names the key" "Colour"
+                                | errs -> failtest $"%A{errs}"
+                        }
+
+                        test "an unknown key inside a limit is unreadable" {
+                            replace "Inclusive: true }" "Inclusive: true, Colour: white }"
+                            |> errorsOf
+                            |> function
+                                | [ DtoError.Unreadable m ] -> m |> Expect.stringContains "names the key" "Colour"
+                                | errs -> failtest $"%A{errs}"
+                        }
+
+                        test "an order type that names no case names its path" {
+                            replace "OrderType: DiscontinuousOrder" "OrderType: Banana"
+                            |> errorsOf
+                            |> Expect.equal "unknown order type" [ DtoError.UnknownOrderType("OrderType", "Banana") ]
+                        }
+
+                        test "an adjusted limit without an adjust unit names its path" {
+                            replace "Unit: mg/kg," "Unit: mg,"
+                            |> errorsOf
+                            |> function
+                                | [ DtoError.WrongUnit("Components[0].Substances[0].Dose.QuantityAdjust", _) ] -> ()
+                                | errs -> failtest $"%A{errs}"
+                        }
+
+                        test "a product strength without its substance names its path" {
+                            replace "- Substance: paracetamol" "- Substance: ibuprofen"
+                            |> errorsOf
+                            |> Expect.equal "not made of" [ DtoError.NotMadeOf("Components[0].Products[0]", "12345") ]
+                        }
+
+                        test "the errors of one level are all given" {
+                            replace "OrderType: DiscontinuousOrder" "OrderType: Banana"
+                            |> String.replace "Unit: mg/kg," "Unit: mg,"
+                            |> errorsOf
+                            |> List.length
+                            |> Expect.equal "two errors" 2
+                        }
+                    ]
+            ]

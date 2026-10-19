@@ -1003,6 +1003,20 @@ module Medication =
                 Products = []
             }
 
+
+        /// A product can be made from the substances when every strength names one of them and
+        /// that substance has concentrations in the strength's unit group.
+        let madeOf (sis: SubstanceItem list) (p: ComponentProduct) =
+            p.Strengths
+            |> List.forall (fun ps ->
+                sis
+                |> List.exists (fun si ->
+                    si.Name |> String.equalsCapInsens ps.Substance
+                    && si.Concentrations |> Option.exists (ValueUnit.eqsGroup ps.Strength)
+                )
+            )
+
+
         let toString (prodCmp: ProductComponent) =
             [
                 "Name", prodCmp.Name
@@ -1034,6 +1048,535 @@ module Medication =
             DoseCount = MinMax.empty
             Adjust = None
         }
+
+
+    /// The medication as a serializable shape: the shape of its text and its schema. Absent is
+    /// null or an empty array; a number is its text; a limit gets its target from where it sits.
+    /// The Dto classes allow null, unlike the order's, so that the serializer leaves an absent
+    /// field out of the text.
+    module Dto =
+
+        open FsToolkit.ErrorHandling
+
+
+        /// A value with its unit: the numbers as their exact text.
+        [<AllowNullLiteral>]
+        type ValueDto() =
+            member val Value: string[] = [||] with get, set
+            member val Unit: string = null with get, set
+
+
+        /// A minimum or a maximum: a value with its unit, inclusive or exclusive.
+        [<AllowNullLiteral>]
+        type LimitDto() =
+            member val Value: string[] = [||] with get, set
+            member val Unit: string = null with get, set
+            member val Inclusive = false with get, set
+
+
+        /// A range: an optional minimum and maximum.
+        [<AllowNullLiteral>]
+        type MinMaxDto() =
+            member val Min: LimitDto = null with get, set
+            member val Max: LimitDto = null with get, set
+
+
+        /// A dose limit; its target is where it sits.
+        [<AllowNullLiteral>]
+        type DoseLimitDto() =
+            member val DoseUnit: string = null with get, set
+            member val AdjustUnit: string = null with get, set
+            member val Quantity: MinMaxDto = null with get, set
+            member val QuantityAdjust: MinMaxDto = null with get, set
+            member val PerTime: MinMaxDto = null with get, set
+            member val PerTimeAdjust: MinMaxDto = null with get, set
+            member val Rate: MinMaxDto = null with get, set
+            member val RateAdjust: MinMaxDto = null with get, set
+
+
+        /// A solution limit; its target is where it sits, its products are the solution rule's.
+        [<AllowNullLiteral>]
+        type SolutionLimitDto() =
+            member val Quantity: MinMaxDto = null with get, set
+            member val QuantityAdj: MinMaxDto = null with get, set
+            member val Quantities: ValueDto = null with get, set
+            member val Concentration: MinMaxDto = null with get, set
+
+
+        /// The strength of one substance of a product.
+        [<AllowNullLiteral>]
+        type StrengthDto() =
+            member val Substance: string = null with get, set
+            member val Strength: ValueDto = null with get, set
+
+
+        /// A product a component can be made of.
+        [<AllowNullLiteral>]
+        type ProductDto() =
+            member val Id: string = null with get, set
+            member val FormQuantities: ValueDto = null with get, set
+            member val Strengths: StrengthDto[] = [||] with get, set
+
+
+        /// A substance of a component.
+        [<AllowNullLiteral>]
+        type SubstanceDto() =
+            member val Name: string = null with get, set
+            member val Quantities: ValueDto = null with get, set
+            member val Concentrations: ValueDto = null with get, set
+            member val Dose: DoseLimitDto = null with get, set
+            member val Solution: SolutionLimitDto = null with get, set
+
+
+        /// A component of the medication.
+        [<AllowNullLiteral>]
+        type ComponentDto() =
+            member val Name: string = null with get, set
+            member val Form: string = null with get, set
+            member val Quantities: ValueDto = null with get, set
+            member val Divisible: string = null with get, set
+            member val Dose: DoseLimitDto = null with get, set
+            member val Solution: SolutionLimitDto = null with get, set
+            member val Products: ProductDto[] = [||] with get, set
+            member val Substances: SubstanceDto[] = [||] with get, set
+
+
+        /// The medication.
+        [<AllowNullLiteral>]
+        type Dto() =
+            member val Id: string = null with get, set
+            member val Name: string = null with get, set
+            member val Route: string = null with get, set
+            member val OrderType: string = null with get, set
+            member val Quantity: MinMaxDto = null with get, set
+            member val Quantities: ValueDto = null with get, set
+            member val Adjust: ValueDto = null with get, set
+            member val Frequencies: ValueDto = null with get, set
+            member val Time: MinMaxDto = null with get, set
+            member val Dose: DoseLimitDto = null with get, set
+            member val DoseCount: MinMaxDto = null with get, set
+            member val Div: string = null with get, set
+            member val Components: ComponentDto[] = [||] with get, set
+
+
+        let numbersToText vs = vs |> Array.map BigRational.toStringExact
+
+
+        let numberOptToText br = br |> Option.map BigRational.toStringExact |> Option.toObj
+
+
+        /// A unit from its text, or None. The parser raises a FormatException for an unknown
+        /// unit group, as in mg[Banana], and returns None for the rest it cannot read.
+        let tryParseUnit s =
+            try
+                s |> UnitsParse.fromString
+            with :? System.FormatException ->
+                None
+
+
+        /// A unit in English short without its group, or with the group when the short form
+        /// does not parse back to the same unit.
+        let unitToString u =
+            let s = u |> Units.toStringEngShortWithoutGroup
+
+            match s |> tryParseUnit with
+            | Some back when back = u -> s
+            | _ -> u |> Units.toStringEngShort
+
+
+        let valueToDto vu =
+            let v, u = vu |> ValueUnit.get
+            ValueDto(Value = (v |> numbersToText), Unit = (u |> unitToString))
+
+
+        let valueOptToDto vu = vu |> Option.map valueToDto |> Option.toObj
+
+
+        let limitToDto lim =
+            let incl, vu =
+                match lim with
+                | Inclusive vu -> true, vu
+                | Exclusive vu -> false, vu
+
+            let value = vu |> valueToDto
+            LimitDto(Value = value.Value, Unit = value.Unit, Inclusive = incl)
+
+
+        let minMaxToDto (mm: MinMax) =
+            if mm = MinMax.empty then
+                null
+            else
+                MinMaxDto(
+                    Min = (mm.Min |> Option.map limitToDto |> Option.toObj),
+                    Max = (mm.Max |> Option.map limitToDto |> Option.toObj)
+                )
+
+
+        let doseLimitToDto (dl: DoseLimit) =
+            DoseLimitDto(
+                DoseUnit =
+                    (match dl.DoseUnit with
+                     | NoUnit -> null
+                     | u -> u |> unitToString),
+                AdjustUnit = (dl.AdjustUnit |> Option.map unitToString |> Option.toObj),
+                Quantity = (dl.Quantity |> minMaxToDto),
+                QuantityAdjust = (dl.QuantityAdjust |> minMaxToDto),
+                PerTime = (dl.PerTime |> minMaxToDto),
+                PerTimeAdjust = (dl.PerTimeAdjust |> minMaxToDto),
+                Rate = (dl.Rate |> minMaxToDto),
+                RateAdjust = (dl.RateAdjust |> minMaxToDto)
+            )
+
+
+        let solutionLimitToDto (sl: SolutionLimit) =
+            SolutionLimitDto(
+                Quantity = (sl.Quantity |> minMaxToDto),
+                QuantityAdj = (sl.QuantityAdj |> minMaxToDto),
+                Quantities = (sl.Quantities |> valueOptToDto),
+                Concentration = (sl.Concentration |> minMaxToDto)
+            )
+
+
+        let strengthToDto (ps: ProductStrength) =
+            StrengthDto(Substance = ps.Substance, Strength = (ps.Strength |> valueToDto))
+
+
+        let productToDto (p: ComponentProduct) =
+            ProductDto(
+                Id = p.Id,
+                FormQuantities = (p.FormQuantities |> valueOptToDto),
+                Strengths = (p.Strengths |> List.map strengthToDto |> List.toArray)
+            )
+
+
+        let substanceToDto (si: SubstanceItem) =
+            SubstanceDto(
+                Name = (si.Name |> DtoResult.blankToNull),
+                Quantities = (si.Quantities |> valueOptToDto),
+                Concentrations = (si.Concentrations |> valueOptToDto),
+                Dose = (si.Dose |> Option.map doseLimitToDto |> Option.toObj),
+                Solution = (si.Solution |> Option.map solutionLimitToDto |> Option.toObj)
+            )
+
+
+        let componentToDto (pc: ProductComponent) =
+            ComponentDto(
+                Name = (pc.Name |> DtoResult.blankToNull),
+                Form = (pc.Form |> DtoResult.blankToNull),
+                Quantities = (pc.Quantities |> valueOptToDto),
+                Divisible = (pc.Divisible |> numberOptToText),
+                Dose = (pc.Dose |> Option.map doseLimitToDto |> Option.toObj),
+                Solution = (pc.Solution |> Option.map solutionLimitToDto |> Option.toObj),
+                Products = (pc.Products |> List.map productToDto |> List.toArray),
+                Substances = (pc.Substances |> List.map substanceToDto |> List.toArray)
+            )
+
+
+        /// The Dto of a medication; total.
+        let toDto (med: Medication) =
+            Dto(
+                Id = (med.Id |> DtoResult.blankToNull),
+                Name = (med.Name |> DtoResult.blankToNull),
+                Route = (med.Route |> DtoResult.blankToNull),
+                OrderType = (med.OrderType |> Order.OrderType.toString),
+                Quantity = (med.Quantity |> minMaxToDto),
+                Quantities = (med.Quantities |> valueOptToDto),
+                Adjust = (med.Adjust |> valueOptToDto),
+                Frequencies = (med.Frequencies |> valueOptToDto),
+                Time = (med.Time |> minMaxToDto),
+                Dose = (med.Dose |> Option.map doseLimitToDto |> Option.toObj),
+                DoseCount = (med.DoseCount |> minMaxToDto),
+                Div = (med.Div |> numberOptToText),
+                Components = (med.Components |> List.map componentToDto |> List.toArray)
+            )
+
+
+        let parseUnit path s =
+            match s |> tryParseUnit with
+            | Some u -> Ok u
+            | None -> Error [ DtoError.UnknownUnit(path, s) ]
+
+
+        let unitOptFromText path s =
+            if isNull s then
+                Ok None
+            else
+                s |> parseUnit path |> Result.map Some
+
+
+        let numberFromText path s =
+            match s |> BigRational.tryParseExact with
+            | Some br -> Ok br
+            | None -> Error [ DtoError.NotANumber(path, s) ]
+
+
+        let numberOptFromText path s =
+            if isNull s then
+                Ok None
+            else
+                s |> numberFromText path |> Result.map Some
+
+
+        let valueFromDto path (dto: ValueDto) =
+            validation {
+                let! u = dto.Unit |> DtoResult.orBlank |> parseUnit $"%s{path}.Unit"
+                and! vs = dto.Value |> DtoResult.items $"%s{path}.Value" numberFromText
+                return vs |> List.toArray |> ValueUnit.create u
+            }
+
+
+        let valueOptFromDto path dto =
+            if isNull dto then
+                Ok None
+            else
+                dto |> valueFromDto path |> Result.map Some
+
+
+        let limitFromDto path (dto: LimitDto) =
+            if isNull dto then
+                Ok None
+            else
+                ValueDto(Value = dto.Value, Unit = dto.Unit)
+                |> valueFromDto path
+                |> Result.map (fun vu -> Some(if dto.Inclusive then Inclusive vu else Exclusive vu))
+
+
+        let minMaxFromDto path (dto: MinMaxDto) =
+            if isNull dto then
+                Ok MinMax.empty
+            else
+                validation {
+                    let! min = dto.Min |> limitFromDto $"%s{path}.Min"
+                    and! max = dto.Max |> limitFromDto $"%s{path}.Max"
+                    return
+                        {
+                            Min = min
+                            Max = max
+                        }
+                }
+
+
+        /// A range of a dose limit whose units pass the check of its field.
+        let doseRangeFromDto check path dto =
+            dto
+            |> minMaxFromDto path
+            |> Result.bind (fun mm ->
+                let reasons =
+                    [ mm.Min; mm.Max ]
+                    |> List.choose id
+                    |> List.choose (fun lim ->
+                        match lim |> Limit.getValueUnit |> ValueUnit.getUnit |> check with
+                        | Error reason -> Some reason
+                        | Ok() -> None
+                    )
+                    |> List.distinct
+
+                if reasons |> List.isEmpty then
+                    Ok mm
+                else
+                    reasons |> List.map (fun r -> DtoError.WrongUnit(path, r)) |> Error
+            )
+
+
+        let doseLimitFromDto target path (dto: DoseLimitDto) =
+            if isNull dto then
+                Ok None
+            else
+                let field name = $"%s{path}.%s{name}"
+
+                validation {
+                    let! doseUnit = dto.DoseUnit |> unitOptFromText (field "DoseUnit")
+                    and! adjustUnit = dto.AdjustUnit |> unitOptFromText (field "AdjustUnit")
+                    and! qty =
+                        dto.Quantity
+                        |> doseRangeFromDto UnitValidation.validateQuantityUnit (field "Quantity")
+                    and! qtyAdj =
+                        dto.QuantityAdjust
+                        |> doseRangeFromDto UnitValidation.validateQuantityAdjustUnit (field "QuantityAdjust")
+                    and! perTime =
+                        dto.PerTime
+                        |> doseRangeFromDto UnitValidation.validatePerTimeUnit (field "PerTime")
+                    and! perTimeAdj =
+                        dto.PerTimeAdjust
+                        |> doseRangeFromDto UnitValidation.validatePerTimeAdjustUnit (field "PerTimeAdjust")
+                    and! rate = dto.Rate |> doseRangeFromDto UnitValidation.validateRateUnit (field "Rate")
+                    and! rateAdj =
+                        dto.RateAdjust
+                        |> doseRangeFromDto UnitValidation.validateRateAdjustUnit (field "RateAdjust")
+
+                    return
+                        Some
+                            {
+                                DoseLimitTarget = target
+                                AdjustUnit = adjustUnit
+                                DoseUnit = doseUnit |> Option.defaultValue NoUnit
+                                Quantity = qty
+                                QuantityAdjust = qtyAdj
+                                PerTime = perTime
+                                PerTimeAdjust = perTimeAdj
+                                Rate = rate
+                                RateAdjust = rateAdj
+                            }
+                }
+
+
+        let solutionLimitFromDto target path (dto: SolutionLimitDto) =
+            if isNull dto then
+                Ok None
+            else
+                validation {
+                    let! qty = dto.Quantity |> minMaxFromDto $"%s{path}.Quantity"
+                    and! qtyAdj = dto.QuantityAdj |> minMaxFromDto $"%s{path}.QuantityAdj"
+                    and! qts = dto.Quantities |> valueOptFromDto $"%s{path}.Quantities"
+                    and! conc = dto.Concentration |> minMaxFromDto $"%s{path}.Concentration"
+
+                    return
+                        Some
+                            {
+                                SolutionLimitTarget = target
+                                Quantity = qty
+                                QuantityAdj = qtyAdj
+                                Quantities = qts
+                                Concentration = conc
+                                Products = [||]
+                            }
+                }
+
+
+        let strengthFromDto path (dto: StrengthDto) =
+            dto.Strength
+            |> valueFromDto $"%s{path}.Strength"
+            |> Result.map (fun vu ->
+                {
+                    Substance = dto.Substance |> DtoResult.orBlank
+                    Strength = vu
+                }
+            )
+
+
+        let productFromDto path (dto: ProductDto) =
+            validation {
+                let! qts = dto.FormQuantities |> valueOptFromDto $"%s{path}.FormQuantities"
+                and! strengths = dto.Strengths |> DtoResult.items $"%s{path}.Strengths" strengthFromDto
+
+                return
+                    {
+                        Id = dto.Id |> DtoResult.orBlank
+                        FormQuantities = qts
+                        Strengths = strengths
+                    }
+            }
+
+
+        let substanceFromDto path (dto: SubstanceDto) =
+            let name = dto.Name |> DtoResult.orBlank
+            let target = SubstanceLimitTarget name
+
+            validation {
+                let! qts = dto.Quantities |> valueOptFromDto $"%s{path}.Quantities"
+                and! concs = dto.Concentrations |> valueOptFromDto $"%s{path}.Concentrations"
+                and! dose = dto.Dose |> doseLimitFromDto target $"%s{path}.Dose"
+                and! sol = dto.Solution |> solutionLimitFromDto target $"%s{path}.Solution"
+
+                return
+                    {
+                        Name = name
+                        Quantities = qts
+                        Concentrations = concs
+                        Dose = dose
+                        Solution = sol
+                    }
+            }
+
+
+        /// The products, each refused that cannot be made of the substances.
+        let madeOfSubstances path substances products =
+            products
+            |> List.mapi (fun i p ->
+                if p |> ProductComponent.madeOf substances then
+                    Ok p
+                else
+                    Error [ DtoError.NotMadeOf($"%s{path}.Products[%i{i}]", p.Id) ]
+            )
+            |> List.sequenceValidationA
+
+
+        let componentFromDto path (dto: ComponentDto) =
+            let name = dto.Name |> DtoResult.orBlank
+            let target = ComponentLimitTarget name
+            let substances = dto.Substances |> DtoResult.items $"%s{path}.Substances" substanceFromDto
+
+            let products =
+                dto.Products
+                |> DtoResult.items $"%s{path}.Products" productFromDto
+                // the products can only be checked against substances that were read
+                |> Result.bind (fun ps ->
+                    match substances with
+                    | Ok sis -> ps |> madeOfSubstances path sis
+                    | Error _ -> Ok ps
+                )
+
+            validation {
+                let! qts = dto.Quantities |> valueOptFromDto $"%s{path}.Quantities"
+                and! divisible = dto.Divisible |> numberOptFromText $"%s{path}.Divisible"
+                and! dose = dto.Dose |> doseLimitFromDto target $"%s{path}.Dose"
+                and! sol = dto.Solution |> solutionLimitFromDto target $"%s{path}.Solution"
+                and! substances = substances
+                and! products = products
+
+                return
+                    {
+                        Name = name
+                        Form = dto.Form |> DtoResult.orBlank
+                        Quantities = qts
+                        Divisible = divisible
+                        Dose = dose
+                        Solution = sol
+                        Substances = substances
+                        Products = products
+                    }
+            }
+
+
+        let orderTypeFromDto path s =
+            Order.OrderType.all
+            |> Array.tryFind (Order.OrderType.toString >> (=) s)
+            |> function
+                | Some ot -> Ok ot
+                | None -> Error [ DtoError.UnknownOrderType(path, s) ]
+
+
+        /// The medication of a Dto, or every error of it, each with its path.
+        let fromDto (dto: Dto) =
+            validation {
+                let! orderType = dto.OrderType |> DtoResult.orBlank |> orderTypeFromDto "OrderType"
+                and! qty = dto.Quantity |> minMaxFromDto "Quantity"
+                and! qts = dto.Quantities |> valueOptFromDto "Quantities"
+                and! adjust = dto.Adjust |> valueOptFromDto "Adjust"
+                and! freqs = dto.Frequencies |> valueOptFromDto "Frequencies"
+                and! time = dto.Time |> minMaxFromDto "Time"
+                and! dose = dto.Dose |> doseLimitFromDto OrderableLimitTarget "Dose"
+                and! doseCount = dto.DoseCount |> minMaxFromDto "DoseCount"
+                and! div = dto.Div |> numberOptFromText "Div"
+                and! components = dto.Components |> DtoResult.items "Components" componentFromDto
+
+                return
+                    {
+                        Id = dto.Id |> DtoResult.orBlank
+                        Name = dto.Name |> DtoResult.orBlank
+                        Components = components
+                        Quantity = qty
+                        Quantities = qts
+                        Route = dto.Route |> DtoResult.orBlank
+                        OrderType = orderType
+                        Frequencies = freqs
+                        Time = time
+                        Dose = dose
+                        Div = div
+                        DoseCount = doseCount
+                        Adjust = adjust
+                    }
+            }
 
 
     let toString (med: Medication) =
@@ -1189,16 +1732,6 @@ module Medication =
                 | Some dl when dl.DoseUnit |> ValueUnit.Group.eqsGroup Units.Molar.mole -> s.MolarConcentration
                 | _ -> s.Concentration
 
-            let madeOf (sis: SubstanceItem list) (p: ComponentProduct) =
-                p.Strengths
-                |> List.forall (fun ps ->
-                    sis
-                    |> List.exists (fun si ->
-                        si.Name |> String.equalsCapInsens ps.Substance
-                        && si.Concentrations |> Option.exists (ValueUnit.eqsGroup ps.Strength)
-                    )
-                )
-
             let shape =
                 lim.Products
                 |> tryHead _.Form
@@ -1277,7 +1810,7 @@ module Medication =
                     |> Array.toList
             }
             // a product whose strength the unit group filter left out of its item can never be made
-            |> fun pc -> { pc with Products = pc.Products |> List.filter (madeOf pc.Substances) }
+            |> fun pc -> { pc with Products = pc.Products |> List.filter (ProductComponent.madeOf pc.Substances) }
         )
         |> Array.toList
 
