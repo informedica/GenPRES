@@ -99,33 +99,16 @@ module DoseLimit =
     let isNormDose = getNormDose >> Option.isSome
 
 
-    /// <summary>
-    /// Formats a MinMax as a string with label and per-dose suffix.
-    /// </summary>
-    /// <param name="label">A text to prepend. When empty, the verbose format with decimal
-    /// precision is used.</param>
-    /// <param name="perDose">Suffix to append (e.g., "/dosis"). Applied to each value in the MinMax.</param>
+    /// <summary>Formats the MinMax of a dose in Dutch decimals, with a per-dose suffix.</summary>
+    /// <param name="perDose">The suffix after the formatted MinMax, as "/dosis"; may be empty.</param>
     /// <param name="minMax">The MinMax to format.</param>
     /// <returns>
-    /// A formatted string. Returns empty string if MinMax is empty.
-    /// - When label is null/whitespace: uses decimal string format with 3 decimals
-    /// - When label is provided: uses engineering short notation
-    /// - When min equals max (norm dose): returns single value instead of min/max pair
-    /// - Final format: "{label} {formatted-value}{perDose}"
+    /// An empty string for an empty MinMax; the single value when min equals max, a norm dose;
+    /// else the range, as "10 - 20 mg/dosis", or the one limit, as "max 20 mg/dosis".
     /// </returns>
-    let printMinMaxDose label perDose (minMax: MinMax) =
-        let vuToStr, mmToStr =
-            if label |> String.isNullOrWhiteSpace then
-                Utils.ValueUnit.toString 3, Utils.MinMax.toString "min " "min " "max " "max "
-            else
-                ValueUnit.toStringDecimalEngShortWithoutGroup,
-                MinMax.toString
-                    ValueUnit.toStringDecimalEngShortWithoutGroup
-                    ValueUnit.toStringDecimalEngShortWithoutGroup
-                    "min "
-                    "min "
-                    "max "
-                    "max "
+    let printMinMaxDose perDose (minMax: MinMax) =
+        let vuToStr = Utils.ValueUnit.toString 3
+        let mmToStr = Utils.MinMax.toString "min " "min " "max " "max "
 
         let toStr mm =
             if mm = MinMax.empty then
@@ -140,8 +123,4 @@ module DoseLimit =
 
         else
             minMax |> toStr
-        |> fun s ->
-            if s |> String.isNullOrWhiteSpace then
-                ""
-            else
-                $"{label} {s}" |> String.trim
+        |> String.trim
