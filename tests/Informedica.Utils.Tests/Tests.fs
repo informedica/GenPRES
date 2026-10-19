@@ -919,6 +919,54 @@ module Tests =
 
                     test "when operator is subtraction" { Expect.equal ((-) |> BigRational.opIsSubtr) true "" }
                     testCalcCartesian ()
+
+                    testList
+                        "exact text"
+                        [
+                            for br, exp in
+                                [
+                                    1N / 2N, Some "0.5"
+                                    1N / 3N, None
+                                    1000N, Some "1000"
+                                    -1N / 8N, Some "-0.125"
+                                    0N, Some "0"
+                                ] do
+                                test $"toDecimalString of %s{br |> BigRational.toString} is %A{exp}" {
+                                    br |> BigRational.toDecimalString |> equals exp "the exact decimal form"
+                                }
+
+                            test "toDecimalString of a value beyond a decimal is None" {
+                                BigRational.FromBigInt(System.Numerics.BigInteger.Pow(10I, 40))
+                                |> BigRational.toDecimalString
+                                |> equals None "no decimal form"
+                            }
+
+                            for br, exp in [ 1N / 2N, "0.5"; 1N / 3N, "1/3"; -7N / 3N, "-7/3"; 500N, "500" ] do
+                                test $"toStringExact of %s{br |> BigRational.toString} is %s{exp}" {
+                                    br |> BigRational.toStringExact |> equals exp "the exact text"
+                                }
+
+                            for s, exp in
+                                [
+                                    "500/1", 500N
+                                    "1/3", 1N / 3N
+                                    "0.25", 1N / 4N
+                                    "-1.5", -3N / 2N
+                                    "1000", 1000N
+                                    " 2 ", 2N
+                                ] do
+                                test $"tryParseExact reads '%s{s}'" {
+                                    s |> BigRational.tryParseExact |> equals (Some exp) s
+                                }
+
+                            for s in [ "1e3"; "1,5"; "1 000"; "abc"; "1/0"; "" ] do
+                                test $"tryParseExact refuses '%s{s}'" {
+                                    s |> BigRational.tryParseExact |> equals None s
+                                }
+
+                            testPropertyWithConfig config "the exact text of any BigRational reads back to it"
+                            <| fun br -> br |> BigRational.toStringExact |> BigRational.tryParseExact = Some br
+                        ]
                 ]
 
 

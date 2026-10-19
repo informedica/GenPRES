@@ -141,6 +141,41 @@ module BigRational =
             br |> toFloat |> Double.toStringNumberNLWithoutTrailingZeros
 
 
+    /// The exact decimal form of a BigRational, "0.5" for 1/2, or None when it has none, as 1/3,
+    /// or when it is beyond the range of a decimal. Unlike toDecimal, which goes through a float,
+    /// nothing is rounded.
+    let toDecimalString br =
+        try
+            let d = decimal (br |> numerator) / decimal (br |> denominator)
+
+            if d |> fromDecimal = br then
+                Some(d.ToString Globalization.CultureInfo.InvariantCulture)
+            else
+                None
+        with :? OverflowException ->
+            None
+
+
+    /// The exact text of a BigRational: its decimal form when it has a finite one, "0.5", else
+    /// the reduced fraction, "1/3".
+    let toStringExact br =
+        br |> toDecimalString |> Option.defaultWith (fun () -> br |> toString)
+
+
+    /// A BigRational from its exact text: a decimal, "0.5", or a fraction, "1/3" or "500/1";
+    /// None for anything else. A decimal takes only a leading sign and a decimal point, so an
+    /// exponent, a group separator or a decimal comma is refused.
+    let tryParseExact s =
+        let s = s |> String.trim
+        let styles =
+            Globalization.NumberStyles.AllowLeadingSign
+            ||| Globalization.NumberStyles.AllowDecimalPoint
+
+        match System.Decimal.TryParse(s, styles, Globalization.CultureInfo.InvariantCulture) with
+        | true, d -> d |> fromDecimal |> Some
+        | false, _ -> s |> tryParse
+
+
     //----------------------------------------------------------------------------
     // Constants
     //----------------------------------------------------------------------------
