@@ -18,6 +18,7 @@
     <Compile Include="Totals.fs" />
     <Compile Include="Dtos.fs" />
     <Compile Include="Medication.fs" />
+    <Compile Include="MedicationText.fs" />
     <Compile Include="Nutrition.fs" />
     <Compile Include="Patient.fs" />
     <Compile Include="OrderLogging.fs" />

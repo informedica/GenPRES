@@ -3,3 +3,5 @@ MathNet.Numerics.FSharp
 FParsec
 FSharp.Core
 IcedTasks
+FsToolkit.ErrorHandling
+YamlDotNet

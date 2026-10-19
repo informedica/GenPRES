@@ -129,6 +129,15 @@ Join our [Slack workspace](https://genpresworkspace.slack.com) for:
 
 Documented in [./DEVELOPMENT.md](./DEVELOPMENT.md).
 
+## External Dependencies
+
+A new package is noted here with the library that takes it and what for.
+
+- **YamlDotNet** (16.3.0, Main group), in GenORDER: writes and reads the medication text as a
+  YAML document, through the medication's Dto.
+- **FsToolkit.ErrorHandling**, already in the Main group, now also referenced by GenORDER: it
+  collects every error of a medication text that does not read.
+
 ## Code Formatting (Pre-Commit Hook)
 
 F# files staged for commit are automatically formatted by [Fantomas](https://github.com/fsprojects/fantomas) via the Husky pre-commit hook. The hook delegates to `.husky/scripts/format-staged.sh`, which receives the staged F# files as positional arguments, runs `dotnet fantomas` on them, and re-stages the formatted output.

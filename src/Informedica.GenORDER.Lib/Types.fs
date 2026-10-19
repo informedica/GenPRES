@@ -832,6 +832,21 @@ module Types =
         | Missing of string
         /// The patient of a context or an order plan is none
         | Patient of Informedica.GenForm.Lib.Types.PatientError
+        /// A text that is not a document of its shape: no YAML, a wrong type or an unknown key,
+        /// with the reader's message, its line and its column
+        | Unreadable of message: string
+        /// A number that is neither a decimal nor a fraction, by the path of its field
+        | NotANumber of path: string * number: string
+        /// A unit that does not parse, by the path of its field
+        | UnknownUnit of path: string * unit: string
+        /// A unit that does not fit its field, as an adjusted limit without an adjust unit, by the
+        /// path of its field
+        | WrongUnit of path: string * reason: string
+        /// An order type that names no case of OrderType, by the path of its field
+        | UnknownOrderType of path: string * orderType: string
+        /// A product a strength of which names no substance of its component, or a substance
+        /// without concentrations in the strength's unit group, by the path of the product
+        | NotMadeOf of path: string * productId: string
 
 
     module Exceptions =
