@@ -79,8 +79,9 @@ benchmark code. The tests:
   (`Tests.fs:1592-1742`).
 - `Informedica.GenCORE.Tests`: the `MinMax.parseMinMax` tests (`Tests.fs:409-523`).
 
-The scripts `Medication.fsx`, `Constraints.fsx:451`, `Issue1425.fsx:29`, `Issue1425Measure.fsx:34`,
-`Scratch/Medication.fsx:125` and `MedicationYaml.fsx`.
+The scripts `Medication.fsx`, `Constraints.fsx:451`, `Issue1425.fsx:29`, `Issue1425Measure.fsx:34`
+and `MedicationYaml.fsx`. 3c switches all but `Medication.fsx`, whose own old-format texts mostly
+test the old reader; it goes with that reader in 3d.
 
 **The text is written by hand.** Eight fixtures in `Scenarios.fs` are text literals
 (`pcmSuppText` `:18`, `fullMedicationText` `:1060`, `kaliumchlorideOnceTimedText` `:1104`,
@@ -297,9 +298,13 @@ After the switch nothing in the source reads or writes the old format. 3d remove
 with it; the rest are `ProductLabels`, the old `toString` and `fromString` (`:1039-1103`),
 `SubstanceItem.toString`, `ProductComponent.toString`, `valueUnitOptToString`, `limitOptToString`,
 `solutionLimitOptToString` and `minMaxToString`; with them the tests of what it removes:
-`MedicationParserTests`, the `parseLine` tests and `doseLimitText` where nothing else uses it.
-3e removes `DoseLimit.toString`, `SolutionLimit.toString` and their `FieldLabels` from GenFORM,
-`MinMax.parseMinMax` from GenCORE, and their tests.
+`MedicationParserTests`, and in `MedicationTextFormatTests` the lists "toString and fromString
+round trip" and "parseLine handles different indentation", with the module's `toText` and `parse`.
+The list "Unit validation" moves to `MedicationTextYamlTests` in 3d, as the reader uses
+`UnitValidation`. 3e removes `DoseLimit.toString`, `SolutionLimit.toString` and their
+`FieldLabels` from GenFORM, `MinMax.parseMinMax` from GenCORE, and their tests, among them the
+list "DoseLimit with field labels" and `doseLimitText`, and with them what is left of
+`MedicationTextFormatTests`.
 
 ## Checked, no change needed
 

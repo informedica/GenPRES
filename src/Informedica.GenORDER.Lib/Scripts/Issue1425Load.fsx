@@ -46,6 +46,8 @@ fsi.AddPrinter<System.DateTime> _.ToShortDateString()
 #load "../Totals.fs"
 #load "../Dtos.fs"
 #load "../Medication.fs"
+#r "nuget: YamlDotNet, 16.3.0"
+#load "../MedicationText.fs"
 
 
 

@@ -1981,20 +1981,7 @@ module Medication =
                 pr.SolutionRules |> Array.map Some |> Array.map create
 
         meds
-        |> Array.iter (fun med ->
-            // FLAG: expensive message build (Medication.toString formats every
-            // substance/component incl. ValueUnits) — kept lazy so it is skipped
-            // when the logger is off.
-            Informedica.GenOrder.Lib.Logging.logInfoLazy
-                logger
-                (fun () ->
-                    med
-                    |> toString
-                    |> List.map (sprintf "%s")
-                    |> String.concat "\n"
-                    |> Events.MedicationCreated
-                )
-        )
+        |> Array.iter (Events.MedicationCreated >> Informedica.GenOrder.Lib.Logging.logInfo logger)
 
         meds
 
