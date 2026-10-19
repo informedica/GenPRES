@@ -959,7 +959,26 @@ module Tests =
                                     s |> BigRational.tryParseExact |> equals (Some exp) s
                                 }
 
-                            for s in [ "1e3"; "1,5"; "1 000"; "abc"; "1/0"; "" ] do
+                            test "tryParseExact keeps a decimal below the precision of a decimal" {
+                                "0.00000000000000000000000000001"
+                                |> BigRational.tryParseExact
+                                |> equals
+                                    (Some(1N / BigRational.FromBigInt(System.Numerics.BigInteger.Pow(10I, 29))))
+                                    "1/10^29, not 0"
+                            }
+
+                            test "tryParseExact keeps every digit of a long decimal" {
+                                let digits = System.Numerics.BigInteger.Parse "123456789012345678901234567890123"
+                                let scale = System.Numerics.BigInteger.Pow(10I, 23)
+
+                                "1234567890.12345678901234567890123"
+                                |> BigRational.tryParseExact
+                                |> equals
+                                    (Some(BigRational.FromBigInt digits / BigRational.FromBigInt scale))
+                                    "all 33 digits"
+                            }
+
+                            for s in [ "1e3"; "1,5"; "1 000"; "abc"; "1/0"; ""; "١٢" ] do
                                 test $"tryParseExact refuses '%s{s}'" {
                                     s |> BigRational.tryParseExact |> equals None s
                                 }

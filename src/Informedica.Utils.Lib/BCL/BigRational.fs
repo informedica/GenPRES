@@ -162,18 +162,29 @@ module BigRational =
         br |> toDecimalString |> Option.defaultWith (fun () -> br |> toString)
 
 
+    /// A decimal as its exact text writes it: an optional minus sign, digits, and digits after a
+    /// decimal point. Only the digits 0 to 9, as .NET reads every Unicode digit for \d.
+    let exactDecimalRegex = String.regex @"^(-?)([0-9]+)(?:\.([0-9]+))?$"
+
+
     /// A BigRational from its exact text: a decimal, "0.5", or a fraction, "1/3" or "500/1";
     /// None for anything else. A decimal takes only a leading sign and a decimal point, so an
-    /// exponent, a group separator or a decimal comma is refused.
+    /// exponent, a group separator or a decimal comma is refused. Its digits are read as they
+    /// are, so a decimal of any length stays exact.
     let tryParseExact s =
         let s = s |> String.trim
-        let styles =
-            Globalization.NumberStyles.AllowLeadingSign
-            ||| Globalization.NumberStyles.AllowDecimalPoint
+        let m = exactDecimalRegex.Match s
 
-        match System.Decimal.TryParse(s, styles, Globalization.CultureInfo.InvariantCulture) with
-        | true, d -> d |> fromDecimal |> Some
-        | false, _ -> s |> tryParse
+        if m.Success then
+            let fraction = m.Groups[3].Value
+            let digits = Numerics.BigInteger.Parse(m.Groups[2].Value + fraction)
+            let n = if m.Groups[1].Value = "-" then -digits else digits
+
+            (n |> fromBigInt)
+            / (Numerics.BigInteger.Pow(10I, fraction |> String.length) |> fromBigInt)
+            |> Some
+        else
+            s |> tryParse
 
 
     //----------------------------------------------------------------------------
