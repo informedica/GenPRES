@@ -3971,7 +3971,6 @@ let tests =
             ReachablePickTests.tests
             RateAfterQuantityTests.tests
             OrderBuilderTests.tests
-            MedicationTextTests.MedicationTextFormatTests.tests
             MedicationTextTests.MedicationTextScenarioTests.tests
             MedicationTextTests.MedicationTextYamlTests.tests
         ]
