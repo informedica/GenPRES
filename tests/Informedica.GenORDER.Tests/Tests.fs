@@ -93,7 +93,7 @@ module TestOrder =
 
     /// The medication the text holds.
     let parse text =
-        match text |> Medication.fromString with
+        match text |> MedicationText.fromString with
         | Ok med -> med
         | Error errs -> failtest $"could not parse the medication: %A{errs}"
 
@@ -163,7 +163,7 @@ module Pipeline =
 
     let private mkOnceTimedOrder () =
         Scenarios.kaliumchlorideOnceTimedText
-        |> Medication.fromString
+        |> MedicationText.fromString
         |> function
             | Error errs -> failtest $"Failed to parse kaliumchloride OnceTimed: {errs}"
             | Ok med ->
@@ -969,46 +969,51 @@ module ComponentProductTests =
                     |> Expect.equal "two products" 2
 
                     med
-                    |> Medication.toString
-                    |> String.concat "\n"
+                    |> MedicationText.toString
                     |> parse
                     |> Expect.equal "the same medication" med
                 }
 
-                test "a text medication without products prints no product line" {
+                test "a text medication without products prints no products" {
                     Scenarios.prednisolonText
                     |> parse
-                    |> Medication.toString
-                    |> List.exists (String.contains "Product:")
-                    |> Expect.isFalse "no product line"
+                    |> MedicationText.toString
+                    |> String.contains "Products:"
+                    |> Expect.isFalse "no products"
                 }
 
                 test "a product with a strength that does not parse is an error" {
-                    Scenarios.amoxClavText.Replace("[clavulaanzuur] 10 mg/ml", "[clavulaanzuur] 10 mg/")
-                    |> Medication.fromString
-                    |> Result.isError
-                    |> Expect.isTrue "an error"
+                    Scenarios.amoxClavText.Replace("Unit: mg/ml", "Unit: \"mg[Banana]/ml\"")
+                    |> MedicationText.fromString
+                    |> function
+                        | Ok _ -> []
+                        | Error errs -> errs
+                    |> List.contains (
+                        DtoError.UnknownUnit("Components[0].Products[1].Strengths[1].Strength.Unit", "mg[Banana]/ml")
+                    )
+                    |> Expect.isTrue "the strength of the clavulaanzuur"
                 }
 
                 test "a product naming a substance the component does not have is an error" {
-                    Scenarios.amoxClavText.Replace("[clavulaanzuur] 10 mg/ml", "[clavulanaat] 10 mg/ml")
-                    |> Medication.fromString
-                    |> Result.isError
-                    |> Expect.isTrue "an error"
+                    Scenarios.amoxClavText.Replace("- Substance: clavulaanzuur", "- Substance: clavulanaat")
+                    |> MedicationText.fromString
+                    |> function
+                        | Ok _ -> []
+                        | Error errs -> errs
+                    |> List.contains (DtoError.NotMadeOf("Components[0].Products[1]", "amox-clav-1000-200"))
+                    |> Expect.isTrue "the second product"
                 }
 
                 test "a product with a blank id is an error" {
-                    Scenarios.amoxClavText.Replace("[id] amox-clav-500-50 ", "[id] ")
-                    |> Medication.fromString
-                    |> Result.isError
-                    |> Expect.isTrue "an error"
+                    Scenarios.amoxClavText.Replace("- Id: amox-clav-500-50", "- Id: \"\"")
+                    |> MedicationText.fromString
+                    |> Expect.equal "missing" (Error [ DtoError.Missing "Components[0].Products[0].Id" ])
                 }
 
                 test "a product without an id is an error" {
-                    Scenarios.amoxClavText.Replace("[id] amox-clav-500-50 ", "")
-                    |> Medication.fromString
-                    |> Result.isError
-                    |> Expect.isTrue "an error"
+                    Scenarios.amoxClavText.Replace("- Id: amox-clav-500-50", "- Id: ~")
+                    |> MedicationText.fromString
+                    |> Expect.equal "missing" (Error [ DtoError.Missing "Components[0].Products[0].Id" ])
                 }
             ]
 
@@ -1057,14 +1062,6 @@ module ProductNarrowingTests =
         ord
         |> OrderProcessor.processChangeProperty noLog (SetNthItemComponentConcentration(amoxClav, "clavulaanzuur", n))
         |> solve SolveOrder
-
-
-    /// The text with one text replaced by another, failing the test when the text does not hold it.
-    let private replaced (oldText: string) newText (text: string) =
-        if text |> String.contains oldText |> not then
-            failtest $"the fixture no longer holds: %s{oldText}"
-
-        text.Replace(oldText, newText)
 
 
     let tests =
@@ -1138,10 +1135,25 @@ module ProductNarrowingTests =
                 }
 
                 test "a component with products of which none applies is refused" {
-                    Scenarios.amoxClavText
-                    |> replaced "[clavulaanzuur] 5 mg/ml" "[clavulaanzuur] 7 mg/ml"
-                    |> replaced "[clavulaanzuur] 10 mg/ml" "[clavulaanzuur] 7 mg/ml"
-                    |> parse
+                    let at7 (s: ProductStrength) =
+                        if s.Substance = "clavulaanzuur" then
+                            { s with Strength = s.Strength |> ValueUnit.setValue [| 7N |] }
+                        else
+                            s
+
+                    let med = Scenarios.amoxClavText |> parse
+
+                    { med with
+                        Components =
+                            med.Components
+                            |> List.map (fun pc ->
+                                { pc with
+                                    Products =
+                                        pc.Products
+                                        |> List.map (fun p -> { p with Strengths = p.Strengths |> List.map at7 })
+                                }
+                            )
+                    }
                     |> toOrder
                     |> CalcMinMax
                     |> OrderProcessor.processPipeline noLog
@@ -1802,63 +1814,6 @@ module PatientConstructorTests =
                         ]
 
                     patients |> List.length |> Expect.equal "should have 7 distinct patients" 7
-                }
-            ]
-
-
-module MedicationParserTests =
-
-
-    let tests =
-        testList
-            "Medication.Parser"
-            [
-
-                test "parseBigRationalOpt parses integer string" {
-                    Medication.Parser.parseBigRationalOpt "10" |> Expect.isSome "should parse '10'"
-                }
-
-                test "parseBigRationalOpt returns None for empty string" {
-                    Medication.Parser.parseBigRationalOpt ""
-                    |> Expect.isNone "empty string should give None"
-                }
-
-                test "parseBigRationalOpt returns None for whitespace" {
-                    Medication.Parser.parseBigRationalOpt "   "
-                    |> Expect.isNone "whitespace should give None"
-                }
-
-                test "parseDutchDecimal parses '1,5'" {
-                    Medication.Parser.parseDutchDecimal "1,5"
-                    |> Expect.isSome "should parse Dutch decimal '1,5'"
-                }
-
-                test "parseDutchDecimal parses '2.0'" {
-                    Medication.Parser.parseDutchDecimal "2.0" |> Expect.isSome "should parse '2.0'"
-                }
-
-                test "parseOrderType 'DiscontinuousOrder' gives Ok DiscontinuousOrder" {
-                    Medication.Parser.parseOrderType "DiscontinuousOrder"
-                    |> Expect.equal "should give Ok DiscontinuousOrder" (Ok DiscontinuousOrder)
-                }
-
-                test "parseOrderType 'TimedOrder' gives Ok TimedOrder" {
-                    Medication.Parser.parseOrderType "TimedOrder"
-                    |> Expect.equal "should give Ok TimedOrder" (Ok TimedOrder)
-                }
-
-                test "parseOrderType unknown gives Error" {
-                    Medication.Parser.parseOrderType "invalid"
-                    |> Result.isError
-                    |> Expect.isTrue "unknown order type should give Error"
-                }
-
-                test "parseLine returns None for line without colon" {
-                    Medication.Parser.parseLine "no colon here" |> Expect.isNone "no colon → None"
-                }
-
-                test "parseLine returns Some for key:value line" {
-                    Medication.Parser.parseLine "Name: Test" |> Expect.isSome "key:value → Some"
                 }
             ]
 
@@ -4009,7 +3964,6 @@ let tests =
             OrderPlanTests.argumentationTests
             DosePrintoutTests.tests
             PatientConstructorTests.tests
-            MedicationParserTests.tests
             OrderVariableTests.tests
             ConstraintsTests.tests
             GoldenOrderTests.tests
@@ -4017,6 +3971,7 @@ let tests =
             ReachablePickTests.tests
             RateAfterQuantityTests.tests
             OrderBuilderTests.tests
-            MedicationTextTests.MedicationTextFormatTests.tests
             MedicationTextTests.MedicationTextScenarioTests.tests
+            MedicationTextTests.MedicationTextYamlTests.tests
+            MedicationSchemaTests.tests
         ]

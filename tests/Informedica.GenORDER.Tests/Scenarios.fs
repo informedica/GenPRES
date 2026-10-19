@@ -15,35 +15,6 @@ open Informedica.GenOrder.Lib
 let testStart = System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
 
 
-let pcmSuppText =
-    """
-Id: 047f9e19-4cfc-43cb-b7ee-f88f23d2eab6
-Name: paracetamol
-Quantity:
-Quantities:
-Route: RECTAAL
-OrderType: DiscontinuousOrder
-Adjust: 14 kg
-Frequencies: 3;4 x/dag
-Time:
-Dose: 1 stuk/dosis
-Div:
-DoseCount: 1 x
-Components:
-	Name: paracetamol
-	Form: zetpil
-	Quantities: 1 stuk
-	Divisible: 1
-	Dose:
-	Solution:
-	Substances:
-
-		Name: paracetamol
-		Concentrations: 120;240;500;1 000;125;250;60;30;360;90;750;180 mg/stuk
-		Dose: paracetamol, 10 - 20 mg/kg/dosis
-		Solution:
-"""
-
 let pcmSupp =
     let au = Units.Weight.kiloGram
     let fu = Units.General.general "stuk"
@@ -234,7 +205,7 @@ let morfCont =
                                 Concentrations = [| 1N; 10N |] |> ValueUnit.withUnit cu |> Some
                                 Dose =
                                     { DoseLimit.limit with
-                                        DoseLimitTarget = "morfine" |> SubstanceLimitTarget
+                                        DoseLimitTarget = "morfin" |> SubstanceLimitTarget
                                         AdjustUnit = au |> Some
                                         RateAdjust =
                                             { MinMax.empty with
@@ -245,7 +216,7 @@ let morfCont =
                                     |> Some
                                 Solution =
                                     { SolutionLimit.limit with
-                                        SolutionLimitTarget = "morfine" |> SubstanceLimitTarget
+                                        SolutionLimitTarget = "morfin" |> SubstanceLimitTarget
                                         Quantity = 10N |> ValueUnit.singleWithUnit su |> MinMax.createExact
                                         Concentration =
                                             { MinMax.empty with
@@ -1056,118 +1027,114 @@ let tpn =
     }
 
 
-/// Expected text output for the fully populated medication scenario
-let fullMedicationText =
-    """
-Id: full-med-test-001
-Name: Test Medication Complete
-Quantity: 10 - 100 mL
-Quantities: 50 mL
-Route: INTRAVENEUS
-OrderType: TimedOrder
-Adjust: 15 kg
-Frequencies: 1;2 x/dag
-Time: 30 - 120 min
-Dose: 5 - 10 mL/dosis
-Div: 2
-DoseCount: 1 - 2 x
-Components:
-	Name: Main Component
-	Form: infuusvloeistof
-	Quantities: 1 mL
-	Divisible: 10
-	Dose: Main Component, 1 - 5 mL/kg/dosis
-	Solution: 10 - 50 mL
-	Substances:
-
-		Name: Active Substance
-		Concentrations: 10 mg/mL
-		Dose: Active Substance, 1 - 10 mg/kg/dag
-		Solution: 0,5 - 2 mg/mL
-	Name: Diluent Component
-	Form: vloeistof
-	Quantities: 1 mL
-	Divisible: 1
-	Dose:
-	Solution:
-	Substances:
-
-		Name: sodium
-		Concentrations: 0,15 mmol/mL
-		Dose:
-		Solution:
-"""
-
-
 // Kaliumchloride OnceTimed scenario that previously caused
 // ValueSetOverflow (746,839 values) without staged expansion
 let kaliumchlorideOnceTimedText =
     """
 Id: c829b3ef-0dbe-4ed4-ac36-1260414d39b5
 Name: kaliumchloride
-Quantity:
-Quantities:
 Route: INTRAVENEUS
 OrderType: OnceTimedOrder
-Adjust: 31 kg
-Frequencies:
-Time: 60 min - 120 min
-Dose: [dun] ml
-Div:
-DoseCount: 1 x
+Adjust:
+  Value:
+    - "31"
+  Unit: kg
+Time:
+  Min:
+    Value:
+      - "60"
+    Unit: min
+    Inclusive: true
+  Max:
+    Value:
+      - "120"
+    Unit: min
+    Inclusive: true
+Dose:
+  DoseUnit: ml
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: kaliumchloride
-	Form: concentraat voor oplossing voor infusie
-	Quantities: 1 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: kalium
-		Quantities:
-		Concentrations: 1 mmol/ml
-		Dose:
-		Solution:
-
-		Name: chloor
-		Quantities:
-		Concentrations: 1 mmol/ml
-		Dose:
-		Solution:
-
-		Name: kaliumchloride
-		Quantities:
-		Concentrations: 1 mmol/ml
-		Dose: kaliumchloride, [dun] mmol, [qty-adj] 0.5 mmol/kg/dosis
-		Solution:  [conc] 0.5 mmol/ml
-
-	Name: gluc 5%
-	Form: vloeistof
-	Quantities: 1 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: glucose
-		Quantities:
-		Concentrations: 0.05 g/ml
-		Dose:
-		Solution:
-
-		Name: energie
-		Quantities:
-		Concentrations: 0.2 kCal/ml
-		Dose:
-		Solution:
-
-		Name: koolhydraat
-		Quantities:
-		Concentrations: 0.05 g/ml
-		Dose:
-		Solution:
+  - Name: kaliumchloride
+    Form: concentraat voor oplossing voor infusie
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: kalium
+        Concentrations:
+          Value:
+            - "1"
+          Unit: mmol/ml
+      - Name: chloor
+        Concentrations:
+          Value:
+            - "1"
+          Unit: mmol/ml
+      - Name: kaliumchloride
+        Concentrations:
+          Value:
+            - "1"
+          Unit: mmol/ml
+        Dose:
+          DoseUnit: mmol
+          QuantityAdjust:
+            Min:
+              Value:
+                - "0.5"
+              Unit: mmol/kg
+              Inclusive: true
+            Max:
+              Value:
+                - "0.5"
+              Unit: mmol/kg
+              Inclusive: true
+        Solution:
+          Concentration:
+            Min:
+              Value:
+                - "0.5"
+              Unit: mmol/ml
+              Inclusive: true
+            Max:
+              Value:
+                - "0.5"
+              Unit: mmol/ml
+              Inclusive: true
+  - Name: gluc 5%
+    Form: vloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: glucose
+        Concentrations:
+          Value:
+            - "0.05"
+          Unit: g/ml
+      - Name: energie
+        Concentrations:
+          Value:
+            - "0.2"
+          Unit: kCal/ml
+      - Name: koolhydraat
+        Concentrations:
+          Value:
+            - "0.05"
+          Unit: g/ml
 """
 
 
@@ -1177,59 +1144,162 @@ let amoxClavText =
     """
 Id: 303000f0-98b7-4db5-a0f2-a8a7642df9fc
 Name: amoxicilline/clavulaanzuur
-Quantity:
-Quantities:
 Route: INTRAVENEUS
 OrderType: DiscontinuousOrder
-Adjust: 14.5 kg
-Frequencies: 3 x/day
-Time:
-Dose: [dun] ml
-Div:
-DoseCount: 1 x
+Adjust:
+  Value:
+    - "14.5"
+  Unit: kg
+Frequencies:
+  Value:
+    - "3"
+  Unit: x/day
+Dose:
+  DoseUnit: ml
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: amoxicilline/clavulaanzuur
-	Form: poeder voor injectievloeistof
-	Quantities: 10;20 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Product: [id] amox-clav-500-50 [qts] 10 ml [amoxicilline] 50 mg/ml [clavulaanzuur] 5 mg/ml
-	Product: [id] amox-clav-1000-200 [qts] 20 ml [amoxicilline] 50 mg/ml [clavulaanzuur] 10 mg/ml
-	Substances:
-
-		Name: amoxicilline
-		Quantities: 500;1000 mg
-		Concentrations: 50 mg/ml
-		Dose: amoxicilline, [dun] mg, [per-time-adj] 100 mg/kg/day, [per-time] max 6000 mg/day
-		Solution:  [conc] 20 mg/ml
-
-		Name: clavulaanzuur
-		Quantities: 50;100;200 mg
-		Concentrations: 5;10 mg/ml
-		Dose: clavulaanzuur, [dun] mg, [per-time-adj] 10 mg/kg/day, [per-time] max 600 mg/day
-		Solution:
-
-	Name: NaCl 0,9%
-	Form: vloeistof
-	Quantities: 1 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: natrium
-		Quantities:
-		Concentrations: 0.155 mmol/ml
-		Dose:
-		Solution:
-
-		Name: chloor
-		Quantities:
-		Concentrations: 0.155 mmol/ml
-		Dose:
-		Solution:
+  - Name: amoxicilline/clavulaanzuur
+    Form: poeder voor injectievloeistof
+    Quantities:
+      Value:
+        - "10"
+        - "20"
+      Unit: ml
+    Divisible: "10"
+    Products:
+      - Id: amox-clav-500-50
+        FormQuantities:
+          Value:
+            - "10"
+          Unit: ml
+        Strengths:
+          - Substance: amoxicilline
+            Strength:
+              Value:
+                - "50"
+              Unit: mg/ml
+          - Substance: clavulaanzuur
+            Strength:
+              Value:
+                - "5"
+              Unit: mg/ml
+      - Id: amox-clav-1000-200
+        FormQuantities:
+          Value:
+            - "20"
+          Unit: ml
+        Strengths:
+          - Substance: amoxicilline
+            Strength:
+              Value:
+                - "50"
+              Unit: mg/ml
+          - Substance: clavulaanzuur
+            Strength:
+              Value:
+                - "10"
+              Unit: mg/ml
+    Substances:
+      - Name: amoxicilline
+        Quantities:
+          Value:
+            - "500"
+            - "1000"
+          Unit: mg
+        Concentrations:
+          Value:
+            - "50"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: mg
+          PerTime:
+            Max:
+              Value:
+                - "6000"
+              Unit: mg/day
+              Inclusive: true
+          PerTimeAdjust:
+            Min:
+              Value:
+                - "100"
+              Unit: mg/kg/day
+              Inclusive: true
+            Max:
+              Value:
+                - "100"
+              Unit: mg/kg/day
+              Inclusive: true
+        Solution:
+          Concentration:
+            Min:
+              Value:
+                - "20"
+              Unit: mg/ml
+              Inclusive: true
+            Max:
+              Value:
+                - "20"
+              Unit: mg/ml
+              Inclusive: true
+      - Name: clavulaanzuur
+        Quantities:
+          Value:
+            - "50"
+            - "100"
+            - "200"
+          Unit: mg
+        Concentrations:
+          Value:
+            - "5"
+            - "10"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: mg
+          PerTime:
+            Max:
+              Value:
+                - "600"
+              Unit: mg/day
+              Inclusive: true
+          PerTimeAdjust:
+            Min:
+              Value:
+                - "10"
+              Unit: mg/kg/day
+              Inclusive: true
+            Max:
+              Value:
+                - "10"
+              Unit: mg/kg/day
+              Inclusive: true
+  - Name: NaCl 0,9%
+    Form: vloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: natrium
+        Concentrations:
+          Value:
+            - "0.155"
+          Unit: mmol/ml
+      - Name: chloor
+        Concentrations:
+          Value:
+            - "0.155"
+          Unit: mmol/ml
 """
 
 
@@ -1240,59 +1310,143 @@ let amoxClavWithoutClavDoseText =
     """
 Id: 303000f0-98b7-4db5-a0f2-a8a7642df9fc
 Name: amoxicilline/clavulaanzuur
-Quantity:
-Quantities:
 Route: INTRAVENEUS
 OrderType: DiscontinuousOrder
-Adjust: 14.5 kg
-Frequencies: 3 x/day
-Time:
-Dose: [dun] ml
-Div:
-DoseCount: 1 x
+Adjust:
+  Value:
+    - "14.5"
+  Unit: kg
+Frequencies:
+  Value:
+    - "3"
+  Unit: x/day
+Dose:
+  DoseUnit: ml
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: amoxicilline/clavulaanzuur
-	Form: poeder voor injectievloeistof
-	Quantities: 10;20 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Product: [id] amox-clav-500-50 [qts] 10 ml [amoxicilline] 50 mg/ml [clavulaanzuur] 5 mg/ml
-	Product: [id] amox-clav-1000-200 [qts] 20 ml [amoxicilline] 50 mg/ml [clavulaanzuur] 10 mg/ml
-	Substances:
-
-		Name: amoxicilline
-		Quantities: 500;1000 mg
-		Concentrations: 50 mg/ml
-		Dose: amoxicilline, [dun] mg, [per-time-adj] 100 mg/kg/day, [per-time] max 6000 mg/day
-		Solution:  [conc] 20 mg/ml
-
-		Name: clavulaanzuur
-		Quantities: 50;100;200 mg
-		Concentrations: 5;10 mg/ml
-		Dose:
-		Solution:
-
-	Name: NaCl 0,9%
-	Form: vloeistof
-	Quantities: 1 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: natrium
-		Quantities:
-		Concentrations: 0.155 mmol/ml
-		Dose:
-		Solution:
-
-		Name: chloor
-		Quantities:
-		Concentrations: 0.155 mmol/ml
-		Dose:
-		Solution:
+  - Name: amoxicilline/clavulaanzuur
+    Form: poeder voor injectievloeistof
+    Quantities:
+      Value:
+        - "10"
+        - "20"
+      Unit: ml
+    Divisible: "10"
+    Products:
+      - Id: amox-clav-500-50
+        FormQuantities:
+          Value:
+            - "10"
+          Unit: ml
+        Strengths:
+          - Substance: amoxicilline
+            Strength:
+              Value:
+                - "50"
+              Unit: mg/ml
+          - Substance: clavulaanzuur
+            Strength:
+              Value:
+                - "5"
+              Unit: mg/ml
+      - Id: amox-clav-1000-200
+        FormQuantities:
+          Value:
+            - "20"
+          Unit: ml
+        Strengths:
+          - Substance: amoxicilline
+            Strength:
+              Value:
+                - "50"
+              Unit: mg/ml
+          - Substance: clavulaanzuur
+            Strength:
+              Value:
+                - "10"
+              Unit: mg/ml
+    Substances:
+      - Name: amoxicilline
+        Quantities:
+          Value:
+            - "500"
+            - "1000"
+          Unit: mg
+        Concentrations:
+          Value:
+            - "50"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: mg
+          PerTime:
+            Max:
+              Value:
+                - "6000"
+              Unit: mg/day
+              Inclusive: true
+          PerTimeAdjust:
+            Min:
+              Value:
+                - "100"
+              Unit: mg/kg/day
+              Inclusive: true
+            Max:
+              Value:
+                - "100"
+              Unit: mg/kg/day
+              Inclusive: true
+        Solution:
+          Concentration:
+            Min:
+              Value:
+                - "20"
+              Unit: mg/ml
+              Inclusive: true
+            Max:
+              Value:
+                - "20"
+              Unit: mg/ml
+              Inclusive: true
+      - Name: clavulaanzuur
+        Quantities:
+          Value:
+            - "50"
+            - "100"
+            - "200"
+          Unit: mg
+        Concentrations:
+          Value:
+            - "5"
+            - "10"
+          Unit: mg/ml
+  - Name: NaCl 0,9%
+    Form: vloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: natrium
+        Concentrations:
+          Value:
+            - "0.155"
+          Unit: mmol/ml
+      - Name: chloor
+        Concentrations:
+          Value:
+            - "0.155"
+          Unit: mmol/ml
 """
 
 
@@ -1302,61 +1456,177 @@ let amoxClavEveryCombinationText =
     """
 Id: 303000f0-98b7-4db5-a0f2-a8a7642df9fc
 Name: amoxicilline/clavulaanzuur
-Quantity:
-Quantities:
 Route: INTRAVENEUS
 OrderType: DiscontinuousOrder
-Adjust: 14.5 kg
-Frequencies: 3 x/day
-Time:
-Dose: [dun] ml
-Div:
-DoseCount: 1 x
+Adjust:
+  Value:
+    - "14.5"
+  Unit: kg
+Frequencies:
+  Value:
+    - "3"
+  Unit: x/day
+Dose:
+  DoseUnit: ml
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: amoxicilline/clavulaanzuur
-	Form: poeder voor injectievloeistof
-	Quantities: 10;20 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Product: [id] amox-clav-500-50 [qts] 10 ml [amoxicilline] 50 mg/ml [clavulaanzuur] 5 mg/ml
-	Product: [id] amox-clav-250-50 [qts] 10 ml [amoxicilline] 25 mg/ml [clavulaanzuur] 5 mg/ml
-	Product: [id] amox-clav-500-200 [qts] 20 ml [amoxicilline] 25 mg/ml [clavulaanzuur] 10 mg/ml
-	Product: [id] amox-clav-1000-200 [qts] 20 ml [amoxicilline] 50 mg/ml [clavulaanzuur] 10 mg/ml
-	Substances:
-
-		Name: amoxicilline
-		Quantities: 250;500;1000 mg
-		Concentrations: 25;50 mg/ml
-		Dose: amoxicilline, [dun] mg, [per-time-adj] 100 mg/kg/day, [per-time] max 6000 mg/day
-		Solution:  [conc] 20 mg/ml
-
-		Name: clavulaanzuur
-		Quantities: 50;100;200 mg
-		Concentrations: 5;10 mg/ml
-		Dose:
-		Solution:
-
-	Name: NaCl 0,9%
-	Form: vloeistof
-	Quantities: 1 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: natrium
-		Quantities:
-		Concentrations: 0.155 mmol/ml
-		Dose:
-		Solution:
-
-		Name: chloor
-		Quantities:
-		Concentrations: 0.155 mmol/ml
-		Dose:
-		Solution:
+  - Name: amoxicilline/clavulaanzuur
+    Form: poeder voor injectievloeistof
+    Quantities:
+      Value:
+        - "10"
+        - "20"
+      Unit: ml
+    Divisible: "10"
+    Products:
+      - Id: amox-clav-500-50
+        FormQuantities:
+          Value:
+            - "10"
+          Unit: ml
+        Strengths:
+          - Substance: amoxicilline
+            Strength:
+              Value:
+                - "50"
+              Unit: mg/ml
+          - Substance: clavulaanzuur
+            Strength:
+              Value:
+                - "5"
+              Unit: mg/ml
+      - Id: amox-clav-250-50
+        FormQuantities:
+          Value:
+            - "10"
+          Unit: ml
+        Strengths:
+          - Substance: amoxicilline
+            Strength:
+              Value:
+                - "25"
+              Unit: mg/ml
+          - Substance: clavulaanzuur
+            Strength:
+              Value:
+                - "5"
+              Unit: mg/ml
+      - Id: amox-clav-500-200
+        FormQuantities:
+          Value:
+            - "20"
+          Unit: ml
+        Strengths:
+          - Substance: amoxicilline
+            Strength:
+              Value:
+                - "25"
+              Unit: mg/ml
+          - Substance: clavulaanzuur
+            Strength:
+              Value:
+                - "10"
+              Unit: mg/ml
+      - Id: amox-clav-1000-200
+        FormQuantities:
+          Value:
+            - "20"
+          Unit: ml
+        Strengths:
+          - Substance: amoxicilline
+            Strength:
+              Value:
+                - "50"
+              Unit: mg/ml
+          - Substance: clavulaanzuur
+            Strength:
+              Value:
+                - "10"
+              Unit: mg/ml
+    Substances:
+      - Name: amoxicilline
+        Quantities:
+          Value:
+            - "250"
+            - "500"
+            - "1000"
+          Unit: mg
+        Concentrations:
+          Value:
+            - "25"
+            - "50"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: mg
+          PerTime:
+            Max:
+              Value:
+                - "6000"
+              Unit: mg/day
+              Inclusive: true
+          PerTimeAdjust:
+            Min:
+              Value:
+                - "100"
+              Unit: mg/kg/day
+              Inclusive: true
+            Max:
+              Value:
+                - "100"
+              Unit: mg/kg/day
+              Inclusive: true
+        Solution:
+          Concentration:
+            Min:
+              Value:
+                - "20"
+              Unit: mg/ml
+              Inclusive: true
+            Max:
+              Value:
+                - "20"
+              Unit: mg/ml
+              Inclusive: true
+      - Name: clavulaanzuur
+        Quantities:
+          Value:
+            - "50"
+            - "100"
+            - "200"
+          Unit: mg
+        Concentrations:
+          Value:
+            - "5"
+            - "10"
+          Unit: mg/ml
+  - Name: NaCl 0,9%
+    Form: vloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: natrium
+        Concentrations:
+          Value:
+            - "0.155"
+          Unit: mmol/ml
+      - Name: chloor
+        Concentrations:
+          Value:
+            - "0.155"
+          Unit: mmol/ml
 """
 
 
@@ -1366,29 +1636,53 @@ let prednisolonText =
     """
 Id: 2b1e1c1a-0000-4000-8000-000000001302
 Name: prednisolon
-Quantity:
-Quantities:
 Route: ORAAL
 OrderType: DiscontinuousOrder
-Adjust: 30 kg
-Frequencies: 1 x/dag
-Time:
-Dose:
-Div:
-DoseCount: 1 x
+Adjust:
+  Value:
+    - "30"
+  Unit: kg
+Frequencies:
+  Value:
+    - "1"
+  Unit: x/day
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-	Name: prednisolon
-	Form: tablet
-	Quantities: 1 stuk
-	Divisible: 4
-	Dose:
-	Solution:
-	Substances:
-
-		Name: prednisolon
-		Concentrations: 5 mg/stuk
-		Dose: prednisolon, [qty-adj] 1 - 2 mg/kg/dosis
-		Solution:
+  - Name: prednisolon
+    Form: tablet
+    Quantities:
+      Value:
+        - "1"
+      Unit: stuk
+    Divisible: "4"
+    Substances:
+      - Name: prednisolon
+        Concentrations:
+          Value:
+            - "5"
+          Unit: mg/stuk
+        Dose:
+          QuantityAdjust:
+            Min:
+              Value:
+                - "1"
+              Unit: mg/kg
+              Inclusive: true
+            Max:
+              Value:
+                - "2"
+              Unit: mg/kg
+              Inclusive: true
 """
 
 
@@ -1745,29 +2039,63 @@ let naclLargeRateText =
     """
 Id: nacl-large-rate
 Name: NaCl 0,9%
-Quantity:
-Quantities:
 Route: INTRAVENEUS
 OrderType: TimedOrder
-Adjust: 70 kg
-Frequencies: 1 x/dag
-Time: 120 min - 1200 min
-Dose: [dun] ml, [qty] 1000 ml/dosis
-Div:
-DoseCount: 1 x
+Adjust:
+  Value:
+    - "70"
+  Unit: kg
+Frequencies:
+  Value:
+    - "1"
+  Unit: x/day
+Time:
+  Min:
+    Value:
+      - "120"
+    Unit: min
+    Inclusive: true
+  Max:
+    Value:
+      - "1200"
+    Unit: min
+    Inclusive: true
+Dose:
+  DoseUnit: ml
+  Quantity:
+    Min:
+      Value:
+        - "1000"
+      Unit: ml
+      Inclusive: true
+    Max:
+      Value:
+        - "1000"
+      Unit: ml
+      Inclusive: true
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: NaCl 0,9%
-	Form: infuusvloeistof
-	Quantities: 1 ml
-	Divisible: 1
-	Dose:
-	Solution:
-	Substances:
-
-		Name: natrium
-		Quantities:
-		Concentrations: 0.154 mmol/ml
-		Dose:
-		Solution:
+  - Name: NaCl 0,9%
+    Form: infuusvloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "1"
+    Substances:
+      - Name: natrium
+        Concentrations:
+          Value:
+            - "0.154"
+          Unit: mmol/ml
 """

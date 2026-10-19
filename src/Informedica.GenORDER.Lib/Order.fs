@@ -2768,6 +2768,20 @@ module Order =
     [<RequireQualifiedAccess>]
     module OrderType =
 
+        /// Every case of OrderType, the one list a reader of an order type and a schema take the
+        /// names from.
+        let all =
+            [|
+                AnyOrder
+                ProcessOrder
+                OnceOrder
+                OnceTimedOrder
+                ContinuousOrder
+                DiscontinuousOrder
+                TimedOrder
+            |]
+
+
         let toString =
             function
             | AnyOrder -> $"{AnyOrder}"

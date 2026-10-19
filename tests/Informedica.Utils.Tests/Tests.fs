@@ -894,6 +894,33 @@ module Tests =
                             let a = BigRational.gcd b c
                             b |> BigRational.isMultiple a && c |> BigRational.isMultiple a
 
+                    testPropertyWithConfig config "when a is lcm of b and c then a is a multiple of both b and c"
+                    <| fun b c ->
+                        if (b = 0N || c = 0N) then
+                            true
+                        else
+                            let a = BigRational.lcm b c
+                            a |> BigRational.isMultiple b && a |> BigRational.isMultiple c
+
+                    testList
+                        "least common multiple"
+                        [
+                            for a, b, exp in
+                                [
+                                    2N, 3N, 6N
+                                    4N, 6N, 12N
+                                    3N, 3N, 3N
+                                    1N, 1N / 10N, 1N
+                                    1N / 2N, 1N / 3N, 1N
+                                    3N / 4N, 1N / 6N, 3N / 2N
+                                    1N / 10N, 1N / 4N, 1N / 2N
+                                ] do
+                                test $"lcm of %s{a.ToString()} and %s{b.ToString()} is %s{exp.ToString()}" {
+                                    Expect.equal (BigRational.lcm a b) exp "should be the lcm"
+                                    Expect.equal (BigRational.lcm b a) exp "should not depend on the order"
+                                }
+                        ]
+
                     testPropertyWithConfig config "when b is converted to multiple of c then result a is multiple of c"
                     <| fun b c ->
                         if (b = 0N || c = 0N) then
@@ -919,6 +946,73 @@ module Tests =
 
                     test "when operator is subtraction" { Expect.equal ((-) |> BigRational.opIsSubtr) true "" }
                     testCalcCartesian ()
+
+                    testList
+                        "exact text"
+                        [
+                            for br, exp in
+                                [
+                                    1N / 2N, Some "0.5"
+                                    1N / 3N, None
+                                    1000N, Some "1000"
+                                    -1N / 8N, Some "-0.125"
+                                    0N, Some "0"
+                                ] do
+                                test $"toDecimalString of %s{br |> BigRational.toString} is %A{exp}" {
+                                    br |> BigRational.toDecimalString |> equals exp "the exact decimal form"
+                                }
+
+                            test "toDecimalString of a value beyond a decimal is None" {
+                                BigRational.FromBigInt(System.Numerics.BigInteger.Pow(10I, 40))
+                                |> BigRational.toDecimalString
+                                |> equals None "no decimal form"
+                            }
+
+                            for br, exp in [ 1N / 2N, "0.5"; 1N / 3N, "1/3"; -7N / 3N, "-7/3"; 500N, "500" ] do
+                                test $"toStringExact of %s{br |> BigRational.toString} is %s{exp}" {
+                                    br |> BigRational.toStringExact |> equals exp "the exact text"
+                                }
+
+                            for s, exp in
+                                [
+                                    "500/1", 500N
+                                    "1/3", 1N / 3N
+                                    "0.25", 1N / 4N
+                                    "-1.5", -3N / 2N
+                                    "1000", 1000N
+                                    " 2 ", 2N
+                                ] do
+                                test $"tryParseExact reads '%s{s}'" {
+                                    s |> BigRational.tryParseExact |> equals (Some exp) s
+                                }
+
+                            test "tryParseExact keeps a decimal below the precision of a decimal" {
+                                "0.00000000000000000000000000001"
+                                |> BigRational.tryParseExact
+                                |> equals
+                                    (Some(1N / BigRational.FromBigInt(System.Numerics.BigInteger.Pow(10I, 29))))
+                                    "1/10^29, not 0"
+                            }
+
+                            test "tryParseExact keeps every digit of a long decimal" {
+                                let digits = System.Numerics.BigInteger.Parse "123456789012345678901234567890123"
+                                let scale = System.Numerics.BigInteger.Pow(10I, 23)
+
+                                "1234567890.12345678901234567890123"
+                                |> BigRational.tryParseExact
+                                |> equals
+                                    (Some(BigRational.FromBigInt digits / BigRational.FromBigInt scale))
+                                    "all 33 digits"
+                            }
+
+                            for s in [ "1e3"; "1,5"; "1 000"; "abc"; "1/0"; ""; "١٢" ] do
+                                test $"tryParseExact refuses '%s{s}'" {
+                                    s |> BigRational.tryParseExact |> equals None s
+                                }
+
+                            testPropertyWithConfig config "the exact text of any BigRational reads back to it"
+                            <| fun br -> br |> BigRational.toStringExact |> BigRational.tryParseExact = Some br
+                        ]
                 ]
 
 
