@@ -31,7 +31,7 @@ let logger = Logging.noOp
 
 
 let parse text =
-    match text |> Medication.fromString with
+    match text |> MedicationText.fromString with
     | Ok med -> med
     | Error errs -> invalidOp $"could not parse: %A{errs}"
 

@@ -1,11 +1,8 @@
-/// The text literals of the tests in the old medication text format, and their conversion into
-/// the new text, a YAML document, through the library's MedicationText. The input of the switch,
-/// in which the literals of the tests are replaced by their converted text; it goes with the old
-/// reader.
+/// The text literals of the tests, YAML documents, read through the library's MedicationText.
 ///
 /// Run from this directory, after a build:
 ///
-///   dotnet fsi MedicationYaml.fsx --convert    every text literal of the tests, in the new text
+///   dotnet fsi MedicationYaml.fsx --check    every text literal that does not read, with its errors
 
 #I __SOURCE_DIRECTORY__
 #load "load.fsx"
@@ -16,15 +13,13 @@
 open Informedica.GenOrder.Lib
 
 
-/// The text literals of the tests, read with the old reader.
+/// The text literals of the tests, read with MedicationText.
 module Fixtures =
 
     module Texts = MedicationTextTests.MedicationTexts
 
 
-    /// Every text literal of the tests, in the old format. Scenarios.pcmSuppText and
-    /// Scenarios.fullMedicationText are left out: no test uses them, the old reader refuses them,
-    /// and the switch deletes them.
+    /// Every text literal of the tests.
     let texts =
         [
             "Scenarios.kaliumchlorideOnceTimedText", Scenarios.kaliumchlorideOnceTimedText
@@ -56,9 +51,9 @@ module Fixtures =
         ]
 
 
-    /// The text literals the old reader reads, and the ones it refuses with its errors.
+    /// The text literals MedicationText reads, and the ones it refuses with its errors.
     let parsedTexts, refusedTexts =
-        let read = texts |> List.map (fun (n, t) -> n, t |> Medication.fromString)
+        let read = texts |> List.map (fun (n, t) -> n, t |> MedicationText.fromString)
 
         let parsed =
             read
@@ -79,9 +74,8 @@ module Fixtures =
         parsed, refused
 
 
-if fsi.CommandLineArgs |> Array.contains "--convert" then
-    for n, med in Fixtures.parsedTexts do
-        printfn $"# %s{n}\n%s{med |> MedicationText.toString}"
+if fsi.CommandLineArgs |> Array.contains "--check" then
+    printfn $"%i{Fixtures.parsedTexts.Length} of %i{Fixtures.texts.Length} texts read"
 
     for n, errs in Fixtures.refusedTexts do
-        printfn $"# %s{n}: refused by the old reader\n%A{errs}\n"
+        printfn $"# %s{n}: refused\n%A{errs}\n"

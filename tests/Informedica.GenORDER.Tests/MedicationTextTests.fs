@@ -10,7 +10,7 @@ open Informedica.GenUnits.Lib
 open Informedica.GenOrder.Lib
 
 
-/// Medication texts in the Medication.toString format, one per order type and component layout,
+/// Medication texts in the MedicationText format, one per order type and component layout,
 /// used to check that a parsed text builds an order that can be solved.
 module MedicationTexts =
 
@@ -19,35 +19,46 @@ module MedicationTexts =
         """
 Id: 3beb2d76-625c-4e02-8c49-bcd5fa6f5166
 Name: chloorhexidine
-Quantity:
-Quantities:
 Route: CUTAAN
 OrderType: OnceOrder
-Adjust: 11 kg
-Frequencies:
-Time:
-Dose:
-Div:
-DoseCount: 1 x
+Adjust:
+  Value:
+    - "11"
+  Unit: kg
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: chloorhexidine
-	Form: oplossing voor cutaan gebruik
-	Quantities: 1;100;50 ml
-	Divisible: 1
-	Dose:
-	Solution:
-	Substances:
-
-		Name: ethanol, gedenatureerd
-		Concentrations: 539 mg/ml
-		Dose:
-		Solution:
-
-		Name: chloorhexidine
-		Concentrations: 5;10;40 mg/ml
-		Dose:
-		Solution:
+  - Name: chloorhexidine
+    Form: oplossing voor cutaan gebruik
+    Quantities:
+      Value:
+        - "1"
+        - "100"
+        - "50"
+      Unit: ml
+    Divisible: "1"
+    Substances:
+      - Name: ethanol, gedenatureerd
+        Concentrations:
+          Value:
+            - "539"
+          Unit: mg/ml
+      - Name: chloorhexidine
+        Concentrations:
+          Value:
+            - "5"
+            - "10"
+            - "40"
+          Unit: mg/ml
 """
 
 
@@ -56,30 +67,79 @@ Components:
         """
 Id: 93e8c175-99a1-48d8-b2f4-90005fdb8ada
 Name: paracetamol
-Quantity:
-Quantities:
 Route: RECTAAL
 OrderType: OnceOrder
-Adjust: 10 kg
-Frequencies:
-Time:
-Dose: [dun], [qty] 1 stuk/dosis
-Div:
-DoseCount: 1 x
+Adjust:
+  Value:
+    - "10"
+  Unit: kg
+Dose:
+  Quantity:
+    Min:
+      Value:
+        - "1"
+      Unit: stuk
+      Inclusive: true
+    Max:
+      Value:
+        - "1"
+      Unit: stuk
+      Inclusive: true
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: paracetamol
-	Form: zetpil
-	Quantities: 1 stuk
-	Divisible: 1
-	Dose:
-	Solution:
-	Substances:
-
-		Name: paracetamol
-		Concentrations: 120;240;500;1000;125;250;60;30;360;90;750;180 mg/stuk
-		Dose: paracetamol, [dun] mg, [qty-adj] 40 mg/kg/dosis, [qty] max 1000 mg/dosis
-		Solution:
+  - Name: paracetamol
+    Form: zetpil
+    Quantities:
+      Value:
+        - "1"
+      Unit: stuk
+    Divisible: "1"
+    Substances:
+      - Name: paracetamol
+        Concentrations:
+          Value:
+            - "120"
+            - "240"
+            - "500"
+            - "1000"
+            - "125"
+            - "250"
+            - "60"
+            - "30"
+            - "360"
+            - "90"
+            - "750"
+            - "180"
+          Unit: mg/stuk
+        Dose:
+          DoseUnit: mg
+          Quantity:
+            Max:
+              Value:
+                - "1000"
+              Unit: mg
+              Inclusive: true
+          QuantityAdjust:
+            Min:
+              Value:
+                - "40"
+              Unit: mg/kg
+              Inclusive: true
+            Max:
+              Value:
+                - "40"
+              Unit: mg/kg
+              Inclusive: true
 """
 
     // OnceTimed single component single item scenario
@@ -87,30 +147,81 @@ Components:
         """
 Id: 95c44266-84c5-4969-a815-9fbf2c9ed693
 Name: paracetamol
-Quantity:
-Quantities:
 Route: INTRAVENEUS
 OrderType: OnceTimedOrder
-Adjust: 10 kg
-Frequencies:
-Time: 15 min - 20 min
-Dose: [dun], [qty-adj] max 20 ml/kg/dosis, [qty] max 1000 ml/dosis
-Div:
-DoseCount: 1 x
+Adjust:
+  Value:
+    - "10"
+  Unit: kg
+Time:
+  Min:
+    Value:
+      - "15"
+    Unit: min
+    Inclusive: true
+  Max:
+    Value:
+      - "20"
+    Unit: min
+    Inclusive: true
+Dose:
+  Quantity:
+    Max:
+      Value:
+        - "1000"
+      Unit: ml
+      Inclusive: true
+  QuantityAdjust:
+    Max:
+      Value:
+        - "20"
+      Unit: ml/kg
+      Inclusive: true
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: paracetamol
-	Form: infusievloeistof
-	Quantities: 100;50 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: paracetamol
-		Concentrations: 10 mg/ml
-		Dose: paracetamol, [dun] mg, [qty-adj] 20 mg/kg/dosis, [qty] max 1000 mg/dosis
-		Solution:
+  - Name: paracetamol
+    Form: infusievloeistof
+    Quantities:
+      Value:
+        - "100"
+        - "50"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: paracetamol
+        Concentrations:
+          Value:
+            - "10"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: mg
+          Quantity:
+            Max:
+              Value:
+                - "1000"
+              Unit: mg
+              Inclusive: true
+          QuantityAdjust:
+            Min:
+              Value:
+                - "20"
+              Unit: mg/kg
+              Inclusive: true
+            Max:
+              Value:
+                - "20"
+              Unit: mg/kg
+              Inclusive: true
 """
 
     // Discontinuous single component single item scenario
@@ -118,70 +229,160 @@ Components:
         """
 Id: d595fdbd-51ae-489d-a316-a458b7d5d032
 Name: paracetamol
-Quantity:
-Quantities:
 Route: ORAAL
 OrderType: DiscontinuousOrder
-Adjust: 40 kg
-Frequencies: 1;2;3;4 x/day
-Time:
-Dose: [qty] max 10 stuk/dosis
-Div:
-DoseCount: 1 x
+Adjust:
+  Value:
+    - "40"
+  Unit: kg
+Frequencies:
+  Value:
+    - "1"
+    - "2"
+    - "3"
+    - "4"
+  Unit: x/day
+Dose:
+  Quantity:
+    Max:
+      Value:
+        - "10"
+      Unit: stuk
+      Inclusive: true
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: paracetamol
-	Form: tablet
-	Quantities: 1 stuk
-	Divisible: 4
-	Dose:
-	Solution:
-	Substances:
-
-		Name: natriumwaterstofcarbonaat
-		Concentrations: 632 mg/stuk
-		Dose:
-		Solution:
-
-		Name: paracetamol
-		Concentrations: 500;1000 mg/stuk
-		Dose: paracetamol, [dun] mg, [per-time] max 4000 mg/day, [qty-adj] 10 mg/kg - 15 mg/kg/dosis
-		Solution:
+  - Name: paracetamol
+    Form: tablet
+    Quantities:
+      Value:
+        - "1"
+      Unit: stuk
+    Divisible: "4"
+    Substances:
+      - Name: natriumwaterstofcarbonaat
+        Concentrations:
+          Value:
+            - "632"
+          Unit: mg/stuk
+      - Name: paracetamol
+        Concentrations:
+          Value:
+            - "500"
+            - "1000"
+          Unit: mg/stuk
+        Dose:
+          DoseUnit: mg
+          QuantityAdjust:
+            Min:
+              Value:
+                - "10"
+              Unit: mg/kg
+              Inclusive: true
+            Max:
+              Value:
+                - "15"
+              Unit: mg/kg
+              Inclusive: true
+          PerTime:
+            Max:
+              Value:
+                - "4000"
+              Unit: mg/day
+              Inclusive: true
 """
 
     let discontinousMultipleComponentMultipleItems =
         """
 Id: d1326abe-ca06-4c59-a52c-7af1152b75c4
 Name: amoxicilline/clavulaanzuur
-Quantity:
-Quantities:
 Route: INTRAVENEUS
 OrderType: DiscontinuousOrder
-Adjust: 10 kg
-Frequencies: 3 x/day
-Time:
-Dose:
-Div:
-DoseCount: 1 x
+Adjust:
+  Value:
+    - "10"
+  Unit: kg
+Frequencies:
+  Value:
+    - "3"
+  Unit: x/day
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: amoxicilline/clavulaanzuur
-	Form: poeder voor oplossing voor infusie
-	Quantities: 20 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: amoxicilline
-		Concentrations: 100 mg/ml
-		Dose: amoxicilline, [dun] mg, [per-time-adj] 100 mg/kg/day, [per-time] max 6000 mg/day
-		Solution:
-
-		Name: clavulaanzuur
-		Concentrations: 10 mg/ml
-		Dose: clavulaanzuur, [dun] mg, [per-time-adj] 10 mg/kg/day, [per-time] max 600 mg/day
-		Solution:
+  - Name: amoxicilline/clavulaanzuur
+    Form: poeder voor oplossing voor infusie
+    Quantities:
+      Value:
+        - "20"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: amoxicilline
+        Concentrations:
+          Value:
+            - "100"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: mg
+          PerTime:
+            Max:
+              Value:
+                - "6000"
+              Unit: mg/day
+              Inclusive: true
+          PerTimeAdjust:
+            Min:
+              Value:
+                - "100"
+              Unit: mg/kg/day
+              Inclusive: true
+            Max:
+              Value:
+                - "100"
+              Unit: mg/kg/day
+              Inclusive: true
+      - Name: clavulaanzuur
+        Concentrations:
+          Value:
+            - "10"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: mg
+          PerTime:
+            Max:
+              Value:
+                - "600"
+              Unit: mg/day
+              Inclusive: true
+          PerTimeAdjust:
+            Min:
+              Value:
+                - "10"
+              Unit: mg/kg/day
+              Inclusive: true
+            Max:
+              Value:
+                - "10"
+              Unit: mg/kg/day
+              Inclusive: true
 """
 
     // Timed single component single item scenario
@@ -189,108 +390,240 @@ Components:
         """
 Id: a9e18942-f879-4df1-bc21-6375c3291ed7
 Name: paracetamol
-Quantity:
-Quantities:
 Route: INTRAVENEUS
 OrderType: TimedOrder
-Adjust: 10 kg
-Frequencies: 4 x/day
-Time: 15 min - 20 min
-Dose: [dun], [qty-adj] max 20 ml/kg/dosis, [qty] max 1000 ml/dosis
-Div:
-DoseCount: 1 x
+Adjust:
+  Value:
+    - "10"
+  Unit: kg
+Frequencies:
+  Value:
+    - "4"
+  Unit: x/day
+Time:
+  Min:
+    Value:
+      - "15"
+    Unit: min
+    Inclusive: true
+  Max:
+    Value:
+      - "20"
+    Unit: min
+    Inclusive: true
+Dose:
+  Quantity:
+    Max:
+      Value:
+        - "1000"
+      Unit: ml
+      Inclusive: true
+  QuantityAdjust:
+    Max:
+      Value:
+        - "20"
+      Unit: ml/kg
+      Inclusive: true
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: paracetamol
-	Form: infusievloeistof
-	Quantities: 100;50 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: paracetamol
-		Concentrations: 10 mg/ml
-		Dose: paracetamol, [dun] mg, [per-time-adj] 60 mg/kg/day, [per-time] max 4000 mg/day, [qty] max 1000 mg/dosis
-		Solution:
+  - Name: paracetamol
+    Form: infusievloeistof
+    Quantities:
+      Value:
+        - "100"
+        - "50"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: paracetamol
+        Concentrations:
+          Value:
+            - "10"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: mg
+          Quantity:
+            Max:
+              Value:
+                - "1000"
+              Unit: mg
+              Inclusive: true
+          PerTime:
+            Max:
+              Value:
+                - "4000"
+              Unit: mg/day
+              Inclusive: true
+          PerTimeAdjust:
+            Min:
+              Value:
+                - "60"
+              Unit: mg/kg/day
+              Inclusive: true
+            Max:
+              Value:
+                - "60"
+              Unit: mg/kg/day
+              Inclusive: true
 """
 
     let continuousSingleComponentSingleItem =
         """
 Id: 6854e269-df1c-480f-ac58-a08fe108a59d
 Name: propofol
-Quantity:
-Quantities: 50 ml
 Route: INTRAVENEUS
 OrderType: ContinuousOrder
-Adjust: 40 kg
-Frequencies:
-Time:
-Dose: [dun] ml
-Div:
-DoseCount: 1 x
+Quantities:
+  Value:
+    - "50"
+  Unit: ml
+Adjust:
+  Value:
+    - "40"
+  Unit: kg
+Dose:
+  DoseUnit: ml
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: propofol
-	Form: emulsie voor injectie
-	Quantities: 1 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: propofol
-		Concentrations: 20;10 mg/ml
-		Dose: propofol, [dun] mg, [rate-adj] 1 mg/kg/hr - 4 mg/kg/hr
-		Solution:
+  - Name: propofol
+    Form: emulsie voor injectie
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: propofol
+        Concentrations:
+          Value:
+            - "20"
+            - "10"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: mg
+          RateAdjust:
+            Min:
+              Value:
+                - "1"
+              Unit: mg/kg/hr
+              Inclusive: true
+            Max:
+              Value:
+                - "4"
+              Unit: mg/kg/hr
+              Inclusive: true
 """
 
     let continuousMultipleComponent =
-        """"
+        """
 Id: b5189d1a-c1c5-4223-9b2d-e8e35e1b22fd
 Name: noradrenaline
-Quantity:
-Quantities: 50 ml
 Route: INTRAVENEUS
 OrderType: ContinuousOrder
-Adjust: 40 kg
-Frequencies:
-Time:
-Dose: [dun] ml
-Div:
-DoseCount: 1 x
+Quantities:
+  Value:
+    - "50"
+  Unit: ml
+Adjust:
+  Value:
+    - "40"
+  Unit: kg
+Dose:
+  DoseUnit: ml
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: noradrenaline
-	Form: concentraat voor oplossing voor infusie
-	Quantities: 1 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: noradrenaline
-		Concentrations: 1 mg/ml
-		Dose: noradrenaline, [dun] microg, [rate-adj] 0.05 microg/kg/min - 2 microg/kg/min
-		Solution: [qty] 5 mg  [conc] max 1 mg/ml
-
-	Name: gluc 10%
-	Form: vloeistof
-	Quantities: 1 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: energie
-		Concentrations: 0.4 kCal/ml
-		Dose:
-		Solution:
-
-		Name: koolhydraat
-		Concentrations: 0.1 g/ml
-		Dose:
-		Solution:
+  - Name: noradrenaline
+    Form: concentraat voor oplossing voor infusie
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: noradrenaline
+        Concentrations:
+          Value:
+            - "1"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: microg
+          RateAdjust:
+            Min:
+              Value:
+                - "0.05"
+              Unit: microg/kg/min
+              Inclusive: true
+            Max:
+              Value:
+                - "2"
+              Unit: microg/kg/min
+              Inclusive: true
+        Solution:
+          Quantity:
+            Min:
+              Value:
+                - "5"
+              Unit: mg
+              Inclusive: true
+            Max:
+              Value:
+                - "5"
+              Unit: mg
+              Inclusive: true
+          Concentration:
+            Max:
+              Value:
+                - "1"
+              Unit: mg/ml
+              Inclusive: true
+  - Name: gluc 10%
+    Form: vloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: energie
+        Concentrations:
+          Value:
+            - "0.4"
+          Unit: kCal/ml
+      - Name: koolhydraat
+        Concentrations:
+          Value:
+            - "0.1"
+          Unit: g/ml
 """
 
 
@@ -298,132 +631,286 @@ Components:
         """
 Id: a16b1489-d1c3-4f1e-a0ae-e83b18e1ebd5
 Name: samenstelling c
-Quantity:
-Quantities:
 Route: INTRAVENEUS
 OrderType: TimedOrder
-Adjust: 10 kg
-Frequencies: 1 x/day
-Time: 20 hr - 24 hr
-Dose: [dun] ml
-Div:
-DoseCount: 1 x
+Adjust:
+  Value:
+    - "10"
+  Unit: kg
+Frequencies:
+  Value:
+    - "1"
+  Unit: x/day
+Time:
+  Min:
+    Value:
+      - "20"
+    Unit: hr
+    Inclusive: true
+  Max:
+    Value:
+      - "24"
+    Unit: hr
+    Inclusive: true
+Dose:
+  DoseUnit: ml
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: Samenstelling C
-	Form: vloeistof
-	Quantities: 1 ml
-	Divisible: 10
-	Dose: Samenstelling C, [dun] ml, [qty-adj] 10 ml/kg/dosis
-	Solution:
-	Substances:
-
-		Name: energie
-		Concentrations: 0.32 kCal/ml
-		Dose:
-		Solution:
-
-		Name: eiwit
-		Concentrations: 0.08 g/ml
-		Dose:
-		Solution:  [conc] max 0.05 g/ml
-
-		Name: natrium
-		Concentrations: 0.008 mmol/ml
-		Dose:
-		Solution:  [conc] max 0.5 mmol/ml
-
-		Name: kalium
-		Concentrations: 0.02 mmol/ml
-		Dose:
-		Solution:  [conc] max 0.5 mmol/ml
-
-	Name: NaCl 3%
-	Form: vloeistof
-	Quantities: 1 ml
-	Divisible: 10
-	Dose: NaCl 3%, [dun] ml, [qty-adj] 6 ml/kg/dosis
-	Solution:
-	Substances:
-
-		Name: natrium
-		Concentrations: 0.5 mmol/ml
-		Dose:
-		Solution:  [conc] max 0.5 mmol/ml
-
-	Name: KCl 7,4%
-	Form: vloeistof
-	Quantities: 1 ml
-	Divisible: 10
-	Dose: KCl 7,4%, [dun] ml, [qty-adj] 2 ml/kg/dosis
-	Solution:
-	Substances:
-
-		Name: kalium
-		Concentrations: 1 mmol/ml
-		Dose:
-		Solution:  [conc] max 0.5 mmol/ml
-
-	Name: gluc 10%
-	Form: vloeistof
-	Quantities: 1 ml
-	Divisible: 10
-	Dose: gluc 10%, [dun] ml, [qty-adj] 65 ml/kg - 80 ml/kg/dosis
-	Solution:
-	Substances:
-
-		Name: energie
-		Concentrations: 0.4 kCal/ml
-		Dose:
-		Solution:
-
-		Name: koolhydraat
-		Concentrations: 0.1 g/ml
-		Dose:
-		Solution:
+  - Name: Samenstelling C
+    Form: vloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Dose:
+      DoseUnit: ml
+      QuantityAdjust:
+        Min:
+          Value:
+            - "10"
+          Unit: ml/kg
+          Inclusive: true
+        Max:
+          Value:
+            - "10"
+          Unit: ml/kg
+          Inclusive: true
+    Substances:
+      - Name: energie
+        Concentrations:
+          Value:
+            - "0.32"
+          Unit: kCal/ml
+      - Name: eiwit
+        Concentrations:
+          Value:
+            - "0.08"
+          Unit: g/ml
+        Solution:
+          Concentration:
+            Max:
+              Value:
+                - "0.05"
+              Unit: g/ml
+              Inclusive: true
+      - Name: natrium
+        Concentrations:
+          Value:
+            - "0.008"
+          Unit: mmol/ml
+        Solution:
+          Concentration:
+            Max:
+              Value:
+                - "0.5"
+              Unit: mmol/ml
+              Inclusive: true
+      - Name: kalium
+        Concentrations:
+          Value:
+            - "0.02"
+          Unit: mmol/ml
+        Solution:
+          Concentration:
+            Max:
+              Value:
+                - "0.5"
+              Unit: mmol/ml
+              Inclusive: true
+  - Name: NaCl 3%
+    Form: vloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Dose:
+      DoseUnit: ml
+      QuantityAdjust:
+        Min:
+          Value:
+            - "6"
+          Unit: ml/kg
+          Inclusive: true
+        Max:
+          Value:
+            - "6"
+          Unit: ml/kg
+          Inclusive: true
+    Substances:
+      - Name: natrium
+        Concentrations:
+          Value:
+            - "0.5"
+          Unit: mmol/ml
+        Solution:
+          Concentration:
+            Max:
+              Value:
+                - "0.5"
+              Unit: mmol/ml
+              Inclusive: true
+  - Name: KCl 7,4%
+    Form: vloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Dose:
+      DoseUnit: ml
+      QuantityAdjust:
+        Min:
+          Value:
+            - "2"
+          Unit: ml/kg
+          Inclusive: true
+        Max:
+          Value:
+            - "2"
+          Unit: ml/kg
+          Inclusive: true
+    Substances:
+      - Name: kalium
+        Concentrations:
+          Value:
+            - "1"
+          Unit: mmol/ml
+        Solution:
+          Concentration:
+            Max:
+              Value:
+                - "0.5"
+              Unit: mmol/ml
+              Inclusive: true
+  - Name: gluc 10%
+    Form: vloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Dose:
+      DoseUnit: ml
+      QuantityAdjust:
+        Min:
+          Value:
+            - "65"
+          Unit: ml/kg
+          Inclusive: true
+        Max:
+          Value:
+            - "80"
+          Unit: ml/kg
+          Inclusive: true
+    Substances:
+      - Name: energie
+        Concentrations:
+          Value:
+            - "0.4"
+          Unit: kCal/ml
+      - Name: koolhydraat
+        Concentrations:
+          Value:
+            - "0.1"
+          Unit: g/ml
 """
 
     let pcmDrink =
         """
 Id: 34b81d68-86e5-4ec6-a223-cba9d2837530
 Name: paracetamol
-Quantity:
-Quantities:
 Route: ORAAL
 OrderType: DiscontinuousOrder
-Adjust: 17 kg
-Frequencies: 1;2;3;4 x/day
-Time:
-Dose: [qty-adj] max 10 ml/kg/dosis, [qty] max 500 ml/dosis
-Div:
-DoseCount: 1 x
+Adjust:
+  Value:
+    - "17"
+  Unit: kg
+Frequencies:
+  Value:
+    - "1"
+    - "2"
+    - "3"
+    - "4"
+  Unit: x/day
+Dose:
+  Quantity:
+    Max:
+      Value:
+        - "500"
+      Unit: ml
+      Inclusive: true
+  QuantityAdjust:
+    Max:
+      Value:
+        - "10"
+      Unit: ml/kg
+      Inclusive: true
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: paracetamol
-	Form: drank
-	Quantities: 1 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: benzylalcohol
-		Quantities:
-		Concentrations: 0.48 mg/ml
-		Dose:
-		Solution:
-
-		Name: propyleenglycol
-		Quantities:
-		Concentrations: 5.44 mg/ml
-		Dose:
-		Solution:
-
-		Name: paracetamol
-		Quantities:
-		Concentrations: 24 mg/ml
-		Dose: paracetamol, [dun] mg, [per-time] max 4000 mg/day, [qty-adj] 10 mg/kg - 15 mg/kg/dosis
-		Solution:
+  - Name: paracetamol
+    Form: drank
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: benzylalcohol
+        Concentrations:
+          Value:
+            - "0.48"
+          Unit: mg/ml
+      - Name: propyleenglycol
+        Concentrations:
+          Value:
+            - "5.44"
+          Unit: mg/ml
+      - Name: paracetamol
+        Concentrations:
+          Value:
+            - "24"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: mg
+          QuantityAdjust:
+            Min:
+              Value:
+                - "10"
+              Unit: mg/kg
+              Inclusive: true
+            Max:
+              Value:
+                - "15"
+              Unit: mg/kg
+              Inclusive: true
+          PerTime:
+            Max:
+              Value:
+                - "4000"
+              Unit: mg/day
+              Inclusive: true
 """
 
 
@@ -431,48 +918,111 @@ Components:
         """
 Id: 13e4f4e5-059d-47d6-8882-46cc2ed0f072
 Name: vancomycine
-Quantity:
-Quantities: 50;100;250 ml
 Route: INTRAVENEUS
 OrderType: TimedOrder
-Adjust: 14.5 kg
-Frequencies: 3;4 x/day
-Time: 60 min - 180 min
-Dose: [dun] ml
-Div:
-DoseCount: min 1 x
+Quantities:
+  Value:
+    - "50"
+    - "100"
+    - "250"
+  Unit: ml
+Adjust:
+  Value:
+    - "14.5"
+  Unit: kg
+Frequencies:
+  Value:
+    - "3"
+    - "4"
+  Unit: x/day
+Time:
+  Min:
+    Value:
+      - "60"
+    Unit: min
+    Inclusive: true
+  Max:
+    Value:
+      - "180"
+    Unit: min
+    Inclusive: true
+Dose:
+  DoseUnit: ml
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: vancomycine
-	Form: poeder voor oplossing voor infusie
-	Quantities: 20 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: vancomycine
-		Concentrations: 50 mg/ml
-		Dose: vancomycine, [dun] mg, [rate] max 1.7 mg/min, [per-time-adj] 60 mg/kg/day, [per-time] max 4000 mg/day
-		Solution:  [conc] 2.5 mg/ml - 10 mg/ml
-
-	Name: gluc 5%
-	Form: vloeistof
-	Quantities: 1 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: energie
-		Concentrations: 0.2 kCal/ml
-		Dose:
-		Solution:
-
-		Name: koolhydraat
-		Concentrations: 0.05 g/ml
-		Dose:
-		Solution:
+  - Name: vancomycine
+    Form: poeder voor oplossing voor infusie
+    Quantities:
+      Value:
+        - "20"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: vancomycine
+        Concentrations:
+          Value:
+            - "50"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: mg
+          PerTime:
+            Max:
+              Value:
+                - "4000"
+              Unit: mg/day
+              Inclusive: true
+          PerTimeAdjust:
+            Min:
+              Value:
+                - "60"
+              Unit: mg/kg/day
+              Inclusive: true
+            Max:
+              Value:
+                - "60"
+              Unit: mg/kg/day
+              Inclusive: true
+          Rate:
+            Max:
+              Value:
+                - "1.7"
+              Unit: mg/min
+              Inclusive: true
+        Solution:
+          Concentration:
+            Min:
+              Value:
+                - "2.5"
+              Unit: mg/ml
+              Inclusive: true
+            Max:
+              Value:
+                - "10"
+              Unit: mg/ml
+              Inclusive: true
+  - Name: gluc 5%
+    Form: vloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: energie
+        Concentrations:
+          Value:
+            - "0.2"
+          Unit: kCal/ml
+      - Name: koolhydraat
+        Concentrations:
+          Value:
+            - "0.05"
+          Unit: g/ml
 """
 
     /// This scenario has a variable glucose content which can result in
@@ -483,94 +1033,198 @@ Components:
         """
 Id: 81607677-b226-4854-afd9-90faba665cc3
 Name: samenstelling c
-Quantity: max 830.5 ml
-Quantities:
 Route: INTRAVENEUS
 OrderType: TimedOrder
-Adjust: 11 kg
-Frequencies: 1 x/day
-Time: 20 hr - 24 hr
-Dose: [dun] ml
-Div:
-DoseCount: 1 x
+Quantity:
+  Max:
+    Value:
+      - "830.5"
+    Unit: ml
+    Inclusive: true
+Adjust:
+  Value:
+    - "11"
+  Unit: kg
+Frequencies:
+  Value:
+    - "1"
+  Unit: x/day
+Time:
+  Min:
+    Value:
+      - "20"
+    Unit: hr
+    Inclusive: true
+  Max:
+    Value:
+      - "24"
+    Unit: hr
+    Inclusive: true
+Dose:
+  DoseUnit: ml
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: Samenstelling C
-	Form: vloeistof
-	Quantities: 1 ml
-	Divisible: 10
-	Dose: Samenstelling C, [dun] ml, [qty-adj] 10 ml/kg - 25 ml/kg/dosis
-	Solution:
-	Substances:
-
-		Name: eiwit
-		Quantities:
-		Concentrations: 0.08 g/ml
-		Dose:
-		Solution:  [conc] max 0.05 g/ml
-
-	Name: NaCl 3%
-	Form: vloeistof
-	Quantities: 1 ml
-	Divisible: 10
-	Dose: NaCl 3%, [dun] ml, [qty-adj] 6 ml/kg/dosis
-	Solution:
-	Substances:
-
-		Name: natrium
-		Quantities:
-		Concentrations: 0.5 mmol/ml
-		Dose:
-		Solution:  [conc] max 0.5 mmol/ml
-
-	Name: gluc 10%
-	Form: vloeistof
-	Quantities: 1 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: koolhydraat
-		Quantities:
-		Concentrations: 0.1 g/ml
-		Dose:
-		Solution:
+  - Name: Samenstelling C
+    Form: vloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Dose:
+      DoseUnit: ml
+      QuantityAdjust:
+        Min:
+          Value:
+            - "10"
+          Unit: ml/kg
+          Inclusive: true
+        Max:
+          Value:
+            - "25"
+          Unit: ml/kg
+          Inclusive: true
+    Substances:
+      - Name: eiwit
+        Concentrations:
+          Value:
+            - "0.08"
+          Unit: g/ml
+        Solution:
+          Concentration:
+            Max:
+              Value:
+                - "0.05"
+              Unit: g/ml
+              Inclusive: true
+  - Name: NaCl 3%
+    Form: vloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Dose:
+      DoseUnit: ml
+      QuantityAdjust:
+        Min:
+          Value:
+            - "6"
+          Unit: ml/kg
+          Inclusive: true
+        Max:
+          Value:
+            - "6"
+          Unit: ml/kg
+          Inclusive: true
+    Substances:
+      - Name: natrium
+        Concentrations:
+          Value:
+            - "0.5"
+          Unit: mmol/ml
+        Solution:
+          Concentration:
+            Max:
+              Value:
+                - "0.5"
+              Unit: mmol/ml
+              Inclusive: true
+  - Name: gluc 10%
+    Form: vloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: koolhydraat
+        Concentrations:
+          Value:
+            - "0.1"
+          Unit: g/ml
 """
 
     /// test case for not solved component-orderable count
     let adenosinDayOne =
         """
-54. 16,599: Informative
-Medication created:
-
 Id: 09be3945-a983-4209-88d5-a80006f57cd5
 Name: adenosine
-Quantity:
-Quantities:
 Route: INTRAVENEUS
 OrderType: OnceOrder
-Adjust: 10 kg
-Frequencies:
-Time:
-Dose: [qty-adj] max 20 ml/kg/dosis, [qty] max 1000 ml/dosis
-Div:
-DoseCount: 1 x
+Adjust:
+  Value:
+    - "10"
+  Unit: kg
+Dose:
+  Quantity:
+    Max:
+      Value:
+        - "1000"
+      Unit: ml
+      Inclusive: true
+  QuantityAdjust:
+    Max:
+      Value:
+        - "20"
+      Unit: ml/kg
+      Inclusive: true
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: adenosine
-	Form: infusievloeistof
-	Quantities: 1 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: adenosine
-		Quantities:
-		Concentrations: 3;2;5 mg/ml
-		Dose: adenosine, [dun] microg, [qty-adj] 100 microg/kg/dosis, [qty] max 6000 microg/dosis
-		Solution:
+  - Name: adenosine
+    Form: infusievloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: adenosine
+        Concentrations:
+          Value:
+            - "3"
+            - "2"
+            - "5"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: microg
+          Quantity:
+            Max:
+              Value:
+                - "6000"
+              Unit: microg
+              Inclusive: true
+          QuantityAdjust:
+            Min:
+              Value:
+                - "100"
+              Unit: microg/kg
+              Inclusive: true
+            Max:
+              Value:
+                - "100"
+              Unit: microg/kg
+              Inclusive: true
 """
 
 
@@ -586,43 +1240,89 @@ Components:
         """
 Id: genta-36h-001
 Name: gentamicine
-Quantity:
-Quantities: 5;10;50;100 ml
 Route: INTRAVENEUS
 OrderType: DiscontinuousOrder
-Adjust: 11 kg
-Frequencies: 1 x/36 hour
-Time:
-Dose: [dun] ml
-Div:
-DoseCount: 1 x
+Quantities:
+  Value:
+    - "5"
+    - "10"
+    - "50"
+    - "100"
+  Unit: ml
+Adjust:
+  Value:
+    - "11"
+  Unit: kg
+Frequencies:
+  Value:
+    - "1"
+  Unit: x/36 hr
+Dose:
+  DoseUnit: ml
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: gentamicine
-	Form: injectievloeistof
-	Quantities: 1 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: gentamicine
-		Concentrations: 10;40 mg/ml
-		Dose: gentamicine, [dun] mg, [per-time-adj] 7 mg/kg/day
-		Solution:  [conc] 1.2 mg/ml - 2 mg/ml
-
-	Name: gluc 10%
-	Form: vloeistof
-	Quantities: 1 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: koolhydraat
-		Concentrations: 0.1 g/ml
-		Dose:
-		Solution:
+  - Name: gentamicine
+    Form: injectievloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: gentamicine
+        Concentrations:
+          Value:
+            - "10"
+            - "40"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: mg
+          PerTimeAdjust:
+            Min:
+              Value:
+                - "7"
+              Unit: mg/kg/day
+              Inclusive: true
+            Max:
+              Value:
+                - "7"
+              Unit: mg/kg/day
+              Inclusive: true
+        Solution:
+          Concentration:
+            Min:
+              Value:
+                - "1.2"
+              Unit: mg/ml
+              Inclusive: true
+            Max:
+              Value:
+                - "2"
+              Unit: mg/ml
+              Inclusive: true
+  - Name: gluc 10%
+    Form: vloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: koolhydraat
+        Concentrations:
+          Value:
+            - "0.1"
+          Unit: g/ml
 """
 
 
@@ -639,30 +1339,63 @@ Components:
         """
 Id: benzylpen-001
 Name: benzylpenicilline
-Quantity:
-Quantities:
 Route: INTRAVENEUS
 OrderType: DiscontinuousOrder
-Adjust: 10 kg
-Frequencies: 4;6 x/dag
-Time:
-Dose: [dun] ml
-Div:
-DoseCount: 1 x
+Adjust:
+  Value:
+    - "10"
+  Unit: kg
+Frequencies:
+  Value:
+    - "4"
+    - "6"
+  Unit: x/day
+Dose:
+  DoseUnit: ml
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: benzylpenicilline
-	Form: poeder voor oplossing voor injectie
-	Quantities: 10 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: benzylpenicilline
-		Concentrations: 100 000 IE/ml
-		Dose: benzylpenicilline, [dun] IE, [per-time-adj] 0.2 miljIE/kg/dag - 0.6 miljIE/kg/dag, [per-time] max 24 miljIE/dag
-		Solution:
+  - Name: benzylpenicilline
+    Form: poeder voor oplossing voor injectie
+    Quantities:
+      Value:
+        - "10"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: benzylpenicilline
+        Concentrations:
+          Value:
+            - "100"
+          Unit: 0 IU/ml
+        Dose:
+          DoseUnit: IU
+          PerTime:
+            Max:
+              Value:
+                - "24"
+              Unit: miljIU/day
+              Inclusive: true
+          PerTimeAdjust:
+            Min:
+              Value:
+                - "0.2"
+              Unit: miljIU/kg/day
+              Inclusive: true
+            Max:
+              Value:
+                - "0.6"
+              Unit: miljIU/kg/day
+              Inclusive: true
 """
 
 
@@ -676,30 +1409,57 @@ Components:
         """
 Id: 6854e269-df1c-480f-ac58-a08fe108a59d
 Name: propofol
-Quantity:
-Quantities: 50 ml
 Route: INTRAVENEUS
 OrderType: ContinuousOrder
-Adjust: 40 kg
-Frequencies:
-Time:
-Dose: [dun] ml
-Div:
-DoseCount: 1 x
+Quantities:
+  Value:
+    - "50"
+  Unit: ml
+Adjust:
+  Value:
+    - "40"
+  Unit: kg
+Dose:
+  DoseUnit: ml
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: propofol
-	Form: emulsie voor injectie
-	Quantities: 1 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: propofol
-		Concentrations: 20;10 mg/ml
-		Dose: propofol, [dun] mg, [rate-adj] 1 mg/kg/hr - 4 mg/kg/hr
-		Solution:
+  - Name: propofol
+    Form: emulsie voor injectie
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: propofol
+        Concentrations:
+          Value:
+            - "20"
+            - "10"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: mg
+          RateAdjust:
+            Min:
+              Value:
+                - "1"
+              Unit: mg/kg/hr
+              Inclusive: true
+            Max:
+              Value:
+                - "4"
+              Unit: mg/kg/hr
+              Inclusive: true
 """
 
 
@@ -716,48 +1476,111 @@ Components:
         """
 Id: 13e4f4e5-059d-47d6-8882-46cc2ed0f072
 Name: vancomycine
-Quantity:
-Quantities: 50;100;250 ml
 Route: INTRAVENEUS
 OrderType: TimedOrder
-Adjust: 14.5 kg
-Frequencies: 3;4 x/dag
-Time: 60 min - 180 min
-Dose: [dun] ml
-Div:
-DoseCount: min 1 x
+Quantities:
+  Value:
+    - "50"
+    - "100"
+    - "250"
+  Unit: ml
+Adjust:
+  Value:
+    - "14.5"
+  Unit: kg
+Frequencies:
+  Value:
+    - "3"
+    - "4"
+  Unit: x/day
+Time:
+  Min:
+    Value:
+      - "60"
+    Unit: min
+    Inclusive: true
+  Max:
+    Value:
+      - "180"
+    Unit: min
+    Inclusive: true
+Dose:
+  DoseUnit: ml
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: vancomycine
-	Form: poeder voor oplossing voor infusie
-	Quantities: 20 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: vancomycine
-		Concentrations: 50 mg/ml
-		Dose: vancomycine, [dun] mg, [rate] max 1.7 mg/min, [per-time-adj] 60 mg/kg/dag, [per-time] max 4000 mg/dag
-		Solution:  [conc] 2.5 mg/ml - 10 mg/ml
-
-	Name: gluc 5%
-	Form: vloeistof
-	Quantities: 1 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: energie
-		Concentrations: 0.2 kCal/ml
-		Dose:
-		Solution:
-
-		Name: koolhydraat
-		Concentrations: 0.05 g/ml
-		Dose:
-		Solution:
+  - Name: vancomycine
+    Form: poeder voor oplossing voor infusie
+    Quantities:
+      Value:
+        - "20"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: vancomycine
+        Concentrations:
+          Value:
+            - "50"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: mg
+          PerTime:
+            Max:
+              Value:
+                - "4000"
+              Unit: mg/day
+              Inclusive: true
+          PerTimeAdjust:
+            Min:
+              Value:
+                - "60"
+              Unit: mg/kg/day
+              Inclusive: true
+            Max:
+              Value:
+                - "60"
+              Unit: mg/kg/day
+              Inclusive: true
+          Rate:
+            Max:
+              Value:
+                - "1.7"
+              Unit: mg/min
+              Inclusive: true
+        Solution:
+          Concentration:
+            Min:
+              Value:
+                - "2.5"
+              Unit: mg/ml
+              Inclusive: true
+            Max:
+              Value:
+                - "10"
+              Unit: mg/ml
+              Inclusive: true
+  - Name: gluc 5%
+    Form: vloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: energie
+        Concentrations:
+          Value:
+            - "0.2"
+          Unit: kCal/ml
+      - Name: koolhydraat
+        Concentrations:
+          Value:
+            - "0.05"
+          Unit: g/ml
 """
 
 
@@ -773,48 +1596,92 @@ Components:
         """
 Id: b5189d1a-c1c5-4223-9b2d-e8e35e1b22fd
 Name: noradrenaline
-Quantity:
-Quantities: 50 ml
 Route: INTRAVENEUS
 OrderType: ContinuousOrder
-Adjust: 40 kg
-Frequencies:
-Time:
-Dose: [dun] ml
-Div:
-DoseCount: 1 x
+Quantities:
+  Value:
+    - "50"
+  Unit: ml
+Adjust:
+  Value:
+    - "40"
+  Unit: kg
+Dose:
+  DoseUnit: ml
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: noradrenaline
-	Form: concentraat voor oplossing voor infusie
-	Quantities: 1 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: noradrenaline
-		Concentrations: 1 mg/ml
-		Dose: noradrenaline, [dun] microg, [rate-adj] 0.05 microg/kg/min - 2 microg/kg/min
-		Solution: [qty] 5 mg  [conc] max 1 mg/ml
-
-	Name: gluc 10%
-	Form: vloeistof
-	Quantities: 1 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
-
-		Name: energie
-		Concentrations: 0.4 kCal/ml
-		Dose:
-		Solution:
-
-		Name: koolhydraat
-		Concentrations: 0.1 g/ml
-		Dose:
-		Solution:
+  - Name: noradrenaline
+    Form: concentraat voor oplossing voor infusie
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: noradrenaline
+        Concentrations:
+          Value:
+            - "1"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: microg
+          RateAdjust:
+            Min:
+              Value:
+                - "0.05"
+              Unit: microg/kg/min
+              Inclusive: true
+            Max:
+              Value:
+                - "2"
+              Unit: microg/kg/min
+              Inclusive: true
+        Solution:
+          Quantity:
+            Min:
+              Value:
+                - "5"
+              Unit: mg
+              Inclusive: true
+            Max:
+              Value:
+                - "5"
+              Unit: mg
+              Inclusive: true
+          Concentration:
+            Max:
+              Value:
+                - "1"
+              Unit: mg/ml
+              Inclusive: true
+  - Name: gluc 10%
+    Form: vloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: energie
+        Concentrations:
+          Value:
+            - "0.4"
+          Unit: kCal/ml
+      - Name: koolhydraat
+        Concentrations:
+          Value:
+            - "0.1"
+          Unit: g/ml
 """
 
 
@@ -823,53 +1690,127 @@ Components:
         """
 Id: 4f6671d8-30f2-4bcc-a9a3-76bb931f15e5
 Name: mm met bmf
-Quantity:
-Quantities:
 Route: ORAAL
 OrderType: DiscontinuousOrder
-Adjust: 4 kg
-Frequencies: 3;4;5;6;7;8;12 x/day
-Time:
-Dose: [qty-adj] max 20 ml/kg/dosis, [qty] max 1000 ml/dosis
-Div:
-DoseCount: 1 x
+Adjust:
+  Value:
+    - "4"
+  Unit: kg
+Frequencies:
+  Value:
+    - "3"
+    - "4"
+    - "5"
+    - "6"
+    - "7"
+    - "8"
+    - "12"
+  Unit: x/day
+Dose:
+  Quantity:
+    Max:
+      Value:
+        - "1000"
+      Unit: ml
+      Inclusive: true
+  QuantityAdjust:
+    Max:
+      Value:
+        - "20"
+      Unit: ml/kg
+      Inclusive: true
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
-
-	Name: MM
-	Form: voeding
-	Quantities: 1 ml
-	Divisible: 10
-	Dose: MM, [dun] ml, [per-time-adj] 10 ml/kg/day - 150 ml/kg/day, [per-time] max 2500 ml/day, [qty-adj] max 20 ml/kg/dosis, [qty] max 1000 ml/dosis
-	Solution:
-	Substances:
-
-		Name: energie
-		Concentrations: 0.68 kCal/ml
-		Dose:
-		Solution:
-
-		Name: eiwit
-		Concentrations: 0.01 g/ml
-		Dose:
-		Solution:
-
-	Name: Nutrilon Nenatal BMF pdr
-	Form: voeding
-	Quantities: 1 g
-	Divisible: 10
-	Dose: Nutrilon Nenatal BMF pdr, [dun] g, [per-time-adj] 0.1 g/kg/day - 0.3 g/kg/day
-	Solution:
-	Substances:
-
-		Name: energie
-		Concentrations: 3.47 kCal/g
-		Dose:
-		Solution:
-
-		Name: eiwit
-		Concentrations: 0.252 x
-		Dose:
-		Solution:
+  - Name: MM
+    Form: voeding
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Dose:
+      DoseUnit: ml
+      Quantity:
+        Max:
+          Value:
+            - "1000"
+          Unit: ml
+          Inclusive: true
+      QuantityAdjust:
+        Max:
+          Value:
+            - "20"
+          Unit: ml/kg
+          Inclusive: true
+      PerTime:
+        Max:
+          Value:
+            - "2500"
+          Unit: ml/day
+          Inclusive: true
+      PerTimeAdjust:
+        Min:
+          Value:
+            - "10"
+          Unit: ml/kg/day
+          Inclusive: true
+        Max:
+          Value:
+            - "150"
+          Unit: ml/kg/day
+          Inclusive: true
+    Substances:
+      - Name: energie
+        Concentrations:
+          Value:
+            - "0.68"
+          Unit: kCal/ml
+      - Name: eiwit
+        Concentrations:
+          Value:
+            - "0.01"
+          Unit: g/ml
+  - Name: Nutrilon Nenatal BMF pdr
+    Form: voeding
+    Quantities:
+      Value:
+        - "1"
+      Unit: g
+    Divisible: "10"
+    Dose:
+      DoseUnit: g
+      PerTimeAdjust:
+        Min:
+          Value:
+            - "0.1"
+          Unit: g/kg/day
+          Inclusive: true
+        Max:
+          Value:
+            - "0.3"
+          Unit: g/kg/day
+          Inclusive: true
+    Substances:
+      - Name: energie
+        Concentrations:
+          Value:
+            - "3.47"
+          Unit: kCal/g
+      - Name: eiwit
+        Concentrations:
+          Value:
+            - "0.252"
+          Unit: x
 """
 
 
@@ -1183,8 +2124,8 @@ module MedicationTextScenarioTests =
 
     let private calcMinMax text =
         text
-        |> Medication.fromString
-        |> Result.mapError (String.concat "; ")
+        |> MedicationText.fromString
+        |> Result.mapError (fun errs -> $"%A{errs}")
         |> Result.bind (fun med ->
             med
             |> Medication.toOrderDto Scenarios.testStart
@@ -1585,6 +2526,12 @@ Components:
                             replace "- Substance: paracetamol" "- Substance: ibuprofen"
                             |> errorsOf
                             |> Expect.equal "not made of" [ DtoError.NotMadeOf("Components[0].Products[0]", "12345") ]
+                        }
+
+                        test "a product with a blank id is missing its id by its path" {
+                            replace "- Id: \"12345\"" "- Id: \"\""
+                            |> errorsOf
+                            |> Expect.equal "missing" [ DtoError.Missing "Components[0].Products[0].Id" ]
                         }
 
                         test "the errors of one level are all given" {
