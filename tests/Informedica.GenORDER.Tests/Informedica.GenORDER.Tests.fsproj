@@ -21,10 +21,12 @@
     <Compile Include="OrderValueCommandTests.fs" />
     <Compile Include="DomainCommandTests.fs" />
     <Compile Include="MedicationTextTests.fs" />
+    <Compile Include="MedicationSchemaTests.fs" />
     <Compile Include="DoseQuantityPercTests.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="Main.fs" />
     <None Include="Scripts\load.fsx" />
+    <Content Include="..\..\docs\domain\medication.schema.json" Link="medication.schema.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Informedica.GenORDER.Lib\Informedica.GenORDER.Lib.fsproj" />

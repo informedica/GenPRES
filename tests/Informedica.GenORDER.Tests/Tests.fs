@@ -3973,4 +3973,5 @@ let tests =
             OrderBuilderTests.tests
             MedicationTextTests.MedicationTextScenarioTests.tests
             MedicationTextTests.MedicationTextYamlTests.tests
+            MedicationSchemaTests.tests
         ]
