@@ -1505,7 +1505,8 @@ Components:
                     ]
 
                 test "a value of 500/1 in a text reads as 500" {
-                    let text = replace "[500], Unit: mg/piece }\n    Sub" "[\"500/1\"], Unit: mg/piece }\n    Sub"
+                    // the key is on one line, as a checkout with CRLF line endings holds \r\n
+                    let text = replace "Strength: { Value: [500]" "Strength: { Value: [\"500/1\"]"
 
                     match text |> MedicationText.fromString with
                     | Error errs -> failtest $"%A{errs}"
@@ -1564,6 +1565,20 @@ Components:
                             |> function
                                 | [ DtoError.WrongUnit("Components[0].Substances[0].Dose.QuantityAdjust", _) ] -> ()
                                 | errs -> failtest $"%A{errs}"
+                        }
+
+                        test "a strength without its value is missing by its path" {
+                            replace "Strength: { Value: [500], Unit: mg/piece }" "Strength: ~"
+                            |> errorsOf
+                            |> Expect.equal
+                                "missing"
+                                [ DtoError.Missing "Components[0].Products[0].Strengths[0].Strength" ]
+                        }
+
+                        test "a component left null is missing by its path" {
+                            "OrderType: DiscontinuousOrder\nComponents:\n  - ~\n"
+                            |> errorsOf
+                            |> Expect.equal "missing" [ DtoError.Missing "Components[0]" ]
                         }
 
                         test "a product strength without its substance names its path" {

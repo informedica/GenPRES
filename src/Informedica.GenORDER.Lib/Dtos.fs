@@ -31,16 +31,6 @@ module DtoResult =
     let blankToNull s = if s |> String.isNullOrEmpty then null else s
 
 
-    /// Every item of an array a serializer left null or not, read with its index in its path,
-    /// "Components[0]"; every error of every item when one fails.
-    let items path read xs =
-        xs
-        |> orEmpty
-        |> Array.toList
-        |> List.mapi (fun i x -> x |> read $"%s{path}[%i{i}]")
-        |> List.sequenceValidationA
-
-
     let sequence (rs: Result<'a, 'e> list) : Result<'a list, 'e list> =
         let errors =
             rs
@@ -64,6 +54,20 @@ module Nested =
             Error [ DtoError.Missing name ]
         else
             read dto
+
+
+    /// Every item of an array a serializer left null or not, read with its index in its path,
+    /// "Components[0]"; an item left null is missing by that path. Every error of every item when
+    /// one fails.
+    let items path read xs =
+        xs
+        |> DtoResult.orEmpty
+        |> Array.toList
+        |> List.mapi (fun i x ->
+            let itemPath = $"%s{path}[%i{i}]"
+            required itemPath x (read itemPath)
+        )
+        |> List.sequenceValidationA
 
 
 module TextBlock =

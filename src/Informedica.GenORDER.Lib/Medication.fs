@@ -1320,7 +1320,7 @@ module Medication =
         let valueFromDto path (dto: ValueDto) =
             validation {
                 let! u = dto.Unit |> DtoResult.orBlank |> parseUnit $"%s{path}.Unit"
-                and! vs = dto.Value |> DtoResult.items $"%s{path}.Value" numberFromText
+                and! vs = dto.Value |> Nested.items $"%s{path}.Value" numberFromText
                 return vs |> List.toArray |> ValueUnit.create u
             }
 
@@ -1444,8 +1444,9 @@ module Medication =
 
 
         let strengthFromDto path (dto: StrengthDto) =
-            dto.Strength
-            |> valueFromDto $"%s{path}.Strength"
+            let strengthPath = $"%s{path}.Strength"
+
+            Nested.required strengthPath dto.Strength (valueFromDto strengthPath)
             |> Result.map (fun vu ->
                 {
                     Substance = dto.Substance |> DtoResult.orBlank
@@ -1457,7 +1458,7 @@ module Medication =
         let productFromDto path (dto: ProductDto) =
             validation {
                 let! qts = dto.FormQuantities |> valueOptFromDto $"%s{path}.FormQuantities"
-                and! strengths = dto.Strengths |> DtoResult.items $"%s{path}.Strengths" strengthFromDto
+                and! strengths = dto.Strengths |> Nested.items $"%s{path}.Strengths" strengthFromDto
 
                 return
                     {
@@ -1504,11 +1505,11 @@ module Medication =
         let componentFromDto path (dto: ComponentDto) =
             let name = dto.Name |> DtoResult.orBlank
             let target = ComponentLimitTarget name
-            let substances = dto.Substances |> DtoResult.items $"%s{path}.Substances" substanceFromDto
+            let substances = dto.Substances |> Nested.items $"%s{path}.Substances" substanceFromDto
 
             let products =
                 dto.Products
-                |> DtoResult.items $"%s{path}.Products" productFromDto
+                |> Nested.items $"%s{path}.Products" productFromDto
                 // the products can only be checked against substances that were read
                 |> Result.bind (fun ps ->
                     match substances with
@@ -1558,7 +1559,7 @@ module Medication =
                 and! dose = dto.Dose |> doseLimitFromDto OrderableLimitTarget "Dose"
                 and! doseCount = dto.DoseCount |> minMaxFromDto "DoseCount"
                 and! div = dto.Div |> numberOptFromText "Div"
-                and! components = dto.Components |> DtoResult.items "Components" componentFromDto
+                and! components = dto.Components |> Nested.items "Components" componentFromDto
 
                 return
                     {
