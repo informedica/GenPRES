@@ -1457,12 +1457,18 @@ module Medication =
 
         let productFromDto path (dto: ProductDto) =
             validation {
-                let! qts = dto.FormQuantities |> valueOptFromDto $"%s{path}.FormQuantities"
+                let! id =
+                    if dto.Id |> String.isNullOrWhiteSpace then
+                        Error [ DtoError.Missing $"%s{path}.Id" ]
+                    else
+                        Ok dto.Id
+
+                and! qts = dto.FormQuantities |> valueOptFromDto $"%s{path}.FormQuantities"
                 and! strengths = dto.Strengths |> Nested.items $"%s{path}.Strengths" strengthFromDto
 
                 return
                     {
-                        Id = dto.Id |> DtoResult.orBlank
+                        Id = id
                         FormQuantities = qts
                         Strengths = strengths
                     }

@@ -1587,6 +1587,12 @@ Components:
                             |> Expect.equal "not made of" [ DtoError.NotMadeOf("Components[0].Products[0]", "12345") ]
                         }
 
+                        test "a product with a blank id is missing its id by its path" {
+                            replace "- Id: \"12345\"" "- Id: \"\""
+                            |> errorsOf
+                            |> Expect.equal "missing" [ DtoError.Missing "Components[0].Products[0].Id" ]
+                        }
+
                         test "the errors of one level are all given" {
                             replace "OrderType: DiscontinuousOrder" "OrderType: Banana"
                             |> String.replace "Unit: mg/kg," "Unit: mg,"
