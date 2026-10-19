@@ -174,8 +174,7 @@ module Variable =
             /// <param name="incr2">Increment 2</param>
             /// <remarks>
             /// An increment can only be calculated when the operator is multiplication
-            /// or division by the identity value of 1 times, or when the operator is
-            /// addition and the increments are equal.
+            /// or addition with equal increments.
             /// </remarks>
             let calc op incr1 incr2 =
                 match op with
@@ -192,9 +191,6 @@ module Variable =
                     else
                         incr1 |> ValueUnit.setValue vs1 |> ValueUnit.toUnit |> create |> Some
 
-                // incr cannot be calculated based on division except when dividing
-                // by the identity value of 1 times
-                | ValueUnit.Operators.Div when incr2 = ValueUnit.one Units.Count.times -> incr1 |> create |> Some
                 | _ -> None
 
 
@@ -208,8 +204,7 @@ module Variable =
             /// </returns>
             /// <remarks>
             /// An increment can only be calculated when the operator is multiplication
-            /// or division by the identity value of 1 times, or when the operator is
-            /// addition and the increments are equal.
+            /// or addition with equal increments.
             /// </remarks>
             let calcOpt op incr1 incr2 =
                 match incr1, incr2 with
@@ -265,14 +260,17 @@ module Variable =
             /// <param name="newIncr">The new increment</param>
             /// <param name="oldIncr">The old increment</param>
             /// <returns>
-            /// The restricted increment.
+            /// The restricted increment: the least common multiple of every pair of a new
+            /// and an old increment value, without the values that are a multiple of another.
+            /// The values on both increments lie on these least common multiples.
             /// </returns>
             /// <example>
             /// <code>
             /// let oldIncr = Increment.create ( [| 3N; 5N |] |> ValueUnit.create Units.Mass.gram)
             /// let newIncr = Increment.create ( [| 2N; 3N |] |> ValueUnit.create Units.Mass.gram)
             /// Increment.restrict newIncr oldIncr
-            /// // returns Increment (ValueUnit ([|3N|], Mass (Gram 1N)))
+            /// // the pairs give 6, 3, 10 and 15; without the multiples of 3 this
+            /// // returns Increment (ValueUnit ([|3N; 10N|], Mass (Gram 1N)))
             /// </code>
             /// </example>
             let restrict newIncr oldIncr =
@@ -280,19 +278,19 @@ module Variable =
                 let (Increment oldVu) = oldIncr
 
                 if newVu =? oldVu then
-                    oldVu
+                    oldIncr
                 else
-                    newVu
-                    |> ValueUnit.filter (fun i1 ->
-                        oldVu
-                        |> ValueUnit.getBaseValue
-                        |> Array.exists (fun i2 -> i1 |> BigRational.isMultiple i2)
-                    )
-                |> fun vu ->
-                    if vu |> ValueUnit.isEmpty then
-                        oldIncr
-                    else
-                        vu |> ValueUnit.convertTo (oldVu |> ValueUnit.getUnit) |> create
+                    let newVs = newVu |> ValueUnit.getBaseValue
+                    let oldVs = oldVu |> ValueUnit.getBaseValue
+
+                    // base values, so the two increments only need convertible units
+                    [|
+                        for n in newVs do
+                            for o in oldVs do
+                                BigRational.lcm n o
+                    |]
+                    |> Array.distinct
+                    |> fun vs -> oldVu |> ValueUnit.setValue vs |> ValueUnit.toUnit |> create
 
 
             /// <summary>
@@ -2073,9 +2071,9 @@ module Variable =
         /// <param name="vr">The <c>ValueRange</c></param>
         /// <returns>The resulting (more restrictive) <c>ValueRange</c></returns>
         /// <remarks>
-        /// A new increment can only be set if it is a multiple of the previous increment.
-        /// If a new increment cannot be set, the original ValueRange is returned. So
-        /// the resulting ValueRange will be equal or more restrictive than the original.
+        /// The resulting increment is the least common multiple of the new and the previous
+        /// increment, so it holds only the values that lie on both. The resulting ValueRange
+        /// will be equal or more restrictive than the original.
         /// </remarks>
         /// <example>
         /// <code>
@@ -2083,10 +2081,10 @@ module Variable =
         /// let incr = Increment.create ( [| 2N |] |> ValueUnit.create Units.Mass.gram) |> Some
         /// let vr = create true min incr None None
         /// // a value range with a minimum = 4 and an increment = 2
-        /// let newIncr = Increment.create ( [| 6N |] |> ValueUnit.create Units.Mass.gram)
+        /// let newIncr = Increment.create ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
         /// vr |> setIncr newIncr
-        /// // returns [6..6..>, i.e. a ValueRange with a Minimum = 4 and
-        /// // and increment = 4
+        /// // returns [6..6..>, i.e. a ValueRange with a Minimum = 6 and
+        /// // an increment = 6, the least common multiple of 2 and 3
         /// </code>
         /// </example>
         let setIncr newIncr vr =
@@ -2947,11 +2945,36 @@ module Variable =
                 // calculate a new Increment based upon the ValueSet and an Increment
                 let incr1 = i |> Some
 
-                let incr2 =
-                    let (ValueSet s) = s
-                    s |> Increment.create |> Some
+                let incr =
+                    let (ValueSet vs) = s
 
-                let incr = Increment.calcOpt op incr1 incr2
+                    match op, vr1 with
+                    // the quotients of a value set divided by a range lie closer together
+                    // as the range grows, so they have no increment
+                    | ValueUnit.Operators.Div, ValSet _ -> None
+                    // a range divided by a value set lies on the increment divided by each
+                    // value; a value that divides another adds no quotient the larger value
+                    // does not give, so only those are dropped, not the multiples
+                    | ValueUnit.Operators.Div, _ ->
+                        let vs =
+                            let brs = vs |> ValueUnit.getValue
+
+                            vs
+                            |> ValueUnit.filter (fun v ->
+                                v > 0N
+                                && brs |> Array.exists (fun w -> w <> v && w |> BigRational.isMultiple v) |> not
+                            )
+
+                        let i = i |> Increment.toValueUnit
+                        let c1 = i |> ValueUnit.getValue |> Array.length
+                        let c2 = vs |> ValueUnit.getValue |> Array.length
+
+                        // the same cap on the number of increments as Increment.calcOpt
+                        if c2 = 0 || c1 > 10 / c2 then
+                            None
+                        else
+                            i |> op <| vs |> Increment.create |> Some
+                    | _ -> Increment.calcOpt op incr1 (vs |> Increment.create |> Some)
 
                 match min, incr, max with
                 | None, None, None -> unrestricted
@@ -2965,8 +2988,13 @@ module Variable =
 
                 let min, max = calcMinMax min1 max1 min2 max2
 
-                // calculate a new increment based upon the incr1 and incr2
-                let incr = Increment.calcOpt op incr1 incr2
+                // only a sum of two ranges keeps an increment; a product lies on the product of
+                // the increments, but not every multiple of it is a product, and that increment
+                // is too fine to offer; a quotient lies on no increment at all
+                let incr =
+                    match op with
+                    | ValueUnit.Operators.Add -> Increment.calcOpt op incr1 incr2
+                    | _ -> None
 
                 match min, incr, max with
                 | None, None, None -> unrestricted

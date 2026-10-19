@@ -894,6 +894,33 @@ module Tests =
                             let a = BigRational.gcd b c
                             b |> BigRational.isMultiple a && c |> BigRational.isMultiple a
 
+                    testPropertyWithConfig config "when a is lcm of b and c then a is a multiple of both b and c"
+                    <| fun b c ->
+                        if (b = 0N || c = 0N) then
+                            true
+                        else
+                            let a = BigRational.lcm b c
+                            a |> BigRational.isMultiple b && a |> BigRational.isMultiple c
+
+                    testList
+                        "least common multiple"
+                        [
+                            for a, b, exp in
+                                [
+                                    2N, 3N, 6N
+                                    4N, 6N, 12N
+                                    3N, 3N, 3N
+                                    1N, 1N / 10N, 1N
+                                    1N / 2N, 1N / 3N, 1N
+                                    3N / 4N, 1N / 6N, 3N / 2N
+                                    1N / 10N, 1N / 4N, 1N / 2N
+                                ] do
+                                test $"lcm of %s{a.ToString()} and %s{b.ToString()} is %s{exp.ToString()}" {
+                                    Expect.equal (BigRational.lcm a b) exp "should be the lcm"
+                                    Expect.equal (BigRational.lcm b a) exp "should not depend on the order"
+                                }
+                        ]
+
                     testPropertyWithConfig config "when b is converted to multiple of c then result a is multiple of c"
                     <| fun b c ->
                         if (b = 0N || c = 0N) then

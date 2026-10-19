@@ -218,6 +218,14 @@ module BigRational =
         (num |> BigRational.FromBigInt) / (den |> BigRational.FromBigInt)
 
 
+    /// Get the least common multiple
+    /// of two BigRationals a and b
+    let lcm (a: BigRational) (b: BigRational) =
+        let den = a.Denominator * b.Denominator
+        let num = BigInteger.lcm (a.Numerator * b.Denominator) (b.Numerator * a.Denominator)
+        (num |> BigRational.FromBigInt) / (den |> BigRational.FromBigInt)
+
+
     /// Checks whether v is a multiple of incr
     let isMultiple (incr: BigRational) (v: BigRational) =
         if incr = 0N then

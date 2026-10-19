@@ -416,7 +416,7 @@ Orderable
 [samenstelling c]_dos_tot <0 ..>
 [samenstelling c]_dos_qty_adj [34,5;34,6;34,7 mL/kg .. 72,1;72,2;75,5 mL/kg]
 [samenstelling c]_dos_ptm_adj [34,5;34,6;34,7 mL/kg/dag .. 72,1;72,2;75,5 mL/kg/dag]
-[samenstelling c]_dos_rte_adj [1,45 mL/kg/uur..3,77 mL/kg/uur]
+[samenstelling c]_dos_rte_adj [1,45 mL/kg/uur..0,01 mL/kg/uur..3,77 mL/kg/uur]
 [samenstelling c]_dos_tot_adj <0 ..>
 [samenstelling c.Samenstelling C]_cmp_qty [1 mL]
 [samenstelling c.Samenstelling C]_orb_qty [150;200;250 mL]
@@ -572,7 +572,7 @@ Orderable
 [samenstelling c]_dos_tot <0 ..>
 [samenstelling c]_dos_qty_adj [34,5;34,6;34,7 mL/kg .. 72,1;72,2;75,5 mL/kg]
 [samenstelling c]_dos_ptm_adj [34,5;34,6;34,7 mL/kg/dag .. 72,1;72,2;75,5 mL/kg/dag]
-[samenstelling c]_dos_rte_adj [1,45 mL/kg/uur..3,77 mL/kg/uur]
+[samenstelling c]_dos_rte_adj [1,45 mL/kg/uur..0,01 mL/kg/uur..3,77 mL/kg/uur]
 [samenstelling c]_dos_tot_adj <0 ..>
 [samenstelling c.Samenstelling C]_cmp_qty [1 mL]
 [samenstelling c.Samenstelling C]_orb_qty [150;200;250 mL]
