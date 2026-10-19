@@ -128,9 +128,9 @@ module Solver =
                 | eq :: tail ->
                     // need to calculate a result first to enable tail call optimization
                     let q, r =
-                        // If the equation is already solved or not solvable,
-                        // just put it to the accumulated equations and go on with the rest
-                        if eq |> Equation.isSolvable |> not then
+                        // An equation that cannot change is put on the accumulated equations,
+                        // unless its variables are all solved: then it is evaluated
+                        if eq |> Equation.isSolvable |> not && eq |> Equation.isSolved |> not then
                             tail, [ eq ] |> List.append acc |> Ok
                         // Else go solve the equation
                         else
