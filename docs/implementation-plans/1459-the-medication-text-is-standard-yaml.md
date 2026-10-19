@@ -118,13 +118,13 @@ by NLP.Lib. The GenORDER test project takes its packages from the Test group onl
 | How far the structure goes | Everything: products, dose limits, solution limits, ranges and values with their unit are mappings. |
 | One description | A Medication Dto. YamlDotNet's serializer writes and reads it; NJsonSchema generates the schema from it. No hand-built writer, reader or schema. |
 | Where the Dto lives | As ADR-0008 has it: `module Dto` nested under `Medication`, in `Medication.fs`, with the Dto classes, `toDto` and `fromDto`. The shapes of the GenFORM and GenCORE types it holds, the limits and the ranges, are nested in it as the text's shapes of those types, not general Dtos of them: GenFORM and GenCORE learn no text format. That departs from invariant 1, "in the library that owns the type", on purpose. |
-| Where the text lives | `MedicationText.fs`, compiled after `Medication.fs` and before `OrderLogging.fs`: the serializer settings, the BigRational converter, `toString` and `fromString`. |
+| Where the text lives | `MedicationText.fs`, compiled after `Medication.fs` and before `OrderLogging.fs`: the serializer settings, `toString` and `fromString`. |
 | R8 | `MedicationText` builds and reads the Dto, as a boundary module inside the library; domain code calls neither it nor `Medication.Dto`. The log line is printed in `OrderLogging`, which writes events as text, an output step of the same kind. |
 | The log event | Carries the medication: `Events.MedicationCreated of Medication`. `OrderLogging.fs:105` writes it with `MedicationText.toString`. The domain code formats nothing: `logInfoLazy` with the formatting at `Medication.fs:1445-1456` becomes `logInfo`, and the comment on the expensive message goes. |
 | A string field | Quoted only when another reader would misread it: YamlDotNet's `WithQuotingNecessaryStrings`, with the YAML 1.1 strings included, quotes digits, `yes`, `no`, `on`, `off`, `null` and the like. `Id: "12345"`, `Name: paracetamol`. |
-| A number | Plain where it can be: `500`, `0.5`; a value without a finite decimal form as the string `"1/3"`. The writer never produces `"500/1"`: a document the code writes holds only plain numbers and reduced fractions without a finite decimal form. The reader also reads `"500/1"`, the form of the stored JSON. |
+| A number | A string in the Dto, decided 2026-10-19: `toDto` and `fromDto` turn a BigRational into its exact text and back, so YamlDotNet sees no BigRational and needs no type converter. The text is the decimal form where there is one, `500`, `0.5`, else the reduced fraction, `1/3`. In the document a decimal is quoted, `"500"`, as the serializer quotes a string that would read as a number; a fraction stays plain. The writer never produces `500/1`; the reader also reads it, the form of the stored JSON, and a plain number in a hand-written text. A decimal takes only a leading sign and a point: no exponent, no group separator, so `1,5` is refused. The two functions, `BigRational.toStringExact` and `BigRational.tryParseExact`, go to `BCL/BigRational.fs`, with `toDecimalString`, which the first uses. |
 | Errors | Typed: new `DtoError` cases, each with the field's path, `UnknownUnit ("Components[0].Dose.DoseUnit", "mgg")`. A structural error, a wrong type or an unknown key, is YamlDotNet's one exception with line, column and property, turned into one case. |
-| A limit target | Not in the document: the place of the limit gives it, as the old reader does (`Medication.fs:477`, `:588`, `:788`). A dose limit at medication level targets the orderable, as the rule path's form limit does (`GenFORM DoseRule.fs:367`); one under a component targets that component by its name; one under a substance targets that substance by its generic name, the name the rule path matches on (`Medication.fs:1181`). The same holds for a solution limit. The prototype checks that every fixture's targets equal what their place gives; if one does not, the name comes back into the document by the maintainer's decision. |
+| A limit target | Not in the document: the place of the limit gives it, as the old reader does (`Medication.fs:477`, `:588`, `:788`). A dose limit at medication level targets the orderable, as the rule path's form limit does (`GenFORM DoseRule.fs:367`); one under a component targets that component by its name; one under a substance targets that substance by its generic name, the name the rule path matches on (`Medication.fs:1181`). The same holds for a solution limit. The prototype found 47 targets in the fixtures that differ from their place: 23 dose limits at medication level and 16 solution limits under a substance without a target, and the 8 morphine limits of `morfCont` and its variants naming `morfine` under the substance `morfin` (`Scenarios.fs:237`, `:248`). No code reads the target of a medication's limit, only of a rule's, so the maintainer decided on 2026-10-19 that the place decides; the morphine limits are corrected to `morfin` in 3c. |
 | The schema | Generated by a script and committed as `docs/domain/medication.schema.json`, beside the other GenORDER specifications, with the one line `!/docs/domain/medication.schema.json` in `.gitignore`; no new folder, no row in `docs/README.md`, no `.dockerignore` line, as only a test reads it. The file lands in step 4 with the test that fails when it differs from what the code generates. |
 | Where the test and the script find the file | The test project names the file as `Content` with a `Link` and `CopyToOutputDirectory`, as the other test projects copy their fixtures; the file stays in `docs/domain/`, and the test reads the copy beside its assembly (`AppContext.BaseDirectory`). The script writes it relative to `__SOURCE_DIRECTORY__`. Not `AppPath.rootPath`: without a `.env` or `data/zindex`, as in a fresh worktree, it falls back to the current directory, and a `GENPRES_ROOT` set to another checkout points at that checkout's file. |
 | NJsonSchema in the test project | Listed above `group Test` in the test project's `paket.references`, so it comes from the Main group: one pin. The library itself does not reference it. |
@@ -137,14 +137,14 @@ by NLP.Lib. The GenORDER test project takes its packages from the Test group onl
 
 | Question | Proposal |
 |---|---|
-| The Dto classes | Classes with `member val`, as the order's, in `Medication.Dto`: `Dto` for the medication, `ComponentDto`, `SubstanceDto`, `ProductDto`, `StrengthDto`, `DoseLimitDto`, `SolutionLimitDto`, `MinMaxDto`, `LimitDto`, `ValueDto`. Strings, bools, `BigRational[]`, nested Dtos and arrays; absent is `null` or an empty array, read through `orBlank` and `orEmpty`. No option, no union. |
+| The Dto classes | Classes with `member val`, as the order's, in `Medication.Dto`: `Dto` for the medication, `ComponentDto`, `SubstanceDto`, `ProductDto`, `StrengthDto`, `DoseLimitDto`, `SolutionLimitDto`, `MinMaxDto`, `LimitDto`, `ValueDto`. Strings, bools, nested Dtos and arrays, a number as a string; absent is `null` or an empty array, read through `orBlank` and `orEmpty`. No option, no union. Unlike the order's Dtos the classes carry `[<AllowNullLiteral>]`, so that the serializer leaves an absent field out. |
 | A value with a unit | Its own `ValueDto` with `Value` and `Unit` only, a deliberate second shape beside `ValueUnit.Dto`: the group, the verbosity, the language and the JSON blob are noise in a text people write. |
 | A unit | English short without group, as today, read with `UnitsParse.fromString`. The prototype checks every unit of every fixture; where one does not come back, the group form is written. |
 | A range | `MinMaxDto` with an optional `Min` and `Max`, each a `LimitDto`: a `ValueDto` and `Inclusive`. The empty range is left out. |
-| The order type | The string of `Order.OrderType.toString`, read back by matching over the same cases. The schema lists the allowed values: the schema script reads the cases of the `OrderType` union by reflection and sets them as the string's `enum`, so the union stays the one list. |
+| The order type | The string of `Order.OrderType.toString`, read back by matching over `Order.OrderType.all`, a plain list of the cases beside `toString`. The schema script sets the same list as the string's `enum`. A test checks that the list has one entry per case of the union, so a new case cannot be left out. |
 | The lossless test record | `losslessMedication`, built as a record in the test, not as a text: an exclusive minimum and maximum, the value 1/3, a value list with a repeat in an unsorted order, an adjust unit on a dose limit. No fixture holds these, as the old reader makes every limit inclusive and the old writer rounds and removes repeats. A record of its own, so the fixtures other tests calculate with stay as they are. |
 | The products of a solution limit | Not in the document. GenFORM fills them from the solution rule when it builds the prescription rule (`PrescriptionRule.fs:244-258`), and nothing that uses a medication reads them. They read back empty, as in the old text, so the round trip is exact for a medication without them and not for one built from the rules. |
-| The serializer | `SerializerBuilder` leaving out nulls and empty arrays, `WithQuotingNecessaryStrings`, one `IYamlTypeConverter` for BigRational, an emitter that writes `Value` arrays in flow style, `Value: [60, 120, 240]`. `DeserializerBuilder` without `IgnoreUnmatchedProperties`, so an unknown key is an error. Keys are the member names, PascalCase. |
+| The serializer | `SerializerBuilder` leaving out nulls and empty arrays, `WithQuotingNecessaryStrings` and `WithIndentedSequences`, nothing else: no type converter and no emitter, so every mapping and sequence is in block style. `DeserializerBuilder` with its defaults, without `IgnoreUnmatchedProperties`, so an unknown key is an error. Keys are the member names, PascalCase. |
 | The strength check in the reader | `madeOf` is stricter than today's check: it also asks for the unit group, and a substance without concentrations fails it. The prototype shows whether every fixture passes. |
 | The round-trip test | Whole records compared with `Expect.equal`; on a failure the message shows the two records written as text, so the first field that differs is found by its key. Today's tests partly compare field by field. |
 | The old format | Not read afterwards, as #355 accepted. The script converts every literal in the repository once: the old reader, then the new writer. |
@@ -173,44 +173,98 @@ by NLP.Lib. The GenORDER test project takes its packages from the Test group onl
 ### The document
 
 ```yaml
-Id: "1"
+Id: 047f9e19-4cfc-43cb-b7ee-f88f23d2eab6
 Name: paracetamol
-Route: rect
+Route: RECTAAL
 OrderType: DiscontinuousOrder
-Quantity:
-  Min: { Value: [1], Unit: stuk, Inclusive: true }
-Frequencies: { Value: [2, 3, 4], Unit: x/dag }
+Adjust:
+  Value:
+    - "14"
+  Unit: kg
+Frequencies:
+  Value:
+    - "3"
+    - "4"
+  Unit: x/day
 Dose:
-  DoseUnit: mg
-  AdjustUnit: kg
-  PerTimeAdjust:
-    Max: { Value: [90], Unit: mg/kg/dag, Inclusive: true }
-Div: 1
+  Quantity:
+    Min:
+      Value:
+        - "1"
+      Unit: stuk
+      Inclusive: true
+    Max:
+      Value:
+        - "1"
+      Unit: stuk
+      Inclusive: true
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
   - Name: paracetamol
     Form: zetpil
-    Products:
-      - Id: "12345"
-        FormQuantities: { Value: [1], Unit: stuk }
-        Strengths:
-          - Substance: paracetamol
-            Strength: { Value: [500], Unit: mg/stuk }
+    Quantities:
+      Value:
+        - "1"
+      Unit: stuk
+    Divisible: "1"
     Substances:
       - Name: paracetamol
-        Concentrations: { Value: [60, 120, 240, 500, 1000], Unit: mg/stuk }
+        Concentrations:
+          Value:
+            - "120"
+            - "240"
+            - "500"
+            - "1000"
+            - "125"
+            - "250"
+            - "60"
+            - "30"
+            - "360"
+            - "90"
+            - "750"
+            - "180"
+          Unit: mg/stuk
+        Dose:
+          AdjustUnit: mg
+          QuantityAdjust:
+            Min:
+              Value:
+                - "10"
+              Unit: mg/kg
+              Inclusive: true
+            Max:
+              Value:
+                - "20"
+              Unit: mg/kg
+              Inclusive: true
 ```
 
-The example shows the shape; the prototype's output for `pcmSupp` replaces it in step 1. Whether
-the small mappings come out in flow style as shown, or in block style, is the emitter's; the
-prototype decides how far that is worth code.
+This is the prototype's text for `pcmSupp`. It is written in block style, as YamlDotNet writes a
+mapping and a sequence by default: no emitter, by the maintainer's decision of 2026-10-19, to keep
+the text code to the serializer settings. A number is a quoted string, as the next section says.
 
 ### The Dto
 
 `Medication.Dto` sits in `Medication.fs` after `UnitValidation` and `ProductComponent`, which it
 uses. `toDto` is total, one function per type. `fromDto` is one `Result` per type, its errors
 collected per level: a unit that does not parse, an order type that names no case, an adjusted
-limit without its adjust unit, a product that `ProductComponent.madeOf` refuses. Each limit gets
-its target from the component or substance it sits under, or the orderable at medication level.
+limit without its adjust unit, a product that `ProductComponent.madeOf` refuses, a number that is
+neither a decimal nor a fraction. Each limit gets its target from the component or substance it
+sits under, or the orderable at medication level.
+
+A number is a string in the Dto. `toDto` writes it with `BigRational.toStringExact`, `fromDto`
+reads it with `BigRational.tryParseExact`, so a number that does not parse is an error with its
+path, `Components[0].Dose.Quantity.Max.Value[0]`, like any other field.
 
 ### The text
 
@@ -221,16 +275,20 @@ The callers are the tests, the scripts and `OrderLogging`.
 ### The schema
 
 A script, `Scripts/MedicationSchema.fsx`, generates the schema with `JsonSchema.FromType` over
-`Medication.Dto.Dto`: a type mapper gives a BigRational as a number or a string matching
-`^-?\d+/\d+$`; the cases of the `OrderType` union become the `enum` of `OrderType`; the settings
-allow an absent member, refuse a `null` and give `additionalProperties: false`. In step 1 the script prints the schema and the prototype validates
-the fixtures against it in memory; from step 4 the script writes `docs/domain/medication.schema.json`.
-The test reads the file beside its assembly, generates the schema again and compares the two; turns
-each fixture's text into
-JSON with YamlDotNet and validates it with NJsonSchema, `losslessMedication` among them; and
-makes sure three broken documents fail: one with a wrong type and one with an unknown key inside
-a nested Dto, else a reference the validator skips would let every fixture pass, and one with
-`OrderType: Banana`, which the reader refuses as well.
+`Medication.Dto.Dto`. As a number is a string in the Dto, the generator cannot tell it from
+text, so the script names the members that hold one, `Div`, `Divisible` and the items of `Value`,
+and gives them a number or a string matching a decimal or a fraction: a plain number of a
+hand-written text validates, as the reader takes it. A number member added to the Dto has to be
+added to that list, else the schema takes it as any string; no test catches that, as the schema
+only gets looser. The cases of the `OrderType` union become the `enum` of `OrderType`; the
+settings allow an absent member, refuse a `null` and give `additionalProperties: false`. In step 1
+the script prints the schema and the prototype validates the fixtures against it in memory; from
+step 4 the script writes `docs/domain/medication.schema.json`. The test reads the file beside its
+assembly, generates the schema again and compares the two; turns each fixture's text into JSON
+with YamlDotNet and validates it with NJsonSchema, `losslessMedication` among them; and makes sure
+four broken documents fail: one with a wrong type and one with an unknown key inside a nested Dto,
+else a reference the validator skips would let every fixture pass, one with `OrderType: Banana`
+and one with a number that is no number, which the reader refuses as well.
 
 ### What goes
 
@@ -258,55 +316,66 @@ with it; the rest are `ProductLabels`, the old `toString` and `fromString` (`:10
 High for the round trip: the Dto pattern is the repository's own, and exact numbers remove
 today's loss through decimals. High for the schema: generated from the Dto, in the draft
 NJsonSchema speaks, with a test against drift of the committed file and a negative test for the
-validator. Medium for the layout: flow style for the small mappings and the quoting depend on
-YamlDotNet's emitter, which the prototype shows. Medium for the units without group: the
-prototype decides. Medium for `UnitValidation` and `madeOf` in the reader: they make `fromString`
+validator. The layout is decided: block style and quoted decimals, YamlDotNet's defaults with
+the quoting setting, shown by the prototype. Medium for the units without group: the prototype
+decides. Medium for `UnitValidation` and `madeOf` in the reader: they make `fromString`
 stricter than today, and every fixture has to pass.
 
 ## Steps
 
 One PR per step, after the maintainer's go. Source lines are shipped code under `src/`, tests and
 scripts excluded. Every `.fs` change is prototyped in a script and migrated by the maintainer.
+Steps 1 to 3b land in one PR, by the maintainer's decision of 2026-10-19: a PR of scripts and
+docs alone gets no code review, and the source migration of 3a and 3b is done with them.
+The steps keep their text below as the parts of that PR.
 
 0. **This plan.** `docs(genorder): plan the medication text as YAML`.
 
 1. **The prototype, script only.** `Scripts/MedicationYaml.fsx` rewritten: a shadowed `Medication`
    with its `Dto` module, `toDto` and `fromDto` with their typed errors, `ProductComponent.madeOf`
-   lifted out of `createComponents`, `UnitValidation` used; the serializer settings with the
-   BigRational converter, the quoting and the flow style for values. `Scripts/MedicationSchema.fsx`
-   prints the schema. Expecto tests: the round trip over the eight `Scenarios` fixtures and every
-   text literal, read with today's reader, written as text, read back, record equal; every
-   fixture passes `madeOf` and `UnitValidation`; an Id of digits and a name `yes` come back as
-   strings through the JSON conversion; `"500/1"` reads as 500, and no fixture's text holds a
-   fraction that has a finite decimal form, no `"500/1"`, `"1/2"` or `"1/4"`; every fixture's
-   limit targets equal what their place gives; `losslessMedication` comes back as the same record,
-   its text holding `Inclusive: false` and `"1/3"`; each error case gives its `DtoError`,
-   `OrderType: Banana` among them; every fixture and `losslessMedication` validate against the
-   schema in memory and the three broken documents do not. The script prints every literal converted, the
-   input of 3c, and counts the source lines of each function, so the budgets of 3a and 3b are
-   measured. No source change. `docs(genorder): prototype the medication text as YAML`; no
-   Greptile review.
+   lifted out of `createComponents`, `UnitValidation` used; the number text in a shadowed
+   `BigRational` module of BCL; the serializer settings with the quoting.
+   `Scripts/MedicationSchema.fsx` prints the schema. Expecto tests: the round trip over the eight
+   `Scenarios` fixtures and every text literal, read with today's reader, written as text, read
+   back, record equal; every fixture passes `madeOf` and `UnitValidation`; an Id of digits and a
+   name `yes` come back as strings through the JSON conversion; `500/1` reads as 500, and no
+   fixture's text holds a fraction that has a finite decimal form, no `500/1`, `1/2` or `1/4`;
+   every limit read gets the target of its place; `losslessMedication` comes back as
+   the same record, its text holding `Inclusive: false` and `1/3`; each error case gives its
+   `DtoError`, `OrderType: Banana` among them; every fixture and `losslessMedication` validate
+   against the schema in memory and the four broken documents do not. The script prints every
+   literal converted, the input of 3c, and counts the source lines of each function, so the
+   budgets of 3a and 3b are measured. No source change. `docs(genorder): prototype the medication
+   text as YAML`; no Greptile review.
 
 2. **The dependency.** YamlDotNet in `paket.dependencies`, `paket.lock` and GenORDER's
-   `paket.references`; a CONTRIBUTING.md note. `build(deps): add YamlDotNet to GenORDER`.
+   `paket.references`, and FsToolkit.ErrorHandling, already in the Main group, in GenORDER's
+   `paket.references` too, as GenORDER used it through no reference of its own; a
+   CONTRIBUTING.md note. `build(deps): add YamlDotNet to GenORDER`.
 
 3. **The source.**
-   - **3a, the writer.** `Medication.Dto` with the Dto classes and `toDto`; `MedicationText.fs`
-     with the serializer and `toString`, in the project between `Medication.fs` and
-     `Nutrition.fs`. Tests of the shape: they start from the `Scenarios` records, not from the
-     text literals, which stay in the old format until 3c. Additive. `feat(genorder): write a
-     medication as YAML`.
-   - **3b, the reader.** `Medication.Dto.fromDto` with its `DtoError` cases; `madeOf` lifted into
+   - **3a, the writer.** `BigRational.toDecimalString` and `toStringExact` in `BCL/BigRational.fs`,
+     with their tests in `Informedica.Utils.Tests`; `Medication.Dto` with the Dto classes and
+     `toDto`; `MedicationText.fs` with the serializer and `toString`, in the project between
+     `Medication.fs` and `Nutrition.fs`. Tests of the shape: they start from the `Scenarios`
+     records, not from the text literals, which stay in the old format until 3c. Additive.
+     `feat(genorder): write a medication as YAML`.
+   - **3b, the reader.** `BigRational.tryParseExact` in `BCL/BigRational.fs`, with its tests;
+     `Medication.Dto.fromDto` with its `DtoError` cases; `madeOf` lifted into
      `Medication.ProductComponent` and `createComponents` calling it from there; the deserializer
      and `fromString`. Tests of the round trip from the `Scenarios` records through `toString`
      and `fromString` back to the same record, and of every error case with small texts written
      in the test. The same round trip over `losslessMedication`, with its text holding
-     `Inclusive: false` and `"1/3"`, so what the new text keeps and the old lost stays tested.
-     Additive beside the old reader. `feat(genorder): read a medication from YAML`.
+     `Inclusive: false` and `1/3`, so what the new text keeps and the old lost stays tested.
+     Additive beside the old reader. About 240 source lines: this knowingly exceeds the 200-line
+     limit, as the maintainer decided on 2026-10-19, so that the reader lands whole.
+     `feat(genorder): read a medication from YAML`.
    - **3c, the switch.** The literals of `Scenarios.fs`, `MedicationTextTests.fs` and `Tests.fs`
-     replaced by their converted text; `Tests.fs:96`, `:166` and `:972-1009` in
-     `Informedica.GenORDER.Tests` and `MappersOrderContextTests.fs:463` in
-     `Informedica.GenPRES.Server.Tests` calling `MedicationText`; `Events.MedicationCreated of
+     replaced by their converted text; `pcmSuppText` and `fullMedicationText` deleted, as no test
+     uses them and the old reader refuses them; the morphine limits of `morfCont` targeting
+     `morfin`; `Tests.fs:96`, `:166` and `:972-1009` in `Informedica.GenORDER.Tests` and
+     `MappersOrderContextTests.fs:463` in `Informedica.GenPRES.Server.Tests` calling
+     `MedicationText`; `Events.MedicationCreated of
      Medication` (`Types.fs:850`); the log event at `Medication.fs:1445-1456` as
      `logInfo logger (Events.MedicationCreated med)`, the lazy formatting and its comment gone;
      `OrderLogging.fs:105` writing it with `MedicationText.toString`; the scripts
@@ -330,8 +399,8 @@ scripts excluded. Every `.fs` change is prototyped in a script and migrated by t
    `<Content Include="..\..\docs\domain\medication.schema.json" Link="medication.schema.json" CopyToOutputDirectory="PreserveNewest" />`,
    so the file keeps its one home; NJsonSchema above `group Test` in
    `tests/Informedica.GenORDER.Tests/paket.references`; the tests: the file matches what the code
-   generates, every fixture and `losslessMedication` validate, the three broken documents fail. `test(genorder): validate
-   the medication text against its schema`. Closes #355.
+   generates, every fixture and `losslessMedication` validate, the four broken documents fail.
+   `test(genorder): validate the medication text against its schema`. Closes #355.
 
 ## Left out
 
