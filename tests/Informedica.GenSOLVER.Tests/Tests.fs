@@ -2462,6 +2462,22 @@ module Tests =
                             ([ 7N .. 12N ] |> List.map (fun c -> 1N / c) |> Set.ofList |> Some)
                     }
 
+                    for vs, exp in [ [ 2N ], [ 1N / 2N ]; [ 2N; 4N ], [ 1N / 4N ] ] do
+                        test $"a range in mg divided by %A{vs} mL lies on %A{exp} mg/mL" {
+                            // a unit with a base factor other than 1, so the values that divide
+                            // another are compared on the same scale as the values themselves
+                            [ "y = c * x" ]
+                            |> TestSolver.init
+                            |> TestSolver.setValues ml "c" vs
+                            |> TestSolver.setMinIncl Units.Mass.milliGram "y" 1N
+                            |> TestSolver.setIncr Units.Mass.milliGram "y" 1N
+                            |> TestSolver.setMaxIncl Units.Mass.milliGram "y" 10N
+                            |> solve
+                            |> getVar "x"
+                            |> incrOf
+                            |> Expect.equal "x should keep the increment divided by the volume" (Some exp)
+                        }
+
                     test "a value set divided by a range has a min and max without an increment" {
                         // y = 1 / x
                         [ "c = x * y" ]

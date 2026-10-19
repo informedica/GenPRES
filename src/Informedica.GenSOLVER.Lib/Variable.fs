@@ -2957,7 +2957,8 @@ module Variable =
                     // does not give, so only those are dropped, not the multiples
                     | ValueUnit.Operators.Div, _ ->
                         let vs =
-                            let brs = vs |> ValueUnit.getValue
+                            // base values, as filter applies its predicate to base values
+                            let brs = vs |> ValueUnit.getBaseValue
 
                             vs
                             |> ValueUnit.filter (fun v ->
