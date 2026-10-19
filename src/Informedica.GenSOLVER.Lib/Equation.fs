@@ -432,17 +432,25 @@ module Equation =
     let private solve_ onlyMinIncrMax log eq =
 
         let reorder = List.rotations >> List.mapi (fun i x -> i, x)
-        // perform a calculation with op1 for list reduction and
-        // op1 for the first var and the reduced list
-        // i.e., a = b + c + d -> b = a - (c + d)
-        // op1 = (+) and op2 = (-)
+
+        // an equation whose variables all hold one value cannot change, but it can be
+        // false: the single values of the order may contradict it. The check runs on
+        // values in both modes, as single values are value sets, and a min max check
+        // decides nothing
         if eq |> isSolved then
-            eq, Unchanged
+            if eq |> check false then
+                eq, Unchanged
+            else
+                let errs = [ Exceptions.SolverInvalidEquations [ eq ] ]
+                errs |> List.iter (Logger.logError log)
+                eq, Errored errs
         else
             // log starting the equation solve
             Logger.logDebugLazy log (fun () -> (onlyMinIncrMax, eq) |> Events.EquationStartedSolving)
 
-            // get the vars and the matching operators
+            // get the vars and the matching operators: op1 reduces the list and
+            // op2 combines the first var with the reduced list,
+            // i.e., a = b + c + d -> b = a - (c + d), op1 = (+) and op2 = (-)
             let vars, op1, op2 =
                 match eq with
                 | ProductEquation(y, xs) ->

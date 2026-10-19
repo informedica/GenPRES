@@ -2529,6 +2529,335 @@ module Tests =
                 ]
 
 
+    /// An equation whose variables all hold one value is evaluated instead of being put aside: the
+    /// single values of an order can contradict it, and then the solve errors.
+    module SolvedEquationTests =
+
+        module ValueRange = Variable.ValueRange
+        module ValueSet = ValueRange.ValueSet
+
+
+        let mg = Units.Mass.milliGram
+        let ml = Units.Volume.milliLiter
+        let l = Units.Volume.liter
+        let mgPerMl = mg |> ValueUnit.per ml
+
+
+        /// The quantity of the issue: 10 mg fixed, 1 mg/mL strength, 1 mL volume.
+        let impossibleProduct () =
+            [ "qty = conc * vol" ]
+            |> TestSolver.init
+            |> TestSolver.setValues mg "qty" [ 10N ]
+            |> TestSolver.setValues mgPerMl "conc" [ 1N ]
+            |> TestSolver.setValues ml "vol" [ 1N ]
+
+
+        let possibleProduct () =
+            [ "qty = conc * vol" ]
+            |> TestSolver.init
+            |> TestSolver.setValues mg "qty" [ 10N ]
+            |> TestSolver.setValues mgPerMl "conc" [ 1N ]
+            |> TestSolver.setValues ml "vol" [ 10N ]
+
+
+        /// The same quantity with the volume in liters: the check compares base values.
+        let possibleProductInLiters () =
+            [ "qty = conc * vol" ]
+            |> TestSolver.init
+            |> TestSolver.setValues mg "qty" [ 10N ]
+            |> TestSolver.setValues mgPerMl "conc" [ 1N ]
+            |> TestSolver.setValues l "vol" [ 1N / 100N ]
+
+
+        let impossibleSum () =
+            [ "tot = a + b" ]
+            |> TestSolver.init
+            |> TestSolver.setValues ml "tot" [ 10N ]
+            |> TestSolver.setValues ml "a" [ 1N ]
+            |> TestSolver.setValues ml "b" [ 1N ]
+
+
+        let possibleSum () =
+            [ "tot = a + b" ]
+            |> TestSolver.init
+            |> TestSolver.setValues ml "tot" [ 10N ]
+            |> TestSolver.setValues ml "a" [ 4N ]
+            |> TestSolver.setValues ml "b" [ 6N ]
+
+
+        /// A solved value the open variables do not give. Not all solved: the open variables are
+        /// calculated from the solved one and come out empty, which the solver reported already.
+        let solvedNotGiven () =
+            [ "qty = conc * vol" ]
+            |> TestSolver.init
+            |> TestSolver.setValues mg "qty" [ 10N ]
+            |> TestSolver.setValues mgPerMl "conc" [ 1N; 2N; 3N ]
+            |> TestSolver.setValues ml "vol" [ 1N; 2N; 4N ]
+
+
+        /// A solved value the open variables give in one way. Not all solved, narrowed already.
+        let solvedGiven () =
+            [ "qty = conc * vol" ]
+            |> TestSolver.init
+            |> TestSolver.setValues mg "qty" [ 10N ]
+            |> TestSolver.setValues mgPerMl "conc" [ 1N; 2N; 3N ]
+            |> TestSolver.setValues ml "vol" [ 1N; 5N; 7N ]
+
+
+        /// A solved value outside the range of an open variable. Not all solved, reported already.
+        let solvedOutsideRange () =
+            [ "qty = conc * vol" ]
+            |> TestSolver.init
+            |> TestSolver.setValues mg "qty" [ 10N ]
+            |> TestSolver.setValues mgPerMl "conc" [ 1N ]
+            |> TestSolver.setMinIncl ml "vol" 20N
+            |> TestSolver.setMaxIncl ml "vol" 50N
+
+
+        /// An impossible solved equation beside an open one on a shared variable.
+        let impossibleBesideOpen () =
+            [ "qty = conc * vol"; "rate = qty * freq" ]
+            |> TestSolver.init
+            |> TestSolver.setValues mg "qty" [ 10N ]
+            |> TestSolver.setValues mgPerMl "conc" [ 1N ]
+            |> TestSolver.setValues ml "vol" [ 1N ]
+
+
+        let isError =
+            function
+            | Ok _ -> false
+            | Error _ -> true
+
+
+        let isInvalidEquation =
+            function
+            | Error(_, errs) ->
+                errs
+                |> List.exists (
+                    function
+                    | Exceptions.SolverInvalidEquations _ -> true
+                    | _ -> false
+                )
+            | Ok _ -> false
+
+
+        let values n eqs =
+            eqs
+            |> List.collect Equation.toVars
+            |> List.find (fun v -> v.Name |> Variable.Name.toString = n)
+            |> Variable.getValueRange
+            |> ValueRange.getValSet
+            |> Option.map (ValueSet.toValueUnit >> ValueUnit.getValue)
+
+
+        let check eqs = eqs |> List.head |> Equation.check false
+
+
+        let tests =
+            testList
+                "solved equations"
+                [
+                    testList
+                        "Equation.check"
+                        [
+                            test "a product that holds: 10 mg = 1 mg/mL * 10 mL" {
+                                possibleProduct () |> check |> Expect.isTrue "holds"
+                            }
+
+                            test "a product that holds across unit scales: 10 mg = 1 mg/mL * 0.01 L" {
+                                possibleProductInLiters () |> check |> Expect.isTrue "holds on base values"
+                            }
+
+                            test "a product that does not hold: 10 mg = 1 mg/mL * 1 mL" {
+                                impossibleProduct () |> check |> Expect.isFalse "does not hold"
+                            }
+
+                            test "a sum that holds: 10 mL = 4 mL + 6 mL" {
+                                possibleSum () |> check |> Expect.isTrue "holds"
+                            }
+
+                            test "a sum that does not hold: 10 mL = 1 mL + 1 mL" {
+                                impossibleSum () |> check |> Expect.isFalse "does not hold"
+                            }
+
+                            test "a solved value in the value lists of the others holds" {
+                                solvedGiven () |> check |> Expect.isTrue "10 mg is in {1,2,3} * {1,5,7}"
+                            }
+
+                            test "a solved value outside the value lists of the others does not hold" {
+                                solvedNotGiven () |> check |> Expect.isFalse "10 mg is not in {1,2,3} * {1,2,4}"
+                            }
+
+                            test "an equation with a range is not decided and holds" {
+                                solvedOutsideRange ()
+                                |> check
+                                |> Expect.isTrue "vol is a range, not a value list"
+                            }
+
+                            test "in a min max solve nothing is decided" {
+                                impossibleProduct ()
+                                |> List.head
+                                |> Equation.check true
+                                |> Expect.isTrue "the min max check always holds"
+                            }
+                        ]
+
+                    testList
+                        "Equation.solve"
+                        [
+                            test "a solved equation that does not hold errors" {
+                                impossibleProduct ()
+                                |> List.head
+                                |> Equation.solve false TestSolver.logger
+                                |> snd
+                                |> function
+                                    | Errored [ Exceptions.SolverInvalidEquations _ ] -> true
+                                    | _ -> false
+                                |> Expect.isTrue "10 mg = 1 mg/mL * 1 mL errors as an invalid equation"
+                            }
+
+                            test "a solved equation that holds is unchanged" {
+                                possibleProduct ()
+                                |> List.head
+                                |> Equation.solve false TestSolver.logger
+                                |> snd
+                                |> function
+                                    | Unchanged -> true
+                                    | _ -> false
+                                |> Expect.isTrue "10 mg = 1 mg/mL * 10 mL is unchanged"
+                            }
+                        ]
+
+                    testList
+                        "solve all"
+                        [
+                            test "a solved product equation that does not hold errors in a values solve" {
+                                impossibleProduct ()
+                                |> TestSolver.solveAll
+                                |> isInvalidEquation
+                                |> Expect.isTrue "10 mg = 1 mg/mL * 1 mL"
+                            }
+
+                            test "a solved product equation that does not hold errors in a min max solve" {
+                                impossibleProduct ()
+                                |> TestSolver.solveMinMax
+                                |> isInvalidEquation
+                                |> Expect.isTrue "10 mg = 1 mg/mL * 1 mL"
+                            }
+
+                            test "a solved sum equation that does not hold errors in a values solve" {
+                                impossibleSum ()
+                                |> TestSolver.solveAll
+                                |> isInvalidEquation
+                                |> Expect.isTrue "10 mL = 1 mL + 1 mL"
+                            }
+
+                            test "a solved sum equation that does not hold errors in a min max solve" {
+                                impossibleSum ()
+                                |> TestSolver.solveMinMax
+                                |> isInvalidEquation
+                                |> Expect.isTrue "10 mL = 1 mL + 1 mL"
+                            }
+
+                            test "a solved product equation that holds is unchanged" {
+                                let eqs = possibleProduct ()
+
+                                eqs
+                                |> TestSolver.solveAll
+                                |> function
+                                    | Ok solved -> solved |> Expect.equal "10 mg = 1 mg/mL * 10 mL" eqs
+                                    | Error(_, errs) -> failtest $"%A{errs}"
+                            }
+
+                            test "a solved product equation that holds across unit scales is unchanged" {
+                                let eqs = possibleProductInLiters ()
+
+                                eqs
+                                |> TestSolver.solveAll
+                                |> function
+                                    | Ok solved -> solved |> Expect.equal "10 mg = 1 mg/mL * 0.01 L" eqs
+                                    | Error(_, errs) -> failtest $"%A{errs}"
+                            }
+
+                            test "a solved sum equation that holds is unchanged" {
+                                let eqs = possibleSum ()
+
+                                eqs
+                                |> TestSolver.solveMinMax
+                                |> function
+                                    | Ok solved -> solved |> Expect.equal "10 mL = 4 mL + 6 mL" eqs
+                                    | Error(_, errs) -> failtest $"%A{errs}"
+                            }
+
+                            test "an impossible solved equation beside an open equation errors" {
+                                impossibleBesideOpen ()
+                                |> TestSolver.solveAll
+                                |> isInvalidEquation
+                                |> Expect.isTrue "10 mg = 1 mg/mL * 1 mL"
+                            }
+
+                            // the mixed cases: a solved value among open variables was caught already,
+                            // by the calculation of the open variables
+                            test "a solved value the open variables do not give errors" {
+                                solvedNotGiven ()
+                                |> TestSolver.solveAll
+                                |> isError
+                                |> Expect.isTrue "10 mg is not in {1,2,3} * {1,2,4}"
+                            }
+
+                            test "a solved value the open variables give narrows them" {
+                                let eqs =
+                                    solvedGiven ()
+                                    |> TestSolver.solveAll
+                                    |> function
+                                        | Ok eqs -> eqs
+                                        | Error(_, errs) -> failtest $"%A{errs}"
+
+                                (eqs |> values "conc", eqs |> values "vol")
+                                |> Expect.equal "2 mg/mL and 5 mL" (Some [| 2N |], Some [| 5N |])
+                            }
+
+                            test "a solved value outside the range of an open variable errors" {
+                                solvedOutsideRange ()
+                                |> TestSolver.solveMinMax
+                                |> isError
+                                |> Expect.isTrue "10 mg = 1 mg/mL * [20..50] mL"
+                            }
+                        ]
+
+                    // the path an order takes on every change: solve for one variable
+                    testList
+                        "solve for a variable"
+                        [
+                            test "a solved equation that holds the set variable and does not hold errors" {
+                                [ "qty = conc * vol"; "rate = qty * freq" ]
+                                |> TestSolver.init
+                                |> TestSolver.setValues mgPerMl "conc" [ 1N ]
+                                |> TestSolver.setValues ml "vol" [ 1N ]
+                                |> TestSolver.solveValues mg "qty" [ 10N ]
+                                |> isInvalidEquation
+                                |> Expect.isTrue "10 mg = 1 mg/mL * 1 mL"
+                            }
+
+                            test "a solved equation without the set variable is left alone" {
+                                // only the equations that hold the set variable are solved; an equation
+                                // that does not hold but is not touched is not evaluated
+                                let eqs =
+                                    [ "qty = conc * vol"; "rate = dose * freq" ]
+                                    |> TestSolver.init
+                                    |> TestSolver.setValues mg "qty" [ 10N ]
+                                    |> TestSolver.setValues mgPerMl "conc" [ 1N ]
+                                    |> TestSolver.setValues ml "vol" [ 1N ]
+
+                                eqs
+                                |> TestSolver.solveValues mg "dose" [ 2N ]
+                                |> isError
+                                |> Expect.isFalse "qty = conc * vol is not on the queue"
+                            }
+                        ]
+                ]
+
+
     module OperatorMatchTests =
 
         open Informedica.GenSolver.Lib.Utils.ValueUnit.Operators
@@ -2666,6 +2995,7 @@ module Tests =
             VariableTests.ValueRangeTests.tests
             EquationTests.tests
             IncrementEquationTests.tests
+            SolvedEquationTests.tests
             OperatorMatchTests.tests
         ]
         |> testList "GenSolver"
