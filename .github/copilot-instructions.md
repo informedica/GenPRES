@@ -180,7 +180,7 @@ If FSI scripts fail to load dependencies, ensure you're running from the script'
 
 ```bash
 cd src/Informedica.GenORDER.Lib/Scripts
-dotnet fsi Medication.fsx
+dotnet fsi MedicationYaml.fsx --check
 ```
 
 ### DLL Not Found
@@ -242,7 +242,7 @@ Because `load.fsx` loads the GenUNITS source files via `#load` and references th
 Every library has a `Scripts/` directory containing:
 
 - `load.fsx` — Bootstrap script that loads compiled DLLs from dependent libraries and `#load`s the library's own `.fs` source files. This gives FSI access to the full library context.
-- Development scripts (e.g., `Solver.fsx`, `Medication.fsx`) — Working scripts for experimentation and testing.
+- Development scripts (e.g., `Solver.fsx`, `MedicationYaml.fsx`) — Working scripts for experimentation and testing.
 
 Example `load.fsx` pattern:
 
@@ -275,26 +275,25 @@ Shadow an existing module to extend it with new functions while keeping all orig
 
 open Informedica.GenOrder.Lib
 
-// Shadow the Medication module to add new functions
-module Medication =
+// Shadow the MedicationText module to add new functions
+module MedicationText =
     // Open the original module - all existing functions become available
-    open Informedica.GenOrder.Lib.Medication
+    open Informedica.GenOrder.Lib.MedicationText
 
     // Add new function
-    let fromString (s: string) : Result<Medication, string list> =
-        // implementation...
+    let roundTrip med = med |> toString |> fromString
 
-    // Existing functions like toString, template, toOrderDto are now
-    // automatically available as Medication.toString, etc.
+    // Existing functions like toString and fromString are now
+    // automatically available as MedicationText.toString, etc.
 ```
 
-**NOTE** The module has the same name as the original (`Medication`), but because it's defined in the script, it shadows the original module. By opening the original module inside the new one, you bring all existing functions into scope, allowing you to call them as if they were part of the new module.
+**NOTE** The module has the same name as the original (`MedicationText`), but because it's defined in the script, it shadows the original module. By opening the original module inside the new one, you bring all existing functions into scope, allowing you to call them as if they were part of the new module.
 
 This allows calling both new and existing functions through the same module name:
 
 ```fsharp
-let text = myMed |> Medication.toString       // original function
-let parsed = text |> Medication.fromString    // new function
+let text = myMed |> MedicationText.toString          // original function
+let back = myMed |> MedicationText.roundTrip         // new function
 ```
 
 ### Testing in Scripts
@@ -311,8 +310,8 @@ let tests =
     testList "feature tests" [
         test "roundtrip works" {
             let original = Scenarios.pcmSupp
-            let text = original |> Medication.toString |> String.concat "\n"
-            match text |> Medication.fromString with
+            let text = original |> MedicationText.toString
+            match text |> MedicationText.fromString with
             | Error errs -> failtest $"Parse failed: {errs}"
             | Ok parsed ->
                 parsed.Id |> Expect.equal "Id matches" original.Id

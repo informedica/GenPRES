@@ -1818,63 +1818,6 @@ module PatientConstructorTests =
             ]
 
 
-module MedicationParserTests =
-
-
-    let tests =
-        testList
-            "Medication.Parser"
-            [
-
-                test "parseBigRationalOpt parses integer string" {
-                    Medication.Parser.parseBigRationalOpt "10" |> Expect.isSome "should parse '10'"
-                }
-
-                test "parseBigRationalOpt returns None for empty string" {
-                    Medication.Parser.parseBigRationalOpt ""
-                    |> Expect.isNone "empty string should give None"
-                }
-
-                test "parseBigRationalOpt returns None for whitespace" {
-                    Medication.Parser.parseBigRationalOpt "   "
-                    |> Expect.isNone "whitespace should give None"
-                }
-
-                test "parseDutchDecimal parses '1,5'" {
-                    Medication.Parser.parseDutchDecimal "1,5"
-                    |> Expect.isSome "should parse Dutch decimal '1,5'"
-                }
-
-                test "parseDutchDecimal parses '2.0'" {
-                    Medication.Parser.parseDutchDecimal "2.0" |> Expect.isSome "should parse '2.0'"
-                }
-
-                test "parseOrderType 'DiscontinuousOrder' gives Ok DiscontinuousOrder" {
-                    Medication.Parser.parseOrderType "DiscontinuousOrder"
-                    |> Expect.equal "should give Ok DiscontinuousOrder" (Ok DiscontinuousOrder)
-                }
-
-                test "parseOrderType 'TimedOrder' gives Ok TimedOrder" {
-                    Medication.Parser.parseOrderType "TimedOrder"
-                    |> Expect.equal "should give Ok TimedOrder" (Ok TimedOrder)
-                }
-
-                test "parseOrderType unknown gives Error" {
-                    Medication.Parser.parseOrderType "invalid"
-                    |> Result.isError
-                    |> Expect.isTrue "unknown order type should give Error"
-                }
-
-                test "parseLine returns None for line without colon" {
-                    Medication.Parser.parseLine "no colon here" |> Expect.isNone "no colon → None"
-                }
-
-                test "parseLine returns Some for key:value line" {
-                    Medication.Parser.parseLine "Name: Test" |> Expect.isSome "key:value → Some"
-                }
-            ]
-
-
 module OrderBuilderTests =
 
     open Informedica.GenOrder.Lib.Medication
@@ -4021,7 +3964,6 @@ let tests =
             OrderPlanTests.argumentationTests
             DosePrintoutTests.tests
             PatientConstructorTests.tests
-            MedicationParserTests.tests
             OrderVariableTests.tests
             ConstraintsTests.tests
             GoldenOrderTests.tests

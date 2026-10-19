@@ -1836,24 +1836,6 @@ module MedicationTextFormatTests =
     let private doseLimitText dl = dl |> DoseLimit.toString |> String.concat ""
 
 
-    let private toText med = med |> Medication.toString |> String.concat "\n"
-
-
-    let private parse text =
-        match text |> Medication.fromString with
-        | Ok med -> med
-        | Error errs ->
-            let errMsg = errs |> String.concat "; "
-            failtest $"Parse failed: %s{errMsg}"
-
-
-    let private substance name (med: Medication) =
-        med.Components
-        |> List.head
-        |> _.Substances
-        |> List.find (fun s -> s.Name = name)
-
-
     let tests =
         testList
             "Medication text format"
@@ -1902,220 +1884,6 @@ module MedicationTextFormatTests =
                         }
                     ]
 
-                testList
-                    "Unit validation"
-                    [
-                        test "hasAdjustUnit detects kg" {
-                            mgPerKg
-                            |> Medication.UnitValidation.hasAdjustUnit
-                            |> Expect.isTrue "should detect kg as adjust unit"
-                        }
-
-                        test "hasAdjustUnit detects m2" {
-                            Units.Mass.milliGram
-                            |> ValueUnit.per Units.BSA.m2
-                            |> Medication.UnitValidation.hasAdjustUnit
-                            |> Expect.isTrue "should detect m2 as adjust unit"
-                        }
-
-                        test "hasTimeUnit detects day" {
-                            Units.Mass.milliGram
-                            |> ValueUnit.per Units.Time.day
-                            |> Medication.UnitValidation.hasTimeUnit
-                            |> Expect.isTrue "should detect day as time unit"
-                        }
-
-                        test "hasTimeUnit detects hour" {
-                            Units.Volume.milliLiter
-                            |> ValueUnit.per Units.Time.hour
-                            |> Medication.UnitValidation.hasTimeUnit
-                            |> Expect.isTrue "should detect hour as time unit"
-                        }
-
-                        test "complex unit mg/kg/dag has both adjust and time" {
-                            mgPerKgPerDay
-                            |> Medication.UnitValidation.hasAdjustUnit
-                            |> Expect.isTrue "should have adjust unit"
-
-                            mgPerKgPerDay
-                            |> Medication.UnitValidation.hasTimeUnit
-                            |> Expect.isTrue "should have time unit"
-                        }
-                    ]
-
-                testList
-                    "toString and fromString round trip"
-                    [
-                        test "pcmSupp round trip keeps the basic fields" {
-                            let original = Scenarios.pcmSupp
-                            let med = original |> toText |> parse
-
-                            med.Id |> Expect.equal "Id" original.Id
-                            med.Name |> Expect.equal "Name" original.Name
-                            med.Route |> Expect.equal "Route" original.Route
-                            med.OrderType |> Expect.equal "OrderType" original.OrderType
-
-                            med.Components.Length
-                            |> Expect.equal "Components count" original.Components.Length
-                        }
-
-                        test "pcmSupp round trip keeps the component details" {
-                            let original = Scenarios.pcmSupp
-                            let origCmp = original.Components |> List.head
-                            let parsedCmp = original |> toText |> parse |> _.Components |> List.head
-
-                            parsedCmp.Name |> Expect.equal "Component Name" origCmp.Name
-                            parsedCmp.Form |> Expect.equal "Component Form" origCmp.Form
-
-                            parsedCmp.Substances.Length
-                            |> Expect.equal "Substances count" origCmp.Substances.Length
-                        }
-
-                        test "pcmSupp round trip gives back the same text" {
-                            let text = Scenarios.pcmSupp |> toText
-
-                            text |> parse |> toText |> Expect.equal "should resemble the original text" text
-                        }
-
-                        test "amfo round trip keeps the PerTimeAdjust field" {
-                            let original = Scenarios.amfo
-                            let med = original |> toText |> parse
-
-                            med.Id |> Expect.equal "Id" original.Id
-                            med.Name |> Expect.equal "Name" original.Name
-                            med.OrderType |> Expect.equal "OrderType" original.OrderType
-
-                            let parsed = med |> substance "amfotericine b liposomaal"
-                            parsed.Dose.IsSome |> Expect.isTrue "Dose should be Some"
-
-                            parsed.Dose.Value.PerTimeAdjust
-                            |> Expect.notEqual "PerTimeAdjust should not be empty" MinMax.empty
-                        }
-
-                        test "morfCont round trip keeps the RateAdjust field" {
-                            let original = Scenarios.morfCont
-                            let med = original |> toText |> parse
-
-                            med.Id |> Expect.equal "Id" original.Id
-                            med.OrderType |> Expect.equal "OrderType" original.OrderType
-
-                            let parsed = med |> substance "morfin"
-                            parsed.Dose.IsSome |> Expect.isTrue "Dose should be Some"
-
-                            parsed.Dose.Value.RateAdjust
-                            |> Expect.notEqual "RateAdjust should not be empty" MinMax.empty
-                        }
-
-                        test "cotrim round trip keeps the QuantityAdjust field" {
-                            let original = Scenarios.cotrim
-                            let med = original |> toText |> parse
-
-                            med.Id |> Expect.equal "Id" original.Id
-                            med.OrderType |> Expect.equal "OrderType" original.OrderType
-
-                            for sub in med.Components |> List.head |> _.Substances do
-                                sub.Dose.IsSome |> Expect.isTrue $"Dose for %s{sub.Name} should be Some"
-
-                                sub.Dose.Value.QuantityAdjust
-                                |> Expect.notEqual $"QuantityAdjust for %s{sub.Name} should not be empty" MinMax.empty
-                        }
-
-                        test "tpn round trip keeps every component" {
-                            let original = Scenarios.tpn
-                            let med = original |> toText |> parse
-
-                            med.Id |> Expect.equal "Id" original.Id
-
-                            med.Components.Length
-                            |> Expect.equal "Components count" original.Components.Length
-
-                            for i, origCmp in original.Components |> List.indexed do
-                                let parsedCmp = med.Components[i]
-                                parsedCmp.Name |> Expect.equal $"Component %i{i} name" origCmp.Name
-
-                                if origCmp.Dose.IsSome then
-                                    parsedCmp.Dose.IsSome |> Expect.isTrue $"Component %i{i} Dose should be Some"
-                        }
-
-                        test "fullMedication round trip keeps all fields" {
-                            let original = Scenarios.fullMedication
-                            let med = original |> toText |> parse
-
-                            med.Id |> Expect.equal "Id" original.Id
-                            med.Name |> Expect.equal "Name" original.Name
-                            med.Route |> Expect.equal "Route" original.Route
-                            med.OrderType |> Expect.equal "OrderType" original.OrderType
-
-                            med.Components.Length
-                            |> Expect.equal "Components count" original.Components.Length
-
-                            med.Div.IsSome |> Expect.equal "Div is Some" original.Div.IsSome
-                        }
-
-                        test "fromString returns an error for an invalid OrderType" {
-                            let invalidText =
-                                """
-Id: test-id
-Name: test
-Route: test
-OrderType: InvalidType
-Components:
-"""
-
-                            match invalidText |> Medication.fromString with
-                            | Error errs ->
-                                errs
-                                |> List.exists _.Contains("Unknown OrderType")
-                                |> Expect.isTrue "should contain OrderType error"
-                            | Ok _ -> failtest "Expected error for invalid OrderType"
-                        }
-                    ]
-
-                testList
-                    "parseLine handles different indentation"
-                    [
-                        test "parseLine handles tab indentation" {
-                            match Medication.Parser.parseLine "\t\tName: test" with
-                            | Some(indent, key, value) ->
-                                indent |> Expect.equal "should be indent 2" 2
-                                key |> Expect.equal "key" "Name"
-                                value |> Expect.equal "value" "test"
-                            | None -> failtest "Expected successful parse"
-                        }
-
-                        test "parseLine handles space indentation (4 spaces = 1 indent)" {
-                            match Medication.Parser.parseLine "        Name: test" with
-                            | Some(indent, key, value) ->
-                                indent |> Expect.equal "should be indent 2" 2
-                                key |> Expect.equal "key" "Name"
-                                value |> Expect.equal "value" "test"
-                            | None -> failtest "Expected successful parse"
-                        }
-
-                        test "fromString works with space-indented input" {
-                            let spaceIndented =
-                                """
-Id: test-id
-Name: test-med
-Route: ORAAL
-OrderType: OnceOrder
-Components:
-
-    Name: comp1
-    Form: tablet
-    Substances:
-
-        Name: subst1
-        Concentrations: 10 mg/stuk
-"""
-
-                            let med = spaceIndented |> parse
-                            med.Components.Length |> Expect.equal "should have 1 component" 1
-                            let comp = med.Components |> List.head
-                            comp.Name |> Expect.equal "component name" "comp1"
-                            comp.Substances.Length |> Expect.equal "should have 1 substance" 1
-                        }
-                    ]
             ]
 
 
@@ -2456,6 +2224,50 @@ Components:
                         |> ValueUnit.getValue
                         |> Expect.equal "500" [| 500N |]
                 }
+
+                testList
+                    "unit validation"
+                    [
+                        let mgPerKg = Units.Mass.milliGram |> ValueUnit.per Units.Weight.kiloGram
+                        let mgPerKgPerDay = mgPerKg |> ValueUnit.per Units.Time.day
+
+                        test "hasAdjustUnit detects kg" {
+                            mgPerKg
+                            |> Medication.UnitValidation.hasAdjustUnit
+                            |> Expect.isTrue "should detect kg as adjust unit"
+                        }
+
+                        test "hasAdjustUnit detects m2" {
+                            Units.Mass.milliGram
+                            |> ValueUnit.per Units.BSA.m2
+                            |> Medication.UnitValidation.hasAdjustUnit
+                            |> Expect.isTrue "should detect m2 as adjust unit"
+                        }
+
+                        test "hasTimeUnit detects day" {
+                            Units.Mass.milliGram
+                            |> ValueUnit.per Units.Time.day
+                            |> Medication.UnitValidation.hasTimeUnit
+                            |> Expect.isTrue "should detect day as time unit"
+                        }
+
+                        test "hasTimeUnit detects hour" {
+                            Units.Volume.milliLiter
+                            |> ValueUnit.per Units.Time.hour
+                            |> Medication.UnitValidation.hasTimeUnit
+                            |> Expect.isTrue "should detect hour as time unit"
+                        }
+
+                        test "complex unit mg/kg/dag has both adjust and time" {
+                            mgPerKgPerDay
+                            |> Medication.UnitValidation.hasAdjustUnit
+                            |> Expect.isTrue "should have adjust unit"
+
+                            mgPerKgPerDay
+                            |> Medication.UnitValidation.hasTimeUnit
+                            |> Expect.isTrue "should have time unit"
+                        }
+                    ]
 
                 testList
                     "errors"

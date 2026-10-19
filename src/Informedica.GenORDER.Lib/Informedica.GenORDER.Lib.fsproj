@@ -27,7 +27,6 @@
     <Compile Include="OrderPlan.fs" />
     <None Include="Scripts\load.fsx" />
     <None Include="Scripts\Scenarios.fsx" />
-    <None Include="Scripts\Medication.fsx" />
     <None Include="Scripts\Constraints.fsx" />
   </ItemGroup>
   <ItemGroup>
