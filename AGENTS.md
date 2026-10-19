@@ -121,7 +121,7 @@ Every library has a `Scripts/` directory with:
   #load "../Variable.fs"
   ```
 
-- development scripts (`Solver.fsx`, `Medication.fsx`, ...)
+- development scripts (`Solver.fsx`, `MedicationYaml.fsx`, ...)
 
 Rebuild first (`dotnet run build`) so `load.fsx` finds the DLLs.
 
@@ -133,13 +133,13 @@ Rebuild first (`dotnet run build`) so `load.fsx` finds the DLLs.
 4. Shadow the module to extend it: a module with the original's name that opens the original inside, so existing functions stay reachable through the same name
 
    ```fsharp
-   module Medication =
-       open Informedica.GenOrder.Lib.Medication
+   module MedicationText =
+       open Informedica.GenOrder.Lib.MedicationText
 
-       let fromString (s: string) : Result<Medication, string list> = ...
+       let roundTrip med = med |> toString |> fromString
 
-   let text = myMed |> Medication.toString       // original
-   let parsed = text |> Medication.fromString    // new
+   let text = myMed |> MedicationText.toString          // original
+   let back = myMed |> MedicationText.roundTrip         // new
    ```
 
 5. Write Expecto tests in the same script and run them with `runTestsWithCLIArgs [] [||] tests`; existing suites can be loaded with `#load "../../../tests/Informedica.GenSOLVER.Tests/Tests.fs"`
@@ -163,7 +163,7 @@ FSI resolves `#load` from its **include path**, not from the current directory, 
 
 `load_f_sharp_script` sends the statements one by one, so set `#I` before calling it too. The session is persistent: load each dependency once, since a type loaded twice conflicts (`FSI_0005.Types.gram` vs `FSI_0010.Types.gram`) and the server must then be restarted. A DLL loaded with `#r` cannot be unloaded, so after any build that changes a referenced DLL, ask the user to restart the FSI server before continuing; files loaded with `#load` are recompiled and need no restart.
 
-Without the server, run scripts from their own directory: `cd src/Informedica.GenORDER.Lib/Scripts && dotnet fsi Medication.fsx`.
+Without the server, run scripts from their own directory: `cd src/Informedica.GenORDER.Lib/Scripts && dotnet fsi MedicationYaml.fsx --check`.
 
 ## Data Dependencies
 
