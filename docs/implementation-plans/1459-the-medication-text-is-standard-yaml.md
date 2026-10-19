@@ -425,3 +425,25 @@ The steps keep their text below as the parts of that PR.
 - the script of step 1 run again against the source after 3c, through `MedicationText`
 - every converted literal loads in a YAML tool outside .NET and validates against the committed
   schema
+
+## As built
+
+Built in the order of the steps, one PR at a time, each reviewed before the next started.
+
+| Step | PR | Landed |
+|---|---|---|
+| 0 | #1466 | this document |
+| 1 to 3b | #1467 | the prototype, YamlDotNet, the writer and the reader, in one PR as decided. Review: a decimal longer than about 28 digits was rounded when read, and is now read exactly; a nested value left null threw, and now gives a Missing error with its path |
+| 3c | #1469 | the switch of the text literals, the tests, the log event and the scripts. Review: the reader took a product with a blank or missing id, which the old reader refused; it now refuses it, as a separate fix commit. `Constraints.fsx` loads the switched test literals instead of its own copy |
+| 3d | #1470 | the old reader and writer removed, with `Medication.fsx` and the tests of the old text; the unit validation tests moved to the YAML tests. Also removed: `Medication.unitGroup`, which nothing called. The examples of the script workflow in `AGENTS.md` and the Copilot instructions now use `MedicationYaml.fsx` and `MedicationText` |
+| 3e | #1471 | the labeled limit text removed from GenFORM and GenCORE, with the opens of `System` nothing used any more. `DoseLimit.printMinMaxDose` stays, as the dose rule text uses it |
+| 4 | #1472 | the committed schema and its tests; the generator moved from the script into the test project, and the script loads it. Closes #355 |
+
+One check of the plan was not done: loading every converted literal in a YAML tool outside
+.NET was skipped by the maintainer's decision. `MedicationSchema.fsx` validates all 25 literals
+against the schema inside .NET, and `MedicationYaml.fsx --check`, the script of step 1 run
+again after 3c, reads all 25 through `MedicationText`.
+
+One thing the work left open: since 3e, `printMinMaxDose` is called with a label only by its
+own tests, as the dose rule always passes an empty label. Whether to drop the label parameter
+is not decided.
