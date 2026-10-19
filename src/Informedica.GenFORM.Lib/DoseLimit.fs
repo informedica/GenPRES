@@ -3,34 +3,9 @@ namespace Informedica.GenForm.Lib
 
 module DoseLimit =
 
-    open System
     open Informedica.Utils.Lib.BCL
     open Informedica.GenCore.Lib.Ranges
     open Informedica.GenUnits.Lib
-
-
-    /// Field labels for deterministic parsing
-    module FieldLabels =
-        [<Literal>]
-        let DoseUnit = "[dun]"
-
-        [<Literal>]
-        let Quantity = "[qty]"
-
-        [<Literal>]
-        let QuantityAdjust = "[qty-adj]"
-
-        [<Literal>]
-        let PerTime = "[per-time]"
-
-        [<Literal>]
-        let PerTimeAdjust = "[per-time-adj]"
-
-        [<Literal>]
-        let Rate = "[rate]"
-
-        [<Literal>]
-        let RateAdjust = "[rate-adj]"
 
 
     let create tar aun dun qty qta ptm pta rte rta : DoseLimit =
@@ -127,7 +102,8 @@ module DoseLimit =
     /// <summary>
     /// Formats a MinMax as a string with label and per-dose suffix.
     /// </summary>
-    /// <param name="label">Field label to prepend (e.g., "[qty]"). When empty, uses verbose format with decimal precision.</param>
+    /// <param name="label">A text to prepend. When empty, the verbose format with decimal
+    /// precision is used.</param>
     /// <param name="perDose">Suffix to append (e.g., "/dosis"). Applied to each value in the MinMax.</param>
     /// <param name="minMax">The MinMax to format.</param>
     /// <returns>
@@ -169,29 +145,3 @@ module DoseLimit =
                 ""
             else
                 $"{label} {s}" |> String.trim
-
-
-    let toString (dl: DoseLimit) =
-        [
-            let perDose = "/dosis"
-            let emptyS = ""
-            let dun = dl.DoseUnit |> Units.toStringEngShortWithoutGroup
-
-            [
-                $"%s{dl.DoseLimitTarget |> LimitTarget.toString}"
-                if dun |> String.notEmpty then
-                    $"{FieldLabels.DoseUnit} %s{dun}"
-
-                $"%s{dl.Rate |> printMinMaxDose FieldLabels.Rate emptyS}"
-                $"%s{dl.RateAdjust |> printMinMaxDose FieldLabels.RateAdjust emptyS}"
-
-                $"%s{dl.PerTimeAdjust |> printMinMaxDose FieldLabels.PerTimeAdjust emptyS}"
-                $"%s{dl.PerTime |> printMinMaxDose FieldLabels.PerTime emptyS}"
-
-                $"%s{dl.QuantityAdjust |> printMinMaxDose FieldLabels.QuantityAdjust perDose}"
-                $"%s{dl.Quantity |> printMinMaxDose FieldLabels.Quantity perDose}"
-            ]
-            |> List.map String.trim
-            |> List.filter String.notNullOrEmpty
-            |> String.concat ", "
-        ]
