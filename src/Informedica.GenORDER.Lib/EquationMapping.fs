@@ -151,7 +151,7 @@ module EquationMapping =
             "[cmp]_orb_qty = [orb]_dos_cnt * [cmp]_dos_qty", allDoseTypes
             "[cmp]_orb_qty = [cmp]_cmp_qty * [cmp]_orb_cnt", allDoseTypes
             "[cmp]_ord_qty = [cmp]_cmp_qty * [cmp]_ord_cnt", allDoseTypes
-            "[cmp]_dos_tot = [cmp]_dos_ptm * [ord]_ord_tme", discContTimed
+            "[cmp]_dos_tot = [cmp]_dos_ptm * [ord]_ord_tme", discTimed
             "[cmp]_dos_tot = [cmp]_dos_rte * [ord]_ord_tme", contOnly
             "[cmp]_dos_qty = [cmp]_orb_cnc * [orb]_dos_qty", allDoseTypes
             "[cmp]_dos_qty = [cmp]_dos_qty_adj * [ord]_adj_qty", allDoseTypes
@@ -167,8 +167,10 @@ module EquationMapping =
             "[cmp]_dos_rte_adj = [cmp]_orb_cnc * [orb]_dos_rte_adj", contOnly
             "[orb]_orb_qty = [orb]_dos_cnt * [orb]_dos_qty", allDoseTypes
             "[orb]_ord_qty = [orb]_ord_cnt * [orb]_orb_qty", allDoseTypes
-            "[orb]_dos_tot = [orb]_dos_ptm * [ord]_ord_tme", discContTimed
-            "[orb]_dos_tot = [orb]_dos_rte * [ord]_ord_tme", discContTimed
+            // the total by per time needs a frequency and the total by rate a continuous order:
+            // with both on a timed order, the administration time times the frequency has to be 1
+            "[orb]_dos_tot = [orb]_dos_ptm * [ord]_ord_tme", discTimed
+            "[orb]_dos_tot = [orb]_dos_rte * [ord]_ord_tme", contOnly
             "[orb]_dos_qty = [orb]_dos_rte * [ord]_sch_tme", contTimedOnceTimed
             "[orb]_dos_qty = [orb]_dos_qty_adj * [ord]_adj_qty", allDoseTypes
             "[orb]_dos_ptm = [orb]_dos_qty * [ord]_sch_frq", discTimed
