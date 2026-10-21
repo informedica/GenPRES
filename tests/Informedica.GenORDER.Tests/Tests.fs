@@ -2206,8 +2206,12 @@ module EquationsTests =
     // string ("Short Name" column) and a 5-char marker for which dose types mark
     // it with an "x", in column order discontinuous, continuous, timed, once,
     // onceTimed ('x' = applies, '.' = blank). This is an independent transcription
-    // of the source sheet; the test fails if the hardcoded EquationMapping.equations
-    // list drifts from it (wrong equation text, wrong dose-type assignment, or order).
+    // of the source sheet, except that the component and orderable dose totals
+    // follow the item dose total: the total by per time on the dose types with a
+    // frequency and the total by rate on a continuous order only. The sheet had
+    // both on a timed order, which a timed order with a duration cannot satisfy.
+    // The test fails if the hardcoded EquationMapping.equations list drifts from
+    // it (wrong equation text, wrong dose-type assignment, or order).
     let private golden =
         [
             "[itm]_cmp_qty = [itm]_cmp_cnc * [cmp]_cmp_qty", "xxxxx"
@@ -2240,7 +2244,7 @@ module EquationsTests =
             "[cmp]_orb_qty = [orb]_dos_cnt * [cmp]_dos_qty", "xxxxx"
             "[cmp]_orb_qty = [cmp]_cmp_qty * [cmp]_orb_cnt", "xxxxx"
             "[cmp]_ord_qty = [cmp]_cmp_qty * [cmp]_ord_cnt", "xxxxx"
-            "[cmp]_dos_tot = [cmp]_dos_ptm * [ord]_ord_tme", "xxx.."
+            "[cmp]_dos_tot = [cmp]_dos_ptm * [ord]_ord_tme", "x.x.."
             "[cmp]_dos_tot = [cmp]_dos_rte * [ord]_ord_tme", ".x..."
             "[cmp]_dos_qty = [cmp]_orb_cnc * [orb]_dos_qty", "xxxxx"
             "[cmp]_dos_qty = [cmp]_dos_rte * [ord]_sch_tme", "....."
@@ -2257,8 +2261,8 @@ module EquationsTests =
             "[cmp]_dos_rte_adj = [cmp]_orb_cnc * [orb]_dos_rte_adj", ".x..."
             "[orb]_orb_qty = [orb]_dos_cnt * [orb]_dos_qty", "xxxxx"
             "[orb]_ord_qty = [orb]_ord_cnt * [orb]_orb_qty", "xxxxx"
-            "[orb]_dos_tot = [orb]_dos_ptm * [ord]_ord_tme", "xxx.."
-            "[orb]_dos_tot = [orb]_dos_rte * [ord]_ord_tme", "xxx.."
+            "[orb]_dos_tot = [orb]_dos_ptm * [ord]_ord_tme", "x.x.."
+            "[orb]_dos_tot = [orb]_dos_rte * [ord]_ord_tme", ".x..."
             "[orb]_dos_qty = [orb]_dos_rte * [ord]_sch_tme", ".xx.x"
             "[orb]_dos_qty = [orb]_dos_qty_adj * [ord]_adj_qty", "xxxxx"
             "[orb]_dos_ptm = [orb]_dos_qty * [ord]_sch_frq", "x.x.."
@@ -3949,6 +3953,146 @@ module RateAfterQuantityTests =
             ]
 
 
+/// The orderable dose total is the per time times the duration on an order with a frequency, and the rate
+/// times the duration on a continuous order. With both equations on a timed order, the administration
+/// time times the frequency has to be 1, so a timed order with a duration cannot be solved; on a
+/// discontinuous order the rate gets the per time, although a discontinuous order has no rate.
+module DoseTotalTests =
+
+    open TestOrder
+
+    module Quantity = OrderVariable.Quantity
+    module Rate = OrderVariable.Rate
+    module PerTime = OrderVariable.PerTime
+    module Total = OrderVariable.Total
+    module Time = OrderVariable.Time
+
+
+    let private doseQuantity (ord: Order) = ord.Orderable.Dose.Quantity |> Quantity.toOrdVar
+
+
+    let private rate (ord: Order) = ord.Orderable.Dose.Rate |> Rate.toOrdVar
+
+
+    let private perTime (ord: Order) = ord.Orderable.Dose.PerTime |> PerTime.toOrdVar
+
+
+    let private total (ord: Order) = ord.Orderable.Dose.Total |> Total.toOrdVar
+
+
+    let private duration (ord: Order) = ord.Duration |> Time.toOrdVar
+
+
+    let private milliLiters ovar =
+        ovar
+        |> OrderVariable.getValSetValueUnit
+        |> Option.map (ValueUnit.convertTo Units.Volume.milliLiter >> ValueUnit.getValue)
+        |> Option.defaultValue [||]
+
+
+    /// The order with the first value of the order variable picked, solved as a pick from the dialog is.
+    let private pickFirst ovar ord =
+        if ovar |> valuesOf |> Array.length <= 1 then
+            ord
+        else
+            ord
+            |> Order.fromOrdVars [ ovar |> OrderVariable.setNthValue 0 ]
+            |> solve SolveOrder
+
+
+    /// Every basic variable set, as the dialog completes an order: the dose quantity, then each
+    /// component quantity.
+    let private completed (ord: Order) =
+        let ord = ord |> pickFirst (ord |> doseQuantity)
+
+        ord.Orderable.Components
+        |> List.map _.Name
+        |> List.fold
+            (fun (o: Order) name ->
+                let qty =
+                    o.Orderable.Components
+                    |> List.find (fun c -> c.Name = name)
+                    |> _.OrderableQuantity
+                    |> Quantity.toOrdVar
+
+                o |> pickFirst qty
+            )
+            ord
+
+
+    /// The order with its duration set to a number of days, solved; the messages when it is not.
+    let private withDuration days (ord: Order) =
+        let vr =
+            days
+            |> ValueUnit.singleWithUnit Units.Time.day
+            |> Variable.ValueRange.createValSet
+
+        ord
+        |> Order.fromOrdVars [ ord |> duration |> OrderVariable.setValueRange vr ]
+        |> SolveOrder
+        |> OrderProcessor.processPipeline OrderLogging.noOp
+        |> Result.mapError snd
+
+
+    let private solved ord =
+        match ord with
+        | Ok ord -> ord
+        | Error msgs -> failtest $"not solved: %A{msgs}"
+
+
+    let tests =
+        testList
+            "the orderable dose total"
+            [
+                test "amfo timed, once a day over 1 hour, solves with a duration of 1 day, the total one dose quantity" {
+                    let ord = Scenarios.amfoTimed |> processed |> completed |> withDuration 1N |> solved
+
+                    ord
+                    |> total
+                    |> milliLiters
+                    |> Expect.equal "one dose quantity" (ord |> doseQuantity |> milliLiters)
+                }
+
+                test "amfo discontinuous, once a day, with a duration of 1 day keeps its rate without values" {
+                    let ord = Scenarios.amfo |> processed |> completed |> withDuration 1N |> solved
+
+                    ord
+                    |> total
+                    |> milliLiters
+                    |> Expect.equal "one dose quantity" (ord |> doseQuantity |> milliLiters)
+
+                    ord |> rate |> valuesOf |> Expect.isEmpty "a discontinuous order has no rate"
+                }
+
+                test
+                    "morfine continuous with a duration of 1 day gets its total from the rate, the per time without values" {
+                    let ord = Scenarios.morfCont |> processed |> completed
+
+                    let ord =
+                        ord
+                        |> Order.fromOrdVars [ ord |> rate |> OrderVariable.setNthValue 0 ]
+                        |> solve SolveOrder
+
+                    let ord = ord |> withDuration 1N |> solved
+
+                    let rateMlPerDay =
+                        ord
+                        |> rate
+                        |> OrderVariable.getValSetValueUnit
+                        |> Option.map (ValueUnit.convertTo (Units.Volume.milliLiter |> ValueUnit.per Units.Time.day))
+                        |> Option.map ValueUnit.getValue
+                        |> Option.defaultValue [||]
+
+                    ord |> total |> milliLiters |> Expect.equal "the rate over one day" rateMlPerDay
+
+                    ord
+                    |> perTime
+                    |> valuesOf
+                    |> Expect.isEmpty "a continuous order has no per time"
+                }
+            ]
+
+
 [<Tests>]
 let tests =
     testList
@@ -3974,6 +4118,7 @@ let tests =
             IncreaseQuantityIncrementTests.tests
             ReachablePickTests.tests
             RateAfterQuantityTests.tests
+            DoseTotalTests.tests
             OrderBuilderTests.tests
             MedicationTextTests.MedicationTextScenarioTests.tests
             MedicationTextTests.MedicationTextYamlTests.tests
