@@ -46,7 +46,7 @@ The process is meant to support productive develpoment, not be a hindrance to it
 - Source lines are the changed lines of the shipped code: the files under `src/` that build into the application (F#, SQL, project files). Not counted: tests, prototype `.fsx` scripts, documentation, and lock or generated files. A PR may therefore change more lines in total, as long as its source change stays within the limit.
 - Reviewers may request that complex changes are split into smaller PRs, even if the original PR has fewer than 200 changed
 source lines.
-- Certain changes can go straight to implementation PR, without needing an issue and implementation plan:
+- Every PR addresses an issue, or carries out a step of an implementation plan that is based on one or more issues. Certain changes can go straight to implementation PR without an implementation plan, but still address an issue:
   - Code changes of fewer than 25 changed source lines.
   - Documentation-only changes.
 - Reviewers will ask authors to rework or resubmit PRs that don't meet the above guidelines.
@@ -86,7 +86,7 @@ GenPRES welcomes contributions that use AI coding tools, but requires transparen
 
 ### LLM Source Code Access Policy
 
-LLMs must not be given direct write access to `.fs` source files, except for client-side UI code in `src/Informedica.GenPRES.Client/`. The exception does not reach `src/Informedica.GenPRES.Client.Core/`: its files are plain F# that runs in FSI, so they go through `.fsx` scripts like any other library. Contributors using AI tools (GitHub Copilot, Claude, Cursor, Warp AI, etc.) must route all non-UI code through `.fsx` scripts first, following the [script-based development workflow](AGENTS.md#script-based-development-workflow). For the full policy, see [AGENTS.md](AGENTS.md#aillm-usage-policy).
+LLMs must not be given direct write access to `.fs` source files, except for client-side UI code in `src/Informedica.GenPRES.Client/`. The exception does not reach `src/Informedica.GenPRES.Client.Core/`: its files are plain F# that runs in FSI, so they go through `.fsx` scripts like any other library. Contributors using AI tools (GitHub Copilot, Claude, Cursor, Warp AI, etc.) must route all non-UI code through `.fsx` scripts first, following the [script-based development workflow](AGENTS.md#script-based-development-workflow). An LLM may then migrate a script that passes its tests and that the contributor has reviewed, when the contributor asks for it; the PR that completes the migration deletes the script. For the full policy, see [AGENTS.md](AGENTS.md#aillm-usage-policy).
 
 ### Vibe Coding Disclosure
 

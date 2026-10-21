@@ -1,26 +1,24 @@
 # AGENTS.md
 
-Instructions for AI coding agents working on the GenPRES repository. Make edits small, test-driven, and follow existing repository patterns.
+Instructions for AI coding agents working on the GenPRES repository. Make edits small, write the tests first in the script, and follow existing repository patterns.
 
-> **⚠️ CRITICAL — SCRIPT-ONLY CODE POLICY ⚠️**
+> **⚠️ CRITICAL — SCRIPT-FIRST CODE POLICY ⚠️**
 >
-> **DO NOT write new code in source files (`.fs`).** All new features, fixes, enhancements, and experiments MUST be implemented exclusively in F# Interactive script files (`.fsx`) in the `Scripts/` directories. The user will review your work and decide what to migrate to source files.
+> **Do not edit source files (`.fs`) directly.** Every new feature, fix or change is written first in an F# Interactive script (`.fsx`), with its Expecto tests in the same script. An agent changes a source file only to migrate a script that passes its tests and that the user has reviewed, and only when the user asks for that migration. Test files under `tests/` are source files too: a test is written in the script and moves to `tests/` with the code it covers.
 >
-> **Allowed changes to `.fs` source files:**
+> **Allowed without a script:**
 >
 > - Adding, updating, or correcting **comments and documentation**
 > - **Targeted refactoring of a single function** when explicitly requested by the user
-> - **Client-side UI code** in `src/Informedica.GenPRES.Client/` — this is the only exception, because Fable/Elmish UI code cannot be run in FSI scripts
+> - **Client-side UI code** in `src/Informedica.GenPRES.Client/`, because Fable/Elmish UI code cannot be run in FSI scripts
 >
-> The exception stops at that project. `src/Informedica.GenPRES.Client.Core/` holds the client's pure code, its models, helpers, policies and state machines: plain F# over the shared contract, with no React, no Browser type and no Fable package, so it runs under Expecto and in FSI like any other library. Nothing there needs the exception, and so nothing there gets it.
+> The UI exception stops at that project. `src/Informedica.GenPRES.Client.Core/` holds the client's pure code, its models, helpers, policies and state machines: plain F# over the shared contract, with no React, no Browser type and no Fable package, so it runs under Expecto and in FSI like any other library. Nothing there needs the exception, and so nothing there gets it.
 >
-> **NOT allowed in other `.fs` source files:**
+> **Every change traces to an issue.** A pull request addresses an issue directly or carries out a step of an implementation plan, and an implementation plan is based on one or more issues. A migration script names in its opening comment the issue it addresses, or the implementation plan and the step it belongs to.
 >
-> - Adding new functions or modules
-> - Implementing new features or bug fixes
-> - Any code change not explicitly requested as a source-file edit
+> **A migration script lives only as long as its migration.** The pull request that completes the migration deletes the script. Scripts that are tools rather than prototypes, such as `load.fsx` and the code generators, are not migration scripts and stay.
 >
-> This policy exists because GenPRES is a medical device software project. Unreviewed code changes to source files risk introducing unvalidated behavior into clinical medication workflows. The user is the sole gatekeeper for source file changes.
+> This policy exists because GenPRES is a medical device software project. Unreviewed code changes to source files risk introducing unvalidated behavior into clinical medication workflows. The user is the sole gatekeeper for source file changes: no code reaches a source file without a tested script the user has reviewed.
 >
 > See the **Script-Based Development Workflow** section below for how to work within this constraint.
 
@@ -100,13 +98,24 @@ Infrastructure and Presentation together are the only rings that touch the netwo
 - All medication calculations use BigRational, for absolute precision. Respect the existing helpers in `Informedica.GenUnits.Lib` (`ValueUnit.singleWithUnit`, `ValueUnit.withUnit`, ...)
 - `removeBigRationalMultiples` keeps the smallest positive representatives and removes later values that are integer multiples of a kept one: [1/3; 1/2; 1] keeps 1/2 and 1/3 and drops 1. Use `BigRational.isMultiple` when reasoning about multiples
 
+## Comment Wording
+
+Comments and documentation are read by someone who does not share what the writer had in mind while writing. The structure rules for comments are in the F# coding instructions; this section is about the wording, and it applies to every comment, doc comment and document in the repository.
+
+- Write plain, complete English that a reader understands without the surrounding code or the conversation that produced it.
+- Do not present a phrase that only makes sense in one situation as if it were a known, general fact. Shorthand that leans on context the reader cannot see ("its one value", "the count one") is not clear English; say what is meant in full ("a single value", "the value 1").
+- When a statement holds only under a condition, state the condition.
+- Write a value as a value ("the value 1", "1 or more"), not as a word used as a name.
+- Repeat the noun instead of a pronoun when the pronoun could point at more than one thing.
+- Use only established technical terms or plain words; do not coin a term.
+
 ## Testing Patterns
 
 Tests use Expecto with Expecto.Flip, as in the F# coding instructions. Shared test scenarios live in `tests/Informedica.GenORDER.Tests/Scenarios.fs`: `pcmSupp` (paracetamol suppository), `amfo` (amphotericin B liposomal IV), `morfCont` (morphine continuous infusion), `pcmDrink` (paracetamol oral liquid), `cotrim` (cotrimoxazole), `tpn` / `tpnComplete` (parenteral nutrition), `fullMedication` (every field set).
 
 ## Script-Based Development Workflow
 
-New functionality is prototyped in `.fsx` scripts, verified there, and migrated to source files by the user. A single script can prototype functions of several libraries at once, because `load.fsx` loads the library's own source files with `#load` and the compiled DLLs of the libraries below it with `#r`.
+New functionality is prototyped in `.fsx` scripts and verified there; once the user has reviewed a script, its code and tests are migrated to the source and test projects. A single script can prototype functions of several libraries at once, because `load.fsx` loads the library's own source files with `#load` and the compiled DLLs of the libraries below it with `#r`.
 
 ### Infrastructure
 
@@ -127,10 +136,11 @@ Rebuild first (`dotnet run build`) so `load.fsx` finds the DLLs.
 
 ### Workflow
 
-1. Start the script with `#I __SOURCE_DIRECTORY__` and `Environment.CurrentDirectory <- __SOURCE_DIRECTORY__`, so relative paths resolve
-2. `#load "load.fsx"` for the library context; `#r "nuget: Expecto"` for packages
-3. Copy only the functions you plan to change, not whole modules
-4. Shadow the module to extend it: a module with the original's name that opens the original inside, so existing functions stay reachable through the same name
+1. Name the issue, or the implementation plan and step, in the script's opening comment
+2. Start the script with `#I __SOURCE_DIRECTORY__` and `Environment.CurrentDirectory <- __SOURCE_DIRECTORY__`, so relative paths resolve
+3. `#load "load.fsx"` for the library context; `#r "nuget: Expecto"` for packages
+4. Copy only the functions you plan to change, not whole modules
+5. Shadow the module to extend it: a module with the original's name that opens the original inside, so existing functions stay reachable through the same name
 
    ```fsharp
    module MedicationText =
@@ -142,8 +152,16 @@ Rebuild first (`dotnet run build`) so `load.fsx` finds the DLLs.
    let back = myMed |> MedicationText.roundTrip         // new
    ```
 
-5. Write Expecto tests in the same script and run them with `runTestsWithCLIArgs [] [||] tests`; existing suites can be loaded with `#load "../../../tests/Informedica.GenSOLVER.Tests/Tests.fs"`
-6. Leave migration to the user
+6. Write Expecto tests in the same script and run them with `runTestsWithCLIArgs [] [||] tests`; existing suites can be loaded with `#load "../../../tests/Informedica.GenSOLVER.Tests/Tests.fs"`
+7. Wait for the user's review; migrate only when the user asks for it
+
+### Migration
+
+A migration moves reviewed script code, and the tests that cover it, into the source and test projects:
+
+- one pull request per issue or implementation plan step, within the 200-line limit on shipped code under `src/`; a larger script migrates over several plan steps
+- the tests move to the matching test project and pass there (`dotnet run servertests`)
+- the pull request that completes the migration deletes the script
 
 ### Using the FSI MCP Server
 
@@ -176,13 +194,16 @@ Any change that affects dosing, rules, parsing or resource mapping must come wit
 
 ## AI/LLM Usage Policy
 
-The script-only policy at the top of this file applies to every contributor using an AI coding tool, not only to agents. The human contributor reviews, verifies and migrates script code into source files, and discloses vibe-coded code in the pull request as described in [CONTRIBUTING.md](CONTRIBUTING.md#ai-assisted-contributions).
+The script-first policy at the top of this file applies to every contributor using an AI coding tool, not only to agents. The human contributor reviews and verifies the script code before it is migrated, by hand or by an agent at the contributor's request, and discloses vibe-coded code in the pull request as described in [CONTRIBUTING.md](CONTRIBUTING.md#ai-assisted-contributions).
 
 ## Checklist for Automated Edits
 
-- [ ] Small, focused change: no more than 200 changed source lines (shipped code under `src/`; tests, scripts, docs and lock files not counted), see CONTRIBUTING.md
-- [ ] Unit tests added or updated
+- [ ] The pull request addresses an issue, or a step of an implementation plan based on one or more issues
+- [ ] Source changes migrate a script that passes its tests and that the user reviewed
+- [ ] Small, focused change: a pull request changes at most 200 lines of shipped code, the files under `src/` that build into the application (`.fs`, `.sql`, project files); lines under `tests/`, scripts, docs and lock files are not counted, see CONTRIBUTING.md
+- [ ] Unit tests added or updated; in a migration, the tests moved from the script
 - [ ] `dotnet run servertests` passes for the affected projects
+- [ ] The pull request that completes a migration deletes the migrated script
 - [ ] `Data` record `///` comments and the column-contract test updated when sheet columns or semantics change
 - [ ] Conventional commit message with scope and short description
 

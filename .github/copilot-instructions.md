@@ -1,24 +1,24 @@
 # GitHub Copilot instructions for GenPRES
 
-Instructions for AI coding agents working on the GenPRES repository. Make edits small, test-driven, and follow existing repository patterns.
+Instructions for AI coding agents working on the GenPRES repository. Make edits small, write the tests first in the script, and follow existing repository patterns.
 
-> **⚠️ CRITICAL — SCRIPT-ONLY CODE POLICY ⚠️**
+> **⚠️ CRITICAL — SCRIPT-FIRST CODE POLICY ⚠️**
 >
-> **DO NOT write new code in source files (`.fs`).** All new features, fixes, enhancements, and experiments MUST be implemented exclusively in F# Interactive script files (`.fsx`) in the `Scripts/` directories. The user will review your work and decide what to migrate to source files.
+> **Do not edit source files (`.fs`) directly.** Every new feature, fix or change is written first in an F# Interactive script (`.fsx`), with its Expecto tests in the same script. An agent changes a source file only to migrate a script that passes its tests and that the user has reviewed, and only when the user asks for that migration. Test files under `tests/` are source files too: a test is written in the script and moves to `tests/` with the code it covers.
 >
-> **Allowed changes to `.fs` source files:**
+> **Allowed without a script:**
 >
 > - Adding, updating, or correcting **comments and documentation**
 > - **Targeted refactoring of a single function** when explicitly requested by the user
-> - **Client-side UI code** in `src/Informedica.GenPRES.Client/` — this is the only exception, because Fable/Elmish UI code cannot be run in FSI scripts
+> - **Client-side UI code** in `src/Informedica.GenPRES.Client/`, because Fable/Elmish UI code cannot be run in FSI scripts
 >
-> **NOT allowed in other `.fs` source files:**
+> The UI exception stops at that project. `src/Informedica.GenPRES.Client.Core/` holds the client's pure code, its models, helpers, policies and state machines: plain F# over the shared contract, with no React, no Browser type and no Fable package, so it runs under Expecto and in FSI like any other library. Nothing there needs the exception, and so nothing there gets it.
 >
-> - Adding new functions or modules
-> - Implementing new features or bug fixes
-> - Any code change not explicitly requested as a source-file edit
+> **Every change traces to an issue.** A pull request addresses an issue directly or carries out a step of an implementation plan, and an implementation plan is based on one or more issues. A migration script names in its opening comment the issue it addresses, or the implementation plan and the step it belongs to.
 >
-> This policy exists because GenPRES is a medical device software project. Unreviewed code changes to source files risk introducing unvalidated behavior into clinical medication workflows. The user is the sole gatekeeper for source file changes.
+> **A migration script lives only as long as its migration.** The pull request that completes the migration deletes the script. Scripts that are tools rather than prototypes, such as `load.fsx` and the code generators, are not migration scripts and stay.
+>
+> This policy exists because GenPRES is a medical device software project. Unreviewed code changes to source files risk introducing unvalidated behavior into clinical medication workflows. The user is the sole gatekeeper for source file changes: no code reaches a source file without a tested script the user has reviewed.
 >
 > See the **Script-Based Development Workflow** section below for how to work within this constraint.
 
@@ -193,7 +193,7 @@ dotnet build GenPRES.sln
 
 ## Script-Based Development Workflow
 
-**IMPORTANT: All new code MUST be written in `.fsx` script files only — never in `.fs` source files.** The user will review and migrate verified code to the codebase. See the critical policy at the top of this document.
+**IMPORTANT: All new code is written first in `.fsx` script files, never directly in `.fs` source files.** Once the user has reviewed a script, its code and tests are migrated to the source and test projects, by hand or by an agent at the user's request. See the critical policy at the top of this document.
 
 GenPRES uses an FSI script-based workflow for safely implementing new functionality in a mature ("brown-field") codebase. Instead of modifying production source files directly, you copy or shadow existing code into `.fsx` scripts, experiment and test interactively, and only migrate verified code back to the codebase.
 
@@ -257,14 +257,15 @@ Example `load.fsx` pattern:
 
 ### Workflow
 
-1. **Set the current directory** — Always start with `Environment.CurrentDirectory <- __SOURCE_DIRECTORY__` so relative paths resolve correctly.
-2. **Load project context** — Use `#load "load.fsx"` to load all dependencies.
-3. **Reference NuGet packages inline** — Use `#r "nuget: Expecto, 9.0.4"` for test frameworks or other packages.
-4. **Copy only the code you need** — Don't drag entire modules; start with just the functions you plan to modify.
-5. **Modify and extend** — Refactor, optimize, or add new features in the script.
-6. **Write tests in the same script** — Verify your changes with inline Expecto tests.
-7. **Reuse existing test suites** — Load test files from the `tests/` directory via `#load` and run them against your modified code.
-8. **Migrate when confident** — Once verified, move the improved code back into the source files.
+1. **Name the issue** — State the issue, or the implementation plan and step, in the script's opening comment.
+2. **Set the current directory** — Always start with `Environment.CurrentDirectory <- __SOURCE_DIRECTORY__` so relative paths resolve correctly.
+3. **Load project context** — Use `#load "load.fsx"` to load all dependencies.
+4. **Reference NuGet packages inline** — Use `#r "nuget: Expecto, 9.0.4"` for test frameworks or other packages.
+5. **Copy only the code you need** — Don't drag entire modules; start with just the functions you plan to modify.
+6. **Modify and extend** — Refactor, optimize, or add new features in the script.
+7. **Write tests in the same script** — Verify your changes with inline Expecto tests.
+8. **Reuse existing test suites** — Load test files from the `tests/` directory via `#load` and run them against your modified code.
+9. **Migrate when asked** — Once the user has reviewed the script and asks for the migration, move the code and its tests to the source and test projects, one pull request per issue or plan step; the pull request that completes the migration deletes the script.
 
 ### Module Shadowing Pattern
 
@@ -388,7 +389,7 @@ This policy applies to **all contributors**, not just AI agents.
 
 > **LLMs must not be given direct write access to `.fs` source files**, except for client-side UI code in `src/Informedica.GenPRES.Client/`.
 
-Contributors using AI coding tools (GitHub Copilot, Claude, Cursor, Warp AI, etc.) must route all non-UI code through `.fsx` scripts first, following the script-based development workflow described above. The human contributor is responsible for reviewing, verifying, and manually migrating script code into source files.
+Contributors using AI coding tools (GitHub Copilot, Claude, Cursor, Warp AI, etc.) must route all non-UI code through `.fsx` scripts first, following the script-based development workflow described above. The human contributor is responsible for reviewing and verifying the script code before it is migrated, by hand or by an LLM at the contributor's request; the pull request that completes the migration deletes the script.
 
 This restriction exists because GenPRES is a medical device software project. Allowing LLMs to directly modify source files risks introducing unvalidated behavior into clinical medication workflows. Human review of every source file change is a safety requirement.
 
@@ -396,9 +397,12 @@ Contributors must also disclose when code submitted in a pull request is **vibe 
 
 ## Checklist for Automated Edits
 
-- [ ] Small, focused change: no more than 200 changed source lines (shipped code under `src/`; tests, scripts, docs and lock files not counted), see CONTRIBUTING.md.
-- [ ] Add or update unit tests covering the change.
+- [ ] The pull request addresses an issue, or a step of an implementation plan based on one or more issues.
+- [ ] Source changes migrate a script that passes its tests and that the user reviewed.
+- [ ] Small, focused change: a pull request changes at most 200 lines of shipped code, the files under `src/` that build into the application (`.fs`, `.sql`, project files); lines under `tests/`, scripts, docs and lock files are not counted, see CONTRIBUTING.md.
+- [ ] Add or update unit tests covering the change; in a migration, the tests moved from the script.
 - [ ] Ensure `dotnet run servertests` passes locally for affected projects.
+- [ ] The pull request that completes a migration deletes the migrated script.
 - [ ] Update the `Data` record `///` comments and the column-contract test if spreadsheet column names or semantics change.
 - [ ] Use conventional commit message with scope and short description.
 
