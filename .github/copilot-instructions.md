@@ -18,7 +18,7 @@ Instructions for AI coding agents working on the GenPRES repository. Make edits 
 >
 > **A migration script lives only as long as its migration.** The pull request that completes the migration deletes the script. Scripts that are tools rather than prototypes, such as `load.fsx` and the code generators, are not migration scripts and stay.
 >
-> This policy exists because GenPRES is a medical device software project. Unreviewed code changes to source files risk introducing unvalidated behavior into clinical medication workflows. The user is the sole gatekeeper for source file changes: no code reaches a source file without a tested script the user has reviewed.
+> This policy exists because GenPRES is a medical device software project. Unreviewed code changes to source files risk introducing unvalidated behavior into clinical medication workflows. The user is the sole gatekeeper for source file changes: outside the changes allowed without a script, no code reaches a source file without a tested script the user has reviewed.
 >
 > See the **Script-Based Development Workflow** section below for how to work within this constraint.
 
@@ -262,8 +262,8 @@ Example `load.fsx` pattern:
 3. **Load project context** — Use `#load "load.fsx"` to load all dependencies.
 4. **Reference NuGet packages inline** — Use `#r "nuget: Expecto, 9.0.4"` for test frameworks or other packages.
 5. **Copy only the code you need** — Don't drag entire modules; start with just the functions you plan to modify.
-6. **Modify and extend** — Refactor, optimize, or add new features in the script.
-7. **Write tests in the same script** — Verify your changes with inline Expecto tests.
+6. **Write tests in the same script** — State the change in inline Expecto tests before making it.
+7. **Modify and extend** — Make the change in the script and run the tests until they pass.
 8. **Reuse existing test suites** — Load test files from the `tests/` directory via `#load` and run them against your modified code.
 9. **Migrate when asked** — Once the user has reviewed the script and asks for the migration, move the code and its tests to the source and test projects, one pull request per issue or plan step; the pull request that completes the migration deletes the script.
 
@@ -398,7 +398,7 @@ Contributors must also disclose when code submitted in a pull request is **vibe 
 ## Checklist for Automated Edits
 
 - [ ] The pull request addresses an issue, or a step of an implementation plan based on one or more issues.
-- [ ] Source changes migrate a script that passes its tests and that the user reviewed.
+- [ ] Source changes migrate a script that passes its tests and that the user reviewed, except the changes the policy allows without a script.
 - [ ] Small, focused change: a pull request changes at most 200 lines of shipped code, the files under `src/` that build into the application (`.fs`, `.sql`, project files); lines under `tests/`, scripts, docs and lock files are not counted, see CONTRIBUTING.md.
 - [ ] Add or update unit tests covering the change; in a migration, the tests moved from the script.
 - [ ] Ensure `dotnet run servertests` passes locally for affected projects.

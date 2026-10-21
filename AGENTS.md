@@ -18,7 +18,7 @@ Instructions for AI coding agents working on the GenPRES repository. Make edits 
 >
 > **A migration script lives only as long as its migration.** The pull request that completes the migration deletes the script. Scripts that are tools rather than prototypes, such as `load.fsx` and the code generators, are not migration scripts and stay.
 >
-> This policy exists because GenPRES is a medical device software project. Unreviewed code changes to source files risk introducing unvalidated behavior into clinical medication workflows. The user is the sole gatekeeper for source file changes: no code reaches a source file without a tested script the user has reviewed.
+> This policy exists because GenPRES is a medical device software project. Unreviewed code changes to source files risk introducing unvalidated behavior into clinical medication workflows. The user is the sole gatekeeper for source file changes: outside the changes allowed without a script, no code reaches a source file without a tested script the user has reviewed.
 >
 > See the **Script-Based Development Workflow** section below for how to work within this constraint.
 
@@ -140,7 +140,8 @@ Rebuild first (`dotnet run build`) so `load.fsx` finds the DLLs.
 2. Start the script with `#I __SOURCE_DIRECTORY__` and `Environment.CurrentDirectory <- __SOURCE_DIRECTORY__`, so relative paths resolve
 3. `#load "load.fsx"` for the library context; `#r "nuget: Expecto"` for packages
 4. Copy only the functions you plan to change, not whole modules
-5. Shadow the module to extend it: a module with the original's name that opens the original inside, so existing functions stay reachable through the same name
+5. Write Expecto tests in the same script for the change, before the change itself, and run them with `runTestsWithCLIArgs [] [||] tests`; existing suites can be loaded with `#load "../../../tests/Informedica.GenSOLVER.Tests/Tests.fs"`
+6. Make the change by shadowing the module, and run the tests again until they pass. A shadowed module has the original's name and opens the original inside, so existing functions stay reachable through the same name
 
    ```fsharp
    module MedicationText =
@@ -152,7 +153,6 @@ Rebuild first (`dotnet run build`) so `load.fsx` finds the DLLs.
    let back = myMed |> MedicationText.roundTrip         // new
    ```
 
-6. Write Expecto tests in the same script and run them with `runTestsWithCLIArgs [] [||] tests`; existing suites can be loaded with `#load "../../../tests/Informedica.GenSOLVER.Tests/Tests.fs"`
 7. Wait for the user's review; migrate only when the user asks for it
 
 ### Migration
@@ -199,7 +199,7 @@ The script-first policy at the top of this file applies to every contributor usi
 ## Checklist for Automated Edits
 
 - [ ] The pull request addresses an issue, or a step of an implementation plan based on one or more issues
-- [ ] Source changes migrate a script that passes its tests and that the user reviewed
+- [ ] Source changes migrate a script that passes its tests and that the user reviewed, except the changes the policy allows without a script
 - [ ] Small, focused change: a pull request changes at most 200 lines of shipped code, the files under `src/` that build into the application (`.fs`, `.sql`, project files); lines under `tests/`, scripts, docs and lock files are not counted, see CONTRIBUTING.md
 - [ ] Unit tests added or updated; in a migration, the tests moved from the script
 - [ ] `dotnet run servertests` passes for the affected projects
