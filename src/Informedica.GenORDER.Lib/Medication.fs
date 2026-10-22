@@ -1152,6 +1152,47 @@ module Medication =
         meds
 
 
+    /// The concentrations of a substance that its solution limit allows, judged by the
+    /// bounds withItemSolution sets: inclusive, and widened to 90 and 110 percent when the
+    /// limit is one value. A substance with no concentrations or no concentration limit keeps
+    /// what it has, and so does one whose concentrations are in a unit group the limit cannot
+    /// be compared with (a molar concentration against a mass limit): the bounds are compared
+    /// on base values, so those would compare as numbers and give a wrong answer.
+    let concentrationsWithinSolution (si: SubstanceItem) =
+        match si.Concentrations, si.Solution with
+        | Some vu, Some sl when sl.Concentration <> MinMax.empty ->
+            let comparable =
+                [ sl.Concentration.Min; sl.Concentration.Max ]
+                |> List.choose id
+                |> List.forall (Limit.getValueUnit >> ValueUnit.eqsGroup vu)
+
+            if comparable then
+                let cs =
+                    OrderVariable.Constraints.create None None None None
+                    |> OrderVariable.Constraints.setMinMax true sl.Concentration
+
+                vu
+                |> ValueUnit.filter (Informedica.GenSolver.Lib.Variable.ValueRange.isBetweenMinMax cs.Min cs.Max)
+                |> Some
+            else
+                si.Concentrations
+        | _ -> si.Concentrations
+
+
+    /// The substances of a medication given undiluted whose solution limit allows none of
+    /// the concentrations its product has. Only a medication with one component is given
+    /// undiluted; with more, the orderable concentration is the solver's to find.
+    let undilutedOutsideSolution (med: Medication) =
+        match med.Components with
+        | [ pc ] ->
+            pc.Substances
+            |> List.filter (fun si ->
+                si.Concentrations |> Option.exists (ValueUnit.isEmpty >> not)
+                && si |> concentrationsWithinSolution |> Option.exists ValueUnit.isEmpty
+            )
+        | _ -> []
+
+
     /// An Order built from a Medication: the shape first, then one pass per constraint
     /// concern, each pass pure and each leaving the rest of the order alone.
     module OrderBuilder =
@@ -1239,7 +1280,8 @@ module Medication =
 
         /// The quantities and concentrations the products give an item. With one component
         /// the orderable is the component, so the concentration in the one is the
-        /// concentration in the other.
+        /// concentration in the other, and only the concentrations the solution limit allows
+        /// are offered: nothing dilutes the product to bring another within the limit.
         let withItemQtyConc (med: Medication) (si: SubstanceItem) (itm: Types.Item) =
             let single = med.Components |> List.length = 1
             let setVals vu =
@@ -1253,7 +1295,7 @@ module Medication =
                 OrderableConcentration =
                     if single then
                         itm.OrderableConcentration
-                        |> OrderVariable.Concentration.apply (setVals si.Concentrations)
+                        |> OrderVariable.Concentration.apply (setVals (si |> concentrationsWithinSolution))
                     else
                         itm.OrderableConcentration
             }
@@ -1791,12 +1833,25 @@ module Medication =
 
 
     /// Build an Order from a Medication, or say why it could not be built. The start is the
-    /// caller's, in UTC.
+    /// caller's, in UTC. A medication given undiluted at a concentration its solution limit
+    /// forbids is not built: there is no diluent to bring it within the limit, so no order of
+    /// it can be prescribed.
     let toOrder (start: DateTime) (med: Medication) : Result<Order, Exceptions.Message> =
-        try
-            med |> OrderBuilder.build start |> Ok
-        with exn ->
-            exn |> Exceptions.OrderCouldNotBeCreated |> Error
+        match med |> undilutedOutsideSolution with
+        | [] ->
+            try
+                med |> OrderBuilder.build start |> Ok
+            with exn ->
+                exn |> Exceptions.OrderCouldNotBeCreated |> Error
+        | sis ->
+            let names = sis |> List.map _.Name |> String.concat ", "
+
+            $"%s{med.Name} has no diluent, and its solution limit allows no concentration of %s{names} "
+            + "its product has"
+            |> InvalidOperationException
+            :> exn
+            |> Exceptions.OrderCouldNotBeCreated
+            |> Error
 
 
     /// Convert a Medication to an Order Dto, for the callers that still want one, chiefly the
