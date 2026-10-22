@@ -8,10 +8,12 @@ Review the changes in this pull request for correctness, safety, and adherence t
 
 ## Checklist
 
-### Script-Only Policy
+### Script-First Policy
 
-- [ ] New logic is implemented in `.fsx` scripts, not `.fs` source files
-- [ ] Any `.fs` changes are limited to: documentation/comments, client-side UI (`src/Informedica.GenPRES.Client/`), or explicitly requested targeted refactoring
+- [ ] The pull request addresses an issue, or a step of an implementation plan based on one or more issues
+- [ ] New logic in `.fs` source files, tests under `tests/` included, migrates a script that passes its tests and that the user reviewed
+- [ ] Other `.fs` changes are limited to: documentation/comments, client-side UI (`src/Informedica.GenPRES.Client/`), or explicitly requested targeted refactoring
+- [ ] The pull request that completes a migration deletes the migrated script
 
 ### Code Quality
 

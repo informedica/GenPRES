@@ -259,6 +259,6 @@ is the single `IMAGE_NAME` env-var change the 2026-08-25 amendment expected, plu
 - [Issue #460 — Auto-generate and publish API documentation](https://github.com/informedica/GenPRES/issues/460) (follow-up, item 4)
 - [Implementation plan for issue #234](../implementation-plans/234-improve-build-system.md)
 - [EasyBuild.ShipIt](https://github.com/easybuild-org/EasyBuild.ShipIt)
-- [Repo Assist workflow](../../.github/workflows/repo-assist.md)
+- Repo Assist workflow (`.github/workflows/repo-assist.md`), retired and removed
 - [ADR-0000 — Documentation Rules](0000-documentation-rules.md)
 - [Implementation plan for issue #307 — G-Standaard dose rule fallback](../implementation-plans/307-gstand-dose-rule-fallback.md) (formerly ADR-0016; structural reference for this ADR)

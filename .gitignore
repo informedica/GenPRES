@@ -155,6 +155,7 @@
 !/docs/scenarios/tpn-prescribing/
 !/docs/data-extraction/
 !/docs/domain/
+!/docs/domain/medication.schema.json
 !/docs/adr/
 !/docs/implementation-plans/
 # fsdocs literate-content input for the generated API reference (issue #460). The

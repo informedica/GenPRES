@@ -141,6 +141,52 @@ module BigRational =
             br |> toFloat |> Double.toStringNumberNLWithoutTrailingZeros
 
 
+    /// The exact decimal form of a BigRational, "0.5" for 1/2, or None when it has none, as 1/3,
+    /// or when it is beyond the range of a decimal. Unlike toDecimal, which goes through a float,
+    /// nothing is rounded.
+    let toDecimalString br =
+        try
+            let d = decimal (br |> numerator) / decimal (br |> denominator)
+
+            if d |> fromDecimal = br then
+                Some(d.ToString Globalization.CultureInfo.InvariantCulture)
+            else
+                None
+        with :? OverflowException ->
+            None
+
+
+    /// The exact text of a BigRational: its decimal form when it has a finite one, "0.5", else
+    /// the reduced fraction, "1/3".
+    let toStringExact br =
+        br |> toDecimalString |> Option.defaultWith (fun () -> br |> toString)
+
+
+    /// A decimal as its exact text writes it: an optional minus sign, digits, and digits after a
+    /// decimal point. Only the digits 0 to 9, as .NET reads every Unicode digit for \d.
+    let exactDecimalRegex = String.regex @"^(-?)([0-9]+)(?:\.([0-9]+))?$"
+
+
+    /// A BigRational from its exact text: a decimal, "0.5", or a fraction, "1/3" or "500/1";
+    /// None for anything else. A decimal takes only a leading sign and a decimal point, so an
+    /// exponent, a group separator or a decimal comma is refused. Its digits are read as they
+    /// are, so a decimal of any length stays exact.
+    let tryParseExact s =
+        let s = s |> String.trim
+        let m = exactDecimalRegex.Match s
+
+        if m.Success then
+            let fraction = m.Groups[3].Value
+            let digits = Numerics.BigInteger.Parse(m.Groups[2].Value + fraction)
+            let n = if m.Groups[1].Value = "-" then -digits else digits
+
+            (n |> fromBigInt)
+            / (Numerics.BigInteger.Pow(10I, fraction |> String.length) |> fromBigInt)
+            |> Some
+        else
+            s |> tryParse
+
+
     //----------------------------------------------------------------------------
     // Constants
     //----------------------------------------------------------------------------
@@ -169,6 +215,14 @@ module BigRational =
     let gcd (a: BigRational) (b: BigRational) =
         let den = a.Denominator * b.Denominator
         let num = BigInteger.gcd (a.Numerator * b.Denominator) (b.Numerator * a.Denominator)
+        (num |> BigRational.FromBigInt) / (den |> BigRational.FromBigInt)
+
+
+    /// Get the least common multiple
+    /// of two BigRationals a and b
+    let lcm (a: BigRational) (b: BigRational) =
+        let den = a.Denominator * b.Denominator
+        let num = BigInteger.lcm (a.Numerator * b.Denominator) (b.Numerator * a.Denominator)
         (num |> BigRational.FromBigInt) / (den |> BigRational.FromBigInt)
 
 

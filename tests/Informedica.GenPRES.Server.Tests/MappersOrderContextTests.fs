@@ -460,7 +460,7 @@ let productTests =
         "the products of a component"
         [
             test "an order to the contract model and back keeps the products of its components" {
-                match Scenarios.amoxClavText |> Medication.fromString with
+                match Scenarios.amoxClavText |> MedicationText.fromString with
                 | Error errs -> failtest $"could not parse: %A{errs}"
                 | Ok med ->
                     med

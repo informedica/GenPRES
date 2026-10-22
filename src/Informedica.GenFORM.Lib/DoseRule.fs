@@ -57,17 +57,16 @@ module DoseRule =
             |> Array.map (fun dl ->
                 let perDose = "/dosis"
                 let emptyS = ""
-                let printMinMaxDose = DoseLimit.printMinMaxDose ""
 
                 [
-                    $"%s{dl.Rate |> printMinMaxDose emptyS}"
-                    $"%s{dl.RateAdjust |> printMinMaxDose emptyS}"
-                    $"%s{dl.PerTimeAdjust |> printMinMaxDose emptyS}"
+                    $"%s{dl.Rate |> DoseLimit.printMinMaxDose emptyS}"
+                    $"%s{dl.RateAdjust |> DoseLimit.printMinMaxDose emptyS}"
+                    $"%s{dl.PerTimeAdjust |> DoseLimit.printMinMaxDose emptyS}"
 
-                    $"%s{dl.PerTime |> printMinMaxDose emptyS}"
-                    $"%s{dl.QuantityAdjust |> printMinMaxDose perDose}"
+                    $"%s{dl.PerTime |> DoseLimit.printMinMaxDose emptyS}"
+                    $"%s{dl.QuantityAdjust |> DoseLimit.printMinMaxDose perDose}"
 
-                    $"%s{dl.Quantity |> printMinMaxDose perDose}"
+                    $"%s{dl.Quantity |> DoseLimit.printMinMaxDose perDose}"
                 ]
                 |> List.map String.trim
                 |> List.filter String.notNullOrEmpty
