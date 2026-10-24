@@ -169,6 +169,8 @@ A change that affects dosing, rules, parsing or resource mapping comes with unit
 ## Session Rules
 
 - **At the start of a session**, check whether the FSI MCP server runs (`mcp__fsi-mcp__get_fsi_status`). If it does, use its tools for all F# interactive work instead of `dotnet fsi`
+- **One pull request at a time.** While a pull request is open, do not open, push, stack or prepare a second one, also not for a fix the user asks for; say that the open pull request blocks the work and wait. A second pull request is allowed only when the user says so explicitly
+- **Never commit before review.** Changes stay uncommitted (`git add -N` for new files) until the user has reviewed them and says to commit. A clean merge of upstream master is the exception. Push only when the user asks, as a separate step
 
 ## Required Reading
 
