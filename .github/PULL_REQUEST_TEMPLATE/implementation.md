@@ -35,7 +35,7 @@ I confirm that these changes:
 - [ ] Follow the guidelines specified in [DEVELOPMENT.md](../../DEVELOPMENT.md).
 - [ ] Have been thoroughly tested.
 - [ ] Don't introduce new security vulnerabilities.
-- [ ] Follow the [AI/LLM Usage Policy](../../AGENTS.md#aillm-usage-policy) — LLMs were not given direct write access to `.fs` source files (except client-side UI code).
+- [ ] Follow the script-first policy in [AGENTS.md](../../AGENTS.md): source changes migrate a script that passes its tests and was reviewed, except the changes the policy allows without a script.
 
 ### AI/Vibe Coding Disclosure
 
