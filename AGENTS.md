@@ -169,8 +169,6 @@ A change that affects dosing, rules, parsing or resource mapping comes with unit
 ## Session Rules
 
 - **At the start of a session**, check whether the FSI MCP server runs (`mcp__fsi-mcp__get_fsi_status`). If it does, use its tools for all F# interactive work instead of `dotnet fsi`
-- **Before the context is compacted**, or at about 70% use, write a decisions log to `.claude/docs/session-decisions.md`: the decisions made, the approaches rejected and why, the constraints found, and the values, types and signatures that matter. Do this unasked
-- **At the end of each plan step**, append a short summary of what was decided or changed to `.claude/docs/session-log.md`
 
 ## Required Reading
 

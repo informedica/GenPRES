@@ -79,23 +79,6 @@
 !/.github/ISSUE_TEMPLATE/
 !/.github/PULL_REQUEST_TEMPLATE/
 
-# Add Claude Code shared config
-!/.claude/
-!/.claude/CLAUDE.md
-!/.claude/docs/
-!/.claude/docs/**
-# Per-session agent scratch written per CLAUDE.md; kept locally, never committed
-/.claude/docs/session-log.md
-/.claude/docs/session-decisions.md
-# Local migration patches (script-only workflow); applied by hand, never committed
-/.claude/docs/*.patch
-!/.claude/commands/
-!/.claude/commands/**
-!/.claude/skills/
-!/.claude/skills/**
-!/.claude/agents/
-!/.claude/agents/**
-
 # Add devcontainer
 !/.devcontainer/
 !/.devcontainer/*
