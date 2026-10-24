@@ -1,5 +1,5 @@
 ---
-last_commit_released: 95425d4fd991b233399fed20924b12278ad8d37a
+last_commit_released: 3993fe6a09b1eda14358a93075f321ba28c9689d
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,39 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.46 - 2026-10-24
+
+### 🚀 Features
+
+* *(api)* Carry the products of a component ([1e3db118](https://github.com/informedica/GenPRES/commit/1e3db118f9388e387492d46727f30078f4a25b49))
+* *(genorder)* Carry the products of a component ([651cbd6f](https://github.com/informedica/GenPRES/commit/651cbd6f60afff8e76647ac0e6135176a2200248))
+* *(genorder)* Write and read a medication as YAML ([9fc2116b](https://github.com/informedica/GenPRES/commit/9fc2116b4069c9c0518fa6baf521206b90ffbb99))
+* *(utils)* Write and read a BigRational as exact text ([19df2941](https://github.com/informedica/GenPRES/commit/19df2941f6f5cb3e56289dc71e171f87b14e3e15))
+
+### 🐞 Bug Fixes
+
+* *(client)* Keep the order and picks on a refused change ([0de6430a](https://github.com/informedica/GenPRES/commit/0de6430af0607eddfe6b8a8c7ce21d6bd360d24f))
+* *(client)* Keep a refused selection on its scenario ([fd7d7894](https://github.com/informedica/GenPRES/commit/fd7d7894bc0fe860c85fc6a025630840d10082ab))
+* *(client)* Show the running time as a range ([3b986131](https://github.com/informedica/GenPRES/commit/3b9861318c812dea6e5493e217c039f3f03641c9))
+* *(genorder)* Offer reachable rounded dose values ([be6e047b](https://github.com/informedica/GenPRES/commit/be6e047b81165da322412c2ffe0b82e4d97c4374))
+* *(genorder)* Tie item concentrations to the component share ([b3d654c8](https://github.com/informedica/GenPRES/commit/b3d654c890e66dd30224c97a532e5faa64c819cc))
+* *(genorder)* Report a pick that cannot be solved ([9743852a](https://github.com/informedica/GenPRES/commit/9743852aedba8d601b0d187b04a10740389a1331))
+* *(genorder)* Solve item concentrations by share ([def801ea](https://github.com/informedica/GenPRES/commit/def801eaec3d3b5401d80bb0950b2353f9d6ed81))
+* *(genorder)* Keep products when calculating ([be379560](https://github.com/informedica/GenPRES/commit/be379560e716d6bb2c12fe057f8dcc64151e6b78))
+* *(genorder)* Pair item strengths by product ([158f6a42](https://github.com/informedica/GenPRES/commit/158f6a428c1cf03fd501d3341e080d97169dbf8c))
+* *(genorder)* Cap the rounded steps ([adfff2f2](https://github.com/informedica/GenPRES/commit/adfff2f2a081574d708c7e3dd7d95a2035960c3e))
+* *(genorder)* Give the rate after the dose quantity ([12629d6d](https://github.com/informedica/GenPRES/commit/12629d6d47aa11471a06bef837e5dcf0496e1c07))
+* *(genorder)* Give a missing medication value an error ([7f027a9d](https://github.com/informedica/GenPRES/commit/7f027a9dcdd1f2949df64d06593272beec030a94))
+* *(genorder)* Refuse a product without an id ([b65ee470](https://github.com/informedica/GenPRES/commit/b65ee47069db5f5a018342fdc9fb2a425d1efd54))
+* *(genorder)* Dose total by rate for continuous only ([fae43ae3](https://github.com/informedica/GenPRES/commit/fae43ae351e415e50d146f5de9810c7f4b1a8640))
+* *(genorder)* Stop offering undiluted IV orders ([154c12a4](https://github.com/informedica/GenPRES/commit/154c12a4b722762cf25c595cdf2a3ff9dd13ed52))
+* *(gensolver)* Combine increments by lcm ([3f76a5b5](https://github.com/informedica/GenPRES/commit/3f76a5b5d7773ecec443ebd847a8a726f6159127))
+* *(gensolver)* Compare divisors on base values ([9e75a944](https://github.com/informedica/GenPRES/commit/9e75a9447b0e52ef892df380be9b5cfd6aaf7c7d))
+* *(gensolver)* Evaluate solved equations ([f953d483](https://github.com/informedica/GenPRES/commit/f953d483fa812afa5129d75efbf59eb831a8c7e6))
+* *(utils)* Read a long decimal exactly ([8434146b](https://github.com/informedica/GenPRES/commit/8434146b9fef6195c9175b737430f4f0184a5b65))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/95425d4fd991b233399fed20924b12278ad8d37a..3993fe6a09b1eda14358a93075f321ba28c9689d)</small></strong>
 
 ## 0.1.2-alpha.45 - 2026-10-10
 
