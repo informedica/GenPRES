@@ -456,8 +456,7 @@ earlier workaround can be unwound.
 
 ### Verification
 
-Per the plan at
-`.claude/plans/use-new-fable-remoting-giraffe-fixes-fancy-wand.md`:
+Verification steps:
 
 1. `dotnet run build` — clean.
 2. `paket.lock` confirms `Fable.Remoting.Giraffe (6.x)`,
