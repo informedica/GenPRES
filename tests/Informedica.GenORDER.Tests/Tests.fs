@@ -2645,6 +2645,288 @@ module DeterminationTests =
             ]
 
 
+module ReferenceTests =
+
+    open HelperTests
+
+    module Ref = OrderProcessor.OrderVariableReference
+    module ValueRange = Informedica.GenSolver.Lib.Variable.ValueRange
+    module ValueSet = ValueRange.ValueSet
+    module Minimum = ValueRange.Minimum
+    module Constraints = OrderVariable.Constraints
+
+
+    let props =
+        [
+            DoseProperty.Quantity
+            DoseProperty.QuantityAdjust
+            DoseProperty.PerTime
+            DoseProperty.PerTimeAdjust
+            DoseProperty.Rate
+            DoseProperty.RateAdjust
+            DoseProperty.Total
+            DoseProperty.TotalAdjust
+        ]
+
+
+    /// Every reference an order can have, for each of its components and items.
+    let allRefs (ord: Order) =
+        let name = WrappedString.Name.toString
+
+        [
+            OrderVariableReference.OrderAdjust
+            OrderVariableReference.ScheduleFrequency
+            OrderVariableReference.ScheduleTime
+            OrderVariableReference.OrderableQuantity
+            OrderVariableReference.OrderableDoseCount
+            OrderVariableReference.OrderableOrderCount
+            OrderVariableReference.OrderDuration
+            OrderVariableReference.OrderableOrderQuantity
+            for p in props do
+                OrderVariableReference.OrderableDose p
+
+            for c in ord.Orderable.Components do
+                let c' = c.Name |> name
+                OrderVariableReference.ComponentOrderQuantity c'
+                OrderVariableReference.ComponentOrderCount c'
+                OrderVariableReference.ComponentQuantity c'
+                OrderVariableReference.ComponentOrderableQuantity c'
+                OrderVariableReference.ComponentOrderableCount c'
+                OrderVariableReference.ComponentOrderableConcentration c'
+
+                for p in props do
+                    OrderVariableReference.ComponentDose(c', p)
+
+                for i in c.Items do
+                    let i' = i.Name |> name
+                    OrderVariableReference.ItemComponentQuantity(c', i')
+                    OrderVariableReference.ItemComponentConcentration(c', i')
+                    OrderVariableReference.ItemOrderableQuantity(c', i')
+                    OrderVariableReference.ItemOrderableConcentration(c', i')
+
+                    for p in props do
+                        OrderVariableReference.ItemDose(c', i', p)
+        ]
+
+
+    let fromText text =
+        text |> MedicationText.fromString |> Result.defaultWith (failtestf "%A")
+
+
+    let fixtures () =
+        [
+            "pcmSupp", Scenarios.pcmSupp
+            "pcmDrink", Scenarios.pcmDrink
+            "cotrim", Scenarios.cotrim
+            "amfo", Scenarios.amfo
+            "morfCont", Scenarios.morfCont
+            "tpn", Scenarios.tpn
+            "amoxClav", Scenarios.amoxClavText |> fromText
+            "kcl", Scenarios.kaliumchlorideOnceTimedText |> fromText
+        ]
+
+
+    let isNotSettable =
+        function
+        | Error(ActionFailure.NotSettable _) -> true
+        | _ -> false
+
+
+    let dosQty = OrderVariableReference.OrderableDose DoseProperty.Quantity
+
+
+    let select choice ovar = ovar |> OrderProcessor.Choice.select dosQty choice
+
+
+    /// An order variable in mL holding 5, defined as 1 to 10 by 1 and calculated as 2 to 8 by 1.
+    let constrained =
+        let cs min max =
+            Constraints.create
+                (mL [ min ] |> Minimum.create true |> Some)
+                (mL [ 1 ] |> ValueRange.Increment.create |> Some)
+                (mL [ max ] |> ValueRange.Maximum.create true |> Some)
+                None
+
+        let x = valSet mL [ 5 ] |> ovar (Some 1)
+
+        { x with
+            DefinedConstraints = cs 1 10
+            CalculatedConstraints = cs 2 8
+        }
+
+
+    let tests =
+        testList
+            "order variable references"
+            [
+                test "the references find every variable of every fixture, and only those" {
+                    for name, med in fixtures () do
+                        let ord = med |> orderOf
+                        let names = List.map OrderVariable.getName >> Set.ofList
+
+                        ord
+                        |> allRefs
+                        |> List.choose (Ref.tryGet ord)
+                        |> names
+                        |> Expect.equal $"%s{name}: the variables of the order" (ord |> Order.toOrdVars |> names)
+                }
+
+                test "a reference to a component the order does not have finds nothing" {
+                    OrderVariableReference.ComponentQuantity "none"
+                    |> Ref.tryGet (Scenarios.pcmSupp |> orderOf)
+                    |> Expect.isNone "no component"
+                }
+
+                test "the basic variables of a timed and of a continuous order" {
+                    let basics (med: Medication) =
+                        let ord = med |> orderOf
+
+                        [
+                            OrderVariableReference.ScheduleFrequency
+                            dosQty
+                            OrderVariableReference.OrderableDose DoseProperty.Rate
+                            OrderVariableReference.OrderableOrderCount
+                            OrderVariableReference.OrderableDose DoseProperty.PerTime
+                        ]
+                        |> List.map (Ref.isBasic ord.Schedule)
+
+                    Scenarios.amfoTimed
+                    |> basics
+                    |> Expect.equal
+                        "timed: frequency, dose quantity, rate, order count"
+                        [ true; true; true; true; false ]
+
+                    Scenarios.morfCont
+                    |> basics
+                    |> Expect.equal "continuous: rate and order count" [ false; false; true; true; false ]
+                }
+
+                test "the invariants of amox/clav with its diluent" {
+                    let ord = Scenarios.amoxClavText |> fromText |> orderOf
+                    let amoxClav, nacl = "amoxicilline/clavulaanzuur", "NaCl 0,9%"
+
+                    ord
+                    |> Ref.invariants
+                    |> Expect.equal
+                        "the adjust, the content of each component, the content and concentration of each item"
+                        [
+                            OrderVariableReference.OrderAdjust
+                            OrderVariableReference.ComponentQuantity amoxClav
+                            OrderVariableReference.ComponentQuantity nacl
+                            for cmp, itm in
+                                [
+                                    amoxClav, "amoxicilline"
+                                    amoxClav, "clavulaanzuur"
+                                    nacl, "natrium"
+                                    nacl, "chloor"
+                                ] do
+                                OrderVariableReference.ItemComponentQuantity(cmp, itm)
+                                OrderVariableReference.ItemComponentConcentration(cmp, itm)
+                        ]
+                }
+
+                test "a choice from a list of values" {
+                    let x = valSet mL [ 1; 2; 3 ] |> ovar None
+
+                    [ Choice.Min; Choice.Max; Choice.Median; Choice.Nth 1; Choice.Percentile 100 ]
+                    |> List.map (fun c -> x |> select c |> Result.toOption)
+                    |> Expect.equal "1, 3, 2, 2 and 3 mL" ([ 1; 3; 2; 2; 3 ] |> List.map (fun v -> Some(mL [ v ])))
+
+                    x
+                    |> select (Choice.Step(1, StepIncrement.Defined))
+                    |> isNotSettable
+                    |> Expect.isTrue "no step"
+
+                    x
+                    |> OrderProcessor.Choice.select OrderVariableReference.OrderableQuantity (Choice.Percentile 50)
+                    |> isNotSettable
+                    |> Expect.isTrue "a percentile only on the dose quantity"
+                }
+
+                test "a choice from a min, increment and max" {
+                    let x = minIncrMax mL 1 1 5 |> ovar None
+
+                    [ Choice.Min; Choice.Max; Choice.Median; Choice.Nth 1; Choice.Percentile 50 ]
+                    |> List.map (fun c -> x |> select c |> Result.toOption)
+                    |> Expect.equal "1, 5, 3, 2 and 3 mL" ([ 1; 5; 3; 2; 3 ] |> List.map (fun v -> Some(mL [ v ])))
+
+                    x
+                    |> select (Choice.Step(1, StepIncrement.Defined))
+                    |> isNotSettable
+                    |> Expect.isTrue "no step"
+                }
+
+                test "a step from one value with a defined increment" {
+                    let x = valSet mL [ 2 ] |> ovar (Some 1)
+
+                    [
+                        Choice.Step(1, StepIncrement.Defined)
+                        Choice.Step(-1, StepIncrement.Defined)
+                    ]
+                    |> List.map (fun c -> x |> select c |> Result.toOption)
+                    |> Expect.equal "3 and 1 mL" [ Some(mL [ 3 ]); Some(mL [ 1 ]) ]
+
+                    x |> select Choice.Min |> isNotSettable |> Expect.isTrue "one value only steps"
+                }
+
+                test "nothing to choose from one value without an increment" {
+                    [ Choice.Min; Choice.Step(1, StepIncrement.Defined) ]
+                    |> List.map (fun c -> valSet mL [ 2 ] |> ovar None |> select c |> isNotSettable)
+                    |> Expect.equal "not settable" [ true; true ]
+                }
+
+                test "a variable set back to each target" {
+                    let ord = Scenarios.pcmSupp |> orderOf
+                    let back target =
+                        (constrained |> OrderProcessor.SetBackTo.apply target ord).Variable.Values
+                    let one = Units.Count.times |> ValueUnit.one
+
+                    [
+                        SetBackTo.Defined
+                        SetBackTo.Calculated
+                        SetBackTo.CalculatedElseDefined
+                        SetBackTo.One
+                        SetBackTo.AtLeastOne
+                    ]
+                    |> List.map back
+                    |> Expect.equal
+                        "1 to 10, 2 to 8 twice, 1, and 1 or more"
+                        [
+                            minIncrMax mL 1 1 10
+                            minIncrMax mL 2 1 8
+                            minIncrMax mL 2 1 8
+                            one |> ValueSet.create |> ValSet
+                            one |> Minimum.create true |> Min
+                        ]
+
+                    [ SetBackTo.MinIncr; SetBackTo.AnyPositive ]
+                    |> List.map (back >> ValueRange.getMax)
+                    |> Expect.equal "no maximum" [ None; None ]
+                }
+
+                test "the conditions hold as the processor classifies the order" {
+                    for name, med in fixtures () do
+                        let ord =
+                            match CalcMinMax(med |> orderOf) |> OrderProcessor.processPipeline OrderLogging.noOp with
+                            | Ok ord -> ord
+                            | Error _ -> failtest $"%s{name}: no order"
+
+                        let os = ord |> OrderProcessor.classify
+
+                        [
+                            OrderCondition.DoseSolved
+                            OrderCondition.OrderSolved
+                            OrderCondition.HasValues
+                            OrderCondition.CanSetNormDose
+                        ]
+                        |> List.map (fun c -> ord |> OrderProcessor.OrderCondition.holds c)
+                        |> Expect.equal
+                            $"%s{name}: as classified"
+                            [ os.DoseIsSolved; os.OrderIsSolved; os.HasValues; os.CanSetNormDose ]
+                }
+            ]
+
+
 module EquationsTests =
 
     open TestOrder
@@ -4601,6 +4883,7 @@ let tests =
             OrderVariableTests.tests
             HelperTests.tests
             DeterminationTests.tests
+            ReferenceTests.tests
             ConstraintsTests.tests
             GoldenOrderTests.tests
             IncreaseQuantityIncrementTests.tests
