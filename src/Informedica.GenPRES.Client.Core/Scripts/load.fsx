@@ -40,6 +40,7 @@
 #load "../Policies/IntakePolicy.fs"
 #load "../Policies/FieldOpenPolicy.fs"
 #load "../Policies/PickListPolicy.fs"
+#load "../Policies/IntentPolicy.fs"
 #load "../Policies/PlanContextPolicy.fs"
 #load "../Policies/PlanCellPolicy.fs"
 #load "../Policies/SectionFoldPolicy.fs"

@@ -1,7 +1,7 @@
 namespace Informedica.GenPRES.Client.Core.Tests.Policies
 
 
-/// What a field offers, the cross and the arrow, and what a click and a close do.
+/// What a field offers, the cross and whether it is selectable, and what a click and a close do.
 module FieldOpenPolicyTests =
 
     open Informedica.GenPRES.Client.Core.Policies
@@ -21,10 +21,10 @@ module FieldOpenPolicyTests =
                 Enabled = enabled
             }
 
-        let offer cross arrow =
+        let offer cross selectable =
             {
                 Cross = cross
-                Arrow = arrow
+                Selectable = selectable
             }
 
         testList
@@ -33,43 +33,40 @@ module FieldOpenPolicyTests =
                 testList
                     "an order variable never offers the cross"
                     [
-                        for values, mode, constrained, usable, exp in
+                        for values, allowed, usable, exp in
                             [
-                                3, QuantityModePolicy.Mode.Selectable, Constrained.No, true, Arrow.Open
-                                1, QuantityModePolicy.Mode.Stepable, Constrained.Yes, true, Arrow.ReCalc
-                                1, QuantityModePolicy.Mode.Fixed, Constrained.Yes, true, Arrow.ReCalc
-                                1, QuantityModePolicy.Mode.Fixed, Constrained.Unknown, true, Arrow.ReCalc
-                                1, QuantityModePolicy.Mode.Stepable, Constrained.No, true, Arrow.NoArrow
-                                1, QuantityModePolicy.Mode.Fixed, Constrained.No, true, Arrow.NoArrow
-                                0, QuantityModePolicy.Mode.Navigable, Constrained.No, true, Arrow.NoArrow
-                                0, QuantityModePolicy.Mode.Fixed, Constrained.No, true, Arrow.NoArrow
-                                0, QuantityModePolicy.Mode.Selectable, Constrained.No, true, Arrow.NoArrow
-                                3, QuantityModePolicy.Mode.Selectable, Constrained.No, false, Arrow.NoArrow
-                                1, QuantityModePolicy.Mode.Stepable, Constrained.Yes, false, Arrow.NoArrow
+                                3, false, true, Selectable.List
+                                3, true, true, Selectable.List
+                                1, true, true, Selectable.ReCalc
+                                1, false, true, Selectable.No
+                                0, true, true, Selectable.No
+                                0, false, true, Selectable.No
+                                3, true, false, Selectable.No
+                                1, true, false, Selectable.No
                             ] do
-                            test $"%i{values} values, %A{mode}, constrained %A{constrained}, usable %b{usable}: %A{exp}" {
-                                Field.OrderVariable(values, mode, constrained, usable)
+                            test $"%i{values} values, allowed %b{allowed}, usable %b{usable}: %A{exp}" {
+                                Field.OrderVariable(values, allowed, usable)
                                 |> decide
-                                |> Expect.equal "the arrow, no cross" (offer false exp)
+                                |> Expect.equal "selectable, no cross" (offer false exp)
                             }
                     ]
 
                 testList
                     "a filter field"
                     [
-                        test "several options, one chosen: the cross drops it, the arrow opens the list" {
+                        test "several options, one chosen: the cross drops it, the list opens" {
                             Field.Filter(pick [| "a"; "b" |] (Some "a") true)
                             |> decide
-                            |> Expect.equal "cross and open" (offer true Arrow.Open)
+                            |> Expect.equal "cross and open" (offer true Selectable.List)
                         }
 
-                        test "several options, none chosen: the arrow opens the list, nothing to drop" {
+                        test "several options, none chosen: the list opens, nothing to drop" {
                             Field.Filter(pick [| "a"; "b" |] None true)
                             |> decide
-                            |> Expect.equal "open only" (offer false Arrow.Open)
+                            |> Expect.equal "open only" (offer false Selectable.List)
                         }
 
-                        test "one option, chosen by the user or by the field: neither cross nor arrow" {
+                        test "one option, chosen by the user or by the field: neither the cross nor a list" {
                             Field.Filter(pick [| "a" |] (Some "a") true)
                             |> decide
                             |> Expect.equal "nothing" none
@@ -89,20 +86,20 @@ module FieldOpenPolicyTests =
                 testList
                     "a field whose empty state stays"
                     [
-                        test "an anonymous patient's weight: the cross while it holds one, the arrow" {
+                        test "an anonymous patient's weight: the cross while it holds one, the list" {
                             Field.Entry(true, true, true)
                             |> decide
-                            |> Expect.equal "cross and open" (offer true Arrow.Open)
+                            |> Expect.equal "cross and open" (offer true Selectable.List)
 
                             Field.Entry(true, true, false)
                             |> decide
-                            |> Expect.equal "open only" (offer false Arrow.Open)
+                            |> Expect.equal "open only" (offer false Selectable.List)
                         }
 
-                        test "an identified patient's weight, or the department: the arrow, no cross" {
+                        test "an identified patient's weight, or the department: the list, no cross" {
                             Field.Entry(true, false, true)
                             |> decide
-                            |> Expect.equal "open only" (offer false Arrow.Open)
+                            |> Expect.equal "open only" (offer false Selectable.List)
                         }
 
                         test "a read-only field: nothing" {
@@ -111,21 +108,23 @@ module FieldOpenPolicyTests =
                     ]
 
                 testList
-                    "a click on the arrow"
+                    "a click on a selectable field"
                     [
                         test "opens a list at once, or clears and waits" {
-                            offer true Arrow.Open |> click false |> Expect.equal "open" Click.OpenList
+                            offer true Selectable.List |> click false |> Expect.equal "open" Click.OpenList
 
-                            offer false Arrow.ReCalc
+                            offer false Selectable.ReCalc
                             |> click false
                             |> Expect.equal "clear" Click.ReCalcAndWait
                         }
 
-                        test "does nothing while a request is under way, or without an arrow" {
-                            offer false Arrow.ReCalc |> click true |> Expect.equal "loading" Click.Nothing
+                        test "does nothing while a request is under way, or when not selectable" {
+                            offer false Selectable.ReCalc
+                            |> click true
+                            |> Expect.equal "loading" Click.Nothing
 
-                            offer true Arrow.Open |> click true |> Expect.equal "loading" Click.Nothing
-                            none |> click false |> Expect.equal "no arrow" Click.Nothing
+                            offer true Selectable.List |> click true |> Expect.equal "loading" Click.Nothing
+                            none |> click false |> Expect.equal "not selectable" Click.Nothing
                         }
                     ]
 

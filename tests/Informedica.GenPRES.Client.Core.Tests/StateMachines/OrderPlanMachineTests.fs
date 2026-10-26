@@ -699,6 +699,33 @@ let reopenTests =
                 |> Expect.equal "changed while the list is open" PlanWork.Changed
             }
 
+            test "a recalculation from the order dialog goes out as a reopen sends it, and keeps the state before it" {
+                let reCalc = OrderViewCommand.ReCalcItemProperty("cmp", "itm", ItemProperty.DoseQuantity, [||])
+
+                let change = OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand("c-1", reCalc), "r-1")
+                let viaChange = open' |> move change
+
+                viaChange
+                |> Expect.equal "as a reopen" (open' |> move (OrderPlanMsg.ReopenField("c-1", reCalc, "r-1")))
+
+                viaChange |> fst |> OrderPlanState.isKept |> Expect.isTrue "kept"
+
+                open'
+                |> run [ change; OrderPlanMsg.Answered("r-1", Ok answer) ]
+                |> move OrderPlanMsg.RestoreField
+                |> Expect.equal "a restore puts the state before it back" (open', [])
+            }
+
+            test "a pick from the order dialog is no recalculation: nothing is kept" {
+                let pick = OrderViewCommand.SetNthItemProperty("cmp", "itm", ItemProperty.DoseQuantity, 0)
+
+                open'
+                |> move (OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand("c-1", pick), "r-1"))
+                |> fst
+                |> OrderPlanState.isKept
+                |> Expect.isFalse "nothing kept"
+            }
+
             test "a restore before the answer puts the plan back as signed, and the late answer is dropped" {
                 let restored = open' |> run [ reopen "r-1"; OrderPlanMsg.RestoreField ]
 
