@@ -139,6 +139,19 @@ module Order =
                 [ qty; ptm; rte; tot; qty_adj; ptm_adj; rte_adj; tot_adj ]
 
 
+            /// The order variable of property p of a dose.
+            let toOrdVar p (dos: Dose) =
+                match p with
+                | DoseProperty.Quantity -> dos.Quantity |> Quantity.toOrdVar
+                | DoseProperty.QuantityAdjust -> dos.QuantityAdjust |> QuantityAdjust.toOrdVar
+                | DoseProperty.PerTime -> dos.PerTime |> PerTime.toOrdVar
+                | DoseProperty.PerTimeAdjust -> dos.PerTimeAdjust |> PerTimeAdjust.toOrdVar
+                | DoseProperty.Rate -> dos.Rate |> Rate.toOrdVar
+                | DoseProperty.RateAdjust -> dos.RateAdjust |> RateAdjust.toOrdVar
+                | DoseProperty.Total -> dos.Total |> Total.toOrdVar
+                | DoseProperty.TotalAdjust -> dos.TotalAdjust |> TotalAdjust.toOrdVar
+
+
             /// <summary>
             /// Create a new Dose from a list of OrderVariables using
             /// an old Dose.
@@ -3404,6 +3417,15 @@ module Order =
     /// <param name="ord">The Order</param>
     let increaseQuantityIncrement logger maxCount incrs ord =
         { (ord |> inf) with Orderable = ord.Orderable |> Orderable.increaseQuantityIncrement logger maxCount incrs }
+
+
+    /// Whether the norm dose can be set: the dose quantity, or on Continuous the rate, holds a value
+    /// list or one value.
+    let canSetNormDose ord =
+        if ord.Schedule |> Schedule.isContinuous then
+            ord.Orderable.Dose.Rate |> Rate.toOrdVar |> OrderVariable.hasValues
+        else
+            ord.Orderable.Dose.Quantity |> Quantity.toOrdVar |> OrderVariable.hasValues
 
 
     let hasNormDose ord =

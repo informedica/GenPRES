@@ -9,6 +9,7 @@ module OrderProcessor =
     module Quantity = OrderVariable.Quantity
     module Concentration = OrderVariable.Concentration
     module Time = OrderVariable.Time
+    module Count = OrderVariable.Count
     module Rate = OrderVariable.Rate
     module Frequency = OrderVariable.Frequency
     module PerTime = OrderVariable.PerTime
@@ -18,6 +19,7 @@ module OrderProcessor =
     module Dose = Orderable.Dose
     module Increment = Informedica.GenSolver.Lib.Variable.ValueRange.Increment
     module Name = Informedica.GenSolver.Lib.Variable.Name
+    module Variable = Informedica.GenSolver.Lib.Variable
 
 
     // FrequencyCleared and ConcentrationCleared are defensive arms: no recipe handles them, so a
@@ -542,15 +544,7 @@ module OrderProcessor =
         {
             IsConstraintsNotApplied = ord |> areAllConstraintsNotApplied
             HasValues = ord |> hasValues
-            CanSetNormDose =
-                [
-                    // a timed or once timed order gets its rate values after the dose quantity
-                    if ord.Schedule.IsContinuous then
-                        ord.Orderable.Dose.Rate |> Rate.toOrdVar
-                    if ord.Schedule.IsContinuous |> not then
-                        ord.Orderable.Dose.Quantity |> Quantity.toOrdVar
-                ]
-                |> List.forall OrderVariable.hasValues
+            CanSetNormDose = ord |> canSetNormDose
             DoseIsSolved = ord |> doseIsSolved
             OrderIsSolved = ord |> isSolved
             IsCleared = ord |> isCleared
@@ -890,3 +884,182 @@ module OrderProcessor =
 
     /// Process an order through the pipeline of the command given, pruned with the default caps.
     let processPipeline logger cmd = processPipelineWith ValueCaps.defaults logger cmd
+
+
+    module OrderVariableReference =
+
+
+        /// The variable a reference names in an order; None when the order has no such variable.
+        let tryGet (ord: Order) ovarRef =
+            let tryComponent c = ord.Orderable |> Orderable.tryComponent c
+
+            let tryItem c i = tryComponent c |> Option.bind (Orderable.Component.tryItem i)
+
+            match ovarRef with
+            | OrderVariableReference.OrderAdjust -> ord.Adjust |> Quantity.toOrdVar |> Some
+            | OrderVariableReference.ScheduleFrequency ->
+                ord.Schedule |> Schedule.getFrequency |> Option.map Frequency.toOrdVar
+            | OrderVariableReference.ScheduleTime ->
+                match ord.Schedule with
+                | Continuous tme
+                | OnceTimed tme
+                | Timed(_, tme) -> tme |> Time.toOrdVar |> Some
+                | _ -> None
+            | OrderVariableReference.OrderableQuantity -> ord.Orderable.OrderableQuantity |> Quantity.toOrdVar |> Some
+            | OrderVariableReference.OrderableDoseCount -> ord.Orderable.DoseCount |> Count.toOrdVar |> Some
+            | OrderVariableReference.OrderableOrderCount -> ord.Orderable.OrderCount |> Count.toOrdVar |> Some
+            | OrderVariableReference.OrderDuration -> ord.Duration |> Time.toOrdVar |> Some
+            | OrderVariableReference.OrderableOrderQuantity -> ord.Orderable.OrderQuantity |> Quantity.toOrdVar |> Some
+            | OrderVariableReference.OrderableDose p -> ord.Orderable.Dose |> Dose.toOrdVar p |> Some
+            | OrderVariableReference.ComponentOrderQuantity c ->
+                tryComponent c |> Option.map (_.OrderQuantity >> Quantity.toOrdVar)
+            | OrderVariableReference.ComponentOrderCount c ->
+                tryComponent c |> Option.map (_.OrderCount >> Count.toOrdVar)
+            | OrderVariableReference.ComponentQuantity c ->
+                tryComponent c |> Option.map (_.ComponentQuantity >> Quantity.toOrdVar)
+            | OrderVariableReference.ComponentOrderableQuantity c ->
+                tryComponent c |> Option.map (_.OrderableQuantity >> Quantity.toOrdVar)
+            | OrderVariableReference.ComponentOrderableCount c ->
+                tryComponent c |> Option.map (_.OrderableCount >> Count.toOrdVar)
+            | OrderVariableReference.ComponentOrderableConcentration c ->
+                tryComponent c
+                |> Option.map (_.OrderableConcentration >> Concentration.toOrdVar)
+            | OrderVariableReference.ComponentDose(c, p) -> tryComponent c |> Option.map (_.Dose >> Dose.toOrdVar p)
+            | OrderVariableReference.ItemComponentQuantity(c, i) ->
+                tryItem c i |> Option.map (_.ComponentQuantity >> Quantity.toOrdVar)
+            | OrderVariableReference.ItemComponentConcentration(c, i) ->
+                tryItem c i |> Option.map (_.ComponentConcentration >> Concentration.toOrdVar)
+            | OrderVariableReference.ItemOrderableQuantity(c, i) ->
+                tryItem c i |> Option.map (_.OrderableQuantity >> Quantity.toOrdVar)
+            | OrderVariableReference.ItemOrderableConcentration(c, i) ->
+                tryItem c i |> Option.map (_.OrderableConcentration >> Concentration.toOrdVar)
+            | OrderVariableReference.ItemDose(c, i, p) -> tryItem c i |> Option.map (_.Dose >> Dose.toOrdVar p)
+
+
+        /// Whether a variable is basic for the schedule, one the other variables of the order are
+        /// calculated from: the frequency when the schedule has one, the dose quantity unless the
+        /// order runs continuously, the rate when the schedule has a time, the orderable quantity of
+        /// each component, and the order count unless the order is given once.
+        let isBasic sch ovarRef =
+            match ovarRef with
+            | OrderVariableReference.ScheduleFrequency -> sch |> Schedule.hasFrequency
+            | OrderVariableReference.OrderableDose DoseProperty.Quantity -> sch |> Schedule.isContinuous |> not
+            | OrderVariableReference.OrderableDose DoseProperty.Rate -> sch |> Schedule.hasTime
+            | OrderVariableReference.ComponentOrderableQuantity _ -> true
+            | OrderVariableReference.OrderableOrderCount -> not (sch |> Schedule.isOnce || sch |> Schedule.isOnceTimed)
+            | _ -> false
+
+
+        /// The invariants: the adjustment, the content of each component, the content and
+        /// concentration of each of its items, and on Continuous the dose count.
+        let invariants (ord: Order) =
+            let name = WrappedString.Name.toString
+            let cmps = ord.Orderable.Components
+
+            [
+                OrderVariableReference.OrderAdjust
+
+                for c in cmps do
+                    OrderVariableReference.ComponentQuantity(c.Name |> name)
+
+                for c in cmps do
+                    for i in c.Items do
+                        OrderVariableReference.ItemComponentQuantity(c.Name |> name, i.Name |> name)
+                        OrderVariableReference.ItemComponentConcentration(c.Name |> name, i.Name |> name)
+
+                if ord.Schedule |> Schedule.isContinuous then
+                    OrderVariableReference.OrderableDoseCount
+            ]
+
+
+    module Choice =
+
+
+        /// The value a choice selects from the current range of a variable.
+        let select ovarRef choice (ovar: OrderVariable) =
+            let notSettable reason = Error(ActionFailure.NotSettable(ovarRef, reason))
+
+            // the median of a range with a value count is its value at half the count, as in a list
+            let median (ovar: OrderVariable) =
+                match ovar |> OrderVariable.shape, ovar.Variable |> Variable.valueCount with
+                | Shape.SelectableRange, Some n -> ovar |> OrderVariable.setNthValue (n / 2)
+                | _ -> ovar |> OrderVariable.setMedianValue
+
+            let fromList ovar =
+                let take f = ovar |> f |> OrderVariable.solvedValue |> Ok
+
+                match choice with
+                | Choice.Min -> take OrderVariable.setMinValue
+                | Choice.Max -> take OrderVariable.setMaxValue
+                | Choice.Median -> take median
+                | Choice.Nth n -> take (OrderVariable.setNthValue n)
+                | Choice.Percentile p when ovarRef = OrderVariableReference.OrderableDose DoseProperty.Quantity ->
+                    take (OrderVariable.setPercValue p)
+                | Choice.Percentile _ -> notSettable "a percentile is only for the orderable dose quantity"
+                | Choice.Step _ -> notSettable "a range is not steppable"
+                |> Result.bind (
+                    function
+                    | Some vu -> Ok vu
+                    | None -> Error(ActionFailure.ValueNotInRange ovarRef)
+                )
+
+            match choice, ovar |> OrderVariable.shape with
+            | _, Shape.SelectableList -> ovar |> fromList
+            // a percentile counts the increments from min to max, not the values of a pruned list
+            | Choice.Percentile _, Shape.SelectableRange -> ovar |> fromList
+            // a range with a value count is read from its min, increment and max, without writing out
+            // its values, which can be more than a value set holds; as in a list, no nth value lies
+            // outside the count
+            | Choice.Nth n, Shape.SelectableRange when
+                ovar.Variable |> Variable.valueCount |> Option.exists (fun c -> n < 0 || n >= c)
+                ->
+                Error(ActionFailure.ValueNotInRange ovarRef)
+            | _, Shape.SelectableRange when ovar.Variable |> Variable.valueCount |> Option.isSome -> ovar |> fromList
+            | _, Shape.SelectableRange -> ovar |> OrderVariable.minIncrMaxToValues [] None |> fromList
+            | Choice.Step(n, incr), Shape.Steppable ->
+                // a step is not bounded by the constraints; it never goes below one increment
+                let useCalc = incr = StepIncrement.Calculated
+
+                let step =
+                    if n >= 0 then
+                        OrderVariable.increase useCalc n
+                    else
+                        OrderVariable.decrease useCalc -n
+
+                match ovar |> step |> OrderVariable.solvedValue with
+                | Some vu -> Ok vu
+                | None -> Error(ActionFailure.ValueNotInRange ovarRef)
+            | _, Shape.Steppable -> notSettable "one value only steps"
+            | _, Shape.NotSettable -> notSettable "the range offers nothing to choose"
+
+
+    module SetBackTo =
+
+
+        /// The order variable set back to the target; the orderable quantity of the order bounds
+        /// DefinedUpToOrderable.
+        let apply target (ord: Order) ovar =
+            match target with
+            | SetBackTo.Calculated -> ovar |> OrderVariable.applyCalculatedConstraints
+            | SetBackTo.CalculatedElseDefined -> ovar |> OrderVariable.applyConstraints
+            | SetBackTo.Defined -> ovar |> OrderVariable.applyDefinedConstraints
+            | SetBackTo.DefinedUpToOrderable ->
+                ovar
+                |> OrderVariable.applyDefinedConstraints
+                |> OrderVariable.setMaxToValueOf (ord.Orderable.OrderableQuantity |> Quantity.toOrdVar)
+            | SetBackTo.MinIncr -> ovar |> OrderVariable.applyOnlyMinIncrConstraints
+            | SetBackTo.AnyPositive -> ovar |> OrderVariable.free
+            | SetBackTo.One -> ovar |> OrderVariable.setToOne
+            | SetBackTo.AtLeastOne -> ovar |> OrderVariable.setToAtLeastOne
+
+
+    module OrderCondition =
+
+
+        /// Whether the condition holds on the order.
+        let holds condition ord =
+            match condition with
+            | OrderCondition.DoseSolved -> ord |> doseIsSolved
+            | OrderCondition.OrderSolved -> ord |> isSolved
+            | OrderCondition.HasValues -> ord |> hasValues
+            | OrderCondition.CanSetNormDose -> ord |> canSetNormDose
