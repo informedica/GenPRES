@@ -302,26 +302,23 @@ module OrderProcessor =
             ord |> set (ItemOrderableQuantity(cmp, itm, Quantity.setNthValue n))
         // one variable cleared and recalculated
         | ClearScheduleFrequency -> ord |> setFreq Frequency.clear
-        | ReCalcScheduleTime -> ord |> set (ScheduleTime Time.clear)
-        | ReCalcOrderableQuantity -> ord |> set (OrderableQuantity Quantity.clear)
         | ClearOrderableDoseQuantity -> ord |> setDose (Dose.applyToQuantity Quantity.clear)
         | ClearOrderableDoseRate -> ord |> setDose (Dose.applyToRate Rate.clear)
         | ClearComponentOrderableQuantity cmp -> ord |> setCmpOrbQty cmp Quantity.clear
-        | ReCalcComponentDoseQuantityAdjust cmp ->
-            ord |> set (ComponentDose(cmp, Dose.applyToQuantityAdjust QuantityAdjust.clear))
-        | ReCalcItemDoseQuantity(cmp, itm) -> ord |> setItmDose cmp itm (Dose.applyToQuantity Quantity.clear)
-        | ReCalcItemDoseQuantityAdjust(cmp, itm) ->
-            ord |> setItmDose cmp itm (Dose.applyToQuantityAdjust QuantityAdjust.clear)
-        | ReCalcItemDosePerTime(cmp, itm) -> ord |> setItmDose cmp itm (Dose.applyToPerTime PerTime.clear)
-        | ReCalcItemDosePerTimeAdjust(cmp, itm) ->
-            ord |> setItmDose cmp itm (Dose.applyToPerTimeAdjust PerTimeAdjust.clear)
-        | ReCalcItemDoseRate(cmp, itm) -> ord |> setItmDose cmp itm (Dose.applyToRate Rate.clear)
-        | ReCalcItemDoseRateAdjust(cmp, itm) -> ord |> setItmDose cmp itm (Dose.applyToRateAdjust RateAdjust.clear)
         | ClearItemComponentConcentration(cmp, itm) ->
             ord |> set (ItemComponentConcentration(cmp, itm, Concentration.clear))
-        | ReCalcItemOrderableConcentration(cmp, itm) ->
-            ord |> set (ItemOrderableConcentration(cmp, itm, Concentration.clear))
-        | ReCalcItemOrderableQuantity(cmp, itm) -> ord |> set (ItemOrderableQuantity(cmp, itm, Quantity.clear))
+        // the order program recalculates these, so processPipelineWith never brings them here
+        | ReCalcScheduleTime
+        | ReCalcOrderableQuantity
+        | ReCalcComponentDoseQuantityAdjust _
+        | ReCalcItemDoseQuantity _
+        | ReCalcItemDoseQuantityAdjust _
+        | ReCalcItemDosePerTime _
+        | ReCalcItemDosePerTimeAdjust _
+        | ReCalcItemDoseRate _
+        | ReCalcItemDoseRateAdjust _
+        | ReCalcItemOrderableConcentration _
+        | ReCalcItemOrderableQuantity _ -> ord
 
 
     // processClearedDose and processClearedRate use applyConstraints to reset
@@ -567,13 +564,13 @@ module OrderProcessor =
 
     /// <summary>
     /// Process an order through a pipeline of steps
-    /// depending on the command given
+    /// depending on the command given, without the order program
     /// </summary>
     /// <param name="caps">The maximum number of values a pruned variable keeps, per schedule</param>
     /// <param name="logger">The logger</param>
     /// <param name="cmd">The command to process</param>
     /// <returns>A Result with the processed Order or a list of error messages</returns>
-    let rec processPipelineWith caps logger cmd =
+    let rec processCommandWith caps logger cmd =
 
         let runStep (step: Step) (ord: Order) =
             if step.Guard(classify ord) then
@@ -836,7 +833,7 @@ module OrderProcessor =
                 | _ -> false
 
             match ord |> clearedPick picks with
-            | None when rateNotAPick |> not -> SolveOrder ord |> processPipelineWith caps logger
+            | None when rateNotAPick |> not -> SolveOrder ord |> processCommandWith caps logger
             | cleared ->
                 let earlier = cleared |> Option.defaultValue picks
 
@@ -864,7 +861,7 @@ module OrderProcessor =
                         |> Events.OrderScenario
                         |> Logging.logWarning logger
 
-                        SolveOrder ord |> processPipelineWith caps logger
+                        SolveOrder ord |> processCommandWith caps logger
 
         | ChangeProperty(ord, cmd) -> //ord |> processChangeProperty cmd |> Ok
             [
@@ -880,10 +877,6 @@ module OrderProcessor =
                 }
             ]
             |> runPipeline ord
-
-
-    /// Process an order through the pipeline of the command given, pruned with the default caps.
-    let processPipeline logger cmd = processPipelineWith ValueCaps.defaults logger cmd
 
 
     module OrderVariableReference =
@@ -1569,3 +1562,123 @@ module OrderProcessor =
             | Some Recipe.ReCalcPerTime, (Discontinuous _ | Timed _)
             | Some Recipe.ReCalcTime, (Continuous _ | Timed _ | OnceTimed _) -> kind
             | _ -> None
+
+
+    module ActionFailure =
+
+        /// The messages of the solver of a failure; none for a refusal.
+        let toMessages =
+            function
+            | ActionFailure.SolveFailed msgs -> msgs
+            | _ -> []
+
+
+    module OrderAction =
+
+        /// The effects of an action on an order, decided by the server. Only a recalculation runs
+        /// through the order program; any other action is refused until its commands move to it.
+        let effects action (ord: Order) =
+            let cap =
+                if ord |> hasAtMostTwoComponents then
+                    ValueCap.Larger
+                else
+                    ValueCap.Default
+
+            let rate =
+                if ord |> rateWaits then
+                    RateList.WithoutRate
+                else
+                    RateList.WithRate
+
+            // the lists made where missing, solved with values, the component quantity picked and
+            // the rate list made, as a solve with values ends
+            let values selection original =
+                [
+                    OrderEffect.Unless(
+                        [ OrderCondition.HasValues ],
+                        OrderEffect.EnumerateOrderVariableValues(cap, rate, None)
+                    )
+                    OrderEffect.Unless([ OrderCondition.OrderSolved ], OrderEffect.SolveOrder SolveMode.Values)
+                    OrderEffect.SelectNearestComponentQuantity
+                    OrderEffect.EnumerateRateValues(cap, selection, original)
+                ]
+
+            match action with
+            | OrderAction.ReCalc ovarRef ->
+                match ovarRef |> OrderVariableReference.tryGet ord, Recipe.forReCalcCommand ovarRef ord with
+                | None, _ -> Error(ActionFailure.NoSuchVariable ovarRef)
+                | _, None -> Error(ActionFailure.NoRecipe action)
+                | Some _, Some recipe ->
+                    // after a dose the increments are coarsened before the lists are made; the lists include
+                    // the values the order held when the action received it, so the order the user had
+                    // stays on offer; the rate list is left to select from
+                    Ok
+                        [
+                            yield! ord |> Recipe.effects recipe
+                            OrderEffect.SolveOrder SolveMode.MinMax
+                            if recipe = Recipe.ReCalcDose || recipe = Recipe.ReCalcPerTime then
+                                OrderEffect.CoarsenIncrements 100
+                            OrderEffect.EnumerateOrderVariableValues(ValueCap.Larger, rate, Some ord)
+                            yield! values RateSelection.OfferRates (Some ord)
+                            OrderEffect.SolveOrder SolveMode.Values
+                        ]
+            | _ -> Error(ActionFailure.NoRecipe action)
+
+
+        /// Runs an action; a failure keeps the order before the action.
+        let run caps logger action ord =
+            match ord |> effects action with
+            | Error f -> Error(ord, f)
+            | Ok effs ->
+                ord
+                |> OrderEffect.run caps logger effs
+                |> Result.mapError (fun (_, f) -> ord, f)
+
+
+    /// The property commands as actions of the order program, while the order context still sends
+    /// them.
+    module CommandBridge =
+
+        /// The action of the program a property command is; None for a command the pipeline of the
+        /// command still processes.
+        let ofChangeProperty cmd =
+            let reCalc ovarRef = Some(OrderAction.ReCalc ovarRef)
+            let itmDose c i p = OrderVariableReference.ItemDose(c, i, p)
+
+            match cmd with
+            | ReCalcScheduleTime -> reCalc OrderVariableReference.ScheduleTime
+            | ReCalcOrderableQuantity -> reCalc OrderVariableReference.OrderableQuantity
+            | ReCalcComponentDoseQuantityAdjust c ->
+                reCalc (OrderVariableReference.ComponentDose(c, DoseProperty.QuantityAdjust))
+            | ReCalcItemDoseQuantity(c, i) -> reCalc (itmDose c i DoseProperty.Quantity)
+            | ReCalcItemDoseQuantityAdjust(c, i) -> reCalc (itmDose c i DoseProperty.QuantityAdjust)
+            | ReCalcItemDosePerTime(c, i) -> reCalc (itmDose c i DoseProperty.PerTime)
+            | ReCalcItemDosePerTimeAdjust(c, i) -> reCalc (itmDose c i DoseProperty.PerTimeAdjust)
+            | ReCalcItemDoseRate(c, i) -> reCalc (itmDose c i DoseProperty.Rate)
+            | ReCalcItemDoseRateAdjust(c, i) -> reCalc (itmDose c i DoseProperty.RateAdjust)
+            | ReCalcItemOrderableConcentration(c, i) -> reCalc (OrderVariableReference.ItemOrderableConcentration(c, i))
+            | ReCalcItemOrderableQuantity(c, i) -> reCalc (OrderVariableReference.ItemOrderableQuantity(c, i))
+            | _ -> None
+
+
+        /// The order and the action of the program a command is; None for a command the pipeline
+        /// of the command still processes.
+        let ofOrderCommand =
+            function
+            | ChangeProperty(ord, cmd) -> cmd |> ofChangeProperty |> Option.map (fun action -> ord, action)
+            | _ -> None
+
+
+    /// Process an order by the command given: a command the order program has an action for runs as
+    /// that action, any other command through its pipeline. A refusal of the program has no messages.
+    let processPipelineWith caps logger cmd =
+        match cmd |> CommandBridge.ofOrderCommand with
+        | Some(ord, action) ->
+            ord
+            |> OrderAction.run caps logger action
+            |> Result.mapError (fun (o, f) -> o, f |> ActionFailure.toMessages)
+        | None -> cmd |> processCommandWith caps logger
+
+
+    /// Process an order by the command given, pruned with the default caps.
+    let processPipeline logger cmd = processPipelineWith ValueCaps.defaults logger cmd

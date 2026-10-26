@@ -193,6 +193,11 @@ let values (ovar: OrderVariable) =
     ovar |> OrderVariable.getValSetValueUnit |> Option.map ValueUnit.getValue
 
 
+/// Whether the order program runs the command as a recalculation.
+let isProgramReCalc cmd =
+    cmd |> OrderProcessor.CommandBridge.ofChangeProperty |> Option.isSome
+
+
 [<Tests>]
 let tests =
     testList
@@ -216,10 +221,11 @@ let tests =
                 |> Expect.isEmpty "each pick sets its own variable to the last value"
             }
 
+            // a recalculation the order program runs does not clear the variable
             test "a clear clears its one variable" {
                 [
                     for name, ord in fixtures.Value do
-                        for f in fields ord do
+                        for f in fields ord |> List.filter (_.Clear >> isProgramReCalc >> not) do
                             match ord |> f.Get with
                             | Some ovar when ovar.Variable |> Variable.count > 1 ->
                                 let after = ord |> change f.Clear
