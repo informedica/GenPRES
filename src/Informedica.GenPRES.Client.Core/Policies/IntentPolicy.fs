@@ -123,10 +123,10 @@ module IntentPolicy =
     /// The target of a recalculation command; None for any other command.
     let reCalcTarget cmd =
         match cmd with
-        | OrderViewCommand.ReCalcScheduleProperty(prop, _) -> Some(Target.Schedule prop)
-        | OrderViewCommand.ReCalcOrderableProperty(prop, _) -> Some(Target.Orderable prop)
-        | OrderViewCommand.ReCalcComponentProperty(cmp, prop, _) -> Some(Target.Component(cmp, prop))
-        | OrderViewCommand.ReCalcItemProperty(cmp, itm, prop, _) -> Some(Target.Item(cmp, itm, prop))
+        | OrderViewCommand.ReCalcScheduleProperty prop -> Some(Target.Schedule prop)
+        | OrderViewCommand.ReCalcOrderableProperty prop -> Some(Target.Orderable prop)
+        | OrderViewCommand.ReCalcComponentProperty(cmp, prop) -> Some(Target.Component(cmp, prop))
+        | OrderViewCommand.ReCalcItemProperty(cmp, itm, prop) -> Some(Target.Item(cmp, itm, prop))
         | _ -> None
 
 

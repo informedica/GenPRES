@@ -1,5 +1,4 @@
-/// The property commands that set one order variable to its nth value or clear it, over the test
-/// scenarios.
+/// The property commands that set one order variable to its nth value, over the test scenarios.
 module OrderValueCommandTests
 
 open Informedica.Utils.Lib
@@ -28,14 +27,12 @@ let built (med: Medication) =
     |> solve CalcValues
 
 
-/// A variable a user picks: its name, how to read it, and the commands that pick its nth value
-/// and clear it.
+/// A variable a user picks: its name, how to read it, and the command that picks its nth value.
 type Field =
     {
         Name: string
         Get: Order -> OrderVariable option
         SetNth: int -> ChangePropertyCommand
-        Clear: ChangePropertyCommand
     }
 
 
@@ -57,31 +54,26 @@ let fields (ord: Order) =
                 >> Order.Schedule.getFrequency
                 >> Option.map OrderVariable.Frequency.toOrdVar
             SetNth = SetNthScheduleFrequency
-            Clear = ClearScheduleFrequency
         }
         {
             Name = "time"
             Get = _.Schedule >> Order.Schedule.getTime >> Option.map OrderVariable.Time.toOrdVar
             SetNth = SetNthScheduleTime
-            Clear = ReCalcScheduleTime
         }
         {
             Name = "orderable quantity"
             Get = fun o -> o.Orderable.OrderableQuantity |> OrderVariable.Quantity.toOrdVar |> Some
             SetNth = SetNthOrderableQuantity
-            Clear = ReCalcOrderableQuantity
         }
         {
             Name = "orderable dose quantity"
             Get = fun o -> o.Orderable.Dose.Quantity |> OrderVariable.Quantity.toOrdVar |> Some
             SetNth = SetNthOrderableDoseQuantity
-            Clear = ClearOrderableDoseQuantity
         }
         {
             Name = "orderable dose rate"
             Get = fun o -> o.Orderable.Dose.Rate |> OrderVariable.Rate.toOrdVar |> Some
             SetNth = SetNthOrderableDoseRate
-            Clear = ClearOrderableDoseRate
         }
         for c in ord.Orderable.Components do
             let c = c.Name |> Name.toString
@@ -90,7 +82,6 @@ let fields (ord: Order) =
                 Name = $"%s{c} orderable quantity"
                 Get = cmp c >> Option.map (_.OrderableQuantity >> OrderVariable.Quantity.toOrdVar)
                 SetNth = fun n -> SetNthComponentOrderableQuantity(c, n)
-                Clear = ClearComponentOrderableQuantity c
             }
             {
                 Name = $"%s{c} dose quantity adjust"
@@ -98,7 +89,6 @@ let fields (ord: Order) =
                     cmp c
                     >> Option.map (_.Dose.QuantityAdjust >> OrderVariable.QuantityAdjust.toOrdVar)
                 SetNth = fun n -> SetNthComponentDoseQuantityAdjust(c, n)
-                Clear = ReCalcComponentDoseQuantityAdjust c
             }
 
             for i in (ord |> cmp c |> Option.map _.Items |> Option.defaultValue []) do
@@ -109,55 +99,46 @@ let fields (ord: Order) =
                     Name = $"%s{c}.%s{i} dose quantity"
                     Get = get (_.Dose.Quantity >> OrderVariable.Quantity.toOrdVar)
                     SetNth = fun n -> SetNthItemDoseQuantity(c, i, n)
-                    Clear = ReCalcItemDoseQuantity(c, i)
                 }
                 {
                     Name = $"%s{c}.%s{i} dose quantity adjust"
                     Get = get (_.Dose.QuantityAdjust >> OrderVariable.QuantityAdjust.toOrdVar)
                     SetNth = fun n -> SetNthItemDoseQuantityAdjust(c, i, n)
-                    Clear = ReCalcItemDoseQuantityAdjust(c, i)
                 }
                 {
                     Name = $"%s{c}.%s{i} dose per time"
                     Get = get (_.Dose.PerTime >> OrderVariable.PerTime.toOrdVar)
                     SetNth = fun n -> SetNthItemDosePerTime(c, i, n)
-                    Clear = ReCalcItemDosePerTime(c, i)
                 }
                 {
                     Name = $"%s{c}.%s{i} dose per time adjust"
                     Get = get (_.Dose.PerTimeAdjust >> OrderVariable.PerTimeAdjust.toOrdVar)
                     SetNth = fun n -> SetNthItemDosePerTimeAdjust(c, i, n)
-                    Clear = ReCalcItemDosePerTimeAdjust(c, i)
                 }
                 {
                     Name = $"%s{c}.%s{i} dose rate"
                     Get = get (_.Dose.Rate >> OrderVariable.Rate.toOrdVar)
                     SetNth = fun n -> SetNthItemDoseRate(c, i, n)
-                    Clear = ReCalcItemDoseRate(c, i)
                 }
                 {
                     Name = $"%s{c}.%s{i} dose rate adjust"
                     Get = get (_.Dose.RateAdjust >> OrderVariable.RateAdjust.toOrdVar)
                     SetNth = fun n -> SetNthItemDoseRateAdjust(c, i, n)
-                    Clear = ReCalcItemDoseRateAdjust(c, i)
                 }
                 {
                     Name = $"%s{c}.%s{i} component concentration"
                     Get = get (_.ComponentConcentration >> OrderVariable.Concentration.toOrdVar)
                     SetNth = fun n -> SetNthItemComponentConcentration(c, i, n)
-                    Clear = ClearItemComponentConcentration(c, i)
                 }
                 {
                     Name = $"%s{c}.%s{i} orderable concentration"
                     Get = get (_.OrderableConcentration >> OrderVariable.Concentration.toOrdVar)
                     SetNth = fun n -> SetNthItemOrderableConcentration(c, i, n)
-                    Clear = ReCalcItemOrderableConcentration(c, i)
                 }
                 {
                     Name = $"%s{c}.%s{i} orderable quantity"
                     Get = get (_.OrderableQuantity >> OrderVariable.Quantity.toOrdVar)
                     SetNth = fun n -> SetNthItemOrderableQuantity(c, i, n)
-                    Clear = ReCalcItemOrderableQuantity(c, i)
                 }
     ]
     |> List.distinctBy _.Name
@@ -198,11 +179,6 @@ let values (ovar: OrderVariable) =
     ovar |> OrderVariable.getValSetValueUnit |> Option.map ValueUnit.getValue
 
 
-/// Whether the order program runs the command as a recalculation.
-let isProgramReCalc cmd =
-    cmd |> OrderProcessor.CommandBridge.ofChangeProperty |> Option.isSome
-
-
 [<Tests>]
 let tests =
     testList
@@ -224,23 +200,6 @@ let tests =
                             | _ -> ()
                 ]
                 |> Expect.isEmpty "each pick sets its own variable to the last value"
-            }
-
-            // a recalculation the order program runs does not clear the variable
-            test "a clear clears its one variable" {
-                [
-                    for name, ord in fixtures.Value do
-                        for f in fields ord |> List.filter (_.Clear >> isProgramReCalc >> not) do
-                            match ord |> f.Get with
-                            | Some ovar when ovar.Variable |> Variable.count > 1 ->
-                                let after = ord |> change f.Clear
-
-                                match changed ord after with
-                                | [ v ] when v |> OrderVariable.isCleared -> ()
-                                | vs -> $"%s{name} %s{f.Name}: %i{vs.Length} changed"
-                            | _ -> ()
-                ]
-                |> Expect.isEmpty "each clear clears its own variable"
             }
 
             test "the fixtures offer variables to pick from" {

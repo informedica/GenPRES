@@ -654,15 +654,13 @@ module ViewHelpers =
         | Models.OrderContext.Target.Item(cmp, itm, prop) -> Api.OrderViewCommand.SetNthItemProperty(cmp, itm, prop, n)
 
 
-    /// The command that clears the variable the target addresses, with the picks to keep.
-    let reCalcCommand target picks =
+    /// The command that recalculates the variable the target addresses.
+    let reCalcCommand target =
         match target with
-        | Models.OrderContext.Target.Schedule prop -> Api.OrderViewCommand.ReCalcScheduleProperty(prop, picks)
-        | Models.OrderContext.Target.Orderable prop -> Api.OrderViewCommand.ReCalcOrderableProperty(prop, picks)
-        | Models.OrderContext.Target.Component(cmp, prop) ->
-            Api.OrderViewCommand.ReCalcComponentProperty(cmp, prop, picks)
-        | Models.OrderContext.Target.Item(cmp, itm, prop) ->
-            Api.OrderViewCommand.ReCalcItemProperty(cmp, itm, prop, picks)
+        | Models.OrderContext.Target.Schedule prop -> Api.OrderViewCommand.ReCalcScheduleProperty prop
+        | Models.OrderContext.Target.Orderable prop -> Api.OrderViewCommand.ReCalcOrderableProperty prop
+        | Models.OrderContext.Target.Component(cmp, prop) -> Api.OrderViewCommand.ReCalcComponentProperty(cmp, prop)
+        | Models.OrderContext.Target.Item(cmp, itm, prop) -> Api.OrderViewCommand.ReCalcItemProperty(cmp, itm, prop)
 
 
     /// A small spinner below a form's button while its request is under way.

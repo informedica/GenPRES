@@ -372,13 +372,9 @@ module Types =
         | SetNthItemComponentConcentration of cmp: string * itm: string * nth: int
         | SetNthItemOrderableConcentration of cmp: string * itm: string * nth: int
         | SetNthItemOrderableQuantity of cmp: string * itm: string * nth: int
-        // one variable cleared and recalculated
-        | ClearScheduleFrequency
+        // one variable recalculated
         | ReCalcScheduleTime
         | ReCalcOrderableQuantity
-        | ClearOrderableDoseQuantity
-        | ClearOrderableDoseRate
-        | ClearComponentOrderableQuantity of cmp: string
         | ReCalcComponentDoseQuantityAdjust of cmp: string
         | ReCalcItemDoseQuantity of cmp: string * itm: string
         | ReCalcItemDoseQuantityAdjust of cmp: string * itm: string
@@ -386,7 +382,6 @@ module Types =
         | ReCalcItemDosePerTimeAdjust of cmp: string * itm: string
         | ReCalcItemDoseRate of cmp: string * itm: string
         | ReCalcItemDoseRateAdjust of cmp: string * itm: string
-        | ClearItemComponentConcentration of cmp: string * itm: string
         | ReCalcItemOrderableConcentration of cmp: string * itm: string
         | ReCalcItemOrderableQuantity of cmp: string * itm: string
 

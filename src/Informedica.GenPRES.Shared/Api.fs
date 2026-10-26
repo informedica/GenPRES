@@ -54,15 +54,14 @@ module Api =
         | SelectNthOrderScenario of nth: int
         /// A schedule value set to its nth value, counted from 0.
         | SetNthScheduleProperty of property: ScheduleProperty * nth: int
-        /// A schedule value cleared, with the variables the user picked or stepped, in the order
-        /// picked, named without the order id.
-        | ReCalcScheduleProperty of property: ScheduleProperty * picks: string[]
+        /// A schedule value recalculated.
+        | ReCalcScheduleProperty of property: ScheduleProperty
         | SetNthOrderableProperty of property: OrderableProperty * nth: int
-        | ReCalcOrderableProperty of property: OrderableProperty * picks: string[]
+        | ReCalcOrderableProperty of property: OrderableProperty
         | SetNthComponentProperty of cmp: string * property: ComponentProperty * nth: int
-        | ReCalcComponentProperty of cmp: string * property: ComponentProperty * picks: string[]
+        | ReCalcComponentProperty of cmp: string * property: ComponentProperty
         | SetNthItemProperty of cmp: string * itm: string * property: ItemProperty * nth: int
-        | ReCalcItemProperty of cmp: string * itm: string * property: ItemProperty * picks: string[]
+        | ReCalcItemProperty of cmp: string * itm: string * property: ItemProperty
         /// The argumentation the user writes for a deviation from the rules.
         | SetArgumentationProperty of text: string
         /// The filter's choices set from outside its own fields, by name, with the rule of their
@@ -139,19 +138,15 @@ module Api =
             | OrderViewCommand.SetNthComponentsProperty ns -> $"SetNthComponentsProperty nth=%A{ns}"
             | OrderViewCommand.SelectNthOrderScenario n -> $"SelectNthOrderScenario nth=%i{n}"
             | OrderViewCommand.SetNthScheduleProperty(prop, n) -> $"SetNthScheduleProperty %A{prop} nth=%i{n}"
-            | OrderViewCommand.ReCalcScheduleProperty(prop, picks) ->
-                $"ReCalcScheduleProperty %A{prop} %i{picks.Length} picks"
+            | OrderViewCommand.ReCalcScheduleProperty prop -> $"ReCalcScheduleProperty %A{prop}"
             | OrderViewCommand.SetNthOrderableProperty(prop, n) -> $"SetNthOrderableProperty %A{prop} nth=%i{n}"
-            | OrderViewCommand.ReCalcOrderableProperty(prop, picks) ->
-                $"ReCalcOrderableProperty %A{prop} %i{picks.Length} picks"
+            | OrderViewCommand.ReCalcOrderableProperty prop -> $"ReCalcOrderableProperty %A{prop}"
             | OrderViewCommand.SetNthComponentProperty(cmp, prop, n) ->
                 $"SetNthComponentProperty cmp={cmp} %A{prop} nth=%i{n}"
-            | OrderViewCommand.ReCalcComponentProperty(cmp, prop, picks) ->
-                $"ReCalcComponentProperty cmp={cmp} %A{prop} %i{picks.Length} picks"
+            | OrderViewCommand.ReCalcComponentProperty(cmp, prop) -> $"ReCalcComponentProperty cmp={cmp} %A{prop}"
             | OrderViewCommand.SetNthItemProperty(cmp, itm, prop, n) ->
                 $"SetNthItemProperty cmp={cmp} itm={itm} %A{prop} nth=%i{n}"
-            | OrderViewCommand.ReCalcItemProperty(cmp, itm, prop, picks) ->
-                $"ReCalcItemProperty cmp={cmp} itm={itm} %A{prop} %i{picks.Length} picks"
+            | OrderViewCommand.ReCalcItemProperty(cmp, itm, prop) -> $"ReCalcItemProperty cmp={cmp} itm={itm} %A{prop}"
             // never the text: it is the clinician's and stays out of the log
             | OrderViewCommand.SetArgumentationProperty _ -> "SetArgumentationProperty"
             | OrderViewCommand.SeedFilter(source, _, gen, _, _, _) -> $"SeedFilter %A{source} %A{gen}"
@@ -167,7 +162,7 @@ module Api =
             let setNth target n =
                 ctx |> Ctx.setNth target n |> Result.map (Option.defaultValue ctx)
 
-            let reCalc target picks = ctx |> Ctx.reCalc target picks |> Result.map fst
+            let reCalc target = ctx |> Ctx.reCalc target
 
             match cmd with
             | OrderViewCommand.SetNthFilterProperty(field, n) -> ctx |> Ctx.changeFilter field (Some n)
@@ -178,15 +173,13 @@ module Api =
             | OrderViewCommand.SetNthComponentsProperty ns -> ctx |> Ctx.setNthComponents ns
             | OrderViewCommand.SelectNthOrderScenario n -> ctx |> Ctx.selectNthScenario n
             | OrderViewCommand.SetNthScheduleProperty(prop, n) -> setNth (Ctx.Target.Schedule prop) n
-            | OrderViewCommand.ReCalcScheduleProperty(prop, picks) -> reCalc (Ctx.Target.Schedule prop) picks
+            | OrderViewCommand.ReCalcScheduleProperty prop -> reCalc (Ctx.Target.Schedule prop)
             | OrderViewCommand.SetNthOrderableProperty(prop, n) -> setNth (Ctx.Target.Orderable prop) n
-            | OrderViewCommand.ReCalcOrderableProperty(prop, picks) -> reCalc (Ctx.Target.Orderable prop) picks
+            | OrderViewCommand.ReCalcOrderableProperty prop -> reCalc (Ctx.Target.Orderable prop)
             | OrderViewCommand.SetNthComponentProperty(cmp, prop, n) -> setNth (Ctx.Target.Component(cmp, prop)) n
-            | OrderViewCommand.ReCalcComponentProperty(cmp, prop, picks) ->
-                reCalc (Ctx.Target.Component(cmp, prop)) picks
+            | OrderViewCommand.ReCalcComponentProperty(cmp, prop) -> reCalc (Ctx.Target.Component(cmp, prop))
             | OrderViewCommand.SetNthItemProperty(cmp, itm, prop, n) -> setNth (Ctx.Target.Item(cmp, itm, prop)) n
-            | OrderViewCommand.ReCalcItemProperty(cmp, itm, prop, picks) ->
-                reCalc (Ctx.Target.Item(cmp, itm, prop)) picks
+            | OrderViewCommand.ReCalcItemProperty(cmp, itm, prop) -> reCalc (Ctx.Target.Item(cmp, itm, prop))
             | OrderViewCommand.SetArgumentationProperty text -> Ok(ctx |> Ctx.Argumentation.write text)
             | OrderViewCommand.SeedFilter(source, ind, gen, rte, frm, dt) ->
                 Ok(ctx |> Ctx.seedFilter source ind gen rte frm dt)

@@ -508,8 +508,8 @@ module Order =
         React.useEffect ((fun () -> setPicks initialPicks), [| box (shownOrder |> Option.map _.Id) |])
 
         // a pick goes out as the index of its value over the order as it is, and adds what it picked
-        // to the picks; a reopen goes as a clear with the picks from before it, and the server keeps
-        // those made before the cleared one. A value the order does not offer is a bug, written to
+        // to the picks; a reopen goes as a recalculation of the field. A value the order does not
+        // offer is a bug, written to
         // the console and not sent; a reopen then ends when its list closes without a pick
         let updateOrderScenario (ol: OrderLoader) target (s: string option) =
             match props.orderContext with
@@ -529,12 +529,7 @@ module Order =
                 | Some(t, _), None when isReopen ->
                     sentFrom.current <- shownOrder |> Option.map (fun o -> o, heldPicks.current)
 
-                    props.reopen (
-                        heldPicks.current
-                        |> Option.defaultValue [||]
-                        |> Array.map (Models.OrderContext.Picks.withinOrder ol.Order.Id)
-                        |> ViewHelpers.reCalcCommand t
-                    )
+                    props.reopen (ViewHelpers.reCalcCommand t)
                 | Some(t, ovar), Some key when not isReopen ->
                     match Models.OrderContext.values ovar |> Array.tryFindIndex ((=) key) with
                     | Some n ->

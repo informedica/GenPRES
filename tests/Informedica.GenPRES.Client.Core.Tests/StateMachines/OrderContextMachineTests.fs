@@ -742,7 +742,7 @@ let reopenTests =
     let view = OrderContextState.view
 
     let reopen =
-        OrderContextMsg.ReopenField(OrderViewCommand.ReCalcScheduleProperty(ScheduleProperty.Frequency, [||]), "r-1")
+        OrderContextMsg.ReopenField(OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Frequency, "r-1")
 
     let answered ctx = Ok(OrderContextResponse.Evaluated ctx)
 
@@ -757,7 +757,7 @@ let reopenTests =
                     "the clear goes out"
                     [
                         callContext (
-                            OrderViewCommand.ReCalcScheduleProperty(ScheduleProperty.Frequency, [||]),
+                            OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Frequency,
                             { c1 with Patient = patient },
                             "r-1"
                         )
@@ -767,7 +767,7 @@ let reopenTests =
             }
 
             test "a recalculation sent as a command goes out as a reopen sends it, and keeps the state before it" {
-                let reCalc = OrderViewCommand.ReCalcItemProperty("cmp", "itm", ItemProperty.DoseQuantity, [||])
+                let reCalc = OrderViewCommand.ReCalcItemProperty("cmp", "itm", ItemProperty.DoseQuantity)
 
                 let viaCommand = open' |> move (OrderContextMsg.Command(reCalc, "r-1"))
 
@@ -857,13 +857,13 @@ let specificCommandTests =
             OrderViewCommand.SetNthComponentsProperty [| 0 |]
             OrderViewCommand.SelectNthOrderScenario 0
             OrderViewCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 0)
-            OrderViewCommand.ReCalcScheduleProperty(ScheduleProperty.Time, [| "pick" |])
+            OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Time
             OrderViewCommand.SetNthOrderableProperty(OrderableProperty.DoseQuantity, 0)
-            OrderViewCommand.ReCalcOrderableProperty(OrderableProperty.Quantity, [||])
+            OrderViewCommand.ReCalcOrderableProperty OrderableProperty.Quantity
             OrderViewCommand.SetNthComponentProperty("cmp", ComponentProperty.OrderableQuantity, 0)
-            OrderViewCommand.ReCalcComponentProperty("cmp", ComponentProperty.OrderableQuantity, [||])
+            OrderViewCommand.ReCalcComponentProperty("cmp", ComponentProperty.OrderableQuantity)
             OrderViewCommand.SetNthItemProperty("cmp", "itm", ItemProperty.DoseQuantity, 0)
-            OrderViewCommand.ReCalcItemProperty("cmp", "itm", ItemProperty.DoseRate, [||])
+            OrderViewCommand.ReCalcItemProperty("cmp", "itm", ItemProperty.DoseRate)
         ]
 
     let withFrequency freq (sc: OrderScenario) =
@@ -1080,7 +1080,7 @@ let requestOutTests =
                     [
                         OrderContextMsg.Command(step, "r-2")
                         OrderContextMsg.ReopenField(
-                            OrderViewCommand.ReCalcScheduleProperty(ScheduleProperty.Frequency, [||]),
+                            OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Frequency,
                             "r-2"
                         )
                         OrderContextMsg.SeedFilter(urlSeed, "r-2")

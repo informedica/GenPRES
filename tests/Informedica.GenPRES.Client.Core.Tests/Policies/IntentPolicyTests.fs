@@ -163,10 +163,10 @@ module IntentPolicyTests =
         |> withVar (Ctx.Target.Item("cmp", "other", ItemProperty.DoseQuantity)) (ovar maxDose None)
 
 
-    let reCalcItem prop = OrderViewCommand.ReCalcItemProperty("cmp", "itm", prop, [||])
+    let reCalcItem prop = OrderViewCommand.ReCalcItemProperty("cmp", "itm", prop)
 
 
-    let reCalcTime = OrderViewCommand.ReCalcScheduleProperty(ScheduleProperty.Time, [||])
+    let reCalcTime = OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Time
 
 
     /// Every recalculation case the rules allow, with the dose types it is allowed on.
@@ -275,7 +275,7 @@ module IntentPolicyTests =
                         }
 
                         test "a component the order does not hold: not allowed" {
-                            OrderViewCommand.ReCalcItemProperty("gone", "itm", ItemProperty.DoseQuantity, [||])
+                            OrderViewCommand.ReCalcItemProperty("gone", "itm", ItemProperty.DoseQuantity)
                             |> allowed (unconstrained (otherWith maxDose))
                             |> Expect.isFalse "no such component"
                         }
@@ -287,23 +287,15 @@ module IntentPolicyTests =
                         for cmd in
                             [
                                 // the four without a kind
-                                OrderViewCommand.ReCalcOrderableProperty(OrderableProperty.Quantity, [||])
-                                OrderViewCommand.ReCalcComponentProperty(
-                                    "cmp",
-                                    ComponentProperty.DoseQuantityAdjust,
-                                    [||]
-                                )
+                                OrderViewCommand.ReCalcOrderableProperty OrderableProperty.Quantity
+                                OrderViewCommand.ReCalcComponentProperty("cmp", ComponentProperty.DoseQuantityAdjust)
                                 reCalcItem ItemProperty.OrderableQuantity
                                 reCalcItem ItemProperty.OrderableConcentration
                                 // the basic variables and the product strength, while the wire carries them
-                                OrderViewCommand.ReCalcScheduleProperty(ScheduleProperty.Frequency, [||])
-                                OrderViewCommand.ReCalcOrderableProperty(OrderableProperty.DoseQuantity, [||])
-                                OrderViewCommand.ReCalcOrderableProperty(OrderableProperty.DoseRate, [||])
-                                OrderViewCommand.ReCalcComponentProperty(
-                                    "cmp",
-                                    ComponentProperty.OrderableQuantity,
-                                    [||]
-                                )
+                                OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Frequency
+                                OrderViewCommand.ReCalcOrderableProperty OrderableProperty.DoseQuantity
+                                OrderViewCommand.ReCalcOrderableProperty OrderableProperty.DoseRate
+                                OrderViewCommand.ReCalcComponentProperty("cmp", ComponentProperty.OrderableQuantity)
                                 reCalcItem ItemProperty.ComponentConcentration
                             ] do
                             for dt in doseTypes do
@@ -333,8 +325,8 @@ module IntentPolicyTests =
                 test "reopens: the four recalculation commands, no other" {
                     [
                         reCalcTime
-                        OrderViewCommand.ReCalcOrderableProperty(OrderableProperty.Quantity, [||])
-                        OrderViewCommand.ReCalcComponentProperty("cmp", ComponentProperty.DoseQuantityAdjust, [||])
+                        OrderViewCommand.ReCalcOrderableProperty OrderableProperty.Quantity
+                        OrderViewCommand.ReCalcComponentProperty("cmp", ComponentProperty.DoseQuantityAdjust)
                         reCalcItem ItemProperty.DoseQuantity
                     ]
                     |> List.forall IntentPolicy.reopens

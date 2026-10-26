@@ -199,7 +199,7 @@ let tests =
                 OrderContextState.held pat ctxPicked
                 |> OrderContextState.transition (
                     OrderContextMsg.ReopenField(
-                        OrderViewCommand.ReCalcScheduleProperty(ScheduleProperty.Frequency, [||]),
+                        OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Frequency,
                         "r-9"
                     )
                 )
