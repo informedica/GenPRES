@@ -1819,6 +1819,48 @@ module Medication =
             }
 
 
+        /// The order count as a defined constraint: exactly 1 on Once and OnceTimed, else whole and
+        /// at least 1. It is structural and comes from no rule.
+        let withOrderCount (med: Medication) (ord: Order) =
+            let one = ValueUnit.oneCount |> Some
+
+            let constrain =
+                match med.OrderType with
+                | OnceOrder
+                | OnceTimedOrder -> OrderVariable.Constraints.setValues one
+                | _ ->
+                    OrderVariable.Constraints.setMin true one
+                    >> OrderVariable.Constraints.setIncr one
+
+            { ord with
+                Order.Orderable.OrderCount =
+                    ord.Orderable.OrderCount
+                    |> OrderVariable.Count.apply (OrderVariable.mapConstraints constrain)
+            }
+
+
+        /// The dose count set to 1 in its defined constraints when the rules give it no constraints, as
+        /// a solution rule without a minimum and maximum percentage does. A count is created above 0,
+        /// which counts as no constraint. Dose count constraints the rules give are kept as they are.
+        let withDoseCount (ord: Order) =
+            if
+                ord.Orderable.DoseCount
+                |> OrderVariable.Count.toOrdVar
+                |> OrderVariable.hasConstraints
+            then
+                ord
+            else
+                { ord with
+                    Order.Orderable.DoseCount =
+                        ord.Orderable.DoseCount
+                        |> OrderVariable.Count.apply (
+                            OrderVariable.mapConstraints (
+                                OrderVariable.Constraints.setValues (ValueUnit.oneCount |> Some)
+                            )
+                        )
+                }
+
+
         /// Build an Order from a Medication: the shape, and then every constraint. The start
         /// is the caller's, in UTC.
         let build (start: DateTime) (med: Medication) =
@@ -1830,6 +1872,8 @@ module Medication =
             |> withOrderableConstraints med
             |> withPrescription med
             |> withAdjustment med
+            |> withOrderCount med
+            |> withDoseCount
 
 
     /// Build an Order from a Medication, or say why it could not be built. The start is the

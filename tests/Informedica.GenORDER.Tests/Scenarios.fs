@@ -2099,3 +2099,125 @@ Components:
             - "0.154"
           Unit: mmol/ml
 """
+
+
+/// Hydrocortison intravenous, given once to a patient of 14.5 kg, as a use case logged it: its
+/// solution rule gives the dose count a minimum of 1 and no maximum, so the dose count is free.
+let hydrocortisonIvText =
+    """
+Id: 7547eb68-ff3d-4f46-9846-672210fc429d
+Name: hydrocortison
+Route: INTRAVENEUS
+OrderType: OnceOrder
+Quantities:
+  Value:
+    - "5"
+    - "10"
+    - "50"
+    - "100"
+  Unit: ml
+Adjust:
+  Value:
+    - "14.5"
+  Unit: kg
+Dose:
+  DoseUnit: ml
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+Components:
+  - Name: hydrocortison
+    Form: poeder voor injectievloeistof
+    Quantities:
+      Value:
+        - "2"
+      Unit: ml
+    Divisible: "10"
+    Products:
+      - Id: "1112"
+        FormQuantities:
+          Value:
+            - "2"
+          Unit: ml
+        Strengths:
+          - Substance: hydrocortison
+            Strength:
+              Value:
+                - "50"
+              Unit: mg/ml
+    Substances:
+      - Name: hydrocortison
+        Quantities:
+          Value:
+            - "100"
+          Unit: mg
+        Concentrations:
+          Value:
+            - "50"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: mg
+          AdjustUnit: kg
+          QuantityAdjust:
+            Min:
+              Value:
+                - "2"
+              Unit: mg/kg
+              Inclusive: true
+            Max:
+              Value:
+                - "2"
+              Unit: mg/kg
+              Inclusive: true
+        Solution:
+          Quantity:
+            Max:
+              Value:
+                - "100"
+              Unit: mg
+              Inclusive: true
+          Concentration:
+            Max:
+              Value:
+                - "50"
+              Unit: mg/ml
+              Inclusive: true
+  - Name: NaCl 0,9%
+    Form: vloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Products:
+      - Id: NaCl 0,9%
+        FormQuantities:
+          Value:
+            - "1"
+          Unit: ml
+        Strengths:
+          - Substance: natrium
+            Strength:
+              Value:
+                - "0.155"
+              Unit: mmol/ml
+          - Substance: chloor
+            Strength:
+              Value:
+                - "0.155"
+              Unit: mmol/ml
+    Substances:
+      - Name: natrium
+        Concentrations:
+          Value:
+            - "0.155"
+          Unit: mmol/ml
+      - Name: chloor
+        Concentrations:
+          Value:
+            - "0.155"
+          Unit: mmol/ml
+"""

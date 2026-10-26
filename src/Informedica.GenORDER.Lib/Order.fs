@@ -3151,14 +3151,20 @@ module Order =
     let setCalculatedConstraints ord = ord |> mapOrdVars OrderVariable.setCalculatedConstraints
 
 
-    /// Check whether all OrderVariables in an Order are solved
-    /// (i.e., have a single value within their constraints)
-    /// and have constraints
-    /// NOTE: an OrderVariable without constraints is considered solved
-    let isSolved =
-        toOrdVars
-        >> List.filter OrderVariable.hasConstraints
-        >> List.forall OrderVariable.isSolved
+    /// Whether every variable of an order that has constraints holds one value. A variable without
+    /// constraints counts as solved. The order count is left out: the dose dialog never sets how many
+    /// times an order is dispensed, so it stays a range.
+    let isSolved ord =
+        let orderCount =
+            ord.Orderable.OrderCount
+            |> OrderVariable.Count.toOrdVar
+            |> OrderVariable.getName
+
+        ord
+        |> toOrdVars
+        |> List.filter OrderVariable.hasConstraints
+        |> List.filter (OrderVariable.getName >> (<>) orderCount)
+        |> List.forall OrderVariable.isSolved
 
 
     /// Whether the order is still a complete order after a recalculation: it is solved, and every
