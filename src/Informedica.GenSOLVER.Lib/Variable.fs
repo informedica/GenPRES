@@ -2325,9 +2325,20 @@ module Variable =
             match vr with
             | ValSet vs -> Some vs
             | MinIncrMax(min, incr, max) ->
-                // counted before the list is made, so a large range is never built
-                if minIncrMaxCount min incr max < BigRational.FromInt maxCount then
-                    ValueSet.minIncrMaxToValueSet min incr max |> Some
+                let vu = incr |> Increment.toValueUnit
+                let single v =
+                    [| v |] |> ValueUnit.create (vu |> ValueUnit.getUnit) |> Increment.create
+
+                // each increment is counted on its own before the list is made, so no list of more
+                // than maxCount values per increment is built
+                if
+                    vu
+                    |> ValueUnit.getValue
+                    |> Array.forall (fun v -> minIncrMaxCount min (single v) max < BigRational.FromInt maxCount)
+                then
+                    ValueSet.minIncrMaxToValueSet min incr max
+                    |> Some
+                    |> Option.filter (fun vs -> vs |> ValueSet.count < maxCount)
                 else
                     None
             | _ -> None

@@ -1914,6 +1914,25 @@ module Tests =
                                     minIncrMax 100N |> ValueRange.tryToValueSet 10 |> Expect.isNone "not listed"
                                 }
 
+                                test "a range with two increments is listed by its distinct values" {
+                                    // 2 to 12 by 2 and 3: 2, 3, 4, 6, 8, 9, 10 and 12
+                                    let range =
+                                        ValueRange.create
+                                            (createMin true 2N |> Some)
+                                            ([| 2N; 3N |]
+                                             |> ValueUnit.withUnit Units.Count.times
+                                             |> Increment.create
+                                             |> Some)
+                                            (createMax true 12N |> Some)
+                                            None
+
+                                    range
+                                    |> ValueRange.tryToValueSet 9
+                                    |> Expect.equal "eight values" (Some(valueSet [ 2N; 3N; 4N; 6N; 8N; 9N; 10N; 12N ]))
+
+                                    range |> ValueRange.tryToValueSet 8 |> Expect.isNone "not fewer than eight"
+                                }
+
                                 test "a range without a maximum is not listed" {
                                     createMin true 1N
                                     |> Min
