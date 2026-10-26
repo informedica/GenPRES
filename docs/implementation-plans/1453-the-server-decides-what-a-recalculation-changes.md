@@ -11,8 +11,8 @@ rest of the order allows. The four basic variables are not named by a recalculat
 orderable dose rate, the schedule frequency, the component orderable quantity and the orderable dose
 quantity are stepped or selected. The script holds more than the recalculation: every processor
 command becomes an action of one program, run as a list of effects. This plan migrates the complete
-script in steps, the recalculation first. Closes #1453, #1276 and #1343, refs #1034, #1349 and
-#1464; the plan for the open TPN issues builds on it. Code is named by its function or file; each
+script in steps, the recalculation first. Closes #1453, #1276 and #1343, refs #1034, #1349
+and #1464; the plan for the open TPN issues builds on it. Code is named by its function or file; each
 step's pull request finds where it is on `master` then.
 
 ## Problem description
