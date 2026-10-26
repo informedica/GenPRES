@@ -11,6 +11,7 @@ Instructions for AI coding agents working on the GenPRES repository. Make edits 
 > - Adding, updating or correcting **comments and documentation**
 > - **Targeted refactoring of a single function** when explicitly requested by the user
 > - **Client-side UI code** in `src/Informedica.GenPRES.Client/`, because Fable/Elmish UI code cannot run in FSI. The exception stops there: `src/Informedica.GenPRES.Client.Core/` is plain F# that runs under Expecto and in FSI, so it goes through a script like any other library
+> - **Deleting code**, and the call-site changes a deletion forces, such as a parameter that goes with the function that read it. A deletion adds no behaviour to prototype; the tests that covered the deleted code go with it
 >
 > **Every change traces to an issue.** A pull request addresses an issue, or a step of an implementation plan that is based on one or more issues. A migration script names the issue, or the plan and step, in its opening comment.
 >

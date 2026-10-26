@@ -3,24 +3,25 @@
 2026-10-13, revised 2026-10-26 to migrate the order program of
 `src/Informedica.GenORDER.Lib/Scratch/OrderVariablesAndEquations.fsx`. The client's pick list goes.
 A recalculation of an order value is one action that names the variable; the server picks the recipe
-from that action, sets back what the variables the recipe keeps do not determine, and marks on every
-order variable it sends whether it can be recalculated. The commands are named for what they do:
+from that action and sets back what the variables the recipe keeps do not determine. The client
+decides from the order it holds which field offers a recalculation, by an explicit rule per intent
+case; the server sends no mark. The commands are named for what they do:
 `Clear` becomes `ReCalc`, since the field is never left empty, it comes back with the values the
 rest of the order allows. The four basic variables are not named by a recalculation command: the
 orderable dose rate, the schedule frequency, the component orderable quantity and the orderable dose
 quantity are stepped or selected. The script holds more than the recalculation: every processor
 command becomes an action of one program, run as a list of effects. This plan migrates the complete
-script in steps, the recalculation first. Closes #1453, #1276 and #1343, refs #1034, #1349 and
-#1464; the plan for the open TPN issues builds on it. Code is named by its function or file; each
+script in steps, the recalculation first. Closes #1453, #1276 and #1343, refs #1034, #1349
+and #1464; the plan for the open TPN issues builds on it. Code is named by its function or file; each
 step's pull request finds where it is on `master` then.
 
 ## Problem description
 
-A field with one value reopens by its arrow: the client asks the server to recalculate it and
-shows the list the server answers. Which fields get the arrow, and what the server does with the
-request, both read the client's pick list, the variables the user picked or stepped in the
+A field with one value is selectable for a recalculation: the client asks the server to
+recalculate it and shows the list the server answers. Which fields are selectable, and what the
+server does with the request, both read the client's pick list, the variables the user picked or stepped in the
 dialog. The list lives in the drug workbench's dialog alone. The plan dialog and the nutrition
-slot have none, so there every field with one value reopens, and a request on a value another
+slot have none, so there every field with one value is selectable, and a request on a value another
 variable pins comes back as it was. A value the server sets by itself, as the composed TPN will
 set every component, the dose and the rate, would read as a pick in the workbench and as unknown
 everywhere else. The list also makes the server's `Reopen` carry names across the wire.
@@ -30,10 +31,10 @@ variable is unrestricted for the length of one solve and comes back with a list,
 value when the rest of the order fixes it. A reader of the code, the wire or the trail takes a
 clear for an emptied field.
 
-The maintainer decided on 2026-10-12 and 2026-10-13: the pick list disappears; the server
-decides which field can be recalculated; the recipe is picked from the command itself; the mark
-is derived when the order is sent, never stored; the commands are named `ReCalc`; the basic
-variables are stepped, the derived ones recalculated.
+The maintainer decided on 2026-10-12, 2026-10-13 and 2026-10-26: the pick list disappears; the
+client decides which field offers a recalculation, by an explicit rule per intent case over the
+order it holds; the server sends no mark; the recipe is picked from the command itself; the
+commands are named `ReCalc`; the basic variables are stepped, the derived ones recalculated.
 
 ## What the code does today
 
@@ -44,10 +45,11 @@ variable; a reopen keeps the picks made before the cleared one and holds the res
 (`heldPicks`, `Order.fs`). The nutrition slot sends every clear with an empty list
 (`NutritionSlot.fs`).
 
-**The arrow.** `FieldOpenPolicy.orderVariable` gives a field with one value the arrow when the
-user constrained it or the order does not say, and no arrow when the solver determined it;
+**The selectable field.** `FieldOpenPolicy.orderVariable` makes a field with one value selectable
+when the user constrained it or the order does not say, and not selectable when the solver
+determined it;
 `constrained` is read from the pick list. With no list every variable reads unknown, so the plan
-dialog and the slot show the arrow on every solved field.
+dialog and the slot make every solved field selectable.
 
 **The wire.** Four clear commands carry the picks: `ClearScheduleProperty`,
 `ClearOrderableProperty`, `ClearComponentProperty`, `ClearItemProperty` (`Api.fs`);
@@ -113,7 +115,7 @@ and answers the context unchanged when there is none (`ServerApi.OrderContextCom
 
 **How it came to be.** Until #1207 there was no pick list: the cross emptied one field and the
 server ran the cleared order process; every field offered the cross, so a request the process
-had no arm for did nothing visible. #1034 answered that on the client with the arrow and a
+had no arm for did nothing visible. #1034 answered that on the client with the selectable field and a
 record of the picks, kept on the scenario by #1207 and moved to the dialog by #1252. The
 knowledge of what a request recalculates stayed in the server's match arms, unread.
 
@@ -214,15 +216,15 @@ The script is migrated so that the source stays as clean as before:
 |---|---|
 | The pick list | Disappears from the client. |
 | A field the process has no arm for | A recipe for every field the pages can recalculate. #1276 closes with it. The script has no kind for four of the commands (Table 4), so they are refused. |
-| The wire and the server reopen | The picks leave the wire; `Reopen`, `clearedPick` and the put-back leave the processor; `ReopenOrderScenario` leaves the order context. |
+| The wire and the server recalculation | The picks leave the wire; `Reopen`, `clearedPick` and the put-back leave the processor; `ReopenOrderScenario` leaves the order context. |
 | How the server picks the recipe | From the command, which names the field and its component or item. The scan for an unrestricted variable, the tuple pattern, `DoseSolvedAndCleared` and the `process-cleared` step go. |
-| Who says which field can be recalculated | The server marks each order variable it sends; the field reads the mark. |
-| What the mark means | A recipe exists for the command on this order, and the variable holds one value. The mark does not run the recipe: a field another value pins is marked and comes back with a list of one, shown as any list of one. |
-| Where the mark is computed | Derived when the order is sent, never stored: the server mapper folds over the order's targets and marks each from its command, so the marked places and the places a page can ask are one set. GenORDER exposes one pure function. The stored JSON and its structure version 6 do not move. `Target` is a Shared type, so the fold lives in the server, which the dependency rule allows and GenORDER may not. |
+| Who says which field can be recalculated, 2026-10-26 | The client, alone. One policy in Client.Core states per intent case whether it is allowed on a field, from the wire order the client holds: the values, the defined constraints and the schedule flags. The server sends no mark, on the wire or on the Dto. The server keeps `Recipe.forReCalcCommand` with its None arms as the guard; there is no agreement test, since a drift shows in the code and is fixed at once. |
+| What selectable means | The intent case is allowed on this order and the variable holds one value. The rule does not run the recipe: a field another value pins is selectable and comes back with a list of one, shown as any list of one. |
+| The intent cases | The wire's `OrderViewCommand` cases, grouped as today (`ReCalcItemProperty of cmp * itm * ItemProperty`); the property types are finite, so the cases are fully specified. The four basic variables and the product strength have no recalculation case, so the type itself says they are never recalculated. |
 | The name | `ReCalc`, as the processor's `ReCalcValues` spells it. What sets a value range to unrestricted keeps the name `clear` (`Variable.clear` and the like), and so do the wire commands that set a filter or a diluent to none. |
 | The basic variables | The orderable dose rate, the schedule frequency, the component orderable quantity and the orderable dose quantity are the user's levers: stepped or selected, never named by a recalculation command. Their commands go: `ClearOrderableDoseRate`, `ClearScheduleFrequency`, `ClearComponentOrderableQuantity`, `ClearOrderableDoseQuantity`. A recalculation of a derived variable can still set a basic variable back, as the kinds of Table 5 do. |
 | The product's constant | An item's concentration in its component is not recalculated: `ClearItemComponentConcentration` goes. Eleven commands remain. Undoing a strength pick then takes a reset of the order; #1500 asks for a way back without one. |
-| Direct edits, 2026-10-26 | The mark and the client changes of steps 11 to 14, in GenORDER (`canReCalc`), the server, Shared and Client.Core, are written in the source directly, without a migration script. |
+| Script first, also for the client, 2026-10-26 | A Client.Core change that adds or changes behaviour, step 11, is written and tested in a script, reviewed, and migrated in one go when every test passes. A commit is made only when the script is migrated into the source. Deleting code, and the call-site changes a deletion forces, go straight into the source without a script, in any library: steps 12a, 12b and 13. The Fable UI code of `src/Informedica.GenPRES.Client/` is edited directly. AGENTS.md states both exemptions. |
 | Where | Its own plan, before the TPN steps. |
 | The scope, 2026-10-26 | The complete script is implemented: the recalculation, the set, step and percentile, CalcConstraints, CalcValues and Reset, creation, the impossible values and the split per concentration. The plan decides the order of the steps, not what goes in. |
 
@@ -233,7 +235,7 @@ The script is migrated so that the source stays as clean as before:
 | Issues for the rest | Every step traces to an issue. The recalculation steps trace to #1453 and #1276. The steps that change the set and step commands, creation and the impossible values change behaviour the document lists in its Table 15; each gets an issue before its step starts, or a reference to #1464 where it measured the case. |
 | The design document | `localDocs/order-variables-and-equations.md` is untracked. It moves to `docs/domain/order-variables-and-equations.md` in step 1, so the plan and the code can name its tables. |
 | The restore | Stays, as #1034 decided. |
-| The second path for a reopen (#1343) | Folded in: the machines read a reopen from the command itself, so `ReopenField`, the `reopen` callbacks and the `reopening` refs go; the arrow dispatches the command. |
+| The second path for a recalculation (#1343) | Folded in: the machines read a recalculation from the command itself, so `ReopenField`, the `reopen` callbacks and the `reopening` refs go; a selectable field dispatches the command. |
 
 **Table 2a. What the script does, implemented as it is**
 
@@ -259,11 +261,15 @@ The script is migrated so that the source stays as clean as before:
    The command already says which field it recalculates. Rejected.
 4. **The mark stored on the Dto.** The Dto is the stored shape; the rule is never to store what
    can be derived, and the flag would go stale when a recipe changes. Rejected.
-5. **The mark from a pass over the Dto's fields.** Gives a kind to fields no command reaches, so
-   the arrow would have nothing to send, and is a second reader of kinds. Rejected.
+5. **A mark the server derives when the order is sent**, from a pass over the Dto's fields or
+   from a fold over the targets in the server mapper, read by the client as a flag per order
+   variable. The server would say what a client may do with a field, build the domain order once
+   per scenario per answer, and the agreement between the marked places and the places a page can
+   ask would need its own tests. The client already holds the values, the defined constraints and
+   the schedule flags, which is everything the rule reads. Rejected, 2026-10-26.
 6. **Keep the word clear and the five commands.** The code would keep saying a field is emptied
-   where it is recalculated, and the basic variables would keep an arrow whose answer is a step
-   in disguise. Rejected.
+   where it is recalculated, and the basic variables would stay selectable with an answer that
+   is a step in disguise. Rejected.
 7. **Recipes that list what each kind sets back, held, and frees**, the first version of this
    plan. Every list had to name every variable an equation ties to the asked one, per dose type
    and component count, and one variable held by mistake pins the field. Replaced by 8.
@@ -314,9 +320,10 @@ on the order of the scenario; every other command as today.
 | `Ctx.clear` (`Models.fs`), `ViewHelpers.clearCommand` | `Ctx.reCalc`, `ViewHelpers.reCalcCommand` |
 | `Arrow.ReopenCleared`, `Click.ClearAndWait` (`FieldOpenPolicy.fs`) | `Arrow.ReCalc`, `Click.ReCalcAndWait` |
 
-`processClearedRate` and `processClearedDose` keep their names until step 13b deletes them; the
+`processClearedRate` and `processClearedDose` keep their names until step 12b deletes them; the
 recipes that replace them are `Recipe.reCalcTime` and `Recipe.reCalcDose`. Later steps add the
-types of Table A, `Determination.fs`, `OrderVariable.CanReCalc`, `OrderProcessor.canReCalc` and the
+types of Table A, `Determination.fs`, `IntentPolicy` in Client.Core, the rename of
+`FieldOpenPolicy.Arrow` to `Selectable` with the cases `ReCalc`, `List` and `No` in step 11, and the
 test files of each step.
 
 ### The kinds
@@ -358,54 +365,64 @@ variable the kept ones do not determine to any positive value on its defined inc
 the target, and then set the floors they name. They replace the four shipped step functions and
 `orderPropertySetPercOrderableDoseQuantity`.
 
-### The mark, derived when the order is sent
+### The client decides what a field offers
 
-GenORDER exposes `OrderProcessor.canReCalc: Order -> ChangePropertyCommand -> bool`: the command
-maps to `ReCalc` of a variable through the bridge, `Recipe.forReCalcCommand` gives a kind for it
-on this order, and the variable holds one value. The kind depends on the order's dose type and
-on which component doses the rules constrain, so the mark reads the domain order, not only the
-dose type and the component count.
+One policy in Client.Core, `IntentPolicy`, beside `FieldOpenPolicy`, answers for an intent case and
+the wire order whether the intent is allowed. It reads nothing the wire does not carry today: the
+server mapper writes the defined and the calculated constraints on every order variable
+(`ServerApi.Mappers.Order.fs`), the values are `Variable.Vals`, and `Schedule` carries the dose
+type as five flags. Nothing is added to the wire, the Dto or the stored JSON.
 
-The server mapper maps the wire order as today, then folds over the targets the order holds and
-writes each through `Target.map` with a setter that reads the variable it is applied to:
-`CanReCalc` is `canReCalc` of the scenario's order and the recalculation command of
-`propertyCommands target`, false when the target has none. The mapper works from the scenario
-Dto (`ServerApi.Mappers.OrderContext.fs`), so the fold builds the domain order from it once
-per scenario with `Order.Dto.fromDto`; step 11 measures that cost on the TPN fixtures.
-`Target.map` fans out for two targets (`Models.fs`); since the setter reads its own variable,
-each gets its own mark, and the fold is idempotent. The marked places and the places
-`ViewHelpers.reCalcCommand` can send are one set by construction; `mapToOrderVariableWith` and
-its 27 sites stay; nothing is stored.
+The rule per intent case, as Table 4 has it, in wire terms:
 
-The fold lives in `ServerApi.Mappers.OrderContext.fs`; a new enumeration of an order's targets and
-the recalculation half of `propertyCommands` sit above it, since `Mappers.Order.fs` compiles first
-and does not know the targets.
+- A recalculation is allowed only on a field that holds one value (`Vals` of length 1, as
+  `PickListPolicy.valuesOf` counts today). Several values are selectable as a list without a
+  request; a range is not selectable.
+- `ReCalcItemProperty` with `DoseQuantity` or `DoseQuantityAdjust`: on Once, Discontinuous, Timed
+  and OnceTimed. With `DosePerTime` or `DosePerTimeAdjust`: on Discontinuous and Timed. With
+  `DoseRate` or `DoseRateAdjust`, and `ReCalcScheduleProperty Time`: on Continuous, Timed and
+  OnceTimed.
+- An item dose of a component the rules do not constrain is never allowed: no dose variable of the
+  component, and none of any of its items, has defined constraints. The check mirrors
+  `OrderVariable.hasConstraints`: constraints that are empty, or non-zero positive alone, do not
+  count.
+- `ReCalcOrderableProperty Quantity`, `ReCalcComponentProperty DoseQuantityAdjust`,
+  `ReCalcItemProperty OrderableQuantity` and `ReCalcItemProperty OrderableConcentration`: never
+  allowed, the four commands of Table 4 without a kind.
+- The four basic variables and the product strength have no recalculation case once step 12a has
+  deleted their five commands, so from then on the type says it. Until then the wire still carries
+  the five, so the policy refuses them explicitly, with a test; step 12a deletes that arm with the
+  commands. A step is its own intent case, allowed on one value with a defined increment. The
+  component orderable quantity is selectable by its own intent case, so a page can offer it; when
+  the server cannot answer that intent, that is fixed on the server.
 
-The agreement is tested both ways over every target: the variable the fold marks is the one
-`Target.tryGet` reads; a target with a kind is marked exactly when its variable holds one value; a
-target without one never; on an order with two components carrying a same-named item, each
-item's marks equal its own variable's state.
+The server keeps `Recipe.forReCalcCommand` with its None arms as the guard: a recalculation the
+client should not have sent is refused as `NotSolved`, the field keeps its one value and the client
+shows its "not solved" text (`OrderContextRefusalPolicy`). That message is accepted as it is: the
+client never sends such a request, so the text is the visible sign of a drift. There is no
+agreement test between the policy and the recipes: a drift is visible in the code and is fixed at
+once. `Target` and `propertyCommands` stay as they are.
 
-The mark switches itself off: after a recalculation the field holds a list, its mark is false
-and the field shows the list as `Open`. A restore puts the kept state back, the mark included.
+After a recalculation the field holds a list and is selectable as a list. A restore puts the kept
+state back, the one value included.
 
 ### The contract, the server and the client
 
-The four wire commands lose their `picks`, and `toString` its count. `OrderVariable` on the wire
-gains `CanReCalc: bool`. `Ctx.reCalc`, `Api.preview`, `Picks.withinOrder` and `Picks.ofOrder` lose
-the picks or go.
+The four wire commands lose their `picks`, and `toString` its count. The wire order variable does
+not change. `Ctx.reCalc`, `Api.preview`, `Picks.withinOrder` and `Picks.ofOrder` lose the picks or
+go.
 
-`PickListPolicy` goes. `FieldOpenPolicy.Constrained` goes; `orderVariable` takes the mark: one
-value and marked gives `ReCalc`, one value and not marked `NoArrow`, several values `Open`, as
-the #1034 table has it. `Views/Order.fs` loses `picks`, `heldPicks`, the picks half of `sentFrom`
-and the pick bookkeeping; `reopenOf` in `Order.fs` and `NutritionSlot.fs` reads `ovar.CanReCalc`.
-`ViewHelpers.Reopen` loses `constrained`. With #1343 folded in, the machines keep the state before
-a recalculation when the command is one of the four wire ReCalc commands, read by one predicate,
-`reopens`;
-`ReopenField` on both machines and both environment interfaces, the `reopen` prop of `Order.View`,
-the `planReopen` prop of `useSlot` and its pass-through in the three nutrition views, and the
-`reopening` refs go. `RestoreField` and `Kept` stay. The trail prints the command name, so it
-follows the rename.
+`PickListPolicy` goes. `FieldOpenPolicy.Constrained` goes; `orderVariable` takes the policy's
+answer: one value and allowed gives `Selectable.ReCalc`, one value and not allowed
+`Selectable.No`, several values `Selectable.List`, as the #1034 table has it; step 11 renames the
+type from `Arrow`. `Views/Order.fs` loses `picks`, `heldPicks`, the picks half of
+`sentFrom` and the pick bookkeeping; `reopenOf` in `Order.fs` and `NutritionSlot.fs` asks
+`IntentPolicy` for the field's recalculation case over the order shown. `ViewHelpers.Reopen` loses
+`constrained`. With #1343 folded in, the machines keep the state before a recalculation when the
+command is one of the four wire ReCalc commands, read by one predicate, `reopens`; `ReopenField` on
+both machines and both environment interfaces, the `reopen` prop of `Order.View`, the `planReopen`
+prop of `useSlot` and its pass-through in the three nutrition views, and the `reopening` refs go.
+`RestoreField` and `Kept` stay. The trail prints the command name, so it follows the rename.
 
 ### The tests
 
@@ -423,13 +440,13 @@ compare against; they never reach the test project.
 
 ## Checked, no change needed
 
-- **The signing digest** is over the parsed typed order (`ServerApi.Session.fs`); the mark is
-  not on the Dto, so neither the digest nor the stored JSON moves.
+- **The signing digest** is over the parsed typed order (`ServerApi.Session.fs`); nothing is added
+  to the Dto or the wire order, so neither the digest nor the stored JSON moves.
 - **The golden orders** are printed orders, not Dto JSON.
 - **The stored rows hold no commands**: only the composition root and the command handler see
   `OrderViewCommand`, so the rename costs no compatibility.
-- **`Target` addresses variables by place**, so the fold needs no name.
-- **The dialog's editing gate** stays in front of the mark: `selectFor` asks
+- **`Target` addresses variables by place**, so the policy needs no name.
+- **The dialog's editing gate** stays in front of the policy: `selectFor` asks
   `PlanContextPolicy.canEdit` first (`Order.fs`).
 - **The MCP host and the benchmarks** use neither the commands nor the pick list.
 - **The two #1425 tests** that empty the median rate, tpn and the once timed KCl, go through
@@ -440,7 +457,7 @@ compare against; they never reach the test project.
 
 ## Confidence
 
-High for the client: it removes code and reads one flag. High for the routing: the action names
+High for the client: it removes code and reads one policy over the order it already holds. High for the routing: the action names
 the variable the detection had to find. High for the recipes' shape: the script runs the laws of
 the document over the fixtures, the containment, the narrowing, the determination, the offered
 values, the complete orders, and compares every recipe with the shipped one. Medium for what a
@@ -455,15 +472,16 @@ One PR per step, after the maintainer's go. Each step builds and is safe to rele
 step 0 changes names only; the program runs only for the commands the bridge maps, so steps 2 to
 6 add code nothing calls yet; step 7a moves the eleven recalculation commands and keeps the picks
 parameter of `ReCalcOrderValue` for the five commands of the basic variables and the product
-strength, which stay on the old `Reopen` path until the client stops showing their arrow in step
-12; step 13a changes the wire and the client call sites together; steps 12 and 14 add before they
+strength, which stay on the old `Reopen` path until the client stops offering them in step
+11; step 12a changes the wire and the client call sites together; steps 11 and 13 add before they
 remove. Source lines are shipped code under `src/`,
 tests and scripts excluded. Every step follows the migration rules and Table B, and the
-maintainer's review checks them. Every `.fs` change outside `src/Informedica.GenPRES.Client/` comes
-from the script, reviewed and migrated when the maintainer asks, except the direct edits of steps
-11 to 14 (Table 1); the step's tests pass in the
-script first, then in the test project. The step that moves the last part of the program deletes
-the script.
+maintainer's review checks them. Every `.fs` change outside `src/Informedica.GenPRES.Client/` that
+adds or changes behaviour comes from a script, reviewed and migrated when the maintainer asks: the
+GenORDER steps from the order program's script, step 11 from its own; the step's tests pass in the
+script first, then in the test project. A deletion, and the call-site changes it forces, goes
+straight into the source (Table 1): steps 12a, 12b and 13. The step that moves the last part of the
+program deletes its script.
 
 0. **The names.** Table 3, across GenORDER (`Types.fs`, the arms of `processChangeProperty`
    at `OrderProcessor.fs`, `ClearOrderValue` with `Command.get` and `toString`), Shared
@@ -475,7 +493,7 @@ the script.
    `OrderValueAgreementTests.fs`, `OrderContextCommandTests.fs`, the `FieldOpenPolicy` and trail
    tests); `Issue1425Staged.fsx`, `docs/domain/genorder-order-fsm.md` and the script's
    `CommandBridge` follow. The five commands keep their `Clear` names and their path until step
-   13a; only `processClearedFrequency`, which nothing calls, goes here. No behaviour changes.
+   12a; only `processClearedFrequency`, which nothing calls, goes here. No behaviour changes.
    About 100 lines.
    `refactor(api): rename the clear commands ReCalc`.
 
@@ -595,31 +613,34 @@ the script.
       fixtures. About 100 lines. The script is deleted here.
       `feat(genorder): solve an order per combination of concentrations`.
 
-11. **The mark, GenORDER and the server.** A direct edit (Table 1). `OrderProcessor.canReCalc`
-    with tests over every command, dose type and fixture; the fold in
-    `ServerApi.Mappers.OrderContext.fs` at the scenario's order, with the recalculation half of
-    `propertyCommands` above it and a new enumeration of an order's targets, which
-    `OrderValueAgreementTests.fs` and `OrderContextCommandTests.fs` use in place of their own two
-    copies; the agreement tests and tests that a range, a total, the dose count, the five fields and
-    the four commands without a kind are never marked, and a per kg item target is marked with its
-    plain form. The pull request reports the time `Order.Dto.fromDto` adds per answer on the TPN
-    fixtures. The wire type gains `CanReCalc` here, with Shared's `OrderVariable.create`
-    (`Models.fs`); the Client.Core tests that build the wire record get the field
-    (`SeverityReasonPolicyTests.fs`, `QuantityModePolicyTests.fs`, `SectionFoldPolicyTests.fs`,
-    `PickListPolicyTests.fs`). Under 150 lines.
-    `feat(api): the server marks the fields a page can recalculate`.
+11. **The intent policy, and the views that ask it.** One pull request, in two parts that build
+    together. The Client.Core part is a script in `src/Informedica.GenPRES.Client.Core/Scripts/`
+    that holds `IntentPolicy` with its tests: every recalculation case on every dose type, as the
+    rule section lists them, over wire orders built as the policy tests build them; a field with
+    several values or a range; an item dose of a component the rules do not constrain, with
+    constraints that are empty or non-zero positive alone; the four cases without a kind; a step
+    on one value with and without a defined increment; the five commands of the basic variables
+    and the product strength refused explicitly while the wire still carries them, an arm step 12a
+    deletes. In the same script, `FieldOpenPolicy.orderVariable` takes `allowed: bool` in place
+    of `constrained`, tested over the #1034 table; `FieldOpenPolicy.Arrow` is renamed `Selectable`
+    with the cases `ReCalc`, `List` and `No`; and `reopens` is a policy predicate over the four
+    wire ReCalc commands, tested. The two machines keep `Kept` on a recalculation as they do on
+    `ReopenField`, tested in `OrderContextMachineTests.fs` and `OrderPlanMachineTests.fs`. The
+    script is reviewed and migrated in one go when every test passes. The UI part is a direct edit
+    of the Fable code, as AGENTS.md allows, in the same pull request, since the signature and the
+    rename break its callers: `ViewHelpers.fs` passes the policy's answer and matches
+    `Selectable`; `reopenOf` in `Order.fs` and `NutritionSlot.fs` asks `IntentPolicy` for the
+    field's recalculation case over the order shown. Additive, the pick list still works beside
+    it. The four basic variables and the product strength have no recalculation case, so they
+    stop being selectable for a recalculation here; the nutrition slot keeps its steps on the
+    component orderable quantity, the dose quantity, the frequency and the rate, and the component
+    orderable quantity stays selectable by its own intent case. Nothing changes in GenORDER, the
+    server or Shared. Fable compile check, `npx vite build`; the commit is made when the script is
+    migrated. Under 200 lines.
+    `feat(client): the intent policy says which field offers a recalculation`.
 
-12. **The client reads the mark.** A direct edit. Additive, the pick list still works beside it:
-    `FieldOpenPolicy.orderVariable` takes `canReCalc: bool` in place of `constrained`, tested over
-    the #1034 table; `ViewHelpers.fs` passes `ovar.CanReCalc`; `reopens` in a policy, tested; the
-    two machines keep `Kept` on a recalculation as they do on `ReopenField`, tested in
-    `OrderContextMachineTests.fs` and `OrderPlanMachineTests.fs`; `reopenOf` in both views reads
-    the mark. The five commands of the basic variables and the product strength are never marked,
-    so their arrows go here. Fable compile check, `npx vite build`. Under 150 lines.
-    `feat(client): the field reads whether it can be recalculated`.
-
-13. **The wire loses the picks and the old path goes.**
-    - **13a, the wire.** A direct edit. The four commands without `picks` and `toString` without
+12. **The wire loses the picks and the old path goes.**
+    - **12a, the wire.** A removal, no script (Table 1). The four commands without `picks` and `toString` without
       the count; `ReCalcOrderValue` without its picks parameter and the mapper without
       `Picks.ofOrder`; `Ctx.reCalc` and `Api.preview` without picks, `Picks` gone; the client call
       sites the contract breaks, `ViewHelpers.reCalcCommand` and its callers in `Order.fs` and
@@ -631,7 +652,7 @@ the script.
       shapes; the `Ctx.reCalc` tests in `OrderContextCommandTests.fs`, `OrderValueAgreementTests.fs`
       and the trail tests follow. Under 150 lines.
       `refactor(api): a recalculation carries no picks`.
-    - **13b, the old path.** `Reopen`, `clearedPick`, the put-back and `rateNotAPick`;
+    - **12b, the old path.** A removal, no script (Table 1). `Reopen`, `clearedPick`, the put-back and `rateNotAPick`;
       `processClearedOrderWith`, `processClearedRate`, `processClearedDose`, the tuple pattern and
       its comment; the `process-cleared` step, the `isCleared` branch and `IsCleared`;
       `ReopenOrderScenario` and `reopenScenarioOrder`, `Command.get` and `toString` following.
@@ -639,20 +660,20 @@ the script.
       the reopen cases in `Tests.fs`. Under 200 lines, nearly all removed.
       `refactor(genorder): the reopen leaves the processor`.
 
-14. **The pick list goes.** A direct edit. `PickListPolicy` and its tests; `Constrained`;
+13. **The pick list goes.** A removal, no script (Table 1). `PickListPolicy` and its tests; `Constrained`;
     `ReopenField` on both machines, their `admitted` arms and the trail's; the `ReopenField`
     members of the two environment interfaces and `App.fs`; the `reopen` and `planReopen` props and
     their pass-through; the pick state of `Order.fs`; the `reopening` refs. Fable compile check,
     `npx vite build`; the maintainer checks in the browser. Under 200 lines, nearly all removed.
-    `refactor(client): reopen a field without a pick list`. Closes #1453 and #1343.
+    `refactor(client): recalculate a field without a pick list`. Closes #1453 and #1343.
 
-Steps 7c to 10b can follow steps 11 to 14: the recalculation and the client need only
+Steps 7c to 10b can follow steps 11 to 13: the recalculation and the client need only
 steps 0 to 7a.
 
 ## Left out
 
-- **A mark that runs the recipe**, so a field pinned by another on this order shows no arrow: a
-  solve per variable per answer. The list of one is the answer for now.
+- **A rule that runs the recipe**, so a field pinned by another on this order is not selectable:
+  a solve per variable per answer. The list of one is the answer for now.
 - **What the script does not hold.** A kind for the orderable quantity, a component's dose per kg
   and an item's orderable quantity and concentration; the equations the document changes (its
   Table 14); the solver changes of its addendum.
@@ -667,12 +688,13 @@ steps 0 to 7a.
 - before each GenORDER step, the script's tests and its comparisons with the shipped code pass;
   the baseline, measured on 2026-10-26: 3,469 passed, 7 ignored, 0 failed, the quick run without
   `--full`. A step may add tests, never turn one red or ignored
-- `dotnet fsi scripts/CheckDependencyRule.fsx` after step 11
+- `dotnet fsi scripts/CheckDependencyRule.fsx` after any step that changes a project reference
 - `dotnet fantomas --check`
-- in the browser, after step 14: the paracetamol suppository in the workbench shows the arrow on
-  the fields Table 4 gives a kind and on no other, the frequency and the dose quantity in mL
-  among the latter; recalculate the paracetamol dose in mg: its list opens, the frequency stays;
-  close the list without a pick: the order as before. The plan dialog over the same order: the
-  same arrows. The continuous morphine: the rate in mL/h shows none, the morphine in mcg/kg/h
-  does; recalculate it: its list opens, the volume stays. A TPN composed by hand: no component
-  quantity and no mL/kg shows an arrow
+- in the browser, after step 13: the paracetamol suppository in the workbench is selectable for a
+  recalculation on the fields Table 4 gives a kind and on no other, the frequency and the dose
+  quantity in mL among the latter; recalculate the paracetamol dose in mg: its list opens, the
+  frequency stays; close the list without a pick: the order as before. The plan dialog over the
+  same order: the same fields. The continuous morphine: the rate in mL/h is not selectable, the
+  morphine in mcg/kg/h is; recalculate it: its list opens, the volume stays. A TPN composed by
+  hand: no mL/kg is selectable for a recalculation; a component quantity is selectable by its own
+  intent case
