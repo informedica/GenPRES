@@ -59,7 +59,8 @@ module Today =
             |> run
 
 
-/// The domain's path: the property command applied, then solved, or reopened after a clear.
+/// The domain's path: a pick run by the order program, or the property command applied and reopened
+/// after a clear.
 module Domain =
 
     let private run cmd =
@@ -68,11 +69,8 @@ module Domain =
         |> Result.mapError (fun (_, msgs) -> $"%A{msgs}")
 
 
-    let setNth cmd ord =
-        ord
-        |> OrderProcessor.processChangeProperty OrderLogging.noOp cmd
-        |> SolveOrder
-        |> run
+    /// The pick as the order context runs it, through the order program.
+    let setNth cmd ord = ChangeProperty(ord, cmd) |> run
 
 
     let clear cmd picks ord =

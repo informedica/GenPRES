@@ -183,6 +183,11 @@ let change cmd ord =
 
 
 /// The variables the change made differ from the order's.
+/// The order with the pick made, as the order context runs it, through the order program.
+let pick cmd ord =
+    ChangeProperty(ord, cmd) |> OrderProcessor.processPipeline OrderLogging.noOp
+
+
 let changed before after =
     List.zip (before |> Order.toOrdVars) (after |> Order.toOrdVars)
     |> List.filter (fun (a, b) -> a <> b)
@@ -203,7 +208,7 @@ let tests =
     testList
         "OrderProcessor value commands"
         [
-            test "a pick sets its one variable to its nth value, counted from 0" {
+            test "a pick sets its variable to its nth value, counted from 0" {
                 [
                     for name, ord in fixtures.Value do
                         for f in fields ord do
@@ -211,11 +216,11 @@ let tests =
                             | Some ovar when ovar.Variable |> Variable.count > 1 ->
                                 let all = ovar |> values |> Option.defaultValue [||]
                                 let n = all.Length - 1
-                                let after = ord |> change (f.SetNth n)
 
-                                match changed ord after with
-                                | [ v ] when values v = Some [| all[n] |] -> ()
-                                | vs -> $"%s{name} %s{f.Name}: %i{vs.Length} changed"
+                                match ord |> pick (f.SetNth n) with
+                                | Ok after when after |> f.Get |> Option.bind values = Some [| all[n] |] -> ()
+                                | Ok _ -> $"%s{name} %s{f.Name}: another value"
+                                | Error _ -> $"%s{name} %s{f.Name}: not solved"
                             | _ -> ()
                 ]
                 |> Expect.isEmpty "each pick sets its own variable to the last value"
