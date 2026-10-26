@@ -1198,9 +1198,9 @@ Scenarios: {scenarios}
             |> updateFilterIfOneScenario
 
 
-    /// The context with the command processed on its one scenario's order. An order that cannot
-    /// be solved refuses the context as it was sent.
-    let processScenarioOrder (logger: Logger) cmd (ctx: OrderContext) =
+    /// The context with its one scenario's order processed by f. An order that cannot be solved
+    /// refuses the context as it was sent.
+    let processScenarioOrder (logger: Logger) f (ctx: OrderContext) =
         match ctx.Scenarios |> Array.tryExactlyOne with
         | None ->
             "No orders to proces in order context"
@@ -1210,7 +1210,7 @@ Scenarios: {scenarios}
 
             Evaluated ctx
         | Some sc ->
-            match sc.Order |> cmd |> OrderProcessor.processPipeline logger with
+            match sc.Order |> f with
             | Ok ord ->
                 { ctx with
                     Scenarios =
@@ -1229,7 +1229,9 @@ Scenarios: {scenarios}
 
     /// The scenario after a field's arrow cleared a value: a cleared pick reopens the order with the
     /// picks made before it; any other clear is solved as it is.
-    let reopenScenarioOrder logger picks ctx = ctx |> processScenarioOrder logger (fun o -> Reopen(o, picks))
+    let reopenScenarioOrder logger picks ctx =
+        ctx
+        |> processScenarioOrder logger (fun o -> Reopen(o, picks) |> OrderProcessor.processPipeline logger)
 
 
     /// A filter or scenario pick, a seed or a patient change applied to its context, read in the
@@ -1372,7 +1374,9 @@ Scenarios: {scenarios}
             match ctx.Scenarios |> Array.tryExactlyOne with
             | Some _ ->
                 ctx
-                |> processScenarioOrder logger (fun o -> ChangeProperty(o, propCmd))
+                |> processScenarioOrder
+                    logger
+                    (fun o -> ChangeProperty(o, propCmd) |> OrderProcessor.processPipeline logger)
                 |> Outcome.map wrapResult
                 |> Ok
             | None ->
@@ -1399,12 +1403,12 @@ Scenarios: {scenarios}
         // TODO: need to implement validation
         | SelectOrderScenario ctx ->
             ctx
-            |> processScenarioOrder logger CalcValues
+            |> processScenarioOrder logger (CalcValues >> OrderProcessor.processPipeline logger)
             |> Outcome.map SelectOrderScenario
             |> Ok
         | UpdateOrderScenario ctx ->
             ctx
-            |> processScenarioOrder logger SolveOrder
+            |> processScenarioOrder logger (SolveOrder >> OrderProcessor.processPipeline logger)
             |> Outcome.map UpdateOrderScenario
             |> Ok
         | ReopenOrderScenario(ctx, picks) ->
@@ -1414,7 +1418,7 @@ Scenarios: {scenarios}
             |> Ok
         | ResetOrderScenario ctx ->
             ctx
-            |> processScenarioOrder logger ReCalcValues
+            |> processScenarioOrder logger (ReCalcValues >> OrderProcessor.processPipeline logger)
             |> Outcome.map ResetOrderScenario
             |> Ok
         // Frequency property commands

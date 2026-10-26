@@ -291,7 +291,7 @@ let tests =
             }
 
             test "the composed fixture is composed, the selected order is not" {
-                (composed.Value |> OrderProcessor.isComposed, selected.Value |> OrderProcessor.isComposed)
+                (composed.Value |> Order.isComposed, selected.Value |> Order.isComposed)
                 |> Expect.equal "only the composed order should have every component set" (true, false)
             }
 

@@ -3627,6 +3627,44 @@ module ReachablePickTests =
                     |> Expect.equal "6 to 12 by 2" [ [| 6N .. 2N .. 12N |] ]
                 }
 
+                test "the larger cap of every dose type is at least its cap of a list to select from" {
+                    let caps = Order.ValueCaps.defaults
+
+                    [
+                        caps.ContinuousMax >= caps.Continuous
+                        caps.DiscontinuousMaxSingle >= caps.Discontinuous
+                        caps.DiscontinuousMaxMultiple >= caps.Discontinuous
+                        caps.TimedMaxFew >= caps.TimedFew
+                    ]
+                    |> List.forall id
+                    |> Expect.isTrue "every larger cap at least the cap to select from"
+                }
+
+                test "the norm dose of the once timed kaliumchloride is the same as with the timed caps swapped back" {
+                    let swappedBack =
+                        { Order.ValueCaps.defaults with
+                            TimedFew = 20
+                            TimedMaxFew = 10
+                        }
+
+                    let normDose caps =
+                        match
+                            Scenarios.kaliumchlorideOnceTimedText
+                            |> parse
+                            |> Medication.toOrder Scenarios.testStart
+                        with
+                        | Error e -> failtest $"could not build the order: %A{e}"
+                        | Ok ord ->
+                            CalcMinMax ord
+                            |> OrderProcessor.processPipelineWith caps logger
+                            |> Result.map _.Orderable.Dose.Quantity
+                            |> Result.toOption
+
+                    let dose = normDose Order.ValueCaps.defaults
+                    dose |> Expect.isSome "the order is calculated"
+                    dose |> Expect.equal "the same norm dose" (normDose swappedBack)
+                }
+
                 test "a binding kalium concentration limit raises the first tpn dose quantity from 380 to 530 mL" {
                     let firstDoseQuantity med =
                         med
@@ -3689,7 +3727,7 @@ module ReachablePickTests =
                     |> Expect.equal "130 to 280 mL by 50" [| 130N; 180N; 230N; 280N |]
                 }
 
-                test "a rate of 50 to 500 mL/uur is pruned to 60 to 480 by 30 and gets its median, 270 mL/uur" {
+                test "a rate of 50 to 500 mL/uur is pruned to 50 to 500 by 50 and gets its median, 300 mL/uur" {
                     Scenarios.naclLargeRateText
                     |> parse
                     |> solvedWith processed
@@ -3697,7 +3735,7 @@ module ReachablePickTests =
                     |> _.Orderable.Dose.Rate
                     |> Rate.toOrdVar
                     |> valuesOf
-                    |> Expect.equal "the median of 60 to 480 by 30" [| 270N |]
+                    |> Expect.equal "the median of 50 to 500 by 50" [| 300N |]
                 }
 
                 // the timings are run in sequence, so other tests do not slow them down
@@ -3867,7 +3905,7 @@ module RateAfterQuantityTests =
                     ord |> rate |> valuesOf |> Expect.equal "18 mL/uur" [| 18N |]
                 }
 
-                test "the once timed KCl gets the median rate, 24 mL/uur, when the scenario is selected" {
+                test "the once timed KCl gets the median rate, 25 mL/uur, when the scenario is selected" {
                     Scenarios.kaliumchlorideOnceTimedText
                     |> parse
                     |> toOrder
@@ -3875,7 +3913,7 @@ module RateAfterQuantityTests =
                     |> solve CalcValues
                     |> rate
                     |> valuesOf
-                    |> Expect.equal "24 mL/uur" [| 24N |]
+                    |> Expect.equal "25 mL/uur" [| 25N |]
                 }
 
                 test "a reset of the morfine timed with NaCl offers the rate list, 2,1 to 2,5 mL/uur" {
@@ -3887,16 +3925,16 @@ module RateAfterQuantityTests =
                     |> Expect.equal "2,1 to 2,5 by 0,1" [| 21N / 10N .. 1N / 10N .. 25N / 10N |]
                 }
 
-                // a reset prunes with the larger cap, as today: reCalcSteps passes useMax and CalcValues does
-                // not, so the reset list differs from the 60 to 480 by 30 the processing makes
-                test "a reset of the NaCl of 50 to 500 mL/uur offers the rate list, 50 to 500 by 50" {
+                // a reset prunes with the larger cap: reCalcSteps passes useMax and CalcValues does not, so
+                // the reset list differs from the 50 to 500 by 50 the processing makes
+                test "a reset of the NaCl of 50 to 500 mL/uur offers the rate list, 60 to 480 by 30" {
                     Scenarios.naclLargeRateText
                     |> parse
                     |> processed
                     |> solve ReCalcValues
                     |> rate
                     |> valuesOf
-                    |> Expect.equal "50 to 500 by 50" [| 50N .. 50N .. 500N |]
+                    |> Expect.equal "60 to 480 by 30" [| 60N .. 30N .. 480N |]
                 }
 
                 test
