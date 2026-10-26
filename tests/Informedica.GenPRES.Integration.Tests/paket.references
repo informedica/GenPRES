@@ -1,0 +1,6 @@
+group Test
+FSharp.Core
+Expecto
+Microsoft.Net.Test.Sdk
+YoloDev.Expecto.TestSdk
+PuppeteerSharp

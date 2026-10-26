@@ -359,6 +359,9 @@
 # Informedica.GenPRES.Client
 !/tests/Informedica.GenPRES.Client.Tests/
 !/tests/Informedica.GenPRES.Client.Tests/Scripts/
+# Informedica.GenPRES.Integration.Tests (browser tests; the downloaded Chrome and the
+# failure screenshots stay under bin/, untracked)
+!/tests/Informedica.GenPRES.Integration.Tests/
 
 # Add benchmark files
 !/benchmark/

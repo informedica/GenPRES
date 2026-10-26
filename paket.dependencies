@@ -88,6 +88,9 @@ group Test
   nuget Expecto.FsCheck
   nuget Microsoft.Net.Test.Sdk 18.4.0
   nuget YoloDev.Expecto.TestSdk 0.15.5
+  // Drives a headless Chrome for the browser integration tests
+  // (tests/Informedica.GenPRES.Integration.Tests).
+  nuget PuppeteerSharp ~> 25
 
 // FAKE build script (the root Build.fsproj, run with `dotnet run <target>`).
 group Build

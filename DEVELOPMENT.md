@@ -49,6 +49,47 @@ run on one machine. The walkthroughs are in
 so in development the browser talks to one origin and the cookies reach both. In production the
 server serves the client itself.
 
+### Browser integration tests
+
+`tests/Informedica.GenPRES.Integration.Tests` drives a running GenPRES in a headless Chrome through
+[PuppeteerSharp](https://www.puppeteersharp.com/), the way a user does: it fills in the stub launch
+page, follows the launch sequence and acts on what the client shows. It references no project.
+There is one test file per use case of [docs/scenarios/integration](docs/scenarios/integration/README.md),
+UC-6 excepted, which is not built.
+
+The tests run against the app `dotnet run` starts, at <http://localhost:5173>, in demo mode. When
+nothing answers there they report as skipped, so `dotnet run ServerTests` passes them by while the
+app is not running.
+
+```bash
+dotnet run                                                 # terminal 1: the app on :5173
+dotnet test tests/Informedica.GenPRES.Integration.Tests    # terminal 2
+```
+
+- `E2E_BASE_URL` points the tests at another GenPRES in demo mode; when the url it names does not
+  answer, the tests fail rather than skip.
+- `E2E_HEADFUL=1` shows the browser while the tests run.
+- One use case: `--filter "FullyQualifiedName~UC-3 "` (the space keeps `UC-1 ` from matching
+  UC-11 and UC-12); one test: `--filter "FullyQualifiedName~both sign at once"`.
+- The first run downloads the Chrome for Testing build PuppeteerSharp is made for, about 560 MB,
+  beside the test assembly; later runs reuse it.
+- A failing test writes the url the page was on, the error responses and script errors it saw,
+  a screenshot, and the client's trail of its steps (`window.genpresTrail()`) under
+  `screenshots/` beside the test assembly.
+- The tests run one at a time, about three minutes in all; the wrong-PIN test (UC-5) takes a
+  minute of that, since it waits out the lock it causes so that the next run finds the
+  credential clean.
+- The server's rate limiter allows 60 requests per 10 seconds per client address. Every browser a
+  test opens sends an address of its own in `X-Forwarded-For`, which the server believes from a
+  proxy it trusts (loopback by default, so the Vite dev server), so runs can follow each other at
+  once. Through a proxy the server does not trust, every browser shares one address; a failure
+  that saw a 429 says so.
+- Each test that signs uses a PatientId of its own, so its first signature is version 1 on any
+  server. The enrolment tests (UC-2) need `no-pin` without a PIN, so they run once per start of a
+  server on the in-memory store and report as skipped after that.
+- A test that launches as a stub identity ends a Session you have open as that identity on the
+  same server, as any newer launch of the same user does.
+
 ## Build System Architecture
 
 ### How `dotnet run` Interacts with FAKE
