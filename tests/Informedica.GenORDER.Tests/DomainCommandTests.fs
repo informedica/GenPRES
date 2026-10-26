@@ -163,12 +163,16 @@ let tests =
                             | _ -> ()
                         }
 
+                        // a recalculation the order program runs no longer reopens, see OrderReCalcTests
                         test
                             $"a value clear gives the order of today's reopen with the variable cleared: %s{name} %s{field.Name}" {
                             let ord = builtScenarios[name].Value
 
                             match ord |> field.Get with
-                            | Some ovar when ovar.Variable |> Variable.count > 1 ->
+                            | Some ovar when
+                                ovar.Variable |> Variable.count > 1
+                                && field.Clear |> OrderValueCommandTests.isProgramReCalc |> not
+                                ->
                                 let ctx = contextOf ord
                                 // every variable a pick, so the clear reopens with the picks before it
                                 let picks =

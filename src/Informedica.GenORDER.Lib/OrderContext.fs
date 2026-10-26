@@ -1514,6 +1514,15 @@ Scenarios: {scenarios}
             Ok(ctx |> changeOrder logger change)
             |> evaluateAs UpdateOrderScenario (fun ctx -> SetNthOrderValue(ctx, change))
             |> Result.map (refusedAsSent cmd)
+        // a recalculation the order program runs reads the order alone, not the picks
+        | ReCalcOrderValue(ctx, change, picks) when
+            change |> OrderProcessor.CommandBridge.ofChangeProperty |> Option.isSome
+            ->
+            ctx
+            |> processScenarioOrder logger (fun o -> ChangeProperty(o, change) |> OrderProcessor.processPipeline logger)
+            |> Outcome.map (fun ctx -> ReCalcOrderValue(ctx, change, picks))
+            |> refusedAsSent cmd
+            |> Ok
         | ReCalcOrderValue(ctx, change, picks) ->
             Ok(ctx |> changeOrder logger change)
             |> evaluateAs (fun ctx -> ReopenOrderScenario(ctx, picks)) (fun ctx -> ReCalcOrderValue(ctx, change, picks))
