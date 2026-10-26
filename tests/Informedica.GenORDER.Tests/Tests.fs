@@ -3598,6 +3598,79 @@ module RecipeTests =
                     ]
                     |> Expect.isEmpty "every recalculation sets back its target"
                 }
+
+                // the expected set-backs come from the kinds, not from the recipes, so a recipe that sets
+                // back too much fails
+                test "each kind keeps what the kind says and sets back the rest" {
+                    let cases =
+                        [
+                            for name, ord in solvedFixtures.Value do
+                                for ovarRef, recipe in ord |> reCalcTargets do
+                                    let setBack =
+                                        ord |> Recipes.effects recipe |> OrderProcessor.OrderEffect.setBackNames ord
+
+                                    let isSetBack r =
+                                        r
+                                        |> Ref.tryGet ord
+                                        |> Option.map (fun ovar ->
+                                            setBack |> Set.contains (ovar |> OrderVariable.getName)
+                                        )
+
+                                    let cmps = ord |> Order.components
+                                    let isPrepKept =
+                                        ord |> Order.isPrepWithinConstraints
+                                        && not (ord.Schedule |> Order.Schedule.isTimeFixed)
+
+                                    let isQtyFixed =
+                                        ord.Orderable.Dose.Quantity
+                                        |> OrderVariable.Quantity.toOrdVar
+                                        |> OrderVariable.hasOneCalculatedValue
+
+                                    let expected =
+                                        [
+                                            match recipe with
+                                            | Recipe.ReCalcDose ->
+                                                frq, false
+                                                OrderVariableReference.OrderableOrderCount, false
+                                            | Recipe.ReCalcPerTime ->
+                                                frq, true
+                                                OrderVariableReference.OrderableOrderCount, false
+
+                                                match cmps with
+                                                | [ c ] when isQtyFixed ->
+                                                    OrderVariableReference.ComponentQuantity c, true
+                                                | _ -> ()
+                                            | Recipe.ReCalcTime ->
+                                                frq, false
+                                                OrderVariableReference.OrderableOrderCount, false
+
+                                                for c in cmps do
+                                                    OrderVariableReference.ComponentOrderableQuantity c, not isPrepKept
+                                            | _ -> ()
+                                        ]
+
+                                    for r, exp in expected do
+                                        // a variable the order does not have, as the frequency on Continuous
+                                        match r |> isSetBack with
+                                        | Some actual -> $"%s{name} %A{ovarRef} (%A{recipe}) %A{r}", actual, exp
+                                        | None -> ()
+                        ]
+
+                    // every kind and the single component exception are reached
+                    for kind in [ "ReCalcDose"; "ReCalcPerTime"; "ReCalcTime"; "ComponentQuantity" ] do
+                        cases
+                        |> List.exists (fun (label, _, _) -> label.Contains kind)
+                        |> Expect.isTrue $"a case for %s{kind}"
+
+                    cases
+                    |> List.choose (fun (label, actual, exp) ->
+                        if actual = exp then
+                            None
+                        else
+                            Some $"%s{label}: set back %b{actual}, expected %b{exp}"
+                    )
+                    |> Expect.equal "set back as the kind says" []
+                }
             ]
 
 
