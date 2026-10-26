@@ -1,16 +1,18 @@
 # Implementation plan for issue #1453: the server decides what a recalculation changes
 
-2026-10-13. The client's pick list goes. A recalculation of an order value is one command that
-names the field; the server picks the recipe from that command, recalculates what depends on the
-field, and marks on every order variable it sends whether it can be recalculated. The commands
-are named for what they do: `Clear` becomes `ReCalc`, since the field is never left empty, it
-comes back with the values the rest of the order allows. The four basic variables are not
-recalculated: the orderable dose rate, the schedule frequency, the component orderable quantity
-and the orderable dose quantity are stepped, the component quantity also navigated to its
-minimum, median or maximum. Every other field is derived from them and can be recalculated,
-except an item's concentration in its component, which is the product's. Closes #1453, #1276
-and #1343, refs #1034; the plan for the open TPN issues builds on it. Line numbers are from
-`master` at `ce3c164f`.
+2026-10-13, revised 2026-10-26 to migrate the order program of
+`src/Informedica.GenORDER.Lib/Scratch/OrderVariablesAndEquations.fsx`. The client's pick list goes.
+A recalculation of an order value is one action that names the variable; the server picks the recipe
+from that action, sets back what the variables the recipe keeps do not determine, and marks on every
+order variable it sends whether it can be recalculated. The commands are named for what they do:
+`Clear` becomes `ReCalc`, since the field is never left empty, it comes back with the values the
+rest of the order allows. The four basic variables are not named by a recalculation command: the
+orderable dose rate, the schedule frequency, the component orderable quantity and the orderable dose
+quantity are stepped or selected. The script holds more than the recalculation: every processor
+command becomes an action of one program, run as a list of effects. This plan migrates the complete
+script in steps, the recalculation first. Closes #1453, #1276 and #1343, refs #1034, #1349 and
+#1464; the plan for the open TPN issues builds on it. Code is named by its function or file; each
+step's pull request finds where it is on `master` then.
 
 ## Problem description
 
@@ -29,19 +31,18 @@ value when the rest of the order fixes it. A reader of the code, the wire or the
 clear for an emptied field.
 
 The maintainer decided on 2026-10-12 and 2026-10-13: the pick list disappears; the server
-decides which field can be recalculated and has a recipe for every field the pages can
-recalculate; the recipe is picked from the command itself; the mark is derived when the order is
-sent, never stored; the commands are named `ReCalc`; the basic variables are stepped, the derived
-ones recalculated.
+decides which field can be recalculated; the recipe is picked from the command itself; the mark
+is derived when the order is sent, never stored; the commands are named `ReCalc`; the basic
+variables are stepped, the derived ones recalculated.
 
 ## What the code does today
 
-**The pick list.** `Views/Order.fs` keeps `picks: string[] option` in React state (`Order.fs:495`),
-`Some [||]` for the workbench and `None` for the plan dialog (`:489`). After an answer,
+**The pick list.** `Views/Order.fs` keeps `picks: string[] option` in React state (`Order.fs`),
+`Some [||]` for the workbench and `None` for the plan dialog. After an answer,
 `PickListPolicy.picked` adds every variable the change narrowed to one value; a step adds its
 variable; a reopen keeps the picks made before the cleared one and holds the rest for a restore
-(`heldPicks`, `Order.fs:972`). The nutrition slot sends every clear with an empty list
-(`NutritionSlot.fs:618`).
+(`heldPicks`, `Order.fs`). The nutrition slot sends every clear with an empty list
+(`NutritionSlot.fs`).
 
 **The arrow.** `FieldOpenPolicy.orderVariable` gives a field with one value the arrow when the
 user constrained it or the order does not say, and no arrow when the solver determined it;
@@ -49,66 +50,66 @@ user constrained it or the order does not say, and no arrow when the solver dete
 dialog and the slot show the arrow on every solved field.
 
 **The wire.** Four clear commands carry the picks: `ClearScheduleProperty`,
-`ClearOrderableProperty`, `ClearComponentProperty`, `ClearItemProperty` (`Api.fs:59`);
-`OrderViewCommand.toString` prints their count (`:142`). The server mapper puts the order id back
+`ClearOrderableProperty`, `ClearComponentProperty`, `ClearItemProperty` (`Api.fs`);
+`OrderViewCommand.toString` prints their count. The server mapper puts the order id back
 on each name and builds `Domain.ClearOrderValue(ctx, change, picks)`
-(`ServerApi.Mappers.OrderContext.fs:395`), `change` one of the sixteen clear cases of
-`ChangePropertyCommand` (`Types.fs:363`). `Ctx.clear` in Shared (`Models.fs:1730`) and
-`Api.preview` (`Api.fs:170`) take the picks too, for the optimistic preview. The wire's
+(`ServerApi.Mappers.OrderContext.fs`), `change` one of the sixteen clear cases of
+`ChangePropertyCommand` (`Types.fs`). `Ctx.clear` in Shared (`Models.fs`) and
+`Api.preview` (`Api.fs`) take the picks too, for the optimistic preview. The wire's
 `ClearFilterProperty`, `ClearAllFilterProperty` and `ClearDiluentProperty` are real clears, they
 set a choice to none.
 
 **The clear command.** `processChangeProperty` sets the one variable to unrestricted
-(`OrderProcessor.fs:314`, `Quantity.clear` and the like) and nothing else: the command knows
+(`OrderProcessor.fs`, `Quantity.clear` and the like) and nothing else: the command knows
 which variable it touches, and that knowledge is dropped on the spot.
 
-**The steps.** Four step functions exist, one per basic variable: the frequency
-(`OrderProcessor.fs:54`), the orderable dose rate (`:67`), the orderable dose quantity (`:84`),
-the component orderable quantity (`:179`). Each sets the dependents of its variable to any
-positive value and steps it. The navigation commands to minimum, median and maximum address the
-same four.
+**The steps.** Four step functions in `OrderProcessor.fs`, one per basic variable:
+`orderPropertyIncrOrDecrFrequency`, `orderPropertyIncrOrDecrOrderableDoseRate`,
+`orderPropertyIncrOrDecrOrderableDoseQuantity` and
+`orderPropertyIncrOrDecrComponentOrderableQuantity`. Each sets the dependents of its variable to any
+positive value and steps it. The navigation commands to minimum, median and maximum address the same
+four.
 
-**The server reopen.** `ClearOrderValue` (`OrderContext.fs:372`) applies the command and
-evaluates as `ReopenOrderScenario(ctx, picks)` (`:1513`), which runs the processor's
-`Reopen(ord, picks)` (`OrderProcessor.fs:877`; the other user is `reopenScenarioOrder`,
-`OrderContext.fs:1232`): `clearedPick` (`OrderProcessor.fs:528`) finds the emptied variable in the
+**The server reopen.** `ClearOrderValue` (`OrderContext.fs`) applies the command and
+evaluates as `ReopenOrderScenario(ctx, picks)`, which runs the processor's
+`Reopen(ord, picks)` (`OrderProcessor.fs`; the other user is `reopenScenarioOrder`,
+`OrderContext.fs`): `clearedPick` (`OrderProcessor.fs`) finds the emptied variable in the
 picks, `reCalcSteps` resets the order, the earlier picks are put back and `solveSteps` runs.
 Without picks, or with an emptied variable that is no pick, it is a plain `SolveOrder`. #1425
 added `rateNotAPick`, so an emptied median rate gets its list back.
 
 **The cleared order process.** `SolveOrder` on a cleared order runs `processClearedStep`
-(`OrderProcessor.fs:866`) when the state is `DoseSolvedAndCleared` (`:504`; `Order.isCleared`,
-`Order.fs:3930`, true when any variable is unrestricted). That is `processClearedOrderWith`
-(`:430`), which has to find the unrestricted variable: a match on the schedule and on the tuple
-pattern at `:29`, six predicates of which exactly one may hold. Each arm is a recipe that sets
-the dependents of the emptied variable back to their constraints and solves: `processClearedRate`
-(`:395`) for the rate and the time of a continuous, timed or once timed order,
-`processClearedDose` (`:364`) for the dose quantity and per time of the other four; the latter
-resets the preparation only for one component or a preparation outside its constraints.
-`processClearedFrequency` (`:337`) exists and is not wired. The dose predicates read the
-orderable dose alone (`Order.fs:2128`), so an emptied component or item dose, component quantity,
-dose count or concentration falls through to `logUnmatched` and a plain solve, which gives the
-same one value back: #1276. The comment at `:23` calls two arms defensive.
+(`OrderProcessor.fs`) when the state is `DoseSolvedAndCleared` (`Order.isCleared`, `Order.fs`, true
+when any variable is unrestricted). That is `processClearedOrderWith`, which has to find the
+unrestricted variable: a match on the schedule and on the tuple pattern above it, six predicates of
+which exactly one may hold. Each arm is a recipe that sets the dependents of the emptied variable
+back to their constraints and solves: `processClearedRate` for the rate and the time of a
+continuous, timed or once timed order, `processClearedDose` for the dose quantity and per time of
+the other four; the latter resets the preparation only for one component or a preparation outside
+its constraints. `processClearedFrequency` exists and is not wired. The dose predicates read the
+orderable dose alone (`Order.fs`), so an emptied component or item dose, component quantity, dose
+count or concentration falls through to `logUnmatched` and a plain solve, which gives the same one
+value back: #1276. The comment on the pattern calls two arms defensive.
 
 **`isCleared` has a second reader.** `SolveOrder` picks `rateStage` over `rateStageWithMedian`
-when the order is cleared (`:871`): decision 6 of #1425, an emptied rate gets its list without
+when the order is cleared: decision 6 of #1425, an emptied rate gets its list without
 the median.
 
-**The two stages of a timed order.** `rateWaits` (`:423`) is true for a timed or once timed
+**The two stages of a timed order.** `rateWaits` is true for a timed or once timed
 order; there every value step runs with `skipRate`, the quantities are expanded and the rate
-stays a range, and `rateStage` (`:678`) makes the rate list once the dose quantity holds one
-value. `reCalcSteps` (`:741`) and `solveSteps` (`:773`) end with that rate step. The design note
+stays a range, and `rateStage` makes the rate list once the dose quantity holds one
+value. `reCalcSteps` and `solveSteps` end with that rate step. The design note
 is the staged expansion section of `docs/domain/gensolver-value-explosion-defenses.md`.
 
 **The wire order and its targets.** The server mapper maps the domain Dto to the wire order
-(`ServerApi.Mappers.Order.fs:344`); the same Dto is what the session store serializes, structure
+(`ServerApi.Mappers.Order.fs`); the same Dto is what the session store serializes, structure
 version 6, and the store never holds what can be derived from its rows. `Schedule.Dto` carries
 the schedule as five flags. Shared addresses the fields a page can set or clear as `Target`s
-(`Models.fs:1410`); `Target.tryGet` reads one, `Target.map` writes one (`:1461`, `:1484`). The
-mapper's `propertyCommands` (`ServerApi.Mappers.OrderContext.fs:337`) gives each target its
+(`Models.fs`); `Target.tryGet` reads one, `Target.map` writes one. The
+mapper's `propertyCommands` (`ServerApi.Mappers.OrderContext.fs`) gives each target its
 set-nth and its clear command. The processor names the five schedules `PrescriptionKind`
-(`OrderProcessor.fs:540`). The server's command handler carries the domain command as an option
-and answers the context unchanged when there is none (`ServerApi.OrderContextCommand.fs:15`).
+(`OrderProcessor.fs`). The server's command handler carries the domain command as an option
+and answers the context unchanged when there is none (`ServerApi.OrderContextCommand.fs`).
 
 **How it came to be.** Until #1207 there was no pick list: the cross emptied one field and the
 server ran the cleared order process; every field offered the cross, so a request the process
@@ -117,8 +118,93 @@ record of the picks, kept on the scenario by #1207 and moved to the dialog by #1
 knowledge of what a request recalculates stayed in the server's match arms, unread.
 
 **The restore.** A list closed without a pick puts the state before the request back, locally:
-both machines keep it in `Kept` and `RestoreField` puts it back (`OrderPlanMachine.fs:389`,
-`OrderContextMachine.fs:394`). It does not read the picks.
+both machines keep it in `Kept` and `RestoreField` puts it back (`OrderPlanMachine.fs`,
+`OrderContextMachine.fs`). It does not read the picks.
+
+## What the script holds
+
+`Scratch/OrderVariablesAndEquations.fsx` implements the design of the local document
+`localDocs/order-variables-and-equations.md` against the shipped library. The document is not
+tracked (`.gitignore`). Its parts, by the module of the library each goes to:
+
+**Table A. The parts of the script and where each goes.** Lines are code lines without blanks
+and comments, measured on 2026-10-26; the shipped size with its documentation is about one and a
+half times as many.
+
+| Part | Goes to | Lines |
+|---|---|---|
+| `ValueUnit.collectValues`, `ValueUnit.oneCount`, `List.sequenceOption`, `ValueRangeCase.tryToValueSet` | Utils, GenUnits, GenSolver, GenOrder (Table B) | 30 |
+| `Shape` and `OrderVariable.shape`; `OrderVariable` helpers: `name`, `hasOneValue`, `byName`, `hasOneCalculatedValue`, `valueCount`, `solvedValue`, `free`, `setToOne`, `setToAtLeastOne`, `tryConstrain`, `includeOriginalValue` | `Types.fs`, `OrderVariable.fs` | 70 |
+| `Order` helpers: `isTimeFixed`, `doseCount`, `mapDefinedConstraints`, `components`, `items`, `tryComponent`, `tryItem`, `rateIsRange`, `rateIsList`, `equationMapping`, `equations`, `mapOrderVariables`, `isReachable` | `Order.fs` | 60 |
+| `Order.minIncrMaxToValuesWithOriginal` | the shipped `Order.minIncrMaxToValues` (`Order.fs`), which takes the original order as an option and adds its values at the end; the other callers pass none | 65 |
+| `caps`: the two caps of a timed order swapped | `Order.ValueCaps.defaults`, where `TimedFew` becomes 10 and `TimedMaxFew` 20 | 1 |
+| `Medication.withOrderCount`, `Medication.withDoseCount` | `Medication.toOrder` | 23 |
+| `Determination`: which variables a set of kept variables determines, by elimination over the logarithms of the product equations | a new file, `Determination.fs` | 99 |
+| The types: `DoseProperty`, `OrderVariableReference`, `StepIncrement`, `Choice`, `OrderAction`, `SetBackTo`, `SolveMode`, `ValueCap`, `RateList`, `RateSelection`, `OrderCondition`, `OrderEffect`, `ActionFailure`, `Recipe`, `SetCommand` | `Types.fs` | 124 |
+| `OrderVariableReference.tryGet`, `isBasic`, `invariants`; `Choice.select`; `SetBackTo.apply`; `OrderCondition.holds`; `Dose.toOrdVar` | `OrderProcessor.fs` | 155 |
+| `OrderEffect.apply` and `run`: the interpreter | `OrderProcessor.fs` | 120 |
+| `SetCommand` and `Recipe`: the step and percentile recipes, the recalculation kinds, `forReCalcCommand` | `OrderProcessor.fs` | 260 |
+| `OrderAction.effects` and `OrderAction.run` | `OrderProcessor.fs` | 100 |
+| `CommandBridge` and `processPipelineWith`: the shipped commands as actions, the shipped processor for the rest | `OrderProcessor.fs` | 90 |
+| `OrderContext.processScenarioAction` and `tryEvaluateOrderAction` | `OrderContext.fs` | 40 |
+| `CompleteOrder` and the effect `DropImpossibleValues`: a search for complete orders that drops the values no complete order reaches | `OrderProcessor.fs`, before `OrderEffect`, which calls it | 110 |
+| The split per concentration: `Component.concentrations`, `Order.splitPerConcentration`, `Order.unionPerConcentration`, `OrderVariable.fixToValues`, `tryValueList`, `unionPerConcentration`, `ValueRangeCase.unionRanges`, `List.combinations`, `OrderEffect.setBackNames`, `OrderEffect.forConcentration` | GenOrder | 150 |
+| `TemporaryHelpers`: names of the document, the bridge between them and `OrderVariableReference`, the shipped recipes run for comparison | the test project, or gone with the script | |
+| `TestsAndFixtures`: the classes of the document, the fixtures, the checks, the laws, the helper tests, the report | `tests/Informedica.GenORDER.Tests` | |
+
+## Migration rules
+
+The script is migrated so that the source stays as clean as before:
+
+1. **No duplication.** Where the script copies, wraps or repeats shipped code, the shipped code
+   is changed once and the script's copy is not migrated. Where two script functions do the same,
+   one is migrated. Shipped code the program replaces is deleted in the step that replaces it.
+2. **Each function where it belongs.** A function on one level of the order goes to the module of
+   that level in `Order.fs` (`Orderable`, `Orderable.Dose`, `Orderable.Component`,
+   `Orderable.Item`, `Schedule`); a function on an order variable to `OrderVariable.fs`, on a
+   range to GenSolver, on a value unit to GenUnits, on a list to `Informedica.Utils.Lib/List.fs`.
+   Types go to `Types.fs`, as `OrderCommand` and `ChangePropertyCommand` do; the program's modules
+   to `OrderProcessor.fs`.
+3. **The patterns of the source.** The naming of the module it lands in (`getName`, `toOrdVars`,
+   `fromOrdVars`, `mapOrdVars`), the typed wrappers of `OrderVariable` (`Count.apply`,
+   `Quantity.toOrdVar`), the `logger` and `caps` parameters as the processor passes them, and
+   Fantomas over the result.
+4. **Brief, plain comments.** A `///` line says what the function gives, in one sentence where
+   one suffices; a `//` line only for a reason the code cannot show. The script's comments
+   mention "today", "the shipped code", the names of deleted functions, the document's tables and
+   the steps of this plan; none of that reaches the source.
+
+**Table B. Where the script's parts land, and the duplicates each resolves**
+
+| Script | Lands in | Duplicate resolved |
+|---|---|---|
+| `Order.equationMapping` | `Order.fs`, extracted from `Order.solve` | the mapping inside `solve` |
+| `Order.rateWaits`, `isComposed`, `isPrepWithinConstraints` | `Order.fs`, moved from `OrderProcessor.fs` | the script's wrappers |
+| `OrderContext.processScenarioAction` | `OrderContext.processScenarioOrder`, taking an order function | the copy of `processScenarioOrder` |
+| `Order.minIncrMaxToValuesWithOriginal` | `Order.minIncrMaxToValues`, with the original order as an option | the 65-line copy |
+| `OrderVariable.setToOne`, `setToAtLeastOne` | `OrderVariable.fs`; `Count.setToOne` and `Count.setMinToOne` call them until step 7c deletes their last callers, then go | the two count setters |
+| `ValueUnit.oneCount` | `OrderVariable.Count.one`, also used by the two count setters | `Units.Count.times \|> ValueUnit.one`, written out twice |
+| `ValueUnit.collectValues` | `ValueUnit.fs` in GenUnits, beside `collect` | |
+| `List.sequenceOption`, `List.combinations` | `List.fs` in Utils, used by GenSolver and GenOrder alike | the inline `forall Option.isSome` tests |
+| `ValueRangeCase.tryToValueSet`, `unionRanges` | `Variable.ValueRange` in GenSolver, beside `minIncrMaxCount` | |
+| `OrderVariable.valueCount` | `OrderVariable.fs`, counting a min, increment and max with `ValueRange.minIncrMaxCount` | the script's own count |
+| `OrderVariable.name` and the string keys of `Determination`, `undetermined` and `setBackNames` | not migrated: every set and map of variables is keyed by the solver's `Name` (`getName`) | two keys for one variable |
+| `Component.name`, `Item.name`, `Order.components`, `items`, `tryComponent`, `tryItem` | `Orderable.tryComponent`, `Orderable.Component.tryItem`, reading the existing `getName` | names read in two ways |
+| `Dose.toOrdVar` | `Orderable.Dose.toOrdVar`, beside `toOrdVars` | |
+| `Recipe.isDoseConstrained`, `isComponentDoseConstrained` | `Orderable.Dose.isConstrained`, `Orderable.Component.isDoseConstrained` | |
+| `Order.isTimeFixed` | `Schedule.isTimeFixed` | |
+| `Order.mapOrderVariables` | `Order.mapOrdVars`, beside `toOrdVars` and `fromOrdVars` | |
+| `Order.doseCount`, `Order.mapDefinedConstraints` | not migrated: `Medication.withDoseCount` writes the dose count as `withOrderCount` writes the order count, with `Count.apply (OrderVariable.mapConstraints ..)` | a second way to change a count's constraints |
+| `Order.orderableQuantity`, `Recipe.isStep`, `Recipe.toString`, `OrderVariableReference.toString` | the test project, or nowhere: the program does not use them | |
+| `Recipe.unconstrainedDoseNames` | the test helper file, built on `Orderable.Component.isDoseConstrained`: only the laws use it | |
+| `CompleteOrder.byName` | `OrderVariable.byName` | a second lookup by name |
+| `OrderEffect.setBackNames` and the set-back of `OrderEffect.apply` | one function, the names an effect sets back, used by both | the selection written twice |
+| The variables `Component.concentrations` fixes and the list in `OrderEffect.forConcentration` | read from `OrderVariableReference.invariants` | the component invariants listed three times |
+| "At most two components", three times in `OrderAction.effects` and five times in `OrderProcessor.fs` | one predicate in `Order` | eight inline copies |
+| The percentile allowed only on the orderable dose quantity, in `Choice.select` and `SetCommand.ofSet` | `SetCommand.ofSet` | the rule written twice |
+| `TemporaryHelpers.Shipped.minMax` | not migrated | an alias of `OrderEffect.solve` |
+| `processChangeProperty`, its nth and clear arms | deleted in the steps that move the nth (7c) and the recalculation (7a) to the program | a second way to set a variable by command |
+| `CommandBridge` | `OrderProcessor.fs`, until the wire sends actions | |
 
 ## Decisions
 
@@ -127,29 +213,40 @@ both machines keep it in `Kept` and `RestoreField` puts it back (`OrderPlanMachi
 | Question | Decision |
 |---|---|
 | The pick list | Disappears from the client. |
-| A field the process has no arm for | A recipe for every field the pages can recalculate. #1276 closes with it. |
+| A field the process has no arm for | A recipe for every field the pages can recalculate. #1276 closes with it. The script has no kind for four of the commands (Table 4), so they are refused. |
 | The wire and the server reopen | The picks leave the wire; `Reopen`, `clearedPick` and the put-back leave the processor; `ReopenOrderScenario` leaves the order context. |
 | How the server picks the recipe | From the command, which names the field and its component or item. The scan for an unrestricted variable, the tuple pattern, `DoseSolvedAndCleared` and the `process-cleared` step go. |
 | Who says which field can be recalculated | The server marks each order variable it sends; the field reads the mark. |
-| What the mark means | A recipe exists for the command under the order's dose type and component count, and the variable holds one value. The mark does not run the recipe: a field another value pins is marked and comes back with a list of one, shown as any list of one. |
+| What the mark means | A recipe exists for the command on this order, and the variable holds one value. The mark does not run the recipe: a field another value pins is marked and comes back with a list of one, shown as any list of one. |
 | Where the mark is computed | Derived when the order is sent, never stored: the server mapper folds over the order's targets and marks each from its command, so the marked places and the places a page can ask are one set. GenORDER exposes one pure function. The stored JSON and its structure version 6 do not move. `Target` is a Shared type, so the fold lives in the server, which the dependency rule allows and GenORDER may not. |
 | The name | `ReCalc`, as the processor's `ReCalcValues` spells it. What sets a value range to unrestricted keeps the name `clear` (`Variable.clear` and the like), and so do the wire commands that set a filter or a diluent to none. |
-| The basic variables | The orderable dose rate, the schedule frequency, the component orderable quantity and the orderable dose quantity are the user's levers: stepped, the component quantity also navigated, never recalculated. Their commands go: `ClearOrderableDoseRate`, `ClearScheduleFrequency`, `ClearComponentOrderableQuantity`, `ClearOrderableDoseQuantity`. |
-| The product's constant | An item's concentration in its component is not recalculated: `ClearItemComponentConcentration` goes. Eleven commands remain. |
+| The basic variables | The orderable dose rate, the schedule frequency, the component orderable quantity and the orderable dose quantity are the user's levers: stepped or selected, never named by a recalculation command. Their commands go: `ClearOrderableDoseRate`, `ClearScheduleFrequency`, `ClearComponentOrderableQuantity`, `ClearOrderableDoseQuantity`. A recalculation of a derived variable can still set a basic variable back, as the kinds of Table 5 do. |
+| The product's constant | An item's concentration in its component is not recalculated: `ClearItemComponentConcentration` goes. Eleven commands remain. Undoing a strength pick then takes a reset of the order; #1500 asks for a way back without one. |
+| Direct edits, 2026-10-26 | The mark and the client changes of steps 11 to 14, in GenORDER (`canReCalc`), the server, Shared and Client.Core, are written in the source directly, without a migration script. |
 | Where | Its own plan, before the TPN steps. |
+| The scope, 2026-10-26 | The complete script is implemented: the recalculation, the set, step and percentile, CalcConstraints, CalcValues and Reset, creation, the impossible values and the split per concentration. The plan decides the order of the steps, not what goes in. |
 
 **Table 2. Proposed, to confirm**
 
 | Question | Proposal |
 |---|---|
-| The trade | The pick list answered "keep what the user set, recompute the rest" for any field, because it knew what the user set. A recipe answers "for this request, this moves and this stays", without knowing who set what: predictable for a prescriber and a domain rule rather than a dialog's memory, less general, since a recipe one entry short leaves the field pinned. |
-| A kind that always comes back pinned | The probe runs each recipe on every fixture of its dose type and component count. A kind pinned on every fixture there gets no recipe and no mark, instead of an arrow that opens a list of one. Today's path is run too, as the before column, and never decides. |
-| The rate stages | `ReCalcValue` ends in `rateStage`, the list without the median: after any recalculation of a timed order stage two comes back as a list to pick from, as a median would pin it again. `SolveOrder` always runs `rateStageWithMedian`. The probe counts the solved orders that reach `SolveOrder` with `isCleared` true when nothing was asked; the local logs of this week hold two such warnings, both during a TPN test. |
-| The wire shape of the five fields | `ScheduleProperty`, `OrderableProperty`, `ComponentProperty` and `ItemProperty` stay as they are, so a request on one of the five stays expressible. The recalculation half of `propertyCommands` becomes an option, `Command.toDomain` gives no domain command for those targets, and the handler answers the context unchanged, its path for a command the domain does not see. The mark keeps a page from sending one. |
+| Issues for the rest | Every step traces to an issue. The recalculation steps trace to #1453 and #1276. The steps that change the set and step commands, creation and the impossible values change behaviour the document lists in its Table 15; each gets an issue before its step starts, or a reference to #1464 where it measured the case. |
+| The design document | `localDocs/order-variables-and-equations.md` is untracked. It moves to `docs/domain/order-variables-and-equations.md` in step 1, so the plan and the code can name its tables. |
 | The restore | Stays, as #1034 decided. |
 | The second path for a reopen (#1343) | Folded in: the machines read a reopen from the command itself, so `ReopenField`, the `reopen` callbacks and the `reopening` refs go; the arrow dispatches the command. |
-| The dose count | Never asked, never stepped: the one hinge every recipe may free. |
-| A recipe that fails to solve | Falls back to a solve of the order as it was, as `processClearedStep` does today; the field shows its value again. |
+
+**Table 2a. What the script does, implemented as it is**
+
+| Question | The script |
+|---|---|
+| The trade | The pick list answered "keep what the user set, recompute the rest" for any field, because it knew what the user set. A recipe answers "for this request, this stays", and the elimination of `Determination` sets back every variable the kept ones do not determine: predictable for a prescriber, a domain rule rather than a dialog's memory. |
+| The rate stages | A recalculation ends with the rate list offered, without the median (`RateSelection.OfferRates`): after any recalculation of a timed order stage two comes back as a list to pick from. CalcValues and an nth select the median (`SelectMedianRate`), as `rateStageWithMedian` does. |
+| The values the order held | Without a pick list nothing is put back, and the pruning of the lists can drop the values the order held, the value of the recalculated field among them. A recalculation adds to every list the value its variable held in the order it received, when that order is complete and the value lies within the calculated constraints. #1498 probed this and moved it here. |
+| Selecting from an order with lists | An nth, min, max or median on an order whose lists are made is solved with values at once. Making the lists thins them to the cap and a solve narrows them, and the two do not give the same result in either order: on an order without lists an nth keeps the solve for min and max first, so the chosen value is carried through before any list is thinned; on an order with lists a solve for min and max alone keeps every listed value within the new bounds, also the values the chosen value no longer reaches, so a min, max or median ends with a solve with values; an nth there gives the same order without the solve for min and max, and skips it. |
+| A recipe that fails to solve | The action fails and the order before the request is kept: the order context answers `Refused(ctx, NotSolved)` with the context as it was sent. Today's fallback to a plain solve goes. |
+| Impossible values | After a recalculation, a list may hold values no complete order reaches when the dose count holds more than one value. `DropImpossibleValues` removes them with a search of at most 1000 solves per value, in parallel. Step 9 reports the time it adds per recalculation on the fixtures. Without a weight the adjust quantity stays open, so a search refutes almost no value and nearly every value stays; that case waits for #1495. |
+| The split per concentration | When a component has more than one combination of item concentrations, at most 16, an action runs once per combination, in parallel, and the order offers the union of those that succeed, as a list of at most 200 values, else a range. A value the original order held is added only to the combination it belongs to. |
+| The dose count | Never asked, never stepped. The kinds set it back unless the kept variables determine it; on Continuous it is an invariant, 1. Step 8 sets the dose count to 1 only when the rules give it nothing; a rule of "1 or more", as for hydrocortisone IV, leaves it free. A free dose count lets a list offer values no complete order reaches, and step 9 removes those values after a recalculation. |
 
 ## Approaches considered
 
@@ -167,11 +264,42 @@ both machines keep it in `Kept` and `RestoreField` puts it back (`OrderPlanMachi
 6. **Keep the word clear and the five commands.** The code would keep saying a field is emptied
    where it is recalculated, and the basic variables would keep an arrow whose answer is a step
    in disguise. Rejected.
-7. **No pick list; the command picks the recipe; the mark from the same commands at send time;
-   the commands named for what they do; the basic variables out.** The user's earlier picks stay
-   because the recipe holds them, not because a list says so. Chosen.
+7. **Recipes that list what each kind sets back, held, and frees**, the first version of this
+   plan. Every list had to name every variable an equation ties to the asked one, per dose type
+   and component count, and one variable held by mistake pins the field. Replaced by 8.
+8. **The order program of the script.** A recipe names only what it keeps; `Determination` sets
+   back every variable the kept ones do not determine; every command is an action run as a list
+   of effects; the shipped commands reach it through a bridge until the wire sends actions.
+   Chosen.
 
 ## Chosen approach
+
+### The program
+
+An `OrderAction` is what the client asks: `CalcConstraints`, `Set` of a variable and a `Choice`,
+`ReCalc` of a variable, `Reset`, `CalcValues`. A variable is named by an
+`OrderVariableReference`: the level and property with the names of the component and item.
+`OrderAction.effects` turns the action into a list of `OrderEffect` values, decided on the order
+as it is; `OrderEffect.run` runs them in turn, and the first failure stops them and keeps the
+order before the action. The effects are the operations of the order: set a range back to a
+target, set back every variable the kept ones do not determine, constrain a range to a value,
+select a value by a choice, solve for min and max or with values, make the lists, make the rate
+list, coarsen the increments, record the calculated constraints, set the norm dose, pick the
+nearest component quantity, and `Unless` and `Try` for the control flow. Each wraps a shipped
+function; the solver and the equations do not change.
+
+The variable a recalculation sets back is never unrestricted: a recipe sets back to the
+calculated constraints. So no reader has to find the recalculated variable by its range, and
+`isCleared`, `IsCleared`, the tuple pattern and `processClearedOrderWith` lose their purpose.
+
+### The bridge
+
+While the wire sends the shipped commands, `CommandBridge.ofOrderCommand` turns a processor
+command into an order and an action, and `processPipelineWith` runs the program for a command
+with an action and the shipped processor for the rest. Each step that moves a command adds its
+case to the bridge and deletes the shipped code the command used. `OrderContext.evaluateOutcome`
+does the same for the order context: the nth and the recalculation of a field run as one action
+on the order of the scenario; every other command as today.
 
 ### The names
 
@@ -179,157 +307,84 @@ both machines keep it in `Kept` and `RestoreField` puts it back (`OrderPlanMachi
 
 | Today | After step 0 |
 |---|---|
-| `ClearScheduleTime`, `ClearOrderableQuantity`, `ClearComponentDoseQuantityAdjust`, `ClearItemDoseQuantity`, `ClearItemDoseQuantityAdjust`, `ClearItemDosePerTime`, `ClearItemDosePerTimeAdjust`, `ClearItemDoseRate`, `ClearItemDoseRateAdjust`, `ClearItemOrderableConcentration`, `ClearItemOrderableQuantity` (`Types.fs:363`) | `ReCalc` for `Clear` |
+| `ClearScheduleTime`, `ClearOrderableQuantity`, `ClearComponentDoseQuantityAdjust`, `ClearItemDoseQuantity`, `ClearItemDoseQuantityAdjust`, `ClearItemDosePerTime`, `ClearItemDosePerTimeAdjust`, `ClearItemDoseRate`, `ClearItemDoseRateAdjust`, `ClearItemOrderableConcentration`, `ClearItemOrderableQuantity` (`Types.fs`) | `ReCalc` for `Clear` |
 | `ClearOrderableDoseRate`, `ClearScheduleFrequency`, `ClearComponentOrderableQuantity`, `ClearOrderableDoseQuantity`, `ClearItemComponentConcentration`; `processClearedFrequency` | gone |
-| `Domain.ClearOrderValue` (`OrderContext.fs:372`) | `ReCalcOrderValue` |
-| `processClearedRate`, `processClearedDose` (`OrderProcessor.fs:395`, `:364`) | `reCalcTime`, `reCalcDose` |
-| `ClearScheduleProperty`, `ClearOrderableProperty`, `ClearComponentProperty`, `ClearItemProperty` (`Api.fs:59`) | `ReCalcScheduleProperty`, `ReCalcOrderableProperty`, `ReCalcComponentProperty`, `ReCalcItemProperty` |
-| `Ctx.clear` (`Models.fs:1730`), `ViewHelpers.clearCommand` | `Ctx.reCalc`, `ViewHelpers.reCalcCommand` |
-| `Arrow.ReopenCleared`, `Click.ClearAndWait` (`FieldOpenPolicy.fs:27`, `:126`) | `Arrow.ReCalc`, `Click.ReCalcAndWait` |
+| `Domain.ClearOrderValue` (`OrderContext.fs`) | `ReCalcOrderValue` |
+| `ClearScheduleProperty`, `ClearOrderableProperty`, `ClearComponentProperty`, `ClearItemProperty` (`Api.fs`) | `ReCalcScheduleProperty`, `ReCalcOrderableProperty`, `ReCalcComponentProperty`, `ReCalcItemProperty` |
+| `Ctx.clear` (`Models.fs`), `ViewHelpers.clearCommand` | `Ctx.reCalc`, `ViewHelpers.reCalcCommand` |
+| `Arrow.ReopenCleared`, `Click.ClearAndWait` (`FieldOpenPolicy.fs`) | `Arrow.ReCalc`, `Click.ReCalcAndWait` |
 
-Later steps add `ReCalcKind`, `OrderCommand.ReCalcValue`, `reCalcPreparation`, `canReCalc`,
-`OrderVariable.CanReCalc`, `OrderReCalcTests.fs` and `Scripts/ReCalcFields.fsx`.
+`processClearedRate` and `processClearedDose` keep their names until step 13b deletes them; the
+recipes that replace them are `Recipe.reCalcTime` and `Recipe.reCalcDose`. Later steps add the
+types of Table A, `Determination.fs`, `OrderVariable.CanReCalc`, `OrderProcessor.canReCalc` and the
+test files of each step.
 
-### The axes of an order
+### The kinds
 
-The order has three axes. The preparation: the orderable quantity, each component's quantity,
-count and concentration, each item's quantity and concentrations. The dose: the quantity, the
-per time and the rate at the orderable, component and item level, each with its per kg form,
-which follows its plain form since the weight is the patient's. The schedule: the frequency and
-the time. Four hinges join them: the dose count between preparation and dose, the frequency
-between quantity and per time, the time between quantity and rate, the concentrations between
-the levels. Each axis has a basic variable the user steps: the component orderable quantity on
-the preparation, the orderable dose quantity and dose rate on the dose, the frequency on the
-schedule. A recalculation is asked on a derived variable and frees the axis it belongs to, its
-basic variable included, which then comes back as the list the rule allows. Two facts shape the
-recipes:
-
-- With one component the preparation is the dose volume times the dose count and the
-  concentrations are the product's: the preparation axis folds into the dose.
-- A timed or once timed order is decided in two stages: first the preparation and the quantity
-  with its frequency, then the time and the rate, one degree of freedom given the quantity.
-  Stage two is downstream of everything else.
-
-A recipe follows one rule: set the asked axis back to its constraints at its scope, with the
-dose count; set back everything downstream; hold the other axes and the hinges that were not
-asked. Before every recipe the same repair: whatever is outside its constraints goes back, which
-is all of today's frequency and preparation conditions.
-
-### The kinds, GenORDER
-
-`ReCalcKind`: `Dose`, `Preparation` with a scope, the whole, a component or an item, and `Time`.
-`kindOf: ChangePropertyCommand -> ReCalcKind option`, None for every other command.
+A recalculation names a variable; `Recipe.forReCalcCommand` gives the kind that recalculates it on
+this order. A kind states only what it keeps, and keeps a variable only when it lies within its
+calculated constraints, so a variable a step moved outside them is set back with the rest. Every
+variable the kept variables that hold one value do not determine is set back to its calculated
+constraints, then the order is solved.
 
 **Table 4. The eleven commands and their kind**
 
-| Command | Kind | With one component |
+| Command | Kind | Dose types |
 |---|---|---|
-| `ReCalcScheduleTime` | `Time` | `Time` |
-| `ReCalcItemDoseQuantity`, `ReCalcItemDoseQuantityAdjust`, `ReCalcItemDosePerTime`, `ReCalcItemDosePerTimeAdjust` | `Dose` | `Dose` |
-| `ReCalcItemDoseRate`, `ReCalcItemDoseRateAdjust` | `Time`: the rate and the time are one degree of freedom given the quantity, on `Continuous` the volume | `Time` |
-| `ReCalcOrderableQuantity` | `Preparation`, the whole | `Dose`: the orderable quantity is the dose volume |
-| `ReCalcComponentDoseQuantityAdjust cmp` | `Preparation`, the component | `Dose` |
-| `ReCalcItemOrderableQuantity` | `Preparation`, the item | `Dose` |
-| `ReCalcItemOrderableConcentration` | `Preparation`, the item | none: the concentration is the product's |
+| `ReCalcItemDoseQuantity`, `ReCalcItemDoseQuantityAdjust` | Dose | Once, Discontinuous, Timed, OnceTimed |
+| `ReCalcItemDosePerTime`, `ReCalcItemDosePerTimeAdjust` | Per time | Discontinuous, Timed |
+| `ReCalcScheduleTime`, `ReCalcItemDoseRate`, `ReCalcItemDoseRateAdjust` | Time | Continuous, Timed, OnceTimed |
+| `ReCalcOrderableQuantity`, `ReCalcComponentDoseQuantityAdjust`, `ReCalcItemOrderableQuantity`, `ReCalcItemOrderableConcentration` | none: the script has no kind for them, so the action is refused | |
 
-`recipe: PrescriptionKind -> components: int -> ReCalcKind -> (Order -> Result) option`: None
-where the dose type has no such face, `Dose` on a continuous order, `Time` on a once or
-discontinuous one, and the one-component cases of the last column.
-`PrescriptionKind.ofSchedule`, the match `classify` already makes, and `PrescriptionKind.ofDto`,
-from the Dto's five flags, sit next to it, so the process and the mapper read the dose type the
-same way. `canReCalc kind components command` is `recipe kind components (kindOf command)` is
-some. The process runs the recipe; the mark asks whether it exists.
+An item dose of a component whose dose the rules do not constrain, at the component or at any of
+its items, has no kind: it only follows from the others (`Recipe.isComponentDoseConstrained`).
 
-**Table 5. The recipe per kind, component count and dose type**
+**Table 5. What each kind keeps**
 
-The variables are named by their place in the order: `Schedule.Time`, `Orderable.Dose.Rate`,
-and for a component or an item the field of that component or item, so `Dose.RateAdjust` of
-every component is the rate per kg of each component. "Set back to the constraints" is
-`applyConstraints`: the variable takes its calculated constraints again and the solver narrows
-it from there. A row names only the faces its dose type has: the per time and the frequency on
-`Discontinuous` and `Timed`, the time and the rates on `Continuous`, `Timed` and `OnceTimed`
-(`Schedule` in `Types.fs:258`: `OnceTimed of Time`, `Continuous of Time`, `Timed of Frequency *
-Time`). On a continuous order the time is the running time of the volume, and rate × time =
-volume makes the rate and the time one degree of freedom there as on a timed order, so the item
-rate commands are `Time` on all three.
+| Kind | Recalculates | Kept | By dose type |
+|---|---|---|---|
+| Dose | the orderable dose quantity | the frequency; the order count; the invariants: the adjust quantity, every component quantity, every item's component quantity and concentration, and on Continuous the dose count. The preparation is never kept: a kept preparation limits the dose to the preparation divided by the dose count, one value when the dose count holds one | on Timed and OnceTimed the time and the rates are set back with the dose |
+| Per time | the orderable dose quantity and the frequency | as Dose, without the frequency; with one component whose dose quantity the definition fixes, also without that component's product: its quantity and every item's component quantity and concentration | Discontinuous, Timed |
+| Time | the orderable dose rate | the frequency; the order count; the invariants; the orderable dose quantity where it is basic, unless the time is fixed or the preparation lies outside its constraints; every component orderable quantity unless the preparation lies outside its constraints or the time is fixed | Continuous, Timed, OnceTimed |
 
-| Kind | Commands | Components | Dose type | Set back to the constraints | Downstream, set back with it | Held |
-|---|---|---|---|---|---|---|
-| `Dose` | `ReCalcItemDoseQuantity`, `ReCalcItemDoseQuantityAdjust`; with one component also `ReCalcOrderableQuantity`, `ReCalcComponentDoseQuantityAdjust`, `ReCalcItemOrderableQuantity` | one | `Once` | `Orderable.OrderableQuantity`; of every component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration`; of every item `OrderableQuantity`, `OrderableConcentration`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust`; of every item `Dose.Quantity`, `Dose.QuantityAdjust` | none | of every item `ComponentConcentration` |
-| `Dose` | `ReCalcItemDoseQuantity`, `ReCalcItemDoseQuantityAdjust`, `ReCalcItemDosePerTime`, `ReCalcItemDosePerTimeAdjust`; with one component also `ReCalcOrderableQuantity`, `ReCalcComponentDoseQuantityAdjust`, `ReCalcItemOrderableQuantity` | one | `Discontinuous` | `Orderable.OrderableQuantity`; of every component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration`; of every item `OrderableQuantity`, `OrderableConcentration`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`, `Orderable.Dose.PerTime`, `Orderable.Dose.PerTimeAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust`; of every item `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust` | none | `Schedule.Frequency`; of every item `ComponentConcentration` |
-| `Dose` | `ReCalcItemDoseQuantity`, `ReCalcItemDoseQuantityAdjust`, `ReCalcItemDosePerTime`, `ReCalcItemDosePerTimeAdjust`; with one component also `ReCalcOrderableQuantity`, `ReCalcComponentDoseQuantityAdjust`, `ReCalcItemOrderableQuantity` | one | `Timed` | `Orderable.OrderableQuantity`; of every component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration`; of every item `OrderableQuantity`, `OrderableConcentration`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`, `Orderable.Dose.PerTime`, `Orderable.Dose.PerTimeAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust`; of every item `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust` | `Schedule.Time`; `Orderable.Dose.Rate`, `Orderable.Dose.RateAdjust`; of every component `Dose.Rate`, `Dose.RateAdjust`; of every item `Dose.Rate`, `Dose.RateAdjust` | `Schedule.Frequency`; of every item `ComponentConcentration` |
-| `Dose` | `ReCalcItemDoseQuantity`, `ReCalcItemDoseQuantityAdjust`; with one component also `ReCalcOrderableQuantity`, `ReCalcComponentDoseQuantityAdjust`, `ReCalcItemOrderableQuantity` | one | `OnceTimed` | `Orderable.OrderableQuantity`; of every component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration`; of every item `OrderableQuantity`, `OrderableConcentration`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust`; of every item `Dose.Quantity`, `Dose.QuantityAdjust` | `Schedule.Time`; `Orderable.Dose.Rate`, `Orderable.Dose.RateAdjust`; of every component `Dose.Rate`, `Dose.RateAdjust`; of every item `Dose.Rate`, `Dose.RateAdjust` | of every item `ComponentConcentration` |
-| `Dose` | `ReCalcItemDoseQuantity`, `ReCalcItemDoseQuantityAdjust` | multiple | `Once` | `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust`; of every item `Dose.Quantity`, `Dose.QuantityAdjust` | none | `Orderable.OrderableQuantity`; of every component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration`; of every item `OrderableQuantity`, `OrderableConcentration`; of every item `ComponentConcentration` |
-| `Dose` | `ReCalcItemDoseQuantity`, `ReCalcItemDoseQuantityAdjust`, `ReCalcItemDosePerTime`, `ReCalcItemDosePerTimeAdjust` | multiple | `Discontinuous` | `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`, `Orderable.Dose.PerTime`, `Orderable.Dose.PerTimeAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust`; of every item `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust` | none | `Orderable.OrderableQuantity`; of every component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration`; of every item `OrderableQuantity`, `OrderableConcentration`; `Schedule.Frequency`; of every item `ComponentConcentration` |
-| `Dose` | `ReCalcItemDoseQuantity`, `ReCalcItemDoseQuantityAdjust`, `ReCalcItemDosePerTime`, `ReCalcItemDosePerTimeAdjust` | multiple | `Timed` | `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`, `Orderable.Dose.PerTime`, `Orderable.Dose.PerTimeAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust`; of every item `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust` | `Schedule.Time`; `Orderable.Dose.Rate`, `Orderable.Dose.RateAdjust`; of every component `Dose.Rate`, `Dose.RateAdjust`; of every item `Dose.Rate`, `Dose.RateAdjust` | `Orderable.OrderableQuantity`; of every component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration`; of every item `OrderableQuantity`, `OrderableConcentration`; `Schedule.Frequency`; of every item `ComponentConcentration` |
-| `Dose` | `ReCalcItemDoseQuantity`, `ReCalcItemDoseQuantityAdjust` | multiple | `OnceTimed` | `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust`; of every item `Dose.Quantity`, `Dose.QuantityAdjust` | `Schedule.Time`; `Orderable.Dose.Rate`, `Orderable.Dose.RateAdjust`; of every component `Dose.Rate`, `Dose.RateAdjust`; of every item `Dose.Rate`, `Dose.RateAdjust` | `Orderable.OrderableQuantity`; of every component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration`; of every item `OrderableQuantity`, `OrderableConcentration`; of every item `ComponentConcentration` |
-| `Preparation`, the whole | `ReCalcOrderableQuantity` | multiple | `Once` | `Orderable.OrderableQuantity`; of every component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration`; of every item `OrderableQuantity`, `OrderableConcentration`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust` | none | of every item `Dose.Quantity`, `Dose.QuantityAdjust`; of every item `ComponentConcentration` |
-| `Preparation`, the whole | `ReCalcOrderableQuantity` | multiple | `Discontinuous` | `Orderable.OrderableQuantity`; of every component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration`; of every item `OrderableQuantity`, `OrderableConcentration`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`, `Orderable.Dose.PerTime`, `Orderable.Dose.PerTimeAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust` | none | of every item `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust`; `Schedule.Frequency`; of every item `ComponentConcentration` |
-| `Preparation`, the whole | `ReCalcOrderableQuantity` | multiple | `Continuous` | `Orderable.OrderableQuantity`; of every component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration`; of every item `OrderableQuantity`, `OrderableConcentration`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust` | `Orderable.Dose.Rate`, `Orderable.Dose.RateAdjust`; of every component `Dose.Rate`, `Dose.RateAdjust`, which follow the concentrations | of every item `Dose.Quantity`, `Dose.QuantityAdjust`; of every item `Dose.Rate`, `Dose.RateAdjust`; `Schedule.Time`; of every item `ComponentConcentration` |
-| `Preparation`, the whole | `ReCalcOrderableQuantity` | multiple | `Timed` | `Orderable.OrderableQuantity`; of every component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration`; of every item `OrderableQuantity`, `OrderableConcentration`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`, `Orderable.Dose.PerTime`, `Orderable.Dose.PerTimeAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust` | `Schedule.Time`; `Orderable.Dose.Rate`, `Orderable.Dose.RateAdjust`; of every component `Dose.Rate`, `Dose.RateAdjust`; of every item `Dose.Rate`, `Dose.RateAdjust` | of every item `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust`; `Schedule.Frequency`; of every item `ComponentConcentration` |
-| `Preparation`, the whole | `ReCalcOrderableQuantity` | multiple | `OnceTimed` | `Orderable.OrderableQuantity`; of every component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration`; of every item `OrderableQuantity`, `OrderableConcentration`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust` | `Schedule.Time`; `Orderable.Dose.Rate`, `Orderable.Dose.RateAdjust`; of every component `Dose.Rate`, `Dose.RateAdjust`; of every item `Dose.Rate`, `Dose.RateAdjust` | of every item `Dose.Quantity`, `Dose.QuantityAdjust`; of every item `ComponentConcentration` |
-| `Preparation`, the component | `ReCalcComponentDoseQuantityAdjust cmp` | multiple | `Once` | of the component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration` and of its items `OrderableQuantity`, `OrderableConcentration`; `Orderable.OrderableQuantity`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust` | none | of every other component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration` and of its items `OrderableQuantity`, `OrderableConcentration`; of every item `Dose.Quantity`, `Dose.QuantityAdjust`; of every item `ComponentConcentration` |
-| `Preparation`, the component | `ReCalcComponentDoseQuantityAdjust cmp` | multiple | `Discontinuous` | of the component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration` and of its items `OrderableQuantity`, `OrderableConcentration`; `Orderable.OrderableQuantity`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`, `Orderable.Dose.PerTime`, `Orderable.Dose.PerTimeAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust` | none | of every other component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration` and of its items `OrderableQuantity`, `OrderableConcentration`; of every item `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust`; `Schedule.Frequency`; of every item `ComponentConcentration` |
-| `Preparation`, the component | `ReCalcComponentDoseQuantityAdjust cmp` | multiple | `Continuous` | of the component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration` and of its items `OrderableQuantity`, `OrderableConcentration`; `Orderable.OrderableQuantity`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust` | `Orderable.Dose.Rate`, `Orderable.Dose.RateAdjust`; of every component `Dose.Rate`, `Dose.RateAdjust`, which follow the concentrations | of every other component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration` and of its items `OrderableQuantity`, `OrderableConcentration`; of every item `Dose.Quantity`, `Dose.QuantityAdjust`; of every item `Dose.Rate`, `Dose.RateAdjust`; `Schedule.Time`; of every item `ComponentConcentration` |
-| `Preparation`, the component | `ReCalcComponentDoseQuantityAdjust cmp` | multiple | `Timed` | of the component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration` and of its items `OrderableQuantity`, `OrderableConcentration`; `Orderable.OrderableQuantity`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`, `Orderable.Dose.PerTime`, `Orderable.Dose.PerTimeAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust` | `Schedule.Time`; `Orderable.Dose.Rate`, `Orderable.Dose.RateAdjust`; of every component `Dose.Rate`, `Dose.RateAdjust`; of every item `Dose.Rate`, `Dose.RateAdjust` | of every other component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration` and of its items `OrderableQuantity`, `OrderableConcentration`; of every item `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust`; `Schedule.Frequency`; of every item `ComponentConcentration` |
-| `Preparation`, the component | `ReCalcComponentDoseQuantityAdjust cmp` | multiple | `OnceTimed` | of the component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration` and of its items `OrderableQuantity`, `OrderableConcentration`; `Orderable.OrderableQuantity`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust` | `Schedule.Time`; `Orderable.Dose.Rate`, `Orderable.Dose.RateAdjust`; of every component `Dose.Rate`, `Dose.RateAdjust`; of every item `Dose.Rate`, `Dose.RateAdjust` | of every other component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration` and of its items `OrderableQuantity`, `OrderableConcentration`; of every item `Dose.Quantity`, `Dose.QuantityAdjust`; of every item `ComponentConcentration` |
-| `Preparation`, the item | `ReCalcItemOrderableQuantity`, `ReCalcItemOrderableConcentration` | multiple | `Once` | of the item `OrderableQuantity`, `OrderableConcentration`, the one not asked for as a dependent of the other; of its component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration`; `Orderable.OrderableQuantity`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust` | none | of every other component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration` and of its items `OrderableQuantity`, `OrderableConcentration`; of every item `Dose.Quantity`, `Dose.QuantityAdjust`; of every item `ComponentConcentration` |
-| `Preparation`, the item | `ReCalcItemOrderableQuantity`, `ReCalcItemOrderableConcentration` | multiple | `Discontinuous` | of the item `OrderableQuantity`, `OrderableConcentration`, the one not asked for as a dependent of the other; of its component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration`; `Orderable.OrderableQuantity`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`, `Orderable.Dose.PerTime`, `Orderable.Dose.PerTimeAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust` | none | of every other component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration` and of its items `OrderableQuantity`, `OrderableConcentration`; of every item `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust`; `Schedule.Frequency`; of every item `ComponentConcentration` |
-| `Preparation`, the item | `ReCalcItemOrderableQuantity`, `ReCalcItemOrderableConcentration` | multiple | `Continuous` | of the item `OrderableQuantity`, `OrderableConcentration`, the one not asked for as a dependent of the other; of its component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration`; `Orderable.OrderableQuantity`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust` | `Orderable.Dose.Rate`, `Orderable.Dose.RateAdjust`; of every component `Dose.Rate`, `Dose.RateAdjust`, which follow the concentrations | of every other component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration` and of its items `OrderableQuantity`, `OrderableConcentration`; of every item `Dose.Quantity`, `Dose.QuantityAdjust`; of every item `Dose.Rate`, `Dose.RateAdjust`; `Schedule.Time`; of every item `ComponentConcentration` |
-| `Preparation`, the item | `ReCalcItemOrderableQuantity`, `ReCalcItemOrderableConcentration` | multiple | `Timed` | of the item `OrderableQuantity`, `OrderableConcentration`, the one not asked for as a dependent of the other; of its component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration`; `Orderable.OrderableQuantity`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`, `Orderable.Dose.PerTime`, `Orderable.Dose.PerTimeAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust` | `Schedule.Time`; `Orderable.Dose.Rate`, `Orderable.Dose.RateAdjust`; of every component `Dose.Rate`, `Dose.RateAdjust`; of every item `Dose.Rate`, `Dose.RateAdjust` | of every other component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration` and of its items `OrderableQuantity`, `OrderableConcentration`; of every item `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust`; `Schedule.Frequency`; of every item `ComponentConcentration` |
-| `Preparation`, the item | `ReCalcItemOrderableQuantity`, `ReCalcItemOrderableConcentration` | multiple | `OnceTimed` | of the item `OrderableQuantity`, `OrderableConcentration`, the one not asked for as a dependent of the other; of its component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration`; `Orderable.OrderableQuantity`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust` | `Schedule.Time`; `Orderable.Dose.Rate`, `Orderable.Dose.RateAdjust`; of every component `Dose.Rate`, `Dose.RateAdjust`; of every item `Dose.Rate`, `Dose.RateAdjust` | of every other component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration` and of its items `OrderableQuantity`, `OrderableConcentration`; of every item `Dose.Quantity`, `Dose.QuantityAdjust`; of every item `ComponentConcentration` |
-| `Time` | `ReCalcScheduleTime`, `ReCalcItemDoseRate`, `ReCalcItemDoseRateAdjust` | any | `Continuous` | `Schedule.Time`; `Orderable.Dose.Rate`, `Orderable.Dose.RateAdjust`; of every component `Dose.Rate`, `Dose.RateAdjust`; of every item `Dose.Rate`, `Dose.RateAdjust` | none | `Orderable.OrderableQuantity`; of every component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration`; of every item `OrderableQuantity`, `OrderableConcentration`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust`; of every item `Dose.Quantity`, `Dose.QuantityAdjust`; of every item `ComponentConcentration` |
-| `Time` | `ReCalcScheduleTime`, `ReCalcItemDoseRate`, `ReCalcItemDoseRateAdjust` | any | `Timed` | `Schedule.Time`; `Orderable.Dose.Rate`, `Orderable.Dose.RateAdjust`; of every component `Dose.Rate`, `Dose.RateAdjust`; of every item `Dose.Rate`, `Dose.RateAdjust` | none | `Orderable.OrderableQuantity`; of every component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration`; of every item `OrderableQuantity`, `OrderableConcentration`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`, `Orderable.Dose.PerTime`, `Orderable.Dose.PerTimeAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust`; of every item `Dose.Quantity`, `Dose.QuantityAdjust`, `Dose.PerTime`, `Dose.PerTimeAdjust`; `Schedule.Frequency`; of every item `ComponentConcentration` |
-| `Time` | `ReCalcScheduleTime`, `ReCalcItemDoseRate`, `ReCalcItemDoseRateAdjust` | any | `OnceTimed` | `Schedule.Time`; `Orderable.Dose.Rate`, `Orderable.Dose.RateAdjust`; of every component `Dose.Rate`, `Dose.RateAdjust`; of every item `Dose.Rate`, `Dose.RateAdjust` | none | `Orderable.OrderableQuantity`; of every component `OrderableQuantity`, `OrderableCount`, `OrderableConcentration`; of every item `OrderableQuantity`, `OrderableConcentration`; `Orderable.DoseCount`; `Orderable.Dose.Quantity`, `Orderable.Dose.QuantityAdjust`; of every component `Dose.Quantity`, `Dose.QuantityAdjust`; of every item `Dose.Quantity`, `Dose.QuantityAdjust`; of every item `ComponentConcentration` |
-| none | `ReCalcItemOrderableConcentration` | one | all five | no recipe and no mark: the concentration is the product's | | |
+A recalculation then runs, in order: the recipe; a solve for min and max; after Dose and Per time
+the increments coarsened to at most 100 values; the lists made with the larger cap and the values
+the order held added; the order solved with values, the nearest component quantity picked and the
+rate list offered; a solve with values; step 9 adds the drop of the impossible values.
+`Schedule.isTimeFixed` reads the calculated constraints of the time.
 
-Every recipe ends in `solveSteps` with `rateStage`: the values ensured with the caps, the order
-solved, the component quantity picked, the rate list made once `Orderable.Dose.Quantity` has one
-value, without its median. `reCalcDose` first makes the increment of a volume orderable quantity
-coarser until at most 100 values remain, and the dose quantity's after it, as today; the
-preparation recipe does the same where the probe shows a longer list. So a recipe is a function
-over the order, not a list of property changes alone.
-
-The table is the hypothesis the probe decides: every variable an equation ties to the asked one
-must be in one of the columns, and one held by mistake pins the field. It departs from today's
-`processClearedDose` in one place: that frees the time and holds the rates, the `Dose` rows free
-stage two whole, since with the rate held at one value the time's constraints prune the quantity
-list through the old rate. The `Time` rows are today's `processClearedRate`. One thing the
-probe must check there: `Schedule.getTime` (`Order.fs:2413`) answers None for a once timed order
-while `hasTime` (`:2396`) is true, so whether the time of the once timed KCl is set back at all is
-a measurement, not a given.
-
-### The pipeline
-
-`OrderCommand.ReCalcValue of Order * ChangePropertyCommand` replaces `Reopen`: the field set to
-unrestricted by `processChangeProperty`, the recipe of `kindOf` run, then `solveSteps` with
-`rateStage`. `ReCalcOrderValue(ctx, change)` evaluates it through `processScenarioOrder`.
-`SolveOrder` loses its `process-cleared` step and its branch on `isCleared` and always runs
-`rateStageWithMedian`; `classify` loses `IsCleared`; `processClearedOrderWith` and the tuple
-pattern become the recipes, each a function; `clearedPick`, the put-back and `rateNotAPick` go;
-`OrderReopenTests.fs` becomes `OrderReCalcTests.fs` over `ReCalcValue`.
+The step and percentile recipes of the four basic variables (the document's Table 13a) free every
+variable the kept ones do not determine to any positive value on its defined increment, except
+the target, and then set the floors they name. They replace the four shipped step functions and
+`orderPropertySetPercOrderableDoseQuantity`.
 
 ### The mark, derived when the order is sent
 
-GenORDER exposes `OrderProcessor.canReCalc: PrescriptionKind -> int -> ChangePropertyCommand -> bool`.
+GenORDER exposes `OrderProcessor.canReCalc: Order -> ChangePropertyCommand -> bool`: the command
+maps to `ReCalc` of a variable through the bridge, `Recipe.forReCalcCommand` gives a kind for it
+on this order, and the variable holds one value. The kind depends on the order's dose type and
+on which component doses the rules constrain, so the mark reads the domain order, not only the
+dose type and the component count.
+
 The server mapper maps the wire order as today, then folds over the targets the order holds and
 writes each through `Target.map` with a setter that reads the variable it is applied to:
-`CanReCalc` is `canReCalc` of the dose type (`PrescriptionKind.ofDto`), the component count and
-the recalculation command of `propertyCommands target`, false when the target has none, and the
-variable holds one value. `Target.map` fans out for two targets (`Models.fs:1507`); since the
-setter reads its own variable and the kind is the same for every variable a target reaches, each
-gets its own mark, and the fold is idempotent. The marked places and the places
+`CanReCalc` is `canReCalc` of the scenario's order and the recalculation command of
+`propertyCommands target`, false when the target has none. The mapper works from the scenario
+Dto (`ServerApi.Mappers.OrderContext.fs`), so the fold builds the domain order from it once
+per scenario with `Order.Dto.fromDto`; step 11 measures that cost on the TPN fixtures.
+`Target.map` fans out for two targets (`Models.fs`); since the setter reads its own variable,
+each gets its own mark, and the fold is idempotent. The marked places and the places
 `ViewHelpers.reCalcCommand` can send are one set by construction; `mapToOrderVariableWith` and
 its 27 sites stay; nothing is stored.
 
-The fold lives in `ServerApi.Mappers.OrderContext.fs`, applied where the scenario's order is
-mapped (`:215`); the target enumeration and the recalculation half of `propertyCommands` move
-above it, since `Mappers.Order.fs` compiles first and does not know the targets.
+The fold lives in `ServerApi.Mappers.OrderContext.fs`; a new enumeration of an order's targets and
+the recalculation half of `propertyCommands` sit above it, since `Mappers.Order.fs` compiles first
+and does not know the targets.
 
 The agreement is tested both ways over every target: the variable the fold marks is the one
-`Target.tryGet` reads; a target with a recipe is marked exactly when its variable holds one
-value; a target without one never; on an order with two components carrying a same-named item,
-each item's marks equal its own variable's state.
+`Target.tryGet` reads; a target with a kind is marked exactly when its variable holds one value; a
+target without one never; on an order with two components carrying a same-named item, each
+item's marks equal its own variable's state.
 
 The mark switches itself off: after a recalculation the field holds a list, its mark is false
 and the field shows the list as `Open`. A restore puts the kept state back, the mark included.
@@ -345,148 +400,279 @@ value and marked gives `ReCalc`, one value and not marked `NoArrow`, several val
 the #1034 table has it. `Views/Order.fs` loses `picks`, `heldPicks`, the picks half of `sentFrom`
 and the pick bookkeeping; `reopenOf` in `Order.fs` and `NutritionSlot.fs` reads `ovar.CanReCalc`.
 `ViewHelpers.Reopen` loses `constrained`. With #1343 folded in, the machines keep the state before
-a recalculation when the command is one of the four, read by one predicate, `reopens`;
+a recalculation when the command is one of the four wire ReCalc commands, read by one predicate,
+`reopens`;
 `ReopenField` on both machines and both environment interfaces, the `reopen` prop of `Order.View`,
 the `planReopen` prop of `useSlot` and its pass-through in the three nutrition views, and the
 `reopening` refs go. `RestoreField` and `Kept` stay. The trail prints the command name, so it
 follows the rename.
 
+### The tests
+
+The script's tests move with the code each step migrates, to `tests/Informedica.GenORDER.Tests`: the
+helper tests to the files of their modules, `Determination` to `DeterminationTests.fs`, the program
+to `OrderProgramTests.fs`, the laws to `OrderLawsTests.fs` over the fixtures of
+`TestsAndFixtures.Fixtures`, with `Scenarios.fs` gaining the fixture changes they make (a dose count
+of at least one, a maximum volume, a fixed time) and `hydrocortisonIvText`, the hydrocortisone IV
+fixture with a free dose count, written as text like `amoxClavText` and added in step 8. The names
+of the document and the bridge between them and `OrderVariableReference` (`TemporaryHelpers.VarId`,
+`Vars`, `Bridge`) move to a test helper file, since the laws read the document's ids. The
+comparisons with the shipped recipes (`TemporaryHelpers.Shipped`, `ShippedRecipe`,
+`TestsAndFixtures.Migration`) run in the script before each step and go with the shipped code they
+compare against; they never reach the test project.
+
 ## Checked, no change needed
 
-- **The signing digest** is over the parsed typed order (`ServerApi.Session.fs:1509`); the mark is
+- **The signing digest** is over the parsed typed order (`ServerApi.Session.fs`); the mark is
   not on the Dto, so neither the digest nor the stored JSON moves.
 - **The golden orders** are printed orders, not Dto JSON.
 - **The stored rows hold no commands**: only the composition root and the command handler see
   `OrderViewCommand`, so the rename costs no compatibility.
 - **`Target` addresses variables by place**, so the fold needs no name.
 - **The dialog's editing gate** stays in front of the mark: `selectFor` asks
-  `PlanContextPolicy.canEdit` first (`Order.fs:986`).
+  `PlanContextPolicy.canEdit` first (`Order.fs`).
 - **The MCP host and the benchmarks** use neither the commands nor the pick list.
 - **The two #1425 tests** that empty the median rate, tpn and the once timed KCl, go through
-  `Reopen` and `rateNotAPick` today. The orderable rate is no longer asked; in 2b they become
-  tests of the item rate request through `ReCalcValue`, the same stage two, and must give the same
-  list.
-- **The basic variables keep their steps and navigations**: the increase, decrease, minimum,
-  maximum and median commands are not touched.
+  `Reopen` and `rateNotAPick` today. The orderable rate is no longer asked; in step 7a they become
+  tests of the item rate recalculation, the same stage two, and must give the same list.
+- **The solver and the equations** do not change: the program calls the shipped solve, and the
+  equations the document changes (its Table 14) are not in the script.
 
 ## Confidence
 
-High for the client: it removes code and reads one flag. High for the routing: the command
-carries what the detection had to find. Medium for the recipes: a list one short leaves the
-field pinned, one long lets a value the user set move; the probe measures both before any recipe
-reaches the source. High for the mark: read from the commands themselves, held to the targets by
-the agreement test. Medium for what a prescriber sees: values the solver set are held now where
-the reopen recalculated them, so more fields can come back pinned; the probe's count is what
-keeps that honest.
+High for the client: it removes code and reads one flag. High for the routing: the action names
+the variable the detection had to find. High for the recipes' shape: the script runs the laws of
+the document over the fixtures, the containment, the narrowing, the determination, the offered
+values, the complete orders, and compares every recipe with the shipped one. Medium for what a
+prescriber sees: a kind keeps what it names and sets back the rest, so a field another kept value
+pins comes back as a list of one; the laws count those. Medium for the size: the program is about
+1 600 code lines, about 2 400 with its documentation, so the GenORDER part takes sixteen pull
+requests, each built and released on its own.
 
 ## Steps
 
 One PR per step, after the maintainer's go. Each step builds and is safe to release on its own:
-step 0 changes names only; 2b keeps the picks parameter of `ReCalcOrderValue` unused until step
-4; step 4 changes the wire and the client call sites together; steps 5 and 6 add before they
-remove. Source lines are shipped code under `src/`, tests and scripts excluded. Every `.fs` change
-outside `src/Informedica.GenPRES.Client/` is prototyped in a script and migrated by the
-maintainer.
+step 0 changes names only; the program runs only for the commands the bridge maps, so steps 2 to
+6 add code nothing calls yet; step 7a moves the eleven recalculation commands and keeps the picks
+parameter of `ReCalcOrderValue` for the five commands of the basic variables and the product
+strength, which stay on the old `Reopen` path until the client stops showing their arrow in step
+12; step 13a changes the wire and the client call sites together; steps 12 and 14 add before they
+remove. Source lines are shipped code under `src/`,
+tests and scripts excluded. Every step follows the migration rules and Table B, and the
+maintainer's review checks them. Every `.fs` change outside `src/Informedica.GenPRES.Client/` comes
+from the script, reviewed and migrated when the maintainer asks, except the direct edits of steps
+11 to 14 (Table 1); the step's tests pass in the
+script first, then in the test project. The step that moves the last part of the program deletes
+the script.
 
-0. **The names.** Table 3, across GenORDER (`Types.fs:363`, the arms of `processChangeProperty`
-   at `OrderProcessor.fs:314`, the two recipes and their calls, `ClearOrderValue` with
-   `Command.get` and `toString`), Shared (`Api.fs:59`, `:135`, `:170`; `Models.fs:1730`), the
-   server mapper (`propertyCommands` with its recalculation half an option, `toDomain` giving no
-   command for a target without one), the client (`ViewHelpers.clearCommand` and its callers at
-   `Order.fs:535`, `NutritionSlot.fs:633`; `FieldOpenPolicy.fs:27`, `:126`) and the tests that
-   spell the names (`OrderValueCommandTests.fs`, `DomainCommandTests.fs`,
-   `MappersOrderContextTests.fs`, `OrderValueAgreementTests.fs`, `OrderContextCommandTests.fs`,
-   the `FieldOpenPolicy` and trail tests); `Issue1425Staged.fsx` and
-   `docs/domain/genorder-order-fsm.md` follow. The five commands and `processClearedFrequency` go
-   here; the tuple pattern's `FrequencyCleared` arm stays until 2c. No behaviour changes for the
-   eleven; a wire request on one of the five answers the context unchanged. About 100 lines.
+0. **The names.** Table 3, across GenORDER (`Types.fs`, the arms of `processChangeProperty`
+   at `OrderProcessor.fs`, `ClearOrderValue` with `Command.get` and `toString`), Shared
+   (`Api.fs`; `Models.fs`), the server mapper (`propertyCommands` with its
+   recalculation half an option, `toDomain` giving no command for a target without one), the
+   client (`ViewHelpers.clearCommand` and its callers at `Order.fs`, `NutritionSlot.fs`;
+   `FieldOpenPolicy.fs`) and the tests that spell the names
+   (`Tests.fs`, `OrderValueCommandTests.fs`, `DomainCommandTests.fs`, `MappersOrderContextTests.fs`,
+   `OrderValueAgreementTests.fs`, `OrderContextCommandTests.fs`, the `FieldOpenPolicy` and trail
+   tests); `Issue1425Staged.fsx`, `docs/domain/genorder-order-fsm.md` and the script's
+   `CommandBridge` follow. The five commands keep their `Clear` names and their path until step
+   13a; only `processClearedFrequency`, which nothing calls, goes here. No behaviour changes.
+   About 100 lines.
    `refactor(api): rename the clear commands ReCalc`.
 
-1. **The probe, script only.** `Scripts/ReCalcFields.fsx` in GenORDER: every fixture of
-   `Scenarios.fs`, solved and completed; per command of the eleven, two runs: today's path, the
-   before column, and the recipe of Table 5 as a shadowed function followed by `solveSteps` with
-   `rateStage`. For each run: the list of the field, the variables that moved, the ones that
-   stayed. Besides: the dose recipe on the timed fixtures with the rate held and with stage two
-   freed, the two list lengths; the item rate request on tpn and the once timed KCl against the
-   list the #1425 tests expect; whether a total ever holds one value; the solved orders that
-   reach `SolveOrder` with `isCleared` true when nothing was asked. A table per fixture into this
-   plan, with the kinds that come back pinned counted per dose type and component count. No
-   source change. `docs(genorder): probe the recalculations over the fixtures`; no Greptile
-   review.
+1. **Shipped refactors and the caps of a timed order.** `Order.equationMapping` out of
+   `Order.solve`, which then calls it; `rateWaits`, `isComposed` and `isPrepWithinConstraints` moved
+   from `OrderProcessor` to `Order`; `OrderContext.processScenarioOrder` takes an order function
+   instead of a command, so the program's scenario action is a call of it rather than a copy; the
+   predicate for at most two components replaces its inline copies. One change in behaviour:
+   `Order.ValueCaps.defaults` swaps the two caps of a timed order, `TimedFew` 10 and `TimedMaxFew`
+   20. A timed or once timed order with at most two components lists at most 10 values where it
+   listed 20 when a scenario is selected, and at most 20 where it listed 10 after a reset, an nth or
+   a recalculation; doses, component quantities and rates alike. The norm dose at creation is the
+   median of a list made with the larger cap, so on such an order it is taken from up to 20 values
+   instead of 10 and can change. It needs its own issue. The design document moves to
+   `docs/domain/`. The script drops its wrappers, its copies and its `caps` override. Tests: the
+   larger cap of every dose type is at least its cap to select from; the norm dose of every timed
+   fixture before and after the swap, so a change shows in the pull request. About 75 lines.
+   `fix(genorder): swap the value caps of a timed order`.
 
-2. **GenORDER, in two.**
-   - **2b, the kinds, the recipes and the pipeline.** `ReCalcKind`, `kindOf`, `recipe`,
-     `canReCalc`, `PrescriptionKind.ofSchedule`; `reCalcPreparation` new with its three scopes,
-     `reCalcDose` freeing stage two, `reCalcTime` as today; `ReCalcValue` in `Types.fs` and its
-     pipeline; `ReCalcOrderValue` evaluating it, its picks parameter kept unused. The script
-     first, with the probe run again through `ReCalcValue` and the Table 5 column of step 1 as
-     the expected outcome. Tests in `OrderReCalcTests.fs`: per fixture and command, the field gets
-     a list of more than one value where the probe did, the values the user set stay, the order
-     solves again after a pick; `kindOf` for all eleven; `recipe` none where Table 4 and 5 say
-     none; the two #1425 tests as item rate requests. Under 180 lines.
-     `fix(genorder): a recalculation changes what depends on the field`. Closes #1276.
-   - **2c, the removals.** `Reopen`, `clearedPick`, the put-back and `rateNotAPick`; the tuple
-     pattern and its comment; the `process-cleared` step, the `isCleared` branch and `IsCleared`;
-     `ReopenOrderScenario` and `reopenScenarioOrder`, `Command.get` and `toString` following.
-     Under 150 lines, nearly all removed. `refactor(genorder): the reopen leaves the processor`.
+2. **The helpers.** Where Table B puts them: `List.sequenceOption` to Utils;
+   `ValueUnit.collectValues` to GenUnits; `ValueRange.tryToValueSet` to GenSolver; `Shape` to
+   `Types.fs`; the `OrderVariable` helpers with `Count.one`, the count setters calling the new
+   ones; the `Order` helpers in the modules of their level. Not the split and not
+   `minIncrMaxToValuesWithOriginal`. Tests: each helper on its success and its failure path, from
+   the script's helper tests. Under 200 lines.
+   `feat(genorder): add the order variable helpers of the order program`.
 
-3. **The mark, GenORDER and the server.** `OrderProcessor.canReCalc`, `PrescriptionKind.ofSchedule`
-   and `ofDto`, with tests over every command, dose type and component count; the fold in
-   `ServerApi.Mappers.OrderContext.fs` at the scenario's order, the target enumeration and the
-   recalculation half of `propertyCommands` moved above it, with the agreement tests and tests
-   that a range, a total, the dose count and the five fields are never marked and a per kg item
-   target is marked with its plain form. The wire type gains `CanReCalc` here, with Shared's
-   `OrderVariable.create` (`Models.fs:985`); the Client.Core tests that build the wire record get
-   the field (`SeverityReasonPolicyTests.fs`, `QuantityModePolicyTests.fs`,
-   `SectionFoldPolicyTests.fs`, `PickListPolicyTests.fs:29`). Under 150 lines, the move counted.
-   `feat(api): the server marks the fields a page can recalculate`.
+3. **`Determination`.** `Determination.fs` after `Order.fs` in the project file, keyed by the
+   solver's `Name`: the model of an order's equations,
+   `rref`, `closure`, `undeterminedBy`. Tests from the script's helper tests: a chain of single
+   equations, a variable only several product equations fix, a sum with one open term, the
+   constants, a kept variable with more than one value. About 140 lines.
+   `feat(genorder): which variables the kept variables determine`.
 
-4. **The wire loses the picks.** The four commands without `picks` and `toString` without the
-   count; `ReCalcOrderValue` without its picks parameter and the mapper without `Picks.ofOrder`;
-   `Ctx.reCalc` and `Api.preview` without picks, `Picks` gone; the client call sites the contract
-   breaks, `ViewHelpers.reCalcCommand` and its callers in `Order.fs:536` and `NutritionSlot.fs:633`,
-   and `Picks.withinOrder` in `Order.fs:535`. `MappersOrderContextTests.fs` keeps its 38 wire
-   cases with the new shapes; the `Ctx.reCalc` tests in `OrderContextCommandTests.fs` (432, 445,
-   653), `OrderValueAgreementTests.fs` and the trail tests follow. Under 100 lines.
-   `refactor(api): a recalculation carries no picks`.
+4. **The program's types and their small modules.**
+   - **4a.** The types of Table A in `Types.fs`, each with its documentation. About 170 lines.
+     `feat(genorder): add the types of the order program`.
+   - **4b.** `OrderVariableReference.tryGet`, `isBasic`, `invariants`; `Choice.select` with the
+     percentile index (count − 1) × percentage ÷ 100; `SetBackTo.apply`; `OrderCondition.holds`;
+     `Orderable.Dose.toOrdVar`. Tests: `tryGet` for every reference on every fixture, `select` per
+     shape and choice of the document's Table 9, `apply` per target. About 200 lines.
+     `feat(genorder): select and set back an order variable by reference`.
 
-5. **The client reads the mark.** Additive, the pick list still works beside it:
-   `FieldOpenPolicy.orderVariable` takes `canReCalc: bool` in place of `constrained`, tested over
-   the #1034 table; `ViewHelpers.fs:168` passes `ovar.CanReCalc`; `reopens` in a policy, tested;
-   the two machines keep `Kept` on a recalculation as they do on `ReopenField`, tested in
-   `OrderContextMachineTests.fs` and `OrderPlanMachineTests.fs`; `reopenOf` in both views reads the
-   mark. Fable compile check, `npx vite build`. Under 150 lines.
-   `feat(client): the field reads whether it can be recalculated`.
+5. **The interpreter.** `OrderEffect.apply` and `run`, without `DropImpossibleValues` and without
+   the split; the set-back names of an effect as one function. `Order.minIncrMaxToValues` becomes
+   the script's `minIncrMaxToValuesWithOriginal`: it takes the original order as an option and, once
+   every list is made, adds the values that order held when it is complete (`Order.isReachable`);
+   the callers in the shipped processor pass none. Tests: each effect on a fixture; a failure keeps
+   the order before it; `Try` keeps the order; `includeOriginalValue` adds the value in order and in
+   the unit of the list, adds nothing outside the calculated constraints, from an original that is
+   not complete, or to a range. About 180 lines.
+   `feat(genorder): run an order action as a list of effects`.
 
-6. **The pick list goes.** `PickListPolicy` and its tests; `Constrained`; `ReopenField` on both
-   machines, their `admitted` arms and the trail's; the `ReopenField` members of the two
-   environment interfaces and `App.fs`; the `reopen` and `planReopen` props and their
-   pass-through; the pick state of `Order.fs`; the `reopening` refs. Fable compile check,
-   `npx vite build`; the maintainer checks in the browser. Under 200 lines, nearly all removed.
-   `refactor(client): reopen a field without a pick list`. Closes #1343.
+6. **The recipes.**
+   - **6a, the steps and the percentile.** `SetCommand.settable` and `ofSet`; the recipes of the
+     four basic variables and of the percentile. Tests: the script's comparison with the shipped
+     step functions on every fixture, kept in the script; in the test project, the laws that hold
+     after a step (containment outside the freed variables, the increment kept). About 150 lines.
+     `feat(genorder): the step recipes of the order program`.
+   - **6b, the recalculation kinds.** `reCalcDose`, `reCalcPerTime`, `reCalcTime`,
+     `keptWithinConstraints`, `forReCalcCommand`; `Orderable.Dose.isConstrained` and
+     `Orderable.Component.isDoseConstrained` in `Order.fs`. Tests: Table 4 for
+     every command and dose type; the kept variables unchanged after the recipe (locality); the
+     recalculated variable undetermined by the kept ones (underdetermination). About 150 lines.
+     `feat(genorder): the recalculation kinds of the order program`.
+
+7. **The program takes over the commands**, through the bridge.
+   - **7a, the recalculation.** `OrderAction.effects` and `run` for `ReCalc`; `CommandBridge` with
+     the eleven recalculation commands, the five others left to the old path; `processPipelineWith`
+     running the program for them; `ReCalcOrderValue` evaluated through `processScenarioOrder` with
+     the program, its picks parameter kept for the five; the clear arms of `processChangeProperty`
+     for the eleven go. Tests in `OrderReCalcTests.fs`: per fixture and command, the field gets a
+     list of more than one value where the script's laws found one, the kept variables stay, the
+     value the field held is in its list when it lies within its calculated constraints, the order
+     solves again after a pick; the two #1425 tests as item rate recalculations; the offered values
+     law over the fixtures. About 150 lines. Closes #1276: the item dose by the Dose kind, the
+     frequency by the decision that it is stepped, not recalculated.
+     `fix(genorder): a recalculation changes what depends on the field`.
+   - **7c, the set.** The `Set` action for the step, the percentile and the min, max, median and
+     nth commands; the shipped step functions, `orderPropertySetPercOrderableDoseQuantity`, the nth
+     arms of `processChangeProperty` and `Count.setToOne` and `Count.setMinToOne` go.
+     Behaviour changes, each a row of the document's Table 15: a select runs no recipe, a step
+     keeps the defined increment, the percentile 0 gives the first value and 100 the last; an nth
+     on an order that already has lists is solved with values at once, without the solve for min
+     and max; a min, max or median on such an order ends with one solve with values. Table 15 gains
+     the last two rows in this step. Its own issue.
+     About 150 lines, half removed. `feat(genorder): set an order value through the order program`.
+   - **7d, the calculations.** `CalcConstraints`, `CalcValues` and `Reset` through the program;
+     what remains of the shipped pipeline is `IncreaseIncrements` and `SolveOrder`. The laws over
+     the fixtures in `OrderLawsTests.fs`. Its own issue. About 150 lines, half removed.
+     `refactor(genorder): calculate an order through the order program`.
+
+8. **Creation writes the counts.** In `Medication.toOrder`: the order count as a defined
+   constraint, exactly 1 on Once and OnceTimed, else whole and at least 1; the dose count 1 when
+   the rules give it no minimum, maximum or values. `Scenarios.hydrocortisonIvText`, read with
+   `MedicationText.fromString`. The laws of the counts. Its own issue, refs
+   #1463 and #1487. About 40 lines. `fix(genorder): creation writes the order and dose counts`.
+
+9. **The impossible values.** `CompleteOrder` and `DropImpossibleValues` at the end of a
+   recalculation; the pull request reports the time it adds per recalculation on every fixture,
+   the TPN fixtures among them. Refs #1464; the case without a weight waits for #1495. About 170
+   lines.
+   `fix(genorder): a recalculation offers only values a complete order reaches`.
+
+10. **The split per concentration.**
+    - **10a, the helpers.** `List.combinations`, `ValueRangeCase.unionRanges`,
+      `OrderVariable.fixToValues`, `tryValueList` and `unionPerConcentration`,
+      `Component.concentrations`. Tests: the combinations of products and of strengths, a group of
+      products with the same concentrations kept together, a combination that keeps no value
+      dropped, the union of lists, of ranges and past the cap. About 150 lines.
+      `feat(genorder): the item concentrations of a component per product`.
+    - **10b, the split.** `Order.splitPerConcentration`, `Order.unionPerConcentration`,
+      `OrderEffect.forConcentration` reading the invariants from
+      `OrderVariableReference.invariants`; `OrderAction.run` solving per combination in parallel and
+      offering the union. Tests: an order with one combination runs as before; an order with more
+      offers no value of one combination with the concentration of another; the laws over the
+      fixtures. About 100 lines. The script is deleted here.
+      `feat(genorder): solve an order per combination of concentrations`.
+
+11. **The mark, GenORDER and the server.** A direct edit (Table 1). `OrderProcessor.canReCalc`
+    with tests over every command, dose type and fixture; the fold in
+    `ServerApi.Mappers.OrderContext.fs` at the scenario's order, with the recalculation half of
+    `propertyCommands` above it and a new enumeration of an order's targets, which
+    `OrderValueAgreementTests.fs` and `OrderContextCommandTests.fs` use in place of their own two
+    copies; the agreement tests and tests that a range, a total, the dose count, the five fields and
+    the four commands without a kind are never marked, and a per kg item target is marked with its
+    plain form. The pull request reports the time `Order.Dto.fromDto` adds per answer on the TPN
+    fixtures. The wire type gains `CanReCalc` here, with Shared's `OrderVariable.create`
+    (`Models.fs`); the Client.Core tests that build the wire record get the field
+    (`SeverityReasonPolicyTests.fs`, `QuantityModePolicyTests.fs`, `SectionFoldPolicyTests.fs`,
+    `PickListPolicyTests.fs`). Under 150 lines.
+    `feat(api): the server marks the fields a page can recalculate`.
+
+12. **The client reads the mark.** A direct edit. Additive, the pick list still works beside it:
+    `FieldOpenPolicy.orderVariable` takes `canReCalc: bool` in place of `constrained`, tested over
+    the #1034 table; `ViewHelpers.fs` passes `ovar.CanReCalc`; `reopens` in a policy, tested; the
+    two machines keep `Kept` on a recalculation as they do on `ReopenField`, tested in
+    `OrderContextMachineTests.fs` and `OrderPlanMachineTests.fs`; `reopenOf` in both views reads
+    the mark. The five commands of the basic variables and the product strength are never marked,
+    so their arrows go here. Fable compile check, `npx vite build`. Under 150 lines.
+    `feat(client): the field reads whether it can be recalculated`.
+
+13. **The wire loses the picks and the old path goes.**
+    - **13a, the wire.** A direct edit. The four commands without `picks` and `toString` without
+      the count; `ReCalcOrderValue` without its picks parameter and the mapper without
+      `Picks.ofOrder`; `Ctx.reCalc` and `Api.preview` without picks, `Picks` gone; the client call
+      sites the contract breaks, `ViewHelpers.reCalcCommand` and its callers in `Order.fs` and
+      `NutritionSlot.fs`, and `Picks.withinOrder` in `Order.fs`. The five commands go:
+      `ClearOrderableDoseRate`, `ClearScheduleFrequency`, `ClearComponentOrderableQuantity`,
+      `ClearOrderableDoseQuantity`, `ClearItemComponentConcentration`, with their cases in
+      `OrderValueCommandTests.fs` and `MappersOrderContextTests.fs` and the strength test in
+      `Tests.fs` (#1500). `MappersOrderContextTests.fs` keeps its other wire cases with the new
+      shapes; the `Ctx.reCalc` tests in `OrderContextCommandTests.fs`, `OrderValueAgreementTests.fs`
+      and the trail tests follow. Under 150 lines.
+      `refactor(api): a recalculation carries no picks`.
+    - **13b, the old path.** `Reopen`, `clearedPick`, the put-back and `rateNotAPick`;
+      `processClearedOrderWith`, `processClearedRate`, `processClearedDose`, the tuple pattern and
+      its comment; the `process-cleared` step, the `isCleared` branch and `IsCleared`;
+      `ReopenOrderScenario` and `reopenScenarioOrder`, `Command.get` and `toString` following.
+      `OrderReopenTests.fs` goes, its cases already in `OrderReCalcTests.fs` since 7a, and so do
+      the reopen cases in `Tests.fs`. Under 200 lines, nearly all removed.
+      `refactor(genorder): the reopen leaves the processor`.
+
+14. **The pick list goes.** A direct edit. `PickListPolicy` and its tests; `Constrained`;
+    `ReopenField` on both machines, their `admitted` arms and the trail's; the `ReopenField`
+    members of the two environment interfaces and `App.fs`; the `reopen` and `planReopen` props and
+    their pass-through; the pick state of `Order.fs`; the `reopening` refs. Fable compile check,
+    `npx vite build`; the maintainer checks in the browser. Under 200 lines, nearly all removed.
+    `refactor(client): reopen a field without a pick list`. Closes #1453 and #1343.
+
+Steps 7c to 10b can follow steps 11 to 14: the recalculation and the client need only
+steps 0 to 7a.
 
 ## Left out
 
 - **A mark that runs the recipe**, so a field pinned by another on this order shows no arrow: a
   solve per variable per answer. The list of one is the answer for now.
-- **Shared lists with the step functions.** The recipes free whole axes and the steps free the
-  dependents of one basic variable; the two lists differ, and each stays where it is.
+- **What the script does not hold.** A kind for the orderable quantity, a component's dose per kg
+  and an item's orderable quantity and concentration; the equations the document changes (its
+  Table 14); the solver changes of its addendum.
+- **Impossible values without a weight.** Without a weight the search keeps nearly every value;
+  #1495.
 - **The dose count, the four basic variables and an item's component concentration as
-  recalculated fields**, by the maintainer's decision. The TPN plan, on top of this one, reopens a
-  component by stepping or navigating it, and its mL/kg by the component scope of the preparation
-  kind.
+  recalculated fields**, by the maintainer's decision.
 
 ## Verification
 
 - `dotnet run build`, `dotnet run servertests`, `CI=true` in a worktree
-- `dotnet fsi scripts/CheckDependencyRule.fsx` after step 3
+- before each GenORDER step, the script's tests and its comparisons with the shipped code pass;
+  the baseline, measured on 2026-10-26: 3,469 passed, 7 ignored, 0 failed, the quick run without
+  `--full`. A step may add tests, never turn one red or ignored
+- `dotnet fsi scripts/CheckDependencyRule.fsx` after step 11
 - `dotnet fantomas --check`
-- the probe of step 1 against the final source, through `ReCalcValue`
-- in the browser, after step 6: the paracetamol suppository in the workbench shows the arrow on
-  the fields the probe found and on no other, the frequency and the dose quantity in mL among the
-  latter; recalculate the paracetamol dose in mg: its list opens, the frequency stays; close the
-  list without a pick: the order as before. The plan dialog over the same order: the same arrows.
-  A TPN composed by hand: no component quantity shows an arrow, its mL/kg does; recalculate one:
-  its list opens, the other components keep their values. The continuous morphine: the rate in
-  mL/h shows none, the morphine in mcg/kg/h does; recalculate it: its list opens, the volume
-  stays
+- in the browser, after step 14: the paracetamol suppository in the workbench shows the arrow on
+  the fields Table 4 gives a kind and on no other, the frequency and the dose quantity in mL
+  among the latter; recalculate the paracetamol dose in mg: its list opens, the frequency stays;
+  close the list without a pick: the order as before. The plan dialog over the same order: the
+  same arrows. The continuous morphine: the rate in mL/h shows none, the morphine in mcg/kg/h
+  does; recalculate it: its list opens, the volume stays. A TPN composed by hand: no component
+  quantity and no mL/kg shows an arrow
