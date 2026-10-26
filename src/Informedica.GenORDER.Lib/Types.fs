@@ -391,6 +391,243 @@ module Types =
         | ReCalcItemOrderableQuantity of cmp: string * itm: string
 
 
+    /// The variables of a dose. Total and TotalAdjust belong to Ordering: a recipe sets them back, a
+    /// client does not select them.
+    [<RequireQualifiedAccess>]
+    type DoseProperty =
+        | Quantity
+        | QuantityAdjust
+        | PerTime
+        | PerTimeAdjust
+        | Rate
+        | RateAdjust
+        | Total
+        | TotalAdjust
+
+
+    /// One variable of an order, named by its level and property, with the names of its component
+    /// and item.
+    [<RequireQualifiedAccess>]
+    type OrderVariableReference =
+        | OrderAdjust
+        | ScheduleFrequency
+        | ScheduleTime
+        | OrderableQuantity
+        | OrderableDoseCount
+        | OrderableOrderCount
+        | OrderDuration
+        | OrderableOrderQuantity
+        | ComponentOrderQuantity of cmp: string
+        | ComponentOrderCount of cmp: string
+        | OrderableDose of DoseProperty
+        | ComponentQuantity of cmp: string
+        | ComponentOrderableQuantity of cmp: string
+        | ComponentOrderableCount of cmp: string
+        | ComponentOrderableConcentration of cmp: string
+        | ComponentDose of cmp: string * DoseProperty
+        | ItemComponentQuantity of cmp: string * itm: string
+        | ItemComponentConcentration of cmp: string * itm: string
+        | ItemOrderableQuantity of cmp: string * itm: string
+        | ItemOrderableConcentration of cmp: string * itm: string
+        | ItemDose of cmp: string * itm: string * DoseProperty
+
+
+    /// The increment a step moves by: the one the rules define, or the calculated one, which can be
+    /// larger.
+    [<RequireQualifiedAccess>]
+    type StepIncrement =
+        | Defined
+        | Calculated
+
+
+    /// How a value is selected from the range a variable offers.
+    [<RequireQualifiedAccess>]
+    type Choice =
+        | Min
+        | Max
+        | Median
+        /// The nth value, counted from 0.
+        | Nth of int
+        /// The value at that percentage of the way through the values, from 0 to 100.
+        | Percentile of int
+        /// The value that many increments up, or down when negative.
+        | Step of int * StepIncrement
+
+
+    /// What the client asks the server to do with an order: the client names the variable, the
+    /// server chooses the recipe.
+    [<RequireQualifiedAccess>]
+    type OrderAction =
+        /// Calculate the constraints of an order made from its medication: the defined constraints
+        /// applied, solved for min and max, the increments coarsened, the result recorded as the
+        /// calculated constraints, and the norm dose set where there is one.
+        | CalcConstraints
+        /// Select a value for one variable.
+        | Set of OrderVariableReference * Choice
+        /// Recalculate one variable: set it back with what depends on it, keep the rest.
+        | ReCalc of OrderVariableReference
+        /// Set every variable back to its calculated constraints.
+        | Reset
+        /// Calculate the values to select from, as selecting a scenario does with its order.
+        | CalcValues
+
+
+    /// The range an effect sets the current range of a variable back to.
+    [<RequireQualifiedAccess>]
+    type SetBackTo =
+        /// Its calculated constraints.
+        | Calculated
+        /// Its calculated constraints, else its defined constraints, else any positive value.
+        | CalculatedElseDefined
+        /// Its defined constraints.
+        | Defined
+        /// Its defined constraints, at most the current orderable quantity.
+        | DefinedUpToOrderable
+        /// The min and increment of its constraints, without a max.
+        | MinIncr
+        /// Any positive value on the defined increment, so the increment is the minimum; any
+        /// positive value when there is no defined increment.
+        | AnyPositive
+        /// The value 1, for a count.
+        | One
+        /// Any value of 1 or more, for a count.
+        | AtLeastOne
+
+
+    /// Whether an order is solved for its min and max, or for its values.
+    [<RequireQualifiedAccess>]
+    type SolveMode =
+        | MinMax
+        | Values
+
+
+    /// How many values a list made from a min, increment and max may hold: the cap of the dose type,
+    /// or its larger cap.
+    [<RequireQualifiedAccess>]
+    type ValueCap =
+        | Default
+        | Larger
+
+
+    /// Whether a list is made for the orderable dose rate too. The rate of a timed order waits until
+    /// its dose quantity holds one value.
+    [<RequireQualifiedAccess>]
+    type RateList =
+        | WithRate
+        | WithoutRate
+
+
+    /// What happens to a rate list once it is made: its median selected, or the list kept.
+    [<RequireQualifiedAccess>]
+    type RateSelection =
+        | SelectMedianRate
+        | OfferRates
+
+
+    /// A state of an order an effect can depend on.
+    [<RequireQualifiedAccess>]
+    type OrderCondition =
+        /// Every dose variable holds one value.
+        | DoseSolved
+        /// Every variable holds one value.
+        | OrderSolved
+        /// The variables the values are made for hold a value list or one value.
+        | HasValues
+        /// The dose quantity, or on Continuous the rate, holds a value list or one value, so the norm
+        /// dose can be set.
+        | CanSetNormDose
+
+
+    /// One effect on an order. An action is run as a list of effects.
+    [<RequireQualifiedAccess>]
+    type OrderEffect =
+        /// The current range of the variable set back to the target.
+        | SetOrderVariableRangeBack of OrderVariableReference * SetBackTo
+        /// Every variable the kept variables do not determine set back to the target, except the
+        /// ones in stays. The variable a step moves is in stays: not kept, since its value changes,
+        /// and not set back, since the step gives it its value.
+        | SetBackUndetermined of kept: OrderVariableReference list * stays: OrderVariableReference list * SetBackTo
+        /// Every variable of the order set back to the target.
+        | SetAllOrderVariableRangesBack of SetBackTo
+        /// The current range of the variable narrowed to one value.
+        | ConstrainOrderVariableRange of OrderVariableReference * ValueUnit
+        /// The current range of the variable narrowed to the value the choice selects from the range
+        /// as it is when the effect runs.
+        | SelectOrderVariableValue of OrderVariableReference * Choice
+        /// The order solved.
+        | SolveOrder of SolveMode
+        /// The first component quantity, dose quantity or rate that is a min, increment and max made
+        /// a list, the order solved, and again until none is left. With an original order, a variable
+        /// made a list includes the value it held there when the pruning dropped it and the value
+        /// lies within its calculated constraints.
+        | EnumerateOrderVariableValues of ValueCap * RateList * original: Order option
+        /// The rate of a timed order made a list once its dose quantity holds one value; with an
+        /// original order, the rate includes the value it held there, as above.
+        | EnumerateRateValues of ValueCap * RateSelection * original: Order option
+        /// The increment of the volume quantities made larger, so the orderable quantity holds at
+        /// most this many values; not on Continuous.
+        | CoarsenIncrements of maxCount: int
+        /// The current range of every variable stored as its calculated constraints.
+        | RecordCalculatedConstraints
+        /// The dose set to the median of its values, and the order solved for min and max.
+        | SetNormDose
+        /// Each component quantity set to the value nearest above it, else below it, and the order
+        /// solved with values.
+        | SelectNearestComponentQuantity
+        /// The values a search proves impossible dropped from the list of the variable, and the order
+        /// solved with values, so the other lists follow; a value a search cannot decide stays. Only
+        /// when the dose count holds more than one value, the one case seen to offer values no
+        /// complete order reaches.
+        | DropImpossibleValues of OrderVariableReference
+        /// The effect, run only when none of the conditions holds on the order as it is then.
+        | Unless of OrderCondition list * OrderEffect
+        /// The effects run in turn; when one fails, the order is kept as it was before the first.
+        | Try of OrderEffect list
+
+
+    /// Why an action or effect stops.
+    [<RequireQualifiedAccess>]
+    type ActionFailure =
+        /// The order has no such variable.
+        | NoSuchVariable of OrderVariableReference
+        /// The variable cannot be set this way, for the reason given.
+        | NotSettable of OrderVariableReference * reason: string
+        /// The choice selects no value from the range of the variable.
+        | ValueNotInRange of OrderVariableReference
+        /// No recipe runs the action on this order.
+        | NoRecipe of OrderAction
+        /// The solver failed.
+        | SolveFailed of Exceptions.Message list
+        /// A failure outside the solver, such as an order that cannot be made from its medication.
+        | Unexpected of string
+
+
+    /// The recipes: a step or percentile named by its target, a recalculation by its kind. The kind
+    /// Dose recalculates the dose quantity, Per time the dose quantity and the frequency, and Time
+    /// the rate.
+    [<RequireQualifiedAccess>]
+    type Recipe =
+        | ScheduleFrequencyStep
+        | OrderableDoseQuantityStep
+        | OrderableDoseQuantityPercentile
+        | OrderableDoseRateStep
+        | ComponentOrderableQuantityStep of cmp: string
+        | ReCalcDose
+        | ReCalcPerTime
+        | ReCalcTime
+
+
+    /// What a set of a variable with a choice does.
+    [<RequireQualifiedAccess>]
+    type SetCommand =
+        /// No command sets the variable this way.
+        | NoCommand
+        /// The command sets the value without a recipe.
+        | ValueOnly
+        /// The command runs the recipe before it sets the value.
+        | WithRecipe of Recipe
+
+
     /// The different possible order types
     type OrderType =
         | AnyOrder
