@@ -1,7 +1,8 @@
 # Implementation plan for issue #1453: the server decides what a recalculation changes
 
 2026-10-13, revised 2026-10-26 to migrate the order program of
-`src/Informedica.GenORDER.Lib/Scratch/OrderVariablesAndEquations.fsx`. The client's pick list goes.
+`src/Informedica.GenORDER.Lib/Scratch/OrderVariablesAndEquations.fsx`; built on 2026-10-26, see
+[As built](#as-built). The client's pick list goes.
 A recalculation of an order value is one action that names the variable; the server picks the recipe
 from that action and sets back what the variables the recipe keeps do not determine. The client
 decides from the order it holds which field offers a recalculation, by an explicit rule per intent
@@ -125,9 +126,9 @@ both machines keep it in `Kept` and `RestoreField` puts it back (`OrderPlanMachi
 
 ## What the script holds
 
-`Scratch/OrderVariablesAndEquations.fsx` implements the design of the local document
-`localDocs/order-variables-and-equations.md` against the shipped library. The document is not
-tracked (`.gitignore`). Its parts, by the module of the library each goes to:
+`Scratch/OrderVariablesAndEquations.fsx` implements the design of
+`docs/domain/order-variables-and-equations.md` against the shipped library; step 1 moved the
+document there from the untracked `localDocs`. Its parts, by the module of the library each goes to:
 
 **Table A. The parts of the script and where each goes.** Lines are code lines without blanks
 and comments, measured on 2026-10-26; the shipped size with its documentation is about one and a
@@ -228,14 +229,14 @@ The script is migrated so that the source stays as clean as before:
 | Where | Its own plan, before the TPN steps. |
 | The scope, 2026-10-26 | The complete script is implemented: the recalculation, the set, step and percentile, CalcConstraints, CalcValues and Reset, creation, the impossible values and the split per concentration. The plan decides the order of the steps, not what goes in. |
 
-**Table 2. Proposed, to confirm**
+**Table 2. Proposed, and settled in the steps**
 
-| Question | Proposal |
-|---|---|
-| Issues for the rest | Every step traces to an issue. The recalculation steps trace to #1453 and #1276. The steps that change the set and step commands, creation and the impossible values change behaviour the document lists in its Table 15; each gets an issue before its step starts, or a reference to #1464 where it measured the case. |
-| The design document | `localDocs/order-variables-and-equations.md` is untracked. It moves to `docs/domain/order-variables-and-equations.md` in step 1, so the plan and the code can name its tables. |
-| The restore | Stays, as #1034 decided. |
-| The second path for a recalculation (#1343) | Folded in: the machines read a recalculation from the command itself, so `ReopenField`, the `reopen` callbacks and the `reopening` refs go; a selectable field dispatches the command. |
+| Question | Proposal | Settled |
+|---|---|---|
+| Issues for the rest | Every step traces to an issue. The recalculation steps trace to #1453 and #1276. The steps that change the set and step commands, creation and the impossible values change behaviour the document lists in its Table 15; each gets an issue before its step starts, or a reference to #1464 where it measured the case. | Step 1 has #1503 and step 2 #1505. Steps 7c to 10b share #1519, which replaced #1514 and #1517 and lists the behaviour change of each step. |
+| The design document | `localDocs/order-variables-and-equations.md` is untracked. It moves to `docs/domain/order-variables-and-equations.md` in step 1, so the plan and the code can name its tables. | Moved in step 1. |
+| The restore | Stays, as #1034 decided. | Stays. |
+| The second path for a recalculation (#1343) | Folded in: the machines read a recalculation from the command itself, so `ReopenField`, the `reopen` callbacks and the `reopening` refs go; a selectable field dispatches the command. | Folded in; step 13 closed #1343. |
 
 **Table 2a. What the script does, implemented as it is**
 
@@ -375,9 +376,9 @@ type as five flags. Nothing is added to the wire, the Dto or the stored JSON.
 
 The rule per intent case, as Table 4 has it, in wire terms:
 
-- A recalculation is allowed only on a field that holds one value (`Vals` of length 1, as
-  `PickListPolicy.valuesOf` counts today). Several values are selectable as a list without a
-  request; a range is not selectable.
+- A recalculation is allowed only on a field that holds one value (`Vals` of length 1,
+  `IntentPolicy.valuesOf`). Several values are selectable as a list without a request; a range is
+  not selectable.
 - `ReCalcItemProperty` with `DoseQuantity` or `DoseQuantityAdjust`: on Once, Discontinuous, Timed
   and OnceTimed. With `DosePerTime` or `DosePerTimeAdjust`: on Discontinuous and Timed. With
   `DoseRate` or `DoseRateAdjust`, and `ReCalcScheduleProperty Time`: on Continuous, Timed and
@@ -389,19 +390,20 @@ The rule per intent case, as Table 4 has it, in wire terms:
 - `ReCalcOrderableProperty Quantity`, `ReCalcComponentProperty DoseQuantityAdjust`,
   `ReCalcItemProperty OrderableQuantity` and `ReCalcItemProperty OrderableConcentration`: never
   allowed, the four commands of Table 4 without a kind.
-- The four basic variables and the product strength have no recalculation case once step 12a has
-  deleted their five commands, so from then on the type says it. Until then the wire still carries
-  the five, so the policy refuses them explicitly, with a test; step 12a deletes that arm with the
-  commands. A step is its own intent case, allowed on one value with a defined increment. The
-  component orderable quantity is selectable by its own intent case, so a page can offer it; when
-  the server cannot answer that intent, that is fixed on the server.
+- The four basic variables and the product strength have no domain recalculation command since
+  step 12a deleted their five commands, so the domain type says it. The grouped wire commands can
+  still name them (`ReCalcScheduleProperty Frequency`), so the policy refuses them explicitly, with
+  a test, and the server mapper gives them no command, which the order context refuses as
+  `NotSolved`. The component orderable quantity is selectable by its own intent case, so a page can
+  offer it; when the server cannot answer that intent, that is fixed on the server.
 
 The server keeps `Recipe.forReCalcCommand` with its None arms as the guard: a recalculation the
 client should not have sent is refused as `NotSolved`, the field keeps its one value and the client
 shows its "not solved" text (`OrderContextRefusalPolicy`). That message is accepted as it is: the
 client never sends such a request, so the text is the visible sign of a drift. There is no
 agreement test between the policy and the recipes: a drift is visible in the code and is fixed at
-once. `Target` and `propertyCommands` stay as they are.
+once. `Target` stays as it is; `propertyCommands` gives no recalculation command for the five
+fields.
 
 After a recalculation the field holds a list and is selectable as a list. A restore puts the kept
 state back, the one value included.
@@ -416,12 +418,13 @@ go.
 answer: one value and allowed gives `Selectable.ReCalc`, one value and not allowed
 `Selectable.No`, several values `Selectable.List`, as the #1034 table has it; step 11 renames the
 type from `Arrow`. `Views/Order.fs` loses `picks`, `heldPicks`, the picks half of
-`sentFrom` and the pick bookkeeping; `reopenOf` in `Order.fs` and `NutritionSlot.fs` asks
-`IntentPolicy` for the field's recalculation case over the order shown. `ViewHelpers.Reopen` loses
-`constrained`. With #1343 folded in, the machines keep the state before a recalculation when the
-command is one of the four wire ReCalc commands, read by one predicate, `reopens`; `ReopenField` on
-both machines and both environment interfaces, the `reopen` prop of `Order.View`, the `planReopen`
-prop of `useSlot` and its pass-through in the three nutrition views, and the `reopening` refs go.
+`sentFrom` and the pick bookkeeping; each field in `Order.fs` and `NutritionSlot.fs` passes its
+`Target`, and `reopenOf` asks `IntentPolicy.isReCalcAllowed` over the order shown.
+`ViewHelpers.Reopen` loses `constrained` and holds the recalculation the field sends. With #1343
+folded in, the machines keep the state before a recalculation when the command is one of the four
+wire ReCalc commands, read by one predicate, `reopens`; `ReopenField` on both machines and both
+environment interfaces, the `reopen` prop of `Order.View`, the `planReopen` prop of `useSlot` and
+its pass-through in the three nutrition views, and the `reopening` refs go.
 `RestoreField` and `Kept` stay. The trail prints the command name, so it follows the rename.
 
 ### The tests
@@ -480,8 +483,8 @@ maintainer's review checks them. Every `.fs` change outside `src/Informedica.Gen
 adds or changes behaviour comes from a script, reviewed and migrated when the maintainer asks: the
 GenORDER steps from the order program's script, step 11 from its own; the step's tests pass in the
 script first, then in the test project. A deletion, and the call-site changes it forces, goes
-straight into the source (Table 1): steps 12a, 12b and 13. The step that moves the last part of the
-program deletes its script.
+straight into the source (Table 1): steps 12a, 12b and 13. The script is untracked, so no pull
+request can delete it; it is deleted locally once the plan is built.
 
 0. **The names.** Table 3, across GenORDER (`Types.fs`, the arms of `processChangeProperty`
    at `OrderProcessor.fs`, `ClearOrderValue` with `Command.get` and `toString`), Shared
@@ -610,7 +613,7 @@ program deletes its script.
       `OrderVariableReference.invariants`; `OrderAction.run` solving per combination in parallel and
       offering the union. Tests: an order with one combination runs as before; an order with more
       offers no value of one combination with the concentration of another; the laws over the
-      fixtures. About 100 lines. The script is deleted here.
+      fixtures. About 100 lines.
       `feat(genorder): solve an order per combination of concentrations`.
 
 11. **The intent policy, and the views that ask it.** One pull request, in two parts that build
@@ -698,3 +701,43 @@ steps 0 to 7a.
   morphine in mcg/kg/h is; recalculate it: its list opens, the volume stays. A TPN composed by
   hand: no mL/kg is selectable for a recalculation; a component quantity is selectable by its own
   intent case
+
+## As built
+
+Every step is merged; #1453, #1276 and #1343 are closed. The order program of the script runs every
+command of the order processor except `IncreaseIncrements`, `SolveOrder` and `ComponentInStock`, and
+the client decides alone which field offers a recalculation. Source lines are shipped code under
+`src/`, added and removed.
+
+| Step | Pull request | Note |
+|---|---|---|
+| The plan | #1454 | |
+| 0, the names | #1501 | As planned. |
+| 1, the shipped refactors and the caps of a timed order | #1502 | Closed #1503. The design document moved to `docs/domain/`. |
+| 2, the helpers | #1504 | Closed #1505. 192 added, 75 removed, over the limit by the maintainer's decision: the two percentiles merged and the exact count of a range with two increments. |
+| 3, `Determination` | #1506 | As planned. |
+| 4a, the types | #1507 | As planned. |
+| 4b, the references | #1508 | As planned. |
+| 5, the interpreter | #1509 | `DropImpossibleValues` kept the order, a stop-gap that named #1464, until step 9. |
+| 6a, the step recipes | #1510 | As planned. |
+| 6b, the recalculation kinds | #1511 | As planned. |
+| 7a, the recalculation | #1512 | Closed #1276. |
+| The client decides | #1513 | Documentation: the maintainer's decision that the client decides per intent case, and the client steps rewritten for it. |
+| 7c, the set | #1515, #1516 | Two pull requests: the set through the program, then the old set and step code removed. Table 15 of the design document gained its two rows. |
+| 7d, the calculations | #1518 | A failed creation keeps the order before the creation, as every action does; the golden `fullMedication` and the unsolvable fixture were rebuilt for it. |
+| 8, the counts | #1520 | `Order.isSolved` leaves out the order count, whose range made every order unsolved. The dose count is written only when `OrderVariable.hasConstraints` finds no rule, after review found the first fallback unreachable. |
+| 9, the impossible values | #1521 | Refs #1464. `CompleteOrder.proves` decides which solver errors prove a value impossible; a search stopped by a solver limit leaves the value, after review found such a stop counted as proof. |
+| 10a, the split helpers | #1522 | As planned. |
+| 10b, the split | #1523 | An order is split only when the union is listed: every range with a minimum, an increment and a maximum must be listable, else the whole order is solved as before (`isListedUnion`). Amphotericin with NaCl in two strengths showed a union that held values neither strength allows. `Component.concentrations` counts a product whose form quantity holds no values as one without a known content. |
+| 11, the intent policy | #1524 | The views moved with the policy, since the rename of `Arrow` breaks them. Review removed the step rule and the general `allowed`, which nothing read, and the unused `mode` of `FieldOpenPolicy.orderVariable`; the views found a field's target by its variable name until step 13. 259 added, 79 removed, accepted by the maintainer. |
+| 12a, the wire | #1525 | `ReCalcOrderValue` carries the recalculation command as an option; a wire recalculation of one of the five fields maps to none and is refused as `NotSolved`, with the context as sent. The policy keeps its explicit refusal of the five, since the grouped wire commands can still name them. 79 added, 140 removed. |
+| 12b, the old path | #1526 | Also the 29 `is…Cleared` helpers of `Order.fs` that only the removed pattern read, by the maintainer's request. 12 added, 415 removed. |
+| 13, the pick list | #1527 | Closed #1453 and #1343. Each field of the order dialog and the nutrition slot passes its `Target`, so the name lookup of step 11 went. A recalculated field marks itself as changing, after review found its list kept the waiting overlay. 124 added, 308 removed. |
+
+Still open:
+
+- #1519, which steps 7c to 10b referred to, is closed by hand.
+- The script `OrderVariablesAndEquations.fsx` is untracked and is deleted locally.
+- The browser checks of [Verification](#verification) are the maintainer's.
+- Left for later: #1495 for the impossible values without a weight ([Left out](#left-out)), and
+  #1500 for undoing a strength pick without a reset (Table 1).
