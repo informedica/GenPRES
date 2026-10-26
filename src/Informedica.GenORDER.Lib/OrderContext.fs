@@ -367,9 +367,9 @@ module OrderContext =
         | SelectNthOrderScenario of OrderContext * nth: int
         /// One order value set to its nth value by the property command, the order solved.
         | SetNthOrderValue of OrderContext * ChangePropertyCommand
-        /// One order value cleared by the property command, the order reopened with the picks
-        /// made before it.
-        | ReCalcOrderValue of OrderContext * ChangePropertyCommand * picks: string list
+        /// One order value recalculated by the property command; refused as not solved when the
+        /// field has no recalculation command.
+        | ReCalcOrderValue of OrderContext * ChangePropertyCommand option
         /// The patient updated elsewhere: the context evaluated for it, its filter kept.
         | UpdatePatient of OrderContext * Patient
         /// The filter's choices set from outside its own fields, by name, with the rule of their
@@ -424,7 +424,7 @@ module OrderContext =
             | ClearAllFilter ctx -> ctx
             | SelectNthOrderScenario(ctx, _) -> ctx
             | SetNthOrderValue(ctx, _) -> ctx
-            | ReCalcOrderValue(ctx, _, _) -> ctx
+            | ReCalcOrderValue(ctx, _) -> ctx
             | UpdatePatient(ctx, _) -> ctx
             | SeedFilter(ctx, _, _, _, _, _, _) -> ctx
 
@@ -469,7 +469,7 @@ module OrderContext =
             | ClearAllFilter _ -> "ClearAllFilter"
             | SelectNthOrderScenario(_, n) -> $"SelectNthOrderScenario nth=%i{n}"
             | SetNthOrderValue(_, change) -> $"SetNthOrderValue %A{change}"
-            | ReCalcOrderValue(_, change, picks) -> $"ReCalcOrderValue %A{change} %i{picks.Length} picks"
+            | ReCalcOrderValue(_, change) -> $"ReCalcOrderValue %A{change}"
             | UpdatePatient _ -> "UpdatePatient"
             | SeedFilter(_, source, _, gen, _, _, _) -> $"SeedFilter %A{source} %A{gen}"
 
@@ -1521,19 +1521,17 @@ Scenarios: {scenarios}
             Ok(ctx |> changeOrder logger change)
             |> evaluateAs UpdateOrderScenario (fun ctx -> SetNthOrderValue(ctx, change))
             |> Result.map (refusedAsSent cmd)
-        // a recalculation the order program runs reads the order alone, not the picks
-        | ReCalcOrderValue(ctx, change, picks) when
+        // a recalculation the order program runs reads the order alone
+        | ReCalcOrderValue(ctx, Some change) when
             change |> OrderProcessor.CommandBridge.ofChangeProperty |> Option.isSome
             ->
             ctx
             |> processScenarioOrder logger (fun o -> ChangeProperty(o, change) |> OrderProcessor.processPipeline logger)
-            |> Outcome.map (fun ctx -> ReCalcOrderValue(ctx, change, picks))
+            |> Outcome.map (fun ctx -> ReCalcOrderValue(ctx, Some change))
             |> refusedAsSent cmd
             |> Ok
-        | ReCalcOrderValue(ctx, change, picks) ->
-            Ok(ctx |> changeOrder logger change)
-            |> evaluateAs (fun ctx -> ReopenOrderScenario(ctx, picks)) (fun ctx -> ReCalcOrderValue(ctx, change, picks))
-            |> Result.map (refusedAsSent cmd)
+        // a field without a recalculation is not recalculated: the context stays as it was sent
+        | ReCalcOrderValue _ -> Ok(Refused(cmd, Refusal.NotSolved))
         | UpdatePatient(ctx, pat) ->
             Ok { ctx with Patient = pat }
             |> evaluateAs UpdateOrderContext (fun ctx -> UpdatePatient(ctx, pat))

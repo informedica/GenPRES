@@ -51,18 +51,10 @@ module OrderProcessor =
         | false, false, false, false, false, true -> DosePerTimeCleared
         | _ -> NotCleared
 
-    /// The order with the variable a clear command names cleared, for the reopen that follows. Every
-    /// other property command runs through the order program, so the order is left as it is.
+    /// The order as it is: every property command runs through the order program, and a component
+    /// in stock is not implemented.
     let processChangeProperty logger cmd ord =
-        let set change = OrderPropertyChange.proc [ change ]
-
         match cmd with
-        | ClearScheduleFrequency -> ord |> set (ScheduleFrequency Frequency.clear)
-        | ClearOrderableDoseQuantity -> ord |> set (OrderableDose(Dose.applyToQuantity Quantity.clear))
-        | ClearOrderableDoseRate -> ord |> set (OrderableDose(Dose.applyToRate Rate.clear))
-        | ClearComponentOrderableQuantity cmp -> ord |> set (ComponentOrderableQuantity(cmp, Quantity.clear))
-        | ClearItemComponentConcentration(cmp, itm) ->
-            ord |> set (ItemComponentConcentration(cmp, itm, Concentration.clear))
         | ComponentInStock _ ->
             $"{cmd} not implemented" |> Events.OrderScenario |> Logging.logWarning logger
             ord
@@ -1751,11 +1743,6 @@ module OrderProcessor =
             | ReCalcItemDoseRateAdjust(c, i) -> reCalc (itmDose c i DoseProperty.RateAdjust)
             | ReCalcItemOrderableConcentration(c, i) -> reCalc (itmOrbCnc c i)
             | ReCalcItemOrderableQuantity(c, i) -> reCalc (itmOrbQty c i)
-            | ClearScheduleFrequency
-            | ClearOrderableDoseQuantity
-            | ClearOrderableDoseRate
-            | ClearComponentOrderableQuantity _
-            | ClearItemComponentConcentration _
             | ComponentInStock _ -> None
 
 

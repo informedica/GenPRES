@@ -669,17 +669,13 @@ let reopenTests =
     let answer = plan [| reopened; context "c-2" "ibuprofen" |]
     let open' = held two (Some "c-1")
     let reopen request =
-        OrderPlanMsg.ReopenField(
-            "c-1",
-            OrderViewCommand.ReCalcScheduleProperty(ScheduleProperty.Frequency, [||]),
-            request
-        )
+        OrderPlanMsg.ReopenField("c-1", OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Frequency, request)
     // the clear as the machine sends it, over the plan and the context held
     let clear =
         OrderPlanCommand.Navigate(
             two,
             "c-1",
-            OrderViewCommand.ReCalcScheduleProperty(ScheduleProperty.Frequency, [||]),
+            OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Frequency,
             two.OrderContexts[0]
         )
     let move = OrderPlanState.transition
@@ -700,7 +696,7 @@ let reopenTests =
             }
 
             test "a recalculation from the order dialog goes out as a reopen sends it, and keeps the state before it" {
-                let reCalc = OrderViewCommand.ReCalcItemProperty("cmp", "itm", ItemProperty.DoseQuantity, [||])
+                let reCalc = OrderViewCommand.ReCalcItemProperty("cmp", "itm", ItemProperty.DoseQuantity)
 
                 let change = OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand("c-1", reCalc), "r-1")
                 let viaChange = open' |> move change
@@ -784,7 +780,7 @@ let reopenTests =
                 let gone =
                     OrderPlanMsg.ReopenField(
                         "c-9",
-                        OrderViewCommand.ReCalcScheduleProperty(ScheduleProperty.Frequency, [||]),
+                        OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Frequency,
                         "r-1"
                     )
 
@@ -867,7 +863,7 @@ let requestOutTests =
                         pageMsg (remove, "r-2")
                         OrderPlanMsg.ReopenField(
                             "c-1",
-                            OrderViewCommand.ReCalcScheduleProperty(ScheduleProperty.Frequency, [||]),
+                            OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Frequency,
                             "r-2"
                         )
                         OrderPlanMsg.PatientDataChanged(Some other, "r-2")

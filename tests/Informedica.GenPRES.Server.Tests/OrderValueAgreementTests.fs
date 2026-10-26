@@ -1,5 +1,5 @@
 /// The domain's value commands and today's path give the same order: the wire order changed by
-/// Shared, mapped to the domain, then solved or reopened.
+/// Shared, mapped to the domain, then solved.
 module Informedica.GenPRES.Server.Tests.OrderValueAgreementTests
 
 open Expecto
@@ -46,21 +46,7 @@ module Today =
                 |> run
 
 
-    /// Today's clear: the variable cleared on the wire order, which is then reopened.
-    let clear t picks (shared: Informedica.GenPRES.Shared.Types.Order) =
-        match shared |> Ctx.Target.tryGet t with
-        | None -> Error "no target"
-        | Some _ ->
-            (shared
-             |> Ctx.Target.map t (Informedica.GenPRES.Shared.Models.Order.OrderVariable.setOvar None)
-             |> toDomain,
-             picks)
-            |> Reopen
-            |> run
-
-
-/// The domain's path: a pick run by the order program, or the property command applied and reopened
-/// after a clear.
+/// The domain's path: a pick run by the order program.
 module Domain =
 
     let private run cmd =
@@ -71,12 +57,6 @@ module Domain =
 
     /// The pick as the order context runs it, through the order program.
     let setNth cmd ord = ChangeProperty(ord, cmd) |> run
-
-
-    let clear cmd picks ord =
-        (ord |> OrderProcessor.processChangeProperty OrderLogging.noOp cmd, picks)
-        |> Reopen
-        |> run
 
 
 /// The fixed medications as the dialog first shows them, on the wire and in the domain.
@@ -200,72 +180,6 @@ let tests =
                                     }
                             | _ -> ()
                 ]
-
-            testList
-                "a clear"
-                [
-                    for name, (items, shared, ord) in Fixtures.all.Value do
-                        for t in Fixtures.targets shared do
-                            match shared |> Fixtures.count t with
-                            | Some c when c > 1 && not (fansOut shared t) ->
-                                let _, clear = ServerApi.OrderContextMapper.Command.propertyCommands t
-
-                                test $"%s{name}, %A{t}" {
-                                    same items (ord |> Domain.clear clear []) (shared |> Today.clear t [])
-                                }
-                            | _ -> ()
-                ]
-
-            test "a clear's picks get the order id back" {
-                let _, _, ord = Fixtures.all.Value[0] |> snd
-                let dt = Informedica.GenForm.Lib.Types.Once "eenmalig"
-
-                let ctx: OrderContext =
-                    {
-                        Filter = OrderContext.emptyFilter
-                        Patient = Informedica.GenForm.Lib.Patient.patient
-                        Scenarios =
-                            [|
-                                OrderScenario.create
-                                    1
-                                    ""
-                                    ""
-                                    ""
-                                    ""
-                                    dt
-                                    None
-                                    None
-                                    None
-                                    [||]
-                                    [||]
-                                    [||]
-                                    ord
-                                    false
-                                    false
-                                    None
-                                    [||]
-                            |]
-                        Argumentation = None
-                    }
-
-                let id = ord.Id |> WrappedString.Id.toString
-
-                let cmd =
-                    Informedica.GenPRES.Shared.Api.OrderViewCommand.ReCalcScheduleProperty(
-                        Informedica.GenPRES.Shared.Types.ScheduleProperty.Frequency,
-                        [| "[.x]_dos_qty" |]
-                    )
-
-                match
-                    ctx
-                    |> ServerApi.OrderContextMapper.Command.toDomain
-                        Informedica.GenPRES.Shared.Types.OrderCategory.Drug
-                        cmd
-                with
-                | OrderContext.ReCalcOrderValue(_, ClearScheduleFrequency, picks) ->
-                    picks |> Expect.equal "the order id put back" [ $"[%s{id}.x]_dos_qty" ]
-                | other -> failtest $"%A{other}"
-            }
 
             // the nutrition's natrium and kalium concentrations are changed in its first component
             // as well by today's client, but offer one value, so there is nothing to pick

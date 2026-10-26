@@ -161,37 +161,6 @@ let tests =
                             | _ -> ()
                         }
 
-                        // a recalculation the order program runs no longer reopens, see OrderReCalcTests
-                        test
-                            $"a value clear gives the order of today's reopen with the variable cleared: %s{name} %s{field.Name}" {
-                            let ord = builtScenarios[name].Value
-
-                            match ord |> field.Get with
-                            | Some ovar when
-                                ovar.Variable |> Variable.count > 1
-                                && field.Clear |> OrderValueCommandTests.isProgramReCalc |> not
-                                ->
-                                let ctx = contextOf ord
-                                // every variable a pick, so the clear reopens with the picks before it
-                                let picks =
-                                    OrderValueCommandTests.fields ord
-                                    |> List.choose (fun f -> f.Get ord)
-                                    |> List.map OrderProcessor.nameOf
-
-                                let cleared = ord |> OrderValueCommandTests.change field.Clear
-
-                                let expected =
-                                    ({ ctx with Scenarios = [| { ctx.Scenarios[0] with Order = cleared } |] }, picks)
-                                    |> OrderContext.ReopenOrderScenario
-                                    |> evaluate
-                                    |> variablesOf
-
-                                OrderContext.ReCalcOrderValue(ctx, field.Clear, picks)
-                                |> evaluate
-                                |> variablesOf
-                                |> Expect.equal "the same order" expected
-                            | _ -> ()
-                        }
         ]
 
 
@@ -244,6 +213,15 @@ let notSolvedTests =
 
                 match sent |> OrderContext.UpdateOrderScenario |> evaluate with
                 | Ok(Refused(OrderContext.UpdateOrderScenario ctx, Refusal.NotSolved)) ->
+                    ctx |> Expect.equal "the context as sent" sent
+                | other -> failtest $"expected a refusal, got %A{other}"
+            }
+
+            test "a recalculation of a field without one refuses the context as sent" {
+                let sent = contextOf builtScenarios["paracetamol rectal"].Value
+
+                match OrderContext.ReCalcOrderValue(sent, None) |> evaluate with
+                | Ok(Refused(OrderContext.ReCalcOrderValue(ctx, None), Refusal.NotSolved)) ->
                     ctx |> Expect.equal "the context as sent" sent
                 | other -> failtest $"expected a refusal, got %A{other}"
             }

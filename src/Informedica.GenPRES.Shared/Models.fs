@@ -1562,26 +1562,6 @@ module Models =
 
         /// Variable names without the order id, so that a command plays the same in every run,
         /// and with it put back for the server.
-        module Picks =
-
-            /// The name without the order id: "[id.paracetamol]_dos_qty" becomes "[.paracetamol]_dos_qty".
-            let withinOrder (orderId: string) (name: string) =
-                let prefix = $"[%s{orderId}"
-
-                if name.StartsWith prefix then
-                    "[" + name.Substring prefix.Length
-                else
-                    name
-
-
-            /// The name with the order id put back.
-            let ofOrder (orderId: string) (name: string) =
-                if name.StartsWith "[" then
-                    $"[%s{orderId}" + name.Substring 1
-                else
-                    name
-
-
         /// The one scenario of the context, or why there is none.
         let scenario (ctx: OrderContext) =
             match ctx.Scenarios with
@@ -1726,16 +1706,17 @@ module Models =
             )
 
 
-        /// The variable cleared, as the dose dialog clears it, with the picks given back the order
-        /// id.
-        let reCalc target (picks: string[]) (ctx: OrderContext) =
+        /// The variable cleared, as the dose dialog clears it before a recalculation.
+        let reCalc target (ctx: OrderContext) =
             scenario ctx
             |> Result.bind (fun sc ->
                 match sc.Order |> Target.tryGet target with
                 | None -> Error $"no %A{target} in the order"
                 | Some _ ->
-                    let ord = sc.Order |> Target.map target (Order.OrderVariable.setOvar None)
-                    Ok(ctx |> withOrder ord, picks |> Array.map (Picks.ofOrder sc.Order.Id))
+                    Ok(
+                        ctx
+                        |> withOrder (sc.Order |> Target.map target (Order.OrderVariable.setOvar None))
+                    )
             )
 
 

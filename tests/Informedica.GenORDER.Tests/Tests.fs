@@ -1095,32 +1095,6 @@ module ProductNarrowingTests =
                     ord |> quantities "clavulaanzuur" |> Expect.equal "200 mg" [| 200N |]
                 }
 
-                test "a pick of 10 mg/mL clavulaanzuur, then cleared, gives both products and strengths back" {
-                    let ord = Scenarios.amoxClavWithoutClavDoseText |> parse |> built |> pickClav 1
-
-                    let picks =
-                        [
-                            ord
-                            |> item "clavulaanzuur"
-                            |> _.ComponentConcentration
-                            |> Concentration.toOrdVar
-                            |> OrderProcessor.nameOf
-                        ]
-
-                    let ord =
-                        ord
-                        |> OrderProcessor.processChangeProperty
-                            noLog
-                            (ClearItemComponentConcentration(amoxClav, "clavulaanzuur"))
-                        |> fun cleared -> solve (fun o -> Reopen(o, picks)) cleared
-
-                    ord |> strengths "clavulaanzuur" |> Expect.equal "both strengths" [| 5N; 10N |]
-
-                    ord
-                    |> Order.productIds
-                    |> Expect.equal "both products" [| "amox-clav-500-50"; "amox-clav-1000-200" |]
-                }
-
                 test "products that give every combination keep every strength" {
                     let ord = Scenarios.amoxClavEveryCombinationText |> parse |> built
 
