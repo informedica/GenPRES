@@ -14,6 +14,7 @@
     <Compile Include="Solver.fs" />
     <Compile Include="EquationMapping.fs" />
     <Compile Include="Order.fs" />
+    <Compile Include="Determination.fs" />
     <Compile Include="OrderProcessor.fs" />
     <Compile Include="Totals.fs" />
     <Compile Include="Dtos.fs" />

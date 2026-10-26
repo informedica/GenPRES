@@ -2522,6 +2522,129 @@ module HelperTests =
             ]
 
 
+module DeterminationTests =
+
+    module Name = Informedica.GenSolver.Lib.Variable.Name
+
+
+    let names ns = ns |> List.map Name.createExc |> Set.ofList
+
+
+    let row (terms: (string * BigRational) list) =
+        terms |> List.map (fun (n, e) -> n |> Name.createExc, e) |> Map.ofList
+
+
+    /// y = a · b as a product row, and s = y + c as a sum.
+    let model: Determination.Model =
+        {
+            Names = names [ "y"; "a"; "b"; "s"; "c" ]
+            Rows = [ row [ "y", 1N; "a", -1N; "b", -1N ] ]
+            Sums = [ (Name.createExc "s", [ Name.createExc "y"; Name.createExc "c" ]) ]
+            Constants = Set.empty
+        }
+
+
+    let tests =
+        testList
+            "Determination"
+            [
+                test "the reduced rows eliminate a variable two rows share" {
+                    // x = y and y = z give x = z
+                    [ row [ "x", 1N; "y", -1N ]; row [ "y", 1N; "z", -1N ] ]
+                    |> Determination.rref
+                    |> Expect.equal "x - z and y - z" [ row [ "x", 1N; "z", -1N ]; row [ "y", 1N; "z", -1N ] ]
+                }
+
+                test "the factors determine the product" {
+                    names [ "a"; "b" ]
+                    |> Determination.closure model
+                    |> Expect.equal "y follows" (names [ "a"; "b"; "y" ])
+                }
+
+                test "the product and one factor determine the other factor" {
+                    names [ "y"; "a" ]
+                    |> Determination.closure model
+                    |> Expect.equal "b follows" (names [ "a"; "b"; "y" ])
+                }
+
+                test "a product determined through a row determines a sum" {
+                    names [ "a"; "b"; "c" ]
+                    |> Determination.closure model
+                    |> Expect.equal "y and then s follow" (names [ "a"; "b"; "c"; "s"; "y" ])
+                }
+
+                test "a sum and one term determine the other term, and no more" {
+                    // y follows from the sum; y alone leaves a and b open
+                    names [ "s"; "c" ]
+                    |> Determination.closure model
+                    |> Expect.equal "y follows" (names [ "c"; "s"; "y" ])
+                }
+
+                test "one factor determines nothing" {
+                    names [ "a" ]
+                    |> Determination.closure model
+                    |> Expect.equal "only a" (names [ "a" ])
+                }
+
+                test "a variable only several product equations together determine" {
+                    // p = a · b, q = a · c and r = b · c: each equation leaves two open, together they fix
+                    // a, b and c
+                    let m: Determination.Model =
+                        {
+                            Names = names [ "p"; "q"; "r"; "a"; "b"; "c" ]
+                            Rows =
+                                [
+                                    row [ "p", 1N; "a", -1N; "b", -1N ]
+                                    row [ "q", 1N; "a", -1N; "c", -1N ]
+                                    row [ "r", 1N; "b", -1N; "c", -1N ]
+                                ]
+                            Sums = []
+                            Constants = Set.empty
+                        }
+
+                    names [ "p"; "q"; "r" ]
+                    |> Determination.closure m
+                    |> Expect.equal "a, b and c follow" (names [ "a"; "b"; "c"; "p"; "q"; "r" ])
+                }
+
+                test "a constant counts as known" {
+                    // y = one · a, with one a constant
+                    let m: Determination.Model =
+                        {
+                            Names = names [ "y"; "one"; "a" ]
+                            Rows = [ row [ "y", 1N; "one", -1N; "a", -1N ] ]
+                            Sums = []
+                            Constants = names [ "one" ]
+                        }
+
+                    names [ "a" ]
+                    |> Determination.closure m
+                    |> Expect.equal "y follows" (names [ "a"; "one"; "y" ])
+                }
+
+                test "a kept variable with more than one value is not undetermined and determines nothing" {
+                    let ord =
+                        match Scenarios.morfCont |> Medication.toOrder Scenarios.testStart with
+                        | Ok ord -> ord
+                        | Error e -> failtest $"could not build the order: %A{e}"
+
+                    let kept = ord.Orderable.Dose.Quantity |> OrderVariable.Quantity.toOrdVar
+
+                    kept
+                    |> OrderVariable.hasOneValue
+                    |> Expect.isFalse "the kept variable holds more than one value"
+
+                    ord
+                    |> Determination.undeterminedBy (Set.singleton (kept |> OrderVariable.getName))
+                    |> Expect.equal
+                        "everything else undetermined"
+                        (ord
+                         |> Determination.undeterminedBy Set.empty
+                         |> Set.remove (kept |> OrderVariable.getName))
+                }
+            ]
+
+
 module EquationsTests =
 
     open TestOrder
@@ -4477,6 +4600,7 @@ let tests =
             PatientConstructorTests.tests
             OrderVariableTests.tests
             HelperTests.tests
+            DeterminationTests.tests
             ConstraintsTests.tests
             GoldenOrderTests.tests
             IncreaseQuantityIncrementTests.tests
