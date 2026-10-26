@@ -2856,6 +2856,28 @@ module ReferenceTests =
                     |> Expect.isTrue "no step"
                 }
 
+                test "a choice from a range with more values than a value set holds" {
+                    let microL (vs: int list) =
+                        vs
+                        |> List.map BigRational.fromInt
+                        |> List.toArray
+                        |> ValueUnit.withUnit Units.Volume.microLiter
+
+                    // 1 to 300,000 microL by 1, more than the 250,000 values of a value set
+                    let x = minIncrMax microL 1 1 300_000 |> ovar None
+
+                    [ Choice.Min; Choice.Max; Choice.Median; Choice.Nth 1 ]
+                    |> List.map (fun c -> x |> select c |> Result.toOption)
+                    |> Expect.equal
+                        "1, 300,000, 150,001 and 2 microL"
+                        ([ 1; 300_000; 150_001; 2 ] |> List.map (fun v -> Some(microL [ v ])))
+
+                    x
+                    |> select (Choice.Nth 300_000)
+                    |> Result.toOption
+                    |> Expect.isNone "no value past the end"
+                }
+
                 test "a step from one value with a defined increment" {
                     let x = valSet mL [ 2 ] |> ovar (Some 1)
 

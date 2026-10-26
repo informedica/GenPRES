@@ -19,6 +19,7 @@ module OrderProcessor =
     module Dose = Orderable.Dose
     module Increment = Informedica.GenSolver.Lib.Variable.ValueRange.Increment
     module Name = Informedica.GenSolver.Lib.Variable.Name
+    module Variable = Informedica.GenSolver.Lib.Variable
 
 
     // FrequencyCleared and ConcentrationCleared are defensive arms: no recipe handles them, so a
@@ -978,13 +979,19 @@ module OrderProcessor =
         let select ovarRef choice (ovar: OrderVariable) =
             let notSettable reason = Error(ActionFailure.NotSettable(ovarRef, reason))
 
+            // the median of a range with a value count is its value at half the count, as in a list
+            let median (ovar: OrderVariable) =
+                match ovar |> OrderVariable.shape, ovar.Variable |> Variable.valueCount with
+                | Shape.SelectableRange, Some n -> ovar |> OrderVariable.setNthValue (n / 2)
+                | _ -> ovar |> OrderVariable.setMedianValue
+
             let fromList ovar =
                 let take f = ovar |> f |> OrderVariable.solvedValue |> Ok
 
                 match choice with
                 | Choice.Min -> take OrderVariable.setMinValue
                 | Choice.Max -> take OrderVariable.setMaxValue
-                | Choice.Median -> take OrderVariable.setMedianValue
+                | Choice.Median -> take median
                 | Choice.Nth n -> take (OrderVariable.setNthValue n)
                 | Choice.Percentile p when ovarRef = OrderVariableReference.OrderableDose DoseProperty.Quantity ->
                     take (OrderVariable.setPercValue p)
@@ -1000,6 +1007,14 @@ module OrderProcessor =
             | _, Shape.SelectableList -> ovar |> fromList
             // a percentile counts the increments from min to max, not the values of a pruned list
             | Choice.Percentile _, Shape.SelectableRange -> ovar |> fromList
+            // a range with a value count is read from its min, increment and max, without writing out
+            // its values, which can be more than a value set holds; as in a list, no nth value lies
+            // outside the count
+            | Choice.Nth n, Shape.SelectableRange when
+                ovar.Variable |> Variable.valueCount |> Option.exists (fun c -> n < 0 || n >= c)
+                ->
+                Error(ActionFailure.ValueNotInRange ovarRef)
+            | _, Shape.SelectableRange when ovar.Variable |> Variable.valueCount |> Option.isSome -> ovar |> fromList
             | _, Shape.SelectableRange -> ovar |> OrderVariable.minIncrMaxToValues [] None |> fromList
             | Choice.Step(n, incr), Shape.Steppable ->
                 // a step is not bounded by the constraints; it never goes below one increment
