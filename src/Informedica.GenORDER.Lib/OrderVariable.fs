@@ -1532,12 +1532,6 @@ module OrderVariable =
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> count
 
 
-        let setToOne = apply setToOne
-
-
-        let setMinToOne = apply setToAtLeastOne
-
-
     /// Type and functions that represent a time
     module Time =
 

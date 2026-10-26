@@ -1060,8 +1060,7 @@ module ProductNarrowingTests =
     /// The order with the nth strength of the clavulaanzuur picked and solved.
     let private pickClav n ord =
         ord
-        |> OrderProcessor.processChangeProperty noLog (SetNthItemComponentConcentration(amoxClav, "clavulaanzuur", n))
-        |> solve SolveOrder
+        |> solve (fun o -> ChangeProperty(o, SetNthItemComponentConcentration(amoxClav, "clavulaanzuur", n)))
 
 
     let tests =

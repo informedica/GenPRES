@@ -141,20 +141,18 @@ let tests =
                 | Error e -> test $"the %s{name} order builds" { failtest $"could not build the order: %A{e}" }
                 | Ok fields ->
                     for field in fields do
-                        test
-                            $"a value pick gives the order of today's update with the variable set: %s{name} %s{field.Name}" {
+                        test $"a value pick gives the order the order program sets: %s{name} %s{field.Name}" {
                             let ord = builtScenarios[name].Value
 
                             match ord |> field.Get with
                             | Some ovar when ovar.Variable |> Variable.count > 1 ->
                                 let ctx = contextOf ord
-                                let set = ord |> OrderValueCommandTests.change (field.SetNth 0)
 
                                 let expected =
-                                    { ctx with Scenarios = [| { ctx.Scenarios[0] with Order = set } |] }
-                                    |> OrderContext.UpdateOrderScenario
-                                    |> evaluate
-                                    |> variablesOf
+                                    ord
+                                    |> OrderValueCommandTests.pick (field.SetNth 0)
+                                    |> Result.toOption
+                                    |> Option.map Order.toOrdVars
 
                                 OrderContext.SetNthOrderValue(ctx, field.SetNth 0)
                                 |> evaluate
