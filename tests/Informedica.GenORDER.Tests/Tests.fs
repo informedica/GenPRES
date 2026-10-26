@@ -2888,13 +2888,24 @@ module ReferenceTests =
                     |> List.map (fun c -> x |> select c |> Result.toOption)
                     |> Expect.equal "3 and 1 mL" [ Some(mL [ 3 ]); Some(mL [ 1 ]) ]
 
-                    x |> select Choice.Min |> isNotSettable |> Expect.isTrue "one value only steps"
+                    x
+                    |> select Choice.Min
+                    |> Result.toOption
+                    |> Expect.equal "the one value kept" (Some(mL [ 2 ]))
                 }
 
-                test "nothing to choose from one value without an increment" {
-                    [ Choice.Min; Choice.Step(1, StepIncrement.Defined) ]
-                    |> List.map (fun c -> valSet mL [ 2 ] |> ovar None |> select c |> isNotSettable)
-                    |> Expect.equal "not settable" [ true; true ]
+                test "one value without an increment keeps its value and does not step" {
+                    let x = valSet mL [ 2 ] |> ovar None
+
+                    x
+                    |> select Choice.Min
+                    |> Result.toOption
+                    |> Expect.equal "the one value kept" (Some(mL [ 2 ]))
+
+                    x
+                    |> select (Choice.Step(1, StepIncrement.Defined))
+                    |> isNotSettable
+                    |> Expect.isTrue "not steppable"
                 }
 
                 test "a variable set back to each target" {
@@ -3974,26 +3985,31 @@ module OrderProcessorTests =
         |> Option.defaultValue []
         |> List.exists (fun m -> ($"%A{m}").Contains "EmptyValueSet")
 
+    // a step moves a value the user selected, so the median is selected first
+    let private stepFromMedian setMedian step ord =
+        ord
+        |> run (fun o -> ChangeProperty(o, setMedian))
+        |> fst
+        |> run (fun o -> ChangeProperty(o, step))
+
     // change the orderable dose quantity so that orb_dos_cnt <> 1
     let private lowerOrderableDoseQuantity ord =
         ord
-        |> run (fun o -> ChangeProperty(o, DecreaseOrderableDoseQuantity(5, true)))
+        |> stepFromMedian SetMedianOrderableDoseQuantity (DecreaseOrderableDoseQuantity(5, true))
         |> fst
 
     let private increaseGluc ord =
         ord
-        |> run (fun o -> ChangeProperty(o, IncreaseComponentOrderableQuantity("gluc 10%", 1, true)))
+        |> stepFromMedian
+            (SetMedianComponentOrderableQuantity "gluc 10%")
+            (IncreaseComponentOrderableQuantity("gluc 10%", 1, true))
 
-    // stop-gap for #1453: a component quantity change resets the dose count to one but keeps the
-    // other components' dose quantities, so the order's solved equations no longer hold and the
-    // solver now reports it. The two pending tests go back to test when the component change
-    // path clears the sibling components
     [<Tests>]
     let tests =
         testList
             "OrderProcessor component change after dose-quantity change"
             [
-                ptest "component orderable quantity change does not crash the solver after a dose-quantity change" {
+                test "component orderable quantity change does not crash the solver after a dose-quantity change" {
                     let afterDoseChange = solvedTpn () |> lowerOrderableDoseQuantity
                     let _, err = afterDoseChange |> increaseGluc
 
@@ -4004,9 +4020,14 @@ module OrderProcessorTests =
                     err |> Expect.isNone "component change should solve without error"
                 }
 
-                ptest "component orderable quantity actually changes (no snap-back) after a dose-quantity change" {
+                test "component orderable quantity actually changes (no snap-back) after a dose-quantity change" {
                     let afterDoseChange = solvedTpn () |> lowerOrderableDoseQuantity
-                    let before = afterDoseChange |> componentOrbQty "gluc 10%"
+                    let before =
+                        afterDoseChange
+                        |> run (fun o -> ChangeProperty(o, SetMedianComponentOrderableQuantity "gluc 10%"))
+                        |> fst
+                        |> componentOrbQty "gluc 10%"
+
                     let changed, err = afterDoseChange |> increaseGluc
                     let after = changed |> componentOrbQty "gluc 10%"
 
@@ -4020,7 +4041,12 @@ module OrderProcessorTests =
                 test "component orderable quantity change still works on a solved order with dose count = 1" {
                     // sanity: the normal path (no preceding dose-quantity change) keeps working
                     let solved = solvedTpn ()
-                    let before = solved |> componentOrbQty "gluc 10%"
+                    let before =
+                        solved
+                        |> run (fun o -> ChangeProperty(o, SetMedianComponentOrderableQuantity "gluc 10%"))
+                        |> fst
+                        |> componentOrbQty "gluc 10%"
+
                     let changed, err = solved |> increaseGluc
                     let after = changed |> componentOrbQty "gluc 10%"
 

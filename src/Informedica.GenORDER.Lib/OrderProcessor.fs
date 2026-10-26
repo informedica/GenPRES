@@ -997,6 +997,9 @@ module OrderProcessor =
                 )
 
             match choice, ovar |> OrderVariable.shape with
+            // a field that holds one value keeps it, so the order is solved again unchanged
+            | (Choice.Min | Choice.Max | Choice.Median | Choice.Nth 0), _ when ovar |> OrderVariable.hasOneValue ->
+                ovar |> fromList
             | _, Shape.SelectableList -> ovar |> fromList
             // a percentile counts the increments from min to max, not the values of a pruned list
             | Choice.Percentile _, Shape.SelectableRange -> ovar |> fromList
@@ -1248,10 +1251,16 @@ module OrderProcessor =
         /// variable, so they can follow the new value. A min, max, median or nth sets only the value:
         /// from a list on any variable, from a min, increment and max only on a basic variable. On a
         /// variable that is steppable or not settable a min, max, median or nth still sets only the
-        /// value: Choice.select then refuses it with the reason the shape gives no value.
+        /// value: Choice.select then refuses it with the reason the shape gives no value. On Continuous
+        /// a min, max or median of the dose quantity gives no command: there the dose quantity is not a
+        /// basic variable, and the rate has its own min, max and median.
         let ofSet ovarRef sch shape choice =
             match ovarRef, choice with
             | _, Choice.Step _ when shape <> Shape.Steppable -> SetCommand.NoCommand
+            | OrderVariableReference.OrderableDose DoseProperty.Quantity, (Choice.Min | Choice.Max | Choice.Median) when
+                sch |> Schedule.isContinuous
+                ->
+                SetCommand.NoCommand
             | OrderVariableReference.ScheduleFrequency, Choice.Step _ ->
                 SetCommand.WithRecipe Recipe.ScheduleFrequencyStep
             | OrderVariableReference.OrderableDose DoseProperty.Quantity, Choice.Step _ ->
@@ -1575,7 +1584,7 @@ module OrderProcessor =
 
     module OrderAction =
 
-        /// The effects of an action on an order, decided by the server. Only a recalculation runs
+        /// The effects of an action on an order, decided by the server. A set and a recalculation run
         /// through the order program; any other action is refused until its commands move to it.
         let effects action (ord: Order) =
             let cap =
@@ -1604,6 +1613,61 @@ module OrderProcessor =
                 ]
 
             match action with
+            | OrderAction.Set(ovarRef, choice) ->
+                // an nth is solved with values, as a selection from a list is; on an order without lists a
+                // solve for min and max first carries the value through, because the lists are made with a cap
+                // that thins them, and a list thinned before the narrowing can miss the values the set value
+                // needs; a min, max or median on an order with lists is solved with values, because a solve
+                // for min and max keeps every listed value within the new bounds, also the values the set
+                // value no longer reaches; the other choices are solved for min and max
+                let solve =
+                    match choice with
+                    | Choice.Nth _ when ord |> hasValues -> values RateSelection.SelectMedianRate None
+                    | Choice.Nth _ ->
+                        OrderEffect.SolveOrder SolveMode.MinMax
+                        :: values RateSelection.SelectMedianRate None
+                    | Choice.Min
+                    | Choice.Max
+                    | Choice.Median when ord |> hasValues -> [ OrderEffect.SolveOrder SolveMode.Values ]
+                    | _ -> [ OrderEffect.SolveOrder SolveMode.MinMax ]
+
+                let setValue recipe ovar =
+                    // the value is selected from the range as it is before the recipe; a stepped
+                    // value replaces the one held, any other value narrows the range
+                    let replace =
+                        match choice with
+                        | Choice.Step _ -> [ OrderEffect.SetOrderVariableRangeBack(ovarRef, SetBackTo.AnyPositive) ]
+                        | _ -> []
+
+                    ovar
+                    |> Choice.select ovarRef choice
+                    |> Result.map (fun vu ->
+                        recipe
+                        @ replace
+                        @ [ OrderEffect.ConstrainOrderVariableRange(ovarRef, vu) ]
+                        @ solve
+                    )
+
+                match ovarRef |> OrderVariableReference.tryGet ord with
+                | None -> Error(ActionFailure.NoSuchVariable ovarRef)
+                | Some ovar ->
+                    match
+                        SetCommand.ofSet ovarRef ord.Schedule (ovar |> SetCommand.settable ord.Schedule ovarRef) choice
+                    with
+                    | SetCommand.NoCommand -> Error(ActionFailure.NoRecipe action)
+                    // a percentile of a dose that is not part of a composition the user set changes nothing
+                    | SetCommand.WithRecipe Recipe.OrderableDoseQuantityPercentile when ord |> isComposed |> not ->
+                        Ok []
+                    // a percentile is selected from the range its recipe gives
+                    | SetCommand.WithRecipe Recipe.OrderableDoseQuantityPercentile ->
+                        Ok
+                            [
+                                yield! ord |> Recipe.effects Recipe.OrderableDoseQuantityPercentile
+                                OrderEffect.SelectOrderVariableValue(ovarRef, choice)
+                                yield! solve
+                            ]
+                    | SetCommand.WithRecipe recipe -> ovar |> setValue (ord |> Recipe.effects recipe)
+                    | SetCommand.ValueOnly -> ovar |> setValue []
             | OrderAction.ReCalc ovarRef ->
                 match ovarRef |> OrderVariableReference.tryGet ord, Recipe.forReCalcCommand ovarRef ord with
                 | None, _ -> Error(ActionFailure.NoSuchVariable ovarRef)
@@ -1640,25 +1704,87 @@ module OrderProcessor =
     module CommandBridge =
 
         /// The action of the program a property command is; None for a command the pipeline of the
-        /// command still processes.
+        /// command still processes: the five clears, which reopen, and the component in stock.
         let ofChangeProperty cmd =
+            let step n useCalc =
+                Choice.Step(
+                    n,
+                    (if useCalc then
+                         StepIncrement.Calculated
+                     else
+                         StepIncrement.Defined)
+                )
+
+            let set ovarRef choice = Some(OrderAction.Set(ovarRef, choice))
             let reCalc ovarRef = Some(OrderAction.ReCalc ovarRef)
+            let frq = OrderVariableReference.ScheduleFrequency
+            let tme = OrderVariableReference.ScheduleTime
+            let orbQty = OrderVariableReference.OrderableQuantity
+            let qty = OrderVariableReference.OrderableDose DoseProperty.Quantity
+            let rte = OrderVariableReference.OrderableDose DoseProperty.Rate
+            let cmpQty c = OrderVariableReference.ComponentOrderableQuantity c
+            let cmpQtyAdj c =
+                OrderVariableReference.ComponentDose(c, DoseProperty.QuantityAdjust)
             let itmDose c i p = OrderVariableReference.ItemDose(c, i, p)
+            let itmCmpCnc c i = OrderVariableReference.ItemComponentConcentration(c, i)
+            let itmOrbCnc c i = OrderVariableReference.ItemOrderableConcentration(c, i)
+            let itmOrbQty c i = OrderVariableReference.ItemOrderableQuantity(c, i)
 
             match cmd with
-            | ReCalcScheduleTime -> reCalc OrderVariableReference.ScheduleTime
-            | ReCalcOrderableQuantity -> reCalc OrderVariableReference.OrderableQuantity
-            | ReCalcComponentDoseQuantityAdjust c ->
-                reCalc (OrderVariableReference.ComponentDose(c, DoseProperty.QuantityAdjust))
+            | IncreaseScheduleFrequency -> set frq (step 1 false)
+            | DecreaseScheduleFrequency -> set frq (step -1 false)
+            | SetMinScheduleFrequency -> set frq Choice.Min
+            | SetMaxScheduleFrequency -> set frq Choice.Max
+            | SetMedianScheduleFrequency -> set frq Choice.Median
+            | IncreaseOrderableDoseQuantity(n, useCalc) -> set qty (step n useCalc)
+            | DecreaseOrderableDoseQuantity(n, useCalc) -> set qty (step -n useCalc)
+            | SetOrderableDoseQuantityPerc p -> set qty (Choice.Percentile p)
+            | SetMinOrderableDoseQuantity -> set qty Choice.Min
+            | SetMaxOrderableDoseQuantity -> set qty Choice.Max
+            | SetMedianOrderableDoseQuantity -> set qty Choice.Median
+            | IncreaseOrderableDoseRate(n, useCalc) -> set rte (step n useCalc)
+            | DecreaseOrderableDoseRate(n, useCalc) -> set rte (step -n useCalc)
+            | SetMinOrderableDoseRate -> set rte Choice.Min
+            | SetMaxOrderableDoseRate -> set rte Choice.Max
+            | SetMedianOrderableDoseRate -> set rte Choice.Median
+            | IncreaseComponentOrderableQuantity(c, n, useCalc) -> set (cmpQty c) (step n useCalc)
+            | DecreaseComponentOrderableQuantity(c, n, useCalc) -> set (cmpQty c) (step -n useCalc)
+            | SetMinComponentOrderableQuantity c -> set (cmpQty c) Choice.Min
+            | SetMaxComponentOrderableQuantity c -> set (cmpQty c) Choice.Max
+            | SetMedianComponentOrderableQuantity c -> set (cmpQty c) Choice.Median
+            | SetNthScheduleFrequency n -> set frq (Choice.Nth n)
+            | SetNthScheduleTime n -> set tme (Choice.Nth n)
+            | SetNthOrderableQuantity n -> set orbQty (Choice.Nth n)
+            | SetNthOrderableDoseQuantity n -> set qty (Choice.Nth n)
+            | SetNthOrderableDoseRate n -> set rte (Choice.Nth n)
+            | SetNthComponentOrderableQuantity(c, n) -> set (cmpQty c) (Choice.Nth n)
+            | SetNthComponentDoseQuantityAdjust(c, n) -> set (cmpQtyAdj c) (Choice.Nth n)
+            | SetNthItemDoseQuantity(c, i, n) -> set (itmDose c i DoseProperty.Quantity) (Choice.Nth n)
+            | SetNthItemDoseQuantityAdjust(c, i, n) -> set (itmDose c i DoseProperty.QuantityAdjust) (Choice.Nth n)
+            | SetNthItemDosePerTime(c, i, n) -> set (itmDose c i DoseProperty.PerTime) (Choice.Nth n)
+            | SetNthItemDosePerTimeAdjust(c, i, n) -> set (itmDose c i DoseProperty.PerTimeAdjust) (Choice.Nth n)
+            | SetNthItemDoseRate(c, i, n) -> set (itmDose c i DoseProperty.Rate) (Choice.Nth n)
+            | SetNthItemDoseRateAdjust(c, i, n) -> set (itmDose c i DoseProperty.RateAdjust) (Choice.Nth n)
+            | SetNthItemComponentConcentration(c, i, n) -> set (itmCmpCnc c i) (Choice.Nth n)
+            | SetNthItemOrderableConcentration(c, i, n) -> set (itmOrbCnc c i) (Choice.Nth n)
+            | SetNthItemOrderableQuantity(c, i, n) -> set (itmOrbQty c i) (Choice.Nth n)
+            | ReCalcScheduleTime -> reCalc tme
+            | ReCalcOrderableQuantity -> reCalc orbQty
+            | ReCalcComponentDoseQuantityAdjust c -> reCalc (cmpQtyAdj c)
             | ReCalcItemDoseQuantity(c, i) -> reCalc (itmDose c i DoseProperty.Quantity)
             | ReCalcItemDoseQuantityAdjust(c, i) -> reCalc (itmDose c i DoseProperty.QuantityAdjust)
             | ReCalcItemDosePerTime(c, i) -> reCalc (itmDose c i DoseProperty.PerTime)
             | ReCalcItemDosePerTimeAdjust(c, i) -> reCalc (itmDose c i DoseProperty.PerTimeAdjust)
             | ReCalcItemDoseRate(c, i) -> reCalc (itmDose c i DoseProperty.Rate)
             | ReCalcItemDoseRateAdjust(c, i) -> reCalc (itmDose c i DoseProperty.RateAdjust)
-            | ReCalcItemOrderableConcentration(c, i) -> reCalc (OrderVariableReference.ItemOrderableConcentration(c, i))
-            | ReCalcItemOrderableQuantity(c, i) -> reCalc (OrderVariableReference.ItemOrderableQuantity(c, i))
-            | _ -> None
+            | ReCalcItemOrderableConcentration(c, i) -> reCalc (itmOrbCnc c i)
+            | ReCalcItemOrderableQuantity(c, i) -> reCalc (itmOrbQty c i)
+            | ClearScheduleFrequency
+            | ClearOrderableDoseQuantity
+            | ClearOrderableDoseRate
+            | ClearComponentOrderableQuantity _
+            | ClearItemComponentConcentration _
+            | ComponentInStock _ -> None
 
 
         /// The order and the action of the program a command is; None for a command the pipeline

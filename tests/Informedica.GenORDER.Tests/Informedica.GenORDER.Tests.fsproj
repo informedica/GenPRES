@@ -25,6 +25,7 @@
     <Compile Include="DoseQuantityPercTests.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="OrderReCalcTests.fs" />
+    <Compile Include="OrderSetTests.fs" />
     <Compile Include="Main.fs" />
     <None Include="Scripts\load.fsx" />
     <Content Include="..\..\docs\domain\medication.schema.json" Link="medication.schema.json" CopyToOutputDirectory="PreserveNewest" />

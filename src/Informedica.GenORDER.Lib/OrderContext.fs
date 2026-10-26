@@ -1510,6 +1510,13 @@ Scenarios: {scenarios}
             ctx
             |> selectNthScenario n
             |> evaluateAs SelectOrderScenario (fun ctx -> SelectNthOrderScenario(ctx, n))
+        // a value the order program sets reads the order alone
+        | SetNthOrderValue(ctx, change) when change |> OrderProcessor.CommandBridge.ofChangeProperty |> Option.isSome ->
+            ctx
+            |> processScenarioOrder logger (fun o -> ChangeProperty(o, change) |> OrderProcessor.processPipeline logger)
+            |> Outcome.map (fun ctx -> SetNthOrderValue(ctx, change))
+            |> refusedAsSent cmd
+            |> Ok
         | SetNthOrderValue(ctx, change) ->
             Ok(ctx |> changeOrder logger change)
             |> evaluateAs UpdateOrderScenario (fun ctx -> SetNthOrderValue(ctx, change))
