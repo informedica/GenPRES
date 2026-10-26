@@ -13,10 +13,14 @@ namespace Views
 /// </summary>
 module SessionGate =
 
+    open Informedica.GenPRES.Client.Core.Models
+    open Informedica.GenPRES.Client.Core.StateMachines
+    open Informedica.GenPRES.Client.Core.MachinePolicies
+
     open Fable.Core
     open Fable.Core.JsInterop
     open Feliz
-    open Shared
+    open Informedica.GenPRES.Shared
     open SessionGatePolicy
 
 
@@ -26,12 +30,14 @@ module SessionGate =
         let terms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
         let context: Global.Context = React.useContext Global.context
 
+        let startup = (AppEnv.asEnv<AppEnv.IStartup> props.appEnv).Startup
+
         // the sheet's translation in the User's language, else the policy's English
         let tr term =
-            Global.getLocalizedTerm terms context.Localization (english term) term
+            Global.getLocalizedTerm terms context.Localization (StartupPolicy.english term) term
 
         let gate =
-            gateFor tr session.Session
+            StartupPolicy.gate tr startup session.Session
             |> Option.defaultValue
                 {
                     Title = ""
@@ -41,7 +47,7 @@ module SessionGate =
                     Form = None
                 }
 
-        let onRetry = fun _ -> session.Retry()
+        let onRetry = fun _ -> session.RetryLaunch()
         let onContinue = fun _ -> session.OpenAnonymously()
 
         // the form's fields live here until they are sent; a local check runs first, the

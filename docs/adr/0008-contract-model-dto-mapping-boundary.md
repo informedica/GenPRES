@@ -89,7 +89,7 @@ sequenceDiagram
 
 | Term | Meaning | In the code |
 |---|---|---|
-| **contract model** | the records the client shows, edits and sends, and the server receives and answers; shared by client and server, not a view model of either side | `Shared.Types.*`; ADR-0001's Contract ring |
+| **contract model** | the records the client shows, edits and sends, and the server receives and answers; shared by client and server, not a view model of either side | `Informedica.GenPRES.Shared.Types`; ADR-0001's Contract ring |
 | **Dto** | a logic-free, serializable data type for exactly one domain aggregate, owned by the domain library | `Order.Dto`, `Variable.Dto`, GenFORM `Patient.Dto`, `OrderPlan.Dto`, ... |
 | **domain** | the domain types and their rules, and pure business logic; the GenFORM `Patient` type can hold a patient below the minimum data, so `Patient.validate` is a separate check | `GenOrder.Lib.Types.Order`, `OrderContext`, `PlanContext`, `OrderPlan`, GenFORM `Patient`, ... |
 | **order plan version** | a version of an order plan, created by a prescriber signing it | `OrderPlanVersion` with `No` and `Base` |
@@ -153,7 +153,7 @@ alternative, ports typed on Dtos, is recorded below.
 
 | # | Rule | Checked by |
 |---|---|---|
-| R1 | `Shared.Types` holds contract model records only; `Shared.Models` holds pure client-side projections and the [ADR-0003](0003-shared-clinical-calculations.md) formulas, nothing the server executes as a rule. | review; the agreement test (law L6) for the client's copies |
+| R1 | `Informedica.GenPRES.Shared.Types` holds contract model records only; `Informedica.GenPRES.Shared.Models` holds pure client-side projections, nothing the server executes as a rule. | review; the agreement test (law L6) for the client's copies |
 | R2 | Every domain aggregate that crosses a boundary has a Dto meeting the five invariants. | review: which aggregates cross a boundary is a judgement no script makes |
 | R3 | All contract model to Dto mapping on the server lives in `ServerApi.Mappers*.fs`; one function per aggregate per direction; commands included. Named exceptions, port answers with no domain Dto behind them: `Adapters.toSharedDrugInteraction`, `LaunchResult -> LaunchOutcome`, `SessionLookup -> SessionResponse`. | review |
 | R4 | Inbound is `ofModel` (total, loses nothing) followed by `fromDto` (a `Result`, reports every failure); no filtering of failed items; the success type is a domain value, never the contract model type. | laws L3 and L4 |
@@ -208,7 +208,7 @@ alternative, ports typed on Dtos, is recorded below.
 |---|---|
 | What the database holds | Domain-derived Dtos, never the contract model; ADR-0007 §3 is amended. Lands before plan 516 freezes a SQL schema. |
 | Where the domain `OrderPlan` lives | `Informedica.GenORDER.Lib`, next to `OrderContext`, with `PlanContext` and `OrderPlanVersion`, each with a Dto like `Order`. |
-| Business logic in `Shared.Models` used by the server | Moves to the domain. The client keeps display projections only, with a test that the two agree. |
+| Business logic in `Informedica.GenPRES.Shared.Models` used by the server | Moves to the domain. The client keeps display projections only, with a test that the two agree. |
 | Dto style | Not uniform; the concept is fixed by the five invariants. |
 | Dto used as a domain constructor; cache Dtos for ZIndex and NKF; MCP output records | Follow-up issues, not part of plan 725. |
 | Digest serializer | The canonical serializer is the one the database uses; its settings are part of the stored JSON structure. |
@@ -235,7 +235,7 @@ its decisions table.
 - Every request that needs a patient's order plan versions loads, upgrades and parses them. The
   cost is paid per request, bounded by one patient's history, and measured once the Dtos exist.
 - `OrderPlan`, `PlanContext` and `OrderPlanVersion` become GenORDER domain types and the order
-  plan rules move out of `ServerApi.Services.fs` and `Shared.Models`.
+  plan rules move out of `ServerApi.Services.fs` and `Informedica.GenPRES.Shared.Models`.
 - ADR-0007 §3 is amended: the session state holds the clinical records and its working state as
   domain values, Dtos appear only in the adapters (the server mappers and the database adapter),
   and identity stays as contract types
@@ -269,7 +269,7 @@ its decisions table.
 - [ADR-0001: System Architecture](0001-system-architecture.md) — the rings, the Contract ring,
   parsing at every inbound boundary
 - [ADR-0003: Shared Clinical Calculations](0003-shared-clinical-calculations.md) — the pure
-  formulas that stay in Shared
+  formulas, of which only `weeksToDays` is left in Shared
 - [ADR-0007: Session Persistence](0007-session-persistence.md) — the append-only store this ADR
   decides the contents of
 - [`docs/implementation-plans/725-contract-model-dto-domain-flow.md`](../implementation-plans/725-contract-model-dto-domain-flow.md)

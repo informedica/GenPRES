@@ -7,7 +7,7 @@ namespace ServerApi
 // `Adapters.makeAppEnvWith` wires them into the AppEnv. Development and testing only.
 
 open System
-open Shared.Types
+open Informedica.GenPRES.Shared.Types
 open Informedica.Utils.Lib.BCL
 
 
@@ -158,8 +158,8 @@ module StubPatientData =
     /// The stub's reading projected at its patient's tenth birthday, as the contract model:
     /// ten years, 32 kg and 140 cm measured, nothing else known.
     let patient: Patient =
-        Shared.Models.Patient.create
-            (Some(Shared.Measures.toYear 10))
+        Informedica.GenPRES.Shared.Models.Patient.create
+            (Some(Informedica.GenPRES.Shared.Measures.toYear 10))
             None
             None
             None
@@ -171,7 +171,7 @@ module StubPatientData =
             []
             None
             None
-        |> Option.defaultValue Shared.Models.Patient.empty
+        |> Option.defaultValue Informedica.GenPRES.Shared.Models.Patient.empty
 
 
     open Informedica.GenCore.Lib

@@ -105,21 +105,29 @@ module GenOrderTools =
     /// The measure a caller left out, estimated from the age and the sex it gave through the
     /// contract model, the one estimate the web client shows; a measure given stays measured.
     /// Without an age there is nothing to estimate from, and the patient stays as built.
-    let estimated (nv: Shared.Types.NormalValues) (input: CreateOrderContextInput) (pat: Patient.Patient) =
+    let estimated
+        (nv: Informedica.GenPRES.Shared.Types.NormalValues)
+        (input: CreateOrderContextInput)
+        (pat: Patient.Patient)
+        =
         match input.AgeMonths, input.WeightKg, input.HeightCm with
         | _, Some _, Some _
         | None, _, _ -> pat
         | Some months, _, _ ->
             let gender =
                 match input.Sex |> Option.map _.ToLowerInvariant() with
-                | Some "male" -> Shared.Types.Male
-                | Some "female" -> Shared.Types.Female
-                | _ -> Shared.Types.UnknownGender
+                | Some "male" -> Informedica.GenPRES.Shared.Types.Male
+                | Some "female" -> Informedica.GenPRES.Shared.Types.Female
+                | _ -> Informedica.GenPRES.Shared.Types.UnknownGender
 
             let draft =
-                Shared.Models.Patient.create
+                Informedica.GenPRES.Shared.Models.Patient.create
                     None
-                    (months |> Math.Round |> int |> Shared.Measures.toMonth |> Some)
+                    (months
+                     |> Math.Round
+                     |> int
+                     |> Informedica.GenPRES.Shared.Measures.toMonth
+                     |> Some)
                     None
                     None
                     None
@@ -130,7 +138,7 @@ module GenOrderTools =
                     []
                     None
                     None
-                |> Option.map (Shared.Models.NormalValues.apply nv)
+                |> Option.map (Informedica.GenPRES.Shared.Models.NormalValues.apply nv)
 
             let weight =
                 draft
@@ -178,7 +186,7 @@ module GenOrderTools =
         |> Patient.setDepartment input.Department
         |> estimated
             (provider.Get Informedica.GenForm.Lib.Resources.Keys.normalValueRows
-             |> Shared.Models.NormalValues.ofRows)
+             |> Informedica.GenPRES.Shared.Models.NormalValues.ofRows)
             input
 
 

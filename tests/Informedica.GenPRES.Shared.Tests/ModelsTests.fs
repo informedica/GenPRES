@@ -2,48 +2,20 @@ module Informedica.GenPRES.Shared.Tests.ModelsTests
 
 open Expecto
 open Expecto.Flip
-open Shared.Types
-open Shared.Models
+open Informedica.GenPRES.Shared.Types
+open Informedica.GenPRES.Shared.Models
 
 
 [<Tests>]
 let tests =
     testList
-        "OrderContext.label"
+        "OrderContext.empty"
         [
             test "a workbench not in the plan has the empty id and is a drug" {
                 OrderContext.empty.Id |> Expect.equal "no id" ""
                 OrderContext.empty.Category |> Expect.equal "a drug" OrderCategory.Drug
             }
 
-            test "a drug's label is its generic, empty before one is chosen" {
-                OrderContext.empty |> OrderContext.label |> Expect.equal "nothing yet" ""
-
-                { OrderContext.empty with OrderContext.Filter.Generic = Some "paracetamol" }
-                |> OrderContext.label
-                |> Expect.equal "the generic" "paracetamol"
-            }
-
-            testList
-                "a nutrition order's label is its category's name, whatever the generic"
-                [
-                    for category, expected in
-                        [
-                            NutritionCategory.EnteralFeeding, "Enterale Voeding"
-                            NutritionCategory.EnteralSupplement, "Enteraal Supplement"
-                            NutritionCategory.TPN, "Totale Parenterale Voeding"
-                            NutritionCategory.Lipid, "Vetten"
-                            NutritionCategory.ElectrolyteGlucose, "Elektrolyten/Glucose"
-                        ] do
-                        test $"{category}" {
-                            { OrderContext.empty with
-                                Category = OrderCategory.Nutrition category
-                                OrderContext.Filter.Generic = Some "Glucose 10%"
-                            }
-                            |> OrderContext.label
-                            |> Expect.equal "the category's name" expected
-                        }
-                ]
         ]
 
 
@@ -261,26 +233,6 @@ let estimateTests =
                 |> Expect.equal "the estimate" (Some 32000<gram>, Some 140<cm>)
             }
 
-            test "a gender chosen keeps the measured values and drops the estimates" {
-                let dto =
-                    { Patient.empty with
-                        Age = Some ten
-                        Gender = Male
-                        Patient.Weight.Measured = Some 30000<gram>
-                    }
-                    |> estimated
-
-                Some dto
-                |> Patient.setGender "female"
-                |> Option.map (fun p -> p.Gender, p.Weight.Measured, p.Weight.Estimated, p.Height.Estimated)
-                |> Expect.equal "female, measured kept, estimates gone" (Some(Female, Some 30000<gram>, None, None))
-            }
-
-            test "a gender chosen first is a draft with the gender and nothing else" {
-                None
-                |> Patient.setGender "male"
-                |> Expect.equal "the gender alone" (Some { Patient.empty with Gender = Male })
-            }
         ]
 
 
@@ -432,185 +384,6 @@ let cascadeTests =
         ]
 
 
-/// A patient with everything set, measured and estimated, so that every field has something
-/// to lose.
-let fullPatient: Patient =
-    {
-        Age =
-            Some
-                {
-                    Years = 2<year>
-                    Months = 3<month>
-                    Weeks = 1<week>
-                    Days = 4<day>
-                }
-        GestationalAge =
-            Some
-                {
-                    Weeks = 32<week>
-                    Days = 5<day>
-                }
-        Weight =
-            {
-                EstimatedP3 = Some 10000<gram>
-                Estimated = Some 12000<gram>
-                EstimatedP97 = Some 14000<gram>
-                Measured = Some 12500<gram>
-            }
-        Height =
-            {
-                EstimatedP3 = Some 85<cm>
-                Estimated = Some 90<cm>
-                EstimatedP97 = Some 95<cm>
-                Measured = Some 91<cm>
-            }
-        Gender = Female
-        Access = [ CVL; EnteralTube ]
-        RenalFunction = Some(EGFR(Some 30, Some 50))
-        Location = Some "bed 4"
-        Department = Some "ICK"
-    }
-
-
-/// The age setters by name, each applied to a value that fits its field.
-let ageSetters =
-    [
-        "setYear", Patient.setYear (Some "5")
-        "setMonth", Patient.setMonth (Some "7")
-        "setWeek", Patient.setWeek (Some "2")
-        "setDay", Patient.setDay (Some "3")
-    ]
-
-
-let patient (p: Patient option) = p |> Option.defaultWith (fun () -> failtest "no patient")
-
-
-[<Tests>]
-let ageSetterTests =
-    testList
-        "Patient age setters keep what was measured"
-        [
-            testList
-                "an age edit keeps the measured weight and height"
-                [
-                    for name, set in ageSetters do
-                        test $"{name}" {
-                            let p = Some fullPatient |> set |> patient
-                            p.Weight.Measured |> Expect.equal "the weight" fullPatient.Weight.Measured
-                            p.Height.Measured |> Expect.equal "the height" fullPatient.Height.Measured
-                        }
-                ]
-
-            testList
-                "an age edit keeps the gestational age, gender, access, renal function, location and department"
-                [
-                    for name, set in ageSetters do
-                        test $"{name}" {
-                            let p = Some fullPatient |> set |> patient
-                            p.GestationalAge
-                            |> Expect.equal "the gestational age" fullPatient.GestationalAge
-                            p.Gender |> Expect.equal "the gender" fullPatient.Gender
-                            p.Access |> Expect.equal "the access" fullPatient.Access
-                            p.RenalFunction |> Expect.equal "the renal function" fullPatient.RenalFunction
-                            p.Location |> Expect.equal "the location" fullPatient.Location
-                            p.Department |> Expect.equal "the department" fullPatient.Department
-                        }
-                ]
-
-            testList
-                "the estimates are blank after an age edit"
-                [
-                    for name, set in ageSetters do
-                        test $"{name}" {
-                            let p = Some fullPatient |> set |> patient
-                            p.Weight.Estimated |> Expect.isNone "weight estimate"
-                            p.Weight.EstimatedP3 |> Expect.isNone "weight p3"
-                            p.Weight.EstimatedP97 |> Expect.isNone "weight p97"
-                            p.Height.Estimated |> Expect.isNone "height estimate"
-                            p.Height.EstimatedP3 |> Expect.isNone "height p3"
-                            p.Height.EstimatedP97 |> Expect.isNone "height p97"
-                        }
-                ]
-
-            testList
-                "each setter writes its own part of the age"
-                [
-                    test "setYear" {
-                        Some fullPatient
-                        |> Patient.setYear (Some "5")
-                        |> patient
-                        |> _.Age
-                        |> Expect.equal "years" (Some { fullPatient.Age.Value with Years = 5<year> })
-                    }
-
-                    test "setMonth" {
-                        Some fullPatient
-                        |> Patient.setMonth (Some "7")
-                        |> patient
-                        |> _.Age
-                        |> Expect.equal "months" (Some { fullPatient.Age.Value with Months = 7<month> })
-                    }
-
-                    test "setWeek" {
-                        Some fullPatient
-                        |> Patient.setWeek (Some "2")
-                        |> patient
-                        |> _.Age
-                        |> Expect.equal "weeks" (Some { fullPatient.Age.Value with Weeks = 2<week> })
-                    }
-
-                    test "setDay" {
-                        Some fullPatient
-                        |> Patient.setDay (Some "3")
-                        |> patient
-                        |> _.Age
-                        |> Expect.equal "days" (Some { fullPatient.Age.Value with Days = 3<day> })
-                    }
-                ]
-
-            testList
-                "a draft's age"
-                [
-                    test "a blank draft given a year is a patient of that age alone" {
-                        None
-                        |> Patient.setYear (Some "5")
-                        |> patient
-                        |> Expect.equal
-                            "five years, nothing else"
-                            { Patient.empty with Age = Some { Patient.Age.ageZero with Years = 5<year> } }
-                    }
-
-                    test "a blank draft with a year cleared is the blank draft, as it was" {
-                        None |> Patient.setYear None |> Expect.equal "blank" (Some Patient.empty)
-                    }
-
-                    test "a newborn on day zero is a patient with an age" {
-                        None
-                        |> Patient.setDay (Some "0")
-                        |> patient
-                        |> _.Age
-                        |> Expect.equal "age zero" (Some Patient.Age.ageZero)
-                    }
-
-                    test "clearing one age part keeps the age with that part zero" {
-                        Some fullPatient
-                        |> Patient.setMonth None
-                        |> patient
-                        |> _.Age
-                        |> Expect.equal "months zero" (Some { fullPatient.Age.Value with Months = 0<month> })
-                    }
-
-                    test "a value that is not a number reads as zero" {
-                        Some fullPatient
-                        |> Patient.setYear (Some "five")
-                        |> patient
-                        |> _.Age
-                        |> Expect.equal "years zero" (Some { fullPatient.Age.Value with Years = 0<year> })
-                    }
-                ]
-        ]
-
-
 module NeonatalEstimateFixtures =
 
     /// The neonatal tables, in weeks of post-conceptional age, reaching to 42 weeks as the
@@ -665,22 +438,6 @@ let neonatalEstimateTests =
                     (Some 32000<gram>, Some 140<cm>)
             }
 
-            test "an age typed after the gestational age keeps it and is estimated by the age" {
-                Some
-                    { Patient.empty with
-                        Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
-                        GestationalAge = Some NeonatalEstimateFixtures.premature
-                        Gender = Male
-                    }
-                |> Patient.setYear (Some "2")
-                |> patient
-                |> NeonatalEstimateFixtures.estimated
-                |> fun dto -> dto.GestationalAge, dto.Weight.Estimated
-                |> Expect.equal
-                    "kept, and the age tables answer"
-                    (Some NeonatalEstimateFixtures.premature, Some 32000<gram>)
-            }
-
             test "each table is judged by its own reach: a neonatal weight is kept when the height table is missing" {
                 { Patient.empty with
                     Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
@@ -719,200 +476,6 @@ let neonatalEstimateTests =
                 |> _.Weight.Estimated
                 |> Expect.equal "the age tables" (Some 32000<gram>)
             }
-        ]
-
-
-/// The gestational-age, weight and height setters by name, each applied to a value that fits
-/// its field.
-let measureSetters =
-    [
-        "setGAWeek", Patient.setGAWeek (Some "36")
-        "setGADay", Patient.setGADay (Some "2")
-        "setWeight", Patient.setWeight (Some "13000")
-        "setHeight", Patient.setHeight (Some "95")
-    ]
-
-
-/// The full patient with the measures estimated only: what the panel holds after an age and a
-/// gender were typed and the tables answered.
-let estimatedPatient: Patient =
-    { fullPatient with
-        Weight = { fullPatient.Weight with Measured = None }
-        Height = { fullPatient.Height with Measured = None }
-    }
-
-
-[<Tests>]
-let measureSetterTests =
-    testList
-        "Patient gestational-age, weight and height setters keep what was measured"
-        [
-            testList
-                "a gestational-age edit keeps the measured weight and height"
-                [
-                    for name, set in measureSetters |> List.take 2 do
-                        test $"{name}" {
-                            let p = Some fullPatient |> set |> patient
-                            p.Weight.Measured |> Expect.equal "the weight" fullPatient.Weight.Measured
-                            p.Height.Measured |> Expect.equal "the height" fullPatient.Height.Measured
-                        }
-                ]
-
-            testList
-                "a weight or height edit keeps the age and the gestational age"
-                [
-                    for name, set in measureSetters |> List.skip 2 do
-                        test $"{name}" {
-                            let p = Some fullPatient |> set |> patient
-                            p.Age |> Expect.equal "the age" fullPatient.Age
-                            p.GestationalAge
-                            |> Expect.equal "the gestational age" fullPatient.GestationalAge
-                        }
-                ]
-
-            testList
-                "every setter keeps the gender, access, renal function, location and department"
-                [
-                    for name, set in measureSetters do
-                        test $"{name}" {
-                            let p = Some fullPatient |> set |> patient
-                            p.Gender |> Expect.equal "the gender" fullPatient.Gender
-                            p.Access |> Expect.equal "the access" fullPatient.Access
-                            p.RenalFunction |> Expect.equal "the renal function" fullPatient.RenalFunction
-                            p.Location |> Expect.equal "the location" fullPatient.Location
-                            p.Department |> Expect.equal "the department" fullPatient.Department
-                        }
-                ]
-
-            testList
-                "the estimates are blank after every setter"
-                [
-                    for name, set in measureSetters do
-                        test $"{name}" {
-                            let p = Some fullPatient |> set |> patient
-                            p.Weight.Estimated |> Expect.isNone "weight estimate"
-                            p.Weight.EstimatedP3 |> Expect.isNone "weight p3"
-                            p.Weight.EstimatedP97 |> Expect.isNone "weight p97"
-                            p.Height.Estimated |> Expect.isNone "height estimate"
-                            p.Height.EstimatedP3 |> Expect.isNone "height p3"
-                            p.Height.EstimatedP97 |> Expect.isNone "height p97"
-                        }
-                ]
-
-            testList
-                "no setter writes an estimate as measured"
-                [
-                    test "a weight typed for an estimated height leaves the height unmeasured" {
-                        Some estimatedPatient
-                        |> Patient.setWeight (Some "13000")
-                        |> patient
-                        |> _.Height.Measured
-                        |> Expect.isNone "not measured"
-                    }
-
-                    test "a height typed for an estimated weight leaves the weight unmeasured" {
-                        Some estimatedPatient
-                        |> Patient.setHeight (Some "95")
-                        |> patient
-                        |> _.Weight.Measured
-                        |> Expect.isNone "not measured"
-                    }
-                ]
-
-            testList
-                "each setter writes its own field"
-                [
-                    test "setGAWeek" {
-                        Some fullPatient
-                        |> Patient.setGAWeek (Some "36")
-                        |> patient
-                        |> _.GestationalAge
-                        |> Expect.equal "weeks" (Some { fullPatient.GestationalAge.Value with Weeks = 36<week> })
-                    }
-
-                    test "setGADay" {
-                        Some fullPatient
-                        |> Patient.setGADay (Some "2")
-                        |> patient
-                        |> _.GestationalAge
-                        |> Expect.equal "days" (Some { fullPatient.GestationalAge.Value with Days = 2<day> })
-                    }
-
-                    test "setWeight" {
-                        Some fullPatient
-                        |> Patient.setWeight (Some "13000")
-                        |> patient
-                        |> _.Weight.Measured
-                        |> Expect.equal "grams" (Some 13000<gram>)
-                    }
-
-                    test "setHeight" {
-                        Some fullPatient
-                        |> Patient.setHeight (Some "95")
-                        |> patient
-                        |> _.Height.Measured
-                        |> Expect.equal "centimetres" (Some 95<cm>)
-                    }
-                ]
-
-            testList
-                "a draft's gestational age and measures"
-                [
-                    test "a gestational age started from its days alone is a term one" {
-                        None
-                        |> Patient.setGADay (Some "2")
-                        |> patient
-                        |> _.GestationalAge
-                        |> Expect.equal
-                            "37 weeks 2 days"
-                            (Some
-                                {
-                                    Weeks = 37<week>
-                                    Days = 2<day>
-                                })
-                    }
-
-                    test "clearing the gestational weeks reads as term" {
-                        Some fullPatient
-                        |> Patient.setGAWeek None
-                        |> patient
-                        |> _.GestationalAge
-                        |> Expect.equal
-                            "term"
-                            (Some
-                                {
-                                    Weeks = 37<week>
-                                    Days = 5<day>
-                                })
-                    }
-
-                    test "a blank draft with the gestational days cleared is the blank draft" {
-                        None |> Patient.setGADay None |> Expect.equal "blank" (Some Patient.empty)
-                    }
-
-                    test "a blank draft given a weight is a patient of that weight alone" {
-                        None
-                        |> Patient.setWeight (Some "13000")
-                        |> patient
-                        |> Expect.equal
-                            "13000 grams, nothing else"
-                            { Patient.empty with Weight = { Patient.empty.Weight with Measured = Some 13000<gram> } }
-                    }
-
-                    test "a measure cleared is a measure gone, the other kept" {
-                        let p = Some fullPatient |> Patient.setWeight None |> patient
-                        p.Weight.Measured |> Expect.isNone "weight gone"
-                        p.Height.Measured |> Expect.equal "height kept" fullPatient.Height.Measured
-                    }
-
-                    test "a value that is not a number clears the field" {
-                        Some fullPatient
-                        |> Patient.setHeight (Some "tall")
-                        |> patient
-                        |> _.Height.Measured
-                        |> Expect.isNone "not a number"
-                    }
-                ]
         ]
 
 

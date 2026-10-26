@@ -15,35 +15,6 @@ open Informedica.GenOrder.Lib
 let testStart = System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
 
 
-let pcmSuppText =
-    """
-Id: 047f9e19-4cfc-43cb-b7ee-f88f23d2eab6
-Name: paracetamol
-Quantity:
-Quantities:
-Route: RECTAAL
-OrderType: DiscontinuousOrder
-Adjust: 14 kg
-Frequencies: 3;4 x/dag
-Time:
-Dose: 1 stuk/dosis
-Div:
-DoseCount: 1 x
-Components:
-	Name: paracetamol
-	Form: zetpil
-	Quantities: 1 stuk
-	Divisible: 1
-	Dose:
-	Solution:
-	Substances:
-
-		Name: paracetamol
-		Concentrations: 120;240;500;1 000;125;250;60;30;360;90;750;180 mg/stuk
-		Dose: paracetamol, 10 - 20 mg/kg/dosis
-		Solution:
-"""
-
 let pcmSupp =
     let au = Units.Weight.kiloGram
     let fu = Units.General.general "stuk"
@@ -234,7 +205,7 @@ let morfCont =
                                 Concentrations = [| 1N; 10N |] |> ValueUnit.withUnit cu |> Some
                                 Dose =
                                     { DoseLimit.limit with
-                                        DoseLimitTarget = "morfine" |> SubstanceLimitTarget
+                                        DoseLimitTarget = "morfin" |> SubstanceLimitTarget
                                         AdjustUnit = au |> Some
                                         RateAdjust =
                                             { MinMax.empty with
@@ -245,7 +216,7 @@ let morfCont =
                                     |> Some
                                 Solution =
                                     { SolutionLimit.limit with
-                                        SolutionLimitTarget = "morfine" |> SubstanceLimitTarget
+                                        SolutionLimitTarget = "morfin" |> SubstanceLimitTarget
                                         Quantity = 10N |> ValueUnit.singleWithUnit su |> MinMax.createExact
                                         Concentration =
                                             { MinMax.empty with
@@ -1056,118 +1027,662 @@ let tpn =
     }
 
 
-/// Expected text output for the fully populated medication scenario
-let fullMedicationText =
-    """
-Id: full-med-test-001
-Name: Test Medication Complete
-Quantity: 10 - 100 mL
-Quantities: 50 mL
-Route: INTRAVENEUS
-OrderType: TimedOrder
-Adjust: 15 kg
-Frequencies: 1;2 x/dag
-Time: 30 - 120 min
-Dose: 5 - 10 mL/dosis
-Div: 2
-DoseCount: 1 - 2 x
-Components:
-	Name: Main Component
-	Form: infuusvloeistof
-	Quantities: 1 mL
-	Divisible: 10
-	Dose: Main Component, 1 - 5 mL/kg/dosis
-	Solution: 10 - 50 mL
-	Substances:
-
-		Name: Active Substance
-		Concentrations: 10 mg/mL
-		Dose: Active Substance, 1 - 10 mg/kg/dag
-		Solution: 0,5 - 2 mg/mL
-	Name: Diluent Component
-	Form: vloeistof
-	Quantities: 1 mL
-	Divisible: 1
-	Dose:
-	Solution:
-	Substances:
-
-		Name: sodium
-		Concentrations: 0,15 mmol/mL
-		Dose:
-		Solution:
-"""
-
-
 // Kaliumchloride OnceTimed scenario that previously caused
 // ValueSetOverflow (746,839 values) without staged expansion
 let kaliumchlorideOnceTimedText =
     """
 Id: c829b3ef-0dbe-4ed4-ac36-1260414d39b5
 Name: kaliumchloride
-Quantity:
-Quantities:
 Route: INTRAVENEUS
 OrderType: OnceTimedOrder
-Adjust: 31 kg
-Frequencies:
-Time: 60 min - 120 min
-Dose: [dun] ml
-Div:
-DoseCount: 1 x
+Adjust:
+  Value:
+    - "31"
+  Unit: kg
+Time:
+  Min:
+    Value:
+      - "60"
+    Unit: min
+    Inclusive: true
+  Max:
+    Value:
+      - "120"
+    Unit: min
+    Inclusive: true
+Dose:
+  DoseUnit: ml
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
 Components:
+  - Name: kaliumchloride
+    Form: concentraat voor oplossing voor infusie
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: kalium
+        Concentrations:
+          Value:
+            - "1"
+          Unit: mmol/ml
+      - Name: chloor
+        Concentrations:
+          Value:
+            - "1"
+          Unit: mmol/ml
+      - Name: kaliumchloride
+        Concentrations:
+          Value:
+            - "1"
+          Unit: mmol/ml
+        Dose:
+          DoseUnit: mmol
+          QuantityAdjust:
+            Min:
+              Value:
+                - "0.5"
+              Unit: mmol/kg
+              Inclusive: true
+            Max:
+              Value:
+                - "0.5"
+              Unit: mmol/kg
+              Inclusive: true
+        Solution:
+          Concentration:
+            Min:
+              Value:
+                - "0.5"
+              Unit: mmol/ml
+              Inclusive: true
+            Max:
+              Value:
+                - "0.5"
+              Unit: mmol/ml
+              Inclusive: true
+  - Name: gluc 5%
+    Form: vloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: glucose
+        Concentrations:
+          Value:
+            - "0.05"
+          Unit: g/ml
+      - Name: energie
+        Concentrations:
+          Value:
+            - "0.2"
+          Unit: kCal/ml
+      - Name: koolhydraat
+        Concentrations:
+          Value:
+            - "0.05"
+          Unit: g/ml
+"""
 
-	Name: kaliumchloride
-	Form: concentraat voor oplossing voor infusie
-	Quantities: 1 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
 
-		Name: kalium
-		Quantities:
-		Concentrations: 1 mmol/ml
-		Dose:
-		Solution:
+/// Amoxicilline/clavulaanzuur powder diluted with NaCl 0,9%: two components, and two items in the
+/// first whose concentrations stand in a fixed ratio of ten to one.
+let amoxClavText =
+    """
+Id: 303000f0-98b7-4db5-a0f2-a8a7642df9fc
+Name: amoxicilline/clavulaanzuur
+Route: INTRAVENEUS
+OrderType: DiscontinuousOrder
+Adjust:
+  Value:
+    - "14.5"
+  Unit: kg
+Frequencies:
+  Value:
+    - "3"
+  Unit: x/day
+Dose:
+  DoseUnit: ml
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+Components:
+  - Name: amoxicilline/clavulaanzuur
+    Form: poeder voor injectievloeistof
+    Quantities:
+      Value:
+        - "10"
+        - "20"
+      Unit: ml
+    Divisible: "10"
+    Products:
+      - Id: amox-clav-500-50
+        FormQuantities:
+          Value:
+            - "10"
+          Unit: ml
+        Strengths:
+          - Substance: amoxicilline
+            Strength:
+              Value:
+                - "50"
+              Unit: mg/ml
+          - Substance: clavulaanzuur
+            Strength:
+              Value:
+                - "5"
+              Unit: mg/ml
+      - Id: amox-clav-1000-200
+        FormQuantities:
+          Value:
+            - "20"
+          Unit: ml
+        Strengths:
+          - Substance: amoxicilline
+            Strength:
+              Value:
+                - "50"
+              Unit: mg/ml
+          - Substance: clavulaanzuur
+            Strength:
+              Value:
+                - "10"
+              Unit: mg/ml
+    Substances:
+      - Name: amoxicilline
+        Quantities:
+          Value:
+            - "500"
+            - "1000"
+          Unit: mg
+        Concentrations:
+          Value:
+            - "50"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: mg
+          PerTime:
+            Max:
+              Value:
+                - "6000"
+              Unit: mg/day
+              Inclusive: true
+          PerTimeAdjust:
+            Min:
+              Value:
+                - "100"
+              Unit: mg/kg/day
+              Inclusive: true
+            Max:
+              Value:
+                - "100"
+              Unit: mg/kg/day
+              Inclusive: true
+        Solution:
+          Concentration:
+            Min:
+              Value:
+                - "20"
+              Unit: mg/ml
+              Inclusive: true
+            Max:
+              Value:
+                - "20"
+              Unit: mg/ml
+              Inclusive: true
+      - Name: clavulaanzuur
+        Quantities:
+          Value:
+            - "50"
+            - "100"
+            - "200"
+          Unit: mg
+        Concentrations:
+          Value:
+            - "5"
+            - "10"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: mg
+          PerTime:
+            Max:
+              Value:
+                - "600"
+              Unit: mg/day
+              Inclusive: true
+          PerTimeAdjust:
+            Min:
+              Value:
+                - "10"
+              Unit: mg/kg/day
+              Inclusive: true
+            Max:
+              Value:
+                - "10"
+              Unit: mg/kg/day
+              Inclusive: true
+  - Name: NaCl 0,9%
+    Form: vloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: natrium
+        Concentrations:
+          Value:
+            - "0.155"
+          Unit: mmol/ml
+      - Name: chloor
+        Concentrations:
+          Value:
+            - "0.155"
+          Unit: mmol/ml
+"""
 
-		Name: chloor
-		Quantities:
-		Concentrations: 1 mmol/ml
-		Dose:
-		Solution:
 
-		Name: kaliumchloride
-		Quantities:
-		Concentrations: 1 mmol/ml
-		Dose: kaliumchloride, [dun] mmol, [qty-adj] 0.5 mmol/kg/dosis
-		Solution:  [conc] 0.5 mmol/ml
+/// Amoxicilline/clavulaanzuur without the dose limit of the clavulaanzuur. With it, the ratio of the
+/// clavulaanzuur dose to the amoxicilline dose leaves 5 mg/mL alone; without it both strengths, 5
+/// and 10 mg/mL, survive the solve.
+let amoxClavWithoutClavDoseText =
+    """
+Id: 303000f0-98b7-4db5-a0f2-a8a7642df9fc
+Name: amoxicilline/clavulaanzuur
+Route: INTRAVENEUS
+OrderType: DiscontinuousOrder
+Adjust:
+  Value:
+    - "14.5"
+  Unit: kg
+Frequencies:
+  Value:
+    - "3"
+  Unit: x/day
+Dose:
+  DoseUnit: ml
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+Components:
+  - Name: amoxicilline/clavulaanzuur
+    Form: poeder voor injectievloeistof
+    Quantities:
+      Value:
+        - "10"
+        - "20"
+      Unit: ml
+    Divisible: "10"
+    Products:
+      - Id: amox-clav-500-50
+        FormQuantities:
+          Value:
+            - "10"
+          Unit: ml
+        Strengths:
+          - Substance: amoxicilline
+            Strength:
+              Value:
+                - "50"
+              Unit: mg/ml
+          - Substance: clavulaanzuur
+            Strength:
+              Value:
+                - "5"
+              Unit: mg/ml
+      - Id: amox-clav-1000-200
+        FormQuantities:
+          Value:
+            - "20"
+          Unit: ml
+        Strengths:
+          - Substance: amoxicilline
+            Strength:
+              Value:
+                - "50"
+              Unit: mg/ml
+          - Substance: clavulaanzuur
+            Strength:
+              Value:
+                - "10"
+              Unit: mg/ml
+    Substances:
+      - Name: amoxicilline
+        Quantities:
+          Value:
+            - "500"
+            - "1000"
+          Unit: mg
+        Concentrations:
+          Value:
+            - "50"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: mg
+          PerTime:
+            Max:
+              Value:
+                - "6000"
+              Unit: mg/day
+              Inclusive: true
+          PerTimeAdjust:
+            Min:
+              Value:
+                - "100"
+              Unit: mg/kg/day
+              Inclusive: true
+            Max:
+              Value:
+                - "100"
+              Unit: mg/kg/day
+              Inclusive: true
+        Solution:
+          Concentration:
+            Min:
+              Value:
+                - "20"
+              Unit: mg/ml
+              Inclusive: true
+            Max:
+              Value:
+                - "20"
+              Unit: mg/ml
+              Inclusive: true
+      - Name: clavulaanzuur
+        Quantities:
+          Value:
+            - "50"
+            - "100"
+            - "200"
+          Unit: mg
+        Concentrations:
+          Value:
+            - "5"
+            - "10"
+          Unit: mg/ml
+  - Name: NaCl 0,9%
+    Form: vloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: natrium
+        Concentrations:
+          Value:
+            - "0.155"
+          Unit: mmol/ml
+      - Name: chloor
+        Concentrations:
+          Value:
+            - "0.155"
+          Unit: mmol/ml
+"""
 
-	Name: gluc 5%
-	Form: vloeistof
-	Quantities: 1 ml
-	Divisible: 10
-	Dose:
-	Solution:
-	Substances:
 
-		Name: glucose
-		Quantities:
-		Concentrations: 0.05 g/ml
-		Dose:
-		Solution:
+/// Amoxicilline/clavulaanzuur without the dose limit of the clavulaanzuur in four products, one for
+/// every combination of 25 or 50 mg/mL amoxicilline with 5 or 10 mg/mL clavulaanzuur.
+let amoxClavEveryCombinationText =
+    """
+Id: 303000f0-98b7-4db5-a0f2-a8a7642df9fc
+Name: amoxicilline/clavulaanzuur
+Route: INTRAVENEUS
+OrderType: DiscontinuousOrder
+Adjust:
+  Value:
+    - "14.5"
+  Unit: kg
+Frequencies:
+  Value:
+    - "3"
+  Unit: x/day
+Dose:
+  DoseUnit: ml
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+Components:
+  - Name: amoxicilline/clavulaanzuur
+    Form: poeder voor injectievloeistof
+    Quantities:
+      Value:
+        - "10"
+        - "20"
+      Unit: ml
+    Divisible: "10"
+    Products:
+      - Id: amox-clav-500-50
+        FormQuantities:
+          Value:
+            - "10"
+          Unit: ml
+        Strengths:
+          - Substance: amoxicilline
+            Strength:
+              Value:
+                - "50"
+              Unit: mg/ml
+          - Substance: clavulaanzuur
+            Strength:
+              Value:
+                - "5"
+              Unit: mg/ml
+      - Id: amox-clav-250-50
+        FormQuantities:
+          Value:
+            - "10"
+          Unit: ml
+        Strengths:
+          - Substance: amoxicilline
+            Strength:
+              Value:
+                - "25"
+              Unit: mg/ml
+          - Substance: clavulaanzuur
+            Strength:
+              Value:
+                - "5"
+              Unit: mg/ml
+      - Id: amox-clav-500-200
+        FormQuantities:
+          Value:
+            - "20"
+          Unit: ml
+        Strengths:
+          - Substance: amoxicilline
+            Strength:
+              Value:
+                - "25"
+              Unit: mg/ml
+          - Substance: clavulaanzuur
+            Strength:
+              Value:
+                - "10"
+              Unit: mg/ml
+      - Id: amox-clav-1000-200
+        FormQuantities:
+          Value:
+            - "20"
+          Unit: ml
+        Strengths:
+          - Substance: amoxicilline
+            Strength:
+              Value:
+                - "50"
+              Unit: mg/ml
+          - Substance: clavulaanzuur
+            Strength:
+              Value:
+                - "10"
+              Unit: mg/ml
+    Substances:
+      - Name: amoxicilline
+        Quantities:
+          Value:
+            - "250"
+            - "500"
+            - "1000"
+          Unit: mg
+        Concentrations:
+          Value:
+            - "25"
+            - "50"
+          Unit: mg/ml
+        Dose:
+          DoseUnit: mg
+          PerTime:
+            Max:
+              Value:
+                - "6000"
+              Unit: mg/day
+              Inclusive: true
+          PerTimeAdjust:
+            Min:
+              Value:
+                - "100"
+              Unit: mg/kg/day
+              Inclusive: true
+            Max:
+              Value:
+                - "100"
+              Unit: mg/kg/day
+              Inclusive: true
+        Solution:
+          Concentration:
+            Min:
+              Value:
+                - "20"
+              Unit: mg/ml
+              Inclusive: true
+            Max:
+              Value:
+                - "20"
+              Unit: mg/ml
+              Inclusive: true
+      - Name: clavulaanzuur
+        Quantities:
+          Value:
+            - "50"
+            - "100"
+            - "200"
+          Unit: mg
+        Concentrations:
+          Value:
+            - "5"
+            - "10"
+          Unit: mg/ml
+  - Name: NaCl 0,9%
+    Form: vloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "10"
+    Substances:
+      - Name: natrium
+        Concentrations:
+          Value:
+            - "0.155"
+          Unit: mmol/ml
+      - Name: chloor
+        Concentrations:
+          Value:
+            - "0.155"
+          Unit: mmol/ml
+"""
 
-		Name: energie
-		Quantities:
-		Concentrations: 0.2 kCal/ml
-		Dose:
-		Solution:
 
-		Name: koolhydraat
-		Quantities:
-		Concentrations: 0.05 g/ml
-		Dose:
-		Solution:
+/// A 5 mg prednisolon tablet dividable in quarters, 1 to 2 mg/kg for 30 kg: 6 to 12 tablets on a
+/// quarter grid, 25 values.
+let prednisolonText =
+    """
+Id: 2b1e1c1a-0000-4000-8000-000000001302
+Name: prednisolon
+Route: ORAAL
+OrderType: DiscontinuousOrder
+Adjust:
+  Value:
+    - "30"
+  Unit: kg
+Frequencies:
+  Value:
+    - "1"
+  Unit: x/day
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+Components:
+  - Name: prednisolon
+    Form: tablet
+    Quantities:
+      Value:
+        - "1"
+      Unit: stuk
+    Divisible: "4"
+    Substances:
+      - Name: prednisolon
+        Concentrations:
+          Value:
+            - "5"
+          Unit: mg/stuk
+        Dose:
+          QuantityAdjust:
+            Min:
+              Value:
+                - "1"
+              Unit: mg/kg
+              Inclusive: true
+            Max:
+              Value:
+                - "2"
+              Unit: mg/kg
+              Inclusive: true
 """
 
 
@@ -1315,3 +1830,272 @@ let fullMedication =
                 }
             ]
     }
+
+
+/// The medication with the substances of the named component changed by f.
+let mapSubstances cmpName f (med: Types.Medication) =
+    { med with
+        Components =
+            med.Components
+            |> List.map (fun c ->
+                if c.Name = cmpName then
+                    { c with Substances = c.Substances |> List.map f }
+                else
+                    c
+            )
+    }
+
+
+/// The medication with a third component, NaCl 0,9%, a copy of its last component with only natrium
+/// 0,154 mmol/mL and no limits of its own.
+let withNaCl (med: Types.Medication) =
+    let last = med.Components |> List.last
+
+    let natrium =
+        { Medication.substanceItem with
+            Name = "natrium"
+            Concentrations =
+                (154N / 1000N)
+                |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> ValueUnit.per Units.Volume.milliLiter)
+                |> Some
+        }
+
+    { med with
+        Components =
+            med.Components
+            @ [
+                { last with
+                    Name = "NaCl 0,9%"
+                    Dose = None
+                    Substances = [ natrium ]
+                }
+            ]
+    }
+
+
+/// The tpn with the kalium of KCl 7,4% at most 0,04 mmol/mL, below the 0,02 to 0,06 mmol/mL the
+/// component allows: a concentration limit that binds.
+let tpnKaliumConcentrationBinding =
+    tpn
+    |> mapSubstances
+        "KCl 7,4%"
+        (fun sub ->
+            match sub.Solution with
+            | Some sl when sub.Name = "kalium" ->
+                { sub with
+                    Solution =
+                        { sl with
+                            Concentration =
+                                { sl.Concentration with
+                                    Max =
+                                        (4N / 100N)
+                                        |> ValueUnit.singleWithUnit (
+                                            Units.Molar.milliMole |> ValueUnit.per Units.Volume.milliLiter
+                                        )
+                                        |> Limit.inclusive
+                                        |> Some
+                                }
+                        }
+                        |> Some
+                }
+            | _ -> sub
+        )
+
+
+/// The tpn with the kalium of KCl 7,4% at most 0,09 mmol/kg/uur, where its 2 mL/kg over 20 to 24 uur
+/// runs at 0,083 to 0,1 mmol/kg/uur: an item rate limit that binds.
+let tpnKaliumRateBinding =
+    let du =
+        Units.Molar.milliMole
+        |> ValueUnit.per Units.Weight.kiloGram
+        |> ValueUnit.per Units.Time.hour
+
+    tpn
+    |> mapSubstances
+        "KCl 7,4%"
+        (fun sub ->
+            if sub.Name = "kalium" then
+                { sub with
+                    Dose =
+                        { DoseLimit.limit with
+                            DoseLimitTarget = "kalium" |> LimitTarget.SubstanceLimitTarget
+                            AdjustUnit = Units.Weight.kiloGram |> Some
+                            RateAdjust =
+                                { MinMax.empty with
+                                    Max = (9N / 100N) |> ValueUnit.singleWithUnit du |> Limit.inclusive |> Some
+                                }
+                        }
+                        |> Some
+                }
+            else
+                sub
+        )
+
+
+/// The morfCont with NaCl 0,9%: continuous with three components, the morfine in two strengths. The
+/// natrium is fixed at 1,54 mmol, 10 mL, so the two diluents do not offer each other every volume.
+let morfContWithNaCl =
+    morfCont
+    |> withNaCl
+    |> mapSubstances
+        "NaCl 0,9%"
+        (fun sub ->
+            { sub with
+                Solution =
+                    { SolutionLimit.limit with
+                        SolutionLimitTarget = "natrium" |> SubstanceLimitTarget
+                        Quantity =
+                            (154N / 100N)
+                            |> ValueUnit.singleWithUnit Units.Molar.milliMole
+                            |> MinMax.createExact
+                    }
+                    |> Some
+            }
+        )
+
+
+/// The morfCont with NaCl 0,9% and the morfine in one strength, 1 mg/mL.
+let morfContWithNaClOneStrength =
+    morfContWithNaCl
+    |> mapSubstances
+        "morfine"
+        (fun sub ->
+            if sub.Name = "morfin" then
+                { sub with
+                    Concentrations =
+                        1N
+                        |> ValueUnit.singleWithUnit (Units.Mass.milliGram |> ValueUnit.per Units.Volume.milliLiter)
+                        |> Some
+                }
+            else
+                sub
+        )
+
+
+/// The amfo with NaCl 0,9%, the amfotericine b liposomaal in two strengths, 2 and 4 mg/mL, as a timed
+/// order over one to two hours.
+let amfoWithNaClTwoStrengthsTimed =
+    let med =
+        amfo
+        |> withNaCl
+        |> mapSubstances
+            "amfotericine b liposomaal"
+            (fun sub ->
+                if sub.Name = "amfotericine b liposomaal" then
+                    { sub with
+                        Concentrations =
+                            [| 2N; 4N |]
+                            |> ValueUnit.withUnit (Units.Mass.milliGram |> ValueUnit.per Units.Volume.milliLiter)
+                            |> Some
+                    }
+                else
+                    sub
+            )
+
+    { med with
+        OrderType = TimedOrder
+        Time =
+            { MinMax.empty with
+                Min = 1N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
+                Max = 2N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
+            }
+    }
+
+
+/// Amfo as a timed order over one to two hours: its dose quantity is a list until it is picked,
+/// so its rate stays a range until then.
+let amfoTimed =
+    { amfo with
+        OrderType = TimedOrder
+        Time =
+            { MinMax.empty with
+                Min = 1N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
+                Max = 2N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
+            }
+    }
+
+
+/// morfCont with NaCl 0,9% as a timed order, once a day over 20 to 24 uur: its dose quantity has
+/// one value, 50 mL, from the start, so its rate gets its list at once.
+let morfTimedWithNaCl =
+    { (morfCont |> withNaCl) with
+        OrderType = TimedOrder
+        Frequencies =
+            Units.Count.times
+            |> ValueUnit.per Units.Time.day
+            |> ValueUnit.singleWithValue 1N
+            |> Some
+        Time =
+            { MinMax.empty with
+                Min = 20N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
+                Max = 24N |> ValueUnit.singleWithUnit Units.Time.hour |> Limit.inclusive |> Some
+            }
+    }
+
+
+/// NaCl 0,9% for an adult: 1000 mL over 2 to 20 uur, a timed order whose rate runs from 50 to
+/// 500 mL/uur, more values than a cap keeps.
+let naclLargeRateText =
+    """
+Id: nacl-large-rate
+Name: NaCl 0,9%
+Route: INTRAVENEUS
+OrderType: TimedOrder
+Adjust:
+  Value:
+    - "70"
+  Unit: kg
+Frequencies:
+  Value:
+    - "1"
+  Unit: x/day
+Time:
+  Min:
+    Value:
+      - "120"
+    Unit: min
+    Inclusive: true
+  Max:
+    Value:
+      - "1200"
+    Unit: min
+    Inclusive: true
+Dose:
+  DoseUnit: ml
+  Quantity:
+    Min:
+      Value:
+        - "1000"
+      Unit: ml
+      Inclusive: true
+    Max:
+      Value:
+        - "1000"
+      Unit: ml
+      Inclusive: true
+DoseCount:
+  Min:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+  Max:
+    Value:
+      - "1"
+    Unit: x
+    Inclusive: true
+Components:
+  - Name: NaCl 0,9%
+    Form: infuusvloeistof
+    Quantities:
+      Value:
+        - "1"
+      Unit: ml
+    Divisible: "1"
+    Substances:
+      - Name: natrium
+        Concentrations:
+          Value:
+            - "0.154"
+          Unit: mmol/ml
+"""

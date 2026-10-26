@@ -99,7 +99,7 @@ let bannedTokens =
         "FileWriterAgent"
         "AgentLogging"
         // T6: the contract model (ADR-0008 R9); a domain library never sees Shared
-        "Shared."
+        "GenPRES.Shared"
     ]
 
 
@@ -155,9 +155,9 @@ let allowances =
     ]
 
 
-/// The token by which server code names the contract model (`Shared.Types.Patient`,
-/// `open Shared.Api`); ADR-0008 R9, T5.
-let contractToken = "Shared."
+/// The token by which server code names the contract model (`Informedica.GenPRES.Shared.Types.Patient`,
+/// `open Informedica.GenPRES.Shared.Api`); ADR-0008 R9, T5.
+let contractToken = "GenPRES.Shared"
 
 
 /// T5: the server files in which a code line may name the contract model, as file-name

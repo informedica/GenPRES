@@ -29,6 +29,7 @@
     <Compile Include="./Components/AddButton.fs" />
     <Compile Include="./Components/RemoveIconButton.fs" />
     <Compile Include="./Components/LoadingOverlay.fs" />
+    <Compile Include="./Components/Disabled.fs" />
     <Compile Include="./Components/DialogShell.fs" />
     <Compile Include="./Components/ConfirmDialog.fs" />
     <Compile Include="./Components/SimpleSelect.fs" />
@@ -43,6 +44,10 @@
     <Compile Include="./Components/ListToolbar.fs" />
     <Compile Include="./Components/PrintTable.fs" />
     <Compile Include="./Components/ResponsiveTable.fs" />
+    <Compile Include="./Hooks/LeaveGuard.fs" />
+    <Compile Include="./Views/AlertText.fs" />
+    <Compile Include="./Views/AlertSnackbar.fs" />
+    <Compile Include="./Views/LeaveDialog.fs" />
     <Compile Include="./Views/ViewHelpers.fs" />
     <Compile Include="./Views/Disclaimer.fs" />
     <Compile Include="./Views/SessionGate.fs" />
@@ -64,7 +69,9 @@
     <Compile Include="./Views/Interactions.fs" />
     <Compile Include="./Views/Settings.fs" />
     <Compile Include="./Pages/GenPres.fs" />
+    <Compile Include="Tracing.fs" />
     <Compile Include="App.fs" />
+    <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.GenPRES.Client.Core\Informedica.GenPRES.Client.Core.fsproj" />

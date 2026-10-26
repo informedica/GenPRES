@@ -4,7 +4,7 @@ namespace ServerApi
 /// The interaction member: the drug names and the check, over the interaction port.
 module InteractionCommand =
 
-    open Shared.Api
+    open Informedica.GenPRES.Shared.Api
 
 
     /// The drug names come from the interaction source, not the formulary; a check over a
@@ -13,13 +13,6 @@ module InteractionCommand =
         function
         | InteractionCommand.GetDrugNames -> Gate.Open
         | InteractionCommand.CheckInteractions _ -> Gate.RequiresLoaded
-
-
-    /// No patient to map.
-    let patients (_: Shared.Types.Patient -> Shared.Types.Patient) (cmd: InteractionCommand) = cmd
-
-
-    let patientOf (_: InteractionCommand) : Shared.Types.Patient option = None
 
 
     let processCmd (env: AppEnv) (cmd: InteractionCommand) =

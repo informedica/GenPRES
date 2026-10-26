@@ -102,13 +102,10 @@ module OrderLogging =
             let (Id oid) = o.Id
             $"Scenario {oid}: {n |> Name.toString} = {v}"
 
-        | Events.MedicationCreated m -> $"Medication created:\n\n{m}\n"
-
-        | Events.ComponentItemsHarmonized s -> s
+        | Events.MedicationCreated m -> $"Medication created:\n\n%s{m |> MedicationText.toString}\n"
 
         | Events.OrderIncreaseQuantityIncrement _ -> $"increased quantity increment"
 
-        | Events.OrderIncreaseRateIncrement _ -> $"increased rate increment"
 
         | Events.GenFormErrors errs ->
             let msgs = errs |> List.map FormLogging.formatMessage |> String.concat "\n"

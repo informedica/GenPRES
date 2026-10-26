@@ -93,11 +93,118 @@ graph BT
     class GenPRES_Client,GenPRES_Client_Core Client
     classDef Tooling fill:#f3f4f6,stroke:#4b5563,color:#1f2937
     class NLP_Lib Tooling
+    linkStyle default stroke:#22c55e,stroke-width:2px
+    linkStyle 3 stroke:#ef4444,stroke-width:2px
 ```
 
-20 projects, 27 project references. An arrow points at the dependency. A dashed arrow is an
-outward reference the dependency rule still tolerates; the reasons are in `scripts/DependencyRule.fsx`.
+20 projects, 27 project references. An arrow points at the dependency. A green arrow points
+inward, as the dependency rule wants. A dashed red arrow is an outward reference the rule still tolerates but that should
+not exist; the reasons are in `scripts/DependencyRule.fsx`.
 <!-- project-graph:end -->
+
+## Client architecture
+
+The client is layered in four layers, each with its own purpose:
+
+| Layer (diagram) | Project | Responsibility | Key modules | References | Tested with |
+| --- | --- | --- | --- | --- | --- |
+| ① UI | `Informedica.GenPRES.Client` | Renders what the projection gives it and dispatches messages on user input; holds no decisions | `Pages/GenPres.fs`, `Views/*` (Patient, Order, OrderPlan, Prescribe, Nutrition …), `Components/*` (PickField, QuantityField, ActionBar …) | ② State · Msg · update, ③ Client.Core (read-only: models, policy queries), ④ Contract | Browser |
+| ② State · Msg · update | `Informedica.GenPRES.Client` | Runs the Elmish program over `Client.transition`, carries out the effects that leave the client, calls the server through Fable.Remoting, and gives the views their projection through the `AppEnv` interfaces | `App.fs` (State, Msg, effects, Remoting proxy, `Projection`), `Main.fs`, `StepTrail.fs`, local `useElmish` hooks in `GenPres.fs`, `Order.fs`, `NutritionSlot.fs` and `Interactions.fs` | ③ Client.Core, ④ Contract | Browser |
+| ③ Policy · Decision · Behaviour · State transitions | `Informedica.GenPRES.Client.Core` | Decides what is allowed and what comes next as pure F#: no React, no Browser types, no Fable packages | Entry files: `Client`, `Lanes`, `Trail`; the rest by kind, see [Inside Client.Core](#inside-clientcore) | ④ Contract only | Expecto, FSI |
+| ④ Contract | `Informedica.GenPRES.Shared` | Defines the wire models and the API contract shared by client and server | `Types.fs`, `Models.fs`, `Api.fs` (`IServerApi`, routes), `Localization.fs`, `Utils.fs`, `Calculations.fs` | Nothing | Expecto, FSI |
+
+The circled numbers match the boxes in the diagram below. Solid arrows show the runtime flow and
+dotted arrows show compile-time references. A layer references only layers further down the table,
+and only layer ② talks to the server. Every arrow is green: none goes outward.
+
+```mermaid
+flowchart TB
+    subgraph UI["① UI layer · Informedica.GenPRES.Client"]
+        direction LR
+        Pages["Pages<br/>GenPres.fs"]
+        Views["Views<br/>Patient · Order · OrderPlan · Prescribe<br/>Nutrition · Formulary · Interactions …"]
+        Comps["Components<br/>PickField · QuantityField · ActionBar<br/>DialogShell · ResponsiveTable …"]
+        Pages --> Views --> Comps
+    end
+
+    subgraph ELM["② State · Msg · update layer · Informedica.GenPRES.Client"]
+        direction LR
+        App["App.fs<br/>State · Msg · effects<br/>Remoting proxy · Projection"]
+        Local["Local Elmish hooks<br/>useElmish in Views and Pages<br/>Model · Msg · update"]
+    end
+
+    subgraph CORE["③ Policy · Decision · Behaviour · State transitions · Informedica.GenPRES.Client.Core"]
+        direction LR
+        Entry["Entry files<br/>Client · Lanes · Trail"]
+        Machines["StateMachines<br/>Patient · Session · Signing · OrderPlan<br/>OrderContext · Loader · Admin · Shell"]
+        MPolicies["MachinePolicies<br/>SessionGatePolicy · SigningPolicy<br/>OutPolicy · StartupPolicy …"]
+        Policies["Policies<br/>PickPolicy · FieldOpenPolicy · IntakePolicy<br/>QuantityModePolicy · BusyPolicy …"]
+        Helpers["Helpers<br/>Deferred · Loads · Url<br/>FilterSeed · TermText …"]
+        Models["Models<br/>OrderDisplay · Severity · Terms<br/>PatientText · PatientEdit …"]
+    end
+
+    subgraph SHARED["④ Contract · Informedica.GenPRES.Shared"]
+        direction LR
+        Types["Types.fs · Models.fs<br/>domain-free wire models"]
+        Api["Api.fs<br/>IServerApi · routes"]
+        Loc["Localization.fs · Utils.fs · Calculations.fs"]
+    end
+
+    Server[("Server<br/>Informedica.GenPRES.Server")]
+
+    UI -- "dispatch Msg" --> ELM
+    ELM -- "projection → render" --> UI
+    ELM -- "Client.transition: message and state" --> CORE
+    CORE -- "new state · effects" --> ELM
+    ELM -- "Fable.Remoting, with a request id" --> Server
+    Server -. "implements" .-> Api
+
+    UI -. "references" .-> SHARED
+    ELM -. "references" .-> SHARED
+    CORE -. "references" .-> SHARED
+
+    classDef ui fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    classDef elm fill:#fff3e0,stroke:#ef6c00,color:#e65100
+    classDef core fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    classDef shared fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
+    classDef srv fill:#eceff1,stroke:#455a64,color:#263238
+    class Pages,Views,Comps ui
+    class App,Local elm
+    class Entry,Machines,MPolicies,Policies,Helpers,Models core
+    class Types,Api,Loc shared
+    class Server srv
+    linkStyle default stroke:#22c55e,stroke-width:2px
+```
+
+### Inside Client.Core
+
+Layer ③ is organised by kind. Each folder is a namespace `Informedica.GenPRES.Client.Core.<Folder>`,
+compiled in the order of the table, and a file uses only its own kind or a kind above it in the
+table. The entry files sit at the project root, in the root namespace.
+
+| Kind | Holds | Examples |
+| --- | --- | --- |
+| Models | the code from Shared that only the client uses; it reads only Shared | `OrderDisplay`, `Severity`, `PatientText`, `PatientEdit`, `Terms` |
+| Helpers | values and functions without a decision of their own | `Deferred`, `Loads`, `Url`, `FilterSeed`, `TermText` |
+| Policies | pure decisions over the contract, each named `*Policy` | `PickPolicy`, `FieldOpenPolicy`, `BusyPolicy`, `UrlPolicy` |
+| StateMachines | one state, message and effect type per machine, and a transition to a new state and its effects | `PatientMachine`, `OrderContextMachine`, `ShellMachine` |
+| MachinePolicies | decisions that read the state of one or more machines | `SessionGatePolicy`, `SigningPolicy`, `OutPolicy`, `StartupPolicy` |
+| Entry files | `Lanes` wires the patient, workbench, plan, Session and signing machines; `Client` wires the lanes with the loader, admin and shell machines into one pure transition; `Trail` describes each step as one line, for development | `Lanes`, `Client`, `Trail` |
+
+A message runs the part it is for, or becomes a message for a part, and an effect that another part
+acts on is passed on to that part in the same transition. Every effect still comes out, in the
+order the parts emitted it, and layer ② carries out what leaves the client. Code opens the folder
+namespaces, never the root namespace, and reaches a root file through a module alias such as
+`module Client = Informedica.GenPRES.Client.Core.Client`.
+
+### Testing
+
+- Layers ③ and ④ are plain F# and are tested with Expecto, in
+  `tests/Informedica.GenPRES.Client.Core.Tests` and `tests/Informedica.GenPRES.Shared.Tests`, and
+  explored in FSI: the behaviour and the state transitions of the client.
+- Layers ① and ② depend on Fable and React, so they are not tested in .NET. They are checked in the
+  browser, with the development trail of `StepTrail` and `Trail` (see
+  [DEVELOPMENT.md](DEVELOPMENT.md)). Automated tests for them are not in place yet.
 
 ## Database Schema
 

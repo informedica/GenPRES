@@ -8,3 +8,6 @@
 
 # style: adopt Fantomas 8 and pin the format budget
 1715748808e62f41dab2dd137a6acd9e4e8c0956
+
+# refactor(client): declare the Client.Core namespaces explicitly (indentation only)
+5ce08e4eab0c2c9a226898ab39be4d5779f70cd6

@@ -3,6 +3,9 @@ namespace Views
 
 module Disclaimer =
 
+    open Informedica.GenPRES.Client.Core.Models
+    open Informedica.GenPRES.Client.Core.Helpers
+
     open Fable.Core
     open Feliz
 
@@ -20,7 +23,7 @@ Always consult with a healthcare professional if you have any concerns about you
 This application has not been certified as a medical device and is not intended to be used as such.
         """
 
-    open Shared
+    open Informedica.GenPRES.Shared
 
     [<JSX.Component>]
     let View

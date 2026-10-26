@@ -174,8 +174,7 @@ module Variable =
             /// <param name="incr2">Increment 2</param>
             /// <remarks>
             /// An increment can only be calculated when the operator is multiplication
-            /// or division by the identity value of 1 times, or when the operator is
-            /// addition and the increments are equal.
+            /// or addition with equal increments.
             /// </remarks>
             let calc op incr1 incr2 =
                 match op with
@@ -192,9 +191,6 @@ module Variable =
                     else
                         incr1 |> ValueUnit.setValue vs1 |> ValueUnit.toUnit |> create |> Some
 
-                // incr cannot be calculated based on division except when dividing
-                // by the identity value of 1 times
-                | ValueUnit.Operators.Div when incr2 = ValueUnit.one Units.Count.times -> incr1 |> create |> Some
                 | _ -> None
 
 
@@ -208,8 +204,7 @@ module Variable =
             /// </returns>
             /// <remarks>
             /// An increment can only be calculated when the operator is multiplication
-            /// or division by the identity value of 1 times, or when the operator is
-            /// addition and the increments are equal.
+            /// or addition with equal increments.
             /// </remarks>
             let calcOpt op incr1 incr2 =
                 match incr1, incr2 with
@@ -265,14 +260,17 @@ module Variable =
             /// <param name="newIncr">The new increment</param>
             /// <param name="oldIncr">The old increment</param>
             /// <returns>
-            /// The restricted increment.
+            /// The restricted increment: the least common multiple of every pair of a new
+            /// and an old increment value, without the values that are a multiple of another.
+            /// The values on both increments lie on these least common multiples.
             /// </returns>
             /// <example>
             /// <code>
             /// let oldIncr = Increment.create ( [| 3N; 5N |] |> ValueUnit.create Units.Mass.gram)
             /// let newIncr = Increment.create ( [| 2N; 3N |] |> ValueUnit.create Units.Mass.gram)
             /// Increment.restrict newIncr oldIncr
-            /// // returns Increment (ValueUnit ([|3N|], Mass (Gram 1N)))
+            /// // the pairs give 6, 3, 10 and 15; without the multiples of 3 this
+            /// // returns Increment (ValueUnit ([|3N; 10N|], Mass (Gram 1N)))
             /// </code>
             /// </example>
             let restrict newIncr oldIncr =
@@ -280,19 +278,19 @@ module Variable =
                 let (Increment oldVu) = oldIncr
 
                 if newVu =? oldVu then
-                    oldVu
+                    oldIncr
                 else
-                    newVu
-                    |> ValueUnit.filter (fun i1 ->
-                        oldVu
-                        |> ValueUnit.getBaseValue
-                        |> Array.exists (fun i2 -> i1 |> BigRational.isMultiple i2)
-                    )
-                |> fun vu ->
-                    if vu |> ValueUnit.isEmpty then
-                        oldIncr
-                    else
-                        vu |> ValueUnit.convertTo (oldVu |> ValueUnit.getUnit) |> create
+                    let newVs = newVu |> ValueUnit.getBaseValue
+                    let oldVs = oldVu |> ValueUnit.getBaseValue
+
+                    // base values, so the two increments only need convertible units
+                    [|
+                        for n in newVs do
+                            for o in oldVs do
+                                BigRational.lcm n o
+                    |]
+                    |> Array.distinct
+                    |> fun vs -> oldVu |> ValueUnit.setValue vs |> ValueUnit.toUnit |> create
 
 
             /// <summary>
@@ -976,33 +974,74 @@ module Variable =
 
 
             /// <summary>
-            /// Prune the <c>ValueUnit</c> of a <c>ValueSet</c>. This means that
-            /// the number of values is reduced to a constant PRUNE.
+            /// Prune the <c>ValueUnit</c> of a <c>ValueSet</c> to at most n values on rounded steps.
             /// </summary>
             /// <remarks>
-            /// The minimum and maximum values are always kept.
+            /// With an increment, the multiples of the finest step that leaves at most n values are
+            /// kept. A step counts when it is in the unit group of the values and is a multiple of
+            /// the increment, compared in the unit of the values. Without a step for the unit group
+            /// the step is 1, then multiples of 1. When a step leaves more than n values and the
+            /// next fewer than two, or there is no next step, the multiples of that step times m are
+            /// kept. The minimum and maximum come back only when fewer than two values remain.
+            /// Without an increment, n values are kept spread over the set.
             /// </remarks>
-            let prune incr n =
-                let rec loop mn mx m incr (xs: BigRational[]) =
-                    let filtered =
-                        xs
-                        |> Array.filter (fun x -> x = mn || x = mx || (x / (incr * m)).Denominator = 1I)
-
-                    if filtered |> Array.length <= (max n 2) then
-                        filtered
-                    else
-                        loop mn mx (m + 1N) incr xs
-
+            let prune steps incr n =
                 fun vu ->
                     let u = vu |> ValueUnit.getUnit
+                    let xs = vu |> ValueUnit.getValue |> Array.distinct
+
+                    // off-grid ends are dropped, unless fewer than two values would remain
+                    let withEnds ys =
+                        if ys |> Array.length >= 2 then
+                            ys
+                        else
+                            [| xs |> Array.min; yield! ys; xs |> Array.max |]
+                            |> Array.distinct
+                            |> Array.sort
+
+                    let onGrid s = xs |> Array.filter (BigRational.isMultiple s)
+
+                    let rec timesM s m =
+                        let ys = onGrid (s * m)
+                        if ys |> Array.length <= n then ys else timesM s (m + 1N)
+
+                    let rec pick steps =
+                        match steps with
+                        | [] -> [||]
+                        | [ s ] ->
+                            if onGrid s |> Array.length <= n then
+                                onGrid s
+                            else
+                                timesM s 2N
+                        | s :: (next :: _ as rest) ->
+                            if onGrid s |> Array.length <= n then onGrid s
+                            elif onGrid next |> Array.length < 2 then timesM s 2N
+                            else pick rest
 
                     let v =
-                        match incr |> Option.map ValueUnit.getBaseValue with
+                        match
+                            incr
+                            |> Option.filter (ValueUnit.eqsGroup vu)
+                            |> Option.map (ValueUnit.convertTo u >> ValueUnit.getValue)
+                        with
+                        | _ when xs |> Array.length <= n -> vu |> ValueUnit.getValue
                         | Some [| incr |] ->
-                            let xs = vu |> ValueUnit.convertTo u |> ValueUnit.getValue |> Array.distinct
-                            let mn = xs |> Array.min
-                            let mx = xs |> Array.max
-                            xs |> loop mn mx 1N incr
+                            let ofGroup =
+                                steps
+                                |> List.filter (ValueUnit.eqsGroup vu)
+                                |> List.collect (ValueUnit.convertTo u >> ValueUnit.getValue >> Array.toList)
+
+                            let usable =
+                                (if ofGroup |> List.isEmpty then [ 1N ] else ofGroup)
+                                |> List.filter (BigRational.isMultiple incr)
+                                |> List.distinct
+                                |> List.sort
+
+                            // no rounded step fits the increment: the multiples of the increment
+                            if usable |> List.isEmpty then
+                                timesM incr 1N |> withEnds
+                            else
+                                usable |> pick |> withEnds
                         | _ -> vu |> ValueUnit.getValue |> Array.prune n
 
                     vu |> ValueUnit.setValue v
@@ -1325,7 +1364,7 @@ module Variable =
         /// Only a <c>ValueSet</c> can be pruned. The other <c>ValueRange</c>s
         /// are left untouched.
         /// </remarks>
-        let prune incr n = map id id id id id id id (ValueSet.prune incr n)
+        let prune steps incr n = map id id id id id id id (ValueSet.prune steps incr n)
 
 
         /// <summary>
@@ -2032,9 +2071,9 @@ module Variable =
         /// <param name="vr">The <c>ValueRange</c></param>
         /// <returns>The resulting (more restrictive) <c>ValueRange</c></returns>
         /// <remarks>
-        /// A new increment can only be set if it is a multiple of the previous increment.
-        /// If a new increment cannot be set, the original ValueRange is returned. So
-        /// the resulting ValueRange will be equal or more restrictive than the original.
+        /// The resulting increment is the least common multiple of the new and the previous
+        /// increment, so it holds only the values that lie on both. The resulting ValueRange
+        /// will be equal or more restrictive than the original.
         /// </remarks>
         /// <example>
         /// <code>
@@ -2042,10 +2081,10 @@ module Variable =
         /// let incr = Increment.create ( [| 2N |] |> ValueUnit.create Units.Mass.gram) |> Some
         /// let vr = create true min incr None None
         /// // a value range with a minimum = 4 and an increment = 2
-        /// let newIncr = Increment.create ( [| 6N |] |> ValueUnit.create Units.Mass.gram)
+        /// let newIncr = Increment.create ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
         /// vr |> setIncr newIncr
-        /// // returns [6..6..>, i.e. a ValueRange with a Minimum = 4 and
-        /// // and increment = 4
+        /// // returns [6..6..>, i.e. a ValueRange with a Minimum = 6 and
+        /// // an increment = 6, the least common multiple of 2 and 3
         /// </code>
         /// </example>
         let setIncr newIncr vr =
@@ -2290,6 +2329,7 @@ module Variable =
         /// <param name="vr">The ValueRange</param>
         /// <returns>The resulting (more restrictive) <c>ValueRange</c></returns>
         /// <remarks>
+        /// A ValueRange that already holds at most maxCount values is left as it is.
         /// When there is no increment in the list that can be used to increase
         /// the increment of the ValueRange to the maximum count, the largest possible
         /// increment is used.
@@ -2309,6 +2349,8 @@ module Variable =
         /// </example>
         let increaseIncrement maxCount incrs vr =
             match vr with
+            // a range that already fits keeps its increment
+            | MinIncrMax(min, incr, max) when minIncrMaxCount min incr max <= maxCount -> vr
             | MinIncrMax(min, incr, max) ->
                 // only use increments larger than the original
                 let incrs =
@@ -2903,11 +2945,37 @@ module Variable =
                 // calculate a new Increment based upon the ValueSet and an Increment
                 let incr1 = i |> Some
 
-                let incr2 =
-                    let (ValueSet s) = s
-                    s |> Increment.create |> Some
+                let incr =
+                    let (ValueSet vs) = s
 
-                let incr = Increment.calcOpt op incr1 incr2
+                    match op, vr1 with
+                    // the quotients of a value set divided by a range lie closer together
+                    // as the range grows, so they have no increment
+                    | ValueUnit.Operators.Div, ValSet _ -> None
+                    // a range divided by a value set lies on the increment divided by each
+                    // value; a value that divides another adds no quotient the larger value
+                    // does not give, so only those are dropped, not the multiples
+                    | ValueUnit.Operators.Div, _ ->
+                        let vs =
+                            // base values, as filter applies its predicate to base values
+                            let brs = vs |> ValueUnit.getBaseValue
+
+                            vs
+                            |> ValueUnit.filter (fun v ->
+                                v > 0N
+                                && brs |> Array.exists (fun w -> w <> v && w |> BigRational.isMultiple v) |> not
+                            )
+
+                        let i = i |> Increment.toValueUnit
+                        let c1 = i |> ValueUnit.getValue |> Array.length
+                        let c2 = vs |> ValueUnit.getValue |> Array.length
+
+                        // the same cap on the number of increments as Increment.calcOpt
+                        if c2 = 0 || c1 > 10 / c2 then
+                            None
+                        else
+                            i |> op <| vs |> Increment.create |> Some
+                    | _ -> Increment.calcOpt op incr1 (vs |> Increment.create |> Some)
 
                 match min, incr, max with
                 | None, None, None -> unrestricted
@@ -2921,8 +2989,13 @@ module Variable =
 
                 let min, max = calcMinMax min1 max1 min2 max2
 
-                // calculate a new increment based upon the incr1 and incr2
-                let incr = Increment.calcOpt op incr1 incr2
+                // only a sum of two ranges keeps an increment; a product lies on the product of
+                // the increments, but not every multiple of it is a product, and that increment
+                // is too fine to offer; a quotient lies on no increment at all
+                let incr =
+                    match op with
+                    | ValueUnit.Operators.Add -> Increment.calcOpt op incr1 incr2
+                    | _ -> None
 
                 match min, incr, max with
                 | None, None, None -> unrestricted
@@ -3342,10 +3415,11 @@ module Variable =
     /// Calculate a ValueSet for a Variable if the Value of the
     /// Variable is a MinIncrMax
     /// </summary>
-    /// <param name="var">The variable to change min incr max to a ValueSet</param>
+    /// <param name="steps">The rounded steps the prune keeps the multiples of</param>
     /// <param name="n">Prune the ValueSet to n</param>
+    /// <param name="var">The variable to change min incr max to a ValueSet</param>
     /// <returns>A Variable with a ValueSet if this can be calculated</returns>
-    let minIncrMaxToValues n var =
+    let minIncrMaxToValues steps n var =
         if var |> isMinIncrMax |> not then
             var
         else
@@ -3364,7 +3438,7 @@ module Variable =
                                 vr
                             else
                                 let incr = var.Values |> ValueRange.getIncr |> Option.map Increment.toValueUnit
-                                vr |> ValueRange.prune incr n.Value
+                                vr |> ValueRange.prune steps incr n.Value
                 }
             with e ->
                 raise e
@@ -3385,6 +3459,8 @@ module Variable =
         { var with Values = var.Values |> ValueRange.setNearestValue vu }
 
 
+    /// The variable set to its nth value, counted from 0: the nth of its value set, or min plus nth
+    /// times the increment, capped at the maximum. A value set without an nth value is kept as it is.
     let setNthValue nth (var: Variable) =
         let min, incr, max, vs = var.Values |> ValueRange.getMinIncrMaxOrValueSet
 
@@ -3396,7 +3472,7 @@ module Variable =
                     vu
                     |> ValueUnit.applyToValue (fun brs ->
                         brs
-                        |> Array.tryItem (nth - 1)
+                        |> Array.tryItem nth
                         |> Option.map Array.singleton
                         |> Option.defaultValue brs
                     )

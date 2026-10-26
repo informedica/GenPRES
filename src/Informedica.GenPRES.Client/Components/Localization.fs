@@ -9,12 +9,12 @@ module Localization =
     open Fable.Core.JsInterop
 
 
-    //    [<ReactComponent>]
+    [<JSX.Component>]
     let View
         (props:
             {|
-                languages: Shared.Localization.Locales[]
-                switchLang: Shared.Localization.Locales -> unit
+                languages: Informedica.GenPRES.Shared.Localization.Locales[]
+                switchLang: Informedica.GenPRES.Shared.Localization.Locales -> unit
             |})
         =
 
@@ -35,7 +35,7 @@ module Localization =
                 JSX.jsx
                     $"""
                 <MenuItem key={i} value={$"{l}"} onClick={onClickMenuItem l} >
-                    <Typography>{$"{l |> Shared.Localization.toString}"}</Typography>
+                    <Typography>{$"{l |> Informedica.GenPRES.Shared.Localization.toString}"}</Typography>
                 </MenuItem>
                 """
             )
@@ -72,7 +72,7 @@ module Localization =
                 {menuItems}
             </Menu>
             <Typography variant="body1" component="div" >
-                {$"{context.Localization |> Shared.Localization.toString}"}
+                {$"{context.Localization |> Informedica.GenPRES.Shared.Localization.toString}"}
             </Typography>
         </Box>
         """

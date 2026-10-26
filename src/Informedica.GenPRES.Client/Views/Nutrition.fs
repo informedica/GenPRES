@@ -1,17 +1,21 @@
 namespace Views
 
+
 #nowarn "1104"
 
 module Nutrition =
+
+    open Informedica.GenPRES.Client.Core.Policies
+    open Informedica.GenPRES.Client.Core.StateMachines
 
     open Fable.Core
     open Fable.Core.JsInterop
     open Fable.React
     open Feliz
-    open Shared
-    open Shared.Types
-    open Shared.Models
-    open Shared.Models.Order
+    open Informedica.GenPRES.Shared
+    open Informedica.GenPRES.Shared.Types
+    open Informedica.GenPRES.Shared.Models
+    open Informedica.GenPRES.Shared.Models.Order
     open Elmish
     open Utils
     open FSharp.Core
@@ -41,16 +45,15 @@ module Nutrition =
             Components.PatientNotice.View
                 {|
                     appEnv = props.appEnv
-                    needs = PatientReadiness.Needs.Calculation
+                    needs = PatientReadinessPolicy.Needs.Calculation
                 |}
 
-        // the slots and the buttons rest while a change is under way: the plan takes one change
-        // at a time
-        let isRecalculating =
-            match orderPlan with
-            | OrderPlanView.Changing _ -> true
-            | OrderPlanView.NoPatient
-            | OrderPlanView.Settled _ -> false
+        // a request out that changes the page. The page is disabled then, but that stops clicks
+        // only: the slots' intake effect sends without one, and the delete confirmation opens
+        // outside the page, so these check this themselves. A field counting its step clicks does
+        // not disable the page, since the field is on it: the controls that send wait for the
+        // count themselves
+        let busy = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Page Global.Pages.Nutrition
 
         let content =
             match orderPlan with
@@ -59,11 +62,13 @@ module Nutrition =
                 let sectionProps =
                     {|
                         plan = plan
-                        planCommand = envOrderPlan.OrderPlanCommand
-                        planReopen = envOrderPlan.Reopen
-                        planRestore = envOrderPlan.Restore
+                        planNew = envOrderPlan.NewNutrition
+                        planRemove = envOrderPlan.Remove
+                        planNavigate = envOrderPlan.OrderDialogCommand
+                        planReopen = envOrderPlan.ReopenField
+                        planRestore = envOrderPlan.RestoreField
                         localizationTerms = localizationTerms
-                        isRecalculating = isRecalculating
+                        busy = busy
                     |}
 
                 let enteral = EnteralNutrition.Section sectionProps

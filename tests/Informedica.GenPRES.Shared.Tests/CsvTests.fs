@@ -6,9 +6,9 @@ open System.Globalization
 open Expecto
 open Expecto.Flip
 
-open Shared
-open Shared.Types
-open Shared.Models
+open Informedica.GenPRES.Shared
+open Informedica.GenPRES.Shared.Types
+open Informedica.GenPRES.Shared.Models
 
 
 /// Runs f with the given culture on the current thread, and restores the culture afterwards.

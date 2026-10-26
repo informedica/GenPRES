@@ -128,9 +128,8 @@ module OrderScenario =
 
         let useRenalRule = pr.RenalRules |> Array.isEmpty |> not
 
-        pr.DoseRule.ComponentLimits
-        |> Array.collect _.Products
-        |> Array.map _.GPK
+        ord
+        |> Order.productIds
         |> create
             no
             (pr.DoseRule.Generic |> Generic.toString)
@@ -343,6 +342,8 @@ module OrderContext =
         | SetMinOrderableDoseQuantityProperty of OrderContext
         | SetMaxOrderableDoseQuantityProperty of OrderContext
         | SetMedianOrderableDoseQuantityProperty of OrderContext
+        /// The dose quantity at a percentage of its range.
+        | SetOrderableDoseQuantityPercProperty of OrderContext * perc: int
         // DoseRate property commands (ntimes = number of times to adjust, useCalc = use calculated increment)
         | DecreaseOrderableDoseRateProperty of OrderContext * ntimes: int * useCalc: bool
         | IncreaseOrderableDoseRateProperty of OrderContext * ntimes: int * useCalc: bool
@@ -355,6 +356,32 @@ module OrderContext =
         | SetMinComponentQuantityProperty of OrderContext * cmp: string
         | SetMaxComponentQuantityProperty of OrderContext * cmp: string
         | SetMedianComponentQuantityProperty of OrderContext * cmp: string
+        /// A filter field set to its nth option, counted from 0, or emptied with None; the rules
+        /// looked up again.
+        | ChangeFilter of OrderContext * OrderCategory * FilterField * nth: int option
+        /// The components at these positions of the options; the rules looked up again.
+        | SetNthComponents of OrderContext * nth: int[]
+        /// The whole filter emptied, the patient kept; the rules looked up again.
+        | ClearAllFilter of OrderContext
+        /// The nth scenario chosen, counted from 0, and its order calculated.
+        | SelectNthOrderScenario of OrderContext * nth: int
+        /// One order value set to its nth value by the property command, the order solved.
+        | SetNthOrderValue of OrderContext * ChangePropertyCommand
+        /// One order value cleared by the property command, the order reopened with the picks
+        /// made before it.
+        | ClearOrderValue of OrderContext * ChangePropertyCommand * picks: string list
+        /// The patient updated elsewhere: the context evaluated for it, its filter kept.
+        | UpdatePatient of OrderContext * Patient
+        /// The filter's choices set from outside its own fields, by name, with the rule of their
+        /// source; the rules looked up again.
+        | SeedFilter of
+            OrderContext *
+            SeedSource *
+            indication: string option *
+            generic: string option *
+            route: string option *
+            form: string option *
+            doseType: DoseType option
 
     module Command =
 
@@ -379,6 +406,7 @@ module OrderContext =
             | SetMinOrderableDoseQuantityProperty ctx -> ctx
             | SetMaxOrderableDoseQuantityProperty ctx -> ctx
             | SetMedianOrderableDoseQuantityProperty ctx -> ctx
+            | SetOrderableDoseQuantityPercProperty(ctx, _) -> ctx
             // DoseRate property commands
             | DecreaseOrderableDoseRateProperty(ctx, _, _) -> ctx
             | IncreaseOrderableDoseRateProperty(ctx, _, _) -> ctx
@@ -391,6 +419,14 @@ module OrderContext =
             | SetMinComponentQuantityProperty(ctx, _) -> ctx
             | SetMaxComponentQuantityProperty(ctx, _) -> ctx
             | SetMedianComponentQuantityProperty(ctx, _) -> ctx
+            | ChangeFilter(ctx, _, _, _) -> ctx
+            | SetNthComponents(ctx, _) -> ctx
+            | ClearAllFilter ctx -> ctx
+            | SelectNthOrderScenario(ctx, _) -> ctx
+            | SetNthOrderValue(ctx, _) -> ctx
+            | ClearOrderValue(ctx, _, _) -> ctx
+            | UpdatePatient(ctx, _) -> ctx
+            | SeedFilter(ctx, _, _, _, _, _, _) -> ctx
 
 
         let toString (cmd: Command) =
@@ -413,6 +449,7 @@ module OrderContext =
             | SetMinOrderableDoseQuantityProperty _ -> "SetMinOrderableDoseQuantityProperty"
             | SetMaxOrderableDoseQuantityProperty _ -> "SetMaxOrderableDoseQuantityProperty"
             | SetMedianOrderableDoseQuantityProperty _ -> "SetMedianOrderableDoseQuantityProperty"
+            | SetOrderableDoseQuantityPercProperty(_, perc) -> $"SetOrderableDoseQuantityPercProperty perc=%i{perc}"
             | DecreaseOrderableDoseRateProperty(_, ntimes, useCalc) ->
                 $"DecreaseOrderableDoseRateProperty ntimes={ntimes} useCalc={useCalc}"
             | IncreaseOrderableDoseRateProperty(_, ntimes, useCalc) ->
@@ -427,6 +464,14 @@ module OrderContext =
             | SetMinComponentQuantityProperty(_, cmp) -> $"SetMinComponentQuantityProperty cmp={cmp}"
             | SetMaxComponentQuantityProperty(_, cmp) -> $"SetMaxComponentQuantityProperty cmp={cmp}"
             | SetMedianComponentQuantityProperty(_, cmp) -> $"SetMedianComponentQuantityProperty cmp={cmp}"
+            | ChangeFilter(_, _, field, n) -> $"ChangeFilter %A{field} nth=%A{n}"
+            | SetNthComponents(_, ns) -> $"SetNthComponents nth=%A{ns}"
+            | ClearAllFilter _ -> "ClearAllFilter"
+            | SelectNthOrderScenario(_, n) -> $"SelectNthOrderScenario nth=%i{n}"
+            | SetNthOrderValue(_, change) -> $"SetNthOrderValue %A{change}"
+            | ClearOrderValue(_, change, picks) -> $"ClearOrderValue %A{change} %i{picks.Length} picks"
+            | UpdatePatient _ -> "UpdatePatient"
+            | SeedFilter(_, source, _, gen, _, _, _) -> $"SeedFilter %A{source} %A{gen}"
 
 
     module Helpers =
@@ -462,7 +507,7 @@ module OrderContext =
 
         /// <summary>
         /// Evaluates a single order against a prescription rule.
-        /// Processes the order through the pipeline and filters products based on results.
+        /// Processes the order through the pipeline and sets the dose units of its substances.
         /// </summary>
         /// <param name="logger">Logger for diagnostics</param>
         /// <param name="pr">The prescription rule to evaluate against</param>
@@ -485,33 +530,6 @@ module OrderContext =
                                 acc |> Order.setDoseUnit sn dl.DoseUnit
                             )
                             ord
-
-                    // Extract component items for product filtering
-                    let compItems =
-                        [
-                            for cmp in ord.Orderable.Components do
-                                let cmpQty =
-                                    cmp.ComponentQuantity
-                                    |> OrderVariable.Quantity.toOrdVar
-                                    |> OrderVariable.getValSetValueUnit
-
-                                if cmpQty.IsSome then
-                                    for itm in cmp.Items do
-                                        let itmQty =
-                                            itm.ComponentConcentration
-                                            |> OrderVariable.Concentration.toOrdVar
-                                            |> OrderVariable.getValSetValueUnit
-
-                                        if itmQty.IsSome then
-                                            {
-                                                ComponentName = cmp.Name |> Name.toString
-                                                ComponentQuantity = cmpQty.Value
-                                                ItemName = itm.Name |> Name.toString
-                                                ItemConcentration = itmQty.Value
-                                            }
-                        ]
-
-                    let pr = pr |> PrescriptionRule.filterProducts compItems
 
                     Ok(ord, pr)
                 | Error(ord, m) -> Error(ord, pr, m)
@@ -587,6 +605,26 @@ module OrderContext =
     module Prescription = Order.Schedule
 
 
+    /// The filter with no options and no choices.
+    let emptyFilter =
+        {
+            Indications = [||]
+            Generics = [||]
+            Routes = [||]
+            Forms = [||]
+            DoseTypes = [||]
+            Diluents = [||]
+            Components = [||]
+            Indication = None
+            Generic = None
+            Route = None
+            Form = None
+            DoseType = None
+            Diluent = None
+            SelectedComponents = [||]
+        }
+
+
     /// The context afresh for a patient: the pick lists of the rules for the patient, matched
     /// as every rule lookup matches it, so they hold what the evaluation offers.
     let create logger provider (pat: Patient) =
@@ -595,21 +633,12 @@ module OrderContext =
         let opts = pat |> getPrescriptionRules logger provider |> PrescriptionRule.filterOptions
 
         let filter =
-            {
+            { emptyFilter with
                 Indications = opts.Indications
                 Generics = opts.Generics
                 Routes = opts.Routes
                 Forms = opts.Forms
                 DoseTypes = opts.DoseTypes
-                Diluents = [||]
-                Components = [||]
-                Indication = None
-                Generic = None
-                Route = None
-                Form = None
-                DoseType = None
-                Diluent = None
-                SelectedComponents = [||]
             }
 
         {
@@ -637,6 +666,18 @@ module OrderContext =
             Form = pick ctx.Filter.Form ctx.Filter.Forms
             DoseType = pick ctx.Filter.DoseType ctx.Filter.DoseTypes
         }
+
+
+    /// Whether the rule lookup would read a choice the filter does not hold: a list of one
+    /// without its choice, which one more evaluation picks.
+    let choicesOpen (ctx: OrderContext) =
+        let read = ctx |> picks
+
+        read.Indication <> ctx.Filter.Indication
+        || read.Generic <> ctx.Filter.Generic
+        || read.Route <> ctx.Filter.Route
+        || read.Form <> ctx.Filter.Form
+        || read.DoseType <> ctx.Filter.DoseType
 
 
     /// The patient of the context with the weight and the height it has, as the rule lookup
@@ -726,45 +767,267 @@ module OrderContext =
     let setFilter filter ctx = { ctx with Filter = filter }
 
 
-    let setFilterItem item ctx =
-        let tryItem n xs =
-            xs |> Array.tryItem n |> Option.map Array.singleton |> Option.defaultValue xs
+    /// The fields the rule lookup reads, for emptying the filter outright; the diluent and the
+    /// components belong to the scenario, not to the lookup.
+    let filterFields =
+        [
+            FilterField.Indication
+            FilterField.Generic
+            FilterField.Route
+            FilterField.Form
+            FilterField.DoseType
+        ]
+
+
+    /// The order the choices are made in, as steps: a change lets go of the choices in the steps
+    /// after its own and leaves the ones beside it alone. For a drug the indication and the
+    /// medication stand in one step, each narrowing the other; for a nutrition order the
+    /// composition comes first and the indication follows from it.
+    let chain category =
+        match category with
+        | OrderCategory.Drug ->
+            [
+                [ FilterField.Indication; FilterField.Generic ]
+                [ FilterField.Route ]
+                [ FilterField.Form ]
+                [ FilterField.DoseType ]
+            ]
+        | OrderCategory.Nutrition _ ->
+            [
+                [ FilterField.Generic ]
+                [ FilterField.Indication ]
+                [ FilterField.DoseType ]
+            ]
+
+
+    /// One field's choice let go, the options it was picked from left standing.
+    let clearChoice field (f: Filter) =
+        match field with
+        | FilterField.Indication -> { f with Indication = None }
+        | FilterField.Generic -> { f with Generic = None }
+        | FilterField.Route -> { f with Route = None }
+        | FilterField.Form -> { f with Form = None }
+        | FilterField.DoseType -> { f with DoseType = None }
+        | FilterField.Diluent -> { f with Diluent = None }
+        | FilterField.Components -> { f with SelectedComponents = [||] }
+
+
+    /// One field emptied: the choice it holds and the options it was picked from. The options go
+    /// as well because the rule lookup reads a field as its choice, else as the one option it
+    /// offers: a list narrowed to one option by the other choices would be read as a pick, and
+    /// the cleared field would come back chosen. The next evaluation offers the field's options
+    /// afresh.
+    let clearField field (f: Filter) =
+        match field with
+        | FilterField.Indication ->
+            { f with
+                Indications = [||]
+                Indication = None
+            }
+        | FilterField.Generic ->
+            { f with
+                Generics = [||]
+                Generic = None
+            }
+        | FilterField.Route ->
+            { f with
+                Routes = [||]
+                Route = None
+            }
+        | FilterField.Form ->
+            { f with
+                Forms = [||]
+                Form = None
+            }
+        | FilterField.DoseType ->
+            { f with
+                DoseTypes = [||]
+                DoseType = None
+            }
+        | FilterField.Diluent ->
+            { f with
+                Diluents = [||]
+                Diluent = None
+            }
+        | FilterField.Components ->
+            { f with
+                Components = [||]
+                SelectedComponents = [||]
+            }
+
+
+    /// Whether any choice at all is still held.
+    let anyChosen (f: Filter) =
+        f.Indication.IsSome
+        || f.Generic.IsSome
+        || f.Route.IsSome
+        || f.Form.IsSome
+        || f.DoseType.IsSome
+
+
+    /// A change to one of the choices: the change is written and the scenarios go. An emptied
+    /// field lets go of the choices in the steps below it and keeps neither its choice nor its
+    /// options; with nothing chosen anywhere afterwards no options are kept either.
+    let applyChange category field clearOwn write (ctx: OrderContext) =
+        let below =
+            if not clearOwn then
+                []
+            else
+                match category |> chain |> List.skipWhile (List.contains field >> not) with
+                | [] -> []
+                | _ :: rest -> rest |> List.concat
+
+        let filter =
+            below
+            |> List.fold (fun f x -> f |> clearChoice x) ctx.Filter
+            |> fun f -> if clearOwn then f |> clearField field else f
+            |> write
+
+        let filter =
+            if filter |> anyChosen then
+                filter
+            else
+                filterFields |> List.fold (fun f x -> f |> clearField x) filter
 
         { ctx with
-            OrderContext.Filter.Indications =
-                match item with
-                | FilterItem.Indication n -> ctx.Filter.Indications |> tryItem n
-                | _ -> ctx.Filter.Indications
-            OrderContext.Filter.Generics =
-                match item with
-                | FilterItem.Generic n -> ctx.Filter.Generics |> tryItem n
-                | _ -> ctx.Filter.Generics
-            OrderContext.Filter.Routes =
-                match item with
-                | FilterItem.Route n -> ctx.Filter.Routes |> tryItem n
-                | _ -> ctx.Filter.Routes
-            OrderContext.Filter.Forms =
-                match item with
-                | FilterItem.Form n -> ctx.Filter.Forms |> tryItem n
-                | _ -> ctx.Filter.Forms
-            OrderContext.Filter.DoseTypes =
-                match item with
-                | FilterItem.DoseType n -> ctx.Filter.DoseTypes |> tryItem n
-                | _ -> ctx.Filter.DoseTypes
-            OrderContext.Filter.Diluents =
-                match item with
-                | FilterItem.Diluent n -> ctx.Filter.Diluents |> tryItem n
-                | _ -> ctx.Filter.Diluents
-            OrderContext.Filter.SelectedComponents =
-                match item with
-                | FilterItem.Component ns ->
-                    [|
-                        for i in ns do
-                            yield! ctx.Filter.SelectedComponents |> tryItem i
-                    |]
-
-                | _ -> ctx.Filter.SelectedComponents
+            Filter = filter
+            Scenarios = [||]
         }
+
+
+    /// The choice of a field set or emptied; nothing happens when the field already holds it.
+    let change category field (chosen: string option) (dt: DoseType option) (ctx: OrderContext) =
+        let held, write =
+            match field with
+            | FilterField.Indication ->
+                ctx.Filter.Indication = chosen, (fun (f: Filter) -> { f with Indication = chosen })
+            | FilterField.Generic -> ctx.Filter.Generic = chosen, (fun (f: Filter) -> { f with Generic = chosen })
+            | FilterField.Route -> ctx.Filter.Route = chosen, (fun (f: Filter) -> { f with Route = chosen })
+            | FilterField.Form -> ctx.Filter.Form = chosen, (fun (f: Filter) -> { f with Form = chosen })
+            | FilterField.DoseType -> ctx.Filter.DoseType = dt, (fun (f: Filter) -> { f with DoseType = dt })
+            | FilterField.Diluent -> ctx.Filter.Diluent = chosen, (fun (f: Filter) -> { f with Diluent = chosen })
+            | FilterField.Components ->
+                ctx.Filter.SelectedComponents = (chosen |> Option.toArray),
+                (fun (f: Filter) -> { f with SelectedComponents = chosen |> Option.toArray })
+
+        let emptied =
+            match field with
+            | FilterField.DoseType -> dt.IsNone
+            | _ -> chosen.IsNone
+
+        if held then
+            ctx
+        else
+            ctx |> applyChange category field emptied write
+
+
+    /// The nth item of the options, or why there is none.
+    let nth what n (xs: 'a[]) =
+        xs
+        |> Array.tryItem n
+        |> Option.map Ok
+        |> Option.defaultValue (Error $"%s{what}: index %i{n} out of %i{xs.Length}")
+
+
+    /// The diluent set to its nth option, or emptied with None.
+    let changeDiluent (n: int option) (ctx: OrderContext) =
+        match n with
+        | None -> Ok { ctx with OrderContext.Filter.Diluent = None }
+        | Some n ->
+            ctx.Filter.Diluents
+            |> nth "diluent" n
+            |> Result.map (fun d -> { ctx with OrderContext.Filter.Diluent = Some d })
+
+
+    /// The components at these positions of the options.
+    let setNthComponents (ns: int[]) (ctx: OrderContext) =
+        ns
+        |> Array.map (fun n -> ctx.Filter.Components |> nth "component" n)
+        |> Array.fold
+            (fun acc r ->
+                match acc, r with
+                | Ok cs, Ok c -> Ok(Array.append cs [| c |])
+                | Error e, _
+                | _, Error e -> Error e
+            )
+            (Ok [||])
+        |> Result.map (fun cs -> { ctx with OrderContext.Filter.SelectedComponents = cs })
+
+
+    /// A field set to its nth option, counted from 0, or emptied with None. The diluent and the
+    /// components are written without the cascade, since the lookup does not read them; a pick
+    /// of the components is one component, several go with setNthComponents.
+    let changeFilter category field (n: int option) (ctx: OrderContext) =
+        let pick what (xs: string[]) =
+            match n with
+            | None -> Ok(ctx |> change category field None None)
+            | Some n ->
+                xs
+                |> nth what n
+                |> Result.map (fun x -> ctx |> change category field (Some x) None)
+
+        match field with
+        | FilterField.Indication -> pick "indication" ctx.Filter.Indications
+        | FilterField.Generic -> pick "generic" ctx.Filter.Generics
+        | FilterField.Route -> pick "route" ctx.Filter.Routes
+        | FilterField.Form -> pick "form" ctx.Filter.Forms
+        | FilterField.DoseType ->
+            match n with
+            | None -> Ok(ctx |> change category field None None)
+            | Some n ->
+                ctx.Filter.DoseTypes
+                |> nth "dose type" n
+                |> Result.map (fun dt -> ctx |> change category field None (Some dt))
+        | FilterField.Diluent -> ctx |> changeDiluent n
+        | FilterField.Components -> ctx |> setNthComponents (n |> Option.toArray)
+
+
+    /// The whole filter emptied, the patient kept.
+    let clearAll (ctx: OrderContext) =
+        { ctx with
+            Filter = emptyFilter
+            Scenarios = [||]
+            Argumentation = None
+        }
+
+
+    /// The context narrowed to its nth scenario and that scenario's form.
+    let selectNthScenario n (ctx: OrderContext) =
+        ctx.Scenarios
+        |> nth "scenario" n
+        |> Result.map (fun sc ->
+            { ctx with
+                OrderContext.Filter.Form = Some sc.Form
+                Scenarios = [| sc |]
+            }
+        )
+
+
+    /// The filter's choices set from outside its own fields, with the rule of their source. A page's
+    /// choices keep the diluent and the selected components only when the choices above them are
+    /// unchanged, and the scenarios go; the url's medication is written over the filter as it is, a
+    /// list item's over an empty one; a reload changes nothing.
+    let seedFilter source ind gen rte frm dt (ctx: OrderContext) =
+        let write keep (ctx: OrderContext) =
+            { ctx with
+                OrderContext.Filter.Indication = ind
+                OrderContext.Filter.Generic = gen
+                OrderContext.Filter.Route = rte
+                OrderContext.Filter.Form = frm
+                OrderContext.Filter.DoseType = dt
+                OrderContext.Filter.Diluent = if keep then ctx.Filter.Diluent else None
+                OrderContext.Filter.SelectedComponents = if keep then ctx.Filter.SelectedComponents else [||]
+            }
+
+        let f = ctx.Filter
+        let same = gen = f.Generic && rte = f.Route && frm = f.Form
+
+        match source with
+        | SeedSource.Formulary -> { (ctx |> write (same && ind = f.Indication)) with Scenarios = [||] }
+        | SeedSource.Parenteralia -> { (ctx |> write same) with Scenarios = [||] }
+        | SeedSource.Url -> ctx |> write true
+        | SeedSource.MedicationList -> ctx |> clearAll |> write true
+        | SeedSource.Reload -> ctx
 
 
     let setFilterGeneric gen ctx = { ctx with OrderContext.Filter.Generic = Some gen }
@@ -935,6 +1198,8 @@ Scenarios: {scenarios}
             |> updateFilterIfOneScenario
 
 
+    /// The context with the command processed on its one scenario's order. An order that cannot
+    /// be solved refuses the context as it was sent.
     let processScenarioOrder (logger: Logger) cmd (ctx: OrderContext) =
         match ctx.Scenarios |> Array.tryExactlyOne with
         | None ->
@@ -943,27 +1208,53 @@ Scenarios: {scenarios}
             |> Logging.OrderMessage.OrderEventMessage
             |> Logging.logError logger
 
-            ctx
+            Evaluated ctx
         | Some sc ->
-            { ctx with
-                Scenarios =
-                    [|
-                        { sc with
-                            Order =
-                                sc.Order
-                                |> cmd
-                                |> OrderProcessor.processPipeline logger
-                                |> Result.defaultValue sc.Order
-                        }
-                        |> OrderScenario.setOrderTableFormat
-                    |]
-            }
-            |> updateFilterIfOneScenario
+            match sc.Order |> cmd |> OrderProcessor.processPipeline logger with
+            | Ok ord ->
+                { ctx with
+                    Scenarios =
+                        [|
+                            { sc with
+                                Order = ord
+                                ProductsIds = ord |> Order.productIds
+                            }
+                            |> OrderScenario.setOrderTableFormat
+                        |]
+                }
+                |> updateFilterIfOneScenario
+                |> Evaluated
+            | Error _ -> Refused(ctx, Refusal.NotSolved)
 
 
     /// The scenario after a field's arrow cleared a value: a cleared pick reopens the order with the
     /// picks made before it; any other clear is solved as it is.
     let reopenScenarioOrder logger picks ctx = ctx |> processScenarioOrder logger (fun o -> Reopen(o, picks))
+
+
+    /// A filter or scenario pick, a seed or a patient change applied to its context, read in the
+    /// lists as sent: the context it changes and the existing command it is evaluated as, or why
+    /// the index is past the options. None for any other command.
+    let resolveChange cmd =
+        let over asCommand changed = changed |> Result.map (fun ctx -> ctx, asCommand) |> Some
+
+        match cmd with
+        | ChangeFilter(ctx, category, field, n) -> ctx |> changeFilter category field n |> over UpdateOrderContext
+        | SetNthComponents(ctx, ns) -> ctx |> setNthComponents ns |> over UpdateOrderContext
+        | ClearAllFilter ctx -> Ok(clearAll ctx) |> over UpdateOrderContext
+        | SelectNthOrderScenario(ctx, n) -> ctx |> selectNthScenario n |> over SelectOrderScenario
+        | UpdatePatient(ctx, pat) -> Ok { ctx with Patient = pat } |> over UpdateOrderContext
+        | SeedFilter(ctx, source, ind, gen, rte, frm, dt) ->
+            Ok(ctx |> seedFilter source ind gen rte frm dt) |> over UpdateOrderContext
+        | _ -> None
+
+
+    /// The order of the one scenario changed by the property command, not solved.
+    let changeOrder logger change ctx =
+        ctx
+        |> applyToOrderScenario (fun sc ->
+            { sc with Order = sc.Order |> OrderProcessor.processChangeProperty logger change }
+        )
 
 
     /// The message a refusal has been until now, kept for the message-list contract.
@@ -1064,21 +1355,37 @@ Scenarios: {scenarios}
         ctx |> getScenarios start logger provider
 
 
-    /// The command evaluated, as an outcome. The two commands that look the rules up can be
-    /// refused; every other command is evaluated as it is.
-    let evaluateOutcome (start: System.DateTime) logger provider cmd : Result<Outcome<Command>, Message list> =
+    /// A refused outcome answers the command as it was sent, so a value that cannot be solved
+    /// leaves the order as it was before the value was set.
+    let refusedAsSent sent outcome =
+        match outcome with
+        | Refused(_, refusal) -> Refused(sent, refusal)
+        | Evaluated _ -> outcome
+
+
+    /// The command evaluated, as an outcome. The two commands that look the rules up are refused
+    /// when no rule fits the picks; a command over the scenario's order is refused when the order
+    /// cannot be solved; every other command is evaluated as it is.
+    let rec evaluateOutcome (start: System.DateTime) logger provider cmd : Result<Outcome<Command>, Message list> =
         // Helper to process property commands when there's exactly one scenario with an order
         let processPropertyCmd ctx propCmd wrapResult =
             match ctx.Scenarios |> Array.tryExactlyOne with
             | Some _ ->
                 ctx
                 |> processScenarioOrder logger (fun o -> ChangeProperty(o, propCmd))
-                |> wrapResult
-                |> Evaluated
+                |> Outcome.map wrapResult
                 |> Ok
             | None ->
                 // No single scenario, return ctx unchanged
                 wrapResult ctx |> Evaluated |> Ok
+
+        // the context as a specific command changed it, evaluated as the existing command and
+        // answered as the specific command; an index past the options is an error
+        let evaluateAs asCommand wrap changed =
+            changed
+            |> Result.mapError (fun e -> [ ErrorMsg(e, None) ])
+            |> Result.bind (asCommand >> evaluateOutcome start logger provider)
+            |> Result.map (Outcome.map (Command.get >> wrap))
 
         match cmd with
         | UpdateOrderContext ctx ->
@@ -1093,25 +1400,22 @@ Scenarios: {scenarios}
         | SelectOrderScenario ctx ->
             ctx
             |> processScenarioOrder logger CalcValues
-            |> SelectOrderScenario
-            |> Evaluated
+            |> Outcome.map SelectOrderScenario
             |> Ok
         | UpdateOrderScenario ctx ->
             ctx
             |> processScenarioOrder logger SolveOrder
-            |> UpdateOrderScenario
-            |> Evaluated
+            |> Outcome.map UpdateOrderScenario
             |> Ok
         | ReopenOrderScenario(ctx, picks) ->
-            (ctx |> reopenScenarioOrder logger picks, picks)
-            |> ReopenOrderScenario
-            |> Evaluated
+            ctx
+            |> reopenScenarioOrder logger picks
+            |> Outcome.map (fun ctx -> ReopenOrderScenario(ctx, picks))
             |> Ok
         | ResetOrderScenario ctx ->
             ctx
             |> processScenarioOrder logger ReCalcValues
-            |> ResetOrderScenario
-            |> Evaluated
+            |> Outcome.map ResetOrderScenario
             |> Ok
         // Frequency property commands
         | DecreaseScheduleFrequencyProperty ctx ->
@@ -1141,6 +1445,11 @@ Scenarios: {scenarios}
             processPropertyCmd ctx SetMaxOrderableDoseQuantity SetMaxOrderableDoseQuantityProperty
         | SetMedianOrderableDoseQuantityProperty ctx ->
             processPropertyCmd ctx SetMedianOrderableDoseQuantity SetMedianOrderableDoseQuantityProperty
+        | SetOrderableDoseQuantityPercProperty(ctx, perc) ->
+            processPropertyCmd
+                ctx
+                (SetOrderableDoseQuantityPerc perc)
+                (fun ctx -> SetOrderableDoseQuantityPercProperty(ctx, perc))
         // Dose Rate property commands
         | DecreaseOrderableDoseRateProperty(ctx, ntimes, useCalc) ->
             processPropertyCmd
@@ -1184,6 +1493,33 @@ Scenarios: {scenarios}
                 ctx
                 (SetMedianComponentOrderableQuantity cmp)
                 (fun ctx -> SetMedianComponentQuantityProperty(ctx, cmp))
+        | ChangeFilter(ctx, category, field, n) ->
+            ctx
+            |> changeFilter category field n
+            |> evaluateAs UpdateOrderContext (fun ctx -> ChangeFilter(ctx, category, field, n))
+        | SetNthComponents(ctx, ns) ->
+            ctx
+            |> setNthComponents ns
+            |> evaluateAs UpdateOrderContext (fun ctx -> SetNthComponents(ctx, ns))
+        | ClearAllFilter ctx -> Ok(clearAll ctx) |> evaluateAs UpdateOrderContext ClearAllFilter
+        | SelectNthOrderScenario(ctx, n) ->
+            ctx
+            |> selectNthScenario n
+            |> evaluateAs SelectOrderScenario (fun ctx -> SelectNthOrderScenario(ctx, n))
+        | SetNthOrderValue(ctx, change) ->
+            Ok(ctx |> changeOrder logger change)
+            |> evaluateAs UpdateOrderScenario (fun ctx -> SetNthOrderValue(ctx, change))
+            |> Result.map (refusedAsSent cmd)
+        | ClearOrderValue(ctx, change, picks) ->
+            Ok(ctx |> changeOrder logger change)
+            |> evaluateAs (fun ctx -> ReopenOrderScenario(ctx, picks)) (fun ctx -> ClearOrderValue(ctx, change, picks))
+            |> Result.map (refusedAsSent cmd)
+        | UpdatePatient(ctx, pat) ->
+            Ok { ctx with Patient = pat }
+            |> evaluateAs UpdateOrderContext (fun ctx -> UpdatePatient(ctx, pat))
+        | SeedFilter(ctx, source, ind, gen, rte, frm, dt) ->
+            Ok(ctx |> seedFilter source ind gen rte frm dt)
+            |> evaluateAs UpdateOrderContext (fun ctx -> SeedFilter(ctx, source, ind, gen, rte, frm, dt))
 
 
     /// The evaluate of the message-list contract, over the outcome: a refusal is the message
@@ -1194,7 +1530,9 @@ Scenarios: {scenarios}
         |> evaluateOutcome start logger provider
         |> Result.bind (
             function
-            | Evaluated cmd -> Ok cmd
+            | Evaluated cmd
+            // an order that cannot be solved has always answered the context as it was sent
+            | Refused(cmd, Refusal.NotSolved) -> Ok cmd
             | Refused _ -> Error [ ErrorMsg(noDoseRulesMessage, None) ]
         )
 

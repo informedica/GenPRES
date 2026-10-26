@@ -1,19 +1,23 @@
 namespace Views
 
+
 #nowarn "1104"
 
 module ViewHelpers =
 
+    open Informedica.GenPRES.Client.Core.Models
+    open Informedica.GenPRES.Client.Core.Policies
+
     open System
     open Fable.Core
     open Feliz
-    open Shared
-    open Shared.Types
-    open Shared.Models.Order
+    open Informedica.GenPRES.Shared
+    open Informedica.GenPRES.Shared.Types
+    open Informedica.GenPRES.Shared.Models.Order
 
 
     /// A filter select: what it offers is the pick rule's answer.
-    let filterSelect disabled isLoading lbl selected dispatch xs =
+    let filterSelect lbl selected dispatch xs =
         Components.PickField.View
             {|
                 label = lbl
@@ -21,8 +25,8 @@ module ViewHelpers =
                 selected = selected
                 onChange = dispatch
                 clearable = true
-                isLoading = isLoading
-                enabled = not disabled
+                isLoading = false
+                enabled = true
                 shape = Components.PickField.Shape.Scroll
             |}
 
@@ -64,7 +68,7 @@ module ViewHelpers =
     /// cross as the reason.
     let markOf (ovar: OrderVariable) : Mark =
         {|
-            severity = ovar.Level |> Models.Severity.ofLevel
+            severity = ovar.Level |> Severity.ofLevel
             reason = ovar |> SeverityReasonPolicy.ofOrderVariable |> Option.bind reasonText
         |}
 
@@ -250,7 +254,6 @@ module ViewHelpers =
     /// differs from the small one; without it a stepable field shows only the inner buttons.
     let createStepper
         dispatch
-        revision
         (mode: QuantityModePolicy.Mode)
         hasLarge
         setMin
@@ -298,7 +301,6 @@ module ViewHelpers =
                 else
                     None
             useDebounce = not navigable && solved
-            revision = revision
         |}
         |> stepsMode mode
 
@@ -319,7 +321,7 @@ module ViewHelpers =
         ovar.Variable.Vals
         |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> format} {v.Unit}"))
         |> Option.defaultValue (
-            match Variable.renderValue prec ovar.Variable with
+            match OrderDisplay.Variable.renderValue prec ovar.Variable with
             | "" -> [||]
             | s -> [| "range", s |]
         )
@@ -464,16 +466,15 @@ module ViewHelpers =
 
     /// The steps of a frequency field: one increment per click, so no large step and no step
     /// text. The five messages come from the caller, as for createStepper.
-    let frequencyStepper dispatch revision mode setMin (decr: 'Msg) setMed (incr: 'Msg) setMax =
-        createStepper dispatch revision mode false setMin (fun _ -> decr) setMed (fun _ -> incr) setMax None None
+    let frequencyStepper dispatch mode setMin (decr: 'Msg) setMed (incr: 'Msg) setMax =
+        createStepper dispatch mode false setMin (fun _ -> decr) setMed (fun _ -> incr) setMax None None
 
 
     /// The steps of the orderable dose rate field, its large step and step text taken from the
     /// rate. The five messages come from the caller, as for createStepper.
-    let doseRateStepper dispatch revision mode (rate: OrderVariable) setMin decr setMed incr setMax =
+    let doseRateStepper dispatch mode (rate: OrderVariable) setMin decr setMed incr setMax =
         createStepper
             dispatch
-            revision
             mode
             (rate |> hasLargeStep)
             setMin
@@ -494,7 +495,6 @@ module ViewHelpers =
     /// which gives no steps unless every component has a single orderable quantity.
     let createDoseQtyStepper
         dispatch
-        revision
         (ord: Order)
         (setMin: 'Msg)
         (decr: int * bool -> 'Msg)
@@ -605,23 +605,22 @@ module ViewHelpers =
                     else
                         None
                 useDebounce = not navigable && solved
-                revision = revision
             |}
             |> stepsMode mode
 
 
-    /// A value shown and not changed. `display` is built from `orderFixed`, since a field that
-    /// takes no change has nothing for a cross to clear.
+    /// A value shown and not changed, or its range when it has no value yet. `display` is built from
+    /// `orderFixed`, since a field that takes no change has nothing for a cross to clear.
     let ovarDisplay display (name: string) (format: decimal -> string) minWidth (ovar: OrderVariable) =
         let mark = ovar |> markOf
         let label = ovar |> ovarLabel name
-        let vals = ovar |> ovarVals format
+        let vals = ovar |> ovarValsWithRange format 3
         display false label None ignore noSteps mark minWidth vals
 
 
     /// The same filter select, typed into rather than scrolled, for a list long enough that
     /// reading it is slower than naming it. The same rule decides what it offers.
-    let autoComplete disabled isLoading lbl selected dispatch xs =
+    let autoComplete lbl selected dispatch xs =
         Components.PickField.View
             {|
                 label = lbl
@@ -629,20 +628,18 @@ module ViewHelpers =
                 selected = selected
                 onChange = dispatch
                 clearable = true
-                isLoading = isLoading
-                enabled = not disabled
+                isLoading = false
+                enabled = true
                 shape = Components.PickField.Shape.Type
             |}
 
 
     /// A filter scrolled on a small screen and typed into on a large one.
-    let responsiveFilter isMobile disabled isLoading lbl selected dispatch xs =
+    let responsiveFilter isMobile lbl selected dispatch xs =
         if isMobile then
-            xs
-            |> Array.map (fun s -> s, s)
-            |> filterSelect disabled isLoading lbl selected dispatch
+            xs |> Array.map (fun s -> s, s) |> filterSelect lbl selected dispatch
         else
-            xs |> autoComplete disabled isLoading lbl selected dispatch
+            xs |> autoComplete lbl selected dispatch
 
 
     /// The text of an item, without the emphasis it is drawn with.
@@ -655,47 +652,27 @@ module ViewHelpers =
 
     /// The text of a block, its items joined, without their emphasis or the block's severity.
     let textBlockText block =
-        block |> Models.Severity.items |> Array.map textItemText |> String.concat ""
+        block |> Severity.items |> Array.map textItemText |> String.concat ""
 
 
-    /// The context with the scenario of the loader's order replaced by the loader's component,
-    /// item and order.
-    let withLoader (ctx: OrderContext) (ol: OrderLoader) =
-        { ctx with
-            Scenarios =
-                ctx.Scenarios
-                |> Array.map (fun sc ->
-                    if sc.Order.Id <> ol.Order.Id then
-                        sc
-                    else
-                        { sc with
-                            Component = ol.Component
-                            Item = ol.Item
-                            Order = ol.Order
-                        }
-                )
-        }
+    /// The command that picks the nth value of the variable the target addresses.
+    let setNthCommand target n =
+        match target with
+        | Models.OrderContext.Target.Schedule prop -> Api.OrderViewCommand.SetNthScheduleProperty(prop, n)
+        | Models.OrderContext.Target.Orderable prop -> Api.OrderViewCommand.SetNthOrderableProperty(prop, n)
+        | Models.OrderContext.Target.Component(cmp, prop) -> Api.OrderViewCommand.SetNthComponentProperty(cmp, prop, n)
+        | Models.OrderContext.Target.Item(cmp, itm, prop) -> Api.OrderViewCommand.SetNthItemProperty(cmp, itm, prop, n)
 
 
-    let inlineProgress isLoading =
-        if isLoading then
-            let progressSx =
-                {|
-                    display = "flex"
-                    justifyContent = "center"
-                    padding = 2
-                |}
-
-            JSX.jsx
-                $"""
-            import CircularProgress from '@mui/material/CircularProgress';
-            import Box from '@mui/material/Box';
-            <Box sx={progressSx}>
-                <CircularProgress size={24} />
-            </Box>
-            """
-        else
-            null
+    /// The command that clears the variable the target addresses, with the picks to keep.
+    let clearCommand target picks =
+        match target with
+        | Models.OrderContext.Target.Schedule prop -> Api.OrderViewCommand.ClearScheduleProperty(prop, picks)
+        | Models.OrderContext.Target.Orderable prop -> Api.OrderViewCommand.ClearOrderableProperty(prop, picks)
+        | Models.OrderContext.Target.Component(cmp, prop) ->
+            Api.OrderViewCommand.ClearComponentProperty(cmp, prop, picks)
+        | Models.OrderContext.Target.Item(cmp, itm, prop) ->
+            Api.OrderViewCommand.ClearItemProperty(cmp, itm, prop, picks)
 
 
     /// A small spinner below a form's button while its request is under way.
@@ -731,16 +708,6 @@ module ViewHelpers =
             <CircularProgress />
         </Box>
         """
-
-
-    /// The progress while a value is fetched, or fetched again over what is shown; nothing once
-    /// it is answered.
-    let progressOrEmpty (deferred: Deferred<'a>) =
-        match deferred with
-        | Resolved _ -> null
-        | HasNotStartedYet
-        | InProgress
-        | Refreshing _ -> circularProgress
 
 
     let backdropProgress isOpen (message: string) =
@@ -811,7 +778,7 @@ module ViewHelpers =
         /// The patient's weight for the print, or the caller's word for not known.
         let patientWeight (unknown: string) (patient: Patient option) =
             patient
-            |> Option.bind Models.Patient.getWeightInKg
+            |> Option.bind PatientRead.getWeightInKg
             |> Option.map (fun w ->
                 let s = decimal w |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 1
                 s + " kg"

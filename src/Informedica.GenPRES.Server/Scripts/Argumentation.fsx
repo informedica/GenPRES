@@ -41,7 +41,7 @@ open ServerApi
 /// Shared/Types.fs as it becomes: the contract's order context with its argumentation.
 module Contract =
 
-    open Shared.Types
+    open Informedica.GenPRES.Shared.Types
 
 
     type OrderContext =
@@ -60,7 +60,7 @@ module Contract =
 
 
     /// Today's contract context with the field added, none until written.
-    let ofToday (ctx: Shared.Types.OrderContext) : OrderContext =
+    let ofToday (ctx: Informedica.GenPRES.Shared.Types.OrderContext) : OrderContext =
         {
             Id = ctx.Id
             Category = ctx.Category
@@ -74,7 +74,7 @@ module Contract =
 
 
     /// Today's contract context, the field left behind.
-    let toToday (ctx: OrderContext) : Shared.Types.OrderContext =
+    let toToday (ctx: OrderContext) : Informedica.GenPRES.Shared.Types.OrderContext =
         {
             Id = ctx.Id
             Category = ctx.Category
@@ -225,18 +225,18 @@ module SqlDatabase =
 // Tests
 // ---------------------------------------------------------------------------------------------
 
-open Shared.Types
+open Informedica.GenPRES.Shared.Types
 
 
 module Fixtures =
 
     /// A drug context of the plan, on the stub patient, as the contract carries it today.
-    let today: Shared.Types.OrderContext =
-        { Shared.Models.OrderContext.empty with
+    let today: Informedica.GenPRES.Shared.Types.OrderContext =
+        { Informedica.GenPRES.Shared.Models.OrderContext.empty with
             Id = "c-1"
             DemoVersion = false
             Filter =
-                { Shared.Models.OrderContext.filter with
+                { Informedica.GenPRES.Shared.Models.OrderContext.filter with
                     Generics = [| "paracetamol" |]
                     Generic = Some "paracetamol"
                 }

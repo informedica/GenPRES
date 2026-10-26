@@ -4,7 +4,7 @@ open Informedica.Utils.Lib.BCL
 open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
 // after the domain, so that the contract model's cases win unqualified
-open Shared.Types
+open Informedica.GenPRES.Shared.Types
 
 
 /// The order context mapper: the contract model to the domain's Dto and back. The Dto is the
@@ -197,7 +197,7 @@ module OrderContextMapper =
 
 
     let scenarioBack (dto: ScenarioDto.Dto) : OrderScenario =
-        Shared.Models.OrderScenario.create
+        Informedica.GenPRES.Shared.Models.OrderScenario.create
             dto.Indication
             dto.Name
             dto.Form
@@ -319,59 +319,173 @@ module OrderContextMapper =
     module Command =
 
         module Domain = Informedica.GenOrder.Lib.OrderContext
+        module Ctx = Informedica.GenPRES.Shared.Models.OrderContext
 
 
+        /// The domain's filter field for the wire's.
+        let field (f: Ctx.FilterField) =
+            match f with
+            | Ctx.Indication -> FilterField.Indication
+            | Ctx.Generic -> FilterField.Generic
+            | Ctx.Route -> FilterField.Route
+            | Ctx.Form -> FilterField.Form
+            | Ctx.DoseType -> FilterField.DoseType
+
+
+        /// The property commands for a wire target: the one that sets its nth value and the one
+        /// that clears it.
+        let propertyCommands (t: Ctx.Target) =
+            match t with
+            | Ctx.Target.Schedule ScheduleProperty.Frequency -> SetNthScheduleFrequency, ClearScheduleFrequency
+            | Ctx.Target.Schedule ScheduleProperty.Time -> SetNthScheduleTime, ClearScheduleTime
+            | Ctx.Target.Orderable OrderableProperty.Quantity -> SetNthOrderableQuantity, ClearOrderableQuantity
+            | Ctx.Target.Orderable OrderableProperty.DoseQuantity ->
+                SetNthOrderableDoseQuantity, ClearOrderableDoseQuantity
+            | Ctx.Target.Orderable OrderableProperty.DoseRate -> SetNthOrderableDoseRate, ClearOrderableDoseRate
+            | Ctx.Target.Component(c, ComponentProperty.OrderableQuantity) ->
+                (fun n -> SetNthComponentOrderableQuantity(c, n)), ClearComponentOrderableQuantity c
+            | Ctx.Target.Component(c, ComponentProperty.DoseQuantityAdjust) ->
+                (fun n -> SetNthComponentDoseQuantityAdjust(c, n)), ClearComponentDoseQuantityAdjust c
+            | Ctx.Target.Item(c, i, p) ->
+                match p with
+                | ItemProperty.DoseQuantity -> (fun n -> SetNthItemDoseQuantity(c, i, n)), ClearItemDoseQuantity(c, i)
+                | ItemProperty.DoseQuantityAdjust ->
+                    (fun n -> SetNthItemDoseQuantityAdjust(c, i, n)), ClearItemDoseQuantityAdjust(c, i)
+                | ItemProperty.DosePerTime -> (fun n -> SetNthItemDosePerTime(c, i, n)), ClearItemDosePerTime(c, i)
+                | ItemProperty.DosePerTimeAdjust ->
+                    (fun n -> SetNthItemDosePerTimeAdjust(c, i, n)), ClearItemDosePerTimeAdjust(c, i)
+                | ItemProperty.DoseRate -> (fun n -> SetNthItemDoseRate(c, i, n)), ClearItemDoseRate(c, i)
+                | ItemProperty.DoseRateAdjust ->
+                    (fun n -> SetNthItemDoseRateAdjust(c, i, n)), ClearItemDoseRateAdjust(c, i)
+                | ItemProperty.ComponentConcentration ->
+                    (fun n -> SetNthItemComponentConcentration(c, i, n)), ClearItemComponentConcentration(c, i)
+                | ItemProperty.OrderableConcentration ->
+                    (fun n -> SetNthItemOrderableConcentration(c, i, n)), ClearItemOrderableConcentration(c, i)
+                | ItemProperty.OrderableQuantity ->
+                    (fun n -> SetNthItemOrderableQuantity(c, i, n)), ClearItemOrderableQuantity(c, i)
+
+
+        /// The domain's source of a seed for the wire's.
+        let seedSource (source: SeedSource) =
+            match source with
+            | SeedSource.Url -> Informedica.GenOrder.Lib.Types.SeedSource.Url
+            | SeedSource.MedicationList -> Informedica.GenOrder.Lib.Types.SeedSource.MedicationList
+            | SeedSource.Formulary -> Informedica.GenOrder.Lib.Types.SeedSource.Formulary
+            | SeedSource.Parenteralia -> Informedica.GenOrder.Lib.Types.SeedSource.Parenteralia
+            | SeedSource.Reload -> Informedica.GenOrder.Lib.Types.SeedSource.Reload
+
+
+        /// The command verb over a context of this category as the domain's command. A clear's
+        /// picks get the order id back, the wire names them without it.
         let toDomain
-            (cmd: Shared.Api.OrderContextCommand)
+            category
+            (cmd: Informedica.GenPRES.Shared.Api.OrderViewCommand)
             : Informedica.GenOrder.Lib.Types.OrderContext -> Domain.Command
             =
+            let category = category |> Category.toDomain
+
+            let setNth t n =
+                fun ctx -> Domain.SetNthOrderValue(ctx, (fst (propertyCommands t)) n)
+
+            let clear t (picks: string[]) =
+                fun (ctx: Informedica.GenOrder.Lib.Types.OrderContext) ->
+                    let withId =
+                        match ctx.Scenarios |> Array.tryExactlyOne with
+                        | Some sc ->
+                            Informedica.GenPRES.Shared.Models.OrderContext.Picks.ofOrder (
+                                sc.Order.Id |> WrappedString.Id.toString
+                            )
+                        | None -> id
+
+                    Domain.ClearOrderValue(ctx, snd (propertyCommands t), picks |> Array.map withId |> Array.toList)
+
             match cmd with
-            | Shared.Api.OrderContextCommand.UpdateOrderContext -> Domain.UpdateOrderContext
-            | Shared.Api.OrderContextCommand.SelectOrderScenario -> Domain.SelectOrderScenario
-            | Shared.Api.OrderContextCommand.UpdateOrderScenario -> Domain.UpdateOrderScenario
-            | Shared.Api.OrderContextCommand.ReopenOrderScenario picks ->
-                fun ctx -> Domain.ReopenOrderScenario(ctx, picks |> Array.toList)
-            | Shared.Api.OrderContextCommand.ResetOrderScenario -> Domain.ResetOrderScenario
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.ResetOrderScenario -> Domain.ResetOrderScenario
             // Frequency property commands
-            | Shared.Api.OrderContextCommand.DecreaseScheduleFrequencyProperty ->
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.DecreaseScheduleFrequencyProperty ->
                 Domain.DecreaseScheduleFrequencyProperty
-            | Shared.Api.OrderContextCommand.IncreaseScheduleFrequencyProperty ->
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.IncreaseScheduleFrequencyProperty ->
                 Domain.IncreaseScheduleFrequencyProperty
-            | Shared.Api.OrderContextCommand.SetMinScheduleFrequencyProperty -> Domain.SetMinScheduleFrequencyProperty
-            | Shared.Api.OrderContextCommand.SetMaxScheduleFrequencyProperty -> Domain.SetMaxScheduleFrequencyProperty
-            | Shared.Api.OrderContextCommand.SetMedianScheduleFrequencyProperty ->
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetMinScheduleFrequencyProperty ->
+                Domain.SetMinScheduleFrequencyProperty
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetMaxScheduleFrequencyProperty ->
+                Domain.SetMaxScheduleFrequencyProperty
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetMedianScheduleFrequencyProperty ->
                 Domain.SetMedianScheduleFrequencyProperty
             // DoseQuantity property commands
-            | Shared.Api.OrderContextCommand.DecreaseOrderableDoseQuantityProperty(ntimes, useCalc) ->
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.DecreaseOrderableDoseQuantityProperty(ntimes, useCalc) ->
                 fun ctx -> Domain.DecreaseOrderableDoseQuantityProperty(ctx, ntimes, useCalc)
-            | Shared.Api.OrderContextCommand.IncreaseOrderableDoseQuantityProperty(ntimes, useCalc) ->
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.IncreaseOrderableDoseQuantityProperty(ntimes, useCalc) ->
                 fun ctx -> Domain.IncreaseOrderableDoseQuantityProperty(ctx, ntimes, useCalc)
-            | Shared.Api.OrderContextCommand.SetMinOrderableDoseQuantityProperty ->
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetMinOrderableDoseQuantityProperty ->
                 Domain.SetMinOrderableDoseQuantityProperty
-            | Shared.Api.OrderContextCommand.SetMaxOrderableDoseQuantityProperty ->
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetMaxOrderableDoseQuantityProperty ->
                 Domain.SetMaxOrderableDoseQuantityProperty
-            | Shared.Api.OrderContextCommand.SetMedianOrderableDoseQuantityProperty ->
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetMedianOrderableDoseQuantityProperty ->
                 Domain.SetMedianOrderableDoseQuantityProperty
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetOrderableDoseQuantityPercProperty perc ->
+                fun ctx -> Domain.SetOrderableDoseQuantityPercProperty(ctx, perc)
             // DoseRate property commands
-            | Shared.Api.OrderContextCommand.DecreaseOrderableDoseRateProperty(ntimes, useCalc) ->
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.DecreaseOrderableDoseRateProperty(ntimes, useCalc) ->
                 fun ctx -> Domain.DecreaseOrderableDoseRateProperty(ctx, ntimes, useCalc)
-            | Shared.Api.OrderContextCommand.IncreaseOrderableDoseRateProperty(ntimes, useCalc) ->
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.IncreaseOrderableDoseRateProperty(ntimes, useCalc) ->
                 fun ctx -> Domain.IncreaseOrderableDoseRateProperty(ctx, ntimes, useCalc)
-            | Shared.Api.OrderContextCommand.SetMinOrderableDoseRateProperty -> Domain.SetMinOrderableDoseRateProperty
-            | Shared.Api.OrderContextCommand.SetMaxOrderableDoseRateProperty -> Domain.SetMaxOrderableDoseRateProperty
-            | Shared.Api.OrderContextCommand.SetMedianOrderableDoseRateProperty ->
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetMinOrderableDoseRateProperty ->
+                Domain.SetMinOrderableDoseRateProperty
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetMaxOrderableDoseRateProperty ->
+                Domain.SetMaxOrderableDoseRateProperty
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetMedianOrderableDoseRateProperty ->
                 Domain.SetMedianOrderableDoseRateProperty
             // Component Quantity property commands
-            | Shared.Api.OrderContextCommand.DecreaseComponentOrderableQuantityProperty(cmp, ntimes, useCalc) ->
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.DecreaseComponentOrderableQuantityProperty(cmp,
+                                                                                                         ntimes,
+                                                                                                         useCalc) ->
                 fun ctx -> Domain.DecreaseComponentQuantityProperty(ctx, cmp, ntimes, useCalc)
-            | Shared.Api.OrderContextCommand.IncreaseComponentOrderableQuantityProperty(cmp, ntimes, useCalc) ->
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.IncreaseComponentOrderableQuantityProperty(cmp,
+                                                                                                         ntimes,
+                                                                                                         useCalc) ->
                 fun ctx -> Domain.IncreaseComponentQuantityProperty(ctx, cmp, ntimes, useCalc)
-            | Shared.Api.OrderContextCommand.SetMinComponentOrderableQuantityProperty cmp ->
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetMinComponentOrderableQuantityProperty cmp ->
                 fun ctx -> Domain.SetMinComponentQuantityProperty(ctx, cmp)
-            | Shared.Api.OrderContextCommand.SetMaxComponentOrderableQuantityProperty cmp ->
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetMaxComponentOrderableQuantityProperty cmp ->
                 fun ctx -> Domain.SetMaxComponentQuantityProperty(ctx, cmp)
-            | Shared.Api.OrderContextCommand.SetMedianComponentOrderableQuantityProperty cmp ->
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetMedianComponentOrderableQuantityProperty cmp ->
                 fun ctx -> Domain.SetMedianComponentQuantityProperty(ctx, cmp)
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthFilterProperty(f, n) ->
+                fun ctx -> Domain.ChangeFilter(ctx, category, field f, Some n)
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearFilterProperty f ->
+                fun ctx -> Domain.ChangeFilter(ctx, category, field f, None)
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearAllFilterProperty -> Domain.ClearAllFilter
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthDiluentProperty n ->
+                fun ctx -> Domain.ChangeFilter(ctx, category, FilterField.Diluent, Some n)
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearDiluentProperty ->
+                fun ctx -> Domain.ChangeFilter(ctx, category, FilterField.Diluent, None)
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthComponentsProperty ns ->
+                fun ctx -> Domain.SetNthComponents(ctx, ns)
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SelectNthOrderScenario n ->
+                fun ctx -> Domain.SelectNthOrderScenario(ctx, n)
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthScheduleProperty(prop, n) ->
+                setNth (Ctx.Target.Schedule prop) n
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearScheduleProperty(prop, picks) ->
+                clear (Ctx.Target.Schedule prop) picks
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthOrderableProperty(prop, n) ->
+                setNth (Ctx.Target.Orderable prop) n
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearOrderableProperty(prop, picks) ->
+                clear (Ctx.Target.Orderable prop) picks
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthComponentProperty(cmp, prop, n) ->
+                setNth (Ctx.Target.Component(cmp, prop)) n
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearComponentProperty(cmp, prop, picks) ->
+                clear (Ctx.Target.Component(cmp, prop)) picks
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthItemProperty(cmp, itm, prop, n) ->
+                setNth (Ctx.Target.Item(cmp, itm, prop)) n
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearItemProperty(cmp, itm, prop, picks) ->
+                clear (Ctx.Target.Item(cmp, itm, prop)) picks
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SeedFilter(source, ind, gen, rte, frm, dt) ->
+                fun ctx ->
+                    let dt = dt |> Option.map Mappers.mapFromSharedDoseTypeToOrderDoseType
+                    Domain.SeedFilter(ctx, seedSource source, ind, gen, rte, frm, dt)
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetArgumentationProperty _ ->
+                invalidArg (nameof cmd) "the argumentation is written by the server, without the domain"
 
 
     /// The server's words for a reason the contract model is no plan context. Only the
@@ -384,7 +498,9 @@ module OrderContextMapper =
         | DtoError.UnknownTextKind s -> $"Onbekende tekstsoort: %s{s}"
         | DtoError.UnknownCategory s -> $"Onbekende categorie: %s{s}"
         | DtoError.Missing f -> $"Ontbreekt: %s{f}"
-
-
-    /// The context with its patient mapped.
-    let patients (f: Patient -> Patient) (ctx: OrderContext) : OrderContext = { ctx with Patient = f ctx.Patient }
+        | DtoError.Unreadable m -> $"Onleesbare tekst: %s{m}"
+        | DtoError.NotANumber(p, s) -> $"Geen getal in %s{p}: %s{s}"
+        | DtoError.UnknownUnit(p, u) -> $"Onbekende eenheid in %s{p}: %s{u}"
+        | DtoError.WrongUnit(p, r) -> $"Verkeerde eenheid in %s{p}: %s{r}"
+        | DtoError.UnknownOrderType(p, s) -> $"Onbekend ordertype in %s{p}: %s{s}"
+        | DtoError.NotMadeOf(p, id) -> $"Product %s{id} in %s{p} past niet bij de stoffen"

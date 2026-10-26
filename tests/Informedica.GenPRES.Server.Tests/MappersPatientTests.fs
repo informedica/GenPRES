@@ -10,7 +10,7 @@ open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
 open Informedica.GenOrder.Lib.Patient.Optics
 // after GenForm, so that the contract model's cases win unqualified
-open Shared.Types
+open Informedica.GenPRES.Shared.Types
 
 
 module Lib = Informedica.GenForm.Lib.Types
@@ -20,7 +20,7 @@ module LibPatient = Informedica.GenForm.Lib.Patient
 let stub = ServerApi.StubPatientData.patient
 
 /// Every field the mapping carries, in the shape the contract model gives back.
-let full: Shared.Types.Patient =
+let full: Informedica.GenPRES.Shared.Types.Patient =
     { stub with
         Gender = Female
         Access = [ PVL; EnteralTube ]
@@ -28,8 +28,8 @@ let full: Shared.Types.Patient =
         GestationalAge =
             Some(
                 {
-                    Weeks = Shared.Measures.toWeek 36
-                    Days = Shared.Measures.toDay 3
+                    Weeks = Informedica.GenPRES.Shared.Measures.toWeek 36
+                    Days = Informedica.GenPRES.Shared.Measures.toDay 3
                 }
                 : GestAge
             )
@@ -72,12 +72,12 @@ let tests =
                         Weight =
                             { stub.Weight with
                                 Measured = None
-                                Estimated = Some(Shared.Measures.toGram 32000)
+                                Estimated = Some(Informedica.GenPRES.Shared.Measures.toGram 32000)
                             }
                         Height =
                             { stub.Height with
                                 Measured = None
-                                Estimated = Some(Shared.Measures.toCm 140)
+                                Estimated = Some(Informedica.GenPRES.Shared.Measures.toCm 140)
                             }
                     }
 
@@ -89,7 +89,10 @@ let tests =
 
             test "outside L3: the other estimates are not on the Dto and come back empty" {
                 let withP3 =
-                    { stub with Weight = { stub.Weight with EstimatedP3 = Some(Shared.Measures.toGram 30000) } }
+                    { stub with
+                        Weight =
+                            { stub.Weight with EstimatedP3 = Some(Informedica.GenPRES.Shared.Measures.toGram 30000) }
+                    }
 
                 withP3
                 |> ServerApi.Patient.ofModel
@@ -154,11 +157,11 @@ let tests =
             }
 
             test "the refusals keep the server's words" {
-                Shared.Models.Patient.empty
+                Informedica.GenPRES.Shared.Models.Patient.empty
                 |> ServerApi.Patient.parse
                 |> Expect.equal "no patient" (Error [| ServerApi.Patient.noPatient |])
 
-                { Shared.Models.Patient.empty with Age = stub.Age }
+                { Informedica.GenPRES.Shared.Models.Patient.empty with Age = stub.Age }
                 |> ServerApi.Patient.parse
                 |> Expect.equal "no weight and height" (Error [| ServerApi.Patient.noWeightAndHeight |])
             }
@@ -187,7 +190,7 @@ module EstimateFixtures =
             ]
 
 
-    let tables = rows |> Shared.Models.NormalValues.ofRows
+    let tables = rows |> Informedica.GenPRES.Shared.Models.NormalValues.ofRows
 
 
 open EstimateFixtures

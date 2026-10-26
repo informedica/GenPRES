@@ -12,19 +12,20 @@ namespace Components
 /// small step is the exception: it never has outer buttons, so it leaves their slots out.
 module QuantityField =
 
+    open Informedica.GenPRES.Client.Core.Models
+    open Informedica.GenPRES.Client.Core.Policies
+
 
     open Fable.Core
     open Fable.Core.JsInterop
     open Feliz
-    open Shared
+    open Informedica.GenPRES.Shared
 
 
     /// The steps a value offers and what a click does; absent steps draw disabled. The
     /// prediction maps counted small and large clicks to the key and label the value would
-    /// have, so the field can show it before the server confirms; the revision is bumped by the
-    /// caller on every answer, so a prediction is dropped even when the answer repeats the value.
-    /// A value whose large step is its small step has no large step: a stepable field then shows
-    /// only the inner buttons.
+    /// have, so the field can show it before the server confirms. A value whose large step is its
+    /// small step has no large step: a stepable field then shows only the inner buttons.
     type Steps =
         {|
             step: (int * int -> string * string) option
@@ -36,7 +37,6 @@ module QuantityField =
             increase: (int -> unit) option
             last: (int -> unit) option
             useDebounce: bool
-            revision: int
         |}
 
 
@@ -64,6 +64,17 @@ module QuantityField =
         | Fixed
 
 
+    /// Where the answer to the clicks a field sent is: none awaited, the clicks sent, or their
+    /// request out. The field knows the request is out by its own disabled, which its caller sets
+    /// while a request of the page is out, and only then; a field the caller disables for another
+    /// reason meanwhile keeps its predicted value until the value changes.
+    [<RequireQualifiedAccess>]
+    type Answer =
+        | Idle
+        | Sent
+        | Out
+
+
     /// The field: its label, the values allowed and the one chosen, what choosing does, how
     /// the value may be moved, whether it can be cleared, its severity, and whether it is the
     /// field the user is pointed at first.
@@ -86,7 +97,7 @@ module QuantityField =
             busy: bool
             disabled: bool
             isLoading: bool
-            severity: Types.Severity
+            severity: Severity
             // why the value is marked, as the caller words it; shown on hover
             reason: string option
             minWidth: int option
@@ -289,16 +300,16 @@ module QuantityField =
 
 
     // A step button: disabled when the step is not offered; with debounce a counting button,
-    // which repeats while held, shows the count on a badge and predicts each click; otherwise a
-    // plain button that sends one step per click.
-    let stepButton disabled useDebounce (step: (int -> unit) option) (onStep: unit -> unit) icon =
+    // which repeats while held, shows the field's count on a badge and predicts each click, and
+    // the field sends the clicks; otherwise a plain button that sends one step per click.
+    let stepButton disabled useDebounce count (step: (int -> unit) option) (onStep: unit -> unit) icon =
         match step with
         | None -> plainButton true ignore icon
-        | Some onClick when useDebounce ->
+        | Some _ when useDebounce ->
             ClickCountingButton.View
                 {|
                     disabled = disabled
-                    onClick = onClick
+                    count = count
                     onStep = onStep
                     icon = icon
                 |}
@@ -337,7 +348,7 @@ module QuantityField =
         // value that follows the live click count (the badge) before the server confirms.
         // Small = single-step decrease/increase (the defined increment); Large = jump
         // decrease/increase (the server's larger calculated increment). Reset when the
-        // underlying value or the server revision changes.
+        // underlying value changes, or when the answer to the clicks sent has landed.
         let smallDelta, setSmallDelta = React.useState 0
         let largeDelta, setLargeDelta = React.useState 0
         let smallRef = React.useRef 0
@@ -348,20 +359,42 @@ module QuantityField =
         // option would create a new reference every render and reset on every render.
         let valueKey = props.values |> Array.tryHead |> Option.map fst |> Option.defaultValue ""
 
-        let revision = steps |> Option.map (fun s -> s.revision) |> Option.defaultValue 0
+        let reset () =
+            smallRef.current <- 0
+            largeRef.current <- 0
+            setSmallDelta 0
+            setLargeDelta 0
 
         // useLayoutEffect (not useEffect) so the deltas are reset BEFORE the browser
         // paints the frame on which the server's new value arrives — otherwise that frame
         // would briefly show newServerValue + staleDelta × increment.
+        React.useLayoutEffect (reset, [| box valueKey |])
+
+        // the answer to the clicks sent has landed once the field, disabled while their request is
+        // out, is enabled again; only then the prediction goes, also when the answer repeats the
+        // value. Right after the send the request may not be out yet, so the field first waits for
+        // the disable
+        let awaiting = React.useRef Answer.Idle
+
         React.useLayoutEffect (
             (fun () ->
-                smallRef.current <- 0
-                largeRef.current <- 0
-                setSmallDelta 0
-                setLargeDelta 0
+                match awaiting.current, props.disabled with
+                | Answer.Sent, true -> awaiting.current <- Answer.Out
+                | Answer.Out, false ->
+                    awaiting.current <- Answer.Idle
+                    reset ()
+                | _ -> ()
             ),
-            [| box valueKey; box revision |]
+            [| box props.disabled |]
         )
+
+        // while another field counts its clicks this one is disabled; the field counting stays
+        // enabled, and tells the App when it starts and when it has sent its clicks
+        let counting = React.useContext Global.counting
+        let selfCounting, setSelfCounting = React.useState false
+        let report = React.useRef counting.Report
+        report.current <- counting.Report
+        let disabled = props.disabled || (counting.Counting && not selfCounting)
 
         let stepFn = steps |> Option.bind (fun s -> s.step)
 
@@ -388,6 +421,57 @@ module QuantityField =
                 largeRef.current <- next
                 setLargeDelta next
 
+        // the clicks of all four arrows go out as one command for their net count, 700 ms after
+        // the last click, so that no click is lost to the request of another arrow. Meanwhile
+        // every other field and the page wait, so nothing else is out when the clicks go
+        let timerRef = React.useRef (None: int option)
+
+        // a field unmounted while it counts drops its clicks, and the count ends
+        React.useEffect (
+            (fun () ->
+                fun () ->
+                    match timerRef.current with
+                    | Some timer ->
+                        JS.clearTimeout timer
+                        report.current false
+                    | None -> ()
+            ),
+            [||]
+        )
+
+        let send () =
+            timerRef.current <- None
+
+            let step =
+                match StepPolicy.net smallRef.current largeRef.current, steps with
+                | Some(StepPolicy.Pair.Inner, n), Some s when n > 0 -> s.increase |> Option.map (fun f -> f, n)
+                | Some(StepPolicy.Pair.Inner, n), Some s -> s.decrease |> Option.map (fun f -> f, -n)
+                | Some(StepPolicy.Pair.Outer, n), Some s when n > 0 -> s.last |> Option.map (fun f -> f, n)
+                | Some(StepPolicy.Pair.Outer, n), Some s -> s.first |> Option.map (fun f -> f, -n)
+                | None, _
+                | _, None -> None
+
+            match step with
+            | Some(f, n) ->
+                awaiting.current <- Answer.Sent
+                f n
+            | None -> reset ()
+
+            setSelfCounting false
+            report.current false
+
+        let counted bump =
+            fun () ->
+                bump ()
+
+                match timerRef.current with
+                | Some timer -> JS.clearTimeout timer
+                | None ->
+                    setSelfCounting true
+                    report.current true
+
+                timerRef.current <- Some(JS.setTimeout send 700)
+
         // Override only the displayed LABEL with the optimistically stepped value, keeping
         // the original (server-provided) key. The key is a BigRational string the server
         // recognises, so an in-flight dropdown change still dispatches a valid key; only
@@ -409,7 +493,7 @@ module QuantityField =
         // cross still clears the value.
         let median =
             match props.mode, props.values with
-            | Navigable steps, [| ("range", _) |] when not props.disabled -> steps.median
+            | Navigable steps, [| ("range", _) |] when not disabled -> steps.median
             | _ -> None
 
         let select =
@@ -420,7 +504,7 @@ module QuantityField =
                     values = displayValues
                     updateSelected = props.onChange
                     isLoading = props.isLoading
-                    disabled = props.disabled
+                    disabled = disabled
                     readOnly = props.readOnly
                     hasClear = props.hasClear
                     canStep = canStep
@@ -434,8 +518,7 @@ module QuantityField =
                     placeholder = Some props.texts.pickValue
                 |}
 
-        // the step buttons rest only when the field is disabled: a step sent while the value
-        // is loading waits for the answer and steps from it
+        // the step buttons rest while the field is disabled, as while a request runs
         let hasButtons, (title1, title2, title4, title5), (icon1, icon2, icon4, icon5) =
             match props.mode with
             | Navigable _ ->
@@ -459,9 +542,11 @@ module QuantityField =
                  Mui.Icons.Add,
                  large "+" Mui.Icons.KeyboardDoubleArrowRightIcon)
 
-        let button (pick: Steps -> (int -> unit) option) onStep icon =
+        // a pair rests while the other pair holds clicks, so the field's clicks are one pair's
+        let button pair count (pick: Steps -> (int -> unit) option) bump icon =
             let useDebounce = steps |> Option.exists _.useDebounce
-            stepButton props.disabled useDebounce (steps |> Option.bind pick) onStep icon
+            let rests = disabled || StepPolicy.rests pair smallDelta largeDelta
+            stepButton rests useDebounce count (steps |> Option.bind pick) (counted bump) icon
 
         // a stepable value without a large step leaves out the outer slots, which would step the
         // same as the inner ones; the inner buttons then close the group
@@ -474,21 +559,21 @@ module QuantityField =
 
         let slot1 =
             if hasOuter then
-                button _.first (fun () -> bumpLarge -1) icon1
+                button StepPolicy.Pair.Outer (max -largeDelta 0) _.first (fun () -> bumpLarge -1) icon1
                 |> slot hasButtons true "4px 0 0 4px" title1
             else
                 null
 
         let slot2 =
-            button _.decrease (fun () -> bumpSmall -1) icon2
+            button StepPolicy.Pair.Inner (max -smallDelta 0) _.decrease (fun () -> bumpSmall -1) icon2
             |> slot hasButtons (not hasOuter) (if hasOuter then "0" else "4px 0 0 4px") title2
         let slot4 =
-            button _.increase (fun () -> bumpSmall 1) icon4
+            button StepPolicy.Pair.Inner (max smallDelta 0) _.increase (fun () -> bumpSmall 1) icon4
             |> slot hasButtons false (if hasOuter then "0" else "0 4px 4px 0") title4
 
         let slot5 =
             if hasOuter then
-                button _.last (fun () -> bumpLarge 1) icon5
+                button StepPolicy.Pair.Outer (max largeDelta 0) _.last (fun () -> bumpLarge 1) icon5
                 |> slot hasButtons false "0 4px 4px 0" title5
             else
                 null

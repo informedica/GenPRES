@@ -3,14 +3,20 @@ namespace Views
 
 module Patient =
 
+    open Informedica.GenPRES.Client.Core.Models
+    open Informedica.GenPRES.Client.Core.Helpers
+    open Informedica.GenPRES.Client.Core.Policies
+    open Informedica.GenPRES.Client.Core.StateMachines
+    open Informedica.GenPRES.Client.Core.MachinePolicies
+
     open Fable.Core
     open Fable.React
     open Feliz
     open Fable.Core.JsInterop
     open Elmish
-    open Shared
-    open Shared.Types
-    open Shared.Models
+    open Informedica.GenPRES.Shared
+    open Informedica.GenPRES.Shared.Types
+    open Informedica.GenPRES.Shared.Models
     open OrderPlanMachine
     open OrderContextMachine
     open PatientDraftPolicy
@@ -29,20 +35,20 @@ module Patient =
         let show lang terms pat =
             let term fallback t =
                 terms
-                |> Deferred.map (fun terms -> Localization.getTerm terms lang t |> Option.defaultValue fallback)
+                |> Deferred.map (fun terms -> LocalizationText.getTerm terms lang t |> Option.defaultValue fallback)
                 |> Deferred.defaultValue fallback
 
             let toString =
                 match terms with
-                | Resolved terms -> Patient.toString terms lang true
+                | Resolved terms -> PatientText.toString terms lang true
                 | _ -> fun _ -> ""
 
             // what the draft misses to be a patient, in the words every page uses
             let missing =
                 pat
-                |> PatientReadiness.readiness
-                |> PatientReadiness.missing
-                |> Option.map (fun t -> term (PatientReadiness.english t) t)
+                |> PatientReadinessPolicy.readiness
+                |> PatientReadinessPolicy.missing
+                |> Option.map (fun t -> term (PatientReadinessPolicy.english t) t)
 
             [ pat |> Option.map toString; missing ]
             |> List.choose id
@@ -72,18 +78,14 @@ module Patient =
         let session = envSession.Session
         let envPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
 
-        // the patient is the subject of every workbench and plan request: while one is under
-        // way the panel is greyed, so that the patient cannot change under it
-        let busy =
-            match (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext, envPlan.OrderPlan with
-            | OrderContextView.Changing _, _
-            | _, OrderPlanView.Changing _ -> true
-            | _ -> false
+        // the patient is what every request reads: while anything is out the panel is greyed, so
+        // that the patient cannot change under it, and the next edit starts from the answer
+        let busy = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Any
 
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
 
-        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
+        let isMobile = Mui.Hooks.useIsMobile ()
 
         let isExpanded, setExpanded = React.useState (patient |> canCalculate |> not)
 
@@ -105,21 +107,13 @@ module Patient =
         // an open Session, since a launch without data opens a Session without one, and one
         // with a signed head opens identified from the head. Identified, the age is the
         // platform's, shown, not chosen, and the rest of the data is changed, never cleared
-        let patientContext =
-            match session with
-            | SessionMachine.SessionView.Open opened
-            | SessionMachine.SessionView.Closing opened -> opened.PatientContext
-            | _ -> None
+        let patientContext = HeldPanelPolicy.patientContext session
 
         let identity = patientContext |> Option.bind _.Identity
 
         let identified = identity.IsSome
 
-        // the patient context is held, for an identified patient only, while the plan has an
-        // order that is new or changed since the version last opened or signed: every order a
-        // signed version adds rests on one patient context, so the panel cannot change it until
-        // the plan is signed or those orders are removed
-        let held = identified && envPlan.Changed |> Array.isEmpty |> not
+        let held = HeldPanelPolicy.held session envPlan.Changed
 
         // held, the fields stay as they are but take no change: an attempt asks instead, with the
         // way out that removes the new and changed orders; signing is the plan's own button
@@ -247,6 +241,27 @@ module Patient =
                     keepOpen ()
                     s |> Msg.UpdateDepartment |> dispatch
 
+            // a list of one department picks it, once: no server answer picks a department
+            let only =
+                match options with
+                | [| (key, _) |] -> Some key
+                | _ -> None
+
+            let enabled = not busy && not launched
+
+            React.useEffect (
+                (fun () ->
+                    match only with
+                    | Some key when selected <> Some key && enabled -> changeDepartment (Some key)
+                    | _ -> ()
+                ),
+                [|
+                    box (only |> Option.defaultValue "")
+                    box (selected |> Option.defaultValue "")
+                    box enabled
+                |]
+            )
+
             Components.PickField.View
                 {|
                     label = Terms.``Patient Department`` |> getTerm "Afdeling"
@@ -257,7 +272,7 @@ module Patient =
                     // choice to take back; clearing a default already shown would change nothing
                     clearable = own.IsSome
                     isLoading = settings |> Deferred.toOption |> Option.isNone
-                    enabled = not busy && not launched
+                    enabled = enabled
                     shape = Components.PickField.Shape.Scroll
                 |}
 
@@ -294,24 +309,24 @@ module Patient =
         // confirmed once it has landed
         let onRemoveChanged () =
             match envPlan.OrderPlan with
-            | OrderPlanView.Settled(tp, _) ->
+            | OrderPlanView.Settled _ ->
                 setHeldOpen false
-
-                Api.OrderPlanCommand.RemoveOrderContexts(tp, envPlan.Changed)
-                |> envPlan.OrderPlanCommand
+                envPlan.Remove envPlan.Changed
             | OrderPlanView.NoPatient -> setHeldOpen false
             | OrderPlanView.Changing _ -> ()
 
-        // the EHR read again and the head reopened on it; the new and changed orders go with the
-        // reopen
-        let onRefresh () =
+        // the new and changed orders go with the open
+        let onOpenLastSigned id =
             setHeldOpen false
-            envSession.Refresh()
+            envSession.OpenSignedPlan id
+
+        // the patient read from the EHR again; held, it asks instead, as the fields do
+        let onRefresh () = if held then setHeldOpen true else envSession.Refresh()
 
         let onHeldClose = fun _ -> setHeldOpen false
 
-        // the question, with the two ways out that drop the new and changed orders: remove them,
-        // or read the patient data from the EHR again; signing is the plan's own button
+        // the question, with the ways out that drop the new and changed orders; signing is the
+        // plan's own button
         let heldDialog =
             let title =
                 Terms.``Patient Context Held Title``
@@ -320,7 +335,7 @@ module Patient =
             let text =
                 Terms.``Patient Context Held``
                 |> getTerm
-                    "Het orderplan heeft nieuwe of gewijzigde orders. Onderteken het orderplan om de patiëntgegevens te wijzigen, of laat die orders vervallen: verwijder ze, of ververs de patiëntgegevens uit het EPD."
+                    "Het orderplan heeft nieuwe of gewijzigde orders. Onderteken het orderplan om de patiëntgegevens te wijzigen, of laat die orders vervallen."
 
             let actions =
                 Components.ActionBar.View
@@ -334,22 +349,28 @@ module Patient =
                                     disabled = false
                                     icon = None
                                 |}
-                                {|
-                                    label =
-                                        Terms.``Patient Context Held Remove``
-                                        |> getTerm "Verwijder nieuwe en gewijzigde orders"
-                                    kind = Components.ActionBar.Kind.Destructive
-                                    onClick = onRemoveChanged
-                                    disabled = false
-                                    icon = None
-                                |}
-                                {|
-                                    label = Terms.``Patient Context Held Refresh`` |> getTerm "Ververs uit het EPD"
-                                    kind = Components.ActionBar.Kind.Primary
-                                    onClick = onRefresh
-                                    disabled = false
-                                    icon = None
-                                |}
+                                for action in HeldPanelPolicy.heldActions session do
+                                    match action with
+                                    | HeldPanelPolicy.HeldAction.Remove ->
+                                        {|
+                                            label =
+                                                Terms.``Patient Context Held Remove``
+                                                |> getTerm "Verwijder nieuwe en gewijzigde orders"
+                                            kind = Components.ActionBar.Kind.Destructive
+                                            onClick = onRemoveChanged
+                                            disabled = false
+                                            icon = None
+                                        |}
+                                    | HeldPanelPolicy.HeldAction.OpenLastSigned id ->
+                                        {|
+                                            label =
+                                                Terms.``Session Open Last Signed``
+                                                |> getTerm "Open het laatst ondertekende orderplan"
+                                            kind = Components.ActionBar.Kind.Primary
+                                            onClick = fun () -> onOpenLastSigned id
+                                            disabled = false
+                                            icon = None
+                                        |}
                             |]
                     |}
 
@@ -371,24 +392,33 @@ module Patient =
             """
 
         // bounded and to the left, so the button is not as wide as the panel it sits in and is
-        // not where you click by default
+        // not where you click by default. The reset only for an anonymous patient; the refresh
+        // waits, as the panel does, for every request
         let resetBar =
-            if identified then
+            let actions =
+                [|
+                    if not identified then
+                        {|
+                            label = Terms.Reset |> getTerm "Reset"
+                            kind = Components.ActionBar.Kind.Secondary
+                            onClick = onReset
+                            disabled = busy
+                            icon = Some Mui.Icons.Delete
+                        |}
+                    if HeldPanelPolicy.canRefresh session then
+                        {|
+                            label = Terms.``Patient Refresh`` |> getTerm "Ververs uit het EPD"
+                            kind = Components.ActionBar.Kind.Secondary
+                            onClick = onRefresh
+                            disabled = busy
+                            icon = Some Mui.Icons.RefreshIcon
+                        |}
+                |]
+
+            if Array.isEmpty actions then
                 null
             else
-                Components.ActionBar.View
-                    {|
-                        actions =
-                            [|
-                                {|
-                                    label = Terms.Reset |> getTerm "Reset"
-                                    kind = Components.ActionBar.Kind.Secondary
-                                    onClick = onReset
-                                    disabled = busy
-                                    icon = Some Mui.Icons.RefreshIcon
-                                |}
-                            |]
-                    |}
+                Components.ActionBar.View {| actions = actions |}
 
         // a read-only field cannot be opened and has no cross: what it holds is not the user's;
         // a field that is not clearable can be changed, but not emptied
@@ -585,14 +615,14 @@ module Patient =
                 if
                     pat |> Option.isSome
                     && pat
-                       |> Option.map (fun p -> p |> Patient.getAgeInYears |> Option.defaultValue 0. < 1)
+                       |> Option.map (fun p -> p |> PatientRead.getAgeInYears |> Option.defaultValue 0. < 1)
                        |> Option.defaultValue false
                 then
                     [| 24..42 |]
                     |> Array.map (fun k -> $"{k}", $"{k}")
                     |> createMeasureSelect
                         (Terms.``Patient Age weeks`` |> getTerm "weken" |> (fun s -> $"GA {s}"))
-                        (pat |> Option.bind Patient.getGAWeeks |> zeroToNone)
+                        (pat |> Option.bind PatientRead.getGAWeeks |> zeroToNone)
                         (fun s ->
                             keepOpen ()
                             s |> Msg.UpdateGAWeek |> dispatch
@@ -602,7 +632,7 @@ module Patient =
                     |> Array.map (fun k -> $"{k}", $"{k}")
                     |> createMeasureSelect
                         (Terms.``Patient Age days`` |> getTerm "dagen" |> (fun s -> $"GA {s}"))
-                        (pat |> Option.bind Patient.getGADays |> zeroToNone)
+                        (pat |> Option.bind PatientRead.getGADays |> zeroToNone)
                         (fun s ->
                             keepOpen ()
                             s |> Msg.UpdateGADay |> dispatch
@@ -656,11 +686,11 @@ module Patient =
                 </Box>
                 """
 
-                Patient.RenalFunction.options
+                RenalFunctionText.options
                 |> Array.map (fun k -> $"{k}", $"{k}")
                 |> createSelect
                     (Terms.``Patient Renal Function`` |> getTerm "Nierfunctie")
-                    (pat |> Option.bind Patient.getRenalFunction)
+                    (pat |> Option.bind PatientRead.getRenalFunction)
                     (fun s ->
                         keepOpen ()
                         s |> Msg.UpdateRenal |> dispatch

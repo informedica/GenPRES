@@ -15,13 +15,15 @@
     <Compile Include="LocalizationTests.fs" />
     <Compile Include="ModelsTests.fs" />
     <Compile Include="CsvTests.fs" />
-    <Compile Include="SeverityTests.fs" />
-    <Compile Include="Tests.fs" />
+    <Compile Include="EmergencyBaseline.fs" />
+    <Compile Include="EmergencyBaselineTests.fs" />
     <Compile Include="Main.fs" />
     <None Include="Scripts\load.fsx" />
     <None Include="scripts\CalcYearsOracle.fsx" />
     <None Include="Scripts\CalcMonthsOracle.fsx" />
     <None Include="Scripts\AgeToStringOracle.fsx" />
+    <None Include="Scripts\ListBaseline.fsx" />
+    <Content Include="fixtures\*.csv;fixtures\*.tsv" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

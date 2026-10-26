@@ -2,12 +2,12 @@ namespace Informedica.GenPRES.Shared.Tests
 
 
 /// One language vocabulary: `Localization.tryParse` serves the `GENPRES_LANG` setting and the
-/// client's `la` url parameter (the sheet header keeps `tryFromString`, display names only).
+/// client's `lan` url parameter, ISO 639-1 codes only.
 module LocalizationTests =
 
     open Expecto
     open Expecto.Flip
-    open Shared.Localization
+    open Informedica.GenPRES.Shared.Localization
 
 
     [<Tests>]
@@ -26,25 +26,25 @@ module LocalizationTests =
                         |> Expect.equal $"{l} lower" (Some l)
                 }
 
-                test "every locale round-trips through its display name" {
-                    for l in languages do
-                        l |> toString |> tryParse |> Expect.equal $"{l}" (Some l)
-                }
-
                 testList
-                    "the client's legacy url codes"
+                    "the ISO 639-1 codes"
                     [
                         for code, l in
                             [
                                 "en", English
-                                "du", Dutch
+                                "nl", Dutch
                                 "fr", French
-                                "gr", German
-                                "sp", Spanish
+                                "de", German
+                                "es", Spanish
                                 "it", Italian
                             ] do
                             test code { code |> tryParse |> Expect.equal code (Some l) }
                     ]
+
+                test "the earlier url codes and the display names are not read" {
+                    for s in [ "du"; "gr"; "sp"; "Nederlands"; "English" ] do
+                        s |> tryParse |> Expect.isNone s
+                }
 
                 test "whitespace is ignored" { "  nl " |> tryParse |> Expect.equal "padded" (Some Dutch) }
 

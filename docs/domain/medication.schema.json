@@ -1,0 +1,267 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Dto",
+  "type": "object",
+  "description": "The medication.",
+  "additionalProperties": false,
+  "properties": {
+    "Id": {
+      "type": "string"
+    },
+    "Name": {
+      "type": "string"
+    },
+    "Route": {
+      "type": "string"
+    },
+    "OrderType": {
+      "type": "string",
+      "enum": [
+        "AnyOrder",
+        "ProcessOrder",
+        "OnceOrder",
+        "OnceTimedOrder",
+        "ContinuousOrder",
+        "DiscontinuousOrder",
+        "TimedOrder"
+      ]
+    },
+    "Quantity": {
+      "$ref": "#/definitions/MinMaxDto"
+    },
+    "Quantities": {
+      "$ref": "#/definitions/ValueDto"
+    },
+    "Adjust": {
+      "$ref": "#/definitions/ValueDto"
+    },
+    "Frequencies": {
+      "$ref": "#/definitions/ValueDto"
+    },
+    "Time": {
+      "$ref": "#/definitions/MinMaxDto"
+    },
+    "Dose": {
+      "$ref": "#/definitions/DoseLimitDto"
+    },
+    "DoseCount": {
+      "$ref": "#/definitions/MinMaxDto"
+    },
+    "Div": {
+      "type": [
+        "number",
+        "string"
+      ],
+      "pattern": "^-?\\d+(\\.\\d+)?$|^-?\\d+/\\d+$"
+    },
+    "Components": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ComponentDto"
+      }
+    }
+  },
+  "definitions": {
+    "MinMaxDto": {
+      "type": "object",
+      "description": "A range: an optional minimum and maximum.",
+      "additionalProperties": false,
+      "properties": {
+        "Min": {
+          "$ref": "#/definitions/LimitDto"
+        },
+        "Max": {
+          "$ref": "#/definitions/LimitDto"
+        }
+      }
+    },
+    "LimitDto": {
+      "type": "object",
+      "description": "A minimum or a maximum: a value with its unit, inclusive or exclusive.",
+      "additionalProperties": false,
+      "properties": {
+        "Value": {
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "pattern": "^-?\\d+(\\.\\d+)?$|^-?\\d+/\\d+$"
+          }
+        },
+        "Unit": {
+          "type": "string"
+        },
+        "Inclusive": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ValueDto": {
+      "type": "object",
+      "description": "A value with its unit: the numbers as their exact text.",
+      "additionalProperties": false,
+      "properties": {
+        "Value": {
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "pattern": "^-?\\d+(\\.\\d+)?$|^-?\\d+/\\d+$"
+          }
+        },
+        "Unit": {
+          "type": "string"
+        }
+      }
+    },
+    "DoseLimitDto": {
+      "type": "object",
+      "description": "A dose limit; its target is where it sits.",
+      "additionalProperties": false,
+      "properties": {
+        "DoseUnit": {
+          "type": "string"
+        },
+        "AdjustUnit": {
+          "type": "string"
+        },
+        "Quantity": {
+          "$ref": "#/definitions/MinMaxDto"
+        },
+        "QuantityAdjust": {
+          "$ref": "#/definitions/MinMaxDto"
+        },
+        "PerTime": {
+          "$ref": "#/definitions/MinMaxDto"
+        },
+        "PerTimeAdjust": {
+          "$ref": "#/definitions/MinMaxDto"
+        },
+        "Rate": {
+          "$ref": "#/definitions/MinMaxDto"
+        },
+        "RateAdjust": {
+          "$ref": "#/definitions/MinMaxDto"
+        }
+      }
+    },
+    "ComponentDto": {
+      "type": "object",
+      "description": "A component of the medication.",
+      "additionalProperties": false,
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Form": {
+          "type": "string"
+        },
+        "Quantities": {
+          "$ref": "#/definitions/ValueDto"
+        },
+        "Divisible": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "pattern": "^-?\\d+(\\.\\d+)?$|^-?\\d+/\\d+$"
+        },
+        "Dose": {
+          "$ref": "#/definitions/DoseLimitDto"
+        },
+        "Solution": {
+          "$ref": "#/definitions/SolutionLimitDto"
+        },
+        "Products": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ProductDto"
+          }
+        },
+        "Substances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SubstanceDto"
+          }
+        }
+      }
+    },
+    "SolutionLimitDto": {
+      "type": "object",
+      "description": "A solution limit; its target is where it sits, its products are the solution rule's.",
+      "additionalProperties": false,
+      "properties": {
+        "Quantity": {
+          "$ref": "#/definitions/MinMaxDto"
+        },
+        "QuantityAdj": {
+          "$ref": "#/definitions/MinMaxDto"
+        },
+        "Quantities": {
+          "$ref": "#/definitions/ValueDto"
+        },
+        "Concentration": {
+          "$ref": "#/definitions/MinMaxDto"
+        }
+      }
+    },
+    "ProductDto": {
+      "type": "object",
+      "description": "A product a component can be made of.",
+      "additionalProperties": false,
+      "properties": {
+        "Id": {
+          "type": "string"
+        },
+        "FormQuantities": {
+          "$ref": "#/definitions/ValueDto"
+        },
+        "Strengths": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StrengthDto"
+          }
+        }
+      }
+    },
+    "StrengthDto": {
+      "type": "object",
+      "description": "The strength of one substance of a product.",
+      "additionalProperties": false,
+      "properties": {
+        "Substance": {
+          "type": "string"
+        },
+        "Strength": {
+          "$ref": "#/definitions/ValueDto"
+        }
+      }
+    },
+    "SubstanceDto": {
+      "type": "object",
+      "description": "A substance of a component.",
+      "additionalProperties": false,
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Quantities": {
+          "$ref": "#/definitions/ValueDto"
+        },
+        "Concentrations": {
+          "$ref": "#/definitions/ValueDto"
+        },
+        "Dose": {
+          "$ref": "#/definitions/DoseLimitDto"
+        },
+        "Solution": {
+          "$ref": "#/definitions/SolutionLimitDto"
+        }
+      }
+    }
+  }
+}

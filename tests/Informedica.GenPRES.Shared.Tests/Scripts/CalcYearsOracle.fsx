@@ -4,7 +4,7 @@
 
 open System
 open System.IO
-open Shared.Models
+open Informedica.GenPRES.Shared.Models
 open FsCheck
 
 let oracleGen =

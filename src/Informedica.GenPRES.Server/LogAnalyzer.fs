@@ -1092,11 +1092,11 @@ let listLogFiles () =
         |> Array.sortByDescending _.LastWriteTime
         |> Array.map (fun f ->
             {
-                Shared.Types.LogFileInfo.FileName = f.FileName
+                Informedica.GenPRES.Shared.Types.LogFileInfo.FileName = f.FileName
                 SizeBytes = f.SizeBytes
                 LastModifiedAt = f.LastModifiedAt
             }
-            : Shared.Types.LogFileInfo
+            : Informedica.GenPRES.Shared.Types.LogFileInfo
         )
 
 

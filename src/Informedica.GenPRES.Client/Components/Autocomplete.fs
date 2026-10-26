@@ -5,7 +5,7 @@ module Autocomplete =
 
 
     open System
-    open Shared
+    open Informedica.GenPRES.Shared
     open Fable.Core
     open Fable.Core.JsInterop
 

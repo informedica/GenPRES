@@ -2,7 +2,7 @@ namespace ServerApi
 
 open Informedica.GenOrder.Lib
 // after the domain, so that the contract model's cases win unqualified
-open Shared.Types
+open Informedica.GenPRES.Shared.Types
 
 
 /// The session mapper: a signed order plan as the record's version and back, a data notice's
@@ -42,7 +42,7 @@ module SessionMapper =
                     Patient = signed.Patient |> Patient.ofModel
                     Filtered = [||]
                     Contexts = signed.OrderContexts |> Array.map OrderContextMapper.ofModel
-                    Totals = Shared.Models.Totals.empty |> OrderContextMapper.totals
+                    Totals = Informedica.GenPRES.Shared.Models.Totals.empty |> OrderContextMapper.totals
                 }
             Verified = signed.Verified
         }

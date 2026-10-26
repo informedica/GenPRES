@@ -13,8 +13,8 @@ module Mappers =
     open Informedica.GenOrder.Lib
 
 
-    open Shared.Types
-    open Shared
+    open Informedica.GenPRES.Shared.Types
+    open Informedica.GenPRES.Shared
 
 
     module Order =
@@ -215,6 +215,43 @@ module Mappers =
             dto
 
 
+        let mapToProduct (dto: Order.Orderable.Component.Dto.ProductDto) : ComponentProduct =
+            {
+                Id = dto.Id
+                FormQuantities = dto.FormQuantities |> Option.map mapToValueUnit
+                Strengths =
+                    dto.Strengths
+                    |> List.toArray
+                    |> Array.choose (fun s ->
+                        s.Strength
+                        |> Option.map (fun vu ->
+                            {
+                                Substance = s.Substance
+                                Strength = vu |> mapToValueUnit
+                            }
+                        )
+                    )
+            }
+
+
+        let mapFromProduct (p: ComponentProduct) : Order.Orderable.Component.Dto.ProductDto =
+            let dto = Order.Orderable.Component.Dto.ProductDto()
+            dto.Id <- p.Id
+            dto.FormQuantities <- p.FormQuantities |> Option.map mapFromValueUnit
+
+            dto.Strengths <-
+                p.Strengths
+                |> Array.toList
+                |> List.map (fun ps ->
+                    let s = Order.Orderable.Component.Dto.StrengthDto()
+                    s.Substance <- ps.Substance
+                    s.Strength <- ps.Strength |> mapFromValueUnit |> Some
+                    s
+                )
+
+            dto
+
+
         let mapToComponent sns (dto: Order.Orderable.Component.Dto.Dto) : Component =
             Models.Order.Component.create
                 dto.Id
@@ -229,6 +266,7 @@ module Mappers =
                 (dto.OrderableConcentration |> mapToOrderVariable)
                 (dto.Dose |> mapToDose)
                 (dto.Items |> List.toArray |> Array.map (mapToItem sns))
+                (dto.Products |> List.toArray |> Array.map mapToProduct)
 
 
         let mapFromComponent (comp: Component) : Order.Orderable.Component.Dto.Dto =
@@ -244,6 +282,7 @@ module Mappers =
             dto.OrderableConcentration <- comp.OrderableConcentration |> mapFromOrderVariable
             dto.Dose <- comp.Dose |> mapFromDose
             dto.Items <- comp.Items |> Array.toList |> List.map mapFromItem
+            dto.Products <- comp.Products |> Array.toList |> List.map mapFromProduct
 
             dto
 

@@ -3,7 +3,7 @@ module Informedica.GenPRES.Server.Tests.DoseCheckTests
 open Expecto
 open Expecto.Flip
 open Informedica.GenForm.Lib
-open Shared.Types
+open Informedica.GenPRES.Shared.Types
 open ServerApi.FormularyService
 
 module Check = Check

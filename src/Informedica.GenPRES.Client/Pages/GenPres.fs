@@ -3,13 +3,18 @@ namespace Pages
 
 module GenPres =
 
+    open Informedica.GenPRES.Client.Core.Models
+    open Informedica.GenPRES.Client.Core.Helpers
+    open Informedica.GenPRES.Client.Core.StateMachines
+    open Informedica.GenPRES.Client.Core.MachinePolicies
+
 
     open Fable.Core
     open Fable.React
     open Feliz
     open Elmish
-    open Shared
-    open Shared.Types
+    open Informedica.GenPRES.Shared
+    open Informedica.GenPRES.Shared.Types
     open OrderPlanMachine
     open OrderContextMachine
 
@@ -24,7 +29,6 @@ module GenPres =
             {
                 SideMenuItems: (JSX.Element option * string * bool * string option * bool)[]
                 SideMenuIsOpen: bool
-                Configuration: Configuration Option
             }
 
 
@@ -35,15 +39,15 @@ module GenPres =
 
         let pages =
             [
-                LifeSupport
-                ContinuousMeds
-                Prescribe
-                Nutrition
-                OrderPlan
-                Interactions
-                Formulary
-                Parenteralia
-                Settings
+                Global.Pages.LifeSupport
+                Global.Pages.ContinuousMeds
+                Global.Pages.Prescribe
+                Global.Pages.Nutrition
+                Global.Pages.OrderPlan
+                Global.Pages.Interactions
+                Global.Pages.Formulary
+                Global.Pages.Parenteralia
+                Global.Pages.Settings
             ]
 
 
@@ -57,20 +61,20 @@ module GenPres =
                             let b = p = page
 
                             match p |> pageToString terms lang with
-                            | s when p = LifeSupport -> Mui.Icons.FireExtinguisher |> Some, s, b, None, false
-                            | s when p = ContinuousMeds -> Mui.Icons.Vaccines |> Some, s, b, None, false
-                            | s when p = Prescribe -> Mui.Icons.Message |> Some, s, b, None, false
-                            | s when p = Nutrition -> Mui.Icons.LocalDiningIcon |> Some, s, b, None, false
-                            | s when p = OrderPlan -> Mui.Icons.SummarizeIcon |> Some, s, b, None, false
-                            | s when p = Interactions -> Mui.Icons.WarningAmber |> Some, s, b, None, false
-                            | s when p = Formulary -> Mui.Icons.LocalPharmacy |> Some, s, b, None, false
-                            | s when p = Parenteralia -> Mui.Icons.Bloodtype |> Some, s, b, None, false
-                            | s when p = Settings -> Mui.Icons.Settings |> Some, s, b, None, false
+                            | s when p = Global.Pages.LifeSupport ->
+                                Mui.Icons.FireExtinguisher |> Some, s, b, None, false
+                            | s when p = Global.Pages.ContinuousMeds -> Mui.Icons.Vaccines |> Some, s, b, None, false
+                            | s when p = Global.Pages.Prescribe -> Mui.Icons.Message |> Some, s, b, None, false
+                            | s when p = Global.Pages.Nutrition -> Mui.Icons.LocalDiningIcon |> Some, s, b, None, false
+                            | s when p = Global.Pages.OrderPlan -> Mui.Icons.SummarizeIcon |> Some, s, b, None, false
+                            | s when p = Global.Pages.Interactions -> Mui.Icons.WarningAmber |> Some, s, b, None, false
+                            | s when p = Global.Pages.Formulary -> Mui.Icons.LocalPharmacy |> Some, s, b, None, false
+                            | s when p = Global.Pages.Parenteralia -> Mui.Icons.Bloodtype |> Some, s, b, None, false
+                            | s when p = Global.Pages.Settings -> Mui.Icons.Settings |> Some, s, b, None, false
                             | s -> None, s, b, None, false
                         )
 
                     SideMenuIsOpen = not isMobile
-                    Configuration = None
                 }
 
             state, Cmd.none
@@ -86,7 +90,7 @@ module GenPres =
                 |> List.map (fun p -> p |> pageToString terms lang, p)
                 |> List.tryFind (fst >> ((=) s))
                 |> Option.map snd
-                |> Option.defaultValue LifeSupport
+                |> Option.defaultValue Global.Pages.LifeSupport
                 |> updatePage
 
                 { state with
@@ -124,13 +128,14 @@ module GenPres =
 
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
-        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
+        let isMobile = Mui.Hooks.useIsMobile ()
 
         let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
         let orderContext = (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext
         let orderPlan = (AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv).OrderPlan
         let auth = AppEnv.asEnv<AppEnv.IAuthentication> props.appEnv
+        let busy = AppEnv.asEnv<AppEnv.IBusy> props.appEnv
 
         let updatePageRef = React.useRef props.updatePage
         updatePageRef.current <- props.updatePage
@@ -216,24 +221,25 @@ module GenPres =
         let formularyBg =
             match formulary with
             | Resolved form
-            | Refreshing form -> form.DoseCheck |> Models.Severity.ofTextBlocks |> Mui.Styles.severityBg
+            | Refreshing form -> form.DoseCheck |> Severity.ofTextBlocks |> Mui.Styles.severityBg
             | _ -> None
 
         let interactionsIndex = pages |> List.tryFindIndex ((=) Global.Pages.Interactions)
         let formularyIndex = pages |> List.tryFindIndex ((=) Global.Pages.Formulary)
         let settingsIndex = pages |> List.tryFindIndex ((=) Global.Pages.Settings)
 
+        // no page switch while anything is out
         let menuItems =
             state.SideMenuItems
             |> Array.mapi (fun idx (icon, text, sel, _, _) ->
                 if Some idx = interactionsIndex && hasInteractions then
-                    icon, text, sel, Some Mui.Styles.warningBg, false
+                    icon, text, sel, Some Mui.Styles.warningBg, busy.Any
                 elif Some idx = formularyIndex && formularyBg |> Option.isSome then
-                    icon, text, sel, formularyBg, false
+                    icon, text, sel, formularyBg, busy.Any
                 elif Some idx = settingsIndex && not auth.IsAuthenticated then
                     icon, text, false, None, true
                 else
-                    icon, text, sel, None, false
+                    icon, text, sel, None, busy.Any
             )
 
         let sideMenu =
@@ -259,20 +265,50 @@ module GenPres =
             | Global.Pages.Parenteralia -> Views.Parenteralia.View appEnvProps
             | Global.Pages.Settings -> Views.Settings.View appEnvProps
 
+        // the page is disabled as a whole while a request out can change anything on it
+        let pageDisabled = busy.Page props.page
+
+        // the page box scrolls, so the disable lies around it and its spinner stays in view
+        let disabledPage =
+            Components.Disabled.View
+                {|
+                    isDisabled = pageDisabled
+                    children =
+                        JSX.jsx
+                            $"""
+                        import Box from '@mui/material/Box';
+                        <Box id="page-box" sx={sxPageBox}>
+                            {pageView}
+                        </Box>
+                        """
+                |}
+
         let totalsContent =
             match props.page with
             | Global.Pages.Prescribe ->
                 match orderContext with
                 | OrderContextView.Settled pr
                 | OrderContextView.Refused(pr, _)
-                | OrderContextView.Changing pr -> Views.Totals.View {| intake = pr.Intake |} |> Some
+                | OrderContextView.Changing pr ->
+                    Views.Totals.View
+                        {|
+                            source = "context"
+                            intake = pr.Intake
+                        |}
+                    |> Some
                 | OrderContextView.NoPatient -> None
             // the one plan: the nutrition page shows the plan's totals, nutrition included
             | Global.Pages.Nutrition
             | Global.Pages.OrderPlan ->
                 match orderPlan with
                 | OrderPlanView.Settled(tp, _)
-                | OrderPlanView.Changing(tp, _) -> Views.Totals.View {| intake = tp.Totals |} |> Some
+                | OrderPlanView.Changing(tp, _) ->
+                    Views.Totals.View
+                        {|
+                            source = "plan"
+                            intake = tp.Totals
+                        |}
+                    |> Some
                 | OrderPlanView.NoPatient -> None
             | _ -> None
 
@@ -285,11 +321,13 @@ module GenPres =
                     localizationTerms = localizationTerms
                 |}
 
-        // the session gate: over the app while a launch is presented or resumed,
-        // and after a refusal; it cannot be dismissed, the machine decides when it goes
+        // the gate: over the app until it has started, while a launch is presented or resumed,
+        // and after a refusal; it cannot be dismissed, the machines decide when it goes
         let sessionGateOpen =
-            (AppEnv.asEnv<AppEnv.ISession> props.appEnv).Session
-            |> SessionGatePolicy.isGated
+            StartupPolicy.isGated
+                (AppEnv.asEnv<AppEnv.IStartup> props.appEnv).Startup
+                (AppEnv.asEnv<AppEnv.ISession> props.appEnv).Session
+                (AppEnv.asEnv<AppEnv.ISigning> props.appEnv).Signing
 
         let sessionGateView = Views.SessionGate.View {| appEnv = props.appEnv |}
 
@@ -405,9 +443,7 @@ module GenPres =
                 <Container id="page-container" sx={sxContainer} >
                     <Stack sx={sxStack}>
                         {patientBox}
-                        <Box id="page-box" sx={sxPageBox}>
-                            {pageView}
-                        </Box>
+                        {disabledPage}
                     </Stack>
                 </Container>
             </Box>

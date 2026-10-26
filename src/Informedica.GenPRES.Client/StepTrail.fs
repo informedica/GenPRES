@@ -7,6 +7,9 @@ module StepTrail
 
 open System
 
+module Client = Informedica.GenPRES.Client.Core.Client
+module Trail = Informedica.GenPRES.Client.Core.Trail
+
 #if DEBUG
 open Fable.Core
 

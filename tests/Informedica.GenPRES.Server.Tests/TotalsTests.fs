@@ -1,8 +1,8 @@
 module Informedica.GenPRES.Server.Tests.TotalsTests
 
 open System
-open Shared
-open Shared.Types
+open Informedica.GenPRES.Shared
+open Informedica.GenPRES.Shared.Types
 open Expecto
 open Informedica.GenForm.Lib
 open Swensen.Unquote

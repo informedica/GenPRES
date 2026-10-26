@@ -20,11 +20,11 @@ let categories =
 /// The contract model's category, for the client's label.
 let sharedCategory category =
     match category with
-    | NutritionCategory.EnteralFeeding -> Shared.Types.NutritionCategory.EnteralFeeding
-    | NutritionCategory.EnteralSupplement -> Shared.Types.NutritionCategory.EnteralSupplement
-    | NutritionCategory.TPN -> Shared.Types.NutritionCategory.TPN
-    | NutritionCategory.Lipid -> Shared.Types.NutritionCategory.Lipid
-    | NutritionCategory.ElectrolyteGlucose -> Shared.Types.NutritionCategory.ElectrolyteGlucose
+    | NutritionCategory.EnteralFeeding -> Informedica.GenPRES.Shared.Types.NutritionCategory.EnteralFeeding
+    | NutritionCategory.EnteralSupplement -> Informedica.GenPRES.Shared.Types.NutritionCategory.EnteralSupplement
+    | NutritionCategory.TPN -> Informedica.GenPRES.Shared.Types.NutritionCategory.TPN
+    | NutritionCategory.Lipid -> Informedica.GenPRES.Shared.Types.NutritionCategory.Lipid
+    | NutritionCategory.ElectrolyteGlucose -> Informedica.GenPRES.Shared.Types.NutritionCategory.ElectrolyteGlucose
 
 
 [<Tests>]
@@ -53,7 +53,9 @@ let tests =
                     set.Label
                     |> Expect.equal
                         $"{category} label"
-                        (category |> sharedCategory |> Shared.Models.NutritionCategory.label)
+                        (category
+                         |> sharedCategory
+                         |> Informedica.GenPRES.Shared.Models.NutritionCategory.label)
             }
 
             test "no set is empty: every category names at least one indication and one generic" {

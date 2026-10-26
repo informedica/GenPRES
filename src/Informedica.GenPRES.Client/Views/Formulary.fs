@@ -3,12 +3,17 @@ namespace Views
 
 module Formulary =
 
+    open Informedica.GenPRES.Client.Core.Models
+    open Informedica.GenPRES.Client.Core.Helpers
+    open Informedica.GenPRES.Client.Core.Policies
+    open Informedica.GenPRES.Client.Core.StateMachines
+
     open Fable.Core
     open Fable.React
     open Feliz
-    open Shared
-    open Shared.Models
-    open Shared.Types
+    open Informedica.GenPRES.Shared
+    open Informedica.GenPRES.Shared.Models
+    open Informedica.GenPRES.Shared.Types
     open Elmish
     open OrderContextMachine
 
@@ -109,7 +114,7 @@ module Formulary =
             | DoseTypeChange s ->
                 match formulary with
                 | Resolved form ->
-                    { form with DoseType = s |> Option.map DoseType.doseTypeFromString }
+                    { form with DoseType = s |> Option.map DoseTypeText.doseTypeFromString }
                     |> updateFormulary
                 | _ -> ()
 
@@ -126,39 +131,24 @@ module Formulary =
 
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
-        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
+        let isMobile = Mui.Hooks.useIsMobile ()
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
 
         let dispatch msg = msg |> update formulary updateFormulary
 
-        // the filter is the workbench's: a change here is evaluated there, so the selects are
-        // greyed while a workbench request is under way
-        let busy =
-            match (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext with
-            | OrderContextView.Changing _ -> true
-            | OrderContextView.NoPatient
-            | OrderContextView.Refused _
-            | OrderContextView.Settled _ -> false
-
-        let select = ViewHelpers.filterSelect busy
-        let autoComplete = ViewHelpers.autoComplete busy
+        let select = ViewHelpers.filterSelect
+        let autoComplete = ViewHelpers.autoComplete
 
 
         let patientNotice =
             Components.PatientNotice.View
                 {|
                     appEnv = props.appEnv
-                    needs = PatientReadiness.Needs.DoseCheck
+                    needs = PatientReadinessPolicy.Needs.DoseCheck
                 |}
 
-        let progress = ViewHelpers.progressOrEmpty formulary
-
-        let stackDirection =
-            if Mui.Hooks.useMediaQuery "(max-width:900px)" then
-                "column"
-            else
-                "row"
+        let stackDirection = if Mui.Hooks.useIsNarrow () then "column" else "row"
 
         let markdownBoxSx = {| color = Mui.Colors.Indigo.``900`` |}
 
@@ -281,76 +271,65 @@ module Formulary =
                         {Formulary |> getTerm "Formularium"}
                     </Typography>
                     {match formulary with
-                     | Resolved form -> false, form.Indication, form.Indications
-                     | Refreshing form -> true, form.Indication, form.Indications
-                     | _ -> true, None, [||]
-                     |> fun (isLoading, sel, items) ->
+                     | Resolved form
+                     | Refreshing form -> form.Indication, form.Indications
+                     | _ -> None, [||]
+                     |> fun (sel, items) ->
                          let lbl = Terms.``Formulary Indications`` |> getTerm "Indicaties"
 
                          if isMobile then
                              items
                              |> Array.map (fun s -> s, s)
-                             |> select isLoading lbl sel (IndicationChange >> dispatch)
+                             |> select lbl sel (IndicationChange >> dispatch)
                          else
-                             items |> autoComplete isLoading lbl sel (IndicationChange >> dispatch)
+                             items |> autoComplete lbl sel (IndicationChange >> dispatch)
 
                 }
                     <Stack direction={stackDirection} spacing={3} >
                         {match formulary with
-                         | Resolved form -> false, form.Generic, form.Generics
-                         | Refreshing form -> true, form.Generic, form.Generics
-                         | _ -> true, None, [||]
-                         |> fun (isLoading, sel, items) ->
+                         | Resolved form
+                         | Refreshing form -> form.Generic, form.Generics
+                         | _ -> None, [||]
+                         |> fun (sel, items) ->
                              let lbl = Terms.``Formulary Medications`` |> getTerm "Medicatie"
 
                              if isMobile then
-                                 items
-                                 |> Array.map (fun s -> s, s)
-                                 |> select isLoading lbl sel (GenericChange >> dispatch)
+                                 items |> Array.map (fun s -> s, s) |> select lbl sel (GenericChange >> dispatch)
                              else
-                                 items |> autoComplete isLoading lbl sel (GenericChange >> dispatch)}
+                                 items |> autoComplete lbl sel (GenericChange >> dispatch)}
                         {match formulary with
-                         | Resolved form -> false, form.Route, form.Routes
-                         | Refreshing form -> true, form.Route, form.Routes
-                         | _ -> true, None, [||]
-                         |> fun (isLoading, sel, items) ->
+                         | Resolved form
+                         | Refreshing form -> form.Route, form.Routes
+                         | _ -> None, [||]
+                         |> fun (sel, items) ->
                              let lbl = Terms.``Formulary Routes`` |> getTerm "Routes"
 
                              if isMobile then
-                                 items
-                                 |> Array.map (fun s -> s, s)
-                                 |> select isLoading lbl sel (RouteChange >> dispatch)
+                                 items |> Array.map (fun s -> s, s) |> select lbl sel (RouteChange >> dispatch)
                              else
-                                 items |> autoComplete isLoading lbl sel (RouteChange >> dispatch)}
+                                 items |> autoComplete lbl sel (RouteChange >> dispatch)}
                         {match formulary with
-                         | Resolved form -> false, form.Form, form.Forms
-                         | Refreshing form -> true, form.Form, form.Forms
-                         | _ -> true, None, [||]
-                         |> fun (isLoading, sel, items) ->
+                         | Resolved form
+                         | Refreshing form -> form.Form, form.Forms
+                         | _ -> None, [||]
+                         |> fun (sel, items) ->
                              let lbl = Terms.``Pharmaceutical Form`` |> getTerm "Farmacologische Vorm"
 
                              if isMobile then
-                                 items
-                                 |> Array.map (fun s -> s, s)
-                                 |> select isLoading lbl sel (FormChange >> dispatch)
+                                 items |> Array.map (fun s -> s, s) |> select lbl sel (FormChange >> dispatch)
                              else
-                                 items |> autoComplete isLoading lbl sel (FormChange >> dispatch)}
+                                 items |> autoComplete lbl sel (FormChange >> dispatch)}
                         {match formulary with
                          | Resolved form
                          | Refreshing form ->
-                             let isLoading =
-                                 match formulary with
-                                 | Refreshing _ -> true
-                                 | _ -> false
-
-                             (isLoading, form.DoseType, form.DoseTypes)
-                             |> fun (isLoading, sel, items) ->
+                             (form.DoseType, form.DoseTypes)
+                             |> fun (sel, items) ->
                                  let lbl = Terms.``Dose Types`` |> getTerm "Doseer types"
-                                 let sel = sel |> Option.map DoseType.doseTypeToString
+                                 let sel = sel |> Option.map DoseTypeText.doseTypeToString
 
                                  items
-                                 |> Array.map (fun s -> s |> DoseType.doseTypeToString, s |> DoseType.doseTypeToDescription)
-                                 |> select isLoading lbl sel (DoseTypeChange >> dispatch)
+                                 |> Array.map (fun s -> s |> DoseTypeText.doseTypeToString, s |> DoseTypeText.doseTypeToDescription)
+                                 |> select lbl sel (DoseTypeChange >> dispatch)
 
                          | _ -> null
 
@@ -397,6 +376,5 @@ module Formulary =
         <Box>
                 {patientNotice}
                 {content}
-                {progress}
         </Box>
         """

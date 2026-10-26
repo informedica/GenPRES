@@ -92,8 +92,8 @@ let all: GoldenTotals list =
             Totals =
                 [
                     "Volume", "#1,47# - #22,7# mL||/kg||/dag||"
-                    "Energy", "#0,13# - #8,77# kCal||/kg||/dag||"
-                    "Carbohydrate", "#0,03# - #2,19# g||/kg||/dag||"
+                    "Energy", "#0,29# - #8,61# kCal||/kg||/dag||"
+                    "Carbohydrate", "#0,07# - #2,15# g||/kg||/dag||"
                 ]
         }
         {
@@ -109,7 +109,7 @@ let all: GoldenTotals list =
         {
             Name = "pcmDrink"
             Medication = Scenarios.pcmDrink
-            Totals = [ ("Volume", "#2# mL||/kg||/dag||") ]
+            Totals = [ ("Volume", "#1,8# - #2,4# mL||/kg||/dag||") ]
         }
         {
             Name = "cotrim"
@@ -121,7 +121,7 @@ let all: GoldenTotals list =
             Medication = Scenarios.tpn
             Totals =
                 [
-                    "Volume", "#13,3# - #55,3# mL||/kg||/dag||"
+                    "Volume", "#12,7# - #55,3# mL||/kg||/dag||"
                     "Protein", "#0,59# - #1,47# g||/kg||/dag||"
                     "Carbohydrate", "#0,01# - #4,27# g||/kg||/dag||"
                     "Sodium", "#2,07# - #2,58# mmol||/kg||/dag||"
@@ -133,7 +133,7 @@ let all: GoldenTotals list =
             Medication = Scenarios.tpnComplete
             Totals =
                 [
-                    "Volume", "#13,3# - #55,3# mL||/kg||/dag||"
+                    "Volume", "#12,7# - #55,3# mL||/kg||/dag||"
                     "Energy", "#2,37# - #22,9# kCal||/kg||/dag||"
                     "Protein", "#0,59# - #1,47# g||/kg||/dag||"
                     "Carbohydrate", "#0,01# - #4,27# g||/kg||/dag||"
@@ -151,10 +151,10 @@ let all: GoldenTotals list =
 /// The totals over all the recorded scenarios at once, the way an order plan takes them.
 let together =
     [
-        "Volume", "#32,2# - #141# mL||/kg||/dag||"
-        "Energy", "#2,87# - #33,5# kCal||/kg||/dag||"
+        "Volume", "#30,8# - #141# mL||/kg||/dag||"
+        "Energy", "#3,03# - #33,3# kCal||/kg||/dag||"
         "Protein", "#1,17# - #2,93# g||/kg||/dag||"
-        "Carbohydrate", "#0,14# - #11,2# g||/kg||/dag||"
+        "Carbohydrate", "#0,18# - #11,1# g||/kg||/dag||"
         "Sodium", "#4,15# - #5,17# mmol||/kg||/dag||"
         "Potassium", "#2,96# - #3,93# mmol||/kg||/dag||"
         "Chloride", "#3,85# - #5,28# mmol||/kg||/dag||"

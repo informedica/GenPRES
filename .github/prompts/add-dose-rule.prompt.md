@@ -35,6 +35,6 @@ Add or modify a medication rule (dose rule, solution rule, product, etc.) in Gen
 ## Key Patterns
 
 - Use `Csv.getStringColumn` / `Csv.getFloatOptionColumn` for column access
-- Return `GenFormResult<'T>` (i.e., `Result<'T, Message list>`) from parsing functions
+- Return `Result<'T, Message list>` from parsing functions
 - Use `BigRational` for all numeric medication values (absolute precision required)
 - Use existing helpers: `BigRational.toBrs`, `getFloat`, `Option.bind BigRational.fromFloat`

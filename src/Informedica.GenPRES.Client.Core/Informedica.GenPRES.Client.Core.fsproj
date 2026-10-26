@@ -9,43 +9,81 @@
     is what keeps it that way: add a Browser call here and this project stops compiling.
   -->
   <ItemGroup>
-    <!-- the rest -->
-    <Compile Include="Deferred.fs" />
-    <Compile Include="FilterSync.fs" />
-    <Compile Include="TermText.fs" />
+    <!-- the code from Shared the client alone uses; it reads only Shared -->
+    <Compile Include="Models/Terms.fs" />
+    <Compile Include="Models/LocalizationText.fs" />
+    <Compile Include="Models/BodySurfaceArea.fs" />
+    <Compile Include="Models/RenalFunctionText.fs" />
+    <Compile Include="Models/PatientRead.fs" />
+    <Compile Include="Models/PatientText.fs" />
+    <Compile Include="Models/PatientEdit.fs" />
+    <Compile Include="Models/Severity.fs" />
+    <Compile Include="Models/TextBlockDisplay.fs" />
+    <Compile Include="Models/TextBlockParser.fs" />
+    <Compile Include="Models/OrderDisplay.fs" />
+    <Compile Include="Models/TotalsDisplay.fs" />
+    <Compile Include="Models/DoseTypeText.fs" />
+    <Compile Include="Models/OrderContextText.fs" />
+    <Compile Include="Models/ContinuousMedicationList.fs" />
 
-    <!-- policies over the contract alone -->
-    <Compile Include="LanguagePolicy.fs" />
-    <Compile Include="OrderContextRefusalPolicy.fs" />
-    <Compile Include="PatientDraftPolicy.fs" />
-    <Compile Include="PatientReadiness.fs" />
-    <Compile Include="PickPolicy.fs" />
-    <Compile Include="SeverityReasonPolicy.fs" />
-    <Compile Include="ArgumentationPolicy.fs" />
-    <Compile Include="QuantityModePolicy.fs" />
-    <Compile Include="FieldOpenPolicy.fs" />
-    <Compile Include="PickList.fs" />
-    <Compile Include="PlanContextPolicy.fs" />
-    <Compile Include="PlanCellPolicy.fs" />
-    <Compile Include="SectionFoldPolicy.fs" />
-    <Compile Include="PlanWorkPolicy.fs" />
-    <Compile Include="HeldContextPolicy.fs" />
-    <Compile Include="ServerErrorPolicy.fs" />
+    <!-- helpers: no decisions, used by every kind below -->
+    <Compile Include="Helpers/Deferred.fs" />
+    <Compile Include="Helpers/TermText.fs" />
+    <Compile Include="Helpers/TextFormat.fs" />
+    <Compile Include="Helpers/FilterSync.fs" />
+    <Compile Include="Helpers/Page.fs" />
+    <Compile Include="Helpers/Loads.fs" />
+    <Compile Include="Helpers/Alert.fs" />
+    <Compile Include="Helpers/Url.fs" />
+    <Compile Include="Helpers/CommandPreview.fs" />
+    <Compile Include="Helpers/FilterSeed.fs" />
 
-    <!-- the session and signing machines -->
-    <Compile Include="SessionMachine.fs" />
-    <Compile Include="SigningMachine.fs" />
+    <!-- policies over the contract -->
+    <Compile Include="Policies/LanguagePolicy.fs" />
+    <Compile Include="Policies/OrderContextRefusalPolicy.fs" />
+    <Compile Include="Policies/PatientDraftPolicy.fs" />
+    <Compile Include="Policies/PatientReadinessPolicy.fs" />
+    <Compile Include="Policies/PickPolicy.fs" />
+    <Compile Include="Policies/StepPolicy.fs" />
+    <Compile Include="Policies/DialogTabPolicy.fs" />
+    <Compile Include="Policies/SeverityReasonPolicy.fs" />
+    <Compile Include="Policies/ArgumentationPolicy.fs" />
+    <Compile Include="Policies/QuantityModePolicy.fs" />
+    <Compile Include="Policies/IntakePolicy.fs" />
+    <Compile Include="Policies/FieldOpenPolicy.fs" />
+    <Compile Include="Policies/PickListPolicy.fs" />
+    <Compile Include="Policies/PlanContextPolicy.fs" />
+    <Compile Include="Policies/PlanCellPolicy.fs" />
+    <Compile Include="Policies/SectionFoldPolicy.fs" />
+    <Compile Include="Policies/TotalsChangePolicy.fs" />
+    <Compile Include="Policies/PlanWorkPolicy.fs" />
+    <Compile Include="Policies/HeldContextPolicy.fs" />
+    <Compile Include="Policies/ServerErrorPolicy.fs" />
+    <Compile Include="Policies/BusyPolicy.fs" />
+    <Compile Include="Policies/UrlPolicy.fs" />
 
-    <!-- policies over the session and signing machines -->
-    <Compile Include="SessionGatePolicy.fs" />
-    <Compile Include="SigningPolicy.fs" />
-    <Compile Include="UnsignedWorkPolicy.fs" />
+    <!-- the state machines -->
+    <Compile Include="StateMachines/PatientMachine.fs" />
+    <Compile Include="StateMachines/SessionMachine.fs" />
+    <Compile Include="StateMachines/SigningMachine.fs" />
+    <Compile Include="StateMachines/OrderPlanMachine.fs" />
+    <Compile Include="StateMachines/OrderContextMachine.fs" />
+    <Compile Include="StateMachines/LoaderMachine.fs" />
+    <Compile Include="StateMachines/AdminMachine.fs" />
+    <Compile Include="StateMachines/ShellMachine.fs" />
 
-    <!-- the order machines -->
-    <Compile Include="OrderPlanMachine.fs" />
-    <Compile Include="OrderContextMachine.fs" />
+    <!-- policies over the machines -->
+    <Compile Include="MachinePolicies/SessionGatePolicy.fs" />
+    <Compile Include="MachinePolicies/SigningPolicy.fs" />
+    <Compile Include="MachinePolicies/UnsignedWorkPolicy.fs" />
+    <Compile Include="MachinePolicies/HeldPanelPolicy.fs" />
+    <Compile Include="MachinePolicies/OutPolicy.fs" />
+    <Compile Include="MachinePolicies/StartupPolicy.fs" />
 
-    <!-- the readable trail of the machines, for development -->
+    <!-- the entry files, at the root: the wiring between the machines, and their readable
+         trail for development -->
+    <Compile Include="Lanes.fs" />
+    <Compile Include="Client.fs" />
     <Compile Include="Trail.fs" />
   </ItemGroup>
   <ItemGroup>

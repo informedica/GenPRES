@@ -1,6 +1,6 @@
 /// The check at the challenge: every order context new or changed since the head states the
 /// plan's patient context. A context is new or changed when the head does not hold its id, or
-/// holds it with other content; the age the Server puts on every context and the intake the
+/// holds it with other content; the age of the patient data and the intake the
 /// totals recompute are no change. The contexts the head holds unchanged are exempt.
 module Informedica.GenPRES.Server.Tests.HeldContextTests
 
@@ -8,35 +8,44 @@ open Expecto
 open Expecto.Flip
 open Informedica.GenOrder.Lib
 // after the domain, so that the contract model's cases win unqualified
-open Shared.Types
+open Informedica.GenPRES.Shared.Types
 open ServerApi
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.SessionStubTests
 
 
-let ten = { Shared.Models.Patient.Age.ageZero with Age.Years = 10<year> }
-let eleven = { Shared.Models.Patient.Age.ageZero with Age.Years = 11<year> }
+let ten = { Informedica.GenPRES.Shared.Models.Patient.Age.ageZero with Age.Years = 10<year> }
+let eleven = { Informedica.GenPRES.Shared.Models.Patient.Age.ageZero with Age.Years = 11<year> }
 
 let weighing (kg: int) (p: Patient) =
     { p with Weight = { p.Weight with Measured = Some(kg * 1000<gram>) } }
 
-let patient = { Shared.Models.Patient.empty with Age = Some ten } |> weighing 30
+let patient =
+    { Informedica.GenPRES.Shared.Models.Patient.empty with Age = Some ten }
+    |> weighing 30
 
 let context (pat: Patient) (id: string) =
-    { Shared.Models.OrderContext.empty with
+    { Informedica.GenPRES.Shared.Models.OrderContext.empty with
         Id = id
         Patient = pat
         Scenarios = [| scenarioWithOrder $"o-%s{id}" |]
     }
 
 
-/// The plan as the client sends it, at the Session's age, parsed as the signing handler does.
+/// The plan of the client with every context at the age given, parsed as the signing handler
+/// parses it: as sent.
 let parsedAt (age: Age option) (plan: OrderPlan) =
-    plan |> OrderPlanCommand.patientsPlan (ServerApi.Patient.aged age) |> parsed
+    let at (p: Patient) = { p with Age = age }
+
+    { plan with
+        Patient = at plan.Patient
+        OrderContexts = plan.OrderContexts |> Array.map (fun c -> { c with Patient = at c.Patient })
+    }
+    |> parsed
 
 
 /// A head as the record holds it: the order plan signed, in the domain.
 let head =
-    Shared.Models.OrderPlan.create patient [| context patient "c1"; context patient "c2" |]
+    Informedica.GenPRES.Shared.Models.OrderPlan.create patient [| context patient "c1"; context patient "c2" |]
     |> parsedAt (Some ten)
 
 
@@ -61,11 +70,11 @@ let tests =
                 |> Expect.isEmpty "no context of the head is new or changed"
             }
 
-            test "a context of the head at another age is not changed" {
+            test "a context of the head sent back at another age is not changed" {
                 opened
                 |> parsedAt (Some eleven)
                 |> Session.changedContexts (Some head)
-                |> Expect.isEmpty "the age is the Server's"
+                |> Expect.isEmpty "the age is left out of the comparison"
             }
 
             test "an order added is new" {
@@ -111,7 +120,9 @@ let tests =
             }
 
             test "a plan without a head is checked whole" {
-                Shared.Models.OrderPlan.create patient [| context patient "c1"; context (patient |> weighing 35) "c2" |]
+                Informedica.GenPRES.Shared.Models.OrderPlan.create
+                    patient
+                    [| context patient "c1"; context (patient |> weighing 35) "c2" |]
                 |> parsedAt (Some ten)
                 |> Session.differingContexts None
                 |> Expect.equal "every context is new" [| "c2" |]

@@ -55,7 +55,7 @@ To use all features, enter patient data either:
    - **Access** — optional CVL, PVL and enteral-tube toggles; affects available routes
 3. Once **weight** and **height** are set, the Patient panel collapses automatically and dose calculations become available. Both are required: with either missing, no dose is calculated.
 
-> **Department** is not a field in this panel. It can only be supplied through the `dp` URL parameter.
+> **Department** is not a field in this panel. It can only be supplied through the `dep` URL parameter.
 
 ---
 
@@ -73,62 +73,67 @@ http://localhost:5173/#patient?<param1>=<value1>&<param2>=<value2>
 
 | Parameter | Description | Example | Notes |
 |-----------|-------------|---------|-------|
-| `by` | Birth year | `2010` | Required (or use `ad`) |
-| `bm` | Birth month | `6` | Optional; 1–12, default: `1` |
-| `bd` | Birth day | `15` | Optional; 1–31, default: `1` |
-| `ad` | Age in days | `365` | Alternative to `by`/`bm`/`bd` |
-| `wt` | Weight in grams | `25000` | Optional; 25000 = 25 kg |
-| `ht` | Height in cm | `130` | Optional |
-| `gw` | Gestational age (weeks) | `40` | Optional; for neonates |
-| `gd` | Gestational age (days) | `0` | Optional |
-| `cv` | Central venous line | `y` | Optional; `y` = yes |
-| `dp` | Department | `PICU` | Optional; free text |
+| `byr` | Birth year | `2010` | Required (or use `agd`) |
+| `bmo` | Birth month | `6` | Optional; 1–12, default: `1` |
+| `bdy` | Birth day | `15` | Optional; 1–31, default: `1` |
+| `agd` | Age in days | `365` | Alternative to `byr`/`bmo`/`bdy` |
+| `wgt` | Weight in grams | `25000` | Optional; 25000 = 25 kg |
+| `hgt` | Height in cm | `130` | Optional |
+| `gaw` | Gestational age (weeks) | `40` | Optional; for neonates |
+| `gad` | Gestational age (days) | `0` | Optional |
+| `cvl` | Central venous line | `y` | Optional; `y` = yes |
+| `dep` | Department | `PICU` | Optional; free text |
 
 ### Page / View Parameters
 
 | Parameter | Value | View |
 |-----------|-------|------|
-| `pg` | `el` | Emergency list |
-| `pg` | `cm` | Continuous medications |
-| `pg` | `pr` | Prescribe |
-| `pg` | `fm` | Formulary |
-| `pg` | `pe` | Parenteralia |
+| `pag` | `el` | Emergency list |
+| `pag` | `cm` | Continuous medications |
+| `pag` | `pr` | Prescribe |
+| `pag` | `fm` | Formulary |
+| `pag` | `pe` | Parenteralia |
+| `pag` | `nu` | Nutrition |
+| `pag` | `op` | Order plan |
+| `pag` | `ia` | Interactions |
+
+Settings, the admin page behind the password, has no code, so no link opens it.
 
 ### Medication Parameters
 
 | Parameter | Description | Example |
 |-----------|-------------|---------|
-| `md` | Medication name | `paracetamol` |
-| `rt` | Route | `intravenous` |
-| `fr` | Form | `infusion fluid` |
-| `in` | Indication | — |
-| `dt` | Dose type | — |
+| `med` | Medication name | `paracetamol` |
+| `rte` | Route | `intravenous` |
+| `frm` | Form | `infusion fluid` |
+| `ind` | Indication | — |
+| `dst` | Dose type | — |
 
 ### Other Parameters
 
 | Parameter | Description | Notes |
 |-----------|-------------|-------|
-| `la` | Language | `en` (English), `du` (Dutch), `fr` (French), `gr` (German), `sp` (Spanish), `it` (Italian) |
-| `dc` | Show disclaimer | `n` = suppress disclaimer on load |
+| `lan` | Language | `en` (English), `nl` (Dutch), `fr` (French), `de` (German), `es` (Spanish), `it` (Italian) |
+| `dsc` | Show disclaimer | `n` = suppress disclaimer on load |
 
 ### Example URLs
 
 **Child patient, prescribing view:**
 
 ```url
-http://localhost:5173/#patient?by=2015&bm=3&bd=10&wt=20000&ht=115&pg=pr
+http://localhost:5173/#patient?byr=2015&bmo=3&bdy=10&wgt=20000&hgt=115&pag=pr
 ```
 
 **Neonate by age in days, emergency list:**
 
 ```url
-http://localhost:5173/#patient?ad=7&wt=3200&gw=39&gd=2&pg=el
+http://localhost:5173/#patient?agd=7&wgt=3200&gaw=39&gad=2&pag=el
 ```
 
 **Adult patient, continuous medications, English UI:**
 
 ```url
-http://localhost:5173/#patient?by=1990&bm=1&bd=1&wt=70000&ht=175&pg=cm&la=en&dc=n
+http://localhost:5173/#patient?byr=1990&bmo=1&bdy=1&wgt=70000&hgt=175&pag=cm&lan=en&dsc=n
 ```
 
 ---

@@ -11,47 +11,77 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- the rest -->
-    <Compile Include="DeferredTests.fs" />
-    <Compile Include="TermTextTests.fs" />
+    <!-- the contract data the order tests share -->
+    <Compile Include="OrderFixtures.fs" />
 
-    <!-- policies over the contract alone -->
-    <Compile Include="LanguagePolicyTests.fs" />
-    <Compile Include="OrderContextRefusalPolicyTests.fs" />
-    <Compile Include="PatientDraftPolicyTests.fs" />
-    <Compile Include="PatientReadinessTests.fs" />
-    <Compile Include="PickPolicyTests.fs" />
-    <Compile Include="SeverityReasonPolicyTests.fs" />
-    <Compile Include="QuantityModePolicyTests.fs" />
-    <Compile Include="FieldOpenPolicyTests.fs" />
-    <Compile Include="PickListTests.fs" />
-    <Compile Include="SectionFoldPolicyTests.fs" />
-    <Compile Include="PlanWorkPolicyTests.fs" />
-    <Compile Include="HeldContextPolicyTests.fs" />
-    <Compile Include="ServerErrorPolicyTests.fs" />
+    <!-- helpers: no decisions, used by every kind below -->
+    <Compile Include="Helpers/DeferredTests.fs" />
+    <Compile Include="Helpers/TermTextTests.fs" />
+    <Compile Include="Helpers/UrlTests.fs" />
+    <Compile Include="Helpers/CommandPreviewTests.fs" />
 
-    <!-- the session and signing machines -->
-    <Compile Include="SessionMachineTests.fs" />
-    <Compile Include="SigningMachineTests.fs" />
+    <!-- the code from Shared -->
+    <Compile Include="Models/PatientTextTests.fs" />
+    <Compile Include="Models/PatientEditTests.fs" />
+    <Compile Include="Models/SeverityTests.fs" />
+    <Compile Include="Models/OrderDisplayTests.fs" />
+    <Compile Include="Models/OrderContextTextTests.fs" />
+    <Compile Include="Models/ContinuousBaseline.fs" />
+    <Compile Include="Models/ContinuousBaselineTests.fs" />
+    <Compile Include="Models/TextBlockParserTests.fs" />
 
-    <!-- policies over the session and signing machines -->
-    <Compile Include="SessionGatePolicyTests.fs" />
-    <Compile Include="SigningPolicyTests.fs" />
-    <Compile Include="UnsignedWorkPolicyTests.fs" />
+    <!-- policies over the contract -->
+    <Compile Include="Policies/LanguagePolicyTests.fs" />
+    <Compile Include="Policies/OrderContextRefusalPolicyTests.fs" />
+    <Compile Include="Policies/PatientDraftPolicyTests.fs" />
+    <Compile Include="Policies/PatientReadinessPolicyTests.fs" />
+    <Compile Include="Policies/PickPolicyTests.fs" />
+    <Compile Include="Policies/StepPolicyTests.fs" />
+    <Compile Include="Policies/DialogTabPolicyTests.fs" />
+    <Compile Include="Policies/SeverityReasonPolicyTests.fs" />
+    <Compile Include="Policies/ArgumentationPolicyTests.fs" />
+    <Compile Include="Policies/QuantityModePolicyTests.fs" />
+    <Compile Include="Policies/IntakePolicyTests.fs" />
+    <Compile Include="Policies/FieldOpenPolicyTests.fs" />
+    <Compile Include="Policies/PickListPolicyTests.fs" />
+    <Compile Include="Policies/PlanContextPolicyTests.fs" />
+    <Compile Include="Policies/PlanCellPolicyTests.fs" />
+    <Compile Include="Policies/SectionFoldPolicyTests.fs" />
+    <Compile Include="Policies/TotalsChangePolicyTests.fs" />
+    <Compile Include="Policies/PlanWorkPolicyTests.fs" />
+    <Compile Include="Policies/HeldContextPolicyTests.fs" />
+    <Compile Include="Policies/ServerErrorPolicyTests.fs" />
+    <Compile Include="Policies/UrlPolicyTests.fs" />
 
-    <!-- the order machines -->
-    <Compile Include="OrderPlanMachineTests.fs" />
-    <Compile Include="OrderContextMachineTests.fs" />
+    <!-- the state machines -->
+    <Compile Include="StateMachines/OrderPlanFixtures.fs" />
+    <Compile Include="StateMachines/SigningFixtures.fs" />
+    <Compile Include="StateMachines/PatientMachineTests.fs" />
+    <Compile Include="StateMachines/SessionMachineTests.fs" />
+    <Compile Include="StateMachines/SigningMachineTests.fs" />
+    <Compile Include="StateMachines/OrderPlanMachineTests.fs" />
+    <Compile Include="StateMachines/OrderContextMachineTests.fs" />
+    <Compile Include="StateMachines/LoaderMachineTests.fs" />
+    <Compile Include="StateMachines/AdminMachineTests.fs" />
+    <Compile Include="StateMachines/ShellMachineTests.fs" />
 
-    <!-- policies over the contract alone, whose tests read the order plan machine's fixtures -->
-    <Compile Include="ArgumentationPolicyTests.fs" />
-    <Compile Include="PlanContextPolicyTests.fs" />
-    <Compile Include="PlanCellPolicyTests.fs" />
+    <!-- policies over the machines -->
+    <Compile Include="MachinePolicies/SessionGatePolicyTests.fs" />
+    <Compile Include="MachinePolicies/SigningPolicyTests.fs" />
+    <Compile Include="MachinePolicies/UnsignedWorkPolicyTests.fs" />
+    <Compile Include="MachinePolicies/HeldPanelPolicyTests.fs" />
+    <Compile Include="MachinePolicies/StartupPolicyTests.fs" />
+    <Compile Include="MachinePolicies/BusyTests.fs" />
 
-    <!-- the readable trail of the machines -->
+    <!-- the entry files, at the root -->
+    <Compile Include="LanesTests.fs" />
+    <Compile Include="ClientTests.fs" />
     <Compile Include="TrailTests.fs" />
 
     <Compile Include="Main.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="fixtures\*.csv;fixtures\*.tsv" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

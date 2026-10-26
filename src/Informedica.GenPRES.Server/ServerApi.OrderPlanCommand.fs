@@ -2,8 +2,8 @@ namespace ServerApi
 
 open Informedica.GenOrder.Lib
 // after the domain, so that the contract model's cases win unqualified
-open Shared.Types
-open Shared.Api
+open Informedica.GenPRES.Shared.Types
+open Informedica.GenPRES.Shared.Api
 
 
 /// The plan member: the one plan, nutrition included, over the plan port.
@@ -63,40 +63,9 @@ module OrderPlanCommand =
             }
 
 
-    /// The plan's patient and that of every context in it mapped.
-    let patientsPlan (f: Patient -> Patient) (plan: OrderPlan) : OrderPlan =
-        { plan with
-            Patient = f plan.Patient
-            OrderContexts = plan.OrderContexts |> Array.map (OrderContextMapper.patients f)
-        }
-
-
-    /// Every patient the command carries mapped: the plan's and its contexts', and the
-    /// context's where the command carries one.
-    let patients (f: Patient -> Patient) (cmd: OrderPlanCommand) : OrderPlanCommand =
-        match cmd with
-        | OrderPlanCommand.Recalculate plan -> OrderPlanCommand.Recalculate(patientsPlan f plan)
-        | OrderPlanCommand.Navigate(plan, contextId, ctxCmd, ctx) ->
-            OrderPlanCommand.Navigate(patientsPlan f plan, contextId, ctxCmd, OrderContextMapper.patients f ctx)
-        | OrderPlanCommand.AddOrderContext(plan, ctx) ->
-            OrderPlanCommand.AddOrderContext(patientsPlan f plan, OrderContextMapper.patients f ctx)
-        | OrderPlanCommand.NewOrderContext(plan, category) ->
-            OrderPlanCommand.NewOrderContext(patientsPlan f plan, category)
-        | OrderPlanCommand.RemoveOrderContexts(plan, ids) ->
-            OrderPlanCommand.RemoveOrderContexts(patientsPlan f plan, ids)
-        | OrderPlanCommand.Open(pat, contexts) ->
-            OrderPlanCommand.Open(f pat, contexts |> Array.map (OrderContextMapper.patients f))
-
-
-    /// The patient the request edits: the plan's, the panel's; not a context's own.
-    let patientOf (cmd: OrderPlanCommand) =
-        match cmd with
-        | OrderPlanCommand.Recalculate plan
-        | OrderPlanCommand.Navigate(plan, _, _, _)
-        | OrderPlanCommand.AddOrderContext(plan, _)
-        | OrderPlanCommand.NewOrderContext(plan, _)
-        | OrderPlanCommand.RemoveOrderContexts(plan, _) -> Some plan.Patient
-        | OrderPlanCommand.Open(pat, _) -> Some pat
+    /// The plan as it is, its totals recalculated over its orders.
+    let recalculate (env: AppEnv) (plan: OrderPlan) =
+        Patient.overAll (Patient.ofPlan plan) (fun () -> answer env (parsePlan plan) env.orderPlan.recalculate)
 
 
     /// The plan's patient and that of every context it carries, and the context's where a
@@ -105,19 +74,55 @@ module OrderPlanCommand =
     /// demo flag. A draft that is none, or a plan the domain does not read, is refused.
     let processCmd (env: AppEnv) (cmd: OrderPlanCommand) =
         match cmd with
-        | OrderPlanCommand.Recalculate plan ->
-            Patient.overAll (Patient.ofPlan plan) (fun () -> answer env (parsePlan plan) env.orderPlan.recalculate)
+        // the server writes the patient and the rows; the client sends the plan as answered
+        | OrderPlanCommand.UpdatePatient(pat, plan) -> recalculate env { plan with Patient = pat }
+        | OrderPlanCommand.FilterRows(ids, plan) -> recalculate env { plan with Filtered = ids }
         | OrderPlanCommand.Navigate(plan, contextId, ctxCmd, ctx) ->
-            Patient.overAll
-                (Patient.ofPlan plan @ [ ctx.Patient ])
-                (fun () ->
-                    answer
-                        env
-                        (both (parsePlan plan) (OrderContextService.parse ctx))
-                        (fun (p, pc) ->
-                            env.orderPlan.navigate p contextId (OrderContextMapper.Command.toDomain ctxCmd) pc
-                        )
-                )
+            match ctxCmd with
+            // the argumentation is written by the server on the plan's context, without the domain
+            | OrderViewCommand.SetArgumentationProperty text when
+                plan.OrderContexts |> Array.exists (fun c -> c.Id = contextId)
+                ->
+                let ctx = ctx |> Informedica.GenPRES.Shared.Models.OrderContext.Argumentation.write text
+
+                let written (c: OrderContext) =
+                    if c.Id = contextId then
+                        { c with Argumentation = ctx.Argumentation }
+                    else
+                        c
+                recalculate env { plan with OrderContexts = Array.map written plan.OrderContexts }
+            | OrderViewCommand.SetArgumentationProperty _ ->
+                async { return Error [| OrderPlanMapper.words [||] (OrderPlanError.NoSuchContext contextId) |] }
+            | ctxCmd ->
+                // a reset clears the argumentation, on the context and on the plan's copy of it, since
+                // it puts the order back within the rules
+                let plan, ctx =
+                    match ctxCmd with
+                    | OrderViewCommand.ResetOrderScenario ->
+                        let clear (c: OrderContext) =
+                            if c.Id = contextId then
+                                { c with Argumentation = None }
+                            else
+                                c
+
+                        { plan with OrderContexts = Array.map clear plan.OrderContexts },
+                        { ctx with Argumentation = None }
+                    | _ -> plan, ctx
+
+                Patient.overAll
+                    (Patient.ofPlan plan @ [ ctx.Patient ])
+                    (fun () ->
+                        answer
+                            env
+                            (both (parsePlan plan) (OrderContextService.parse ctx))
+                            (fun (p, pc) ->
+                                env.orderPlan.navigate
+                                    p
+                                    contextId
+                                    (OrderContextMapper.Command.toDomain ctx.Category ctxCmd)
+                                    pc
+                            )
+                    )
         | OrderPlanCommand.AddOrderContext(plan, ctx) ->
             Patient.overAll
                 (Patient.ofPlan plan @ [ ctx.Patient ])

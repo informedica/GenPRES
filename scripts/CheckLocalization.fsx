@@ -28,11 +28,13 @@
 #load "../src/Informedica.GenPRES.Shared/Types.fs"
 #load "../src/Informedica.GenPRES.Shared/Utils.fs"
 #load "../src/Informedica.GenPRES.Shared/Localization.fs"
+#load "../src/Informedica.GenPRES.Client.Core/Models/Terms.fs"
 
 open System
 open System.IO
 open Microsoft.FSharp.Reflection
-open Shared
+open Informedica.GenPRES.Shared
+open Informedica.GenPRES.Client.Core.Models
 
 
 /// One row of the file: the term key, then one cell per header column after Term.

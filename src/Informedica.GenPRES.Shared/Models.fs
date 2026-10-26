@@ -1,4 +1,4 @@
-namespace Shared
+namespace Informedica.GenPRES.Shared
 
 
 module Models =
@@ -112,54 +112,6 @@ module Models =
                     (if dys > 0 then Some(dys * 1<day>) else None)
 
 
-            let fromBirthDate (now: DateTime) (bdt: DateTime) =
-                if bdt > now then
-                    invalidArg (nameof bdt) $"birthdate: {bdt} cannot be after current date: {now}"
-                // calculated last birthdate and number of years ago
-                let last, yrs =
-                    // set day one day back if not a leap year, and the birthdate is at Feb 29 in a leap year
-                    let day =
-                        if (bdt.Month = 2 && bdt.Day = 29) |> not then bdt.Day
-                        else if DateTime.IsLeapYear(now.Year) then bdt.Day
-                        else bdt.Day - 1
-
-                    if now.Year - bdt.Year <= 0 then
-                        bdt, 0
-                    else
-                        let cur = DateTime(now.Year, bdt.Month, day)
-
-                        if cur <= now then
-                            cur, cur.Year - bdt.Year
-                        else
-                            cur.AddYears(-1), cur.Year - bdt.Year - 1
-                // printfn $"last birthdate: {last|> printDate}"
-                // calculate the number of months since last birthdate
-                let mos =
-                    [ 1..11 ]
-                    |> List.fold
-                        (fun (mos, n) _ ->
-                            let n = n + 1
-                            // printfn $"folding: {last.AddMonths(n) |> printDate}, {mos}"
-                            if last.AddMonths(n) <= now then mos + 1, n else mos, n
-                        )
-                        (0, 0)
-                    |> fst
-
-                let last = last.AddMonths(mos)
-                // calculate number of days
-                let days =
-                    if now.Day >= last.Day && now.Month = last.Month then
-                        now.Day - last.Day
-                    else
-                        DateTime.DaysInMonth(last.Year, last.Month) - last.Day + now.Day
-
-                create
-                    (yrs * 1<year>)
-                    (Some(mos * 1<month>))
-                    (Some(days / 7 * 1<week>))
-                    (Some((days - 7 * (days / 7)) * 1<day>))
-
-
             let getYears { Age.Years = yrs } = yrs
 
 
@@ -176,95 +128,6 @@ module Models =
 
 
             let calcMonths a = (a |> getYears |> int) * 12 + (a |> getMonths |> int)
-
-            let gestAgeToString terms lang (age: GestationalAge) =
-                let getTerm = Localization.getTerm terms
-
-                $"""
-    {age.Weeks} {getTerm lang Terms.``Patient Age weeks``} {age.Days} {getTerm lang Terms.``Patient Age days``}
-                """
-
-
-            let toString terms lang (age: Age) =
-                let getTerm = Localization.getTerm terms lang
-
-                let inline plur s1 s2 n = if int n = 1 then $"{int n} {s1}" else $"{int n} {s2}"
-
-                let d =
-                    age.Days
-                    |> plur (getTerm Terms.``Patient Age day``) (getTerm Terms.``Patient Age days``)
-
-                let w =
-                    age.Weeks
-                    |> plur (getTerm Terms.``Patient Age week``) (getTerm Terms.``Patient Age weeks``)
-
-                let m =
-                    age.Months
-                    |> plur (getTerm Terms.``Patient Age month``) (getTerm Terms.``Patient Age months``)
-
-                let y =
-                    age.Years
-                    |> plur (getTerm Terms.``Patient Age year``) (getTerm Terms.``Patient Age years``)
-
-                match age with
-                | _ when age.Years = 0<year> && age.Months = 0<month> && age.Weeks = 0<week> -> $"{d}"
-                | _ when age.Years = 0<year> && age.Months = 0<month> ->
-                    if age.Days = 0<day> then $"{w}" else $"{w} en {d}"
-                | _ when age.Years = 0<year> ->
-                    match age.Weeks, age.Days with
-                    | ws, ds when ds > 0<day> && ws > 0<week> -> $"{m}, {w} en {d}"
-                    | ws, ds when ds = 0<day> && ws > 0<week> -> $"{m}, {w}"
-                    | ws, ds when ds > 0<day> && ws = 0<week> -> $"{m}, {d}"
-                    | _ -> $"{m}"
-                | _ ->
-                    match age.Months, age.Weeks, age.Days with
-                    | ms, ws, ds when ms = 0<month> && ds > 0<day> && ws > 0<week> -> $"{y}, {w}, {d}"
-                    | ms, ws, ds when ms = 0<month> && ds = 0<day> && ws > 0<week> -> $"{y}, {w}"
-                    | ms, ws, ds when ms = 0<month> && ds > 0<day> && ws = 0<week> -> $"{y}, {d}"
-                    | ms, ws, ds when ms > 0<month> && ds > 0<day> && ws > 0<week> -> $"{y}, {m}, {w}, {d}"
-                    | ms, ws, ds when ms > 0<month> && ds = 0<day> && ws > 0<week> -> $"{y}, {m}, {w}"
-                    | ms, ws, ds when ms > 0<month> && ds > 0<day> && ws = 0<week> -> $"{y}, {m}, {d}"
-                    | ms, ws, ds when ms > 0<month> && ds = 0<day> && ws = 0<week> -> $"{y}, {m}"
-                    | _ -> $"{y}"
-
-
-        module RenalFunction =
-
-            let options =
-                [|
-                    "> 50 mL/min/1,73 m2"
-                    "30 - 50 mL/min/1,73 m2"
-                    "10 - 30 mL/min/1,73 m2"
-                    "< 10 mL/min/1,73 m2"
-                    "Intermitterende Hemodialyse"
-                    "Continue Hemodialyse"
-                    "Peritioneaal dialyse"
-                |]
-
-
-            let renalToOption =
-                function
-                | EGFR(min, max) ->
-                    match min, max with
-                    | _, Some max when max <= 10 -> options[3]
-                    | _, Some max when max <= 30 -> options[2]
-                    | _, Some max when max <= 50 -> options[1]
-                    | _ -> options[0]
-                | IntermittentHemodialysis -> options[4]
-                | ContinuousHemodialysis -> options[5]
-                | PeritonealDialysis -> options[6]
-
-
-            let optionToRenal s =
-                match s with
-                | s when s = options[1] -> EGFR(Some 30, Some 50)
-                | s when s = options[2] -> EGFR(Some 10, Some 30)
-                | s when s = options[3] -> EGFR(None, Some 10)
-                | s when s = options[4] -> IntermittentHemodialysis
-                | s when s = options[5] -> ContinuousHemodialysis
-                | s when s = options[6] -> PeritonealDialysis
-                | _ -> EGFR(Some 50, None)
-
 
         let apply f (p: Patient) = f p
 
@@ -287,45 +150,10 @@ module Models =
         let getAgeDays p = p |> getAge |> Option.map _.Days
 
 
-        let getGAWeeks (p: Patient) = p.GestationalAge |> Option.map _.Weeks
-
-
-        let getGADays (p: Patient) = p.GestationalAge |> Option.map _.Days
-
-
-        let getRenalFunction (p: Patient) = p.RenalFunction |> Option.map RenalFunction.renalToOption
-
-
         let tryParse (s: string) =
             match Int32.TryParse(s) with
             | false, _ -> None
             | true, v -> v |> Some
-
-
-        let getAgeInYears p =
-            [
-                p |> getAgeYears |> Option.map float
-                p |> getAgeMonths |> Option.map (fun ms -> (ms |> float) / 12.)
-                p |> getAgeWeeks |> Option.map (fun ws -> (ws |> float) / 52.)
-                p |> getAgeDays |> Option.map (fun ds -> (ds |> float) / 365.)
-            ]
-            |> List.choose id
-            |> function
-                | [] -> None
-                | xs -> xs |> List.sum |> Some
-
-
-        let getAgeInMonths p =
-            [
-                p |> getAgeYears |> Option.map (fun ys -> (ys |> float) * 12.)
-                p |> getAgeMonths |> Option.map (fun ms -> (ms |> float) / 1.)
-                p |> getAgeWeeks |> Option.map (fun ws -> (ws |> float) / 4.)
-                p |> getAgeDays |> Option.map (fun ds -> (ds |> float) / 30.)
-            ]
-            |> List.choose id
-            |> function
-                | [] -> None
-                | xs -> xs |> List.sum |> Some
 
 
         let getAgeInDays p =
@@ -363,9 +191,6 @@ module Models =
                 pat.Weight.Estimated
 
 
-        let getWeightInKg (pat: Patient) = pat |> getWeight |> Option.map (fun x -> float x / 1000.)
-
-
         /// Get either the measured height or the
         /// estimated height if measured weight = 0
         let getHeight (pat: Patient) =
@@ -373,167 +198,6 @@ module Models =
                 pat.Height.Measured
             else
                 pat.Height.Estimated
-
-
-        let calcBMI (pat: Patient) =
-            match pat.Weight.Measured, pat.Weight.Estimated, pat.Height.Measured, pat.Height.Estimated with
-            | Some w, _, Some h, _
-            | None, Some w, None, Some h ->
-                if h > 0<cm> then
-                    float w / 1000. / float h ** 2. |> Some
-                else
-                    None
-            | _ -> None
-
-
-        let calcBSA (pat: Patient) =
-            match pat.Weight.Measured, pat.Weight.Estimated, pat.Height.Measured, pat.Height.Estimated with
-            | None, None, _, _
-            | _, _, None, None -> None
-
-            | Some w, _, Some h, _
-            | Some w, _, None, Some h
-            | None, Some w, Some h, _
-            | None, Some w, None, Some h -> Calculations.BSA.calcDuBois w h |> Some
-
-
-        let toString terms lang markDown (pat: Patient) =
-            let getTerm = Localization.getTerm terms lang
-
-            let toStr s n =
-                n |> Option.map (Math.fixPrecision 3 >> string >> (fun s' -> $"{s}{s'}"))
-
-            let bold s = s |> Option.map (fun s -> if markDown then $"**{s}**" else s)
-
-            let italic s = s |> Option.map (fun s -> if markDown then $"*{s}*" else s)
-
-            let isAdult =
-                pat.Age
-                |> Option.map (fun a -> a.Years >= 18<year>)
-                |> Option.defaultValue false
-
-            [
-                match pat.Gender with
-                | Male -> if isAdult then Some "Man" else Some "Jongen"
-                | Female -> if isAdult then Some "Vrouw" else Some "Meisje"
-                | UnknownGender -> Some "Onbekend geslacht"
-                |> bold
-
-                Some $"{Terms.``Patient Age`` |> getTerm}:" |> italic
-
-                pat.Age
-                |> Option.map (Age.toString terms lang)
-                |> bold
-                |> Option.orElse ("" |> Some)
-
-                Some $"{Terms.``Patient Weight`` |> getTerm}:" |> italic
-
-                pat.Weight.Measured
-                |> Option.map (fun x -> float x / 1000.)
-                |> toStr ""
-                |> Option.map (fun s -> $"{s} kg")
-                |> bold
-
-
-                match pat.Weight.EstimatedP3, pat.Weight.EstimatedP97 with
-                | Some p3, Some p97 ->
-                    let capt = $"{Terms.``Patient Estimated`` |> getTerm}: "
-                    let p3 = float p3 / 1000. |> Math.fixPrecision 3
-                    let p97 = float p97 / 1000. |> Math.fixPrecision 3
-                    $"{capt}({p3} - {p97} kg)" |> Some
-                | _ ->
-                    pat.Weight.Estimated
-                    |> Option.map (fun x -> float x / 1000.)
-                    |> toStr $"{Terms.``Patient Estimated`` |> getTerm}: "
-                    |> Option.map (fun s -> $"({s} kg)")
-
-
-                Some $"{Terms.``Patient Length`` |> getTerm}:" |> italic
-
-                pat.Height.Measured
-                |> Option.map float
-                |> toStr ""
-                |> Option.map (fun s -> $"{s} cm")
-                |> bold
-
-
-                match pat.Height.EstimatedP3, pat.Height.EstimatedP97 with
-                | Some p3, Some p97 ->
-                    let capt = $"{Terms.``Patient Estimated`` |> getTerm}: "
-                    let p3 = float p3 |> Math.fixPrecision 3
-                    let p97 = float p97 |> Math.fixPrecision 3
-                    $"{capt}({p3} - {p97} cm)" |> Some
-                | _ ->
-                    pat.Height.Estimated
-                    |> Option.map float
-                    |> toStr $"{Terms.``Patient Estimated`` |> getTerm}: "
-                    |> Option.map (fun s -> $"({s} cm)")
-
-
-                (Some "BSA:") |> italic
-                pat
-                |> calcBSA
-                |> Option.map (fun x ->
-                    let x = x |> float |> Math.fixPrecision 2
-                    $"{x} m2"
-                )
-                |> bold
-
-                if
-                    pat
-                    |> getAgeInDays
-                    |> Option.map (fun ds -> ds < 365.)
-                    |> Option.defaultValue false
-                then
-                    (Some $", {Terms.``Patient GA Age`` |> getTerm}:") |> italic
-
-                    pat.GestationalAge
-                    |> Option.map (Age.gestAgeToString terms lang)
-                    |> Option.orElse ("" |> Some)
-
-                if pat.RenalFunction |> Option.isSome then
-                    Some "Nierfunctie:" |> italic
-                    pat.RenalFunction |> Option.map RenalFunction.renalToOption |> bold
-
-            ]
-            |> List.choose id
-            |> String.concat " "
-            |> String.replace "  " " "
-
-
-        let toggle item (p: Patient option) : Patient option =
-            p
-            |> Option.map (fun p ->
-                { p with
-                    Access =
-                        if p.Access |> List.exists ((=) item) then
-                            p.Access |> List.filter ((<>) item)
-                        else
-                            p.Access |> List.append [ item ]
-                }
-            )
-
-
-        let toggleCVL = toggle CVL
-
-
-        let togglePVL = toggle PVL
-
-
-        let toggleET = toggle EnteralTube
-
-
-        let setRenal (s: string option) (p: Patient option) : Patient option =
-            let set rf (p: Patient option) =
-                match p with
-                | None -> p
-                | Some p -> { p with RenalFunction = rf } |> Some
-
-            match s with
-            | None -> p |> set None
-            | Some s ->
-                let rf = s |> RenalFunction.optionToRenal |> Some
-                p |> set rf
 
 
         let create years months weeks days weight height gw gd gend cvl gfr dep : Patient option =
@@ -590,11 +254,6 @@ module Models =
             |> Some
 
 
-        let updateWeightGram gr pat =
-
-            { (pat |> get) with Weight = { pat.Weight with Measured = gr |> Some } }
-
-
         /// The estimates written, the measured values left as they are.
         let withEstimates
             (ew: (int<gram> * int<gram> * int<gram>) option)
@@ -615,22 +274,6 @@ module Models =
                         EstimatedP97 = eh |> Option.map (fun (_, _, p97) -> p97)
                     }
             }
-
-
-        /// The gender chosen: the estimates go, since they follow the gender; the measured values
-        /// stay, since they do not.
-        let setGender (s: string) (p: Patient option) : Patient option =
-            let gender =
-                match s with
-                | "male" -> Male
-                | "female" -> Female
-                | _ -> UnknownGender
-
-            p
-            |> Option.defaultValue empty
-            |> withEstimates None None
-            |> fun p -> { p with Gender = gender }
-            |> Some
 
 
         let applyNormalValues
@@ -735,94 +378,6 @@ module Models =
 
             // the estimate stays an estimate: the measured values hold what was entered or read
             pat |> withEstimates ew eh
-
-
-        /// The rule every setter follows: the draft, or the blank one, with the estimates
-        /// blanked and one change applied. Nothing else on the patient is touched, so a value
-        /// that was measured is never lost to an edit of another field, and an estimate is never
-        /// written back as a measured value; the estimates follow the age and the gender, and the
-        /// next applyNormalValues fills them again.
-        let edit (change: Patient -> Patient) (p: Patient option) : Patient option =
-            p |> Option.defaultValue empty |> withEstimates None None |> change |> Some
-
-
-        /// One part of the age written from the field. A draft with no age gets one when the
-        /// part is given and stays without one when it is not; a part cleared while the age
-        /// exists reads as zero, so the age is never lost by emptying one field of it.
-        let editAgePart (write: int -> Age -> Age) (s: string option) (p: Patient) =
-            match p.Age, s |> Option.bind tryParse with
-            | None, None -> p
-            | age, v ->
-                let age = age |> Option.defaultValue Age.ageZero |> write (v |> Option.defaultValue 0)
-
-                { p with Age = Some age }
-
-
-        let setYear s (p: Patient option) =
-            p |> edit (editAgePart (fun v a -> { a with Years = v |> Measures.toYear }) s)
-
-
-        let setMonth s (p: Patient option) =
-            p |> edit (editAgePart (fun v a -> { a with Months = v |> Measures.toMonth }) s)
-
-
-        let setWeek s (p: Patient option) =
-            p |> edit (editAgePart (fun v a -> { a with Weeks = v |> Measures.toWeek }) s)
-
-
-        let setDay s (p: Patient option) =
-            p |> edit (editAgePart (fun v a -> { a with Days = v |> Measures.toDay }) s)
-
-
-        /// One part of the gestational age written from the field, as the age parts are, with
-        /// the term values, 37 weeks and 0 days, for a part that was never given.
-        let editGestAgePart (write: int option -> GestAge -> GestAge) (s: string option) (p: Patient) =
-            match p.GestationalAge, s |> Option.bind tryParse with
-            | None, None -> p
-            | ga, v ->
-                let term: GestAge =
-                    {
-                        Weeks = 37<week>
-                        Days = 0<day>
-                    }
-
-                { p with GestationalAge = ga |> Option.defaultValue term |> write v |> Some }
-
-
-        let setGAWeek s (p: Patient option) =
-            p
-            |> edit (
-                editGestAgePart
-                    (fun v ga -> { ga with Weeks = v |> Option.map Measures.toWeek |> Option.defaultValue 37<week> })
-                    s
-            )
-
-
-        let setGADay s (p: Patient option) =
-            p
-            |> edit (
-                editGestAgePart
-                    (fun v ga -> { ga with Days = v |> Option.map Measures.toDay |> Option.defaultValue 0<day> })
-                    s
-            )
-
-
-        /// The measured weight in grams from the field; the height, measured or not, untouched.
-        let setWeight s (p: Patient option) =
-            p
-            |> edit (fun p ->
-                { p with
-                    Weight = { p.Weight with Measured = s |> Option.bind tryParse |> Option.map Measures.toGram }
-                }
-            )
-
-
-        /// The measured height in centimetres from the field; the weight, measured or not, untouched.
-        let setHeight s (p: Patient option) =
-            p
-            |> edit (fun p ->
-                { p with Height = { p.Height with Measured = s |> Option.bind tryParse |> Option.map Measures.toCm } }
-            )
 
 
     module Intervention =
@@ -1217,10 +772,7 @@ module Models =
     /// </summary>
     module ContinuousMedication =
 
-        open Shared
-
-
-        let toStr = decimal >> Decimal.toStringNumberNLWithoutTrailingZeros
+        open Informedica.GenPRES.Shared
 
 
         let create
@@ -1301,75 +853,6 @@ module Models =
             | _ -> []
 
 
-        let calculate wght (contMeds: ContinuousMedication list) =
-
-            let calcDose qty vol wght unit doseU =
-                let wght = if doseU |> String.contains "kg" then wght else 1.
-
-                let f =
-                    let t =
-                        match doseU with
-                        | _ when doseU |> String.contains "dag" -> 24.
-                        | _ when doseU |> String.contains "min" -> 1. / 60.
-                        | _ -> 1.
-
-                    let u =
-                        match unit, doseU with
-                        | _ when unit = "mg" && doseU |> String.contains "microg" -> 1000.
-                        | _ when unit = "mg" && doseU |> String.contains "nanog" -> 1000. * 1000.
-                        | _ -> 1.
-
-                    1. * t * u
-
-                let d = f * qty / vol / wght |> Math.fixPrecision 2
-
-                d, doseU
-
-
-            let printAdv min max unit = $"%s{min |> toStr} - %s{max |> toStr} %s{unit}"
-
-            contMeds
-            |> List.filter (fun m -> m.MinWeight <= wght && (wght < m.MaxWeight || m.MaxWeight = 0.))
-            |> List.sortBy (fun med -> med.Category, med.Medication)
-            |> List.collect (fun med ->
-                let vol = med.Total
-                // TODO: really ugly hack to meet specific dose calc
-                // need to create a config structure for this
-                let qty =
-                    if med.Quantity = 0. && med.Hospital = "Radboud UMC" && med.Medication = "morfine" then
-                        wght / 2. |> int |> float
-                    else
-                        med.Quantity
-
-                if vol = 0. then
-                    []
-                else
-                    let d, u = calcDose qty vol wght med.Unit med.DoseUnit
-
-                    [
-                        { Intervention.emptyIntervention with
-                            Hospital = med.Hospital
-                            Category = med.Category
-                            Name = med.Medication
-                            Quantity = Some qty
-                            QuantityUnit = med.Unit
-                            Total = Some vol
-                            TotalUnit = "mL"
-                            Solution = med.Solution
-                            InterventionDose = Some 1.
-                            InterventionDoseUnit = "mL/uur"
-                            SubstanceMaxDose = Some med.AbsMax
-                            SubstanceDoseAdjust = Some d
-                            SubstanceDoseAdjustUnit = u
-                            SubstanceMinDoseAdjust = Some med.MinDose
-                            SubstanceMaxDoseAdjust = Some med.MaxDose
-                            SubstanceDoseText = $"1 mL/uur = %s{d |> toStr} {u}"
-                            Text = printAdv med.MinDose med.MaxDose med.DoseUnit
-                        }
-                    ]
-            )
-
-
     /// <summary>
     /// Available medication products and their concentrations: <c>parse</c> reads
     /// the "products" sheet of the emergency-list spreadsheet. Columns: indication,
@@ -1377,7 +860,7 @@ module Models =
     /// </summary>
     module Products =
 
-        open Shared
+        open Informedica.GenPRES.Shared
 
 
         let create ind med conc unit =
@@ -1415,7 +898,7 @@ module Models =
     /// </summary>
     module NormalValues =
 
-        open Shared
+        open Informedica.GenPRES.Shared
 
 
         let create sex age p3 mean p97 =
@@ -1471,7 +954,7 @@ module Models =
 
         module ValueUnit =
 
-            // create Shared.Types.ValueUnit
+            // create Informedica.GenPRES.Shared.Types.ValueUnit
             let create v u g s l j =
                 {
                     Value = v
@@ -1481,34 +964,6 @@ module Models =
                     Language = l
                     Json = j
                 }
-
-
-        (*
-            /// <summary>
-            /// Get the user readable string version in Dutch with verbosity short and
-            /// value as decimal with a fixed precision
-            /// </summary>
-            /// <param name="prec">The precision</param>
-            /// <param name="vu">The ValueUnit</param>
-            /// <example>
-            /// <code>
-            /// toStringDecimalDutchShortWithPrec 2 (ValueUnit ([|1N/3N; 2N/3N; 3N/5N|], Mass (KiloGram 1N)))
-            /// = "0,33;0,67;0,6 kg"
-            /// </code>
-            /// </example>
-            let toStringDecimalDutchShortWithPrec prec (vu: ValueUnit) =
-                let v, u = vu.Value, vu.Unit
-
-                let vs =
-                    v
-                    |> Array.map (snd >> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision prec)
-                    |> Array.distinct
-                    |> Array.toReadableString
-
-                let us = u |> unitToReadableDutchString
-
-                vs + " " + us
-            *)
 
 
         module Variable =
@@ -1526,59 +981,6 @@ module Models =
                 }
 
 
-            let renderValue prec (var: Variable) =
-                match var.Min, var.Max, var.Vals with
-                | _, _, Some vals when vals.Value.Length = 1 ->
-                    let v = vals.Value |> Array.head |> snd |> Decimal.fixPrecision prec
-                    $"{v} {vals.Unit}"
-                | _, _, Some vals when vals.Value.Length > 1 ->
-                    let minVal = vals.Value |> Array.minBy snd |> snd |> Decimal.fixPrecision prec
-                    let maxVal = vals.Value |> Array.maxBy snd |> snd |> Decimal.fixPrecision prec
-                    $"{minVal} - {maxVal} {vals.Unit}"
-                | Some min, Some max, _ ->
-                    let minVal = min.Value |> Array.minBy snd |> snd |> Decimal.fixPrecision prec
-                    let maxVal = max.Value |> Array.maxBy snd |> snd |> Decimal.fixPrecision prec
-                    $"{minVal} - {maxVal} {min.Unit}"
-                | _ -> ""
-
-
-            /// <summary>
-            /// Render an array of variables as a single string, as used for the
-            /// items (substances) of one component in the order plan overview.
-            /// </summary>
-            /// <param name="prec">The precision</param>
-            /// <param name="vars">The variables, one per item</param>
-            let renderValues prec (vars: Variable[]) =
-                // split a rendered variable in its value part and its unit,
-                // the unit is the last token as units never contain a space
-                let split s =
-                    let tokens = s |> String.split " " |> Array.filter String.notEmpty
-
-                    {|
-                        Value = tokens |> Array.truncate (tokens.Length - 1) |> String.concat ""
-                        Unit = tokens |> Array.tryLast |> Option.defaultValue ""
-                    |}
-
-                vars
-                |> Array.map (renderValue prec)
-                |> Array.filter String.notEmpty
-                |> Array.map split
-                |> Array.groupBy _.Unit
-                |> Array.map (fun (unit, items) ->
-                    let values = items |> Array.map _.Value
-                    // a value can be a range itself, i.e. "10-20", so in that case
-                    // the items are spaced out to keep the ranges apart visually
-                    let sep =
-                        if values |> Array.exists (String.contains "-") then
-                            " / "
-                        else
-                            "/"
-
-                    $"%s{values |> String.concat sep} %s{unit}"
-                )
-                |> String.concat ", "
-
-
         module OrderVariable =
 
             let create nme cst cal var outerIncr level =
@@ -1590,46 +992,6 @@ module Models =
                     LargeIncr = outerIncr
                     Level = level
                 }
-
-
-            let isSolved (ovar: OrderVariable) =
-                ovar.Variable.Vals
-                |> Option.map (_.Value >> Array.length >> ((=) 1))
-                |> Option.defaultValue false
-
-
-            let isNavigable (ovar: OrderVariable) =
-                if ovar |> isSolved then
-                    false
-                else
-                    // note that an ordervariable with an increment always has a
-                    // min value by definition as all order variables are initialized to
-                    // be non-zero positive and a min value is always a multiple of an
-                    // increment
-                    (ovar.Variable.Max.IsSome && ovar.DefinedConstraints.Incr.IsSome)
-                    || ovar.Variable.Vals
-                       |> Option.map (_.Value >> Array.length >> (fun c -> c > 1))
-                       |> Option.defaultValue false
-
-
-            let displayString (ovar: OrderVariable) =
-                ovar.Variable.Vals
-                |> Option.bind (fun v ->
-                    v.Value
-                    |> Array.tryHead
-                    |> Option.map (fun (_, d) -> (d |> Decimal.toStringNumberNLWithoutTrailingZeros) + " " + v.Unit)
-                )
-                |> Option.defaultValue ""
-
-
-            let displayStringFormatted (format: decimal -> string) (ovar: OrderVariable) =
-                ovar.Variable.Vals
-                |> Option.bind (fun v ->
-                    v.Value
-                    |> Array.tryHead
-                    |> Option.map (fun (_, d) -> (d |> format) + " " + v.Unit)
-                )
-                |> Option.defaultValue ""
 
 
             let setVu s (vu: Types.ValueUnit option) =
@@ -1702,7 +1064,7 @@ module Models =
 
         module Component =
 
-            let create id nm sh cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos ii =
+            let create id nm sh cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos ii pp =
                 {
                     Id = id
                     Name = nm
@@ -1715,6 +1077,7 @@ module Models =
                     OrderableConcentration = orb_cnc
                     Dose = dos
                     Items = ii
+                    Products = pp
                 }
 
 
@@ -1745,42 +1108,6 @@ module Models =
             }
 
 
-        let isSolved (ord: Order) =
-            [
-                yield! ord.Orderable.Components |> Array.map _.OrderableQuantity
-                ord.Orderable.OrderableQuantity
-                ord.Orderable.Dose.Quantity
-
-                if ord.Schedule.IsContinuous || ord.Schedule.IsOnceTimed || ord.Schedule.IsTimed then
-                    ord.Orderable.Dose.Rate
-
-                if ord.Schedule.IsDiscontinuous || ord.Schedule.IsTimed then
-                    ord.Schedule.Frequency
-            ]
-            |> List.forall OrderVariable.isSolved
-
-
-        module OrderLoader =
-
-            let create cmp itm o =
-                {
-                    Component = cmp
-                    Item = itm
-                    Order = o
-                }
-
-
-        module LoadedOrder =
-
-            let create adj cmp itm o =
-                {
-                    UseAdjust = adj
-                    Component = cmp
-                    Item = itm
-                    Order = o
-                }
-
-
     module Totals =
 
         let empty: Totals =
@@ -1803,54 +1130,6 @@ module Models =
                 BoricAcid = [||]
                 BenzylAlcohol = [||]
             }
-
-
-        // Intake substance row definitions
-        let intakeRows =
-            [|
-                [| "volume"; ""; "ml/kg/dag" |]
-                [| "energie"; ""; "kCal/kg/dag" |]
-                [| "koolhydraat"; ""; "mg/kg/min" |]
-                [| "eiwit"; ""; "g/kg/dag" |]
-                [| "vet"; ""; "g/kg/dag" |]
-                [| "natrium"; ""; "mmol/kg/dag" |]
-                [| "kalium"; ""; "mmol/kg/dag" |]
-                [| "chloride"; ""; "mmol/kg/dag" |]
-                [| "calcium"; ""; "mmol/kg/dag" |]
-                [| "magnesium"; ""; "mmol/kg/dag" |]
-                [| "fosfaat"; ""; "mmol/kg/dag" |]
-                [| "ijzer"; ""; "mmol/kg/dag" |]
-                [| "vit D"; ""; "mmol/kg/dag" |]
-                [| "ethanol"; ""; "mg/kg/dag" |]
-                [| "propyleenglycol"; ""; "mg/kg/dag" |]
-                [| "boorzuur"; ""; "mmol/kg/dag" |]
-                [| "benzylalcohol"; ""; "mmol/kg/dag" |]
-            |]
-
-
-        // Map a substance name to the corresponding Totals field
-        let substanceToField (intake: Totals) =
-            function
-            | "volume" -> intake.Volume
-            | "energie" -> intake.Energy
-            | "koolhydraat" -> intake.Carbohydrate
-            | "eiwit" -> intake.Protein
-            | "vet" -> intake.Fat
-            | "natrium" -> intake.Sodium
-            | "kalium" -> intake.Potassium
-            | "chloride" -> intake.Chloride
-            | "calcium" -> intake.Calcium
-            | "magnesium" -> intake.Magnesium
-            | "phosphaat"
-            | "fosfaat" -> intake.Phosphate
-            | "ijzer" -> intake.Iron
-            | "vitamine D"
-            | "vit D" -> intake.VitaminD
-            | "ethanol" -> intake.Ethanol
-            | "propyleenglycol" -> intake.Propyleenglycol
-            | "boorzuur" -> intake.BoricAcid
-            | "benzylalcohol" -> intake.BenzylAlcohol
-            | _ -> [||]
 
 
     module OrderScenario =
@@ -1879,63 +1158,6 @@ module Models =
                 ProductIds = ids
                 Access = acc
             }
-
-
-        let eqs (sc1: OrderScenario) (sc2: OrderScenario) = sc1.Order.Id = sc2.Order.Id
-
-
-    module DoseType =
-
-
-        let doseTypeToDescription doseType =
-            match doseType with
-            | OnceTimed s
-            | Once s
-            | Timed s
-            | Discontinuous s
-            | Continuous s ->
-                if s |> String.notEmpty then
-                    s
-                else
-                    match doseType with
-                    | OnceTimed _
-                    | Once _ -> "eenmalig"
-                    | Timed _
-                    | Discontinuous _ -> "onderhoud"
-                    | Continuous _ -> "continu"
-                    | NoDoseType -> ""
-
-            | NoDoseType -> ""
-
-
-        let doseTypeToString doseType =
-            match doseType with
-            | OnceTimed s -> "oncetimed", s
-            | Once s -> "once", s
-            | Timed s -> "timed", s
-            | Discontinuous s -> "discontinuous", s
-            | Continuous s -> "continuous", s
-            | NoDoseType -> "", ""
-            |> fun (s1, s2) -> if String.isNullOrWhiteSpace s2 then s1 else $"{s1} {s2}"
-
-
-        let doseTypeFromString s =
-            let matchDoseType (dt: string) dd =
-                let dt = dt.ToLower().Trim()
-                let withText c = dd |> c
-
-                match dt with
-                | "once" -> Once |> withText
-                | "oncetimed" -> OnceTimed |> withText
-                | "timed" -> Timed |> withText
-                | "discontinuous" -> Discontinuous |> withText
-                | "continuous" -> Continuous |> withText
-                | _ -> NoDoseType
-
-            match s |> String.split " " |> Array.toList with
-            | [ dt ] -> matchDoseType dt ""
-            | dt :: rest -> rest |> String.concat " " |> matchDoseType dt
-            | _ -> NoDoseType
 
 
     module NutritionCategory =
@@ -1987,15 +1209,6 @@ module Models =
         let setPatient pat ctx : OrderContext = { ctx with Patient = pat }
 
 
-        /// What a page calls the context: the category's name for a nutrition order, the
-        /// generic for a drug, nothing before a generic is chosen.
-        let label (ctx: OrderContext) =
-            match ctx.Category with
-            | OrderCategory.Nutrition category -> NutritionCategory.label category
-            | OrderCategory.Drug -> ctx.Filter.Generic |> Option.defaultValue ""
-
-
-        /// The nutrition category of a context, none for a drug.
         /// The nutrition category of a context, none for a drug. A display copy of the
         /// domain's `PlanContext.nutritionCategory`; the agreement test in the server tests keeps
         /// them equal.
@@ -2011,21 +1224,6 @@ module Models =
         /// server tests keeps them equal.
         let contribution (ctx: OrderContext) = ctx.Scenarios |> Array.tryExactlyOne
 
-
-        let setMedication ind med rte frm dtp ctx : OrderContext =
-            { ctx with
-                Filter =
-                    { ctx.Filter with
-                        Indication = ind
-                        Generic = med
-                        Route = rte
-                        Form = frm
-                        DoseType = dtp
-                    }
-            }
-
-
-        let setScenarios srs ctx : OrderContext = { ctx with Scenarios = srs }
 
         /// A choice a page offers in the filter it builds.
         type FilterField =
@@ -2198,105 +1396,374 @@ module Models =
                 ctx |> applyChange DoseType dt.IsNone (fun f -> { f with DoseType = dt })
 
 
-    /// Conversions between the one severity and the two shapes the wire carries it in.
-    [<RequireQualifiedAccess>]
-    module Severity =
-
-        /// The severity an order variable carries.
-        let ofLevel (level: Level) =
-            match level with
-            | IsNormal -> Severity.Normal
-            | IsCaution -> Severity.Caution
-            | IsWarning -> Severity.Warning
-            | IsAlert -> Severity.Alert
+        /// The order variable a command addresses: a level, its property, and the names that
+        /// locate a component or an item.
+        [<RequireQualifiedAccess>]
+        type Target =
+            | Schedule of ScheduleProperty
+            | Orderable of OrderableProperty
+            | Component of cmp: string * ComponentProperty
+            | Item of cmp: string * itm: string * ItemProperty
 
 
-        /// The level an order variable carries for a severity.
-        let toLevel (severity: Severity) =
-            match severity with
-            | Severity.Normal -> IsNormal
-            | Severity.Caution -> IsCaution
-            | Severity.Warning -> IsWarning
-            | Severity.Alert -> IsAlert
+        /// The order variables a command addresses, read and changed per level.
+        module Target =
+
+            /// The variable of an item's property.
+            let itemVar prop (itm: Item) =
+                match prop with
+                | ItemProperty.DoseQuantity -> itm.Dose.Quantity
+                | ItemProperty.DoseQuantityAdjust -> itm.Dose.QuantityAdjust
+                | ItemProperty.DosePerTime -> itm.Dose.PerTime
+                | ItemProperty.DosePerTimeAdjust -> itm.Dose.PerTimeAdjust
+                | ItemProperty.DoseRate -> itm.Dose.Rate
+                | ItemProperty.DoseRateAdjust -> itm.Dose.RateAdjust
+                | ItemProperty.ComponentConcentration -> itm.ComponentConcentration
+                | ItemProperty.OrderableConcentration -> itm.OrderableConcentration
+                | ItemProperty.OrderableQuantity -> itm.OrderableQuantity
 
 
-        /// The severity a text block carries.
-        let ofTextBlock (block: TextBlock) =
-            match block with
-            | Valid _ -> Severity.Normal
-            | Caution _ -> Severity.Caution
-            | Warning _ -> Severity.Warning
-            | Alert _ -> Severity.Alert
+            /// An item with the variable of its property changed.
+            let mapItemVar prop f (itm: Item) =
+                let dose (d: Dose) = { itm with Dose = d }
+
+                match prop with
+                | ItemProperty.DoseQuantity -> dose { itm.Dose with Quantity = f itm.Dose.Quantity }
+                | ItemProperty.DoseQuantityAdjust -> dose { itm.Dose with QuantityAdjust = f itm.Dose.QuantityAdjust }
+                | ItemProperty.DosePerTime -> dose { itm.Dose with PerTime = f itm.Dose.PerTime }
+                | ItemProperty.DosePerTimeAdjust -> dose { itm.Dose with PerTimeAdjust = f itm.Dose.PerTimeAdjust }
+                | ItemProperty.DoseRate -> dose { itm.Dose with Rate = f itm.Dose.Rate }
+                | ItemProperty.DoseRateAdjust -> dose { itm.Dose with RateAdjust = f itm.Dose.RateAdjust }
+                | ItemProperty.ComponentConcentration ->
+                    { itm with ComponentConcentration = f itm.ComponentConcentration }
+                | ItemProperty.OrderableConcentration ->
+                    { itm with OrderableConcentration = f itm.OrderableConcentration }
+                | ItemProperty.OrderableQuantity -> { itm with OrderableQuantity = f itm.OrderableQuantity }
 
 
-        /// The text a text block carries, whatever its severity.
-        let items (block: TextBlock) =
-            match block with
-            | Valid items
-            | Caution items
-            | Warning items
-            | Alert items -> items
+            /// The variable of a component's property.
+            let componentVar prop (cmp: Component) =
+                match prop with
+                | ComponentProperty.OrderableQuantity -> cmp.OrderableQuantity
+                | ComponentProperty.DoseQuantityAdjust -> cmp.Dose.QuantityAdjust
 
 
-        /// The text block of a severity over some text.
-        let withItems (severity: Severity) (items: TextItem[]) =
-            match severity with
-            | Severity.Normal -> Valid items
-            | Severity.Caution -> Caution items
-            | Severity.Warning -> Warning items
-            | Severity.Alert -> Alert items
+            /// A component with the variable of its property changed.
+            let mapComponentVar prop f (cmp: Component) =
+                match prop with
+                | ComponentProperty.OrderableQuantity -> { cmp with OrderableQuantity = f cmp.OrderableQuantity }
+                | ComponentProperty.DoseQuantityAdjust ->
+                    { cmp with Dose = { cmp.Dose with QuantityAdjust = f cmp.Dose.QuantityAdjust } }
 
 
-        /// The highest of some severities; nothing raised when there are none.
-        let highest (severities: Severity seq) = severities |> Seq.fold max Severity.Normal
+            /// The variable the target addresses in the order; None when the order holds no such
+            /// component or item.
+            let tryGet target (ord: Order) =
+                let tryComponent cmp =
+                    ord.Orderable.Components |> Array.tryFind (fun c -> c.Name = cmp)
+
+                match target with
+                | Target.Schedule ScheduleProperty.Frequency -> Some ord.Schedule.Frequency
+                | Target.Schedule ScheduleProperty.Time -> Some ord.Schedule.Time
+                | Target.Orderable OrderableProperty.Quantity -> Some ord.Orderable.OrderableQuantity
+                | Target.Orderable OrderableProperty.DoseQuantity -> Some ord.Orderable.Dose.Quantity
+                | Target.Orderable OrderableProperty.DoseRate -> Some ord.Orderable.Dose.Rate
+                | Target.Component(cmp, prop) -> tryComponent cmp |> Option.map (componentVar prop)
+                // an item in any component of the name, since a diluent can carry the name of a
+                // medication component, and map changes them all
+                | Target.Item(cmp, itm, prop) ->
+                    ord.Orderable.Components
+                    |> Array.filter (fun c -> c.Name = cmp)
+                    |> Array.tryPick (_.Items >> Array.tryFind (fun i -> i.Name = itm))
+                    |> Option.map (itemVar prop)
 
 
-        /// The highest severity among some text blocks.
-        let ofTextBlocks (blocks: TextBlock[]) = blocks |> Seq.map ofTextBlock |> highest
+            /// The order with the variable the target addresses changed; the order as it is when it
+            /// holds no such variable. A component concentration is changed in the first component
+            /// as well as the one named, as the dose dialog changes it.
+            let map target f (ord: Order) =
+                let orderable (o: Orderable) = { ord with Orderable = o }
+
+                let components g =
+                    orderable { ord.Orderable with Components = ord.Orderable.Components |> Array.mapi g }
+
+                match target with
+                | _ when ord |> tryGet target |> Option.isNone -> ord
+                | Target.Schedule ScheduleProperty.Frequency ->
+                    { ord with Schedule = { ord.Schedule with Frequency = f ord.Schedule.Frequency } }
+                | Target.Schedule ScheduleProperty.Time ->
+                    { ord with Schedule = { ord.Schedule with Time = f ord.Schedule.Time } }
+                | Target.Orderable OrderableProperty.Quantity ->
+                    orderable { ord.Orderable with OrderableQuantity = f ord.Orderable.OrderableQuantity }
+                | Target.Orderable OrderableProperty.DoseQuantity ->
+                    orderable
+                        { ord.Orderable with
+                            Dose = { ord.Orderable.Dose with Quantity = f ord.Orderable.Dose.Quantity }
+                        }
+                | Target.Orderable OrderableProperty.DoseRate ->
+                    orderable { ord.Orderable with Dose = { ord.Orderable.Dose with Rate = f ord.Orderable.Dose.Rate } }
+                | Target.Component(cmp, prop) ->
+                    components (fun _ c -> if c.Name = cmp then c |> mapComponentVar prop f else c)
+                | Target.Item(cmp, itm, prop) ->
+                    let holds i (c: Component) =
+                        c.Name = cmp || (prop = ItemProperty.ComponentConcentration && i = 0)
+
+                    components (fun i c ->
+                        if holds i c then
+                            { c with
+                                Items =
+                                    c.Items
+                                    |> Array.map (fun it -> if it.Name = itm then it |> mapItemVar prop f else it)
+                            }
+                        else
+                            c
+                    )
 
 
-        /// The highest severity among rows of text blocks; an empty row counts as nothing raised.
-        let ofTextBlockRows (rows: TextBlock[][]) = rows |> Seq.collect (Seq.map ofTextBlock) |> highest
+        /// What a user picks from: a filter field, the diluents, the components, the scenarios, or
+        /// the values of an order variable.
+        [<RequireQualifiedAccess>]
+        type Options =
+            | Filter of FilterField
+            | Diluents
+            | Components
+            | Scenarios
+            | Variable of Target
 
 
-        /// Whether a severity is anything above normal: what gets a mark.
-        let isRaised (severity: Severity) = severity <> Severity.Normal
+        /// The keys of the values a variable offers to pick from.
+        let values (ovar: OrderVariable) =
+            ovar.Variable.Vals
+            |> Option.map _.Value
+            |> Option.defaultValue [||]
+            |> Array.map fst
 
 
-    module TextBlock =
+        /// How many options a user picks from; 0 for a variable that offers no list.
+        let count options (ctx: OrderContext) =
+            match options with
+            | Options.Filter Indication -> ctx.Filter.Indications.Length
+            | Options.Filter Generic -> ctx.Filter.Generics.Length
+            | Options.Filter Route -> ctx.Filter.Routes.Length
+            | Options.Filter Form -> ctx.Filter.Forms.Length
+            | Options.Filter DoseType -> ctx.Filter.DoseTypes.Length
+            | Options.Diluents -> ctx.Filter.Diluents.Length
+            | Options.Components -> ctx.Filter.Components.Length
+            | Options.Scenarios -> ctx.Scenarios.Length
+            | Options.Variable target ->
+                match ctx.Scenarios with
+                | [| sc |] ->
+                    sc.Order
+                    |> Target.tryGet target
+                    |> Option.map (values >> Array.length)
+                    |> Option.defaultValue 0
+                | _ -> 0
 
-        /// The text block constructor of the highest severity among rows of text blocks.
-        let maxTb (xs: TextBlock[][]) = xs |> Severity.ofTextBlockRows |> Severity.withItems
+
+        /// Variable names without the order id, so that a command plays the same in every run,
+        /// and with it put back for the server.
+        module Picks =
+
+            /// The name without the order id: "[id.paracetamol]_dos_qty" becomes "[.paracetamol]_dos_qty".
+            let withinOrder (orderId: string) (name: string) =
+                let prefix = $"[%s{orderId}"
+
+                if name.StartsWith prefix then
+                    "[" + name.Substring prefix.Length
+                else
+                    name
 
 
-        /// Flatten TextBlock[][] to a single-row TextBlock[][] for compact display.
-        /// Joins rows with " + " separators and uses the max severity level.
-        let flatten (blocks: TextBlock[][]) : TextBlock[][] =
-            if blocks |> Array.isEmpty then
-                blocks
-            else
-                let getItems tb = tb |> Severity.items |> Array.append [| " " |> Normal |]
+            /// The name with the order id put back.
+            let ofOrder (orderId: string) (name: string) =
+                if name.StartsWith "[" then
+                    $"[%s{orderId}" + name.Substring 1
+                else
+                    name
 
-                let add xs =
-                    let plus = [| [| " + " |> Normal |] |]
 
-                    xs
-                    |> Array.fold
-                        (fun acc x ->
-                            if acc |> Array.isEmpty then
-                                x
-                            else
-                                x |> Array.append plus |> Array.append acc
+        /// The one scenario of the context, or why there is none.
+        let scenario (ctx: OrderContext) =
+            match ctx.Scenarios with
+            | [| sc |] -> Ok sc
+            | scs -> Error $"one scenario expected, the context has %i{scs.Length}"
+
+
+        /// The nth of the options, counted from 0, or why there is none.
+        let nth what n (xs: 'a[]) =
+            xs
+            |> Array.tryItem n
+            |> Option.map Ok
+            |> Option.defaultValue (Error $"%s{what}: index %i{n} out of %i{xs.Length}")
+
+
+        /// The context with the scenario of the order's id holding the order.
+        let withOrder (ord: Order) (ctx: OrderContext) =
+            { ctx with
+                Scenarios =
+                    ctx.Scenarios
+                    |> Array.map (fun sc -> if sc.Order.Id = ord.Id then { sc with Order = ord } else sc)
+            }
+
+
+        /// A filter field set to its nth option, or emptied with None, as the page changes it.
+        let changeFilter field (n: int option) (ctx: OrderContext) =
+            let pick what xs change =
+                match n with
+                | None -> Ok(ctx |> change None)
+                | Some n -> xs |> nth what n |> Result.map (fun x -> ctx |> change (Some x))
+
+            match field with
+            | Indication -> pick "indication" ctx.Filter.Indications indicationChange
+            | Generic -> pick "generic" ctx.Filter.Generics medicationChange
+            | Route -> pick "route" ctx.Filter.Routes routeChange
+            | Form -> pick "form" ctx.Filter.Forms formChange
+            | DoseType -> pick "dose type" ctx.Filter.DoseTypes doseTypeChange
+
+
+        /// The diluent set to its nth option, or emptied with None.
+        let changeDiluent (n: int option) (ctx: OrderContext) =
+            match n with
+            | None -> Ok(ctx |> diluentChange None)
+            | Some n ->
+                ctx.Filter.Diluents
+                |> nth "diluent" n
+                |> Result.map (fun d -> ctx |> diluentChange (Some d))
+
+
+        /// The components at these positions of the options.
+        let setNthComponents (ns: int[]) (ctx: OrderContext) =
+            let picked = ns |> Array.map (fun n -> ctx.Filter.Components |> nth "component" n)
+
+            match
+                picked
+                |> Array.choose (
+                    function
+                    | Error e -> Some e
+                    | Ok _ -> None
+                )
+            with
+            | [||] ->
+                Ok(
+                    ctx
+                    |> componentsChange (
+                        picked
+                        |> Array.choose (
+                            function
+                            | Ok c -> Some c
+                            | Error _ -> None
                         )
-                        [||]
-                    |> Array.collect id
+                    )
+                )
+            | errs -> Error errs[0]
 
-                blocks
-                |> Array.map (Array.map getItems)
-                |> add
-                |> (blocks |> maxTb)
-                |> Array.singleton
-                |> Array.singleton
+
+        /// The whole filter emptied, the patient kept.
+        let clearAll (ctx: OrderContext) = empty |> setPatient ctx.Patient
+
+
+        /// The filter's choices set from outside its own fields, with the rule of their source. A
+        /// page's choices keep the diluent and the selected components only when the choices above
+        /// them are unchanged, and the scenarios go; the url's medication is written over the
+        /// filter as it is, a list item's over an empty one; a reload changes nothing. The
+        /// domain's seed applies the same rules; the agreement test in the server tests keeps them
+        /// equal.
+        let seedFilter source ind gen rte frm dt (ctx: OrderContext) =
+            let write keep (ctx: OrderContext) =
+                { ctx with
+                    Filter =
+                        { ctx.Filter with
+                            Indication = ind
+                            Generic = gen
+                            Route = rte
+                            Form = frm
+                            DoseType = dt
+                            Diluent = if keep then ctx.Filter.Diluent else None
+                            SelectedComponents = if keep then ctx.Filter.SelectedComponents else [||]
+                        }
+                }
+
+            let f = ctx.Filter
+            let same = gen = f.Generic && rte = f.Route && frm = f.Form
+
+            match source with
+            | SeedSource.Formulary -> { (ctx |> write (same && ind = f.Indication)) with Scenarios = [||] }
+            | SeedSource.Parenteralia -> { (ctx |> write same) with Scenarios = [||] }
+            | SeedSource.Url -> ctx |> write true
+            | SeedSource.MedicationList -> ctx |> clearAll |> write true
+            | SeedSource.Reload -> ctx
+
+
+        /// The context narrowed to its nth scenario and that scenario's form, as the page selects it.
+        let selectNthScenario n (ctx: OrderContext) =
+            ctx.Scenarios
+            |> nth "scenario" n
+            |> Result.map (fun sc ->
+                { ctx with
+                    Filter = { ctx.Filter with Form = Some sc.Form }
+                    Scenarios = [| sc |]
+                }
+            )
+
+
+        /// The variable set to its nth value, as the dose dialog sets it; None when it offers no
+        /// list to pick from.
+        let setNth target n (ctx: OrderContext) =
+            scenario ctx
+            |> Result.bind (fun sc ->
+                match sc.Order |> Target.tryGet target with
+                | None -> Error $"no %A{target} in the order"
+                | Some ovar ->
+                    match values ovar with
+                    | [||] -> Ok None
+                    | keys ->
+                        keys
+                        |> nth $"%A{target}" n
+                        |> Result.map (fun key ->
+                            let ord = sc.Order |> Target.map target (Order.OrderVariable.setOvar (Some key))
+                            ctx |> withOrder ord |> Some
+                        )
+            )
+
+
+        /// The variable cleared, as the dose dialog clears it, with the picks given back the order
+        /// id.
+        let clear target (picks: string[]) (ctx: OrderContext) =
+            scenario ctx
+            |> Result.bind (fun sc ->
+                match sc.Order |> Target.tryGet target with
+                | None -> Error $"no %A{target} in the order"
+                | Some _ ->
+                    let ord = sc.Order |> Target.map target (Order.OrderVariable.setOvar None)
+                    Ok(ctx |> withOrder ord, picks |> Array.map (Picks.ofOrder sc.Order.Id))
+            )
+
+
+        /// The argumentation the user writes for a deviation from the rules.
+        module Argumentation =
+
+            /// The maximum length of a text, the same as the server's, so the server never refuses
+            /// a text the client holds.
+            let maxLength = 1000
+
+
+            /// The text trimmed and cut to the maximum length; None when empty.
+            let normalise (text: string) =
+                match text with
+                | null -> None
+                | text ->
+                    let text = text.Trim()
+
+                    if text = "" then
+                        None
+                    elif text.Length > maxLength then
+                        Some(text.Substring(0, maxLength))
+                    else
+                        Some text
+
+
+            /// The context with the text written.
+            let write (text: string) (ctx: OrderContext) = { ctx with Argumentation = normalise text }
 
 
     module OrderPlan =

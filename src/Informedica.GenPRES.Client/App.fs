@@ -1,5 +1,9 @@
 module App
 
+open Informedica.GenPRES.Client.Core.Helpers
+open Informedica.GenPRES.Client.Core.Models
+open Informedica.GenPRES.Client.Core.Policies
+open Informedica.GenPRES.Client.Core.StateMachines
 open System
 open Fable.Core
 open Fable.Core.JsInterop
@@ -10,215 +14,38 @@ open Elmish
 open Feliz.Router
 open Fable.Remoting.Client
 open Utils
-open Shared
-open Shared.Types
-open Shared.Models
+open Informedica.GenPRES.Shared
+open Informedica.GenPRES.Shared.Types
+open Informedica.GenPRES.Shared.Models
 open Global
 open SessionMachine
 open SigningMachine
 open OrderPlanMachine
 open OrderContextMachine
+open PatientMachine
+open Informedica.GenPRES.Client.Core.Lanes
+
+module Client = Informedica.GenPRES.Client.Core.Client
+module Trail = Informedica.GenPRES.Client.Core.Trail
 
 
-module private Elmish =
+type private State = Client.ClientState
 
 
-    /// The snackbar: a message with a severity, shown or not.
-    type Snackbar =
-        {
-            Message: string
-            Open: bool
-            Severity: string
-        }
+type private Msg = Client.ClientMsg
 
 
-    module Snackbar =
-
-        /// The message shown, with its severity.
-        let shown (message: string) (severity: string) =
-            {
-                Message = message
-                Open = true
-                Severity = severity
-            }
+module private Messages =
 
 
-        /// Nothing shown: the empty message, the severity back to error.
-        let closed =
-            {
-                Message = ""
-                Open = false
-                Severity = "error"
-            }
+    /// A message to one of the lanes' machines.
+    let session m = Msg.Lanes(LanesMsg.Session m)
+    let signing m = Msg.Lanes(LanesMsg.Signing m)
+    let workbench m = Msg.Lanes(LanesMsg.Workbench m)
+    let plan m = Msg.Lanes(LanesMsg.Plan m)
 
 
-    /// The app-level UI: the page, the disclaimer, the language and the hospital, the demo
-    /// flag, the server error and the list filters.
-    type UiState =
-        {
-            Page: Global.Pages
-            ShowDisclaimer: bool
-            // the language the views read, and the hospital
-            Context: Context
-            // the url or the User chose the language (LanguagePolicy); the server default no
-            // longer applies. The language itself lives in Context, where the views read it
-            LanguageChosen: bool
-            IsDemo: bool
-            // the error on the banner, with the kind of request that raised it
-            ServerError: ServerErrorPolicy.ServerError option
-            EmergencyListFilter: string[]
-            ContinuousMedsFilter: string[]
-            Snackbar: Snackbar
-            // the patient data as the panel edits it and the lists read it, the estimate applied
-            PatientDraft: Patient option
-        }
-
-
-    /// What the server is asked for, once or again: the reading of each plain fetch.
-    type FetchesState =
-        {
-            NormalValues: Deferred<NormalValues>
-            BolusMedication: Deferred<BolusMedication list>
-            ContinuousMedication: Deferred<ContinuousMedication list>
-            Products: Deferred<Product list>
-            Localization: Deferred<string[][]>
-            Hospitals: Deferred<string[]>
-            // what the server was configured with: the default language, the demo flag
-            Settings: Deferred<Api.ServerSettings>
-            Formulary: Deferred<Formulary>
-            Parenteralia: Deferred<Parenteralia>
-            Interactions: Deferred<DrugInteraction[]>
-            // the number of the interaction check under way; an answer to an earlier check is
-            // dropped, so it can neither replace the rows nor clear the error of a later one
-            InteractionCheck: int
-            InteractionDrugNames: Deferred<string[]>
-            // the drug names are asked again on a failure, three times
-            DrugNameRetries: int
-            ServerStatus: Deferred<bool>
-        }
-
-
-    /// The admin login, under the token it bought, and what it fetches.
-    type AdminState =
-        {
-            IsAuthenticated: bool
-            AuthToken: string
-            // counts logins and logouts, so that a login answer of an earlier attempt is dropped
-            LoginAttempt: int
-            LogFiles: Deferred<LogFileInfo[]>
-            LogAnalysisReport: Deferred<string>
-            // the resource reload from the settings page: InProgress from the request until the
-            // pages have refreshed over the reloaded resources
-            Reloading: Deferred<unit>
-        }
-
-
-    /// The four lanes, each a machine's state the pages read a projection of.
-    type LanesState =
-        {
-            // the prescribing workbench, as the order-context machine holds it
-            OrderContext: OrderContextState
-            // the one plan, as the order-plan machine holds it
-            OrderPlan: OrderPlanState
-            // the launch Session; Anonymous is the state every URL patient runs in
-            Session: SessionState
-            // the signing phase of the open Session; Idle whenever no Session is open
-            Signing: SigningState
-        }
-
-
-    type State =
-        {
-            // the lanes
-            Lanes: LanesState
-            // the plain fetches
-            Fetches: FetchesState
-            // the admin login and what it fetches
-            Admin: AdminState
-            // the app-level UI
-            Ui: UiState
-        }
-
-
-    type Msg =
-        | UrlChanged of string list
-        | AcceptDisclaimer
-        | SessionMsg of SessionMsg
-        | SigningMsg of SigningMsg
-
-        | UpdatePage of Global.Pages
-        | UpdatePatient of Patient option
-        | EditPatient of Patient option
-
-        | LoadNormalValues of AsyncOperationStatus<Result<NormalValues, string>>
-
-        | LoadBolusMedication of AsyncOperationStatus<Result<BolusMedication list, string>>
-        | LoadContinuousMedication of AsyncOperationStatus<Result<ContinuousMedication list, string>>
-        | LoadProducts of AsyncOperationStatus<Result<Product list, string>>
-        | OnSelectContinuousMedicationItem of string
-        | OnSelectEmergencyListItem of string
-        | UpdateEmergencyListFilter of string[]
-        | UpdateContinuousMedsFilter of string[]
-
-        // the prescribing workbench: the order-context machine's messages
-        | OrderContextMsg of OrderContextMsg
-        // the server's answer to a workbench request: the notice is told here, the context goes
-        // to the machine under the request it answers
-        | OrderContextAnswered of request: string * Answer<OrderContextResponse>
-
-        // the one plan, nutrition included: the order-plan machine's messages
-        | OrderPlanMsg of OrderPlanMsg
-        // the server's answer to a plan request: the notice is told here, the plan goes to the
-        // machine under the request it answers
-        | OrderPlanAnswered of request: string * Answer<OrderPlan>
-
-        | UpdateFormulary of Formulary
-        | LoadFormulary of ApiResponse<Formulary>
-
-        | UpdateParenteralia of Parenteralia
-        | LoadParenteralia of ApiResponse<Parenteralia>
-
-        | CheckInteractions of string list
-        | LoadInteractionsResult of check: int * ApiResponse<Api.InteractionResponse>
-        | LoadInteractionDrugNames of ApiResponse<Api.InteractionResponse>
-
-        | UpdateLanguage of Localization.Locales
-        | LoadLocalization of AsyncOperationStatus<Result<string[][], string>>
-
-        | UpdateHospital of string
-        | CloseSnackbar
-        | CheckServer of AsyncOperationStatus<Result<string, exn>>
-        | DismissServerError
-        | LoadSettings of AsyncOperationStatus<Result<Api.ServerSettings, exn>>
-
-        | Login of password: string
-        // the attempt the answer belongs to: an answer of an earlier attempt is dropped
-        | LoadLoginResult of attempt: int * AdminResult
-        | Logout
-
-        // the token the request was made with: an answer to a token no longer held is dropped
-        | ListLogFiles
-        | LoadLogFilesResult of token: string * AdminResult
-        | AnalyzeLogFile of string
-        | LoadLogAnalysisResult of token: string * AdminResult
-        | ReloadResources
-        | LoadReloadResult of token: string * AdminResult
-
-
-    /// A computing answer of a member, typed by what the member answers
-    and ApiResponse<'r> = AsyncOperationStatus<Result<Answer<'r>, string[]>>
-
-    /// An admin answer: no envelope, so no token it started from and no notice
-    and AdminResult = AsyncOperationStatus<Result<Api.AdminResponse, string[]>>
-
-    /// A computing reply with the OpenedToken the request started from, so that what the reply
-    /// tells about the Session (moved on, ended) lands only on the Session that asked: a request
-    /// of a Session since closed or replaced must not end or warn the current one.
-    and Answer<'r> =
-        {
-            From: OpenedToken option
-            Reply: Api.Reply<'r>
-        }
+module private Effects =
 
 
     let serverApi =
@@ -227,463 +54,40 @@ module private Elmish =
         |> Remoting.buildProxy<Api.IServerApi>
 
 
-    let checkServer =
+    /// Turns a server reply into the message for the lane that sent the request. The response goes
+    /// to that lane, the notice goes to the Session, and the Session's token sent with the request
+    /// comes along.
+    let answered lane opened (reply: Api.Reply<_>) =
+        Msg.Lanes(LanesMsg.Answer(lane (Ok reply.Response), opened, reply.Notice))
+
+
+    /// Sends a command to the server with the Session's token and turns the outcome into the
+    /// lane's message: a reply goes through answered, a refusal or a failed request comes back to
+    /// the lane as an Error.
+    let underSession call cmd lane opened =
         async {
             try
-                let! result = serverApi.testApi ()
-                return CheckServer(Finished(Ok result))
+                match!
+                    call
+                        {
+                            Api.Request.Opened = opened
+                            Api.Request.Command = cmd
+                        }
+                with
+                | Ok reply -> return reply |> answered lane opened
+                | Error errs -> return Msg.Lanes(lane (Error errs))
             with ex ->
-                return CheckServer(Finished(Error ex))
+                return Msg.Lanes(lane (Error [| ex.Message |]))
         }
         |> Cmd.fromAsync
-
-
-    let loadSettings =
-        async {
-            try
-                let! settings = serverApi.getSettings ()
-                return LoadSettings(Finished(Ok settings))
-            with ex ->
-                return LoadSettings(Finished(Error ex))
-        }
-        |> Cmd.fromAsync
-
-
-    /// The OpenedToken the Session holds, sent with every computing request; none
-    /// without an open Session.
-    let tokenOf = SessionState.token
-
-
-    /// A request id, minted at dispatch, so that an answer can name the request it answers.
-    let newRequest () = Guid.NewGuid().ToString()
-
-
-    /// A computing request through the member given, with the OpenedToken the Session holds;
-    /// the answer comes back with the token it started from.
-    let createApiMsg
-        (call: Api.Request<'cmd> -> Async<Result<Api.Reply<'resp>, string[]>>)
-        (opened: OpenedToken option)
-        msg
-        (cmd: 'cmd)
-        =
-        async {
-            let! result =
-                call
-                    {
-                        Opened = opened
-                        Command = cmd
-                    }
-
-            return
-                result
-                |> Result.map (fun reply ->
-                    {
-                        From = opened
-                        Reply = reply
-                    }
-                )
-                |> Finished
-                |> msg
-        }
-        |> Cmd.fromAsync
-
-
-    /// An admin command over the token the login bought; never Session-bound.
-    let createAdminMsg msg cmd =
-        async {
-            let! result = serverApi.processAdmin cmd
-            return result |> Finished |> msg
-        }
-        |> Cmd.fromAsync
-
-
-    /// The patient the workbench and the plan are for: the draft, once it meets the minimum, an
-    /// age or a measured weight and height; below that there is no patient. Derived from the
-    /// draft whenever it is read, so that the two cannot differ.
-    let patientOf (state: State) =
-        state.Ui.PatientDraft |> Option.bind (Patient.validate >> Result.toOption)
-
-
-    /// A reload settles when the refresh it started has answered: the order context over a
-    /// patient, else the formulary.
-    let settleReload (state: State) =
-        match state.Admin.Reloading with
-        | InProgress -> { state with Admin.Reloading = Resolved() }
-        | _ -> state
-
-
-    /// An admin answer applied. A reload done reloads what the pages show: the order context
-    /// over the patient, which takes the formulary and the parenteralia with it, or those two
-    /// alone when there is no patient; the reload stays pending until that refresh answered.
-    let applyAdmin (state: State) (response: Api.AdminResponse) =
-        match response with
-        | Api.AdminResponse.PasswordValidated(isValid, token) ->
-            if isValid then
-                { state with
-                    Admin.IsAuthenticated = true
-                    Admin.AuthToken = token
-                },
-                Cmd.none
-            else
-                { state with
-                    Admin.IsAuthenticated = false
-                    Admin.AuthToken = ""
-                    Ui.Snackbar = Snackbar.shown "Invalid password" "error"
-                },
-                Cmd.none
-        | Api.AdminResponse.LogFilesListed files -> { state with Admin.LogFiles = Resolved files }, Cmd.none
-        | Api.AdminResponse.LogFileAnalyzed report -> { state with Admin.LogAnalysisReport = Resolved report }, Cmd.none
-        | Api.AdminResponse.ResourcesReloaded ->
-            let refresh =
-                match patientOf state with
-                // the workbench evaluated again, as it is, whatever was in flight
-                | Some _ ->
-                    let ctx =
-                        state.Lanes.OrderContext
-                        |> OrderContextState.context
-                        |> Option.defaultValue OrderContext.empty
-
-                    Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ())))
-                | None -> Cmd.batch [ Cmd.ofMsg (LoadFormulary Started); Cmd.ofMsg (LoadParenteralia Started) ]
-
-            state, refresh
-
-
-    /// The result, and what the Session is told with it: the record moved on or the Session
-    /// ended, as one message to the session machine, which decides whether the notice counts
-    /// (only when the request started from the token the open Session holds now).
-    let processApiMsg (state: State) (answer: Answer<'r>) (apply: State -> 'r -> State * Cmd<Msg>) =
-        let told =
-            match answer.Reply.Notice with
-            | Some notice -> Cmd.ofMsg (SessionMsg(SessionMsg.Told(answer.From, notice)))
-            | None -> Cmd.none
-
-        let state, cmd = apply state answer.Reply.Response
-        state, Cmd.batch [ cmd; told ]
-
-
-    let applyFormulary (state: State) (form: Formulary) = { state with Fetches.Formulary = Resolved form }, Cmd.none
-
-
-    let applyParenteralia (state: State) (par: Parenteralia) =
-        { state with Fetches.Parenteralia = Resolved par }, Cmd.none
-
-
-    /// The interactions notice on the snackbar, and its withdrawal: only the notice itself is
-    /// withdrawn, never another message the snackbar shows meanwhile (the record moved on, a
-    /// refusal), since the interactions are checked on every answered plan.
-    let interactionsNotice n = $"Er zijn %i{n} interactie(s) gevonden"
-
-    let withdrawInteractionsNotice (state: State) =
-        if
-            state.Ui.Snackbar.Message.StartsWith "Er zijn "
-            && state.Ui.Snackbar.Message.EndsWith " interactie(s) gevonden"
-        then
-            { state with
-                Ui.Snackbar.Message = ""
-                Ui.Snackbar.Open = false
-            }
-        else
-            state
-
-
-    let applyInteraction (state: State) (response: Api.InteractionResponse) =
-        match response with
-        | Api.InteractionResponse.InteractionsChecked interactions ->
-            let newState =
-                if interactions.Length > 0 then
-                    { state with Ui.Snackbar = Snackbar.shown (interactionsNotice interactions.Length) "warning" }
-                else
-                    withdrawInteractionsNotice state
-
-            { newState with Fetches.Interactions = Resolved interactions }, Cmd.none
-        | Api.InteractionResponse.DrugNamesLoaded names ->
-            { state with Fetches.InteractionDrugNames = Resolved names }, Cmd.none
-
-
-    let loadFormulary opened = createApiMsg serverApi.processFormulary opened LoadFormulary
-
-
-    let loadParenteralia opened =
-        createApiMsg serverApi.processParenteralia opened LoadParenteralia
-
-
-    // url needs to be in format: http://localhost:8080/#patient?by=2&bm=0&bd=1
-    // * pg : el (emergency list) cm (continuous medication) pr (prescribe)
-    // * ad: age in days
-    // * by: birth year
-    // * bm: birth month
-    // * bd: birth day
-    // * wt: weight (gram)
-    // * ht: height (cm)
-    // * gw: gestational age weeks
-    // * gd: gestational age days
-    // * la: language (en; du; fr; ge; sp; it; ch)
-    // * dc: show disclaimer (n;_)
-    // * cv: central venous line (y;_)
-    // * dp: department
-    // * md: medication
-    // * rt: route
-    // * fr: form
-    // * in: indication
-    // * dt: dosetype
-    let private tryParseInt key paramsMap =
-        match Map.tryFind key paramsMap with
-        | Some(Route.Int v) -> Some v
-        | _ -> None
-
-    let private parsePatientParams paramsMap =
-        tryParseInt "wt" paramsMap,
-        tryParseInt "ht" paramsMap,
-        tryParseInt "gw" paramsMap |> Option.map Measures.toWeek,
-        tryParseInt "gd" paramsMap |> Option.map Measures.toDay,
-        Map.tryFind "dp" paramsMap
-
-    // The patient, page, language, disclaimer and medication carried by an
-    // anonymous "#/patient?..." url. A "#/session..." url carries none of these:
-    // the session supplies the patient, so it yields the defaults
-    // without a warning.
-    let parsePatient sl =
-        match sl with
-        | [] -> None, None, None, true, None
-        | "session" :: _ -> None, None, None, true, None
-        | [ "patient"; Route.Query queryParams ] ->
-            let paramsMap = Map.ofList queryParams
-
-            let pat =
-                match Map.tryFind "by" paramsMap, Map.tryFind "ad" paramsMap with
-                | Some(Route.Int year), _ ->
-                    // birthday year is required
-                    let month =
-                        match Map.tryFind "bm" paramsMap with
-                        | Some(Route.Int months) -> months
-                        | _ -> 1 // january is the default
-
-                    let day =
-                        match Map.tryFind "bd" paramsMap with
-                        | Some(Route.Int days) -> days
-                        | _ -> 1 // first day of the month is the default
-
-                    let weight, height, gaWeeks, gaDays, dep = parsePatientParams paramsMap
-
-                    let cvl =
-                        match Map.tryFind "cv" paramsMap with
-                        | Some s when s = "y" -> true
-                        | _ -> false
-
-                    let age = Patient.Age.fromBirthDate DateTime.Now (DateTime(year, month, day))
-
-                    let patient =
-                        Patient.create
-                            (Some age.Years)
-                            (Some age.Months)
-                            (Some age.Weeks)
-                            (Some age.Days)
-                            weight
-                            height
-                            gaWeeks
-                            gaDays
-                            UnknownGender
-                            [
-                                if cvl then
-                                    CVL
-                            ]
-                            None
-                            dep
-
-                    patient
-                | _, Some(Route.Int days) ->
-                    let weight, height, gaWeeks, gaDays, dep = parsePatientParams paramsMap
-
-                    let cvl =
-                        match Map.tryFind "cv" paramsMap with
-                        | Some s when s = "y" -> [ CVL ]
-                        | _ -> []
-
-                    let age = Patient.Age.fromDays days
-
-                    let patient =
-                        Patient.create
-                            (Some age.Years)
-                            (Some age.Months)
-                            (Some age.Weeks)
-                            (Some age.Days)
-                            weight
-                            height
-                            gaWeeks
-                            gaDays
-                            UnknownGender
-                            cvl
-                            None
-                            dep
-
-                    patient
-
-                | _ ->
-                    // only the parameter names: the values are patient data
-                    Logging.warning "could not parse url to patient" (paramsMap |> Map.toList |> List.map fst)
-                    None
-
-            let page =
-                match paramsMap |> Map.tryFind "pg" with
-                | Some s when s = "el" -> Some LifeSupport
-                | Some s when s = "cm" -> Some ContinuousMeds
-                | Some s when s = "pr" -> Some Prescribe
-                | Some s when s = "fm" -> Some Formulary
-                | Some s when s = "pe" -> Some Parenteralia
-                | _ -> None
-
-            // ISO code, display name or the legacy codes (du, gr, sp): one parser with the server
-            let lang = paramsMap |> Map.tryFind "la" |> Option.bind Localization.tryParse
-
-            let discl =
-                match paramsMap |> Map.tryFind "dc" with
-                | Some s when s = "n" -> false
-                | _ -> true
-
-            let med =
-                {|
-                    indication = paramsMap |> Map.tryFind "in"
-                    medication = paramsMap |> Map.tryFind "md"
-                    route = paramsMap |> Map.tryFind "rt"
-                    form = paramsMap |> Map.tryFind "fr"
-                    dosetype = paramsMap |> Map.tryFind "dt" |> Option.map DoseType.doseTypeFromString
-                |}
-                |> Some
-
-            pat, page, lang, discl, med
-
-        | _ ->
-            // only the route segment: the rest of the url is never logged
-            Logging.warning "could not parse url" (sl |> List.head)
-
-            None, None, None, true, None
-
-
-    /// What a "#/session?..." url carries: the Launch MainEHR opened GenPRES with, or the
-    /// reason the return from the IdentityProvider refused it.
-    [<RequireQualifiedAccess>]
-    type LaunchUrl =
-        | Launch of Launch
-        | Refused of LaunchRefusal
-
-
-    /// The fixed vocabulary of "#/session?refused={reason}"; an unknown reason is invalid.
-    let parseRefusal reason =
-        match reason with
-        | "expired" -> LaunchRefusal.LaunchExpired
-        | "spent" -> LaunchRefusal.LaunchSpent
-        | "invalid" -> LaunchRefusal.LaunchInvalid
-        | "no-identity" -> LaunchRefusal.NoBrowserIdentity
-        | "no-role" -> LaunchRefusal.NoRole
-        | "wrong-patient" -> LaunchRefusal.WrongActivePatient
-        | "enrolment" -> LaunchRefusal.EnrolmentRequired
-        | _ -> LaunchRefusal.LaunchInvalid
-
-
-    /// The launch token of a "#/session?launch={token}" url, opaque to the client, or the
-    /// refusal of a "#/session?refused={reason}" url. Both are erased the same way.
-    let parseLaunch sl =
-        match sl with
-        | [ "session"; Route.Query queryParams ] ->
-            let query = queryParams |> Map.ofList
-
-            match query |> Map.tryFind "launch", query |> Map.tryFind "refused" with
-            | Some token, _ -> Some(LaunchUrl.Launch(Launch token))
-            | None, Some reason -> Some(LaunchUrl.Refused(parseRefusal reason))
-            | None, None -> None
-        | _ -> None
 
 
     /// Erase the Launch: replace the launch url with "#/session" in the
-    /// address bar and the history entry, so the token survives neither a
+    /// address bar and the history entry, so the launch's token survives neither a
     /// reload, the back button nor a copied url. Goes through the History API
     /// directly: Router.navigate would dispatch the navigation event and
     /// re-enter UrlChanged.
     let eraseLaunch () = Browser.Dom.history.replaceState (null, "", "#/session")
-
-
-    let initialState pat page lang discl =
-        {
-            Lanes =
-                {
-                    // a medication in the url is seeded by UrlChanged, which the router fires on
-                    // mount too, once the patient is set
-                    OrderContext = OrderContextState.noPatient
-                    // the patient reaches the plan through UpdatePatient
-                    OrderPlan = OrderPlanState.noPatient
-                    Session = SessionState.anonymous
-                    Signing = SigningState.idle
-                }
-            Fetches =
-                {
-                    NormalValues = HasNotStartedYet
-                    BolusMedication = HasNotStartedYet
-                    ContinuousMedication = HasNotStartedYet
-                    Products = HasNotStartedYet
-                    Localization = HasNotStartedYet
-                    Hospitals = HasNotStartedYet
-                    Settings = HasNotStartedYet
-                    Formulary = HasNotStartedYet
-                    Parenteralia = HasNotStartedYet
-                    Interactions = HasNotStartedYet
-                    InteractionCheck = 0
-                    InteractionDrugNames = HasNotStartedYet
-                    DrugNameRetries = 0
-                    ServerStatus = HasNotStartedYet
-                }
-            Admin =
-                {
-                    IsAuthenticated = false
-                    AuthToken = ""
-                    LoginAttempt = 0
-                    LogFiles = HasNotStartedYet
-                    LogAnalysisReport = HasNotStartedYet
-                    Reloading = HasNotStartedYet
-                }
-            Ui =
-                {
-                    Page = page |> Option.defaultValue LifeSupport
-                    ShowDisclaimer = discl
-                    Context =
-                        {
-                            // the server default replaces this once LoadSettings resolves, unless the url chose
-                            Localization = (LanguagePolicy.Language.initial lang).Current
-                            Hospital = "UMCU"
-                        }
-                    LanguageChosen = (LanguagePolicy.Language.initial lang).Chosen
-                    IsDemo = false
-                    ServerError = None
-                    EmergencyListFilter = [||]
-                    ContinuousMedsFilter = [||]
-                    Snackbar = Snackbar.closed
-                    PatientDraft = pat
-                }
-        }
-
-
-    /// The language as LanguagePolicy sees it, and the state after the policy answered.
-    let languageOf (state: State) : LanguagePolicy.Language =
-        {
-            Current = state.Ui.Context.Localization
-            Chosen = state.Ui.LanguageChosen
-        }
-
-
-    let withLanguage (language: LanguagePolicy.Language) (state: State) =
-        { state with
-            Ui.Context.Localization = language.Current
-            Ui.LanguageChosen = language.Chosen
-        }
-
-
-    /// Whether leaving the page would lose work, as the policy tells it from the workbench,
-    /// the signing phase and the plan's work.
-    let hasUnsignedWork (state: State) =
-        UnsignedWorkPolicy.hasUnsignedWork
-            (state.Lanes.OrderContext |> OrderContextState.context)
-            (state.Lanes.Signing |> SigningState.view)
-            (state.Lanes.OrderPlan |> OrderPlanState.work)
 
 
     /// Make the key pair, then present the Launch with its public key.
@@ -692,222 +96,223 @@ module private Elmish =
     let presentLaunch (launch: Launch) : Cmd<Msg> =
         async {
             match! Keys.generate () |> Async.Catch with
-            | Choice1Of2 key -> return SessionMsg(SessionMsg.Present(launch, key))
+            | Choice1Of2 key -> return Messages.session (SessionMsg.PresentLaunch(launch, key))
             | Choice2Of2 ex ->
                 Logging.error "could not make the browser key pair" ex.Message
-                return SessionMsg(SessionMsg.RefusedAtCallback LaunchRefusal.NoBrowserIdentity)
+                return Messages.session (SessionMsg.LaunchRefused LaunchRefusal.NoBrowserIdentity)
         }
         |> Cmd.fromAsync
 
 
-    /// The session command a "#/session?..." url asks for; a plain url asks for nothing.
-    let launchCmd (launchUrl: LaunchUrl option) : Cmd<Msg> =
-        match launchUrl with
-        | Some(LaunchUrl.Launch launch) -> presentLaunch launch
-        | Some(LaunchUrl.Refused refusal) -> Cmd.ofMsg (SessionMsg(SessionMsg.RefusedAtCallback refusal))
-        | None -> Cmd.none
-
-
-    let init () : State * Cmd<Msg> =
-        let url = Router.currentUrl ()
-        let launchUrl = url |> parseLaunch
-
-        if launchUrl.IsSome then
+    /// What a shell effect sends out of the client: the url put back or erased, a launch presented.
+    let shell effect =
+        match effect with
+        | ShellMachine.ShellEffect.PutBackUrl sl -> Cmd.ofEffect (fun _ -> Router.navigate (Array.ofList sl))
+        // erased at once, not as a command: the router's first report then reads the erased url,
+        // the one the app shows, and changes nothing
+        | ShellMachine.ShellEffect.EraseLaunch ->
             eraseLaunch ()
-
-        let pat, page, lang, discl, _ = url |> parsePatient
-
-        let cmds =
-            Cmd.batch
-                [
-                    // a page load without a Launch resumes on the cookie (reload, IdP return)
-                    match launchUrl with
-                    | None -> Cmd.ofMsg (SessionMsg SessionMsg.Resume)
-                    | Some _ -> launchCmd launchUrl
-                    checkServer
-                    Cmd.ofMsg (LoadSettings Started)
-                    Cmd.ofMsg (LoadNormalValues Started)
-                    Cmd.ofMsg (LoadBolusMedication Started)
-                    Cmd.ofMsg (LoadContinuousMedication Started)
-                    Cmd.ofMsg (LoadProducts Started)
-                    Cmd.ofMsg (LoadLocalization Started)
-                    Cmd.ofMsg (LoadFormulary Started)
-                    Cmd.ofMsg (LoadParenteralia Started)
-                    Cmd.ofMsg (LoadInteractionDrugNames Started)
-                ]
-
-        initialState pat page lang discl, cmds
+            Cmd.none
+        | ShellMachine.ShellEffect.PresentLaunch launch -> presentLaunch launch
+        | _ -> Cmd.none
 
 
-    let applyNormalValues (normalValues: Deferred<NormalValues>) (pat: Patient option) =
-        match normalValues, pat with
-        | Resolved nv, Some p ->
-            p
-            |> Patient.applyNormalValues (Some nv.Weights) (Some nv.Heights) (Some nv.NeoWeights) (Some nv.NeoHeights)
-            |> Some
-        | _ -> pat
+    /// What a loader effect sends out of the client: a call, whose answer comes back as the loader
+    /// machine's message, or a wait; a failure is logged.
+    let loader effect opened =
+        let landed landing result = Msg.Loader(LoaderMachine.LoaderMsg.Landed(landing result))
+
+        let later seconds msg =
+            async {
+                do! Async.Sleep(seconds * 1000)
+                return Msg.Loader msg
+            }
+            |> Cmd.fromAsync
+
+        match effect with
+        | LoaderMachine.LoaderEffect.FetchSettings ->
+            Cmd.OfAsync.either
+                serverApi.getSettings
+                ()
+                (Ok >> landed LoaderMachine.Landing.Settings)
+                (fun ex -> Error ex.Message |> landed LoaderMachine.Landing.Settings)
+        | LoaderMachine.LoaderEffect.FetchLocalization ->
+            Cmd.OfAsync.perform GoogleDocs.loadLocalization () (landed LoaderMachine.Landing.Localization)
+        | LoaderMachine.LoaderEffect.FetchNormalValues ->
+            Cmd.OfAsync.perform GoogleDocs.loadNormalValues () (landed LoaderMachine.Landing.NormalValues)
+        | LoaderMachine.LoaderEffect.FetchBolusMedication ->
+            Cmd.OfAsync.perform GoogleDocs.loadBolusMedication () (landed LoaderMachine.Landing.BolusMedication)
+        | LoaderMachine.LoaderEffect.FetchContinuousMedication ->
+            Cmd.OfAsync.perform
+                GoogleDocs.loadContinuousMedication
+                ()
+                (landed LoaderMachine.Landing.ContinuousMedication)
+        | LoaderMachine.LoaderEffect.FetchProducts ->
+            Cmd.OfAsync.perform GoogleDocs.loadProducts () (landed LoaderMachine.Landing.Products)
+        | LoaderMachine.LoaderEffect.FetchFormulary form ->
+            Cmd.OfAsync.perform
+                serverApi.processFormulary
+                {
+                    Opened = opened
+                    Command = form
+                }
+                (landed (fun result -> LoaderMachine.Landing.Formulary(opened, result)))
+        | LoaderMachine.LoaderEffect.FetchParenteralia par ->
+            Cmd.OfAsync.perform
+                serverApi.processParenteralia
+                {
+                    Opened = opened
+                    Command = par
+                }
+                (landed (fun result -> LoaderMachine.Landing.Parenteralia(opened, result)))
+        | LoaderMachine.LoaderEffect.FetchInteractions(check, drugs) ->
+            Cmd.OfAsync.perform
+                serverApi.processInteraction
+                {
+                    Opened = opened
+                    Command = Api.InteractionCommand.CheckInteractions drugs
+                }
+                (landed (fun result -> LoaderMachine.Landing.Interactions(check, opened, result)))
+        | LoaderMachine.LoaderEffect.FetchDrugNames ->
+            Cmd.OfAsync.perform
+                serverApi.processInteraction
+                {
+                    Opened = opened
+                    Command = Api.InteractionCommand.GetDrugNames
+                }
+                (landed (fun result -> LoaderMachine.Landing.DrugNames(opened, result)))
+        | LoaderMachine.LoaderEffect.CheckServer ->
+            Cmd.OfAsync.either
+                serverApi.testApi
+                ()
+                (fun _ -> Msg.Loader(LoaderMachine.LoaderMsg.ServerChecked(Ok())))
+                (fun ex -> Msg.Loader(LoaderMachine.LoaderMsg.ServerChecked(Error ex.Message)))
+        | LoaderMachine.LoaderEffect.CheckServerLater seconds -> LoaderMachine.LoaderMsg.CheckServer |> later seconds
+        | LoaderMachine.LoaderEffect.AskAgainLater(load, seconds) -> LoaderMachine.LoaderMsg.Start load |> later seconds
+        | LoaderMachine.LoaderEffect.RequestFailed(ServerErrorPolicy.ErrorSource.Server, errs) ->
+            Logging.error "server niet bereikbaar" errs
+            Cmd.none
+        | LoaderMachine.LoaderEffect.RequestFailed(_, errs) ->
+            Logging.error "error" errs
+            Cmd.none
+        | _ -> Cmd.none
 
 
-    /// An error from the server said and kept: the first three messages, each cut to a
-    /// readable length, under the sentence that asks for a reload. The banner keeps the kind of
-    /// request that raised it, so the next success of that kind clears it. The command passes
-    /// through.
-    let processError source err (state: State, cmd) =
-        let errMsg =
-            err
-            |> Array.truncate 3
-            |> Array.map (fun (s: string) -> if s.Length > 200 then s[..199] + "..." else s)
-            |> String.concat "; "
+    /// What an admin effect sends out of the client: a call under the admin token, whose answer comes back
+    /// as the admin machine's message; a failure is logged.
+    let admin effect =
+        let call cmd landing =
+            Cmd.OfAsync.perform serverApi.processAdmin cmd (landing >> AdminMachine.AdminMsg.Landed >> Msg.Admin)
 
-        Logging.error "error" err
-
-        { state with
-            Ui.Snackbar = Snackbar.shown "Er ging iets mis, herladen" "error"
-            Ui.ServerError = Some(ServerErrorPolicy.raised source $"Server fout: {errMsg}")
-        },
-        cmd
-
-
-    /// A successful answer of source: the banner goes when that source raised it.
-    let clearError source (state: State, cmd) =
-        { state with Ui.ServerError = state.Ui.ServerError |> ServerErrorPolicy.clearedBy source }, cmd
+        match effect with
+        | AdminMachine.AdminEffect.ValidatePassword(attempt, password) ->
+            call
+                (Api.AdminCommand.ValidatePassword password)
+                (fun result -> AdminMachine.Landing.Login(attempt, result))
+        | AdminMachine.AdminEffect.FetchLogFiles token ->
+            call (Api.AdminCommand.ListLogFiles token) AdminMachine.Landing.LogFiles
+        | AdminMachine.AdminEffect.FetchLogAnalysis(token, fileName) ->
+            call (Api.AdminCommand.AnalyzeLogFile(token, fileName)) AdminMachine.Landing.LogAnalysis
+        | AdminMachine.AdminEffect.Reload token ->
+            call (Api.AdminCommand.ReloadResources token) AdminMachine.Landing.Reload
+        | AdminMachine.AdminEffect.RequestFailed(_, errs) ->
+            Logging.error "error" errs
+            Cmd.none
+        | _ -> Cmd.none
 
 
-    /// A sentence on the snackbar, in the severity it is said with.
-    let tell message severity (state: State) = { state with Ui.Snackbar = Snackbar.shown message severity }
-
-
-    /// A term of the signing vocabulary in the language the user reads, falling back to the
-    /// English the policy gives.
-    let signingTerm (state: State) term =
-        Global.getLocalizedTerm
-            state.Fetches.Localization
-            state.Ui.Context.Localization
-            (SigningPolicy.english term)
-            term
-
-
-    /// Every effect a machine returned applied in turn: what each one changes, and the command
-    /// it sends, in the order the machine put them in.
-    let runEffects apply effects (state: State) =
-        let state, cmds =
-            effects
-            |> List.fold
-                (fun (state, cmds) effect ->
-                    let state, cmd = state |> apply effect
-                    state, cmd :: cmds
-                )
-                (state, [])
-
-        state, cmds |> List.rev |> Cmd.batch
-
-
-    /// What one session effect changes, and the command it sends. A transport failure
+    /// What a session effect sends out of the client. A transport failure
     /// is a message, never an exception: an Error outcome for a presentation, CloseFailed for
     /// a close that did not reach the server.
-    let applySessionEffect (effect: SessionEffect) (state: State) : State * Cmd<Msg> =
+    let session (effect: SessionEffect) : Cmd<Msg> =
         match effect with
         | SessionEffect.CallPresentLaunch(launch, key) ->
-            state,
             async {
                 try
                     let! outcome = serverApi.processLaunch (Api.LaunchCommand.PresentLaunch(launch, key))
-                    return SessionMsg(SessionMsg.Outcome(launch, key, Ok outcome))
+                    return Messages.session (SessionMsg.LaunchOutcome(launch, key, Ok outcome))
                 with ex ->
-                    return SessionMsg(SessionMsg.Outcome(launch, key, Error ex.Message))
+                    return Messages.session (SessionMsg.LaunchOutcome(launch, key, Error ex.Message))
             }
             |> Cmd.fromAsync
-        | SessionEffect.CallGetSession ->
-            state,
+        | SessionEffect.CallResume ->
             async {
                 try
                     match! serverApi.processSession Api.SessionCommand.GetSession with
                     | Api.SessionResponse.SessionResp(Some session) ->
-                        return SessionMsg(SessionMsg.Resumed(Ok(ResumeResult.Found session)))
+                        return Messages.session (SessionMsg.Resumed(Ok(ResumeResult.Found session)))
                     | Api.SessionResponse.SessionResp None
                     | Api.SessionResponse.SessionClosed ->
-                        return SessionMsg(SessionMsg.Resumed(Ok ResumeResult.NotFound))
+                        return Messages.session (SessionMsg.Resumed(Ok ResumeResult.NotFound))
                     | Api.SessionResponse.SessionEnded ending ->
-                        return SessionMsg(SessionMsg.Resumed(Ok(ResumeResult.Ended ending)))
+                        return Messages.session (SessionMsg.Resumed(Ok(ResumeResult.Ended ending)))
                     | Api.SessionResponse.EnrolmentPending pending ->
-                        return SessionMsg(SessionMsg.Resumed(Ok(ResumeResult.Enrolling pending)))
+                        return Messages.session (SessionMsg.Resumed(Ok(ResumeResult.Enrolling pending)))
                     // never an answer to GetSession
                     | Api.SessionResponse.PinRefused _ ->
-                        return SessionMsg(SessionMsg.Resumed(Ok ResumeResult.NotFound))
+                        return Messages.session (SessionMsg.Resumed(Ok ResumeResult.NotFound))
                 with ex ->
-                    return SessionMsg(SessionMsg.Resumed(Error ex.Message))
+                    return Messages.session (SessionMsg.Resumed(Error ex.Message))
             }
             |> Cmd.fromAsync
         // the version is open, or the record moved on: each said once, the machine decides
-        | SessionEffect.TellVersionOpened head ->
-            state
-            |> tell (SigningPolicy.versionOpenedSentence (signingTerm state) head) "success",
-            Cmd.none
-        | SessionEffect.TellRefreshFailed ->
-            state |> tell (signingTerm state Terms.``Session Refresh Failed``) "warning", Cmd.none
-        | SessionEffect.TellMovedOn head ->
-            state |> tell (SigningPolicy.movedOnSentence (signingTerm state) head) "warning", Cmd.none
-        | SessionEffect.CallOpenVersion(id, from) ->
-            state,
+        | SessionEffect.CallOpenSignedPlan(id, from) ->
             async {
                 try
                     match! serverApi.processSession (Api.SessionCommand.OpenVersion id) with
-                    | Api.SessionResponse.SessionResp opened -> return SessionMsg(SessionMsg.Reopened(from, Ok opened))
+                    | Api.SessionResponse.SessionResp session ->
+                        return Messages.session (SessionMsg.SignedPlanOpened(from, Ok session))
                     // never an answer to OpenVersion
-                    | _ -> return SessionMsg(SessionMsg.Reopened(from, Ok None))
+                    | _ -> return Messages.session (SessionMsg.SignedPlanOpened(from, Ok None))
                 with ex ->
-                    return SessionMsg(SessionMsg.Reopened(from, Error ex.Message))
+                    return Messages.session (SessionMsg.SignedPlanOpened(from, Error ex.Message))
             }
             |> Cmd.fromAsync
-        | SessionEffect.CallRefresh from ->
-            state,
+        | SessionEffect.CallRefreshPatient from ->
             async {
                 try
                     match! serverApi.processSession Api.SessionCommand.Refresh with
-                    | Api.SessionResponse.SessionResp opened -> return SessionMsg(SessionMsg.Refreshed(from, Ok opened))
+                    | Api.SessionResponse.SessionResp session ->
+                        return Messages.session (SessionMsg.PatientRefreshed(from, Ok session))
                     // never an answer to Refresh
-                    | _ -> return SessionMsg(SessionMsg.Refreshed(from, Ok None))
+                    | _ -> return Messages.session (SessionMsg.PatientRefreshed(from, Ok None))
                 with ex ->
-                    return SessionMsg(SessionMsg.Refreshed(from, Error ex.Message))
+                    return Messages.session (SessionMsg.PatientRefreshed(from, Error ex.Message))
             }
             |> Cmd.fromAsync
         | SessionEffect.CallCloseSession ->
-            state,
             async {
                 // the server deletes the cookie whatever its close returns (finally), so an
-                // answer of any kind means Closed; only a request that never got there fails
+                // answer of any kind means SessionClosed; only a request that never got there fails
                 match! serverApi.processSession Api.SessionCommand.CloseSession |> Async.Catch with
-                | Choice1Of2 _ -> return SessionMsg SessionMsg.Closed
-                | Choice2Of2 ex -> return SessionMsg(SessionMsg.CloseFailed ex.Message)
+                | Choice1Of2 _ -> return Messages.session SessionMsg.SessionClosed
+                | Choice2Of2 ex ->
+                    Logging.error "could not close the session on the server" ex.Message
+                    return Messages.session (SessionMsg.CloseFailed ex.Message)
             }
             |> Cmd.fromAsync
         | SessionEffect.CallSupplyPin(code, pin) ->
-            state,
             async {
                 try
                     match! serverApi.processSession (Api.SessionCommand.SupplyPin(code, pin)) with
                     | Api.SessionResponse.SessionResp(Some session) ->
-                        return SessionMsg(SessionMsg.PinAnswered(Ok(PinOutcome.Opened session)))
+                        return Messages.session (SessionMsg.PinAnswered(Ok(PinOutcome.Opened session)))
                     | Api.SessionResponse.PinRefused refusal ->
-                        return SessionMsg(SessionMsg.PinAnswered(Ok(PinOutcome.Refused refusal)))
+                        return Messages.session (SessionMsg.PinAnswered(Ok(PinOutcome.Refused refusal)))
                     // never an answer to SupplyPin: the attempt is gone, whatever happened
                     | Api.SessionResponse.SessionResp None
                     | Api.SessionResponse.SessionClosed
                     | Api.SessionResponse.SessionEnded _
                     | Api.SessionResponse.EnrolmentPending _ ->
-                        return SessionMsg(SessionMsg.PinAnswered(Ok(PinOutcome.Refused PinRefusal.AttemptExpired)))
+                        return
+                            Messages.session (SessionMsg.PinAnswered(Ok(PinOutcome.Refused PinRefusal.AttemptExpired)))
                 with ex ->
-                    return SessionMsg(SessionMsg.PinAnswered(Error ex.Message))
+                    Logging.error "could not send the PIN to the server" ex.Message
+                    return Messages.session (SessionMsg.PinAnswered(Error ex.Message))
             }
             |> Cmd.fromAsync
-        | SessionEffect.GoTo url -> state, Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
-        | SessionEffect.SetPatient patient -> state, Cmd.ofMsg (UpdatePatient patient)
-        // the cart is the version the Session opened with, opened by the plan machine over the
-        // patient as UpdatePatient leaves it (normal values applied); the machine keeps the
-        // version while that patient is still on its way
-        | SessionEffect.LoadCart head -> state, Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Version(head, newRequest ())))
-        | SessionEffect.KeepKey thumbprint ->
-            state,
+        | SessionEffect.GoToIdentityProvider url -> Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
+        | SessionEffect.KeepBrowserKey thumbprint ->
             Cmd.ofEffect (fun _ ->
                 async {
                     match! Keys.keep thumbprint |> Async.Catch with
@@ -916,23 +321,21 @@ module private Elmish =
                 }
                 |> Async.StartImmediate
             )
+        | _ -> Cmd.none
 
 
-    /// What one signing effect changes, and the command it sends. The machine names the plan,
-    /// the challenge, the PIN, the request id and the key; the OpenedToken comes from the open
-    /// Session here, and every answer carries the request id or the key it answers, so the
+    /// What a signing effect sends out of the client. The machine names the plan,
+    /// the challenge, the PIN, the request id and the key; the OpenedToken is the one the open
+    /// Session holds, and every answer carries the request id or the key it answers, so the
     /// machine can drop one that belongs to an earlier Session. Without an open Session nothing
     /// is sent: the answer is a refusal.
-    let applySigningEffect (effect: SigningEffect) (state: State) : State * Cmd<Msg> =
-        let token = tokenOf state.Lanes.Session
-
+    let signing (effect: SigningEffect) opened : Cmd<Msg> =
         match effect with
         | SigningEffect.CallChallenge(plan, notice, request) ->
-            state,
-            match token with
+            match opened with
             | None ->
                 Cmd.ofMsg (
-                    SigningMsg(
+                    Messages.signing (
                         SigningMsg.ChallengeAnswered(request, Ok(SigningResponse.Refused SigningRefusal.NoSession))
                     )
                 )
@@ -942,17 +345,18 @@ module private Elmish =
                         let! answer =
                             serverApi.processSigning (Api.SigningCommand.RequestSignChallenge(plan, opened, notice))
 
-                        return SigningMsg(SigningMsg.ChallengeAnswered(request, Ok answer))
+                        return Messages.signing (SigningMsg.ChallengeAnswered(request, Ok answer))
                     with ex ->
-                        return SigningMsg(SigningMsg.ChallengeAnswered(request, Error ex.Message))
+                        return Messages.signing (SigningMsg.ChallengeAnswered(request, Error ex.Message))
                 }
                 |> Cmd.fromAsync
         | SigningEffect.CallSubmit(plan, challenge, pin, key) ->
-            state,
-            match token with
+            match opened with
             | None ->
                 Cmd.ofMsg (
-                    SigningMsg(SigningMsg.SubmitAnswered(key, Ok(SigningResponse.Refused SigningRefusal.NoSession)))
+                    Messages.signing (
+                        SigningMsg.SubmitAnswered(key, Ok(SigningResponse.Refused SigningRefusal.NoSession))
+                    )
                 )
             | Some opened ->
                 async {
@@ -969,983 +373,145 @@ module private Elmish =
                                     }
                             )
 
-                        return SigningMsg(SigningMsg.SubmitAnswered(key, Ok answer))
+                        return Messages.signing (SigningMsg.SubmitAnswered(key, Ok answer))
                     with ex ->
-                        return SigningMsg(SigningMsg.SubmitAnswered(key, Error ex.Message))
+                        return Messages.signing (SigningMsg.SubmitAnswered(key, Error ex.Message))
                 }
                 |> Cmd.fromAsync
-        | SigningEffect.RenewToken(token, patient, identity) ->
-            state, Cmd.ofMsg (SessionMsg(SessionMsg.TokenRenewed(token, patient, identity)))
-        | SigningEffect.EndSession ending -> state, Cmd.ofMsg (SessionMsg(SessionMsg.EndedByServer ending))
-        | SigningEffect.SetPatient patient -> state, Cmd.ofMsg (UpdatePatient(Some patient))
-        // the plan took no change while the signature was under way: it is the version signed
-        | SigningEffect.TellSigned signed ->
-            state
-            |> tell (SigningPolicy.signedSentence (signingTerm state) signed) "success",
-            Cmd.ofMsg (OrderPlanMsg OrderPlanMsg.Signed)
-        // a refusal because the record moved on is the notice too: the Session keeps the head
-        // for the bar
-        | SigningEffect.TellRefused(SigningRefusal.Blocked head) ->
-            state
-            |> tell (SigningPolicy.refusalSentence (signingTerm state) (SigningRefusal.Blocked head)) "warning",
-            Cmd.ofMsg (SessionMsg(SessionMsg.Blocked head))
-        | SigningEffect.TellRefused refusal ->
-            state
-            |> tell (SigningPolicy.refusalSentence (signingTerm state) refusal) "warning",
-            Cmd.none
         | SigningEffect.TellError reason ->
             Logging.error "could not send the signature to the server" reason
+            Cmd.none
+        | _ -> Cmd.none
 
-            state |> tell (signingTerm state Terms.``Signing Send Failed``) "error", Cmd.none
 
-
-    /// What one order-plan effect changes, and the command it sends. A plan call answers under
+    /// What an order-plan effect sends out of the client. A plan call answers under
     /// the request it was sent for, so the machine can drop an answer to an earlier request;
-    /// the notice rides on the reply and is told by `update`; a transport failure is an Error
-    /// answer, never an exception.
-    let applyOrderPlanEffect (effect: OrderPlanEffect) (state: State) : State * Cmd<Msg> =
+    /// the notice rides on the reply to the Session; a transport failure is an Error answer, never
+    /// an exception.
+    let plan (effect: OrderPlanEffect) opened : Cmd<Msg> =
         match effect with
         | OrderPlanEffect.CallPlan(cmd, request) ->
-            let opened = tokenOf state.Lanes.Session
-
-            state,
-            async {
-                try
-                    match!
-                        serverApi.processOrderPlan
-                            {
-                                Opened = opened
-                                Command = cmd
-                            }
-                    with
-                    | Ok reply ->
-                        return
-                            OrderPlanAnswered(
-                                request,
-                                {
-                                    From = opened
-                                    Reply = reply
-                                }
-                            )
-                    | Error errs -> return OrderPlanMsg(OrderPlanMsg.Answered(request, Error errs))
-                with ex ->
-                    return OrderPlanMsg(OrderPlanMsg.Answered(request, Error [| ex.Message |]))
-            }
-            |> Cmd.fromAsync
-        | OrderPlanEffect.CheckInteractions drugs -> state, Cmd.ofMsg (CheckInteractions drugs)
-        | OrderPlanEffect.ResetWorkbench -> state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Reset(newRequest ())))
-        // an order prescribed opens the plan page
-        | OrderPlanEffect.GoToPlanPage -> { state with Ui.Page = OrderPlan }, Cmd.none
+            opened
+            |> underSession serverApi.processOrderPlan cmd (fun r -> LanesMsg.Plan(OrderPlanMsg.Answered(request, r)))
         | OrderPlanEffect.TellError errs ->
-            (state, Cmd.none) |> processError ServerErrorPolicy.ErrorSource.OrderPlan errs
+            Logging.error "error" errs
+            Cmd.none
+        | _ -> Cmd.none
 
 
-    /// What one order-context effect changes, and the command it sends. A workbench call
-    /// answers under the request it was sent for; the notice rides on the reply and is told by
-    /// `update`; a transport failure is an Error answer. A filter sync both syncs what is
-    /// already fetched and asks for it again.
-    let applyOrderContextEffect (effect: OrderContextEffect) (state: State) : State * Cmd<Msg> =
+    /// What an order-context effect sends out of the client. A workbench call
+    /// answers under the request it was sent for; the notice rides on the reply to the Session; a
+    /// transport failure is an Error answer.
+    let workbench (effect: OrderContextEffect) opened : Cmd<Msg> =
         match effect with
-        | OrderContextEffect.CallContext(cmd, ctx, request) ->
-            let opened = tokenOf state.Lanes.Session
-
-            state,
-            async {
-                try
-                    match!
-                        serverApi.processOrderContext
-                            {
-                                Opened = opened
-                                Command = (cmd, ctx)
-                            }
-                    with
-                    | Ok reply ->
-                        return
-                            OrderContextAnswered(
-                                request,
-                                {
-                                    From = opened
-                                    Reply = reply
-                                }
-                            )
-                    | Error errs -> return OrderContextMsg(OrderContextMsg.Answered(request, Error errs))
-                with ex ->
-                    return OrderContextMsg(OrderContextMsg.Answered(request, Error [| ex.Message |]))
-            }
-            |> Cmd.fromAsync
-        | OrderContextEffect.SyncFormulary filter ->
-            { state with
-                Fetches.Formulary =
-                    state.Fetches.Formulary
-                    |> Deferred.map (FilterSync.syncFilterToFormulary filter)
-            },
-            Cmd.ofMsg (LoadFormulary Started)
-        | OrderContextEffect.SyncParenteralia filter ->
-            { state with
-                Fetches.Parenteralia =
-                    state.Fetches.Parenteralia
-                    |> Deferred.map (FilterSync.syncFilterToParenteralia filter)
-            },
-            Cmd.ofMsg (LoadParenteralia Started)
+        | OrderContextEffect.CallContext(cmd, request) ->
+            opened
+            |> underSession
+                serverApi.processOrderContext
+                cmd
+                (fun r -> LanesMsg.Workbench(OrderContextMsg.Answered(request, r)))
         | OrderContextEffect.TellError errs ->
             Logging.warning "order context error" errs
-
-            state
-            |> tell (errs |> Array.tryHead |> Option.defaultValue "Er ging iets mis") "warning",
             Cmd.none
+        | _ -> Cmd.none
 
 
-    /// The patient data received as it is, the estimates included: the draft kept for the panel
-    /// and the lists, and the patient it is, if any, for the workbench and the plan, which follow
-    /// it: evaluated for a new one, again over a change. The draft is a patient with an age, or a
-    /// measured weight and height; below that there is no patient: no workbench, no plan.
-    let setPatient (dto: Patient option) (state: State) : State * Cmd<Msg> =
-        let pat =
-            dto
-            |> Option.bind (fun dto ->
-                match dto |> Patient.validate with
-                | Ok pat -> Some pat
-                | Error err ->
-                    Logging.warning "no patient: the data is below the minimum" err
-                    None
-            )
-
-        { state with
-            Ui.PatientDraft = dto
-            Fetches.Formulary = { Formulary.empty with Patient = pat } |> Resolved
-            Fetches.Parenteralia = Parenteralia.empty |> Resolved
-            Ui.EmergencyListFilter = [||]
-            Ui.ContinuousMedsFilter = [||]
-        },
-        Cmd.batch
-            [
-                Cmd.ofMsg (OrderContextMsg(OrderContextMsg.PatientChanged(pat, newRequest ())))
-                Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.PatientChanged(pat, newRequest ())))
-                Cmd.ofMsg (LoadFormulary Started)
-                Cmd.ofMsg (LoadParenteralia Started)
-            ]
-
-
-    /// The patient data received, from the panel, the url or the Session, with the estimate of
-    /// every weight and height the user did not enter applied, then set as it is.
-    let updatePatient (dto: Patient option) (state: State) : State * Cmd<Msg> =
-        state |> setPatient (dto |> applyNormalValues state.Fetches.NormalValues)
-
-
-    /// Whether the patient context is held: an identified patient whose plan has an order that
-    /// is new or changed since the version last opened or signed. The panel cannot change the
-    /// patient then, so that every order a signed version adds rests on one patient context.
-    /// Anonymous use and the url mode are never held.
-    let patientHeld (state: State) =
-        match SessionState.view state.Lanes.Session with
-        | SessionView.Open opened
-        | SessionView.Closing opened ->
-            (opened.PatientContext |> Option.bind _.Identity).IsSome
-            && state.Lanes.OrderPlan |> OrderPlanState.contextHeld
-        | _ -> false
-
-
-    /// A medication chosen without a patient, from the url or a list, is dropped and said: the
-    /// patient is part of the filter, so nothing waits for one.
-    let noPatientForMedication (state: State) =
-        let message =
-            Global.getLocalizedTerm
-                state.Fetches.Localization
-                state.Ui.Context.Localization
-                "Voer patient gegevens in"
-                Terms.``Patient enter patient data``
-
-        { state with Ui.Snackbar = Snackbar.shown message "warning" }
-
-
-#if DEBUG
-    /// A state may be traced only once the server has said it serves the demo data: never before the
-    /// settings arrive, and never against production. The trail keeps the same gate through
-    /// StepTrail.confirmDemo.
-    let isTraceable (state: State) =
-        match state.Fetches.Settings with
-        | Resolved settings
-        | Refreshing settings -> settings.IsDemo
-        | HasNotStartedYet
-        | InProgress -> false
-#endif
-
-
-    let update (msg: Msg) (state: State) =
-        // a token the server no longer takes (expired, or a restart): the login is over
-        let tokenError source err (state, cmd) =
-            let state, cmd = processError source err (state, cmd)
-
-            if err |> Array.contains "Invalid token" then
-                state, Cmd.batch [ cmd; Cmd.ofMsg Logout ]
-            else
-                state, cmd
-
-        let selectMedicationItem generic indication route doseType state =
-            let nonEmpty s = if s = "" then None else Some s
-
-            let ctx =
-                { OrderContext.empty with
-                    OrderContext.Filter.Indication = indication |> nonEmpty
-                    OrderContext.Filter.Generic = Some generic
-                    OrderContext.Filter.Route = route |> nonEmpty
-                    OrderContext.Filter.DoseType = doseType |> nonEmpty |> Option.map DoseType.doseTypeFromString
-                }
-
-            // the medication chosen is evaluated for the patient held; without one it is dropped
-            // and said, since the patient is part of the filter
-            match patientOf state with
-            | Some _ ->
-                { state with Ui.Page = Prescribe },
-                Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ())))
-            | None -> noPatientForMedication state, Cmd.none
-
-        match msg with
-        | CloseSnackbar -> { state with Ui.Snackbar = Snackbar.closed }, Cmd.none
-
-        | CheckServer Started -> { state with Fetches.ServerStatus = InProgress }, checkServer
-
-        | CheckServer(Finished(Ok _)) ->
-            let cmd =
-                match state.Fetches.InteractionDrugNames with
-                | HasNotStartedYet -> Cmd.ofMsg (LoadInteractionDrugNames Started)
-                | _ -> Cmd.none
-
-            { state with
-                Fetches.ServerStatus = Resolved true
-                Ui.ServerError =
-                    state.Ui.ServerError
-                    |> ServerErrorPolicy.clearedBy ServerErrorPolicy.ErrorSource.Server
-            },
-            cmd
-
-        | CheckServer(Finished(Error err)) ->
-            Logging.error "server niet bereikbaar" err
-
-            { state with
-                Fetches.ServerStatus = Resolved false
-                Ui.ServerError =
-                    ServerErrorPolicy.raised
-                        ServerErrorPolicy.ErrorSource.Server
-                        "De server is niet bereikbaar. Controleer of de server is gestart."
-                    |> Some
-            },
-            async {
-                do! Async.Sleep 5000
-                return CheckServer Started
-            }
-            |> Cmd.fromAsync
-
-        | DismissServerError -> { state with Ui.ServerError = None }, Cmd.none
-
-        | LoadSettings Started -> { state with Fetches.Settings = InProgress }, loadSettings
-
-        | LoadSettings(Finished(Ok settings)) ->
-            StepTrail.confirmDemo settings.IsDemo
-
-            // the server default counts until the url or the User chooses; a choice made while
-            // the settings were in flight wins (LanguagePolicy.onServerDefault)
-            { state with
-                Fetches.Settings = Resolved settings
-                Ui.IsDemo = settings.IsDemo
-            }
-            |> withLanguage (languageOf state |> LanguagePolicy.Language.onServerDefault settings.Language),
+    /// What a patient effect sends out of the client. A patient change answers under
+    /// the request it was sent for; the notice rides on the reply to the Session; a transport
+    /// failure is an Error answer.
+    let patient (effect: PatientEffect) opened : Cmd<Msg> =
+        match effect with
+        | PatientEffect.CallPatient(pat, request) ->
+            opened
+            |> underSession
+                serverApi.processPatient
+                (Api.PatientCommand.ChangePatient pat)
+                (fun r -> LanesMsg.Patient(PatientMsg.Answered(request, r)))
+        | PatientEffect.TellError errs ->
+            Logging.warning "patient change error" errs
             Cmd.none
+        | _ -> Cmd.none
 
-        | LoadSettings(Finished(Error err)) ->
-            // no settings: the client keeps its own defaults, which is what it did before
-            Logging.error "cannot load the server settings" err
+
+    /// What an effect of the client sends out of it, each by its part's apply; the routed ones send
+    /// nothing, since the client passed them on itself.
+    let apply opened effect =
+        match effect with
+        | Client.ClientEffect.Lanes(LanesEffect.Signing e) -> opened |> signing e
+        | Client.ClientEffect.Lanes(LanesEffect.Patient e) -> opened |> patient e
+        | Client.ClientEffect.Lanes(LanesEffect.Workbench e) -> opened |> workbench e
+        | Client.ClientEffect.Lanes(LanesEffect.Plan e) -> opened |> plan e
+        | Client.ClientEffect.Lanes(LanesEffect.Session e) -> session e
+        | Client.ClientEffect.Loader e -> opened |> loader e
+        | Client.ClientEffect.Admin e -> admin e
+        | Client.ClientEffect.Shell e -> shell e
+        | _ -> Cmd.none
+
+
+module private Elmish =
+
+
+    /// A request id, minted at dispatch, so that an answer can name the request it answers.
+    let newRequest () = Guid.NewGuid().ToString()
+
+
+    /// What the url of these segments carries, at this moment; the parts that did not parse are
+    /// logged by name, never by value, since the values are patient data.
+    let parseUrl sl =
+        let url = sl |> Url.parse DateTime.Now
+
+        for part in url.NotParsed do
+            match part with
+            | Url.UrlPart.Patient parameters -> Logging.warning "could not parse url to patient" parameters
+            | Url.UrlPart.Route segment -> Logging.warning "could not parse url" segment
+
+        url
+
+
+    /// A landing noted before the client takes it: the settings open the trail when the server serves
+    /// the demo data, and a failed start-up load is logged, never in the trail. No settings: the client
+    /// keeps its own defaults, and the trail records nothing.
+    let noteLanding landing =
+        match landing with
+        | LoaderMachine.Landing.Settings(Ok settings) -> StepTrail.confirmDemo settings.IsDemo
+        | LoaderMachine.Landing.Settings(Error err) ->
             StepTrail.confirmDemo false
-            { state with Fetches.Settings = HasNotStartedYet }, Cmd.none
+            Logging.error "cannot load the server settings" err
+        | LoaderMachine.Landing.Localization(Error err) -> Logging.error "cannot load localization" err
+        | LoaderMachine.Landing.NormalValues(Error err) -> Logging.error "cannot load normal values" err
+        | LoaderMachine.Landing.BolusMedication(Error err) -> Logging.error "cannot load emergency treatment" err
+        | LoaderMachine.Landing.ContinuousMedication(Error err) -> Logging.error "cannot load continuous medication" err
+        | LoaderMachine.Landing.Products(Error err) -> Logging.error "cannot load products" err
+        | _ -> ()
 
-        | Login password ->
-            let attempt = state.Admin.LoginAttempt + 1
 
-            { state with Admin.LoginAttempt = attempt },
-            Api.AdminCommand.ValidatePassword password
-            |> createAdminMsg (fun result -> LoadLoginResult(attempt, result))
+    /// The client's steps recorded in the trail, each landing noted first, and its effects carried
+    /// out in the order they came, each with the Session's token in the state the transition left.
+    let carryOut (state: State, effects, steps) =
+        for step in steps do
+            match step with
+            | Client.ClientStep.Loader(LoaderMachine.LoaderMsg.Landed landing, _, _) -> noteLanding landing
+            | _ -> ()
 
-        // an answer of an earlier attempt: a login since logged out, or asked again
-        | LoadLoginResult(attempt, Finished _) when attempt <> state.Admin.LoginAttempt -> state, Cmd.none
+            StepTrail.record (fun no at -> Trail.client no at step)
 
-        | LoadLoginResult(_, Finished(Ok resp)) ->
-            applyAdmin state resp |> clearError ServerErrorPolicy.ErrorSource.Login
+        let opened = Client.opened state
 
-        | LoadLoginResult(_, Finished(Error err)) ->
-            ({ state with
-                Admin.IsAuthenticated = false
-                Admin.AuthToken = ""
-             },
-             Cmd.none)
-            |> processError ServerErrorPolicy.ErrorSource.Login err
+        state, effects |> List.map (Effects.apply opened) |> Cmd.batch
 
-        | LoadLoginResult(_, Started) -> state, Cmd.none
 
-        | Logout ->
-            { state with
-                Admin.IsAuthenticated = false
-                Admin.AuthToken = ""
-                Admin.LoginAttempt = state.Admin.LoginAttempt + 1
-                Admin.LogFiles = HasNotStartedYet
-                Admin.LogAnalysisReport = HasNotStartedYet
-                Admin.Reloading = HasNotStartedYet
-                Ui.Page =
-                    if state.Ui.Page = Settings then
-                        LifeSupport
-                    else
-                        state.Ui.Page
-            },
-            Cmd.none
+    /// The page load: the url applied at once, so the router's first report, of the same url,
+    /// changes nothing; then the Session resumed, or left for a url with a patient or a
+    /// medication, and the loads started.
+    let init () : State * Cmd<Msg> =
+        let sl = Router.currentUrl ()
+        let url = sl |> parseUrl
 
-        // an answer to a token no longer held (logged out, or logged in again since): dropped,
-        // so a late refusal cannot end the new login and a late answer cannot revive the old
-        | LoadLogFilesResult(token, Finished _)
-        | LoadLogAnalysisResult(token, Finished _)
-        | LoadReloadResult(token, Finished _) when token <> state.Admin.AuthToken -> state, Cmd.none
+        Client.initial url |> Client.pageLoad newRequest sl url |> carryOut
 
-        | ListLogFiles ->
-            match state.Admin.LogFiles with
-            // one listing at a time, so an earlier answer cannot clear the error of a later one
-            | InProgress
-            | Refreshing _ -> state, Cmd.none
-            | _ ->
-                let token = state.Admin.AuthToken
 
-                // the table shown stays until the answer
-                { state with Admin.LogFiles = state.Admin.LogFiles |> Deferred.refresh },
-                Api.AdminCommand.ListLogFiles token
-                |> createAdminMsg (fun result -> LoadLogFilesResult(token, result))
-
-        | LoadLogFilesResult(_, Finished(Ok resp)) ->
-            applyAdmin state resp |> clearError ServerErrorPolicy.ErrorSource.LogFiles
-
-        | LoadLogFilesResult(_, Finished(Error err)) ->
-            ({ state with Admin.LogFiles = HasNotStartedYet }, Cmd.none)
-            |> tokenError ServerErrorPolicy.ErrorSource.LogFiles err
-
-        | LoadLogFilesResult(_, Started) -> state, Cmd.none
-
-        | AnalyzeLogFile fileName ->
-            let token = state.Admin.AuthToken
-
-            { state with Admin.LogAnalysisReport = InProgress },
-            Api.AdminCommand.AnalyzeLogFile(token, fileName)
-            |> createAdminMsg (fun result -> LoadLogAnalysisResult(token, result))
-
-        | LoadLogAnalysisResult(_, Finished(Ok resp)) ->
-            applyAdmin state resp |> clearError ServerErrorPolicy.ErrorSource.LogAnalysis
-
-        | LoadLogAnalysisResult(_, Finished(Error err)) ->
-            ({ state with Admin.LogAnalysisReport = HasNotStartedYet }, Cmd.none)
-            |> tokenError ServerErrorPolicy.ErrorSource.LogAnalysis err
-
-        | LoadLogAnalysisResult(_, Started) -> state, Cmd.none
-
-        | ReloadResources ->
-            let token = state.Admin.AuthToken
-
-            { state with Admin.Reloading = InProgress },
-            Api.AdminCommand.ReloadResources token
-            |> createAdminMsg (fun result -> LoadReloadResult(token, result))
-
-        | LoadReloadResult(_, Finished(Ok resp)) ->
-            applyAdmin state resp |> clearError ServerErrorPolicy.ErrorSource.Reload
-
-        | LoadReloadResult(_, Finished(Error err)) ->
-            ({ state with Admin.Reloading = HasNotStartedYet }, Cmd.none)
-            |> tokenError ServerErrorPolicy.ErrorSource.Reload err
-
-        | LoadReloadResult(_, Started) -> state, Cmd.none
-
-        | AcceptDisclaimer -> { state with Ui.ShowDisclaimer = false }, Cmd.none
-
-        | UpdateLanguage lang ->
-            { state with Ui.ShowDisclaimer = true }
-            |> withLanguage (languageOf state |> LanguagePolicy.Language.choose lang),
-            Cmd.none
-
-        | UpdateHospital hosp ->
-            { state with
-                Ui.ShowDisclaimer = true
-                Ui.Context.Hospital = hosp
-            },
-            Cmd.none
-
-        | UpdatePage page ->
-            let retryDrugNames =
-                match state.Fetches.InteractionDrugNames with
-                | Resolved _
-                | InProgress -> Cmd.none
-                | _ -> Cmd.ofMsg (LoadInteractionDrugNames Started)
-
-            // make sure that the order context is not in use
-            // i.e. the order context should be "fresh"
-            if
-                page = ContinuousMeds
-                && state.Lanes.OrderContext
-                   |> OrderContextState.context
-                   |> Option.map (fun ctx -> ctx.Filter.Generic |> Option.isSome)
-                   |> Option.defaultValue true
-            then
-                { state with Ui.Page = page },
-                Cmd.batch
-                    [
-                        Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Reset(newRequest ())))
-                        retryDrugNames
-                    ]
-            else if page = Settings && not state.Admin.IsAuthenticated then
-                state, Cmd.none
-            else if page = Settings then
-                { state with Ui.Page = page }, retryDrugNames
-            else
-                let loadCmds =
-                    match page with
-                    | Formulary -> [ Cmd.ofMsg (LoadFormulary Started) ]
-                    | Parenteralia -> [ Cmd.ofMsg (LoadParenteralia Started) ]
-                    | _ -> []
-
-                { state with Ui.Page = page }, Cmd.batch (retryDrugNames :: loadCmds)
-
-        | UpdatePatient dto -> updatePatient dto state
-
-        | EditPatient dto -> setPatient dto state
-
-        | UrlChanged sl ->
-            let launchUrl = sl |> parseLaunch
-
-            if launchUrl.IsSome then
-                eraseLaunch ()
-
-            let pat, page, lang, discl, med = sl |> parsePatient
-
-            // an open Session supplies the patient: url patient parameters count only while
-            // no Session holds one: a launched patient is never assigned from the url. The
-            // router fires UrlChanged on mount too, while a Resume may still be in flight,
-            // so only Open and Closing block the url patient
-            let anonymous =
-                match SessionState.view state.Lanes.Session with
-                | SessionView.Open _
-                | SessionView.Closing _ -> false
-                | _ -> true
-
-            let pat = if anonymous then pat else state.Ui.PatientDraft
-
-            // only an `la` parameter changes the language; a navigation keeps the current one
-            let language = languageOf state |> LanguagePolicy.Language.onUrl lang
-
-            // the url's patient taken here, not by a message of its own: the workbench learns of
-            // it through the commands this yields, which go out before the seed below, so that
-            // the seed lands on a patient held. The draft is the one updatePatient sets, the
-            // estimate applied, or while a Session holds the patient the one there was; never the
-            // url's patient as parsed, without the estimate
-            let state, patientCmd =
-                if anonymous then
-                    updatePatient pat state
-                else
-                    state, Cmd.none
-
-            // a medication in the url is seeded over the workbench as it is, for the patient held
-            // or the one the url sets; without a patient it is dropped and said, since the
-            // patient is part of the filter and nothing waits for one
-            let state, seed =
-                match med with
-                | None -> state, Cmd.none
-                | Some m when (patientOf state).IsSome ->
-                    state,
-                    state.Lanes.OrderContext
-                    |> OrderContextState.context
-                    |> Option.defaultValue OrderContext.empty
-                    |> OrderContext.setMedication m.indication m.medication m.route m.form m.dosetype
-                    |> fun ctx -> Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ())))
-                | Some m ->
-                    Logging.warning "a medication in the url without a patient is dropped" m.medication
-                    noPatientForMedication state, Cmd.none
-
-            { state with
-                Ui.ShowDisclaimer = discl
-                Ui.Page = page |> Option.defaultValue LifeSupport
-                // the path from the state; it also keeps the field apart from the Global.Context type
-                Ui.Context.Localization = language.Current
-                Ui.LanguageChosen = language.Chosen
-            },
-            Cmd.batch
-                [
-                    // the patient's commands first, so that the seed lands on a patient held
-                    patientCmd
-                    seed
-                    launchCmd launchUrl
-                ]
-
-        | SessionMsg msg ->
-            let session, effects = SessionState.transition msg state.Lanes.Session
-            StepTrail.record (fun no at -> Trail.session no at msg (session, effects))
-
-            // a failed close is reported only when it was this session's close: a CloseFailed
-            // that arrives after a newer launch superseded the Closing session is dropped by
-            // the machine and must not put an error over the newer session
-            let state =
-                match msg, SessionState.view state.Lanes.Session with
-                | SessionMsg.CloseFailed reason, SessionView.Closing _ ->
-                    Logging.error "could not close the session on the server" reason
-
-                    { state with
-                        Ui.Snackbar = Snackbar.shown "De sessie kon niet worden gesloten. Probeer het opnieuw." "error"
-                    }
-                // the same for a PIN that never reached the server: the form comes back as it was
-                | SessionMsg.PinAnswered(Error reason), SessionView.SupplyingPin _ ->
-                    Logging.error "could not send the PIN to the server" reason
-
-                    { state with
-                        Ui.Snackbar =
-                            Snackbar.shown "De pincode kon niet worden verstuurd. Probeer het opnieuw." "error"
-                    }
-                | _ -> state
-
-            // a signature belongs to an open Session: whatever ends the Session drops it. The
-            // plan's work stays: unsigned is unsigned
-            let signing =
-                match SessionState.view session with
-                | SessionView.Open _ -> state.Lanes.Signing
-                | _ -> SigningState.idle
-            // the reset happens outside the signing machine, so the trail records it here
-            match SessionState.view session, SigningState.view state.Lanes.Signing with
-            | SessionView.Open _, _
-            | _, SigningView.Idle -> ()
-            | _ -> StepTrail.record (fun no at -> Trail.signingReset no at "the session is no longer open" signing)
-
-            { state with
-                Lanes.Session = session
-                Lanes.Signing = signing
-            }
-            |> runEffects applySessionEffect effects
-
-        | SigningMsg msg ->
-            let signing, effects = SigningState.transition msg state.Lanes.Signing
-            StepTrail.record (fun no at -> Trail.signing no at msg (signing, effects))
-
-            { state with Lanes.Signing = signing } |> runEffects applySigningEffect effects
-
-        | LoadLocalization Started ->
-            { state with Fetches.Localization = InProgress },
-            Cmd.fromAsync (GoogleDocs.loadLocalization LoadLocalization)
-
-        | LoadLocalization(Finished(Ok terms)) ->
-
-            { state with Fetches.Localization = terms |> Resolved }, Cmd.none
-
-        | LoadLocalization(Finished(Error s)) ->
-            Logging.error "cannot load localization" s
-            state, Cmd.none
-
-        | LoadNormalValues Started ->
-            { state with Fetches.NormalValues = InProgress },
-            Cmd.fromAsync (GoogleDocs.loadNormalValues LoadNormalValues)
-
-        | LoadNormalValues(Finished(Ok normalValues)) ->
-            { state with Fetches.NormalValues = normalValues |> Resolved },
-            Cmd.ofMsg (UpdatePatient state.Ui.PatientDraft)
-
-        | LoadNormalValues(Finished(Error s)) ->
-            Logging.error "cannot load normal values" s
-            state, Cmd.none
-
-
-        | LoadBolusMedication Started ->
-            { state with Fetches.BolusMedication = InProgress },
-            Cmd.fromAsync (GoogleDocs.loadBolusMedication LoadBolusMedication)
-
-        | LoadBolusMedication(Finished(Ok meds)) ->
-            { state with
-                Fetches.BolusMedication = meds |> Resolved
-                Fetches.Hospitals =
-                    meds
-                    |> List.map _.Hospital
-                    |> List.distinct
-                    |> List.filter String.notEmpty
-                    |> List.toArray
-                    |> Resolved
-            },
-            Cmd.none
-
-        | LoadBolusMedication(Finished(Error s)) ->
-            Logging.error "cannot load emergency treatment" s
-            state, Cmd.none
-
-        | LoadContinuousMedication Started ->
-            { state with Fetches.ContinuousMedication = InProgress },
-            Cmd.fromAsync (GoogleDocs.loadContinuousMedication LoadContinuousMedication)
-
-        | LoadContinuousMedication(Finished(Ok meds)) ->
-
-            { state with Fetches.ContinuousMedication = meds |> Resolved }, Cmd.none
-
-        | LoadContinuousMedication(Finished(Error s)) ->
-            Logging.error "cannot load continuous medication" s
-            state, Cmd.none
-
-        | OnSelectContinuousMedicationItem item ->
-            match state.Fetches.ContinuousMedication with
-            | Resolved meds ->
-                meds
-                |> List.tryFind (fun m -> item.EndsWith($".{m.Medication}"))
-                |> Option.map (fun m -> selectMedicationItem m.Generic m.Indication "INTRAVENEUS" m.DoseType state)
-                |> Option.defaultWith (fun () ->
-                    Logging.warning $"could not find continuous medication with item: {item}" item
-                    state, Cmd.none
-                )
-            | _ -> state, Cmd.none
-
-        | UpdateEmergencyListFilter filter -> { state with Ui.EmergencyListFilter = filter }, Cmd.none
-
-        | UpdateContinuousMedsFilter filter -> { state with Ui.ContinuousMedsFilter = filter }, Cmd.none
-
-        | OnSelectEmergencyListItem item ->
-            match state.Fetches.BolusMedication with
-            | Resolved meds ->
-                meds
-                |> List.tryFind (fun m -> item.EndsWith($".{m.Hospital}.{m.Category}.{m.Generic}"))
-                |> Option.map (fun m ->
-                    let generic =
-                        if m.TemplateGeneric = "" then
-                            m.Generic
-                        else
-                            m.TemplateGeneric
-
-                    selectMedicationItem generic m.TemplateIndication m.TemplateRoute m.TemplateDoseType state
-                )
-                |> Option.defaultValue (state, Cmd.none)
-            | _ -> state, Cmd.none
-
-        | LoadProducts Started ->
-            { state with Fetches.Products = InProgress }, Cmd.fromAsync (GoogleDocs.loadProducts LoadProducts)
-
-        | LoadProducts(Finished(Ok prods)) ->
-
-            { state with Fetches.Products = prods |> Resolved }, Cmd.none
-
-        | LoadProducts(Finished(Error s)) ->
-            Logging.error "cannot load products" s
-            state, Cmd.none
-
-        | OrderContextMsg msg ->
-            // an answer, whatever it says, settles a reload that waited on it
-            let state =
-                match msg with
-                | OrderContextMsg.Answered _ -> settleReload state
-                | _ -> state
-
-            let workbench, effects = OrderContextState.transition msg state.Lanes.OrderContext
-            StepTrail.record (fun no at -> Trail.orderContext no at msg (workbench, effects))
-
-            { state with Lanes.OrderContext = workbench }
-            |> runEffects applyOrderContextEffect effects
-
-        // what the Session is told rides on the reply; the context goes to the machine under
-        // the request it answers
-        | OrderContextAnswered(request, answer) ->
-            processApiMsg
-                state
-                answer
-                (fun state response ->
-                    state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Answered(request, Ok response)))
-                )
-
-        | OrderPlanMsg msg ->
-            // a change from a page is dropped while a signature is under way
-            let plan, effects =
-                OrderPlanState.transitionWhile (SigningState.view state.Lanes.Signing) msg state.Lanes.OrderPlan
-            StepTrail.record (fun no at -> Trail.orderPlan no at msg (plan, effects))
-
-            { state with Lanes.OrderPlan = plan } |> runEffects applyOrderPlanEffect effects
-
-        // what the Session is told rides on the reply; the plan goes to the machine under the
-        // request it answers
-        | OrderPlanAnswered(request, answer) ->
-            // only the answer the plan waits for clears the plan's error: a late answer to a
-            // request since replaced is dropped by the machine and says nothing of the one under way
-            let clear =
-                if state.Lanes.OrderPlan |> OrderPlanState.awaits request then
-                    clearError ServerErrorPolicy.ErrorSource.OrderPlan
-                else
-                    id
-
-            processApiMsg
-                state
-                answer
-                (fun state plan -> state, Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Answered(request, Ok plan))))
-            |> clear
-
-        // asked again over the formulary shown, which stays shown until the answer; a second
-        // request while one runs is dropped
-        | LoadFormulary Started ->
-            match state.Fetches.Formulary with
-            | InProgress
-            | Refreshing _ -> state, Cmd.none
-            | _ ->
-                let form =
-                    match state.Fetches.Formulary with
-                    | Resolved form -> { form with Patient = patientOf state }
-                    | _ -> Formulary.empty
-
-                let cmd = form |> loadFormulary (tokenOf state.Lanes.Session)
-
-                { state with Fetches.Formulary = state.Fetches.Formulary |> Deferred.refresh }, cmd
-
-        // without a patient the formulary is what a reload refreshes, so it settles the reload
-        | LoadFormulary(Finished(Ok msg)) ->
-            let state =
-                if (patientOf state).IsNone then
-                    settleReload state
-                else
-                    state
-            processApiMsg state msg applyFormulary
-            |> clearError ServerErrorPolicy.ErrorSource.Formulary
-
-        | LoadFormulary(Finished(Error err)) ->
-            let state =
-                if (patientOf state).IsNone then
-                    settleReload state
-                else
-                    state
-            ({ state with Fetches.Formulary = HasNotStartedYet }, Cmd.none)
-            |> processError ServerErrorPolicy.ErrorSource.Formulary err
-
-        | UpdateFormulary form ->
-            let state =
-                { state with
-                    Fetches.Formulary = Resolved form
-                    Lanes.OrderContext =
-                        state.Lanes.OrderContext
-                        |> OrderContextState.map (FilterSync.syncFormularyToFilter form)
-                    Fetches.Parenteralia =
-                        state.Fetches.Parenteralia
-                        |> Deferred.map (fun par ->
-                            { par with
-                                Generic = form.Generic
-                                Route = form.Route
-                                Form = form.Form
-                            }
-                        )
-                }
-
-            state,
-            Cmd.batch
-                [
-                    Cmd.ofMsg (LoadFormulary Started)
-                    // the workbench evaluated again over the filter just synced
-                    (state.Lanes.OrderContext
-                     |> OrderContextState.context
-                     |> Option.map (fun ctx -> Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ()))))
-                     |> Option.defaultValue Cmd.none)
-                    Cmd.ofMsg (LoadParenteralia Started)
-                ]
-
-        | LoadParenteralia Started ->
-            match state.Fetches.Parenteralia with
-            | InProgress
-            | Refreshing _ -> state, Cmd.none
-            | _ ->
-                let cmd =
-                    let par = state.Fetches.Parenteralia |> Deferred.defaultValue Parenteralia.empty
-
-                    loadParenteralia (tokenOf state.Lanes.Session) par
-
-                { state with Fetches.Parenteralia = state.Fetches.Parenteralia |> Deferred.refresh }, cmd
-
-        | LoadParenteralia(Finished(Ok msg)) ->
-            processApiMsg state msg applyParenteralia
-            |> clearError ServerErrorPolicy.ErrorSource.Parenteralia
-
-        | LoadParenteralia(Finished(Error err)) ->
-            ({ state with Fetches.Parenteralia = HasNotStartedYet }, Cmd.none)
-            |> processError ServerErrorPolicy.ErrorSource.Parenteralia err
-
-        | UpdateParenteralia par ->
-            let state =
-                { state with
-                    Fetches.Parenteralia = Resolved par
-                    Fetches.Formulary =
-                        state.Fetches.Formulary
-                        |> Deferred.map (fun form ->
-                            { form with
-                                Indication = None
-                                Generic = par.Generic
-                                Route = par.Route
-                                Form = par.Form
-                                DoseType = None
-                            }
-                        )
-                    Lanes.OrderContext =
-                        state.Lanes.OrderContext
-                        |> OrderContextState.map (FilterSync.syncParenteraliaToFilter par)
-                }
-
-            state,
-            Cmd.batch
-                [
-                    Cmd.ofMsg (LoadFormulary Started)
-                    // the workbench evaluated again over the filter just synced
-                    (state.Lanes.OrderContext
-                     |> OrderContextState.context
-                     |> Option.map (fun ctx -> Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ()))))
-                     |> Option.defaultValue Cmd.none)
-                    Cmd.ofMsg (LoadParenteralia Started)
-                ]
-
-        | CheckInteractions drugs ->
-            // every check, the empty one too, ends the checks before it
-            let check = state.Fetches.InteractionCheck + 1
-
-            if drugs.Length < 2 then
-                { withdrawInteractionsNotice state with
-                    Fetches.Interactions = HasNotStartedYet
-                    Fetches.InteractionCheck = check
-                },
-                Cmd.none
-            else
-                // the rows shown stay until the answer
-                { state with
-                    Fetches.Interactions = state.Fetches.Interactions |> Deferred.refresh
-                    Fetches.InteractionCheck = check
-                },
-                Api.InteractionCommand.CheckInteractions drugs
-                |> createApiMsg
-                    serverApi.processInteraction
-                    (tokenOf state.Lanes.Session)
-                    (fun result -> LoadInteractionsResult(check, result))
-
-        | LoadInteractionsResult(check, Finished _) when check <> state.Fetches.InteractionCheck -> state, Cmd.none
-
-        | LoadInteractionsResult(_, Finished(Ok msg)) ->
-            processApiMsg state msg applyInteraction
-            |> clearError ServerErrorPolicy.ErrorSource.Interactions
-        | LoadInteractionsResult(_, Finished(Error err)) ->
-            ({ state with Fetches.Interactions = HasNotStartedYet }, Cmd.none)
-            |> processError ServerErrorPolicy.ErrorSource.Interactions err
-        | LoadInteractionsResult _ -> state, Cmd.none
-
-        | LoadInteractionDrugNames Started ->
-            match state.Fetches.InteractionDrugNames with
-            | InProgress
-            | Refreshing _ -> state, Cmd.none
-            | _ ->
-                { state with Fetches.InteractionDrugNames = state.Fetches.InteractionDrugNames |> Deferred.refresh },
-                Api.InteractionCommand.GetDrugNames
-                |> createApiMsg serverApi.processInteraction (tokenOf state.Lanes.Session) LoadInteractionDrugNames
-
-        | LoadInteractionDrugNames(Finished(Ok msg)) ->
-            let state, cmd = processApiMsg state msg applyInteraction
-            { state with Fetches.DrugNameRetries = 0 }, cmd
-        | LoadInteractionDrugNames(Finished(Error _)) ->
-            let retries = state.Fetches.DrugNameRetries + 1
-
-            if retries >= 3 then
-                { state with
-                    Fetches.InteractionDrugNames = HasNotStartedYet
-                    Fetches.DrugNameRetries = retries
-                    Ui.Snackbar = Snackbar.shown "Interactie medicatie namen konden niet worden geladen" "warning"
-                },
-                Cmd.none
-            else
-                { state with
-                    Fetches.InteractionDrugNames = HasNotStartedYet
-                    Fetches.DrugNameRetries = retries
-                },
-                async {
-                    do! Async.Sleep 3000
-                    return LoadInteractionDrugNames Started
-                }
-                |> Cmd.fromAsync
-
-
-    /// The lists calculated for the draft; empty without one, since no patient is not a fetch
-    /// under way: the page says what is missing, and the spinner is for a fetch only.
-    let calculateInterventions calc meds pat =
-        meds
-        |> Deferred.bind (fun xs ->
-            match pat with
-            | None -> Resolved []
-            | Some p ->
-                let a = p |> Patient.getAgeInYears
-                let w = p |> Patient.getWeightInKg
-                xs |> calc a w |> Resolved
-        )
-
-
-open Elmish
-
-#if DEBUG
-open Elmish.Debug
-open Thoth.Json
-
-
-/// What the trace shows in place of the admin password.
-let redacted = "***"
-
-
-/// The message as the trace records it, with the admin password redacted: a development password may be the one
-/// a production server takes. The admin token stays, because a demo server signs it under its own mode, so it
-/// never opens a production server.
-let private redactMsg (msg: Msg) =
-    match msg with
-    | Login _ -> Login redacted
-    | _ -> msg
-
-
-/// The console trace, silent while the state is not traceable.
-let private consoleTrace (msg: Msg) (state: State) _ =
-    if isTraceable state then
-        Browser.Dom.console.log ("New message:", redactMsg msg)
-        Browser.Dom.console.log ("Updated state:", state)
-
-
-/// A connection to the Redux DevTools extension that passes nothing on while the state is not traceable: the
-/// deflater hands it None for such a state. The history starts with the first traceable state, and every
-/// message it passes on is redacted.
-let private gatedConnection (inner: Fable.Import.RemoteDev.Connection) =
-    let mutable started = false
-
-    { new Fable.Import.RemoteDev.Connection with
-        member _.init(_, _) = ()
-        member _.subscribe listener = inner.subscribe listener
-        member _.unsubscribe = inner.unsubscribe
-        member _.error e = inner.error e
-
-        member _.send(msg, state) =
-            match unbox<obj option> state with
-            | None -> ()
-            | Some json when not started ->
-                started <- true
-                inner.init (json, None)
-            | Some json -> inner.send (unbox<Msg> msg |> redactMsg |> box, json)
-    }
-
-
-/// The Redux DevTools debugger over the gated connection, with the coders the debugger itself uses.
-let private withGatedDebugger (program: Program<unit, State, Msg, unit>) =
-    let coders = Extra.empty |> Extra.withDecimal |> Extra.withInt64 |> Extra.withUInt64
-
-    let encoder = Encode.Auto.generateEncoder<State>(extra = coders)
-    let decoder = Decode.Auto.generateDecoder<State>(extra = coders)
-
-    let deflate (state: State) =
-        if isTraceable state then Some(encoder state) else None
-        |> box
-
-    let inflate (json: obj) =
-        match Decode.fromValue "$" decoder json with
-        | Ok state -> state
-        | Error err -> invalidOp err
-
-    try
-        let connection =
-            Debugger.connectViaExtension<Msg>(Fable.Import.RemoteDev.ExtensionOptions())
-            |> gatedConnection
-        program |> Program.withDebuggerUsing deflate inflate connection
-    with ex ->
-        Browser.Dom.console.error ("[ELMISH DEBUGGER] continuing without the debugger", ex.Message)
-        program
-#endif
+    /// A message through the client, and its effects carried out.
+    let update (msg: Msg) (state: State) = state |> Client.transition newRequest msg |> carryOut
 
 
 /// The app as an Elmish program. A debug build with GENPRES_LOG on and GENPRES_PROD not 1 traces every message
@@ -1954,11 +520,11 @@ let private withGatedDebugger (program: Program<unit, State, Msg, unit>) =
 /// only. It records nothing until the server settings confirm the demo data, so it never runs against
 /// production; a release build records nothing at all.
 let private program () =
-    let program = Program.mkProgram init update (fun _ _ -> ())
+    let program = Program.mkProgram Elmish.init Elmish.update (fun _ _ -> ())
 #if DEBUG
     if StepTrail.isTraceOn () then
         window?genpresTrail <- StepTrail.text
-        program |> Program.withTrace consoleTrace |> withGatedDebugger
+        program |> Program.withTrace Tracing.consoleTrace |> Tracing.withGatedDebugger
     else
         program
 #else
@@ -1966,272 +532,215 @@ let private program () =
 #endif
 
 
-type private ConcreteAppEnv
-    (state: State, dispatch: Msg -> unit, bm: Deferred<Intervention list>, cm: Deferred<Intervention list>)
-    =
+/// The lists calculated for the draft; empty without one, since no patient is not a fetch
+/// under way: the page says what is missing, and the spinner is for a fetch only.
+let private calculateInterventions calc meds pat =
+    meds
+    |> Deferred.bind (fun xs ->
+        match pat with
+        | None -> Resolved []
+        | Some p ->
+            let a = p |> PatientRead.getAgeInYears
+            let w = p |> PatientRead.getWeightInKg
+            xs |> calc a w |> Resolved
+    )
+
+
+/// What the views read from the client state, and the messages they send, through the AppEnv
+/// interfaces.
+type private Projection(state: State, dispatch: Msg -> unit) =
 
     interface AppEnv.ILocalization with
-        member _.LocalizationTerms = state.Fetches.Localization
+        member _.LocalizationTerms = Client.localization state
 
     interface AppEnv.ISettings with
-        member _.Settings = state.Fetches.Settings
+        member _.Settings = Client.settings state
+
+    interface AppEnv.IStartup with
+        member _.Startup = Client.startup state
+
+    interface AppEnv.IBusy with
+        member _.Any = Client.busyAny state
+        member _.Page page = Client.busyPage page state
 
     interface AppEnv.IOrderContext with
-        member _.OrderContext = state.Lanes.OrderContext |> OrderContextState.view
+        member _.OrderContext = Client.orderContext state
 
-        member _.OrderContextMsg(cmd, ctx) =
-            OrderContextMsg(OrderContextMsg.Command(cmd, ctx, newRequest ())) |> dispatch
-
-        member _.Reopen(cmd, ctx) =
-            OrderContextMsg(OrderContextMsg.Reopen(cmd, ctx, newRequest ())) |> dispatch
-
-        member _.Restore() = OrderContextMsg OrderContextMsg.Restore |> dispatch
-
-        member _.Dialog = state.Lanes.OrderContext |> OrderContextState.dialog
-
-        member _.Select id = OrderContextMsg(OrderContextMsg.Select id) |> dispatch
-
-        member _.Argue text = OrderContextMsg(OrderContextMsg.Argue text) |> dispatch
-
-    interface AppEnv.IOrderPlan with
-        member _.OrderPlan = state.Lanes.OrderPlan |> OrderPlanState.view
-
-        member _.OrderPlanCommand cmd =
-            OrderPlanMsg(OrderPlanMsg.Command(cmd, newRequest ())) |> dispatch
-
-        member _.Reopen cmd =
-            OrderPlanMsg(OrderPlanMsg.Reopen(cmd, newRequest ())) |> dispatch
-
-        member _.Restore() = OrderPlanMsg OrderPlanMsg.Restore |> dispatch
-
-        member _.Select id = OrderPlanMsg(OrderPlanMsg.Select id) |> dispatch
-
-        member _.Filter ids =
-            OrderPlanMsg(OrderPlanMsg.Filter(ids, newRequest ())) |> dispatch
-
-        member _.Argue(id, text) = OrderPlanMsg(OrderPlanMsg.Argue(id, text)) |> dispatch
-
-        member _.Changed = state.Lanes.OrderPlan |> OrderPlanState.changed
-
-    interface AppEnv.IPatient with
-        member _.Draft = state.Ui.PatientDraft
-
-        member _.Estimated = state.Ui.PatientDraft |> applyNormalValues state.Fetches.NormalValues
-        // the panel's edit is ignored while the patient context is held; the Session's patient
-        // and a data notice accepted do not come this way
-        member _.UpdatePatient p =
-            if not (patientHeld state) then
-                UpdatePatient p |> dispatch
-
-        member _.EditPatient p =
-            if not (patientHeld state) then
-                EditPatient p |> dispatch
-
-    interface AppEnv.IFormulary with
-        member _.Formulary = state.Fetches.Formulary
-        member _.UpdateFormulary f = UpdateFormulary f |> dispatch
-
-    interface AppEnv.IParenteralia with
-        member _.Parenteralia = state.Fetches.Parenteralia
-        member _.UpdateParenteralia p = UpdateParenteralia p |> dispatch
-
-    interface AppEnv.IInteractions with
-        member _.Interactions = state.Fetches.Interactions
-        member _.InteractionDrugNames = state.Fetches.InteractionDrugNames
-        member _.CheckInteractions drugs = CheckInteractions drugs |> dispatch
-
-    interface AppEnv.IResources with
-        member _.Reload = state.Admin.Reloading
-        member _.ReloadResources() = ReloadResources |> dispatch
-
-    interface AppEnv.ISession with
-        member _.Session = state.Lanes.Session |> SessionState.view
-        member _.Close() = SessionMsg SessionMsg.Close |> dispatch
-        member _.Retry() = SessionMsg SessionMsg.Retry |> dispatch
-
-        member _.OpenAnonymously() = SessionMsg SessionMsg.OpenAnonymous |> dispatch
-
-        member _.SupplyPin code pin = SessionMsg(SessionMsg.SupplyPin(code, pin)) |> dispatch
-
-        member _.MovedOn = state.Lanes.Session |> SessionState.movedOn
-
-        member _.OpenVersion id = SessionMsg(SessionMsg.OpenVersion id) |> dispatch
-
-        member _.Refresh() = SessionMsg SessionMsg.Refresh |> dispatch
-
-    interface AppEnv.ISigning with
-        member _.Signing = state.Lanes.Signing |> SigningState.view
-
-        member _.Differences = state.Lanes.Signing |> SigningState.differences
-
-        // one request id per Sign, so the answer lands on this request and no other; the orders
-        // that differ are taken now, so what reaches the order plan meanwhile leaves them as signed
-        member _.Sign plan =
-            let differences = state.Lanes.OrderPlan |> OrderPlanState.differences plan
-
-            SigningMsg(SigningMsg.Sign(plan, differences, Guid.NewGuid().ToString()))
+        member _.OrderContextMsg cmd =
+            Messages.workbench (OrderContextMsg.Command(cmd, Elmish.newRequest ()))
             |> dispatch
 
-        member _.Held = patientHeld state
+        member _.ReopenField cmd =
+            Messages.workbench (OrderContextMsg.ReopenField(cmd, Elmish.newRequest ()))
+            |> dispatch
 
-        // held, the plan keeps the data its new and changed orders were composed on
-        member _.Accept() = SigningMsg(SigningMsg.Accept(patientHeld state)) |> dispatch
+        member _.RestoreField() = Messages.workbench OrderContextMsg.RestoreField |> dispatch
+
+        member _.Dialog = Client.orderContextDialog state
+
+        member _.SelectScenario id =
+            Messages.workbench (OrderContextMsg.SelectScenario id) |> dispatch
+
+    interface AppEnv.IOrderPlan with
+        member _.OrderPlan = Client.orderPlan state
+
+        member _.Add orderId =
+            Msg.Lanes(LanesMsg.Prescribe(orderId, Elmish.newRequest (), Elmish.newRequest ()))
+            |> dispatch
+
+        member _.NewNutrition category =
+            Messages.plan (OrderPlanMsg.Change(OrderPlanChange.NewNutrition category, Elmish.newRequest ()))
+            |> dispatch
+
+        member _.Remove ids =
+            Messages.plan (OrderPlanMsg.Change(OrderPlanChange.Remove ids, Elmish.newRequest ()))
+            |> dispatch
+
+        member _.OrderDialogCommand(id, cmd) =
+            Messages.plan (OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand(id, cmd), Elmish.newRequest ()))
+            |> dispatch
+
+        member _.ReopenField(id, cmd) =
+            Messages.plan (OrderPlanMsg.ReopenField(id, cmd, Elmish.newRequest ()))
+            |> dispatch
+
+        member _.RestoreField() = Messages.plan OrderPlanMsg.RestoreField |> dispatch
+
+        member _.SelectContext id = Messages.plan (OrderPlanMsg.SelectContext id) |> dispatch
+
+        member _.FilterRows ids =
+            Messages.plan (OrderPlanMsg.Change(OrderPlanChange.FilterRows ids, Elmish.newRequest ()))
+            |> dispatch
+
+        member _.Changed = Client.changedOrders state
+
+    interface AppEnv.IPatient with
+        member _.Draft = Client.draft state
+
+        member _.Changing = Client.changing state
+
+        member _.Estimated = Client.estimated state
+
+        member _.UpdatePatient pat =
+            Msg.PanelChanged(pat, PatientDraftPolicy.Estimates.Renewed, Elmish.newRequest ())
+            |> dispatch
+
+        member _.EditPatient pat =
+            Msg.PanelChanged(pat, PatientDraftPolicy.Estimates.Kept, Elmish.newRequest ())
+            |> dispatch
+
+    interface AppEnv.IFormulary with
+        member _.Formulary = Client.formulary state
+        member _.UpdateFormulary form =
+            Msg.Loader(LoaderMachine.LoaderMsg.FormularyChanged form) |> dispatch
+
+    interface AppEnv.IParenteralia with
+        member _.Parenteralia = Client.parenteralia state
+        member _.UpdateParenteralia par =
+            Msg.Loader(LoaderMachine.LoaderMsg.ParenteraliaChanged par) |> dispatch
+
+    interface AppEnv.IInteractions with
+        member _.Interactions = Client.interactions state
+        member _.InteractionDrugNames = Client.drugNames state
+        member _.CheckInteractions drugs =
+            Msg.Loader(LoaderMachine.LoaderMsg.CheckInteractions drugs) |> dispatch
+
+    interface AppEnv.IResources with
+        member _.Reload = Client.reloading state
+        member _.ReloadResources() = Msg.Admin AdminMachine.AdminMsg.ReloadResources |> dispatch
+
+    interface AppEnv.ISession with
+        member _.Session = Client.session state
+        member _.Close() = Messages.session SessionMsg.CloseSession |> dispatch
+        member _.RetryLaunch() = Messages.session SessionMsg.RetryLaunch |> dispatch
+
+        member _.OpenAnonymously() = Messages.session SessionMsg.ContinueAnonymous |> dispatch
+
+        member _.SupplyPin code pin = Messages.session (SessionMsg.SupplyPin(code, pin)) |> dispatch
+
+        member _.NewerPlan = Client.newerPlan state
+
+        member _.OpenSignedPlan id = Messages.session (SessionMsg.OpenSignedPlan id) |> dispatch
+
+        member _.Refresh() = Messages.session SessionMsg.RefreshPatient |> dispatch
+
+    interface AppEnv.ISigning with
+        member _.Signing = Client.signing state
+
+        member _.Differences = Client.differences state
+
+        // one request id per Sign, so the answer lands on this request and no other
+        member _.Sign plan = Msg.Sign(plan, Elmish.newRequest ()) |> dispatch
+
+        member _.Held = Client.held state
+
+        member _.Accept() = Msg.AcceptDataChange |> dispatch
 
         // one key per confirmation, so the commit takes effect once; the machine keeps it for a retry
         member _.Confirm pin =
-            SigningMsg(SigningMsg.Confirm(pin, Guid.NewGuid().ToString())) |> dispatch
+            Messages.signing (SigningMsg.ConfirmPin(pin, Elmish.newRequest ())) |> dispatch
 
-        member _.Cancel() = SigningMsg SigningMsg.Cancel |> dispatch
+        member _.Cancel() = Messages.signing SigningMsg.Cancel |> dispatch
 
     interface AppEnv.IAuthentication with
-        member _.IsAuthenticated = state.Admin.IsAuthenticated
-        member _.Login password = Login password |> dispatch
-        member _.Logout() = Logout |> dispatch
+        member _.IsAuthenticated = Client.isAuthenticated state
+        member _.Login password = Msg.Admin(AdminMachine.AdminMsg.Login password) |> dispatch
+
+        member _.Logout() = Msg.Admin AdminMachine.AdminMsg.Logout |> dispatch
 
     interface AppEnv.ILogAnalyzer with
-        member _.LogFiles = state.Admin.LogFiles
-        member _.LogAnalysisReport = state.Admin.LogAnalysisReport
-        member _.ListLogFiles() = ListLogFiles |> dispatch
-        member _.AnalyzeLogFile fileName = AnalyzeLogFile fileName |> dispatch
+        member _.LogFiles = Client.logFiles state
+        member _.LogAnalysisReport = Client.logAnalysisReport state
+        member _.ListLogFiles() = Msg.Admin AdminMachine.AdminMsg.ListLogFiles |> dispatch
+
+        member _.AnalyzeLogFile fileName =
+            Msg.Admin(AdminMachine.AdminMsg.AnalyzeLogFile fileName) |> dispatch
 
     interface AppEnv.IBolusMedication with
-        member _.BolusMedication = bm
-        member _.OnSelectBolusMedicationItem s = OnSelectEmergencyListItem s |> dispatch
-        member _.BolusMedicationFilter = state.Ui.EmergencyListFilter
-        member _.OnBolusMedicationFilterChange f = UpdateEmergencyListFilter f |> dispatch
+        member _.BolusMedication =
+            calculateInterventions EmergencyTreatment.calculate (Client.bolusMedication state) (Client.draft state)
+
+        member _.OnSelectBolusMedicationItem itm = Msg.EmergencyListItemChosen itm |> dispatch
+        member _.BolusMedicationFilter = Client.emergencyListFilter state
+        member _.OnBolusMedicationFilterChange filter =
+            Msg.Shell(ShellMachine.ShellMsg.EmergencyListFiltered filter) |> dispatch
 
     interface AppEnv.IContinuousMedication with
-        member _.ContinuousMedication = cm
+        member _.ContinuousMedication =
+            let calc =
+                fun _ w meds ->
+                    match w with
+                    | Some w' -> ContinuousMedicationList.calculate w' meds
+                    | None -> []
 
-        member _.OnSelectContinuousMedicationItem s = OnSelectContinuousMedicationItem s |> dispatch
+            calculateInterventions calc (Client.continuousMedication state) (Client.draft state)
 
-        member _.ContinuousMedicationFilter = state.Ui.ContinuousMedsFilter
+        member _.OnSelectContinuousMedicationItem itm = Msg.ContinuousMedicationChosen itm |> dispatch
 
-        member _.OnContinuousMedicationFilterChange f = UpdateContinuousMedsFilter f |> dispatch
+        member _.ContinuousMedicationFilter = Client.continuousMedsFilter state
 
-
-[<Literal>]
-let private themeDef =
-    """
-responsiveFontSizes(createTheme({
-    typography: { fontSize: 12 },
-    palette: {
-        mode: 'light',
-        // the four severities the client shows: Valid, Caution, Warning, Alert. MUI's own
-        // light-mode shades, all three, so nothing derived replaces a built-in one
-        success: { main: '#2e7d32', light: '#4caf50', dark: '#1b5e20' },
-        info: { main: '#0288d1', light: '#03a9f4', dark: '#01579b' },
-        warning: { main: '#ed6c02', light: '#ff9800', dark: '#e65100' },
-        error: { main: '#d32f2f', light: '#ef5350', dark: '#c62828' },
-        // the tint behind a caution, a warning or an alert, as an alert box has it
-        severityBg: { caution: '#e5f6fd', warning: '#fff4e5', alert: '#fdeded' },
-        // the accent the tables and headers use
-        primary: { main: '#1976d2', light: '#42a5f5', dark: '#1565c0' },
-    },
-    spacing: 6,
-    components: {
-        MuiTable: { defaultProps: { size: 'medium' } },
-        MuiTextField: { defaultProps: { size: 'medium' } },
-        MuiButton: { defaultProps: { size: 'medium' } },
-        MuiIconButton: { defaultProps: { size: 'medium' } },
-        MuiToolbar: { defaultProps: { variant: 'dense' } },
-        MuiAutocomplete: { defaultProps: { size: 'medium' } },
-    }
-}), { factor: 2 })
-"""
+        member _.OnContinuousMedicationFilterChange filter =
+            Msg.Shell(ShellMachine.ShellMsg.ContinuousMedsFiltered filter) |> dispatch
 
 
-[<Import("createTheme", from = "@mui/material/styles")>]
-[<Emit(themeDef)>]
-let private theme: obj = jsNative
-
-
-[<Literal>]
-let private mobileDef =
-    """
-responsiveFontSizes(createTheme({
-    typography: { fontSize: 11 },
-    palette: {
-        mode: 'light',
-        // the four severities the client shows: Valid, Caution, Warning, Alert. MUI's own
-        // light-mode shades, all three, so nothing derived replaces a built-in one
-        success: { main: '#2e7d32', light: '#4caf50', dark: '#1b5e20' },
-        info: { main: '#0288d1', light: '#03a9f4', dark: '#01579b' },
-        warning: { main: '#ed6c02', light: '#ff9800', dark: '#e65100' },
-        error: { main: '#d32f2f', light: '#ef5350', dark: '#c62828' },
-        // the tint behind a caution, a warning or an alert, as an alert box has it
-        severityBg: { caution: '#e5f6fd', warning: '#fff4e5', alert: '#fdeded' },
-        // the accent the tables and headers use
-        primary: { main: '#1976d2', light: '#42a5f5', dark: '#1565c0' },
-    },
-    spacing: 6,
-    components: {
-        MuiTable: { defaultProps: { size: 'small' } },
-        MuiTextField: { defaultProps: { size: 'small' } },
-        MuiButton: { defaultProps: { size: 'small' } },
-        MuiIconButton: { defaultProps: { size: 'small' } },
-        MuiToolbar: { defaultProps: { variant: 'dense' } },
-        MuiAutocomplete: { defaultProps: { size: 'small' } },
-    }
-}), { factor: 2 })
-"""
-
-
-[<Import("createTheme", from = "@mui/material/styles")>]
-[<Emit(mobileDef)>]
-let private mobile: obj = jsNative
-
-
-// Entry point must be in a separate file
-// for Vite Hot Reload to work
 [<JSX.Component>]
 let View () =
     let state, dispatch = React.useElmish (program, [||])
-    let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
+    let isMobile = Mui.Hooks.useIsMobile ()
 
-    // the browser asks before it leaves the page (back, a closed tab, a reload) while there is
-    // unsigned work; the listener is added once and reads the latest state through a ref
-    let stateRef = React.useRef state
-    stateRef.current <- state
+    global.Hooks.LeaveGuard.useLeaveGuard (Client.unsignedWork state)
 
-    React.useEffectOnce (fun () ->
-        let guard (ev: Browser.Types.Event) =
-            if hasUnsignedWork stateRef.current then
-                ev.preventDefault ()
-                // the browser shows its own dialog; older browsers need a returnValue for it
-                ev?returnValue <- ""
+    let getTerm = Global.getLocalizedTerm (Client.localization state) (Client.language state)
 
-        window.addEventListener ("beforeunload", guard)
+    let context: Global.Context =
+        {
+            Localization = Client.language state
+            Hospital = Client.hospital state
+        }
 
-        fun () -> window.removeEventListener ("beforeunload", guard)
-    )
+    let appEnv = Projection(state, dispatch) :> obj
 
-    let handleClose =
-        fun (_: obj) (reason: string) ->
-            if reason <> "clickaway" then
-                CloseSnackbar |> dispatch
-
-    let autoHide =
-        match state.Ui.Snackbar.Severity with
-        | "success"
-        | "info" -> 3000 |> box
-        | _ -> null
-
-    let bm =
-        calculateInterventions EmergencyTreatment.calculate state.Fetches.BolusMedication state.Ui.PatientDraft
-
-    let cm =
-        let calc =
-            fun _ w meds ->
-                match w with
-                | Some w' -> ContinuousMedication.calculate w' meds
-                | None -> []
-
-        calculateInterventions calc state.Fetches.ContinuousMedication state.Ui.PatientDraft
-
-    let appEnv = ConcreteAppEnv(state, dispatch, bm, cm) :> obj
-
-    let sx =
+    let pageSx =
         if isMobile then
             {|
                 height = "100vh"
@@ -2245,10 +754,10 @@ let View () =
                 mb = 0
             |}
 
-    let theme = if isMobile then mobile else theme
+    let theme = if isMobile then Mui.Themes.mobile else Mui.Themes.desktop
 
     let serverErrorBanner =
-        match state.Ui.ServerError with
+        match Client.serverError state with
         | Some error ->
             Components.Notice.View
                 {|
@@ -2256,69 +765,72 @@ let View () =
                     title = Some "Server probleem"
                     message = error.Message
                     action = None
-                    onClose = Some(fun () -> dispatch DismissServerError)
+                    onClose = Some(fun () -> dispatch (Msg.Shell ShellMachine.ShellMsg.ServerErrorDismissed))
                 |}
         | None -> null
+
+    let leaveDialog =
+        Views.LeaveDialog.View
+            {|
+                isOpen = Client.urlAsked state
+                launched = Client.launched state
+                asksLaunch = Client.asksLaunch state
+                getTerm = getTerm
+                onConfirm = fun () -> Msg.Shell ShellMachine.ShellMsg.LeftForUrl |> dispatch
+                onCancel = fun () -> Msg.Shell ShellMachine.ShellMsg.UrlKept |> dispatch
+            |}
+
+    let alertSnackbar =
+        Views.AlertSnackbar.View
+            {|
+                alert = Client.snackbar state
+                getTerm = getTerm
+                onClose = fun () -> Msg.Shell ShellMachine.ShellMsg.SnackbarClosed |> dispatch
+            |}
+
+    let onUrlChanged sl = Msg.UrlChanged(sl, Elmish.parseUrl sl) |> dispatch
+
+    // the quantity fields read whether one of them counts, and report their own count
+    let counting: Global.Counting =
+        {
+            Counting = Client.counting state
+            Report = ShellMachine.ShellMsg.CountingChanged >> Msg.Shell >> dispatch
+        }
 
     let genPresProps =
         {|
             appEnv = appEnv
-            // the disclaimer is for anonymous use only: a launched, resuming or
-            // refused session never sees it; an anonymous open after a refusal does
-            showDisclaimer =
-                state.Ui.ShowDisclaimer
-                && (
-                    match SessionState.view state.Lanes.Session with
-                    | SessionView.Anonymous -> true
-                    | _ -> false
-                )
-            isDemo = state.Ui.IsDemo
-            acceptDisclaimer = fun _ -> AcceptDisclaimer |> dispatch
-            updatePage = UpdatePage >> dispatch
-            page = state.Ui.Page
+            showDisclaimer = Client.showDisclaimer state
+            isDemo = Client.isDemo state
+            acceptDisclaimer = fun _ -> Msg.Shell ShellMachine.ShellMsg.DisclaimerAccepted |> dispatch
+            updatePage = Msg.PageChosen >> dispatch
+            page = Client.page state
             languages = Localization.languages
-            hospitals = state.Fetches.Hospitals
-            switchLang = UpdateLanguage >> dispatch
-            switchHosp = UpdateHospital >> dispatch
+            hospitals = Client.hospitals state
+            switchLang = ShellMachine.ShellMsg.LanguageChosen >> Msg.Shell >> dispatch
+            switchHosp = ShellMachine.ShellMsg.HospitalChosen >> Msg.Shell >> dispatch
         |}
 
     JSX.jsx
         $"""
     import {{ ThemeProvider }} from '@mui/material/styles';
-    import {{ responsiveFontSizes }} from '@mui/material/styles';
     import CssBaseline from '@mui/material/CssBaseline';
     import React from "react";
     import Box from '@mui/material/Box';
-    import Snackbar from '@mui/material/Snackbar';
-    import IconButton from '@mui/material/IconButton';
-    import CloseIcon from '@mui/icons-material/Close';
-    import Alert from '@mui/material/Alert';
 
     <React.StrictMode>
         <ThemeProvider theme={theme}>
-            <Box sx={sx}>
+            <Box sx={pageSx}>
                 <CssBaseline />
                 {serverErrorBanner}
-                {Components.Router.View {| onUrlChanged = UrlChanged >> dispatch |}}
+                {Components.Router.View {| onUrlChanged = onUrlChanged |}}
+                {leaveDialog}
                 {Pages.GenPres.View genPresProps
                  |> toReact
-                 |> Components.Context.Context state.Ui.Context}
+                 |> Components.Context.Counting counting
+                 |> Components.Context.Context context}
             </Box>
-            <div>
-                <Snackbar
-                    open={state.Ui.Snackbar.Open}
-                    autoHideDuration={autoHide}
-                    onClose={handleClose}
-                >
-                    <Alert severity={state.Ui.Snackbar.Severity} onClose={fun _ -> CloseSnackbar |> dispatch} sx={ {| width = "100%" |} }>
-                        {state.Ui.Snackbar.Message}
-                    </Alert>
-                </Snackbar>
-            </div>
+            {alertSnackbar}
         </ThemeProvider>
     </React.StrictMode>
     """
-
-
-let root = ReactDomClient.createRoot (document.getElementById "genpres-app")
-root.render (View() |> toReact)

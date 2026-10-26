@@ -2,7 +2,8 @@
 //
 // Emits a Mermaid graph of every project under `src/` in GenPRES.sln, grouped by the
 // ADR-0001 ring assigned in scripts/DependencyRule.fsx. An edge points at the
-// dependency; a dashed edge is an outward reference tolerated by `allowedReferences`.
+// dependency. An inward edge is bright green; an outward reference, tolerated by
+// `allowedReferences` but not meant to exist, is dashed and bright red.
 // The diagram lives in ARCHITECTURE.md between the `project-graph` markers; CI runs
 // `--check` so the picture cannot drift from the code.
 //
@@ -48,6 +49,14 @@ let ringStyle ring =
     | Ring.Presentation -> "fill:#ffedd5,stroke:#c2410c,color:#7c2d12"
     | Ring.Client -> "fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d"
     | Ring.Tooling -> "fill:#f3f4f6,stroke:#4b5563,color:#1f2937"
+
+
+/// The colour of an inward reference, the default of every edge.
+let inwardStyle = "stroke:#22c55e,stroke-width:2px"
+
+
+/// The colour of an outward reference the rule still tolerates.
+let outwardStyle = "stroke:#ef4444,stroke-width:2px"
 
 
 /// `Informedica.GenORDER.Lib` -> `GenORDER.Lib`, the node label.
@@ -106,15 +115,31 @@ let mermaid (projects: Project list) =
                 ]
         )
 
+    // each edge with whether it points outward; Mermaid numbers the edges in this order
     let edges =
         ordered
         |> List.collect (fun p ->
             p.References
             |> List.map (fun dep ->
-                let arrow = if allowed.Contains(p.Name, dep) then "-.->" else "-->"
-                $"    %s{nodeId p.Name} %s{arrow} %s{nodeId dep}"
+                let outward = allowed.Contains(p.Name, dep)
+                let arrow = if outward then "-.->" else "-->"
+                $"    %s{nodeId p.Name} %s{arrow} %s{nodeId dep}", outward
             )
         )
+
+    let linkStyles =
+        let outward =
+            edges
+            |> List.indexed
+            |> List.choose (fun (i, (_, out)) -> if out then Some(string i) else None)
+
+        let indices = outward |> String.concat ","
+
+        [
+            $"    linkStyle default %s{inwardStyle}"
+            if not outward.IsEmpty then
+                $"    linkStyle %s{indices} %s{outwardStyle}"
+        ]
 
     let styles =
         ringOrder
@@ -128,7 +153,7 @@ let mermaid (projects: Project list) =
                 [ $"    classDef %s{ringName ring} %s{ringStyle ring}"; $"    class %s{names} %s{ringName ring}" ]
         )
 
-    [ "graph BT"; yield! subgraphs; yield! edges; yield! styles ]
+    [ "graph BT"; yield! subgraphs; yield! (edges |> List.map fst); yield! styles; yield! linkStyles ]
     |> String.concat "\n"
 
 
@@ -144,8 +169,9 @@ let block (projects: Project list) =
         mermaid projects
         "```"
         ""
-        $"%i{projects.Length} projects, %i{edgeCount} project references. An arrow points at the dependency. A dashed arrow is an"
-        "outward reference the dependency rule still tolerates; the reasons are in `scripts/DependencyRule.fsx`."
+        $"%i{projects.Length} projects, %i{edgeCount} project references. An arrow points at the dependency. A green arrow points"
+        "inward, as the dependency rule wants. A dashed red arrow is an outward reference the rule still tolerates but that should"
+        "not exist; the reasons are in `scripts/DependencyRule.fsx`."
         endMarker
     ]
     |> String.concat "\n"

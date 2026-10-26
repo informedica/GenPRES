@@ -1,4 +1,4 @@
-namespace Shared
+namespace Informedica.GenPRES.Shared
 
 
 /// This module defines shared types between
@@ -37,18 +37,6 @@ module Types =
         | StringData
         | FloatData
         | FloatOptionData
-
-
-    type Configuration = Setting list
-
-    and Setting =
-        {
-            Department: string
-            MinAge: int
-            MaxAge: int
-            MinWeight: float
-            MaxWeight: float
-        }
 
 
     type NormalValue =
@@ -184,17 +172,6 @@ module Types =
         | IsAlert
 
 
-    /// How far what is shown stands from what the rules allow: nothing, a note, a warning, an
-    /// alert. The cases are declared from lowest to highest, so the highest of a set is their
-    /// maximum. Level and TextBlock carry it on the wire; the Severity module converts.
-    [<RequireQualifiedAccess>]
-    type Severity =
-        | Normal
-        | Caution
-        | Warning
-        | Alert
-
-
     type Schedule =
         {
             IsOnce: bool
@@ -232,6 +209,28 @@ module Types =
         }
 
 
+    /// The strength of one substance of a product.
+    type ProductStrength =
+        {
+            /// The name of the substance
+            Substance: string
+            /// The concentration of the substance in the product
+            Strength: ValueUnit
+        }
+
+
+    /// A product a component can be made of: its strengths, paired, as one product holds them.
+    type ComponentProduct =
+        {
+            /// The id of the product: a GPK, PRK or HPK
+            Id: string
+            /// The quantities of the product as the component counts them
+            FormQuantities: ValueUnit option
+            /// The strength of each substance of the product
+            Strengths: ProductStrength[]
+        }
+
+
     type Component =
         {
             Id: string
@@ -245,6 +244,8 @@ module Types =
             OrderableConcentration: OrderVariable
             Dose: Dose
             Items: Item[]
+            /// The products the component can be made of
+            Products: ComponentProduct[]
         }
 
 
@@ -270,23 +271,6 @@ module Types =
             Duration: OrderVariable
             Start: DateTime
             Stop: DateTime option
-        }
-
-
-    type OrderLoader =
-        {
-            Component: string option
-            Item: string option
-            Order: Order
-        }
-
-
-    type LoadedOrder =
-        {
-            UseAdjust: bool
-            Component: string option
-            Item: string option
-            Order: Order
         }
 
 
@@ -422,6 +406,57 @@ module Types =
         | Timed of string
         | OnceTimed of string
         | NoDoseType
+
+
+    /// A value of an order's schedule the user can pick.
+    [<RequireQualifiedAccess>]
+    type ScheduleProperty =
+        | Frequency
+        | Time
+
+
+    /// A value of an order's orderable the user can pick.
+    [<RequireQualifiedAccess>]
+    type OrderableProperty =
+        | Quantity
+        | DoseQuantity
+        | DoseRate
+
+
+    /// A value of a component of the orderable the user can pick.
+    [<RequireQualifiedAccess>]
+    type ComponentProperty =
+        | OrderableQuantity
+        | DoseQuantityAdjust
+
+
+    /// A value of an item of a component the user can pick.
+    [<RequireQualifiedAccess>]
+    type ItemProperty =
+        | DoseQuantity
+        | DoseQuantityAdjust
+        | DosePerTime
+        | DosePerTimeAdjust
+        | DoseRate
+        | DoseRateAdjust
+        | ComponentConcentration
+        | OrderableConcentration
+        | OrderableQuantity
+
+
+    /// Where the choices of a filter come from when they are set from outside its own fields.
+    [<RequireQualifiedAccess>]
+    type SeedSource =
+        /// The medication in the url, written over the filter as it is.
+        | Url
+        /// An item of the emergency or continuous medication list, written over an empty filter.
+        | MedicationList
+        /// The choices of the formulary page.
+        | Formulary
+        /// The medication, route and form of the parenteralia page.
+        | Parenteralia
+        /// The rules reloaded: the filter evaluated again as it is.
+        | Reload
 
 
     type Filter =
@@ -828,8 +863,9 @@ module Types =
         | Refused of SigningRefusal
 
 
-    /// Why an evaluation answers no scenarios: the picks of the filter match no dose rule. The
-    /// same three cases as GenORDER's Refusal, in the contract's own words.
+    /// Why an evaluation is refused: the picks of the filter match no dose rule, or the order
+    /// cannot be solved with a change to it. The same cases as GenORDER's Refusal, in the
+    /// contract's own words.
     [<RequireQualifiedAccess>]
     type OrderContextRefusal =
         /// No dose rule exists for the picks at all.
@@ -839,6 +875,8 @@ module Types =
         /// Dose rules cover the picks and the patient, and none of them can be prescribed: no
         /// product, or no dose type.
         | NoProducts
+        /// The order cannot be solved with the change; the order stays as it was.
+        | NotSolved
 
 
     /// The answer to an order-context command. A payload like `LaunchOutcome`: the context

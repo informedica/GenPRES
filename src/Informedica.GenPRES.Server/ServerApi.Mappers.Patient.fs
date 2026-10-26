@@ -2,8 +2,8 @@ namespace ServerApi
 
 open Informedica.Utils.Lib.BCL
 // the contract model's cases win unqualified; the domain's are reached through the aliases
-open Shared.Types
-open Shared.Models
+open Informedica.GenPRES.Shared.Types
+open Informedica.GenPRES.Shared.Models
 
 
 /// Where patient data enters from the client. The wire carries a draft, every field optional;
@@ -100,7 +100,7 @@ module Patient =
     /// days as the contract model computes it, the weight and height the measured ones when
     /// there are any and the estimates otherwise, with the flags saying which; the department
     /// as given, an empty one staying empty.
-    let ofModel (model: Shared.Types.Patient) : LibPatient.Dto.Dto =
+    let ofModel (model: Informedica.GenPRES.Shared.Types.Patient) : LibPatient.Dto.Dto =
         {
             Location = model.Location
             Department = model.Department
@@ -128,15 +128,15 @@ module Patient =
     /// the contract model splits a number of days, the weight and height as measured or as
     /// an estimate by the flag, the strings read back. What the contract model holds beside
     /// this, the other estimates, is not on the Dto and comes back empty.
-    let toModel (dto: LibPatient.Dto.Dto) : Shared.Types.Patient =
+    let toModel (dto: LibPatient.Dto.Dto) : Informedica.GenPRES.Shared.Types.Patient =
         let measured (flag: bool) v = if flag then v else None
         let estimated (flag: bool) v = if flag then None else v
 
         let grams =
             dto.WeightKg
-            |> Option.map (fun kg -> kg * thousand |> toInt |> Shared.Measures.toGram)
+            |> Option.map (fun kg -> kg * thousand |> toInt |> Informedica.GenPRES.Shared.Measures.toGram)
 
-        let cms = dto.HeightCm |> Option.map (toInt >> Shared.Measures.toCm)
+        let cms = dto.HeightCm |> Option.map (toInt >> Informedica.GenPRES.Shared.Measures.toCm)
 
         {
             Age = dto.AgeDays |> Option.map (toInt >> Patient.Age.fromDays)
@@ -146,8 +146,8 @@ module Patient =
                     let d = toInt d
 
                     ({
-                        Weeks = d / 7 |> Shared.Measures.toWeek
-                        Days = d % 7 |> Shared.Measures.toDay
+                        Weeks = d / 7 |> Informedica.GenPRES.Shared.Measures.toWeek
+                        Days = d % 7 |> Informedica.GenPRES.Shared.Measures.toDay
                     }
                     : GestAge)
                 )
@@ -194,7 +194,7 @@ module Patient =
     /// The patient the contract model's data is, or why it is none: the Dto's reasons in the
     /// server's words, and the server's own gate that the rules need a weight and a height,
     /// measured or estimated.
-    let parse (model: Shared.Types.Patient) : Result<Lib.Patient, string[]> =
+    let parse (model: Informedica.GenPRES.Shared.Types.Patient) : Result<Lib.Patient, string[]> =
         model
         |> ofModel
         |> LibPatient.Dto.fromDto

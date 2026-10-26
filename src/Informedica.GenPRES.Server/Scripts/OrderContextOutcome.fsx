@@ -92,7 +92,7 @@ module PlanContext =
 
 module OrderContextService =
 
-    open Shared.Types
+    open Informedica.GenPRES.Shared.Types
     open ServerApi.OrderContextService
 
 
@@ -170,17 +170,17 @@ let provider = NoRules()
 
 
 /// The switch tests' context: a plan context by id and category, a pick made.
-let ctx: Shared.Types.OrderContext =
-    { Shared.Models.OrderContext.empty with
+let ctx: Informedica.GenPRES.Shared.Types.OrderContext =
+    { Informedica.GenPRES.Shared.Models.OrderContext.empty with
         Id = "c-1"
-        Category = Shared.Types.OrderCategory.Drug
+        Category = Informedica.GenPRES.Shared.Types.OrderCategory.Drug
         DemoVersion = true
-        Filter = { Shared.Models.OrderContext.filter with Generic = Some "glucose" }
+        Filter = { Informedica.GenPRES.Shared.Models.OrderContext.filter with Generic = Some "glucose" }
         Patient = StubPatientData.patient
     }
 
 
-let parsed (ctx: Shared.Types.OrderContext) =
+let parsed (ctx: Informedica.GenPRES.Shared.Types.OrderContext) =
     match ctx |> ServerApi.OrderContextService.parse with
     | Ok pc -> pc
     | Error e -> failtest $"no plan context: %A{e}"
@@ -203,7 +203,7 @@ let tests =
             }
 
             test "no pick is evaluated" {
-                let fresh = { ctx with Filter = Shared.Models.OrderContext.filter }
+                let fresh = { ctx with Filter = Informedica.GenPRES.Shared.Models.OrderContext.filter }
 
                 match fresh |> parsed |> evaluate OrderContext.UpdateOrderContext with
                 | Ok(Evaluated pc) -> pc.Id |> Expect.equal "the id" "c-1"
@@ -220,7 +220,7 @@ let tests =
                 match ctx |> parsed |> evaluate OrderContext.UpdateOrderContext with
                 | Ok outcome ->
                     match outcome |> OrderContextService.toResponse false with
-                    | Shared.Types.OrderContextResponse.Refused(model, Shared.Types.OrderContextRefusal.NoDoseRules) ->
+                    | Informedica.GenPRES.Shared.Types.OrderContextResponse.Refused(model, Informedica.GenPRES.Shared.Types.OrderContextRefusal.NoDoseRules) ->
                         model.Id |> Expect.equal "the id" "c-1"
                         model.Filter.Generic |> Expect.equal "the pick kept" (Some "glucose")
                         model.DemoVersion |> Expect.isFalse "the environment's demo flag"
@@ -234,14 +234,14 @@ let tests =
                 |> Expect.equal
                     "in order"
                     [
-                        Shared.Types.OrderContextRefusal.NoDoseRules
-                        Shared.Types.OrderContextRefusal.NoDoseRulesForPatient
-                        Shared.Types.OrderContextRefusal.NoProducts
+                        Informedica.GenPRES.Shared.Types.OrderContextRefusal.NoDoseRules
+                        Informedica.GenPRES.Shared.Types.OrderContextRefusal.NoDoseRulesForPatient
+                        Informedica.GenPRES.Shared.Types.OrderContextRefusal.NoProducts
                     ]
             }
 
             test "a pick the rules do not offer is dropped, not refused" {
-                let fresh = { ctx with Filter = Shared.Models.OrderContext.filter }
+                let fresh = { ctx with Filter = Informedica.GenPRES.Shared.Models.OrderContext.filter }
                 let held = (parsed ctx).Context.Filter
                 let reconciled = (parsed fresh).Context.Filter
 

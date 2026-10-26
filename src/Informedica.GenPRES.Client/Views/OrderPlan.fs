@@ -3,13 +3,18 @@ namespace Views
 
 module OrderPlan =
 
+    open Informedica.GenPRES.Client.Core.Models
+    open Informedica.GenPRES.Client.Core.Policies
+    open Informedica.GenPRES.Client.Core.StateMachines
+    open Informedica.GenPRES.Client.Core.MachinePolicies
+
 
     open Fable.Core
     open Fable.Core.JsInterop
     open Feliz
-    open Shared
-    open Shared.Types
-    open Shared.Models
+    open Informedica.GenPRES.Shared
+    open Informedica.GenPRES.Shared.Types
+    open Informedica.GenPRES.Shared.Models
     open OrderPlanMachine
     open OrderContextMachine
 
@@ -18,8 +23,8 @@ module OrderPlan =
     /// anchored to the cell. The cell is a button: a click, Enter or Space asks to open or close
     /// it, and the popper has its own close button. Which cell is open is the plan view's, so
     /// one is open at a time. A click or a key inside reaches no row, so the order dialog does
-    /// not open; a click on a step button tells the view that a step is counting. The popper
-    /// stays mounted while closed, so a step still counting its clicks is sent after the close.
+    /// not open. The popper stays mounted while closed, so a step still counting its clicks is
+    /// sent after the close.
     [<JSX.Component>]
     let PlanCell
         (props:
@@ -32,7 +37,6 @@ module OrderPlan =
                 disabled: bool
                 onToggle: unit -> unit
                 onClose: unit -> unit
-                onStep: unit -> unit
             |})
         =
         let anchor, setAnchor = React.useState<Browser.Types.Element option> None
@@ -52,14 +56,6 @@ module OrderPlan =
         let close (e: Browser.Types.Event) =
             e.stopPropagation ()
             props.onClose ()
-
-        // only a click on a step button counts: the label, the value or the space around them
-        // start no step; the close button keeps its own click
-        let stepped (e: Browser.Types.Event) =
-            e.stopPropagation ()
-
-            if not (isNull (e.target?closest ("button:not([disabled])"))) then
-                props.onStep ()
 
         let stop (e: Browser.Types.Event) = e.stopPropagation ()
 
@@ -138,7 +134,7 @@ module OrderPlan =
         >
             {props.text}{Mui.Icons.Edit}
             <Popper open={isOpen} anchorEl={anchorEl} placement="bottom-start" keepMounted={true} sx={popperSx}>
-                <Paper elevation={4} sx={paperSx} onClick={stepped} onKeyDown={stop}>
+                <Paper elevation={4} sx={paperSx} onClick={stop} onKeyDown={stop}>
                     {props.field}
                     <IconButton size="small" aria-label={props.closeLabel} title={props.closeLabel} onClick={close}>
                         {Mui.Icons.Close}
@@ -153,7 +149,6 @@ module OrderPlan =
     let View (props: {| appEnv: obj |}) =
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
         let orderPlan = envOrderPlan.OrderPlan
-        let planCommand = envOrderPlan.OrderPlanCommand
         let session = AppEnv.asEnv<AppEnv.ISession> props.appEnv
         let signing = AppEnv.asEnv<AppEnv.ISigning> props.appEnv
 
@@ -162,12 +157,11 @@ module OrderPlan =
             tp.OrderContexts
             |> Array.tryFind (fun c -> OrderContext.contribution c |> Option.exists (fun sc -> sc.Order.Id = orderId))
 
-        // an order-context command into the selected context: a step, settled or changing as
-        // the plan is; while changing it waits in the lane for the answer
-        let orderContextMsg (cmd, ctx) =
+        // an order-context command into the selected context, sent over the plan held
+        let orderContextMsg cmd =
             match orderPlan with
-            | OrderPlanView.Settled(tp, Some id)
-            | OrderPlanView.Changing(tp, Some id) -> planCommand (Api.OrderPlanCommand.Navigate(tp, id, cmd, ctx))
+            | OrderPlanView.Settled(_, Some id)
+            | OrderPlanView.Changing(_, Some id) -> envOrderPlan.OrderDialogCommand(id, cmd)
             | OrderPlanView.Settled(_, None)
             | OrderPlanView.Changing(_, None)
             | OrderPlanView.NoPatient -> ()
@@ -181,7 +175,7 @@ module OrderPlan =
         // selected context as the plan shows it, settled or changing as the plan is, is what
         // the dialog shows
         let dialog = OrderContextView.dialog orderPlan
-        let handleModalClose = fun () -> envOrderPlan.Select None
+        let handleModalClose = fun () -> envOrderPlan.SelectContext None
 
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
@@ -247,37 +241,8 @@ module OrderPlan =
                 <Box sx={medicationSx}>{Mui.Icons.CalculateIcon}{value}</Box>
                 """
 
-        // a new plan answer drops the value a step showed before the answer arrived
-        let revisionRef = React.useRef 0
-        let prevPlanRef = React.useRef orderPlan
-
-        if not (obj.ReferenceEquals(prevPlanRef.current, orderPlan)) then
-            prevPlanRef.current <- orderPlan
-
-            match orderPlan with
-            | OrderPlanView.Settled _ -> revisionRef.current <- revisionRef.current + 1
-            | OrderPlanView.Changing _
-            | OrderPlanView.NoPatient -> ()
-
-        let revision = revisionRef.current
-
         // the cell whose field is open, one at a time, by row id and column
         let openCell, setOpenCell = React.useState<string option> None
-
-        // the cell whose step buttons are counting clicks: a click counts for 700 ms before its
-        // step is sent, so meanwhile no other cell opens and the sign waits. Otherwise a step could
-        // be rejected by a signature started before it was sent, or be replaced by another step
-        // while the plan keeps one waiting. The mark goes a second after the last click, when the
-        // step is on its way and the changing plan holds the rest back
-        let counting, setCounting = React.useState<string option> None
-        let countingTimer = React.useRef (None: int option)
-
-        React.useEffect ((fun () -> fun () -> countingTimer.current |> Option.iter JS.clearTimeout), [||])
-
-        let markCounting (key: string) =
-            countingTimer.current |> Option.iter JS.clearTimeout
-            setCounting (Some key)
-            countingTimer.current <- Some(JS.setTimeout (fun () -> setCounting None) 1000)
 
         // the cells step only while the plan is settled and no signature is under way
         let cellsRest =
@@ -291,8 +256,7 @@ module OrderPlan =
         // the quantity field a cell steps, its commands sent into the row's own context, as the
         // order dialog builds the same field
         let cellField (tp: OrderPlan) (ctx: OrderContext) (ord: Order) (field, ovar: OrderVariable) =
-            let send cmd =
-                planCommand (Api.OrderPlanCommand.Navigate(tp, ctx.Id, cmd, ctx))
+            let send cmd = envOrderPlan.OrderDialogCommand(ctx.Id, cmd)
 
             let stepable = QuantityModePolicy.Mode.Stepable
 
@@ -301,36 +265,33 @@ module OrderPlan =
                 | QuantityModePolicy.Field.Frequency ->
                     ViewHelpers.frequencyStepper
                         send
-                        revision
                         stepable
-                        Api.OrderContextCommand.SetMinScheduleFrequencyProperty
-                        Api.OrderContextCommand.DecreaseScheduleFrequencyProperty
-                        Api.OrderContextCommand.SetMedianScheduleFrequencyProperty
-                        Api.OrderContextCommand.IncreaseScheduleFrequencyProperty
-                        Api.OrderContextCommand.SetMaxScheduleFrequencyProperty,
+                        Api.OrderViewCommand.SetMinScheduleFrequencyProperty
+                        Api.OrderViewCommand.DecreaseScheduleFrequencyProperty
+                        Api.OrderViewCommand.SetMedianScheduleFrequencyProperty
+                        Api.OrderViewCommand.IncreaseScheduleFrequencyProperty
+                        Api.OrderViewCommand.SetMaxScheduleFrequencyProperty,
                     Terms.``Order Frequency`` |> getTerm "frequentie"
                 | QuantityModePolicy.Field.DoseQuantity ->
                     ViewHelpers.createDoseQtyStepper
                         send
-                        revision
                         ord
-                        Api.OrderContextCommand.SetMinOrderableDoseQuantityProperty
-                        Api.OrderContextCommand.DecreaseOrderableDoseQuantityProperty
-                        Api.OrderContextCommand.SetMedianOrderableDoseQuantityProperty
-                        Api.OrderContextCommand.IncreaseOrderableDoseQuantityProperty
-                        Api.OrderContextCommand.SetMaxOrderableDoseQuantityProperty,
+                        Api.OrderViewCommand.SetMinOrderableDoseQuantityProperty
+                        Api.OrderViewCommand.DecreaseOrderableDoseQuantityProperty
+                        Api.OrderViewCommand.SetMedianOrderableDoseQuantityProperty
+                        Api.OrderViewCommand.IncreaseOrderableDoseQuantityProperty
+                        Api.OrderViewCommand.SetMaxOrderableDoseQuantityProperty,
                     "toedien hoeveelheid"
                 | QuantityModePolicy.Field.DoseRate ->
                     ViewHelpers.doseRateStepper
                         send
-                        revision
                         stepable
                         ovar
-                        Api.OrderContextCommand.SetMinOrderableDoseRateProperty
-                        Api.OrderContextCommand.DecreaseOrderableDoseRateProperty
-                        Api.OrderContextCommand.SetMedianOrderableDoseRateProperty
-                        Api.OrderContextCommand.IncreaseOrderableDoseRateProperty
-                        Api.OrderContextCommand.SetMaxOrderableDoseRateProperty,
+                        Api.OrderViewCommand.SetMinOrderableDoseRateProperty
+                        Api.OrderViewCommand.DecreaseOrderableDoseRateProperty
+                        Api.OrderViewCommand.SetMedianOrderableDoseRateProperty
+                        Api.OrderViewCommand.IncreaseOrderableDoseRateProperty
+                        Api.OrderViewCommand.SetMaxOrderableDoseRateProperty,
                     Terms.``Order Drip rate`` |> getTerm "inloop snelheid"
                 | QuantityModePolicy.Field.ComponentQuantity
                 | QuantityModePolicy.Field.Other -> Components.QuantityField.Fixed, ""
@@ -376,10 +337,9 @@ module OrderPlan =
                         field = field
                         closeLabel = "sluiten"
                         isOpen = openCell = Some key
-                        disabled = cellsRest || counting |> Option.exists ((<>) key)
+                        disabled = cellsRest
                         onToggle = fun () -> setOpenCell (if openCell = Some key then None else Some key)
                         onClose = fun () -> setOpenCell None
-                        onStep = fun () -> markCounting key
                     |}
             | None -> Html.text value |> toJsx
 
@@ -458,7 +418,7 @@ module OrderPlan =
             |]
 
         let rows =
-            let parseVals = Order.Variable.renderValues 3
+            let parseVals = OrderDisplay.Variable.renderValues 3
 
             match orderPlan with
             | OrderPlanView.Settled(tp, _)
@@ -468,9 +428,9 @@ module OrderPlan =
                 |> Array.mapi (fun i o ->
                     let freq =
                         if o.Schedule.IsDiscontinuous || o.Schedule.IsTimed then
-                            o.Schedule.Frequency.Variable |> Order.Variable.renderValue 3
+                            o.Schedule.Frequency.Variable |> OrderDisplay.Variable.renderValue 3
                         else if o.Schedule.IsContinuous then
-                            o.Orderable.Dose.Rate.Variable |> Order.Variable.renderValue 3
+                            o.Orderable.Dose.Rate.Variable |> OrderDisplay.Variable.renderValue 3
                         else
                             ""
 
@@ -490,7 +450,9 @@ module OrderPlan =
                         else if o.Schedule.IsContinuous then
                             itms
                             |> Array.tryHead
-                            |> Option.map (fun i -> i.OrderableQuantity.Variable |> Order.Variable.renderValue 3)
+                            |> Option.map (fun i ->
+                                i.OrderableQuantity.Variable |> OrderDisplay.Variable.renderValue 3
+                            )
                             |> Option.defaultValue ""
                         else
                             ""
@@ -502,9 +464,9 @@ module OrderPlan =
                             || o.Schedule.IsOnce
                             || o.Schedule.IsOnceTimed
                         then
-                            o.Orderable.Dose.Quantity.Variable |> Order.Variable.renderValue 3
+                            o.Orderable.Dose.Quantity.Variable |> OrderDisplay.Variable.renderValue 3
                         else if o.Schedule.IsContinuous then
-                            o.Orderable.OrderableQuantity.Variable |> Order.Variable.renderValue 3
+                            o.Orderable.OrderableQuantity.Variable |> OrderDisplay.Variable.renderValue 3
                         else
                             ""
 
@@ -514,7 +476,7 @@ module OrderPlan =
                         else if o.Schedule.IsContinuous then
                             itms
                             |> Array.tryHead
-                            |> Option.map (fun i -> i.Dose.RateAdjust.Variable |> Order.Variable.renderValue 3)
+                            |> Option.map (fun i -> i.Dose.RateAdjust.Variable |> OrderDisplay.Variable.renderValue 3)
                             |> Option.defaultValue ""
 
                         else if o.Schedule.IsOnce || o.Schedule.IsOnceTimed then
@@ -578,7 +540,7 @@ module OrderPlan =
             | OrderPlanView.Changing(tp, _) ->
                 match contextOf tp id with
                 | None -> Logging.error "Order not found" id
-                | Some c -> envOrderPlan.Select(Some c.Id)
+                | Some c -> envOrderPlan.SelectContext(Some c.Id)
             | OrderPlanView.NoPatient -> ()
 
         // the rows checked, by order id, become the filter, by context id; only over a plan at
@@ -588,7 +550,7 @@ module OrderPlan =
             | OrderPlanView.Settled(tp, _) ->
                 ids
                 |> Array.choose (fun id -> contextOf tp id |> Option.map _.Id)
-                |> envOrderPlan.Filter
+                |> envOrderPlan.FilterRows
             | OrderPlanView.NoPatient
             | OrderPlanView.Changing _ -> ()
 
@@ -602,14 +564,6 @@ module OrderPlan =
                 |> Array.map _.Order.Id
             | _ -> [||]
 
-        // a plan change is one at a time: while one is under way the button is disabled,
-        // so a click never sends a command that would be discarded
-        let isRecalculating =
-            match orderPlan with
-            | OrderPlanView.Changing _ -> true
-            | OrderPlanView.NoPatient
-            | OrderPlanView.Settled _ -> false
-
         // removing is asked first: the button opens the question, confirming does it
         let confirmDeleteOpen, setConfirmDeleteOpen = React.useState false
 
@@ -619,8 +573,7 @@ module OrderPlan =
         let onDeleteConfirmed =
             fun () ->
                 match orderPlan with
-                | OrderPlanView.Settled(tp, _) ->
-                    planCommand (Api.OrderPlanCommand.RemoveOrderContexts(tp, tp.Filtered))
+                | OrderPlanView.Settled(tp, _) -> envOrderPlan.Remove tp.Filtered
                 | OrderPlanView.NoPatient
                 | OrderPlanView.Changing _ -> ()
 
@@ -638,94 +591,16 @@ module OrderPlan =
                     onCancel = fun () -> setConfirmDeleteOpen false
                 |}
 
-        let updateOrderScenario (ctx: OrderContext) =
-            orderContextMsg (Api.OrderContextCommand.UpdateOrderScenario, ctx)
-
         // a clear from a field's arrow goes as a reopen of the plan, which keeps the plan before it
-        let reopenOrderScenario picks (ctx: OrderContext) =
-            match orderPlan with
-            | OrderPlanView.Settled(tp, Some id)
-            | OrderPlanView.Changing(tp, Some id) ->
-                Api.OrderPlanCommand.Navigate(tp, id, Api.OrderContextCommand.ReopenOrderScenario picks, ctx)
-                |> envOrderPlan.Reopen
-            | OrderPlanView.Settled(_, None)
-            | OrderPlanView.Changing(_, None)
-            | OrderPlanView.NoPatient -> ()
-
-        let refreshOrderScenario (ctx: OrderContext) =
-            orderContextMsg (Api.OrderContextCommand.ResetOrderScenario, ctx)
-
-        let stepOrderScenario =
-            {|
-                // Frequency
-                setMinFrequency =
-                    fun ctx -> orderContextMsg (Api.OrderContextCommand.SetMinScheduleFrequencyProperty, ctx)
-                decrFrequency =
-                    fun ctx -> orderContextMsg (Api.OrderContextCommand.DecreaseScheduleFrequencyProperty, ctx)
-                setMedianFrequency =
-                    fun ctx -> orderContextMsg (Api.OrderContextCommand.SetMedianScheduleFrequencyProperty, ctx)
-                incrFrequency =
-                    fun ctx -> orderContextMsg (Api.OrderContextCommand.IncreaseScheduleFrequencyProperty, ctx)
-                setMaxFrequency =
-                    fun ctx -> orderContextMsg (Api.OrderContextCommand.SetMaxScheduleFrequencyProperty, ctx)
-                // Rate
-                setMinRate = fun ctx -> orderContextMsg (Api.OrderContextCommand.SetMinOrderableDoseRateProperty, ctx)
-                decrRate =
-                    fun (ctx, n, uc) ->
-                        orderContextMsg (Api.OrderContextCommand.DecreaseOrderableDoseRateProperty(n, uc), ctx)
-                setMedianRate =
-                    fun ctx -> orderContextMsg (Api.OrderContextCommand.SetMedianOrderableDoseRateProperty, ctx)
-                incrRate =
-                    fun (ctx, n, uc) ->
-                        orderContextMsg (Api.OrderContextCommand.IncreaseOrderableDoseRateProperty(n, uc), ctx)
-                setMaxRate = fun ctx -> orderContextMsg (Api.OrderContextCommand.SetMaxOrderableDoseRateProperty, ctx)
-                // Dose Quantity
-                setMinDoseQty =
-                    fun ctx -> orderContextMsg (Api.OrderContextCommand.SetMinOrderableDoseQuantityProperty, ctx)
-                decrDoseQty =
-                    fun (ctx, n, uc) ->
-                        orderContextMsg (Api.OrderContextCommand.DecreaseOrderableDoseQuantityProperty(n, uc), ctx)
-                setMedianDoseQty =
-                    fun ctx -> orderContextMsg (Api.OrderContextCommand.SetMedianOrderableDoseQuantityProperty, ctx)
-                incrDoseQty =
-                    fun (ctx, n, uc) ->
-                        orderContextMsg (Api.OrderContextCommand.IncreaseOrderableDoseQuantityProperty(n, uc), ctx)
-                setMaxDoseQty =
-                    fun ctx -> orderContextMsg (Api.OrderContextCommand.SetMaxOrderableDoseQuantityProperty, ctx)
-                // Component Quantity
-                setMinComponentQty =
-                    fun (ctx, cmp) ->
-                        orderContextMsg (Api.OrderContextCommand.SetMinComponentOrderableQuantityProperty cmp, ctx)
-                decrComponentQty =
-                    fun (ctx, cmp, n, uc) ->
-                        orderContextMsg (
-                            Api.OrderContextCommand.DecreaseComponentOrderableQuantityProperty(cmp, n, uc),
-                            ctx
-                        )
-                setMedianComponentQty =
-                    fun (ctx, cmp) ->
-                        orderContextMsg (Api.OrderContextCommand.SetMedianComponentOrderableQuantityProperty cmp, ctx)
-                incrComponentQty =
-                    fun (ctx, cmp, n, uc) ->
-                        orderContextMsg (
-                            Api.OrderContextCommand.IncreaseComponentOrderableQuantityProperty(cmp, n, uc),
-                            ctx
-                        )
-                setMaxComponentQty =
-                    fun (ctx, cmp) ->
-                        orderContextMsg (Api.OrderContextCommand.SetMaxComponentOrderableQuantityProperty cmp, ctx)
-            |}
-
-        let orderContext = dialog |> Option.defaultValue OrderContextView.NoPatient
-
-        // the argumentation into the selected context of the plan, no call
-        let argue (text: string) =
+        let reopen cmd =
             match orderPlan with
             | OrderPlanView.Settled(_, Some id)
-            | OrderPlanView.Changing(_, Some id) -> envOrderPlan.Argue(id, text)
+            | OrderPlanView.Changing(_, Some id) -> envOrderPlan.ReopenField(id, cmd)
             | OrderPlanView.Settled(_, None)
             | OrderPlanView.Changing(_, None)
             | OrderPlanView.NoPatient -> ()
+
+        let orderContext = dialog |> Option.defaultValue OrderContextView.NoPatient
 
         let nothingSelected =
             match orderPlan with
@@ -740,7 +615,7 @@ module OrderPlan =
                 label = Terms.Delete |> getTerm "Verwijderen"
                 kind = Components.ActionBar.Kind.Destructive
                 onClick = onDelete
-                disabled = isRecalculating || nothingSelected
+                disabled = nothingSelected
                 icon = Some Mui.Icons.Delete
             |}
 
@@ -748,12 +623,9 @@ module OrderPlan =
         let onSign =
             fun _ ->
                 match orderPlan with
-                | OrderPlanView.Settled(tp, _) when counting.IsNone -> signing.Sign tp
-                | OrderPlanView.Settled _
+                | OrderPlanView.Settled(tp, _) -> signing.Sign tp
                 | OrderPlanView.NoPatient
                 | OrderPlanView.Changing _ -> ()
-
-        let signRests = isRecalculating || counting.IsSome
 
         // the button stays while the plan changes, disabled, so the table below does not move up
         // and down with every answer
@@ -762,9 +634,24 @@ module OrderPlan =
                 label = tr Terms.``Signing Sign``
                 kind = Components.ActionBar.Kind.Primary
                 onClick = fun () -> onSign ()
-                disabled = signRests
+                disabled = false
                 icon = Some Mui.Icons.Assignment
             |}
+
+        // the last signed order plan opened again; the new and changed orders go with it. Shown
+        // only once there is one; disabled with the page, also while a step is counted, whose
+        // command would go to the plan being replaced
+        let openLastSignedAction =
+            HeldPanelPolicy.lastSigned session.Session
+            |> Option.map (fun signed ->
+                {|
+                    label = tr Terms.``Session Open Last Signed``
+                    kind = Components.ActionBar.Kind.Secondary
+                    onClick = fun () -> session.OpenSignedPlan signed.Head.Id
+                    disabled = false
+                    icon = Some Mui.Icons.Restore
+                |}
+            )
 
         // the actions on one row: remove on the left, sign on the right
         let actionBar =
@@ -776,6 +663,7 @@ module OrderPlan =
                         actions =
                             [|
                                 deleteAction
+                                yield! openLastSignedAction |> Option.toArray
                                 if SigningPolicy.canSign session.Session tp then
                                     signAction
                             |]
@@ -785,20 +673,22 @@ module OrderPlan =
         // the record moved on while this Session is on an older version; the bar says whose
         // and when, and offers the newest version. Nothing is blocked here: the guard is the
         // refusal at the signature
-        let movedOnBar =
-            match session.MovedOn with
+        let newerPlanBar =
+            match session.NewerPlan with
             | Some head ->
                 let bar =
                     Components.Notice.View
                         {|
                             kind = Components.Notice.Kind.Warning
                             title = None
-                            message = SigningPolicy.movedOnSentence tr head
+                            message = SigningPolicy.newerPlanSentence tr head
                             action =
                                 Some
                                     {|
                                         label = tr Terms.``Session Open Newest``
-                                        onClick = fun () -> session.OpenVersion head.Id
+                                        onClick = fun () -> session.OpenSignedPlan head.Id
+                                        // the open changes every page: it waits while anything is out
+                                        disabled = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Any
                                     |}
                             onClose = None
                         |}
@@ -823,9 +713,6 @@ module OrderPlan =
                     height = "100%"
                     onRowClick = selectOrder
                     checkboxSelection = true
-                    // one change to the plan at a time: a checkbox toggled while it is busy
-                    // would be dropped, so the boxes are greyed meanwhile
-                    selectDisabled = isRecalculating
                     selectedRows = selectedRows
                     onSelectChange = filterOrders
                     showToolbar = true
@@ -853,24 +740,15 @@ module OrderPlan =
                 {|
                     editing = editing
                     orderContext = orderContext
-                    updateOrderScenario = updateOrderScenario
-                    reopenOrderScenario = reopenOrderScenario
-                    restoreOrderScenario = envOrderPlan.Restore
-                    stepOrderScenario = stepOrderScenario
-                    refreshOrderScenario = refreshOrderScenario
+                    command = orderContextMsg
+                    reopen = reopen
+                    restoreOrderScenario = envOrderPlan.RestoreField
                     closeOrder = handleModalClose
-                    argue = argue
+                    busy = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Page Global.Pages.OrderPlan
                     localizationTerms = localizationTerms
                 |}
 
-        let orderDialog =
-            Components.DialogShell.View
-                {|
-                    isOpen = dialog.IsSome
-                    onClose = handleModalClose
-                    maxWidth = 500
-                    children = orderView
-                |}
+        let orderDialog = if dialog.IsSome then orderView else null
 
         // the bars above the table keep their height and the table takes what is left, so the
         // grid's footer stays above the totals bar instead of being pushed below the page
@@ -887,7 +765,7 @@ module OrderPlan =
             Components.PatientNotice.View
                 {|
                     appEnv = props.appEnv
-                    needs = PatientReadiness.Needs.Calculation
+                    needs = PatientReadinessPolicy.Needs.Calculation
                 |}
 
         let sxTable =
@@ -903,7 +781,7 @@ module OrderPlan =
         <Box sx={sxPlan}>
             <Box sx={sxBars}>
                 {patientNotice}
-                {movedOnBar}
+                {newerPlanBar}
                 {actionBar}
             </Box>
             <Box sx={sxTable}>

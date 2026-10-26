@@ -1,7 +1,7 @@
 namespace ServerApi
 
 open System
-open Shared.Types
+open Informedica.GenPRES.Shared.Types
 
 module CoreConversions = Informedica.GenCore.Lib.Conversions
 module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
@@ -79,7 +79,7 @@ module Measurements =
         match draft |> Patient.patient with
         | Error _ -> held, []
         | Ok _ ->
-            let ehr = shown |> Option.defaultValue Shared.Models.Patient.empty
+            let ehr = shown |> Option.defaultValue Informedica.GenPRES.Shared.Models.Patient.empty
 
             // the value stood on, and the draft's when it is another
             let change (held: Measured<'v> option) (ehr: 'v option) (draft: 'v option) =

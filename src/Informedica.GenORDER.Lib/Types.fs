@@ -153,6 +153,30 @@ module Types =
         }
 
 
+    /// The strength of one substance of a product.
+    type ProductStrength =
+        {
+            /// The name of the substance
+            Substance: string
+            /// The concentration of the substance in the product
+            Strength: ValueUnit
+        }
+
+
+    /// A product a component can be made of: its strengths, paired, as one product holds them.
+    type ComponentProduct =
+        {
+            /// The id of the product: a GPK, PRK or HPK
+            Id: string
+            /// The quantities of the product as the component counts them: 1 mL for a liquid
+            /// that needs no reconstitution, the product's own quantities otherwise
+            FormQuantities: ValueUnit option
+            /// The strength of each substance of the product; a substance without a concentration
+            /// has no strength here
+            Strengths: ProductStrength list
+        }
+
+
     /// Models a Component in an Orderable
     type Component =
         {
@@ -178,6 +202,8 @@ module Types =
             Dose: Dose
             /// The Items in a Component
             Items: Item list
+            /// The products the component can be made of; empty when none are known
+            Products: ComponentProduct list
         }
 
 
@@ -316,6 +342,40 @@ module Types =
         | SetMaxComponentOrderableQuantity of cmp: string
         | SetMedianComponentOrderableQuantity of cmp: string
         | ComponentInStock of cmp: string * onlyInStock: bool
+        // the nth value of one variable, counted from 0
+        | SetNthScheduleFrequency of nth: int
+        | SetNthScheduleTime of nth: int
+        | SetNthOrderableQuantity of nth: int
+        | SetNthOrderableDoseQuantity of nth: int
+        | SetNthOrderableDoseRate of nth: int
+        | SetNthComponentOrderableQuantity of cmp: string * nth: int
+        | SetNthComponentDoseQuantityAdjust of cmp: string * nth: int
+        | SetNthItemDoseQuantity of cmp: string * itm: string * nth: int
+        | SetNthItemDoseQuantityAdjust of cmp: string * itm: string * nth: int
+        | SetNthItemDosePerTime of cmp: string * itm: string * nth: int
+        | SetNthItemDosePerTimeAdjust of cmp: string * itm: string * nth: int
+        | SetNthItemDoseRate of cmp: string * itm: string * nth: int
+        | SetNthItemDoseRateAdjust of cmp: string * itm: string * nth: int
+        | SetNthItemComponentConcentration of cmp: string * itm: string * nth: int
+        | SetNthItemOrderableConcentration of cmp: string * itm: string * nth: int
+        | SetNthItemOrderableQuantity of cmp: string * itm: string * nth: int
+        // one variable cleared
+        | ClearScheduleFrequency
+        | ClearScheduleTime
+        | ClearOrderableQuantity
+        | ClearOrderableDoseQuantity
+        | ClearOrderableDoseRate
+        | ClearComponentOrderableQuantity of cmp: string
+        | ClearComponentDoseQuantityAdjust of cmp: string
+        | ClearItemDoseQuantity of cmp: string * itm: string
+        | ClearItemDoseQuantityAdjust of cmp: string * itm: string
+        | ClearItemDosePerTime of cmp: string * itm: string
+        | ClearItemDosePerTimeAdjust of cmp: string * itm: string
+        | ClearItemDoseRate of cmp: string * itm: string
+        | ClearItemDoseRateAdjust of cmp: string * itm: string
+        | ClearItemComponentConcentration of cmp: string * itm: string
+        | ClearItemOrderableConcentration of cmp: string * itm: string
+        | ClearItemOrderableQuantity of cmp: string * itm: string
 
 
     /// The different possible order types
@@ -388,6 +448,8 @@ module Types =
             Solution: SolutionLimit option
             /// The list of substances contained in the product
             Substances: SubstanceItem list
+            /// The products the component can be made of; empty when none are known
+            Products: ComponentProduct list
         }
 
     /// A substance in a product. A substance maps to an Item in a Component.
@@ -553,17 +615,32 @@ module Types =
         }
 
 
-    module FilterItem =
+    /// A field of the filter: a choice is the field with the index of its option, a clear is the
+    /// field alone.
+    [<RequireQualifiedAccess>]
+    type FilterField =
+        | Indication
+        | Generic
+        | Route
+        | Form
+        | DoseType
+        | Diluent
+        | Components
 
-        /// Represents different filter item types with their index positions
-        type FilterItem =
-            | Indication of int
-            | Generic of int
-            | Route of int
-            | Form of int
-            | DoseType of int
-            | Diluent of int
-            | Component of int list
+
+    /// Where the choices of a filter come from when they are set from outside its own fields.
+    [<RequireQualifiedAccess>]
+    type SeedSource =
+        /// The medication in the url, written over the filter as it is.
+        | Url
+        /// An item of the emergency or continuous medication list, written over an empty filter.
+        | MedicationList
+        /// The choices of the formulary page.
+        | Formulary
+        /// The medication, route and form of the parenteralia page.
+        | Parenteralia
+        /// The rules reloaded: the filter evaluated again as it is.
+        | Reload
 
 
     /// <summary>
@@ -585,7 +662,8 @@ module Types =
         }
 
 
-    /// Why an evaluation answers no scenarios: the picks of the filter match no dose rule.
+    /// Why an evaluation is refused: the picks of the filter match no dose rule, or the order
+    /// cannot be solved with a change to it.
     [<RequireQualifiedAccess>]
     type Refusal =
         /// No dose rule exists for the picks at all.
@@ -595,6 +673,8 @@ module Types =
         /// Dose rules cover the picks and the patient, and none of them can be prescribed: no
         /// product, or no dose type.
         | NoProducts
+        /// The order cannot be solved with the change; the order stays as it was.
+        | NotSolved
 
 
     /// What an evaluation answers when it does not fail: the value evaluated, or the value as
@@ -752,6 +832,21 @@ module Types =
         | Missing of string
         /// The patient of a context or an order plan is none
         | Patient of Informedica.GenForm.Lib.Types.PatientError
+        /// A text that is not a document of its shape: no YAML, a wrong type or an unknown key,
+        /// with the reader's message, its line and its column
+        | Unreadable of message: string
+        /// A number that is neither a decimal nor a fraction, by the path of its field
+        | NotANumber of path: string * number: string
+        /// A unit that does not parse, by the path of its field
+        | UnknownUnit of path: string * unit: string
+        /// A unit that does not fit its field, as an adjusted limit without an adjust unit, by the
+        /// path of its field
+        | WrongUnit of path: string * reason: string
+        /// An order type that names no case of OrderType, by the path of its field
+        | UnknownOrderType of path: string * orderType: string
+        /// A product a strength of which names no substance of its component, or a substance
+        /// without concentrations in the strength's unit group, by the path of the product
+        | NotMadeOf of path: string * productId: string
 
 
     module Exceptions =
@@ -767,11 +862,9 @@ module Types =
         /// Events that can occur during order processing
         type Event =
             | MinIncrMaxToValues of OrderVariable
-            | MedicationCreated of string
-            | ComponentItemsHarmonized of string
+            | MedicationCreated of Medication
             | SolverReplaceUnit of (Name * Unit)
             | OrderIncreaseQuantityIncrement of Order
-            | OrderIncreaseRateIncrement of Order
             | OrderSolveStarted of Order
             | OrderSolveFinished of Order
             | OrderSolveConstraintsStarted of Order * Constraint list

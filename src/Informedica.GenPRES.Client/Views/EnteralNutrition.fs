@@ -1,19 +1,24 @@
 namespace Views
 
+
 #nowarn "1104"
 
 /// The enteral part of the nutrition page: the feedings and the supplements, each a slot with
 /// its fields on one row, in one section that folds.
 module EnteralNutrition =
 
+    open Informedica.GenPRES.Client.Core.Models
+    open Informedica.GenPRES.Client.Core.Helpers
+    open Informedica.GenPRES.Client.Core.StateMachines
+
     open Fable.Core
     open Fable.Core.JsInterop
     open Fable.React
     open Feliz
-    open Shared
-    open Shared.Types
-    open Shared.Models
-    open Shared.Models.Order
+    open Informedica.GenPRES.Shared
+    open Informedica.GenPRES.Shared.Types
+    open Informedica.GenPRES.Shared.Models
+    open Informedica.GenPRES.Shared.Models.Order
     open Elmish
     open Utils
     open FSharp.Core
@@ -28,26 +33,24 @@ module EnteralNutrition =
         (props:
             {|
                 nutritionContext: OrderContext
-                plan: OrderPlan
-                planCommand: Api.OrderPlanCommand -> unit
+                planNavigate: string * Api.OrderViewCommand -> unit
                 // a clear from a field's arrow, and the list of such a reopen closed without a pick
-                planReopen: Api.OrderPlanCommand -> unit
+                planReopen: string * Api.OrderViewCommand -> unit
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
                 onRemove: (unit -> unit) option
-                isRecalculating: bool
+                busy: bool
             |})
         =
         let slot =
             useSlot
                 {|
                     nutritionContext = props.nutritionContext
-                    plan = props.plan
-                    planCommand = props.planCommand
+                    planNavigate = props.planNavigate
                     planReopen = props.planReopen
                     planRestore = props.planRestore
                     localizationTerms = props.localizationTerms
-                    isRecalculating = props.isRecalculating
+                    busy = props.busy
                     fieldMinWidth = None
                 |}
 
@@ -143,14 +146,6 @@ module EnteralNutrition =
                 {slot.ResetBar}
             </Stack>
             """
-            |> fun fields ->
-                // the spinner lies over the details and takes no room, so the fields stay where
-                // they are while the order reloads
-                Components.LoadingOverlay.View
-                    {|
-                        isLoading = slot.IsLoading
-                        children = fields
-                    |}
 
         let filterSx = {| marginBottom = 2 |}
 
@@ -166,7 +161,12 @@ module EnteralNutrition =
             </Stack>
             """
 
-        let orderDetails = if slot.Order.IsSome then details else slot.LoadingIndicator
+        let orderDetails = if slot.Order.IsSome then details else null
+
+        // the page is not disabled while a field counts its step clicks, since the field counting
+        // is on it; the controls that send wait for the count themselves
+        let counting = React.useContext Global.counting
+        let held = props.busy || counting.Counting
 
         let removeButton =
             match props.onRemove with
@@ -175,7 +175,7 @@ module EnteralNutrition =
                 Components.RemoveIconButton.View
                     {|
                         onRemove = onRemove
-                        busy = props.isRecalculating
+                        busy = held
                     |}
             | None -> null
 
@@ -207,17 +207,19 @@ module EnteralNutrition =
         (props:
             {|
                 plan: OrderPlan
-                planCommand: Api.OrderPlanCommand -> unit
-                planReopen: Api.OrderPlanCommand -> unit
+                planNew: NutritionCategory -> unit
+                planRemove: string[] -> unit
+                planReopen: string * Api.OrderViewCommand -> unit
+                planNavigate: string * Api.OrderViewCommand -> unit
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
-                isRecalculating: bool
+                busy: bool
             |})
         =
         let context: Global.Context = React.useContext Global.context
         let getTerm = Global.getLocalizedTerm props.localizationTerms context.Localization
 
-        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
+        let isMobile = Mui.Hooks.useIsMobile ()
 
         let expanded, setExpanded = React.useState true
         let confirmDeleteTarget, setConfirmDeleteTarget = React.useState<string option> None
@@ -236,25 +238,26 @@ module EnteralNutrition =
                 if hasSupplements then
                     setConfirmDeleteTarget (Some nc.Id)
                 else
-                    Api.OrderPlanCommand.RemoveOrderContexts(plan, [| nc.Id |]) |> props.planCommand
+                    props.planRemove [| nc.Id |]
 
         let slotOf (nc: OrderContext) =
             SlotView
                 {|
                     nutritionContext = nc
-                    plan = props.plan
-                    planCommand = props.planCommand
+                    planNavigate = props.planNavigate
                     planReopen = props.planReopen
                     planRestore = props.planRestore
                     localizationTerms = props.localizationTerms
                     onRemove = Some(removeOf nc)
-                    isRecalculating = props.isRecalculating
+                    busy = props.busy
                 |}
 
         let slots = contexts |> Array.map slotOf
 
-        let newOrderContext category =
-            Api.OrderPlanCommand.NewOrderContext(plan, category) |> props.planCommand
+        // the page is not disabled while a field counts its step clicks, since the field counting
+        // is on it; the controls that send wait for the count themselves
+        let counting = React.useContext Global.counting
+        let held = props.busy || counting.Counting
 
         // the buttons the plan admits a context for, as the server would rule
         let addButton category label =
@@ -262,8 +265,8 @@ module EnteralNutrition =
                 Components.AddButton.View
                     {|
                         label = label
-                        onClick = fun () -> newOrderContext category
-                        disabled = props.isRecalculating
+                        onClick = fun () -> props.planNew category
+                        disabled = held
                     |}
             else
                 null
@@ -330,8 +333,7 @@ module EnteralNutrition =
             let handleConfirm =
                 fun () ->
                     match confirmDeleteTarget with
-                    | Some ncId when not props.isRecalculating ->
-                        Api.OrderPlanCommand.RemoveOrderContexts(plan, [| ncId |]) |> props.planCommand
+                    | Some ncId when not held -> props.planRemove [| ncId |]
                     | Some _
                     | None -> ()
 

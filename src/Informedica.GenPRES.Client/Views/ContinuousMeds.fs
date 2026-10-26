@@ -3,11 +3,15 @@ namespace Views
 
 module ContinuousMeds =
 
+    open Informedica.GenPRES.Client.Core.Helpers
+    open Informedica.GenPRES.Client.Core.Models
+    open Informedica.GenPRES.Client.Core.Policies
+
     open Fable.Core
     open Fable.Core.JsInterop
     open Feliz
-    open Shared
-    open Shared.Types
+    open Informedica.GenPRES.Shared
+    open Informedica.GenPRES.Shared.Types
 
 
     [<JSX.Component>]
@@ -35,12 +39,12 @@ module ContinuousMeds =
         let renderQuantityCell =
             fun (pars: obj) ->
                 let value: string = pars?value
-                value |> TextBlock.fromString |> Mui.TypoGraphy.fromTextBlock
+                value |> TextBlockParser.fromString |> Mui.TypoGraphy.fromTextBlock
 
         let renderSolutionCell =
             fun (pars: obj) ->
                 let value: string = pars?value
-                value |> TextBlock.fromString |> Mui.TypoGraphy.fromTextBlock
+                value |> TextBlockParser.fromString |> Mui.TypoGraphy.fromTextBlock
 
         let columns =
             [|
@@ -241,7 +245,7 @@ module ContinuousMeds =
             Components.PatientNotice.View
                 {|
                     appEnv = props.appEnv
-                    needs = PatientReadiness.Needs.Calculation
+                    needs = PatientReadinessPolicy.Needs.Calculation
                 |}
 
         let tableProps =
@@ -253,7 +257,6 @@ module ContinuousMeds =
                 height = "100%"
                 onRowClick = onSelectItem
                 checkboxSelection = false
-                selectDisabled = false
                 selectedRows = [||]
                 onSelectChange = ignore
                 showToolbar = true

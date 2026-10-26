@@ -7,7 +7,7 @@ open Expecto
 open Expecto.Flip
 open Informedica.GenOrder.Lib
 // after Expecto, whose FocusState has a Normal case too
-open Shared.Types
+open Informedica.GenPRES.Shared.Types
 open ServerApi
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
 
@@ -15,14 +15,15 @@ open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
 let patient = StubPatientData.patient
 
 let ctx: OrderContext =
-    { Shared.Models.OrderContext.empty with
+    { Informedica.GenPRES.Shared.Models.OrderContext.empty with
         Id = "c-1"
         Category = OrderCategory.Nutrition NutritionCategory.TPN
         DemoVersion = true
         Patient = patient
     }
 
-let plan: OrderPlan = { Shared.Models.OrderPlan.create patient [| ctx |] with Filtered = [| "c-1" |] }
+let plan: OrderPlan =
+    { Informedica.GenPRES.Shared.Models.OrderPlan.create patient [| ctx |] with Filtered = [| "c-1" |] }
 
 
 let answering (seen: string list ref) name (p: Informedica.GenOrder.Lib.Types.OrderPlan) =
@@ -42,7 +43,7 @@ let echoPort seen : OrderPlanPort =
 
 
 let envOver demo (port: OrderPlanPort) =
-    { makeEnv (formularyAlwaysOk Shared.Models.Formulary.empty) (orderContextAlwaysOk ctx) with
+    { makeEnv (formularyAlwaysOk Informedica.GenPRES.Shared.Models.Formulary.empty) (orderContextAlwaysOk ctx) with
         orderPlan = port
         demo = demo
     }
@@ -57,25 +58,34 @@ let tests =
                 let seen = ref []
                 let run = OrderPlanCommand.processCmd (envOver true (echoPort seen))
 
-                let! recalculated = run (Shared.Api.OrderPlanCommand.Recalculate plan)
+                let! recalculated =
+                    run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.FilterRows(plan.Filtered, plan))
 
                 recalculated
                 |> Expect.equal "the plan back, demo as the environment says" (Ok plan)
 
                 let! _ =
                     run (
-                        Shared.Api.OrderPlanCommand.Navigate(
+                        Informedica.GenPRES.Shared.Api.OrderPlanCommand.Navigate(
                             plan,
                             "c-1",
-                            Shared.Api.OrderContextCommand.UpdateOrderContext,
+                            Informedica.GenPRES.Shared.Api.OrderViewCommand.SeedFilter(
+                                Informedica.GenPRES.Shared.Types.SeedSource.Reload,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None
+                            ),
                             ctx
                         )
                     )
 
-                let! _ = run (Shared.Api.OrderPlanCommand.AddOrderContext(plan, ctx))
-                let! _ = run (Shared.Api.OrderPlanCommand.NewOrderContext(plan, NutritionCategory.TPN))
-                let! _ = run (Shared.Api.OrderPlanCommand.RemoveOrderContexts(plan, [| "c-1" |]))
-                let! opened = run (Shared.Api.OrderPlanCommand.Open(patient, [| ctx |]))
+                let! _ = run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.AddOrderContext(plan, ctx))
+                let! _ =
+                    run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.NewOrderContext(plan, NutritionCategory.TPN))
+                let! _ = run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.RemoveOrderContexts(plan, [| "c-1" |]))
+                let! opened = run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.Open(patient, [| ctx |]))
 
                 seen.Value
                 |> List.rev
@@ -100,11 +110,49 @@ let tests =
                 | Error e -> failtest $"open refused: %A{e}"
             }
 
+            testAsync "a patient update recalculates the plan for that patient, each context keeping its own" {
+                let seen = ref []
+                let updated = { patient with Department = Some "NEO" }
+
+                let! answer =
+                    OrderPlanCommand.processCmd
+                        (envOver true (echoPort seen))
+                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.UpdatePatient(updated, plan))
+
+                seen.Value |> Expect.equal "recalculated" [ "recalculate" ]
+
+                answer
+                |> Result.map (fun p -> p.Patient.Department, p.OrderContexts |> Array.map _.Patient.Department)
+                |> Expect.equal
+                    "the plan's patient updated, the context's kept"
+                    (Ok(Some "NEO", [| patient.Department |]))
+            }
+
+            testAsync "a row filter recalculates the plan over the rows chosen" {
+                let seen = ref []
+                let run = OrderPlanCommand.processCmd (envOver true (echoPort seen))
+
+                let! none = run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.FilterRows([||], plan))
+                let! one =
+                    run (
+                        Informedica.GenPRES.Shared.Api.OrderPlanCommand.FilterRows(
+                            [| "c-1" |],
+                            { plan with Filtered = [||] }
+                        )
+                    )
+
+                seen.Value |> Expect.equal "recalculated twice" [ "recalculate"; "recalculate" ]
+
+                [ none; one ]
+                |> List.map (Result.map _.Filtered)
+                |> Expect.equal "the rows as chosen" [ Ok [||]; Ok [| "c-1" |] ]
+            }
+
             testAsync "the demo flag on every context is the environment's, not the wire's" {
                 let! answer =
                     OrderPlanCommand.processCmd
                         (envOver false (echoPort (ref [])))
-                        (Shared.Api.OrderPlanCommand.Recalculate plan)
+                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.FilterRows(plan.Filtered, plan))
 
                 answer
                 |> Result.map (_.OrderContexts >> Array.map _.DemoVersion)
@@ -125,15 +173,15 @@ let tests =
                 let! _ =
                     OrderPlanCommand.processCmd
                         (envOver false port)
-                        (Shared.Api.OrderPlanCommand.Navigate(
+                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.Navigate(
                             plan,
                             "c-1",
-                            Shared.Api.OrderContextCommand.SelectOrderScenario,
+                            Informedica.GenPRES.Shared.Api.OrderViewCommand.SelectNthOrderScenario 0,
                             ctx
                         ))
 
                 match seen.Value with
-                | Some(filtered, "c-1", OrderContext.SelectOrderScenario _, category) ->
+                | Some(filtered, "c-1", OrderContext.SelectNthOrderScenario _, category) ->
                     filtered |> Expect.equal "the plan parsed" [| "c-1" |]
 
                     category
@@ -158,7 +206,10 @@ let tests =
                 let! _ =
                     OrderPlanCommand.processCmd
                         (envOver false port)
-                        (Shared.Api.OrderPlanCommand.NewOrderContext(plan, NutritionCategory.EnteralSupplement))
+                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.NewOrderContext(
+                            plan,
+                            NutritionCategory.EnteralSupplement
+                        ))
 
                 seen.Value
                 |> Expect.equal
@@ -172,7 +223,10 @@ let tests =
                 let! refused =
                     OrderPlanCommand.processCmd
                         (envOver false (echoPort seen))
-                        (Shared.Api.OrderPlanCommand.Recalculate Shared.Models.OrderPlan.empty)
+                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.FilterRows(
+                            [||],
+                            Informedica.GenPRES.Shared.Models.OrderPlan.empty
+                        ))
 
                 refused |> Expect.equal "no patient" (Error [| Patient.noPatient |])
                 seen.Value |> Expect.isEmpty "the port never asked"

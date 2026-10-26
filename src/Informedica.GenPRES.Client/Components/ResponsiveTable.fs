@@ -4,7 +4,7 @@ namespace Components
 module ResponsiveTable =
 
     open System
-    open Shared
+    open Informedica.GenPRES.Shared
     open Fable.Core
     open Feliz
     open Fable.Core.JsInterop
@@ -261,8 +261,6 @@ module ResponsiveTable =
                 height: string
                 onRowClick: string -> unit
                 checkboxSelection: bool
-                // the checkboxes greyed while the owner is busy, so no change is dropped
-                selectDisabled: bool
                 selectedRows: string[]
                 onSelectChange: string[] -> unit
                 showToolbar: bool
@@ -294,7 +292,7 @@ module ResponsiveTable =
             | Some f, Some cb -> f, cb
             | _ -> localState, setLocalState
 
-        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
+        let isMobile = Mui.Hooks.useIsMobile ()
 
         // the text typed into the search, matched against every cell of a row
         let query, setQuery = React.useState ""
@@ -359,7 +357,6 @@ module ResponsiveTable =
             )
 
         let onRowClick = fun pars -> pars?id |> string |> props.onRowClick
-        let isRowSelectable = fun _ -> not props.selectDisabled
 
         // Return an alternating class name based on the row index within the current page
         let getRowClassName =
@@ -577,7 +574,6 @@ module ResponsiveTable =
                         sx={stripedSx}
                         showToolbar={props.showToolbar}
                         checkboxSelection={props.checkboxSelection}
-                        isRowSelectable={isRowSelectable}
                         disableRowSelectionOnClick
                         disableColumnFilter
                         rowSelectionModel = {selectedRows}

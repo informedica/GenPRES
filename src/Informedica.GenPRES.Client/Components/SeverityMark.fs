@@ -6,37 +6,39 @@ namespace Components
 /// The reason shows on hover and nowhere else: no popup, nothing to dismiss.
 module SeverityMark =
 
+    open Informedica.GenPRES.Client.Core.Models
+
 
     open Fable.Core
     open Feliz
-    open Shared
+    open Informedica.GenPRES.Shared
 
 
     /// The severity, and the reason as the caller words it; none when the caller cannot say.
     type Props =
         {|
-            severity: Types.Severity
+            severity: Severity
             reason: string option
         |}
 
 
     /// The icon of a severity, in whatever colour its parent draws; nothing for normal.
-    let icon (severity: Types.Severity) =
+    let icon (severity: Severity) =
         match severity with
-        | Types.Severity.Normal -> null
-        | Types.Severity.Caution ->
+        | Severity.Normal -> null
+        | Severity.Caution ->
             JSX.jsx
                 $"""
             import InfoOutlined from '@mui/icons-material/InfoOutlined';
             <InfoOutlined fontSize="small" />
             """
-        | Types.Severity.Warning ->
+        | Severity.Warning ->
             JSX.jsx
                 $"""
             import WarningAmber from '@mui/icons-material/WarningAmber';
             <WarningAmber fontSize="small" />
             """
-        | Types.Severity.Alert ->
+        | Severity.Alert ->
             JSX.jsx
                 $"""
             import ErrorOutlined from '@mui/icons-material/ErrorOutlined';
@@ -46,7 +48,7 @@ module SeverityMark =
 
     [<JSX.Component>]
     let View (props: Props) =
-        match props.severity |> Models.Severity.isRaised, Mui.Styles.severityColor props.severity with
+        match props.severity |> Severity.isRaised, Mui.Styles.severityColor props.severity with
         | false, _
         | _, None -> null
         | true, Some color ->

@@ -471,7 +471,7 @@ Top-level documents: `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `DEVELOPMEN
 GenPRES is built on the [SAFE Stack](https://safe-stack.github.io/) with .NET 10.0:
 
 - **Informedica.GenPRES.Server**: F# with [Saturn](https://saturnframework.org/)
-- **Informedica.GenPRES.Client**: F# with [Fable](https://fable.io/docs/) and [Elmish](https://elmish.github.io/elmish/). Its state machines live in **Informedica.GenPRES.Client.Core**, plain F# that runs under Expecto as well as Fable
+- **Informedica.GenPRES.Client**: F# with [Fable](https://fable.io/docs/) and [Elmish](https://elmish.github.io/elmish/). Its pure code lives in **Informedica.GenPRES.Client.Core**, plain F# that runs under Expecto as well as Fable
 - **Testing**: Expecto with FsCheck
 
 ### Core Libraries
@@ -496,7 +496,7 @@ In dependency order (see [GenFORM Appendix B.3](docs/domain/genform-free-text-to
 - **Informedica.MCP.Server**: standalone stdio MCP host
 - **Informedica.GenPRES.Shared**: shared types and API contract
 - **Informedica.GenPRES.Server**: server API and orchestration
-- **Informedica.GenPRES.Client.Core**: the client's state machines and policies
+- **Informedica.GenPRES.Client.Core**: the client's pure code: models, helpers, policies and state machines
 - **Informedica.GenPRES.Client**: web UI
 
 ## Code Contribution Guidelines
@@ -570,9 +570,9 @@ SERVER_PORT=8085               # Kestrel's listen port (no GENPRES_ prefix); the
 #### Default language
 
 `GENPRES_LANG` is the UI language a browser starts in; the client asks the server for it at start-up
-and falls back to Dutch until then. Accepted values are `en`, `nl`, `fr`, `de`, `es`, `it` in any
-case (display names such as `Nederlands` work too). Unset means `nl`; any other value makes the
-server refuse to start. An `la=` URL parameter and a language the user picks both override it.
+and falls back to Dutch until then. Accepted values are the ISO 639-1 codes `en`, `nl`, `fr`, `de`,
+`es`, `it` in any case; a display name such as `Nederlands` is not. Unset means `nl`; any other value
+makes the server refuse to start. An `lan=` URL parameter and a language the user picks both override it.
 
 #### Password policy
 

@@ -4,7 +4,7 @@ open Giraffe
 open Saturn
 open Fable.Remoting.Server
 open Fable.Remoting.Giraffe
-open Shared.Api
+open Informedica.GenPRES.Shared.Api
 open ServerApi
 open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
 open Microsoft.Extensions.Hosting
@@ -161,39 +161,43 @@ module Config =
 
 
     /// The default UI language: Dutch, the client's own default until now.
-    let defaultLanguage = Shared.Localization.Dutch
+    let defaultLanguage = Informedica.GenPRES.Shared.Localization.Dutch
 
 
     /// <summary>
     /// The UI language from <c>GENPRES_LANG</c>: <c>defaultLanguage</c> when
-    /// unset, the parsed language when the value is one (ISO code, display
-    /// name or legacy url code, any case), otherwise the start-up error naming
+    /// unset, the parsed language when the value is one (an ISO 639-1 code,
+    /// any case), otherwise the start-up error naming
     /// the setting and the value.
     /// </summary>
-    let language (settings: Settings) : Result<Shared.Localization.Locales, string> =
+    let language (settings: Settings) : Result<Informedica.GenPRES.Shared.Localization.Locales, string> =
         match settings.Lang with
         | None -> Ok defaultLanguage
         | Some raw ->
-            match Shared.Localization.tryParse raw with
+            match Informedica.GenPRES.Shared.Localization.tryParse raw with
             | Some l -> Ok l
             | None ->
                 let accepted =
-                    Shared.Localization.languages
-                    |> Array.map (Shared.Localization.toShortCode >> _.ToLower())
+                    Informedica.GenPRES.Shared.Localization.languages
+                    |> Array.map (Informedica.GenPRES.Shared.Localization.toShortCode >> _.ToLower())
                     |> String.concat ", "
 
-                let fallback = defaultLanguage |> Shared.Localization.toShortCode |> _.ToLower()
+                let fallback =
+                    defaultLanguage
+                    |> Informedica.GenPRES.Shared.Localization.toShortCode
+                    |> _.ToLower()
 
                 Error
-                    $"GENPRES_LANG=%s{raw} is not a language. Accepted: %s{accepted} \
-                      (or a display name such as Nederlands). Unset it for the default (%s{fallback})."
+                    $"GENPRES_LANG=%s{raw} is not a language. Accepted: %s{accepted}. \
+                      Unset it for the default (%s{fallback})."
 
 
     /// Banner display string for the language: the derived value, or the raw
     /// one flagged when it is not a language (validateStartup then refuses).
     let displayLanguage (settings: Settings) =
         match language settings with
-        | Ok l -> $"{l |> Shared.Localization.toShortCode |> _.ToLower()} ({l |> Shared.Localization.toString})"
+        | Ok l ->
+            $"{l |> Informedica.GenPRES.Shared.Localization.toShortCode |> _.ToLower()} ({l |> Informedica.GenPRES.Shared.Localization.toString})"
         | Error _ ->
             let raw = settings.Lang |> Option.defaultValue ""
             $"%s{raw} (NOT A LANGUAGE)"
@@ -286,7 +290,7 @@ module Config =
     let toServerSettings
         (settings: Settings)
         (departments: Informedica.GenForm.Lib.Types.Departments)
-        : Shared.Api.ServerSettings
+        : Informedica.GenPRES.Shared.Api.ServerSettings
         =
         {
             Language = language settings |> Result.defaultValue defaultLanguage

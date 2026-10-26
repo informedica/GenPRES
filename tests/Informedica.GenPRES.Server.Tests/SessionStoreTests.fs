@@ -8,7 +8,7 @@ open Expecto
 open Expecto.Flip
 open Informedica.GenOrder.Lib
 // after Expecto, whose FocusState has a Normal case too
-open Shared.Types
+open Informedica.GenPRES.Shared.Types
 open ServerApi
 open Informedica.GenPRES.Server.Tests.StubAdapterTests
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
@@ -429,8 +429,8 @@ let tests =
 
                 let envOver demo =
                     { makeEnv
-                          (formularyAlwaysOk Shared.Models.Formulary.empty)
-                          (orderContextAlwaysOk Shared.Models.OrderContext.empty) with
+                          (formularyAlwaysOk Informedica.GenPRES.Shared.Models.Formulary.empty)
+                          (orderContextAlwaysOk Informedica.GenPRES.Shared.Models.OrderContext.empty) with
                         session = port
                         demo = demo
                     }
@@ -446,7 +446,7 @@ let tests =
                     SigningCommand.processCmd
                         (envOver true)
                         cookie
-                        (Shared.Api.SigningCommand.RequestSignChallenge(plan, token "s-1", None))
+                        (Informedica.GenPRES.Shared.Api.SigningCommand.RequestSignChallenge(plan, token "s-1", None))
 
                 issued |> Expect.equal "issued" (SigningResponse.ChallengeIssued "n-1")
                 seen.Value |> Expect.equal "the plan parsed" (Some domainPlan.Value)
@@ -461,7 +461,10 @@ let tests =
                     }
 
                 let! submitted =
-                    SigningCommand.processCmd (envOver false) cookie (Shared.Api.SigningCommand.Submit submission)
+                    SigningCommand.processCmd
+                        (envOver false)
+                        cookie
+                        (Informedica.GenPRES.Shared.Api.SigningCommand.Submit submission)
 
                 match submitted with
                 | SigningResponse.Submitted(signed, _, _) ->
@@ -519,7 +522,11 @@ let tests =
                     SigningCommand.processCmd
                         (envOver true)
                         cookie
-                        (Shared.Api.SigningCommand.RequestSignChallenge(unreadable, token "s-1", None))
+                        (Informedica.GenPRES.Shared.Api.SigningCommand.RequestSignChallenge(
+                            unreadable,
+                            token "s-1",
+                            None
+                        ))
 
                 refused
                 |> Expect.equal "unreadable" (SigningResponse.Refused SigningRefusal.PlanUnreadable)
@@ -530,7 +537,7 @@ let tests =
                     SigningCommand.processCmd
                         (envOver true)
                         cookie
-                        (Shared.Api.SigningCommand.Submit { submission with Plan = unreadable })
+                        (Informedica.GenPRES.Shared.Api.SigningCommand.Submit { submission with Plan = unreadable })
 
                 refusedAtCommit
                 |> Expect.equal "unreadable at commit" (SigningResponse.Refused SigningRefusal.PlanUnreadable)

@@ -3,13 +3,17 @@ namespace Views
 
 module EmergencyList =
 
+    open Informedica.GenPRES.Client.Core.Helpers
+    open Informedica.GenPRES.Client.Core.Models
+    open Informedica.GenPRES.Client.Core.Policies
+
 
     open System
     open Fable.Core
     open Fable.Core.JsInterop
     open Feliz
-    open Shared
-    open Shared.Types
+    open Informedica.GenPRES.Shared
+    open Informedica.GenPRES.Shared.Types
 
 
     [<JSX.Component>]
@@ -37,12 +41,12 @@ module EmergencyList =
         let renderCalculatedCell =
             fun (pars: obj) ->
                 let value: string = pars?value
-                value |> TextBlock.fromString |> Mui.TypoGraphy.fromTextBlock
+                value |> TextBlockParser.fromString |> Mui.TypoGraphy.fromTextBlock
 
         let renderPreparationCell =
             fun (pars: obj) ->
                 let value: string = pars?value
-                value |> TextBlock.fromString |> Mui.TypoGraphy.fromTextBlock
+                value |> TextBlockParser.fromString |> Mui.TypoGraphy.fromTextBlock
 
         let columns =
             [|
@@ -111,33 +115,6 @@ module EmergencyList =
                     ]
             |]
 
-        let speakAct s =
-            let speak = fun _ -> s |> Global.Speech.speak
-
-            JSX.jsx
-                $"""
-            import CardActions from '@mui/material/CardActions';
-            import IconButton from '@mui/material/IconButton';
-
-            <CardActions disableSpacing>
-                <IconButton onClick={speak} aria-label="Read aloud">
-                    {Mui.Icons.CampaignIcon}
-                </IconButton>
-            </CardActions>
-            """
-            |> toReact
-            |> Some
-
-        let repl s =
-            s
-            |> String.replace "ml" "milli liter"
-            |> String.replace "mg" "milli gram"
-            |> String.replace "mcg" "micro gram"
-            |> String.replace "/" " per "
-            |> String.replace " (" ", "
-            |> String.replace ")" ""
-            |> String.replace "-" " tot, "
-
         let rows =
             match interventions with
             | Resolved items ->
@@ -151,15 +128,6 @@ module EmergencyList =
                 |> List.toArray
                 |> Array.mapi (fun i m ->
                     let b = m.InterventionDoseText |> String.isNullOrWhiteSpace
-
-                    let sentence =
-                        let s =
-                            if b then
-                                m.SubstanceDoseText |> repl
-                            else
-                                m.InterventionDoseText |> repl
-
-                        $"{m.Name}, {s}"
 
                     {|
                         cells =
@@ -279,7 +247,7 @@ module EmergencyList =
             Components.PatientNotice.View
                 {|
                     appEnv = props.appEnv
-                    needs = PatientReadiness.Needs.Calculation
+                    needs = PatientReadinessPolicy.Needs.Calculation
                 |}
 
         let tableProps =
@@ -291,7 +259,6 @@ module EmergencyList =
                 height = "100%"
                 onRowClick = onSelectItem
                 checkboxSelection = false
-                selectDisabled = false
                 selectedRows = [||]
                 onSelectChange = ignore
                 showToolbar = true

@@ -7,7 +7,7 @@ open Expecto.Flip
 open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
 // after Expecto, whose FocusState has a Normal case too
-open Shared.Types
+open Informedica.GenPRES.Shared.Types
 open ServerApi
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
 
@@ -15,19 +15,19 @@ open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
 let patient = StubPatientData.patient
 
 let ctx: OrderContext =
-    { Shared.Models.OrderContext.empty with
+    { Informedica.GenPRES.Shared.Models.OrderContext.empty with
         Id = "c-1"
         Category = OrderCategory.Nutrition NutritionCategory.TPN
         DemoVersion = true
-        Filter = { Shared.Models.OrderContext.filter with Generic = Some "glucose" }
+        Filter = { Informedica.GenPRES.Shared.Models.OrderContext.filter with Generic = Some "glucose" }
         Patient = patient
-        Intake = { Shared.Models.Totals.empty with Volume = [| Normal "10 ml" |] }
+        Intake = { Informedica.GenPRES.Shared.Models.Totals.empty with Volume = [| Normal "10 ml" |] }
     }
 
 let echo: OrderContextPort = { evaluate = fun _ pc -> async { return Ok(Evaluated pc) } }
 
 let envOver demo (port: OrderContextPort) =
-    { makeEnv (formularyAlwaysOk Shared.Models.Formulary.empty) port with demo = demo }
+    { makeEnv (formularyAlwaysOk Informedica.GenPRES.Shared.Models.Formulary.empty) port with demo = demo }
 
 
 [<Tests>]
@@ -37,9 +37,17 @@ let tests =
         [
             testAsync "the answer is the port's plan context as the contract model, the demo flag the environment's" {
                 let! answer =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         (envOver false echo)
-                        (Shared.Api.OrderContextCommand.UpdateOrderContext, ctx)
+                        (Informedica.GenPRES.Shared.Api.OrderViewCommand.SeedFilter(
+                            Informedica.GenPRES.Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         ctx)
 
                 match answer with
                 | Ok(OrderContextResponse.Evaluated a) ->
@@ -48,9 +56,17 @@ let tests =
                 | other -> failtest $"expected the context evaluated, got: %A{other}"
 
                 let! demo =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         (envOver true echo)
-                        (Shared.Api.OrderContextCommand.UpdateOrderContext, ctx)
+                        (Informedica.GenPRES.Shared.Api.OrderViewCommand.SeedFilter(
+                            Informedica.GenPRES.Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         ctx)
 
                 match demo with
                 | Ok(OrderContextResponse.Evaluated a) -> a.DemoVersion |> Expect.isTrue "demo as the environment says"
@@ -62,15 +78,41 @@ let tests =
                     { evaluate = fun _ pc -> async { return Ok(Refused(pc, Refusal.NoDoseRulesForPatient)) } }
 
                 let! answer =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         (envOver false port)
-                        (Shared.Api.OrderContextCommand.UpdateOrderContext, ctx)
+                        (Informedica.GenPRES.Shared.Api.OrderViewCommand.SeedFilter(
+                            Informedica.GenPRES.Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         ctx)
 
                 match answer with
                 | Ok(OrderContextResponse.Refused(a, OrderContextRefusal.NoDoseRulesForPatient)) ->
                     a.Filter.Generic |> Expect.equal "the pick kept" (Some "glucose")
                     a.Id |> Expect.equal "the id kept" "c-1"
                 | other -> failtest $"expected the refusal, got: %A{other}"
+            }
+
+            test "every refusal maps to the contract's case of the same name" {
+                [
+                    Refusal.NoDoseRules
+                    Refusal.NoDoseRulesForPatient
+                    Refusal.NoProducts
+                    Refusal.NotSolved
+                ]
+                |> List.map OrderContextService.refusalToModel
+                |> Expect.equal
+                    "the same cases"
+                    [
+                        OrderContextRefusal.NoDoseRules
+                        OrderContextRefusal.NoDoseRulesForPatient
+                        OrderContextRefusal.NoProducts
+                        OrderContextRefusal.NotSolved
+                    ]
             }
 
             testAsync "the port receives the verb over the parsed context, id and category included" {
@@ -85,12 +127,12 @@ let tests =
                     }
 
                 let! _ =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         (envOver false port)
-                        (Shared.Api.OrderContextCommand.SelectOrderScenario, ctx)
+                        (Informedica.GenPRES.Shared.Api.OrderViewCommand.SelectNthOrderScenario 0, ctx)
 
                 match seen.Value with
-                | Some(OrderContext.SelectOrderScenario domainCtx, id, category) ->
+                | Some(OrderContext.SelectNthOrderScenario(domainCtx, _), id, category) ->
                     domainCtx.Filter.Generic |> Expect.equal "the context parsed" (Some "glucose")
                     id |> Expect.equal "the plan's id" "c-1"
 
@@ -114,10 +156,17 @@ let tests =
                     }
 
                 let! answer =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         (envOver false port)
-                        (Shared.Api.OrderContextCommand.UpdateOrderContext,
-                         { ctx with Patient = Shared.Models.Patient.empty })
+                        (Informedica.GenPRES.Shared.Api.OrderViewCommand.SeedFilter(
+                            Informedica.GenPRES.Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         { ctx with Patient = Informedica.GenPRES.Shared.Models.Patient.empty })
 
                 answer |> Expect.equal "no patient" (Error [| Patient.noPatient |])
                 asked.Value |> Expect.isFalse "the port never asked"
@@ -127,9 +176,17 @@ let tests =
                 let port: OrderContextPort = { evaluate = fun _ _ -> async { return Error [| "ctx error" |] } }
 
                 let! answer =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         (envOver false port)
-                        (Shared.Api.OrderContextCommand.UpdateOrderContext, ctx)
+                        (Informedica.GenPRES.Shared.Api.OrderViewCommand.SeedFilter(
+                            Informedica.GenPRES.Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         ctx)
 
                 answer |> Expect.equal "propagated" (Error [| "ctx error" |])
             }

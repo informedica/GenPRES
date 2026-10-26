@@ -489,6 +489,76 @@ module Tests =
                                         oldIncr |> Increment.restrict newIncr |> Expect.equal "should be 0.5" oldIncr
                                     }
 
+                                    test "restricting 2 with 3 gives 6, the least common multiple" {
+                                        let oldIncr = [| 2N |] |> create
+                                        let newIncr = [| 3N |] |> create
+
+                                        oldIncr
+                                        |> Increment.restrict newIncr
+                                        |> Expect.equal "should be 6" ([| 6N |] |> create)
+                                    }
+
+                                    test "restricting 0.1 with 3 gives 3, the least common multiple" {
+                                        let oldIncr = [| 1N / 10N |] |> create
+                                        let newIncr = [| 3N |] |> create
+                                        oldIncr |> Increment.restrict newIncr |> Expect.equal "should be 3" newIncr
+                                    }
+
+                                    test "restricting 1 with 0.3 gives 3, the least common multiple" {
+                                        let oldIncr = [| 1N |] |> create
+                                        let newIncr = [| 3N / 10N |] |> create
+
+                                        oldIncr
+                                        |> Increment.restrict newIncr
+                                        |> Expect.equal "should be 3" ([| 3N |] |> create)
+                                    }
+
+                                    test "restricting 3;5 with 2;3 keeps every lcm that is no multiple of another" {
+                                        // the pairs give 6, 3, 10 and 15; 6 and 15 are multiples of 3
+                                        let oldIncr = [| 3N; 5N |] |> create
+                                        let newIncr = [| 2N; 3N |] |> create
+
+                                        oldIncr
+                                        |> Increment.restrict newIncr
+                                        |> Expect.equal "should be 3 and 10" ([| 3N; 10N |] |> create)
+                                    }
+
+                                    test "restricting 100 mg with 0.3 g gives 300 mg" {
+                                        let oldIncr =
+                                            [| 100N |] |> ValueUnit.create Units.Mass.milliGram |> Increment.create
+
+                                        let newIncr =
+                                            [| 3N / 10N |] |> ValueUnit.create Units.Mass.gram |> Increment.create
+
+                                        oldIncr
+                                        |> Increment.restrict newIncr
+                                        |> Expect.equal
+                                            "should be 300 mg"
+                                            ([| 300N |] |> ValueUnit.create Units.Mass.milliGram |> Increment.create)
+                                    }
+
+                                    fun xs1 xs2 ->
+                                        // only create may throw, on values that hold no positive one
+                                        let tryCreate xs =
+                                            try
+                                                xs |> create |> Some
+                                            with _ ->
+                                                None
+
+                                        let isOn incr x =
+                                            incr
+                                            |> Increment.toList
+                                            |> List.exists (fun i -> x |> BigRational.isMultiple i)
+
+                                        match tryCreate xs1, tryCreate xs2 with
+                                        | Some newIncr, Some oldIncr ->
+                                            oldIncr
+                                            |> Increment.restrict newIncr
+                                            |> Increment.toList
+                                            |> List.forall (fun x -> x |> isOn newIncr && x |> isOn oldIncr)
+                                        | _ -> true
+                                    |> Generators.testProp "a restricted incr lies on the new and the old incr"
+
                                 ]
 
                             testList
@@ -545,6 +615,57 @@ module Tests =
                                                     "should be 5"
                                                     (5N |> ValueUnit.singleWithUnit u |> Increment.create)
 
+                                    }
+
+                                    test "a range that already holds at most maxCount values keeps its increment" {
+                                        let u = Units.Volume.milliLiter
+
+                                        let vr =
+                                            Variable.ValueRange.create
+                                                (20N |> ValueUnit.singleWithUnit u |> Minimum.create true |> Some)
+                                                (1N |> ValueUnit.singleWithUnit u |> Increment.create |> Some)
+                                                (24N |> ValueUnit.singleWithUnit u |> Maximum.create true |> Some)
+                                                None
+
+                                        vr
+                                        |> Variable.ValueRange.increaseIncrement
+                                            10N
+                                            ([ 5N; 10N ] |> List.map (ValueUnit.singleWithUnit u >> Increment.create))
+                                        |> Expect.equal "should keep 20 to 24 mL by 1 mL" vr
+                                    }
+
+                                    let rateRange () =
+                                        let u = Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour
+
+                                        let incrs =
+                                            [ 1N / 10N; 1N / 2N; 1N; 5N; 10N; 50N; 100N; 500N ]
+                                            |> List.map (ValueUnit.singleWithUnit u >> Increment.create)
+
+                                        u,
+                                        incrs,
+                                        Variable.ValueRange.create
+                                            (10N |> ValueUnit.singleWithUnit u |> Minimum.create true |> Some)
+                                            (5N |> ValueUnit.singleWithUnit u |> Increment.create |> Some)
+                                            (40N |> ValueUnit.singleWithUnit u |> Maximum.create true |> Some)
+                                            None
+
+                                    test "a rate increased a second time keeps its increment when it already fits" {
+                                        let _, incrs, vr = rateRange ()
+
+                                        vr
+                                        |> Variable.ValueRange.increaseIncrement 10N incrs
+                                        |> Expect.equal "should keep 10 to 40 mL/hour by 5 mL/hour" vr
+                                    }
+
+                                    test "a range with more than maxCount values still gets a larger increment" {
+                                        let u, incrs, vr = rateRange ()
+
+                                        vr
+                                        |> Variable.ValueRange.increaseIncrement 5N incrs
+                                        |> Variable.ValueRange.getIncr
+                                        |> Expect.equal
+                                            "should be 10 mL/hour"
+                                            (10N |> ValueUnit.singleWithUnit u |> Increment.create |> Some)
                                     }
                                 ]
 
@@ -821,79 +942,99 @@ module Tests =
                             testList
                                 "prune"
                                 [
-                                    test "prune with increment retains min and max when not multiples of incr*m" {
-                                        let values = [| yield 3N; yield! [| 5N .. 5N .. 100N |]; yield 107N |]
+                                    let mL = Units.Volume.milliLiter
+                                    let stuk = Units.General.general "stuk"
 
-                                        let incrVu = Units.Volume.milliLiter |> ValueUnit.singleWithValue 5N |> Some
+                                    // the rounded steps an order passes, in mL and in mL/hour
+                                    let steps =
+                                        let steps u =
+                                            [ 1N / 10N; 1N / 2N; 1N; 5N; 10N; 50N; 100N; 500N ]
+                                            |> List.map (ValueUnit.singleWithUnit u)
 
-                                        let result =
-                                            Units.Volume.milliLiter
-                                            |> ValueUnit.withValue values
-                                            |> ValueSet.create
-                                            |> ValueSet.prune incrVu 5
-                                            |> fun (ValueSet vu) -> vu |> ValueUnit.getValue
+                                        steps mL @ steps (mL |> ValueUnit.per Units.Time.hour)
 
-                                        result |> Array.min |> Expect.equal "min should be 3" 3N
-                                        result |> Array.max |> Expect.equal "max should be 107" 107N
+                                    let prune unit incr n values =
+                                        unit
+                                        |> ValueUnit.withValue values
+                                        |> ValueSet.create
+                                        |> ValueSet.prune steps incr n
+                                        |> fun (ValueSet vu) -> vu |> ValueUnit.getValue
+
+                                    let incrOf unit v = unit |> ValueUnit.singleWithValue v |> Some
+
+                                    test "prune with increment takes the finest step that leaves at most n values" {
+                                        [| 110N .. 275N |]
+                                        |> prune mL (incrOf mL 1N) 5
+                                        |> Expect.equal "should be the multiples of 50 mL" [| 150N; 200N; 250N |]
                                     }
 
-                                    test "prune with increment keeps result within n elements" {
-                                        let values = [| yield 3N; yield! [| 5N .. 5N .. 100N |]; yield 107N |]
-                                        let incrVu = Units.Volume.milliLiter |> ValueUnit.singleWithValue 5N |> Some
+                                    test "prune 10 to 20 mL by 0.5 mL to at most 20 keeps the whole millilitres" {
+                                        [| 10N .. (1N / 2N) .. 20N |]
+                                        |> prune mL (incrOf mL (1N / 2N)) 20
+                                        |> Expect.equal "should be every whole mL from 10 to 20" [| 10N .. 20N |]
+                                    }
 
-                                        let result =
-                                            Units.Volume.milliLiter
-                                            |> ValueUnit.withValue values
-                                            |> ValueSet.create
-                                            |> ValueSet.prune incrVu 5
-                                            |> fun (ValueSet vu) -> vu |> ValueUnit.getValue
+                                    test "prune with a step that overshoots takes the multiples of the finer step" {
+                                        [| 1N .. 640N |]
+                                        |> prune mL (incrOf mL 1N) 5
+                                        |> Expect.equal "should be the multiples of 200 mL" [| 200N; 400N; 600N |]
+                                    }
 
-                                        result |> Array.length <= 5 |> Expect.isTrue "should be <= 5 elements"
+                                    test "prune with increment drops a min and max that are not on the step" {
+                                        [| yield 3N; yield! [| 5N .. 5N .. 100N |]; yield 107N |]
+                                        |> prune mL (incrOf mL 5N) 5
+                                        |> Expect.equal "should be the multiples of 50 mL" [| 50N; 100N |]
+                                    }
+
+                                    test "prune with increment keeps min and max when fewer than two multiples remain" {
+                                        [| 3N; 10N; 107N |]
+                                        |> prune mL (incrOf mL 5N) 2
+                                        |> Expect.equal "should keep min, the one multiple and max" [| 3N; 10N; 107N |]
+                                    }
+
+                                    test "prune of a unit group without steps takes 1 as the step" {
+                                        [| 6N .. (1N / 4N) .. 12N |]
+                                        |> prune stuk (incrOf stuk (1N / 4N)) 10
+                                        |> Expect.equal "should be the whole tablets" [| 6N .. 12N |]
+                                    }
+
+                                    test
+                                        "prune of a unit group without steps takes the multiples of 1 when 1 leaves too many" {
+                                        [| 6N .. (1N / 4N) .. 12N |]
+                                        |> prune stuk (incrOf stuk (1N / 4N)) 5
+                                        |> Expect.equal "should be every second tablet" [| 6N; 8N; 10N; 12N |]
+                                    }
+
+                                    test "prune with an increment in L prunes as the same increment in mL" {
+                                        let inMilliLiter = [| 5N .. 5N .. 1000N |] |> prune mL (incrOf mL 5N) 50
+
+                                        [| 5N .. 5N .. 1000N |]
+                                        |> prune mL (incrOf Units.Volume.liter (5N / 1000N)) 50
+                                        |> Expect.equal "should equal the prune by 5 mL" inMilliLiter
+
+                                        inMilliLiter
+                                        |> Expect.equal "should be the multiples of 50 mL" [| 50N .. 50N .. 1000N |]
+                                    }
+
+                                    test
+                                        "prune with an increment no step is a multiple of takes the multiples of the increment" {
+                                        [| 3N .. 3N .. 90N |]
+                                        |> prune mL (incrOf mL 3N) 10
+                                        |> Expect.equal "should be the multiples of 9 mL" [| 9N .. 9N .. 90N |]
+                                    }
+
+                                    test "prune with at most n values leaves the set as it is" {
+                                        [| 3N; 107N |]
+                                        |> prune mL (incrOf mL 5N) 5
+                                        |> Expect.equal "should return both elements" [| 3N; 107N |]
                                     }
 
                                     test "prune without increment retains min and max" {
-                                        let values = [| 3N; 7N; 11N; 15N; 19N; 23N; 27N; 31N; 35N; 39N |]
-
                                         let result =
-                                            Units.Volume.milliLiter
-                                            |> ValueUnit.withValue values
-                                            |> ValueSet.create
-                                            |> ValueSet.prune None 4
-                                            |> fun (ValueSet vu) -> vu |> ValueUnit.getValue
+                                            [| 3N; 7N; 11N; 15N; 19N; 23N; 27N; 31N; 35N; 39N |] |> prune mL None 4
 
                                         result |> Array.min |> Expect.equal "min should be 3" 3N
                                         result |> Array.max |> Expect.equal "max should be 39" 39N
-                                    }
-
-                                    test "prune with 2 elements returns both" {
-                                        let values = [| 3N; 107N |]
-
-                                        let incrVu = Units.Volume.milliLiter |> ValueUnit.singleWithValue 5N |> Some
-
-                                        let result =
-                                            Units.Volume.milliLiter
-                                            |> ValueUnit.withValue values
-                                            |> ValueSet.create
-                                            |> ValueSet.prune incrVu 5
-                                            |> fun (ValueSet vu) -> vu |> ValueUnit.getValue
-
-                                        result |> Expect.equal "should return both elements" [| 3N; 107N |]
-                                    }
-
-                                    test "prune 5 to 1000 mL to at most 50 keeps min and max" {
-                                        let incrVu =
-                                            Units.Volume.liter |> ValueUnit.singleWithValue (5N / 1000N) |> Some
-
-                                        let result =
-                                            Units.Volume.milliLiter
-                                            |> ValueUnit.withValue [| 5N .. 5N .. 1000N |]
-                                            |> ValueSet.create
-                                            |> ValueSet.prune incrVu 50
-                                            |> fun (ValueSet vu) -> vu |> ValueUnit.getValue
-
-                                        result |> Array.length <= 50 |> Expect.isTrue "should be <= 50 elements"
-                                        result |> Array.min |> Expect.equal "min should be 5" 5N
-                                        result |> Array.max |> Expect.equal "max should be 1000" 1000N
                                     }
                                 ]
 
@@ -2190,6 +2331,533 @@ module Tests =
                 ]
 
 
+    /// A solved equation offers only the values that a solution reaches: increments combine by their
+    /// least common multiple, and products and quotients that form no range on an increment get none.
+    module IncrementEquationTests =
+
+        module ValueRange = Variable.ValueRange
+        module Increment = ValueRange.Increment
+
+
+        let ml = Units.Volume.milliLiter
+        let times = Units.Count.times
+
+
+        let solve eqs =
+            match eqs |> TestSolver.solveAll with
+            | Ok eqs -> eqs
+            | Error(_, errs) -> failtest $"%A{errs}"
+
+
+        let getVar n eqs =
+            eqs
+            |> List.collect Equation.toVars
+            |> List.find (fun v -> v.Name |> Variable.Name.toString = n)
+
+
+        let incrOf (var: Variable) =
+            match var.Values with
+            | MinIncrMax(_, incr, _) -> incr |> Increment.toList |> Some
+            | _ -> None
+
+
+        /// The values a variable offers on every value of its increment.
+        let offered (var: Variable) =
+            match var.Values with
+            | MinIncrMax(min, incr, max) ->
+                let min = min |> ValueRange.Minimum.toValueUnit |> ValueUnit.getValue |> Array.head
+                let max = max |> ValueRange.Maximum.toValueUnit |> ValueUnit.getValue |> Array.head
+
+                // the positive multiples n * i from min to max
+                let floorBr (br: BigRational) = br.Numerator / br.Denominator |> BigRational.FromBigInt
+                let ceilBr br = if floorBr br = br then br else floorBr br + 1N
+
+                incr
+                |> Increment.toList
+                |> List.collect (fun i -> [ ceilBr (min / i) .. floorBr (max / i) ] |> List.map ((*) i))
+                |> List.distinct
+            | vr -> failtest $"no offered values in %s{vr |> ValueRange.toString true}"
+
+
+        let isOn (min, incr, max) v = v >= min && v <= max && v |> BigRational.isMultiple incr
+
+
+        /// Solve y = c * x with x and y on a range in mL.
+        let solveProduct c (xMin, xIncr, xMax) (yMin, yIncr, yMax) =
+            [ "y = c * x" ]
+            |> TestSolver.init
+            |> TestSolver.setValues times "c" [ c ]
+            |> TestSolver.setMinIncl ml "x" xMin
+            |> TestSolver.setIncr ml "x" xIncr
+            |> TestSolver.setMaxIncl ml "x" xMax
+            |> TestSolver.setMinIncl ml "y" yMin
+            |> TestSolver.setIncr ml "y" yIncr
+            |> TestSolver.setMaxIncl ml "y" yMax
+            |> solve
+
+
+        let tests =
+            testList
+                "increments in equations"
+                [
+                    for name, c, xRange, yRange, xIncr, yIncr in
+                        [
+                            "dose count 3", 3N, (1N, 1N / 10N, 10N), (1N, 1N, 30N), [ 1N ], [ 3N ]
+                            "share 1/4", 1N / 4N, (22N, 1N, 120N), (1N, 1N / 10N, 30N), [ 2N ], [ 1N / 2N ]
+                            "share 2/7", 2N / 7N, (22N, 1N, 120N), (1N, 1N / 10N, 30N), [ 7N ], [ 2N ]
+                            "dose count 1", 1N, (1N, 1N / 10N, 10N), (1N, 1N, 30N), [ 1N ], [ 1N ]
+                        ] do
+                        test $"y = c * x with %s{name} offers only values a solution reaches" {
+                            let eqs = solveProduct c xRange yRange
+                            let x = eqs |> getVar "x"
+                            let y = eqs |> getVar "y"
+
+                            x
+                            |> incrOf
+                            |> Expect.equal "x should be on the lcm of the increments" (Some xIncr)
+                            y
+                            |> incrOf
+                            |> Expect.equal "y should be on the lcm of the increments" (Some yIncr)
+
+                            x
+                            |> offered
+                            |> List.filter (fun v -> v * c |> isOn yRange |> not)
+                            |> Expect.isEmpty "every x should give a y on its range"
+
+                            y
+                            |> offered
+                            |> List.filter (fun v -> v / c |> isOn xRange |> not)
+                            |> Expect.isEmpty "every y should come from an x on its range"
+                        }
+
+                    test "a range divided by a value set lies on the increment divided by each value" {
+                        // x = y / c
+                        [ "y = c * x" ]
+                        |> TestSolver.init
+                        |> TestSolver.setValues times "c" [ 2N; 4N ]
+                        |> TestSolver.setMinIncl ml "y" 1N
+                        |> TestSolver.setIncr ml "y" 1N
+                        |> TestSolver.setMaxIncl ml "y" 10N
+                        |> solve
+                        |> getVar "x"
+                        |> incrOf
+                        |> Expect.equal "x should be on 1/4 mL" (Some [ 1N / 4N ])
+                    }
+
+                    test "a range divided by dose counts 1 to 12 keeps an increment" {
+                        // x = y / c; 1 to 6 each divide a count from 7 to 12, so six values remain
+                        // and the cap on the number of increments is not reached
+                        [ "y = c * x" ]
+                        |> TestSolver.init
+                        |> TestSolver.setValues times "c" [ 1N .. 12N ]
+                        |> TestSolver.setMinIncl ml "y" 1N
+                        |> TestSolver.setIncr ml "y" 1N
+                        |> TestSolver.setMaxIncl ml "y" 10N
+                        |> solve
+                        |> getVar "x"
+                        |> incrOf
+                        |> Option.map Set.ofList
+                        |> Expect.equal
+                            "x should be on 1/7 to 1/12 mL"
+                            ([ 7N .. 12N ] |> List.map (fun c -> 1N / c) |> Set.ofList |> Some)
+                    }
+
+                    for vs, exp in [ [ 2N ], [ 1N / 2N ]; [ 2N; 4N ], [ 1N / 4N ] ] do
+                        test $"a range in mg divided by %A{vs} mL lies on %A{exp} mg/mL" {
+                            // a unit with a base factor other than 1, so the values that divide
+                            // another are compared on the same scale as the values themselves
+                            [ "y = c * x" ]
+                            |> TestSolver.init
+                            |> TestSolver.setValues ml "c" vs
+                            |> TestSolver.setMinIncl Units.Mass.milliGram "y" 1N
+                            |> TestSolver.setIncr Units.Mass.milliGram "y" 1N
+                            |> TestSolver.setMaxIncl Units.Mass.milliGram "y" 10N
+                            |> solve
+                            |> getVar "x"
+                            |> incrOf
+                            |> Expect.equal "x should keep the increment divided by the volume" (Some exp)
+                        }
+
+                    test "a value set divided by a range has a min and max without an increment" {
+                        // y = 1 / x
+                        [ "c = x * y" ]
+                        |> TestSolver.init
+                        |> TestSolver.setValues times "c" [ 1N ]
+                        |> TestSolver.setMinIncl ml "x" 1N
+                        |> TestSolver.setIncr ml "x" 1N
+                        |> TestSolver.setMaxIncl ml "x" 5N
+                        |> solve
+                        |> getVar "y"
+                        |> fun y ->
+                            match y.Values with
+                            | MinMax(min, max) ->
+                                [ min |> ValueRange.Minimum.toValueUnit; max |> ValueRange.Maximum.toValueUnit ]
+                                |> List.collect (ValueUnit.getValue >> Array.toList)
+                            | vr -> failtest $"expected a min and max, got %s{vr |> ValueRange.toString true}"
+                        |> Expect.equal "y should be 1/5 to 1 without an increment" [ 1N / 5N; 1N ]
+                    }
+
+                    test "a product of two ranges has a min and max without an increment" {
+                        [ "z = x * y" ]
+                        |> TestSolver.init
+                        |> TestSolver.setMinIncl ml "x" 1N
+                        |> TestSolver.setIncr ml "x" 1N
+                        |> TestSolver.setMaxIncl ml "x" 5N
+                        |> TestSolver.setMinIncl times "y" 1N
+                        |> TestSolver.setIncr times "y" 1N
+                        |> TestSolver.setMaxIncl times "y" 5N
+                        |> solve
+                        |> getVar "z"
+                        |> incrOf
+                        |> Expect.isNone "z should have no increment"
+                    }
+
+                    test "a sum of two ranges on the same increment keeps the increment" {
+                        [ "z = x + y" ]
+                        |> TestSolver.init
+                        |> TestSolver.setMinIncl ml "x" 1N
+                        |> TestSolver.setIncr ml "x" 1N
+                        |> TestSolver.setMaxIncl ml "x" 5N
+                        |> TestSolver.setMinIncl ml "y" 1N
+                        |> TestSolver.setIncr ml "y" 1N
+                        |> TestSolver.setMaxIncl ml "y" 5N
+                        |> solve
+                        |> getVar "z"
+                        |> incrOf
+                        |> Expect.equal "z should be on 1 mL" (Some [ 1N ])
+                    }
+                ]
+
+
+    /// An equation whose variables all hold one value is evaluated instead of being put aside: the
+    /// single values of an order can contradict it, and then the solve errors.
+    module SolvedEquationTests =
+
+        module ValueRange = Variable.ValueRange
+        module ValueSet = ValueRange.ValueSet
+
+
+        let mg = Units.Mass.milliGram
+        let ml = Units.Volume.milliLiter
+        let l = Units.Volume.liter
+        let mgPerMl = mg |> ValueUnit.per ml
+
+
+        /// The quantity of the issue: 10 mg fixed, 1 mg/mL strength, 1 mL volume.
+        let impossibleProduct () =
+            [ "qty = conc * vol" ]
+            |> TestSolver.init
+            |> TestSolver.setValues mg "qty" [ 10N ]
+            |> TestSolver.setValues mgPerMl "conc" [ 1N ]
+            |> TestSolver.setValues ml "vol" [ 1N ]
+
+
+        let possibleProduct () =
+            [ "qty = conc * vol" ]
+            |> TestSolver.init
+            |> TestSolver.setValues mg "qty" [ 10N ]
+            |> TestSolver.setValues mgPerMl "conc" [ 1N ]
+            |> TestSolver.setValues ml "vol" [ 10N ]
+
+
+        /// The same quantity with the volume in liters: the check compares base values.
+        let possibleProductInLiters () =
+            [ "qty = conc * vol" ]
+            |> TestSolver.init
+            |> TestSolver.setValues mg "qty" [ 10N ]
+            |> TestSolver.setValues mgPerMl "conc" [ 1N ]
+            |> TestSolver.setValues l "vol" [ 1N / 100N ]
+
+
+        let impossibleSum () =
+            [ "tot = a + b" ]
+            |> TestSolver.init
+            |> TestSolver.setValues ml "tot" [ 10N ]
+            |> TestSolver.setValues ml "a" [ 1N ]
+            |> TestSolver.setValues ml "b" [ 1N ]
+
+
+        let possibleSum () =
+            [ "tot = a + b" ]
+            |> TestSolver.init
+            |> TestSolver.setValues ml "tot" [ 10N ]
+            |> TestSolver.setValues ml "a" [ 4N ]
+            |> TestSolver.setValues ml "b" [ 6N ]
+
+
+        /// A solved value the open variables do not give. Not all solved: the open variables are
+        /// calculated from the solved one and come out empty, which the solver reported already.
+        let solvedNotGiven () =
+            [ "qty = conc * vol" ]
+            |> TestSolver.init
+            |> TestSolver.setValues mg "qty" [ 10N ]
+            |> TestSolver.setValues mgPerMl "conc" [ 1N; 2N; 3N ]
+            |> TestSolver.setValues ml "vol" [ 1N; 2N; 4N ]
+
+
+        /// A solved value the open variables give in one way. Not all solved, narrowed already.
+        let solvedGiven () =
+            [ "qty = conc * vol" ]
+            |> TestSolver.init
+            |> TestSolver.setValues mg "qty" [ 10N ]
+            |> TestSolver.setValues mgPerMl "conc" [ 1N; 2N; 3N ]
+            |> TestSolver.setValues ml "vol" [ 1N; 5N; 7N ]
+
+
+        /// A solved value outside the range of an open variable. Not all solved, reported already.
+        let solvedOutsideRange () =
+            [ "qty = conc * vol" ]
+            |> TestSolver.init
+            |> TestSolver.setValues mg "qty" [ 10N ]
+            |> TestSolver.setValues mgPerMl "conc" [ 1N ]
+            |> TestSolver.setMinIncl ml "vol" 20N
+            |> TestSolver.setMaxIncl ml "vol" 50N
+
+
+        /// An impossible solved equation beside an open one on a shared variable.
+        let impossibleBesideOpen () =
+            [ "qty = conc * vol"; "rate = qty * freq" ]
+            |> TestSolver.init
+            |> TestSolver.setValues mg "qty" [ 10N ]
+            |> TestSolver.setValues mgPerMl "conc" [ 1N ]
+            |> TestSolver.setValues ml "vol" [ 1N ]
+
+
+        let isError =
+            function
+            | Ok _ -> false
+            | Error _ -> true
+
+
+        let isInvalidEquation =
+            function
+            | Error(_, errs) ->
+                errs
+                |> List.exists (
+                    function
+                    | Exceptions.SolverInvalidEquations _ -> true
+                    | _ -> false
+                )
+            | Ok _ -> false
+
+
+        let values n eqs =
+            eqs
+            |> List.collect Equation.toVars
+            |> List.find (fun v -> v.Name |> Variable.Name.toString = n)
+            |> Variable.getValueRange
+            |> ValueRange.getValSet
+            |> Option.map (ValueSet.toValueUnit >> ValueUnit.getValue)
+
+
+        let check eqs = eqs |> List.head |> Equation.check false
+
+
+        let tests =
+            testList
+                "solved equations"
+                [
+                    testList
+                        "Equation.check"
+                        [
+                            test "a product that holds: 10 mg = 1 mg/mL * 10 mL" {
+                                possibleProduct () |> check |> Expect.isTrue "holds"
+                            }
+
+                            test "a product that holds across unit scales: 10 mg = 1 mg/mL * 0.01 L" {
+                                possibleProductInLiters () |> check |> Expect.isTrue "holds on base values"
+                            }
+
+                            test "a product that does not hold: 10 mg = 1 mg/mL * 1 mL" {
+                                impossibleProduct () |> check |> Expect.isFalse "does not hold"
+                            }
+
+                            test "a sum that holds: 10 mL = 4 mL + 6 mL" {
+                                possibleSum () |> check |> Expect.isTrue "holds"
+                            }
+
+                            test "a sum that does not hold: 10 mL = 1 mL + 1 mL" {
+                                impossibleSum () |> check |> Expect.isFalse "does not hold"
+                            }
+
+                            test "a solved value in the value lists of the others holds" {
+                                solvedGiven () |> check |> Expect.isTrue "10 mg is in {1,2,3} * {1,5,7}"
+                            }
+
+                            test "a solved value outside the value lists of the others does not hold" {
+                                solvedNotGiven () |> check |> Expect.isFalse "10 mg is not in {1,2,3} * {1,2,4}"
+                            }
+
+                            test "an equation with a range is not decided and holds" {
+                                solvedOutsideRange ()
+                                |> check
+                                |> Expect.isTrue "vol is a range, not a value list"
+                            }
+
+                            test "in a min max solve nothing is decided" {
+                                impossibleProduct ()
+                                |> List.head
+                                |> Equation.check true
+                                |> Expect.isTrue "the min max check always holds"
+                            }
+                        ]
+
+                    testList
+                        "Equation.solve"
+                        [
+                            test "a solved equation that does not hold errors" {
+                                impossibleProduct ()
+                                |> List.head
+                                |> Equation.solve false TestSolver.logger
+                                |> snd
+                                |> function
+                                    | Errored [ Exceptions.SolverInvalidEquations _ ] -> true
+                                    | _ -> false
+                                |> Expect.isTrue "10 mg = 1 mg/mL * 1 mL errors as an invalid equation"
+                            }
+
+                            test "a solved equation that holds is unchanged" {
+                                possibleProduct ()
+                                |> List.head
+                                |> Equation.solve false TestSolver.logger
+                                |> snd
+                                |> function
+                                    | Unchanged -> true
+                                    | _ -> false
+                                |> Expect.isTrue "10 mg = 1 mg/mL * 10 mL is unchanged"
+                            }
+                        ]
+
+                    testList
+                        "solve all"
+                        [
+                            test "a solved product equation that does not hold errors in a values solve" {
+                                impossibleProduct ()
+                                |> TestSolver.solveAll
+                                |> isInvalidEquation
+                                |> Expect.isTrue "10 mg = 1 mg/mL * 1 mL"
+                            }
+
+                            test "a solved product equation that does not hold errors in a min max solve" {
+                                impossibleProduct ()
+                                |> TestSolver.solveMinMax
+                                |> isInvalidEquation
+                                |> Expect.isTrue "10 mg = 1 mg/mL * 1 mL"
+                            }
+
+                            test "a solved sum equation that does not hold errors in a values solve" {
+                                impossibleSum ()
+                                |> TestSolver.solveAll
+                                |> isInvalidEquation
+                                |> Expect.isTrue "10 mL = 1 mL + 1 mL"
+                            }
+
+                            test "a solved sum equation that does not hold errors in a min max solve" {
+                                impossibleSum ()
+                                |> TestSolver.solveMinMax
+                                |> isInvalidEquation
+                                |> Expect.isTrue "10 mL = 1 mL + 1 mL"
+                            }
+
+                            test "a solved product equation that holds is unchanged" {
+                                let eqs = possibleProduct ()
+
+                                eqs
+                                |> TestSolver.solveAll
+                                |> function
+                                    | Ok solved -> solved |> Expect.equal "10 mg = 1 mg/mL * 10 mL" eqs
+                                    | Error(_, errs) -> failtest $"%A{errs}"
+                            }
+
+                            test "a solved product equation that holds across unit scales is unchanged" {
+                                let eqs = possibleProductInLiters ()
+
+                                eqs
+                                |> TestSolver.solveAll
+                                |> function
+                                    | Ok solved -> solved |> Expect.equal "10 mg = 1 mg/mL * 0.01 L" eqs
+                                    | Error(_, errs) -> failtest $"%A{errs}"
+                            }
+
+                            test "a solved sum equation that holds is unchanged" {
+                                let eqs = possibleSum ()
+
+                                eqs
+                                |> TestSolver.solveMinMax
+                                |> function
+                                    | Ok solved -> solved |> Expect.equal "10 mL = 4 mL + 6 mL" eqs
+                                    | Error(_, errs) -> failtest $"%A{errs}"
+                            }
+
+                            test "an impossible solved equation beside an open equation errors" {
+                                impossibleBesideOpen ()
+                                |> TestSolver.solveAll
+                                |> isInvalidEquation
+                                |> Expect.isTrue "10 mg = 1 mg/mL * 1 mL"
+                            }
+
+                            // the mixed cases: a solved value among open variables was caught already,
+                            // by the calculation of the open variables
+                            test "a solved value the open variables do not give errors" {
+                                solvedNotGiven ()
+                                |> TestSolver.solveAll
+                                |> isError
+                                |> Expect.isTrue "10 mg is not in {1,2,3} * {1,2,4}"
+                            }
+
+                            test "a solved value the open variables give narrows them" {
+                                let eqs =
+                                    solvedGiven ()
+                                    |> TestSolver.solveAll
+                                    |> function
+                                        | Ok eqs -> eqs
+                                        | Error(_, errs) -> failtest $"%A{errs}"
+
+                                (eqs |> values "conc", eqs |> values "vol")
+                                |> Expect.equal "2 mg/mL and 5 mL" (Some [| 2N |], Some [| 5N |])
+                            }
+
+                            test "a solved value outside the range of an open variable errors" {
+                                solvedOutsideRange ()
+                                |> TestSolver.solveMinMax
+                                |> isError
+                                |> Expect.isTrue "10 mg = 1 mg/mL * [20..50] mL"
+                            }
+                        ]
+
+                    // the path an order takes on every change: solve for one variable
+                    testList
+                        "solve for a variable"
+                        [
+                            test "a solved equation that holds the set variable and does not hold errors" {
+                                [ "qty = conc * vol"; "rate = qty * freq" ]
+                                |> TestSolver.init
+                                |> TestSolver.setValues mgPerMl "conc" [ 1N ]
+                                |> TestSolver.setValues ml "vol" [ 1N ]
+                                |> TestSolver.solveValues mg "qty" [ 10N ]
+                                |> isInvalidEquation
+                                |> Expect.isTrue "10 mg = 1 mg/mL * 1 mL"
+                            }
+
+                            test "a solved equation without the set variable is left alone" {
+                                // only the equations that hold the set variable are solved; an equation
+                                // that does not hold but is not touched is not evaluated
+                                let eqs =
+                                    [ "qty = conc * vol"; "rate = dose * freq" ]
+                                    |> TestSolver.init
+                                    |> TestSolver.setValues mg "qty" [ 10N ]
+                                    |> TestSolver.setValues mgPerMl "conc" [ 1N ]
+                                    |> TestSolver.setValues ml "vol" [ 1N ]
+
+                                eqs
+                                |> TestSolver.solveValues mg "dose" [ 2N ]
+                                |> isError
+                                |> Expect.isFalse "qty = conc * vol is not on the queue"
+                            }
+                        ]
+                ]
+
+
     module OperatorMatchTests =
 
         open Informedica.GenSolver.Lib.Utils.ValueUnit.Operators
@@ -2228,15 +2896,106 @@ module Tests =
                 ]
 
 
+    /// The nth value of a variable, counted from 0, and the percentage of its range the slider
+    /// sets with it.
+    module NthValueTests =
+
+        module ValueRange = Variable.ValueRange
+        module ValueSet = ValueRange.ValueSet
+
+
+        let times brs = brs |> ValueUnit.withUnit Units.Count.times
+
+        let variable vr =
+            vr |> Variable.createSucc ("[1.x]_qty" |> Variable.Name.createExc)
+
+        /// A variable with the value set 1, 2, 3, 4, 5.
+        let valueSet = [| 1N; 2N; 3N; 4N; 5N |] |> times |> ValueRange.createValSet |> variable
+
+        /// A variable from 1 to 10 by 1.
+        let minIncrMax =
+            ValueRange.create
+                (1N
+                 |> ValueUnit.singleWithUnit Units.Count.times
+                 |> ValueRange.Minimum.create true
+                 |> Some)
+                (1N
+                 |> ValueUnit.singleWithUnit Units.Count.times
+                 |> ValueRange.Increment.create
+                 |> Some)
+                (10N
+                 |> ValueUnit.singleWithUnit Units.Count.times
+                 |> ValueRange.Maximum.create true
+                 |> Some)
+                None
+            |> variable
+
+        let values var =
+            var
+            |> Variable.getValueRange
+            |> ValueRange.getValSet
+            |> Option.map (ValueSet.toValueUnit >> ValueUnit.getValue)
+
+
+        let tests =
+            testList
+                "setNthValue and setPercValue"
+                [
+                    test "the nth of a value set, counted from 0" {
+                        [ 0; 2; 4 ]
+                        |> List.map (fun n -> valueSet |> Variable.setNthValue n |> values)
+                        |> Expect.equal
+                            "the first, the third and the last"
+                            [ Some [| 1N |]; Some [| 3N |]; Some [| 5N |] ]
+                    }
+
+                    test "a value set past its values is kept" {
+                        valueSet
+                        |> Variable.setNthValue 5
+                        |> values
+                        |> Expect.equal "all values" (Some [| 1N; 2N; 3N; 4N; 5N |])
+                    }
+
+                    test "the nth of a min, increment and max, counted from 0, capped at the max" {
+                        [ 0; 3; 20 ]
+                        |> List.map (fun n -> minIncrMax |> Variable.setNthValue n |> values)
+                        |> Expect.equal
+                            "the min, min plus 3 and the max"
+                            [ Some [| 1N |]; Some [| 4N |]; Some [| 10N |] ]
+                    }
+
+                    test "the slider sets the values it set before" {
+                        [ 0; 50; 100 ]
+                        |> List.map (fun perc -> valueSet |> Variable.setPercValue perc |> values)
+                        |> Expect.equal
+                            "a value set is left as it is"
+                            [
+                                Some [| 1N; 2N; 3N; 4N; 5N |]
+                                Some [| 1N; 2N; 3N; 4N; 5N |]
+                                Some [| 1N; 2N; 3N; 4N; 5N |]
+                            ]
+
+                        [ 0; 50; 100 ]
+                        |> List.map (fun perc -> minIncrMax |> Variable.setPercValue perc |> values)
+                        |> Expect.equal
+                            "a range: min plus 1, min plus 4, the max"
+                            [ Some [| 2N |]; Some [| 5N |]; Some [| 10N |] ]
+                    }
+                ]
+
+
     [<Tests>]
     let tests =
         [
+            NthValueTests.tests
             VariableTests.ValueRangeTests.IncrementTests.tests
             VariableTests.ValueRangeTests.MinimumTests.tests
             VariableTests.ValueRangeTests.MaximumTests.tests
             VariableTests.ValueRangeTests.MinMaxCalculatorTests.tests
             VariableTests.ValueRangeTests.tests
             EquationTests.tests
+            IncrementEquationTests.tests
+            SolvedEquationTests.tests
             OperatorMatchTests.tests
         ]
         |> testList "GenSolver"

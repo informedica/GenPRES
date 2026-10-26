@@ -3,13 +3,18 @@ namespace Views
 
 module Interactions =
 
+    open Informedica.GenPRES.Client.Core.Models
+    open Informedica.GenPRES.Client.Core.Helpers
+    open Informedica.GenPRES.Client.Core.Policies
+    open Informedica.GenPRES.Client.Core.StateMachines
+
 
     open Fable.Core
     open Fable.React
     open Feliz
     open Elmish
-    open Shared
-    open Shared.Types
+    open Informedica.GenPRES.Shared
+    open Informedica.GenPRES.Shared.Types
     open OrderPlanMachine
 
 
@@ -20,7 +25,7 @@ module Interactions =
         let getPlanDrugs (orderPlan: OrderPlanView) =
             match orderPlan with
             | OrderPlanView.Settled(tp, _) ->
-                Shared.Models.OrderPlan.orders tp
+                Informedica.GenPRES.Shared.Models.OrderPlan.orders tp
                 |> Array.map _.Name
                 |> Array.distinct
                 |> Array.toList
@@ -176,12 +181,6 @@ module Interactions =
             | Refreshing names -> names
             | _ -> [||]
 
-        let isDrugNamesLoading =
-            match interactionDrugNames with
-            | InProgress
-            | Refreshing _ -> true
-            | _ -> false
-
         let planChips =
             planDrugs
             |> List.toArray
@@ -269,12 +268,6 @@ module Interactions =
             else
                 null
 
-        let loadingIndicator =
-            if isLoading then
-                JSX.jsx $"""<CircularProgress />"""
-            else
-                null
-
         let titleLabel = Terms.``Interactions`` |> getTerm "Interacties"
 
         let autocomplete =
@@ -288,7 +281,7 @@ module Interactions =
                             match opt with
                             | Some drug -> AddDrug drug |> dispatch
                             | None -> ()
-                    isLoading = isDrugNamesLoading
+                    isLoading = false
                     disabled = false
                     // the box holds no choice, but it does hold what is being typed, and the
                     // cross is how that is thrown away in one go
@@ -302,7 +295,7 @@ module Interactions =
             Components.PatientNotice.View
                 {|
                     appEnv = props.appEnv
-                    needs = PatientReadiness.Needs.PlanMedication
+                    needs = PatientReadinessPolicy.Needs.PlanMedication
                 |}
 
         let sxTitle = {| fontSize = 14 |}
@@ -328,7 +321,6 @@ module Interactions =
         import TableContainer from '@mui/material/TableContainer';
         import TableHead from '@mui/material/TableHead';
         import TableRow from '@mui/material/TableRow';
-        import CircularProgress from '@mui/material/CircularProgress';
         import Divider from '@mui/material/Divider';
 
         <Box>
@@ -360,7 +352,6 @@ module Interactions =
                             </Button>
                         </Stack>
 
-                        {loadingIndicator}
 
                         <Divider />
 

@@ -1,10 +1,12 @@
 #r "nuget: FsCheck, 2.16.6"
 
 #load "load.fsx"
+#r "../../../src/Informedica.GenPRES.Client.Core/bin/Debug/net10.0/Informedica.GenPRES.Client.Core.dll"
 
 open System
-open Shared
-open Shared.Models
+open Informedica.GenPRES.Shared
+open Informedica.GenPRES.Shared.Models
+open Informedica.GenPRES.Client.Core.Models
 open FsCheck
 
 let genAlphaNum = Gen.elements (['a'..'z'] @ ['A'..'Z'] @ ['0'..'9'])
@@ -32,7 +34,7 @@ let oracleGen =
         let! lang = Gen.elements Localization.languages
         let! days = Gen.choose (0, 100 * 365)
 
-        let expected = Patient.Age.toString terms lang (Patient.Age.fromDays days)
+        let expected = PatientText.Age.toString terms lang (Patient.Age.fromDays days)
 
         return terms, lang, days, expected
     }

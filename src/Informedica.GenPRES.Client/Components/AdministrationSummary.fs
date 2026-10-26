@@ -6,17 +6,19 @@ namespace Components
 /// such as "in" or "=", stay plain text, and a plus stands between the rows.
 module AdministrationSummary =
 
+    open Informedica.GenPRES.Client.Core.Models
+
 
     open Fable.Core
     open Feliz
-    open Shared
+    open Informedica.GenPRES.Shared
 
 
     /// One piece of a row: its text and its severity.
     type Part =
         {|
             text: string
-            severity: Types.Severity
+            severity: Severity
         |}
 
 

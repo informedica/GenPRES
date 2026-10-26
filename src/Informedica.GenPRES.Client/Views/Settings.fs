@@ -3,10 +3,13 @@ namespace Views
 
 module Settings =
 
+    open Informedica.GenPRES.Client.Core.Models
+    open Informedica.GenPRES.Client.Core.Helpers
+
     open Fable.Core
     open Feliz
-    open Shared
-    open Shared.Types
+    open Informedica.GenPRES.Shared
+    open Informedica.GenPRES.Shared.Types
 
 
     let private formatSize (bytes: int64) =

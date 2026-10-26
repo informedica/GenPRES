@@ -1,18 +1,22 @@
 namespace Views
 
+
 #nowarn "1104"
 
 /// The print sheet of the parenteral nutrition orders.
 module ParenteralPrint =
 
+    open Informedica.GenPRES.Client.Core.Models
+    open Informedica.GenPRES.Client.Core.StateMachines
+
     open Fable.Core
     open Fable.Core.JsInterop
     open Fable.React
     open Feliz
-    open Shared
-    open Shared.Types
-    open Shared.Models
-    open Shared.Models.Order
+    open Informedica.GenPRES.Shared
+    open Informedica.GenPRES.Shared.Types
+    open Informedica.GenPRES.Shared.Models
+    open Informedica.GenPRES.Shared.Models.Order
     open Elmish
     open Utils
     open FSharp.Core
@@ -48,7 +52,7 @@ module ParenteralPrint =
             parenteralContexts
             |> Array.map (fun nc ->
                 let scenario = nc.Scenarios |> Array.tryExactlyOne
-                let label = OrderContext.label nc
+                let label = OrderContextText.label nc
 
                 match scenario with
                 | None ->
@@ -80,10 +84,12 @@ module ParenteralPrint =
                     let componentRows =
                         ord.Orderable.Components
                         |> Array.map (fun cmp ->
-                            let cmpQty = cmp.OrderableQuantity |> OrderVariable.displayString
+                            let cmpQty = cmp.OrderableQuantity |> OrderDisplay.OrderVariable.displayString
                             let fixPrec2 = Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 2
 
-                            let doseAdj = cmp.Dose.QuantityAdjust |> OrderVariable.displayStringFormatted fixPrec2
+                            let doseAdj =
+                                cmp.Dose.QuantityAdjust
+                                |> OrderDisplay.OrderVariable.displayStringFormatted fixPrec2
 
                             JSX.jsx
                                 $"""
@@ -98,13 +104,13 @@ module ParenteralPrint =
                             """
                         )
 
-                    let totalVolume = ord.Orderable.OrderableQuantity |> OrderVariable.displayString
+                    let totalVolume = ord.Orderable.OrderableQuantity |> OrderDisplay.OrderVariable.displayString
 
                     let rateDisplay =
                         if ord.Schedule.IsContinuous || ord.Schedule.IsTimed then
-                            let rate = ord.Orderable.Dose.Rate |> OrderVariable.displayString
+                            let rate = ord.Orderable.Dose.Rate |> OrderDisplay.OrderVariable.displayString
                             let fixPrec2 = Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 2
-                            let time = ord.Schedule.Time |> OrderVariable.displayStringFormatted fixPrec2
+                            let time = ord.Schedule.Time |> OrderDisplay.OrderVariable.displayStringFormatted fixPrec2
 
                             let rateBoxSx =
                                 {|
@@ -172,13 +178,13 @@ module ParenteralPrint =
 
         let totalsSection =
             let intake = props.plan.Totals
-            let rows = Totals.intakeRows
+            let rows = TotalsDisplay.intakeRows
 
             let activeRows =
                 rows
                 |> Array.filter (fun cells ->
                     let name = cells |> Array.head
-                    let items = Totals.substanceToField intake name
+                    let items = TotalsDisplay.substanceToField intake name
                     items |> Array.length >= 2
                 )
 
@@ -187,7 +193,7 @@ module ParenteralPrint =
                 |> Array.map (fun cells ->
                     let name = cells[0]
                     let unit = cells[2]
-                    let items = Totals.substanceToField intake name
+                    let items = TotalsDisplay.substanceToField intake name
 
                     let value =
                         if items.Length >= 2 then

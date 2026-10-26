@@ -41,7 +41,7 @@ The live system runs at <http://genpres.nl>.
 In a clinical setting GenPRES is typically launched from an Electronic Health Record (EHR; in Dutch EPD) with patient parameters pre-filled in the URL, for example:
 
 ```url
-https://genpres.nl/#patient?pg=pr&dc=n&la=en&ad=730&wt=12000&ht=87
+https://genpres.nl/#patient?pag=pr&dsc=n&lan=en&agd=730&wgt=12000&hgt=87
 ```
 
 The URL uses hash-based routing (`/#patient?...`). Supported query parameters:
@@ -50,69 +50,69 @@ The URL uses hash-based routing (`/#patient?...`). Supported query parameters:
 
 | Parameter | Description | Unit / Values |
 |-----------|-------------|---------------|
-| `ad` | Age | Days (e.g., 730 ≈ 2 years) |
-| `by` | Birth year | YYYY |
-| `bm` | Birth month | 1–12 |
-| `bd` | Birth day | 1–31 |
-| `wt` | Weight | Grams (e.g., 12000 = 12 kg) |
-| `ht` | Height | Centimeters |
-| `gw` | Gestational age weeks | Weeks |
-| `gd` | Gestational age days | Days |
-| `cv` | Central venous line | `y` = yes |
-| `dp` | Department | Text |
+| `agd` | Age | Days (e.g., 730 ≈ 2 years) |
+| `byr` | Birth year | YYYY |
+| `bmo` | Birth month | 1–12 |
+| `bdy` | Birth day | 1–31 |
+| `wgt` | Weight | Grams (e.g., 12000 = 12 kg) |
+| `hgt` | Height | Centimeters |
+| `gaw` | Gestational age weeks | Weeks |
+| `gad` | Gestational age days | Days |
+| `cvl` | Central venous line | `y` = yes |
+| `dep` | Department | Text |
 
-> Use either `ad` (age in days) or `by`/`bm`/`bd` (birth date), not both.
+> Use either `agd` (age in days) or `byr`/`bmo`/`bdy` (birth date), not both.
 
 **Medication parameters:**
 
 | Parameter | Description | Unit / Values |
 |-----------|-------------|---------------|
-| `md` | Medication | Generic name |
-| `rt` | Route | e.g., `oraal`, `intraveneus` |
-| `in` | Indication | Text |
-| `dt` | Dose type | Text |
-| `fr` | Form | Text |
+| `med` | Medication | Generic name |
+| `rte` | Route | e.g., `oraal`, `intraveneus` |
+| `ind` | Indication | Text |
+| `dst` | Dose type | Text |
+| `frm` | Form | Text |
 
 **UI parameters:**
 
 | Parameter | Description | Unit / Values |
 |-----------|-------------|---------------|
-| `pg` | Page | `pr`, `el`, `cm`, `fm`, `pe` |
-| `la` | Language | `en`, `du`, `fr`, `gr`, `sp`, `it` |
-| `dc` | Disclaimer | `n` = hide |
+| `pag` | Page | `pr`, `el`, `cm`, `fm`, `pe`, `nu`, `op`, `ia` |
+| `lan` | Language | `en`, `nl`, `fr`, `de`, `es`, `it` |
+| `dsc` | Disclaimer | `n` = hide |
 
 Example patients using query parameters:
 
-> **Some of these links do not set `ht` (height), and a few set neither `wt` nor `ht`.** A patient
+> **Some of these links do not set `hgt` (height), and a few set neither `wgt` nor `hgt`.** A patient
 > needs an age, or a weight and a height: with an age, GenPRES estimates the weight and height it
 > does not have and says so; with a weight alone, no patient exists yet and the panel says what is
-> missing — fill in the height to continue. Links that carry an age, or `wt` and `ht`, go straight
+> missing — fill in the height to continue. Links that carry an age, or `wgt` and `hgt`, go straight
 > to a dose.
 
 | Age (years) | Age (days) | GA (weeks) | Weight (kg) | Height (cm) | Medication | Route | Indication | Link |
 |---|---|---|---|---|---|---|---|---|
-| 1 | | | 10 | | paracetamol | oraal | Milde tot matige pijn; koorts | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=366&wt=10000&md=paracetamol&rt=oraal&in=Milde%20tot%20matige%20pijn%3B%20koorts) |
-| | 2 | 35 | 1.2 | 45 | paracetamol | oraal | Pijn, acuut/post-operatief | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=2&gw=35&wt=1200&ht=45&md=paracetamol&rt=oraal&in=Pijn%2C%20acuut%2Fpost-operatief) |
-| 1 | | | 10 | | gentamicine | intraveneus | Ernstige infectie, gram negatieve microorganismen | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=366&wt=10000&md=gentamicine&rt=intraveneus&in=Ernstige%20infectie%2C%20gram%20negatieve%20microorganismen) |
-| | 2 | 35 | 1.2 | 45 | gentamicine | intraveneus | Ernstige infectie, gram negatieve microorganismen | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=2&gw=35&wt=1200&ht=45&md=gentamicine&rt=intraveneus&in=Ernstige%20infectie%2C%20gram%20negatieve%20microorganismen) |
-| 1 | | | 10 | | adrenaline | intraveneus | Circulatoire insufficientie | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=366&wt=10000&md=adrenaline&rt=intraveneus&in=Circulatoire%20insufficientie) |
-| | 2 | 35 | 1.2 | 45 | adrenaline | intraveneus | Circulatoire insufficientie | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=2&gw=35&wt=1200&ht=45&md=adrenaline&rt=intraveneus&in=Circulatoire%20insufficientie) |
-| 1 | | | 10 | | trimethoprim/sulfametrol | intraveneus | Bacteriele infecties | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=366&wt=10000&md=trimethoprim%2Fsulfametrol&rt=intraveneus&in=Bacteriele%20infecties) |
-| 1 | | | 10 | | trimethoprim/sulfametrol | intraveneus | Behandeling Pneumocystis Jiroveci Pneumonie (PCP) | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=366&wt=10000&md=trimethoprim%2Fsulfametrol&rt=intraveneus&in=Behandeling%20Pneumocystis%20Jiroveci%20Pneumonie%20%28PCP%29) |
-| 16 | | | 60 | | trimethoprim/sulfamethoxazol | intraveneus | Behandeling Pneumocystis Jiroveci Pneumonie | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=5856&wt=60000&md=trimethoprim%2Fsulfamethoxazol&rt=intraveneus&in=Behandeling%20Pneumocystis%20Jiroveci%20Pneumonie) |
-| | 2 | 35 | 1.2 | 45 | coffeine 0-water | intraveneus | Neonatale apneu | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=2&gw=35&wt=1200&ht=45&md=coffeine%200-water&rt=intraveneus&in=Neonatale%20apneu) |
-| | 2 | 35 | 1.2 | 45 | coffeine citraat | intraveneus | Neonatale apneu | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=2&gw=35&wt=1200&ht=45&md=coffeine%20citraat&rt=intraveneus&in=Neonatale%20apneu) |
-| 1 | | | 10 | | tramadol | oraal | Pijn | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=366&wt=10000&md=tramadol&rt=oraal&in=Pijn) |
-| | 21 | | 3.8 | 50 | benzylpenicilline | intraveneus | Infecties, sepsis | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=21&wt=3800&ht=50&md=benzylpenicilline&rt=intraveneus&in=Infecties%2C%20sepsis) |
-| 1 | | | 10 | | benzylpenicilline | intraveneus | Infecties, sepsis | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=366&wt=10000&md=benzylpenicilline&rt=intraveneus&in=Infecties%2C%20sepsis) |
-| | 2 | 35 | 1.2 | 45 | benzylpenicilline | intraveneus | Infecties, sepsis | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=2&gw=35&wt=1200&ht=45&md=benzylpenicilline&rt=intraveneus&in=Infecties%2C%20sepsis) |
-| 5 | | | 20 | 100 | midazolam | intraveneus | Status epilepticus | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=1830&wt=20000&ht=100&md=midazolam&rt=intraveneus&in=Status%20epilepticus) |
-| | | | | | aciclovir | intraveneus | | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=0&md=aciclovir&rt=intraveneus&in=) |
-| | 3 | 29 | 1.05 | 45 | amoxicilline | intraveneus | (Ernstige) waarschijnlijke bacteriële infecties bij pasgeborenen | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=3&gw=29&wt=1050&ht=45&md=amoxicilline&rt=intraveneus&in=%28Ernstige%29%20waarschijnlijke%20bacteri%C3%ABle%20infecties%20bij%20pasgeborenen) |
-| 13 | | | | | rituximab | intraveneus | Granulomatose met polyangiitis (GPA/ziekte van Wegener), microscopische polyangiitis (MPA) | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=4758&md=rituximab&rt=intraveneus&in=Granulomatose%20met%20polyangiitis%20%28GPA%2Fziekte%20van%20Wegener%29%2C%20microscopische%20polyangiitis%20%28MPA%29) |
-| 5 | | | 20 | 109 | ceftazidim/avibactam | intraveneus | Gecompliceerde intra-abdominale of urineweg infecties, nosocomiale pneumonie, andere ernstige infecties door gevoelige verwekkers wanneer andere behandelopties beperkt zijn. | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=1830&wt=20000&ht=109&md=ceftazidim%2Favibactam&rt=intraveneus&in=Gecompliceerde%20intra-abdominale%20of%20urineweg%20infecties%2C%20nosocomiale%20pneumonie%2C%20andere%20ernstige%20infecties%20door%20gevoelige%20verwekkers%20wanneer%20andere%20behandelopties%20beperkt%20zijn.) |
-| | 30 | | 2.77 | | piperacilline/tazobactam | intraveneus | | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=30&wt=2770&md=piperacilline%2Ftazobactam&rt=intraveneus&in=) |
-| 10 | | | | | dantroleen | oraal | | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=3660&md=dantroleen&rt=oraal) |
+| 1 | | | 10 | | paracetamol | oraal | Milde tot matige pijn; koorts | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=366&wgt=10000&med=paracetamol&rte=oraal&ind=Milde%20tot%20matige%20pijn%3B%20koorts) |
+| | 2 | 35 | 1.2 | 45 | paracetamol | oraal | Pijn, acuut/post-operatief | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=2&gaw=35&wgt=1200&hgt=45&med=paracetamol&rte=oraal&ind=Pijn%2C%20acuut%2Fpost-operatief) |
+| 1 | | | 10 | | gentamicine | intraveneus | Ernstige infectie, gram negatieve microorganismen | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=366&wgt=10000&med=gentamicine&rte=intraveneus&ind=Ernstige%20infectie%2C%20gram%20negatieve%20microorganismen) |
+| | 2 | 35 | 1.2 | 45 | gentamicine | intraveneus | Ernstige infectie, gram negatieve microorganismen | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=2&gaw=35&wgt=1200&hgt=45&med=gentamicine&rte=intraveneus&ind=Ernstige%20infectie%2C%20gram%20negatieve%20microorganismen) |
+| 1 | | | 10 | | adrenaline | intraveneus | Circulatoire insufficientie | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=366&wgt=10000&med=adrenaline&rte=intraveneus&ind=Circulatoire%20insufficientie) |
+| | 2 | 35 | 1.2 | 45 | adrenaline | intraveneus | Circulatoire insufficientie | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=2&gaw=35&wgt=1200&hgt=45&med=adrenaline&rte=intraveneus&ind=Circulatoire%20insufficientie) |
+| 1 | | | 10 | | trimethoprim/sulfametrol | intraveneus | Bacteriele infecties | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=366&wgt=10000&med=trimethoprim%2Fsulfametrol&rte=intraveneus&ind=Bacteriele%20infecties) |
+| 1 | | | 10 | | trimethoprim/sulfametrol | intraveneus | Behandeling Pneumocystis Jiroveci Pneumonie (PCP) | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=366&wgt=10000&med=trimethoprim%2Fsulfametrol&rte=intraveneus&ind=Behandeling%20Pneumocystis%20Jiroveci%20Pneumonie%20%28PCP%29) |
+| 16 | | | 60 | | trimethoprim/sulfamethoxazol | intraveneus | Behandeling Pneumocystis Jiroveci Pneumonie | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=5856&wgt=60000&med=trimethoprim%2Fsulfamethoxazol&rte=intraveneus&ind=Behandeling%20Pneumocystis%20Jiroveci%20Pneumonie) |
+| | 2 | 35 | 1.2 | 45 | coffeine 0-water | intraveneus | Neonatale apneu | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=2&gaw=35&wgt=1200&hgt=45&med=coffeine%200-water&rte=intraveneus&ind=Neonatale%20apneu) |
+| | 2 | 35 | 1.2 | 45 | coffeine citraat | intraveneus | Neonatale apneu | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=2&gaw=35&wgt=1200&hgt=45&med=coffeine%20citraat&rte=intraveneus&ind=Neonatale%20apneu) |
+| 1 | | | 10 | | tramadol | oraal | Pijn | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=366&wgt=10000&med=tramadol&rte=oraal&ind=Pijn) |
+| | 21 | | 3.8 | 50 | benzylpenicilline | intraveneus | Infecties, sepsis | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=21&wgt=3800&hgt=50&med=benzylpenicilline&rte=intraveneus&ind=Infecties%2C%20sepsis) |
+| 1 | | | 10 | | benzylpenicilline | intraveneus | Infecties, sepsis | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=366&wgt=10000&med=benzylpenicilline&rte=intraveneus&ind=Infecties%2C%20sepsis) |
+| | 2 | 35 | 1.2 | 45 | benzylpenicilline | intraveneus | Infecties, sepsis | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=2&gaw=35&wgt=1200&hgt=45&med=benzylpenicilline&rte=intraveneus&ind=Infecties%2C%20sepsis) |
+| 5 | | | 20 | 100 | midazolam | intraveneus | Status epilepticus | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=1830&wgt=20000&hgt=100&med=midazolam&rte=intraveneus&ind=Status%20epilepticus) |
+| | | | | | aciclovir | intraveneus | | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=0&med=aciclovir&rte=intraveneus&ind=) |
+| | 3 | 29 | 1.05 | 45 | amoxicilline | intraveneus | (Ernstige) waarschijnlijke bacteriële infecties bij pasgeborenen | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=3&gaw=29&wgt=1050&hgt=45&med=amoxicilline&rte=intraveneus&ind=%28Ernstige%29%20waarschijnlijke%20bacteri%C3%ABle%20infecties%20bij%20pasgeborenen) |
+| 13 | | | | | rituximab | intraveneus | Granulomatose met polyangiitis (GPA/ziekte van Wegener), microscopische polyangiitis (MPA) | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=4758&med=rituximab&rte=intraveneus&ind=Granulomatose%20met%20polyangiitis%20%28GPA%2Fziekte%20van%20Wegener%29%2C%20microscopische%20polyangiitis%20%28MPA%29) |
+| 5 | | | 20 | 109 | ceftazidim/avibactam | intraveneus | Gecompliceerde intra-abdominale of urineweg infecties, nosocomiale pneumonie, andere ernstige infecties door gevoelige verwekkers wanneer andere behandelopties beperkt zijn. | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=1830&wgt=20000&hgt=109&med=ceftazidim%2Favibactam&rte=intraveneus&ind=Gecompliceerde%20intra-abdominale%20of%20urineweg%20infecties%2C%20nosocomiale%20pneumonie%2C%20andere%20ernstige%20infecties%20door%20gevoelige%20verwekkers%20wanneer%20andere%20behandelopties%20beperkt%20zijn.) |
+| | 30 | | 2.77 | | piperacilline/tazobactam | intraveneus | | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=30&wgt=2770&med=piperacilline%2Ftazobactam&rte=intraveneus&ind=) |
+| 10 | | | | | dantroleen | oraal | | [GenPRES](https://genpres.nl/#patient?pag=pr&dsc=n&lan=nl&agd=3660&med=dantroleen&rte=oraal) |
 
 ### Without Patient Data (Demo / Testing)
 

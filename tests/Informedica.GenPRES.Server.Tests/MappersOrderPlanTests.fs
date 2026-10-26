@@ -8,7 +8,7 @@ open Expecto.Flip
 open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
 // after Expecto, whose FocusState has a Normal case too
-open Shared.Types
+open Informedica.GenPRES.Shared.Types
 open ServerApi
 
 
@@ -19,7 +19,7 @@ let order: Order =
 
 
 let scenario name : OrderScenario =
-    Shared.Models.OrderScenario.create
+    Informedica.GenPRES.Shared.Models.OrderScenario.create
         "koorts"
         name
         "zetpil"
@@ -43,14 +43,14 @@ let scenario name : OrderScenario =
 
 
 let context id category name : OrderContext =
-    { Shared.Models.OrderContext.empty with
+    { Informedica.GenPRES.Shared.Models.OrderContext.empty with
         Id = id
         Category = category
         DemoVersion = false
-        Filter = { Shared.Models.OrderContext.filter with Generic = Some name }
+        Filter = { Informedica.GenPRES.Shared.Models.OrderContext.filter with Generic = Some name }
         Patient = StubPatientData.patient
         Scenarios = [| scenario name |]
-        Intake = { Shared.Models.Totals.empty with Volume = [| Normal "10 ml" |] }
+        Intake = { Informedica.GenPRES.Shared.Models.Totals.empty with Volume = [| Normal "10 ml" |] }
     }
 
 
@@ -63,7 +63,7 @@ let plan: OrderPlan =
                 context "c-1" OrderCategory.Drug "paracetamol"
                 context "c-2" (OrderCategory.Nutrition NutritionCategory.TPN) "glucose"
             |]
-        Totals = { Shared.Models.Totals.empty with Energy = [| Bold "50 kcal" |] }
+        Totals = { Informedica.GenPRES.Shared.Models.Totals.empty with Energy = [| Bold "50 kcal" |] }
     }
 
 

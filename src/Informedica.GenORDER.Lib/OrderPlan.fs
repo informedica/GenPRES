@@ -57,6 +57,17 @@ module PlanContext =
         )
 
 
+    /// A filter or scenario pick reads its index in the lists the user saw, and a seed or a patient
+    /// change is checked against the rules as an update of the context is, so each is applied to
+    /// the context as sent, before the context is reconciled with the rules: the existing command
+    /// it is evaluated as, over the context it changed. Any other command stays as it is.
+    let resolveChange (cmd: OrderContext -> OrderContext.Command) (pc: PlanContext) =
+        match pc.Context |> cmd |> OrderContext.resolveChange with
+        | Some(Ok(changed, asCommand)) -> Ok(asCommand, { pc with Context = changed })
+        | Some(Error e) -> Error [ ErrorMsg(e, None) ]
+        | None -> Ok(cmd, pc)
+
+
     /// The plan context evaluated against the rules: reconciled, evaluated and its intake
     /// computed over the totals data.
     let evaluate
@@ -68,21 +79,26 @@ module PlanContext =
         (pc: PlanContext)
         =
         pc
-        |> evaluateWith
-            (OrderContext.reconcile logger provider)
-            (OrderContext.evaluate start logger provider)
-            (OrderContext.intake totalsData)
-            cmd
+        |> resolveChange cmd
+        |> Result.bind (fun (cmd, pc) ->
+            pc
+            |> evaluateWith
+                (OrderContext.reconcile logger provider)
+                (OrderContext.evaluate start logger provider)
+                (OrderContext.intake totalsData)
+                cmd
+        )
 
 
     /// The plan context evaluated against the rules as an outcome. For the two commands that
     /// look the rules up, a pick the rules no longer offer for the patient is a refusal with
     /// the context as it was sent, not a pick dropped in silence; a reload refreshes the rules
     /// first, so that the pick is checked against them as they are now. Every other command
-    /// runs over the context reconciled. The intake is recorded over the answer, evaluated or
+    /// runs over the context reconciled, and one over the scenario's order is refused with the
+    /// context before the change when the order cannot be solved. The intake is recorded over the answer, evaluated or
     /// refused, from the totals data read after any reload; the id and the category stay the
     /// plan's. An evaluation that fails is the answer.
-    let evaluateOutcome
+    let evaluateSent
         (start: System.DateTime)
         logger
         provider
@@ -123,6 +139,14 @@ module PlanContext =
             |> cmd
             |> OrderContext.evaluateOutcome start logger provider
             |> Result.map (Outcome.map recorded)
+
+
+    /// The plan context evaluated against the rules as an outcome, a filter or scenario pick
+    /// applied to the context as sent first.
+    let evaluateOutcome start logger provider totalsData cmd pc =
+        pc
+        |> resolveChange cmd
+        |> Result.bind (fun (cmd, pc) -> pc |> evaluateSent start logger provider totalsData cmd)
 
 
     /// The serializable shape of a PlanContext: the category as a string, the context and
@@ -201,16 +225,38 @@ module NutritionRuleSet =
         }
 
 
+    /// An answer narrowed, and evaluated again while that leaves a choice open: the rule
+    /// lookup reads a list of one as its choice, so the next evaluation makes it. It stops when
+    /// an evaluation changes nothing the narrowing keeps, and after five rounds, one for each
+    /// field a choice can stay open in.
+    let settle (contextOf: 'a -> OrderContext) (narrow: 'a -> 'a) (evaluate: 'a -> Result<'a, 'e>) (answer: 'a) =
+        let rec go rounds a =
+            let narrowed = narrow a
+
+            if rounds > 0 && (contextOf narrowed |> OrderContext.choicesOpen) then
+                narrowed
+                |> evaluate
+                |> Result.bind (fun e ->
+                    if (contextOf (narrow e)).Filter = (contextOf narrowed).Filter then
+                        Ok(narrow e)
+                    else
+                        go (rounds - 1) e
+                )
+            else
+                Ok narrowed
+
+        go 5 answer
+
+
     /// A nutrition workbench's pick lists discovered: the context evaluated as it is, and
     /// of the indications, generics and dose types the evaluation offers, only those the
-    /// workbench already carried, so a category's rule set bounds what is offered. The
-    /// evaluation is passed in, so the discovery is what it does with the answer.
+    /// workbench already carried, so a category's rule set bounds what is offered; settled, so
+    /// a list that leaves one option has it chosen. The evaluation is passed in, so the
+    /// discovery is what it does with the answer.
     let discover (evaluate: OrderContext -> Result<OrderContext, 'e>) (ctx: OrderContext) =
         let offered (xs: 'a[]) (ys: 'a[]) = ys |> Array.filter (fun y -> xs |> Array.contains y)
 
-        ctx
-        |> evaluate
-        |> Result.map (fun resolved ->
+        let narrowed (resolved: OrderContext) =
             { resolved with
                 Filter =
                     { resolved.Filter with
@@ -219,7 +265,8 @@ module NutritionRuleSet =
                         DoseTypes = resolved.Filter.DoseTypes |> offered ctx.Filter.DoseTypes
                     }
             }
-        )
+
+        ctx |> evaluate |> Result.bind (settle id narrowed evaluate)
 
 
 module OrderPlan =

@@ -3,8 +3,8 @@ namespace ServerApi
 
 module LaunchCommand =
 
-    open Shared.Types
-    open Shared.Api
+    open Informedica.GenPRES.Shared.Types
+    open Informedica.GenPRES.Shared.Api
 
 
     /// The presentation of a Launch over the session port. The session id goes into the cookie

@@ -1,5 +1,8 @@
 namespace Views
 
+
+module Trail = Informedica.GenPRES.Client.Core.Trail
+
 #nowarn "1104"
 
 /// The logic of one nutrition slot, shared by the enteral and the parenteral layout: the
@@ -7,14 +10,19 @@ namespace Views
 /// controls.
 module NutritionSlot =
 
+    open Informedica.GenPRES.Client.Core.Models
+    open Informedica.GenPRES.Client.Core.Helpers
+    open Informedica.GenPRES.Client.Core.Policies
+    open Informedica.GenPRES.Client.Core.StateMachines
+
     open Fable.Core
     open Fable.Core.JsInterop
     open Fable.React
     open Feliz
-    open Shared
-    open Shared.Types
-    open Shared.Models
-    open Shared.Models.Order
+    open Informedica.GenPRES.Shared
+    open Informedica.GenPRES.Shared.Types
+    open Informedica.GenPRES.Shared.Models
+    open Informedica.GenPRES.Shared.Models.Order
     open Elmish
     open Utils
     open FSharp.Core
@@ -53,7 +61,7 @@ module NutritionSlot =
             | ChangeOrderableDoseRate of string option
             | ChangeOrderableQuantity of string option
             | ChangeFrequency of string option
-            | UpdateOrderScenario of Order
+            | UpdateOrderScenario of OrderContext.Target option * string option
             | ResetOrderScenario
             // Rate navigation
             | DecreaseDoseRateProperty of ntimes: int * useCalc: bool
@@ -68,6 +76,9 @@ module NutritionSlot =
             | SetMinDoseQuantityProperty
             | SetMaxDoseQuantityProperty
             | SetMedianDoseQuantityProperty
+            | SetDoseQuantityPercProperty of perc: int
+            // the move to 100% the slot makes by itself once the TPN is composed
+            | StartDoseQuantityPercProperty
             // Component Quantity navigation (carries component name)
             | DecreaseComponentQuantityProperty of cmp: string * ntimes: int * useCalc: bool
             | IncreaseComponentQuantityProperty of cmp: string * ntimes: int * useCalc: bool
@@ -82,20 +93,16 @@ module NutritionSlot =
             | SetMedianFrequencyProperty
 
 
-        /// The component picked, seeded from the one scenario of the slot's context: its first
-        /// component.
-        let init (ctx: OrderContext) =
-            let cmp =
-                match ctx.Scenarios with
-                | [| sc |] ->
-                    match sc.Order.Orderable.Components with
-                    | [||] -> None
-                    | cmps -> Some cmps[0].Name
-                | _ ->
-                    if ctx.Scenarios |> Array.length > 1 then
-                        Logging.error "received multiple scenarios" ctx.Scenarios.Length
+        /// The component picked, seeded from the one scenario of the slot's context: the one the
+        /// slot kept for the same order, else the scenario's own, else its first component.
+        let init (kept: DialogTabPolicy.Tab option) (ctx: OrderContext) =
+            if ctx.Scenarios |> Array.length > 1 then
+                Logging.error "received multiple scenarios" ctx.Scenarios.Length
 
-                    None
+            let cmp =
+                ctx.Scenarios
+                |> Array.tryExactlyOne
+                |> Option.bind (DialogTabPolicy.tab kept >> _.Component)
 
             { SelectedComponent = cmp }, Cmd.none
 
@@ -116,6 +123,7 @@ module NutritionSlot =
                     setDoseQtyMed: OrderLoader -> unit
                     setDoseQtyInc: int * bool -> OrderLoader -> unit
                     setDoseQtyMax: OrderLoader -> unit
+                    setDoseQtyPerc: int -> OrderLoader -> unit
 
                     setComponentQtyMin: OrderLoader -> unit
                     setComponentQtyDec: int * bool -> OrderLoader -> unit
@@ -134,8 +142,6 @@ module NutritionSlot =
             (state: State)
             : State * Cmd<Msg>
             =
-            let setOvar = OrderVariable.setOvar
-
             // every change and every step is over the order shown, the slot's context's; the
             // plan lane holds it, the slot holds none
             let handleNav nav =
@@ -152,10 +158,18 @@ module NutritionSlot =
                     OrderLoader.create (Some cmpName) None ord |> nav
                     state, Cmd.none
 
+            // a pick of a variable of the order shown, sent to the plan lane; nothing to pick without one
+            let pick target s =
+                match shown with
+                | Some _ -> state, Cmd.ofMsg (UpdateOrderScenario(Some target, s))
+                | None -> state, Cmd.none
+
             match msg with
 
-            | UpdateOrderScenario ord ->
-                OrderLoader.create state.SelectedComponent None ord |> updateOrderScenario
+            | UpdateOrderScenario(target, s) ->
+                match shown with
+                | Some ord -> updateOrderScenario (OrderLoader.create state.SelectedComponent None ord) target s
+                | None -> ()
 
                 state, Cmd.none
 
@@ -172,84 +186,13 @@ module NutritionSlot =
                 | Some _ -> { state with SelectedComponent = cmp }, Cmd.none
 
             | ChangeComponentOrderableQuantity(cmpName, s) ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with
-                            Order.Orderable.Components =
-                                ord.Orderable.Components
-                                |> Array.map (fun cmp ->
-                                    if cmp.Name = cmpName then
-                                        { cmp with OrderableQuantity = cmp.OrderableQuantity |> setOvar s }
-                                    else
-                                        cmp
-                                )
-                        }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
+                pick (OrderContext.Target.Component(cmpName, ComponentProperty.OrderableQuantity)) s
             | ChangeComponentDoseQuantityAdjust(cmpName, s) ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with
-                            Order.Orderable.Components =
-                                ord.Orderable.Components
-                                |> Array.map (fun cmp ->
-                                    if cmp.Name = cmpName then
-                                        { cmp with
-                                            Component.Dose.QuantityAdjust = cmp.Dose.QuantityAdjust |> setOvar s
-                                        }
-                                    else
-                                        cmp
-                                )
-                        }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
-            | ChangeOrderableDoseRate s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with Order.Orderable.Dose.Rate = ord.Orderable.Dose.Rate |> setOvar s }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
-            | ChangeOrderableQuantity s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with Order.Orderable.OrderableQuantity = ord.Orderable.OrderableQuantity |> setOvar s }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
-            | ChangeFrequency s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with Order.Schedule.Frequency = ord.Schedule.Frequency |> setOvar s }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
-            | ChangeOrderableDoseQuantity s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with Order.Orderable.Dose.Quantity = ord.Orderable.Dose.Quantity |> setOvar s }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
+                pick (OrderContext.Target.Component(cmpName, ComponentProperty.DoseQuantityAdjust)) s
+            | ChangeOrderableDoseRate s -> pick (OrderContext.Target.Orderable OrderableProperty.DoseRate) s
+            | ChangeOrderableQuantity s -> pick (OrderContext.Target.Orderable OrderableProperty.Quantity) s
+            | ChangeFrequency s -> pick (OrderContext.Target.Schedule ScheduleProperty.Frequency) s
+            | ChangeOrderableDoseQuantity s -> pick (OrderContext.Target.Orderable OrderableProperty.DoseQuantity) s
 
             // Rate navigation
             | SetMinDoseRateProperty -> handleNav stepper.setRateMin
@@ -264,6 +207,8 @@ module NutritionSlot =
             | SetMedianDoseQuantityProperty -> handleNav stepper.setDoseQtyMed
             | IncreaseDoseQuantityProperty(n, uc) -> handleNav (stepper.setDoseQtyInc (n, uc))
             | SetMaxDoseQuantityProperty -> handleNav stepper.setDoseQtyMax
+            | SetDoseQuantityPercProperty perc -> handleNav (stepper.setDoseQtyPerc perc)
+            | StartDoseQuantityPercProperty -> handleNav (stepper.setDoseQtyPerc 100)
 
             // Component Quantity navigation
             | SetMinComponentQuantityProperty cmp -> handleNavWithCmp cmp stepper.setComponentQtyMin
@@ -318,6 +263,8 @@ module NutritionSlot =
         | SetMaxDoseQuantityProperty
         | SetMaxComponentQuantityProperty _
         | SetMaxFrequencyProperty -> Kind.Step "max"
+        | SetDoseQuantityPercProperty _
+        | StartDoseQuantityPercProperty -> Kind.Step "perc"
         | _ -> Kind.Change
 
 
@@ -342,7 +289,9 @@ module NutritionSlot =
         | DecreaseDoseQuantityProperty _
         | SetMedianDoseQuantityProperty
         | IncreaseDoseQuantityProperty _
-        | SetMaxDoseQuantityProperty -> Some "ordDoseQty"
+        | SetMaxDoseQuantityProperty
+        | SetDoseQuantityPercProperty _
+        | StartDoseQuantityPercProperty -> Some "ordDoseQty"
         | ChangeOrderableQuantity _ -> Some "ordQty"
         | ChangeFrequency _
         | SetMinFrequencyProperty
@@ -370,7 +319,7 @@ module NutritionSlot =
             | ChangeOrderableQuantity s -> $"ChangeOrderableQuantity %s{value s}"
             | ChangeFrequency s -> $"ChangeFrequency %s{value s}"
             | ChangeOrderableDoseQuantity s -> $"ChangeOrderableDoseQuantity %s{value s}"
-            | UpdateOrderScenario ord -> $"UpdateOrderScenario %s{Trail.Part.shortId ord.Id}"
+            | UpdateOrderScenario(_, s) -> $"UpdateOrderScenario %s{value s}"
             | ResetOrderScenario -> "ResetOrderScenario"
             | DecreaseDoseRateProperty(n, uc) -> $"DecreaseDoseRateProperty %s{steps (n, uc)}"
             | IncreaseDoseRateProperty(n, uc) -> $"IncreaseDoseRateProperty %s{steps (n, uc)}"
@@ -382,6 +331,8 @@ module NutritionSlot =
             | SetMinDoseQuantityProperty -> "SetMinDoseQuantityProperty"
             | SetMaxDoseQuantityProperty -> "SetMaxDoseQuantityProperty"
             | SetMedianDoseQuantityProperty -> "SetMedianDoseQuantityProperty"
+            | SetDoseQuantityPercProperty perc -> $"SetDoseQuantityPercProperty %i{perc}"
+            | StartDoseQuantityPercProperty -> "StartDoseQuantityPercProperty 100 automatic"
             | DecreaseComponentQuantityProperty(_, n, uc) -> $"DecreaseComponentQuantityProperty %s{steps (n, uc)}"
             | IncreaseComponentQuantityProperty(_, n, uc) -> $"IncreaseComponentQuantityProperty %s{steps (n, uc)}"
             | SetMinComponentQuantityProperty _ -> "SetMinComponentQuantityProperty"
@@ -406,9 +357,10 @@ module NutritionSlot =
         | Kind.Local, _ -> []
         | Kind.Update, _ ->
             match msg with
-            | UpdateOrderScenario ord ->
+            | UpdateOrderScenario _ ->
                 let call = if reopening then "CallReopen" else "CallUpdate"
-                [ $"%s{call} %s{Trail.Part.shortId ord.Id}" ]
+                let id = shownId |> Option.defaultValue "none"
+                [ $"%s{call} %s{id}" ]
             | _ -> []
         | _, None -> []
         | Kind.Reset, Some id -> [ $"CallReset %s{id}" ]
@@ -438,25 +390,41 @@ module NutritionSlot =
 
     let flexEndSx = {| alignItems = "flex-end" |}
 
-    // the component rows: name, quantity and range in three columns, stacked below the large
-    // breakpoint, where five twelfths of the slot no longer holds the quantity field's 400px
+    // the component rows: name, quantity and range in three columns, the quantity and the range
+    // of even width, stacked below the large breakpoint, where the quantity column no longer
+    // holds the quantity field's 400px
     let cmpLabelSize =
         {|
             xs = 12
-            lg = 4
+            lg = 3
         |}
 
     let cmpQtySize =
         {|
             xs = 12
-            lg = 5
+            lg = 4.5
         |}
 
     let cmpRangeSize =
         {|
             xs = 12
-            lg = 3
+            lg = 4.5
         |}
+
+    // the quantity fields end in the column of their severity mark, so the middle column takes
+    // as much room on its left, while the columns stand side by side
+    let cmpMiddleSx =
+        {|
+            paddingLeft =
+                {|
+                    xs = "0px"
+                    lg = $"%i{Components.QuantityField.markWidth}px"
+                |}
+        |}
+
+    // the controls of the right column span it, so they are of even width; a field takes the
+    // room of its severity mark within that width
+    let cmpRightSx = {| ``& .MuiFormControl-root`` = {| width = "100%" |} |}
 
     // the column headings only make sense while the columns stand side by side
     let cmpHeaderSx =
@@ -536,8 +504,6 @@ module NutritionSlot =
             Label: string
             /// Whether the window is narrow: filters are scrolled, not typed into.
             IsMobile: bool
-            /// Whether a change of the plan is under way.
-            IsLoading: bool
             /// The order shown: the one scenario's of the slot's context.
             Order: Order option
             /// The composition filter.
@@ -572,8 +538,15 @@ module NutritionSlot =
             ResetAction: Components.ActionBar.Action
             /// The button that discards the changes to the order.
             ResetBar: JSX.Element
-            /// The spinner shown while the slot has no order yet.
-            LoadingIndicator: JSX.Element
+            /// Set the dose quantity at a percentage of the total.
+            SetDoseQuantityPerc: int -> unit
+            /// Whether the intake slider can set the dose: the TPN is composed and its dose count
+            /// holds one value.
+            CanSetDoseQuantityPerc: bool
+            /// The share of the total the dose is, in percent, when both hold one value.
+            DoseQuantityShare: decimal option
+            /// Why the components are locked, while the dose of the TPN is a part of the total.
+            CompositionHint: JSX.Element
         }
 
 
@@ -583,13 +556,14 @@ module NutritionSlot =
         (props:
             {|
                 nutritionContext: OrderContext
-                plan: OrderPlan
-                planCommand: Api.OrderPlanCommand -> unit
+                // a command into the slot's context, sent over the plan held
+                planNavigate: string * Api.OrderViewCommand -> unit
                 // a clear from a field's arrow, and the list of such a reopen closed without a pick
-                planReopen: Api.OrderPlanCommand -> unit
+                planReopen: string * Api.OrderViewCommand -> unit
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
-                isRecalculating: bool
+                // a request out that changes the page: the slot sends nothing on its own meanwhile
+                busy: bool
                 // the least width of the frequency, dose and dose per time fields
                 fieldMinWidth: int option
             |})
@@ -601,22 +575,8 @@ module NutritionSlot =
         let ctx = props.nutritionContext
         let ncId = props.nutritionContext.Id
 
-        // Monotonic counter bumped whenever a new server response replaces the order
-        // context. Passed into stepped selects so they reset their optimistic step value
-        // even when the server returns the SAME value as before (e.g. a no-op step when
-        // already at the maximum), where the displayed value never changes and the
-        // value-based reset alone would leave the stale optimistic value on screen.
-        let revisionRef = React.useRef 0
-        let prevCtxRef = React.useRef ctx
-
-        if not (obj.ReferenceEquals(prevCtxRef.current, ctx)) then
-            prevCtxRef.current <- ctx
-            revisionRef.current <- revisionRef.current + 1
-
-        let revision = revisionRef.current
-
         let label =
-            let name = OrderContext.label ctx
+            let name = OrderContextText.label ctx
 
             match OrderContext.nutritionCategory ctx with
             | Some NutritionCategory.EnteralFeeding -> Terms.``Nutrition Enteral Feeding`` |> getTerm name
@@ -626,133 +586,96 @@ module NutritionSlot =
             | Some NutritionCategory.ElectrolyteGlucose -> Terms.``Nutrition Electrolytes Glucose`` |> getTerm name
             | None -> name
 
-        // Use a ref for the plan so that closures captured by useElmish
-        // always read the latest plan, even when useElmish doesn't re-initialize
-        // (its deps only include ctx, not the plan).
-        let planRef = React.useRef props.plan
-        planRef.current <- props.plan
-
-        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
+        let isMobile = Mui.Hooks.useIsMobile ()
 
         let fixPrecision = Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision
 
         let markOf = ViewHelpers.markOf
 
-        let genericChange s =
-            ctx
-            |> OrderContext.medicationChange s
-            |> fun updCtx ->
-                Api.OrderPlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
-            |> props.planCommand
+        let navigate cmd = props.planNavigate (ncId, cmd)
 
-        let indicationChange s =
-            ctx
-            |> OrderContext.indicationChange s
-            |> fun updCtx ->
-                Api.OrderPlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
-            |> props.planCommand
+        // a filter pick goes as its position in the options the field offers, an emptied field as
+        // a clear; a value the field does not offer is a bug, written to the console and not sent
+        let pickFilter field (options: 'a[]) (picked: 'a option) =
+            match picked |> Option.map (fun x -> options |> Array.tryFindIndex ((=) x)) with
+            | None -> navigate (Api.OrderViewCommand.ClearFilterProperty field)
+            | Some(Some n) -> navigate (Api.OrderViewCommand.SetNthFilterProperty(field, n))
+            | Some None -> Logging.warning "a pick the field does not offer is not sent" picked
+
+        let genericChange s = pickFilter OrderContext.Generic ctx.Filter.Generics s
+
+        let indicationChange s = pickFilter OrderContext.Indication ctx.Filter.Indications s
 
         let doseTypeChange s =
-            let dt = s |> Option.map DoseType.doseTypeFromString
-
-            ctx
-            |> OrderContext.doseTypeChange dt
-            |> fun updCtx ->
-                Api.OrderPlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
-            |> props.planCommand
+            let dt = s |> Option.map DoseTypeText.doseTypeFromString
+            pickFilter OrderContext.DoseType ctx.Filter.DoseTypes dt
 
         // set by a field's arrow just before it clears its value, so that the change goes out as
         // a reopen rather than as a change
         let reopening = React.useRef false
 
-        // a reopen goes without picks, since only the workbench keeps them: the server clears and
-        // solves, so a value another variable pins comes back as it was
-        let updateOrderScenario (ol: OrderLoader) =
+        // a pick goes out as the index of its value over the order as it is; a reopen as a clear
+        // without picks, since only the workbench keeps them: the server clears and solves, so a
+        // value another variable pins comes back as it was. A value the order does not offer is a
+        // bug, written to the console and not sent
+        let updateOrderScenario (ol: OrderLoader) target (s: string option) =
             let isReopen = reopening.current
             reopening.current <- false
 
-            let cmd =
-                if isReopen then
-                    Api.OrderContextCommand.ReopenOrderScenario [||]
-                else
-                    Api.OrderContextCommand.UpdateOrderScenario
+            let located =
+                target
+                |> Option.bind (fun t -> ol.Order |> OrderContext.Target.tryGet t |> Option.map (fun v -> t, v))
 
-            ViewHelpers.withLoader ctx ol
-            |> fun updCtx ->
-                Api.OrderPlanCommand.Navigate(planRef.current, ncId, cmd, updCtx)
-                |> if isReopen then props.planReopen else props.planCommand
+            let send cmd =
+                (ncId, cmd) |> if isReopen then props.planReopen else props.planNavigate
 
-        let resetOrderScenario (_ol: OrderLoader) =
-            Api.OrderPlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.ResetOrderScenario, ctx)
-            |> props.planCommand
+            match located, s with
+            | Some(t, _), None when isReopen -> send (ViewHelpers.clearCommand t [||])
+            | Some(t, ovar), Some key when not isReopen ->
+                match OrderContext.values ovar |> Array.tryFindIndex ((=) key) with
+                | Some n -> send (ViewHelpers.setNthCommand t n)
+                | None -> Logging.warning "a value the field does not offer is not sent" key
+            | _ -> Logging.warning "a change no field holds is not sent" s
+
+        let resetOrderScenario (_ol: OrderLoader) = navigate Api.OrderViewCommand.ResetOrderScenario
 
         let stepper =
-            let create nav = fun ol -> ViewHelpers.withLoader ctx ol |> nav
+            let create cmd = fun (_: OrderLoader) -> navigate cmd
 
-            let createWithN nav = fun (n, uc) ol -> nav (ViewHelpers.withLoader ctx ol, n, uc)
+            let createWithN cmd = fun (n, uc) (_: OrderLoader) -> navigate (cmd (n, uc))
 
-            let createWithCmp nav =
-                fun (ol: OrderLoader) ->
-                    match ol.Component with
-                    | None -> ()
-                    | Some cmp -> nav (ViewHelpers.withLoader ctx ol, cmp)
+            let createWithCmp cmd =
+                fun (ol: OrderLoader) -> ol.Component |> Option.iter (cmd >> navigate)
 
-            let createWithCmpN nav =
-                fun (n, uc) (ol: OrderLoader) ->
-                    match ol.Component with
-                    | None -> ()
-                    | Some cmp -> nav (ViewHelpers.withLoader ctx ol, cmp, n, uc)
-
-            let navRate cmd =
-                fun updCtx ->
-                    Api.OrderPlanCommand.Navigate(planRef.current, ncId, cmd, updCtx)
-                    |> props.planCommand
-
-            let navRateN cmd =
-                fun (updCtx, n, uc) ->
-                    Api.OrderPlanCommand.Navigate(planRef.current, ncId, cmd (n, uc), updCtx)
-                    |> props.planCommand
-
-            let navCmpQty cmd =
-                fun (updCtx, cmp) ->
-                    Api.OrderPlanCommand.Navigate(planRef.current, ncId, cmd cmp, updCtx)
-                    |> props.planCommand
-
-            let navCmpQtyN cmd =
-                fun (updCtx, cmp, n, uc) ->
-                    Api.OrderPlanCommand.Navigate(planRef.current, ncId, cmd (cmp, n, uc), updCtx)
-                    |> props.planCommand
+            let createWithCmpN cmd =
+                fun (n, uc) (ol: OrderLoader) -> ol.Component |> Option.iter (fun c -> navigate (cmd (c, n, uc)))
 
             {|
                 // Dose Rate
-                setRateMin = create (navRate Api.OrderContextCommand.SetMinOrderableDoseRateProperty)
-                setRateDec = createWithN (navRateN Api.OrderContextCommand.DecreaseOrderableDoseRateProperty)
-                setRateMed = create (navRate Api.OrderContextCommand.SetMedianOrderableDoseRateProperty)
-                setRateInc = createWithN (navRateN Api.OrderContextCommand.IncreaseOrderableDoseRateProperty)
-                setRateMax = create (navRate Api.OrderContextCommand.SetMaxOrderableDoseRateProperty)
+                setRateMin = create Api.OrderViewCommand.SetMinOrderableDoseRateProperty
+                setRateDec = createWithN Api.OrderViewCommand.DecreaseOrderableDoseRateProperty
+                setRateMed = create Api.OrderViewCommand.SetMedianOrderableDoseRateProperty
+                setRateInc = createWithN Api.OrderViewCommand.IncreaseOrderableDoseRateProperty
+                setRateMax = create Api.OrderViewCommand.SetMaxOrderableDoseRateProperty
                 // Dose Quantity
-                setDoseQtyMin = create (navRate Api.OrderContextCommand.SetMinOrderableDoseQuantityProperty)
-                setDoseQtyDec = createWithN (navRateN Api.OrderContextCommand.DecreaseOrderableDoseQuantityProperty)
-                setDoseQtyMed = create (navRate Api.OrderContextCommand.SetMedianOrderableDoseQuantityProperty)
-                setDoseQtyInc = createWithN (navRateN Api.OrderContextCommand.IncreaseOrderableDoseQuantityProperty)
-                setDoseQtyMax = create (navRate Api.OrderContextCommand.SetMaxOrderableDoseQuantityProperty)
+                setDoseQtyMin = create Api.OrderViewCommand.SetMinOrderableDoseQuantityProperty
+                setDoseQtyDec = createWithN Api.OrderViewCommand.DecreaseOrderableDoseQuantityProperty
+                setDoseQtyMed = create Api.OrderViewCommand.SetMedianOrderableDoseQuantityProperty
+                setDoseQtyInc = createWithN Api.OrderViewCommand.IncreaseOrderableDoseQuantityProperty
+                setDoseQtyMax = create Api.OrderViewCommand.SetMaxOrderableDoseQuantityProperty
+                setDoseQtyPerc = fun perc -> create (Api.OrderViewCommand.SetOrderableDoseQuantityPercProperty perc)
                 // Component Quantity
-                setComponentQtyMin =
-                    createWithCmp (navCmpQty Api.OrderContextCommand.SetMinComponentOrderableQuantityProperty)
-                setComponentQtyDec =
-                    createWithCmpN (navCmpQtyN Api.OrderContextCommand.DecreaseComponentOrderableQuantityProperty)
-                setComponentQtyMed =
-                    createWithCmp (navCmpQty Api.OrderContextCommand.SetMedianComponentOrderableQuantityProperty)
-                setComponentQtyInc =
-                    createWithCmpN (navCmpQtyN Api.OrderContextCommand.IncreaseComponentOrderableQuantityProperty)
-                setComponentQtyMax =
-                    createWithCmp (navCmpQty Api.OrderContextCommand.SetMaxComponentOrderableQuantityProperty)
+                setComponentQtyMin = createWithCmp Api.OrderViewCommand.SetMinComponentOrderableQuantityProperty
+                setComponentQtyDec = createWithCmpN Api.OrderViewCommand.DecreaseComponentOrderableQuantityProperty
+                setComponentQtyMed = createWithCmp Api.OrderViewCommand.SetMedianComponentOrderableQuantityProperty
+                setComponentQtyInc = createWithCmpN Api.OrderViewCommand.IncreaseComponentOrderableQuantityProperty
+                setComponentQtyMax = createWithCmp Api.OrderViewCommand.SetMaxComponentOrderableQuantityProperty
                 // Frequency
-                setFreqMin = create (navRate Api.OrderContextCommand.SetMinScheduleFrequencyProperty)
-                setFreqDec = create (navRate Api.OrderContextCommand.DecreaseScheduleFrequencyProperty)
-                setFreqMed = create (navRate Api.OrderContextCommand.SetMedianScheduleFrequencyProperty)
-                setFreqInc = create (navRate Api.OrderContextCommand.IncreaseScheduleFrequencyProperty)
-                setFreqMax = create (navRate Api.OrderContextCommand.SetMaxScheduleFrequencyProperty)
+                setFreqMin = create Api.OrderViewCommand.SetMinScheduleFrequencyProperty
+                setFreqDec = create Api.OrderViewCommand.DecreaseScheduleFrequencyProperty
+                setFreqMed = create Api.OrderViewCommand.SetMedianScheduleFrequencyProperty
+                setFreqInc = create Api.OrderViewCommand.IncreaseScheduleFrequencyProperty
+                setFreqMax = create Api.OrderViewCommand.SetMaxScheduleFrequencyProperty
             |}
 
         // the order shown: the one scenario's of the slot's context
@@ -769,27 +692,73 @@ module NutritionSlot =
 
             next, cmd
 
-        let state, dispatch = React.useElmish (init ctx, updateTraced, [| box ctx |])
+        // the tab of the last render, so that an answer for the same order keeps it
+        let kept = React.useRef<DialogTabPolicy.Tab option> None
 
-        let isOrderLoading = props.isRecalculating
+        let state, dispatch = React.useElmish (init kept.current ctx, updateTraced, [| box ctx |])
+
+        kept.current <-
+            shownOrder
+            |> Option.map (fun ord ->
+                {
+                    OrderId = ord.Id
+                    Component = state.SelectedComponent
+                    Item = None
+                }
+                : DialogTabPolicy.Tab
+            )
+
+        let busy = props.busy
+
+        // the page is not disabled while a field counts its step clicks, since the field counting
+        // is on it; what sends waits for the count. The fields themselves take busy alone: the
+        // field counting must see its own request go out and come back
+        let counting = React.useContext Global.counting
+        let held = busy || counting.Counting
+
         let texts = ViewHelpers.quantityFieldTexts getTerm
+        let select = ViewHelpers.orderSelect texts true busy
 
-        let select = ViewHelpers.orderSelect texts true isOrderLoading
+        let isTpn = ctx |> isOneOf [ NutritionCategory.TPN ]
+
+        // the order and composition the move to 100% was sent for
+        let sentFor = React.useRef (None: (string * decimal option[]) option)
+
+        // once the TPN is composed, its dose is set at the whole total, so the dose count holds one
+        // value and the intake slider can take over
+        let startIntake () =
+            match shownOrder with
+            | Some ord when isTpn && not held ->
+                match ord |> IntakePolicy.start sentFor.current with
+                | IntakePolicy.Start.Clear -> sentFor.current <- None
+                | IntakePolicy.Start.Wait -> ()
+                | IntakePolicy.Start.Send key ->
+                    sentFor.current <- Some key
+                    // run directly: a dispatch from here reaches the program useElmish is replacing
+                    updateTraced StartDoseQuantityPercProperty state |> ignore
+            | _ -> ()
+
+        React.useEffect (startIntake, [| box ctx; box held |])
+
+        // while the dose of the TPN is a part of the total, the composition stays as it is: a step
+        // of a component would keep the rate of the part for the whole
+        let isCompositionLocked = isTpn && shownOrder |> Option.exists IntakePolicy.isCompositionLocked
+
+        let componentSelect = ViewHelpers.orderSelect texts true (busy || isCompositionLocked)
 
         // a field with one value reopens by its arrow; without picks it cannot tell whether the user
         // constrained it
         let reopenOf (ovar: OrderVariable) : ViewHelpers.Reopen =
             {|
-                constrained = PickList.constrained None ovar.Name
+                constrained = PickListPolicy.constrained None ovar.Name
                 reopening = fun () -> reopening.current <- true
                 restore = props.planRestore
-                busy = isOrderLoading
+                busy = busy
             |}
         // a value only shown has nothing for a cross to clear
-        let display = ViewHelpers.orderFixed texts true isOrderLoading
-        let filterSelect = ViewHelpers.filterSelect isOrderLoading isOrderLoading
-        let responsiveFilter = ViewHelpers.responsiveFilter isMobile isOrderLoading isOrderLoading
-        let loadingIndicator = ViewHelpers.inlineProgress isOrderLoading
+        let display = ViewHelpers.orderFixed texts true busy
+        let filterSelect = ViewHelpers.filterSelect
+        let responsiveFilter = ViewHelpers.responsiveFilter isMobile
 
         let displayOrder = shownOrder
 
@@ -812,7 +781,6 @@ module NutritionSlot =
 
                         ViewHelpers.createStepper
                             dispatch
-                            revision
                             mode
                             (cmp.OrderableQuantity |> ViewHelpers.hasLargeStep)
                             (SetMinComponentQuantityProperty cmpName)
@@ -829,7 +797,7 @@ module NutritionSlot =
                     let qtyLabel = cmp.OrderableQuantity |> ViewHelpers.ovarLabel cmp.Name
 
                     let qtyControl =
-                        select
+                        componentSelect
                             false
                             qtyLabel
                             None
@@ -887,7 +855,10 @@ module NutritionSlot =
                     // the range the solver calculated for the component's quantity, from the rules
                     // that bound it
                     let range, rangeCaption =
-                        match cmp.OrderableQuantity.CalculatedConstraints |> Variable.renderValue 3 with
+                        match
+                            cmp.OrderableQuantity.CalculatedConstraints
+                            |> OrderDisplay.Variable.renderValue 3
+                        with
                         | "" -> "", ""
                         | r -> $"(%s{r})", "Aanbevolen range"
 
@@ -900,7 +871,7 @@ module NutritionSlot =
                         <Grid size={cmpLabelSize}>
                             {labelCell}
                         </Grid>
-                        <Grid size={cmpQtySize}>
+                        <Grid size={cmpQtySize} sx={cmpMiddleSx}>
                             <Box sx={cmpQtySx}>
                                 {qtyControl}
                             </Box>
@@ -928,7 +899,6 @@ module NutritionSlot =
                 let doseQtyNav =
                     ViewHelpers.createDoseQtyStepper
                         dispatch
-                        revision
                         ord
                         SetMinDoseQuantityProperty
                         DecreaseDoseQuantityProperty
@@ -969,7 +939,6 @@ module NutritionSlot =
 
                     ViewHelpers.frequencyStepper
                         dispatch
-                        revision
                         mode
                         SetMinFrequencyProperty
                         DecreaseFrequencyProperty
@@ -1009,7 +978,6 @@ module NutritionSlot =
 
                     ViewHelpers.doseRateStepper
                         dispatch
-                        revision
                         mode
                         ord.Orderable.Dose.Rate
                         SetMinDoseRateProperty
@@ -1108,7 +1076,7 @@ module NutritionSlot =
                 <Grid size={cmpLabelSize}>
                     {componentHeading}
                 </Grid>
-                <Grid size={cmpQtySize}>
+                <Grid size={cmpQtySize} sx={cmpMiddleSx}>
                     {quantityHeading}
                 </Grid>
                 <Grid size={cmpRangeSize}>
@@ -1124,11 +1092,25 @@ module NutritionSlot =
                 label = Terms.Reset |> getTerm "Reset"
                 kind = Components.ActionBar.Kind.Secondary
                 onClick = onClickReset
-                disabled = isOrderLoading
+                disabled = held
                 icon = Some Mui.Icons.RefreshIcon
             |}
 
         let resetBar = Components.ActionBar.View {| actions = [| resetAction |] |}
+
+        let compositionHint =
+            if isCompositionLocked then
+                JSX.jsx
+                    $"""
+                import Typography from '@mui/material/Typography';
+                <Typography variant="caption" color="text.secondary">
+                    zet de toedien hoeveelheid eerst op 100%% om de samenstelling te wijzigen
+                </Typography>
+                """
+            else
+                null
+
+        let canSetDoseQuantityPerc = shownOrder |> Option.exists IntakePolicy.canSetDoseQuantityPerc
 
         let indicationFilter =
             if ctx.Filter.Generic.IsNone || ctx.Filter.Indications |> Array.length <= 1 then
@@ -1159,18 +1141,17 @@ module NutritionSlot =
             then
                 null
             else
-                let sel = ctx.Filter.DoseType |> Option.map DoseType.doseTypeToString
+                let sel = ctx.Filter.DoseType |> Option.map DoseTypeText.doseTypeToString
                 let items = ctx.Filter.DoseTypes
                 let lbl = Terms.``Dose Type`` |> getTerm "Doseer type"
 
                 items
-                |> Array.map (fun s -> s |> DoseType.doseTypeToString, s |> DoseType.doseTypeToDescription)
+                |> Array.map (fun s -> s |> DoseTypeText.doseTypeToString, s |> DoseTypeText.doseTypeToDescription)
                 |> filterSelect lbl sel doseTypeChange
 
         {
             Label = label
             IsMobile = isMobile
-            IsLoading = isOrderLoading
             Order = displayOrder
             GenericFilter = genericFilter
             IndicationFilter = indicationFilter
@@ -1187,5 +1168,8 @@ module NutritionSlot =
             AdministrationHeading = administrationDivider
             ResetAction = resetAction
             ResetBar = resetBar
-            LoadingIndicator = loadingIndicator
+            SetDoseQuantityPerc = SetDoseQuantityPercProperty >> dispatch
+            CanSetDoseQuantityPerc = canSetDoseQuantityPerc
+            DoseQuantityShare = shownOrder |> Option.bind IntakePolicy.doseShare
+            CompositionHint = compositionHint
         }

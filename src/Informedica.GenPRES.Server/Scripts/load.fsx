@@ -38,6 +38,7 @@
 #load "../ServerApi.Adapters.fs"
 #load "../ServerApi.Compute.fs"
 #load "../ServerApi.FormularyCommand.fs"
+#load "../ServerApi.PatientCommand.fs"
 #load "../ServerApi.InteractionCommand.fs"
 #load "../ServerApi.OrderPlanCommand.fs"
 #load "../ServerApi.AdminCommand.fs"

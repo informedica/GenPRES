@@ -2,22 +2,13 @@
 module Utils
 
 
-module String =
-
-    let replace (oldS: string) newS (s: string) = s.Replace(oldS, newS)
-
-
 open Fable.Core
 open Feliz
-open Browser.Types
 
 
 let inline toJsx (el: ReactElement) : JSX.Element = unbox el
 
 let inline toReact (el: JSX.Element) : ReactElement = unbox el
-
-/// Enables use of Feliz styles within a JSX hole
-let inline toStyle (styles: IStyleAttribute list) : obj = JsInterop.createObj (unbox styles)
 
 let inline withKey els =
     els
@@ -35,31 +26,6 @@ let inline withKey els =
     )
 
 
-let toClass (classes: (string * bool) list) : string =
-    classes
-    |> List.choose (fun (c, b) ->
-        match c.Trim(), b with
-        | "", _
-        | _, false -> None
-        | c, true -> Some c
-    )
-    |> String.concat " "
-
-
-let onEnterOrEscape dispatchOnEnter dispatchOnEscape (ev: KeyboardEvent) =
-    let el = ev.target :?> HTMLInputElement
-
-    match ev.key with
-    | "Enter" ->
-        dispatchOnEnter el.value
-        el.value <- ""
-    | "Escape" ->
-        dispatchOnEscape ()
-        el.value <- ""
-        el.blur ()
-    | _ -> ()
-
-
 module Logging =
 
     open Browser.Dom
@@ -74,20 +40,22 @@ module Logging =
 module GoogleDocs =
 
     open Fable.SimpleHttp
-    open Shared
-    open Shared.Types
+    open Informedica.GenPRES.Shared
+    open Informedica.GenPRES.Shared.Types
 
-    let inline getUrl parseResponse msg url =
+    // a sheet that cannot be read or parsed answers as a failure: an exception that escaped
+    // would send no message at all, and the load would stay out for good
+    let inline getUrl parseResponse url =
         async {
-            let! statusCode, responseText = Http.get url
+            try
+                let! statusCode, responseText = Http.get url
 
-            let result =
-                match statusCode with
-                | 200 -> responseText |> Csv.parseCSV |> parseResponse |> Ok |> Finished
-                | _ -> Finished(Error $"Status {statusCode} => {responseText}")
-                |> msg
-
-            return result
+                return
+                    match statusCode with
+                    | 200 -> responseText |> Csv.parseCSV |> parseResponse |> Ok
+                    | _ -> Error $"Status {statusCode} => {responseText}"
+            with ex ->
+                return Error ex.Message
         }
 
 
@@ -110,57 +78,52 @@ module GoogleDocs =
     let private dataGPUrlId = "1M90b_kPmANIdPFTvsDVaEGIEeQQ3md-Bt359Dmc2vIE"
 
 
-    open Shared.Models
+    open Informedica.GenPRES.Shared.Models
 
 
-    let loadBolusMedication msg =
-        dataEMLUrlId |> createUrl "emergencylist" |> getUrl EmergencyTreatment.parse msg
+    let loadBolusMedication () =
+        dataEMLUrlId |> createUrl "emergencylist" |> getUrl EmergencyTreatment.parse
 
 
-    let loadContinuousMedication msg =
-        dataEMLUrlId
-        |> createUrl "continuousmeds"
-        |> getUrl ContinuousMedication.parse msg
+    let loadContinuousMedication () =
+        dataEMLUrlId |> createUrl "continuousmeds" |> getUrl ContinuousMedication.parse
 
 
-    let loadProducts msg =
-        dataEMLUrlId |> createUrl "products" |> getUrl Products.parse msg
+    let loadProducts () = dataEMLUrlId |> createUrl "products" |> getUrl Products.parse
 
 
-    let loadLocalization msg = dataGPUrlId |> createUrl "Localization" |> getUrl id msg
+    let loadLocalization () = dataGPUrlId |> createUrl "Localization" |> getUrl id
 
 
-    let loadNormalWeight msg =
-        dataEMLUrlId |> createUrl "weight" |> getUrl NormalValues.parse msg
+    let loadNormalWeight () = dataEMLUrlId |> createUrl "weight" |> getUrl NormalValues.parse
 
 
-    let loadNormalHeight msg =
-        dataEMLUrlId |> createUrl "height" |> getUrl NormalValues.parse msg
+    let loadNormalHeight () = dataEMLUrlId |> createUrl "height" |> getUrl NormalValues.parse
 
 
-    let loadNormalNeoWeight msg =
-        dataEMLUrlId |> createUrl "weight neo" |> getUrl NormalValues.parse msg
+    let loadNormalNeoWeight () =
+        dataEMLUrlId |> createUrl "weight neo" |> getUrl NormalValues.parse
 
 
-    let loadNeoHeight msg =
-        dataEMLUrlId |> createUrl "height neo" |> getUrl NormalValues.parse msg
+    let loadNeoHeight () =
+        dataEMLUrlId |> createUrl "height neo" |> getUrl NormalValues.parse
 
 
-    let loadNormalValues msg =
+    let loadNormalValues () =
         async {
-            let! weightsResult = loadNormalWeight id |> Async.StartChild
-            let! heightsResult = loadNormalHeight id |> Async.StartChild
-            let! neoWeightsResult = loadNormalNeoWeight id |> Async.StartChild
-            let! neoHeightsResult = loadNeoHeight id |> Async.StartChild
+            let! weightsResult = loadNormalWeight () |> Async.StartChild
+            let! heightsResult = loadNormalHeight () |> Async.StartChild
+            let! neoWeightsResult = loadNormalNeoWeight () |> Async.StartChild
+            let! neoHeightsResult = loadNeoHeight () |> Async.StartChild
 
             let! weights = weightsResult
             let! heights = heightsResult
             let! neoWeights = neoWeightsResult
             let! neoHeights = neoHeightsResult
 
-            let result =
+            return
                 match weights, heights, neoWeights, neoHeights with
-                | Finished(Ok w), Finished(Ok h), Finished(Ok nw), Finished(Ok nh) ->
+                | Ok w, Ok h, Ok nw, Ok nh ->
                     {
                         Weights = w
                         Heights = h
@@ -168,12 +131,8 @@ module GoogleDocs =
                         NeoHeights = nh
                     }
                     |> Ok
-                    |> Finished
-                | Finished(Error e), _, _, _
-                | _, Finished(Error e), _, _
-                | _, _, Finished(Error e), _
-                | _, _, _, Finished(Error e) -> Error e |> Finished
-                | _ -> Error "Loading normal values did not finish correctly" |> Finished
-
-            return msg result
+                | Error e, _, _, _
+                | _, Error e, _, _
+                | _, _, Error e, _
+                | _, _, _, Error e -> Error e
         }

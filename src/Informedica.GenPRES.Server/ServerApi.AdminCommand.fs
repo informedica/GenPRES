@@ -6,7 +6,7 @@ module AdminCommand =
     open System
     open System.Security.Cryptography
     open System.Text
-    open Shared.Api
+    open Informedica.GenPRES.Shared.Api
     open Informedica.Utils.Lib.BCL
 
 

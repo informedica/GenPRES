@@ -281,6 +281,7 @@ NUGET
     Validus (4.1.4)
       FSharp.Core (>= 4.5.2)
     Wcwidth (4.0.1)
+    YamlDotNet (16.3)
 
 GROUP Benchmark
 STORAGE: NONE

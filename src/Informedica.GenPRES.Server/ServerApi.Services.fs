@@ -9,8 +9,8 @@ module FormularyService =
     open Informedica.GenForm.Lib
     open Informedica.GenOrder.Lib
 
-    open Shared.Types
-    open Shared
+    open Informedica.GenPRES.Shared.Types
+    open Informedica.GenPRES.Shared
 
 
     let mapFormularyToFilter (form: Formulary) =
@@ -38,7 +38,7 @@ module FormularyService =
     /// result strings into colored TextBlocks. Exposed for unit testing.
     module DoseCheck =
 
-        // `Shared.Utils.String.split` (in scope via `open Shared`) returns string[].
+        // `Informedica.GenPRES.Shared.Utils.String.split` (in scope via `open Informedica.GenPRES.Shared`) returns string[].
 
         /// True if the line is a frequency-mismatch entry emitted by Check.fs.
         /// Expected raw shape: "{target}\t{route}\t{patientCategory}\t{message}".
@@ -230,7 +230,7 @@ module ParenteraliaService =
     open Informedica.GenOrder.Lib
     open Informedica.GenForm.Lib
 
-    type Parenteralia = Shared.Types.Parenteralia
+    type Parenteralia = Informedica.GenPRES.Shared.Types.Parenteralia
 
 
     let get logger provider (par: Parenteralia) : Result<Parenteralia, string> =
@@ -271,7 +271,7 @@ module OrderContextService =
     open Informedica.GenForm.Lib
     open Informedica.GenOrder.Lib
 
-    open Shared.Types
+    open Informedica.GenPRES.Shared.Types
 
     module GenOrderContext = OrderContext
 
@@ -334,6 +334,7 @@ module OrderContextService =
         | Refusal.NoDoseRules -> OrderContextRefusal.NoDoseRules
         | Refusal.NoDoseRulesForPatient -> OrderContextRefusal.NoDoseRulesForPatient
         | Refusal.NoProducts -> OrderContextRefusal.NoProducts
+        | Refusal.NotSolved -> OrderContextRefusal.NotSolved
 
 
     /// The outcome mapped out as the contract's response, with the environment's demo flag.

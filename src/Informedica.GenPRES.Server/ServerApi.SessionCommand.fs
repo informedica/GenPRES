@@ -3,8 +3,8 @@ namespace ServerApi
 
 module SessionCommand =
 
-    open Shared.Types
-    open Shared.Api
+    open Informedica.GenPRES.Shared.Types
+    open Informedica.GenPRES.Shared.Api
 
 
     /// Cookie-authenticated session commands over both cookies. GetSession answers the Session

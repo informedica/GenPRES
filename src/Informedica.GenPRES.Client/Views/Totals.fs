@@ -1,15 +1,20 @@
 namespace Views
 
+
 module Totals =
+
+    open Informedica.GenPRES.Client.Core.Models
+    open Informedica.GenPRES.Client.Core.Policies
 
 
     open Fable.Core
+    open Fable.Core.JsInterop
     open Feliz
-    open Shared
+    open Informedica.GenPRES.Shared
     open Types
 
 
-    let private rows = Models.Totals.intakeRows
+    let private rows = TotalsDisplay.intakeRows
 
 
     let private splitIntoColumns maxCols (arr: 'a[]) =
@@ -29,6 +34,26 @@ module Totals =
                     if start < n then
                         arr[start..stop]
             |]
+
+
+    // a changed value lights up, holds its colour and then fades back to the table's own background
+    let private flashMs = 3000
+
+
+    let private flashSx =
+        createObj
+            [
+                "animation" ==> $"totalsFlash %i{flashMs}ms ease-out"
+                "@keyframes totalsFlash"
+                ==> {|
+                        ``0%`` = {| backgroundColor = Mui.Styles.changedBgColor |}
+                        ``40%`` = {| backgroundColor = Mui.Styles.changedBgColor |}
+                        ``100%`` = {| backgroundColor = "transparent" |}
+                    |}
+            ]
+
+
+    let private noFlashSx = {| |}
 
 
     let private typoGraphy (items: TextItem[]) =
@@ -88,31 +113,87 @@ module Totals =
 
 
     [<JSX.Component>]
-    let View (props: {| intake: Totals |}) =
+    let View
+        (props:
+            {|
+                source: string
+                intake: Totals
+            |})
+        =
+        let seenRef = React.useRef (TotalsChangePolicy.initial props.source props.intake)
+        let timerRef = React.useRef (None: int option)
+
+        let flash, setFlash =
+            React.useState
+                {|
+                    names = Set.empty<string>
+                    revision = 0
+                |}
+
+        let observeTotals () =
+            let seen, changed = seenRef.current |> TotalsChangePolicy.observe props.source props.intake
+
+            seenRef.current <- seen
+
+            if changed |> Array.isEmpty |> not then
+                let revision = flash.revision + 1
+                timerRef.current |> Option.iter JS.clearTimeout
+
+                setFlash
+                    {|
+                        names = Set.ofArray changed
+                        revision = revision
+                    |}
+
+                timerRef.current <-
+                    JS.setTimeout
+                        (fun () ->
+                            setFlash
+                                {|
+                                    names = Set.empty
+                                    revision = revision
+                                |}
+                        )
+                        flashMs
+                    |> Some
+
+        React.useEffect (observeTotals, [| box props.source; box props.intake |])
+
+        React.useEffect ((fun () -> fun () -> timerRef.current |> Option.iter JS.clearTimeout), [||])
+
         let mapRow (intake: Totals) row =
-            let print n itms =
-                if itms |> Array.length < 2 then
-                    [||]
-                else
-                    [|
-                        [| Normal n |] |> typoGraphy
-                        itms[0 .. (itms.Length - 2)] |> typoGraphy
-                        [| itms |> Array.last |] |> typoGraphy
-                    |]
-                |> Array.map box
+            let cell sx content =
+                {|
+                    sx = box sx
+                    content = box content
+                |}
 
             row
             |> Array.map (fun cells ->
                 let name = cells |> Array.head
-                let items = Models.Totals.substanceToField intake name
-                print name items
+                let items = TotalsDisplay.substanceToField intake name
+                let isChanged = flash.names |> Set.contains name
+
+                {|
+                    // the revision in the key remounts a row that changes again while it fades,
+                    // so the fade starts over
+                    key = if isChanged then $"%s{name}-%i{flash.revision}" else name
+                    cells =
+                        [|
+                            [| Normal name |] |> typoGraphy |> cell noFlashSx
+                            items[0 .. (items.Length - 2)]
+                            |> typoGraphy
+                            |> cell (if isChanged then flashSx else box noFlashSx)
+                            [| items |> Array.last |] |> typoGraphy |> cell noFlashSx
+                        |]
+                |}
             )
 
         let activeRows =
             rows
             |> Array.filter (fun cells ->
                 let name = cells |> Array.head
-                let items = Models.Totals.substanceToField props.intake name
+                let items = TotalsDisplay.substanceToField props.intake name
                 items |> Array.length >= 2
             )
 
@@ -124,7 +205,7 @@ module Totals =
                 $"table{i + 1}", Components.BasicTable.View {| rows = mapRow props.intake col |} |> toReact
             )
 
-        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
+        let isMobile = Mui.Hooks.useIsMobile ()
 
         if isMobile then
             Unchecked.defaultof<JSX.Element>

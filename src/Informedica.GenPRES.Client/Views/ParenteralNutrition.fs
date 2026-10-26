@@ -1,19 +1,25 @@
 namespace Views
 
+
 #nowarn "1104"
 
 /// The parenteral part of the nutrition page: TPN, lipids and electrolytes with glucose, each
 /// a slot that folds, with its components, and a button that prints them.
 module ParenteralNutrition =
 
+    open Informedica.GenPRES.Client.Core.Models
+    open Informedica.GenPRES.Client.Core.Helpers
+    open Informedica.GenPRES.Client.Core.Policies
+    open Informedica.GenPRES.Client.Core.StateMachines
+
     open Fable.Core
     open Fable.Core.JsInterop
     open Fable.React
     open Feliz
-    open Shared
-    open Shared.Types
-    open Shared.Models
-    open Shared.Models.Order
+    open Informedica.GenPRES.Shared
+    open Informedica.GenPRES.Shared.Types
+    open Informedica.GenPRES.Shared.Models
+    open Informedica.GenPRES.Shared.Models.Order
     open Elmish
     open Utils
     open FSharp.Core
@@ -44,18 +50,17 @@ module ParenteralNutrition =
             justifyContent = "space-between"
             alignItems = "center"
             gap = 2
-            // room above the slider for the value that pops up while it moves; padding, because the
-            // Stack the bar sits in sets the top margin of its children
-            paddingTop = 3
         |}
 
 
-    let private sliderBoxSx =
-        {|
-            flex = "1 1 160px"
-            minWidth = 160
-            paddingX = 5
-        |}
+    // on the right the room of the severity mark of a field, so the slider is as wide as the
+    // fields of its column; no room above it, so the total row is no higher than the others and
+    // the value that pops up while it moves lies over the caption
+    let private sliderBoxSx = {| paddingRight = $"%i{Components.QuantityField.markWidth}px" |}
+
+
+    // a dose that is no step of the slider has no handle on it
+    let private noHandleSx = {| ``& .MuiSlider-thumb`` = {| display = "none" |} |}
 
 
     /// One parenteral order: in a fold with its values in the summary and a bin beside them,
@@ -65,92 +70,120 @@ module ParenteralNutrition =
         (props:
             {|
                 nutritionContext: OrderContext
-                plan: OrderPlan
-                planCommand: Api.OrderPlanCommand -> unit
+                planNavigate: string * Api.OrderViewCommand -> unit
                 // a clear from a field's arrow, and the list of such a reopen closed without a pick
-                planReopen: Api.OrderPlanCommand -> unit
+                planReopen: string * Api.OrderViewCommand -> unit
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
                 onRemove: (unit -> unit) option
-                isRecalculating: bool
+                busy: bool
             |})
         =
         let slot =
             useSlot
                 {|
                     nutritionContext = props.nutritionContext
-                    plan = props.plan
-                    planCommand = props.planCommand
+                    planNavigate = props.planNavigate
                     planReopen = props.planReopen
                     planRestore = props.planRestore
                     localizationTerms = props.localizationTerms
-                    isRecalculating = props.isRecalculating
+                    busy = props.busy
                     fieldMinWidth = None
                 |}
 
         let context: Global.Context = React.useContext Global.context
         let getTerm = Global.getLocalizedTerm props.localizationTerms context.Localization
 
-        // the share of the full intake, in percent; not yet linked to the order
-        let intake, setIntake = React.useState 100
+        // the page is not disabled while a field counts its step clicks, since the field counting
+        // is on it; the controls that send wait for the count themselves
+        let counting = React.useContext Global.counting
+        let held = props.busy || counting.Counting
+
+        // the position while the user drags; otherwise the slider reads it from the order, and a
+        // new order drops it
+        let dragged, setDragged = React.useState (None: int option)
+
+        React.useEffect ((fun () -> setDragged None), [| box slot.Order |])
 
         let genericFilter = slot.GenericFilter
         let doseTypeFilter = slot.DoseTypeFilter
 
-        // the dose, the rate and the time on one row while they fit, measured on the row and not
-        // the window; narrower, they stand in one column. The time takes no buttons, so it drops
-        // their room.
+        // the dose, the rate and the time in the columns of the components, stacked as they are.
+        // The time takes no buttons, so it drops their room.
         let administrationRow =
-            let containerSx =
-                {| Components.QuantityField.dropUnusedSlotsSx with
-                    containerType = "inline-size"
-                    width = "100%"
-                |}
-
-            let rowWidth =
-                2 * Components.QuantityField.fieldWidth
-                + Components.QuantityField.fieldWidthWithoutSlots
-                + 2 * 16
-
-            let flexSx =
-                createObj
-                    [
-                        "display" ==> "flex"
-                        "flexWrap" ==> "nowrap"
-                        "gap" ==> 2
-                        "alignItems" ==> "flex-end"
-                        $"@container (max-width: %i{rowWidth - 1}px)"
-                        ==> {|
-                                flexDirection = "column"
-                                alignItems = "stretch"
-                            |}
-                    ]
-
-            let itemSx =
-                {|
-                    flex = "1 1 0%"
-                    minWidth = "min-content"
-                |}
+            let containerSx = {| Components.QuantityField.dropUnusedSlotsSx with alignItems = "flex-end" |}
 
             JSX.jsx
                 $"""
-            import Box from '@mui/material/Box';
-            <Box sx={containerSx}>
-                <Box sx={flexSx}>
-                    <Box sx={itemSx}>
-                        {slot.DoseQuantityControl}
-                    </Box>
-                    <Box sx={itemSx}>
-                        {slot.RateField}
-                    </Box>
-                    <Box sx={itemSx}>
-                        {slot.TimeDisplay}
-                    </Box>
-                </Box>
-            </Box>
+            import Grid from '@mui/material/Grid';
+            <Grid container spacing={{2}} sx={containerSx}>
+                <Grid size={cmpLabelSize}>
+                    {slot.DoseQuantityControl}
+                </Grid>
+                <Grid size={cmpQtySize} sx={cmpMiddleSx}>
+                    {slot.RateField}
+                </Grid>
+                <Grid size={cmpRangeSize} sx={cmpRightSx}>
+                    {slot.TimeDisplay}
+                </Grid>
+            </Grid>
             """
 
-        // the total volume stands in the columns of the components, under their quantities
+        // the share of the full intake the TPN gives, beside its total volume; it sets the dose once
+        // the TPN is composed and its dose count holds one value
+        let intakeSlider =
+            if props.nutritionContext |> isOneOf [ NutritionCategory.TPN ] then
+                let position =
+                    dragged
+                    |> Option.orElse (slot.DoseQuantityShare |> Option.bind IntakePolicy.sliderStep)
+                let value = position |> Option.defaultValue 100
+                let sliderSx = if position.IsSome then null else box noHandleSx
+                let track: obj = if position.IsSome then box "normal" else box false
+                let disabled = not slot.CanSetDoseQuantityPerc || held
+
+                // a dose set otherwise shows its exact share instead of a handle
+                let shareText =
+                    match position, slot.DoseQuantityShare with
+                    | None, Some share ->
+                        let pct = share |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3
+                        $": %s{pct}%% van totaal"
+                    | _ -> ""
+
+                let onIntakeChange = System.Func<obj, int, unit>(fun _ v -> setDragged (Some v))
+                let onIntakeCommitted = System.Func<obj, int, unit>(fun _ v -> slot.SetDoseQuantityPerc v)
+                let intakeLabel = fun (v: int) -> $"%i{v}%% van totaal"
+
+                JSX.jsx
+                    $"""
+                import Box from '@mui/material/Box';
+                import Slider from '@mui/material/Slider';
+                import Typography from '@mui/material/Typography';
+                <Box sx={sliderBoxSx}>
+                    <Typography id="tpn-intake-label" variant="caption" color="text.secondary">
+                        toedien hoeveelheid als percentage van totaal{shareText}
+                    </Typography>
+                    <Slider
+                        aria-labelledby="tpn-intake-label"
+                        value={value}
+                        onChange={onIntakeChange}
+                        onChangeCommitted={onIntakeCommitted}
+                        step={10}
+                        min={10}
+                        max={100}
+                        marks={intakeMarks}
+                        track={track}
+                        sx={sliderSx}
+                        valueLabelDisplay="auto"
+                        valueLabelFormat={intakeLabel}
+                        disabled={disabled}
+                    />
+                </Box>
+                """
+            else
+                null
+
+        // the total volume stands in the columns of the components, under their quantities, with
+        // the intake in the column of their ranges
         let totalVolumeRow =
             JSX.jsx
                 $"""
@@ -161,20 +194,20 @@ module ParenteralNutrition =
                 <Grid size={cmpLabelSize}>
                     <Typography variant="body1">Totaal volume</Typography>
                 </Grid>
-                <Grid size={cmpQtySize}>
+                <Grid size={cmpQtySize} sx={cmpMiddleSx}>
                     <Box sx={cmpQtySx}>
                         {slot.TotalVolumeDisplay}
                     </Box>
                 </Grid>
-                <Grid size={cmpRangeSize} />
+                <Grid size={cmpRangeSize}>
+                    {intakeSlider}
+                </Grid>
             </Grid>
             """
 
-        // the TPN ends in one bar: reset on the left, the intake in the middle, prescribe on the
-        // right; prescribe does nothing yet
+        // the TPN ends in one bar: reset on the left, prescribe on the right; prescribe does nothing
+        // yet
         let tpnToolbar =
-            let onIntakeChange = System.Func<obj, int, unit>(fun _ v -> setIntake v)
-            let intakeLabel = fun (v: int) -> $"%i{v}%% van totaal"
             let resetButton = Components.ActionBar.ActionButton slot.ResetAction
 
             let prescribeButton =
@@ -183,34 +216,15 @@ module ParenteralNutrition =
                         label = Terms.``Prescribe`` |> getTerm "Voorschrijven"
                         kind = Components.ActionBar.Kind.Primary
                         onClick = ignore
-                        disabled = slot.IsLoading
+                        disabled = false
                         icon = None
                     |}
 
             JSX.jsx
                 $"""
             import Box from '@mui/material/Box';
-            import Slider from '@mui/material/Slider';
-            import Typography from '@mui/material/Typography';
             <Box sx={toolbarSx}>
                 {resetButton}
-                <Box sx={sliderBoxSx}>
-                    <Typography id="tpn-intake-label" variant="caption" color="text.secondary">
-                        toedien hoeveelheid als percentage van totaal
-                    </Typography>
-                    <Slider
-                        aria-labelledby="tpn-intake-label"
-                        value={intake}
-                        onChange={onIntakeChange}
-                        step={10}
-                        min={10}
-                        max={100}
-                        marks={intakeMarks}
-                        valueLabelDisplay="auto"
-                        valueLabelFormat={intakeLabel}
-                        disabled={slot.IsLoading}
-                    />
-                </Box>
                 {prescribeButton}
             </Box>
             """
@@ -221,6 +235,10 @@ module ParenteralNutrition =
             else
                 slot.ResetBar
 
+        // a little more room above the divider under the components; padding, because the Stack
+        // it sits in sets its top margin, and the line is drawn at its bottom
+        let dividerSx = {| paddingTop = 1 |}
+
         let preparationSection =
             JSX.jsx
                 $"""
@@ -228,32 +246,56 @@ module ParenteralNutrition =
             <>
                 {slot.ComponentHeader}
                 {slot.ComponentRows |> unbox<seq<ReactElement>> |> React.Fragment}
-                <Divider />
+                {slot.CompositionHint}
+                <Divider sx={dividerSx} />
                 {totalVolumeRow}
             </>
             """
+
+        // padding, because the Stack the bar sits in sets the top margin of its children
+        let actionBarSx = {| paddingTop = 1 |}
 
         let details =
             JSX.jsx
                 $"""
             import Stack from '@mui/material/Stack';
+            import Box from '@mui/material/Box';
             <Stack direction={"column"} spacing={1} >
                 {preparationSection}
                 {slot.AdministrationHeading}
                 {administrationRow}
-                {actionBar}
+                <Box sx={actionBarSx}>
+                    {actionBar}
+                </Box>
             </Stack>
             """
-            |> fun fields ->
-                // the spinner lies over the details and takes no room, so the fields stay where
-                // they are while the order reloads
-                Components.LoadingOverlay.View
-                    {|
-                        isLoading = slot.IsLoading
-                        children = fields
-                    |}
 
         let filterSx = {| marginBottom = 2 |}
+
+        // on a large screen the composition spans the component and quantity columns and ends
+        // where the quantity fields end, before the room of their severity mark
+        let compositionSize =
+            {|
+                xs = 12
+                md = 6
+                lg = 7.5
+            |}
+
+        let doseTypeSize =
+            {|
+                xs = 12
+                md = 6
+                lg = 4.5
+            |}
+
+        let compositionSx =
+            {|
+                paddingRight =
+                    {|
+                        xs = "0px"
+                        lg = $"%i{Components.QuantityField.markWidth}px"
+                    |}
+            |}
 
         // the composition and the dose type side by side, once there is a dose type to choose
         let compositionRow =
@@ -264,10 +306,10 @@ module ParenteralNutrition =
                     $"""
                 import Grid from '@mui/material/Grid';
                 <Grid container spacing={{2}}>
-                    <Grid size={halfSize}>
+                    <Grid size={compositionSize} sx={compositionSx}>
                         {genericFilter}
                     </Grid>
-                    <Grid size={halfSize}>
+                    <Grid size={doseTypeSize}>
                         {doseTypeFilter}
                     </Grid>
                 </Grid>
@@ -286,7 +328,7 @@ module ParenteralNutrition =
             </Stack>
             """
 
-        let orderDetails = if slot.Order.IsSome then details else slot.LoadingIndicator
+        let orderDetails = if slot.Order.IsSome then details else null
 
         let expanded, setExpanded = React.useState true
 
@@ -297,7 +339,7 @@ module ParenteralNutrition =
                 Components.RemoveIconButton.View
                     {|
                         onRemove = onRemove
-                        busy = props.isRecalculating
+                        busy = held
                     |}
             | None -> null
 
@@ -353,15 +395,22 @@ module ParenteralNutrition =
         (props:
             {|
                 plan: OrderPlan
-                planCommand: Api.OrderPlanCommand -> unit
-                planReopen: Api.OrderPlanCommand -> unit
+                planNew: NutritionCategory -> unit
+                planRemove: string[] -> unit
+                planReopen: string * Api.OrderViewCommand -> unit
+                planNavigate: string * Api.OrderViewCommand -> unit
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
-                isRecalculating: bool
+                busy: bool
             |})
         =
         let context: Global.Context = React.useContext Global.context
         let getTerm = Global.getLocalizedTerm props.localizationTerms context.Localization
+
+        // the page is not disabled while a field counts its step clicks, since the field counting
+        // is on it; the controls that send wait for the count themselves
+        let counting = React.useContext Global.counting
+        let held = props.busy || counting.Counting
 
         let printOpen, setPrintOpen = React.useState false
 
@@ -372,23 +421,17 @@ module ParenteralNutrition =
             SlotView
                 {|
                     nutritionContext = nc
-                    plan = props.plan
-                    planCommand = props.planCommand
+                    planNavigate = props.planNavigate
                     planReopen = props.planReopen
                     planRestore = props.planRestore
                     localizationTerms = props.localizationTerms
                     onRemove = Some onRemove
-                    isRecalculating = props.isRecalculating
+                    busy = props.busy
                 |}
 
         let slots =
             contexts
-            |> Array.map (fun nc ->
-                slotOf (fun () -> Api.OrderPlanCommand.RemoveOrderContexts(plan, [| nc.Id |]) |> props.planCommand) nc
-            )
-
-        let newOrderContext category =
-            Api.OrderPlanCommand.NewOrderContext(plan, category) |> props.planCommand
+            |> Array.map (fun nc -> slotOf (fun () -> props.planRemove [| nc.Id |]) nc)
 
         // the buttons the plan admits a context for, as the server would rule
         let addButtons =
@@ -403,8 +446,8 @@ module ParenteralNutrition =
                 Components.AddButton.View
                     {|
                         label = label
-                        onClick = fun () -> newOrderContext category
-                        disabled = props.isRecalculating
+                        onClick = fun () -> props.planNew category
+                        disabled = held
                     |}
             )
 

@@ -231,3 +231,26 @@ quantity field and a marked dose in the browser, since those views call the rena
 | 1, the panel's edit rules | #1168 | `Msg` takes qualified access, so the view's dispatch sites read `Msg.UpdateWeight` and the like; every case got a `///` comment. 44 tests, four of them new for `canCalculate`. 143 lines added and 122 removed in shipped code, over the guideline, nearly all a move. The client check ran Fable and Vite without `npm ci`, which would have emptied `node_modules` under the running dev server. |
 | 2, policies and the file order | #1169 | As planned, with one deviation: `ArgumentationPolicyTests.fs` stays after the order machines in the test project, since it reads the order plan machine's test fixtures; moving those fixtures to a file of their own would let it join its block. `TermText` got seven direct tests. 70 lines added and 64 removed in shipped code. |
 | 3, the comments | #1170 | Widened on the maintainer's request from the issue's items to every comment in Client.Core: plain, succinct English, domain nouns in lowercase, `///` on every union case and record field, the machines' invariants one line each, no backticks in doc comments. Comments only, checked file by file with a script that compares the code without comments and blank lines. 658 lines added and 670 removed, in one pull request at the maintainer's request. The argumentation item of the issue stays open. |
+
+
+## Addendum: Client.Core by kind (#1409)
+
+Added 2026-10-10. Plan [1409](1409-client-core-by-kind.md) gave Client.Core the layout the file
+order of step 2 above was heading for:
+
+- One folder per kind, each a namespace `Informedica.GenPRES.Client.Core.<Folder>`: `Models` (the
+  code from Shared that only the client uses), `Helpers`, `Policies`, `StateMachines` and
+  `MachinePolicies`, compiled in that order. `Models` comes first because it reads only Shared and
+  two helpers read it.
+- The entry files `Lanes.fs`, `Client.fs` and `Trail.fs` sit at the project root, in the root
+  namespace `Informedica.GenPRES.Client.Core`, so the root shows where the client starts.
+- Every file declares its namespace explicitly, `namespace ...` on its own line, followed by its
+  types and modules, with the opens inside each module.
+- Code opens the folder namespaces only, never the root namespace: with the root and Shared both
+  open, a name in both would resolve to whichever was opened last, without an error or warning.
+  A root file is reached through a module alias, `module Client = Informedica.GenPRES.Client.Core.Client`,
+  or opened by its full name; an alias cannot be opened.
+- A module moved from Shared keeps its name when Shared keeps nothing of that name (`Severity`,
+  `Terms`) and gets one of its own when it does (`PatientText`, `DoseTypeText`).
+- The test project mirrors the folders and namespaces.
+

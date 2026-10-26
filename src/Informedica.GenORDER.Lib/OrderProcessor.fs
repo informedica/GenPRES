@@ -11,6 +11,10 @@ module OrderProcessor =
     module Time = OrderVariable.Time
     module Rate = OrderVariable.Rate
     module Frequency = OrderVariable.Frequency
+    module PerTime = OrderVariable.PerTime
+    module QuantityAdjust = OrderVariable.QuantityAdjust
+    module PerTimeAdjust = OrderVariable.PerTimeAdjust
+    module RateAdjust = OrderVariable.RateAdjust
     module Dose = Orderable.Dose
     module Increment = Informedica.GenSolver.Lib.Variable.ValueRange.Increment
     module Name = Informedica.GenSolver.Lib.Variable.Name
@@ -107,6 +111,55 @@ module OrderProcessor =
         |> OrderPropertyChange.proc [ OrderableDose step ]
 
 
+    /// Check whether every component orderable quantity holds one value, so the user has set the
+    /// composition a dose is a part of.
+    let isComposed (ord: Order) =
+        ord.Orderable.Components
+        |> List.forall (
+            _.OrderableQuantity
+            >> Quantity.toOrdVar
+            >> _.Variable
+            >> Informedica.GenSolver.Lib.Variable.isSolved
+        )
+
+
+    /// Set the dose quantity of an order at a percentage of its range: the doses are cleared to any
+    /// positive value, the orderable dose quantity, its quantity per kg and its rate to their defined
+    /// constraints, the dose quantity at most the orderable quantity, the time to its constraints
+    /// and the dose count to min one, so the orderable and component orderable quantities keep the
+    /// composition the user set. Then the step picks a dose quantity. The time the order was solved
+    /// to is not kept: held to that time, the rate has to be a multiple of its increment at exactly
+    /// that time, and most percentages are then refused.
+    let orderPropertySetPercOrderableDoseQuantity step ord =
+        // the dose as the rules define it, up to the whole orderable
+        let definedUpToOrderable (dos: Dose) =
+            { dos with
+                Quantity =
+                    dos.Quantity
+                    |> Quantity.applyDefinedConstraints
+                    |> Quantity.setMaxToValueOf ord.Orderable.OrderableQuantity
+                QuantityAdjust = dos.QuantityAdjust |> OrderVariable.QuantityAdjust.applyDefinedConstraints
+                Rate = dos.Rate |> Rate.applyDefinedConstraints
+            }
+
+        ord
+        // clear the doses, the orderable dose as defined up to the orderable, the composition stays
+        |> OrderPropertyChange.proc
+            [
+                if ord.Schedule |> Schedule.hasTime then
+                    ScheduleTime Time.applyConstraints
+
+                OrderableDoseCount OrderVariable.Count.setMinToOne
+
+                OrderableDose Dose.setToNonZeroPositive
+                OrderableDose definedUpToOrderable
+                ComponentDose("", Dose.setToNonZeroPositive)
+                ItemDose("", "", Dose.setToNonZeroPositive)
+            ]
+        // set the percentage
+        |> OrderPropertyChange.proc [ OrderableDose step ]
+
+
     // == Property Change Component Quantity
 
     /// <summary>
@@ -179,6 +232,10 @@ module OrderProcessor =
         let setCmpOrbQty cmp step =
             OrderPropertyChange.proc [ ComponentOrderableQuantity(cmp, step) ]
 
+        let set change = OrderPropertyChange.proc [ change ]
+
+        let setItmDose cmp itm step = OrderPropertyChange.proc [ ItemDose(cmp, itm, step) ]
+
         match cmd with
         // Frequency
         | DecreaseScheduleFrequency -> ord |> orderPropertyIncrOrDecrFrequency Frequency.decrease
@@ -196,7 +253,14 @@ module OrderProcessor =
         | SetMinOrderableDoseQuantity -> ord |> setDose (Dose.setMinDose ord.Schedule false)
         | SetMaxOrderableDoseQuantity -> ord |> setDose (Dose.setMaxDose ord.Schedule false)
         | SetMedianOrderableDoseQuantity -> ord |> setDose (Dose.setMedianDose ord.Schedule false)
-        | SetOrderableDoseQuantityPerc n -> ord |> setDose (Dose.setPercValue n ord.Schedule false)
+        // the percentage of a dose that is a part of a composition the user set; without one the
+        // order is left as it is
+        | SetOrderableDoseQuantityPerc n ->
+            match ord |> isComposed with
+            | true ->
+                ord
+                |> orderPropertySetPercOrderableDoseQuantity (Dose.setPercValue n ord.Schedule false)
+            | false -> ord
         // Dose Rate
         | DecreaseOrderableDoseRate(n, useCalc) ->
             ord |> orderPropertyIncrOrDecrOrderableDoseRate (Dose.decreaseRate useCalc n)
@@ -218,6 +282,56 @@ module OrderProcessor =
         | ComponentInStock _ ->
             $"{cmd} not implemented" |> Events.OrderScenario |> Logging.logWarning logger
             ord
+        // the nth value of one variable
+        | SetNthScheduleFrequency n -> ord |> setFreq (Frequency.setNthValue n)
+        | SetNthScheduleTime n -> ord |> set (ScheduleTime(Time.setNthValue n))
+        | SetNthOrderableQuantity n -> ord |> set (OrderableQuantity(Quantity.setNthValue n))
+        | SetNthOrderableDoseQuantity n -> ord |> setDose (Dose.applyToQuantity (Quantity.setNthValue n))
+        | SetNthOrderableDoseRate n -> ord |> setDose (Dose.applyToRate (Rate.setNthValue n))
+        | SetNthComponentOrderableQuantity(cmp, n) -> ord |> setCmpOrbQty cmp (Quantity.setNthValue n)
+        | SetNthComponentDoseQuantityAdjust(cmp, n) ->
+            ord
+            |> set (ComponentDose(cmp, Dose.applyToQuantityAdjust (QuantityAdjust.setNthValue n)))
+        | SetNthItemDoseQuantity(cmp, itm, n) ->
+            ord |> setItmDose cmp itm (Dose.applyToQuantity (Quantity.setNthValue n))
+        | SetNthItemDoseQuantityAdjust(cmp, itm, n) ->
+            ord
+            |> setItmDose cmp itm (Dose.applyToQuantityAdjust (QuantityAdjust.setNthValue n))
+        | SetNthItemDosePerTime(cmp, itm, n) -> ord |> setItmDose cmp itm (Dose.applyToPerTime (PerTime.setNthValue n))
+        | SetNthItemDosePerTimeAdjust(cmp, itm, n) ->
+            ord
+            |> setItmDose cmp itm (Dose.applyToPerTimeAdjust (PerTimeAdjust.setNthValue n))
+        | SetNthItemDoseRate(cmp, itm, n) -> ord |> setItmDose cmp itm (Dose.applyToRate (Rate.setNthValue n))
+        | SetNthItemDoseRateAdjust(cmp, itm, n) ->
+            ord |> setItmDose cmp itm (Dose.applyToRateAdjust (RateAdjust.setNthValue n))
+        | SetNthItemComponentConcentration(cmp, itm, n) ->
+            ord |> set (ItemComponentConcentration(cmp, itm, Concentration.setNthValue n))
+        | SetNthItemOrderableConcentration(cmp, itm, n) ->
+            ord |> set (ItemOrderableConcentration(cmp, itm, Concentration.setNthValue n))
+        | SetNthItemOrderableQuantity(cmp, itm, n) ->
+            ord |> set (ItemOrderableQuantity(cmp, itm, Quantity.setNthValue n))
+        // one variable cleared
+        | ClearScheduleFrequency -> ord |> setFreq Frequency.clear
+        | ClearScheduleTime -> ord |> set (ScheduleTime Time.clear)
+        | ClearOrderableQuantity -> ord |> set (OrderableQuantity Quantity.clear)
+        | ClearOrderableDoseQuantity -> ord |> setDose (Dose.applyToQuantity Quantity.clear)
+        | ClearOrderableDoseRate -> ord |> setDose (Dose.applyToRate Rate.clear)
+        | ClearComponentOrderableQuantity cmp -> ord |> setCmpOrbQty cmp Quantity.clear
+        | ClearComponentDoseQuantityAdjust cmp ->
+            ord |> set (ComponentDose(cmp, Dose.applyToQuantityAdjust QuantityAdjust.clear))
+        | ClearItemDoseQuantity(cmp, itm) -> ord |> setItmDose cmp itm (Dose.applyToQuantity Quantity.clear)
+        | ClearItemDoseQuantityAdjust(cmp, itm) ->
+            ord |> setItmDose cmp itm (Dose.applyToQuantityAdjust QuantityAdjust.clear)
+        | ClearItemDosePerTime(cmp, itm) -> ord |> setItmDose cmp itm (Dose.applyToPerTime PerTime.clear)
+        | ClearItemDosePerTimeAdjust(cmp, itm) ->
+            ord |> setItmDose cmp itm (Dose.applyToPerTimeAdjust PerTimeAdjust.clear)
+        | ClearItemDoseRate(cmp, itm) -> ord |> setItmDose cmp itm (Dose.applyToRate Rate.clear)
+        | ClearItemDoseRateAdjust(cmp, itm) -> ord |> setItmDose cmp itm (Dose.applyToRateAdjust RateAdjust.clear)
+        | ClearItemComponentConcentration(cmp, itm) ->
+            ord |> set (ItemComponentConcentration(cmp, itm, Concentration.clear))
+        | ClearItemOrderableConcentration(cmp, itm) ->
+            ord |> set (ItemOrderableConcentration(cmp, itm, Concentration.clear))
+        | ClearItemOrderableQuantity(cmp, itm) -> ord |> set (ItemOrderableQuantity(cmp, itm, Quantity.clear))
 
 
     let processClearedFrequency ord =
@@ -304,24 +418,27 @@ module OrderProcessor =
             ]
 
 
+    /// Whether the rate of the order waits for its dose quantity: the rate of a timed or once timed
+    /// order gets its values only once the dose quantity has one value.
+    let rateWaits (ord: Order) =
+        ord.Schedule |> Schedule.hasTime && ord.Schedule |> Schedule.isContinuous |> not
+
+
     /// Process an order that has been cleared
     /// by setting relevant variables to non-zero positive
-    /// values and solving the order again
-    let processClearedOrder logger ord =
+    /// values and solving the order again, pruned with the caps given
+    let processClearedOrderWith caps logger ord =
         // small helpers to clarify post-processing after property changes
-        let solveAndToValues minTime skipRate =
+        let solveAndToValues skipRate =
             solveMinMax "Process Cleared Order" true logger
-            >> Result.map (minIncrMaxToValues true minTime skipRate logger)
+            >> Result.bind (minIncrMaxToValues caps true skipRate logger)
 
         let defaultInc = 100
 
-        let solveIncrIncrAndToValues minTime skipRate =
+        let solveIncrIncrAndToValues skipRate =
             solveMinMax "Process Cleared Order" true logger
-            >> Result.bind (increaseIncrements logger defaultInc defaultInc)
-            >> Result.map (minIncrMaxToValues true minTime skipRate logger)
-
-        let hasTimeNotContinuous =
-            ord.Schedule |> Schedule.hasTime && ord.Schedule |> Schedule.isContinuous |> not
+            >> Result.bind (increaseIncrements logger defaultInc)
+            >> Result.bind (minIncrMaxToValues caps true skipRate logger)
 
         let logUnmatched (kind: string) =
             // FLAG: expensive message build (toConsoleTableString renders a full
@@ -340,7 +457,7 @@ module OrderProcessor =
             | RateCleared ->
                 "Rate or Time cleared" |> Events.OrderScenario |> Logging.logInfo logger
 
-                ord |> processClearedRate |> solveAndToValues true false
+                ord |> processClearedRate |> solveAndToValues false
             | _ ->
                 logUnmatched "continuous"
                 ord |> solveOrder "Process Cleared Order" true logger
@@ -353,7 +470,7 @@ module OrderProcessor =
                 |> Events.OrderScenario
                 |> Logging.logInfo logger
 
-                ord |> processClearedDose |> solveIncrIncrAndToValues true false
+                ord |> processClearedDose |> solveIncrIncrAndToValues false
             | _ ->
                 logUnmatched "discontinuous"
                 ord |> solveOrder "Process Cleared Order" true logger
@@ -364,17 +481,21 @@ module OrderProcessor =
             | TimeCleared ->
                 "Rate or Time cleared" |> Events.OrderScenario |> Logging.logInfo logger
 
-                ord |> processClearedRate |> solveAndToValues false hasTimeNotContinuous
+                ord |> processClearedRate |> solveAndToValues (ord |> rateWaits)
             | DosePerTimeCleared
             | DoseQuantityCleared ->
                 "Dose per time or quantity cleared"
                 |> Events.OrderScenario
                 |> Logging.logInfo logger
 
-                ord |> processClearedDose |> solveIncrIncrAndToValues false hasTimeNotContinuous
+                ord |> processClearedDose |> solveIncrIncrAndToValues (ord |> rateWaits)
             | _ ->
                 logUnmatched "timed"
                 ord |> solveOrder "Process Cleared Order" true logger
+
+
+    /// Process an order that has been cleared, pruned with the default caps.
+    let processClearedOrder logger ord = processClearedOrderWith ValueCaps.defaults logger ord
 
 
     type GenSolverExceptionMsg = Informedica.GenSolver.Lib.Types.Exceptions.Message
@@ -462,7 +583,8 @@ module OrderProcessor =
             HasValues = ord |> hasValues
             CanSetNormDose =
                 [
-                    if ord.Schedule |> Schedule.hasTime then
+                    // a timed or once timed order gets its rate values after the dose quantity
+                    if ord.Schedule.IsContinuous then
                         ord.Orderable.Dose.Rate |> Rate.toOrdVar
                     if ord.Schedule.IsContinuous |> not then
                         ord.Orderable.Dose.Quantity |> Quantity.toOrdVar
@@ -492,10 +614,11 @@ module OrderProcessor =
     /// Process an order through a pipeline of steps
     /// depending on the command given
     /// </summary>
+    /// <param name="caps">The maximum number of values a pruned variable keeps, per schedule</param>
     /// <param name="logger">The logger</param>
     /// <param name="cmd">The command to process</param>
     /// <returns>A Result with the processed Order or a list of error messages</returns>
-    let rec processPipeline logger cmd =
+    let rec processPipelineWith caps logger cmd =
 
         let runStep (step: Step) (ord: Order) =
             if step.Guard(classify ord) then
@@ -542,18 +665,61 @@ module OrderProcessor =
 
         let applyCalculatedConstraintsStep = applyCalculatedConstraints >> Ok
 
-        let increaseIncrementStep ord = ord |> increaseIncrements logger 10 10
+        let increaseIncrementStep ord = ord |> increaseIncrements logger 10
 
-        let calcValuesStep useMax skipRate ord = ord |> minIncrMaxToValues useMax true skipRate logger |> Ok
+        let calcValuesStep useMax skipRate ord = ord |> minIncrMaxToValues caps useMax skipRate logger
 
-        let reCalcValuesStep useMax skipRate ord = ord |> minIncrMaxToValues useMax false skipRate logger |> Ok
+        let rateIsRange (ord: Order) =
+            (ord.Orderable.Dose.Rate |> Rate.toOrdVar).Variable
+            |> Informedica.GenSolver.Lib.Variable.isMinIncrMax
+
+        // the rate of a timed or once timed order gets its values once the dose quantity has one
+        // value, and only while the rate is still a range
+        let rateStage useMax (ord: Order) =
+            if
+                ord |> rateWaits
+                && ord.Orderable.Dose.Quantity |> Quantity.toOrdVar |> OrderVariable.isSolved
+                && ord |> rateIsRange
+            then
+                ord |> calcValuesStep useMax false
+            else
+                Ok ord
+
+        // a rate list made when the scenario is selected or after a pick gets its median, as the
+        // norm dose gets the median dose quantity, so the order solves; a rate that already has a
+        // list, as after a reset or a reopen, keeps it to pick from
+        let rateStageWithMedian useMax (ord: Order) =
+            if ord |> rateIsRange |> not then
+                Ok ord
+            else
+                ord
+                |> rateStage useMax
+                |> Result.bind (fun ord ->
+                    if ord |> rateIsRange then
+                        Ok ord
+                    else
+                        let dos = { ord.Orderable.Dose with Rate = ord.Orderable.Dose.Rate |> Rate.setMedianValue }
+                        let medOrd = { ord with Orderable = { ord.Orderable with Dose = dos } }
+
+                        // a list of one rate is its own median and needs no solve
+                        if medOrd = ord then
+                            Ok ord
+                        else
+                            medOrd |> solveOrder "Median Rate" true logger
+                )
 
         let solveStep ord = solveOrder "Solve Order Step" true logger ord
 
         let calcNormDoseStep = solveNormDose logger
 
+        // the scenario list keeps only the orders that solve, so a failure here keeps the order before
+        let tolerantCalcValuesStep useMax skipRate ord =
+            match calcValuesStep useMax skipRate ord with
+            | Ok o -> Ok o
+            | Error _ -> Ok ord
+
         let processClearedStep ord =
-            match processClearedOrder logger ord with
+            match processClearedOrderWith caps logger ord with
             | Ok o -> Ok o
             | Error _ -> solveOrder "Error in Cleared Step Solve again" true logger ord
 
@@ -575,9 +741,6 @@ module OrderProcessor =
         let reCalcSteps ord =
             let useMax = ord.Orderable.Components |> List.length <= 2
 
-            let hasTimeNotContinuous =
-                ord.Schedule |> Schedule.hasTime && ord.Schedule |> Schedule.isContinuous |> not
-
             [
                 {
                     Name = "recalc-values: apply-calculated-constraints"
@@ -587,13 +750,13 @@ module OrderProcessor =
                 {
                     Name = "recalc-values: calc-qty-values"
                     Guard = (fun _ -> true)
-                    Run = reCalcValuesStep useMax hasTimeNotContinuous
+                    Run = calcValuesStep useMax (ord |> rateWaits)
                 }
-                if hasTimeNotContinuous then
+                if ord |> rateWaits then
                     {
                         Name = "recalc-values: calc-rate-values"
                         Guard = (fun _ -> true)
-                        Run = reCalcValuesStep useMax false
+                        Run = rateStage useMax
                     }
             ]
 
@@ -605,18 +768,25 @@ module OrderProcessor =
             }
 
         // the values ensured, solved, and the component quantity picked, as a solve ends
-        let solveSteps ord =
+        // rateStep makes the rate list once the dose quantity has one value: with its median for a
+        // selection or a new pick, without it after a clear or a reopen, so the list comes back
+        let solveSteps rateStep ord =
             [
                 {
                     Name = "solve-order: ensure-values-1"
                     Guard = (_.HasValues >> not)
-                    Run = calcValuesStep (ord.Orderable.Components |> List.length <= 2) false
+                    Run = calcValuesStep (ord.Orderable.Components |> List.length <= 2) (ord |> rateWaits)
                 }
                 finalSolveStep
                 {
                     Name = "solve-order: pick-cmp-qty"
                     Guard = (fun _ -> true)
                     Run = pickNearestHigherElseLowerComponentQuantityStep
+                }
+                {
+                    Name = "solve-order: calc-rate-values"
+                    Guard = (fun _ -> true)
+                    Run = rateStep (ord.Orderable.Components |> List.length <= 2)
                 }
             ]
 
@@ -645,13 +815,10 @@ module OrderProcessor =
                 }
                 // norm dose calc needs dose qty values; for timed orders rate is deferred (staged expansion)
                 if ord |> hasNormDose && ord.Orderable.Components |> List.length <= 2 then
-                    let hasTimeNotContinuous =
-                        ord.Schedule |> Schedule.hasTime && ord.Schedule |> Schedule.isContinuous |> not
-
                     {
                         Name = "solve-order: ensure-dose-values-1"
                         Guard = _.CanSetNormDose >> not
-                        Run = calcValuesStep (ord.Orderable.Components |> List.length <= 2) hasTimeNotContinuous
+                        Run = tolerantCalcValuesStep (ord.Orderable.Components |> List.length <= 2) (ord |> rateWaits)
                     }
 
                     {
@@ -678,20 +845,17 @@ module OrderProcessor =
                 && os.DoseIsSolved |> not
                 && os.OrderIsSolved |> not
 
-            let hasTimeNotContinuous =
-                ord.Schedule |> Schedule.hasTime && ord.Schedule |> Schedule.isContinuous |> not
-
             [
                 {
                     Name = "calc-values: calc-qty-values"
                     Guard = guard
-                    Run = calcValuesStep false hasTimeNotContinuous
+                    Run = calcValuesStep false (ord |> rateWaits)
                 }
-                if hasTimeNotContinuous then
+                if ord |> rateWaits then
                     {
                         Name = "calc-values: calc-rate-values"
                         Guard = guard
-                        Run = calcValuesStep false false
+                        Run = rateStageWithMedian false
                     }
             ]
             |> runPipeline ord
@@ -703,16 +867,28 @@ module OrderProcessor =
                     Guard = (fun os -> os.DoseIsSolved && os.IsCleared)
                     Run = processClearedStep
                 }
-                yield! solveSteps ord
+                // an order that arrives with a cleared value gets the rate list back
+                yield! ord |> solveSteps (if ord |> isCleared then rateStage else rateStageWithMedian)
             ]
             |> runPipeline ord
 
         | ReCalcValues ord -> reCalcSteps ord @ [ finalSolveStep ] |> runPipeline ord
 
         | Reopen(ord, picks) ->
+            // a rate of a timed or once timed order cleared without being a pick, as its median is,
+            // reopens with every pick put back, so the rate list comes back
+            let rateNotAPick =
+                match ord with
+                | RateCleared when ord |> rateWaits ->
+                    let rte = ord.Orderable.Dose.Rate |> Rate.toOrdVar |> nameOf
+                    picks |> List.contains rte |> not
+                | _ -> false
+
             match ord |> clearedPick picks with
-            | None -> SolveOrder ord |> processPipeline logger
-            | Some earlier ->
+            | None when rateNotAPick |> not -> SolveOrder ord |> processPipelineWith caps logger
+            | cleared ->
+                let earlier = cleared |> Option.defaultValue picks
+
                 // the earlier picks as they arrived, put back over the reset order
                 let arrived =
                     ord
@@ -726,7 +902,8 @@ module OrderProcessor =
                         Guard = (fun _ -> true)
                         Run = Order.fromOrdVars arrived >> Ok
                     }
-                    yield! solveSteps ord
+                    // a reopen gives the rate list back, without the median
+                    yield! solveSteps rateStage ord
                 ]
                 |> runPipeline ord
                 |> function
@@ -736,7 +913,7 @@ module OrderProcessor =
                         |> Events.OrderScenario
                         |> Logging.logWarning logger
 
-                        SolveOrder ord |> processPipeline logger
+                        SolveOrder ord |> processPipelineWith caps logger
 
         | ChangeProperty(ord, cmd) -> //ord |> processChangeProperty cmd |> Ok
             [
@@ -752,3 +929,7 @@ module OrderProcessor =
                 }
             ]
             |> runPipeline ord
+
+
+    /// Process an order through the pipeline of the command given, pruned with the default caps.
+    let processPipeline logger cmd = processPipelineWith ValueCaps.defaults logger cmd

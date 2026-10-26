@@ -2,9 +2,11 @@
 
 **Date**: 2026-04-27
 
-**Status**: Accepted
+**Status**: Accepted, amended (2026-10-10)
 
 **Formerly**: ADR-0019, renumbered on 2026-09-06 when `docs/adr/` was made contiguous (see [ADR-0000](0000-documentation-rules.md)).
+
+**Related Issue** (amendment): [#1409 — Client.Core by kind](https://github.com/informedica/GenPRES/issues/1409)
 
 **Related PRs**:
 
@@ -119,6 +121,18 @@ most appropriate one for the clinical context:
 
 KDIGO 2012 GFR classification (`G1`–`G5`, plus `G3a`/`G3b`) is provided as a
 standalone `classifyGfr` function.
+
+### Unused formulas removed — amended 2026-10-10
+
+The server never used the formulas in `Shared/Calculations.fs`: GenCORE has its own, in
+`Informedica.GenCORE.Lib/Calculations.fs`. The client used only the Du Bois body surface area
+for the patient display. Everything else was removed: the other four BSA formulas, the age
+utilities except `weeksToDays`, the renal unit conversions, the eGFR formulas and the GFR
+classification.
+
+What is left in Shared is `Age.weeksToDays`, which the patient readers use. `calcDuBois`, the
+`Conversions` it needs and the `bsa` unit moved to Client.Core with the patient display, as
+`BodySurfaceArea`. The single source of truth this ADR aimed for is GenCORE, on the server.
 
 ## Consequences
 

@@ -2,7 +2,7 @@ namespace ServerApi
 
 open Informedica.GenOrder.Lib
 // after the domain, so that the contract model's cases win unqualified
-open Shared.Types
+open Informedica.GenPRES.Shared.Types
 
 
 /// The order plan mapper: the contract model's order plan to the domain's Dto and back, its

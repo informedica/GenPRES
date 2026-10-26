@@ -7,7 +7,7 @@ module Informedica.GenPRES.Server.Tests.IdleSessionTests
 open System
 open Expecto
 open Expecto.Flip
-open Shared.Types
+open Informedica.GenPRES.Shared.Types
 open ServerApi
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.SessionStubTests
 
@@ -227,14 +227,13 @@ let portTests =
                 | other -> failtest $"expected still ended idle, got %A{other}"
             }
 
-            testAsync "a computing request in an idle Session is told the ending and no age" {
+            testAsync "a computing request in an idle Session is told the ending" {
                 let clock = ref (openedAt + TimeSpan.FromHours 2.0)
                 let port = portAt clock (stateSeenAt openedAt)
 
                 let! told = port.seen sid None None
 
-                told
-                |> Expect.equal "the ending" (Some(RecordNotice.Ended SessionEnding.Idle), None)
+                told |> Expect.equal "the ending" (Some(RecordNotice.Ended SessionEnding.Idle))
             }
 
             testAsync "a signing request keeps the Session alive, also one refused before its challenge" {
@@ -311,9 +310,9 @@ let signingTests =
                 let env =
                     { Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters.makeEnv
                           (Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters.formularyAlwaysOk
-                              Shared.Models.Formulary.empty)
+                              Informedica.GenPRES.Shared.Models.Formulary.empty)
                           (Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters.orderContextAlwaysOk
-                              Shared.Models.OrderContext.empty) with
+                              Informedica.GenPRES.Shared.Models.OrderContext.empty) with
                         session = port
                     }
 
@@ -330,10 +329,12 @@ let signingTests =
                     SigningCommand.processCmd
                         env
                         cookie
-                        (Shared.Api.SigningCommand.RequestSignChallenge(plan, OpenedToken "t", None))
+                        (Informedica.GenPRES.Shared.Api.SigningCommand.RequestSignChallenge(plan, OpenedToken "t", None))
 
                 response
-                |> Expect.equal "refused" (Shared.Types.SigningResponse.Refused SigningRefusal.StoreFailed)
+                |> Expect.equal
+                    "refused"
+                    (Informedica.GenPRES.Shared.Types.SigningResponse.Refused SigningRefusal.StoreFailed)
             }
         ]
 

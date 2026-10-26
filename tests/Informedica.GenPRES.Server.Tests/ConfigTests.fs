@@ -278,24 +278,20 @@ let languageTests =
                 Map.empty
                 |> settings
                 |> Config.language
-                |> Expect.equal "default" (Ok Shared.Localization.Dutch)
+                |> Expect.equal "default" (Ok Informedica.GenPRES.Shared.Localization.Dutch)
             }
 
             testList
-                "accepted spellings: ISO code, display name, legacy url code, any case"
+                "accepted spellings: an ISO 639-1 code, any case"
                 [
                     for raw, lang in
                         [
-                            "en", Shared.Localization.English
-                            "NL", Shared.Localization.Dutch
-                            " fr ", Shared.Localization.French
-                            "de", Shared.Localization.German
-                            "es", Shared.Localization.Spanish
-                            "it", Shared.Localization.Italian
-                            "du", Shared.Localization.Dutch
-                            "gr", Shared.Localization.German
-                            "sp", Shared.Localization.Spanish
-                            "Nederlands", Shared.Localization.Dutch
+                            "en", Informedica.GenPRES.Shared.Localization.English
+                            "NL", Informedica.GenPRES.Shared.Localization.Dutch
+                            " fr ", Informedica.GenPRES.Shared.Localization.French
+                            "de", Informedica.GenPRES.Shared.Localization.German
+                            "es", Informedica.GenPRES.Shared.Localization.Spanish
+                            "it", Informedica.GenPRES.Shared.Localization.Italian
                         ] do
                         test $"'{raw}'" {
                             Map [ "GENPRES_LANG", raw ]
@@ -354,7 +350,8 @@ let languageTests =
                 |> Expect.equal
                     "demo, English"
                     {
-                        Shared.Api.ServerSettings.Language = Shared.Localization.English
+                        Informedica.GenPRES.Shared.Api.ServerSettings.Language =
+                            Informedica.GenPRES.Shared.Localization.English
                         IsDemo = true
                         Departments = [| "ICK" |]
                         DefaultDepartment = "ICK"
@@ -365,7 +362,8 @@ let languageTests =
                 |> Expect.equal
                     "production, Dutch"
                     {
-                        Shared.Api.ServerSettings.Language = Shared.Localization.Dutch
+                        Informedica.GenPRES.Shared.Api.ServerSettings.Language =
+                            Informedica.GenPRES.Shared.Localization.Dutch
                         IsDemo = false
                         Departments = [| "ICK" |]
                         DefaultDepartment = "ICK"

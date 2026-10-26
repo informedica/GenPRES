@@ -14,7 +14,7 @@ open Fable.Core
 open Fable.Core.JsInterop
 open Feliz
 open System
-open Shared
+open Informedica.GenPRES.Shared
 
 type IUrlSearchParameters =
     abstract entries: unit -> seq<string array>
@@ -47,7 +47,6 @@ module Router =
     [<Literal>]
     let customNavigationEvent = "CUSTOM_NAVIGATION_EVENT"
 
-    let inline hashPrefix str = "#/" + str
     let inline combine xs = String.concat "/" xs
 
     type RouterProps =

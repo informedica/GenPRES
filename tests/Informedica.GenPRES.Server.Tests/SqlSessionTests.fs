@@ -7,7 +7,7 @@ open System.IO
 open Expecto
 open Expecto.Flip
 open Microsoft.Data.Sqlite
-open Shared.Types
+open Informedica.GenPRES.Shared.Types
 open ServerApi
 // the canonical serializer the stored patient is written with
 open Informedica.GenOrder.Lib

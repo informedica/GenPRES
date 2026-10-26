@@ -79,23 +79,6 @@
 !/.github/ISSUE_TEMPLATE/
 !/.github/PULL_REQUEST_TEMPLATE/
 
-# Add Claude Code shared config
-!/.claude/
-!/.claude/CLAUDE.md
-!/.claude/docs/
-!/.claude/docs/**
-# Per-session agent scratch written per CLAUDE.md; kept locally, never committed
-/.claude/docs/session-log.md
-/.claude/docs/session-decisions.md
-# Local migration patches (script-only workflow); applied by hand, never committed
-/.claude/docs/*.patch
-!/.claude/commands/
-!/.claude/commands/**
-!/.claude/skills/
-!/.claude/skills/**
-!/.claude/agents/
-!/.claude/agents/**
-
 # Add devcontainer
 !/.devcontainer/
 !/.devcontainer/*
@@ -155,6 +138,7 @@
 !/docs/scenarios/tpn-prescribing/
 !/docs/data-extraction/
 !/docs/domain/
+!/docs/domain/medication.schema.json
 !/docs/adr/
 !/docs/implementation-plans/
 # fsdocs literate-content input for the generated API reference (issue #460). The
@@ -278,11 +262,17 @@
 !/src/Informedica.GenPRES.Client/Utils/
 !/src/Informedica.GenPRES.Client/Domain/
 !/src/Informedica.GenPRES.Client/Components/
+!/src/Informedica.GenPRES.Client/Hooks/
 !/src/Informedica.GenPRES.Client/Views/
 !/src/Informedica.GenPRES.Client/Pages/
 # Informedica.GenPRES.Client.Core
 !/src/Informedica.GenPRES.Client.Core/
 !/src/Informedica.GenPRES.Client.Core/Scripts/
+!/src/Informedica.GenPRES.Client.Core/Helpers/
+!/src/Informedica.GenPRES.Client.Core/Models/
+!/src/Informedica.GenPRES.Client.Core/Policies/
+!/src/Informedica.GenPRES.Client.Core/StateMachines/
+!/src/Informedica.GenPRES.Client.Core/MachinePolicies/
 
 # tests
 !/tests/
@@ -349,8 +339,19 @@
 # Add Informedica.GenPRES.Shared
 !/tests/Informedica.GenPRES.Shared.Tests
 !/tests/Informedica.GenPRES.Shared.Tests/Scripts/
+!/tests/Informedica.GenPRES.Shared.Tests/fixtures/
+!/tests/Informedica.GenPRES.Shared.Tests/fixtures/*.csv
+!/tests/Informedica.GenPRES.Shared.Tests/fixtures/*.tsv
 # Informedica.GenPRES.Client.Core.Tests
 !/tests/Informedica.GenPRES.Client.Core.Tests/
+!/tests/Informedica.GenPRES.Client.Core.Tests/Helpers/
+!/tests/Informedica.GenPRES.Client.Core.Tests/Policies/
+!/tests/Informedica.GenPRES.Client.Core.Tests/StateMachines/
+!/tests/Informedica.GenPRES.Client.Core.Tests/MachinePolicies/
+!/tests/Informedica.GenPRES.Client.Core.Tests/Models/
+!/tests/Informedica.GenPRES.Client.Core.Tests/fixtures/
+!/tests/Informedica.GenPRES.Client.Core.Tests/fixtures/*.csv
+!/tests/Informedica.GenPRES.Client.Core.Tests/fixtures/*.tsv
 # Add Informedica.GenPRES.Server
 !/tests/Informedica.GenPRES.Server.Tests
 !/tests/Informedica.GenPRES.Server.Tests/Scripts/

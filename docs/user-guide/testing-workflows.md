@@ -57,7 +57,7 @@ This document describes reproducible testing procedures for developers and QA te
 1. Open the following URL directly in the browser:
 
    ```url
-   http://localhost:5173/#patient?by=2015&bm=6&bd=1&wt=20000&ht=115&pg=pr
+   http://localhost:5173/#patient?byr=2015&bmo=6&bdy=1&wgt=20000&hgt=115&pag=pr
    ```
 
 2. **Expected**: The application loads with the patient context already set (age ≈ 10 years, weight 20 kg, height 115 cm) and the Prescribe view is active.
@@ -79,7 +79,7 @@ GenPRES performs all calculations using exact rational arithmetic (BigRationals)
 1. Open:
 
    ```url
-   http://localhost:5173/#patient?by=2010&bm=1&bd=1&wt=30000&ht=130&pg=pr
+   http://localhost:5173/#patient?byr=2010&bmo=1&bdy=1&wgt=30000&hgt=130&pag=pr
    ```
 
 2. Select **paracetamol** (or another weight-based medication).
@@ -103,7 +103,7 @@ GenPRES performs all calculations using exact rational arithmetic (BigRationals)
 1. Open:
 
    ```url
-   http://localhost:5173/#patient?by=2015&bm=1&bd=1&wt=20000&ht=115&pg=cm
+   http://localhost:5173/#patient?byr=2015&bmo=1&bdy=1&wgt=20000&hgt=115&pag=cm
    ```
 
 2. Select a continuous infusion medication (e.g., *morfine* / morphine).
@@ -123,7 +123,7 @@ GenPRES performs all calculations using exact rational arithmetic (BigRationals)
 1. Open:
 
    ```url
-   http://localhost:5173/#patient?by=2018&bm=1&bd=1&wt=12000&ht=85&pg=el
+   http://localhost:5173/#patient?byr=2018&bmo=1&bdy=1&wgt=12000&hgt=85&pag=el
    ```
 
 2. **Expected**: A list of emergency medications is displayed with pre-calculated doses based on the patient weight (12 kg).
@@ -143,7 +143,7 @@ GenPRES performs all calculations using exact rational arithmetic (BigRationals)
 1. Open:
 
    ```url
-   http://localhost:5173/#patient?ad=5&wt=3200&gw=39&gd=2&pg=pr
+   http://localhost:5173/#patient?agd=5&wgt=3200&gaw=39&gad=2&pag=pr
    ```
 
    (Age: 5 days, weight: 3200 g, gestational age: 39 weeks + 2 days)
@@ -164,14 +164,14 @@ GenPRES performs all calculations using exact rational arithmetic (BigRationals)
 1. Open:
 
    ```url
-   http://localhost:5173/#patient?by=2010&bm=1&bd=1&wt=30000&ht=130&pg=pr&la=en
+   http://localhost:5173/#patient?byr=2010&bmo=1&bdy=1&wgt=30000&hgt=130&pag=pr&lan=en
    ```
 
 2. **Expected**: UI labels and instructions are displayed in English.
 3. Compare with:
 
    ```url
-   http://localhost:5173/#patient?by=2010&bm=1&bd=1&wt=30000&ht=130&pg=pr&la=du
+   http://localhost:5173/#patient?byr=2010&bmo=1&bdy=1&wgt=30000&hgt=130&pag=pr&lan=nl
    ```
 
 4. **Expected**: UI labels switch to Dutch.

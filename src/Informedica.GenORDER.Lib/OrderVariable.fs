@@ -649,6 +649,26 @@ module OrderVariable =
             }
 
 
+    /// Set the Variable of an OrderVariable to its defined constraints; the constraints stay as
+    /// they are.
+    let applyDefinedConstraints (ovar: OrderVariable) =
+        { ovar with Variable = { ovar.Variable with Values = ovar.DefinedConstraints |> Constraints.toValueRange } }
+
+
+    /// Lower the maximum of the Variable of an OrderVariable to the value of upTo, when upTo holds
+    /// one value and that is lower.
+    let setMaxToValueOf upTo (ovar: OrderVariable) =
+        match upTo |> getValSetValueUnit with
+        | None -> ovar
+        | Some vu ->
+            { ovar with
+                Variable =
+                    { ovar.Variable with
+                        Values = ovar.Variable.Values |> ValueRange.setMax (vu |> Maximum.create true)
+                    }
+            }
+
+
     /// Check whether the Values of the Variable of an OrderVariable
     /// are within the Constraints of the OrderVariable
     let isWithinConstraints useCalc ovar =
@@ -872,16 +892,17 @@ module OrderVariable =
     /// Calculate a ValueSet for a Variable of an OrderVariable if the Value
     /// of the Variable is a MinIncrMax
     /// </summary>
-    /// <param name="ovar">The OrderVariable to change min incr max to a ValueSet</param>
+    /// <param name="steps">The rounded steps the prune keeps the multiples of</param>
     /// <param name="n">Prune the ValueSet to max n values</param>
+    /// <param name="ovar">The OrderVariable to change min incr max to a ValueSet</param>
     /// <returns>An OrderVariable with a Variable with a ValueSet if this can be calculated</returns>
-    let minIncrMaxToValues n (ovar: OrderVariable) =
+    let minIncrMaxToValues steps n (ovar: OrderVariable) =
         { ovar with
             Variable =
                 if ovar.Variable |> Variable.isMinIncrMax |> not then
                     ovar.Variable
                 else
-                    ovar.Variable |> Variable.minIncrMaxToValues n
+                    ovar.Variable |> Variable.minIncrMaxToValues steps n
         }
 
 
@@ -910,28 +931,6 @@ module OrderVariable =
     /// to a given value range
     let setValueRange vr (ovar: OrderVariable) =
         { ovar with Variable = ovar.Variable |> Variable.setValueRange vr }
-
-
-    /// Get the indices of the Values of the Variable of an OrderVariable
-    /// that are within the Constraints of the OrderVariable
-    let getIndices (ovar: OrderVariable) =
-        ovar.Variable
-        |> Variable.getValueRange
-        |> ValueRange.getIndices (ovar.DefinedConstraints |> Constraints.toValueRange)
-
-
-    /// <summary>
-    /// Apply the indices to the Values of the Variable of an OrderVariable
-    /// </summary>
-    /// <param name="indices">The indices to apply</param>
-    /// <param name="ovar">The OrderVariable</param>
-    let applyIndices (indices: int[]) (ovar: OrderVariable) =
-        { ovar with
-            OrderVariable.Variable.Values =
-                ovar.DefinedConstraints
-                |> Constraints.toValueRange
-                |> ValueRange.pickIndices indices
-        }
 
 
     /// Check whether the Values of the Variable of an OrderVariable
@@ -1551,6 +1550,10 @@ module OrderVariable =
         let clear = toOrdVar >> clear >> time
 
 
+        /// Set the variable to its nth value, counted from 0.
+        let setNthValue nth = toOrdVar >> setNthValue nth >> time
+
+
         /// Set Time to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> time
 
@@ -1780,10 +1783,6 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> Concentration
 
 
-        /// Apply selected indices to the values of a Concentration
-        let applyIndices indices = toOrdVar >> applyIndices indices >> Concentration
-
-
         /// Check whether a Concentration is non-zero positive
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
@@ -1895,15 +1894,21 @@ module OrderVariable =
         let applyOnlyMinIncrConstraints = toOrdVar >> applyOnlyMinIncrConstraints >> Quantity
 
 
+        /// Set the Variable of a Quantity to its defined constraints
+        let applyDefinedConstraints = toOrdVar >> applyDefinedConstraints >> Quantity
+
+
+        /// Lower the maximum of a Quantity to the value of another Quantity, when that holds one
+        /// value and that is lower: a dose up to the whole orderable.
+        let setMaxToValueOf upTo = toOrdVar >> setMaxToValueOf (upTo |> toOrdVar) >> Quantity
+
+
         /// Apply a function to the OrderVariable in a Quantity
         let apply f = toOrdVar >> f >> Quantity
 
 
         /// Apply the constraints of a Quantity to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Quantity
-
-
-        let applyIndices indices = toOrdVar >> applyIndices indices >> Quantity
 
 
         /// Check whether a Quantity is non-zero positive
@@ -1966,7 +1971,7 @@ module OrderVariable =
 
 
         /// Materialize Min/Incr/Max of a Quantity into a ValueSet
-        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues None >> Quantity
+        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues [] None >> Quantity
 
 
         let stepQuantity step useCalc n qty =
@@ -2102,12 +2107,16 @@ module OrderVariable =
         let clear = toOrdVar >> clear >> PerTime
 
 
+        /// Set the variable to its nth value, counted from 0.
+        let setNthValue nth = toOrdVar >> setNthValue nth >> PerTime
+
+
         /// Set a PerTime to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> PerTime
 
 
         /// Materialize Min/Incr/Max of a PerTime into a ValueSet
-        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues None >> PerTime
+        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues [] None >> PerTime
 
 
     module Rate =
@@ -2194,6 +2203,10 @@ module OrderVariable =
         let applyOnlyMaxConstraints = toOrdVar >> applyOnlyMaxConstraints >> Rate
 
 
+        /// Set the Variable of a Rate to its defined constraints
+        let applyDefinedConstraints = toOrdVar >> applyDefinedConstraints >> Rate
+
+
         /// Set constraints for a Rate
         let setConstraints cons = toOrdVar >> setConstraints cons >> Rate
 
@@ -2202,16 +2215,7 @@ module OrderVariable =
 
 
         /// Materialize Min/Incr/Max of a Rate into a ValueSet
-        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues None >> Rate
-
-
-        /// <summary>
-        /// Increase the increment of a Rate until the resulting ValueRange
-        /// contains at most maxCount values.
-        /// </summary>
-        /// <param name="maxCount">The maximum number of values in the ValueRange</param>
-        /// <param name="incrs">The list of increments to choose from</param>
-        let increaseIncrement maxCount incrs = toOrdVar >> increaseIncrement maxCount incrs >> Rate
+        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues [] None >> Rate
 
 
         /// Check whether a Rate is solved
@@ -2347,7 +2351,7 @@ module OrderVariable =
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> Total
 
         /// Materialize Min/Incr/Max of a Total into a ValueSet
-        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues None >> Total
+        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues [] None >> Total
 
 
     /// Type and functions that represent an adjusted quantity,
@@ -2431,6 +2435,10 @@ module OrderVariable =
         /// Apply the constraints of a QuantityAdjust to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> QuantityAdjust
 
+
+        /// Set the Variable of a QuantityAdjust to its defined constraints
+        let applyDefinedConstraints = toOrdVar >> applyDefinedConstraints >> QuantityAdjust
+
         /// Check whether a QuantityAdjust is non-zero positive
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
@@ -2442,6 +2450,10 @@ module OrderVariable =
 
         /// Clear the values of a QuantityAdjust
         let clear = toOrdVar >> clear >> QuantityAdjust
+
+
+        /// Set the variable to its nth value, counted from 0.
+        let setNthValue nth = toOrdVar >> setNthValue nth >> QuantityAdjust
 
         /// Set a QuantityAdjust to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> QuantityAdjust
@@ -2560,6 +2572,10 @@ module OrderVariable =
         let clear = toOrdVar >> clear >> PerTimeAdjust
 
 
+        /// Set the variable to its nth value, counted from 0.
+        let setNthValue nth = toOrdVar >> setNthValue nth >> PerTimeAdjust
+
+
         /// Set a PerTimeAdjust to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> PerTimeAdjust
 
@@ -2674,6 +2690,10 @@ module OrderVariable =
 
         /// Clear the values of a RateAdjust
         let clear = toOrdVar >> clear >> RateAdjust
+
+
+        /// Set the variable to its nth value, counted from 0.
+        let setNthValue nth = toOrdVar >> setNthValue nth >> RateAdjust
 
 
         /// Set a RateAdjust to non-zero positive values

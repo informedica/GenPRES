@@ -7,27 +7,29 @@ namespace Components
 /// where it stands, is the caller's.
 module ValueChip =
 
+    open Informedica.GenPRES.Client.Core.Models
+
 
     open Fable.Core
     open Feliz
-    open Shared
+    open Informedica.GenPRES.Shared
 
 
     /// The chip: the value as text, its severity, and a name before it when it needs one.
     type Props =
         {|
             value: string
-            severity: Types.Severity
+            severity: Severity
             label: string option
         |}
 
 
-    let private colorOf (severity: Types.Severity) =
+    let private colorOf (severity: Severity) =
         match severity with
-        | Types.Severity.Normal -> "default"
-        | Types.Severity.Caution -> "info"
-        | Types.Severity.Warning -> "warning"
-        | Types.Severity.Alert -> "error"
+        | Severity.Normal -> "default"
+        | Severity.Caution -> "info"
+        | Severity.Warning -> "warning"
+        | Severity.Alert -> "error"
 
 
     let private rowSx =

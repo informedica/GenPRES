@@ -51,10 +51,13 @@ module ActionBar =
         | Kind.Destructive -> "error"
 
 
-    /// One action as a button, drawn by its kind. Bounded: it is as wide as its label.
+    /// One action as a button, drawn by its kind. Bounded: it is as wide as its label. A click
+    /// leaves the focus where it is, so a field being typed in is not left by it: its blur would
+    /// otherwise start a request before the click, and the action would come while it runs.
     [<JSX.Component>]
     let ActionButton (props: Action) =
         let onClick = fun _ -> props.onClick ()
+        let keepFocus = fun (e: Browser.Types.MouseEvent) -> e.preventDefault ()
         let startIcon = props.icon |> Option.defaultValue null
 
         JSX.jsx
@@ -65,6 +68,7 @@ module ActionBar =
             variant={variantOf props.kind}
             color={colorOf props.kind}
             disabled={props.disabled}
+            onMouseDown={keepFocus}
             onClick={onClick}
             startIcon={startIcon}
         >

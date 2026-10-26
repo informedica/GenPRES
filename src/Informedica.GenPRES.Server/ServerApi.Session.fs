@@ -1,7 +1,7 @@
 namespace ServerApi
 
 open System
-open Shared.Types
+open Informedica.GenPRES.Shared.Types
 
 // The store's clinical records are the domain's; unqualified, the names below are the
 // contract model's, which the identity half of the session keeps.
@@ -1248,21 +1248,19 @@ module Session =
     /// Session's own, the head compared against the version it opened with: a newer version,
     /// whose and when. The notice informs and gates nothing; the refusal at a Submission stays
     /// the only guard. An anonymous Session, one without a Patient, no head, or a token that
-    /// is not the Session's: nothing to say. Beside the notice, the age the Session holds for
-    /// an identified patient, which every patient the request carries is put at. What the
-    /// request's patient measures is recorded for a Session with a Patient: a row per value
-    /// that differs from the one the Session stood on, held from here on; a challenge standing
-    /// over the data before is spent.
+    /// is not the Session's: nothing to say. What a patient change measures is recorded for a
+    /// Session with a Patient: a row per value that differs from the one the Session stood on,
+    /// held from here on; a challenge standing over the data before is spent.
     let seen
         (now: DateTime)
         (sid: string)
         (opened: OpenedToken option)
         (draft: Patient option)
         (state: State)
-        : State * (RecordNotice option * Age option) * Persist list
+        : State * RecordNotice option * Persist list
         =
         match state.Sessions |> Map.tryFind sid with
-        | None -> state, (state.Endings |> Map.tryFind sid |> Option.map (fst >> RecordNotice.Ended), None), []
+        | None -> state, state.Endings |> Map.tryFind sid |> Option.map (fst >> RecordNotice.Ended), []
         | Some record ->
             let state, writes = touch now sid state
 
@@ -1304,7 +1302,7 @@ module Session =
                             state.Challenges |> Map.remove sid
                 }
 
-            state, (told, age sid state), writes @ spent @ (rows |> List.map (fun m -> WriteMeasurement(sid, m, now)))
+            state, told, writes @ spent @ (rows |> List.map (fun m -> WriteMeasurement(sid, m, now)))
 
 
     /// Version id becomes what the Session opened with. No Session, an anonymous one or one
@@ -1388,8 +1386,8 @@ module Session =
         |> Array.exists (fun (_, n) -> n > 1)
 
 
-    /// An order context as it is compared with the head's: less the age, which the Server puts on
-    /// every context at the Session's age, and the intake, which the totals recompute.
+    /// An order context as it is compared with the head's: less the age, which no rule of the
+    /// comparison reads, and the intake, which the totals recompute.
     let contextContent (pc: GenOrder.PlanContext) =
         pc.Id, pc.Category, { pc.Context with Patient = { pc.Context.Patient with Age = None } }
 
@@ -1407,8 +1405,8 @@ module Session =
         )
 
 
-    /// The patient data the rules read. The age is left out: the Server puts the Session's age
-    /// on the plan and on every context.
+    /// The patient data the rules read, the age left out: an identified patient's age is the
+    /// Session's, the same on the plan and on every context evaluated in it.
     let ruleData (p: GenForm.Patient) =
         p.Location, p.Department, p.Gender, p.Weight, p.Height, p.GestAge, p.PMAge, p.Access, p.RenalFunction
 
@@ -1442,9 +1440,10 @@ module Session =
 
 
     /// The Session refreshed: the EHR read again and projected at the time of the refresh with the user's
-    /// measurements over it, the head of the record reopened under a fresh OpenedToken, the
-    /// standing challenge spent and the notice dropped. None for no Session, an anonymous one or
-    /// one without a Patient. No reading: the patient and the EHR data as they were.
+    /// measurements over it, under a fresh OpenedToken, the standing challenge spent and the
+    /// notice dropped. The order plan version the Session opened with stays: opening the last
+    /// signed one is a separate action. None for no Session, an anonymous one or one without a
+    /// Patient. No reading: the patient and the EHR data as they were.
     let refresh
         (now: DateTime)
         (newId: unit -> string)
@@ -1469,21 +1468,14 @@ module Session =
                     |> Option.map (merged now patientData record.Opened.Measured)
                     |> Option.orElse record.Opened.Patient
 
-                let head = headOf patientId state
-
                 let opened =
                     { record.Opened with
                         OpenedToken = Some(OpenedToken $"opened-{newId ()}")
                         EhrData = read |> Option.orElse record.Opened.EhrData
                         Patient = patient
-                        Head = head
                     }
 
-                let session =
-                    { state.Sessions[sid] with
-                        Opened = opened
-                        OpenedWith = head |> Option.bind StoredVersion.readableId
-                    }
+                let session = { state.Sessions[sid] with Opened = opened }
 
                 let spent =
                     state.Challenges

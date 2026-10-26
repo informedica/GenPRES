@@ -1,15 +1,23 @@
 module Informedica.GenPRES.Client.Core.Tests.TrailTests
 
+open Informedica.GenPRES.Client.Core.Helpers
+open Informedica.GenPRES.Client.Core.Policies
+open Informedica.GenPRES.Client.Core.StateMachines
+open Informedica.GenPRES.Client.Core.Tests.StateMachines
 open System
 open Expecto
 open Expecto.Flip
-open Shared.Types
-open Shared.Models
-open Shared.Api
+open Informedica.GenPRES.Shared.Types
+open Informedica.GenPRES.Shared.Models
+open Informedica.GenPRES.Shared.Api
 open SessionMachine
 open SigningMachine
 open OrderPlanMachine
 open OrderContextMachine
+
+module Lanes = Informedica.GenPRES.Client.Core.Lanes
+module Client = Informedica.GenPRES.Client.Core.Client
+module Trail = Informedica.GenPRES.Client.Core.Trail
 
 
 let at = DateTime(2026, 9, 30, 10, 41, 7, 311)
@@ -70,13 +78,43 @@ let tests =
             test "a step is one line with its number, time, machine, message, effects and state" {
                 let state, effects =
                     OrderContextState.noPatient
-                    |> OrderContextState.transition (OrderContextMsg.PatientChanged(Some pat, "r-1"))
+                    |> OrderContextState.transition (OrderContextMsg.PatientDataChanged(Some pat, "r-1"))
 
-                Trail.orderContext 12 at (OrderContextMsg.PatientChanged(Some pat, "r-1")) (state, effects)
+                Trail.orderContext 12 at (OrderContextMsg.PatientDataChanged(Some pat, "r-1")) (state, effects)
                 |> Trail.format
                 |> Expect.equal
                     "the line"
-                    "#12 10:41:07.311 OrderContext PatientChanged patient 3.0 y 14.0 kg no height gender unknown r-1 -> CallContext UpdateOrderContext workbench r-1 | Changing workbench awaits r-1"
+                    "#12 10:41:07.311 OrderContext PatientDataChanged patient 3.0 y 14.0 kg no height gender unknown r-1 -> CallContext ClearAllFilterProperty workbench r-1 | Changing workbench awaits r-1"
+            }
+
+            test "a seed shows its source and how many choices, never their text" {
+                let seed: FilterSeed.FilterSeed =
+                    {
+                        Source = SeedSource.Url
+                        Indication = Some "Milde pijn"
+                        Generic = Some "paracetamol"
+                        Route = Some "oraal"
+                        Form = None
+                        DoseType = None
+                    }
+
+                let held = OrderContextState.held pat (OrderContextState.emptyFor pat)
+                let msg = OrderContextMsg.SeedFilter(seed, "r-1")
+
+                Trail.orderContext 3 at msg (held |> OrderContextState.transition msg)
+                |> Trail.format
+                |> Expect.equal
+                    "the line"
+                    "#3 10:41:07.311 OrderContext SeedFilter url 3 choices r-1 -> CallContext SeedFilter url 3 choices workbench r-1 | Changing workbench awaits r-1"
+            }
+
+            test "a patient update reads as the call with UpdatePatient" {
+                let pat = OrderFixtures.patient
+                let ctx = OrderContextState.emptyFor pat
+
+                OrderContextEffect.CallContext(OrderContextCommand.UpdatePatient(pat, ctx), "r-1")
+                |> Trail.OrderContext.effect
+                |> Expect.equal "the effect" "CallContext UpdatePatient workbench r-1"
             }
 
             test "a step without effects says none" {
@@ -114,10 +152,20 @@ let tests =
                 |> Expect.equal "the patient" "patient 3.0 y est 15.5 kg 98 cm female"
             }
 
-            test "a seed shows how many picks it carries, never their text" {
-                OrderContextMsg.Seed({ ctxPicked with OrderContext.Filter.Generic = Some "Jan Jansen" }, "r-4")
+            test "a seed message shows its source and how many choices, never their text" {
+                let seed: FilterSeed.FilterSeed =
+                    {
+                        Source = SeedSource.MedicationList
+                        Indication = None
+                        Generic = Some "Jan Jansen"
+                        Route = None
+                        Form = None
+                        DoseType = None
+                    }
+
+                OrderContextMsg.SeedFilter(seed, "r-4")
                 |> Trail.OrderContext.msg
-                |> Expect.equal "the count" "Seed 3 picks r-4"
+                |> Expect.equal "the count" "SeedFilter list 1 choices r-4"
             }
 
             test "a line never breaks, whatever text a step carries" {
@@ -150,45 +198,61 @@ let tests =
             test "a reopen shows the request it awaits and the state it keeps" {
                 OrderContextState.held pat ctxPicked
                 |> OrderContextState.transition (
-                    OrderContextMsg.Reopen(OrderContextCommand.UpdateOrderContext, ctxPicked, "r-9")
+                    OrderContextMsg.ReopenField(
+                        OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
+                        "r-9"
+                    )
                 )
                 |> fst
                 |> Trail.OrderContext.state
                 |> Expect.equal "awaits and kept" "Changing ctx-1 awaits r-9 kept"
             }
 
-            test "a dialog command that waits shows as pending" {
-                OrderContextState.opening pat "r-1"
-                |> OrderContextState.pending OrderContextCommand.SelectOrderScenario ctxPicked "r-2"
-                |> Trail.OrderContext.state
-                |> Expect.equal "pending" "Changing workbench awaits r-1 pending SelectOrderScenario ctx-1 r-2"
-            }
-
             test "a plan navigation shows the context in a message, and its id once in an effect" {
                 let cmd =
-                    OrderPlanCommand.Navigate(
-                        OrderPlan.empty,
-                        "ctx-1",
-                        OrderContextCommand.UpdateOrderContext,
-                        ctxPicked
-                    )
+                    OrderPlanCommand.Navigate(OrderPlan.empty, "ctx-1", OrderViewCommand.ResetOrderScenario, ctxPicked)
 
                 [
-                    Trail.OrderPlan.msg (OrderPlanMsg.Command(cmd, "r-3"))
+                    Trail.OrderPlan.msg (
+                        OrderPlanMsg.Change(
+                            OrderPlanChange.OrderDialogCommand("ctx-1", OrderViewCommand.ResetOrderScenario),
+                            "r-3"
+                        )
+                    )
                     Trail.OrderPlan.effect (OrderPlanEffect.CallPlan(cmd, "r-3"))
                 ]
                 |> Expect.equal
                     "the lines"
                     [
-                        "Command Navigate ctx-1 UpdateOrderContext ctx-1 pain/paracetamol/oral 0 scenarios r-3"
-                        "CallPlan Navigate ctx-1 UpdateOrderContext r-3"
+                        "Change OrderDialogCommand ctx-1 ResetOrderScenario r-3"
+                        "CallPlan Navigate ctx-1 ResetOrderScenario r-3"
                     ]
             }
 
-            test "a reset by the App reads as a signing step without message or effects" {
-                Trail.signingReset 7 at "the session is no longer open" SigningState.idle
+            test "a page's change to the plan reads by what it wants" {
+                [
+                    Trail.OrderPlan.msg (OrderPlanMsg.Change(OrderPlanChange.Add ctxPicked, "r-1"))
+                    Trail.OrderPlan.msg (OrderPlanMsg.Change(OrderPlanChange.NewNutrition NutritionCategory.TPN, "r-2"))
+                    Trail.OrderPlan.msg (OrderPlanMsg.Change(OrderPlanChange.Remove [| "c-1"; "c-2" |], "r-3"))
+                ]
+                |> Expect.equal
+                    "the lines"
+                    [
+                        "Change Add ctx-1 pain/paracetamol/oral 0 scenarios r-1"
+                        "Change NewNutrition TPN r-2"
+                        "Change Remove 2 r-3"
+                    ]
+            }
+
+            test "a lanes step reads as the step of its machine" {
+                Trail.lanes 7 at (Lanes.LanesStep.Signing(SigningMsg.SessionEnded, SigningState.idle, []))
                 |> Trail.format
-                |> Expect.equal "the line" "#7 10:41:07.311 Signing reset: the session is no longer open -> none | Idle"
+                |> Expect.equal "the line" "#7 10:41:07.311 Signing SessionEnded -> none | Idle"
+
+                let session = SessionState.anonymous
+
+                Trail.lanes 3 at (Lanes.LanesStep.Session(SessionMsg.Resume, session, []))
+                |> Expect.equal "the session's step" (Trail.session 3 at SessionMsg.Resume (session, []))
             }
 
             test "the trail keeps the newest lines, oldest first" {
@@ -201,6 +265,12 @@ let tests =
                 "no line shows an identity, a PIN, a code, a token or a free text"
                 [
                     let token = Some(OpenedToken "secret-token")
+
+                    let signed =
+                        { SessionMachineTests.signedVersion with
+                            Patient = pat
+                            Identity = Some identity
+                        }
 
                     let user: UserContext =
                         {
@@ -227,7 +297,9 @@ let tests =
                     let lines =
                         [
                             Trail.Session.msg (SessionMsg.SupplyPin("code-987", "1234"))
-                            Trail.Session.msg (SessionMsg.TokenRenewed(OpenedToken "secret-token", pat, Some identity))
+                            Trail.Session.msg (
+                                SessionMsg.SignatureRenewedToken(OpenedToken "secret-token", pat, signed)
+                            )
                             Trail.Session.msg (SessionMsg.PinAnswered(Ok(PinOutcome.Opened opened)))
                             Trail.Session.effect (SessionEffect.CallSupplyPin("code-987", "1234"))
                             Trail.Session.view (
@@ -239,15 +311,28 @@ let tests =
                                     None
                                 )
                             )
-                            Trail.Signing.msg (SigningMsg.Confirm("1234", "key-1"))
+                            Trail.Signing.msg (SigningMsg.ConfirmPin("1234", "key-1"))
                             Trail.Signing.effect (
                                 SigningEffect.CallSubmit(OrderPlan.empty, "secret-token", "1234", "key-1")
                             )
                             Trail.Signing.effect (
-                                SigningEffect.RenewToken(OpenedToken "secret-token", pat, Some identity)
+                                SigningEffect.RenewSessionToken(OpenedToken "secret-token", pat, signed)
                             )
-                            Trail.OrderContext.msg (OrderContextMsg.Argue "Jan Jansen weighs more")
-                            Trail.OrderPlan.msg (OrderPlanMsg.Argue("ctx-1", "Jan Jansen weighs more"))
+                            Trail.OrderContext.msg (
+                                OrderContextMsg.Command(
+                                    OrderViewCommand.SetArgumentationProperty "Jan Jansen weighs more",
+                                    "r-1"
+                                )
+                            )
+                            Trail.OrderPlan.msg (
+                                OrderPlanMsg.Change(
+                                    OrderPlanChange.OrderDialogCommand(
+                                        "ctx-1",
+                                        OrderViewCommand.SetArgumentationProperty "Jan Jansen weighs more"
+                                    ),
+                                    "r-1"
+                                )
+                            )
                         ]
 
                     for line in lines do
@@ -257,13 +342,216 @@ let tests =
                         }
                 ]
 
+            test "a load reads by its name, an answer by its size, never an error text" {
+                let state, effects =
+                    LoaderMachine.LoaderState.initial
+                    |> LoaderMachine.transition (LoaderMachine.LoaderMsg.Start Loads.Load.Products)
+
+                Trail.loader 1 at (LoaderMachine.LoaderMsg.Start Loads.Load.Products) (state, effects)
+                |> Trail.format
+                |> Expect.equal "the start" "#1 10:41:07.311 Loader Start Products -> FetchProducts | out Products"
+
+                let landed = LoaderMachine.LoaderMsg.Landed(LoaderMachine.Landing.Products(Error "connection refused"))
+
+                Trail.loader 2 at landed (state |> LoaderMachine.transition landed)
+                |> Trail.format
+                |> Expect.equal "the failure" "#2 10:41:07.311 Loader Landed Products Error -> none | failed Products"
+
+                LoaderMachine.Landing.Products(Ok [])
+                |> Trail.Loader.landing
+                |> Expect.equal "an answer" "Products Ok 0 items"
+                LoaderMachine.LoaderState.initial
+                |> Trail.Loader.state
+                |> Expect.equal "nothing asked" "nothing asked"
+            }
+
+            test "the server check and the drug names read by what they did, never an error text" {
+                let check = LoaderMachine.LoaderMsg.ServerChecked(Error "connection refused")
+
+                let state, effects =
+                    LoaderMachine.LoaderState.initial
+                    |> LoaderMachine.transition LoaderMachine.LoaderMsg.CheckServer
+                    |> fst
+                    |> LoaderMachine.transition check
+
+                Trail.loader 1 at check (state, effects)
+                |> Trail.format
+                |> Expect.equal
+                    "the failed check"
+                    "#1 10:41:07.311 Loader ServerChecked Error -> RequestFailed Server, CheckServerLater 5s | server down"
+
+                let failed = LoaderMachine.LoaderMsg.Landed(LoaderMachine.Landing.DrugNames(None, Error [| "down" |]))
+
+                let state, effects =
+                    state
+                    |> LoaderMachine.transition (LoaderMachine.LoaderMsg.Start Loads.Load.DrugNames)
+                    |> fst
+                    |> LoaderMachine.transition failed
+
+                Trail.loader 2 at failed (state, effects)
+                |> Trail.format
+                |> Expect.equal
+                    "the failed names"
+                    "#2 10:41:07.311 Loader Landed DrugNames no token Error -> AskAgainLater DrugNames 3s | drug names failed 1; server down"
+
+                LoaderMachine.LoaderEffect.Alert Alert.Alert.DrugNamesNotLoaded
+                |> Trail.Loader.effect
+                |> Expect.equal "the alert" "Alert DrugNamesNotLoaded"
+            }
+
+            test "the pages read by how many choices they hold, never their text" {
+                let shown = LoaderMachine.LoaderMsg.PageShown Page.Page.Parenteralia
+
+                Trail.loader 1 at shown (LoaderMachine.LoaderState.initial |> LoaderMachine.transition shown)
+                |> Trail.format
+                |> Expect.equal
+                    "the page shown"
+                    "#1 10:41:07.311 Loader PageShown Parenteralia -> FetchDrugNames, FetchParenteralia 0 choices | out Parenteralia, DrugNames"
+
+                LoaderMachine.LoaderEffect.SeedWorkbench
+                    {
+                        Source = SeedSource.Formulary
+                        Indication = None
+                        Generic = Some "paracetamol"
+                        Route = Some "oraal"
+                        Form = None
+                        DoseType = None
+                    }
+                |> Trail.Loader.effect
+                |> Expect.equal "the seed" "SeedWorkbench formulary 2 choices"
+            }
+
+            test "the interactions read by their check and counts, never the drug names" {
+                let check = LoaderMachine.LoaderMsg.CheckInteractions [ "a"; "b" ]
+
+                Trail.loader 1 at check (LoaderMachine.LoaderState.initial |> LoaderMachine.transition check)
+                |> Trail.format
+                |> Expect.equal
+                    "the check"
+                    "#1 10:41:07.311 Loader CheckInteractions 2 drugs -> FetchInteractions check 1 2 drugs | out Interactions; interaction check 1"
+
+                LoaderMachine.Landing.Interactions(1, None, Error [| "down" |])
+                |> Trail.Loader.landing
+                |> Expect.equal "the failure" "Interactions check 1 no token Error"
+
+                LoaderMachine.LoaderEffect.Alert(Alert.Alert.InteractionsFound 3)
+                |> Trail.Loader.effect
+                |> Expect.equal "the alert" "Alert InteractionsFound 3"
+            }
+
+            test "the admin read by what it did, never the password, the token or an error text" {
+                let login = AdminMachine.AdminMsg.Login "secret"
+
+                Trail.admin 1 at login (AdminMachine.AdminState.initial |> AdminMachine.transition login)
+                |> Trail.format
+                |> Expect.equal
+                    "the login"
+                    "#1 10:41:07.311 Admin Login -> ValidatePassword attempt 1 | logged out; attempt 1"
+
+                AdminMachine.Landing.LogFiles(Error [| "Invalid token" |])
+                |> Trail.Admin.landing
+                |> Expect.equal "the failure" "LogFiles Error"
+
+                AdminMachine.AdminEffect.FetchLogFiles "token"
+                |> Trail.Admin.effect
+                |> Expect.equal "the call" "FetchLogFiles"
+            }
+
+            test "the lanes' alerts and the plan's answer read by their case" {
+                SessionEffect.Alert Alert.Alert.CloseFailed
+                |> Trail.Session.effect
+                |> Expect.equal "the session's alert" "Alert CloseFailed"
+
+                OrderPlanEffect.TellAnswered
+                |> Trail.OrderPlan.effect
+                |> Expect.equal "the plan's answer" "TellAnswered"
+            }
+
+            test "the patient data given again shows the change and nothing out" {
+                let held =
+                    PatientMachineTests.Fixtures.changing PatientDraftPolicy.Estimates.Kept "r-1"
+                    |> PatientMachine.PatientState.transition (
+                        PatientMachine.PatientMsg.Answered("r-1", Ok PatientMachineTests.Fixtures.answered)
+                    )
+                    |> fst
+
+                let again =
+                    PatientMachine.PatientMsg.Changed(
+                        Some PatientMachineTests.Fixtures.answered,
+                        PatientDraftPolicy.Estimates.Renewed,
+                        "r-2"
+                    )
+
+                Trail.patient 1 at again (held |> PatientMachine.PatientState.transition again)
+                |> Trail.format
+                |> Expect.equal
+                    "the line"
+                    "#1 10:41:07.311 Patient Changed patient 10.0 y est 32.0 kg est 140 cm gender unknown estimates renewed r-2 -> none | patient 10.0 y no weight no height gender unknown"
+            }
+
+            test "the shell read by its page and what shows over it, never a url's patient" {
+                let chosen = ShellMachine.ShellMsg.PageChosen(Page.Page.Formulary, false)
+
+                Trail.shell 1 at chosen (ShellMachine.ShellState.initial |> ShellMachine.transition chosen)
+                |> Trail.format
+                |> Expect.equal
+                    "the page chosen"
+                    "#1 10:41:07.311 Shell PageChosen Formulary logged out -> PageShown Formulary | Formulary; Nederlands; disclaimer"
+
+                ShellMachine.ShellMsg.ServerErrorRaised(ServerErrorPolicy.ErrorSource.OrderPlan, [| "down" |])
+                |> Trail.Shell.msg
+                |> Expect.equal "the failure" "ServerErrorRaised OrderPlan"
+            }
+
+            test "a dropped client message says so, never the patient data" {
+                Client.ClientStep.Dropped(
+                    Client.ClientMsg.PanelChanged(
+                        Some Informedica.GenPRES.Shared.Models.Patient.empty,
+                        PatientDraftPolicy.Estimates.Kept,
+                        "p-1"
+                    )
+                )
+                |> Trail.client 1 at
+                |> Trail.format
+                |> Expect.equal "the line" "#1 10:41:07.311 Client PanelChanged p-1 dropped -> none | unchanged"
+            }
+
+            test "a client step is the line of the part that took it" {
+                let chosen = ShellMachine.ShellMsg.PageChosen(Page.Page.Formulary, false)
+                let shell, effects = ShellMachine.ShellState.initial |> ShellMachine.transition chosen
+
+                Trail.client 1 at (Client.ClientStep.Shell(chosen, shell, effects))
+                |> Expect.equal "the shell's line" (Trail.shell 1 at chosen (shell, effects))
+            }
+
+            test "a url change read by what it carries, never its values or its token" {
+                let url =
+                    { Url.none with
+                        Page = Some Page.Page.Prescribe
+                        Patient = Some Informedica.GenPRES.Shared.Models.Patient.empty
+                        Launch = Some(Url.LaunchUrl.Launch(Launch "secret"))
+                    }
+
+                let check: ShellMachine.UrlCheck =
+                    {
+                        SigningUnderWay = false
+                        Out = []
+                        UnsignedWork = true
+                        Launched = false
+                    }
+
+                ShellMachine.ShellMsg.UrlChanged([ "session"; "?launch=secret" ], url, check)
+                |> Trail.Shell.msg
+                |> Expect.equal "the change" "UrlChanged page Prescribe language none patient launch (unsigned work)"
+            }
+
             test "every machine names itself" {
                 let plan = OrderPlanState.noPatient
                 let signing = SigningState.idle
                 let session = SessionState.anonymous
 
                 [
-                    Trail.orderPlan 1 at OrderPlanMsg.Restore (plan, []) |> _.Machine
+                    Trail.orderPlan 1 at OrderPlanMsg.RestoreField (plan, []) |> _.Machine
                     Trail.signing 2 at SigningMsg.Cancel (signing, []) |> _.Machine
                     Trail.session 3 at SessionMsg.Resume (session, []) |> _.Machine
                 ]
@@ -276,9 +564,9 @@ let tests =
 let exampleTests =
     test "a patient, an answer, a pick and a refusal read as four lines" {
         [
-            OrderContextMsg.PatientChanged(Some pat, "r-1")
+            OrderContextMsg.PatientDataChanged(Some pat, "r-1")
             OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated ctx))
-            OrderContextMsg.Command(OrderContextCommand.UpdateOrderContext, ctxPicked, "r-2")
+            OrderContextMsg.Command(OrderViewCommand.SetNthFilterProperty(OrderContext.Generic, 0), "r-2")
             OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Refused(ctxPicked, OrderContextRefusal.NoProducts)))
         ]
         |> List.mapFold
@@ -294,10 +582,10 @@ let exampleTests =
         |> Expect.equal
             "the lines"
             [
-                "#1 10:41:08.311 OrderContext PatientChanged patient 3.0 y 14.0 kg no height gender unknown r-1 -> CallContext UpdateOrderContext workbench r-1 | Changing workbench awaits r-1"
-                "#2 10:41:09.311 OrderContext Answered r-1 Ok Evaluated workbench no picks 0 scenarios -> none | Settled workbench"
-                "#3 10:41:10.311 OrderContext Command UpdateOrderContext ctx-1 pain/paracetamol/oral 0 scenarios r-2 -> CallContext UpdateOrderContext ctx-1 r-2, SyncFormulary, SyncParenteralia | Changing ctx-1 awaits r-2"
-                "#4 10:41:11.311 OrderContext Answered r-2 Ok Refused ctx-1 pain/paracetamol/oral 0 scenarios NoProducts -> none | Refused ctx-1 NoProducts"
+                "#1 10:41:08.311 OrderContext PatientDataChanged patient 3.0 y 14.0 kg no height gender unknown r-1 -> CallContext ClearAllFilterProperty workbench r-1 | Changing workbench awaits r-1"
+                "#2 10:41:09.311 OrderContext Answered r-1 Ok Evaluated workbench no picks 0 scenarios -> SyncPages | Settled workbench"
+                "#3 10:41:10.311 OrderContext Command SetNthFilterProperty Generic nth=0 r-2 -> CallContext SetNthFilterProperty Generic nth=0 workbench r-2 | Changing workbench awaits r-2"
+                "#4 10:41:11.311 OrderContext Answered r-2 Ok Refused ctx-1 pain/paracetamol/oral 0 scenarios NoProducts -> SyncPages | Refused ctx-1 NoProducts"
             ]
     }
 
@@ -305,7 +593,7 @@ let exampleTests =
 /// A scenario on the line: the plan fixtures' scenario with its component.
 module ScenarioLine =
 
-    open Informedica.GenPRES.Client.Core.Tests.OrderPlanMachineTests.Fixtures
+    open Informedica.GenPRES.Client.Core.Tests.OrderFixtures
 
     let one = { scenario "order-0001-abcd" "paracetamol" with Component = Some "paracetamol" }
 

@@ -5,7 +5,7 @@ module Informedica.GenPRES.Server.Tests.VersionIdentityTests
 open System
 open Expecto
 open Expecto.Flip
-open Shared.Types
+open Informedica.GenPRES.Shared.Types
 open Informedica.Utils.Lib.BCL
 open Informedica.GenUnits.Lib
 open ServerApi
@@ -47,7 +47,9 @@ let unidentified =
 
 /// The plan as signed: the projection at the open, the age the Session held.
 let plan =
-    Shared.Models.OrderPlan.create (port.patient today ehr |> GenFormPatient.Dto.toDto |> Patient.toModel) [||]
+    Informedica.GenPRES.Shared.Models.OrderPlan.create
+        (port.patient today ehr |> GenFormPatient.Dto.toDto |> Patient.toModel)
+        [||]
     |> OrderPlanCommand.parsePlan
     |> Result.defaultWith (fun e -> failtest $"no plan: %A{e}")
 
@@ -178,7 +180,7 @@ let tests =
                         |> Session.age "s-1"
                         |> Expect.equal
                             "the age the version was signed at"
-                            (Some(Shared.Models.Patient.Age.fromDays 3841))
+                            (Some(Informedica.GenPRES.Shared.Models.Patient.Age.fromDays 3841))
                     }
                 ]
 

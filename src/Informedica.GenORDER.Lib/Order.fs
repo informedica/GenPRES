@@ -21,6 +21,30 @@ module Order =
     module Mapping = EquationMapping
     module Increment = Informedica.GenSolver.Lib.Variable.ValueRange.Increment
 
+
+    /// The maximum number of values a pruned variable keeps, per schedule. The Max caps apply with
+    /// useMaxNumberOfValues.
+    type ValueCaps =
+        {
+            /// Continuous order.
+            Continuous: int
+            /// Continuous order with useMaxNumberOfValues.
+            ContinuousMax: int
+            /// Once or discontinuous order.
+            Discontinuous: int
+            /// Once or discontinuous order with useMaxNumberOfValues and a single component.
+            DiscontinuousMaxSingle: int
+            /// Once or discontinuous order with useMaxNumberOfValues and more than one component.
+            DiscontinuousMaxMultiple: int
+            /// Timed order with at most two components.
+            TimedFew: int
+            /// Timed order with at most two components and useMaxNumberOfValues.
+            TimedMaxFew: int
+            /// Timed order with more than two components, with or without useMaxNumberOfValues.
+            TimedMany: int
+        }
+
+
     /// Types and functions to deal
     /// with an Orderable, i.e., something
     /// that can be ordered.
@@ -285,17 +309,6 @@ module Order =
                     Rate = dos.Rate |> Rate.applyConstraints
                     RateAdjust = dos.RateAdjust |> RateAdjust.applyConstraints
                 }
-
-
-            /// <summary>
-            /// Increase the increment of a Dose to a maximum
-            /// count using a list of increments.
-            /// </summary>
-            /// <param name="maxCount">The maximum count</param>
-            /// <param name="incrs">The list of increments</param>
-            /// <param name="dos">The Dose</param>
-            let increaseRateIncrement maxCount incrs dos =
-                { (dos |> inf) with Rate = dos.Rate |> Rate.increaseIncrement maxCount incrs }
 
 
             /// <summary>
@@ -1189,6 +1202,7 @@ module Order =
                     OrderableConcentration = orb_cnc
                     Dose = dos
                     Items = ii
+                    Products = []
                 }
 
 
@@ -1282,6 +1296,7 @@ module Order =
                 cmp.Items
                 |> List.map (Item.fromOrdVars ovars)
                 |> create cmp.Id cmp.Name cmp.Form cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos
+                |> fun c -> { c with Products = cmp.Products }
 
 
             /// <summary>
@@ -1300,6 +1315,7 @@ module Order =
                 cmp.Items
                 |> List.map Item.applyConstraints
                 |> create cmp.Id cmp.Name cmp.Form cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos
+                |> fun c -> { c with Products = cmp.Products }
 
 
             let isOrderableConcentrationCleared cmp = (cmp |> inf).OrderableConcentration |> Concentration.isCleared
@@ -1318,80 +1334,106 @@ module Order =
             let isSolved = toOrdVars >> List.forall OrderVariable.isSolved
 
 
-            /// <summary>
-            /// Increase the increment of a Component to a maximum
-            /// count using a list of increments.
-            /// </summary>
-            /// <param name="maxCount">The maximum count</param>
-            /// <param name="incrs">The list of increments</param>
-            /// <param name="cmp">The Component</param>
-            let increaseQuantityIncrement maxCount incrs cmp =
-                { (cmp |> inf) with
-                    OrderableQuantity = cmp.OrderableQuantity |> Quantity.increaseIncrement maxCount incrs
-                }
-
-
-            /// <summary>
-            /// Harmonize the valid concentration value indices across all items in a component.
-            /// </summary>
-            /// <remarks>
-            /// When a component is created by combining multiple medication products (e.g., tablets),
-            /// each item (substance) accumulates concentration values from all products. The indices
-            /// represent which product each value came from, ensuring valid combinations.
-            ///
-            /// Example: Two tablets combined into one component:
-            /// - Tablet 1: Substance A = 10 mg/tablet, Substance B = 20 mg/tablet
-            /// - Tablet 2: Substance A = 30 mg/tablet, Substance B = 25 mg/tablet
-            ///
-            /// Results in:
-            /// - Item A concentrations: [10; 30] mg/tablet (indices 0, 1)
-            /// - Item B concentrations: [20; 25] mg/tablet (indices 0, 1)
-            ///
-            /// Index 0 corresponds to Tablet 1 (10 mg A + 20 mg B).
-            /// Index 1 corresponds to Tablet 2 (30 mg A + 25 mg B).
-            ///
-            /// A combination of 10 mg A with 25 mg B is invalid because no tablet has that
-            /// concentration pair. This function ensures all items share the same valid indices,
-            /// so when one item's values are constrained (e.g., only index 0 remains valid),
-            /// all other items are updated to use only those same indices.
-            /// </remarks>
-            /// <param name="cmp">The Component to harmonize</param>
-            /// <returns>
-            /// A tuple of (bool * Component) where the bool indicates if harmonization
-            /// was applied, and the Component is the possibly modified component.
-            /// </returns>
-            let harmonizeItemConcentrations cmp =
-                if (cmp |> inf).Items |> List.length <= 1 then
-                    false, cmp
+            /// The values of vals that are also values of vu, none when the two differ in unit group.
+            let commonValues vals vu =
+                if vu |> ValueUnit.eqsGroup vals then
+                    ValueUnit.intersect vals vu
                 else
-                    match
-                        cmp.Items
-                        |> List.map _.ComponentConcentration
-                        // Get the indices of remaining valid concentration values.
-                        // ValueUnit preserves insertion order (no sorting), and values are added
-                        // in consistent product order during constraint creation, so each index
-                        // corresponds to a specific product across all items.
-                        |> List.map (Concentration.toOrdVar >> OrderVariable.getIndices)
-                        |> List.distinct
-                    with
-                    | []
-                    | [ _ ] -> false, cmp
-                    | xs ->
-                        let indices = xs |> List.sortBy Array.length |> List.head
+                    vals |> ValueUnit.setValue [||]
 
-                        true,
+
+            /// Whether a product applies to the values of a component: each of its strengths is among the
+            /// values of the item of that substance, and one of its form quantities among the values of the
+            /// component quantity. A variable without a value set excludes no product.
+            let productApplies cmp (p: ComponentProduct) =
+                let among vu ovar =
+                    match ovar |> OrderVariable.getValSetValueUnit with
+                    | None -> true
+                    | Some vals -> commonValues vals vu |> ValueUnit.isEmpty |> not
+
+                let formQuantityApplies =
+                    match p.FormQuantities with
+                    | None -> true
+                    | Some qts -> (cmp |> inf).ComponentQuantity |> Quantity.toOrdVar |> among qts
+
+                let strengthApplies (ps: ProductStrength) =
+                    cmp.Items
+                    |> List.filter (_.Name >> Name.toString >> String.equalsCapInsens ps.Substance)
+                    |> List.forall (_.ComponentConcentration >> Concentration.toOrdVar >> among ps.Strength)
+
+                formQuantityApplies && p.Strengths |> List.forall strengthApplies
+
+
+            /// The products of a component that apply to its values.
+            let productsThatApply cmp = (cmp |> inf).Products |> List.filter (productApplies cmp)
+
+
+            /// Narrow the strengths of each item, and the component quantity, to those of the products that
+            /// apply. A component without products is left as it is; one with products of which none
+            /// applies is an error. Returns whether a value was removed, with the component.
+            let narrowToProducts cmp =
+                // the values of the variable among the allowed, or None when that removes nothing; a
+                // product without a value for the variable allows every value
+                let keep allowed ovar =
+                    match ovar |> OrderVariable.getValSetValueUnit with
+                    | Some vals when allowed |> List.forall Option.isSome ->
+                        let kept =
+                            allowed
+                            |> List.choose id
+                            |> List.filter (ValueUnit.eqsGroup vals)
+                            |> List.toArray
+                            |> ValueUnit.collect
+                            |> Option.map (commonValues vals)
+                            |> Option.defaultValue (vals |> ValueUnit.setValue [||])
+
+                        if (kept |> ValueUnit.getValue).Length = (vals |> ValueUnit.getValue).Length then
+                            None
+                        else
+                            ovar
+                            |> OrderVariable.setValueRange (
+                                kept
+                                |> Variable.ValueRange.ValueSet.create
+                                |> Informedica.GenSolver.Lib.Types.ValSet
+                            )
+                            |> Some
+                    | _ -> None
+
+                match (cmp |> inf).Products, cmp |> productsThatApply with
+                | [], _ -> Ok(false, cmp)
+                | _, [] -> Error $"no product of %s{cmp.Name |> Name.toString} applies"
+                | _, pp ->
+                    let strengthsOf (itm: Item) =
+                        pp
+                        |> List.map (
+                            _.Strengths
+                            >> List.tryFind (_.Substance >> String.equalsCapInsens (itm.Name |> Name.toString))
+                            >> Option.map _.Strength
+                        )
+
+                    let items =
+                        cmp.Items
+                        |> List.map (fun itm ->
+                            itm.ComponentConcentration
+                            |> Concentration.toOrdVar
+                            |> keep (itm |> strengthsOf)
+                            |> Option.map (fun ovar -> { itm with ComponentConcentration = ovar |> Concentration })
+                        )
+
+                    let cmpQty =
+                        cmp.ComponentQuantity
+                        |> Quantity.toOrdVar
+                        |> keep (pp |> List.map _.FormQuantities)
+                        |> Option.map Quantity
+
+                    let changed = cmpQty.IsSome || items |> List.exists Option.isSome
+
+                    Ok(
+                        changed,
                         { cmp with
-                            Items =
-                                cmp.Items
-                                |> List.map (fun itm ->
-                                    { itm with
-                                        ComponentConcentration =
-                                            itm.ComponentConcentration
-                                            // Apply the harmonized indices to each item's concentration.
-                                            |> Concentration.applyIndices indices
-                                    }
-                                )
+                            ComponentQuantity = cmpQty |> Option.defaultValue cmp.ComponentQuantity
+                            Items = List.map2 Option.defaultValue cmp.Items items
                         }
+                    )
 
 
             let pickNearestHigherElseLower cmp =
@@ -1591,6 +1633,57 @@ module Order =
                 module Concentration = OrderVariable.Concentration
                 module CT = OrderVariable.Count
 
+                /// The strength of one substance of a product.
+                type StrengthDto() =
+                    member val Substance = "" with get, set
+                    member val Strength: ValueUnit.Dto.Dto option = None with get, set
+
+
+                /// A product a component can be made of.
+                type ProductDto() =
+                    member val Id = "" with get, set
+                    member val FormQuantities: ValueUnit.Dto.Dto option = None with get, set
+                    member val Strengths: StrengthDto list = [] with get, set
+
+
+                let productToDto (p: ComponentProduct) =
+                    let vuToDto = ValueUnit.Dto.toDto true ValueUnit.Dto.dutch
+                    let dto = ProductDto()
+
+                    dto.Id <- p.Id
+                    dto.FormQuantities <- p.FormQuantities |> Option.bind vuToDto
+
+                    dto.Strengths <-
+                        p.Strengths
+                        |> List.map (fun ps ->
+                            let s = StrengthDto()
+                            s.Substance <- ps.Substance
+                            s.Strength <- ps.Strength |> vuToDto
+                            s
+                        )
+
+                    dto
+
+
+                let productFromDto (dto: ProductDto) =
+                    {
+                        Id = dto.Id
+                        FormQuantities = dto.FormQuantities |> Option.bind ValueUnit.Dto.fromDto
+                        Strengths =
+                            dto.Strengths
+                            |> List.choose (fun s ->
+                                s.Strength
+                                |> Option.bind ValueUnit.Dto.fromDto
+                                |> Option.map (fun vu ->
+                                    {
+                                        Substance = s.Substance
+                                        Strength = vu
+                                    }
+                                )
+                            )
+                    }
+
+
                 type Dto() =
                     member val Id = "" with get, set
                     member val Name = "" with get, set
@@ -1603,6 +1696,7 @@ module Order =
                     member val OrderableConcentration = OrderVariable.Dto.dto () with get, set
                     member val Dose = Dose.Dto.dto () with get, set
                     member val Items: Item.Dto.Dto list = [] with get, set
+                    member val Products: ProductDto list = [] with get, set
 
 
                 let fromDto (dto: Dto) =
@@ -1620,7 +1714,10 @@ module Order =
 
                     let dos = dto.Dose |> Dose.Dto.fromDto
 
-                    create id n s cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos ii
+                    // a Dto written without products keeps the default, an empty list
+                    { create id n s cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos ii with
+                        Products = dto.Products |> List.map productFromDto
+                    }
 
 
                 let toDto (cmp: Component) =
@@ -1637,6 +1734,7 @@ module Order =
                     dto.OrderableConcentration <- cmp.OrderableConcentration |> Concentration.toDto
                     dto.Dose <- cmp.Dose |> Dose.Dto.toDto
                     dto.Items <- cmp.Items |> List.map Item.Dto.toDto
+                    dto.Products <- cmp.Products |> List.map productToDto
 
                     let getLevel b =
                         if b then
@@ -1755,28 +1853,24 @@ module Order =
             applyToComponents (_.Name >> Name.toString >> String.equalsCapInsens s)
 
 
-        let harmonizeItemConcentrations logger orb =
-            let mutable isHarmonized = false
+        /// Narrow the strengths of the items of each component to those of the products that apply.
+        /// Returns whether a value was removed, with the orderable, or the error of every component
+        /// whose products none apply.
+        let narrowToProducts orb =
+            let rs = (orb |> inf).Components |> List.map Component.narrowToProducts
 
-            let orb =
-                { (orb |> inf) with
-                    Components =
-                        orb.Components
-                        |> List.map (fun cmp ->
-                            let b, cmp = cmp |> Component.harmonizeItemConcentrations
-
-                            if b then
-                                $"Component indices harmonized for {cmp.Name}"
-                                |> Events.ComponentItemsHarmonized
-                                |> Logging.logInfo logger
-
-                                isHarmonized <- true
-
-                            cmp
-                        )
-                }
-
-            isHarmonized, orb
+            match
+                rs
+                |> List.choose (
+                    function
+                    | Error e -> Some e
+                    | Ok _ -> None
+                )
+            with
+            | [] ->
+                let xs = rs |> List.choose Result.toOption
+                Ok(xs |> List.exists fst, { orb with Components = xs |> List.map snd })
+            | errs -> Error errs
 
 
         /// <summary>
@@ -1891,59 +1985,131 @@ module Order =
         /// <param name="incrs">The list of increments</param>
         /// <param name="orb">The Orderable</param>
         let increaseQuantityIncrement logger maxCount incrs orb =
-            // check if all relevant OrderVariables have an increment
-            if
-                (orb |> inf).Components
-                |> List.map _.OrderableQuantity
-                |> List.forall Quantity.hasIncrement
-                |> not
-            then
+            let cmpQuantities = (orb |> inf).Components |> List.map _.OrderableQuantity
+            // the orderable quantity is the sum of the components, so all share one increment
+            let quantities = orb.OrderableQuantity :: cmpQuantities
+
+            let rangeOf qty = (qty |> Quantity.toOrdVar |> OrderVariable.getVar).Values
+
+            let baseValue incr =
+                incr |> Variable.ValueRange.Increment.toValueUnit |> ValueUnit.getBaseValue
+
+            // the number of values of a quantity on increment incr
+            let count incr qty =
+                let vr = qty |> rangeOf
+
+                match vr |> Variable.ValueRange.getMin, vr |> Variable.ValueRange.getMax with
+                | Some min, Some max ->
+                    try
+                        Variable.ValueRange.minIncrMaxCount min incr max |> Some
+                    with _ ->
+                        None
+                | _ -> None
+
+            // a quantity without a minimum and a maximum has no count and does not restrict the choice
+            let fits incr qty = qty |> count incr |> Option.forall (fun n -> n <= maxCount)
+
+            let keepsTwo incr qty =
+                qty |> count incr |> Option.forall (fun n -> n >= BigRational.two)
+
+            // an increment a quantity can take is a multiple of its own increment
+            let follows incr qty =
+                match qty |> rangeOf |> Variable.ValueRange.getIncr with
+                | Some own ->
+                    Array.allPairs (incr |> baseValue) (own |> baseValue)
+                    |> Array.forall (fun (i, o) -> i |> BigRational.isMultiple o)
+                | None -> false
+
+            let fitsNow =
+                cmpQuantities
+                |> List.filter (Quantity.isSolved >> not)
+                |> List.forall (fun qty ->
+                    qty
+                    |> rangeOf
+                    |> Variable.ValueRange.getIncr
+                    |> Option.exists (fun incr -> qty |> fits incr)
+                )
+
+            let bounded =
+                cmpQuantities
+                |> List.exists (fun qty ->
+                    qty
+                    |> rangeOf
+                    |> Variable.ValueRange.getIncr
+                    |> Option.bind (fun incr -> qty |> count incr)
+                    |> Option.isSome
+                )
+
+            // a solved quantity, such as a fixed total, has no increment and no choice to keep
+            let open' = quantities |> List.filter (Quantity.isSolved >> not)
+
+            if open' |> List.forall Quantity.hasIncrement |> not || not bounded || fitsNow then
                 orb
             else
-                // first calculate the minimum increment increase for the orderable and components
-                { orb with
-                    Components = orb.Components |> List.map (Component.increaseQuantityIncrement maxCount incrs)
-                }
-                |> _.Components
-                |> List.map (fun c -> (c.OrderableQuantity |> Quantity.toOrdVar |> OrderVariable.getVar).Values)
-                |> List.choose Variable.ValueRange.getIncr
+                // the finest increment on which every component fits maxCount, else the coarsest
+                // on which every quantity keeps at least two values
+                incrs
+                |> List.filter (fun incr -> open' |> List.forall (follows incr))
+                // a solved quantity, such as a fixed total, must lie on the step
+                |> List.filter (fun incr ->
+                    quantities
+                    |> List.filter Quantity.isSolved
+                    |> List.forall (fun qty ->
+                        qty
+                        |> Quantity.toOrdVar
+                        |> OrderVariable.getValSetValueUnit
+                        |> Option.map ValueUnit.getBaseValue
+                        |> Option.forall (
+                            Array.allPairs (incr |> baseValue)
+                            >> Array.forall (fun (i, v) -> v |> BigRational.isMultiple i)
+                        )
+                    )
+                )
+                |> List.filter (fun incr -> open' |> List.forall (keepsTwo incr))
+                |> List.sortBy baseValue
                 |> function
                     | [] -> orb
-                    | incrs ->
-                        if incrs |> List.length <> (orb.Components |> List.length) then
-                            orb
-                        else
-                            let incr =
-                                incrs
-                                |> List.minBy (fun incr ->
-                                    incr |> Variable.ValueRange.Increment.toValueUnit |> ValueUnit.getBaseValue
-                                )
+                    | candidates ->
+                        let incr =
+                            candidates
+                            |> List.tryFind (fun incr -> cmpQuantities |> List.forall (fits incr))
+                            |> Option.defaultValue (candidates |> List.last)
 
-                            Logging.logDebugLazy
-                                logger
-                                (fun () ->
-                                    $"Increase quantity increment to {incr |> Variable.ValueRange.Increment.toString false}"
-                                    |> Events.OrderScenario
-                                )
-                            // apply the minimum increment increase to the orderable and components
+                        Logging.logDebugLazy
+                            logger
+                            (fun () ->
+                                $"Increase quantity increment to {incr |> Variable.ValueRange.Increment.toString false}"
+                                |> Events.OrderScenario
+                            )
+
+                        // set directly, so a quantity that already fits gets the common increment too
+                        let setIncr qty =
+                            let ovar = qty |> Quantity.toOrdVar
+
+                            try
+                                { ovar with
+                                    OrderVariable.Variable.Values =
+                                        ovar.Variable.Values |> Variable.ValueRange.setIncr incr
+                                }
+                                |> Quantity
+                                |> Some
+                            with _ ->
+                                None
+
+                        let cmpQuantities = orb.Components |> List.choose (_.OrderableQuantity >> setIncr)
+
+                        // all or none: a sum with mixed increments cannot be solved
+                        match orb.OrderableQuantity |> setIncr with
+                        | Some orbQuantity when cmpQuantities.Length = orb.Components.Length ->
                             { orb with
-                                OrderableQuantity =
-                                    orb.OrderableQuantity |> Quantity.increaseIncrement maxCount [ incr ]
+                                OrderableQuantity = orbQuantity
                                 Components =
-                                    orb.Components
-                                    |> List.map (Component.increaseQuantityIncrement maxCount [ incr ])
+                                    List.map2
+                                        (fun cmp qty -> { cmp with OrderableQuantity = qty })
+                                        orb.Components
+                                        cmpQuantities
                             }
-
-
-        /// <summary>
-        /// Increase the Rate increment of an Orderable to a maximum
-        /// count using a list of increments.
-        /// </summary>
-        /// <param name="maxCount">The maximum count</param>
-        /// <param name="incrs">The list of increments</param>
-        /// <param name="orb">The Orderable</param>
-        let increaseRateIncrement maxCount incrs orb =
-            { (orb |> inf) with Dose = orb.Dose |> Dose.increaseRateIncrement maxCount incrs }
+                        | _ -> orb
 
 
         let setDoseUnit sn du (orb: Orderable) =
@@ -2375,9 +2541,6 @@ module Order =
             | _ -> schedule
 
 
-        let setMinTime = applyToTime Time.setMinValue
-
-
         module Print =
 
 
@@ -2604,6 +2767,20 @@ module Order =
 
     [<RequireQualifiedAccess>]
     module OrderType =
+
+        /// Every case of OrderType, the one list a reader of an order type and a schema take the
+        /// names from.
+        let all =
+            [|
+                AnyOrder
+                ProcessOrder
+                OnceOrder
+                OnceTimedOrder
+                ContinuousOrder
+                DiscontinuousOrder
+                TimedOrder
+            |]
+
 
         let toString =
             function
@@ -2943,6 +3120,14 @@ module Order =
         >> List.forall OrderVariable.isSolved
 
 
+    /// The ids of the products that apply to the values of the components of an order.
+    let productIds ord =
+        (ord |> inf).Orderable.Components
+        |> List.collect Orderable.Component.productsThatApply
+        |> List.map _.Id
+        |> List.toArray
+
+
     let hasValues ord =
         match (ord |> inf).Schedule with
         | Continuous _ ->
@@ -2987,7 +3172,7 @@ module Order =
                         match ord.Schedule |> Schedule.toOrdVars with
                         | Some frq, Some tme -> [ frq; tme ]
                         | _ -> []
-                    // leave out Orderable.Dose.Rate because drip rate always has values or is solved
+                    // leave out Orderable.Dose.Rate: it gets its values only once the dose quantity has one
                     ord.Orderable.Dose.PerTime |> PerTime.toOrdVar
                     ord.Orderable.Dose.Quantity |> Quantity.toOrdVar
                     // get the rest
@@ -3030,7 +3215,7 @@ module Order =
                         match ord.Schedule |> Schedule.toOrdVars with
                         | _, Some tme -> [ tme ]
                         | _ -> []
-                    // leave out Orderable.Dose.Rate because drip rate always has values or is solved
+                    // leave out Orderable.Dose.Rate: it gets its values only once the dose quantity has one
                     ord.Orderable.Dose.PerTime |> PerTime.toOrdVar
                     ord.Orderable.Dose.Quantity |> Quantity.toOrdVar
                     // get the rest
@@ -3178,17 +3363,6 @@ module Order =
         { (ord |> inf) with Orderable = ord.Orderable |> Orderable.increaseQuantityIncrement logger maxCount incrs }
 
 
-    /// <summary>
-    /// Increase the Rate increment of an Order to a maximum
-    /// count using a list of increments.
-    /// </summary>
-    /// <param name="maxCount">The maximum count</param>
-    /// <param name="incrs">The list of increments</param>
-    /// <param name="ord">The Order</param>
-    let increaseRateIncrement maxCount incrs ord =
-        { (ord |> inf) with Orderable = ord.Orderable |> Orderable.increaseRateIncrement maxCount incrs }
-
-
     let hasNormDose ord =
         if ord.Orderable.Components |> List.length > 2 then
             false
@@ -3259,6 +3433,25 @@ module Order =
         | Continuous _ -> { ord with Order.Orderable.Dose.Rate = ord.Orderable.Dose.Rate |> Rate.setMedianValue }
 
 
+    /// The share of the orderable in itself, a constant of 1 x that the shares of the components add
+    /// up to. It is not part of the Order; only the equations use it.
+    let orderableShare (ord: Order) =
+        let name =
+            [ ord.Id |> Id.toString; ord.Orderable.Name |> Name.toString ]
+            |> Name.create
+            |> Name.add Mapping.Literals.orb
+            |> Name.add Mapping.Literals.cnc
+
+        let one =
+            Units.Count.times
+            |> ValueUnit.singleWithValue 1N
+            |> ValueRange.ValueSet.create
+            |> Some
+        let cs = OrderVariable.Constraints.create None None None one
+
+        OrderVariable.create name None None None one cs cs
+
+
     /// <summary>
     /// Map an Order to a list of Equations using a Product Equation
     /// mapping and a Sum Equation mapping
@@ -3267,7 +3460,7 @@ module Order =
     /// <param name="ord">The Order</param>
     /// <returns>A list of OrderEquations</returns>
     let mapToOrderEquations eqMapping ord =
-        let ovars = ord |> toOrdVars
+        let ovars = (ord |> toOrdVars) @ [ ord |> orderableShare ]
 
         let map repl eqMapping =
             let eqs, c =
@@ -3380,12 +3573,20 @@ module Order =
         let logOrder = logOrder logger minMax
         ord |> logOrder msg
 
-        let harmonize ord =
+        // each solve narrows the item strengths to the products that still apply, and solves
+        // again when that removed a value
+        let narrow ord =
             ord.Orderable
-            |> Orderable.harmonizeItemConcentrations logger
+            |> Orderable.narrowToProducts
             |> function
-                | false, _ -> ord |> Ok
-                | true, orb -> { ord with Order.Orderable = orb } |> solve "Harmonize" minMax printErr logger
+                | Error errs ->
+                    Error(
+                        ord,
+                        errs
+                        |> List.map Informedica.GenSolver.Lib.Types.Exceptions.ValueRangeEmptyValueSet
+                    )
+                | Ok(false, _) -> ord |> Ok
+                | Ok(true, orb) -> { ord with Order.Orderable = orb } |> solve "Products" minMax printErr logger
 
         let mapping =
             match ord.Schedule with
@@ -3408,7 +3609,7 @@ module Order =
                 else
                     eqs |> Solver.solve logger
             |> function
-                | Ok eqs -> eqs |> Solver.mapToOrderEqs oEqs |> mapFromOrderEquations ord |> harmonize
+                | Ok eqs -> eqs |> Solver.mapToOrderEqs oEqs |> mapFromOrderEquations ord |> narrow
                 | Error(eqs, m) ->
                     eqs
                     |> Solver.mapToOrderEqs oEqs
@@ -3469,6 +3670,68 @@ module Order =
     let solveOrder msg printErr logger = solve msg false printErr logger
 
 
+    /// The rounded steps in unit u up to maxStep: an increment is raised along them and a prune keeps
+    /// their multiples.
+    let roundedSteps maxStep u =
+        [ 1N / 10N; 1N / 2N; 1N; 5N; 10N; 50N; 100N; 500N ]
+        |> List.filter (fun step -> step <= maxStep)
+        |> List.map (ValueUnit.singleWithUnit u)
+
+
+    /// The rounded steps of a quantity in mL, up to 50 mL.
+    let quantitySteps = roundedSteps 50N Units.Volume.milliLiter
+
+
+    /// The rounded steps of a rate in mL/uur, up to 10 mL/uur.
+    let rateSteps = roundedSteps 10N (Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour)
+
+
+    /// The increments a quantity in mL is raised along.
+    let quantityIncrements = quantitySteps |> List.map ValueRange.Increment.create
+
+
+    /// Raise the increment of the orderable dose quantity to a step in incrs that is a multiple of the
+    /// increment of the orderable quantity. Only when the dose count has no values (a range, or no
+    /// constraint): with a dose count that has values, the dose quantity is the orderable quantity
+    /// divided by it and follows the increment of the components. A dose quantity that already fits
+    /// maxCount keeps its increment.
+    let increaseDoseQuantityIncrement maxCount incrs (ord: Order) =
+        let countHasValues =
+            ord.Orderable.DoseCount
+            |> OrderVariable.Count.toOrdVar
+            |> OrderVariable.getValSetValueUnit
+            |> Option.isSome
+
+        if countHasValues then
+            ord
+        else
+            let baseValue incr =
+                incr |> ValueRange.Increment.toValueUnit |> ValueUnit.getBaseValue
+
+            let incrs =
+                match
+                    ord.Orderable.OrderableQuantity
+                    |> Quantity.toOrdVar
+                    |> OrderVariable.getVar
+                    |> _.Values
+                    |> ValueRange.getIncr
+                with
+                | Some orbIncr ->
+                    incrs
+                    |> List.filter (fun incr ->
+                        Array.allPairs (incr |> baseValue) (orbIncr |> baseValue)
+                        |> Array.forall (fun (i, o) -> i |> BigRational.isMultiple o)
+                    )
+                | None -> incrs
+
+            let dose =
+                { ord.Orderable.Dose with
+                    Quantity = ord.Orderable.Dose.Quantity |> Quantity.increaseIncrement maxCount incrs
+                }
+
+            { ord with Orderable = { ord.Orderable with Dose = dose } }
+
+
     /// <summary>
     /// Increase the Orderable Quantity Increment of an Order.
     /// This allows speedy calculation by avoiding large amount
@@ -3476,22 +3739,15 @@ module Order =
     /// </summary>
     /// <param name="logger">The OrderLogger to use</param>
     /// <param name="maxQtyCount">The maximum count of the Orderable Quantity</param>
-    /// <param name="maxRateCount">The maximum count of the Rate</param>
     /// <param name="ord">The Order to increase the increment of</param>
-    let increaseIncrements logger maxQtyCount maxRateCount ord =
+    let increaseIncrements logger maxQtyCount ord =
         let maxQtyCount = maxQtyCount |> BigRational.fromInt
-        let maxRateCount = maxRateCount |> BigRational.fromInt
 
         if (ord |> inf).Schedule |> Schedule.isContinuous then
             ord
         else
             let orbQty = ord.Orderable.OrderableQuantity |> Quantity.toOrdVar
-            // the increments used to increase
-            // TODO: use increment from constraint
-            let incrs u =
-                [ 1N / 10N; 1N / 2N; 1N; 5N; 10N; 20N ]
-                |> List.map (ValueUnit.singleWithUnit u)
-                |> List.map ValueRange.Increment.create
+            // TODO: use the increments from the constraints
             // only increase incr for volume units
             if
                 orbQty.Variable
@@ -3501,9 +3757,7 @@ module Order =
             then
                 ord
             else
-                let incrOrd =
-                    ord
-                    |> increaseQuantityIncrement logger maxQtyCount (incrs Units.Volume.milliLiter)
+                let incrOrd = ord |> increaseQuantityIncrement logger maxQtyCount quantityIncrements
 
                 if ord = incrOrd then
                     Ok ord
@@ -3523,90 +3777,90 @@ module Order =
 
                         ord // original order
                     | Ok ord ->
-                        let incrOrd =
-                            ord // increased increment order
-                            |> increaseRateIncrement
-                                maxRateCount
-                                (incrs (Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour))
+                        // the dose quantity after the components, on a multiple of their increment
+                        let doseOrd = ord |> increaseDoseQuantityIncrement maxQtyCount quantityIncrements
 
-                        if incrOrd = ord then
-                            Ok ord
+                        if doseOrd = ord then
+                            ord
                         else
-                            incrOrd |> Events.OrderIncreaseRateIncrement |> Logging.logInfo logger
-
-                            incrOrd |> solveMinMax "Increase Rate Increment" false logger
-
-                        |> function
-                            | Error(_, errs) ->
-                                Logging.logDebugLazy
-                                    logger
-                                    (fun () ->
-                                        $"""Could not increase orderable rate increment:
-{errs |> List.map string |> String.concat "\n"}"""
-                                        |> Events.OrderScenario
-                                    )
-
-                                ord // increased increment order
-                            | Ok ord -> ord // increased increment and rate order
+                            doseOrd
+                            |> solveMinMax "Increase Dose Quantity Increment" false logger
+                            |> Result.defaultValue ord
         |> Ok
 
 
-    let maximizeRate logger ord =
-        // only maximize for timed orders
-        if (ord |> inf).Schedule |> Schedule.isTimed |> not then
-            ord
-        else
-            match ord.Orderable.Dose.Rate |> Rate.toOrdVar with
-            | rte when rte |> OrderVariable.isSolved |> not ->
-                let maxRte = rte |> OrderVariable.minIncrMaxToValues (Some 100) |> OrderVariable.setMaxValue
-
-                let ovars =
-                    ord
-                    |> toOrdVars
-                    // first check if max rate can be set
-                    |> List.map (fun ovar ->
-                        if ovar.Variable.Name = rte.Variable.Name then
-                            maxRte
-                        else
-                            ovar
-                    )
-
-                ord
-                |> fromOrdVars ovars
-                |> solveOrder "Maximize Rate" false logger
-                |> Result.map (fun ord ->
-                    Logging.logDebugLazy
-                        logger
-                        (fun () ->
-                            $"max rate set to: {maxRte |> OrderVariable.toString true}"
-                            |> Events.OrderScenario
-                        )
-
-                    ord
-                )
-                |> Result.defaultValue ord
-            | _ -> ord
+    /// The rounded steps a pruned quantity or rate keeps the multiples of, in mL and in mL/uur.
+    let pruneSteps = quantitySteps @ rateSteps
 
 
-    let minimizeTime logger (ord: Order) =
-        if ord.Schedule |> Schedule.isTimed |> not then
-            ord
-        else
-            { (ord |> inf) with Schedule = ord.Schedule |> Schedule.setMinTime }
-            |> solveOrder "Minimize Time" false logger
-            |> Result.defaultValue ord
+    module ValueCaps =
+
+
+        /// The caps an order is pruned with.
+        let defaults =
+            {
+                Continuous = 100
+                ContinuousMax = 1_000
+                Discontinuous = 10
+                DiscontinuousMaxSingle = 100
+                DiscontinuousMaxMultiple = 20
+                TimedFew = 20
+                TimedMaxFew = 10
+                TimedMany = 5
+            }
+
+
+        /// The same cap n for every schedule.
+        let all n =
+            {
+                Continuous = n
+                ContinuousMax = n
+                Discontinuous = n
+                DiscontinuousMaxSingle = n
+                DiscontinuousMaxMultiple = n
+                TimedFew = n
+                TimedMaxFew = n
+                TimedMany = n
+            }
+
+
+        /// The cap for an order, by its schedule and number of components.
+        let capOf caps useMaxNumberOfValues ord =
+            let count = ord.Orderable.Components |> List.length
+
+            match ord.Schedule with
+            | Continuous _ ->
+                if useMaxNumberOfValues then
+                    caps.ContinuousMax
+                else
+                    caps.Continuous
+            | Once
+            | Discontinuous _ ->
+                if not useMaxNumberOfValues then caps.Discontinuous
+                elif count > 1 then caps.DiscontinuousMaxMultiple
+                else caps.DiscontinuousMaxSingle
+            | OnceTimed _
+            | Timed _ ->
+                if count > 2 then caps.TimedMany
+                elif useMaxNumberOfValues then caps.TimedMaxFew
+                else caps.TimedFew
 
 
     /// <summary>
     /// Loop through all the OrderVariables in an Order to
     /// turn min incr max to values
     /// </summary>
+    /// <remarks>
+    /// The component quantities, the dose quantity and the rate are pruned to rounded steps. The time
+    /// of a timed order is left free, so the rate determines how long the dose quantity runs.
+    /// </remarks>
+    /// <param name="caps">The maximum number of values a pruned variable keeps, per schedule</param>
     /// <param name="useMaxNumberOfValues">Whether to use max number of values or restrict the number of values</param>
-    /// <param name="minTime">Whether to minimize the time before processing</param>
     /// <param name="skipRate">Whether to skip the orderable dose rate variable (for staged expansion of timed orders)</param>
     /// <param name="logger">The logger</param>
     /// <param name="ord">The Order</param>
-    let minIncrMaxToValues useMaxNumberOfValues minTime skipRate logger ord =
+    /// <returns>The order with values, or the order before the values that could not be solved, with the messages.</returns>
+    let minIncrMaxToValues caps useMaxNumberOfValues skipRate logger ord =
         let mutable isSolved = false
 
         let rec loop ord =
@@ -3636,40 +3890,17 @@ module Order =
                     else
                         flag <- true
 
-                        let n =
-                            match ord.Schedule with
-                            | Continuous _ -> if useMaxNumberOfValues then 1_000 else 100
-                            | Once
-                            | Discontinuous _ ->
-                                if useMaxNumberOfValues then
-                                    if ord.Orderable.Components |> List.length > 1 then
-                                        20
-                                    else
-                                        100
-                                else
-                                    10
-                            | OnceTimed _
-                            | Timed _ ->
-                                if useMaxNumberOfValues then
-                                    if ord.Orderable.Components |> List.length > 2 then
-                                        5
-                                    else
-                                        10
-                                else if ord.Orderable.Components |> List.length > 2 then
-                                    5
-                                else
-                                    20
-                            |> Some
+                        let n = ord |> ValueCaps.capOf caps useMaxNumberOfValues |> Some
 
                         ovar
-                        |> OrderVariable.minIncrMaxToValues n
+                        |> OrderVariable.minIncrMaxToValues pruneSteps n
                         |> fun ovar ->
                             Events.MinIncrMaxToValues ovar |> Logging.logInfo logger
                             ovar
                 )
 
             if not flag then
-                ord
+                Ok ord
             else
                 ord
                 |> fromOrdVars ovars
@@ -3683,18 +3914,18 @@ module Order =
                         |> Exceptions.OrderCouldNotBeSolved
                         |> Logging.logError logger
 
-                        ord
+                        // the order before the values that could not be solved
+                        Error(ord, err |> snd)
 
-        if minTime then ord |> minimizeTime logger else ord
+        ord
         |> loop
-        |> fun ord ->
+        |> Result.bind (fun ord ->
             // make sure that an order is solved at least once
             if not isSolved then
-                ord
-                |> solveOrder "Min Incr Max to Values final Loop" true logger
-                |> Result.defaultValue ord
+                ord |> solveOrder "Min Incr Max to Values final Loop" true logger
             else
-                ord
+                Ok ord
+        )
 
 
     let solveNormDose logger ord =

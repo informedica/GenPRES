@@ -19,7 +19,7 @@ module Keys
 
 open Fable.Core
 open Fable.Core.JsInterop
-open Shared.Types
+open Informedica.GenPRES.Shared.Types
 
 
 [<Literal>]

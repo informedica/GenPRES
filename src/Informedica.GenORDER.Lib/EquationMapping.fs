@@ -6,6 +6,8 @@ module EquationMapping =
     open Informedica.Utils.Lib.BCL
     open WrappedString
 
+    module ValueSet = Informedica.GenSolver.Lib.Variable.ValueRange.ValueSet
+
     module Literals =
 
         [<Literal>]
@@ -104,6 +106,21 @@ module EquationMapping =
     let contOnly = [ Literals.continuous ]
 
 
+    /// An item's concentration in the orderable is its concentration in the component times the
+    /// component's share, and the shares add up to one. Only mapped for an order with more than one
+    /// component: with one, the share is 1 x and the other equations already tie the items.
+    let tieEquations =
+        [
+            "[itm]_orb_cnc = [itm]_cmp_cnc * [cmp]_orb_cnc"
+            "[orb]_orb_cnc = sum([cmp]_orb_cnc)"
+        ]
+
+
+    /// A component's rate is its share of the orderable rate. Mapped for a continuous order, and for
+    /// a timed or once timed order that leaves out its item concentration products.
+    let componentRateEquation = "[cmp]_dos_rte = [cmp]_orb_cnc * [orb]_dos_rte"
+
+
     let equations: (string * int list) list =
         [
             "[itm]_cmp_qty = [itm]_cmp_cnc * [cmp]_cmp_qty", allDoseTypes
@@ -134,14 +151,14 @@ module EquationMapping =
             "[cmp]_orb_qty = [orb]_dos_cnt * [cmp]_dos_qty", allDoseTypes
             "[cmp]_orb_qty = [cmp]_cmp_qty * [cmp]_orb_cnt", allDoseTypes
             "[cmp]_ord_qty = [cmp]_cmp_qty * [cmp]_ord_cnt", allDoseTypes
-            "[cmp]_dos_tot = [cmp]_dos_ptm * [ord]_ord_tme", discContTimed
+            "[cmp]_dos_tot = [cmp]_dos_ptm * [ord]_ord_tme", discTimed
             "[cmp]_dos_tot = [cmp]_dos_rte * [ord]_ord_tme", contOnly
             "[cmp]_dos_qty = [cmp]_orb_cnc * [orb]_dos_qty", allDoseTypes
             "[cmp]_dos_qty = [cmp]_dos_qty_adj * [ord]_adj_qty", allDoseTypes
             "[cmp]_dos_ptm = [cmp]_orb_cnc * [orb]_dos_ptm", discTimed
             "[cmp]_dos_ptm = [cmp]_dos_qty * [ord]_sch_frq", discTimed
             "[cmp]_dos_ptm = [cmp]_dos_ptm_adj * [ord]_adj_qty", discTimed
-            "[cmp]_dos_rte = [cmp]_orb_cnc * [orb]_dos_rte", contOnly
+            componentRateEquation, contOnly
             "[cmp]_dos_rte = [cmp]_dos_rte_adj * [ord]_adj_qty", contOnly
             "[cmp]_dos_qty_adj = [cmp]_orb_cnc * [orb]_dos_qty_adj", allDoseTypes
             "[cmp]_dos_qty_adj = [cmp]_dos_rte_adj * [ord]_sch_tme", contOnly
@@ -150,8 +167,10 @@ module EquationMapping =
             "[cmp]_dos_rte_adj = [cmp]_orb_cnc * [orb]_dos_rte_adj", contOnly
             "[orb]_orb_qty = [orb]_dos_cnt * [orb]_dos_qty", allDoseTypes
             "[orb]_ord_qty = [orb]_ord_cnt * [orb]_orb_qty", allDoseTypes
-            "[orb]_dos_tot = [orb]_dos_ptm * [ord]_ord_tme", discContTimed
-            "[orb]_dos_tot = [orb]_dos_rte * [ord]_ord_tme", discContTimed
+            // the total by per time needs a frequency and the total by rate a continuous order:
+            // with both on a timed order, the administration time times the frequency has to be 1
+            "[orb]_dos_tot = [orb]_dos_ptm * [ord]_ord_tme", discTimed
+            "[orb]_dos_tot = [orb]_dos_rte * [ord]_ord_tme", contOnly
             "[orb]_dos_qty = [orb]_dos_rte * [ord]_sch_tme", contTimedOnceTimed
             "[orb]_dos_qty = [orb]_dos_qty_adj * [ord]_adj_qty", allDoseTypes
             "[orb]_dos_ptm = [orb]_dos_qty * [ord]_sch_frq", discTimed
@@ -160,6 +179,7 @@ module EquationMapping =
             "[orb]_dos_qty_adj = [orb]_dos_rte_adj * [ord]_sch_tme", contOnly
             "[orb]_dos_ptm_adj = [orb]_dos_qty_adj * [ord]_sch_frq", discTimed
             "[orb]_orb_qty = sum([cmp]_orb_qty)", allDoseTypes
+            yield! tieEquations |> List.map (fun e -> e, allDoseTypes)
         ]
 
 
@@ -187,6 +207,21 @@ module EquationMapping =
     let getEquations indx = memoizedGetEquations indx
 
 
+    /// Whether an item comes in exactly one strength: its defined component concentration holds
+    /// one value. An item without a concentration does not count as one.
+    let hasOneStrength (itm: Item) =
+        (itm.ComponentConcentration |> OrderVariable.Concentration.toOrdVar).DefinedConstraints.Values
+        |> Option.exists (ValueSet.count >> (=) 1)
+
+
+    /// Whether an order can solve its item orderable concentrations through the component share
+    /// alone: more than two components and every item in exactly one strength. With several
+    /// strengths the share alone loses the exact item concentration.
+    let leavesOutItemConcentrationProducts (ord: Order) =
+        ord.Orderable.Components |> List.length > 2
+        && ord.Orderable.Components |> List.collect _.Items |> List.forall hasOneStrength
+
+
     /// <summary>
     /// Create an Equations mapping for an <c>Order</c>
     /// </summary>
@@ -196,6 +231,27 @@ module EquationMapping =
     /// A tuple of <c>SumMapping</c> and <c>ProductMapping</c>
     /// </returns>
     let getEqsMapping (ord: Order) (eqs: string list) =
+        let eqs =
+            if ord.Orderable.Components |> List.length > 1 then
+                eqs
+            else
+                eqs |> List.filter (fun e -> tieEquations |> List.contains e |> not)
+
+        // The products of an item orderable concentration with an orderable total only list cross
+        // products; the tie to the component share gives the same values. A timed order then needs
+        // the component rate, so an item rate limit still bounds the orderable rate.
+        let eqs =
+            if ord |> leavesOutItemConcentrationProducts |> not then
+                eqs
+            else
+                eqs
+                |> List.filter (fun e -> e.Contains "[itm]_orb_cnc" |> not || tieEquations |> List.contains e)
+                |> fun eqs ->
+                    match ord.Schedule with
+                    | Timed _
+                    | OnceTimed _ -> eqs @ [ componentRateEquation ]
+                    | _ -> eqs
+
         let sumEqs = eqs |> List.filter (String.contains "sum")
 
         let prodEqs = eqs |> List.filter (String.contains "sum" >> not)

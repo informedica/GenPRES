@@ -2,7 +2,7 @@ module Informedica.GenPRES.Server.Tests.ResourceErrorTests
 
 open Expecto
 open Expecto.Flip
-open Shared.Models
+open Informedica.GenPRES.Shared.Models
 open Informedica.Logging.Lib
 open Informedica.GenForm.Lib
 open Informedica.GenForm.Lib.Resources
@@ -302,8 +302,7 @@ let processCmdGuardTests =
                         noCookie
                         ServerApi.FormularyCommand.toString
                         (fun _ -> ServerApi.Gate.RequiresLoaded)
-                        ServerApi.FormularyCommand.patients
-                        ServerApi.FormularyCommand.patientOf
+                        (fun _ -> None)
                         (ServerApi.FormularyCommand.processCmd env)
                         {
                             Opened = None
@@ -328,8 +327,7 @@ let processCmdGuardTests =
                         noCookie
                         ServerApi.ParenteraliaCommand.toString
                         (fun _ -> ServerApi.Gate.RequiresLoaded)
-                        ServerApi.ParenteraliaCommand.patients
-                        ServerApi.ParenteraliaCommand.patientOf
+                        (fun _ -> None)
                         (ServerApi.ParenteraliaCommand.processCmd env)
                         {
                             Opened = None

@@ -1,24 +1,17 @@
 module Global
 
+open Informedica.GenPRES.Client.Core.Models
+open Informedica.GenPRES.Client.Core.Helpers
 open Feliz
-open Shared
+open Informedica.GenPRES.Shared
 
 
-type Pages =
-    | LifeSupport
-    | ContinuousMeds
-    | Prescribe
-    | Nutrition
-    | OrderPlan
-    | Formulary
-    | Parenteralia
-    | Interactions
-    | Settings
+type Pages = Page.Page
 
 
 let getLocalizedTerm (localizationTerms: Deferred<string[][]>) (lang: Localization.Locales) defVal term =
     localizationTerms
-    |> Deferred.map (fun terms -> Localization.getTerm terms lang term |> Option.defaultValue defVal)
+    |> Deferred.map (fun terms -> LocalizationText.getTerm terms lang term |> Option.defaultValue defVal)
     |> Deferred.defaultValue defVal
 
 
@@ -32,15 +25,15 @@ let pageToString terms locale page =
     let getTerm term = getLocalizedTerm terms locale $"{term}" term
 
     match page with
-    | LifeSupport -> Terms.``Emergency List`` |> getTerm
-    | ContinuousMeds -> Terms.``Continuous Medication List`` |> getTerm
-    | Prescribe -> Terms.``Prescribe`` |> getTerm
-    | Nutrition -> Terms.``Nutrition`` |> getTerm
-    | OrderPlan -> Terms.``Order Plan`` |> getTerm
-    | Formulary -> Terms.``Formulary`` |> getTerm
-    | Parenteralia -> Terms.``Parenteralia`` |> getTerm
-    | Interactions -> Terms.``Interactions`` |> getTerm
-    | Settings -> Terms.Settings |> getTerm
+    | Pages.LifeSupport -> Terms.``Emergency List`` |> getTerm
+    | Pages.ContinuousMeds -> Terms.``Continuous Medication List`` |> getTerm
+    | Pages.Prescribe -> Terms.``Prescribe`` |> getTerm
+    | Pages.Nutrition -> Terms.``Nutrition`` |> getTerm
+    | Pages.OrderPlan -> Terms.``Order Plan`` |> getTerm
+    | Pages.Formulary -> Terms.``Formulary`` |> getTerm
+    | Pages.Parenteralia -> Terms.``Parenteralia`` |> getTerm
+    | Pages.Interactions -> Terms.``Interactions`` |> getTerm
+    | Pages.Settings -> Terms.Settings |> getTerm
 
 
 type Context =
@@ -58,12 +51,23 @@ let defContext =
 let context = React.createContext (defaultValue = defContext)
 
 
-module Speech =
+/// Whether a quantity field is counting step clicks now, and how a field reports that it starts
+/// counting or has sent its clicks. While one field counts, every other field is disabled.
+type Counting =
+    {
+        Counting: bool
+        Report: bool -> unit
+    }
 
-    open Fable.Core
+/// No field counting, and nothing to report to: the value outside the App.
+let defCounting =
+    {
+        Counting = false
+        Report = ignore
+    }
 
-    [<Emit("window.speechSynthesis.speak(new SpeechSynthesisUtterance($0));")>]
-    let speak s = ()
+/// The quantity fields' count, provided at the root of the App.
+let counting = React.createContext (defaultValue = defCounting)
 
 
 /// The labels of the print header and the signature line, and the word for a value not known.

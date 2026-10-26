@@ -4,9 +4,9 @@ open System
 open Expecto
 open Expecto.Flip
 open Informedica.GenForm.Lib
-open Shared
-open Shared.Types
-open Shared.Models
+open Informedica.GenPRES.Shared
+open Informedica.GenPRES.Shared.Types
+open Informedica.GenPRES.Shared.Models
 open ServerApi
 
 /// Stub adapters for isolated application-layer testing.
@@ -34,10 +34,7 @@ module Machine =
 
     let touch now sid state = ServerApi.Session.touch now sid state |> fst
 
-    /// The notice alone: the age the machine tells beside it has its own tests.
-    let seen now sid opened state =
-        let state, (notice, _) = ServerApi.Session.seen now sid opened None state |> answered
-        state, notice
+    let seen now sid opened state = ServerApi.Session.seen now sid opened None state |> answered
 
     let openVersion now newId sid id state = ServerApi.Session.openVersion now newId sid id state |> answered
 
@@ -128,7 +125,7 @@ module StubAdapters =
             dropEnrolment = fun _ -> async { return () }
             challenge = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             submit = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
-            seen = fun _ _ _ -> async { return None, None }
+            seen = fun _ _ _ -> async { return None }
             age = fun _ -> async { return Ok None }
             openVersion = fun _ _ -> async { return None }
             refresh = fun _ -> async { return None }
@@ -239,7 +236,18 @@ let commandRoutingTests =
             testAsync "processOrderContext dispatches to orderContext.evaluate, typed" {
                 let env = makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk emptyCtx)
 
-                let! result = OrderContextCommand.processCmd env (Api.OrderContextCommand.UpdateOrderContext, emptyCtx)
+                let! result =
+                    OrderContextCommand.processViewCmd
+                        env
+                        (Api.OrderViewCommand.SeedFilter(
+                            Informedica.GenPRES.Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         emptyCtx)
 
                 match result with
                 | Ok _ -> ()
@@ -266,7 +274,18 @@ let errorPropagationTests =
             testAsync "processOrderContext propagates port error" {
                 let env = makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysFails [| "ctx error" |])
 
-                let! result = OrderContextCommand.processCmd env (Api.OrderContextCommand.UpdateOrderContext, emptyCtx)
+                let! result =
+                    OrderContextCommand.processViewCmd
+                        env
+                        (Api.OrderViewCommand.SeedFilter(
+                            Informedica.GenPRES.Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         emptyCtx)
 
                 match result with
                 | Error msgs -> msgs |> Expect.equal "should propagate order context error" [| "ctx error" |]
@@ -289,11 +308,10 @@ let requireLoadedTests =
         Compute.bound
             env
             noCookie
-            Api.OrderContextCommand.toString
+            Api.OrderViewCommand.toString
             (fun _ -> Gate.RequiresLoaded)
-            OrderContextCommand.patients
-            OrderContextCommand.patientOf
-            (OrderContextCommand.processCmd env)
+            (fun _ -> None)
+            (OrderContextCommand.processViewCmd env)
             {
                 Opened = None
                 Command = cmd
@@ -306,7 +324,18 @@ let requireLoadedTests =
             testAsync "requireLoaded returns Error when not loaded" {
                 let env = makeEnvNotLoaded [| "not ready" |]
 
-                let! result = bound env (Api.OrderContextCommand.UpdateOrderContext, emptyCtx)
+                let! result =
+                    bound
+                        env
+                        (Api.OrderViewCommand.SeedFilter(
+                            Informedica.GenPRES.Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         emptyCtx)
 
                 match result with
                 | Error msgs -> msgs |> Expect.equal "should return requireLoaded error" [| "not ready" |]
@@ -316,7 +345,18 @@ let requireLoadedTests =
             testAsync "requireLoaded passes when loaded" {
                 let env = makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk emptyCtx)
 
-                let! result = bound env (Api.OrderContextCommand.UpdateOrderContext, emptyCtx)
+                let! result =
+                    bound
+                        env
+                        (Api.OrderViewCommand.SeedFilter(
+                            Informedica.GenPRES.Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         emptyCtx)
 
                 match result with
                 | Ok _ -> ()
@@ -327,7 +367,7 @@ let requireLoadedTests =
 
 module SessionStubTests =
 
-    open Shared.Api
+    open Informedica.GenPRES.Shared.Api
 
 
     let lifetime = TimeSpan.FromMinutes 2.0
@@ -353,7 +393,7 @@ module SessionStubTests =
             |> Informedica.GenOrder.Lib.Medication.toOrderDto Scenarios.testStart
             |> Mappers.Order.mapFromOrderToShared [| "paracetamol" |]
 
-        Shared.Models.OrderScenario.create
+        Informedica.GenPRES.Shared.Models.OrderScenario.create
             "koorts"
             "paracetamol"
             "zetpil"
@@ -3787,7 +3827,7 @@ module SessionStubTests =
                 testAsync "getSettings answers the settings the host composed with, the default alone before a load" {
                     let settings =
                         {
-                            ServerSettings.Language = Shared.Localization.French
+                            ServerSettings.Language = Informedica.GenPRES.Shared.Localization.French
                             IsDemo = false
                             Departments = [||]
                             DefaultDepartment = ""
@@ -3817,7 +3857,7 @@ module SessionStubTests =
                 testAsync "getSettings carries the departments once the resources are loaded, the rest as composed" {
                     let settings =
                         {
-                            ServerSettings.Language = Shared.Localization.French
+                            ServerSettings.Language = Informedica.GenPRES.Shared.Localization.French
                             IsDemo = false
                             Departments = [||]
                             DefaultDepartment = ""
@@ -4735,7 +4775,7 @@ module SessionStubTests =
     let computeCompositionTests (newStore: unit -> StubDatabase.SessionStore) =
         let settings =
             {
-                ServerSettings.Language = Shared.Localization.Dutch
+                ServerSettings.Language = Informedica.GenPRES.Shared.Localization.Dutch
                 IsDemo = true
                 Departments = [||]
                 DefaultDepartment = "ICK"
@@ -4898,7 +4938,7 @@ module SessionStubTests =
 /// behind `requireLoaded`.
 module AdminTests =
 
-    open Shared.Api
+    open Informedica.GenPRES.Shared.Api
 
     let secret = Some "a-sixteen-char-secret!"
     let t0 = DateTimeOffset(2026, 9, 12, 12, 0, 0, TimeSpan.Zero)
@@ -5127,7 +5167,7 @@ module AdminTests =
 
                     let settings =
                         {
-                            ServerSettings.Language = Shared.Localization.Dutch
+                            ServerSettings.Language = Informedica.GenPRES.Shared.Localization.Dutch
                             IsDemo = true
                             Departments = [||]
                             DefaultDepartment = "ICK"
@@ -5153,7 +5193,7 @@ module AdminTests =
 /// `Compute.bound`: what every computing member goes through.
 module BoundTests =
 
-    open Shared.Api
+    open Informedica.GenPRES.Shared.Api
     open Newtonsoft.Json
     open Fable.Remoting.Json
 
@@ -5171,17 +5211,16 @@ module BoundTests =
 
         { env with
             requireLoaded = (fun () -> if loaded then None else Some [| "not loaded" |])
-            session = { env.session with seen = fun _ _ _ -> async { return told, None } }
+            session = { env.session with seen = fun _ _ _ -> async { return told } }
         }
 
     let run env cookie handler cmd =
         Compute.bound
             env
             cookie
-            OrderContextCommand.toString
+            OrderViewCommand.toString
             (fun _ -> Gate.RequiresLoaded)
-            OrderContextCommand.patients
-            OrderContextCommand.patientOf
+            (fun _ -> None)
             handler
             {
                 Opened = None
@@ -5189,7 +5228,16 @@ module BoundTests =
             }
         |> Async.RunSynchronously
 
-    let formulary = (Api.OrderContextCommand.UpdateOrderContext, emptyCtx)
+    let formulary =
+        (Api.OrderViewCommand.SeedFilter(
+            Informedica.GenPRES.Shared.Types.SeedSource.Reload,
+            None,
+            None,
+            None,
+            None,
+            None
+         ),
+         emptyCtx)
 
     let runInteraction env cookie cmd =
         Compute.bound
@@ -5197,8 +5245,7 @@ module BoundTests =
             cookie
             InteractionCommand.toString
             InteractionCommand.gate
-            InteractionCommand.patients
-            InteractionCommand.patientOf
+            (fun _ -> None)
             (InteractionCommand.processCmd env)
             {
                 Opened = None
@@ -5219,32 +5266,36 @@ module BoundTests =
                 test "without a cookie: computed, nothing told" {
                     let env = envWith true (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
 
-                    match run env (cookieOf None) (OrderContextCommand.processCmd env) formulary with
+                    match run env (cookieOf None) (OrderContextCommand.processViewCmd env) formulary with
                     | Ok reply ->
                         reply.Notice |> Expect.isNone "nothing told without a cookie"
 
                         reply.Response
-                        |> Expect.equal "computed" (Shared.Types.OrderContextResponse.Evaluated emptyCtx)
+                        |> Expect.equal
+                            "computed"
+                            (Informedica.GenPRES.Shared.Types.OrderContextResponse.Evaluated emptyCtx)
                     | Error errs -> failtest $"expected Ok, got {errs}"
                 }
 
                 test "with a cookie: what the Session is told rides on the reply, still computed" {
                     let env = envWith true (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
 
-                    match run env (cookieOf (Some "s-1")) (OrderContextCommand.processCmd env) formulary with
+                    match run env (cookieOf (Some "s-1")) (OrderContextCommand.processViewCmd env) formulary with
                     | Ok reply ->
                         reply.Notice
                         |> Expect.equal "the ending" (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
 
                         reply.Response
-                        |> Expect.equal "computed" (Shared.Types.OrderContextResponse.Evaluated emptyCtx)
+                        |> Expect.equal
+                            "computed"
+                            (Informedica.GenPRES.Shared.Types.OrderContextResponse.Evaluated emptyCtx)
                     | Error errs -> failtest $"expected Ok, got {errs}"
                 }
 
                 test "a command that needs the formulary is refused while it is not loaded" {
                     let env = envWith false None
 
-                    run env (cookieOf None) (OrderContextCommand.processCmd env) formulary
+                    run env (cookieOf None) (OrderContextCommand.processViewCmd env) formulary
                     |> Expect.equal "refused with the messages" (Error [| "not loaded" |])
                 }
 
@@ -5281,7 +5332,7 @@ module BoundTests =
 
                     asked.Value |> Expect.equal "never asked: asking may load" 0
 
-                    run env (cookieOf None) (OrderContextCommand.processCmd env) formulary
+                    run env (cookieOf None) (OrderContextCommand.processViewCmd env) formulary
                     |> Result.isOk
                     |> Expect.isTrue "computed"
 
@@ -5345,7 +5396,7 @@ module BoundTests =
 /// GenORDER now, with their tests.
 module PlanTests =
 
-    open Shared.Api
+    open Informedica.GenPRES.Shared.Api
 
     let scenarioWithOrder = SessionStubTests.scenarioWithOrder
 
@@ -5409,12 +5460,24 @@ module PlanTests =
                         }
 
                     let p = emptyPlan
-                    let! _ = OrderPlanCommand.processCmd env (OrderPlanCommand.Recalculate p)
+                    let! _ = OrderPlanCommand.processCmd env (OrderPlanCommand.FilterRows(p.Filtered, p))
 
                     let! _ =
                         OrderPlanCommand.processCmd
                             env
-                            (OrderPlanCommand.Navigate(p, "c-1", Api.OrderContextCommand.UpdateOrderContext, emptyCtx))
+                            (OrderPlanCommand.Navigate(
+                                p,
+                                "c-1",
+                                Api.OrderViewCommand.SeedFilter(
+                                    Informedica.GenPRES.Shared.Types.SeedSource.Reload,
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    None
+                                ),
+                                emptyCtx
+                            ))
 
                     let! _ = OrderPlanCommand.processCmd env (OrderPlanCommand.AddOrderContext(p, emptyCtx))
 
@@ -5442,14 +5505,9 @@ module PlanTests =
                     let p = OrderPlan.empty
 
                     OrderPlanCommand.toString (
-                        OrderPlanCommand.Navigate(
-                            p,
-                            "c-1",
-                            Api.OrderContextCommand.UpdateOrderContext,
-                            OrderContext.empty
-                        )
+                        OrderPlanCommand.Navigate(p, "c-1", Api.OrderViewCommand.ResetOrderScenario, OrderContext.empty)
                     )
-                    |> Expect.equal "the command, not the context" "Navigate UpdateOrderContext"
+                    |> Expect.equal "the command, not the context" "Navigate ResetOrderScenario"
 
                     OrderPlanCommand.toString (OrderPlanCommand.NewOrderContext(p, NutritionCategory.TPN))
                     |> Expect.equal "category" "NewOrderContext TPN"
@@ -5517,9 +5575,17 @@ let ingressTests =
                 let env = makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysFails [| "asked" |])
 
                 let! result =
-                    OrderContextCommand.processCmd
+                    OrderContextCommand.processViewCmd
                         env
-                        (Api.OrderContextCommand.UpdateOrderContext, Models.OrderContext.empty)
+                        (Api.OrderViewCommand.SeedFilter(
+                            Informedica.GenPRES.Shared.Types.SeedSource.Reload,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None
+                         ),
+                         Models.OrderContext.empty)
 
                 result |> refusedAs Patient.noPatient
             }
@@ -5529,7 +5595,8 @@ let ingressTests =
 
                 let draft = OrderPlan.empty
 
-                let! recalculated = OrderPlanCommand.processCmd env (Api.OrderPlanCommand.Recalculate draft)
+                let! recalculated =
+                    OrderPlanCommand.processCmd env (Api.OrderPlanCommand.FilterRows(draft.Filtered, draft))
                 recalculated |> refusedAs Patient.noPatient
 
                 let! navigated =
@@ -5538,7 +5605,14 @@ let ingressTests =
                         (Api.OrderPlanCommand.Navigate(
                             emptyPlan,
                             "c-1",
-                            Api.OrderContextCommand.UpdateOrderContext,
+                            Api.OrderViewCommand.SeedFilter(
+                                Informedica.GenPRES.Shared.Types.SeedSource.Reload,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None
+                            ),
                             Models.OrderContext.empty
                         ))
 
@@ -5571,7 +5645,8 @@ let ingressTests =
                 let! opened = OrderPlanCommand.processCmd env (Api.OrderPlanCommand.Open(patient, [| draft |]))
                 opened |> refusedAs Patient.noPatient
 
-                let! recalculated = OrderPlanCommand.processCmd env (Api.OrderPlanCommand.Recalculate carrying)
+                let! recalculated =
+                    OrderPlanCommand.processCmd env (Api.OrderPlanCommand.FilterRows(carrying.Filtered, carrying))
                 recalculated |> refusedAs Patient.noPatient
 
                 let cookie: SessionCookie =

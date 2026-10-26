@@ -18,6 +18,7 @@
     <Compile Include="Totals.fs" />
     <Compile Include="Dtos.fs" />
     <Compile Include="Medication.fs" />
+    <Compile Include="MedicationText.fs" />
     <Compile Include="Nutrition.fs" />
     <Compile Include="Patient.fs" />
     <Compile Include="OrderLogging.fs" />
@@ -26,7 +27,6 @@
     <Compile Include="OrderPlan.fs" />
     <None Include="Scripts\load.fsx" />
     <None Include="Scripts\Scenarios.fsx" />
-    <None Include="Scripts\Medication.fsx" />
     <None Include="Scripts\Constraints.fsx" />
   </ItemGroup>
   <ItemGroup>

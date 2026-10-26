@@ -1,7 +1,11 @@
 module AppEnv
 
-open Shared
-open Shared.Types
+open Informedica.GenPRES.Client.Core.Helpers
+open Informedica.GenPRES.Client.Core.Policies
+open Informedica.GenPRES.Client.Core.StateMachines
+open Informedica.GenPRES.Client.Core.MachinePolicies
+open Informedica.GenPRES.Shared
+open Informedica.GenPRES.Shared.Types
 
 
 /// Downcast appEnv to the requested interface.
@@ -20,6 +24,21 @@ type ISettings =
     abstract Settings: Deferred<Api.ServerSettings>
 
 
+/// Where the start-up is: the gate covers the application until it has started.
+[<Interface>]
+type IStartup =
+    abstract Startup: StartupPolicy.Startup
+
+
+/// What is out, and what it disables.
+[<Interface>]
+type IBusy =
+    // anything out that holds the menu, the title bar and the patient panel
+    abstract Any: bool
+    // whether a request out can change anything on the page
+    abstract Page: Page.Page -> bool
+
+
 /// Order context data and commands.
 /// Mangled: the app state implements this and IOrderPlan on one object, and both have a Select;
 /// without mangling Fable emits the two as one property.
@@ -27,36 +46,39 @@ type ISettings =
 type IOrderContext =
     // the workbench as the pages show it
     abstract OrderContext: OrderContextMachine.OrderContextView
-    abstract OrderContextMsg: Api.OrderContextCommand * OrderContext -> unit
+    abstract OrderContextMsg: Api.OrderViewCommand -> unit
     // a clear from the dialog that opens the field's list, the workbench before it kept
-    abstract Reopen: Api.OrderContextCommand * OrderContext -> unit
+    abstract ReopenField: Api.OrderViewCommand -> unit
     // the list of a reopen closed without a pick: the workbench kept is put back
-    abstract Restore: unit -> unit
+    abstract RestoreField: unit -> unit
     // the workbench as the order dialog shows it; none while no scenario is selected
     abstract Dialog: OrderContextMachine.OrderContextView option
     // the scenario whose order the dialog shows, by its order's id; the client's own, no round trip
-    abstract Select: string option -> unit
-    // the argumentation written on the workbench; the client's own, no round trip
-    abstract Argue: string -> unit
+    abstract SelectScenario: string option -> unit
 
 
 /// The one plan, nutrition included, and the commands on it.
-/// Mangled, as IOrderContext is: the two share a Select on one object.
+/// Mangled, as IOrderContext is: the two share member names on one object.
 [<Interface; Fable.Core.Mangle>]
 type IOrderPlan =
     // the plan as the pages show it, the dialog's selection inside
     abstract OrderPlan: OrderPlanMachine.OrderPlanView
-    abstract OrderPlanCommand: Api.OrderPlanCommand -> unit
+    // the order with this id prescribed, from the workbench narrowed to its scenario
+    abstract Add: orderId: string -> unit
+    // a new nutrition context for the category
+    abstract NewNutrition: NutritionCategory -> unit
+    // the contexts with these ids removed
+    abstract Remove: ids: string[] -> unit
+    // a command from the order dialog into the plan's context with this id, sent over the plan held
+    abstract OrderDialogCommand: string * Api.OrderViewCommand -> unit
     // a clear from the dialog that opens the field's list, the plan before it kept
-    abstract Reopen: Api.OrderPlanCommand -> unit
+    abstract ReopenField: string * Api.OrderViewCommand -> unit
     // the list of a reopen closed without a pick: the plan kept is put back, as signed or changed
-    abstract Restore: unit -> unit
+    abstract RestoreField: unit -> unit
     // the context whose order the dialog shows, by id; the client's own, no round trip
-    abstract Select: string option -> unit
+    abstract SelectContext: string option -> unit
     // the contexts the rows keep, by id; the totals follow
-    abstract Filter: string[] -> unit
-    // the argumentation written on a context of the plan, by id; the client's own, no round trip
-    abstract Argue: string * string -> unit
+    abstract FilterRows: string[] -> unit
     // the contexts of the plan that are new or changed since the version last opened or
     // signed, by id; while there are any in an open Session the patient context is held
     abstract Changed: string[]
@@ -65,14 +87,17 @@ type IOrderPlan =
 /// Patient data and updates
 [<Interface>]
 type IPatient =
-    // the patient data as the panel edits it and the lists read it, the estimate applied
+    // the patient data as the panel edits it and the lists read it, with the estimates the
+    // server answered after an edit that renews them
     abstract Draft: Patient option
+    // a patient change is under way: the panel takes no edit until it is answered
+    abstract Changing: bool
     // the draft with the estimates of its age, the gender and the gestational age applied to
     // every weight and height, cleared or entered as well: what the summary shows, not what
     // the fields show
     abstract Estimated: Patient option
-    // the draft, with the weight and height the user did not enter estimated again: after an
-    // edit of the age, the gender or the gestational age, which the normal values follow
+    // the draft, with the weight and height the user did not enter estimated again by the
+    // server: after an edit of the age, the gender or the gestational age
     abstract UpdatePatient: Patient option -> unit
     // the draft with its estimates as they are: after any other edit, so that a weight or a
     // height the user cleared stays cleared
@@ -115,17 +140,17 @@ type ISession =
     abstract Session: SessionMachine.SessionView
     // explicit close, from an open Session
     abstract Close: unit -> unit
-    // from Unreachable, or a refusal worth retrying
-    abstract Retry: unit -> unit
+    // from ServerUnreachable, or a refusal worth retrying
+    abstract RetryLaunch: unit -> unit
     // a fresh anonymous open that carries nothing over
     abstract OpenAnonymously: unit -> unit
     // the confirmation code and the chosen PIN, from the gate's form
     abstract SupplyPin: string -> string -> unit
     // the newest version the server told of, while the Session is on an older one
-    abstract MovedOn: OrderPlanHead option
+    abstract NewerPlan: OrderPlanHead option
     // take up that version
-    abstract OpenVersion: string -> unit
-    // read the EHR again and reopen the head on it; the plan's new and changed orders are dropped
+    abstract OpenSignedPlan: string -> unit
+    // read the patient from the EHR again; the plan and the workbench follow it
     abstract Refresh: unit -> unit
 
 
