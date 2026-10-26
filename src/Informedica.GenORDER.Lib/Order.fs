@@ -3162,6 +3162,10 @@ module Order =
     let hasAtMostTwoComponents ord = ord.Orderable.Components |> List.length <= 2
 
 
+    /// The names of the components of an order.
+    let components ord = ord.Orderable.Components |> List.map (_.Name >> Name.toString)
+
+
     /// Check whether every component orderable quantity holds one value, so the user has set the
     /// composition a dose is a part of.
     let isComposed ord =

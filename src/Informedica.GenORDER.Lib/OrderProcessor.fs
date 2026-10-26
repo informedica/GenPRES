@@ -1234,3 +1234,199 @@ module OrderProcessor =
         and run caps logger effects ord =
             (Ok ord, effects)
             ||> List.fold (fun acc eff -> acc |> Result.bind (apply caps logger eff))
+
+
+    module SetCommand =
+
+
+        /// How the variable a reference names can be set: a list is selectable; a min, increment and
+        /// max is a range that ofSet takes a value from only on a basic variable, since the range of a
+        /// derived variable can hold values no complete order reaches; one value with a defined
+        /// increment is steppable, on a basic variable only.
+        let settable sch ovarRef ovar =
+            match ovar |> OrderVariable.shape with
+            | Shape.Steppable when ovarRef |> OrderVariableReference.isBasic sch |> not -> Shape.NotSettable
+            | shape -> shape
+
+
+        /// What a set does with its choice, given the shape of the variable. A step on the frequency,
+        /// the dose quantity, the dose rate or a component orderable quantity, and a percentile of the
+        /// dose quantity, run a recipe that first sets back the variables that depend on the set
+        /// variable, so they can follow the new value. A min, max, median or nth sets only the value:
+        /// from a list on any variable, from a min, increment and max only on a basic variable. On a
+        /// variable that is steppable or not settable a min, max, median or nth still sets only the
+        /// value: Choice.select then refuses it with the reason the shape gives no value.
+        let ofSet ovarRef sch shape choice =
+            match ovarRef, choice with
+            | _, Choice.Step _ when shape <> Shape.Steppable -> SetCommand.NoCommand
+            | OrderVariableReference.ScheduleFrequency, Choice.Step _ ->
+                SetCommand.WithRecipe Recipe.ScheduleFrequencyStep
+            | OrderVariableReference.OrderableDose DoseProperty.Quantity, Choice.Step _ ->
+                SetCommand.WithRecipe Recipe.OrderableDoseQuantityStep
+            // on Continuous the dose quantity is not basic, so it has no percentile
+            | OrderVariableReference.OrderableDose DoseProperty.Quantity, Choice.Percentile _ when
+                ovarRef |> OrderVariableReference.isBasic sch
+                ->
+                SetCommand.WithRecipe Recipe.OrderableDoseQuantityPercentile
+            | OrderVariableReference.OrderableDose DoseProperty.Rate, Choice.Step _ ->
+                SetCommand.WithRecipe Recipe.OrderableDoseRateStep
+            | OrderVariableReference.ComponentOrderableQuantity c, Choice.Step _ ->
+                SetCommand.WithRecipe(Recipe.ComponentOrderableQuantityStep c)
+            | _, (Choice.Min | Choice.Max | Choice.Median | Choice.Nth _) when
+                shape = Shape.SelectableRange
+                && ovarRef |> OrderVariableReference.isBasic sch |> not
+                ->
+                SetCommand.NoCommand
+            | _, (Choice.Min | Choice.Max | Choice.Median | Choice.Nth _) -> SetCommand.ValueOnly
+            | _ -> SetCommand.NoCommand
+
+
+    /// The recipes as effects. A recipe reads the order only for its conditions and for the names of
+    /// its components.
+    module Recipe =
+
+
+        /// The preparation a recipe keeps: the orderable quantity of each component.
+        let keptPreparation ord =
+            ord |> components |> List.map OrderVariableReference.ComponentOrderableQuantity
+
+
+        /// Every variable the kept variables do not determine freed to any positive value, but the
+        /// variables in stays, such as the target of a step, which the step gives its value.
+        let freeUndetermined kept stays =
+            OrderEffect.SetBackUndetermined(kept, stays, SetBackTo.AnyPositive)
+
+
+        /// The variable set back to the target.
+        let setFloor ovarRef target = OrderEffect.SetOrderVariableRangeBack(ovarRef, target)
+
+
+        /// The rate a step keeps, on a schedule with an administration time.
+        let keptRate (ord: Order) =
+            [
+                if ord.Schedule |> Schedule.hasTime then
+                    OrderVariableReference.OrderableDose DoseProperty.Rate
+            ]
+
+
+        /// The step of the frequency: keeps the dose quantity, the preparation, the rate, the order
+        /// count and the invariants, so the doses per time follow the frequency.
+        let scheduleFrequencyStep ord =
+            [
+                freeUndetermined
+                    [
+                        OrderVariableReference.OrderableDose DoseProperty.Quantity
+                        yield! ord |> keptPreparation
+                        yield! ord |> keptRate
+                        OrderVariableReference.OrderableOrderCount
+                        yield! ord |> OrderVariableReference.invariants
+                    ]
+                    [ OrderVariableReference.ScheduleFrequency ]
+            ]
+
+
+        /// The step of the dose quantity: keeps the frequency, the rate, the order count, the
+        /// invariants and, with more than one component, the preparation. The dose count goes to 1
+        /// with one component, to at least 1 with more. The orderable quantity of a single component
+        /// is freed with the rest, and so keeps its increment.
+        let orderableDoseQuantityStep ord =
+            let isSingle = ord |> components |> List.length = 1
+
+            [
+                freeUndetermined
+                    [
+                        OrderVariableReference.ScheduleFrequency
+                        yield! ord |> keptRate
+                        OrderVariableReference.OrderableOrderCount
+
+                        if not isSingle then
+                            yield! ord |> keptPreparation
+
+                        yield! ord |> OrderVariableReference.invariants
+                    ]
+                    [ OrderVariableReference.OrderableDose DoseProperty.Quantity ]
+
+                if isSingle then
+                    setFloor OrderVariableReference.OrderableDoseCount SetBackTo.One
+                else
+                    setFloor OrderVariableReference.OrderableDoseCount SetBackTo.AtLeastOne
+            ]
+
+
+        /// The percentile of the dose quantity: keeps the frequency, the preparation, the order count
+        /// and the invariants. The dose quantity goes to its defined constraints up to the orderable
+        /// quantity, its adjust and the rate to their defined constraints, the dose count to at least
+        /// 1, and on a schedule with a time the time to its calculated constraints.
+        let orderableDoseQuantityPercentile (ord: Order) =
+            let dose = OrderVariableReference.OrderableDose
+
+            [
+                freeUndetermined
+                    [
+                        OrderVariableReference.ScheduleFrequency
+                        yield! ord |> keptPreparation
+                        OrderVariableReference.OrderableOrderCount
+                        yield! ord |> OrderVariableReference.invariants
+                    ]
+                    []
+
+                if ord.Schedule |> Schedule.hasTime then
+                    setFloor OrderVariableReference.ScheduleTime SetBackTo.Calculated
+
+                setFloor (dose DoseProperty.Quantity) SetBackTo.DefinedUpToOrderable
+                setFloor (dose DoseProperty.QuantityAdjust) SetBackTo.Defined
+                setFloor (dose DoseProperty.Rate) SetBackTo.Defined
+                setFloor OrderVariableReference.OrderableDoseCount SetBackTo.AtLeastOne
+            ]
+
+
+        /// The step of the dose rate: keeps the frequency, the dose quantity, the preparation, the
+        /// order count and the invariants, so the time and the rates of the components and items
+        /// follow the rate.
+        let orderableDoseRateStep ord =
+            [
+                freeUndetermined
+                    [
+                        OrderVariableReference.ScheduleFrequency
+                        OrderVariableReference.OrderableDose DoseProperty.Quantity
+                        yield! ord |> keptPreparation
+                        OrderVariableReference.OrderableOrderCount
+                        yield! ord |> OrderVariableReference.invariants
+                    ]
+                    [ OrderVariableReference.OrderableDose DoseProperty.Rate ]
+            ]
+
+
+        /// The step of the orderable quantity of the component name: keeps the frequency, the
+        /// orderable quantities of the other components, the rate, the order count, the invariants
+        /// and, with one component, the dose quantity. The orderable quantity goes to its min and
+        /// increment; with more than one component the dose quantity to its min and increment and
+        /// the dose count to 1.
+        let componentOrderableQuantityStep name ord =
+            let isSingle = ord |> components |> List.length = 1
+
+            [
+                freeUndetermined
+                    [
+                        OrderVariableReference.ScheduleFrequency
+
+                        for c in ord |> components do
+                            if BCL.String.equalsCapInsens c name |> not then
+                                OrderVariableReference.ComponentOrderableQuantity c
+
+                        yield! ord |> keptRate
+                        OrderVariableReference.OrderableOrderCount
+
+                        if isSingle then
+                            OrderVariableReference.OrderableDose DoseProperty.Quantity
+
+                        yield! ord |> OrderVariableReference.invariants
+                    ]
+                    [ OrderVariableReference.ComponentOrderableQuantity name ]
+
+                setFloor OrderVariableReference.OrderableQuantity SetBackTo.MinIncr
+
+                if not isSingle then
+                    setFloor (OrderVariableReference.OrderableDose DoseProperty.Quantity) SetBackTo.MinIncr
+                    setFloor OrderVariableReference.OrderableDoseCount SetBackTo.One
+            ]
