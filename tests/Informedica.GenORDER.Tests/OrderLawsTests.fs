@@ -272,6 +272,17 @@ let tests =
                 |> Expect.isFalse "the dose count of hydrocortison is free"
             }
 
+            test "creation gives a medication whose rules give no dose count a dose count of 1" {
+                let _, cs =
+                    { Scenarios.pcmSupp with DoseCount = Informedica.GenCore.Lib.Ranges.MinMax.empty }
+                    |> Tests.TestOrder.toOrder
+                    |> countConstraints
+
+                cs.Values
+                |> Option.map ValueRange.ValueSet.toValueUnit
+                |> Expect.equal "exactly 1" (Some ValueUnit.oneCount)
+            }
+
             test "the counts hold on every calculation" {
                 [
                     for name, _, created, valued, solved in fixtures.Value do

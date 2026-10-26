@@ -1839,15 +1839,17 @@ module Medication =
             }
 
 
-        /// The dose count set to 1 in its defined constraints when the rules give it no minimum,
-        /// maximum or values, as a solution rule without a minimum and maximum percentage does. Dose
-        /// count constraints the rules give are kept as they are.
+        /// The dose count set to 1 in its defined constraints when the rules give it no constraints, as
+        /// a solution rule without a minimum and maximum percentage does. A count is created above 0,
+        /// which counts as no constraint. Dose count constraints the rules give are kept as they are.
         let withDoseCount (ord: Order) =
-            let cnt = ord.Orderable.DoseCount |> OrderVariable.Count.toOrdVar
-            let cs = cnt.DefinedConstraints
-
-            match cs.Min, cs.Max, cs.Values with
-            | None, None, None ->
+            if
+                ord.Orderable.DoseCount
+                |> OrderVariable.Count.toOrdVar
+                |> OrderVariable.hasConstraints
+            then
+                ord
+            else
                 { ord with
                     Order.Orderable.DoseCount =
                         ord.Orderable.DoseCount
@@ -1857,7 +1859,6 @@ module Medication =
                             )
                         )
                 }
-            | _ -> ord
 
 
         /// Build an Order from a Medication: the shape, and then every constraint. The start
