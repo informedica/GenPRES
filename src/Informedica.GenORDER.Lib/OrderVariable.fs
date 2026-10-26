@@ -122,6 +122,7 @@ module Variable =
     /// Informedica.GenSolver.Lib.Variable.ValueRange type
     module ValueRange =
 
+        open Informedica.GenUnits.Lib
         open Informedica.GenSolver.Lib.Variable.ValueRange
         open Informedica.Utils.Lib
 
@@ -165,6 +166,44 @@ module Variable =
         /// <param name="vs">The optional ValueSet</param>
         /// <param name="vr">The ValueRange</param>
         let setOptVs vs vr = vr |> setOpt vs setValueSet
+
+
+        /// The union of ranges: one list when each is a list, or a min, increment and max of fewer
+        /// than maxCount values; else the range from the lowest minimum to the highest maximum on
+        /// each of their increments, without a minimum, maximum or increment when one of the ranges
+        /// has none.
+        let unionRanges maxCount (vrs: Informedica.GenSolver.Lib.Types.ValueRange list) =
+            match vrs |> List.distinct with
+            | [ vr ] -> vr
+            | vrs ->
+                match vrs |> List.map (tryToValueSet maxCount) |> List.sequenceOption with
+                | Some vss ->
+                    vss
+                    |> List.map ValueSet.toValueUnit
+                    |> ValueUnit.collectValues
+                    |> ValueSet.create
+                    |> Informedica.GenSolver.Lib.Types.ValSet
+                | None ->
+                    let all f = vrs |> List.map f |> List.sequenceOption
+
+                    let min =
+                        all getMin
+                        |> Option.map (List.reduce (fun m1 m2 -> if m2 |> Minimum.minSTmin m1 then m2 else m1))
+
+                    let max =
+                        all getMax
+                        |> Option.map (List.reduce (fun m1 m2 -> if m2 |> Maximum.maxGTmax m1 then m2 else m1))
+
+                    let incr =
+                        all getIncr
+                        |> Option.map (
+                            List.map Increment.toValueUnit
+                            >> ValueUnit.collectValues
+                            >> ValueUnit.removeBigRationalMultiples
+                            >> Increment.create
+                        )
+
+                    create min incr max None
 
 
     open Informedica.GenSolver.Lib
@@ -1112,6 +1151,54 @@ module OrderVariable =
             Some { ovar with Variable = ovar.Variable |> Variable.setValueRange vr }
         with Exceptions.SolverException _ ->
             None
+
+
+    /// The order variable held to the values of vu, as one concentration holds it: its defined and
+    /// calculated value lists set to those values, so setting the variable back keeps them, and its
+    /// range narrowed to them, unless the action sets the range back. None when the range keeps no
+    /// value.
+    let fixToValues setsBack vu (ovar: OrderVariable) =
+        let set = vu |> ValueSet.create
+
+        let fixedOvar =
+            { ovar with
+                OrderVariable.DefinedConstraints.Values = Some set
+                OrderVariable.CalculatedConstraints.Values =
+                    ovar.CalculatedConstraints.Values |> Option.map (fun _ -> set)
+            }
+
+        if setsBack ovar then
+            Some fixedOvar
+        else
+            fixedOvar |> tryConstrain vu
+
+
+    /// The value list of an order variable: its range when that is a list, else the list of its
+    /// calculated constraints, else that of its defined constraints.
+    let tryValueList (ovar: OrderVariable) =
+        match ovar.Variable.Values with
+        | ValSet vs -> Some vs
+        | _ ->
+            ovar.CalculatedConstraints.Values
+            |> Option.orElse ovar.DefinedConstraints.Values
+
+
+    /// The same variable of the orders per concentration as one: its range the union of theirs, its
+    /// defined constraints those of orig, and its calculated constraints those of orig too, unless
+    /// the action records them, when they are the union of theirs.
+    let unionPerConcentration maxCount records (orig: OrderVariable) (ovars: OrderVariable list) =
+        let union = ValueRange.unionRanges maxCount
+
+        let calculated =
+            match ovars |> List.map _.CalculatedConstraints |> List.distinct with
+            | _ when not records -> orig.CalculatedConstraints
+            | [ cs ] -> cs
+            | css -> css |> List.map Constraints.toValueRange |> union |> Constraints.fromValueRange
+
+        { orig with
+            OrderVariable.Variable.Values = ovars |> List.map _.Variable.Values |> union
+            OrderVariable.CalculatedConstraints = calculated
+        }
 
 
     /// <summary>

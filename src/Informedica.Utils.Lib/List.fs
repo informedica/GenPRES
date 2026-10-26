@@ -258,6 +258,19 @@ module List =
             None
 
 
+    /// Every combination of one element of each list, in order: no lists give one empty
+    /// combination, and an empty list gives none.
+    let combinations xss =
+        (xss, [ [] ])
+        ||> List.foldBack (fun xs acc ->
+            [
+                for x in xs do
+                    for rest in acc do
+                        x :: rest
+            ]
+        )
+
+
     //----------------------------------------------------------------------------
     // String functions
     //----------------------------------------------------------------------------

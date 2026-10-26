@@ -1313,6 +1313,77 @@ module Order =
                 || cmp.Items |> List.exists (_.Dose >> Dose.isConstrained)
 
 
+            /// The component once per combination of item concentrations, each held to it: the
+            /// concentrations of the products the component names, else, without known products, each
+            /// combination of the item strengths. Products with the same concentrations solve alike, so
+            /// they stay together, with their contents as one list. A combination that keeps no value of
+            /// a variable the action does not set back drops out.
+            let concentrations setsBack (cmp: Component) =
+                let fixItem vu (itm: Item) =
+                    itm.ComponentConcentration
+                    |> Concentration.toOrdVar
+                    |> OrderVariable.fixToValues setsBack vu
+                    |> Option.map (fun ovar -> { itm with ComponentConcentration = ovar |> Concentration })
+
+                let withItems (cmp: Component) strengths =
+                    List.zip cmp.Items strengths
+                    |> List.map (fun (itm, s) ->
+                        match s with
+                        | Some vu -> itm |> fixItem vu
+                        | None -> Some itm
+                    )
+                    |> List.sequenceOption
+                    |> Option.map (fun itms -> { cmp with Items = itms })
+
+                let strengthsOf (itm: Item) =
+                    match
+                        itm.ComponentConcentration
+                        |> Concentration.toOrdVar
+                        |> OrderVariable.tryValueList
+                    with
+                    | Some vs ->
+                        let vu = vs |> Informedica.GenSolver.Lib.Variable.ValueRange.ValueSet.toValueUnit
+
+                        vu
+                        |> ValueUnit.getValue
+                        |> Array.toList
+                        |> List.map (fun v -> v |> ValueUnit.singleWithUnit (vu |> ValueUnit.getUnit) |> Some)
+                    | None -> [ None ]
+
+                match cmp.Products with
+                | [] ->
+                    cmp.Items
+                    |> List.map strengthsOf
+                    |> List.combinations
+                    |> List.choose (withItems cmp)
+                | pp ->
+                    let strengthsOfProduct (p: ComponentProduct) =
+                        cmp.Items
+                        |> List.map (fun itm ->
+                            p.Strengths
+                            |> List.tryFind (_.Substance >> String.equalsCapInsens (itm.Name |> Name.toString))
+                            |> Option.map _.Strength
+                        )
+
+                    pp
+                    |> List.groupBy strengthsOfProduct
+                    |> List.choose (fun (strengths, group) ->
+                        // the contents are fixed only when every product of the group names its own
+                        let qty =
+                            match group |> List.map _.FormQuantities with
+                            | qts when qts |> List.forall Option.isSome ->
+                                cmp.ComponentQuantity
+                                |> Quantity.toOrdVar
+                                |> OrderVariable.fixToValues
+                                    setsBack
+                                    (qts |> List.choose id |> ValueUnit.collectValues)
+                                |> Option.map (fun ovar -> { cmp with ComponentQuantity = ovar |> Quantity })
+                            | _ -> Some cmp
+
+                        qty |> Option.bind (fun cmp -> strengths |> withItems cmp)
+                    )
+
+
             /// <summary>
             /// Create a new Component from a list of OrderVariables using
             /// an old Component.
