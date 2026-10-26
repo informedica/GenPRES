@@ -671,7 +671,7 @@ let reopenTests =
     let reopen request =
         OrderPlanMsg.ReopenField(
             "c-1",
-            OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
+            OrderViewCommand.ReCalcScheduleProperty(ScheduleProperty.Frequency, [||]),
             request
         )
     // the clear as the machine sends it, over the plan and the context held
@@ -679,7 +679,7 @@ let reopenTests =
         OrderPlanCommand.Navigate(
             two,
             "c-1",
-            OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
+            OrderViewCommand.ReCalcScheduleProperty(ScheduleProperty.Frequency, [||]),
             two.OrderContexts[0]
         )
     let move = OrderPlanState.transition
@@ -757,7 +757,7 @@ let reopenTests =
                 let gone =
                     OrderPlanMsg.ReopenField(
                         "c-9",
-                        OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
+                        OrderViewCommand.ReCalcScheduleProperty(ScheduleProperty.Frequency, [||]),
                         "r-1"
                     )
 
@@ -840,7 +840,7 @@ let requestOutTests =
                         pageMsg (remove, "r-2")
                         OrderPlanMsg.ReopenField(
                             "c-1",
-                            OrderViewCommand.ClearScheduleProperty(ScheduleProperty.Frequency, [||]),
+                            OrderViewCommand.ReCalcScheduleProperty(ScheduleProperty.Frequency, [||]),
                             "r-2"
                         )
                         OrderPlanMsg.PatientDataChanged(Some other, "r-2")

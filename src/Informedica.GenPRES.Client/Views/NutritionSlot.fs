@@ -630,7 +630,7 @@ module NutritionSlot =
                 (ncId, cmd) |> if isReopen then props.planReopen else props.planNavigate
 
             match located, s with
-            | Some(t, _), None when isReopen -> send (ViewHelpers.clearCommand t [||])
+            | Some(t, _), None when isReopen -> send (ViewHelpers.reCalcCommand t [||])
             | Some(t, ovar), Some key when not isReopen ->
                 match OrderContext.values ovar |> Array.tryFindIndex ((=) key) with
                 | Some n -> send (ViewHelpers.setNthCommand t n)

@@ -184,7 +184,7 @@ let tests =
                                     |> evaluate
                                     |> variablesOf
 
-                                OrderContext.ClearOrderValue(ctx, field.Clear, picks)
+                                OrderContext.ReCalcOrderValue(ctx, field.Clear, picks)
                                 |> evaluate
                                 |> variablesOf
                                 |> Expect.equal "the same order" expected

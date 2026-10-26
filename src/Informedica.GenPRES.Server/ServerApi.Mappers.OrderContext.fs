@@ -337,32 +337,32 @@ module OrderContextMapper =
         let propertyCommands (t: Ctx.Target) =
             match t with
             | Ctx.Target.Schedule ScheduleProperty.Frequency -> SetNthScheduleFrequency, ClearScheduleFrequency
-            | Ctx.Target.Schedule ScheduleProperty.Time -> SetNthScheduleTime, ClearScheduleTime
-            | Ctx.Target.Orderable OrderableProperty.Quantity -> SetNthOrderableQuantity, ClearOrderableQuantity
+            | Ctx.Target.Schedule ScheduleProperty.Time -> SetNthScheduleTime, ReCalcScheduleTime
+            | Ctx.Target.Orderable OrderableProperty.Quantity -> SetNthOrderableQuantity, ReCalcOrderableQuantity
             | Ctx.Target.Orderable OrderableProperty.DoseQuantity ->
                 SetNthOrderableDoseQuantity, ClearOrderableDoseQuantity
             | Ctx.Target.Orderable OrderableProperty.DoseRate -> SetNthOrderableDoseRate, ClearOrderableDoseRate
             | Ctx.Target.Component(c, ComponentProperty.OrderableQuantity) ->
                 (fun n -> SetNthComponentOrderableQuantity(c, n)), ClearComponentOrderableQuantity c
             | Ctx.Target.Component(c, ComponentProperty.DoseQuantityAdjust) ->
-                (fun n -> SetNthComponentDoseQuantityAdjust(c, n)), ClearComponentDoseQuantityAdjust c
+                (fun n -> SetNthComponentDoseQuantityAdjust(c, n)), ReCalcComponentDoseQuantityAdjust c
             | Ctx.Target.Item(c, i, p) ->
                 match p with
-                | ItemProperty.DoseQuantity -> (fun n -> SetNthItemDoseQuantity(c, i, n)), ClearItemDoseQuantity(c, i)
+                | ItemProperty.DoseQuantity -> (fun n -> SetNthItemDoseQuantity(c, i, n)), ReCalcItemDoseQuantity(c, i)
                 | ItemProperty.DoseQuantityAdjust ->
-                    (fun n -> SetNthItemDoseQuantityAdjust(c, i, n)), ClearItemDoseQuantityAdjust(c, i)
-                | ItemProperty.DosePerTime -> (fun n -> SetNthItemDosePerTime(c, i, n)), ClearItemDosePerTime(c, i)
+                    (fun n -> SetNthItemDoseQuantityAdjust(c, i, n)), ReCalcItemDoseQuantityAdjust(c, i)
+                | ItemProperty.DosePerTime -> (fun n -> SetNthItemDosePerTime(c, i, n)), ReCalcItemDosePerTime(c, i)
                 | ItemProperty.DosePerTimeAdjust ->
-                    (fun n -> SetNthItemDosePerTimeAdjust(c, i, n)), ClearItemDosePerTimeAdjust(c, i)
-                | ItemProperty.DoseRate -> (fun n -> SetNthItemDoseRate(c, i, n)), ClearItemDoseRate(c, i)
+                    (fun n -> SetNthItemDosePerTimeAdjust(c, i, n)), ReCalcItemDosePerTimeAdjust(c, i)
+                | ItemProperty.DoseRate -> (fun n -> SetNthItemDoseRate(c, i, n)), ReCalcItemDoseRate(c, i)
                 | ItemProperty.DoseRateAdjust ->
-                    (fun n -> SetNthItemDoseRateAdjust(c, i, n)), ClearItemDoseRateAdjust(c, i)
+                    (fun n -> SetNthItemDoseRateAdjust(c, i, n)), ReCalcItemDoseRateAdjust(c, i)
                 | ItemProperty.ComponentConcentration ->
                     (fun n -> SetNthItemComponentConcentration(c, i, n)), ClearItemComponentConcentration(c, i)
                 | ItemProperty.OrderableConcentration ->
-                    (fun n -> SetNthItemOrderableConcentration(c, i, n)), ClearItemOrderableConcentration(c, i)
+                    (fun n -> SetNthItemOrderableConcentration(c, i, n)), ReCalcItemOrderableConcentration(c, i)
                 | ItemProperty.OrderableQuantity ->
-                    (fun n -> SetNthItemOrderableQuantity(c, i, n)), ClearItemOrderableQuantity(c, i)
+                    (fun n -> SetNthItemOrderableQuantity(c, i, n)), ReCalcItemOrderableQuantity(c, i)
 
 
         /// The domain's source of a seed for the wire's.
@@ -387,7 +387,7 @@ module OrderContextMapper =
             let setNth t n =
                 fun ctx -> Domain.SetNthOrderValue(ctx, (fst (propertyCommands t)) n)
 
-            let clear t (picks: string[]) =
+            let reCalc t (picks: string[]) =
                 fun (ctx: Informedica.GenOrder.Lib.Types.OrderContext) ->
                     let withId =
                         match ctx.Scenarios |> Array.tryExactlyOne with
@@ -397,7 +397,7 @@ module OrderContextMapper =
                             )
                         | None -> id
 
-                    Domain.ClearOrderValue(ctx, snd (propertyCommands t), picks |> Array.map withId |> Array.toList)
+                    Domain.ReCalcOrderValue(ctx, snd (propertyCommands t), picks |> Array.map withId |> Array.toList)
 
             match cmd with
             | Informedica.GenPRES.Shared.Api.OrderViewCommand.ResetOrderScenario -> Domain.ResetOrderScenario
@@ -466,20 +466,20 @@ module OrderContextMapper =
                 fun ctx -> Domain.SelectNthOrderScenario(ctx, n)
             | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthScheduleProperty(prop, n) ->
                 setNth (Ctx.Target.Schedule prop) n
-            | Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearScheduleProperty(prop, picks) ->
-                clear (Ctx.Target.Schedule prop) picks
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.ReCalcScheduleProperty(prop, picks) ->
+                reCalc (Ctx.Target.Schedule prop) picks
             | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthOrderableProperty(prop, n) ->
                 setNth (Ctx.Target.Orderable prop) n
-            | Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearOrderableProperty(prop, picks) ->
-                clear (Ctx.Target.Orderable prop) picks
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.ReCalcOrderableProperty(prop, picks) ->
+                reCalc (Ctx.Target.Orderable prop) picks
             | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthComponentProperty(cmp, prop, n) ->
                 setNth (Ctx.Target.Component(cmp, prop)) n
-            | Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearComponentProperty(cmp, prop, picks) ->
-                clear (Ctx.Target.Component(cmp, prop)) picks
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.ReCalcComponentProperty(cmp, prop, picks) ->
+                reCalc (Ctx.Target.Component(cmp, prop)) picks
             | Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthItemProperty(cmp, itm, prop, n) ->
                 setNth (Ctx.Target.Item(cmp, itm, prop)) n
-            | Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearItemProperty(cmp, itm, prop, picks) ->
-                clear (Ctx.Target.Item(cmp, itm, prop)) picks
+            | Informedica.GenPRES.Shared.Api.OrderViewCommand.ReCalcItemProperty(cmp, itm, prop, picks) ->
+                reCalc (Ctx.Target.Item(cmp, itm, prop)) picks
             | Informedica.GenPRES.Shared.Api.OrderViewCommand.SeedFilter(source, ind, gen, rte, frm, dt) ->
                 fun ctx ->
                     let dt = dt |> Option.map Mappers.mapFromSharedDoseTypeToOrderDoseType
