@@ -627,6 +627,180 @@ module OrderProcessor =
             ]
 
 
+    /// Complete orders: every variable holds one value and every equation holds. A search fixes the
+    /// free variables one at a time and solves the order for min and max after each value, so a value
+    /// that no complete order reaches is dropped before the search tries it.
+    module CompleteOrder =
+
+        open Informedica.GenUnits.Lib
+
+
+        /// The most solves one search may take.
+        let maxSolves = 1000
+
+
+        /// The names of the basic variables and the invariants, without the order count: the order
+        /// count has no maximum, so every multiple of a total over the order is reached.
+        let freeNames (ord: Order) =
+            [
+                OrderVariableReference.ScheduleFrequency
+                OrderVariableReference.OrderableDose DoseProperty.Quantity
+                OrderVariableReference.OrderableDose DoseProperty.Rate
+                yield! ord |> components |> List.map OrderVariableReference.ComponentOrderableQuantity
+            ]
+            |> List.filter (OrderVariableReference.isBasic ord.Schedule)
+            |> fun basics -> basics @ (ord |> OrderVariableReference.invariants)
+            |> List.choose (OrderVariableReference.tryGet ord)
+            |> List.map OrderVariable.getName
+
+
+        /// The variable of an order with the name.
+        let byName ord name =
+            ord |> toOrdVars |> List.find (OrderVariable.getName >> (=) name)
+
+
+        /// The variable with the values of the value unit as a list.
+        let withValues vu (ovar: OrderVariable) =
+            { ovar with Variable = ovar.Variable |> Informedica.GenOrder.Lib.Variable.replaceValuesWithValueUnit vu }
+
+
+        /// The variable set to each of its values, or None when the variable holds a range that cannot
+        /// be listed.
+        let singles (ovar: OrderVariable) =
+            ovar.Variable.Values
+            |> Variable.ValueRange.tryToValueSet 100000
+            |> Option.map (fun vs ->
+                let vu = vs |> Variable.ValueRange.ValueSet.toValueUnit
+                let u = vu |> ValueUnit.getUnit
+
+                [
+                    for v in vu |> ValueUnit.getValue -> ovar |> withValues (v |> ValueUnit.singleWithUnit u)
+                ]
+            )
+
+
+        /// Whether the messages of a failed solve prove that the order cannot hold the values it was
+        /// solved with. A loop limit, a value set too large to list or an unexpected exception proves
+        /// nothing.
+        let rec proves msgs =
+            msgs
+            |> List.forall (
+                function
+                | Informedica.GenSolver.Lib.Types.Exceptions.SolverTooManyLoops _
+                | Informedica.GenSolver.Lib.Types.Exceptions.ValueSetOverflow _
+                | Informedica.GenSolver.Lib.Types.Exceptions.UnexpectedException _ -> false
+                | Informedica.GenSolver.Lib.Types.Exceptions.SolverErrored(_, ms, _) -> ms |> proves
+                | _ -> true
+            )
+
+
+        /// The outcome of a search.
+        type Search =
+            {
+                /// The complete orders found.
+                Complete: Order list
+                /// The solves the search took.
+                Solves: int
+                /// False when the search stopped at maxSolves, or on a variable that holds a range
+                /// that cannot be listed.
+                Finished: bool
+            }
+
+
+        /// The order with the variable fixed to the value, solved for min and max.
+        let setAndSolve logger (ovar: OrderVariable) ord =
+            ord
+            |> mapOrdVars (fun o -> if o.Variable.Name = ovar.Variable.Name then ovar else o)
+            |> solveMinMax "Complete order" false logger
+
+
+        /// Every complete order the order allows, or the first one when firstOnly holds.
+        let search logger firstOnly ord =
+            let names = ord |> freeNames
+
+            let isDone acc =
+                acc.Solves >= maxSolves || firstOnly && acc.Complete |> List.isEmpty |> not
+
+            let rec go acc ord =
+                match names |> List.map (byName ord) |> List.filter (OrderVariable.hasOneValue >> not) with
+                | [] -> { acc with Complete = ord :: acc.Complete }
+                | unsolved ->
+                    match unsolved |> List.map singles |> List.sequenceOption with
+                    | None -> { acc with Finished = false }
+                    | Some lists ->
+                        // the variable with the fewest values first, so the search branches as late as possible
+                        lists
+                        |> List.minBy List.length
+                        |> List.fold
+                            (fun acc v ->
+                                if acc |> isDone then
+                                    { acc with Finished = acc.Finished && acc.Solves < maxSolves }
+                                else
+                                    let acc = { acc with Solves = acc.Solves + 1 }
+
+                                    match ord |> setAndSolve logger v with
+                                    | Ok o -> go acc o
+                                    | Error(_, msgs) when msgs |> proves -> acc
+                                    // a failure that proves nothing leaves the branch undecided
+                                    | Error _ -> { acc with Finished = false }
+                            )
+                            acc
+
+            go
+                {
+                    Complete = []
+                    Solves = 0
+                    Finished = true
+                }
+                ord
+
+
+        /// The first complete order that sets the variable to the value.
+        let tryFindWith logger ovar ord =
+            ord
+            |> setAndSolve logger ovar
+            |> Result.toOption
+            |> Option.bind (search logger true >> _.Complete >> List.tryHead)
+
+
+        /// Whether no complete order sets the variable to the value: the solve with the value fails
+        /// in a way that proves it, or a search that tries every branch finds no complete order. A
+        /// failure that proves nothing, or a search that stops at maxSolves or at a range it cannot
+        /// list, decides nothing, so the value is not impossible.
+        let isProvenImpossible logger ovar ord =
+            match ord |> setAndSolve logger ovar with
+            | Error(_, msgs) -> msgs |> proves
+            | Ok o ->
+                let s = o |> search logger true
+                s.Complete |> List.isEmpty && s.Finished
+
+
+        /// The variable with the values a search proves impossible dropped from its list, one search
+        /// per value, run in parallel; a value a search cannot decide stays. The variable as it is when
+        /// it holds no list of more than one value, and None when every value of the list is proven
+        /// impossible.
+        let dropProvenImpossible logger ord (ovar: OrderVariable) =
+            match ovar |> singles with
+            | Some(_ :: _ :: _ as ss) ->
+                let keep s = ord |> isProvenImpossible logger s |> not
+
+                match
+                    ss
+                    |> List.toArray
+                    |> Array.Parallel.choose (fun s -> if keep s then Some s else None)
+                with
+                | [||] -> None
+                | kept ->
+                    let vu =
+                        kept
+                        |> Array.toList
+                        |> List.choose OrderVariable.solvedValue
+                        |> ValueUnit.collectValues
+
+                    ovar |> withValues vu |> Some
+            | _ -> Some ovar
+
+
     module Choice =
 
 
@@ -869,8 +1043,20 @@ module OrderProcessor =
             | OrderEffect.SetNormDose -> ord |> solveNormDose logger |> ofSolve
             | OrderEffect.SelectNearestComponentQuantity ->
                 ord |> pickNearestHigherElseLowerComponentQuantity logger |> ofSolve
-            // a stop-gap that keeps the order until the search for complete orders is built, #1464
-            | OrderEffect.DropImpossibleValues _ -> Ok ord
+            // with one dose count every value a solve keeps is reached, so there is nothing to drop
+            | OrderEffect.DropImpossibleValues _ when
+                ord.Orderable.DoseCount |> Count.toOrdVar |> OrderVariable.hasOneValue
+                ->
+                Ok ord
+            | OrderEffect.DropImpossibleValues ovarRef ->
+                withVar
+                    ovarRef
+                    ord
+                    (fun ovar ->
+                        match ovar |> CompleteOrder.dropProvenImpossible logger ord with
+                        | Some ovar -> ord |> fromOrdVars [ ovar ] |> solve logger SolveMode.Values
+                        | None -> Error(ord, ActionFailure.ValueNotInRange ovarRef)
+                    )
             | OrderEffect.Unless(conditions, eff) ->
                 if conditions |> List.exists (fun c -> ord |> OrderCondition.holds c) then
                     Ok ord
@@ -1346,6 +1532,7 @@ module OrderProcessor =
                             OrderEffect.EnumerateOrderVariableValues(ValueCap.Larger, rate, Some ord)
                             yield! values RateSelection.OfferRates (Some ord)
                             OrderEffect.SolveOrder SolveMode.Values
+                            OrderEffect.DropImpossibleValues ovarRef
                         ]
             | OrderAction.CalcConstraints ->
                 Ok

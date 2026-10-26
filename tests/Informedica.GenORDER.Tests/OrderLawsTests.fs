@@ -302,3 +302,144 @@ let tests =
                 |> Expect.isEmpty "whole frequency and order count, counts at least 1"
             }
         ]
+
+
+/// Hydrocortison intravenous on the order before the norm dose, where the dose count holds more
+/// than one value: created, every variable set back to its calculated constraints, and the values
+/// made.
+let hydrocortisonBeforeNormDose (med: Medication) =
+    let created =
+        med
+        |> Tests.TestOrder.toOrder
+        |> run OrderAction.CalcConstraints
+        |> Result.defaultWith (fun e -> failtest $"not created: %s{e}")
+        |> OrderProcessor.OrderEffect.run
+            caps
+            OrderLogging.noOp
+            [ OrderEffect.SetAllOrderVariableRangesBack SetBackTo.Calculated ]
+        |> Result.defaultWith (fun (_, f) -> failtest $"not set back: %A{f}")
+
+    created |> run OrderAction.CalcValues |> Result.defaultValue created
+
+
+let diluentDose = OrderVariableReference.ComponentDose("NaCl 0,9%", DoseProperty.Quantity)
+
+
+/// The order with the values no complete order reaches dropped from the diluent dose.
+let dropImpossibleValues ord =
+    match
+        ord
+        |> OrderProcessor.OrderEffect.run caps OrderLogging.noOp [ OrderEffect.DropImpossibleValues diluentDose ]
+    with
+    | Ok o -> o
+    | Error(_, f) -> failtest $"DropImpossibleValues failed: %A{f}"
+
+
+/// The diluent dose set to each of its values.
+let diluentSingles ord =
+    diluentDose
+    |> OrderProcessor.OrderVariableReference.tryGet ord
+    |> Option.bind OrderProcessor.CompleteOrder.singles
+    |> Option.defaultValue []
+
+
+/// Whether a complete order sets the variable to its value.
+let isPossible ovar ord =
+    ord
+    |> OrderProcessor.CompleteOrder.tryFindWith OrderLogging.noOp ovar
+    |> Option.isSome
+
+
+let doseCountIsFree (ord: Order) =
+    ord.Orderable.DoseCount
+    |> OrderVariable.Count.toOrdVar
+    |> OrderVariable.hasOneValue
+    |> not
+
+
+[<Tests>]
+let impossibleValuesTests =
+    let hydrocortison () = Scenarios.hydrocortisonIvText |> Tests.TestOrder.parse
+
+    testList
+        "OrderProcessor impossible values"
+        [
+            test "with a weight the values no complete order reaches are dropped, and the others kept" {
+                let ord = hydrocortison () |> hydrocortisonBeforeNormDose
+                ord |> doseCountIsFree |> Expect.isTrue "the dose count is free"
+
+                ord
+                |> diluentSingles
+                |> List.exists (fun s -> ord |> isPossible s |> not)
+                |> Expect.isTrue "the diluent dose offers a value no complete order reaches"
+
+                let narrowed = ord |> dropImpossibleValues
+
+                narrowed
+                |> diluentSingles
+                |> List.filter (fun s -> narrowed |> isPossible s |> not)
+                |> Expect.isEmpty "every value left has a complete order"
+
+                ord
+                |> diluentSingles
+                |> List.filter (fun s -> ord |> isPossible s)
+                |> List.length
+                |> Expect.equal "every value with a complete order is kept" (narrowed |> diluentSingles |> List.length)
+            }
+
+            test "without a weight only the values a solve refutes are dropped" {
+                let ord = { hydrocortison () with Adjust = None } |> hydrocortisonBeforeNormDose
+                ord |> doseCountIsFree |> Expect.isTrue "the dose count is free"
+
+                let left = ord |> dropImpossibleValues |> diluentSingles |> List.map _.Variable.Values
+
+                ord
+                |> diluentSingles
+                |> List.filter (fun s -> left |> List.contains s.Variable.Values |> not)
+                |> List.filter (fun s ->
+                    ord
+                    |> OrderProcessor.CompleteOrder.setAndSolve OrderLogging.noOp s
+                    |> Result.isOk
+                )
+                |> Expect.isEmpty "every value dropped makes the solve fail"
+            }
+
+            test "only a failure that says the values do not fit proves them impossible" {
+                let notFit = Informedica.GenSolver.Lib.Types.Exceptions.SolverInvalidEquations []
+                let loops = Informedica.GenSolver.Lib.Types.Exceptions.SolverTooManyLoops(10, [])
+                let overflow = Informedica.GenSolver.Lib.Types.Exceptions.ValueSetOverflow 10
+                let thrown = Informedica.GenSolver.Lib.Types.Exceptions.UnexpectedException(exn "thrown")
+                let errored ms =
+                    Informedica.GenSolver.Lib.Types.Exceptions.SolverErrored(1, ms, [])
+
+                [
+                    [ notFit ]
+                    [ loops ]
+                    [ overflow ]
+                    [ thrown ]
+                    [ notFit; loops ]
+                    [ errored [ notFit ] ]
+                    [ errored [ loops ] ]
+                ]
+                |> List.map OrderProcessor.CompleteOrder.proves
+                |> Expect.equal
+                    "a proof only without a limit or an exception"
+                    [ true; false; false; false; false; true; false ]
+            }
+
+            test "with one dose count nothing is dropped" {
+                let ord = Scenarios.pcmDrink |> Tests.TestOrder.processed
+                ord |> doseCountIsFree |> Expect.isFalse "the dose count is 1"
+
+                ord
+                |> OrderProcessor.OrderEffect.run
+                    caps
+                    OrderLogging.noOp
+                    [
+                        OrderEffect.DropImpossibleValues(OrderVariableReference.OrderableDose DoseProperty.Quantity)
+                    ]
+                |> Result.toOption
+                |> Option.map (differ ord)
+                |> Expect.equal "the order kept" (Some [])
+            }
+        ]
