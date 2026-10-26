@@ -880,12 +880,14 @@ module Order =
         // a field's select: rests while a field is changing, shows it while its own is; a
         // field the editing does not let change shows its value, without steps or a dropdown
         // a field with one value is recalculated when the intent policy allows it on the order
-        // shown; a list closed without a pick puts back the order shown before
-        let reopenOf target : ViewHelpers.Reopen =
+        // shown, and shows that it is loading until the answer lands; a list closed without a pick
+        // puts back the order shown before
+        let reopenOf field target : ViewHelpers.Reopen =
             {|
                 allowed = displayOrder |> Option.exists (IntentPolicy.isReCalcAllowed target)
                 reCalc =
                     fun () ->
+                        setChanging (Some(field, true))
                         setReopenedFrom shownOrder
                         props.command (ViewHelpers.reCalcCommand target)
                 restore =
@@ -909,7 +911,7 @@ module Order =
                     updateSelected
                     mode
                     mark
-                    (reopenOf target)
+                    (reopenOf field target)
                     minWidth
                     xs
             else
