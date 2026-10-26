@@ -1956,6 +1956,8 @@ module OrderBuilderTests =
                             |> OrderBuilder.withItemConstraints med
                             |> OrderBuilder.withComponentConstraints med
                             |> OrderBuilder.withOrderableConstraints med
+                            |> OrderBuilder.withOrderCount med
+                            |> OrderBuilder.withDoseCount
 
                         match med |> roundTripped with
                         | Error e -> failtest $"could not build the order: %A{e}"

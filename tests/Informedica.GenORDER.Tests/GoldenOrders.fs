@@ -40,9 +40,9 @@ RECTAAL
 Schedule
 []_sch_frq [3;4 x/dag]
 Orderable
-[paracetamol]_ord_qty <0 stuk..>
+[paracetamol]_ord_qty [1 stuk..1 stuk..>
 [paracetamol]_orb_qty [1 stuk]
-[paracetamol]_ord_cnt <0 x..>
+[paracetamol]_ord_cnt [1 x..1 x..>
 [paracetamol]_dos_cnt [1 x]
 [paracetamol]_dos_qty [1 stuk]
 [paracetamol]_dos_ptm [3;4 stuk/dag]
@@ -93,9 +93,9 @@ INTRAVENEUS
 Schedule
 []_sch_frq [1 x/dag]
 Orderable
-[amfotericine b liposomaal]_ord_qty <0 mL..>
+[amfotericine b liposomaal]_ord_qty [61 mL..>
 [amfotericine b liposomaal]_orb_qty [61;62;63 mL .. 267;316;317 mL]
-[amfotericine b liposomaal]_ord_cnt <0 x..>
+[amfotericine b liposomaal]_ord_cnt [1 x..1 x..>
 [amfotericine b liposomaal]_dos_cnt [1 x]
 [amfotericine b liposomaal]_dos_qty [61;62;63 mL .. 267;316;317 mL]
 [amfotericine b liposomaal]_dos_ptm [61;62;63 mL/dag .. 267;316;317 mL/dag]
@@ -196,9 +196,9 @@ INTRAVENEUS
 Schedule
 []_sch_tme [17,9;18,5;19,2 uur .. 55,6;62,5;71,4 uur]
 Orderable
-[morfine]_ord_qty <0 mL..>
+[morfine]_ord_qty [50 mL..50 mL..>
 [morfine]_orb_qty [50 mL]
-[morfine]_ord_cnt <0 x..>
+[morfine]_ord_cnt [1 x..1 x..>
 [morfine]_dos_cnt [1 x]
 [morfine]_dos_qty [50 mL]
 [morfine]_dos_ptm <0 ..>
@@ -287,9 +287,9 @@ or
 Schedule
 []_sch_frq [3;4;6 x/dag]
 Orderable
-[paracetamol drank]_ord_qty <0 mL..>
+[paracetamol drank]_ord_qty [5 mL..5;6;7;8;9;11 mL..>
 [paracetamol drank]_orb_qty [5;6;7;8;9;10;11;12 mL]
-[paracetamol drank]_ord_cnt <0 x..>
+[paracetamol drank]_ord_cnt [1 x..1 x..>
 [paracetamol drank]_dos_cnt [1 x]
 [paracetamol drank]_dos_qty [5;6;7;8;9;10;11;12 mL]
 [paracetamol drank]_dos_ptm [27;28;30;32;33;36 mL/dag]
@@ -340,9 +340,9 @@ or
 Schedule
 []_sch_frq [2 x/dag]
 Orderable
-[cotrimoxazol]_ord_qty <0 mL..>
+[cotrimoxazol]_ord_qty [7 mL..7 mL..>
 [cotrimoxazol]_orb_qty [7 mL]
-[cotrimoxazol]_ord_cnt <0 x..>
+[cotrimoxazol]_ord_cnt [1 x..1 x..>
 [cotrimoxazol]_dos_cnt [1 x]
 [cotrimoxazol]_dos_qty [7 mL]
 [cotrimoxazol]_dos_ptm [14 mL/dag]
@@ -406,9 +406,9 @@ Schedule
 []_sch_frq [1 x/dag]
 []_sch_tme [20 uur..24 uur]
 Orderable
-[samenstelling c]_ord_qty <0 mL..>
+[samenstelling c]_ord_qty [380 mL..>
 [samenstelling c]_orb_qty [380;381;382 mL .. 793;794;830 mL]
-[samenstelling c]_ord_cnt <0 x..>
+[samenstelling c]_ord_cnt [1 x..1 x..>
 [samenstelling c]_dos_cnt [1 x]
 [samenstelling c]_dos_qty [380;381;382 mL .. 793;794;830 mL]
 [samenstelling c]_dos_ptm [380;381;382 mL/dag .. 793;794;830 mL/dag]
@@ -562,9 +562,9 @@ Schedule
 []_sch_frq [1 x/dag]
 []_sch_tme [20 uur..24 uur]
 Orderable
-[samenstelling c]_ord_qty <0 mL..>
+[samenstelling c]_ord_qty [380 mL..>
 [samenstelling c]_orb_qty [380;381;382 mL .. 793;794;830 mL]
-[samenstelling c]_ord_cnt <0 x..>
+[samenstelling c]_ord_cnt [1 x..1 x..>
 [samenstelling c]_dos_cnt [1 x]
 [samenstelling c]_dos_qty [380;381;382 mL .. 793;794;830 mL]
 [samenstelling c]_dos_ptm [380;381;382 mL/dag .. 793;794;830 mL/dag]
