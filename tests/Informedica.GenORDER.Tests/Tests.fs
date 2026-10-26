@@ -2949,6 +2949,219 @@ module ReferenceTests =
             ]
 
 
+module EffectTests =
+
+    open HelperTests
+
+    module Effect = OrderProcessor.OrderEffect
+    module ValueRange = Informedica.GenSolver.Lib.Variable.ValueRange
+    module ValueSet = ValueRange.ValueSet
+
+
+    let caps = Order.ValueCaps.defaults
+
+    let logger = OrderLogging.noOp
+
+
+    let microL (vs: int list) =
+        vs
+        |> List.map BigRational.fromInt
+        |> List.toArray
+        |> ValueUnit.withUnit Units.Volume.microLiter
+
+
+    /// The order of a medication after the commands, as the processor gives it.
+    let processedWith cmds med =
+        (med |> orderOf, cmds)
+        ||> List.fold (fun ord cmd ->
+            match ord |> cmd |> OrderProcessor.processPipeline logger with
+            | Ok ord -> ord
+            | Error _ -> failtest "no order"
+        )
+
+
+    let processed cmd = processedWith [ cmd ]
+
+
+    /// The order of a medication with lists of values.
+    let valued = processedWith [ CalcMinMax; CalcValues ]
+
+
+    let run effects ord = ord |> Effect.run caps logger effects
+
+
+    let missing = OrderVariableReference.ComponentQuantity "no such component"
+
+
+    let dosQty = OrderVariableReference.OrderableDose DoseProperty.Quantity
+
+
+    let tests =
+        testList
+            "order effects"
+            [
+                test "an effect gives what the order function it runs gives" {
+                    for name, med in ReferenceTests.fixtures () do
+                        let ord = med |> processed CalcMinMax
+
+                        [
+                            "set back to the constraints",
+                            OrderEffect.SetAllOrderVariableRangesBack SetBackTo.CalculatedElseDefined,
+                            Order.applyConstraints >> Ok
+                            "set back to the calculated constraints",
+                            OrderEffect.SetAllOrderVariableRangesBack SetBackTo.Calculated,
+                            Order.applyCalculatedConstraints >> Ok
+                            "record the calculated constraints",
+                            OrderEffect.RecordCalculatedConstraints,
+                            Order.setCalculatedConstraints >> Ok
+                            "solve for min and max",
+                            OrderEffect.SolveOrder SolveMode.MinMax,
+                            Order.solveMinMax "Order effect" false logger
+                            "coarsen the increments",
+                            OrderEffect.CoarsenIncrements 10,
+                            Order.increaseIncrements logger 10
+                            "make lists",
+                            OrderEffect.EnumerateOrderVariableValues(ValueCap.Default, RateList.WithRate, None),
+                            Order.minIncrMaxToValues caps false false logger None
+                            "set the norm dose", OrderEffect.SetNormDose, Order.solveNormDose logger
+                            "select the nearest component quantity",
+                            OrderEffect.SelectNearestComponentQuantity,
+                            Order.pickNearestHigherElseLowerComponentQuantity logger
+                        ]
+                        |> List.iter (fun (what, eff, f) ->
+                            ord
+                            |> run [ eff ]
+                            |> Result.toOption
+                            |> Expect.equal $"%s{name}: %s{what}" (ord |> f |> Result.toOption)
+                        )
+                }
+
+                test "a failure keeps the order the failing effect was run on" {
+                    let ord = Scenarios.pcmDrink |> processed CalcMinMax
+
+                    match
+                        ord
+                        |> run
+                            [
+                                OrderEffect.SetAllOrderVariableRangesBack SetBackTo.Calculated
+                                OrderEffect.SetOrderVariableRangeBack(missing, SetBackTo.Calculated)
+                                OrderEffect.SolveOrder SolveMode.MinMax
+                            ]
+                    with
+                    | Error(o, ActionFailure.NoSuchVariable _) ->
+                        o
+                        |> Expect.equal "the order after the first effect" (ord |> Order.applyCalculatedConstraints)
+                    | _ -> failtest "no failure on the missing component"
+                }
+
+                test "Try keeps the order when an effect fails, else runs the effects" {
+                    let ord = Scenarios.pcmDrink |> processed CalcMinMax
+                    let failing =
+                        [
+                            OrderEffect.SolveOrder SolveMode.MinMax
+                            OrderEffect.SetOrderVariableRangeBack(missing, SetBackTo.Calculated)
+                        ]
+                    let passing = [ OrderEffect.SetAllOrderVariableRangesBack SetBackTo.Calculated ]
+
+                    ord
+                    |> run [ OrderEffect.Try failing ]
+                    |> Result.toOption
+                    |> Expect.equal "kept" (Some ord)
+
+                    ord
+                    |> run [ OrderEffect.Try passing ]
+                    |> Result.toOption
+                    |> Expect.equal "run" (ord |> run passing |> Result.toOption)
+                }
+
+                test "Unless runs the effect only when no condition holds" {
+                    let ord = Scenarios.pcmDrink |> valued
+                    let eff = OrderEffect.SetAllOrderVariableRangesBack SetBackTo.Calculated
+
+                    ord
+                    |> run [ OrderEffect.Unless([ OrderCondition.HasValues ], eff) ]
+                    |> Result.toOption
+                    |> Expect.equal "kept, the order has values" (Some ord)
+
+                    ord
+                    |> run [ OrderEffect.Unless([ OrderCondition.OrderSolved ], eff) ]
+                    |> Result.toOption
+                    |> Expect.equal "run, the order is not solved" (ord |> run [ eff ] |> Result.toOption)
+                }
+
+                test "a selected value is the one value of the variable" {
+                    let ord = Scenarios.pcmDrink |> valued
+                    let qty (ord: Order) = ord.Orderable.Dose.Quantity |> OrderVariable.Quantity.toOrdVar
+
+                    match ord |> run [ OrderEffect.SelectOrderVariableValue(dosQty, Choice.Min) ] with
+                    | Ok o ->
+                        o
+                        |> qty
+                        |> OrderVariable.solvedValue
+                        |> Expect.equal
+                            "the smallest dose quantity"
+                            (ord |> qty |> OrderVariable.setMinValue |> OrderVariable.solvedValue)
+                    | Error(_, e) -> failtest $"%A{e}"
+                }
+
+                test "the names the effects set back" {
+                    let ord = Scenarios.pcmDrink |> orderOf
+                    let names = Effect.setBackNames ord >> Set.count
+
+                    [
+                        [ OrderEffect.SetAllOrderVariableRangesBack SetBackTo.Calculated ]
+                        [ OrderEffect.SetOrderVariableRangeBack(dosQty, SetBackTo.Calculated) ]
+                        [ OrderEffect.SetOrderVariableRangeBack(missing, SetBackTo.Calculated) ]
+                        [ OrderEffect.SolveOrder SolveMode.MinMax ]
+                    ]
+                    |> List.map names
+                    |> Expect.equal
+                        "every variable, one, none and none"
+                        [ ord |> Order.toOrdVars |> List.length; 1; 0; 0 ]
+                }
+
+                test "the value of the original variable is added in order and in the unit of the list" {
+                    let x =
+                        { (valSet mL [ 1; 2; 4 ] |> ovar (Some 1)) with
+                            CalculatedConstraints =
+                                OrderVariable.Constraints.create
+                                    (mL [ 1 ] |> ValueRange.Minimum.create true |> Some)
+                                    None
+                                    (mL [ 5 ] |> ValueRange.Maximum.create true |> Some)
+                                    None
+                        }
+
+                    let include' vr = x |> OrderVariable.includeOriginalValue (vr |> ovar None)
+
+                    (include' (valSet microL [ 3000 ])).Variable.Values
+                    |> Expect.equal "1, 2, 3 and 4 mL" (valSet mL [ 1; 2; 3; 4 ])
+
+                    [ valSet mL [ 6 ]; valSet mL [ 3; 5 ] ]
+                    |> List.map (include' >> _.Variable.Values)
+                    |> Expect.equal
+                        "nothing outside the constraints, nothing from a list"
+                        [ x.Variable.Values; x.Variable.Values ]
+
+                    let range = minIncrMax mL 1 1 5 |> ovar None
+
+                    (range |> OrderVariable.includeOriginalValue (valSet mL [ 3 ] |> ovar None)).Variable.Values
+                    |> Expect.equal "nothing to a range" range.Variable.Values
+                }
+
+                test "an original order that is not complete adds nothing" {
+                    let ord = Scenarios.pcmDrink |> processed CalcMinMax
+                    let lists original = ord |> Order.minIncrMaxToValues caps false false logger original
+
+                    Scenarios.pcmDrink
+                    |> orderOf
+                    |> Some
+                    |> lists
+                    |> Result.toOption
+                    |> Expect.equal "as without an original" (lists None |> Result.toOption)
+                }
+            ]
+
+
 module EquationsTests =
 
     open TestOrder
@@ -4906,6 +5119,7 @@ let tests =
             HelperTests.tests
             DeterminationTests.tests
             ReferenceTests.tests
+            EffectTests.tests
             ConstraintsTests.tests
             GoldenOrderTests.tests
             IncreaseQuantityIncrementTests.tests

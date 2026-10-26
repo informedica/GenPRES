@@ -394,14 +394,14 @@ module OrderProcessor =
         // small helpers to clarify post-processing after property changes
         let solveAndToValues skipRate =
             solveMinMax "Process Cleared Order" true logger
-            >> Result.bind (minIncrMaxToValues caps true skipRate logger)
+            >> Result.bind (minIncrMaxToValues caps true skipRate logger None)
 
         let defaultInc = 100
 
         let solveIncrIncrAndToValues skipRate =
             solveMinMax "Process Cleared Order" true logger
             >> Result.bind (increaseIncrements logger defaultInc)
-            >> Result.bind (minIncrMaxToValues caps true skipRate logger)
+            >> Result.bind (minIncrMaxToValues caps true skipRate logger None)
 
         let logUnmatched (kind: string) =
             // FLAG: expensive message build (toConsoleTableString renders a full
@@ -622,7 +622,7 @@ module OrderProcessor =
 
         let increaseIncrementStep ord = ord |> increaseIncrements logger 10
 
-        let calcValuesStep useMax skipRate ord = ord |> minIncrMaxToValues caps useMax skipRate logger
+        let calcValuesStep useMax skipRate ord = ord |> minIncrMaxToValues caps useMax skipRate logger None
 
         // the rate of a timed or once timed order gets its values once the dose quantity has one
         // value, and only while the rate is still a range
@@ -1063,3 +1063,168 @@ module OrderProcessor =
             | OrderCondition.OrderSolved -> ord |> isSolved
             | OrderCondition.HasValues -> ord |> hasValues
             | OrderCondition.CanSetNormDose -> ord |> canSetNormDose
+
+
+    module OrderEffect =
+
+
+        /// A failure of a solve or calculation as the failure of an effect: the order it failed on,
+        /// with the messages of the solver.
+        let ofSolve result =
+            result
+            |> Result.mapError (fun (ord, msgs) -> ord, ActionFailure.SolveFailed msgs)
+
+
+        /// The order solved for min and max, or with values.
+        let solve logger mode ord =
+            match mode with
+            | SolveMode.MinMax -> ord |> solveMinMax "Order effect" true logger
+            | SolveMode.Values -> ord |> solveOrder "Order effect" true logger
+            |> ofSolve
+
+
+        /// The result of f on the variable a reference names, or NoSuchVariable when the order has no
+        /// such variable.
+        let withVar ovarRef ord f =
+            match ovarRef |> OrderVariableReference.tryGet ord with
+            | None -> Error(ord, ActionFailure.NoSuchVariable ovarRef)
+            | Some ovar -> ovar |> f
+
+
+        /// The basic variables made lists with the cap, including the values of the original order.
+        let enumerate caps logger cap rate original ord =
+            ord
+            |> minIncrMaxToValues caps (cap = ValueCap.Larger) (rate = RateList.WithoutRate) logger original
+            |> ofSolve
+
+
+        /// The rate list of a timed order once its dose quantity holds one value; with SelectMedianRate
+        /// a rate that became a list gets its median and the order is solved.
+        let rateValues caps logger cap selection original (ord: Order) =
+            let rateList ord =
+                if
+                    ord |> rateWaits
+                    && ord.Orderable.Dose.Quantity |> Quantity.toOrdVar |> OrderVariable.isSolved
+                    && ord.Orderable.Dose |> Dose.rateIsRange
+                then
+                    ord |> enumerate caps logger cap RateList.WithRate original
+                else
+                    Ok ord
+
+            match selection with
+            | RateSelection.OfferRates -> ord |> rateList
+            | RateSelection.SelectMedianRate when ord.Orderable.Dose |> Dose.rateIsRange |> not -> Ok ord
+            | RateSelection.SelectMedianRate ->
+                ord
+                |> rateList
+                |> Result.bind (fun ord ->
+                    // a rate the list was not made for, or a list of one rate, is kept as it is
+                    if ord.Orderable.Dose |> Dose.rateIsList |> not then
+                        Ok ord
+                    else
+                        { ord with Order.Orderable.Dose.Rate = ord.Orderable.Dose.Rate |> Rate.setMedianValue }
+                        |> solveOrder "Median Rate" true logger
+                        |> ofSolve
+                )
+
+
+        /// The names of the variables the kept variables do not determine, without the ones in stays.
+        let undetermined kept stays ord =
+            let names refs =
+                refs
+                |> List.choose (OrderVariableReference.tryGet ord)
+                |> List.map OrderVariable.getName
+                |> Set.ofList
+
+            (ord |> Determination.undeterminedBy (names kept)) - names stays
+
+
+        /// The names of the variables an effect sets back, with the target; None for an effect that sets
+        /// nothing back, and NoSuchVariable for a reference the order does not have.
+        let setsBack ord effect =
+            match effect with
+            | OrderEffect.SetAllOrderVariableRangesBack target ->
+                Ok(Some(ord |> toOrdVars |> List.map OrderVariable.getName |> Set.ofList, target))
+            | OrderEffect.SetOrderVariableRangeBack(ovarRef, target) ->
+                withVar ovarRef ord (fun ovar -> Ok(Some(Set.singleton (ovar |> OrderVariable.getName), target)))
+            | OrderEffect.SetBackUndetermined(kept, stays, target) -> Ok(Some(ord |> undetermined kept stays, target))
+            | _ -> Ok None
+
+
+        /// The names of the variables the effects set back.
+        let setBackNames ord effects =
+            effects
+            |> List.choose (setsBack ord >> Result.toOption >> Option.flatten)
+            |> List.map fst
+            |> Set.unionMany
+
+
+        /// Runs one effect; a failure keeps the order the effect was run on.
+        let rec apply caps logger effect (ord: Order) =
+            match effect with
+            | OrderEffect.SetAllOrderVariableRangesBack _
+            | OrderEffect.SetOrderVariableRangeBack _
+            | OrderEffect.SetBackUndetermined _ ->
+                match setsBack ord effect with
+                | Error f -> Error f
+                | Ok None -> Ok ord
+                | Ok(Some(names, target)) ->
+                    ord
+                    |> mapOrdVars (fun ovar ->
+                        if names |> Set.contains (ovar |> OrderVariable.getName) then
+                            ovar |> SetBackTo.apply target ord
+                        else
+                            ovar
+                    )
+                    |> Ok
+            | OrderEffect.ConstrainOrderVariableRange(ovarRef, vu) ->
+                withVar
+                    ovarRef
+                    ord
+                    (fun ovar ->
+                        match ovar |> OrderVariable.tryConstrain vu with
+                        | Some ovar -> Ok(ord |> fromOrdVars [ ovar ])
+                        | None -> Error(ord, ActionFailure.ValueNotInRange ovarRef)
+                    )
+            | OrderEffect.SelectOrderVariableValue(ovarRef, choice) ->
+                withVar
+                    ovarRef
+                    ord
+                    (fun ovar ->
+                        match ovar |> Choice.select ovarRef choice with
+                        | Ok vu -> ord |> apply caps logger (OrderEffect.ConstrainOrderVariableRange(ovarRef, vu))
+                        | Error f -> Error(ord, f)
+                    )
+            | OrderEffect.SolveOrder mode -> ord |> solve logger mode
+            | OrderEffect.EnumerateOrderVariableValues(cap, rate, original) ->
+                ord |> enumerate caps logger cap rate original
+            | OrderEffect.EnumerateRateValues(cap, selection, original) ->
+                ord |> rateValues caps logger cap selection original
+            | OrderEffect.CoarsenIncrements maxCount -> ord |> increaseIncrements logger maxCount |> ofSolve
+            | OrderEffect.RecordCalculatedConstraints -> ord |> setCalculatedConstraints |> Ok
+            | OrderEffect.SetNormDose -> ord |> solveNormDose logger |> ofSolve
+            | OrderEffect.SelectNearestComponentQuantity ->
+                ord |> pickNearestHigherElseLowerComponentQuantity logger |> ofSolve
+            // a stop-gap that keeps the order until the search for complete orders is built, #1464
+            | OrderEffect.DropImpossibleValues _ -> Ok ord
+            | OrderEffect.Unless(conditions, eff) ->
+                if conditions |> List.exists (fun c -> ord |> OrderCondition.holds c) then
+                    Ok ord
+                else
+                    ord |> apply caps logger eff
+            | OrderEffect.Try effects ->
+                match ord |> run caps logger effects with
+                | Ok o -> Ok o
+                | Error(_, f) ->
+                    // the order is kept, so the failure is logged instead of returned
+                    $"Try kept the order, the effects failed: %A{f}"
+                    |> Events.OrderScenario
+                    |> Logging.logWarning logger
+
+                    Ok ord
+
+
+        /// Runs the effects in sequence; the first failure stops them.
+        and run caps logger effects ord =
+            (Ok ord, effects)
+            ||> List.fold (fun acc eff -> acc |> Result.bind (apply caps logger eff))
