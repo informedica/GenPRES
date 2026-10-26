@@ -253,7 +253,7 @@ let tests =
                 let id = ord.Id |> WrappedString.Id.toString
 
                 let cmd =
-                    Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearScheduleProperty(
+                    Informedica.GenPRES.Shared.Api.OrderViewCommand.ReCalcScheduleProperty(
                         Informedica.GenPRES.Shared.Types.ScheduleProperty.Frequency,
                         [| "[.x]_dos_qty" |]
                     )
@@ -264,7 +264,7 @@ let tests =
                         Informedica.GenPRES.Shared.Types.OrderCategory.Drug
                         cmd
                 with
-                | OrderContext.ClearOrderValue(_, ClearScheduleFrequency, picks) ->
+                | OrderContext.ReCalcOrderValue(_, ClearScheduleFrequency, picks) ->
                     picks |> Expect.equal "the order id put back" [ $"[%s{id}.x]_dos_qty" ]
                 | other -> failtest $"%A{other}"
             }

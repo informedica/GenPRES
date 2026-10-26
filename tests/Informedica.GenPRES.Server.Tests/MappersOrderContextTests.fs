@@ -336,33 +336,33 @@ let tests =
                             2
                         ),
                         Domain.SetNthOrderValue(ctx, SetNthScheduleFrequency 2)
-                        Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearScheduleProperty(
+                        Informedica.GenPRES.Shared.Api.OrderViewCommand.ReCalcScheduleProperty(
                             ScheduleProperty.Time,
                             [| "a" |]
                         ),
-                        Domain.ClearOrderValue(ctx, ClearScheduleTime, [ "a" ])
+                        Domain.ReCalcOrderValue(ctx, ReCalcScheduleTime, [ "a" ])
                         Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthOrderableProperty(
                             OrderableProperty.DoseRate,
                             1
                         ),
                         Domain.SetNthOrderValue(ctx, SetNthOrderableDoseRate 1)
-                        Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearOrderableProperty(
+                        Informedica.GenPRES.Shared.Api.OrderViewCommand.ReCalcOrderableProperty(
                             OrderableProperty.Quantity,
                             [||]
                         ),
-                        Domain.ClearOrderValue(ctx, ClearOrderableQuantity, [])
+                        Domain.ReCalcOrderValue(ctx, ReCalcOrderableQuantity, [])
                         Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthComponentProperty(
                             "cmp",
                             ComponentProperty.OrderableQuantity,
                             0
                         ),
                         Domain.SetNthOrderValue(ctx, SetNthComponentOrderableQuantity("cmp", 0))
-                        Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearComponentProperty(
+                        Informedica.GenPRES.Shared.Api.OrderViewCommand.ReCalcComponentProperty(
                             "cmp",
                             ComponentProperty.DoseQuantityAdjust,
                             [||]
                         ),
-                        Domain.ClearOrderValue(ctx, ClearComponentDoseQuantityAdjust "cmp", [])
+                        Domain.ReCalcOrderValue(ctx, ReCalcComponentDoseQuantityAdjust "cmp", [])
                         Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthItemProperty(
                             "cmp",
                             "itm",
@@ -370,13 +370,13 @@ let tests =
                             3
                         ),
                         Domain.SetNthOrderValue(ctx, SetNthItemDoseRate("cmp", "itm", 3))
-                        Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearItemProperty(
+                        Informedica.GenPRES.Shared.Api.OrderViewCommand.ReCalcItemProperty(
                             "cmp",
                             "itm",
                             ItemProperty.ComponentConcentration,
                             [||]
                         ),
-                        Domain.ClearOrderValue(ctx, ClearItemComponentConcentration("cmp", "itm"), [])
+                        Domain.ReCalcOrderValue(ctx, ClearItemComponentConcentration("cmp", "itm"), [])
                         Informedica.GenPRES.Shared.Api.OrderViewCommand.SeedFilter(
                             SeedSource.Formulary,
                             Some "pijn",

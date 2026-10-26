@@ -24,7 +24,7 @@ module FieldOpenPolicy =
         /// Opens the list of the values the field holds.
         | Open
         /// Clears the field's own choice and opens what the server returns.
-        | ReopenCleared
+        | ReCalc
         /// The field has no arrow: nothing to choose, or a value the solver determined.
         | NoArrow
 
@@ -70,7 +70,7 @@ module FieldOpenPolicy =
             | true, n, _, _ when n > 1 -> Arrow.Open
             | true, 1, _, Constrained.No -> Arrow.NoArrow
             | true, 1, _, Constrained.Yes
-            | true, 1, _, Constrained.Unknown -> Arrow.ReopenCleared
+            | true, 1, _, Constrained.Unknown -> Arrow.ReCalc
             | true, _, _, _ -> Arrow.NoArrow
 
         { none with Arrow = arrow }
@@ -113,7 +113,7 @@ module FieldOpenPolicy =
         /// The list opens at once.
         | OpenList
         /// The field's choice is cleared; the list waits for the answer.
-        | ClearAndWait
+        | ReCalcAndWait
 
 
     /// What a click on the arrow starts; nothing while a request is under way, since the answer
@@ -123,7 +123,7 @@ module FieldOpenPolicy =
         | true, _
         | _, Arrow.NoArrow -> Click.Nothing
         | false, Arrow.Open -> Click.OpenList
-        | false, Arrow.ReopenCleared -> Click.ClearAndWait
+        | false, Arrow.ReCalc -> Click.ReCalcAndWait
 
 
     /// What the field shows once the answer to a reopen has landed.
@@ -159,6 +159,6 @@ module FieldOpenPolicy =
     let closed (click: Click) picked =
         match click, picked with
         | _, true -> Closed.Keep
-        | Click.ClearAndWait, false -> Closed.Restore
+        | Click.ReCalcAndWait, false -> Closed.Restore
         | Click.OpenList, false
         | Click.Nothing, false -> Closed.Keep

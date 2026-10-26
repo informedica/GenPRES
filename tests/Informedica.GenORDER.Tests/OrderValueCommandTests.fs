@@ -63,13 +63,13 @@ let fields (ord: Order) =
             Name = "time"
             Get = _.Schedule >> Order.Schedule.getTime >> Option.map OrderVariable.Time.toOrdVar
             SetNth = SetNthScheduleTime
-            Clear = ClearScheduleTime
+            Clear = ReCalcScheduleTime
         }
         {
             Name = "orderable quantity"
             Get = fun o -> o.Orderable.OrderableQuantity |> OrderVariable.Quantity.toOrdVar |> Some
             SetNth = SetNthOrderableQuantity
-            Clear = ClearOrderableQuantity
+            Clear = ReCalcOrderableQuantity
         }
         {
             Name = "orderable dose quantity"
@@ -98,7 +98,7 @@ let fields (ord: Order) =
                     cmp c
                     >> Option.map (_.Dose.QuantityAdjust >> OrderVariable.QuantityAdjust.toOrdVar)
                 SetNth = fun n -> SetNthComponentDoseQuantityAdjust(c, n)
-                Clear = ClearComponentDoseQuantityAdjust c
+                Clear = ReCalcComponentDoseQuantityAdjust c
             }
 
             for i in (ord |> cmp c |> Option.map _.Items |> Option.defaultValue []) do
@@ -109,37 +109,37 @@ let fields (ord: Order) =
                     Name = $"%s{c}.%s{i} dose quantity"
                     Get = get (_.Dose.Quantity >> OrderVariable.Quantity.toOrdVar)
                     SetNth = fun n -> SetNthItemDoseQuantity(c, i, n)
-                    Clear = ClearItemDoseQuantity(c, i)
+                    Clear = ReCalcItemDoseQuantity(c, i)
                 }
                 {
                     Name = $"%s{c}.%s{i} dose quantity adjust"
                     Get = get (_.Dose.QuantityAdjust >> OrderVariable.QuantityAdjust.toOrdVar)
                     SetNth = fun n -> SetNthItemDoseQuantityAdjust(c, i, n)
-                    Clear = ClearItemDoseQuantityAdjust(c, i)
+                    Clear = ReCalcItemDoseQuantityAdjust(c, i)
                 }
                 {
                     Name = $"%s{c}.%s{i} dose per time"
                     Get = get (_.Dose.PerTime >> OrderVariable.PerTime.toOrdVar)
                     SetNth = fun n -> SetNthItemDosePerTime(c, i, n)
-                    Clear = ClearItemDosePerTime(c, i)
+                    Clear = ReCalcItemDosePerTime(c, i)
                 }
                 {
                     Name = $"%s{c}.%s{i} dose per time adjust"
                     Get = get (_.Dose.PerTimeAdjust >> OrderVariable.PerTimeAdjust.toOrdVar)
                     SetNth = fun n -> SetNthItemDosePerTimeAdjust(c, i, n)
-                    Clear = ClearItemDosePerTimeAdjust(c, i)
+                    Clear = ReCalcItemDosePerTimeAdjust(c, i)
                 }
                 {
                     Name = $"%s{c}.%s{i} dose rate"
                     Get = get (_.Dose.Rate >> OrderVariable.Rate.toOrdVar)
                     SetNth = fun n -> SetNthItemDoseRate(c, i, n)
-                    Clear = ClearItemDoseRate(c, i)
+                    Clear = ReCalcItemDoseRate(c, i)
                 }
                 {
                     Name = $"%s{c}.%s{i} dose rate adjust"
                     Get = get (_.Dose.RateAdjust >> OrderVariable.RateAdjust.toOrdVar)
                     SetNth = fun n -> SetNthItemDoseRateAdjust(c, i, n)
-                    Clear = ClearItemDoseRateAdjust(c, i)
+                    Clear = ReCalcItemDoseRateAdjust(c, i)
                 }
                 {
                     Name = $"%s{c}.%s{i} component concentration"
@@ -151,13 +151,13 @@ let fields (ord: Order) =
                     Name = $"%s{c}.%s{i} orderable concentration"
                     Get = get (_.OrderableConcentration >> OrderVariable.Concentration.toOrdVar)
                     SetNth = fun n -> SetNthItemOrderableConcentration(c, i, n)
-                    Clear = ClearItemOrderableConcentration(c, i)
+                    Clear = ReCalcItemOrderableConcentration(c, i)
                 }
                 {
                     Name = $"%s{c}.%s{i} orderable quantity"
                     Get = get (_.OrderableQuantity >> OrderVariable.Quantity.toOrdVar)
                     SetNth = fun n -> SetNthItemOrderableQuantity(c, i, n)
-                    Clear = ClearItemOrderableQuantity(c, i)
+                    Clear = ReCalcItemOrderableQuantity(c, i)
                 }
     ]
     |> List.distinctBy _.Name

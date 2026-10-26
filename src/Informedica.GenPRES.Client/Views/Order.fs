@@ -533,7 +533,7 @@ module Order =
                         heldPicks.current
                         |> Option.defaultValue [||]
                         |> Array.map (Models.OrderContext.Picks.withinOrder ol.Order.Id)
-                        |> ViewHelpers.clearCommand t
+                        |> ViewHelpers.reCalcCommand t
                     )
                 | Some(t, ovar), Some key when not isReopen ->
                     match Models.OrderContext.values ovar |> Array.tryFindIndex ((=) key) with

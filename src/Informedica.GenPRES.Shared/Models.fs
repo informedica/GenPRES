@@ -1728,7 +1728,7 @@ module Models =
 
         /// The variable cleared, as the dose dialog clears it, with the picks given back the order
         /// id.
-        let clear target (picks: string[]) (ctx: OrderContext) =
+        let reCalc target (picks: string[]) (ctx: OrderContext) =
             scenario ctx
             |> Result.bind (fun sc ->
                 match sc.Order |> Target.tryGet target with

@@ -235,12 +235,12 @@ let setNthCommand target n =
 
 
 /// The new case that clears a target.
-let clearCommand target picks =
+let reCalcCommand target picks =
     match target with
-    | Target.Schedule prop -> Api.ClearScheduleProperty(prop, picks)
-    | Target.Orderable prop -> Api.ClearOrderableProperty(prop, picks)
-    | Target.Component(cmp, prop) -> Api.ClearComponentProperty(cmp, prop, picks)
-    | Target.Item(cmp, itm, prop) -> Api.ClearItemProperty(cmp, itm, prop, picks)
+    | Target.Schedule prop -> Api.ReCalcScheduleProperty(prop, picks)
+    | Target.Orderable prop -> Api.ReCalcOrderableProperty(prop, picks)
+    | Target.Component(cmp, prop) -> Api.ReCalcComponentProperty(cmp, prop, picks)
+    | Target.Item(cmp, itm, prop) -> Api.ReCalcItemProperty(cmp, itm, prop, picks)
 
 
 [<Tests>]
@@ -429,7 +429,7 @@ let tests =
                                     let today = ctx |> Ctx.withOrder (ord |> Today.change target None)
 
                                     ctx
-                                    |> Ctx.clear target [| "[.x]_dos_qty" |]
+                                    |> Ctx.reCalc target [| "[.x]_dos_qty" |]
                                     |> Expect.equal "today's context" (Ok(today, [| $"[%s{ord.Id}.x]_dos_qty" |]))
                                 }
 
@@ -442,7 +442,7 @@ let tests =
                             )
 
                         ctx |> Ctx.setNth target 0 |> Result.isError |> Expect.isTrue "an error"
-                        ctx |> Ctx.clear target [||] |> Result.isError |> Expect.isTrue "an error"
+                        ctx |> Ctx.reCalc target [||] |> Result.isError |> Expect.isTrue "an error"
                     }
 
                     test "a context without one scenario" {
@@ -647,10 +647,10 @@ let tests =
 
                             test $"%A{target} cleared" {
                                 ctx
-                                |> Cmd.preview (clearCommand target [| "[.x]_dos_qty" |])
+                                |> Cmd.preview (reCalcCommand target [| "[.x]_dos_qty" |])
                                 |> Expect.equal
                                     "the reopen with the picks"
-                                    (ctx |> Ctx.clear target [| "[.x]_dos_qty" |] |> Result.map fst)
+                                    (ctx |> Ctx.reCalc target [| "[.x]_dos_qty" |] |> Result.map fst)
                             }
 
                             test $"%A{target} past its values" {

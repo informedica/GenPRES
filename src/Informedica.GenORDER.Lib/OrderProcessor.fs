@@ -310,41 +310,28 @@ module OrderProcessor =
             ord |> set (ItemOrderableConcentration(cmp, itm, Concentration.setNthValue n))
         | SetNthItemOrderableQuantity(cmp, itm, n) ->
             ord |> set (ItemOrderableQuantity(cmp, itm, Quantity.setNthValue n))
-        // one variable cleared
+        // one variable cleared and recalculated
         | ClearScheduleFrequency -> ord |> setFreq Frequency.clear
-        | ClearScheduleTime -> ord |> set (ScheduleTime Time.clear)
-        | ClearOrderableQuantity -> ord |> set (OrderableQuantity Quantity.clear)
+        | ReCalcScheduleTime -> ord |> set (ScheduleTime Time.clear)
+        | ReCalcOrderableQuantity -> ord |> set (OrderableQuantity Quantity.clear)
         | ClearOrderableDoseQuantity -> ord |> setDose (Dose.applyToQuantity Quantity.clear)
         | ClearOrderableDoseRate -> ord |> setDose (Dose.applyToRate Rate.clear)
         | ClearComponentOrderableQuantity cmp -> ord |> setCmpOrbQty cmp Quantity.clear
-        | ClearComponentDoseQuantityAdjust cmp ->
+        | ReCalcComponentDoseQuantityAdjust cmp ->
             ord |> set (ComponentDose(cmp, Dose.applyToQuantityAdjust QuantityAdjust.clear))
-        | ClearItemDoseQuantity(cmp, itm) -> ord |> setItmDose cmp itm (Dose.applyToQuantity Quantity.clear)
-        | ClearItemDoseQuantityAdjust(cmp, itm) ->
+        | ReCalcItemDoseQuantity(cmp, itm) -> ord |> setItmDose cmp itm (Dose.applyToQuantity Quantity.clear)
+        | ReCalcItemDoseQuantityAdjust(cmp, itm) ->
             ord |> setItmDose cmp itm (Dose.applyToQuantityAdjust QuantityAdjust.clear)
-        | ClearItemDosePerTime(cmp, itm) -> ord |> setItmDose cmp itm (Dose.applyToPerTime PerTime.clear)
-        | ClearItemDosePerTimeAdjust(cmp, itm) ->
+        | ReCalcItemDosePerTime(cmp, itm) -> ord |> setItmDose cmp itm (Dose.applyToPerTime PerTime.clear)
+        | ReCalcItemDosePerTimeAdjust(cmp, itm) ->
             ord |> setItmDose cmp itm (Dose.applyToPerTimeAdjust PerTimeAdjust.clear)
-        | ClearItemDoseRate(cmp, itm) -> ord |> setItmDose cmp itm (Dose.applyToRate Rate.clear)
-        | ClearItemDoseRateAdjust(cmp, itm) -> ord |> setItmDose cmp itm (Dose.applyToRateAdjust RateAdjust.clear)
+        | ReCalcItemDoseRate(cmp, itm) -> ord |> setItmDose cmp itm (Dose.applyToRate Rate.clear)
+        | ReCalcItemDoseRateAdjust(cmp, itm) -> ord |> setItmDose cmp itm (Dose.applyToRateAdjust RateAdjust.clear)
         | ClearItemComponentConcentration(cmp, itm) ->
             ord |> set (ItemComponentConcentration(cmp, itm, Concentration.clear))
-        | ClearItemOrderableConcentration(cmp, itm) ->
+        | ReCalcItemOrderableConcentration(cmp, itm) ->
             ord |> set (ItemOrderableConcentration(cmp, itm, Concentration.clear))
-        | ClearItemOrderableQuantity(cmp, itm) -> ord |> set (ItemOrderableQuantity(cmp, itm, Quantity.clear))
-
-
-    let processClearedFrequency ord =
-        ord
-        |> OrderPropertyChange.proc
-            [
-                ScheduleFrequency Frequency.setToNonZeroPositive
-
-                OrderableDose Dose.setPerTimeToNonZeroPositive
-                ComponentDose("", Dose.setPerTimeToNonZeroPositive)
-                ItemDose("", "", Dose.setPerTimeToNonZeroPositive)
-            ]
-        |> OrderPropertyChange.proc [ ScheduleFrequency Frequency.setStandardValues ]
+        | ReCalcItemOrderableQuantity(cmp, itm) -> ord |> set (ItemOrderableQuantity(cmp, itm, Quantity.clear))
 
 
     let isPrepWithinConstraints ord =

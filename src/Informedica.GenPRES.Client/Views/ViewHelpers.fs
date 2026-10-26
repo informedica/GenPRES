@@ -176,7 +176,7 @@ module ViewHelpers =
 
             let reopenField =
                 match offer.Arrow, reopen with
-                | FieldOpenPolicy.Arrow.ReopenCleared, Some r ->
+                | FieldOpenPolicy.Arrow.ReCalc, Some r ->
                     Some(fun () ->
                         trace "open" [ "reopen" ]
                         r.reopening ()
@@ -665,14 +665,14 @@ module ViewHelpers =
 
 
     /// The command that clears the variable the target addresses, with the picks to keep.
-    let clearCommand target picks =
+    let reCalcCommand target picks =
         match target with
-        | Models.OrderContext.Target.Schedule prop -> Api.OrderViewCommand.ClearScheduleProperty(prop, picks)
-        | Models.OrderContext.Target.Orderable prop -> Api.OrderViewCommand.ClearOrderableProperty(prop, picks)
+        | Models.OrderContext.Target.Schedule prop -> Api.OrderViewCommand.ReCalcScheduleProperty(prop, picks)
+        | Models.OrderContext.Target.Orderable prop -> Api.OrderViewCommand.ReCalcOrderableProperty(prop, picks)
         | Models.OrderContext.Target.Component(cmp, prop) ->
-            Api.OrderViewCommand.ClearComponentProperty(cmp, prop, picks)
+            Api.OrderViewCommand.ReCalcComponentProperty(cmp, prop, picks)
         | Models.OrderContext.Target.Item(cmp, itm, prop) ->
-            Api.OrderViewCommand.ClearItemProperty(cmp, itm, prop, picks)
+            Api.OrderViewCommand.ReCalcItemProperty(cmp, itm, prop, picks)
 
 
     /// A small spinner below a form's button while its request is under way.

@@ -36,9 +36,9 @@ module FieldOpenPolicyTests =
                         for values, mode, constrained, usable, exp in
                             [
                                 3, QuantityModePolicy.Mode.Selectable, Constrained.No, true, Arrow.Open
-                                1, QuantityModePolicy.Mode.Stepable, Constrained.Yes, true, Arrow.ReopenCleared
-                                1, QuantityModePolicy.Mode.Fixed, Constrained.Yes, true, Arrow.ReopenCleared
-                                1, QuantityModePolicy.Mode.Fixed, Constrained.Unknown, true, Arrow.ReopenCleared
+                                1, QuantityModePolicy.Mode.Stepable, Constrained.Yes, true, Arrow.ReCalc
+                                1, QuantityModePolicy.Mode.Fixed, Constrained.Yes, true, Arrow.ReCalc
+                                1, QuantityModePolicy.Mode.Fixed, Constrained.Unknown, true, Arrow.ReCalc
                                 1, QuantityModePolicy.Mode.Stepable, Constrained.No, true, Arrow.NoArrow
                                 1, QuantityModePolicy.Mode.Fixed, Constrained.No, true, Arrow.NoArrow
                                 0, QuantityModePolicy.Mode.Navigable, Constrained.No, true, Arrow.NoArrow
@@ -116,15 +116,13 @@ module FieldOpenPolicyTests =
                         test "opens a list at once, or clears and waits" {
                             offer true Arrow.Open |> click false |> Expect.equal "open" Click.OpenList
 
-                            offer false Arrow.ReopenCleared
+                            offer false Arrow.ReCalc
                             |> click false
-                            |> Expect.equal "clear" Click.ClearAndWait
+                            |> Expect.equal "clear" Click.ReCalcAndWait
                         }
 
                         test "does nothing while a request is under way, or without an arrow" {
-                            offer false Arrow.ReopenCleared
-                            |> click true
-                            |> Expect.equal "loading" Click.Nothing
+                            offer false Arrow.ReCalc |> click true |> Expect.equal "loading" Click.Nothing
 
                             offer true Arrow.Open |> click true |> Expect.equal "loading" Click.Nothing
                             none |> click false |> Expect.equal "no arrow" Click.Nothing
@@ -148,11 +146,11 @@ module FieldOpenPolicyTests =
                     "a list closed"
                     [
                         test "after a reopen without a pick restores the order before the click" {
-                            closed Click.ClearAndWait false |> Expect.equal "restore" Closed.Restore
+                            closed Click.ReCalcAndWait false |> Expect.equal "restore" Closed.Restore
                         }
 
                         test "with a pick keeps it, after a reopen or not" {
-                            closed Click.ClearAndWait true |> Expect.equal "keep" Closed.Keep
+                            closed Click.ReCalcAndWait true |> Expect.equal "keep" Closed.Keep
                             closed Click.OpenList true |> Expect.equal "keep" Closed.Keep
                         }
 
