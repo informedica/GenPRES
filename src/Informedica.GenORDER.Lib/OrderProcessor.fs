@@ -353,16 +353,6 @@ module OrderProcessor =
         // Core step functions
         let calcMinMaxStep = calcMinMax logger
 
-        let setCalculatedConstraintsStep =
-            setCalculatedConstraints
-            >> fun ord ->
-                // FLAG: expensive message build (toConsoleTableString) — kept lazy
-                // so it is skipped when the logger is off.
-                Logging.logInfoLazy logger (fun () -> ord |> toConsoleTableString |> Events.OrderScenario)
-
-                ord
-            >> Ok
-
         let applyCalculatedConstraintsStep = applyCalculatedConstraints >> Ok
 
         let increaseIncrementStep ord = ord |> increaseIncrements logger 10
@@ -406,34 +396,15 @@ module OrderProcessor =
 
         let solveStep ord = solveOrder "Solve Order Step" true logger ord
 
-        let calcNormDoseStep = solveNormDose logger
-
-        // the scenario list keeps only the orders that solve, so a failure here keeps the order before
-        let tolerantCalcValuesStep useMax skipRate ord =
-            match calcValuesStep useMax skipRate ord with
-            | Ok o -> Ok o
-            | Error _ -> Ok ord
-
         let processClearedStep ord =
             match processClearedOrderWith caps logger ord with
             | Ok o -> Ok o
             | Error _ -> solveOrder "Error in Cleared Step Solve again" true logger ord
 
-        let applyConstraintsStep ord =
-            ord
-            |> applyConstraints
-            |> fun ord ->
-                // FLAG: expensive message build (toConsoleTableString) — kept lazy
-                // so it is skipped when the logger is off.
-                Logging.logInfoLazy logger (fun () -> ord |> toConsoleTableString |> Events.OrderScenario)
-
-                ord
-            |> Ok
-
         let pickNearestHigherElseLowerComponentQuantityStep ord =
             ord |> pickNearestHigherElseLowerComponentQuantity logger
 
-        // the values recalculated from the calculated constraints, as a reset does
+        // the values recalculated from the calculated constraints
         let reCalcSteps ord =
             let useMax = ord |> hasAtMostTwoComponents
 
@@ -487,44 +458,10 @@ module OrderProcessor =
             ]
 
         match cmd with
-        | CalcMinMax ord ->
-            [
-                {
-                    Name = "calc-minmax: apply-constraints"
-                    Guard = (fun _ -> true)
-                    Run = applyConstraintsStep
-                }
-                {
-                    Name = "calc-minmax: calc-minmax"
-                    Guard = (fun _ -> true)
-                    Run = calcMinMaxStep
-                }
-                {
-                    Name = "calc-minmax: increase-increments"
-                    Guard = (fun _ -> true)
-                    Run = increaseIncrementStep
-                }
-                {
-                    Name = "calc-minmax: set-calculated-constraints"
-                    Guard = (fun _ -> true)
-                    Run = setCalculatedConstraintsStep
-                }
-                // norm dose calc needs dose qty values; for timed orders rate is deferred (staged expansion)
-                if ord |> hasNormDose && ord |> hasAtMostTwoComponents then
-                    {
-                        Name = "solve-order: ensure-dose-values-1"
-                        Guard = _.CanSetNormDose >> not
-                        Run = tolerantCalcValuesStep (ord |> hasAtMostTwoComponents) (ord |> rateWaits)
-                    }
-
-                    {
-                        Name = "calc-minmax: set-normdose"
-                        Guard = (fun _ -> true)
-                        Run = calcNormDoseStep
-                    }
-            ]
-            |> runPipeline ord
-
+        // the order program runs the calculations, through processPipelineWith
+        | CalcMinMax _
+        | CalcValues _
+        | ReCalcValues _ -> invalidArg (nameof cmd) "the order program runs this command"
         | IncreaseIncrements ord ->
             [
                 {
@@ -532,27 +469,6 @@ module OrderProcessor =
                     Guard = (fun _ -> true)
                     Run = increaseIncrementStep
                 }
-            ]
-            |> runPipeline ord
-
-        | CalcValues ord ->
-            let guard (os: OrderState) =
-                ord |> hasAtMostTwoComponents
-                && os.DoseIsSolved |> not
-                && os.OrderIsSolved |> not
-
-            [
-                {
-                    Name = "calc-values: calc-qty-values"
-                    Guard = guard
-                    Run = calcValuesStep false (ord |> rateWaits)
-                }
-                if ord |> rateWaits then
-                    {
-                        Name = "calc-values: calc-rate-values"
-                        Guard = guard
-                        Run = rateStageWithMedian false
-                    }
             ]
             |> runPipeline ord
 
@@ -567,8 +483,6 @@ module OrderProcessor =
                 yield! ord |> solveSteps (if ord |> isCleared then rateStage else rateStageWithMedian)
             ]
             |> runPipeline ord
-
-        | ReCalcValues ord -> reCalcSteps ord @ [ finalSolveStep ] |> runPipeline ord
 
         | Reopen(ord, picks) ->
             // a rate of a timed or once timed order cleared without being a pick, as its median is,
@@ -1332,8 +1246,7 @@ module OrderProcessor =
 
     module OrderAction =
 
-        /// The effects of an action on an order, decided by the server. A set and a recalculation run
-        /// through the order program; any other action is refused until its commands move to it.
+        /// The effects of an action on an order, decided by the server.
         let effects action (ord: Order) =
             let cap =
                 if ord |> hasAtMostTwoComponents then
@@ -1434,7 +1347,52 @@ module OrderProcessor =
                             yield! values RateSelection.OfferRates (Some ord)
                             OrderEffect.SolveOrder SolveMode.Values
                         ]
-            | _ -> Error(ActionFailure.NoRecipe action)
+            | OrderAction.CalcConstraints ->
+                Ok
+                    [
+                        OrderEffect.SetAllOrderVariableRangesBack SetBackTo.CalculatedElseDefined
+                        OrderEffect.SolveOrder SolveMode.MinMax
+                        OrderEffect.CoarsenIncrements 10
+                        OrderEffect.RecordCalculatedConstraints
+                        // the norm dose needs dose values; a failure to make them keeps the order
+                        if ord |> hasNormDose && ord |> hasAtMostTwoComponents then
+                            OrderEffect.Unless(
+                                [ OrderCondition.CanSetNormDose ],
+                                OrderEffect.Try
+                                    [ OrderEffect.EnumerateOrderVariableValues(ValueCap.Larger, rate, None) ]
+                            )
+
+                            OrderEffect.SetNormDose
+                    ]
+            | OrderAction.Reset ->
+                // the creation wrote calculated constraints for every variable, inside its defined ones
+                Ok
+                    [
+                        OrderEffect.SetAllOrderVariableRangesBack SetBackTo.Calculated
+                        OrderEffect.EnumerateOrderVariableValues(cap, rate, None)
+                        if ord |> rateWaits then
+                            OrderEffect.EnumerateRateValues(cap, RateSelection.OfferRates, None)
+                        OrderEffect.Unless([ OrderCondition.OrderSolved ], OrderEffect.SolveOrder SolveMode.Values)
+                    ]
+            | OrderAction.CalcValues ->
+                // an order with more than two components keeps its ranges, and a solved order is left as it is
+                let unsolved eff =
+                    OrderEffect.Unless([ OrderCondition.DoseSolved; OrderCondition.OrderSolved ], eff)
+
+                Ok
+                    [
+                        if ord |> hasAtMostTwoComponents then
+                            unsolved (OrderEffect.EnumerateOrderVariableValues(ValueCap.Default, rate, None))
+
+                            if ord |> rateWaits then
+                                unsolved (
+                                    OrderEffect.EnumerateRateValues(
+                                        ValueCap.Default,
+                                        RateSelection.SelectMedianRate,
+                                        None
+                                    )
+                                )
+                    ]
 
 
         /// Runs an action; a failure keeps the order before the action.
@@ -1539,8 +1497,13 @@ module OrderProcessor =
         /// of the command still processes.
         let ofOrderCommand =
             function
+            | CalcMinMax ord -> Some(ord, OrderAction.CalcConstraints)
+            | CalcValues ord -> Some(ord, OrderAction.CalcValues)
+            | ReCalcValues ord -> Some(ord, OrderAction.Reset)
             | ChangeProperty(ord, cmd) -> cmd |> ofChangeProperty |> Option.map (fun action -> ord, action)
-            | _ -> None
+            | IncreaseIncrements _
+            | SolveOrder _
+            | Reopen _ -> None
 
 
     /// Process an order by the command given: a command the order program has an action for runs as

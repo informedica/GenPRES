@@ -208,7 +208,9 @@ let inPlan ctx cmd =
 
 
 /// An order that cannot be solved: the full medication through the stages before the solve, each
-/// carrying its order on as the application does.
+/// carrying its order on. The creation of the full medication fails, and the order program then
+/// keeps the order before it, so the creation runs effect by effect and carries on the order where
+/// it failed.
 let unsolvable =
     lazy
         let run cmd ord =
@@ -216,8 +218,19 @@ let unsolvable =
             | Ok o
             | Error(o, _) -> o
 
+        let create ord =
+            match ord |> OrderProcessor.OrderAction.effects OrderAction.CalcConstraints with
+            | Error f -> failtest $"no effects: %A{f}"
+            | Ok effs ->
+                match
+                    ord
+                    |> OrderProcessor.OrderEffect.run Order.ValueCaps.defaults OrderLogging.noOp effs
+                with
+                | Ok o
+                | Error(o, _) -> o
+
         match Scenarios.fullMedication |> Medication.toOrder start with
-        | Ok ord -> ord |> run CalcMinMax |> run IncreaseIncrements |> run CalcValues
+        | Ok ord -> ord |> create |> run IncreaseIncrements |> run CalcValues
         | Error e -> failtest $"could not build the order: %A{e}"
 
 
