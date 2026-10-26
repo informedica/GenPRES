@@ -96,13 +96,13 @@ module ViewHelpers =
     let noSteps = Components.QuantityField.Selectable
 
 
-    /// How a field the user may have narrowed reopens: whether the user constrained its variable,
-    /// what the page does before the field's choice is cleared, what it does when the list of a
-    /// reopen closes without a pick, and whether a request of the page is under way, during which
-    /// the arrow does not reopen.
+    /// How a field with one value is recalculated: whether the intent policy allows it on the order
+    /// shown, what the page does before the field is recalculated, what it does when the list of a
+    /// recalculation closes without a pick, and whether a request of the page is under way, during
+    /// which the field is not recalculated.
     type Reopen =
         {|
-            constrained: FieldOpenPolicy.Constrained
+            allowed: bool
             reopening: unit -> unit
             restore: unit -> unit
             busy: bool
@@ -110,10 +110,10 @@ module ViewHelpers =
 
 
     /// A field of an order. It never offers the cross, since the solver fills an emptied value
-    /// again; the arrow opens the list, and on a value the user narrowed it clears that value
-    /// first and the list shows what the server answers. A value the solver determined has no
-    /// arrow. A field without a reopen is one whose values are the order's own parts or only
-    /// shown: it opens a list of several, never reopens.
+    /// again. Several values open as a list; one value the intent policy allows is recalculated
+    /// first and the list shows what the server answers; any other value is not selectable. A
+    /// field without a reopen is one whose values are the order's own parts or only shown: it
+    /// opens a list of several, never recalculates.
     let orderField
         (reopen: Reopen option)
         (texts: Components.QuantityField.Texts)
@@ -153,19 +153,9 @@ module ViewHelpers =
                 | [| ("range", _) |] -> 0
                 | _ -> xs.Length
 
-            let policyMode =
-                match mode with
-                | Components.QuantityField.Selectable -> QuantityModePolicy.Mode.Selectable
-                | Components.QuantityField.Navigable _ -> QuantityModePolicy.Mode.Navigable
-                | Components.QuantityField.Stepable _ -> QuantityModePolicy.Mode.Stepable
-                | Components.QuantityField.Fixed -> QuantityModePolicy.Mode.Fixed
+            let allowed = reopen |> Option.exists _.allowed
 
-            let constrained =
-                reopen
-                |> Option.map _.constrained
-                |> Option.defaultValue FieldOpenPolicy.Constrained.No
-
-            let offer = FieldOpenPolicy.orderVariable values policyMode constrained (not (disabled || isEmpty))
+            let offer = FieldOpenPolicy.orderVariable values allowed (not (disabled || isEmpty))
 
             let trace event effects =
                 StepTrail.event
@@ -175,8 +165,8 @@ module ViewHelpers =
                     (Components.SimpleSelect.fieldState shown values false)
 
             let reopenField =
-                match offer.Arrow, reopen with
-                | FieldOpenPolicy.Arrow.ReCalc, Some r ->
+                match offer.Selectable, reopen with
+                | FieldOpenPolicy.Selectable.ReCalc, Some r ->
                     Some(fun () ->
                         trace "open" [ "reopen" ]
                         r.reopening ()
@@ -201,7 +191,7 @@ module ViewHelpers =
                     isLoading = isLoading
                     disabled = disabled || isEmpty
                     hasClear = false
-                    readOnly = offer.Arrow = FieldOpenPolicy.Arrow.NoArrow && not (disabled || isEmpty)
+                    readOnly = offer.Selectable = FieldOpenPolicy.Selectable.No && not (disabled || isEmpty)
                     reopen = reopenField
                     restore = reopen |> Option.map _.restore |> Option.defaultValue ignore
                     busy = reopen |> Option.exists _.busy

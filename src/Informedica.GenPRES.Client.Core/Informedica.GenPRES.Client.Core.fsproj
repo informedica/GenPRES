@@ -52,6 +52,7 @@
     <Compile Include="Policies/IntakePolicy.fs" />
     <Compile Include="Policies/FieldOpenPolicy.fs" />
     <Compile Include="Policies/PickListPolicy.fs" />
+    <Compile Include="Policies/IntentPolicy.fs" />
     <Compile Include="Policies/PlanContextPolicy.fs" />
     <Compile Include="Policies/PlanCellPolicy.fs" />
     <Compile Include="Policies/SectionFoldPolicy.fs" />

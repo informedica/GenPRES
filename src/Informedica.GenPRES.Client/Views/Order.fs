@@ -962,11 +962,12 @@ module Order =
 
         // a field's select: rests while a field is changing, shows it while its own is; a
         // field the editing does not let change shows its value, without steps or a dropdown
-        // a field reopens by its arrow when the user constrained its variable, by name; the reopen
-        // keeps the picks made before it, and a list closed without a pick puts them all back
+        // a field with one value is recalculated when the intent policy allows it on the order
+        // shown; the recalculation keeps the picks made before it, and a list closed without a pick
+        // puts them all back
         let reopenOf (name: string) : ViewHelpers.Reopen =
             {|
-                constrained = PickListPolicy.constrained picks name
+                allowed = displayOrder |> Option.exists (IntentPolicy.isReCalcAllowedOf name)
                 reopening =
                     fun () ->
                         heldPicks.current <- picks

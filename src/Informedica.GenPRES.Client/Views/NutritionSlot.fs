@@ -746,11 +746,10 @@ module NutritionSlot =
 
         let componentSelect = ViewHelpers.orderSelect texts true (busy || isCompositionLocked)
 
-        // a field with one value reopens by its arrow; without picks it cannot tell whether the user
-        // constrained it
+        // a field with one value is recalculated when the intent policy allows it on the order shown
         let reopenOf (ovar: OrderVariable) : ViewHelpers.Reopen =
             {|
-                constrained = PickListPolicy.constrained None ovar.Name
+                allowed = shownOrder |> Option.exists (IntentPolicy.isReCalcAllowedOf ovar.Name)
                 reopening = fun () -> reopening.current <- true
                 restore = props.planRestore
                 busy = busy

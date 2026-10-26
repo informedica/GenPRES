@@ -15,6 +15,7 @@ namespace Informedica.GenPRES.Client.Core.StateMachines
 module OrderContextMachine =
 
     open Informedica.GenPRES.Client.Core.Helpers
+    open Informedica.GenPRES.Client.Core.Policies
     open Informedica.GenPRES.Shared.Types
     open Informedica.GenPRES.Shared.Models
     open Informedica.GenPRES.Shared.Api
@@ -422,8 +423,16 @@ module OrderContextMachine =
             | OrderContextMsg.SeedFilter(seed, request), Some(pat, ctx), None ->
                 call (FilterSeed.command seed) ctx request (renewed (OrderContextWorkbench.Evaluated(pat, ctx)))
 
-            // a command, over the context held, for the patient held
-            | OrderContextMsg.Command(cmd, request), Some(pat, ctx), None -> command cmd pat ctx request None
+            // a command, over the context held, for the patient held; a recalculation keeps the
+            // state before it, as a reopen does
+            | OrderContextMsg.Command(cmd, request), Some(pat, ctx), None ->
+                let kept =
+                    if IntentPolicy.reopens cmd then
+                        Some { state with Kept = None }
+                    else
+                        None
+
+                command cmd pat ctx request kept
 
             // a reset clears the filter of the context held; a failure goes back to the empty workbench
             | OrderContextMsg.Reset request, Some(pat, ctx), None ->

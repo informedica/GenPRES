@@ -766,6 +766,36 @@ let reopenTests =
                 state |> view |> _.IsChanging |> Expect.isTrue "changing"
             }
 
+            test "a recalculation sent as a command goes out as a reopen sends it, and keeps the state before it" {
+                let reCalc = OrderViewCommand.ReCalcItemProperty("cmp", "itm", ItemProperty.DoseQuantity, [||])
+
+                let viaCommand = open' |> move (OrderContextMsg.Command(reCalc, "r-1"))
+
+                viaCommand
+                |> Expect.equal "as a reopen" (open' |> move (OrderContextMsg.ReopenField(reCalc, "r-1")))
+
+                viaCommand |> fst |> OrderContextState.isKept |> Expect.isTrue "kept"
+
+                open'
+                |> run
+                    [
+                        OrderContextMsg.Command(reCalc, "r-1")
+                        OrderContextMsg.Answered("r-1", answered reopened)
+                    ]
+                |> move OrderContextMsg.RestoreField
+                |> Expect.equal "a restore puts the state before it back" (open', [])
+            }
+
+            test "a pick is no recalculation: nothing is kept" {
+                let pick = OrderViewCommand.SetNthItemProperty("cmp", "itm", ItemProperty.DoseQuantity, 0)
+
+                open'
+                |> move (OrderContextMsg.Command(pick, "r-1"))
+                |> fst
+                |> OrderContextState.isKept
+                |> Expect.isFalse "nothing kept"
+            }
+
             test "a restore before the answer puts the context back, and the late answer is dropped" {
                 let restored = open' |> run [ reopen; OrderContextMsg.RestoreField ]
 

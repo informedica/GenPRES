@@ -423,8 +423,16 @@ module OrderPlanMachine =
                 | OrderPlanCart.NoPatient _ -> { state with Cart = OrderPlanCart.NoPatient head.OrderContexts }, []
                 | OrderPlanCart.Opened(pat, _) -> opening pat head.OrderContexts request state
 
-            // a change from a page, and a reopen, which keeps the state before it
-            | OrderPlanMsg.Change(c, request), OrderPlanCart.Opened(_, tp), None -> change c tp request None state
+            // a change from a page, and a reopen; a recalculation from the order dialog and a reopen
+            // keep the state before them
+            | OrderPlanMsg.Change(c, request), OrderPlanCart.Opened(_, tp), None ->
+                let kept =
+                    match c with
+                    | OrderPlanChange.OrderDialogCommand(_, cmd) when IntentPolicy.reopens cmd ->
+                        Some { state with Kept = None }
+                    | _ -> None
+
+                change c tp request kept state
             | OrderPlanMsg.ReopenField(id, cmd, request), OrderPlanCart.Opened(_, tp), None ->
                 change (OrderPlanChange.OrderDialogCommand(id, cmd)) tp request (Some { state with Kept = None }) state
 
