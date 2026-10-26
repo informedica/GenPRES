@@ -355,6 +355,27 @@ let tests =
                             |> Expect.equal "the whole order offers one dose" (Some 1)
                     }
 
+                    test "a list beside a stepped range that cannot be listed is no listed union" {
+                        let ord = Scenarios.pcmDrink |> Tests.TestOrder.toOrder
+                        let qty = ord.Orderable.Dose.Quantity |> OrderVariable.Quantity.toOrdVar
+                        let withRange vr =
+                            ord |> Order.fromOrdVars [ { qty with OrderVariable.Variable.Values = vr } ]
+
+                        let stepped max =
+                            ValueRange.create
+                                (mL [ 2 ] |> Minimum.create true |> Some)
+                                (mL [ 2 ] |> ValueRange.Increment.create |> Some)
+                                (mL [ max ] |> ValueRange.Maximum.create true |> Some)
+                                None
+
+                        [
+                            [ withRange (valSet [ 1 ]); withRange (stepped 1000) ]
+                            |> Order.isListedUnion 200
+                            [ withRange (valSet [ 1 ]); withRange (stepped 20) ] |> Order.isListedUnion 200
+                        ]
+                        |> Expect.equal "the long stepped range is not, the short one is" [ false; true ]
+                    }
+
                     test "an order whose union per concentration cannot be listed is created whole" {
                         let ord = Scenarios.amfoWithNaClTwoStrengthsTimed |> Tests.TestOrder.toOrder
 
@@ -370,5 +391,72 @@ let tests =
                         | Ok a, Ok b -> a |> Expect.equal "the whole order" b
                         | _ -> failtest "not created"
                     }
+
+                    testList
+                        "the original order of a recalculation"
+                        [
+                            let solved =
+                                lazy (Scenarios.amoxClavText |> Tests.TestOrder.parse |> Tests.TestOrder.processed)
+
+                            let parts (ord: Order) = ord |> Order.splitPerConcentration 16 (fun _ -> true)
+
+                            // whether the effects for the order of one combination keep the original
+                            let keeps original part =
+                                [
+                                    OrderEffect.EnumerateOrderVariableValues(
+                                        ValueCap.Larger,
+                                        RateList.WithRate,
+                                        Some original
+                                    )
+                                ]
+                                |> OrderProcessor.OrderEffect.forConcentration part
+                                |> List.exists (
+                                    function
+                                    | OrderEffect.EnumerateOrderVariableValues(_, _, Some _) -> true
+                                    | _ -> false
+                                )
+
+                            test "the original is kept for the product it holds, and dropped for the other" {
+                                let ord = solved.Value
+
+                                ord
+                                |> parts
+                                |> List.map (keeps ord)
+                                |> List.sort
+                                |> Expect.equal "one product keeps it" [ false; true ]
+                            }
+
+                            test "an original that holds no single concentration is kept for every product" {
+                                let ord = solved.Value
+                                let created = Scenarios.amoxClavText |> Tests.TestOrder.parse |> Tests.TestOrder.toOrder
+
+                                ord
+                                |> parts
+                                |> List.map (keeps created)
+                                |> Expect.equal "both keep it" [ true; true ]
+                            }
+
+                            test "after each recalculation the value the field held is offered again" {
+                                let ord = solved.Value
+
+                                [
+                                    for cmd, ovarRef, _ in ord |> OrderReCalcTests.reCalcs do
+                                        let before = ovarRef |> OrderProcessor.OrderVariableReference.tryGet ord
+
+                                        match before, ord |> OrderReCalcTests.reCalc cmd with
+                                        | Some b, Ok after when b |> OrderVariable.isWithinConstraints true ->
+                                            let offered =
+                                                ovarRef
+                                                |> OrderProcessor.OrderVariableReference.tryGet after
+                                                |> Option.map values
+                                                |> Option.defaultValue Set.empty
+
+                                            if b |> values |> Set.isSubset offered |> not then
+                                                $"%A{cmd}"
+                                        | _ -> ()
+                                ]
+                                |> Expect.isEmpty "the held value offered"
+                            }
+                        ]
                 ]
         ]

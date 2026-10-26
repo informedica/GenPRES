@@ -3294,8 +3294,9 @@ module Order =
 
 
     /// Whether the orders per concentration join into one order without a range on an increment that
-    /// holds values none of them allows: every variable has the same range in each, or a range
-    /// without a minimum, increment and maximum in one of them, or a range each can list.
+    /// holds values none of them allows: every variable has the same range in each, or every range
+    /// with a minimum, increment and maximum can be listed; a list and a range without an increment
+    /// count as listed.
     let isListedUnion maxCount (ords: Order list) =
         let isOnIncrement vr =
             [
@@ -3311,8 +3312,12 @@ module Order =
         |> List.forall (fun ovars ->
             match ovars |> List.map _.Variable.Values |> List.distinct with
             | [ _ ] -> true
-            | vrs when vrs |> List.forall isOnIncrement |> not -> true
-            | vrs -> vrs |> List.forall (ValueRange.tryToValueSet maxCount >> Option.isSome)
+            | vrs ->
+                vrs
+                |> List.forall (fun vr ->
+                    vr |> isOnIncrement |> not
+                    || vr |> ValueRange.tryToValueSet maxCount |> Option.isSome
+                )
         )
 
 
