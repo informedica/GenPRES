@@ -1046,6 +1046,27 @@ module OrderVariable =
         |> Option.exists (fun vs -> vs |> ValueSet.count = 1)
 
 
+    /// The value of the same variable in the original order added to the list of ovar, when that
+    /// variable held one value there, ovar holds a list, and the value lies within the calculated
+    /// constraints of ovar; else ovar unchanged.
+    let includeOriginalValue (original: OrderVariable) (ovar: OrderVariable) =
+        match original.Variable.Values, ovar.Variable.Values with
+        | ValSet o, ValSet vs when
+            original |> hasOneValue
+            && { ovar with OrderVariable.Variable.Values = original.Variable.Values }
+               |> isWithinConstraints true
+            ->
+            // the current list first, so the joined list has the unit of the current list
+            let values =
+                [ vs; o ]
+                |> List.map ValueSet.toValueUnit
+                |> ValueUnit.collectValues
+                |> ValueSet.create
+
+            { ovar with OrderVariable.Variable.Values = values |> ValSet }
+        | _ -> ovar
+
+
     /// How a value can be set on an order variable: a list of values, or a min, increment and max,
     /// is selectable, one value with an increment in its defined constraints is steppable.
     let shape (ovar: OrderVariable) =

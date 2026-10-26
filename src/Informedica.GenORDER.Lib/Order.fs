@@ -3149,6 +3149,15 @@ module Order =
         >> List.forall OrderVariable.isSolved
 
 
+    /// Whether the order is still a complete order after a recalculation: it is solved, and every
+    /// variable lies within its calculated constraints. A step or a percentile can leave a variable
+    /// outside them; the recalculation then sets that variable back, so the values of the order are
+    /// not added to the lists of the recalculated order.
+    let isReachable ord =
+        ord |> isSolved
+        && ord |> toOrdVars |> List.forall (OrderVariable.isWithinConstraints true)
+
+
     /// Whether the order has at most two components, the orders that get lists of values.
     let hasAtMostTwoComponents ord = ord.Orderable.Components |> List.length <= 2
 
@@ -3929,9 +3938,22 @@ module Order =
     /// <param name="useMaxNumberOfValues">Whether to use max number of values or restrict the number of values</param>
     /// <param name="skipRate">Whether to skip the orderable dose rate variable (for staged expansion of timed orders)</param>
     /// <param name="logger">The logger</param>
+    /// <param name="original">The order whose values a list includes, when that order is reachable</param>
     /// <param name="ord">The Order</param>
     /// <returns>The order with values, or the order before the values that could not be solved, with the messages.</returns>
-    let minIncrMaxToValues caps useMaxNumberOfValues skipRate logger ord =
+    let minIncrMaxToValues caps useMaxNumberOfValues skipRate logger original ord =
+        let original = original |> Option.filter isReachable
+
+        let originals =
+            original
+            |> Option.map (toOrdVars >> OrderVariable.byName)
+            |> Option.defaultValue Map.empty
+
+        let includeOriginal (ovar: OrderVariable) =
+            match originals |> Map.tryFind ovar.Variable.Name with
+            | Some o -> ovar |> OrderVariable.includeOriginalValue o
+            | None -> ovar
+
         let mutable isSolved = false
 
         let rec loop ord =
@@ -3996,6 +4018,13 @@ module Order =
                 ord |> solveOrder "Min Incr Max to Values final Loop" true logger
             else
                 Ok ord
+        )
+        // the original values are added once every list is made, so no list is pruned from a range
+        // the original values widened
+        |> Result.bind (fun ord ->
+            match original with
+            | None -> Ok ord
+            | Some _ -> ord |> mapOrdVars includeOriginal |> solveOrder "Original values" true logger
         )
 
 
