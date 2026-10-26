@@ -3120,6 +3120,33 @@ module Order =
         >> List.forall OrderVariable.isSolved
 
 
+    /// Whether the order has at most two components, the orders that get lists of values.
+    let hasAtMostTwoComponents ord = ord.Orderable.Components |> List.length <= 2
+
+
+    /// Check whether every component orderable quantity holds one value, so the user has set the
+    /// composition a dose is a part of.
+    let isComposed ord =
+        ord.Orderable.Components
+        |> List.forall (_.OrderableQuantity >> Quantity.toOrdVar >> _.Variable >> Variable.isSolved)
+
+
+    /// Check whether the orderable quantity and every component orderable quantity are within their
+    /// constraints.
+    let isPrepWithinConstraints ord =
+        [
+            ord.Orderable.OrderableQuantity |> Quantity.toOrdVar
+            yield! ord.Orderable.Components |> List.map (_.OrderableQuantity >> Quantity.toOrdVar)
+        ]
+        |> List.forall (OrderVariable.isWithinConstraints true)
+
+
+    /// Whether the rate of the order waits for its dose quantity: the rate of a timed or once timed
+    /// order gets its values only once the dose quantity has one value.
+    let rateWaits ord =
+        ord.Schedule |> Schedule.hasTime && ord.Schedule |> Schedule.isContinuous |> not
+
+
     /// The ids of the products that apply to the values of the components of an order.
     let productIds ord =
         (ord |> inf).Orderable.Components
@@ -3364,7 +3391,7 @@ module Order =
 
 
     let hasNormDose ord =
-        if ord.Orderable.Components |> List.length > 2 then
+        if ord |> hasAtMostTwoComponents |> not then
             false
         else
             match ord.Schedule with
@@ -3559,6 +3586,18 @@ module Order =
             )
 
 
+    /// The equation mapping for the dose type of an order.
+    let equationMapping ord =
+        match ord.Schedule with
+        | Once -> Mapping.Literals.once
+        | Continuous _ -> Mapping.Literals.continuous
+        | OnceTimed _ -> Mapping.Literals.onceTimed
+        | Discontinuous _ -> Mapping.Literals.discontinuous
+        | Timed _ -> Mapping.Literals.timed
+        |> Mapping.getEquations
+        |> Mapping.getEqsMapping ord
+
+
     /// <summary>
     /// Solve an Order
     /// </summary>
@@ -3588,17 +3627,7 @@ module Order =
                 | Ok(false, _) -> ord |> Ok
                 | Ok(true, orb) -> { ord with Order.Orderable = orb } |> solve "Products" minMax printErr logger
 
-        let mapping =
-            match ord.Schedule with
-            | Once -> Mapping.Literals.once
-            | Continuous _ -> Mapping.Literals.continuous
-            | OnceTimed _ -> Mapping.Literals.onceTimed
-            | Discontinuous _ -> Mapping.Literals.discontinuous
-            | Timed _ -> Mapping.Literals.timed
-            |> Mapping.getEquations
-            |> Mapping.getEqsMapping ord
-
-        let oEqs = ord |> mapToOrderEquations mapping
+        let oEqs = ord |> mapToOrderEquations (ord |> equationMapping)
 
         try
             oEqs
@@ -3804,8 +3833,8 @@ module Order =
                 Discontinuous = 10
                 DiscontinuousMaxSingle = 100
                 DiscontinuousMaxMultiple = 20
-                TimedFew = 20
-                TimedMaxFew = 10
+                TimedFew = 10
+                TimedMaxFew = 20
                 TimedMany = 5
             }
 

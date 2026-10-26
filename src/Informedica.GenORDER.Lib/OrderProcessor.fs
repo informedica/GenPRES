@@ -111,18 +111,6 @@ module OrderProcessor =
         |> OrderPropertyChange.proc [ OrderableDose step ]
 
 
-    /// Check whether every component orderable quantity holds one value, so the user has set the
-    /// composition a dose is a part of.
-    let isComposed (ord: Order) =
-        ord.Orderable.Components
-        |> List.forall (
-            _.OrderableQuantity
-            >> Quantity.toOrdVar
-            >> _.Variable
-            >> Informedica.GenSolver.Lib.Variable.isSolved
-        )
-
-
     /// Set the dose quantity of an order at a percentage of its range: the doses are cleared to any
     /// positive value, the orderable dose quantity, its quantity per kg and its rate to their defined
     /// constraints, the dose quantity at most the orderable quantity, the time to its constraints
@@ -334,14 +322,6 @@ module OrderProcessor =
         | ReCalcItemOrderableQuantity(cmp, itm) -> ord |> set (ItemOrderableQuantity(cmp, itm, Quantity.clear))
 
 
-    let isPrepWithinConstraints ord =
-        [
-            ord.Orderable.OrderableQuantity |> Quantity.toOrdVar
-            yield! ord.Orderable.Components |> List.map (_.OrderableQuantity >> Quantity.toOrdVar)
-        ]
-        |> List.forall (OrderVariable.isWithinConstraints true)
-
-
     // processClearedDose and processClearedRate use applyConstraints to reset
     // out-of-bounds preparation variables to their Calculated constraints
     // (the effective solver domain from Section 4). Defined constraints are
@@ -403,12 +383,6 @@ module OrderProcessor =
                 ComponentDose("", Dose.applyRateConstraints)
                 ItemDose("", "", Dose.applyRateConstraints)
             ]
-
-
-    /// Whether the rate of the order waits for its dose quantity: the rate of a timed or once timed
-    /// order gets its values only once the dose quantity has one value.
-    let rateWaits (ord: Order) =
-        ord.Schedule |> Schedule.hasTime && ord.Schedule |> Schedule.isContinuous |> not
 
 
     /// Process an order that has been cleared
@@ -726,7 +700,7 @@ module OrderProcessor =
 
         // the values recalculated from the calculated constraints, as a reset does
         let reCalcSteps ord =
-            let useMax = ord.Orderable.Components |> List.length <= 2
+            let useMax = ord |> hasAtMostTwoComponents
 
             [
                 {
@@ -762,7 +736,7 @@ module OrderProcessor =
                 {
                     Name = "solve-order: ensure-values-1"
                     Guard = (_.HasValues >> not)
-                    Run = calcValuesStep (ord.Orderable.Components |> List.length <= 2) (ord |> rateWaits)
+                    Run = calcValuesStep (ord |> hasAtMostTwoComponents) (ord |> rateWaits)
                 }
                 finalSolveStep
                 {
@@ -773,7 +747,7 @@ module OrderProcessor =
                 {
                     Name = "solve-order: calc-rate-values"
                     Guard = (fun _ -> true)
-                    Run = rateStep (ord.Orderable.Components |> List.length <= 2)
+                    Run = rateStep (ord |> hasAtMostTwoComponents)
                 }
             ]
 
@@ -801,11 +775,11 @@ module OrderProcessor =
                     Run = setCalculatedConstraintsStep
                 }
                 // norm dose calc needs dose qty values; for timed orders rate is deferred (staged expansion)
-                if ord |> hasNormDose && ord.Orderable.Components |> List.length <= 2 then
+                if ord |> hasNormDose && ord |> hasAtMostTwoComponents then
                     {
                         Name = "solve-order: ensure-dose-values-1"
                         Guard = _.CanSetNormDose >> not
-                        Run = tolerantCalcValuesStep (ord.Orderable.Components |> List.length <= 2) (ord |> rateWaits)
+                        Run = tolerantCalcValuesStep (ord |> hasAtMostTwoComponents) (ord |> rateWaits)
                     }
 
                     {
@@ -828,7 +802,7 @@ module OrderProcessor =
 
         | CalcValues ord ->
             let guard (os: OrderState) =
-                ord.Orderable.Components |> List.length <= 2
+                ord |> hasAtMostTwoComponents
                 && os.DoseIsSolved |> not
                 && os.OrderIsSolved |> not
 
