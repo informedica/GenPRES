@@ -22,35 +22,6 @@ module OrderProcessor =
     module Variable = Informedica.GenSolver.Lib.Variable
 
 
-    // FrequencyCleared and ConcentrationCleared are defensive arms: no recipe handles them, so a
-    // cleared frequency is solved as it is here; a frequency the user picked reopens by Reopen.
-    // NotCleared is a defensive catch-all that logs a warning. The system
-    // operates on the single-variable change invariant: only one variable
-    // is changed at a time, followed by a solver run. Multiple simultaneous
-    // clears are not an expected scenario.
-    let (|FrequencyCleared|RateCleared|TimeCleared|ConcentrationCleared|DoseQuantityCleared|DosePerTimeCleared|NotCleared|)
-        (ord: Order)
-        =
-        let frq = ord.Schedule |> Schedule.getFrequency
-        let tme = ord.Schedule |> Schedule.getTime
-
-        match
-            frq |> Option.map Frequency.isCleared |> Option.defaultValue false,
-            ord.Orderable |> Orderable.isDoseRateCleared
-            || ord.Orderable |> Orderable.isItemDoseRateCleared,
-            tme |> Option.map Time.isCleared |> Option.defaultValue false,
-            ord.Orderable |> Orderable.isConcentrationCleared,
-            ord.Orderable |> Orderable.isDoseQuantityCleared,
-            ord.Orderable |> Orderable.isItemDosePerTimeCleared
-        with
-        | true, false, false, false, false, false -> FrequencyCleared
-        | false, true, false, false, false, false -> RateCleared
-        | false, false, true, false, false, false -> TimeCleared
-        | false, false, false, true, false, false -> ConcentrationCleared
-        | false, false, false, false, true, false -> DoseQuantityCleared
-        | false, false, false, false, false, true -> DosePerTimeCleared
-        | _ -> NotCleared
-
     /// The order as it is: every property command runs through the order program, and a component
     /// in stock is not implemented.
     let processChangeProperty logger cmd ord =
@@ -61,152 +32,14 @@ module OrderProcessor =
         | _ -> ord
 
 
-    // processClearedDose and processClearedRate use applyConstraints to reset
-    // out-of-bounds preparation variables to their Calculated constraints
-    // (the effective solver domain from Section 4). Defined constraints are
-    // preserved separately for user-facing violation feedback.
-    // isPrepWithinConstraints checks orderable and component quantities to
-    // determine whether preparation variables need resetting.
-    let processClearedDose ord =
-        ord
-        |> OrderPropertyChange.proc
-            [
-                if ord.Schedule |> Schedule.isFrequencyWithinConstraints true |> not then
-                    ScheduleFrequency Frequency.applyConstraints
-
-                if ord.Schedule |> Schedule.hasTime then
-                    ScheduleTime Time.applyConstraints
-
-                if
-                    ord.Orderable.Components |> List.length = 1
-                    || ord |> isPrepWithinConstraints |> not
-                then
-                    OrderableQuantity Quantity.applyConstraints
-                    ComponentOrderableQuantity("", Quantity.applyConstraints)
-                    ComponentOrderableCount("", OrderVariable.Count.applyConstraints)
-                    ComponentOrderableConcentration("", Concentration.applyConstraints)
-                    ItemOrderableQuantity("", "", Quantity.applyConstraints)
-                    ItemOrderableConcentration("", "", Concentration.applyConstraints)
-
-                OrderableDoseCount OrderVariable.Count.applyConstraints
-                OrderableDose Dose.applyQuantityConstraints
-                OrderableDose Dose.applyPerTimeConstraints
-                ComponentDose("", Dose.applyQuantityConstraints)
-                ComponentDose("", Dose.applyPerTimeConstraints)
-                ItemDose("", "", Dose.applyQuantityConstraints)
-                ItemDose("", "", Dose.applyPerTimeConstraints)
-            ]
-
-
-    let processClearedRate ord =
-        ord
-        |> OrderPropertyChange.proc
-            [
-                if ord.Schedule |> Schedule.hasTime then
-                    ScheduleTime Time.applyConstraints
-
-                if ord |> isPrepWithinConstraints |> not then
-                    OrderableQuantity Quantity.applyConstraints
-                    ComponentOrderableQuantity("", Quantity.applyConstraints)
-                    ComponentOrderableCount("", OrderVariable.Count.applyConstraints)
-                    ComponentOrderableConcentration("", Concentration.applyConstraints)
-                    ItemOrderableQuantity("", "", Quantity.applyConstraints)
-                    ItemOrderableConcentration("", "", Concentration.applyConstraints)
-
-                    OrderableDoseCount OrderVariable.Count.applyConstraints
-                    OrderableDose Dose.applyQuantityConstraints
-                    ComponentDose("", Dose.applyQuantityConstraints)
-                    ItemDose("", "", Dose.applyQuantityConstraints)
-
-                OrderableDose Dose.applyRateConstraints
-                ComponentDose("", Dose.applyRateConstraints)
-                ItemDose("", "", Dose.applyRateConstraints)
-            ]
-
-
-    /// Process an order that has been cleared
-    /// by setting relevant variables to non-zero positive
-    /// values and solving the order again, pruned with the caps given
-    let processClearedOrderWith caps logger ord =
-        // small helpers to clarify post-processing after property changes
-        let solveAndToValues skipRate =
-            solveMinMax "Process Cleared Order" true logger
-            >> Result.bind (minIncrMaxToValues caps true skipRate logger None)
-
-        let defaultInc = 100
-
-        let solveIncrIncrAndToValues skipRate =
-            solveMinMax "Process Cleared Order" true logger
-            >> Result.bind (increaseIncrements logger defaultInc)
-            >> Result.bind (minIncrMaxToValues caps true skipRate logger None)
-
-        let logUnmatched (kind: string) =
-            // FLAG: expensive message build (toConsoleTableString renders a full
-            // console table) — kept lazy so it is skipped when logging is off.
-            Logging.logWarningLazy
-                logger
-                (fun () ->
-                    $"===> no match for {kind} cleared \n{ord |> toConsoleTableString}"
-                    |> Events.OrderScenario
-                )
-
-        match (ord |> inf).Schedule with
-        | Continuous _ ->
-            match ord with
-            | TimeCleared
-            | RateCleared ->
-                "Rate or Time cleared" |> Events.OrderScenario |> Logging.logInfo logger
-
-                ord |> processClearedRate |> solveAndToValues false
-            | _ ->
-                logUnmatched "continuous"
-                ord |> solveOrder "Process Cleared Order" true logger
-        | Once
-        | Discontinuous _ ->
-            match ord with
-            | DosePerTimeCleared
-            | DoseQuantityCleared ->
-                "Dose per time or quantity cleared"
-                |> Events.OrderScenario
-                |> Logging.logInfo logger
-
-                ord |> processClearedDose |> solveIncrIncrAndToValues false
-            | _ ->
-                logUnmatched "discontinuous"
-                ord |> solveOrder "Process Cleared Order" true logger
-        | OnceTimed _
-        | Timed _ ->
-            match ord with
-            | RateCleared
-            | TimeCleared ->
-                "Rate or Time cleared" |> Events.OrderScenario |> Logging.logInfo logger
-
-                ord |> processClearedRate |> solveAndToValues (ord |> rateWaits)
-            | DosePerTimeCleared
-            | DoseQuantityCleared ->
-                "Dose per time or quantity cleared"
-                |> Events.OrderScenario
-                |> Logging.logInfo logger
-
-                ord |> processClearedDose |> solveIncrIncrAndToValues (ord |> rateWaits)
-            | _ ->
-                logUnmatched "timed"
-                ord |> solveOrder "Process Cleared Order" true logger
-
-
-    /// Process an order that has been cleared, pruned with the default caps.
-    let processClearedOrder logger ord = processClearedOrderWith ValueCaps.defaults logger ord
-
-
     type GenSolverExceptionMsg = Informedica.GenSolver.Lib.Types.Exceptions.Message
 
 
-    let (|NoConstraintsApplied|NoValues|HasValues|DoseSolvedNotCleared|DoseSolvedAndCleared|) ord =
+    let (|NoConstraintsApplied|NoValues|HasValues|DoseSolved|) ord =
         match ord with
         | _ when ord |> areAllConstraintsNotApplied -> NoConstraintsApplied
         | _ when ord |> hasValues -> HasValues
-        | _ when ord |> doseIsSolved && ord |> isCleared |> not -> DoseSolvedNotCleared
-        | _ when ord |> doseIsSolved && ord |> isCleared -> DoseSolvedAndCleared
+        | _ when ord |> doseIsSolved -> DoseSolved
         | _ -> NoValues
 
 
@@ -215,25 +48,11 @@ module OrderProcessor =
         | NoConstraintsApplied -> "NoConstraintsApplied"
         | NoValues -> "NoValues"
         | HasValues -> "HasValues"
-        | DoseSolvedNotCleared -> "DoseSolvedNotCleared"
-        | DoseSolvedAndCleared -> "DoseSolvedAndCleared"
+        | DoseSolved -> "DoseSolved"
 
 
     /// The name of an order variable, as the picks list it.
     let nameOf (ovar: OrderVariable) = ovar |> OrderVariable.getName |> Name.toString
-
-
-    /// The picks made before the first picked variable the order holds cleared; None when no
-    /// picked variable is cleared.
-    let clearedPick picks ord =
-        let vars = ord |> Order.toOrdVars
-
-        let isCleared name =
-            vars |> List.exists (fun v -> nameOf v = name && v |> OrderVariable.isCleared)
-
-        picks
-        |> List.tryFindIndex isCleared
-        |> Option.map (fun i -> picks |> List.take i)
 
 
     // New: A lightweight classification and step-driven pipeline
@@ -250,7 +69,6 @@ module OrderProcessor =
     /// IsEmpty: whether the order is empty
     /// HasValues: whether the order has values
     /// DoseIsSolved: whether the dose is solved
-    /// IsCleared: whether the order is cleared
     /// PrescriptionKind: the kind of prescription
     /// (Once, OnceTimed, Discontinuous, Continuous, Timed)
     /// This is used to determine which steps to run
@@ -263,7 +81,6 @@ module OrderProcessor =
             CanSetNormDose: bool
             DoseIsSolved: bool
             OrderIsSolved: bool
-            IsCleared: bool
             PrescriptionKind: PrescriptionKind
         }
 
@@ -284,7 +101,6 @@ module OrderProcessor =
             CanSetNormDose = ord |> canSetNormDose
             DoseIsSolved = ord |> doseIsSolved
             OrderIsSolved = ord |> isSolved
-            IsCleared = ord |> isCleared
             PrescriptionKind = kind
         }
 
@@ -365,7 +181,7 @@ module OrderProcessor =
 
         // a rate list made when the scenario is selected or after a pick gets its median, as the
         // norm dose gets the median dose quantity, so the order solves; a rate that already has a
-        // list, as after a reset or a reopen, keeps it to pick from
+        // list, as after a reset or a recalculation, keeps it to pick from
         let rateStageWithMedian useMax (ord: Order) =
             if ord.Orderable.Dose |> Dose.rateIsRange |> not then
                 Ok ord
@@ -388,36 +204,8 @@ module OrderProcessor =
 
         let solveStep ord = solveOrder "Solve Order Step" true logger ord
 
-        let processClearedStep ord =
-            match processClearedOrderWith caps logger ord with
-            | Ok o -> Ok o
-            | Error _ -> solveOrder "Error in Cleared Step Solve again" true logger ord
-
         let pickNearestHigherElseLowerComponentQuantityStep ord =
             ord |> pickNearestHigherElseLowerComponentQuantity logger
-
-        // the values recalculated from the calculated constraints
-        let reCalcSteps ord =
-            let useMax = ord |> hasAtMostTwoComponents
-
-            [
-                {
-                    Name = "recalc-values: apply-calculated-constraints"
-                    Guard = (fun _ -> true)
-                    Run = applyCalculatedConstraintsStep
-                }
-                {
-                    Name = "recalc-values: calc-qty-values"
-                    Guard = (fun _ -> true)
-                    Run = calcValuesStep useMax (ord |> rateWaits)
-                }
-                if ord |> rateWaits then
-                    {
-                        Name = "recalc-values: calc-rate-values"
-                        Guard = (fun _ -> true)
-                        Run = rateStage useMax
-                    }
-            ]
 
         let finalSolveStep =
             {
@@ -426,10 +214,9 @@ module OrderProcessor =
                 Run = solveStep
             }
 
-        // the values ensured, solved, and the component quantity picked, as a solve ends
-        // rateStep makes the rate list once the dose quantity has one value: with its median for a
-        // selection or a new pick, without it after a clear or a reopen, so the list comes back
-        let solveSteps rateStep ord =
+        // the values ensured, solved, and the component quantity picked, as a solve ends; the rate
+        // list is made once the dose quantity has one value, with its median
+        let solveSteps ord =
             [
                 {
                     Name = "solve-order: ensure-values-1"
@@ -445,7 +232,7 @@ module OrderProcessor =
                 {
                     Name = "solve-order: calc-rate-values"
                     Guard = (fun _ -> true)
-                    Run = rateStep (ord |> hasAtMostTwoComponents)
+                    Run = rateStageWithMedian (ord |> hasAtMostTwoComponents)
                 }
             ]
 
@@ -464,58 +251,7 @@ module OrderProcessor =
             ]
             |> runPipeline ord
 
-        | SolveOrder ord ->
-            [
-                {
-                    Name = "solve-order: process-cleared"
-                    Guard = (fun os -> os.DoseIsSolved && os.IsCleared)
-                    Run = processClearedStep
-                }
-                // an order that arrives with a cleared value gets the rate list back
-                yield! ord |> solveSteps (if ord |> isCleared then rateStage else rateStageWithMedian)
-            ]
-            |> runPipeline ord
-
-        | Reopen(ord, picks) ->
-            // a rate of a timed or once timed order cleared without being a pick, as its median is,
-            // reopens with every pick put back, so the rate list comes back
-            let rateNotAPick =
-                match ord with
-                | RateCleared when ord |> rateWaits ->
-                    let rte = ord.Orderable.Dose.Rate |> Rate.toOrdVar |> nameOf
-                    picks |> List.contains rte |> not
-                | _ -> false
-
-            match ord |> clearedPick picks with
-            | None when rateNotAPick |> not -> SolveOrder ord |> processCommandWith caps logger
-            | cleared ->
-                let earlier = cleared |> Option.defaultValue picks
-
-                // the earlier picks as they arrived, put back over the reset order
-                let arrived =
-                    ord
-                    |> Order.toOrdVars
-                    |> List.filter (fun v -> earlier |> List.contains (nameOf v))
-
-                [
-                    yield! reCalcSteps ord
-                    {
-                        Name = "reopen: put-back-earlier-picks"
-                        Guard = (fun _ -> true)
-                        Run = Order.fromOrdVars arrived >> Ok
-                    }
-                    // a reopen gives the rate list back, without the median
-                    yield! solveSteps rateStage ord
-                ]
-                |> runPipeline ord
-                |> function
-                    | Ok ord -> Ok ord
-                    | Error _ ->
-                        "Reopen failed, the order is solved as it is"
-                        |> Events.OrderScenario
-                        |> Logging.logWarning logger
-
-                        SolveOrder ord |> processCommandWith caps logger
+        | SolveOrder ord -> ord |> solveSteps |> runPipeline ord
 
         | ChangeProperty(ord, cmd) -> //ord |> processChangeProperty cmd |> Ok
             [
@@ -1667,8 +1403,8 @@ module OrderProcessor =
     /// them.
     module CommandBridge =
 
-        /// The action of the program a property command is; None for a command the pipeline of the
-        /// command still processes: the five clears, which reopen, and the component in stock.
+        /// The action of the program a property command is; None for the component in stock, which
+        /// the pipeline of the command still processes.
         let ofChangeProperty cmd =
             let step n useCalc =
                 Choice.Step(
@@ -1755,8 +1491,7 @@ module OrderProcessor =
             | ReCalcValues ord -> Some(ord, OrderAction.Reset)
             | ChangeProperty(ord, cmd) -> cmd |> ofChangeProperty |> Option.map (fun action -> ord, action)
             | IncreaseIncrements _
-            | SolveOrder _
-            | Reopen _ -> None
+            | SolveOrder _ -> None
 
 
     /// Process an order by the command given: a command the order program has an action for runs as
