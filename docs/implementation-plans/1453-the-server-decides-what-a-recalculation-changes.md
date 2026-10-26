@@ -224,7 +224,7 @@ The script is migrated so that the source stays as clean as before:
 | The name | `ReCalc`, as the processor's `ReCalcValues` spells it. What sets a value range to unrestricted keeps the name `clear` (`Variable.clear` and the like), and so do the wire commands that set a filter or a diluent to none. |
 | The basic variables | The orderable dose rate, the schedule frequency, the component orderable quantity and the orderable dose quantity are the user's levers: stepped or selected, never named by a recalculation command. Their commands go: `ClearOrderableDoseRate`, `ClearScheduleFrequency`, `ClearComponentOrderableQuantity`, `ClearOrderableDoseQuantity`. A recalculation of a derived variable can still set a basic variable back, as the kinds of Table 5 do. |
 | The product's constant | An item's concentration in its component is not recalculated: `ClearItemComponentConcentration` goes. Eleven commands remain. Undoing a strength pick then takes a reset of the order; #1500 asks for a way back without one. |
-| Script first, also for the client, 2026-10-26 | A Client.Core change that adds or changes behaviour, step 11, is written and tested in a script, reviewed, and migrated in one go when every test passes. A commit is made only when the script is migrated into the source. Deleting code, and the call-site changes a deletion forces, go straight into the source without a script, in any library: steps 13a, 13b and 14. The Fable UI code of `src/Informedica.GenPRES.Client/` is edited directly. AGENTS.md states both exemptions. |
+| Script first, also for the client, 2026-10-26 | A Client.Core change that adds or changes behaviour, step 11, is written and tested in a script, reviewed, and migrated in one go when every test passes. A commit is made only when the script is migrated into the source. Deleting code, and the call-site changes a deletion forces, go straight into the source without a script, in any library: steps 12a, 12b and 13. The Fable UI code of `src/Informedica.GenPRES.Client/` is edited directly. AGENTS.md states both exemptions. |
 | Where | Its own plan, before the TPN steps. |
 | The scope, 2026-10-26 | The complete script is implemented: the recalculation, the set, step and percentile, CalcConstraints, CalcValues and Reset, creation, the impossible values and the split per concentration. The plan decides the order of the steps, not what goes in. |
 
@@ -320,7 +320,7 @@ on the order of the scenario; every other command as today.
 | `Ctx.clear` (`Models.fs`), `ViewHelpers.clearCommand` | `Ctx.reCalc`, `ViewHelpers.reCalcCommand` |
 | `Arrow.ReopenCleared`, `Click.ClearAndWait` (`FieldOpenPolicy.fs`) | `Arrow.ReCalc`, `Click.ReCalcAndWait` |
 
-`processClearedRate` and `processClearedDose` keep their names until step 13b deletes them; the
+`processClearedRate` and `processClearedDose` keep their names until step 12b deletes them; the
 recipes that replace them are `Recipe.reCalcTime` and `Recipe.reCalcDose`. Later steps add the
 types of Table A, `Determination.fs`, `IntentPolicy` in Client.Core, the rename of
 `FieldOpenPolicy.Arrow` to `Selectable` with the cases `ReCalc`, `List` and `No` in step 11, and the
@@ -389,9 +389,9 @@ The rule per intent case, as Table 4 has it, in wire terms:
 - `ReCalcOrderableProperty Quantity`, `ReCalcComponentProperty DoseQuantityAdjust`,
   `ReCalcItemProperty OrderableQuantity` and `ReCalcItemProperty OrderableConcentration`: never
   allowed, the four commands of Table 4 without a kind.
-- The four basic variables and the product strength have no recalculation case once step 13a has
+- The four basic variables and the product strength have no recalculation case once step 12a has
   deleted their five commands, so from then on the type says it. Until then the wire still carries
-  the five, so the policy refuses them explicitly, with a test; step 13a deletes that arm with the
+  the five, so the policy refuses them explicitly, with a test; step 12a deletes that arm with the
   commands. A step is its own intent case, allowed on one value with a defined increment. The
   component orderable quantity is selectable by its own intent case, so a page can offer it; when
   the server cannot answer that intent, that is fixed on the server.
@@ -473,14 +473,14 @@ step 0 changes names only; the program runs only for the commands the bridge map
 6 add code nothing calls yet; step 7a moves the eleven recalculation commands and keeps the picks
 parameter of `ReCalcOrderValue` for the five commands of the basic variables and the product
 strength, which stay on the old `Reopen` path until the client stops offering them in step
-12; step 13a changes the wire and the client call sites together; steps 12 and 14 add before they
+11; step 12a changes the wire and the client call sites together; steps 11 and 13 add before they
 remove. Source lines are shipped code under `src/`,
 tests and scripts excluded. Every step follows the migration rules and Table B, and the
 maintainer's review checks them. Every `.fs` change outside `src/Informedica.GenPRES.Client/` that
 adds or changes behaviour comes from a script, reviewed and migrated when the maintainer asks: the
 GenORDER steps from the order program's script, step 11 from its own; the step's tests pass in the
 script first, then in the test project. A deletion, and the call-site changes it forces, goes
-straight into the source (Table 1): steps 13a, 13b and 14. The step that moves the last part of the
+straight into the source (Table 1): steps 12a, 12b and 13. The step that moves the last part of the
 program deletes its script.
 
 0. **The names.** Table 3, across GenORDER (`Types.fs`, the arms of `processChangeProperty`
@@ -493,7 +493,7 @@ program deletes its script.
    `OrderValueAgreementTests.fs`, `OrderContextCommandTests.fs`, the `FieldOpenPolicy` and trail
    tests); `Issue1425Staged.fsx`, `docs/domain/genorder-order-fsm.md` and the script's
    `CommandBridge` follow. The five commands keep their `Clear` names and their path until step
-   13a; only `processClearedFrequency`, which nothing calls, goes here. No behaviour changes.
+   12a; only `processClearedFrequency`, which nothing calls, goes here. No behaviour changes.
    About 100 lines.
    `refactor(api): rename the clear commands ReCalc`.
 
@@ -613,34 +613,34 @@ program deletes its script.
       fixtures. About 100 lines. The script is deleted here.
       `feat(genorder): solve an order per combination of concentrations`.
 
-11. **The intent policy, in a script.** A script in `src/Informedica.GenPRES.Client.Core/Scripts/`
-    holds `IntentPolicy` with its tests: every recalculation case on every dose type, as the rule
-    section lists them, over wire orders built as the policy tests build them; a field with
+11. **The intent policy, and the views that ask it.** One pull request, in two parts that build
+    together. The Client.Core part is a script in `src/Informedica.GenPRES.Client.Core/Scripts/`
+    that holds `IntentPolicy` with its tests: every recalculation case on every dose type, as the
+    rule section lists them, over wire orders built as the policy tests build them; a field with
     several values or a range; an item dose of a component the rules do not constrain, with
     constraints that are empty or non-zero positive alone; the four cases without a kind; a step
     on one value with and without a defined increment; the five commands of the basic variables
-    and the product strength refused explicitly while the wire still carries them, an arm step 13a
+    and the product strength refused explicitly while the wire still carries them, an arm step 12a
     deletes. In the same script, `FieldOpenPolicy.orderVariable` takes `allowed: bool` in place
     of `constrained`, tested over the #1034 table; `FieldOpenPolicy.Arrow` is renamed `Selectable`
-    with the cases `ReCalc`, `List` and `No`, its callers in the views following in step 12; and
-    `reopens` is a policy predicate over the four wire ReCalc commands, tested. The two machines keep `Kept` on a recalculation as they do on `ReopenField`, tested in
-    `OrderContextMachineTests.fs` and `OrderPlanMachineTests.fs`. Nothing changes in GenORDER, the
-    server or Shared. The script is reviewed and migrated in one go when every test passes; the
-    commit is made then. Under 150 lines.
+    with the cases `ReCalc`, `List` and `No`; and `reopens` is a policy predicate over the four
+    wire ReCalc commands, tested. The two machines keep `Kept` on a recalculation as they do on
+    `ReopenField`, tested in `OrderContextMachineTests.fs` and `OrderPlanMachineTests.fs`. The
+    script is reviewed and migrated in one go when every test passes. The UI part is a direct edit
+    of the Fable code, as AGENTS.md allows, in the same pull request, since the signature and the
+    rename break its callers: `ViewHelpers.fs` passes the policy's answer and matches
+    `Selectable`; `reopenOf` in `Order.fs` and `NutritionSlot.fs` asks `IntentPolicy` for the
+    field's recalculation case over the order shown. Additive, the pick list still works beside
+    it. The four basic variables and the product strength have no recalculation case, so they
+    stop being selectable for a recalculation here; the nutrition slot keeps its steps on the
+    component orderable quantity, the dose quantity, the frequency and the rate, and the component
+    orderable quantity stays selectable by its own intent case. Nothing changes in GenORDER, the
+    server or Shared. Fable compile check, `npx vite build`; the commit is made when the script is
+    migrated. Under 200 lines.
     `feat(client): the intent policy says which field offers a recalculation`.
 
-12. **The views ask the policy.** A direct edit of the Fable UI code, as AGENTS.md allows.
-    Additive, the pick list still works beside it: `ViewHelpers.fs` passes the policy's answer;
-    `reopenOf` in `Order.fs` and `NutritionSlot.fs` asks `IntentPolicy` for the field's
-    recalculation case over the order shown. The four basic variables and the product strength
-    have no recalculation case, so they stop being selectable for a recalculation here; the
-    nutrition slot keeps its steps on the component orderable quantity, the dose quantity, the
-    frequency and the rate, and the component orderable quantity stays selectable by its own
-    intent case. Fable compile check, `npx vite build`. Under 100 lines.
-    `feat(client): the field asks the intent policy whether it can be recalculated`.
-
-13. **The wire loses the picks and the old path goes.**
-    - **13a, the wire.** A removal, no script (Table 1). The four commands without `picks` and `toString` without
+12. **The wire loses the picks and the old path goes.**
+    - **12a, the wire.** A removal, no script (Table 1). The four commands without `picks` and `toString` without
       the count; `ReCalcOrderValue` without its picks parameter and the mapper without
       `Picks.ofOrder`; `Ctx.reCalc` and `Api.preview` without picks, `Picks` gone; the client call
       sites the contract breaks, `ViewHelpers.reCalcCommand` and its callers in `Order.fs` and
@@ -652,7 +652,7 @@ program deletes its script.
       shapes; the `Ctx.reCalc` tests in `OrderContextCommandTests.fs`, `OrderValueAgreementTests.fs`
       and the trail tests follow. Under 150 lines.
       `refactor(api): a recalculation carries no picks`.
-    - **13b, the old path.** A removal, no script (Table 1). `Reopen`, `clearedPick`, the put-back and `rateNotAPick`;
+    - **12b, the old path.** A removal, no script (Table 1). `Reopen`, `clearedPick`, the put-back and `rateNotAPick`;
       `processClearedOrderWith`, `processClearedRate`, `processClearedDose`, the tuple pattern and
       its comment; the `process-cleared` step, the `isCleared` branch and `IsCleared`;
       `ReopenOrderScenario` and `reopenScenarioOrder`, `Command.get` and `toString` following.
@@ -660,14 +660,14 @@ program deletes its script.
       the reopen cases in `Tests.fs`. Under 200 lines, nearly all removed.
       `refactor(genorder): the reopen leaves the processor`.
 
-14. **The pick list goes.** A removal, no script (Table 1). `PickListPolicy` and its tests; `Constrained`;
+13. **The pick list goes.** A removal, no script (Table 1). `PickListPolicy` and its tests; `Constrained`;
     `ReopenField` on both machines, their `admitted` arms and the trail's; the `ReopenField`
     members of the two environment interfaces and `App.fs`; the `reopen` and `planReopen` props and
     their pass-through; the pick state of `Order.fs`; the `reopening` refs. Fable compile check,
     `npx vite build`; the maintainer checks in the browser. Under 200 lines, nearly all removed.
     `refactor(client): recalculate a field without a pick list`. Closes #1453 and #1343.
 
-Steps 7c to 10b can follow steps 11 to 14: the recalculation and the client need only
+Steps 7c to 10b can follow steps 11 to 13: the recalculation and the client need only
 steps 0 to 7a.
 
 ## Left out
@@ -690,7 +690,7 @@ steps 0 to 7a.
   `--full`. A step may add tests, never turn one red or ignored
 - `dotnet fsi scripts/CheckDependencyRule.fsx` after any step that changes a project reference
 - `dotnet fantomas --check`
-- in the browser, after step 14: the paracetamol suppository in the workbench is selectable for a
+- in the browser, after step 13: the paracetamol suppository in the workbench is selectable for a
   recalculation on the fields Table 4 gives a kind and on no other, the frequency and the dose
   quantity in mL among the latter; recalculate the paracetamol dose in mg: its list opens, the
   frequency stays; close the list without a pick: the order as before. The plan dialog over the
