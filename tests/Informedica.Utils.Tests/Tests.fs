@@ -1189,6 +1189,20 @@ module Tests =
                             [ [ 1; 2; 3 ]; [ 2; 1; 3 ]; [ 3; 1; 2 ] ]
                     }
 
+                    test "sequenceOption gives the values when every option has one" {
+                        [ Some 1; Some 2 ]
+                        |> List.sequenceOption
+                        |> Expect.equal "both values" (Some [ 1; 2 ])
+                    }
+
+                    test "sequenceOption gives None when one option has none" {
+                        [ Some 1; None ] |> List.sequenceOption |> Expect.equal "none" None
+                    }
+
+                    test "sequenceOption of an empty list is an empty list" {
+                        ([]: int option list) |> List.sequenceOption |> Expect.equal "empty" (Some [])
+                    }
+
 
                 ]
 

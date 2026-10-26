@@ -250,6 +250,14 @@ module List =
         | _ -> None
 
 
+    /// The values of the options when every option has a value; None when one has none.
+    let sequenceOption xs =
+        if xs |> List.forall Option.isSome then
+            xs |> List.choose id |> Some
+        else
+            None
+
+
     //----------------------------------------------------------------------------
     // String functions
     //----------------------------------------------------------------------------

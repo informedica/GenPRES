@@ -2197,6 +2197,331 @@ module OrderVariableTests =
             ]
 
 
+module HelperTests =
+
+    module Name = Informedica.GenSolver.Lib.Variable.Name
+    module ValueRange = Informedica.GenSolver.Lib.Variable.ValueRange
+    module ValueSet = ValueRange.ValueSet
+    module Minimum = ValueRange.Minimum
+    module Constraints = OrderVariable.Constraints
+
+
+    let mL (vs: int list) =
+        vs
+        |> List.map BigRational.fromInt
+        |> List.toArray
+        |> ValueUnit.withUnit Units.Volume.milliLiter
+
+
+    let mLPerHour (vs: int list) =
+        vs
+        |> List.map BigRational.fromInt
+        |> List.toArray
+        |> ValueUnit.withUnit (Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour)
+
+
+    let hours (vs: int list) =
+        vs
+        |> List.map BigRational.fromInt
+        |> List.toArray
+        |> ValueUnit.withUnit Units.Time.hour
+
+
+    /// A min, increment and max in the unit of u, each limit inclusive.
+    let minIncrMax u min incr max =
+        ValueRange.create
+            (u [ min ] |> Minimum.create true |> Some)
+            (u [ incr ] |> ValueRange.Increment.create |> Some)
+            (u [ max ] |> ValueRange.Maximum.create true |> Some)
+            None
+
+
+    let valSet u vs = u vs |> ValueSet.create |> ValSet
+
+
+    /// An order variable in mL with the range vr, and with an increment of incr mL in its defined
+    /// constraints when incr is given.
+    let ovarWith name incr vr =
+        let cs =
+            Constraints.create None (incr |> Option.map (fun i -> mL [ i ] |> ValueRange.Increment.create)) None None
+
+        let ovar = OrderVariable.createNew (name |> Name.createExc) Units.Volume.milliLiter
+
+        { ovar with
+            DefinedConstraints = cs
+            Variable = { ovar.Variable with Values = vr }
+        }
+
+
+    let ovar incr vr = ovarWith "x" incr vr
+
+
+    /// The order variable with the values vs in mL in its calculated constraints.
+    let withCalculated vs (ovar: OrderVariable) =
+        { ovar with
+            CalculatedConstraints = Constraints.create None None None (vs |> Option.map (mL >> ValueSet.create))
+        }
+
+
+    /// The order of a medication, as it is made, before any processing.
+    let orderOf med =
+        match med |> Medication.toOrder Scenarios.testStart with
+        | Ok ord -> ord
+        | Error e -> failtest $"could not build the order: %A{e}"
+
+
+    /// The order with the range of its dose rate replaced by vr.
+    let withRate vr (ord: Order) =
+        let rate =
+            ord.Orderable.Dose.Rate
+            |> OrderVariable.Rate.apply (fun ovar -> { ovar with Variable = { ovar.Variable with Values = vr } })
+
+        { ord with Order.Orderable.Dose.Rate = rate }
+
+
+    /// The order with the values vs in hours in the calculated constraints of its time.
+    let withCalculatedTime vs (ord: Order) =
+        let calculated =
+            OrderVariable.Time.apply (fun ovar ->
+                { ovar with
+                    CalculatedConstraints = Constraints.create None None None (hours vs |> ValueSet.create |> Some)
+                }
+            )
+
+        match ord.Schedule with
+        | Timed(frq, tme) -> { ord with Schedule = Timed(frq, tme |> calculated) }
+        | _ -> ord
+
+
+    let tests =
+        testList
+            "helpers"
+            [
+                testList
+                    "ValueUnit.collectValues"
+                    [
+                        test "the values sorted, without doubles" {
+                            [ mL [ 2; 1 ]; mL [ 1; 3 ] ]
+                            |> ValueUnit.collectValues
+                            |> Expect.equal "1, 2 and 3 mL" (mL [ 1; 2; 3 ])
+                        }
+
+                        test "the values in the unit of the first value unit" {
+                            [ [| 1N |] |> ValueUnit.withUnit Units.Volume.liter; mL [ 500 ] ]
+                            |> ValueUnit.collectValues
+                            |> Expect.equal "1/2 and 1 L" ([| 1N / 2N; 1N |] |> ValueUnit.withUnit Units.Volume.liter)
+                        }
+
+                        test "no value units raise" {
+                            (fun () -> [] |> ValueUnit.collectValues |> ignore)
+                            |> Expect.throws "nothing to collect"
+                        }
+                    ]
+
+                testList
+                    "OrderVariable"
+                    [
+                        test "one value is one value" {
+                            valSet mL [ 2 ]
+                            |> ovar None
+                            |> OrderVariable.hasOneValue
+                            |> Expect.isTrue "one value"
+                        }
+
+                        test "a list of two values is not one value" {
+                            valSet mL [ 1; 2 ]
+                            |> ovar None
+                            |> OrderVariable.hasOneValue
+                            |> Expect.isFalse "two values"
+                        }
+
+                        test "the value of a variable with one value" {
+                            valSet mL [ 2 ]
+                            |> ovar None
+                            |> OrderVariable.solvedValue
+                            |> Expect.equal "2 mL" (Some(mL [ 2 ]))
+                        }
+
+                        test "no value of a variable with a list" {
+                            valSet mL [ 1; 2 ]
+                            |> ovar None
+                            |> OrderVariable.solvedValue
+                            |> Expect.isNone "no value"
+                        }
+
+                        test "the variables by their name" {
+                            let a = valSet mL [ 1 ] |> ovarWith "a" None
+                            let b = valSet mL [ 2 ] |> ovarWith "b" None
+                            let byName = [ a; b ] |> OrderVariable.byName
+
+                            byName |> Map.tryFind ("b" |> Name.createExc) |> Expect.equal "b" (Some b)
+                            byName |> Map.tryFind ("c" |> Name.createExc) |> Expect.isNone "no c"
+                        }
+
+                        test "calculated constraints with one value" {
+                            valSet mL [ 2 ]
+                            |> ovar None
+                            |> withCalculated (Some [ 2 ])
+                            |> OrderVariable.hasOneCalculatedValue
+                            |> Expect.isTrue "one calculated value"
+                        }
+
+                        test "calculated constraints with two values or without values" {
+                            let x = valSet mL [ 2 ] |> ovar None
+
+                            [ x |> withCalculated (Some [ 1; 2 ]); x |> withCalculated None ]
+                            |> List.exists OrderVariable.hasOneCalculatedValue
+                            |> Expect.isFalse "not one calculated value"
+                        }
+
+                        test "the shape of each range" {
+                            [
+                                valSet mL [ 1; 2 ] |> ovar None
+                                minIncrMax mL 1 1 3 |> ovar None
+                                valSet mL [ 2 ] |> ovar (Some 1)
+                                valSet mL [ 2 ] |> ovar None
+                            ]
+                            |> List.map OrderVariable.shape
+                            |> Expect.equal
+                                "a list, a range, a steppable value and nothing"
+                                [
+                                    Shape.SelectableList
+                                    Shape.SelectableRange
+                                    Shape.Steppable
+                                    Shape.NotSettable
+                                ]
+                        }
+
+                        test "a variable freed on its increment starts at the increment and has no maximum" {
+                            valSet mL [ 4 ]
+                            |> ovar (Some 2)
+                            |> OrderVariable.free
+                            |> _.Variable.Values
+                            |> Expect.equal
+                                "2 mL and up by 2 mL"
+                                (ValueRange.create
+                                    (mL [ 2 ] |> Minimum.create true |> Some)
+                                    (mL [ 2 ] |> ValueRange.Increment.create |> Some)
+                                    None
+                                    None)
+                        }
+
+                        test "a variable freed without an increment is any positive value" {
+                            valSet mL [ 4 ]
+                            |> ovar None
+                            |> OrderVariable.free
+                            |> OrderVariable.isNonZeroPositive
+                            |> Expect.isTrue "any positive value"
+                        }
+
+                        test "a count set to one and to at least one" {
+                            let one = Units.Count.times |> ValueUnit.one
+                            let x = valSet mL [ 2 ] |> ovar None
+
+                            (x |> OrderVariable.setToOne).Variable.Values
+                            |> Expect.equal "the value 1" (one |> ValueSet.create |> ValSet)
+
+                            (x |> OrderVariable.setToAtLeastOne).Variable.Values
+                            |> Expect.equal "1 or more" (one |> Minimum.create true |> Min)
+                        }
+
+                        test "a range narrowed to the values it holds" {
+                            minIncrMax mL 1 1 3
+                            |> ovar None
+                            |> OrderVariable.tryConstrain (mL [ 2; 5 ])
+                            |> Option.map _.Variable.Values
+                            |> Expect.equal "2 mL" (Some(valSet mL [ 2 ]))
+                        }
+
+                        test "a range narrowed to values it does not hold" {
+                            minIncrMax mL 1 1 3
+                            |> ovar None
+                            |> OrderVariable.tryConstrain (mL [ 7 ])
+                            |> Expect.isNone "no value left"
+                        }
+                    ]
+
+                testList
+                    "Order"
+                    [
+                        test "a time with one calculated value is fixed, a time with more is not" {
+                            let ord = Scenarios.amfoTimed |> orderOf
+
+                            [ ord |> withCalculatedTime [ 2 ]; ord |> withCalculatedTime [ 1; 2 ] ]
+                            |> List.map (_.Schedule >> Order.Schedule.isTimeFixed)
+                            |> Expect.equal "fixed, then not" [ true; false ]
+                        }
+
+                        test "a component and an item by name" {
+                            let orb =
+                                Scenarios.amoxClavText
+                                |> MedicationText.fromString
+                                |> Result.defaultWith (failtestf "%A")
+                                |> orderOf
+                                |> _.Orderable
+
+                            let cmp = orb.Components |> List.head |> _.Name |> WrappedString.Name.toString
+
+                            orb |> Order.Orderable.tryComponent cmp |> Expect.isSome "the component"
+                            orb |> Order.Orderable.tryComponent "none" |> Expect.isNone "no component"
+
+                            orb
+                            |> Order.Orderable.tryComponent cmp
+                            |> Option.bind (Order.Orderable.Component.tryItem "clavulaanzuur")
+                            |> Expect.isSome "the item"
+
+                            orb
+                            |> Order.Orderable.tryComponent cmp
+                            |> Option.bind (Order.Orderable.Component.tryItem "none")
+                            |> Expect.isNone "no item"
+                        }
+
+                        test "a rate range, a rate list and a rate of one value" {
+                            let ord = Scenarios.morfCont |> orderOf
+
+                            [
+                                minIncrMax mLPerHour 1 1 3
+                                valSet mLPerHour [ 1; 2 ]
+                                valSet mLPerHour [ 2 ]
+                            ]
+                            |> List.map (fun vr -> (ord |> withRate vr).Orderable.Dose)
+                            |> List.map (fun dos ->
+                                dos |> Order.Orderable.Dose.rateIsRange, dos |> Order.Orderable.Dose.rateIsList
+                            )
+                            |> Expect.equal "a range, a list, neither" [ true, false; false, true; false, false ]
+                        }
+
+                        test "the equations hold the dose quantity of the order" {
+                            let ord = Scenarios.morfCont |> orderOf
+
+                            let dosQty =
+                                ord.Orderable.Dose.Quantity
+                                |> OrderVariable.Quantity.toOrdVar
+                                |> OrderVariable.getName
+
+                            ord
+                            |> Order.equations
+                            |> List.collect (
+                                function
+                                | OrderProductEquation(y, xs)
+                                | OrderSumEquation(y, xs) -> y :: xs
+                            )
+                            |> List.exists (OrderVariable.getName >> (=) dosQty)
+                            |> Expect.isTrue "the dose quantity"
+                        }
+
+                        test "every variable mapped" {
+                            Scenarios.morfCont
+                            |> orderOf
+                            |> Order.mapOrdVars OrderVariable.clear
+                            |> Order.toOrdVars
+                            |> List.forall OrderVariable.isCleared
+                            |> Expect.isTrue "every variable cleared"
+                        }
+                    ]
+            ]
+
+
 module EquationsTests =
 
     open TestOrder
@@ -4151,6 +4476,7 @@ let tests =
             DosePrintoutTests.tests
             PatientConstructorTests.tests
             OrderVariableTests.tests
+            HelperTests.tests
             ConstraintsTests.tests
             GoldenOrderTests.tests
             IncreaseQuantityIncrementTests.tests

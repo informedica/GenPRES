@@ -630,17 +630,13 @@ module OrderProcessor =
 
         let calcValuesStep useMax skipRate ord = ord |> minIncrMaxToValues caps useMax skipRate logger
 
-        let rateIsRange (ord: Order) =
-            (ord.Orderable.Dose.Rate |> Rate.toOrdVar).Variable
-            |> Informedica.GenSolver.Lib.Variable.isMinIncrMax
-
         // the rate of a timed or once timed order gets its values once the dose quantity has one
         // value, and only while the rate is still a range
         let rateStage useMax (ord: Order) =
             if
                 ord |> rateWaits
                 && ord.Orderable.Dose.Quantity |> Quantity.toOrdVar |> OrderVariable.isSolved
-                && ord |> rateIsRange
+                && ord.Orderable.Dose |> Dose.rateIsRange
             then
                 ord |> calcValuesStep useMax false
             else
@@ -650,13 +646,13 @@ module OrderProcessor =
         // norm dose gets the median dose quantity, so the order solves; a rate that already has a
         // list, as after a reset or a reopen, keeps it to pick from
         let rateStageWithMedian useMax (ord: Order) =
-            if ord |> rateIsRange |> not then
+            if ord.Orderable.Dose |> Dose.rateIsRange |> not then
                 Ok ord
             else
                 ord
                 |> rateStage useMax
                 |> Result.bind (fun ord ->
-                    if ord |> rateIsRange then
+                    if ord.Orderable.Dose |> Dose.rateIsRange then
                         Ok ord
                     else
                         let dos = { ord.Orderable.Dose with Rate = ord.Orderable.Dose.Rate |> Rate.setMedianValue }

@@ -1881,6 +1881,66 @@ module Tests =
                     "valuerange"
                     [
 
+                        testList
+                            "tryToValueSet"
+                            [
+                                let minIncrMax max =
+                                    ValueRange.create
+                                        (createMin true 1N |> Some)
+                                        (createIncr 1N |> Some)
+                                        (createMax true max |> Some)
+                                        None
+
+                                let valueSet brs =
+                                    brs
+                                    |> List.toArray
+                                    |> ValueUnit.withUnit Units.Count.times
+                                    |> ValueRange.ValueSet.create
+
+                                test "a list stays the same list" {
+                                    valueSet [ 1N; 3N ]
+                                    |> ValSet
+                                    |> ValueRange.tryToValueSet 10
+                                    |> Expect.equal "the list" (Some(valueSet [ 1N; 3N ]))
+                                }
+
+                                test "a min, increment and max of fewer values than the maximum count is listed" {
+                                    minIncrMax 3N
+                                    |> ValueRange.tryToValueSet 10
+                                    |> Expect.equal "1, 2 and 3" (Some(valueSet [ 1N; 2N; 3N ]))
+                                }
+
+                                test "a min, increment and max of at least the maximum count of values is not listed" {
+                                    minIncrMax 100N |> ValueRange.tryToValueSet 10 |> Expect.isNone "not listed"
+                                }
+
+                                test "a range with two increments is listed by its distinct values" {
+                                    // 2 to 12 by 2 and 3: 2, 3, 4, 6, 8, 9, 10 and 12
+                                    let range =
+                                        ValueRange.create
+                                            (createMin true 2N |> Some)
+                                            ([| 2N; 3N |]
+                                             |> ValueUnit.withUnit Units.Count.times
+                                             |> Increment.create
+                                             |> Some)
+                                            (createMax true 12N |> Some)
+                                            None
+
+                                    range
+                                    |> ValueRange.tryToValueSet 9
+                                    |> Expect.equal "eight values" (Some(valueSet [ 2N; 3N; 4N; 6N; 8N; 9N; 10N; 12N ]))
+
+                                    range |> ValueRange.tryToValueSet 8 |> Expect.isNone "not fewer than eight"
+                                }
+
+                                test "a range without a maximum is not listed" {
+                                    createMin true 1N
+                                    |> Min
+                                    |> ValueRange.tryToValueSet 10
+                                    |> Expect.isNone "not listed"
+                                }
+                            ]
+
 
                         testList
                             "between min and max"
@@ -2964,22 +3024,32 @@ module Tests =
                             [ Some [| 1N |]; Some [| 4N |]; Some [| 10N |] ]
                     }
 
-                    test "the slider sets the values it set before" {
+                    test "a percentage gives the value that far through the values, 0 the first and 100 the last" {
                         [ 0; 50; 100 ]
                         |> List.map (fun perc -> valueSet |> Variable.setPercValue perc |> values)
-                        |> Expect.equal
-                            "a value set is left as it is"
-                            [
-                                Some [| 1N; 2N; 3N; 4N; 5N |]
-                                Some [| 1N; 2N; 3N; 4N; 5N |]
-                                Some [| 1N; 2N; 3N; 4N; 5N |]
-                            ]
+                        |> Expect.equal "a value set: 1, 3 and 5" [ Some [| 1N |]; Some [| 3N |]; Some [| 5N |] ]
 
                         [ 0; 50; 100 ]
                         |> List.map (fun perc -> minIncrMax |> Variable.setPercValue perc |> values)
                         |> Expect.equal
-                            "a range: min plus 1, min plus 4, the max"
-                            [ Some [| 2N |]; Some [| 5N |]; Some [| 10N |] ]
+                            "a range: the min, min plus 4, the max"
+                            [ Some [| 1N |]; Some [| 5N |]; Some [| 10N |] ]
+                    }
+
+                    test "the number of values of a value set and of a min, increment and max" {
+                        [ valueSet; minIncrMax ]
+                        |> List.map Variable.valueCount
+                        |> Expect.equal "5 and 10" [ Some 5; Some 10 ]
+                    }
+
+                    test "no number of values of a range without a maximum" {
+                        1N
+                        |> ValueUnit.singleWithUnit Units.Count.times
+                        |> ValueRange.Minimum.create true
+                        |> Min
+                        |> variable
+                        |> Variable.valueCount
+                        |> Expect.isNone "no count"
                     }
                 ]
 

@@ -60,6 +60,19 @@ module Types =
         | OrderSumEquation of OrderVariable * OrderVariable list
 
 
+    /// How a value can be set on an order variable, decided by the shape of its current range.
+    [<RequireQualifiedAccess>]
+    type Shape =
+        /// A list of more than one value, to select from.
+        | SelectableList
+        /// A minimum, an increment and a maximum; a value is selected without writing out the list.
+        | SelectableRange
+        /// One value with an increment in its defined constraints, to step.
+        | Steppable
+        /// Nothing to choose.
+        | NotSettable
+
+
     /// Type that represents a time duration
     type Time = | Time of OrderVariable
 

@@ -5,6 +5,7 @@ open Informedica.Utils.Lib.BCL
 
 module UnitsParse =
 
+    open Informedica.Utils.Lib
     open FParsec
     open Units
     open Combine
@@ -48,11 +49,8 @@ module UnitsParse =
 
                                 s |> String.removeBrackets |> Units.General.general |> Some
                     )
-                    |> fun us ->
-                        if us |> List.forall Option.isSome then
-                            us |> List.map Option.get |> List.reduce (fun u1 u2 -> u1 |> per u2) |> Some
-                        else
-                            None
+                    |> List.sequenceOption
+                    |> Option.map (List.reduce (fun u1 u2 -> u1 |> per u2))
                 | _ -> None
 
 
