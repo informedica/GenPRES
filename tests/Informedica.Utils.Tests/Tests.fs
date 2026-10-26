@@ -1203,6 +1203,22 @@ module Tests =
                         ([]: int option list) |> List.sequenceOption |> Expect.equal "empty" (Some [])
                     }
 
+                    test "combinations gives every combination of one element of each list, in order" {
+                        [ [ 1; 2 ]; [ 3; 4 ] ]
+                        |> List.combinations
+                        |> Expect.equal "four combinations" [ [ 1; 3 ]; [ 1; 4 ]; [ 2; 3 ]; [ 2; 4 ] ]
+                    }
+
+                    test "combinations of no lists is one empty combination" {
+                        ([]: int list list)
+                        |> List.combinations
+                        |> Expect.equal "one empty combination" [ [] ]
+                    }
+
+                    test "combinations with an empty list is no combination" {
+                        [ [ 1 ]; [] ] |> List.combinations |> Expect.equal "no combination" []
+                    }
+
 
                 ]
 
