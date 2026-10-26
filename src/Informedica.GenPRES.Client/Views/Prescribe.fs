@@ -526,7 +526,6 @@ module Prescribe =
                     editing = PlanContextPolicy.Editing.Workbench
                     orderContext = dialog |> Option.defaultValue OrderContextView.NoPatient
                     command = orderContextMsg
-                    reopen = envOrderContext.ReopenField
                     restoreOrderScenario = envOrderContext.RestoreField
                     closeOrder = handleModalClose
                     busy = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Page Global.Pages.Prescribe

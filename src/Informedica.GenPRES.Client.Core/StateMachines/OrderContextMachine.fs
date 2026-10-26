@@ -109,11 +109,8 @@ module OrderContextMachine =
         | Reset of request: string
         /// The scenario the dialog shows, by its order's id.
         | SelectScenario of string option
-        /// A clear from the dialog that opens the field's list: the command goes out, and the state
-        /// before it is kept to be put back.
-        | ReopenField of OrderViewCommand * request: string
-        /// The list of a reopen closed without a pick: the context kept is put back, and the answer to
-        /// the clear is dropped.
+        /// The list of a recalculation closed without a pick: the context kept is put back, and the
+        /// answer to the recalculation is dropped.
         | RestoreField
 
 
@@ -424,7 +421,7 @@ module OrderContextMachine =
                 call (FilterSeed.command seed) ctx request (renewed (OrderContextWorkbench.Evaluated(pat, ctx)))
 
             // a command, over the context held, for the patient held; a recalculation keeps the
-            // state before it, as a reopen does
+            // state before it
             | OrderContextMsg.Command(cmd, request), Some(pat, ctx), None ->
                 let kept =
                     if IntentPolicy.reopens cmd then
@@ -441,10 +438,6 @@ module OrderContextMachine =
                     ctx
                     request
                     (renewed (OrderContextWorkbench.Evaluated(pat, emptyFor pat)))
-
-            // a reopen goes as a command, with the state before it kept
-            | OrderContextMsg.ReopenField(cmd, request), Some(pat, ctx), None ->
-                command cmd pat ctx request (Some { state with Kept = None })
 
             // the closing arm: nothing else comes, since the pages that send it are disabled, and
             // there is nothing to command or reset without a patient

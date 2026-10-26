@@ -97,13 +97,13 @@ module ViewHelpers =
 
 
     /// How a field with one value is recalculated: whether the intent policy allows it on the order
-    /// shown, what the page does before the field is recalculated, what it does when the list of a
-    /// recalculation closes without a pick, and whether a request of the page is under way, during
-    /// which the field is not recalculated.
+    /// shown, the recalculation the page sends, what the page does when the list of a recalculation
+    /// closes without a pick, and whether a request of the page is under way, during which the field
+    /// is not recalculated.
     type Reopen =
         {|
             allowed: bool
-            reopening: unit -> unit
+            reCalc: unit -> unit
             restore: unit -> unit
             busy: bool
         |}
@@ -169,8 +169,7 @@ module ViewHelpers =
                 | FieldOpenPolicy.Selectable.ReCalc, Some r ->
                     Some(fun () ->
                         trace "open" [ "reopen" ]
-                        r.reopening ()
-                        updateSelected None
+                        r.reCalc ()
                     )
                 | _ -> None
 

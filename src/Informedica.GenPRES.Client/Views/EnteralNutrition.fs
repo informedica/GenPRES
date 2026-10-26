@@ -34,8 +34,7 @@ module EnteralNutrition =
             {|
                 nutritionContext: OrderContext
                 planNavigate: string * Api.OrderViewCommand -> unit
-                // a clear from a field's arrow, and the list of such a reopen closed without a pick
-                planReopen: string * Api.OrderViewCommand -> unit
+                // the list of a recalculation closed without a pick
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
                 onRemove: (unit -> unit) option
@@ -47,7 +46,6 @@ module EnteralNutrition =
                 {|
                     nutritionContext = props.nutritionContext
                     planNavigate = props.planNavigate
-                    planReopen = props.planReopen
                     planRestore = props.planRestore
                     localizationTerms = props.localizationTerms
                     busy = props.busy
@@ -209,7 +207,6 @@ module EnteralNutrition =
                 plan: OrderPlan
                 planNew: NutritionCategory -> unit
                 planRemove: string[] -> unit
-                planReopen: string * Api.OrderViewCommand -> unit
                 planNavigate: string * Api.OrderViewCommand -> unit
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
@@ -245,7 +242,6 @@ module EnteralNutrition =
                 {|
                     nutritionContext = nc
                     planNavigate = props.planNavigate
-                    planReopen = props.planReopen
                     planRestore = props.planRestore
                     localizationTerms = props.localizationTerms
                     onRemove = Some(removeOf nc)

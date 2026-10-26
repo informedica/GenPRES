@@ -65,7 +65,6 @@ module Nutrition =
                         planNew = envOrderPlan.NewNutrition
                         planRemove = envOrderPlan.Remove
                         planNavigate = envOrderPlan.OrderDialogCommand
-                        planReopen = envOrderPlan.ReopenField
                         planRestore = envOrderPlan.RestoreField
                         localizationTerms = localizationTerms
                         busy = busy

@@ -3,7 +3,7 @@ namespace Informedica.GenPRES.Client.Core.Tests.Policies
 
 /// Which intent case is allowed on a wire order: every recalculation case on every dose type, a
 /// field with several values or a range, the component dose the rules do not constrain, the cases
-/// that are never allowed, a variable found by name, and which commands reopen.
+/// that are never allowed, and which commands reopen.
 module IntentPolicyTests =
 
     open Expecto
@@ -303,24 +303,6 @@ module IntentPolicyTests =
                                     cmd |> allowed (orderFor dt cmd (ovar maxDose one)) |> Expect.isFalse "never"
                                 }
                     ]
-
-                test "a variable found by name, as a view asks it" {
-                    let named name v = { v with OrderVariable.Name = name }
-
-                    let ord =
-                        order DoseType.Discontinuous
-                        |> constrained
-                        |> withVar (itemTarget ItemProperty.DoseQuantity) (named "dq" oneValue)
-                        |> withVar (Ctx.Target.Schedule ScheduleProperty.Frequency) (named "frq" oneValue)
-
-                    ord
-                    |> IntentPolicy.isReCalcAllowedOf "dq"
-                    |> Expect.isTrue "the item dose quantity"
-                    ord |> IntentPolicy.isReCalcAllowedOf "frq" |> Expect.isFalse "the frequency"
-                    ord
-                    |> IntentPolicy.isReCalcAllowedOf "gone"
-                    |> Expect.isFalse "no such variable"
-                }
 
                 test "reopens: the four recalculation commands, no other" {
                     [

@@ -524,8 +524,6 @@ module Trail =
             | OrderPlanMsg.Change(change, request) -> $"Change %s{Part.change change} %s{Part.shortId request}"
             | OrderPlanMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result Part.plan}"
             | OrderPlanMsg.SelectContext id -> $"SelectContext %s{id |> Part.orNone Part.shortId}"
-            | OrderPlanMsg.ReopenField(id, cmd, request) ->
-                $"ReopenField %s{id} %s{OrderViewCommand.toString (cmd, OrderContext.empty)} %s{Part.shortId request}"
             | OrderPlanMsg.RestoreField -> "RestoreField"
             | OrderPlanMsg.Signed -> "Signed"
 
@@ -631,7 +629,6 @@ module Trail =
             | OrderContextMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result response}"
             | OrderContextMsg.Reset request -> $"Reset %s{Part.shortId request}"
             | OrderContextMsg.SelectScenario id -> $"SelectScenario %s{id |> Part.orNone Part.shortId}"
-            | OrderContextMsg.ReopenField(cmd, request) -> $"ReopenField %s{commandAlone cmd} %s{Part.shortId request}"
             | OrderContextMsg.RestoreField -> "RestoreField"
 
 

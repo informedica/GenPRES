@@ -100,11 +100,9 @@ module OrderPlanMachine =
         | Answered of request: string * Result<OrderPlan, string[]>
         /// The context the dialog shows, by id.
         | SelectContext of string option
-        /// A clear from the dialog that opens the field's list: the command goes out as a change, and
-        /// the plan before it is kept to be put back.
-        | ReopenField of contextId: string * OrderViewCommand * request: string
-        /// The list of a reopen closed without a pick: the plan kept is put back, with whether it had
-        /// changed since the version last opened or signed, and the answer to the clear is dropped.
+        /// The list of a recalculation closed without a pick: the plan kept is put back, with whether
+        /// it had changed since the version last opened or signed, and the answer to the
+        /// recalculation is dropped.
         | RestoreField
         /// The plan was signed; it took no change meanwhile, so it is the version signed.
         | Signed
@@ -423,8 +421,7 @@ module OrderPlanMachine =
                 | OrderPlanCart.NoPatient _ -> { state with Cart = OrderPlanCart.NoPatient head.OrderContexts }, []
                 | OrderPlanCart.Opened(pat, _) -> opening pat head.OrderContexts request state
 
-            // a change from a page, and a reopen; a recalculation from the order dialog and a reopen
-            // keep the state before them
+            // a change from a page; a recalculation from the order dialog keeps the state before it
             | OrderPlanMsg.Change(c, request), OrderPlanCart.Opened(_, tp), None ->
                 let kept =
                     match c with
@@ -433,8 +430,6 @@ module OrderPlanMachine =
                     | _ -> None
 
                 change c tp request kept state
-            | OrderPlanMsg.ReopenField(id, cmd, request), OrderPlanCart.Opened(_, tp), None ->
-                change (OrderPlanChange.OrderDialogCommand(id, cmd)) tp request (Some { state with Kept = None }) state
 
             // the plan is the version just signed
             | OrderPlanMsg.Signed, cart, _ ->
