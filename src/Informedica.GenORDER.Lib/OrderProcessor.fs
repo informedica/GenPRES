@@ -1253,7 +1253,9 @@ module OrderProcessor =
         /// the dose quantity, the dose rate or a component orderable quantity, and a percentile of the
         /// dose quantity, run a recipe that first sets back the variables that depend on the set
         /// variable, so they can follow the new value. A min, max, median or nth sets only the value:
-        /// from a list on any variable, from a min, increment and max only on a basic variable.
+        /// from a list on any variable, from a min, increment and max only on a basic variable. On a
+        /// variable that is steppable or not settable a min, max, median or nth still sets only the
+        /// value: Choice.select then refuses it with the reason the shape gives no value.
         let ofSet ovarRef sch shape choice =
             match ovarRef, choice with
             | _, Choice.Step _ when shape <> Shape.Steppable -> SetCommand.NoCommand
@@ -1409,7 +1411,7 @@ module OrderProcessor =
                         OrderVariableReference.ScheduleFrequency
 
                         for c in ord |> components do
-                            if c <> name then
+                            if BCL.String.equalsCapInsens c name |> not then
                                 OrderVariableReference.ComponentOrderableQuantity c
 
                         yield! ord |> keptRate

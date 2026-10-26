@@ -3361,6 +3361,26 @@ module RecipeTests =
                     |> Expect.equal "1, and at least 1" [ [ SetBackTo.One ]; [ SetBackTo.AtLeastOne ] ]
                 }
 
+                test "a component step does not keep its target, whatever the case of its name" {
+                    let ord = Scenarios.tpn |> orderOf
+
+                    let keptTarget name =
+                        ord
+                        |> Recipes.componentOrderableQuantityStep (name |> String.toUpper)
+                        |> List.exists (
+                            function
+                            | OrderEffect.SetBackUndetermined(kept, _, _) ->
+                                kept |> List.contains (OrderVariableReference.ComponentOrderableQuantity name)
+                            | _ -> false
+                        )
+
+                    ord |> Order.components |> Expect.isNonEmpty "components"
+                    ord
+                    |> Order.components
+                    |> List.filter keptTarget
+                    |> Expect.isEmpty "no component kept"
+                }
+
                 test "the percentile sets the time back only on a schedule with a time" {
                     let setsTime med =
                         med
