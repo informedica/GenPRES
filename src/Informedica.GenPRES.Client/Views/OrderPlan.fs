@@ -591,15 +591,6 @@ module OrderPlan =
                     onCancel = fun () -> setConfirmDeleteOpen false
                 |}
 
-        // a clear from a field's arrow goes as a reopen of the plan, which keeps the plan before it
-        let reopen cmd =
-            match orderPlan with
-            | OrderPlanView.Settled(_, Some id)
-            | OrderPlanView.Changing(_, Some id) -> envOrderPlan.ReopenField(id, cmd)
-            | OrderPlanView.Settled(_, None)
-            | OrderPlanView.Changing(_, None)
-            | OrderPlanView.NoPatient -> ()
-
         let orderContext = dialog |> Option.defaultValue OrderContextView.NoPatient
 
         let nothingSelected =
@@ -741,7 +732,6 @@ module OrderPlan =
                     editing = editing
                     orderContext = orderContext
                     command = orderContextMsg
-                    reopen = reopen
                     restoreOrderScenario = envOrderPlan.RestoreField
                     closeOrder = handleModalClose
                     busy = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Page Global.Pages.OrderPlan

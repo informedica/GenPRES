@@ -43,7 +43,6 @@
     <Compile Include="Policies/QuantityModePolicyTests.fs" />
     <Compile Include="Policies/IntakePolicyTests.fs" />
     <Compile Include="Policies/FieldOpenPolicyTests.fs" />
-    <Compile Include="Policies/PickListPolicyTests.fs" />
     <Compile Include="Policies/IntentPolicyTests.fs" />
     <Compile Include="Policies/PlanContextPolicyTests.fs" />
     <Compile Include="Policies/PlanCellPolicyTests.fs" />

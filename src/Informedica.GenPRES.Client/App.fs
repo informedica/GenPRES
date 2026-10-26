@@ -570,10 +570,6 @@ type private Projection(state: State, dispatch: Msg -> unit) =
             Messages.workbench (OrderContextMsg.Command(cmd, Elmish.newRequest ()))
             |> dispatch
 
-        member _.ReopenField cmd =
-            Messages.workbench (OrderContextMsg.ReopenField(cmd, Elmish.newRequest ()))
-            |> dispatch
-
         member _.RestoreField() = Messages.workbench OrderContextMsg.RestoreField |> dispatch
 
         member _.Dialog = Client.orderContextDialog state
@@ -598,10 +594,6 @@ type private Projection(state: State, dispatch: Msg -> unit) =
 
         member _.OrderDialogCommand(id, cmd) =
             Messages.plan (OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand(id, cmd), Elmish.newRequest ()))
-            |> dispatch
-
-        member _.ReopenField(id, cmd) =
-            Messages.plan (OrderPlanMsg.ReopenField(id, cmd, Elmish.newRequest ()))
             |> dispatch
 
         member _.RestoreField() = Messages.plan OrderPlanMsg.RestoreField |> dispatch

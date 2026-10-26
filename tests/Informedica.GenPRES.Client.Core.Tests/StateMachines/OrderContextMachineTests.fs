@@ -742,22 +742,22 @@ let reopenTests =
     let view = OrderContextState.view
 
     let reopen =
-        OrderContextMsg.ReopenField(OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Frequency, "r-1")
+        OrderContextMsg.Command(OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Time, "r-1")
 
     let answered ctx = Ok(OrderContextResponse.Evaluated ctx)
 
     testList
-        "OrderContextState.transition, a reopen and a restore"
+        "OrderContextState.transition, a recalculation and a restore"
         [
-            test "a reopen sends the clear over the context held and shows it changing" {
+            test "a recalculation goes out over the context held and shows it changing" {
                 let state, effects = open' |> move reopen
 
                 effects
                 |> Expect.equal
-                    "the clear goes out"
+                    "the recalculation goes out"
                     [
                         callContext (
-                            OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Frequency,
+                            OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Time,
                             { c1 with Patient = patient },
                             "r-1"
                         )
@@ -766,13 +766,10 @@ let reopenTests =
                 state |> view |> _.IsChanging |> Expect.isTrue "changing"
             }
 
-            test "a recalculation sent as a command goes out as a reopen sends it, and keeps the state before it" {
+            test "a recalculation keeps the state before it" {
                 let reCalc = OrderViewCommand.ReCalcItemProperty("cmp", "itm", ItemProperty.DoseQuantity)
 
                 let viaCommand = open' |> move (OrderContextMsg.Command(reCalc, "r-1"))
-
-                viaCommand
-                |> Expect.equal "as a reopen" (open' |> move (OrderContextMsg.ReopenField(reCalc, "r-1")))
 
                 viaCommand |> fst |> OrderContextState.isKept |> Expect.isTrue "kept"
 
@@ -1075,14 +1072,10 @@ let requestOutTests =
     testList
         "the workbench with a request out"
         [
-            test "a command, a reopen, a seed, a reset and a patient set leave the state and send nothing" {
+            test "a command, a seed, a reset and a patient set leave the state and send nothing" {
                 for msg in
                     [
                         OrderContextMsg.Command(step, "r-2")
-                        OrderContextMsg.ReopenField(
-                            OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Frequency,
-                            "r-2"
-                        )
                         OrderContextMsg.SeedFilter(urlSeed, "r-2")
                         OrderContextMsg.Reset "r-2"
                         OrderContextMsg.PatientDataChanged(Some other, "r-2")

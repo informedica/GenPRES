@@ -406,8 +406,8 @@ module Order =
         | None -> case
 
 
-    /// The call a message makes, given the order shown, whether a reopen is under way and the dialog's state.
-    let private effectsOf (shown: Order option) (reopening: bool) (state: State) msg =
+    /// The call a message makes, given the order shown and the dialog's state.
+    let private effectsOf (shown: Order option) (state: State) msg =
         let shownId = shown |> Option.map (_.Id >> Trail.Part.shortId)
 
         match kindOf msg, shownId with
@@ -415,9 +415,8 @@ module Order =
         | Kind.Update, _ ->
             match msg with
             | UpdateOrderScenario _ ->
-                let call = if reopening then "CallReopen" else "CallUpdate"
                 let id = shownId |> Option.defaultValue "none"
-                [ $"%s{call} %s{id}" ]
+                [ $"CallUpdate %s{id}" ]
             | _ -> []
         | _, None -> []
         | Kind.Reset, Some id -> [ $"CallReset %s{id}" ]
@@ -443,10 +442,7 @@ module Order =
                 orderContext: OrderContextView
                 // a command from the dialog; the page sends it over the context it holds
                 command: Api.OrderViewCommand -> unit
-                // a clear from a field's arrow, with the picks: the page sends it and keeps what it
-                // showed before
-                reopen: Api.OrderViewCommand -> unit
-                // the list of a reopen closed without a pick: the page puts back what it showed
+                // the list of a recalculation closed without a pick: the page puts back what it showed
                 restoreOrderScenario: unit -> unit
                 closeOrder: unit -> unit
                 // a request of the page out, or a field counting: the dialog does not close then
@@ -479,46 +475,13 @@ module Order =
             |> Option.bind (fun pr -> pr.Scenarios |> Array.tryExactlyOne |> Option.map _.UseAdjust)
             |> Option.defaultValue false
 
-        // set by a field's arrow just before it clears its value, so that the change goes out as
-        // a reopen rather than as a change
-        let reopening = React.useRef false
-
-        // the variables the user picked or stepped in the workbench, in the order picked; a new
-        // order starts with none; the plan dialog keeps no picks, so its reopen is a plain clear,
-        // and a value another variable pins comes back as it was
-        let initialPicks =
-            if props.editing = PlanContextPolicy.Editing.Workbench then
-                Some [||]
-            else
-                None
-
-        let picks, setPicks = React.useState<string[] option> initialPicks
-
-        // the picks before a reopen, put back when its list closes without a pick
-        let heldPicks = React.useRef<string[] option> None
-
-        // the order a pick, a reopen or a reset was sent from and the picks before it, until its
-        // answer lands
-        let sentFrom = React.useRef<(Order * string[] option) option> None
-
-        // the variable a step moves and the order it started from, until its answer lands
-        let stepping = React.useRef<(string * Order) option> None
-
-        // a new order, also after a patient change or a resource sync, starts from the initial picks
-        React.useEffect ((fun () -> setPicks initialPicks), [| box (shownOrder |> Option.map _.Id) |])
-
-        // a pick goes out as the index of its value over the order as it is, and adds what it picked
-        // to the picks; a reopen goes as a recalculation of the field. A value the order does not
-        // offer is a bug, written to
-        // the console and not sent; a reopen then ends when its list closes without a pick
+        // a pick goes out as the index of its value over the order as it is. A value the order does
+        // not offer is a bug, written to the console and not sent
         let updateOrderScenario (ol: OrderLoader) target (s: string option) =
             match props.orderContext with
             | OrderContextView.Settled _
             | OrderContextView.Refused _
             | OrderContextView.Changing _ ->
-                let isReopen = reopening.current
-                reopening.current <- false
-
                 let located =
                     target
                     |> Option.bind (fun t ->
@@ -526,112 +489,72 @@ module Order =
                     )
 
                 match located, s with
-                | Some(t, _), None when isReopen ->
-                    sentFrom.current <- shownOrder |> Option.map (fun o -> o, heldPicks.current)
-
-                    props.reopen (ViewHelpers.reCalcCommand t)
-                | Some(t, ovar), Some key when not isReopen ->
+                | Some(t, ovar), Some key ->
                     match Models.OrderContext.values ovar |> Array.tryFindIndex ((=) key) with
-                    | Some n ->
-                        let changed = ol.Order |> Models.OrderContext.Target.map t (OrderVariable.setOvar s)
-
-                        shownOrder
-                        |> Option.iter (fun before ->
-                            sentFrom.current <- Some(before, picks)
-                            setPicks (picks |> PickListPolicy.afterChange before changed)
-                        )
-
-                        props.command (ViewHelpers.setNthCommand t n)
+                    | Some n -> props.command (ViewHelpers.setNthCommand t n)
                     | None -> Logging.warning "a value the field does not offer is not sent" key
                 | _ -> Logging.warning "a change no field holds is not sent" s
             | _ -> ()
 
-        // a reset keeps the order id, so it starts from the initial picks itself
         let resetOrderScenario (_: OrderLoader) =
             match props.orderContext with
             | OrderContextView.Settled _
             | OrderContextView.Refused _
-            | OrderContextView.Changing _ ->
-                sentFrom.current <- shownOrder |> Option.map (fun o -> o, picks)
-                setPicks initialPicks
-                props.command Api.OrderViewCommand.ResetOrderScenario
+            | OrderContextView.Changing _ -> props.command Api.OrderViewCommand.ResetOrderScenario
             | OrderContextView.NoPatient -> ()
 
         let stepper =
-            // the variable each stepper moves, by name
-            let frequencyOf (ol: OrderLoader) = Some ol.Order.Schedule.Frequency.Name
-            let doseQuantityOf (ol: OrderLoader) = Some ol.Order.Orderable.Dose.Quantity.Name
-            let doseRateOf (ol: OrderLoader) = Some ol.Order.Orderable.Dose.Rate.Name
-
-            let componentQuantityOf (ol: OrderLoader) =
-                ol.Order.Orderable.Components
-                |> Array.tryFind (fun c -> ol.Component = Some c.Name)
-                |> Option.map _.OrderableQuantity.Name
-
-            // a step notes the variable it moves, so its answer can add it to the picks
-            let stepped nameOf (ol: OrderLoader) =
-                stepping.current <- nameOf ol |> Option.map (fun name -> name, ol.Order)
-
             // a step goes out as its command, while the dialog shows a context
-            let send nameOf (ol: OrderLoader) cmd =
-                stepped nameOf ol
-
+            let send cmd =
                 match props.orderContext with
                 | OrderContextView.NoPatient -> ()
                 | _ -> props.command cmd
 
-            let create nameOf cmd = fun ol -> send nameOf ol cmd
+            let create cmd = fun (_: OrderLoader) -> send cmd
 
-            let createWithCmp nameOf cmd =
-                fun (ol: OrderLoader) -> ol.Component |> Option.iter (cmd >> send nameOf ol)
+            let createWithCmp cmd =
+                fun (ol: OrderLoader) -> ol.Component |> Option.iter (cmd >> send)
 
-            let createWithN nameOf cmd =
+            let createWithN cmd =
                 fun (n, uc) (ol: OrderLoader) ->
                     if ol.Component.IsSome then
-                        send nameOf ol (cmd (n, uc))
+                        send (cmd (n, uc))
 
-            let createWithCmpN nameOf cmd =
-                fun (n, uc) (ol: OrderLoader) -> ol.Component |> Option.iter (fun c -> send nameOf ol (cmd (c, n, uc)))
+            let createWithCmpN cmd =
+                fun (n, uc) (ol: OrderLoader) -> ol.Component |> Option.iter (fun c -> send (cmd (c, n, uc)))
 
             {|
                 // Frequency
-                setFreqMin = create frequencyOf Api.OrderViewCommand.SetMinScheduleFrequencyProperty
-                setFreqDec = create frequencyOf Api.OrderViewCommand.DecreaseScheduleFrequencyProperty
-                setFreqMed = create frequencyOf Api.OrderViewCommand.SetMedianScheduleFrequencyProperty
-                setFreqInc = create frequencyOf Api.OrderViewCommand.IncreaseScheduleFrequencyProperty
-                setFreqMax = create frequencyOf Api.OrderViewCommand.SetMaxScheduleFrequencyProperty
+                setFreqMin = create Api.OrderViewCommand.SetMinScheduleFrequencyProperty
+                setFreqDec = create Api.OrderViewCommand.DecreaseScheduleFrequencyProperty
+                setFreqMed = create Api.OrderViewCommand.SetMedianScheduleFrequencyProperty
+                setFreqInc = create Api.OrderViewCommand.IncreaseScheduleFrequencyProperty
+                setFreqMax = create Api.OrderViewCommand.SetMaxScheduleFrequencyProperty
                 // Dose Rate
-                setRateMin = create doseRateOf Api.OrderViewCommand.SetMinOrderableDoseRateProperty
-                setRateDec = createWithN doseRateOf Api.OrderViewCommand.DecreaseOrderableDoseRateProperty
-                setRateMed = create doseRateOf Api.OrderViewCommand.SetMedianOrderableDoseRateProperty
-                setRateInc = createWithN doseRateOf Api.OrderViewCommand.IncreaseOrderableDoseRateProperty
-                setRateMax = create doseRateOf Api.OrderViewCommand.SetMaxOrderableDoseRateProperty
+                setRateMin = create Api.OrderViewCommand.SetMinOrderableDoseRateProperty
+                setRateDec = createWithN Api.OrderViewCommand.DecreaseOrderableDoseRateProperty
+                setRateMed = create Api.OrderViewCommand.SetMedianOrderableDoseRateProperty
+                setRateInc = createWithN Api.OrderViewCommand.IncreaseOrderableDoseRateProperty
+                setRateMax = create Api.OrderViewCommand.SetMaxOrderableDoseRateProperty
                 // Dose Quantity
-                setDoseQtyMin = create doseQuantityOf Api.OrderViewCommand.SetMinOrderableDoseQuantityProperty
-                setDoseQtyDec = createWithN doseQuantityOf Api.OrderViewCommand.DecreaseOrderableDoseQuantityProperty
-                setDoseQtyMed = create doseQuantityOf Api.OrderViewCommand.SetMedianOrderableDoseQuantityProperty
-                setDoseQtyInc = createWithN doseQuantityOf Api.OrderViewCommand.IncreaseOrderableDoseQuantityProperty
-                setDoseQtyMax = create doseQuantityOf Api.OrderViewCommand.SetMaxOrderableDoseQuantityProperty
+                setDoseQtyMin = create Api.OrderViewCommand.SetMinOrderableDoseQuantityProperty
+                setDoseQtyDec = createWithN Api.OrderViewCommand.DecreaseOrderableDoseQuantityProperty
+                setDoseQtyMed = create Api.OrderViewCommand.SetMedianOrderableDoseQuantityProperty
+                setDoseQtyInc = createWithN Api.OrderViewCommand.IncreaseOrderableDoseQuantityProperty
+                setDoseQtyMax = create Api.OrderViewCommand.SetMaxOrderableDoseQuantityProperty
                 // Component Quantity
-                setComponentQtyMin =
-                    createWithCmp componentQuantityOf Api.OrderViewCommand.SetMinComponentOrderableQuantityProperty
-                setComponentQtyDec =
-                    createWithCmpN componentQuantityOf Api.OrderViewCommand.DecreaseComponentOrderableQuantityProperty
-                setComponentQtyMed =
-                    createWithCmp componentQuantityOf Api.OrderViewCommand.SetMedianComponentOrderableQuantityProperty
-                setComponentQtyInc =
-                    createWithCmpN componentQuantityOf Api.OrderViewCommand.IncreaseComponentOrderableQuantityProperty
-                setComponentQtyMax =
-                    createWithCmp componentQuantityOf Api.OrderViewCommand.SetMaxComponentOrderableQuantityProperty
+                setComponentQtyMin = createWithCmp Api.OrderViewCommand.SetMinComponentOrderableQuantityProperty
+                setComponentQtyDec = createWithCmpN Api.OrderViewCommand.DecreaseComponentOrderableQuantityProperty
+                setComponentQtyMed = createWithCmp Api.OrderViewCommand.SetMedianComponentOrderableQuantityProperty
+                setComponentQtyInc = createWithCmpN Api.OrderViewCommand.IncreaseComponentOrderableQuantityProperty
+                setComponentQtyMax = createWithCmp Api.OrderViewCommand.SetMaxComponentOrderableQuantityProperty
             |}
 
-        // the reopen flag is read before the update, which resets it
         let updateTraced msg state =
-            let reopen = reopening.current
             let next, cmd = update updateOrderScenario resetOrderScenario stepper shownOrder msg state
 
             StepTrail.record (fun no at ->
-                Trail.step "Order" describeMsg id describeState no at msg (next, effectsOf shownOrder reopen next msg)
+                Trail.step "Order" describeMsg id describeState no at msg (next, effectsOf shownOrder next msg)
             )
 
             next, cmd
@@ -665,24 +588,10 @@ module Order =
         React.useEffect (
             (fun () ->
                 match props.orderContext with
-                | OrderContextView.Settled ctx ->
-                    setChanging None
-                    setReopenedFrom None
-
-                    match stepping.current, sentFrom.current, ctx.Scenarios |> Array.tryExactlyOne with
-                    | Some(name, before), _, Some sc ->
-                        setPicks (picks |> PickListPolicy.afterStep name before sc.Order)
-                    | None, Some(sent, before), Some sc ->
-                        setPicks (picks |> PickListPolicy.afterAnswer sent sc.Order before)
-                    | _ -> ()
-
-                    stepping.current <- None
-                    sentFrom.current <- None
+                | OrderContextView.Settled _
                 | OrderContextView.Refused _ ->
                     setChanging None
                     setReopenedFrom None
-                    stepping.current <- None
-                    sentFrom.current <- None
                 | _ -> ()
             ),
             [| box props.orderContext |]
@@ -742,6 +651,19 @@ module Order =
                 )
                 |> Option.defaultValue [||]
             | _ -> [||]
+
+        // the target of an item property of the component shown, as the dialog's messages address it
+        let itemTarget i prop =
+            let cmp =
+                displayOrder
+                |> Option.bind (fun ord ->
+                    ord.Orderable.Components
+                    |> Array.tryFind (fun c -> state.SelectedComponent.IsNone || state.SelectedComponent = Some c.Name)
+                )
+                |> Option.map _.Name
+                |> Option.defaultValue ""
+
+            Models.OrderContext.Target.Item(cmp, itms[i].Name, prop)
 
         let substIndx =
             itms
@@ -958,27 +880,23 @@ module Order =
         // a field's select: rests while a field is changing, shows it while its own is; a
         // field the editing does not let change shows its value, without steps or a dropdown
         // a field with one value is recalculated when the intent policy allows it on the order
-        // shown; the recalculation keeps the picks made before it, and a list closed without a pick
-        // puts them all back
-        let reopenOf (name: string) : ViewHelpers.Reopen =
+        // shown; a list closed without a pick puts back the order shown before
+        let reopenOf target : ViewHelpers.Reopen =
             {|
-                allowed = displayOrder |> Option.exists (IntentPolicy.isReCalcAllowedOf name)
-                reopening =
+                allowed = displayOrder |> Option.exists (IntentPolicy.isReCalcAllowed target)
+                reCalc =
                     fun () ->
-                        heldPicks.current <- picks
-                        setPicks (picks |> PickListPolicy.beforeReopen name)
-                        reopening.current <- true
                         setReopenedFrom shownOrder
+                        props.command (ViewHelpers.reCalcCommand target)
                 restore =
                     fun () ->
-                        setPicks heldPicks.current
-                        // the reopen ends here: its order is no longer held, whatever the answer
+                        // the recalculation ends here: its order is no longer held, whatever the answer
                         setReopenedFrom None
                         props.restoreOrderScenario ()
                 busy = isOrderLoading
             |}
 
-        let selectFor field (name: string) lbl selected updateSelected mode mark minWidth xs =
+        let selectFor field target lbl selected updateSelected mode mark minWidth xs =
             if PlanContextPolicy.canEdit props.editing field then
                 ViewHelpers.orderSelect
                     texts
@@ -991,7 +909,7 @@ module Order =
                     updateSelected
                     mode
                     mark
-                    (reopenOf name)
+                    (reopenOf target)
                     minWidth
                     xs
             else
@@ -1180,7 +1098,7 @@ module Order =
                     vals
                     |> selectFor
                         "substDoseQty"
-                        itms[i].Dose.Quantity.Name
+                        (itemTarget i ItemProperty.DoseQuantity)
                         label
                         None
                         (ChangeSubstanceDoseQuantity >> dispatch)
@@ -1213,7 +1131,7 @@ module Order =
                     vals
                     |> selectFor
                         "substDoseQtyAdj"
-                        itms[i].Dose.QuantityAdjust.Name
+                        (itemTarget i ItemProperty.DoseQuantityAdjust)
                         label
                         None
                         (ChangeSubstanceDoseQuantityAdjust >> dispatch)
@@ -1255,10 +1173,12 @@ module Order =
                     vals
                     |> selectFor
                         "substPerTime"
-                        (if useAdjust then
-                             itms[i].Dose.PerTimeAdjust.Name
-                         else
-                             itms[i].Dose.PerTime.Name)
+                        (itemTarget
+                            i
+                            (if useAdjust then
+                                 ItemProperty.DosePerTimeAdjust
+                             else
+                                 ItemProperty.DosePerTime))
                         label
                         None
                         dispatch
@@ -1295,7 +1215,12 @@ module Order =
                     |> Array.distinctBy snd
                     |> selectFor
                         "substRate"
-                        ovar.Name
+                        (itemTarget
+                            i
+                            (if useAdjust then
+                                 ItemProperty.DoseRateAdjust
+                             else
+                                 ItemProperty.DoseRate))
                         (Terms.``Order Adjusted dose`` |> getTerm "dosering")
                         None
                         dispatch
@@ -1345,7 +1270,10 @@ module Order =
                     vals
                     |> selectFor
                         "compOrdQty"
-                        (cmp |> Option.map _.OrderableQuantity.Name |> Option.defaultValue "")
+                        (Models.OrderContext.Target.Component(
+                            cmp |> Option.map _.Name |> Option.defaultValue "",
+                            ComponentProperty.OrderableQuantity
+                        ))
                         "bereiding hoeveelheid"
                         None
                         (ChangeComponentOrderableQuantity >> dispatch)
@@ -1377,7 +1305,7 @@ module Order =
                             |> ViewHelpers.ovarVals (fixPrecision 3)
                             |> selectFor
                                 "substCompConc"
-                                itm.ComponentConcentration.Name
+                                (Models.OrderContext.Target.Item(cname, iname, ItemProperty.ComponentConcentration))
                                 "product sterkte"
                                 None
                                 (change >> dispatch)
@@ -1407,7 +1335,11 @@ module Order =
                                     |> ViewHelpers.ovarVals string
                                     |> selectFor
                                         "substCompConc"
-                                        itm.ComponentConcentration.Name
+                                        (Models.OrderContext.Target.Item(
+                                            cmp.Name,
+                                            itm.Name,
+                                            ItemProperty.ComponentConcentration
+                                        ))
                                         "product sterkte"
                                         None
                                         (change >> dispatch)
@@ -1434,7 +1366,7 @@ module Order =
                     |> ViewHelpers.ovarVals (fixPrecision 3)
                     |> selectFor
                         "substOrdQty"
-                        itms[i].OrderableQuantity.Name
+                        (itemTarget i ItemProperty.OrderableQuantity)
                         $"{itms[i].Name} hoeveelheid"
                         None
                         (ChangeSubstanceOrderableQuantity >> dispatch)
@@ -1456,7 +1388,7 @@ module Order =
                     |> ViewHelpers.ovarVals (fixPrecision 3)
                     |> selectFor
                         "substOrdConc"
-                        itms[i].OrderableConcentration.Name
+                        (itemTarget i ItemProperty.OrderableConcentration)
                         $"{itms[i].Name} concentratie"
                         None
                         (ChangeSubstanceOrderableConcentration >> dispatch)
@@ -1474,7 +1406,7 @@ module Order =
                     |> ViewHelpers.ovarVals string
                     |> selectFor
                         "ordQty"
-                        ord.Orderable.OrderableQuantity.Name
+                        (Models.OrderContext.Target.Orderable OrderableProperty.Quantity)
                         "totale hoeveelheid"
                         None
                         (ChangeOrderableQuantity >> dispatch)
@@ -1506,7 +1438,7 @@ module Order =
 
                     selectFor
                         "frequency"
-                        ord.Schedule.Frequency.Name
+                        (Models.OrderContext.Target.Schedule ScheduleProperty.Frequency)
                         (Terms.``Order Frequency`` |> getTerm "frequentie")
                         None
                         (ChangeFrequency >> dispatch)
@@ -1535,7 +1467,7 @@ module Order =
                     |> ViewHelpers.ovarValsWithRange string 3
                     |> selectFor
                         "ordDoseQty"
-                        ord.Orderable.Dose.Quantity.Name
+                        (Models.OrderContext.Target.Orderable OrderableProperty.DoseQuantity)
                         "toedien hoeveelheid"
                         None
                         (ChangeOrderableDoseQuantity >> dispatch)
@@ -1568,7 +1500,7 @@ module Order =
                     |> ViewHelpers.ovarValsWithRange string 3
                     |> selectFor
                         "ordDoseRate"
-                        ord.Orderable.Dose.Rate.Name
+                        (Models.OrderContext.Target.Orderable OrderableProperty.DoseRate)
                         (Terms.``Order Drip rate`` |> getTerm "inloop snelheid")
                         None
                         (ChangeOrderableDoseRate >> dispatch)
@@ -1587,7 +1519,7 @@ module Order =
                     |> Array.distinctBy snd
                     |> selectFor
                         "time"
-                        ord.Schedule.Time.Name
+                        (Models.OrderContext.Target.Schedule ScheduleProperty.Time)
                         (Terms.``Order Administration time`` |> getTerm "inloop tijd")
                         None
                         (ChangeTime >> dispatch)

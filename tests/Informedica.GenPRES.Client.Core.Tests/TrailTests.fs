@@ -195,13 +195,10 @@ let tests =
                 |> Expect.equal "the dose types" [ "continuous"; "continuous"; "once stat" ]
             }
 
-            test "a reopen shows the request it awaits and the state it keeps" {
+            test "a recalculation shows the request it awaits and the state it keeps" {
                 OrderContextState.held pat ctxPicked
                 |> OrderContextState.transition (
-                    OrderContextMsg.ReopenField(
-                        OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Frequency,
-                        "r-9"
-                    )
+                    OrderContextMsg.Command(OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Time, "r-9")
                 )
                 |> fst
                 |> Trail.OrderContext.state

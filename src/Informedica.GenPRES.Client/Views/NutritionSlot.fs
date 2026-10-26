@@ -349,8 +349,8 @@ module NutritionSlot =
         | None -> case
 
 
-    /// The call a message makes, given the order shown and whether a reopen is under way.
-    let private effectsOf (shown: Order option) (reopening: bool) msg =
+    /// The call a message makes, given the order shown.
+    let private effectsOf (shown: Order option) msg =
         let shownId = shown |> Option.map (_.Id >> Trail.Part.shortId)
 
         match kindOf msg, shownId with
@@ -358,9 +358,8 @@ module NutritionSlot =
         | Kind.Update, _ ->
             match msg with
             | UpdateOrderScenario _ ->
-                let call = if reopening then "CallReopen" else "CallUpdate"
                 let id = shownId |> Option.defaultValue "none"
-                [ $"%s{call} %s{id}" ]
+                [ $"CallUpdate %s{id}" ]
             | _ -> []
         | _, None -> []
         | Kind.Reset, Some id -> [ $"CallReset %s{id}" ]
@@ -558,8 +557,7 @@ module NutritionSlot =
                 nutritionContext: OrderContext
                 // a command into the slot's context, sent over the plan held
                 planNavigate: string * Api.OrderViewCommand -> unit
-                // a clear from a field's arrow, and the list of such a reopen closed without a pick
-                planReopen: string * Api.OrderViewCommand -> unit
+                // the list of a recalculation closed without a pick
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
                 // a request out that changes the page: the slot sends nothing on its own meanwhile
@@ -610,30 +608,17 @@ module NutritionSlot =
             let dt = s |> Option.map DoseTypeText.doseTypeFromString
             pickFilter OrderContext.DoseType ctx.Filter.DoseTypes dt
 
-        // set by a field's arrow just before it clears its value, so that the change goes out as
-        // a reopen rather than as a change
-        let reopening = React.useRef false
-
-        // a pick goes out as the index of its value over the order as it is; a reopen as a clear
-        // without picks, since only the workbench keeps them: the server clears and solves, so a
-        // value another variable pins comes back as it was. A value the order does not offer is a
-        // bug, written to the console and not sent
+        // a pick goes out as the index of its value over the order as it is. A value the order does
+        // not offer is a bug, written to the console and not sent
         let updateOrderScenario (ol: OrderLoader) target (s: string option) =
-            let isReopen = reopening.current
-            reopening.current <- false
-
             let located =
                 target
                 |> Option.bind (fun t -> ol.Order |> OrderContext.Target.tryGet t |> Option.map (fun v -> t, v))
 
-            let send cmd =
-                (ncId, cmd) |> if isReopen then props.planReopen else props.planNavigate
-
             match located, s with
-            | Some(t, _), None when isReopen -> send (ViewHelpers.reCalcCommand t)
-            | Some(t, ovar), Some key when not isReopen ->
+            | Some(t, ovar), Some key ->
                 match OrderContext.values ovar |> Array.tryFindIndex ((=) key) with
-                | Some n -> send (ViewHelpers.setNthCommand t n)
+                | Some n -> navigate (ViewHelpers.setNthCommand t n)
                 | None -> Logging.warning "a value the field does not offer is not sent" key
             | _ -> Logging.warning "a change no field holds is not sent" s
 
@@ -681,13 +666,11 @@ module NutritionSlot =
         // the order shown: the one scenario's of the slot's context
         let shownOrder = ctx.Scenarios |> Array.tryExactlyOne |> Option.map _.Order
 
-        // the reopen flag is read before the update, which resets it
         let updateTraced msg state =
-            let reopen = reopening.current
             let next, cmd = update updateOrderScenario resetOrderScenario stepper shownOrder msg state
 
             StepTrail.record (fun no at ->
-                Trail.step "Nutrition" describeMsg id describeState no at msg (next, effectsOf shownOrder reopen msg)
+                Trail.step "Nutrition" describeMsg id describeState no at msg (next, effectsOf shownOrder msg)
             )
 
             next, cmd
@@ -747,10 +730,10 @@ module NutritionSlot =
         let componentSelect = ViewHelpers.orderSelect texts true (busy || isCompositionLocked)
 
         // a field with one value is recalculated when the intent policy allows it on the order shown
-        let reopenOf (ovar: OrderVariable) : ViewHelpers.Reopen =
+        let reopenOf target : ViewHelpers.Reopen =
             {|
-                allowed = shownOrder |> Option.exists (IntentPolicy.isReCalcAllowedOf ovar.Name)
-                reopening = fun () -> reopening.current <- true
+                allowed = shownOrder |> Option.exists (IntentPolicy.isReCalcAllowed target)
+                reCalc = fun () -> navigate (ViewHelpers.reCalcCommand target)
                 restore = props.planRestore
                 busy = busy
             |}
@@ -803,7 +786,7 @@ module NutritionSlot =
                             (fun s -> ChangeComponentOrderableQuantity(cmp.Name, s) |> dispatch)
                             nav
                             qtyWarning
-                            (reopenOf cmp.OrderableQuantity)
+                            (reopenOf (OrderContext.Target.Component(cmp.Name, ComponentProperty.OrderableQuantity)))
                             (Some 400)
                             qtyVals
 
@@ -912,7 +895,7 @@ module NutritionSlot =
                     (ChangeOrderableDoseQuantity >> dispatch)
                     doseQtyNav
                     severity
-                    (reopenOf ord.Orderable.Dose.Quantity)
+                    (reopenOf (OrderContext.Target.Orderable OrderableProperty.DoseQuantity))
                     selectMinWidth
                     vals
             | None -> null
@@ -952,7 +935,7 @@ module NutritionSlot =
                     (ChangeFrequency >> dispatch)
                     freqNav
                     severity
-                    (reopenOf ord.Schedule.Frequency)
+                    (reopenOf (OrderContext.Target.Schedule ScheduleProperty.Frequency))
                     selectMinWidth
                     freqVals
             | _ -> null
@@ -997,7 +980,7 @@ module NutritionSlot =
                     (ChangeOrderableDoseRate >> dispatch)
                     nav
                     severity
-                    (reopenOf ord.Orderable.Dose.Rate)
+                    (reopenOf (OrderContext.Target.Orderable OrderableProperty.DoseRate))
                     minWidth
             | _ -> null
 

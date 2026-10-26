@@ -7,17 +7,6 @@ namespace Informedica.GenPRES.Client.Core.Policies
 module FieldOpenPolicy =
 
 
-    /// Whether the user constrained the value of an order variable.
-    [<RequireQualifiedAccess>]
-    type Constrained =
-        /// The user picked or stepped the value.
-        | Yes
-        /// The solver derived the value, or the server chose it by default.
-        | No
-        /// The order does not say.
-        | Unknown
-
-
     /// Whether a field is selectable, and what selecting it does.
     [<RequireQualifiedAccess>]
     type Selectable =

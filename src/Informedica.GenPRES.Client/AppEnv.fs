@@ -47,9 +47,7 @@ type IOrderContext =
     // the workbench as the pages show it
     abstract OrderContext: OrderContextMachine.OrderContextView
     abstract OrderContextMsg: Api.OrderViewCommand -> unit
-    // a clear from the dialog that opens the field's list, the workbench before it kept
-    abstract ReopenField: Api.OrderViewCommand -> unit
-    // the list of a reopen closed without a pick: the workbench kept is put back
+    // the list of a recalculation closed without a pick: the workbench kept is put back
     abstract RestoreField: unit -> unit
     // the workbench as the order dialog shows it; none while no scenario is selected
     abstract Dialog: OrderContextMachine.OrderContextView option
@@ -71,9 +69,8 @@ type IOrderPlan =
     abstract Remove: ids: string[] -> unit
     // a command from the order dialog into the plan's context with this id, sent over the plan held
     abstract OrderDialogCommand: string * Api.OrderViewCommand -> unit
-    // a clear from the dialog that opens the field's list, the plan before it kept
-    abstract ReopenField: string * Api.OrderViewCommand -> unit
-    // the list of a reopen closed without a pick: the plan kept is put back, as signed or changed
+    // the list of a recalculation closed without a pick: the plan kept is put back, as signed or
+    // changed
     abstract RestoreField: unit -> unit
     // the context whose order the dialog shows, by id; the client's own, no round trip
     abstract SelectContext: string option -> unit

@@ -669,40 +669,40 @@ let reopenTests =
     let answer = plan [| reopened; context "c-2" "ibuprofen" |]
     let open' = held two (Some "c-1")
     let reopen request =
-        OrderPlanMsg.ReopenField("c-1", OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Frequency, request)
+        OrderPlanMsg.Change(
+            OrderPlanChange.OrderDialogCommand("c-1", OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Time),
+            request
+        )
     // the clear as the machine sends it, over the plan and the context held
     let clear =
         OrderPlanCommand.Navigate(
             two,
             "c-1",
-            OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Frequency,
+            OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Time,
             two.OrderContexts[0]
         )
     let move = OrderPlanState.transition
     let run msgs state = msgs |> List.fold (fun s m -> move m s |> fst) state
 
     testList
-        "OrderPlanState.transition, a reopen and a restore"
+        "OrderPlanState.transition, a recalculation and a restore"
         [
-            test "a reopen sends the clear over the context held and counts as a change" {
+            test "a recalculation goes out over the context held and counts as a change" {
                 let state, effects = open' |> move (reopen "r-1")
 
                 effects
-                |> Expect.equal "the clear goes out" [ OrderPlanEffect.CallPlan(clear, "r-1") ]
+                |> Expect.equal "the recalculation goes out" [ OrderPlanEffect.CallPlan(clear, "r-1") ]
 
                 state
                 |> OrderPlanState.work
                 |> Expect.equal "changed while the list is open" PlanWork.Changed
             }
 
-            test "a recalculation from the order dialog goes out as a reopen sends it, and keeps the state before it" {
+            test "a recalculation from the order dialog keeps the state before it" {
                 let reCalc = OrderViewCommand.ReCalcItemProperty("cmp", "itm", ItemProperty.DoseQuantity)
 
                 let change = OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand("c-1", reCalc), "r-1")
                 let viaChange = open' |> move change
-
-                viaChange
-                |> Expect.equal "as a reopen" (open' |> move (OrderPlanMsg.ReopenField("c-1", reCalc, "r-1")))
 
                 viaChange |> fst |> OrderPlanState.isKept |> Expect.isTrue "kept"
 
@@ -770,17 +770,19 @@ let reopenTests =
                 |> Expect.equal "nothing to put back" (picked, [])
             }
 
-            test "a restore without a reopen changes nothing" {
+            test "a restore without a recalculation changes nothing" {
                 open'
                 |> move OrderPlanMsg.RestoreField
                 |> Expect.equal "nothing to put back" (open', [])
             }
 
-            test "a reopen for a context the plan no longer holds sends nothing and keeps nothing" {
+            test "a recalculation for a context the plan no longer holds sends nothing and keeps nothing" {
                 let gone =
-                    OrderPlanMsg.ReopenField(
-                        "c-9",
-                        OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Frequency,
+                    OrderPlanMsg.Change(
+                        OrderPlanChange.OrderDialogCommand(
+                            "c-9",
+                            OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Time
+                        ),
                         "r-1"
                     )
 
@@ -857,15 +859,10 @@ let requestOutTests =
     testList
         "the plan with a request out"
         [
-            test "a change, a reopen, a patient set and a version opened leave the state and send nothing" {
+            test "a change, a patient set and a version opened leave the state and send nothing" {
                 for msg in
                     [
                         pageMsg (remove, "r-2")
-                        OrderPlanMsg.ReopenField(
-                            "c-1",
-                            OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Frequency,
-                            "r-2"
-                        )
                         OrderPlanMsg.PatientDataChanged(Some other, "r-2")
                         OrderPlanMsg.OpenSignedPlan(head, "r-2")
                     ] do
