@@ -296,72 +296,6 @@ module Pipeline =
                         |> Expect.isFalse "CalcValues should not have ValueSetOverflow"
                 }
 
-                test
-                    "kaliumchloride OnceTimed: the median rate cleared gives its list back, and every rate pick keeps the time within 60 to 120 min" {
-                    let solved =
-                        [
-                            "CalcMinMax", CalcMinMax
-                            "IncreaseIncrements", IncreaseIncrements
-                            "CalcValues", CalcValues
-                            "SolveOrder", SolveOrder
-                        ]
-                        |> List.fold
-                            (fun ord (stage, cmd) ->
-                                match OrderProcessor.processPipeline noLogger (cmd ord) with
-                                | Ok ord -> ord
-                                | Error(_, msgs) -> failtest $"%s{stage} failed: %A{msgs}"
-                            )
-                            (mkOnceTimedOrder ())
-
-                    // the time follows from the dose quantity and the picked rate
-                    let minutes ord =
-                        ord
-                        |> Order.toOrdVars
-                        |> List.find (fun ovar -> (ovar |> OV.getName |> Variable.Name.toString).EndsWith "_sch_tme")
-                        |> OV.getValSetValueUnit
-                        |> Option.map (ValueUnit.convertTo Units.Time.minute >> ValueUnit.getValue)
-                        |> Option.defaultValue [||]
-
-                    // the rate gets its median; cleared as the client clears it, its list comes back. The dose
-                    // quantity counts as picked: it is the median the norm dose set, not a pick, and without it
-                    // among the picks the reopen gives the dose quantity its list back and the rate a range
-                    let reopened =
-                        let qty = solved.Orderable.Dose.Quantity |> OV.Quantity.toOrdVar |> OrderProcessor.nameOf
-
-                        solved
-                        |> Order.fromOrdVars [ solved.Orderable.Dose.Rate |> OV.Rate.toOrdVar |> OV.clear ]
-                        |> fun ord -> Reopen(ord, [ qty ])
-                        |> OrderProcessor.processPipeline noLogger
-                        |> function
-                            | Ok ord -> ord
-                            | Error(_, msgs) -> failtest $"the reopen failed: %A{msgs}"
-
-                    let rate = reopened.Orderable.Dose.Rate |> OV.Rate.toOrdVar
-
-                    let count =
-                        rate
-                        |> OV.getValSetValueUnit
-                        |> Option.map (ValueUnit.getValue >> Array.length)
-                        |> Option.defaultValue 0
-
-                    count > 1 |> Expect.isTrue "more than one rate to pick"
-
-                    for nth in 0 .. count - 1 do
-                        match
-                            reopened
-                            |> Order.fromOrdVars [ rate |> OV.setNthValue nth ]
-                            |> Order.solveOrder "pick" false noLogger
-                        with
-                        | Error(_, msgs) -> failtest $"rate pick %i{nth} failed: %A{msgs}"
-                        | Ok ord ->
-                            let time = ord |> minutes
-                            time |> Array.isEmpty |> Expect.isFalse "a time"
-
-                            time
-                            |> Array.forall (fun m -> m >= 60N && m <= 120N)
-                            |> Expect.isTrue $"time %A{time} min within 60 to 120"
-                }
-
                 test "paracetamol suppository (non-timed) is unaffected by staged expansion" {
                     let ord =
                         Scenarios.pcmSupp
@@ -384,66 +318,6 @@ module Pipeline =
                         |> Expect.isFalse "non-timed order should not have ValueSetOverflow"
                 }
             ]
-
-    [<Tests>]
-    let cleared_processing_tests =
-        testList
-            "processClearedOrder behavior"
-            [
-                test "Discontinuous Dose cleared materializes values" {
-                    let ord0 = mkConstrainedOrder ()
-                    // Switch to Discontinuous and clear its dose via the change API
-                    let ord =
-                        let hz = ValueUnit.per Units.Time.hour Units.Count.times
-
-                        { ord0 with
-                            Schedule =
-                                Discontinuous(
-                                    ord0.Schedule
-                                    |> Schedule.getFrequency
-                                    |> Option.defaultValue (OV.Frequency.create (Name "frq") hz)
-                                )
-                        }
-                        |> OrderPropertyChange.proc
-                            [
-                                ItemDose("", "", (fun dos -> { dos with PerTime = dos |> Orderable.Dose.clearPerTime }))
-                            ]
-
-                    let before = countValues ord
-                    let res = OrderProcessor.processClearedOrder Logging.noOp ord
-
-                    match res with
-                    | Ok o -> Expect.isTrue "Value count should not decrease" (countValues o >= before)
-                    | Error(o, _) ->
-                        Expect.isTrue "Value count should not decrease (even on error)" (countValues o >= before)
-                }
-
-                test "Timed TimeCleared re-applies time constraints and values" {
-                    let ord0 = mkConstrainedOrder ()
-                    let hz = ValueUnit.per Units.Time.hour Units.Count.times
-
-                    let frq =
-                        ord0.Schedule
-                        |> Schedule.getFrequency
-                        |> Option.defaultValue (OV.Frequency.create (Name "frq") hz)
-
-                    let tme =
-                        ord0.Schedule
-                        |> Schedule.getTime
-                        |> Option.defaultValue (OV.Time.create (Name "tme") Units.Time.hour)
-
-                    let ord = { ord0 with Schedule = Timed(frq, Time(OrderVariable.clear (let (Time tv) = tme in tv))) }
-
-                    let before = countValues ord
-                    let res = OrderProcessor.processClearedOrder Logging.noOp ord
-
-                    match res with
-                    | Ok o -> Expect.isTrue "Value count should not decrease" (countValues o >= before)
-                    | Error(o, _) ->
-                        Expect.isTrue "Value count should not decrease (even on error)" (countValues o >= before)
-                }
-            ]
-
 
 module ToOrderDto =
 
@@ -5301,13 +5175,6 @@ module RateAfterQuantityTests =
         ord |> pick (n / 2) qty, [ qty |> OrderProcessor.nameOf ]
 
 
-    /// The rate cleared as the client clears it: then Reopen with the earlier picks.
-    let private clearRate picks (ord: Order) =
-        ord
-        |> Order.fromOrdVars [ ord |> rate |> OrderVariable.clear ]
-        |> solve (fun ord -> Reopen(ord, picks))
-
-
     /// Every component quantity picked in turn, as the dialog completes an order.
     let private complete (ord: Order) =
         ord.Orderable.Components
@@ -5403,7 +5270,7 @@ module RateAfterQuantityTests =
                     |> Expect.equal "2,1 to 2,5 by 0,1" [| 21N / 10N .. 1N / 10N .. 25N / 10N |]
                 }
 
-                // a reset prunes with the larger cap: reCalcSteps passes useMax and CalcValues does not, so
+                // a reset prunes with the larger cap and CalcValues does not, so
                 // the reset list differs from the 50 to 500 by 50 the processing makes
                 test "a reset of the NaCl of 50 to 500 mL/uur offers the rate list, 60 to 480 by 30" {
                     Scenarios.naclLargeRateText
@@ -5413,33 +5280,6 @@ module RateAfterQuantityTests =
                     |> rate
                     |> valuesOf
                     |> Expect.equal "60 to 480 by 30" [| 60N .. 30N .. 480N |]
-                }
-
-                test
-                    "the median rate of tpn cleared gives its list back, a pick from it solves, cleared again the list comes back" {
-                    let ord, picks = Scenarios.tpn |> processed |> pickMiddleDoseQuantity
-                    let rates = [| 25N .. 29N |]
-
-                    let cleared = ord |> clearRate picks
-                    cleared |> rate |> valuesOf |> Expect.equal "25 to 29 mL/uur" rates
-
-                    let picked = cleared |> pick 0 (cleared |> rate)
-                    picked |> Order.isSolved |> Expect.isTrue "solved with the picked rate"
-
-                    picked
-                    |> clearRate (picks @ [ picked |> rate |> OrderProcessor.nameOf ])
-                    |> rate
-                    |> valuesOf
-                    |> Expect.equal "25 to 29 mL/uur again" rates
-                }
-
-                test "the median rate of the morfine timed with NaCl cleared gives its list back, 2,1 to 2,5 mL/uur" {
-                    Scenarios.morfTimedWithNaCl
-                    |> processed
-                    |> clearRate []
-                    |> rate
-                    |> valuesOf
-                    |> Expect.equal "2,1 to 2,5 by 0,1" [| 21N / 10N .. 1N / 10N .. 25N / 10N |]
                 }
 
                 test "the rate stepper sets a rate that is a range to its minimum, its median and its maximum" {

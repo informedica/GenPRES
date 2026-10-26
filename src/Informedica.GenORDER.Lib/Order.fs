@@ -415,11 +415,6 @@ module Order =
             let applyToRateAdjust f dos = { (dos |> inf) with RateAdjust = f dos.RateAdjust }
 
 
-            /// Check if the rate or rateAdjust of a Dose is cleared
-            let isRateCleared dos =
-                (dos |> inf).Rate |> Rate.isCleared || dos.RateAdjust |> RateAdjust.isCleared
-
-
             /// Clear the rate of a Dose (not the rateAdjust)
             let clearRate = applyToRate Rate.clear
 
@@ -474,12 +469,6 @@ module Order =
             let rateMinIncrMaxToValues dos = { (dos |> inf) with Rate = dos.Rate |> Rate.minIncrMaxToValues }
 
 
-            /// Check if the quantity or quantityAdjust of a Dose is cleared
-            let isQuantityCleared dos =
-                (dos |> inf).Quantity |> Quantity.isCleared
-                || dos.QuantityAdjust |> QuantityAdjust.isCleared
-
-
             /// Check if the quantity or quantityAdjust of a Dose has a max constraint
             let hasQuantityMaxConstraint dos =
                 (dos |> inf).Quantity |> Quantity.hasMaxConstraint
@@ -519,12 +508,6 @@ module Order =
             /// by creating a ValueSet from min, incr, max
             let quantityMinIncrMaxToValues dos =
                 { (dos |> inf) with Quantity = dos.Quantity |> Quantity.minIncrMaxToValues }
-
-
-            /// Check if the per time or per time adjust of a Dose is cleared
-            let isPerTimeCleared dos =
-                (dos |> inf).PerTime |> PerTime.isCleared
-                || dos.PerTimeAdjust |> PerTimeAdjust.isCleared
 
 
             /// Clear the per time of a Dose (not the per time adjust)
@@ -960,12 +943,6 @@ module Order =
                 create itm.Name cmp_qty orb_qty cmp_cnc orb_cnc dos
 
 
-            let isOrderableConcentrationCleared itm = (itm |> inf).OrderableConcentration |> Concentration.isCleared
-
-
-            let isOrderableQuantityCleared itm = (itm |> inf).OrderableQuantity |> Quantity.isCleared
-
-
             /// Get the Item dose
             let getDose itm = (itm |> inf).Dose
 
@@ -981,15 +958,6 @@ module Order =
 
 
             let isDoseSolved = getDose >> Dose.isSolved
-
-
-            let isDoseQuantityCleared = getDose >> Dose.isQuantityCleared
-
-
-            let isDoseRateCleared = getDose >> Dose.isRateCleared
-
-
-            let isDosePerTimeCleared = getDose >> Dose.isPerTimeCleared
 
 
             /// <summary>
@@ -1425,15 +1393,6 @@ module Order =
                 |> fun c -> { c with Products = cmp.Products }
 
 
-            let isOrderableConcentrationCleared cmp = (cmp |> inf).OrderableConcentration |> Concentration.isCleared
-
-
-            let isItemOrderableConcentrationCleared = getItems >> List.exists Item.isOrderableConcentrationCleared
-
-
-            let isOrderableQuantityCleared cmp = (cmp |> inf).OrderableQuantity |> Quantity.isCleared
-
-
             /// Get the Component dose
             let getDose cmp = (cmp |> inf).Dose
 
@@ -1557,24 +1516,6 @@ module Order =
 
 
             let isItemsDoseSolved = getItems >> List.exists Item.isDoseSolved
-
-
-            let isDoseQuantityCleared = getDose >> Dose.isQuantityCleared
-
-
-            let isItemDoseQuantityCleared = getItems >> List.exists Item.isDoseQuantityCleared
-
-
-            let isDoseRateCleared = getDose >> Dose.isRateCleared
-
-
-            let isItemDoseRateCleared = getItems >> List.exists Item.isDoseRateCleared
-
-
-            let isDosePerTimeCleared = getDose >> Dose.isPerTimeCleared
-
-
-            let isItemDosePerTimeCleared = getItems >> List.exists Item.isDosePerTimeCleared
 
 
             /// <summary>
@@ -2047,34 +1988,6 @@ module Order =
             |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
 
 
-        let isComponentOrderableConcentrationCleared =
-            getComponents >> List.exists Component.isOrderableConcentrationCleared
-
-
-        let isItemOrderableConcentrationCleared =
-            getComponents
-            >> List.collect Component.getItems
-            >> List.exists Item.isOrderableConcentrationCleared
-
-
-        let isItemOrderableQuantityCleared =
-            getComponents
-            >> List.collect Component.getItems
-            >> List.exists Item.isOrderableQuantityCleared
-
-
-        let isConcentrationCleared orb =
-            if (orb |> inf).Components |> List.length <= 1 then
-                false
-            else
-                orb |> isComponentOrderableConcentrationCleared
-                || orb |> isItemOrderableConcentrationCleared
-                || orb |> isItemOrderableQuantityCleared
-
-
-        let isOrderableQuantityCleared orb = (orb |> inf).OrderableQuantity |> Quantity.isCleared
-
-
         /// Get the Orderable dose
         let getDose orb = (orb |> inf).Dose
 
@@ -2232,30 +2145,6 @@ module Order =
 
 
         let isItemsDoseSolved = getComponents >> List.exists Component.isItemsDoseSolved
-
-
-        let isDoseQuantityCleared = getDose >> Dose.isQuantityCleared
-
-
-        let isComponentDoseQuantityCleared = getComponents >> List.exists Component.isDoseQuantityCleared
-
-
-        let isItemDoseQuantityCleared = getComponents >> List.exists Component.isItemDoseQuantityCleared
-
-
-        let isDoseRateCleared = getDose >> Dose.isRateCleared
-
-
-        let isItemDoseRateCleared = getComponents >> List.exists Component.isItemDoseRateCleared
-
-
-        let isDosePerTimeCleared = getDose >> Dose.isPerTimeCleared
-
-
-        let isComponentDosePerTimeCleared = getComponents >> List.exists Component.isDosePerTimeCleared
-
-
-        let isItemDosePerTimeCleared = getComponents >> List.exists Component.isItemDosePerTimeCleared
 
 
         module Print =
@@ -2642,12 +2531,6 @@ module Order =
             | Discontinuous frq -> frq |> f |> Discontinuous
             | Timed(frq, tme) -> (frq |> f, tme) |> Timed
             | _ -> schedule
-
-
-        let frequencyIsCleared (schedule: Schedule) =
-            match schedule |> toOrdVars with
-            | Some frq, _ -> frq |> OrderVariable.isCleared
-            | _ -> false
 
 
         let applyToTime f schedule =
@@ -4191,9 +4074,6 @@ module Order =
 
     let setDoseUnit sn du ord =
         { (ord |> inf) with Orderable = ord.Orderable |> Orderable.setDoseUnit sn du }
-
-
-    let isCleared = toOrdVars >> List.exists OrderVariable.isCleared
 
 
     let calcMinMax logger = solveMinMax "Calc Min Max" true logger

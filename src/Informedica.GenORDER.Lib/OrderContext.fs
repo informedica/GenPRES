@@ -327,7 +327,6 @@ module OrderContext =
         | UpdateOrderContext of OrderContext
         | SelectOrderScenario of OrderContext
         | UpdateOrderScenario of OrderContext
-        | ReopenOrderScenario of OrderContext * picks: string list
         | ResetOrderScenario of OrderContext
         | ReloadResources of OrderContext
         // Frequency property commands
@@ -391,7 +390,6 @@ module OrderContext =
             | UpdateOrderContext ctx -> ctx
             | SelectOrderScenario ctx -> ctx
             | UpdateOrderScenario ctx -> ctx
-            | ReopenOrderScenario(ctx, _) -> ctx
             | ResetOrderScenario ctx -> ctx
             | ReloadResources ctx -> ctx
             // Frequency property commands
@@ -434,7 +432,6 @@ module OrderContext =
             | UpdateOrderContext _ -> "UpdateOrderContext"
             | SelectOrderScenario _ -> "SelectOrderScenario"
             | UpdateOrderScenario _ -> "UpdateOrderScenario"
-            | ReopenOrderScenario(_, picks) -> $"ReopenOrderScenario %i{picks.Length} picks"
             | ResetOrderScenario _ -> "ResetOrderScenario"
             | ReloadResources _ -> "ReloadResources"
             | DecreaseScheduleFrequencyProperty _ -> "DecreaseScheduleFrequencyProperty"
@@ -1227,13 +1224,6 @@ Scenarios: {scenarios}
             | Error _ -> Refused(ctx, Refusal.NotSolved)
 
 
-    /// The scenario after a field's arrow cleared a value: a cleared pick reopens the order with the
-    /// picks made before it; any other clear is solved as it is.
-    let reopenScenarioOrder logger picks ctx =
-        ctx
-        |> processScenarioOrder logger (fun o -> Reopen(o, picks) |> OrderProcessor.processPipeline logger)
-
-
     /// A filter or scenario pick, a seed or a patient change applied to its context, read in the
     /// lists as sent: the context it changes and the existing command it is evaluated as, or why
     /// the index is past the options. None for any other command.
@@ -1410,11 +1400,6 @@ Scenarios: {scenarios}
             ctx
             |> processScenarioOrder logger (SolveOrder >> OrderProcessor.processPipeline logger)
             |> Outcome.map UpdateOrderScenario
-            |> Ok
-        | ReopenOrderScenario(ctx, picks) ->
-            ctx
-            |> reopenScenarioOrder logger picks
-            |> Outcome.map (fun ctx -> ReopenOrderScenario(ctx, picks))
             |> Ok
         | ResetOrderScenario ctx ->
             ctx
