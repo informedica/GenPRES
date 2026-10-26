@@ -1370,8 +1370,9 @@ module Order =
                     |> List.choose (fun (strengths, group) ->
                         // the contents are fixed only when every product of the group names its own
                         let qty =
+                            // a form quantity without values is no known content
                             match group |> List.map _.FormQuantities with
-                            | qts when qts |> List.forall Option.isSome ->
+                            | qts when qts |> List.forall (Option.exists (ValueUnit.isEmpty >> not)) ->
                                 cmp.ComponentQuantity
                                 |> Quantity.toOrdVar
                                 |> OrderVariable.fixToValues
@@ -3260,6 +3261,59 @@ module Order =
     let isComposed ord =
         ord.Orderable.Components
         |> List.forall (_.OrderableQuantity >> Quantity.toOrdVar >> _.Variable >> Variable.isSolved)
+
+
+    /// The order once per combination of the item concentrations of its components; the order
+    /// alone when that is one combination or more than maxCount.
+    let splitPerConcentration maxCount setsBack (ord: Order) =
+        let perCmp =
+            ord.Orderable.Components
+            |> List.map (Orderable.Component.concentrations setsBack)
+        let count = perCmp |> List.fold (fun n cs -> n * (cs |> List.length)) 1
+
+        if count <= 1 || count > maxCount then
+            [ ord ]
+        else
+            perCmp
+            |> List.combinations
+            |> List.map (fun cmps -> { ord with Order.Orderable.Components = cmps })
+
+
+    /// The orders per concentration as one order: each variable the union of its values in them,
+    /// with the constraints of orig, and with the union of their calculated constraints when the
+    /// action records them.
+    let unionPerConcentration maxCount records (orig: Order) (ords: Order list) =
+        let byName = ords |> List.map (toOrdVars >> OrderVariable.byName)
+
+        orig
+        |> mapOrdVars (fun ovar ->
+            byName
+            |> List.choose (Map.tryFind ovar.Variable.Name)
+            |> OrderVariable.unionPerConcentration maxCount records ovar
+        )
+
+
+    /// Whether the orders per concentration join into one order without a range on an increment that
+    /// holds values none of them allows: every variable has the same range in each, or a range
+    /// without a minimum, increment and maximum in one of them, or a range each can list.
+    let isListedUnion maxCount (ords: Order list) =
+        let isOnIncrement vr =
+            [
+                ValueRange.getMin >> Option.isSome
+                ValueRange.getIncr >> Option.isSome
+                ValueRange.getMax >> Option.isSome
+            ]
+            |> List.forall (fun f -> vr |> f)
+
+        ords
+        |> List.map toOrdVars
+        |> List.transpose
+        |> List.forall (fun ovars ->
+            match ovars |> List.map _.Variable.Values |> List.distinct with
+            | [ _ ] -> true
+            | vrs when vrs |> List.forall isOnIncrement |> not -> true
+            | vrs -> vrs |> List.forall (ValueRange.tryToValueSet maxCount >> Option.isSome)
+        )
 
 
     /// Check whether the orderable quantity and every component orderable quantity are within their

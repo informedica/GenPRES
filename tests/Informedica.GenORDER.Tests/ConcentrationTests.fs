@@ -212,6 +212,23 @@ let tests =
                         |> Expect.isTrue "the twin's content is in the list"
                     }
 
+                    test "a product with a form quantity without values counts as no known content" {
+                        let cmp = Scenarios.amoxClavText |> Tests.TestOrder.parse |> firstComponent
+                        let empty = [||] |> ValueUnit.withUnit Units.Volume.milliLiter
+
+                        let cmp =
+                            { cmp with
+                                Products = cmp.Products |> List.map (fun p -> { p with FormQuantities = Some empty })
+                            }
+
+                        let cmps = cmp |> Component.concentrations (fun _ -> true)
+                        cmps |> List.length |> Expect.equal "one per product" 2
+
+                        cmps
+                        |> List.forall (fun c -> c.ComponentQuantity = cmp.ComponentQuantity)
+                        |> Expect.isTrue "the content left as it is"
+                    }
+
                     test "a component without products gives every combination of its item strengths" {
                         for med in [ Scenarios.cotrim; Scenarios.pcmSupp ] do
                             let cmp = med |> firstComponent
@@ -262,6 +279,96 @@ let tests =
                         |> Component.concentrations (fun _ -> true)
                         |> List.length
                         |> Expect.equal "every strength when the action sets back" (cnc |> strengthCount)
+                    }
+                ]
+
+            testList
+                "the split per concentration"
+                [
+                    let caps = Order.ValueCaps.defaults
+                    let logger = OrderLogging.noOp
+
+                    let effects action ord =
+                        ord
+                        |> OrderProcessor.OrderAction.effects action
+                        |> Result.defaultWith (fun f -> failtest $"no effects: %A{f}")
+
+                    let whole action ord =
+                        ord |> OrderProcessor.OrderEffect.run caps logger (ord |> effects action)
+
+                    let values (ovar: OrderVariable) =
+                        ovar
+                        |> OrderVariable.getValSetValueUnit
+                        |> Option.map (ValueUnit.getBaseValue >> Set.ofArray)
+                        |> Option.defaultValue Set.empty
+
+                    let amoxDose (ord: Order) =
+                        ord.Orderable.Components
+                        |> List.head
+                        |> _.Items
+                        |> List.head
+                        |> _.Dose.Quantity
+                        |> OrderVariable.Quantity.toOrdVar
+
+                    test "an order with one combination of concentrations runs its effects as they are" {
+                        [
+                            for name, med in Tests.ReferenceTests.fixtures () do
+                                let ord = med |> Tests.TestOrder.toOrder
+
+                                if ord |> Order.splitPerConcentration 16 (fun _ -> true) |> List.length = 1 then
+                                    match
+                                        ord |> OrderProcessor.OrderAction.run caps logger OrderAction.CalcConstraints,
+                                        ord |> whole OrderAction.CalcConstraints
+                                    with
+                                    | Ok a, Ok b when a = b -> ()
+                                    | _ -> name
+                        ]
+                        |> Expect.isEmpty "the same order"
+                    }
+
+                    test "amoxClav in four products offers the dose each product reaches, and no other" {
+                        let ord =
+                            Scenarios.amoxClavEveryCombinationText
+                            |> Tests.TestOrder.parse
+                            |> Tests.TestOrder.toOrder
+                        let parts = ord |> Order.splitPerConcentration 16 (fun _ -> true)
+                        parts |> List.length |> Expect.equal "four products" 4
+
+                        let perPart =
+                            parts
+                            |> List.choose (whole OrderAction.CalcConstraints >> Result.toOption)
+                            |> List.map (amoxDose >> values)
+                            |> Set.unionMany
+
+                        match ord |> OrderProcessor.OrderAction.run caps logger OrderAction.CalcConstraints with
+                        | Error(_, f) -> failtest $"not created: %A{f}"
+                        | Ok created ->
+                            created
+                            |> amoxDose
+                            |> values
+                            |> Expect.equal "the doses of the products" perPart
+
+                            ord
+                            |> whole OrderAction.CalcConstraints
+                            |> Result.toOption
+                            |> Option.map (amoxDose >> values >> Set.count)
+                            |> Expect.equal "the whole order offers one dose" (Some 1)
+                    }
+
+                    test "an order whose union per concentration cannot be listed is created whole" {
+                        let ord = Scenarios.amfoWithNaClTwoStrengthsTimed |> Tests.TestOrder.toOrder
+
+                        ord
+                        |> Order.splitPerConcentration 16 (fun _ -> true)
+                        |> List.length
+                        |> Expect.equal "two NaCl strengths" 2
+
+                        match
+                            ord |> OrderProcessor.OrderAction.run caps logger OrderAction.CalcConstraints,
+                            ord |> whole OrderAction.CalcConstraints
+                        with
+                        | Ok a, Ok b -> a |> Expect.equal "the whole order" b
+                        | _ -> failtest "not created"
                     }
                 ]
         ]
