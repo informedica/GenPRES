@@ -1159,8 +1159,14 @@ module OrderProcessor =
             |> Set.unionMany
 
 
-        /// Runs one effect; a failure keeps the order the effect was run on.
-        let rec apply caps logger effect (ord: Order) =
+        /// Runs one effect; a failure keeps the order the effect was run on, as a failed solve returns the
+        /// order it partly solved.
+        let rec apply caps logger effect ord =
+            ord |> applyEffect caps logger effect |> Result.mapError (fun (_, f) -> ord, f)
+
+
+        /// Runs one effect; a failure returns the order the effect failed on.
+        and applyEffect caps logger effect (ord: Order) =
             match effect with
             | OrderEffect.SetAllOrderVariableRangesBack _
             | OrderEffect.SetOrderVariableRangeBack _

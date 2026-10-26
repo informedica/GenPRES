@@ -3054,6 +3054,28 @@ module EffectTests =
                     | _ -> failtest "no failure on the missing component"
                 }
 
+                test "a failed solve keeps the order it was run on, not the order it partly solved" {
+                    let ord =
+                        match
+                            Scenarios.pcmDrink
+                            |> valued
+                            |> run
+                                [
+                                    OrderEffect.SelectOrderVariableValue(dosQty, Choice.Min)
+                                    OrderEffect.SelectOrderVariableValue(
+                                        OrderVariableReference.ScheduleFrequency,
+                                        Choice.Min
+                                    )
+                                ]
+                        with
+                        | Ok ord -> ord
+                        | Error(_, e) -> failtest $"%A{e}"
+
+                    match ord |> run [ OrderEffect.SolveOrder SolveMode.Values ] with
+                    | Error(o, ActionFailure.SolveFailed _) -> o |> Expect.equal "the order before the solve" ord
+                    | _ -> failtest "the lowest dose at the lowest frequency solves"
+                }
+
                 test "Try keeps the order when an effect fails, else runs the effects" {
                     let ord = Scenarios.pcmDrink |> processed CalcMinMax
                     let failing =
