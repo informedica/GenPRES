@@ -679,6 +679,21 @@ module OrderProcessor =
             )
 
 
+        /// Whether the messages of a failed solve prove that the order cannot hold the values it was
+        /// solved with. A loop limit, a value set too large to list or an unexpected exception proves
+        /// nothing.
+        let rec proves msgs =
+            msgs
+            |> List.forall (
+                function
+                | Informedica.GenSolver.Lib.Types.Exceptions.SolverTooManyLoops _
+                | Informedica.GenSolver.Lib.Types.Exceptions.ValueSetOverflow _
+                | Informedica.GenSolver.Lib.Types.Exceptions.UnexpectedException _ -> false
+                | Informedica.GenSolver.Lib.Types.Exceptions.SolverErrored(_, ms, _) -> ms |> proves
+                | _ -> true
+            )
+
+
         /// The outcome of a search.
         type Search =
             {
@@ -725,7 +740,9 @@ module OrderProcessor =
 
                                     match ord |> setAndSolve logger v with
                                     | Ok o -> go acc o
-                                    | Error _ -> acc
+                                    | Error(_, msgs) when msgs |> proves -> acc
+                                    // a failure that proves nothing leaves the branch undecided
+                                    | Error _ -> { acc with Finished = false }
                             )
                             acc
 
@@ -746,12 +763,13 @@ module OrderProcessor =
             |> Option.bind (search logger true >> _.Complete >> List.tryHead)
 
 
-        /// Whether no complete order sets the variable to the value: the solve with the value fails,
-        /// or a search that tries every branch finds no complete order. A search that stops at
-        /// maxSolves, or at a range it cannot list, decides nothing, so the value is not impossible.
+        /// Whether no complete order sets the variable to the value: the solve with the value fails
+        /// in a way that proves it, or a search that tries every branch finds no complete order. A
+        /// failure that proves nothing, or a search that stops at maxSolves or at a range it cannot
+        /// list, decides nothing, so the value is not impossible.
         let isProvenImpossible logger ovar ord =
             match ord |> setAndSolve logger ovar with
-            | Error _ -> true
+            | Error(_, msgs) -> msgs |> proves
             | Ok o ->
                 let s = o |> search logger true
                 s.Complete |> List.isEmpty && s.Finished

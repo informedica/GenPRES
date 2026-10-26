@@ -404,6 +404,29 @@ let impossibleValuesTests =
                 |> Expect.isEmpty "every value dropped makes the solve fail"
             }
 
+            test "only a failure that says the values do not fit proves them impossible" {
+                let notFit = Informedica.GenSolver.Lib.Types.Exceptions.SolverInvalidEquations []
+                let loops = Informedica.GenSolver.Lib.Types.Exceptions.SolverTooManyLoops(10, [])
+                let overflow = Informedica.GenSolver.Lib.Types.Exceptions.ValueSetOverflow 10
+                let thrown = Informedica.GenSolver.Lib.Types.Exceptions.UnexpectedException(exn "thrown")
+                let errored ms =
+                    Informedica.GenSolver.Lib.Types.Exceptions.SolverErrored(1, ms, [])
+
+                [
+                    [ notFit ]
+                    [ loops ]
+                    [ overflow ]
+                    [ thrown ]
+                    [ notFit; loops ]
+                    [ errored [ notFit ] ]
+                    [ errored [ loops ] ]
+                ]
+                |> List.map OrderProcessor.CompleteOrder.proves
+                |> Expect.equal
+                    "a proof only without a limit or an exception"
+                    [ true; false; false; false; false; true; false ]
+            }
+
             test "with one dose count nothing is dropped" {
                 let ord = Scenarios.pcmDrink |> Tests.TestOrder.processed
                 ord |> doseCountIsFree |> Expect.isFalse "the dose count is 1"
