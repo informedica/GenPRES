@@ -899,6 +899,8 @@ module OrderProcessor =
 
     module OrderEffect =
 
+        open Informedica.GenUnits.Lib
+
 
         /// A failure of a solve or calculation as the failure of an effect: the order it failed on,
         /// with the messages of the solver.
@@ -1078,6 +1080,49 @@ module OrderProcessor =
         and run caps logger effects ord =
             (Ok ord, effects)
             ||> List.fold (fun acc eff -> acc |> Result.bind (apply caps logger eff))
+
+
+        /// The effects for the order of one combination of concentrations: a list includes the
+        /// values of the original order only when they belong to that combination, so a value of one
+        /// concentration is not included in another.
+        let forConcentration (ord: Order) effs =
+            let invariants =
+                ord
+                |> OrderVariableReference.invariants
+                |> List.choose (OrderVariableReference.tryGet ord)
+                |> OrderVariable.byName
+
+            // a held value belongs when the invariant of this combination allows it
+            let belongs (held: OrderVariable) =
+                match invariants |> Map.tryFind held.Variable.Name with
+                | None -> true
+                | Some ovar ->
+                    match held |> OrderVariable.getValSetValueUnit, ovar.DefinedConstraints.Values with
+                    | Some h, Some vs ->
+                        vs
+                        |> Variable.ValueRange.ValueSet.toValueUnit
+                        |> ValueUnit.intersect h
+                        |> ValueUnit.isEmpty
+                        |> not
+                    | _ -> true
+
+            let originalBelongs original =
+                original
+                |> toOrdVars
+                |> List.filter OrderVariable.hasOneValue
+                |> List.forall belongs
+
+            effs
+            |> List.map (
+                function
+                | OrderEffect.EnumerateOrderVariableValues(cap, rate, Some original) when
+                    original |> originalBelongs |> not
+                    ->
+                    OrderEffect.EnumerateOrderVariableValues(cap, rate, None)
+                | OrderEffect.EnumerateRateValues(cap, selection, Some original) when original |> originalBelongs |> not ->
+                    OrderEffect.EnumerateRateValues(cap, selection, None)
+                | eff -> eff
+            )
 
 
     module SetCommand =
@@ -1582,14 +1627,48 @@ module OrderProcessor =
                     ]
 
 
-        /// Runs an action; a failure keeps the order before the action.
+        /// The most combinations of concentrations an order is solved for one by one; past it the
+        /// order is solved once, with every concentration.
+        let maxConcentrations = 16
+
+
+        /// The most values the union of the orders per concentration makes a list of; past it a
+        /// range.
+        let maxUnionValues = 200
+
+
+        /// Runs an action; a failure keeps the order before the action. When a component has more
+        /// than one concentration, the action runs once per combination of concentrations, in
+        /// parallel, with the effects decided on the order as it is, and the order offers the union
+        /// of those that succeed, so no value of one concentration is combined with a value of
+        /// another. When that union cannot be listed, the action runs on the whole order.
         let run caps logger action ord =
             match ord |> effects action with
             | Error f -> Error(ord, f)
             | Ok effs ->
-                ord
-                |> OrderEffect.run caps logger effs
-                |> Result.mapError (fun (_, f) -> ord, f)
+                let setBack = OrderEffect.setBackNames ord effs
+                let setsBack (ovar: OrderVariable) = setBack |> Set.contains ovar.Variable.Name
+                let runOne o =
+                    o |> OrderEffect.run caps logger (effs |> OrderEffect.forConcentration o)
+
+                let runWhole () =
+                    ord
+                    |> OrderEffect.run caps logger effs
+                    |> Result.mapError (fun (_, f) -> ord, f)
+
+                match ord |> splitPerConcentration maxConcentrations setsBack with
+                | [ o ] -> o |> runOne |> Result.mapError (fun (_, f) -> ord, f)
+                | ords ->
+                    let results = ords |> List.toArray |> Array.Parallel.map runOne |> Array.toList
+
+                    match results |> List.choose Result.toOption with
+                    | [] -> results |> List.head |> Result.mapError (fun (_, f) -> ord, f)
+                    // a union that becomes a range would offer values no concentration allows, so the
+                    // order runs whole
+                    | oks when oks |> isListedUnion maxUnionValues |> not -> runWhole ()
+                    | oks ->
+                        let records = effs |> List.contains OrderEffect.RecordCalculatedConstraints
+                        Ok(oks |> unionPerConcentration maxUnionValues records ord)
 
 
     /// The property commands as actions of the order program, while the order context still sends
