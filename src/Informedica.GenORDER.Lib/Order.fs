@@ -152,6 +152,10 @@ module Order =
                 | DoseProperty.TotalAdjust -> dos.TotalAdjust |> TotalAdjust.toOrdVar
 
 
+            /// Whether the rules constrain a dose: one of its dose variables has defined constraints.
+            let isConstrained dos = dos |> toOrdVars |> List.exists OrderVariable.hasConstraints
+
+
             /// <summary>
             /// Create a new Dose from a list of OrderVariables using
             /// an old Dose.
@@ -1299,6 +1303,14 @@ module Order =
                     yield! cmp.Dose |> Dose.toOrdVars
                     yield! cmp.Items |> List.collect Item.toOrdVars
                 ]
+
+
+            /// Whether the rules constrain the dose of a component: its own dose or the dose of one of
+            /// its items. The doses of a component the rules do not constrain, and of its items, only
+            /// follow from the others, so no recalculation kind recalculates them.
+            let isDoseConstrained (cmp: Component) =
+                cmp.Dose |> Dose.isConstrained
+                || cmp.Items |> List.exists (_.Dose >> Dose.isConstrained)
 
 
             /// <summary>
