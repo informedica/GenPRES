@@ -1430,3 +1430,142 @@ module OrderProcessor =
                     setFloor (OrderVariableReference.OrderableDose DoseProperty.Quantity) SetBackTo.MinIncr
                     setFloor OrderVariableReference.OrderableDoseCount SetBackTo.One
             ]
+
+
+        /// The variables of refs a recalculation keeps: only the ones that lie within their calculated
+        /// constraints, so a variable a step moved outside its constraints is set back.
+        let keptWithinConstraints ord refs =
+            refs
+            |> List.filter (
+                OrderVariableReference.tryGet ord
+                >> Option.exists (OrderVariable.isWithinConstraints true)
+            )
+
+
+        /// Every variable the kept variables do not determine set back to its calculated constraints.
+        let setBackUndetermined ord kept =
+            OrderEffect.SetBackUndetermined(kept |> keptWithinConstraints ord, [], SetBackTo.Calculated)
+
+
+        /// The recalculation of the kind Dose: keeps the frequency, the order count and the
+        /// invariants. The preparation is never kept: a kept preparation limits the dose to the
+        /// preparation divided by the dose count, a single value when the dose count holds one value.
+        let reCalcDose ord =
+            [
+                [
+                    OrderVariableReference.ScheduleFrequency
+                    OrderVariableReference.OrderableOrderCount
+                    yield! ord |> OrderVariableReference.invariants
+                ]
+                |> setBackUndetermined ord
+            ]
+
+
+        /// The recalculation of the kind Per time: keeps what the kind Dose keeps, without the
+        /// frequency, since a per time is the dose quantity times the frequency. With one component
+        /// whose dose quantity the definition fixes, its calculated constraints holding one value, only
+        /// the product can change the per time, so the product invariants of that component are not
+        /// kept either.
+        let reCalcPerTime (ord: Order) =
+            let name = WrappedString.Name.toString
+
+            let isQuantityFixed =
+                ord.Orderable.Dose.Quantity
+                |> Quantity.toOrdVar
+                |> OrderVariable.hasOneCalculatedValue
+
+            let product =
+                match ord.Orderable.Components with
+                | [ c ] when isQuantityFixed ->
+                    [
+                        OrderVariableReference.ComponentQuantity(c.Name |> name)
+
+                        for i in c.Items do
+                            OrderVariableReference.ItemComponentQuantity(c.Name |> name, i.Name |> name)
+                            OrderVariableReference.ItemComponentConcentration(c.Name |> name, i.Name |> name)
+                    ]
+                | _ -> []
+
+            [
+                [
+                    OrderVariableReference.OrderableOrderCount
+                    yield! ord |> OrderVariableReference.invariants |> List.except product
+                ]
+                |> setBackUndetermined ord
+            ]
+
+
+        /// The recalculation of the kind Time: keeps the frequency, the order count and the invariants;
+        /// the dose quantity unless the preparation is out of its constraints or the time is fixed; the
+        /// preparation unless it is free: out of its constraints, or a fixed time, since a fixed time
+        /// ties the dose to the rate and a dose count that holds one value ties the preparation to the
+        /// dose.
+        let reCalcTime ord =
+            let isTimeFixed = ord.Schedule |> Schedule.isTimeFixed
+            let isPrepFree = ord |> isPrepWithinConstraints |> not || isTimeFixed
+
+            [
+                [
+                    OrderVariableReference.ScheduleFrequency
+                    OrderVariableReference.OrderableOrderCount
+
+                    // on Continuous the dose quantity is the preparation, which this recipe keeps or frees
+                    if ord.Schedule |> Schedule.isContinuous |> not && not isPrepFree then
+                        OrderVariableReference.OrderableDose DoseProperty.Quantity
+
+                    if not isPrepFree then
+                        yield! ord |> keptPreparation
+
+                    yield! ord |> OrderVariableReference.invariants
+                ]
+                |> setBackUndetermined ord
+            ]
+
+
+        /// The effects of a recipe on the order.
+        let effects recipe ord =
+            match recipe with
+            | Recipe.ScheduleFrequencyStep -> ord |> scheduleFrequencyStep
+            | Recipe.OrderableDoseQuantityStep -> ord |> orderableDoseQuantityStep
+            | Recipe.OrderableDoseQuantityPercentile -> ord |> orderableDoseQuantityPercentile
+            | Recipe.OrderableDoseRateStep -> ord |> orderableDoseRateStep
+            | Recipe.ComponentOrderableQuantityStep c -> ord |> componentOrderableQuantityStep c
+            | Recipe.ReCalcDose -> ord |> reCalcDose
+            | Recipe.ReCalcPerTime -> ord |> reCalcPerTime
+            | Recipe.ReCalcTime -> ord |> reCalcTime
+
+
+        /// The recipe a recalculation of the variable runs, per dose type: the kind Dose, Per time or
+        /// Time that recalculates the variable; None for a variable no kind recalculates, which includes
+        /// the dose of an item of a component the rules do not constrain.
+        let forReCalcCommand ovarRef (ord: Order) =
+            let isUnconstrained =
+                match ovarRef with
+                | OrderVariableReference.ItemDose(c, _, _) ->
+                    ord.Orderable
+                    |> Orderable.tryComponent c
+                    |> Option.exists Orderable.Component.isDoseConstrained
+                    |> not
+                | _ -> false
+
+            // the orderable dose quantity and rate have no command on the wire; the program
+            // recalculates them for its own actions
+            let kind =
+                match ovarRef with
+                | OrderVariableReference.OrderableDose DoseProperty.Quantity
+                | OrderVariableReference.ItemDose(_, _, DoseProperty.Quantity)
+                | OrderVariableReference.ItemDose(_, _, DoseProperty.QuantityAdjust) -> Some Recipe.ReCalcDose
+                | OrderVariableReference.ItemDose(_, _, DoseProperty.PerTime)
+                | OrderVariableReference.ItemDose(_, _, DoseProperty.PerTimeAdjust) -> Some Recipe.ReCalcPerTime
+                | OrderVariableReference.ScheduleTime
+                | OrderVariableReference.OrderableDose DoseProperty.Rate
+                | OrderVariableReference.ItemDose(_, _, DoseProperty.Rate)
+                | OrderVariableReference.ItemDose(_, _, DoseProperty.RateAdjust) -> Some Recipe.ReCalcTime
+                | _ -> None
+
+            match kind, ord.Schedule with
+            | _ when isUnconstrained -> None
+            | Some Recipe.ReCalcDose, (Once | Discontinuous _ | Timed _ | OnceTimed _)
+            | Some Recipe.ReCalcPerTime, (Discontinuous _ | Timed _)
+            | Some Recipe.ReCalcTime, (Continuous _ | Timed _ | OnceTimed _) -> kind
+            | _ -> None

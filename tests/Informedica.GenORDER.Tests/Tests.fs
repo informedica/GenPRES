@@ -3202,17 +3202,6 @@ module RecipeTests =
     let frq = OrderVariableReference.ScheduleFrequency
 
 
-    /// The effects of a step recipe.
-    let effectsOf recipe ord =
-        match recipe with
-        | Recipe.ScheduleFrequencyStep -> ord |> Recipes.scheduleFrequencyStep
-        | Recipe.OrderableDoseQuantityStep -> ord |> Recipes.orderableDoseQuantityStep
-        | Recipe.OrderableDoseQuantityPercentile -> ord |> Recipes.orderableDoseQuantityPercentile
-        | Recipe.OrderableDoseRateStep -> ord |> Recipes.orderableDoseRateStep
-        | Recipe.ComponentOrderableQuantityStep c -> ord |> Recipes.componentOrderableQuantityStep c
-        | _ -> []
-
-
     /// The recipe of a step of n defined increments on the variable, and its effects as the order
     /// program runs them: the recipe, the stepped value in place of the value held, and a solve for
     /// min and max; None when the variable cannot be stepped.
@@ -3230,7 +3219,7 @@ module RecipeTests =
                 |> Option.map (fun vu ->
                     recipe,
                     [
-                        yield! ord |> effectsOf recipe
+                        yield! ord |> Recipes.effects recipe
                         OrderEffect.SetOrderVariableRangeBack(ovarRef, SetBackTo.AnyPositive)
                         OrderEffect.ConstrainOrderVariableRange(ovarRef, vu)
                         OrderEffect.SolveOrder SolveMode.MinMax
@@ -3412,7 +3401,7 @@ module RecipeTests =
                                     | Ok stepped ->
                                         let freed =
                                             ord
-                                            |> effectsOf recipe
+                                            |> Recipes.effects recipe
                                             |> OrderProcessor.OrderEffect.setBackNames ord
                                             |> Set.union (
                                                 ovarRef
@@ -3439,7 +3428,7 @@ module RecipeTests =
                                 match ord |> step ovarRef 3 with
                                 | None -> ()
                                 | Some(recipe, _) ->
-                                    match ord |> run (ord |> effectsOf recipe) with
+                                    match ord |> run (ord |> Recipes.effects recipe) with
                                     | Error _ -> ()
                                     | Ok after ->
                                         for basic in ord |> stepRefs |> List.filter (Ref.isBasic ord.Schedule) do
@@ -3454,6 +3443,233 @@ module RecipeTests =
                                             | _ -> ()
                     ]
                     |> Expect.isEmpty "every basic variable keeps its increment"
+                }
+            ]
+
+
+    /// The recalculation commands per kind and the dose types they run on, with the four commands
+    /// that have no kind.
+    let reCalcKinds c i =
+        let itemDose p = OrderVariableReference.ItemDose(c, i, p)
+        let all = [ "Once"; "Discontinuous"; "Timed"; "OnceTimed"; "Continuous" ]
+
+        [
+            [ itemDose DoseProperty.Quantity; itemDose DoseProperty.QuantityAdjust ],
+            Some Recipe.ReCalcDose,
+            [ "Once"; "Discontinuous"; "Timed"; "OnceTimed" ]
+            [ itemDose DoseProperty.PerTime; itemDose DoseProperty.PerTimeAdjust ],
+            Some Recipe.ReCalcPerTime,
+            [ "Discontinuous"; "Timed" ]
+            [
+                OrderVariableReference.ScheduleTime
+                itemDose DoseProperty.Rate
+                itemDose DoseProperty.RateAdjust
+            ],
+            Some Recipe.ReCalcTime,
+            [ "Continuous"; "Timed"; "OnceTimed" ]
+            [
+                OrderVariableReference.OrderableQuantity
+                OrderVariableReference.ComponentDose(c, DoseProperty.QuantityAdjust)
+                OrderVariableReference.ItemOrderableQuantity(c, i)
+                OrderVariableReference.ItemOrderableConcentration(c, i)
+            ],
+            None,
+            all
+        ]
+
+
+    /// The variables a recalculation can name on an order, each with the recipe it runs.
+    let reCalcTargets (ord: Order) =
+        [
+            OrderVariableReference.ScheduleTime
+            dose DoseProperty.Quantity
+            dose DoseProperty.Rate
+
+            for c in ord.Orderable.Components do
+                for i in c.Items do
+                    for p in
+                        [
+                            DoseProperty.Quantity
+                            DoseProperty.QuantityAdjust
+                            DoseProperty.PerTime
+                            DoseProperty.PerTimeAdjust
+                            DoseProperty.Rate
+                            DoseProperty.RateAdjust
+                        ] do
+                        OrderVariableReference.ItemDose(c.Name |> Name.toString, i.Name |> Name.toString, p)
+        ]
+        |> List.choose (fun ovarRef -> Recipes.forReCalcCommand ovarRef ord |> Option.map (fun r -> ovarRef, r))
+
+
+    let reCalcTests =
+        testList
+            "recalculation recipes"
+            [
+                test "the kind of each recalculation command per dose type" {
+                    let fixtures = ReferenceTests.fixtures () |> Map.ofList
+                    let ord = Scenarios.amfo |> orderOf
+                    let cmp = ord.Orderable.Components |> List.head
+                    let c = cmp.Name |> Name.toString
+                    let i = cmp.Items |> List.head |> _.Name |> Name.toString
+
+                    let schedules =
+                        [
+                            "Once", Once
+                            "Discontinuous", (fixtures["pcmDrink"] |> orderOf).Schedule
+                            "Timed", (Scenarios.amfoTimed |> orderOf).Schedule
+                            "OnceTimed", (fixtures["kcl"] |> orderOf).Schedule
+                            "Continuous", (fixtures["morfCont"] |> orderOf).Schedule
+                        ]
+
+                    cmp
+                    |> Order.Orderable.Component.isDoseConstrained
+                    |> Expect.isTrue "a constrained component dose"
+
+                    [
+                        for refs, kind, doseTypes in reCalcKinds c i do
+                            for doseType, sch in schedules do
+                                for ovarRef in refs do
+                                    let expected = if doseTypes |> List.contains doseType then kind else None
+                                    let actual = Recipes.forReCalcCommand ovarRef { ord with Schedule = sch }
+
+                                    if actual <> expected then
+                                        $"%s{doseType} %A{ovarRef}: %A{actual}, expected %A{expected}"
+                    ]
+                    |> Expect.isEmpty "every command has its kind on its dose types only"
+                }
+
+                test "no kind recalculates the item dose of a component the rules do not constrain" {
+                    let unconstrained =
+                        [
+                            for name, med in ReferenceTests.fixtures () do
+                                let ord = med |> orderOf
+
+                                for cmp in ord.Orderable.Components do
+                                    if cmp |> Order.Orderable.Component.isDoseConstrained |> not then
+                                        for i in cmp.Items do
+                                            name, ord, cmp.Name |> Name.toString, i.Name |> Name.toString
+                        ]
+
+                    unconstrained |> Expect.isNonEmpty "a component the rules do not constrain"
+
+                    [
+                        for name, ord, c, i in unconstrained do
+                            for p in [ DoseProperty.Quantity; DoseProperty.PerTime; DoseProperty.Rate ] do
+                                match Recipes.forReCalcCommand (OrderVariableReference.ItemDose(c, i, p)) ord with
+                                | Some r -> $"%s{name} %s{c} %s{i} %A{p}: %A{r}"
+                                | None -> ()
+                    ]
+                    |> Expect.isEmpty "no kind"
+                }
+
+                test "a recalculation leaves every variable its recipe does not set back" {
+                    let targets = solvedFixtures.Value |> List.collect (snd >> reCalcTargets)
+                    targets |> Expect.isNonEmpty "recalculations"
+
+                    [
+                        for name, ord in solvedFixtures.Value do
+                            for ovarRef, recipe in ord |> reCalcTargets do
+                                let effects = ord |> Recipes.effects recipe
+                                let setBack = effects |> OrderProcessor.OrderEffect.setBackNames ord
+
+                                match ord |> run (effects @ [ OrderEffect.SolveOrder SolveMode.MinMax ]) with
+                                | Error(_, e) -> $"%s{name} %A{ovarRef}: %A{e}"
+                                | Ok after ->
+                                    for b, a in List.zip (ord |> Order.toOrdVars) (after |> Order.toOrdVars) do
+                                        if
+                                            setBack |> Set.contains (b |> OrderVariable.getName) |> not
+                                            && a.Variable.Values <> b.Variable.Values
+                                        then
+                                            $"%s{name} %A{ovarRef}: %s{b |> OrderVariable.getName |> Name.toString}"
+                    ]
+                    |> Expect.isEmpty "the kept variables are unchanged"
+                }
+
+                test "the variables a recalculation keeps do not determine its target" {
+                    [
+                        for name, ord in solvedFixtures.Value do
+                            for ovarRef, recipe in ord |> reCalcTargets do
+                                let setBack =
+                                    ord |> Recipes.effects recipe |> OrderProcessor.OrderEffect.setBackNames ord
+
+                                match ovarRef |> Ref.tryGet ord with
+                                | Some target when setBack |> Set.contains (target |> OrderVariable.getName) -> ()
+                                | _ -> $"%s{name} %A{ovarRef} (%A{recipe}) keeps its target"
+                    ]
+                    |> Expect.isEmpty "every recalculation sets back its target"
+                }
+
+                // the expected set-backs come from the kinds, not from the recipes, so a recipe that sets
+                // back too much fails
+                test "each kind keeps what the kind says and sets back the rest" {
+                    let cases =
+                        [
+                            for name, ord in solvedFixtures.Value do
+                                for ovarRef, recipe in ord |> reCalcTargets do
+                                    let setBack =
+                                        ord |> Recipes.effects recipe |> OrderProcessor.OrderEffect.setBackNames ord
+
+                                    let isSetBack r =
+                                        r
+                                        |> Ref.tryGet ord
+                                        |> Option.map (fun ovar ->
+                                            setBack |> Set.contains (ovar |> OrderVariable.getName)
+                                        )
+
+                                    let cmps = ord |> Order.components
+                                    let isPrepKept =
+                                        ord |> Order.isPrepWithinConstraints
+                                        && not (ord.Schedule |> Order.Schedule.isTimeFixed)
+
+                                    let isQtyFixed =
+                                        ord.Orderable.Dose.Quantity
+                                        |> OrderVariable.Quantity.toOrdVar
+                                        |> OrderVariable.hasOneCalculatedValue
+
+                                    let expected =
+                                        [
+                                            match recipe with
+                                            | Recipe.ReCalcDose ->
+                                                frq, false
+                                                OrderVariableReference.OrderableOrderCount, false
+                                            | Recipe.ReCalcPerTime ->
+                                                frq, true
+                                                OrderVariableReference.OrderableOrderCount, false
+
+                                                match cmps with
+                                                | [ c ] when isQtyFixed ->
+                                                    OrderVariableReference.ComponentQuantity c, true
+                                                | _ -> ()
+                                            | Recipe.ReCalcTime ->
+                                                frq, false
+                                                OrderVariableReference.OrderableOrderCount, false
+
+                                                for c in cmps do
+                                                    OrderVariableReference.ComponentOrderableQuantity c, not isPrepKept
+                                            | _ -> ()
+                                        ]
+
+                                    for r, exp in expected do
+                                        // a variable the order does not have, as the frequency on Continuous
+                                        match r |> isSetBack with
+                                        | Some actual -> $"%s{name} %A{ovarRef} (%A{recipe}) %A{r}", actual, exp
+                                        | None -> ()
+                        ]
+
+                    // every kind and the single component exception are reached
+                    for kind in [ "ReCalcDose"; "ReCalcPerTime"; "ReCalcTime"; "ComponentQuantity" ] do
+                        cases
+                        |> List.exists (fun (label, _, _) -> label.Contains kind)
+                        |> Expect.isTrue $"a case for %s{kind}"
+
+                    cases
+                    |> List.choose (fun (label, actual, exp) ->
+                        if actual = exp then
+                            None
+                        else
+                            Some $"%s{label}: set back %b{actual}, expected %b{exp}"
+                    )
+                    |> Expect.equal "set back as the kind says" []
                 }
             ]
 
@@ -5417,6 +5633,7 @@ let tests =
             ReferenceTests.tests
             EffectTests.tests
             RecipeTests.tests
+            RecipeTests.reCalcTests
             ConstraintsTests.tests
             GoldenOrderTests.tests
             IncreaseQuantityIncrementTests.tests
