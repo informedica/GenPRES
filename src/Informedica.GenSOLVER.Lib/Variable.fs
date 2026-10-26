@@ -2319,6 +2319,20 @@ module Variable =
             |> Array.sum
 
 
+        /// The values of a range as one list, when it is a list, or a min, increment and max of fewer
+        /// than maxCount values.
+        let tryToValueSet maxCount vr =
+            match vr with
+            | ValSet vs -> Some vs
+            | MinIncrMax(min, incr, max) ->
+                // counted before the list is made, so a large range is never built
+                if minIncrMaxCount min incr max < BigRational.FromInt maxCount then
+                    ValueSet.minIncrMaxToValueSet min incr max |> Some
+                else
+                    None
+            | _ -> None
+
+
         /// <summary>
         /// Try and increase the increment of a <c>ValueRange</c> vr to an
         /// increment in incrs such that the resulting ValueRange contains
@@ -3459,6 +3473,16 @@ module Variable =
         { var with Values = var.Values |> ValueRange.setNearestValue vu }
 
 
+    /// The number of values of a variable: of its value set, or of its min, increment and max when
+    /// the increment has one value; None for any other range.
+    let valueCount (var: Variable) =
+        match var.Values with
+        | ValSet vs -> vs |> ValueSet.count |> Some
+        | MinIncrMax(min, incr, max) when incr |> Increment.count = 1 ->
+            ValueRange.minIncrMaxCount min incr max |> BigRational.ToInt32 |> Some
+        | _ -> None
+
+
     /// The variable set to its nth value, counted from 0: the nth of its value set, or min plus nth
     /// times the increment, capped at the maximum. A value set without an nth value is kept as it is.
     let setNthValue nth (var: Variable) =
@@ -3504,33 +3528,12 @@ module Variable =
         { var with Values = vr }
 
 
+    /// The variable set to the value at perc percent of the way through its values: 0 gives the
+    /// first value and 100 the last. A variable without a value count is kept as it is.
     let setPercValue perc (var: Variable) =
-        let nth =
-            match var.Values |> ValueRange.getMinIncrMaxOrValueSet with
-            | Some min, Some incr, Some max, None ->
-                let min, incr, max =
-                    min |> Minimum.toValueUnit, incr |> Increment.toValueUnit, max |> Maximum.toValueUnit
-
-                (max - min) / incr
-                |> ValueUnit.getValue
-                |> function
-                    | [| br |] when br.Denominator = 1I -> br |> BigRational.ToInt32 |> Some
-                    | _ -> None
-            | None, None, None, Some vs -> vs |> ValueSet.count |> Some
-            | _ -> None
-            |> function
-                | None -> None
-                | Some n ->
-                    let nth = n * perc / 100
-                    // cannot be 0
-                    let nth = if nth < 1 then 1 else nth
-                    // must be smaller than total count
-                    if nth > n then n else nth
-                    |> Some
-
-        match nth with
-        | None -> var
-        | Some n -> var |> setNthValue n
+        match var |> valueCount with
+        | Some n when n > 0 -> var |> setNthValue ((n - 1) * perc / 100 |> max 0 |> min (n - 1))
+        | _ -> var
 
 
     /// <summary>Set the minimum value of a Variable.</summary>

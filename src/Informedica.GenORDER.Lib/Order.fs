@@ -158,6 +158,14 @@ module Order =
                 create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
 
 
+            /// Whether the rate of a dose is a min, increment and max.
+            let rateIsRange (dos: Dose) = (dos.Rate |> Rate.toOrdVar).Variable |> Variable.isMinIncrMax
+
+
+            /// Whether the rate of a dose is a list of more than one value.
+            let rateIsList (dos: Dose) = dos.Rate |> Rate.toOrdVar |> OrderVariable.hasValues
+
+
             /// <summary>
             /// Apply constraints to a Dose
             /// </summary>
@@ -1248,10 +1256,12 @@ module Order =
             let getItems cmp = (cmp |> inf).Items
 
 
-            let hasItem itm =
-                getItems
-                >> List.map (_.Name >> Name.toString)
-                >> List.exists (String.equalsCapInsens itm)
+            /// The item of a component with the name itm.
+            let tryItem itm =
+                getItems >> List.tryFind (_.Name >> Name.toString >> String.equalsCapInsens itm)
+
+
+            let hasItem itm = tryItem itm >> Option.isSome
 
 
             /// <summary>
@@ -1375,11 +1385,10 @@ module Order =
                 // the values of the variable among the allowed, or None when that removes nothing; a
                 // product without a value for the variable allows every value
                 let keep allowed ovar =
-                    match ovar |> OrderVariable.getValSetValueUnit with
-                    | Some vals when allowed |> List.forall Option.isSome ->
+                    match ovar |> OrderVariable.getValSetValueUnit, allowed |> List.sequenceOption with
+                    | Some vals, Some allowed ->
                         let kept =
                             allowed
-                            |> List.choose id
                             |> List.filter (ValueUnit.eqsGroup vals)
                             |> List.toArray
                             |> ValueUnit.collect
@@ -1831,10 +1840,13 @@ module Order =
         let getComponents orb = (orb |> inf).Components
 
 
-        let hasComponent s =
+        /// The component of an orderable with the name cmp.
+        let tryComponent cmp =
             getComponents
-            >> List.map (_.Name >> Name.toString)
-            >> List.exists (String.equalsCapInsens s)
+            >> List.tryFind (_.Name >> Name.toString >> String.equalsCapInsens cmp)
+
+
+        let hasComponent cmp = tryComponent cmp >> Option.isSome
 
 
         let applyToComponents pred f orb =
@@ -2415,6 +2427,14 @@ module Order =
             | Continuous tme
             | Timed(_, tme) -> Some tme
             | _ -> None
+
+
+        /// Whether the calculated constraints of the time hold one value: a dose quantity is then a
+        /// fixed number of times its rate.
+        let isTimeFixed schedule =
+            schedule
+            |> getTime
+            |> Option.exists (Time.toOrdVar >> OrderVariable.hasOneCalculatedValue)
 
 
         let isTimeWithinConstraints useCalc =
@@ -3064,6 +3084,10 @@ module Order =
         }
 
 
+    /// The order with every order variable mapped by f.
+    let mapOrdVars f ord = ord |> fromOrdVars (ord |> toOrdVars |> List.map f)
+
+
     /// <summary>
     /// Apply constraints to an Order
     /// </summary>
@@ -3077,11 +3101,7 @@ module Order =
         }
 
 
-    let applyCalculatedConstraints ord =
-        ord
-        |> toOrdVars
-        |> List.map OrderVariable.applyCalculatedConstraints
-        |> fun ovars -> ord |> fromOrdVars ovars
+    let applyCalculatedConstraints ord = ord |> mapOrdVars OrderVariable.applyCalculatedConstraints
 
 
     /// Check whether all OrderVariables in an Order are empty
@@ -3103,11 +3123,7 @@ module Order =
         toOrdVars >> List.filter (OrderVariable.isWithinConstraints useCalc >> not)
 
 
-    let setCalculatedConstraints ord =
-        ord
-        |> toOrdVars
-        |> List.map OrderVariable.setCalculatedConstraints
-        |> fun ovars -> ord |> fromOrdVars ovars
+    let setCalculatedConstraints ord = ord |> mapOrdVars OrderVariable.setCalculatedConstraints
 
 
     /// Check whether all OrderVariables in an Order are solved
@@ -3598,6 +3614,10 @@ module Order =
         |> Mapping.getEqsMapping ord
 
 
+    /// The equations the solve uses, over the variables of the order.
+    let equations ord = ord |> mapToOrderEquations (ord |> equationMapping)
+
+
     /// <summary>
     /// Solve an Order
     /// </summary>
@@ -3627,7 +3647,7 @@ module Order =
                 | Ok(false, _) -> ord |> Ok
                 | Ok(true, orb) -> { ord with Order.Orderable = orb } |> solve "Products" minMax printErr logger
 
-        let oEqs = ord |> mapToOrderEquations (ord |> equationMapping)
+        let oEqs = ord |> equations
 
         try
             oEqs

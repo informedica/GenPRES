@@ -80,6 +80,18 @@ module ValueUnit =
             if result |> isEmpty then None else result |> Some
 
 
+    /// The values of several value units in the unit of the first, sorted and without doubles; vus
+    /// holds at least one value unit.
+    let collectValues vus =
+        match vus |> List.toArray |> collect with
+        | Some vu -> vu |> applyToValue (Array.distinct >> Array.sort)
+        | None -> invalidArg (nameof vus) "no value to collect"
+
+
+    /// The value 1, for a count.
+    let oneCount = Units.Count.times |> one
+
+
     /// <summary>
     /// Get a standard frequency ValueUnit
     /// </summary>
@@ -1011,6 +1023,76 @@ module OrderVariable =
         || ovar.Variable |> Variable.isNonZeroPositive
 
 
+    /// Whether the range of an order variable is a list of one value.
+    let hasOneValue ovar = ovar |> getVar |> Variable.isSolved
+
+
+    /// The value of an order variable that holds one value.
+    let solvedValue ovar =
+        if ovar |> hasOneValue then
+            ovar |> getValSetValueUnit
+        else
+            None
+
+
+    /// The order variables by their name.
+    let byName ovars =
+        ovars |> List.map (fun ovar -> ovar |> getName, ovar) |> Map.ofList
+
+
+    /// Whether the calculated constraints of an order variable hold one value.
+    let hasOneCalculatedValue (ovar: OrderVariable) =
+        ovar.CalculatedConstraints.Values
+        |> Option.exists (fun vs -> vs |> ValueSet.count = 1)
+
+
+    /// How a value can be set on an order variable: a list of values, or a min, increment and max,
+    /// is selectable, one value with an increment in its defined constraints is steppable.
+    let shape (ovar: OrderVariable) =
+        match ovar.Variable.Values with
+        | ValSet vs when vs |> ValueSet.count > 1 -> Shape.SelectableList
+        | ValSet _ when ovar.DefinedConstraints.Incr |> Option.isSome -> Shape.Steppable
+        | MinIncrMax _ -> Shape.SelectableRange
+        | _ -> Shape.NotSettable
+
+
+    /// Frees an order variable: any positive value on its defined increment, the smallest defined
+    /// increment as the minimum and no maximum; any positive value without a defined increment.
+    let free (ovar: OrderVariable) =
+        match ovar.DefinedConstraints.Incr with
+        | None -> ovar |> setToNonZeroPositive
+        | Some incr ->
+            let min = incr |> Increment.minElement |> Option.map (Minimum.create true)
+
+            { ovar with
+                OrderVariable.Variable.Values =
+                    ValueRange.unrestricted
+                    |> ValueRange.setOptMin min
+                    |> ValueRange.setOptIncr (Some incr)
+            }
+
+
+    /// The order variable set to the value 1, for a count.
+    let setToOne (ovar: OrderVariable) =
+        { ovar with OrderVariable.Variable.Values = ValueUnit.oneCount |> ValueSet.create |> ValSet }
+
+
+    /// The order variable set to any value of 1 or more, for a count.
+    let setToAtLeastOne (ovar: OrderVariable) =
+        { ovar with OrderVariable.Variable.Values = ValueUnit.oneCount |> Minimum.create true |> Min }
+
+
+    /// The order variable with its range narrowed to the values of vu; None when the range keeps none
+    /// of them.
+    let tryConstrain vu (ovar: OrderVariable) =
+        // the solver raises on an empty intersection
+        try
+            let vr = vu |> ValueSet.create |> ValSet
+            Some { ovar with Variable = ovar.Variable |> Variable.setValueRange vr }
+        with Exceptions.SolverException _ ->
+            None
+
+
     /// <summary>
     /// Step a variable's value up or down by the increment amount.
     /// Designed for UI increment/decrement buttons with the following behavior:
@@ -1429,24 +1511,10 @@ module OrderVariable =
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> count
 
 
-        let setToOne =
-            toOrdVar
-            >> (fun ovar ->
-                { ovar with
-                    OrderVariable.Variable.Values = Units.Count.times |> ValueUnit.one |> ValueSet.create |> ValSet
-                }
-            )
-            >> count
+        let setToOne = apply setToOne
 
 
-        let setMinToOne =
-            toOrdVar
-            >> (fun ovar ->
-                { ovar with
-                    OrderVariable.Variable.Values = Units.Count.times |> ValueUnit.one |> Minimum.create true |> Min
-                }
-            )
-            >> count
+        let setMinToOne = apply setToAtLeastOne
 
 
     /// Type and functions that represent a time
