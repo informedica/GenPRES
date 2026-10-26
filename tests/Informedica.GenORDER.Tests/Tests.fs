@@ -3184,6 +3184,260 @@ module EffectTests =
             ]
 
 
+module RecipeTests =
+
+    open HelperTests
+
+    module Ref = OrderProcessor.OrderVariableReference
+    module Recipes = OrderProcessor.Recipe
+    module SetCmd = OrderProcessor.SetCommand
+    module ValueRange = Informedica.GenSolver.Lib.Variable.ValueRange
+    module ValueSet = ValueRange.ValueSet
+
+
+    let run = EffectTests.run
+
+    let dose = OrderVariableReference.OrderableDose
+
+    let frq = OrderVariableReference.ScheduleFrequency
+
+
+    /// The effects of a step recipe.
+    let effectsOf recipe ord =
+        match recipe with
+        | Recipe.ScheduleFrequencyStep -> ord |> Recipes.scheduleFrequencyStep
+        | Recipe.OrderableDoseQuantityStep -> ord |> Recipes.orderableDoseQuantityStep
+        | Recipe.OrderableDoseQuantityPercentile -> ord |> Recipes.orderableDoseQuantityPercentile
+        | Recipe.OrderableDoseRateStep -> ord |> Recipes.orderableDoseRateStep
+        | Recipe.ComponentOrderableQuantityStep c -> ord |> Recipes.componentOrderableQuantityStep c
+        | _ -> []
+
+
+    /// The recipe of a step of n defined increments on the variable, and its effects as the order
+    /// program runs them: the recipe, the stepped value in place of the value held, and a solve for
+    /// min and max; None when the variable cannot be stepped.
+    let step ovarRef n (ord: Order) =
+        let choice = Choice.Step(n, StepIncrement.Defined)
+
+        ovarRef
+        |> Ref.tryGet ord
+        |> Option.bind (fun ovar ->
+            match SetCmd.ofSet ovarRef ord.Schedule (ovar |> SetCmd.settable ord.Schedule ovarRef) choice with
+            | SetCommand.WithRecipe recipe ->
+                ovar
+                |> OrderProcessor.Choice.select ovarRef choice
+                |> Result.toOption
+                |> Option.map (fun vu ->
+                    recipe,
+                    [
+                        yield! ord |> effectsOf recipe
+                        OrderEffect.SetOrderVariableRangeBack(ovarRef, SetBackTo.AnyPositive)
+                        OrderEffect.ConstrainOrderVariableRange(ovarRef, vu)
+                        OrderEffect.SolveOrder SolveMode.MinMax
+                    ]
+                )
+            | _ -> None
+        )
+
+
+    /// The variables a step can move: the frequency, the dose quantity, the rate and the orderable
+    /// quantity of each component.
+    let stepRefs ord =
+        [
+            frq
+            dose DoseProperty.Quantity
+            dose DoseProperty.Rate
+            yield!
+                ord
+                |> Order.components
+                |> List.map OrderVariableReference.ComponentOrderableQuantity
+        ]
+
+
+    /// The order of a medication with every basic variable set to one value, the median, else the
+    /// minimum, else the maximum of its list; None when the order is not solved after that.
+    let solved med =
+        let ord = med |> EffectTests.valued
+
+        let basics =
+            [ yield! ord |> stepRefs; OrderVariableReference.OrderableOrderCount ]
+            |> List.filter (Ref.isBasic ord.Schedule)
+
+        (ord, basics)
+        ||> List.fold (fun ord ovarRef ->
+            match ovarRef |> Ref.tryGet ord with
+            | Some ovar when ovar |> OrderVariable.hasOneValue |> not ->
+                [ Choice.Median; Choice.Min; Choice.Max ]
+                |> List.tryPick (fun c ->
+                    ord
+                    |> run
+                        [
+                            OrderEffect.SelectOrderVariableValue(ovarRef, c)
+                            OrderEffect.SolveOrder SolveMode.Values
+                        ]
+                    |> Result.toOption
+                )
+                |> Option.defaultValue ord
+            | _ -> ord
+        )
+        |> Some
+        |> Option.filter Order.isSolved
+
+
+    let solvedFixtures =
+        lazy
+            [
+                for name, med in ReferenceTests.fixtures () do
+                    match med |> solved with
+                    | Some ord -> name, ord
+                    | None -> ()
+            ]
+
+
+    let tests =
+        testList
+            "step recipes"
+            [
+                test "a set by shape and choice, on a timed and a continuous order" {
+                    let timed = (Scenarios.amfoTimed |> orderOf).Schedule
+                    let cont = (Scenarios.morfCont |> orderOf).Schedule
+                    let cmp = OrderVariableReference.ComponentOrderableQuantity "x"
+                    let step = Choice.Step(1, StepIncrement.Defined)
+
+                    [
+                        timed, frq, Shape.Steppable, step
+                        timed, frq, Shape.SelectableList, step
+                        timed, dose DoseProperty.Quantity, Shape.Steppable, step
+                        timed, dose DoseProperty.Quantity, Shape.SelectableRange, Choice.Percentile 50
+                        cont, dose DoseProperty.Quantity, Shape.SelectableRange, Choice.Percentile 50
+                        timed, dose DoseProperty.Rate, Shape.Steppable, step
+                        timed, cmp, Shape.Steppable, step
+                        timed, dose DoseProperty.PerTime, Shape.SelectableRange, Choice.Min
+                        timed, dose DoseProperty.PerTime, Shape.SelectableList, Choice.Min
+                        timed, frq, Shape.SelectableRange, Choice.Nth 1
+                        timed, dose DoseProperty.Rate, Shape.SelectableList, Choice.Percentile 50
+                    ]
+                    |> List.map (fun (sch, ovarRef, shape, choice) -> SetCmd.ofSet ovarRef sch shape choice)
+                    |> Expect.equal
+                        "the recipe of each step and of the percentile, a value only from a list or a basic range"
+                        [
+                            SetCommand.WithRecipe Recipe.ScheduleFrequencyStep
+                            SetCommand.NoCommand
+                            SetCommand.WithRecipe Recipe.OrderableDoseQuantityStep
+                            SetCommand.WithRecipe Recipe.OrderableDoseQuantityPercentile
+                            SetCommand.NoCommand
+                            SetCommand.WithRecipe Recipe.OrderableDoseRateStep
+                            SetCommand.WithRecipe(Recipe.ComponentOrderableQuantityStep "x")
+                            SetCommand.NoCommand
+                            SetCommand.ValueOnly
+                            SetCommand.ValueOnly
+                            SetCommand.NoCommand
+                        ]
+                }
+
+                test "only a basic variable is steppable" {
+                    let sch = (Scenarios.amfoTimed |> orderOf).Schedule
+                    let x = valSet mL [ 2 ] |> ovar (Some 1)
+
+                    [ dose DoseProperty.Quantity; dose DoseProperty.PerTime ]
+                    |> List.map (fun ovarRef -> x |> SetCmd.settable sch ovarRef)
+                    |> Expect.equal "steppable, not settable" [ Shape.Steppable; Shape.NotSettable ]
+                }
+
+                test "the dose count after a dose quantity step, with one and with more components" {
+                    let doseCount med =
+                        med
+                        |> orderOf
+                        |> Recipes.orderableDoseQuantityStep
+                        |> List.choose (
+                            function
+                            | OrderEffect.SetOrderVariableRangeBack(OrderVariableReference.OrderableDoseCount, t) ->
+                                Some t
+                            | _ -> None
+                        )
+
+                    [ Scenarios.pcmDrink; Scenarios.tpn ]
+                    |> List.map doseCount
+                    |> Expect.equal "1, and at least 1" [ [ SetBackTo.One ]; [ SetBackTo.AtLeastOne ] ]
+                }
+
+                test "the percentile sets the time back only on a schedule with a time" {
+                    let setsTime med =
+                        med
+                        |> orderOf
+                        |> Recipes.orderableDoseQuantityPercentile
+                        |> List.contains (
+                            OrderEffect.SetOrderVariableRangeBack(
+                                OrderVariableReference.ScheduleTime,
+                                SetBackTo.Calculated
+                            )
+                        )
+
+                    [ Scenarios.amfoTimed; Scenarios.pcmDrink ]
+                    |> List.map setsTime
+                    |> Expect.equal "timed, and a drink without a time" [ true; false ]
+                }
+
+                test "after a step only its target and the variables its recipe frees leave their constraints" {
+                    solvedFixtures.Value |> Expect.isNonEmpty "solved fixtures"
+
+                    [
+                        for name, ord in solvedFixtures.Value do
+                            for ovarRef in ord |> stepRefs do
+                                match ord |> step ovarRef 3 with
+                                | None -> ()
+                                | Some(recipe, effects) ->
+                                    match ord |> run effects with
+                                    | Error _ -> ()
+                                    | Ok stepped ->
+                                        let freed =
+                                            ord
+                                            |> effectsOf recipe
+                                            |> OrderProcessor.OrderEffect.setBackNames ord
+                                            |> Set.union (
+                                                ovarRef
+                                                |> Ref.tryGet ord
+                                                |> Option.map OrderVariable.getName
+                                                |> Option.toList
+                                                |> Set.ofList
+                                            )
+
+                                        for ovar in stepped |> Order.toOrdVars do
+                                            if
+                                                freed |> Set.contains (ovar |> OrderVariable.getName) |> not
+                                                && ovar |> OrderVariable.isWithinConstraints true |> not
+                                            then
+                                                $"%s{name} %A{recipe}: %s{ovar |> OrderVariable.getName |> Name.toString}"
+                    ]
+                    |> Expect.isEmpty "inside the calculated constraints"
+                }
+
+                test "a step recipe keeps the increment of every basic variable with a defined increment" {
+                    [
+                        for name, ord in solvedFixtures.Value do
+                            for ovarRef in ord |> stepRefs do
+                                match ord |> step ovarRef 3 with
+                                | None -> ()
+                                | Some(recipe, _) ->
+                                    match ord |> run (ord |> effectsOf recipe) with
+                                    | Error _ -> ()
+                                    | Ok after ->
+                                        for basic in ord |> stepRefs |> List.filter (Ref.isBasic ord.Schedule) do
+                                            match basic |> Ref.tryGet ord, basic |> Ref.tryGet after with
+                                            | Some b, Some a when
+                                                a.DefinedConstraints.Incr |> Option.isSome
+                                                && a.Variable.Values <> b.Variable.Values
+                                                && a.Variable.Values |> ValueRange.getIncr |> Option.isNone
+                                                && a.Variable.Values |> ValueRange.getValSet |> Option.isNone
+                                                ->
+                                                $"%s{name} %A{recipe}: %A{basic}"
+                                            | _ -> ()
+                    ]
+                    |> Expect.isEmpty "every basic variable keeps its increment"
+                }
+            ]
+
+
 module EquationsTests =
 
     open TestOrder
@@ -5142,6 +5396,7 @@ let tests =
             DeterminationTests.tests
             ReferenceTests.tests
             EffectTests.tests
+            RecipeTests.tests
             ConstraintsTests.tests
             GoldenOrderTests.tests
             IncreaseQuantityIncrementTests.tests
