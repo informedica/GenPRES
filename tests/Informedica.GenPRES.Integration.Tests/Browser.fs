@@ -565,6 +565,37 @@ let waitUntil (what: string) (check: unit -> bool) =
     }
 
 
+/// The script that finds the option of the open list whose text is the value.
+let optionScript =
+    "v => [...document.querySelectorAll('[role=\"listbox\"] [role=\"option\"]')]"
+    + ".find(o => o.innerText.trim() === v)"
+
+
+/// Clicks the option of the open list whose text is the value, once the list offers it, and
+/// waits until the list is gone.
+let pickOption (value: string) (page: IPage) =
+    task {
+        try
+            do! page.WaitForFunctionAsync($"v => !!(%s{optionScript})(v)", value) :> Task
+        with :? WaitTaskTimeoutException ->
+            invalidOp $"the list offers no %s{value}"
+
+        do! page.EvaluateFunctionAsync($"v => (%s{optionScript})(v).click()", value)
+        do! page |> waitGone "[role=\"listbox\"]"
+    }
+
+
+/// Clicks the button the selector matches once the client has done what the last answer set off
+/// and the button takes the click: a control that changes the plan or the Session waits,
+/// disabled, while any request is under way, and a click on it then does nothing.
+let clickWhenSettled (selector: string) (page: IPage) =
+    task {
+        do! waitApiQuiet page
+        do! page |> waitVisible $"%s{selector}:not([disabled])"
+        do! page.ClickAsync selector
+    }
+
+
 /// The script that finds the menu item of the open menu. MUI keeps a closed menu in the page,
 /// hidden, so the item a user can see is the one of the menu that is open.
 let openMenuItemScript =

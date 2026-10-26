@@ -42,9 +42,7 @@ let tests =
 
                                 // close: the one item of the session menu ends the Session, and
                                 // the user leaves the title bar
-                                do! page.ClickAsync prescriber
-                                do! Browser.clickOpenMenuItem page
-                                do! page |> Browser.waitGone prescriber
+                                do! page |> TitleBar.closeSession (Identity.displayName Identity.Prescriber)
                             }
                         )
             }
@@ -63,7 +61,7 @@ let tests =
 
                                 // unsigned work on screen, which the close drops unwarned
                                 do! page |> Steps.openSession baseUrl patientId Identity.Prescriber
-                                do! page |> Steps.prescribe baseUrl 1
+                                do! page |> Steps.prescribe 1
 
                                 do! page |> TitleBar.closeSession prescriber
                                 let! _ = wire |> Wire.waitForAnswer "processSession" [ Wire.case "SessionClosed" ]
@@ -75,10 +73,12 @@ let tests =
                                 named
                                 |> Expect.isFalse "the title bar names no patient once the Session is closed"
 
-                                // a reload finds no Session under a cookie, and no gate tells of one
+                                // a reload finds no Session under a cookie, and once the client has
+                                // started, which the gate waits for, no gate tells of one
                                 do! page.ReloadAsync() :> Task
 
                                 let! _ = wire |> Wire.waitForAnswer "processSession" [ "{\"SessionResp\":null}" ]
+                                do! page |> Browser.waitGone Gate.busy
 
                                 let! gated = page |> Browser.isVisible Gate.selector
                                 gated |> Expect.isFalse "a closed Session is no ending the user is told of"

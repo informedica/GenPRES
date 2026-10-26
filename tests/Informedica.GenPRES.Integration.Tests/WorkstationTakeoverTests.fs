@@ -114,7 +114,7 @@ let tests =
                                 // A's Session, with work signed; the right PIN also zeroes a
                                 // count an earlier run may have left on the credential
                                 do! screen |> Steps.openSession baseUrl otherPatient a
-                                do! screen |> Prescribe.prescribe baseUrl Prescribe.paracetamol
+                                do! screen |> Prescribe.prescribe Prescribe.paracetamol
                                 do! SignDialog.request screen
                                 do! signThroughLock wire screen
 

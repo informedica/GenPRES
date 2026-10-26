@@ -34,7 +34,7 @@ let tests =
 
                                 // unsigned work on the old tab
                                 do! old |> Steps.openSession baseUrl patientId Identity.Prescriber
-                                do! old |> Steps.prescribe baseUrl 1
+                                do! old |> Steps.prescribe 1
 
                                 // the same User launches again elsewhere: the old tab cannot be told
                                 do! newer |> Steps.openSession baseUrl patientId Identity.Prescriber
@@ -42,8 +42,10 @@ let tests =
                                 let! stillShown = old |> Browser.isVisible (TitleBar.sessionButton prescriber)
                                 stillShown |> Expect.isTrue "the old tab still shows what it last heard"
 
-                                // its next request is told, beside the answer it asked for
-                                do! old |> Prescribe.navigate baseUrl None Prescribe.paracetamol
+                                // its next request is told, beside the answer it asked for: a
+                                // medication picked on the prescribing page
+                                do! Prescribe.show old
+                                do! old |> Prescribe.choose Prescribe.Field.Medication Prescribe.paracetamol.Generic
                                 do! Gate.waitShown old
 
                                 let! _ =

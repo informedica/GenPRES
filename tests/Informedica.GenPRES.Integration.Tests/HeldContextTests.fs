@@ -56,7 +56,7 @@ let tests =
                                 do! page |> changeGender "male"
 
                                 // the first new order holds it; keeping the orders keeps the hold
-                                do! page |> Steps.prescribe baseUrl 1
+                                do! page |> Steps.prescribe 1
                                 do! page |> attemptGender "female"
                                 do! PatientPanel.keepOrders page
                                 do! page |> OrderPlan.waitRows 1
@@ -75,7 +75,7 @@ let tests =
                         (fun baseUrl page ->
                             task {
                                 do! page |> Steps.openSession baseUrl (newPatientId "held") Identity.Prescriber
-                                do! page |> Steps.prescribe baseUrl 1
+                                do! page |> Steps.prescribe 1
 
                                 do! page |> attemptGender "female"
                                 do! PatientPanel.removeNewOrders page
@@ -86,22 +86,32 @@ let tests =
                         )
             }
 
-            testTask "a refresh from the EHR drops the new orders and reopens the signed version, released" {
+            testTask
+                "a refresh while held asks instead, and opening the last signed order plan drops the new orders, released" {
                 do!
                     Browser.withPage
-                        "held-refresh"
+                        "held-open-signed"
                         (fun baseUrl page ->
                             task {
                                 let wire = Wire.record page
 
                                 do! page |> Steps.openSession baseUrl (newPatientId "held") Identity.Prescriber
-                                do! page |> Steps.prescribe baseUrl 1
+                                do! page |> Steps.prescribe 1
                                 do! page |> Steps.sign wire 1 Identity.Prescriber
 
-                                // an order on top of version 1 holds the data again
-                                do! page |> Steps.prescribe baseUrl 2
-                                do! page |> attemptGender "male"
-                                do! PatientPanel.refreshFromEhr page
+                                // an order on top of version 1 holds the data again: reading the
+                                // patient from the EHR again would change it, so the refresh asks
+                                do! page |> Steps.prescribe 2
+                                let sessionAnswers = wire |> Wire.answersOf "processSession" |> List.length
+                                do! PatientPanel.refresh page
+                                do! page |> Browser.waitVisible PatientPanel.heldQuestion
+
+                                wire
+                                |> Wire.answersOf "processSession"
+                                |> List.length
+                                |> Expect.equal "the held refresh reads nothing from the EHR" sessionAnswers
+
+                                do! PatientPanel.openLastSigned page
 
                                 // the version again, without the new order
                                 do! page |> OrderPlan.waitRows 1

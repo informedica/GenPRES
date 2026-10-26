@@ -23,9 +23,9 @@ let openSession (baseUrl: string) (patientId: string) (identity: Identity) (page
 
 /// Prescribes paracetamol for the Session's patient, and waits until the plan holds the number
 /// of orders.
-let prescribe (baseUrl: string) (orders: int) (page: IPage) =
+let prescribe (orders: int) (page: IPage) =
     task {
-        do! page |> Prescribe.prescribe baseUrl Prescribe.paracetamol
+        do! page |> Prescribe.prescribe Prescribe.paracetamol
         do! page |> OrderPlan.waitRows orders
     }
 

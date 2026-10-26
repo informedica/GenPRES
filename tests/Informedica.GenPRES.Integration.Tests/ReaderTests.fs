@@ -28,7 +28,7 @@ let tests =
 
                                 // the patient has a version
                                 do! prescriber |> Steps.openSession baseUrl patientId Identity.Prescriber
-                                do! prescriber |> Steps.prescribe baseUrl 1
+                                do! prescriber |> Steps.prescribe 1
                                 do! prescriber |> Steps.sign prescriberWire 1 Identity.Prescriber
 
                                 // the Reader's launch asks no PIN and opens on that version
@@ -45,11 +45,11 @@ let tests =
                                 signable |> Expect.isFalse "a Reader is offered no Sign"
 
                                 // the Prescriber signs a newer version meanwhile
-                                do! prescriber |> Steps.prescribe baseUrl 2
+                                do! prescriber |> Steps.prescribe 2
                                 do! prescriber |> Steps.sign prescriberWire 2 Identity.Prescriber
 
                                 // the Reader prescribes like anyone, and is told like anyone
-                                do! reader |> Steps.prescribe baseUrl 2
+                                do! reader |> Steps.prescribe 2
 
                                 let! _ =
                                     readerWire

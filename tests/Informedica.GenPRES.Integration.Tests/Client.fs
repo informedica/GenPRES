@@ -37,11 +37,17 @@ module TitleBar =
     let waitOpen (displayName: string) (page: IPage) = page |> Browser.waitVisible (sessionButton displayName)
 
 
+    /// Opens the session menu, once the title bar takes the click: it waits while a request is
+    /// under way.
+    let openSessionMenu (displayName: string) (page: IPage) =
+        page |> Browser.clickWhenSettled (sessionButton displayName)
+
+
     /// Closes the Session from the one item of the session menu, and waits until the title bar
     /// no longer shows it.
     let closeSession (displayName: string) (page: IPage) =
         task {
-            do! page.ClickAsync(sessionButton displayName)
+            do! page |> openSessionMenu displayName
             do! Browser.clickOpenMenuItem page
             do! page |> Browser.waitGone (sessionButton displayName)
         }
@@ -59,6 +65,11 @@ module Gate =
     /// The gate once it has settled: not presenting a launch or resuming a Session, which it
     /// shows as busy, but telling what happened.
     let settled = $"%s{selector}:not(:has(.MuiCircularProgress-root))"
+
+
+    /// The gate while it is busy: as the application starts, and while it presents a launch or
+    /// resumes a Session.
+    let busy = $"%s{selector}:has(.MuiCircularProgress-root)"
 
 
     /// The actions the gate offers: retry, or continue without a launch.
@@ -183,6 +194,20 @@ module SideMenu =
     let orderPlan = item "SummarizeIcon"
 
 
+    /// The item of the prescribing page.
+    let prescribe = item "MessageIcon"
+
+
+    /// Opens the page of the item, once the menu takes the click: it waits, greyed, while a
+    /// request is under way.
+    let choose (menuItem: string) (page: IPage) =
+        task {
+            do! Browser.waitApiQuiet page
+            do! page |> Browser.waitVisible $"%s{menuItem}:not(.Mui-disabled)"
+            do! page.ClickAsync menuItem
+        }
+
+
 /// The order plan page: the orders of the plan, the button that signs it, and the bar that tells
 /// the record moved on.
 [<RequireQualifiedAccess>]
@@ -190,11 +215,12 @@ module OrderPlan =
 
     /// The button that signs the plan, which only a Prescriber's open Session with a patient
     /// and an order is offered.
-    let signButton = "button:has(svg[data-testid=\"AssignmentIcon\"])"
+    let signButton = "#page-box button:has(svg[data-testid=\"AssignmentIcon\"])"
 
 
-    /// The button that removes the selected orders, there whenever the page shows a plan.
-    let deleteButton = "button:has(svg[data-testid=\"DeleteIcon\"])"
+    /// The button that removes the selected orders, there whenever the page shows a plan. On the
+    /// page alone: the patient panel's reset, for a patient typed in, has the same icon.
+    let deleteButton = "#page-box button:has(svg[data-testid=\"DeleteIcon\"])"
 
 
     /// One order of the plan: a row of its table.
@@ -208,7 +234,7 @@ module OrderPlan =
     /// Opens the order plan page from the side menu, and waits until it shows a plan.
     let show (page: IPage) =
         task {
-            do! page.ClickAsync SideMenu.orderPlan
+            do! page |> SideMenu.choose SideMenu.orderPlan
             do! page |> Browser.waitVisible deleteButton
         }
 
@@ -226,25 +252,24 @@ module OrderPlan =
     let offersSign (page: IPage) = page |> Browser.isVisible signButton
 
 
-    /// Waits until the plan can be signed: the button shown and the plan at rest.
-    let waitSignable (page: IPage) = page |> Browser.waitVisible $"%s{signButton}:not([disabled])"
-
-
-    /// Opens the newest version from the bar that tells it was signed, and waits until the bar
-    /// is gone.
+    /// Opens the newest version from the bar that tells it was signed, once its button takes the
+    /// click: the open changes every page, so the button waits while a request is under way.
+    /// Waits until the bar is gone.
     let openNewestVersion (page: IPage) =
         task {
-            do! page.ClickAsync $"%s{movedOnBar} .MuiAlert-action button"
+            do! page |> Browser.clickWhenSettled $"%s{movedOnBar} .MuiAlert-action button"
             do! page |> Browser.waitGone movedOnBar
         }
 
 
-/// The prescribing page, opened on a medication through the url Workflow 3 of the testing
-/// workflows documents.
+/// The prescribing page: the filter that narrows a medication to its scenarios, and the button
+/// that prescribes one. With a Session open, a test opens the page from the side menu and picks
+/// the medication in the filter, since a url with a medication leaves the Session. Without a
+/// Session, the url Workflow 3 of the testing workflows documents opens the page on a medication.
 [<RequireQualifiedAccess>]
 module Prescribe =
 
-    /// A medication as the url names it: the generic, the route and the indication, as the
+    /// A medication as the filter names it: the generic, the route and the indication, as the
     /// demo data spells them.
     type Medication =
         {
@@ -268,66 +293,116 @@ module Prescribe =
 
 
     /// The url parameters of the stub patient, for a GenPRES opened without a launch: born on
-    /// 15 March 2016, 32 kg (in grams) and 140 cm. Inside a Session the patient is the
-    /// Session's, and the url's patient counts for nothing.
-    let stubPatient = "by=2016&bm=3&bd=15&wt=32000&ht=140"
+    /// 15 March 2016, 32 kg (in grams) and 140 cm. A url with a patient or a medication leaves a
+    /// launched Session, so a test opens such a url only without a Session.
+    let stubPatient = "byr=2016&bmo=3&bdy=15&wgt=32000&hgt=140"
+
+
+    /// The fields of the filter that name a medication, in the order the page shows them.
+    [<RequireQualifiedAccess>]
+    type Field =
+        /// The indication.
+        | Indication
+        /// The generic name.
+        | Medication
+        /// The route.
+        | Route
+
+
+    /// The position of the field among the filter's fields that are typed into. They are found
+    /// by position, since the id of each is its label, in the user's language.
+    let position field =
+        match field with
+        | Field.Indication -> 0
+        | Field.Medication -> 1
+        | Field.Route -> 2
+
+
+    /// The filter's fields that are typed into.
+    let fields = "#page-box .MuiAutocomplete-root input"
 
 
     /// The button that prescribes a scenario.
     let prescribeButton = "button:has(svg[data-testid=\"AddIcon\"])"
 
 
-    /// The url of the prescribing page on the medication, with the patient parameters if any.
-    let url (baseUrl: string) (patient: string option) (medication: Medication) =
+    /// The url of the prescribing page on the medication for the patient the parameters give.
+    let url (baseUrl: string) (patient: string) (medication: Medication) =
         [
-            yield! patient |> Option.toList
-            "pg=pr"
-            $"md=%s{Uri.EscapeDataString medication.Generic}"
-            $"rt=%s{Uri.EscapeDataString medication.Route}"
-            $"in=%s{Uri.EscapeDataString medication.Indication}"
+            patient
+            "pag=pr"
+            $"med=%s{Uri.EscapeDataString medication.Generic}"
+            $"rte=%s{Uri.EscapeDataString medication.Route}"
+            $"ind=%s{Uri.EscapeDataString medication.Indication}"
         ]
         |> String.concat "&"
-        |> fun query -> $"%s{baseUrl}/#patient?%s{query}"
+        |> fun query -> $"%s{baseUrl}/#/patient?%s{query}"
 
 
-    /// Goes to the prescribing page on the medication, which asks the server to compute it. Every
-    /// such request carries what the Session opened with, so it is also the next request at
-    /// which the server tells what happened to the Session meanwhile.
-    let navigate (baseUrl: string) (patient: string option) (medication: Medication) (page: IPage) =
+    /// Opens the prescribing page from the side menu.
+    let show (page: IPage) = page |> SideMenu.choose SideMenu.prescribe
+
+
+    /// Chooses the value of a field, as a user types it and picks it from the list, once the
+    /// page takes the click: a page waiting for an answer is inert. Waits until the client has
+    /// done what the answer set off. A field that shows the value already is left as it is.
+    let choose (field: Field) (value: string) (page: IPage) =
         task {
-            let target = url baseUrl patient medication
+            let i = position field
 
-            // the same url again is no navigation: by way of the session route it is one
-            if page.Url = target then
-                do! page.GoToAsync(baseUrl + "/#/session") :> Task
+            do!
+                page.WaitForFunctionAsync(
+                    "(s, i) => { const f = document.querySelectorAll(s)[i]; return !!f && !f.closest('[inert]') }",
+                    fields,
+                    i
+                )
+                :> Task
 
-            do! page.GoToAsync target :> Task
+            let! all = page.QuerySelectorAllAsync fields
+            let input = all[i]
+            let! shown = input.EvaluateFunctionAsync<string> "e => e.value"
+
+            if shown <> value then
+                do! page.BringToFrontAsync()
+                do! input.ClickAsync()
+                do! input.EvaluateFunctionAsync "e => e.select()" :> Task
+                do! input.TypeAsync value
+                do! page |> Browser.pickOption value
+                do! Browser.waitApiQuiet page
         }
 
 
-    /// Opens the prescribing page on the medication, and waits until a scenario can be
-    /// prescribed.
-    let openOn (baseUrl: string) (patient: string option) (medication: Medication) (page: IPage) =
+    /// Opens the prescribing page from the side menu and narrows the filter to the medication:
+    /// the generic, then the route and the indication from what the answer before left. Waits
+    /// until a scenario can be prescribed.
+    let openOn (medication: Medication) (page: IPage) =
         task {
-            do! page |> navigate baseUrl patient medication
+            do! show page
+            do! page |> choose Field.Medication medication.Generic
+            do! page |> choose Field.Route medication.Route
+            do! page |> choose Field.Indication medication.Indication
             do! page |> Browser.waitVisible $"%s{prescribeButton}:not([disabled])"
         }
 
 
     /// Prescribes the first scenario on show; the client adds it to the plan and shows the
-    /// order plan page.
+    /// order plan page. Waits until the client has done what the prescription set off: the
+    /// order added to the plan, the workbench emptied and the pages loaded again. A request of
+    /// those still under way when the Session ends elsewhere is told the ending, which a test
+    /// that ends the Session next would not expect.
     let prescribeFirst (page: IPage) =
         task {
             do! page.ClickAsync $"%s{prescribeButton}:not([disabled])"
             do! page |> Browser.waitVisible OrderPlan.deleteButton
+            do! Browser.waitApiQuiet page
         }
 
 
-    /// Prescribes the first scenario of the medication for the Session's patient, and waits
+    /// Prescribes the first scenario of the medication for the patient on screen, and waits
     /// until the order plan page shows; the caller waits for the number of orders it expects.
-    let prescribe (baseUrl: string) (medication: Medication) (page: IPage) =
+    let prescribe (medication: Medication) (page: IPage) =
         task {
-            do! page |> openOn baseUrl None medication
+            do! page |> openOn medication
             do! prescribeFirst page
         }
 
@@ -366,8 +441,7 @@ module SignDialog =
     /// over the orders as they will be signed, or telling the data notice first.
     let request (page: IPage) =
         task {
-            do! OrderPlan.waitSignable page
-            do! page.ClickAsync OrderPlan.signButton
+            do! page |> Browser.clickWhenSettled OrderPlan.signButton
             do! page |> Browser.waitVisible settled
         }
 
@@ -466,9 +540,14 @@ module PatientPanel =
 
     /// The question an attempt to change held patient data asks: why it cannot, with the ways
     /// out that drop the new and changed orders. Its actions are told apart by kind: keep the
-    /// orders (outlined), remove them (the error colour) and refresh from the EHR (contained).
-    let heldQuestion =
-        "[role=\"dialog\"]:has(button.MuiButton-colorError):has(button.MuiButton-contained):has(button.MuiButton-outlined)"
+    /// orders (outlined), remove them (the error colour) and, once the Session has a signed
+    /// order plan, open that plan (contained).
+    let heldQuestion = "[role=\"dialog\"]:has(button.MuiButton-colorError):has(button.MuiButton-outlined)"
+
+
+    /// The panel's button that reads the patient from the EHR again, offered in an open Session
+    /// for a patient.
+    let refreshButton = $"%s{selector} button:has(svg[data-testid=\"RefreshIcon\"])"
 
 
     /// The gender the panel holds: male, female or other.
@@ -560,12 +639,21 @@ module PatientPanel =
         }
 
 
-    /// Answers the question of held patient data by reading the EHR again, which drops the new
-    /// and changed orders and reopens the last signed version.
-    let refreshFromEhr (page: IPage) =
+    /// Answers the question of held patient data by opening the last signed order plan, which
+    /// drops the new and changed orders. Offered only once the Session has a signed order plan.
+    let openLastSigned (page: IPage) =
         task {
             do! page.ClickAsync $"%s{heldQuestion} button.MuiButton-contained"
             do! page |> Browser.waitGone heldQuestion
+        }
+
+
+    /// Presses the panel's refresh, once the panel is at rest and takes the click.
+    let refresh (page: IPage) =
+        task {
+            do! page |> unfold
+            do! page |> Browser.waitVisible $"%s{refreshButton}:not([disabled])"
+            do! page.ClickAsync refreshButton
         }
 
 

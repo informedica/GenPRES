@@ -34,18 +34,17 @@ let tests =
                                 do! b |> Steps.openSession baseUrl patientId Identity.PrescriberB
 
                                 // A signs first
-                                do! a |> Steps.prescribe baseUrl 1
+                                do! a |> Steps.prescribe 1
                                 do! a |> Steps.sign wireA 1 Identity.Prescriber
 
                                 // B's next request, any computing one, is told; nothing is blocked
-                                do! b |> Steps.prescribe baseUrl 1
+                                do! b |> Steps.prescribe 1
                                 let! _ = wireB |> Wire.waitForAnswer "processOrderContext" [ Wire.case "NewerVersion" ]
                                 let! _ = b |> Snackbar.waitSaying [ nameA ]
                                 do! b |> Browser.waitVisible OrderPlan.movedOnBar
 
                                 // signing over the version B opened with is refused, A's named
-                                do! OrderPlan.waitSignable b
-                                do! b.ClickAsync OrderPlan.signButton
+                                do! b |> Browser.clickWhenSettled OrderPlan.signButton
 
                                 let! _ =
                                     wireB
@@ -70,7 +69,7 @@ let tests =
                                 do! b |> OrderPlan.waitRows 1
 
                                 // and B's signature lands on top of it, its base A's version
-                                do! b |> Steps.prescribe baseUrl 2
+                                do! b |> Steps.prescribe 2
                                 do! b |> Steps.sign wireB 2 Identity.PrescriberB
                             }
                         )
@@ -91,7 +90,7 @@ let tests =
 
                                 // both hold a challenge over the same base
                                 for page in [ a; b ] do
-                                    do! page |> Steps.prescribe baseUrl 1
+                                    do! page |> Steps.prescribe 1
                                     do! SignDialog.request page
                                     do! page |> Browser.waitVisible $"%s{SignDialog.pinField}:not([disabled])"
                                     do! page |> Browser.fill SignDialog.pinField seededPin

@@ -28,7 +28,7 @@ let tests =
                                 let wire = Wire.record page
 
                                 do! page |> Steps.openSession baseUrl (newPatientId "signing") Identity.Prescriber
-                                do! page |> Steps.prescribe baseUrl 1
+                                do! page |> Steps.prescribe 1
 
                                 // the dialog lists the order as it will be signed
                                 do! SignDialog.request page
@@ -82,7 +82,7 @@ let tests =
                                 let wire = Wire.record page
 
                                 do! page |> Steps.openSession baseUrl (newPatientId "cancel") Identity.Prescriber
-                                do! page |> Steps.prescribe baseUrl 1
+                                do! page |> Steps.prescribe 1
 
                                 // asking to sign asks for a challenge, and nothing more
                                 do! SignDialog.request page
@@ -109,7 +109,7 @@ let tests =
                                 let patientId = newPatientId "relaunch"
 
                                 do! page |> Steps.openSession baseUrl patientId Identity.Prescriber
-                                do! page |> Steps.prescribe baseUrl 1
+                                do! page |> Steps.prescribe 1
                                 do! page |> Steps.sign wire 1 Identity.Prescriber
 
                                 do! page |> Steps.openSession baseUrl patientId Identity.Prescriber
@@ -145,7 +145,7 @@ let tests =
                                 do! page |> PatientPanel.choose PatientPanel.Field.Weight "32"
                                 do! page |> PatientPanel.choose PatientPanel.Field.Height "140"
 
-                                do! page |> Prescribe.prescribe baseUrl Prescribe.paracetamol
+                                do! page |> Prescribe.prescribe Prescribe.paracetamol
 
                                 // the platform cannot be read again: told before any PIN is asked
                                 do! SignDialog.request page
