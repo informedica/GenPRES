@@ -59,28 +59,52 @@ let baseValues ovar =
     |> Option.defaultValue [||]
 
 
-/// Per solved fixture and recalculation: the order, the command, the variable it names, its recipe
-/// and the order recalculated.
+/// Per solved fixture and recipe: the order, the recipe, the commands that run the recipe with the
+/// variable each names, and the order recalculated by the first of those commands. The commands of a
+/// recipe run the same effects except the variable whose impossible values are dropped, so the order is
+/// recalculated once per recipe rather than once per command.
 let cases =
     lazy
         [
             for name, ord in Tests.RecipeTests.solvedFixtures.Value do
-                for cmd, ovarRef, recipe in ord |> reCalcs do
-                    name, ord, cmd, ovarRef, recipe, ord |> reCalc cmd
+                for recipe, cmds in ord |> reCalcs |> List.groupBy (fun (_, _, recipe) -> recipe) do
+                    let cmds = cmds |> List.map (fun (cmd, ovarRef, _) -> cmd, ovarRef)
+                    name, ord, recipe, cmds, ord |> reCalc (cmds |> List.head |> fst)
         ]
 
 
-/// The cases that solved, with the variable recalculated before and after.
-let recalculated () =
+/// The effects of the recalculation of the variable, without the drop of the impossible values of
+/// that variable; none when the action is refused.
+let reCalcEffects ord ovarRef =
+    ord
+    |> OrderProcessor.OrderAction.effects (OrderAction.ReCalc ovarRef)
+    |> Result.toOption
+    |> Option.map (
+        List.filter (
+            function
+            | OrderEffect.DropImpossibleValues r -> r <> ovarRef
+            | _ -> true
+        )
+    )
+
+
+/// The recalculations that solved, per command the select function keeps of a recipe, with the
+/// variable the command names before and after the recalculation of the recipe.
+let recalculatedWith select =
     [
-        for name, ord, cmd, ovarRef, recipe, res in cases.Value do
-            match res, ovarRef |> Ref.tryGet ord with
-            | Ok after, Some before ->
-                match ovarRef |> Ref.tryGet after with
-                | Some ovar -> $"%s{name} %A{cmd}", ord, ovarRef, recipe, before, after, ovar
-                | None -> ()
-            | _ -> ()
+        for name, ord, recipe, cmds, res in cases.Value do
+            match res with
+            | Ok after ->
+                for cmd, ovarRef in cmds |> select do
+                    match ovarRef |> Ref.tryGet ord, ovarRef |> Ref.tryGet after with
+                    | Some before, Some ovar -> $"%s{name} %A{cmd}", ord, ovarRef, recipe, before, after, ovar
+                    | _ -> ()
+            | Error _ -> ()
     ]
+
+
+/// The recalculations that solved, for every command of a recipe.
+let recalculated () = recalculatedWith id
 
 
 let doseQuantity (ord: Order) = ord.Orderable.Dose.Quantity |> OrderVariable.Quantity.toOrdVar
@@ -120,16 +144,32 @@ let tests =
     testList
         "OrderProcessor recalculation"
         [
-            test "every recalculation of the solved fixtures solves" {
+            test "every recipe recalculation of the solved fixtures solves" {
                 cases.Value |> Expect.isNonEmpty "recalculations"
 
                 [
-                    for name, _, cmd, _, _, res in cases.Value do
+                    for name, _, recipe, _, res in cases.Value do
                         match res with
                         | Ok _ -> ()
-                        | Error(_, msgs) -> $"%s{name} %A{cmd}: %A{msgs}"
+                        | Error(_, msgs) -> $"%s{name} %A{recipe}: %A{msgs}"
                 ]
                 |> Expect.isEmpty "every recalculation solves"
+            }
+
+            // the cases recalculate once per recipe, which holds for every command only when the
+            // commands of a recipe run the same effects up to the variable whose values are dropped
+            test "the commands of a recipe run the same effects, except the variable whose values are dropped" {
+                [
+                    for name, ord, _, cmds, _ in cases.Value do
+                        let first = cmds |> List.head |> snd |> reCalcEffects ord
+
+                        for cmd, ovarRef in cmds do
+                            let effs = ovarRef |> reCalcEffects ord
+
+                            if effs |> Option.isNone || effs <> first then
+                                $"%s{name} %A{cmd}"
+                ]
+                |> Expect.isEmpty "the same effects"
             }
 
             test "a recalculation without a kind is refused, and keeps the order" {
@@ -196,9 +236,11 @@ let tests =
                 |> Expect.isEmpty "the held value is in the list"
             }
 
-            test "the first, middle and last value the field offers each solve" {
+            // a pick solves the whole order, so one field per recipe is picked; the fields of the
+            // other commands of the recipe are calculated from the same order
+            test "the first, middle and last value the field of the first command of a recipe offers each solve" {
                 [
-                    for label, _, _, _, _, after, ovar in recalculated () do
+                    for label, _, _, _, _, after, ovar in recalculatedWith (List.truncate 1) do
                         let n = ovar |> baseValues |> Array.length
 
                         for nth in [ 0; n / 2; n - 1 ] |> List.distinct do
