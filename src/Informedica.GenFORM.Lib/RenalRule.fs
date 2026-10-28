@@ -286,12 +286,20 @@ module RenalRule =
     let get logger dataUrlId : Result<_, Message list> = getData dataUrlId |> Result.bind (map logger)
 
 
-    let filter mapping (filter: DoseFilter) (renalRules: RenalRule[]) =
-        let eqs a (b: string) =
-            a
-            |> Option.map (fun x -> x |> String.equalsCapInsens b)
-            |> Option.defaultValue true
+    /// Whether a renal rule applies to a generic, a route, an indication and a dose type. A value
+    /// that is not given, and a field the renal rule leaves blank, match every value.
+    let appliesTo mapping generic route indication doseType (rr: RenalRule) =
+        let eqs a (b: string) = a |> Option.forall (String.equalsCapInsens b)
 
+        rr.Generic |> eqs generic
+        && (rr.Route |> String.isNullOrWhiteSpace
+            || rr.Route |> Mapping.eqsRoute mapping route)
+        && (rr.Indication |> String.isNullOrWhiteSpace || rr.Indication |> eqs indication)
+        && (rr.DoseType = NoDoseType
+            || doseType |> Option.forall (DoseType.eqsType rr.DoseType))
+
+
+    let filter mapping (filter: DoseFilter) (renalRules: RenalRule[]) =
         let pat, ageHolds = filter.Patient |> PatientCategory.forAdultMatch
 
         [|
@@ -301,19 +309,7 @@ module RenalRule =
                 // renal rules only apply to patients of at least 28 days of age
                 && pat.Age
                    |> Option.forall (fun a -> Units.Time.day |> ValueUnit.singleWithValue 28N <=? a)
-            fun (rr: RenalRule) -> rr.Generic |> eqs filter.Generic
-            fun (rr: RenalRule) ->
-                rr.Route |> String.isNullOrWhiteSpace
-                || (filter.Route |> Option.isNone
-                    || rr.Route |> Mapping.eqsRoute mapping filter.Route)
-            fun (rr: RenalRule) ->
-                rr.Indication |> String.isNullOrWhiteSpace
-                || (filter.Indication |> Option.isNone || rr.Indication |> eqs filter.Indication)
-            fun (rr: RenalRule) ->
-                rr.DoseType = NoDoseType
-                || filter.DoseType
-                   |> Option.map (DoseType.eqsType rr.DoseType)
-                   |> Option.defaultValue true
+            appliesTo mapping filter.Generic filter.Route filter.Indication filter.DoseType
             fun (rr: RenalRule) ->
                 filter.Patient.RenalFunction
                 |> Option.map (fun rf ->
@@ -339,81 +335,108 @@ module RenalRule =
         |> Array.fold (fun (acc: RenalRule[]) pred -> acc |> Array.filter pred) renalRules
 
 
-    let adjustDoseLimit (renalRule: RenalRule) (doseRule: DoseRule) (dl: DoseLimit) =
-        let adjustVU dr (vuNew: ValueUnit option) vuOrig =
-            match dr with
-            | Relative ->
-                vuOrig
-                |> Option.map (fun vu1 -> vuNew |> Option.map (fun vu2 -> vu1 * vu2) |> Option.defaultValue vu1)
-            | Absolute ->
-                match vuOrig, vuNew with
-                | Some v1, Some v2 ->
-                    if v1 <? v2 then v1 else v2
-                    |> Some
-                | _ -> vuNew
-            | NoReduction -> vuOrig
+    /// The bounds of one dose under an absolute renal reduction. A dose has an absolute and an
+    /// adjusted form, per kg or per m2, and the dose rule and the renal rule each give both. The
+    /// adjust value is the patient's weight or BSA, when known, and converts a bound from one form
+    /// into the other. When the renal rule gives no bound for the dose, the dose rule's maximum
+    /// stays and its minimum is dropped, since no renal bound can make that minimum fit. On a side
+    /// where the renal rule gives a bound, in either form, the renal bounds replace the dose rule's
+    /// bounds in both forms. On a side where the renal rule gives no bound, the dose rule's bounds
+    /// stay, each moved to a renal bound on the other side that it conflicts with, compared at the
+    /// adjust value when the two are in different forms.
+    let absoluteDose adj (renal: MinMax, renalAdj: MinMax) (dose: MinMax, doseAdj: MinMax) =
+        let convert (f: ValueUnit -> ValueUnit -> ValueUnit) lim =
+            adj
+            |> Option.map (fun adj -> lim |> Limit.apply (fun vu -> f vu adj) (fun vu -> f vu adj))
 
-        let adjustMinMax dr mmNew mmOrig =
-            match dr with
-            | Absolute ->
-                if mmNew = MinMax.empty then
-                    mmNew
-                else
-                    {
-                        Min =
-                            match mmOrig.Min, mmNew.Min with
-                            | Some lim1, Some lim2 ->
-                                // if lim1 < lim2 then lim1 else lim2
-                                if lim1 |> (Limit.st true true) <| lim2 then
-                                    lim1 |> Some
-                                else
-                                    lim2 |> Some
-                            | _ -> mmNew.Min
-                        Max =
-                            match mmOrig.Max, mmNew.Max with
-                            | Some lim1, Some lim2 ->
-                                // if lim1 < lim2 then lim1 else lim2
-                                if lim1 |> (Limit.st false false) <| lim2 then
-                                    lim1 |> Some
-                                else
-                                    lim2 |> Some
-                            | _ -> mmNew.Max
-                    }
-            | Relative ->
-                if mmOrig = MinMax.empty || mmNew = MinMax.empty then
-                    mmOrig
-                else
-                    {
-                        Min =
-                            match mmOrig.Min, mmNew.Min with
-                            | Some lim1, Some lim2 -> MinMax.calcLimit (*) lim1 lim2 |> Some
-                            | _ -> mmOrig.Min
-                        Max =
-                            match mmOrig.Max, mmNew.Max with
-                            | Some lim1, Some lim2 -> MinMax.calcLimit (*) lim1 lim2 |> Some
-                            | _ -> mmOrig.Max
-                    }
-            | NoReduction -> mmOrig
+        // the renal bounds of a side in one form: the renal rule's own, and the other form converted
+        let renalBounds same other f bound =
+            [ same |> bound; other |> bound |> Option.bind (convert f) ] |> List.choose id
 
+        let gives bound =
+            renal |> bound |> Option.isSome || renalAdj |> bound |> Option.isSome
+
+        // a kept bound moves to every renal bound it conflicts with, so it ends at the tightest
+        let move conflicts renalBounds kept =
+            kept
+            |> Option.map (fun k -> renalBounds |> List.fold (fun k r -> if conflicts k r then r else k) k)
+
+        let bounds (mm: MinMax) (renalMm: MinMax) renalBounds =
+            {
+                Min =
+                    if gives _.Min then
+                        renalMm.Min
+                    else
+                        mm.Min |> move (Limit.gt true false) (renalBounds _.Max)
+                Max =
+                    if gives _.Max then
+                        renalMm.Max
+                    else
+                        mm.Max |> move (Limit.st false true) (renalBounds _.Min)
+            }
+
+        if renal = MinMax.empty && renalAdj = MinMax.empty then
+            { dose with Min = None }, { doseAdj with Min = None }
+        else
+            bounds dose renal (renalBounds renal renalAdj (*)), bounds doseAdj renalAdj (renalBounds renalAdj renal (/))
+
+
+    let adjustDoseLimit (pat: Patient) (renalRule: RenalRule) (dl: DoseLimit) =
+        let relative mmNew mmOrig =
+            if mmOrig = MinMax.empty || mmNew = MinMax.empty then
+                mmOrig
+            else
+                {
+                    Min =
+                        match mmOrig.Min, mmNew.Min with
+                        | Some lim1, Some lim2 -> MinMax.calcLimit (*) lim1 lim2 |> Some
+                        | _ -> mmOrig.Min
+                    Max =
+                        match mmOrig.Max, mmNew.Max with
+                        | Some lim1, Some lim2 -> MinMax.calcLimit (*) lim1 lim2 |> Some
+                        | _ -> mmOrig.Max
+                }
+
+        let adj = dl.AdjustUnit |> Patient.adjustValue pat
 
         renalRule.RenalLimits
         |> Array.tryFind (fun rl -> rl.DoseLimitTarget = dl.DoseLimitTarget)
         |> function
             | None -> dl
-            | Some rl when rl.DoseReduction = NoReduction -> dl
             | Some rl ->
-                { dl with
-                    Quantity = dl.Quantity |> adjustMinMax rl.DoseReduction rl.Quantity
-                    QuantityAdjust = dl.QuantityAdjust |> adjustMinMax rl.DoseReduction rl.QuantityAdjust
-                    PerTime = dl.PerTime |> adjustMinMax rl.DoseReduction rl.PerTime
-                    PerTimeAdjust = dl.PerTimeAdjust |> adjustMinMax rl.DoseReduction rl.PerTimeAdjust
-                    Rate = dl.Rate |> adjustMinMax rl.DoseReduction rl.Rate
-                    RateAdjust = dl.RateAdjust |> adjustMinMax rl.DoseReduction rl.RateAdjust
+                match rl.DoseReduction with
+                | NoReduction -> dl
+                | Absolute ->
+                    let qty, qtyAdj =
+                        (dl.Quantity, dl.QuantityAdjust)
+                        |> absoluteDose adj (rl.Quantity, rl.QuantityAdjust)
 
-                }
+                    let perTime, perTimeAdj =
+                        (dl.PerTime, dl.PerTimeAdjust)
+                        |> absoluteDose adj (rl.PerTime, rl.PerTimeAdjust)
+
+                    let rate, rateAdj = (dl.Rate, dl.RateAdjust) |> absoluteDose adj (rl.Rate, rl.RateAdjust)
+
+                    { dl with
+                        Quantity = qty
+                        QuantityAdjust = qtyAdj
+                        PerTime = perTime
+                        PerTimeAdjust = perTimeAdj
+                        Rate = rate
+                        RateAdjust = rateAdj
+                    }
+                | Relative ->
+                    { dl with
+                        Quantity = dl.Quantity |> relative rl.Quantity
+                        QuantityAdjust = dl.QuantityAdjust |> relative rl.QuantityAdjust
+                        PerTime = dl.PerTime |> relative rl.PerTime
+                        PerTimeAdjust = dl.PerTimeAdjust |> relative rl.PerTimeAdjust
+                        Rate = dl.Rate |> relative rl.Rate
+                        RateAdjust = dl.RateAdjust |> relative rl.RateAdjust
+                    }
 
 
-    let adjustDoseRule (renalRule: RenalRule) (doseRule: DoseRule) =
+    let adjustDoseRule pat (renalRule: RenalRule) (doseRule: DoseRule) =
 
         { doseRule with
             RenalRuleSource = Some renalRule.Source
@@ -425,10 +448,74 @@ module RenalRule =
             ComponentLimits =
                 doseRule.ComponentLimits
                 |> Array.map (fun dl ->
-                    { dl with
-                        SubstanceLimits =
-                            dl.SubstanceLimits
-                            |> Array.map (fun dl -> dl |> adjustDoseLimit renalRule doseRule)
-                    }
+                    { dl with SubstanceLimits = dl.SubstanceLimits |> Array.map (adjustDoseLimit pat renalRule) }
                 )
         }
+
+
+    /// Whether a renal function is reduced: an eGFR range that stays at or below 90 mL/min, or
+    /// a form of dialysis.
+    let isReduced =
+        function
+        | EGFR(_, Some max) -> max <= 90
+        | EGFR(_, None) -> false
+        | IntermittentHemodialysis
+        | ContinuousHemodialysis
+        | PeritonealDialysis -> true
+
+
+    /// The warnings for the renal rules for a reduced kidney function that allow a higher maximum
+    /// than a dose rule they apply to. A renal rule applies to the dose rules of its generic, and
+    /// of its route, indication and dose type when it names them. Only an absolute reduction is
+    /// compared, and a maximum only with the dose rule's maximum of the same kind and form, since
+    /// there is no patient to convert a per kg bound with. The rules are still used as the sheet
+    /// gives them.
+    let raisedMaxima routeMapping (doseRules: DoseRule[]) (renalRules: RenalRule[]) =
+        let raises (dose: MinMax) (renal: MinMax) =
+            match dose.Max, renal.Max with
+            | Some d, Some r when ValueUnit.eqsGroup (d |> Limit.getValueUnit) (r |> Limit.getValueUnit) ->
+                r |> Limit.gt false false <| d
+            | _ -> false
+
+        let applies rr (dr: DoseRule) =
+            rr
+            |> appliesTo
+                routeMapping
+                (dr.Generic |> Generic.genericName |> Some)
+                (Some dr.Route)
+                (Some dr.Indication)
+                (Some dr.DoseType)
+
+        [
+            for rr in renalRules |> Array.filter (_.RenalFunction >> isReduced) do
+                for dr in doseRules |> Array.filter (applies rr) do
+                    for rl in rr.RenalLimits |> Array.filter (fun rl -> rl.DoseReduction = Absolute) do
+                        for dl in
+                            dr.ComponentLimits
+                            |> Array.collect _.SubstanceLimits
+                            |> Array.filter (fun dl -> dl.DoseLimitTarget = rl.DoseLimitTarget) do
+                            let kinds =
+                                [
+                                    "dose", dl.Quantity, rl.Quantity
+                                    "dose per kg or m2", dl.QuantityAdjust, rl.QuantityAdjust
+                                    "dose per time", dl.PerTime, rl.PerTime
+                                    "dose per time per kg or m2", dl.PerTimeAdjust, rl.PerTimeAdjust
+                                    "rate", dl.Rate, rl.Rate
+                                    "rate per kg or m2", dl.RateAdjust, rl.RateAdjust
+                                ]
+                                |> List.filter (fun (_, dose, renal) -> raises dose renal)
+                                |> List.map (fun (kind, _, _) -> kind)
+
+                            if kinds |> List.isEmpty |> not then
+                                let target = dl.DoseLimitTarget |> LimitTarget.toString
+                                let kinds = kinds |> String.concat ", "
+                                let rf = rr.RenalFunction |> RenalFunction.toString
+
+                                let renal =
+                                    $"the renal rule %s{rr.Generic} %s{rr.Route} %s{rr.Indication} (%s{rr.Source}, %s{rf})"
+
+                                let dose =
+                                    $"the dose rule %s{dr.Generic |> Generic.genericName} %s{dr.Route} %s{dr.Indication} (%s{dr.Source |> Source.toString}, %s{dr.PatientText})"
+
+                                Warning $"%s{renal} has a higher maximum %s{kinds} for %s{target} than %s{dose}"
+        ]

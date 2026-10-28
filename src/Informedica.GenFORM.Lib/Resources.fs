@@ -275,6 +275,8 @@ module Resources =
         let doseRules = ResourceKey.create<DoseRule[]> "doseRules"
         let solutionRules = ResourceKey.create<SolutionRule[]> "solutionRules"
         let renalRules = ResourceKey.create<RenalRule[]> "renalRules"
+        // The renal rules checked against the dose rules; only gives messages.
+        let renalRuleChecks = ResourceKey.create<unit> "renalRuleChecks"
         // G-Standaard dose-rule capability, served as a function-valued resource.
         let gStandProvider = ResourceKey.create<Check.GStandProvider> "gStandProvider"
 
@@ -407,6 +409,15 @@ module Resources =
                 (fun r ->
                     RenalRule.map logger (r.Get Keys.renalRuleData)
                     |> Result.map (fun v -> box v, [])
+                )
+
+                // A renal rule for a reduced kidney function with a higher maximum than a dose rule
+                // it applies to is reported -> ResourceState.Messages.
+                Keys.renalRuleChecks.Name,
+                deriveWith (fun r ->
+                    (),
+                    r.Get Keys.renalRules
+                    |> RenalRule.raisedMaxima (r.Get Keys.routeMappings) (r.Get Keys.doseRules)
                 )
 
                 // G-Standaard dose rules served as a function-valued resource: the

@@ -11,12 +11,7 @@ module PrescriptionRule =
         if dl.AdjustUnit |> Option.isNone then
             dl
         else
-            let adj =
-                if dl.AdjustUnit.Value |> Units.eqsUnit Units.Weight.kiloGram then
-                    pat.Weight
-                else
-                    pat |> Patient.calcBSA
-                |> Option.get
+            let adj = dl.AdjustUnit |> Patient.adjustValue pat |> Option.get
             // The frequency that minimizes the per administration dose (highest
             // frequency), used to test whether an adjusted target is reachable
             // at all before pinning the absolute quantity.
@@ -318,7 +313,9 @@ module PrescriptionRule =
                 [| pr |]
             else
                 pr.RenalRules
-                |> Array.map (fun rr -> { pr with DoseRule = pr.DoseRule |> RenalRule.adjustDoseRule rr })
+                |> Array.map (fun rr ->
+                    { pr with DoseRule = pr.DoseRule |> RenalRule.adjustDoseRule filter.Patient rr }
+                )
         )
         |> Ok
 

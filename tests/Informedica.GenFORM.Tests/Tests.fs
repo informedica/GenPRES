@@ -4077,6 +4077,398 @@ module Tests =
                 ]
 
 
+    module RenalReductionTests =
+
+        open System
+        open System.IO
+
+
+        let mg = Units.Mass.milliGram
+        let gram = Units.Mass.gram
+        let kg = Units.Weight.kiloGram
+        let day = Units.Time.day
+        let perDay u = u |> ValueUnit.per day
+        let perKg u = u |> ValueUnit.per kg
+
+        let range u min max =
+            {
+                Min = min |> Option.map (ValueUnit.singleWithUnit u >> Inclusive)
+                Max = max |> Option.map (ValueUnit.singleWithUnit u >> Inclusive)
+            }
+
+        // the minimum and the maximum of a range as values in a unit
+        let valuesIn u (mm: MinMax) =
+            let value = Option.map (Limit.getValueUnit >> ValueUnit.convertTo u >> ValueUnit.getValue >> Array.head)
+
+            mm.Min |> value, mm.Max |> value
+
+        let target = SubstanceLimitTarget "paracetamol"
+
+        let doseLimit =
+            { DoseLimit.limit with
+                DoseLimitTarget = target
+                DoseUnit = mg
+                AdjustUnit = Some kg
+            }
+
+        let renalLimit reduction =
+            RenalRule.Limit.create
+                target
+                reduction
+                MinMax.empty
+                None
+                MinMax.empty
+                MinMax.empty
+                None
+                MinMax.empty
+                MinMax.empty
+                MinMax.empty
+
+        let renalRule rf limit : RenalRule =
+            {
+                Generic = "paracetamol"
+                Route = ""
+                Indication = ""
+                Source = "test"
+                Age = MinMax.empty
+                RenalFunction = rf
+                DoseType = NoDoseType
+                Frequencies = None
+                IntervalTime = MinMax.empty
+                RenalLimits = [| limit |]
+            }
+
+        let reducedRule = renalRule (EGFR(Some 10, Some 30))
+
+        let patient weight =
+            { Patient.patient with Weight = weight |> Option.map (ValueUnit.singleWithUnit kg) }
+
+        let adjust weight rl dl =
+            dl |> RenalRule.adjustDoseLimit (patient weight) (reducedRule rl)
+
+        let absolute = renalLimit Absolute
+
+        // a dose per day of the dose rule against a renal dose per day, both in gram, as values in mg.
+        let perDayCase dose renal =
+            { doseLimit with PerTime = dose ||> range (gram |> perDay) }
+            |> adjust None { absolute with PerTime = renal ||> range (gram |> perDay) }
+            |> _.PerTime
+            |> valuesIn (mg |> perDay)
+
+        let private fixture<'T> name =
+            Path.Combine(AppContext.BaseDirectory, "fixtures", name)
+            |> File.ReadAllText
+            |> FixtureJson.deSerialize<'T>
+
+        // lazy for the same reason as the fixtures of DoseRuleRoundtripTests
+        let private sampleDoseRule =
+            lazy
+                (DoseRuleLoader.fromData
+                    (fixture<RouteMapping[]> "routemappings.json")
+                    [||]
+                    (fixture<ProductComponent[]> "products.json")
+                    (fixture<DoseRuleData[]> "doserules.json")
+                 |> fst
+                 |> Array.head)
+
+        let private routeMappings = lazy (fixture<RouteMapping[]> "routemappings.json")
+
+        // the sample dose rule with a single substance limit
+        let withLimit dl =
+            let dr = sampleDoseRule.Value
+
+            { dr with
+                ComponentLimits =
+                    dr.ComponentLimits
+                    |> Array.truncate 1
+                    |> Array.map (fun cl -> { cl with SubstanceLimits = [| dl |] })
+            }
+
+        // a renal rule for the generic of a dose rule
+        let renalFor (dr: DoseRule) rf rl =
+            { renalRule rf rl with Generic = dr.Generic |> Generic.genericName }
+
+
+        let tests =
+            testList
+                "under an absolute renal reduction the renal bounds win"
+                [
+                    // 500 to 1,000 mg 4 times a day: a minimum of 500 mg per administration kept beside a renal
+                    // maximum of 1 g per day would ask for at least 2 g per day, and no dose would be possible
+                    test "a renal maximum per day keeps the maximum per administration and drops the minimum" {
+                        let dl =
+                            { doseLimit with
+                                Quantity = range mg (Some 500N) (Some 1000N)
+                                PerTime = range (gram |> perDay) None (Some 4N)
+                            }
+                            |> adjust None { absolute with PerTime = range (gram |> perDay) None (Some 1N) }
+
+                        dl.Quantity |> valuesIn mg |> Expect.equal "at most 1,000 mg" (None, Some 1000N)
+                        dl.PerTime
+                        |> valuesIn (mg |> perDay)
+                        |> Expect.equal "at most 1 g per day" (None, Some 1000N)
+                    }
+
+                    test "a renal minimum per day only keeps the dose rule's maximum per day" {
+                        perDayCase (Some(1N / 2N), Some 2N) (Some 1N, None)
+                        |> Expect.equal "1 to 2 g per day" (Some 1000N, Some 2000N)
+                    }
+
+                    test "2 to 4 g per day with a renal maximum of 1 g gives exactly 1 g" {
+                        perDayCase (Some 2N, Some 4N) (None, Some 1N)
+                        |> Expect.equal "exactly 1 g per day" (Some 1000N, Some 1000N)
+                    }
+
+                    test "0.5 to 4 g per day with a renal maximum of 1 g gives 0.5 to 1 g" {
+                        perDayCase (Some(1N / 2N), Some 4N) (None, Some 1N)
+                        |> Expect.equal "0.5 to 1 g per day" (Some 500N, Some 1000N)
+                    }
+
+                    test "0.5 to 1 g per day with a renal minimum of 2 g gives exactly 2 g" {
+                        perDayCase (Some(1N / 2N), Some 1N) (Some 2N, None)
+                        |> Expect.equal "exactly 2 g per day" (Some 2000N, Some 2000N)
+                    }
+
+                    test "a reduction with both bounds replaces the dose rule's bounds" {
+                        perDayCase (Some 2N, Some 4N) (Some(1N / 2N), Some 1N)
+                        |> Expect.equal "0.5 to 1 g per day" (Some 500N, Some 1000N)
+                    }
+
+                    test "hyper clearance with both bounds raises the dose" {
+                        perDayCase (Some(1N / 2N), Some 1N) (Some 2N, Some 3N)
+                        |> Expect.equal "2 to 3 g per day" (Some 2000N, Some 3000N)
+                    }
+
+                    test "a renal range wider than the dose rule's widens the dose" {
+                        perDayCase (Some 1N, Some 2N) (Some(1N / 2N), Some 3N)
+                        |> Expect.equal "0.5 to 3 g per day" (Some 500N, Some 3000N)
+                    }
+
+                    test "an absolute renal range replaces the per kg maximum of the same dose" {
+                        let dl =
+                            { doseLimit with
+                                Quantity = range mg (Some 500N) (Some 1000N)
+                                QuantityAdjust = range (mg |> perKg) None (Some 20N)
+                            }
+                            |> adjust (Some 30N) { absolute with Quantity = range mg (Some 700N) (Some 800N) }
+
+                        dl.Quantity
+                        |> valuesIn mg
+                        |> Expect.equal "700 to 800 mg" (Some 700N, Some 800N)
+                        dl.QuantityAdjust |> Expect.equal "no per kg bound" MinMax.empty
+                    }
+
+                    for weight, expected in [ Some 150N, 20N / 3N; Some 50N, 10N; None, 10N ] do
+                        test $"a per kg range against an absolute renal maximum is compared at a weight of %A{weight}" {
+                            { doseLimit with PerTimeAdjust = range (mg |> perKg |> perDay) (Some 10N) (Some 20N) }
+                            |> adjust weight { absolute with PerTime = range (gram |> perDay) None (Some 1N) }
+                            |> _.PerTimeAdjust
+                            |> valuesIn (mg |> perKg |> perDay)
+                            |> Expect.equal "the per kg minimum" (Some expected, None)
+                        }
+
+                    test "an absolute maximum is raised to a per kg renal minimum at the weight" {
+                        let dl =
+                            { doseLimit with Quantity = range mg (Some 250N) (Some 500N) }
+                            |> adjust (Some 30N) { absolute with QuantityAdjust = range (mg |> perKg) (Some 20N) None }
+
+                        dl.Quantity |> valuesIn mg |> Expect.equal "at most 600 mg" (None, Some 600N)
+                        dl.QuantityAdjust
+                        |> valuesIn (mg |> perKg)
+                        |> Expect.equal "at least 20 mg/kg" (Some 20N, None)
+
+                        dl.QuantityAdjust.Min
+                        |> Option.map (Limit.getValueUnit >> (fun vu -> vu * ValueUnit.singleWithUnit kg 30N))
+                        |> Option.map (ValueUnit.convertTo mg >> ValueUnit.getValue >> Array.head)
+                        |> Expect.equal "the minimum at 30 kg equals the maximum" (Some 600N)
+                    }
+
+                    test "the renal rule parser reads every renal limit as inclusive" {
+                        let columns =
+                            [
+                                "Generic", "paracetamol"
+                                "Route", "iv"
+                                "Indication", ""
+                                "Source", "test"
+                                "MinAge", ""
+                                "MaxAge", ""
+                                "IntDial", ""
+                                "ContDial", ""
+                                "PerDial", ""
+                                "MinGFR", "10"
+                                "MaxGFR", "30"
+                                "DoseType", "onderhoud"
+                                "DoseText", ""
+                                "Freqs", "4"
+                                "DoseRed", "abs"
+                                "DoseUnit", "mg[Mass]"
+                                "AdjustUnit", "kg"
+                                "FreqUnit", "dag"
+                                "RateUnit", "uur[Time]"
+                                "MinInt", ""
+                                "MaxInt", ""
+                                "IntUnit", ""
+                                "Substance", "paracetamol"
+                                "MinQty", "1"
+                                "MaxQty", "2"
+                                "NormQtyAdj", ""
+                                "MinQtyAdj", "1"
+                                "MaxQtyAdj", "2"
+                                "MinPerTime", "1"
+                                "MaxPerTime", "2"
+                                "NormPerTimeAdj", ""
+                                "MinPerTimeAdj", "1"
+                                "MaxPerTimeAdj", "2"
+                                "MinRate", "1"
+                                "MaxRate", "2"
+                                "MinRateAdj", "1"
+                                "MaxRateAdj", "2"
+                            ]
+
+                        let limits =
+                            [|
+                                columns |> List.map fst |> List.toArray
+                                columns |> List.map snd |> List.toArray
+                            |]
+                            |> RenalRule.parseRenalRuleData
+                            |> Result.bind (RenalRule.map Informedica.Logging.Lib.Logging.noOp)
+                            |> Result.defaultValue [||]
+                            |> Array.collect _.RenalLimits
+
+                        limits |> Array.isEmpty |> Expect.isFalse "the row gives a renal limit"
+
+                        [
+                            for rl in limits do
+                                for mm in
+                                    [
+                                        rl.Quantity
+                                        rl.QuantityAdjust
+                                        rl.PerTime
+                                        rl.PerTimeAdjust
+                                        rl.Rate
+                                        rl.RateAdjust
+                                    ] do
+                                    mm.Min
+                                    mm.Max
+                        ]
+                        |> List.forall (
+                            function
+                            | Some(Inclusive _) -> true
+                            | _ -> false
+                        )
+                        |> Expect.isTrue "every bound is inclusive"
+                    }
+
+                    test "a relative reduction multiplies the dose rule's bounds" {
+                        let dl =
+                            { doseLimit with
+                                Quantity = range mg (Some 250N) (Some 500N)
+                                PerTime = range (gram |> perDay) (Some 1N) (Some 2N)
+                            }
+                            |> adjust
+                                (Some 30N)
+                                { renalLimit Relative with
+                                    PerTime = range Units.Count.times (Some(1N / 2N)) (Some(1N / 2N))
+                                }
+
+                        dl.Quantity
+                        |> valuesIn mg
+                        |> Expect.equal "250 to 500 mg" (Some 250N, Some 500N)
+                        dl.PerTime
+                        |> valuesIn (mg |> perDay)
+                        |> Expect.equal "0.5 to 1 g per day" (Some 500N, Some 1000N)
+                    }
+
+                    test "no reduction leaves the dose limit as it is" {
+                        let dl =
+                            { doseLimit with
+                                Quantity = range mg (Some 250N) (Some 500N)
+                                PerTime = range (gram |> perDay) (Some 1N) (Some 2N)
+                            }
+
+                        dl
+                        |> adjust
+                            (Some 30N)
+                            { renalLimit NoReduction with PerTime = range (gram |> perDay) None (Some 1N) }
+                        |> Expect.equal "unchanged" dl
+                    }
+
+                    test "a renal rule for a reduced function that raises a maximum is reported" {
+                        let dr = withLimit { doseLimit with PerTime = range (gram |> perDay) (Some 1N) (Some 2N) }
+
+                        let renal rf =
+                            { absolute with PerTime = range (gram |> perDay) (Some(1N / 2N)) (Some 3N) }
+                            |> renalFor dr rf
+
+                        dr.ComponentLimits[0].SubstanceLimits[0]
+                        |> RenalRule.adjustDoseLimit (patient None) (renal (EGFR(Some 10, Some 30)))
+                        |> _.PerTime
+                        |> valuesIn (mg |> perDay)
+                        |> Expect.equal "0.5 to 3 g per day" (Some 500N, Some 3000N)
+
+                        [| renal (EGFR(Some 10, Some 30)) |]
+                        |> RenalRule.raisedMaxima [||] [| dr |]
+                        |> List.length
+                        |> Expect.equal "one message" 1
+
+                        [| renal (EGFR(Some 130, None)) |]
+                        |> RenalRule.raisedMaxima [||] [| dr |]
+                        |> Expect.isEmpty "no message for hyper clearance"
+                    }
+
+                    test "a renal rule for dialysis that raises a maximum is reported" {
+                        let dr = withLimit { doseLimit with PerTime = range (gram |> perDay) (Some 1N) (Some 2N) }
+
+                        [| IntermittentHemodialysis; ContinuousHemodialysis; PeritonealDialysis |]
+                        |> Array.map (fun rf ->
+                            { absolute with PerTime = range (gram |> perDay) None (Some 3N) }
+                            |> renalFor dr rf
+                        )
+                        |> RenalRule.raisedMaxima [||] [| dr |]
+                        |> List.length
+                        |> Expect.equal "one message for each dialysis" 3
+                    }
+
+                    test "the warning compares a per kg maximum only with a per kg maximum" {
+                        let dr =
+                            withLimit { doseLimit with PerTimeAdjust = range (mg |> perKg |> perDay) None (Some 20N) }
+
+                        let reported rl =
+                            [| rl |> renalFor dr (EGFR(Some 10, Some 30)) |]
+                            |> RenalRule.raisedMaxima [||] [| dr |]
+                            |> List.length
+
+                        { absolute with PerTimeAdjust = range (mg |> perKg |> perDay) None (Some 30N) }
+                        |> reported
+                        |> Expect.equal "30 mg/kg against 20 mg/kg is reported" 1
+
+                        { absolute with PerTime = range (gram |> perDay) None (Some 3N) }
+                        |> reported
+                        |> Expect.equal "3 g against 20 mg/kg is not compared" 0
+                    }
+
+                    test "a renal rule for another route than the dose rule gives no message" {
+                        let dr = withLimit { doseLimit with PerTime = range (gram |> perDay) (Some 1N) (Some 2N) }
+                        let rm = routeMappings.Value
+                        let mapped = Mapping.mapRoute rm
+
+                        let otherRoute = rm |> Array.find (fun r -> mapped r.Long <> mapped dr.Route) |> _.Long
+
+                        let reported route =
+                            let rr =
+                                { absolute with PerTime = range (gram |> perDay) None (Some 3N) }
+                                |> renalFor dr (EGFR(Some 10, Some 30))
+
+                            [| { rr with Route = route } |]
+                            |> RenalRule.raisedMaxima rm [| dr |]
+                            |> List.length
+
+                        dr.Route |> reported |> Expect.equal "the same route is reported" 1
+                        otherRoute |> reported |> Expect.equal "another route is not" 0
+                    }
+                ]
+
+
     module DoseTypeTests =
 
 
@@ -5081,6 +5473,7 @@ module Tests =
                 MaxQtyConflictTests.tests
                 PatientCategoryTests.tests
                 AdultTests.tests
+                RenalReductionTests.tests
                 PatientTests.tests
                 EhrPatientDataTests.tests
                 PatientDtoTests.tests
