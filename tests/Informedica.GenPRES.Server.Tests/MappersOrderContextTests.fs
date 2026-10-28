@@ -412,7 +412,7 @@ let tests =
 
 
 [<Tests>]
-let clearMarkTests =
+let variableTests =
     let vu =
         Informedica.GenPRES.Shared.Models.Order.ValueUnit.create [| "10", 10m |] "mg" "Mass" true "dutch" ""
 
@@ -427,23 +427,81 @@ let clearMarkTests =
             true
             None
 
+    // the orders of the test medications, as built and after each step the dose dialog takes
+    let orders =
+        lazy
+            [
+                for med in
+                    [
+                        Scenarios.pcmSupp
+                        Scenarios.pcmDrink
+                        Scenarios.morfCont
+                        Scenarios.amfo
+                        Scenarios.cotrim
+                        Scenarios.tpn
+                    ] do
+                    match med |> Medication.toOrder Scenarios.testStart with
+                    | Error _ -> ()
+                    | Ok ord ->
+                        yield!
+                            [ CalcMinMax; CalcValues; SolveOrder ]
+                            |> List.scan
+                                (fun ord cmd ->
+                                    ord
+                                    |> Result.bind (
+                                        cmd
+                                        >> OrderProcessor.processPipeline OrderLogging.noOp
+                                        >> Result.mapError ignore
+                                    )
+                                )
+                                (Ok ord)
+                            |> List.choose Result.toOption
+            ]
+
+    let fields (dto: Informedica.GenSolver.Lib.Variable.Dto.Dto) =
+        let vu (v: Informedica.GenUnits.Lib.ValueUnit.Dto.Dto option) = v |> Option.map (fun v -> v.Value, v.Unit)
+
+        dto.Name,
+        dto.IsNonZeroPositive,
+        vu dto.MinOpt,
+        dto.MinIncl,
+        vu dto.IncrOpt,
+        vu dto.MaxOpt,
+        dto.MaxIncl,
+        vu dto.ValsOpt
+
     testList
-        "the clear mark"
+        "a variable to the domain"
         [
-            test "a variable the client cleared goes as the mark alone, also with an increment" {
+            test "a marked variable goes with its mark and its bounds" {
                 let dto = variable true |> Mappers.Order.mapFromVariable
 
-                (dto.IsNonZeroPositive, dto.MinOpt, dto.IncrOpt, dto.MaxOpt, dto.ValsOpt)
-                |> Expect.equal "the mark, no bounds" (true, None, None, None, None)
+                (dto.IsNonZeroPositive, dto.MinOpt.IsSome, dto.IncrOpt.IsSome, dto.MaxOpt.IsSome)
+                |> Expect.equal "the mark and the bounds" (true, true, true, true)
             }
 
-            test "a range that was not cleared goes with its bounds" {
+            test "a range goes with its bounds" {
                 let dto = variable false |> Mappers.Order.mapFromVariable
 
                 dto.IsNonZeroPositive |> Expect.isFalse "no mark"
 
                 (dto.MinOpt.IsSome, dto.IncrOpt.IsSome, dto.MaxOpt.IsSome)
                 |> Expect.equal "the bounds" (true, true, true)
+            }
+
+            test "every variable of an order goes back to the domain as the server sent it" {
+                orders.Value
+                |> List.collect Order.toOrdVars
+                |> List.collect (fun ovar ->
+                    let dto = ovar |> OrderVariable.Dto.toDto
+                    [ dto.Variable; dto.Constraints; dto.Calculated ]
+                )
+                |> List.filter (fun dto ->
+                    (dto |> Mappers.Order.mapToVariable |> Mappers.Order.mapFromVariable |> fields)
+                    <> fields dto
+                )
+                |> List.map _.Name
+                |> Expect.equal "no variable differs" []
             }
         ]
 

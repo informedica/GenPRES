@@ -17,5 +17,7 @@
 #r "nuget: IcedTasks"
 #r "nuget: Unquote"
 #r "nuget: NJsonSchema"
+// MedicationText parses YAML
+#r "nuget: YamlDotNet, 16.3.0"
 #r "nuget: Expecto"
 #r "nuget: Expecto.FsCheck"

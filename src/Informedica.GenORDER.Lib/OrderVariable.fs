@@ -1843,10 +1843,6 @@ module OrderVariable =
         let isSolved = toOrdVar >> isSolved
 
 
-        /// Check whether a Frequency is cleared
-        let isCleared = toOrdVar >> isCleared
-
-
         /// Set a Frequency to non-zero positive values
         let setToNonZeroPositive = apply setToNonZeroPositive
 
@@ -2072,10 +2068,6 @@ module OrderVariable =
         let isSolved = toOrdVar >> isSolved
 
 
-        /// Check whether a Quantity is cleared
-        let isCleared = toOrdVar >> isCleared
-
-
         /// Set the minimum value for a Quantity
         let setMinValue = toOrdVar >> setMinValue >> Quantity
 
@@ -2203,10 +2195,6 @@ module OrderVariable =
         let isSolved = toOrdVar >> isSolved
 
 
-        /// Check whether a PerTime is cleared
-        let isCleared = toOrdVar >> isCleared
-
-
         /// Set the variable to its nth value, counted from 0.
         let setNthValue nth = toOrdVar >> setNthValue nth >> PerTime
 
@@ -2312,10 +2300,6 @@ module OrderVariable =
 
         /// Check whether a Rate is solved
         let isSolved = toOrdVar >> isSolved
-
-
-        /// Check whether a Rate is cleared
-        let isCleared = toOrdVar >> isCleared
 
 
         /// Set the minimum value for a Rate
@@ -2627,10 +2611,6 @@ module OrderVariable =
 
         /// Check whether a PerTimeAdjust is solved
         let isSolved = toOrdVar >> isSolved
-
-
-        /// Check whether a PerTimeAdjust is cleared
-        let isCleared = toOrdVar >> isCleared
 
 
         /// Set the variable to its nth value, counted from 0.

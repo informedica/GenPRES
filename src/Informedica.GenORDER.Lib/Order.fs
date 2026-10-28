@@ -3187,8 +3187,7 @@ module Order =
 
         let rates =
             [
-                if ord.Orderable.Dose.Rate |> Rate.isCleared |> not then
-                    ord.Orderable.Dose.Rate
+                ord.Orderable.Dose.Rate
 
                 // timed order doesn't calc itm dose rates!
                 if ord.Schedule.IsContinuous then
@@ -3199,7 +3198,6 @@ module Order =
                         |> List.map _.Dose
                         |> List.filter (fun d ->
                             d.Rate |> Rate.isNonZeroPositive |> not
-                            && d.Rate |> Rate.isCleared |> not
                             && (d.Rate |> Rate.hasConstraints || d.RateAdjust |> RateAdjust.hasConstraints)
                         )
                         |> List.map _.Rate
@@ -3214,7 +3212,6 @@ module Order =
                     for itm in cmp.Items do
                         if
                             itm.Dose.Quantity |> Quantity.isNonZeroPositive |> not
-                            && itm.Dose.Quantity |> Quantity.isCleared |> not
                             && (itm.Dose.Quantity |> Quantity.hasConstraints
                                 || itm.Dose.QuantityAdjust |> QuantityAdjust.hasConstraints)
                         then
@@ -3230,8 +3227,6 @@ module Order =
                     for itm in cmp.Items do
                         if
                             itm.Dose.PerTime |> PerTime.isNonZeroPositive |> not
-                            && itm.Dose.PerTime |> PerTime.isCleared |> not
-                            && itm.Dose.PerTimeAdjust |> PerTimeAdjust.isCleared |> not
                             && (itm.Dose.PerTime |> PerTime.hasConstraints
                                 || itm.Dose.PerTimeAdjust |> PerTimeAdjust.hasConstraints)
                         then
@@ -3253,7 +3248,7 @@ module Order =
                     rates |> List.exists checkRte
                 else
                     rates |> List.forall checkRte)
-            && (freq |> Frequency.isCleared || freq |> Frequency.toOrdVar |> pred)
+            && freq |> Frequency.toOrdVar |> pred
             && (if isOr then
                     qty |> List.exists checkQty
                 else
@@ -3264,7 +3259,7 @@ module Order =
                   else
                       ptm |> List.forall checkPtm
         | Discontinuous freq ->
-            (freq |> Frequency.isCleared || freq |> Frequency.toOrdVar |> pred)
+            freq |> Frequency.toOrdVar |> pred
             && (if isOr then
                     qty |> List.exists checkQty
                 else

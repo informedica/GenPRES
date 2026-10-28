@@ -466,6 +466,8 @@ module Order =
             | OrderContextView.Changing ctx -> Some ctx
             | OrderContextView.NoPatient -> None
 
+        // the order shown, the one sent while a change is under way, so that the dialog stays
+        // populated while the server answers
         let shownOrder =
             shownContext
             |> Option.bind (fun ctx -> ctx.Scenarios |> Array.tryExactlyOne |> Option.map _.Order)
@@ -579,33 +581,23 @@ module Order =
         // the field whose change went out, and whether it shows that it is loading
         let changing, setChanging = React.useState<(string * bool) option> None
 
-        // the order a reopen started from, shown until its answer lands: the order sent has the
-        // reopened value cleared, and a field without values is not drawn, which would take the
-        // field and its open list away while the server answers
-        let reopenedFrom, setReopenedFrom = React.useState<Order option> None
-
         // Clear the field changing when parent finishes recalculating
         React.useEffect (
             (fun () ->
                 match props.orderContext with
                 | OrderContextView.Settled _
-                | OrderContextView.Refused _ ->
-                    setChanging None
-                    setReopenedFrom None
+                | OrderContextView.Refused _ -> setChanging None
                 | _ -> ()
             ),
             [| box props.orderContext |]
         )
 
-        // a reopen stays loading until its answer is shown: the order it started from is shown one
-        // render past the answer, until the effect above lets go of it
         let isOrderLoading =
-            reopenedFrom.IsSome
-            || match props.orderContext with
-               | OrderContextView.Changing _ -> true
-               | OrderContextView.NoPatient
-               | OrderContextView.Refused _
-               | OrderContextView.Settled _ -> false
+            match props.orderContext with
+            | OrderContextView.Changing _ -> true
+            | OrderContextView.NoPatient
+            | OrderContextView.Refused _
+            | OrderContextView.Settled _ -> false
 
         let isFieldLoading field = isOrderLoading && changing = Some(field, true)
 
@@ -635,12 +627,8 @@ module Order =
 
                 originalDispatch msg
 
-        // the order shown, the one sent while a change is under way, so that the dialog stays
-        // populated while the server is processing; during a reopen the one it started from
-        let displayOrder = reopenedFrom |> Option.orElse shownOrder
-
         let itms =
-            match displayOrder with
+            match shownOrder with
             | Some ord ->
                 ord.Orderable.Components
                 // only use the main component for dosing
@@ -655,7 +643,7 @@ module Order =
         // the target of an item property of the component shown, as the dialog's messages address it
         let itemTarget i prop =
             let cmp =
-                displayOrder
+                shownOrder
                 |> Option.bind (fun ord ->
                     ord.Orderable.Components
                     |> Array.tryFind (fun c -> state.SelectedComponent.IsNone || state.SelectedComponent = Some c.Name)
@@ -673,7 +661,7 @@ module Order =
                 | Some i -> Some i
 
         let showDosingDivider =
-            match displayOrder with
+            match shownOrder with
             | None -> false
             | Some ord ->
                 let hasSubstIndx = substIndx.IsSome && itms |> Array.length > 0
@@ -743,7 +731,7 @@ module Order =
         // the fields apply themselves, so the heading shows exactly when a preparation field
         // shows: a field without values and without steps renders nothing
         let preparationVariables: OrderVariable list =
-            match displayOrder with
+            match shownOrder with
             | None -> []
             | Some ord ->
                 let multiComponent = ord.Orderable.Components |> Array.length > 1
@@ -826,7 +814,7 @@ module Order =
         // the user opens and folds it in between, and an answer that changes the solved state puts
         // it back under the rule. Another order shown by this component starts its fold anew.
         let preparationSolved = preparationVariables |> SectionFoldPolicy.allSolved
-        let shownOrderId = displayOrder |> Option.map _.Id |> Option.defaultValue ""
+        let shownOrderId = shownOrder |> Option.map _.Id |> Option.defaultValue ""
         let fold, setFold = React.useState (SectionFoldPolicy.initial preparationSolved)
         let foldOrderIdRef = React.useRef shownOrderId
 
@@ -844,7 +832,7 @@ module Order =
         let toggleFold = fun () -> setFold (fold |> SectionFoldPolicy.toggle)
 
         let showAdminDivider =
-            match displayOrder with
+            match shownOrder with
             | None -> false
             | Some ord ->
                 // frequency: shown when has vals or single val (nav)
@@ -884,17 +872,12 @@ module Order =
         // puts back the order shown before
         let reopenOf field target : ViewHelpers.Reopen =
             {|
-                allowed = displayOrder |> Option.exists (IntentPolicy.isReCalcAllowed target)
+                allowed = shownOrder |> Option.exists (IntentPolicy.isReCalcAllowed target)
                 reCalc =
                     fun () ->
                         setChanging (Some(field, true))
-                        setReopenedFrom shownOrder
                         props.command (ViewHelpers.reCalcCommand target)
-                restore =
-                    fun () ->
-                        // the recalculation ends here: its order is no longer held, whatever the answer
-                        setReopenedFrom None
-                        props.restoreOrderScenario ()
+                restore = props.restoreOrderScenario
                 busy = isOrderLoading
             |}
 
@@ -1045,7 +1028,7 @@ module Order =
                 |}
 
             let componentSelect =
-                match displayOrder with
+                match shownOrder with
                 | Some ord ->
                     if ord.Orderable.Components |> Array.length <= 1 then
                         null
@@ -1064,7 +1047,7 @@ module Order =
                 | _ -> null
 
             let itemSelect =
-                match displayOrder with
+                match shownOrder with
                 | Some ord ->
                     if ord.Orderable.Components |> Array.isEmpty || itms |> Array.length <= 1 then
                         null
@@ -1083,7 +1066,7 @@ module Order =
                 | _ -> null
 
             let substDoseQtySelect =
-                match substIndx, displayOrder with
+                match substIndx, shownOrder with
                 | Some i, Some ord when ord.Schedule.IsContinuous |> not && itms |> Array.length > 0 ->
                     let label, vals =
                         itms[i].Dose.Quantity.Variable.Vals
@@ -1110,7 +1093,7 @@ module Order =
                 | _ -> null
 
             let substDoseQtyAdjSelect =
-                match substIndx, displayOrder with
+                match substIndx, shownOrder with
                 | Some i, Some ord when
                     (ord.Schedule.IsOnce || ord.Schedule.IsOnceTimed)
                     && itms |> Array.length > 0
@@ -1143,7 +1126,7 @@ module Order =
                 | _ -> null
 
             let substPerTimeSelect =
-                match substIndx, displayOrder with
+                match substIndx, shownOrder with
                 | Some i, Some ord when ord.Schedule.IsContinuous |> not && itms |> Array.length > 0 ->
                     let dispatch =
                         if useAdjust then
@@ -1192,7 +1175,7 @@ module Order =
             let substRateSelect =
                 let stepper = ViewHelpers.noSteps
 
-                match substIndx, displayOrder with
+                match substIndx, shownOrder with
                 | Some i, Some ord when ord.Schedule.IsContinuous && itms |> Array.length > 0 ->
                     let dispatch =
                         if useAdjust then
@@ -1232,7 +1215,7 @@ module Order =
                 | _ -> null
 
             let compOrdQtySelect =
-                match displayOrder with
+                match shownOrder with
                 | Some ord when ord.Orderable.Components |> Array.length > 1 ->
                     let cmp =
                         ord.Orderable.Components
@@ -1285,7 +1268,7 @@ module Order =
                 | _ -> null
 
             let substCompConcSelect =
-                match substIndx, displayOrder with
+                match substIndx, shownOrder with
                 | Some i, Some ord ->
                     match itms |> Array.tryItem i with
                     | Some itm ->
@@ -1356,7 +1339,7 @@ module Order =
                 | _ -> null
 
             let substOrdQtySelect =
-                match substIndx, displayOrder with
+                match substIndx, shownOrder with
                 | Some i, Some ord when
                     ord.Schedule.IsContinuous
                     && itms |> Array.length > 0
@@ -1378,7 +1361,7 @@ module Order =
                 | _ -> null
 
             let substOrdConcSelect =
-                match substIndx, displayOrder with
+                match substIndx, shownOrder with
                 | Some i, Some ord when
                     ord.Schedule.IsContinuous |> not
                     && itms |> Array.length > 0
@@ -1400,7 +1383,7 @@ module Order =
                 | _ -> null
 
             let ordQtySelect =
-                match displayOrder with
+                match shownOrder with
                 | Some ord when ord.Orderable.Components |> Array.length > 1 ->
                     let severity = ord.Orderable.OrderableQuantity |> markOf
 
@@ -1418,7 +1401,7 @@ module Order =
                 | _ -> null
 
             let frequencySelect =
-                match displayOrder with
+                match shownOrder with
                 | Some ord when ord.Schedule.IsDiscontinuous || ord.Schedule.IsTimed ->
                     let xs = ord.Schedule.Frequency |> ViewHelpers.ovarValsWithRange string 3
 
@@ -1451,7 +1434,7 @@ module Order =
                 | _ -> null
 
             let ordDoseQtySelect =
-                match displayOrder with
+                match shownOrder with
                 | Some ord when ord.Schedule.IsContinuous |> not ->
                     let stepper =
                         ViewHelpers.createDoseQtyStepper
@@ -1479,7 +1462,7 @@ module Order =
                 | _ -> null
 
             let ordDoseRateSelect =
-                match displayOrder with
+                match shownOrder with
                 | Some ord when ord.Schedule.IsContinuous || ord.Schedule.IsTimed || ord.Schedule.IsOnceTimed ->
                     let stepper =
                         let mode =
@@ -1512,7 +1495,7 @@ module Order =
                 | _ -> null
 
             let timeSelect =
-                match displayOrder with
+                match shownOrder with
                 | Some ord ->
                     let severity = ord.Schedule.Time |> markOf
 
@@ -1670,7 +1653,7 @@ module Order =
             <div>
             <CardHeader
                 sx = {headerSx}
-                title={displayOrder |> showOrderName}
+                title={shownOrder |> showOrderName}
                 slotProps={titleSlotProps}
             ></CardHeader>
             <CardContent sx={contentSx}>

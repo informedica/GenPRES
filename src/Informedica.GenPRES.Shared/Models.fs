@@ -1706,21 +1706,6 @@ module Models =
             )
 
 
-        /// The variable the target addresses cleared: the preview of a recalculation while its
-        /// request is under way.
-        let reCalc target (ctx: OrderContext) =
-            scenario ctx
-            |> Result.bind (fun sc ->
-                match sc.Order |> Target.tryGet target with
-                | None -> Error $"no %A{target} in the order"
-                | Some _ ->
-                    Ok(
-                        ctx
-                        |> withOrder (sc.Order |> Target.map target (Order.OrderVariable.setOvar None))
-                    )
-            )
-
-
         /// The argumentation the user writes for a deviation from the rules.
         module Argumentation =
 
