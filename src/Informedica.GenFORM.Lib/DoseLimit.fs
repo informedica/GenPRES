@@ -124,3 +124,22 @@ module DoseLimit =
         else
             minMax |> toStr
         |> String.trim
+
+
+    /// The ranges of a dose limit, each named after the limit target, or after the
+    /// fallback name when the target has no name.
+    let ranges fallback (dl: DoseLimit) =
+        let target =
+            match dl.DoseLimitTarget |> LimitTarget.toString with
+            | s when s |> String.notEmpty -> s
+            | _ -> fallback
+
+        [
+            "quantity", dl.Quantity
+            "quantity adjust", dl.QuantityAdjust
+            "per time", dl.PerTime
+            "per time adjust", dl.PerTimeAdjust
+            "rate", dl.Rate
+            "rate adjust", dl.RateAdjust
+        ]
+        |> List.map (fun (name, mm) -> $"%s{target} %s{name}", mm)

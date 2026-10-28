@@ -5551,6 +5551,440 @@ module Tests =
                 ]
 
 
+    module RuleCheckTests =
+
+        open Informedica.GenForm.Lib.Resources
+
+
+        let mg = Units.Mass.milliGram
+        let mgPerMl = Units.Mass.milliGram |> ValueUnit.per Units.Volume.milliLiter
+
+
+        let range u min max =
+            MinMax.createInclIncl (min |> ValueUnit.singleWithUnit u) (max |> ValueUnit.singleWithUnit u)
+
+
+        let substanceLimit name qty =
+            { DoseLimit.limit with
+                DoseLimitTarget = SubstanceLimitTarget name
+                DoseUnit = mg
+                Quantity = qty
+            }
+
+
+        let doseRule generic limits =
+            {
+                Id = "1"
+                DataId = "1"
+                GroupId = "1"
+                SortNo = 0
+                Source = Other "test"
+                SourceText = ""
+                Indication = "Milde pijn en koorts"
+                Generic =
+                    {
+                        Label = Shorthand generic
+                        Form = Solid "tablet"
+                        Products = []
+                    }
+                Route = "ORAAL"
+                PatientText = ""
+                PatientCategory = { PatientCategory.empty with Age = IsAdult }
+                ScheduleText = ""
+                DoseType = Discontinuous ""
+                AdjustUnit = None
+                Frequencies = None
+                AdministrationTime = MinMax.empty
+                IntervalTime = MinMax.empty
+                Duration = MinMax.empty
+                FormLimit = None
+                ComponentLimits =
+                    [|
+                        {
+                            Name = generic
+                            ProductIds = [||]
+                            Limit = None
+                            Products = [||]
+                            SubstanceLimits = limits
+                        }
+                    |]
+                RenalRuleSource = None
+                Validated = None
+                Check =
+                    {
+                        FreqCheck = None
+                        DoseCheck = None
+                    }
+            }
+
+
+        let solutionRule generic conc =
+            {
+                Generic = generic
+                Form = None
+                Route = "INTRAVENEUS"
+                Indication = None
+                DoseType = NoDoseType
+                PatientCategory = PatientCategory.empty
+                Dose = MinMax.empty
+                Diluents = [||]
+                Div = None
+                Volumes = None
+                Volume = MinMax.empty
+                VolumeAdjust = MinMax.empty
+                DripRate = MinMax.empty
+                DosePerc = MinMax.empty
+                SolutionLimits =
+                    [|
+                        { SolutionLimit.limit with
+                            SolutionLimitTarget = SubstanceLimitTarget generic
+                            Concentration = conc
+                        }
+                    |]
+            }
+
+
+        let parenteral generic : ProductComponent =
+            {
+                GPK = ""
+                ATC = ""
+                MainGroup = ""
+                SubGroup = ""
+                Generic = generic
+                TallMan = ""
+                Synonyms = [||]
+                ProductLabels = []
+                Label = generic
+                Form = "vloeistof"
+                Routes = [| "INTRAVENEUS" |]
+                FormQuantities = 10N |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                FormUnit = Units.Volume.milliLiter
+                RequiresReconstitution = false
+                Reconstitution = [||]
+                Divisible = None
+                Substances = [||]
+                TradeProducts = []
+            }
+
+
+        let solutionRow generic solutions : SolutionRuleData =
+            {
+                Generic = generic
+                Form = ""
+                Route = "INTRAVENEUS"
+                Indication = ""
+                Location = None
+                Department = None
+                CVL = ""
+                PVL = ""
+                MinAge = None
+                MaxAge = None
+                MinWeight = None
+                MaxWeight = None
+                MinGestAge = None
+                MaxGestAge = None
+                MinDose = None
+                MaxDose = None
+                DoseType = ""
+                DoseText = ""
+                Solutions = solutions
+                Div = None
+                Volumes = [||]
+                MinVol = None
+                MaxVol = None
+                MinVolAdj = None
+                MaxVolAdj = None
+                MinPerc = None
+                MaxPerc = None
+                Component = ""
+                Substance = generic
+                Unit = "mg"
+                Quantities = [||]
+                MinQty = None
+                MaxQty = None
+                MinQtyAdj = None
+                MaxQtyAdj = None
+                MinDrip = None
+                MaxDrip = None
+                MinConc = Some(1N / 10N)
+                MaxConc = Some(1N / 2N)
+            }
+
+
+        let warningText =
+            function
+            | Warning s -> s
+            | m -> $"%A{m}"
+
+
+        let tests =
+            testList
+                "Rule checks"
+                [
+                    testList
+                        "an inverted range"
+                        [
+                            test "a minimum above the maximum is reported with both limits" {
+                                [ ("quantity", range mg 500N 100N) ]
+                                |> Utils.MinMax.invertedRanges
+                                |> Expect.equal "one text" [ "quantity Min Incl 500 mg > Max Incl 100 mg" ]
+                            }
+
+                            test "a minimum below the maximum is not reported" {
+                                [ ("quantity", range mg 100N 500N) ]
+                                |> Utils.MinMax.invertedRanges
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "a minimum equal to an inclusive maximum is not reported" {
+                                [ ("quantity", range mg 100N 100N) ]
+                                |> Utils.MinMax.invertedRanges
+                                |> Expect.isEmpty "none"
+                            }
+
+                            // Pending: MinMax.validate in GenCORE does not report an inclusive minimum equal to an
+                            // exclusive maximum, a range no value fits.
+                            ptest "an inclusive minimum equal to an exclusive maximum is reported, no value fits" {
+                                let mm =
+                                    { range mg 100N 100N with
+                                        Max = 100N |> ValueUnit.singleWithUnit mg |> Limit.exclusive |> Some
+                                    }
+
+                                [ ("quantity", mm) ]
+                                |> Utils.MinMax.invertedRanges
+                                |> List.length
+                                |> Expect.equal "one" 1
+                            }
+
+                            test "a minimum above the maximum in another unit of the same group is reported" {
+                                let mm =
+                                    {
+                                        Min = 2N |> ValueUnit.singleWithUnit Units.Mass.gram |> Limit.inclusive |> Some
+                                        Max = 100N |> ValueUnit.singleWithUnit mg |> Limit.inclusive |> Some
+                                    }
+
+                                [ ("quantity", mm) ]
+                                |> Utils.MinMax.invertedRanges
+                                |> List.length
+                                |> Expect.equal "one" 1
+                            }
+
+                            test "a range with only a minimum or no limits is not reported" {
+                                let minOnly =
+                                    { MinMax.empty with
+                                        Min = 500N |> ValueUnit.singleWithUnit mg |> Limit.inclusive |> Some
+                                    }
+
+                                [ "a", minOnly; "b", MinMax.empty ]
+                                |> Utils.MinMax.invertedRanges
+                                |> Expect.isEmpty "none"
+                            }
+                        ]
+
+                    testList
+                        "dose rules"
+                        [
+                            test "the paracetamol quantity of the paracetamol/coffeine rule is reported, coffeine not" {
+                                [|
+                                    doseRule
+                                        "paracetamol/coffeine"
+                                        [|
+                                            substanceLimit "paracetamol" (range mg 500N 100N)
+                                            substanceLimit "coffeine" (range mg 50N 100N)
+                                        |]
+                                |]
+                                |> DoseRule.invertedRanges
+                                |> List.map warningText
+                                |> function
+                                    | [ s ] ->
+                                        s |> Expect.stringContains "names the generic" "paracetamol/coffeine"
+                                        s |> Expect.stringContains "names the route" "ORAAL"
+                                        s
+                                        |> Expect.stringContains
+                                            "names the range"
+                                            "paracetamol quantity Min Incl 500 mg"
+                                    | ws -> ws |> failtestf "expected one warning, got %A"
+                            }
+
+                            test "a rule with no inverted range gives no warning" {
+                                [|
+                                    doseRule "paracetamol" [| substanceLimit "paracetamol" (range mg 100N 500N) |]
+                                |]
+                                |> DoseRule.invertedRanges
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "the same rule expanded for two forms gives one warning" {
+                                let dr = doseRule "paracetamol" [| substanceLimit "paracetamol" (range mg 500N 100N) |]
+
+                                [| dr; { dr with Id = "2" } |]
+                                |> DoseRule.invertedRanges
+                                |> List.length
+                                |> Expect.equal "one" 1
+                            }
+
+                            test "an inverted form limit and an inverted patient weight are reported" {
+                                let dr =
+                                    { doseRule "paracetamol" [||] with
+                                        FormLimit = Some { DoseLimit.limit with PerTime = range mg 4000N 1000N }
+                                        PatientCategory =
+                                            { PatientCategory.empty with
+                                                Weight = range Units.Weight.gram 50000N 10000N
+                                            }
+                                    }
+
+                                let ws = [| dr |] |> DoseRule.invertedRanges |> List.map warningText
+                                ws |> List.length |> Expect.equal "two" 2
+                                ws
+                                |> List.exists (String.contains "form per time")
+                                |> Expect.isTrue "form per time"
+                                ws |> List.exists (String.contains "weight") |> Expect.isTrue "weight"
+                            }
+                        ]
+
+                    testList
+                        "solution rules"
+                        [
+                            test "the granisetron concentration of 0.5 to 0.1 mg/mL is reported" {
+                                [| solutionRule "granisetron" (range mgPerMl (1N / 2N) (1N / 10N)) |]
+                                |> SolutionRule.invertedRanges
+                                |> List.map warningText
+                                |> function
+                                    | [ s ] ->
+                                        s |> Expect.stringContains "names the generic" "granisetron"
+                                        s |> Expect.stringContains "names the range" "granisetron concentration"
+                                    | ws -> ws |> failtestf "expected one warning, got %A"
+                            }
+
+                            test "a concentration of 0.1 to 0.5 mg/mL is not reported" {
+                                [| solutionRule "granisetron" (range mgPerMl (1N / 10N) (1N / 2N)) |]
+                                |> SolutionRule.invertedRanges
+                                |> Expect.isEmpty "none"
+                            }
+                        ]
+
+                    testList
+                        "missing diluents"
+                        [
+                            let parenteral = [| parenteral "NaCl 0,9%"; parenteral "glucose 5%" |]
+
+                            test "solutions that match a parenteral product give no warning" {
+                                [| solutionRow "granisetron" [ "NaCl 0,9%" ] |]
+                                |> SolutionRule.missingDiluents parenteral
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "the match ignores case" {
+                                [| solutionRow "granisetron" [ "nacl 0,9%" ] |]
+                                |> SolutionRule.missingDiluents parenteral
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "solutions that match no parenteral product give one warning naming them" {
+                                [| solutionRow "granisetron" [ "NaCl 0,45%"; "glucose 10%" ] |]
+                                |> SolutionRule.missingDiluents parenteral
+                                |> List.map warningText
+                                |> function
+                                    | [ s ] ->
+                                        s |> Expect.stringContains "names the generic" "granisetron"
+                                        s |> Expect.stringContains "names the solutions" "NaCl 0,45%|glucose 10%"
+                                    | ws -> ws |> failtestf "expected one warning, got %A"
+                            }
+
+                            test "one matching solution among several is enough" {
+                                [| solutionRow "granisetron" [ "NaCl 0,45%"; "glucose 5%" ] |]
+                                |> SolutionRule.missingDiluents parenteral
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "an empty Solutions column gives no warning" {
+                                [| solutionRow "granisetron" []; solutionRow "granisetron" [ "" ] |]
+                                |> SolutionRule.missingDiluents parenteral
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "with no parenteral products at all, a rule asking for solutions is reported" {
+                                [| solutionRow "granisetron" [ "NaCl 0,9%" ] |]
+                                |> SolutionRule.missingDiluents [||]
+                                |> List.length
+                                |> Expect.equal "one" 1
+                            }
+
+                            test "two rows of one rule, one per substance, give one warning" {
+                                [|
+                                    { solutionRow "a/b" [ "NaCl 0,45%" ] with Substance = "a" }
+                                    { solutionRow "a/b" [ "NaCl 0,45%" ] with Substance = "b" }
+                                |]
+                                |> SolutionRule.missingDiluents parenteral
+                                |> List.length
+                                |> Expect.equal "one" 1
+                            }
+
+                            test "two rules for two departments give two warnings" {
+                                [|
+                                    { solutionRow "granisetron" [ "NaCl 0,45%" ] with Department = Some "ICK" }
+                                    { solutionRow "granisetron" [ "NaCl 0,45%" ] with Department = Some "NEO" }
+                                |]
+                                |> SolutionRule.missingDiluents parenteral
+                                |> List.length
+                                |> Expect.equal "two" 2
+                            }
+                        ]
+
+                    testList
+                        "the rule checks registry entry"
+                        [
+                            // The entry of the default registry, run on hand-built dependencies.
+                            let warnings (doseRules: DoseRule[]) (solutionRules: SolutionRule[]) rows =
+                                let reg =
+                                    Map
+                                        [
+                                            Keys.ruleChecks.Name,
+                                            (Resources.defaultRegistry FormLogging.noOp "")[Keys.ruleChecks.Name]
+                                            Keys.parenteralMeds.Name,
+                                            ofResult (fun () -> Ok [| parenteral "NaCl 0,9%" |])
+                                            Keys.solutionRuleData.Name, ofResult (fun () -> Ok rows)
+                                            Keys.doseRules.Name, ofResult (fun () -> Ok doseRules)
+                                            Keys.solutionRules.Name, ofResult (fun () -> Ok solutionRules)
+                                        ]
+
+                                let eng = LoadEngine reg
+                                eng.Resolve Keys.ruleChecks
+                                eng.Warnings |> List.map warningText
+
+                            test "gives a warning for a rule without diluents and for each inverted range" {
+                                let ws =
+                                    [| solutionRow "granisetron" [ "NaCl 0,45%" ] |]
+                                    |> warnings
+                                        [|
+                                            doseRule
+                                                "paracetamol/coffeine"
+                                                [| substanceLimit "paracetamol" (range mg 500N 100N) |]
+                                        |]
+                                        [| solutionRule "granisetron" (range mgPerMl (1N / 2N) (1N / 10N)) |]
+
+                                ws |> List.length |> Expect.equal "three warnings" 3
+                                ws
+                                |> List.exists (String.contains "no parenteral product")
+                                |> Expect.isTrue "diluents"
+                                ws
+                                |> List.exists (String.contains "paracetamol quantity")
+                                |> Expect.isTrue "dose rule"
+
+                                ws
+                                |> List.exists (String.contains "granisetron concentration")
+                                |> Expect.isTrue "solution rule"
+                            }
+
+                            test "gives no warning for sound rules" {
+                                [| solutionRow "granisetron" [ "NaCl 0,9%" ] |]
+                                |> warnings [||] [||]
+                                |> Expect.isEmpty "none"
+                            }
+                        ]
+                ]
+
+
     [<Tests>]
     let tests =
         testList
@@ -5579,4 +6013,5 @@ module Tests =
                 SourceLinkTests.tests
                 ResourceRegistryTests.tests
                 DepartmentsTests.tests
+                RuleCheckTests.tests
             ]
