@@ -42,6 +42,9 @@ module SolverLogging =
 
         | Exceptions.SolverInvalidEquations eqs -> $"The following equations are invalid:\n {eqs |> eqsToStr} "
 
+        | Exceptions.EquationSumUnitMismatch eq ->
+            $"The variables of this sum equation are not in one unit group:\n {[ eq ] |> eqsToStr} "
+
         | Exceptions.ValueRangeMinLargerThanMax(min, max) -> $"{min} is larger than {max}"
 
         | Exceptions.ValueRangeMinOverFlow min -> $"Min overflow: {min}"

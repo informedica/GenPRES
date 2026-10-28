@@ -10,6 +10,7 @@ module Equation =
 
     open System
     open Informedica.Utils.Lib
+    open Informedica.GenUnits.Lib
 
     open Types
     open Variable.Operators
@@ -318,6 +319,22 @@ module Equation =
             true
 
 
+    /// True when a sum equation holds variables with a known unit in more than one unit group,
+    /// so the values cannot be added. A variable without a unit, or with the dimensionless zero
+    /// unit, matches any unit, as in the addition of two value units. A product equation is
+    /// never a mismatch, as any two units can be multiplied or divided.
+    let hasSumUnitMismatch eq =
+        match eq with
+        | ProductEquation _ -> false
+        | SumEquation(y, xs) ->
+            y :: xs
+            |> List.choose Variable.getUnit
+            |> List.filter ((<>) ZeroUnit)
+            |> function
+                | [] -> false
+                | u :: us -> us |> List.exists (ValueUnit.Group.eqsGroup u >> not)
+
+
     /// <summary>
     /// Get the string representation of a calculation
     /// </summary>
@@ -432,6 +449,11 @@ module Equation =
     let private solve_ onlyMinIncrMax log eq =
 
         let reorder = List.rotations >> List.mapi (fun i x -> i, x)
+
+        // a sum of values in different unit groups cannot be calculated or checked, so it is an
+        // error before anything else is done with the equation
+        if eq |> hasSumUnitMismatch then
+            eq |> Exceptions.EquationSumUnitMismatch |> Exceptions.raiseExc None []
 
         // an equation whose variables all hold one value cannot change, but it can be
         // false: the single values of the order may contradict it. The check runs on
