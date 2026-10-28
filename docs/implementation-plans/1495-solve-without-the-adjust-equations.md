@@ -288,6 +288,10 @@ The work is done in one pull request per step, after the maintainer's go.
      or without a weight. One helper, `forAdultMatch`, serves both: it gives the patient with an age
      of 18 years and no gestational age, and a check that the rule's age range has no upper bound.
      The existing age check then tests that 18 years lies within the range.
+   - **The renal rules.** `RenalRule.filter` uses the same helper, so a patient matched as an adult
+     gets the renal rules that hold every age from 18 years up, and keeps a dose reduction for a
+     reduced kidney function. A patient without an age and without the mark gets the renal rules
+     without an age range, as for the dose rules; before, such a patient got no renal rule at all.
    - **The stored order plan.** The plan's patient writes the mark, so the JSON structure version of
      a stored order plan goes from 6 to 7 (`SqlDatabase.jsonVersionRead` and `jsonVersionWritten`).
      A row of version 6 reads as not marked; a new fixture `order_plan_v7.json` is the version 6
@@ -311,6 +315,10 @@ The work is done in one pull request per step, after the maintainer's go.
      - from 18 years the mark changes nothing, as a law over the demo rules. An unmarked patient
        never reaches the new code, so a law for one would only compare the function with itself;
      - a stored order plan of version 6 reads as not marked and is written as version 7.
+     - a marked patient without an age, and one of 17, gets the all-age and the adult renal rules and
+       not a renal rule of 12 to 25 years; an unmarked patient without an age gets the all-age renal
+       rule only; an unmarked patient of 17 gets the renal rules for the age held; a patient younger
+       than 28 days gets none.
    - `feat(genform): mark a patient as an adult`.
 
 2. **GenFORM: under an absolute renal reduction the renal bounds win (#1535).**

@@ -186,13 +186,13 @@ module PatientCategory =
         }
 
 
-    /// The patient to match and the check the age range of a category must pass beside the
-    /// age check. A patient matched as an adult is matched with the adult age, and the age range
-    /// must have no upper bound: the age check then holds every age from the adult age up. Any
-    /// other patient is matched as held, with no further check.
+    /// The patient to match and the check a rule's age range must pass beside the age check. A
+    /// patient matched as an adult is matched with the adult age, and the age range must have no
+    /// upper bound: the age check then holds every age from the adult age up. Any other patient
+    /// is matched as held, with no further check.
     let forAdultMatch pat =
         if pat |> Adult.matchedAsAdult then
-            pat |> asAdult, (fun (p: PatientCategory) -> (p |> getAge).Max.IsNone)
+            pat |> asAdult, (fun (age: MinMax) -> age.Max.IsNone)
         else
             pat, (fun _ -> true)
 
@@ -217,7 +217,7 @@ module PatientCategory =
 
         ([| patCat |],
          [|
-             ageHolds
+             fun (p: PatientCategory) -> p |> getAge |> ageHolds
              // if either filter location or patient category location is None, pass; otherwise must match
              fun (p: PatientCategory) -> filter.Patient.Location |> eqs p.Location
              // a rule that names a department is for the patients of that department only
@@ -284,7 +284,7 @@ module PatientCategory =
 
         ([| patCat |],
          [|
-             ageHolds
+             fun (p: PatientCategory) -> p |> getAge |> ageHolds
              fun (p: PatientCategory) -> pat.Department |> departmentMatches p.Department
              fun (p: PatientCategory) -> pat.Age |> MinMax.inRange (p |> getAge)
              fun (p: PatientCategory) -> pat.Weight |> MinMax.inRange p.Weight

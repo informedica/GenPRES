@@ -292,16 +292,15 @@ module RenalRule =
             |> Option.map (fun x -> x |> String.equalsCapInsens b)
             |> Option.defaultValue true
 
+        let pat, ageHolds = filter.Patient |> PatientCategory.forAdultMatch
+
         [|
             fun (rr: RenalRule) ->
-                filter.Patient.Age
-                |> Option.map (fun a ->
-                    (rr.Age |> MinMax.isEmpty || Some a |> MinMax.inRange rr.Age)
-                    &&
-                    // renal rules only applies to patients at least 28 days of age
-                    Units.Time.day |> ValueUnit.singleWithValue 28N <=? a
-                )
-                |> Option.defaultValue false
+                ageHolds rr.Age
+                && pat.Age |> MinMax.inRange rr.Age
+                // renal rules only apply to patients of at least 28 days of age
+                && pat.Age
+                   |> Option.forall (fun a -> Units.Time.day |> ValueUnit.singleWithValue 28N <=? a)
             fun (rr: RenalRule) -> rr.Generic |> eqs filter.Generic
             fun (rr: RenalRule) ->
                 rr.Route |> String.isNullOrWhiteSpace

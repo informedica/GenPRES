@@ -4015,6 +4015,65 @@ module Tests =
                                             (cat |> PatientCategory.filter (filterFor pat))
                             }
                         ]
+
+                    testList
+                        "the renal rules"
+                        [
+                            let renalRule age =
+                                {
+                                    Generic = ""
+                                    Route = ""
+                                    Indication = ""
+                                    Source = ""
+                                    Age = age
+                                    RenalFunction = EGFR(Some 10, Some 30)
+                                    DoseType = NoDoseType
+                                    Frequencies = None
+                                    IntervalTime = MinMax.empty
+                                    RenalLimits = [||]
+                                }
+
+                            let allAgesRenal = renalRule MinMax.empty
+                            let adultRenal = renalRule (ageRange (Some(years 18N)) None)
+                            let twelveToTwentyFiveRenal = renalRule (ageRange (Some(years 12N)) (Some(years 25N)))
+
+                            let reduced (pat: Patient) = { pat with RenalFunction = Some(EGFR(Some 20, Some 20)) }
+
+                            let selected pat rule =
+                                [| rule |]
+                                |> RenalRule.filter [||] (filterFor (reduced pat))
+                                |> Array.isEmpty
+                                |> not
+
+                            for name, pat in [ "without an age", aged None; "of 17 years", aged (Some(years 17N)) ] do
+                                let pat = pat |> marked
+
+                                test $"a marked patient %s{name} gets the all-age and the adult renal rules" {
+                                    [ allAgesRenal; adultRenal ]
+                                    |> List.map (selected pat)
+                                    |> Expect.allEqual "selected" true
+                                }
+
+                                test $"a marked patient %s{name} does not get a renal rule of 12 to 25 years" {
+                                    twelveToTwentyFiveRenal |> selected pat |> Expect.isFalse "not selected"
+                                }
+
+                            test "a patient without an age and without the mark gets only the all-age renal rules" {
+                                [ allAgesRenal; adultRenal; twelveToTwentyFiveRenal ]
+                                |> List.map (selected (aged None))
+                                |> Expect.equal "the all-age rule only" [ true; false; false ]
+                            }
+
+                            test "an unmarked patient of 17 years gets the renal rules for the age held" {
+                                [ allAgesRenal; adultRenal; twelveToTwentyFiveRenal ]
+                                |> List.map (selected (aged (Some(years 17N))))
+                                |> Expect.equal "not the adult rule" [ true; false; true ]
+                            }
+
+                            test "a patient younger than 28 days gets no renal rule" {
+                                allAgesRenal |> selected (aged (Some(days 27N))) |> Expect.isFalse "too young"
+                            }
+                        ]
                 ]
 
 
