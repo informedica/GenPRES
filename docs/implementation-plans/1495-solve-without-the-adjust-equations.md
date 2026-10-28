@@ -341,6 +341,9 @@ The work is done in one pull request per step, after the maintainer's go.
      On a side the renal rule does not give, a kept bound in the other form is compared with the renal
      bound at the patient's weight or BSA, so `adjustDoseLimit` and `adjustDoseRule` take the patient;
      without that measurement the bound stays as it is.
+     A renal per kg or per m2 bound in another measurement than the dose rule's adjust unit (per m2 on
+     a per kg rule, or the reverse) moves to the absolute form at its own measurement, and is left out
+     without it; the load reports such a renal rule as a sheet error.
    - **Tests:**
      - a dose rule of 500 to 1,000 mg per administration, 4 times a day and at most 4 g per day, and a
        renal rule with an absolute reduction to at most 1 g per day only: the order keeps at most

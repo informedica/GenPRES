@@ -417,7 +417,7 @@ module Resources =
                 deriveWith (fun r ->
                     (),
                     r.Get Keys.renalRules
-                    |> RenalRule.raisedMaxima (r.Get Keys.routeMappings) (r.Get Keys.doseRules)
+                    |> RenalRule.doseRuleWarnings (r.Get Keys.routeMappings) (r.Get Keys.doseRules)
                 )
 
                 // G-Standaard dose rules served as a function-valued resource: the

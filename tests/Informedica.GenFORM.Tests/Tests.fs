@@ -4294,6 +4294,43 @@ module Tests =
                         |> Expect.equal "at most 600 mg" (None, Some 600N)
                     }
 
+                    test "a per m2 renal maximum on a per kg dose limit is applied at the BSA" {
+                        let m2 = Units.BSA.m2
+
+                        let pat =
+                            { patient (Some 30N) with
+                                Height = Some(ValueUnit.singleWithUnit Units.Height.centiMeter 130N)
+                            }
+
+                        let bsa = pat |> Patient.calcBSA |> Option.get |> ValueUnit.getValue |> Array.head
+
+                        let dl =
+                            { doseLimit with
+                                Quantity = range mg (Some 250N) (Some 500N)
+                                QuantityAdjust = range (mg |> perKg) None (Some 20N)
+                            }
+                            |> RenalRule.adjustDoseLimit
+                                pat
+                                (reducedRule
+                                    { absolute with QuantityAdjust = range (mg |> ValueUnit.per m2) None (Some 300N) })
+
+                        dl.Quantity
+                        |> valuesIn mg
+                        |> Expect.equal "the renal maximum at the BSA" (Some 250N, Some(300N * bsa))
+
+                        dl.QuantityAdjust |> Expect.equal "no per kg bound" MinMax.empty
+                    }
+
+                    test "a per m2 renal maximum on a per kg dose limit is left out without a BSA" {
+                        { doseLimit with Quantity = range mg (Some 250N) (Some 500N) }
+                        |> adjust
+                            (Some 30N)
+                            { absolute with QuantityAdjust = range (mg |> ValueUnit.per Units.BSA.m2) None (Some 300N) }
+                        |> _.Quantity
+                        |> valuesIn mg
+                        |> Expect.equal "the dose rule's maximum without its minimum" (None, Some 500N)
+                    }
+
                     test "the renal rule parser reads every renal limit as inclusive" {
                         let columns =
                             [
@@ -4418,12 +4455,12 @@ module Tests =
                         |> Expect.equal "0.5 to 3 g per day" (Some 500N, Some 3000N)
 
                         [| renal (EGFR(Some 10, Some 30)) |]
-                        |> RenalRule.raisedMaxima [||] [| dr |]
+                        |> RenalRule.doseRuleWarnings [||] [| dr |]
                         |> List.length
                         |> Expect.equal "one message" 1
 
                         [| renal (EGFR(Some 130, None)) |]
-                        |> RenalRule.raisedMaxima [||] [| dr |]
+                        |> RenalRule.doseRuleWarnings [||] [| dr |]
                         |> Expect.isEmpty "no message for hyper clearance"
                     }
 
@@ -4435,7 +4472,7 @@ module Tests =
                             { absolute with PerTime = range (gram |> perDay) None (Some 3N) }
                             |> renalFor dr rf
                         )
-                        |> RenalRule.raisedMaxima [||] [| dr |]
+                        |> RenalRule.doseRuleWarnings [||] [| dr |]
                         |> List.length
                         |> Expect.equal "one message for each dialysis" 3
                     }
@@ -4446,7 +4483,7 @@ module Tests =
 
                         let reported rl =
                             [| rl |> renalFor dr (EGFR(Some 10, Some 30)) |]
-                            |> RenalRule.raisedMaxima [||] [| dr |]
+                            |> RenalRule.doseRuleWarnings [||] [| dr |]
                             |> List.length
 
                         { absolute with PerTimeAdjust = range (mg |> perKg |> perDay) None (Some 30N) }
@@ -4456,6 +4493,21 @@ module Tests =
                         { absolute with PerTime = range (gram |> perDay) None (Some 3N) }
                         |> reported
                         |> Expect.equal "3 g against 20 mg/kg is not compared" 0
+                    }
+
+                    test "a renal bound in another measurement than the dose rule is reported" {
+                        let dr = withLimit { doseLimit with QuantityAdjust = range (mg |> perKg) None (Some 20N) }
+
+                        [| EGFR(Some 10, Some 30); EGFR(Some 130, None) |]
+                        |> Array.map (fun rf ->
+                            { absolute with
+                                QuantityAdjust = range (mg |> ValueUnit.per Units.BSA.m2) None (Some 300N)
+                            }
+                            |> renalFor dr rf
+                        )
+                        |> RenalRule.doseRuleWarnings [||] [| dr |]
+                        |> List.length
+                        |> Expect.equal "one message for each renal function" 2
                     }
 
                     test "a renal rule for another route than the dose rule gives no message" {
@@ -4471,7 +4523,7 @@ module Tests =
                                 |> renalFor dr (EGFR(Some 10, Some 30))
 
                             [| { rr with Route = route } |]
-                            |> RenalRule.raisedMaxima rm [| dr |]
+                            |> RenalRule.doseRuleWarnings rm [| dr |]
                             |> List.length
 
                         dr.Route |> reported |> Expect.equal "the same route is reported" 1
