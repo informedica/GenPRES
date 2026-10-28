@@ -277,6 +277,9 @@ module Resources =
         let renalRules = ResourceKey.create<RenalRule[]> "renalRules"
         // The renal rules checked against the dose rules; only gives messages.
         let renalRuleChecks = ResourceKey.create<unit> "renalRuleChecks"
+        // The dose rules and solution rules checked for inverted ranges and missing diluents;
+        // only gives messages.
+        let ruleChecks = ResourceKey.create<unit> "ruleChecks"
         // G-Standaard dose-rule capability, served as a function-valued resource.
         let gStandProvider = ResourceKey.create<Check.GStandProvider> "gStandProvider"
 
@@ -418,6 +421,17 @@ module Resources =
                     (),
                     r.Get Keys.renalRules
                     |> RenalRule.doseRuleWarnings (r.Get Keys.routeMappings) (r.Get Keys.doseRules)
+                )
+
+                // A rule with a minimum above its maximum, and a solution rule whose solutions
+                // match no parenteral product, are reported -> ResourceState.Messages.
+                Keys.ruleChecks.Name,
+                deriveWith (fun r ->
+                    (),
+                    (r.Get Keys.solutionRuleData
+                     |> SolutionRule.missingDiluents (r.Get Keys.parenteralMeds))
+                    @ (r.Get Keys.doseRules |> DoseRule.invertedRanges)
+                    @ (r.Get Keys.solutionRules |> SolutionRule.invertedRanges)
                 )
 
                 // G-Standaard dose rules served as a function-valued resource: the

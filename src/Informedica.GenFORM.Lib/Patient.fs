@@ -485,6 +485,19 @@ module PatientCategory =
         |> String.concat ", "
 
 
+    /// The ranges of a patient category, each with its name. An adult age is no range.
+    let ranges (pc: PatientCategory) =
+        [
+            match pc.Age with
+            | AbsoluteAge mm -> "age", mm
+            | IsAdult -> ()
+            "weight", pc.Weight
+            "BSA", pc.BSA
+            "gestational age", pc.GestAge
+            "post-menstrual age", pc.PMAge
+        ]
+
+
 /// The string form of an access device, for the Dto.
 module AccessDevice =
 

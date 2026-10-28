@@ -194,6 +194,79 @@ module SolutionRule =
         |> Ok
 
 
+    /// The rule as an admin finds it in the sheet: generic, form, route, indication,
+    /// patient, which includes the department, and dose type.
+    let label (sr: SolutionRule) =
+        [
+            sr.Generic
+            sr.Form |> Option.defaultValue ""
+            sr.Route
+            sr.Indication |> Option.defaultValue ""
+            sr.PatientCategory |> PatientCategory.toString
+            sr.DoseType |> DoseType.toString
+        ]
+        |> List.filter String.notEmpty
+        |> String.concat ", "
+        |> sprintf "solution rule %s"
+
+
+    /// Every range a solution rule carries, each with its name.
+    let ranges (sr: SolutionRule) =
+        [
+            yield! sr.PatientCategory |> PatientCategory.ranges
+            "dose", sr.Dose
+            "volume", sr.Volume
+            "volume adjust", sr.VolumeAdjust
+            "drip rate", sr.DripRate
+            "dose percentage", sr.DosePerc
+            for sl in sr.SolutionLimits do
+                let target = sl.SolutionLimitTarget |> LimitTarget.toString
+                $"%s{target} quantity", sl.Quantity
+                $"%s{target} quantity adjust", sl.QuantityAdj
+                $"%s{target} concentration", sl.Concentration
+        ]
+
+
+    /// One warning per inverted range in the solution rules.
+    let invertedRanges (rules: SolutionRule[]) =
+        rules
+        |> Array.toList
+        |> List.collect (fun sr ->
+            sr
+            |> ranges
+            |> MinMax.invertedRanges
+            |> List.map (fun s -> $"%s{sr |> label}: minimum above maximum, %s{s}")
+        )
+        |> List.distinct
+        |> List.map Warning
+
+
+    /// One warning per solution rule whose rows name solutions none of which matches a
+    /// parenteral product, so the rule loads with no diluents. Each row is built into a rule
+    /// on its own and the rules are grouped without their limits, which is the grouping map
+    /// makes, so a rule of several rows gives a single warning.
+    let missingDiluents parenteral (data: SolutionRuleData[]) =
+        data
+        |> Array.filter (fun r -> r.Solutions |> List.exists String.notEmpty)
+        |> Array.choose (fun r ->
+            match [| r |] |> map [||] parenteral [||] with
+            | Ok [| sr |] when sr.Diluents |> Array.isEmpty -> Some({ sr with SolutionLimits = [||] }, r.Solutions)
+            | _ -> None
+        )
+        |> Array.groupBy fst
+        |> Array.map (fun (sr, xs) ->
+            let solutions =
+                xs
+                |> Array.collect (snd >> List.toArray)
+                |> Array.filter String.notEmpty
+                |> Array.distinct
+                |> String.concat "|"
+
+            Warning $"%s{sr |> label}: no parenteral product matches the solutions %s{solutions}"
+        )
+        |> Array.toList
+
+
     let get dataUrlId routeMapping (parenteral: ProductComponent[]) products : Result<_, Message list> =
         try
             dataUrlId |> getData |> Result.bind (map routeMapping parenteral products)
