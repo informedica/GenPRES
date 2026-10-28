@@ -155,6 +155,7 @@ module rec Types =
             | VariableCannotCalcVariables of v1: Variable * op: (ValueRange -> ValueRange -> ValueRange) * v2: Variable
             | EquationDuplicateVariables of duplicateVars: Variable list
             | EquationEmptyVariableList
+            | EquationSumUnitMismatch of Equation
             | ConstraintVariableNotFound of Constraint * Equation list
             | SolverInvalidEquations of Equation list
             | SolverTooManyLoops of loopCount: int * Equation list
