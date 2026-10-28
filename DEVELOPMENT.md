@@ -622,13 +622,13 @@ context and order plan machines as one line, with the message, the effects it pr
 it reached, logged to the console and kept as the last 500 lines.
 
 ```text
-#21 13:33:18.498 OrderContext Reopen UpdateOrderScenario workbench ... 4cfe91b6 -> CallContext UpdateOrderScenario workbench 4cfe91b6 | Changing workbench awaits 4cfe91b6 kept
+#21 13:33:18.498 OrderContext Command ReCalcItemProperty cmp=paracetamol itm=paracetamol DoseQuantity 4cfe91b6 -> CallContext ReCalcItemProperty cmp=paracetamol itm=paracetamol DoseQuantity workbench 4cfe91b6 | Changing workbench awaits 4cfe91b6 kept
 ```
 
 The dose dialog and the nutrition slot each run an Elmish program of their own, and each of their
 steps is a line of machine `Order` or `Nutrition`: the message with the field it moves and the
-value or the step it carries, the call it makes (`CallUpdate`, `CallReopen`, `CallReset`,
-`CallStep`, or the `UpdateOrderScenario` message it queues), and the component and item selected.
+value or the step it carries, the call it makes (`CallUpdate`, `CallReset`, `CallStep`, or the
+`UpdateOrderScenario` message it queues), and the component and item selected.
 The dialog calls the App from inside its step, so the machine line that call produces is numbered
 before the dialog's own line.
 
@@ -639,14 +639,15 @@ before the dialog's own line.
 
 A pick field records what happened when the user acted on it, as a line of machine `Field` named by
 the field's label: a pick or a clear with `onChange` or `dropped`, an auto-pick of a single option,
-an arrow `open` that reopens, an open `blocked loading` or `blocked busy`, a `close` that restores,
-and the `reopened` decision, `NoList` or `ShowList`. The state says whether the field holds a value
-and what it lists, `picked of 5`, `none of range`, and `reopening` while a reopen is under way; it
-never shows the value, since a field can hold the department.
+an `open` that recalculates the field (`reCalc`), an open `blocked loading` or `blocked busy`, a
+`close` that restores, and the `recalculated` decision, `NoList` or `ShowList`. The state says
+whether the field holds a value and what it lists, `picked of 5`, `none of range`, and
+`recalculating` while a recalculation is under way; it never shows the value, since a field can hold
+the department.
 
 ```text
-#25 13:33:24.002 Field open dosering -> reopen | picked of 4
-#28 13:33:24.310 Field reopened dosering -> ShowList | none of 4 reopening
+#25 13:33:24.002 Field open dosering -> reCalc | picked of 4
+#28 13:33:24.310 Field recalculated dosering -> ShowList | none of 4 recalculating
 ```
 
 A context with one scenario shows that scenario: its short order id, its component and its picks,
