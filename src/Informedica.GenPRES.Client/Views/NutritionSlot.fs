@@ -730,7 +730,7 @@ module NutritionSlot =
         let componentSelect = ViewHelpers.orderSelect texts true (busy || isCompositionLocked)
 
         // a field with one value is recalculated when the intent policy allows it on the order shown
-        let reopenOf target : ViewHelpers.Reopen =
+        let reCalcOf target : ViewHelpers.ReCalc =
             {|
                 allowed = shownOrder |> Option.exists (IntentPolicy.isReCalcAllowed target)
                 reCalc = fun () -> navigate (ViewHelpers.reCalcCommand target)
@@ -786,7 +786,7 @@ module NutritionSlot =
                             (fun s -> ChangeComponentOrderableQuantity(cmp.Name, s) |> dispatch)
                             nav
                             qtyWarning
-                            (reopenOf (OrderContext.Target.Component(cmp.Name, ComponentProperty.OrderableQuantity)))
+                            (reCalcOf (OrderContext.Target.Component(cmp.Name, ComponentProperty.OrderableQuantity)))
                             (Some 400)
                             qtyVals
 
@@ -895,7 +895,7 @@ module NutritionSlot =
                     (ChangeOrderableDoseQuantity >> dispatch)
                     doseQtyNav
                     severity
-                    (reopenOf (OrderContext.Target.Orderable OrderableProperty.DoseQuantity))
+                    (reCalcOf (OrderContext.Target.Orderable OrderableProperty.DoseQuantity))
                     selectMinWidth
                     vals
             | None -> null
@@ -935,7 +935,7 @@ module NutritionSlot =
                     (ChangeFrequency >> dispatch)
                     freqNav
                     severity
-                    (reopenOf (OrderContext.Target.Schedule ScheduleProperty.Frequency))
+                    (reCalcOf (OrderContext.Target.Schedule ScheduleProperty.Frequency))
                     selectMinWidth
                     freqVals
             | _ -> null
@@ -980,7 +980,7 @@ module NutritionSlot =
                     (ChangeOrderableDoseRate >> dispatch)
                     nav
                     severity
-                    (reopenOf (OrderContext.Target.Orderable OrderableProperty.DoseRate))
+                    (reCalcOf (OrderContext.Target.Orderable OrderableProperty.DoseRate))
                     minWidth
             | _ -> null
 

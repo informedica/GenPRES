@@ -132,4 +132,4 @@ module IntentPolicy =
 
     /// Whether the command is a recalculation, after which a list closed without a pick puts the
     /// state before it back.
-    let reopens cmd = cmd |> reCalcTarget |> Option.isSome
+    let isReCalc cmd = cmd |> reCalcTarget |> Option.isSome

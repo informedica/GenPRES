@@ -28,9 +28,9 @@ module FieldOpenPolicy =
         | true, _ -> Selectable.No
 
 
-    /// What the field shows once the answer to a reopen has landed.
+    /// What the field shows once the answer to a recalculation has landed.
     [<RequireQualifiedAccess>]
-    type Reopened =
+    type AfterReCalc =
         /// The list opens with the values answered, one or more.
         | ShowList
         /// No values were answered, so no list opens: the field shows its range, whose click picks the
@@ -38,9 +38,9 @@ module FieldOpenPolicy =
         | NoList
 
 
-    /// What the field shows after a reopen: a list only when there are values to list, so a
+    /// What the field shows after a recalculation: a list only when there are values to list, so a
     /// recalculation never leads to an empty dropdown.
-    let reopened values =
+    let afterReCalc values =
         match values with
-        | 0 -> Reopened.NoList
-        | _ -> Reopened.ShowList
+        | 0 -> AfterReCalc.NoList
+        | _ -> AfterReCalc.ShowList

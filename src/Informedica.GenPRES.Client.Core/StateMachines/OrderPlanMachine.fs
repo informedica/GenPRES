@@ -1,6 +1,6 @@
 namespace Informedica.GenPRES.Client.Core.StateMachines
 
-/// Tracks the order plan from no patient to an open plan, through changes and reopens. The App
+/// Tracks the order plan from no patient to an open plan, through changes and recalculations. The App
 /// carries out the effects.
 ///
 /// Four invariants:
@@ -80,8 +80,8 @@ module OrderPlanMachine =
                 /// The contexts of the version last opened or signed; an order is new or changed
                 /// against these.
                 Opened: OrderContext[]
-                /// The state before a reopen from the dialog, put back when its list closes without a
-                /// pick; None when no reopen is looked at.
+                /// The state before a recalculation from the dialog, put back when its list closes
+                /// without a pick; None when no recalculation is looked at.
                 Kept: OrderPlanState option
             }
 
@@ -281,7 +281,7 @@ module OrderPlanMachine =
         let inFlightRequest (state: OrderPlanState) = state.InFlight |> Option.map snd
 
 
-        /// Whether the plan before a reopen is kept, to be put back when its list closes without a pick.
+        /// Whether the plan before a recalculation is kept, to be put back when its list closes without a pick.
         let isKept (state: OrderPlanState) = state.Kept.IsSome
 
 
@@ -309,7 +309,7 @@ module OrderPlanMachine =
         /// disabled, and with a request out falls to the closing arm, which leaves the state as it is.
         ///
         /// The dialog closes on a patient change, a version opened and a row filter, and after an
-        /// answer keeps its selection only while its context is in the plan. A reopen keeps the state
+        /// answer keeps its selection only while its context is in the plan. A recalculation keeps the state
         /// before it, which an answer carries along and a restore puts back; any other message ends
         /// the look. The state kept has nothing under way, so the answer to the clear finds no
         /// request to land on after a restore.
@@ -425,7 +425,7 @@ module OrderPlanMachine =
             | OrderPlanMsg.Change(c, request), OrderPlanCart.Opened(_, tp), None ->
                 let kept =
                     match c with
-                    | OrderPlanChange.OrderDialogCommand(_, cmd) when IntentPolicy.reopens cmd ->
+                    | OrderPlanChange.OrderDialogCommand(_, cmd) when IntentPolicy.isReCalc cmd ->
                         Some { state with Kept = None }
                     | _ -> None
 

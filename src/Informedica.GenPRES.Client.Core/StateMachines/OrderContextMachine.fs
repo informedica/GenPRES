@@ -86,8 +86,8 @@ module OrderContextMachine =
                 /// The scenario the order dialog shows, by its order's id; None while the dialog is
                 /// closed.
                 Selected: string option
-                /// The state before a reopen from the dialog, put back when its list closes without a
-                /// pick; None when no reopen is looked at.
+                /// The state before a recalculation from the dialog, put back when its list closes
+                /// without a pick; None when no recalculation is looked at.
                 Kept: OrderContextState option
             }
 
@@ -280,7 +280,7 @@ module OrderContextMachine =
             | OrderContextView.Changing _ -> None
 
 
-        /// Whether the state before a reopen is kept, to be put back when its list closes without a pick.
+        /// Whether the state before a recalculation is kept, to be put back when its list closes without a pick.
         let isKept (state: OrderContextState) = state.Kept.IsSome
 
 
@@ -325,7 +325,7 @@ module OrderContextMachine =
         /// request out falls to the closing arm, which leaves the state as it is.
         ///
         /// The dialog closes on a patient change, a seed and a reset, and after an answer keeps its
-        /// selection only while the context answered holds it. A reopen keeps the state before it,
+        /// selection only while the context answered holds it. A recalculation keeps the state before it,
         /// which an answer carries along and a restore puts back; any other message ends the look.
         /// The state kept has nothing under way, so the answer to the clear finds no request to land
         /// on after a restore.
@@ -424,7 +424,7 @@ module OrderContextMachine =
             // state before it
             | OrderContextMsg.Command(cmd, request), Some(pat, ctx), None ->
                 let kept =
-                    if IntentPolicy.reopens cmd then
+                    if IntentPolicy.isReCalc cmd then
                         Some { state with Kept = None }
                     else
                         None

@@ -15,11 +15,11 @@ module SimpleSelect =
 
 
     /// A field's state for the trail: whether it holds a value and what it lists; never the value.
-    let fieldState (selected: string option) (listed: int) (reopening: bool) =
+    let fieldState (selected: string option) (listed: int) (recalculating: bool) =
         let held = if selected.IsSome then "picked" else "none"
         let list = if listed = 0 then "range" else string listed
-        let reopen = if reopening then " reopening" else ""
-        $"%s{held} of %s{list}%s{reopen}"
+        let reCalc = if recalculating then " recalculating" else ""
+        $"%s{held} of %s{list}%s{reCalc}"
 
 
     [<JSX.Component>]
@@ -44,13 +44,13 @@ module SimpleSelect =
                 // what a click or a key on the select does beyond choosing, told to a screen
                 // reader on the element that has the focus
                 description: string option
-                // a field the user narrowed: opening it clears its choice first and the list shows
-                // what the server answers; None opens the list as it is
-                reopen: (unit -> unit) option
-                // the list of a reopen closed without a pick: the page puts back what it showed
+                // a field with one value: opening it recalculates it first and the list shows what
+                // the server answers; None opens the list as it is
+                reCalc: (unit -> unit) option
+                // the list of a recalculation closed without a pick: the page puts back what it showed
                 restore: unit -> unit
-                // a request of the page under way, also a step shown before its answer: a reopen
-                // then does nothing, since the clear would wait behind it with nothing to put back
+                // a request of the page under way, also a step shown before its answer: a
+                // recalculation then does nothing, since it would wait behind it with nothing to put back
                 busy: bool
                 // what the box asks while it has values to pick from and shows none
                 placeholder: string option
@@ -66,14 +66,14 @@ module SimpleSelect =
             else
                 {| |} |> box
 
-        // the list is opened by the select and by a reopen; a reopen opens it at once, showing
-        // the value held until the answer brings the others
+        // the list is opened by the select and by a recalculation; a recalculation opens it at once,
+        // showing the value held until the answer brings the others
         let isOpen, setOpen = React.useState false
-        // a reopen under way, whether its answer has been asked for, and the value held before it
-        let reopening = React.useRef false
+        // a recalculation under way, whether its answer has been asked for, and the value held before it
+        let recalculating = React.useRef false
         let sawLoading = React.useRef false
         let prior = React.useRef props.selected
-        // the list of a reopen waits for its answer: drawn under a loading overlay meanwhile
+        // the list of a recalculation waits for its answer: drawn under a loading overlay meanwhile
         let waiting, setWaiting = React.useState false
 
         // a lone range is no list: its click picks the median
@@ -86,8 +86,8 @@ module SimpleSelect =
             fun ev ->
                 let value = ev?target?value
 
-                // a pick ends a reopen: nothing to put back
-                reopening.current <- false
+                // a pick ends a recalculation: nothing to put back
+                recalculating.current <- false
                 setWaiting false
                 setOpen false
 
@@ -105,11 +105,11 @@ module SimpleSelect =
                 "Field"
                 $"%s{event} %s{props.label}"
                 effects
-                (fieldState props.selected listed reopening.current)
+                (fieldState props.selected listed recalculating.current)
 
         let handleOpen =
             fun _ ->
-                match props.reopen with
+                match props.reCalc with
                 | Some _ when props.isLoading || props.busy ->
                     trace
                         "open"
@@ -119,41 +119,41 @@ module SimpleSelect =
                              else
                                  "blocked busy")
                         ]
-                | Some reopen ->
-                    reopening.current <- true
+                | Some reCalc ->
+                    recalculating.current <- true
                     sawLoading.current <- false
                     prior.current <- props.selected
-                    reopen ()
+                    reCalc ()
                     setWaiting true
                     setOpen true
                 | None -> setOpen true
 
-        // closed without a pick after a reopen: the page puts back what it showed
+        // closed without a pick after a recalculation: the page puts back what it showed
         let handleClose =
             fun _ ->
                 setOpen false
                 setWaiting false
 
-                if reopening.current then
+                if recalculating.current then
                     trace "close" [ "restore" ]
-                    reopening.current <- false
+                    recalculating.current <- false
                     props.restore ()
 
-        // the answer to a reopen with no values to list closes the list; the field shows the range
+        // the answer to a recalculation with no values to list closes the list; the field shows the range
         React.useEffect (
             (fun () ->
-                if reopening.current then
+                if recalculating.current then
                     if props.isLoading then
                         sawLoading.current <- true
                     elif sawLoading.current then
                         setWaiting false
 
-                        match FieldOpenPolicy.reopened listed with
-                        | FieldOpenPolicy.Reopened.NoList ->
-                            trace "reopened" [ "NoList" ]
-                            reopening.current <- false
+                        match FieldOpenPolicy.afterReCalc listed with
+                        | FieldOpenPolicy.AfterReCalc.NoList ->
+                            trace "recalculated" [ "NoList" ]
+                            recalculating.current <- false
                             setOpen false
-                        | FieldOpenPolicy.Reopened.ShowList -> trace "reopened" [ "ShowList" ]
+                        | FieldOpenPolicy.AfterReCalc.ShowList -> trace "recalculated" [ "ShowList" ]
             ),
             [| box props.isLoading; box listed |]
         )
@@ -237,7 +237,7 @@ module SimpleSelect =
             | Some text -> {| ``aria-description`` = text |} |> box
             | None -> {| |} |> box
 
-        let hasInteraction = props.canStep || props.values.Length > 1 || props.reopen.IsSome
+        let hasInteraction = props.canStep || props.values.Length > 1 || props.reCalc.IsSome
 
         // the arrow shows where it opens something: not beside the cross, not on a field that
         // cannot be opened
@@ -263,11 +263,11 @@ module SimpleSelect =
                 |> box
             | false, true -> {| ``& .MuiSelect-icon`` = {| visibility = iconVisibility |} |} |> box
 
-        // while a reopen waits or lists, the value held before it stays chosen when it is offered
+        // while a recalculation waits or lists, the value held before it stays chosen when it is offered
         let value =
             match props.selected with
             | Some s -> s
-            | None when reopening.current ->
+            | None when recalculating.current ->
                 prior.current
                 |> Option.filter (fun p -> props.values |> Array.exists (fst >> (=) p))
                 |> Option.defaultValue ""
