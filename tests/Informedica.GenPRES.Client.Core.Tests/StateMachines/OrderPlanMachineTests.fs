@@ -663,12 +663,12 @@ let navigateTests =
 
 
 [<Tests>]
-let reopenTests =
+let reCalcTests =
     // the context as the server answers a clear
-    let reopened = context "c-1" "paracetamol-reopened"
-    let answer = plan [| reopened; context "c-2" "ibuprofen" |]
+    let recalculated = context "c-1" "paracetamol-recalculated"
+    let answer = plan [| recalculated; context "c-2" "ibuprofen" |]
     let open' = held two (Some "c-1")
-    let reopen request =
+    let reCalc request =
         OrderPlanMsg.Change(
             OrderPlanChange.OrderDialogCommand("c-1", OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Time),
             request
@@ -688,7 +688,7 @@ let reopenTests =
         "OrderPlanState.transition, a recalculation and a restore"
         [
             test "a recalculation goes out over the context held and counts as a change" {
-                let state, effects = open' |> move (reopen "r-1")
+                let state, effects = open' |> move (reCalc "r-1")
 
                 effects
                 |> Expect.equal "the recalculation goes out" [ OrderPlanEffect.CallPlan(clear, "r-1") ]
@@ -699,9 +699,9 @@ let reopenTests =
             }
 
             test "a recalculation from the order dialog keeps the state before it" {
-                let reCalc = OrderViewCommand.ReCalcItemProperty("cmp", "itm", ItemProperty.DoseQuantity)
+                let cmd = OrderViewCommand.ReCalcItemProperty("cmp", "itm", ItemProperty.DoseQuantity)
 
-                let change = OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand("c-1", reCalc), "r-1")
+                let change = OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand("c-1", cmd), "r-1")
                 let viaChange = open' |> move change
 
                 viaChange |> fst |> OrderPlanState.isKept |> Expect.isTrue "kept"
@@ -723,7 +723,7 @@ let reopenTests =
             }
 
             test "a restore before the answer puts the plan back as signed, and the late answer is dropped" {
-                let restored = open' |> run [ reopen "r-1"; OrderPlanMsg.RestoreField ]
+                let restored = open' |> run [ reCalc "r-1"; OrderPlanMsg.RestoreField ]
 
                 restored |> Expect.equal "the state before the click" open'
 
@@ -733,7 +733,7 @@ let reopenTests =
             }
 
             test "a restore after the answer puts the plan back as signed" {
-                let answered = open' |> run [ reopen "r-1"; OrderPlanMsg.Answered("r-1", Ok answer) ]
+                let answered = open' |> run [ reCalc "r-1"; OrderPlanMsg.Answered("r-1", Ok answer) ]
 
                 answered
                 |> OrderPlanState.plan
@@ -748,7 +748,7 @@ let reopenTests =
                 let changed = open' |> OrderPlanState.withWork PlanWork.Changed
 
                 changed
-                |> run [ reopen "r-1"; OrderPlanMsg.RestoreField ]
+                |> run [ reCalc "r-1"; OrderPlanMsg.RestoreField ]
                 |> Expect.equal "as before the click" changed
             }
 
@@ -758,12 +758,12 @@ let reopenTests =
                         answer,
                         "c-1",
                         OrderViewCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 0),
-                        reopened
+                        recalculated
                     )
 
                 let picked =
                     open'
-                    |> run [ reopen "r-1"; OrderPlanMsg.Answered("r-1", Ok answer); pageMsg (pick, "r-2") ]
+                    |> run [ reCalc "r-1"; OrderPlanMsg.Answered("r-1", Ok answer); pageMsg (pick, "r-2") ]
 
                 picked
                 |> move OrderPlanMsg.RestoreField

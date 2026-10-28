@@ -870,7 +870,7 @@ module Order =
         // a field with one value is recalculated when the intent policy allows it on the order
         // shown, and shows that it is loading until the answer lands; a list closed without a pick
         // puts back the order shown before
-        let reopenOf field target : ViewHelpers.Reopen =
+        let reCalcOf field target : ViewHelpers.ReCalc =
             {|
                 allowed = shownOrder |> Option.exists (IntentPolicy.isReCalcAllowed target)
                 reCalc =
@@ -894,7 +894,7 @@ module Order =
                     updateSelected
                     mode
                     mark
-                    (reopenOf field target)
+                    (reCalcOf field target)
                     minWidth
                     xs
             else

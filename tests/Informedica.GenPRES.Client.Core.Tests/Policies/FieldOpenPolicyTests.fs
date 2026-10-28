@@ -36,15 +36,15 @@ module FieldOpenPolicyTests =
                     ]
 
                 testList
-                    "after a reopen"
+                    "after a recalculation"
                     [
                         test "a list of values opens, also a list of one" {
-                            reopened 3 |> Expect.equal "list" Reopened.ShowList
-                            reopened 1 |> Expect.equal "list" Reopened.ShowList
+                            afterReCalc 3 |> Expect.equal "list" AfterReCalc.ShowList
+                            afterReCalc 1 |> Expect.equal "list" AfterReCalc.ShowList
                         }
 
                         test "no values answered, a range it can step or one it cannot: no list" {
-                            reopened 0 |> Expect.equal "no list" Reopened.NoList
+                            afterReCalc 0 |> Expect.equal "no list" AfterReCalc.NoList
                         }
                     ]
             ]

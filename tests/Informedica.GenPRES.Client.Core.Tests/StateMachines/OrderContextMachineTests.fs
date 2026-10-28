@@ -724,7 +724,7 @@ let argueTests =
 
 
 [<Tests>]
-let reopenTests =
+let reCalcTests =
     let context id name =
         { paracetamol with
             Id = id
@@ -733,7 +733,7 @@ let reopenTests =
 
     let c1 = context "c-1" "paracetamol"
     // the context as the server answers a clear
-    let reopened = context "c-1" "paracetamol-reopened"
+    let recalculated = context "c-1" "paracetamol-recalculated"
 
     let open' = held c1 |> OrderContextState.select (Some "o-c-1")
 
@@ -741,7 +741,7 @@ let reopenTests =
     let run msgs state = msgs |> List.fold (fun s m -> move m s |> fst) state
     let view = OrderContextState.view
 
-    let reopen =
+    let reCalc =
         OrderContextMsg.Command(OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Time, "r-1")
 
     let answered ctx = Ok(OrderContextResponse.Evaluated ctx)
@@ -750,7 +750,7 @@ let reopenTests =
         "OrderContextState.transition, a recalculation and a restore"
         [
             test "a recalculation goes out over the context held and shows it changing" {
-                let state, effects = open' |> move reopen
+                let state, effects = open' |> move reCalc
 
                 effects
                 |> Expect.equal
@@ -767,17 +767,17 @@ let reopenTests =
             }
 
             test "a recalculation keeps the state before it" {
-                let reCalc = OrderViewCommand.ReCalcItemProperty("cmp", "itm", ItemProperty.DoseQuantity)
+                let cmd = OrderViewCommand.ReCalcItemProperty("cmp", "itm", ItemProperty.DoseQuantity)
 
-                let viaCommand = open' |> move (OrderContextMsg.Command(reCalc, "r-1"))
+                let viaCommand = open' |> move (OrderContextMsg.Command(cmd, "r-1"))
 
                 viaCommand |> fst |> OrderContextState.isKept |> Expect.isTrue "kept"
 
                 open'
                 |> run
                     [
-                        OrderContextMsg.Command(reCalc, "r-1")
-                        OrderContextMsg.Answered("r-1", answered reopened)
+                        OrderContextMsg.Command(cmd, "r-1")
+                        OrderContextMsg.Answered("r-1", answered recalculated)
                     ]
                 |> move OrderContextMsg.RestoreField
                 |> Expect.equal "a restore puts the state before it back" (open', [])
@@ -794,21 +794,21 @@ let reopenTests =
             }
 
             test "a restore before the answer puts the context back, and the late answer is dropped" {
-                let restored = open' |> run [ reopen; OrderContextMsg.RestoreField ]
+                let restored = open' |> run [ reCalc; OrderContextMsg.RestoreField ]
 
                 restored |> Expect.equal "the state before the click" open'
 
                 restored
-                |> move (OrderContextMsg.Answered("r-1", answered reopened))
+                |> move (OrderContextMsg.Answered("r-1", answered recalculated))
                 |> Expect.equal "the answer finds no request" (open', [])
             }
 
             test "a restore after the answer puts the context back" {
-                let answered = open' |> run [ reopen; OrderContextMsg.Answered("r-1", answered reopened) ]
+                let answered = open' |> run [ reCalc; OrderContextMsg.Answered("r-1", answered recalculated) ]
 
                 answered
                 |> view
-                |> Expect.equal "the list shows the answer" (OrderContextView.Settled reopened)
+                |> Expect.equal "the list shows the answer" (OrderContextView.Settled recalculated)
 
                 answered
                 |> move OrderContextMsg.RestoreField
@@ -820,8 +820,8 @@ let reopenTests =
                     open'
                     |> run
                         [
-                            reopen
-                            OrderContextMsg.Answered("r-1", answered reopened)
+                            reCalc
+                            OrderContextMsg.Answered("r-1", answered recalculated)
                             OrderContextMsg.Command(
                                 OrderViewCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 0),
                                 "r-2"
@@ -833,7 +833,7 @@ let reopenTests =
                 |> Expect.equal "nothing to put back" (picked, [])
             }
 
-            test "a restore without a reopen changes nothing" {
+            test "a restore without a recalculation changes nothing" {
                 open'
                 |> move OrderContextMsg.RestoreField
                 |> Expect.equal "nothing to put back" (open', [])

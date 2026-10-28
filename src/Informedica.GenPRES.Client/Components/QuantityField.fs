@@ -89,11 +89,11 @@ module QuantityField =
             hasClear: bool
             // a field whose list cannot be opened: a value only shown, or one the solver determined
             readOnly: bool
-            // a field the user narrowed: its arrow clears its choice and the list shows the answer
-            reopen: (unit -> unit) option
-            // the list of a reopen closed without a pick
+            // a field with one value: selecting it recalculates it and the list shows the answer
+            reCalc: (unit -> unit) option
+            // the list of a recalculation closed without a pick
             restore: unit -> unit
-            // a request of the page under way: the arrow does not reopen meanwhile
+            // a request of the page under way: the field is not recalculated meanwhile
             busy: bool
             disabled: bool
             isLoading: bool
@@ -512,7 +512,7 @@ module QuantityField =
                     // the minimum is the field's; the select takes the column the slots leave
                     minWidth = None
                     description = median |> Option.map (fun _ -> props.texts.pickMedian)
-                    reopen = props.reopen
+                    reCalc = props.reCalc
                     restore = props.restore
                     busy = props.busy
                     placeholder = Some props.texts.pickValue

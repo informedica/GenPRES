@@ -549,7 +549,7 @@ module Trail =
 
 
         /// The order plan state, through the view the pages read, with the request it awaits and whether a
-        /// plan is kept for a reopen.
+        /// plan is kept for a recalculation.
         let state (state: OrderPlanState) =
             [
                 state |> OrderPlanState.view |> view |> Some
@@ -654,7 +654,7 @@ module Trail =
 
 
         /// The order context state, through the view the page reads, with the request it awaits and whether
-        /// a state is kept for a reopen.
+        /// a state is kept for a recalculation.
         let state (state: OrderContextState) =
             [
                 state |> OrderContextState.view |> view |> Some

@@ -100,7 +100,7 @@ module ViewHelpers =
     /// shown, the recalculation the page sends, what the page does when the list of a recalculation
     /// closes without a pick, and whether a request of the page is under way, during which the field
     /// is not recalculated.
-    type Reopen =
+    type ReCalc =
         {|
             allowed: bool
             reCalc: unit -> unit
@@ -112,10 +112,10 @@ module ViewHelpers =
     /// A field of an order. It never offers the cross, since the solver fills an emptied value
     /// again. Several values open as a list; one value the intent policy allows is recalculated
     /// first and the list shows what the server answers; any other value is not selectable. A
-    /// field without a reopen is one whose values are the order's own parts or only shown: it
+    /// field without a recalculation is one whose values are the order's own parts or only shown: it
     /// opens a list of several, never recalculates.
     let orderField
-        (reopen: Reopen option)
+        (reCalc: ReCalc option)
         (texts: Components.QuantityField.Texts)
         alwaysShow
         disabled
@@ -153,7 +153,7 @@ module ViewHelpers =
                 | [| ("range", _) |] -> 0
                 | _ -> xs.Length
 
-            let allowed = reopen |> Option.exists _.allowed
+            let allowed = reCalc |> Option.exists _.allowed
 
             let selectable = FieldOpenPolicy.orderVariable values allowed (not (disabled || isEmpty))
 
@@ -164,11 +164,11 @@ module ViewHelpers =
                     effects
                     (Components.SimpleSelect.fieldState shown values false)
 
-            let reopenField =
-                match selectable, reopen with
+            let reCalcField =
+                match selectable, reCalc with
                 | FieldOpenPolicy.Selectable.ReCalc, Some r ->
                     Some(fun () ->
-                        trace "open" [ "reopen" ]
+                        trace "open" [ "reCalc" ]
                         r.reCalc ()
                     )
                 | _ -> None
@@ -191,9 +191,9 @@ module ViewHelpers =
                     disabled = disabled || isEmpty
                     hasClear = false
                     readOnly = selectable = FieldOpenPolicy.Selectable.No && not (disabled || isEmpty)
-                    reopen = reopenField
-                    restore = reopen |> Option.map _.restore |> Option.defaultValue ignore
-                    busy = reopen |> Option.exists _.busy
+                    reCalc = reCalcField
+                    restore = reCalc |> Option.map _.restore |> Option.defaultValue ignore
+                    busy = reCalc |> Option.exists _.busy
                     severity = mark.severity
                     reason = mark.reason
                     mode = mode
@@ -203,7 +203,7 @@ module ViewHelpers =
                 |}
 
 
-    /// A value the rules narrowed, which the user may narrow further and reopen by its arrow.
+    /// A value the rules narrowed, which the user may narrow further, or recalculate when it holds one.
     let orderSelect
         texts
         alwaysShow
@@ -214,14 +214,14 @@ module ViewHelpers =
         updateSelected
         mode
         (mark: Mark)
-        reopen
+        reCalc
         minWidth
         xs
         =
-        orderField (Some reopen) texts alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
+        orderField (Some reCalc) texts alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
 
 
-    /// A field that never reopens: a choice among the order's own parts, which always holds one of
+    /// A field that is never recalculated: a choice among the order's own parts, which always holds one of
     /// them, or a value that is only shown.
     let orderFixed texts alwaysShow disabled isLoading lbl selected updateSelected mode (mark: Mark) minWidth xs =
         orderField None texts alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
