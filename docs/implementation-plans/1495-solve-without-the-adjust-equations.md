@@ -23,6 +23,7 @@ are from `master` at `0fa88733`.
 
 **The adjust equations.** Every order maps 25 equations that name an adjusted variable (`_adj`). There
 are 57 equation templates in `EquationMapping.fs`. The 25 cover:
+
 - a dose per kg or per m2;
 - the adjust quantity of the order, `[ord]_adj_qty`.
 
@@ -44,6 +45,7 @@ Either the weight is estimated, or the patient is refused.
 ## What the code does today
 
 **The patient.**
+
 - `Patient.applyNormalValues` (Shared `Models.fs:279`) estimates a weight and a height for every age.
   For an adult the estimate is the last row of the table.
 - `Patient.getWeight` (`Models.fs:187`) returns the measured weight, or the estimate when no weight was
@@ -51,6 +53,7 @@ Either the weight is estimated, or the patient is refused.
 
 **The gates.** Three places refuse a patient without both a weight and a height, measured or
 estimated, before any rule is selected:
+
 - **The server.** `ServerApi.Mappers.Patient.patient` (`:34`) refuses with `noWeightAndHeight`, and
   `parse` (`:197`) does the same.
 - **GenORDER.** `OrderContext.getRules` (`:705`) and `OrderContext.refusal` (`:1272`) select rules only
@@ -60,6 +63,7 @@ estimated, before any rule is selected:
 When the normal values are not loaded there is no estimate, and the patient is refused.
 
 **Adulthood.**
+
 - The patient has no adult marker. Only the age says whether a patient is an adult:
   - the client tests `Years >= 18` (`PatientText.fs:86`);
   - GenCORE's `toAgeType` gives `Adult` from 18 years.
@@ -70,6 +74,7 @@ When the normal values are not loaded there is no estimate, and the patient is r
   patient has no age. The adult rules have such a range.
 
 **GenFORM.**
+
 - **Adjusting the limits.** `PrescriptionRule.filter` adjusts the dose limits to the patient in its
   "recalculate adjusted dose limits" map (`PrescriptionRule.fs:275`). It does so only when both the
   weight and the height are known; otherwise the limits stay as they are.
@@ -107,6 +112,7 @@ When the normal values are not loaded there is no estimate, and the patient is r
   `Medication.fs:1121`), so the limits of the other unit are applied in the wrong unit.
 
 **GenORDER.**
+
 - `Medication` sets the adjust quantity to the weight, or to the BSA for a per m2 rule
   (`Medication.fs:1125`). It is `None` without one.
 - `getEqsMapping` (`EquationMapping.fs:233`) already leaves out two groups of equations per order:
@@ -190,6 +196,7 @@ for hyper clearance, the renal rule's bounds replace the dose rule's, and the do
 the renal rule does not give (#1535).
 
 **Step 3, GenFORM.** GenFORM decides per dose limit what applies to the patient.
+
 - A limit whose measurement is known is adjusted as today.
 - A limit whose measurement is missing loses its adjusted limits, also after a renal rule has adjusted
   it.
@@ -205,6 +212,7 @@ per kg and per m2.
 
 **Steps 4 and 5, GenORDER.** After step 3, an order has an adjusted constraint only when its patient has
 the measurement and the rule binds an adjusted limit.
+
 - Step 4 leaves out the adjust equations of every other order. The search then no longer counts the
   adjust quantity as an input.
 - Step 5 refuses, with a refusal of its own, the commands that would set or recalculate an adjusted
@@ -244,6 +252,7 @@ server, in GenORDER, in Shared and in the client.
 ## Steps
 
 The work is done in one pull request per step, after the maintainer's go.
+
 - **Script first.** Every `.fs` change is prototyped in a script with its Expecto tests, reviewed by
   the maintainer, and migrated when asked.
 - **Size.** At most 200 lines of shipped code under `src/` per step.
