@@ -691,6 +691,18 @@ module Patient =
         | _ -> None
 
 
+    /// The value a limit with an adjust unit is adjusted with: the patient's weight for a per kg
+    /// unit, the BSA for any other adjust unit, when known.
+    let adjustValue (pat: Patient) adjustUnit =
+        adjustUnit
+        |> Option.bind (fun u ->
+            if u |> Units.eqsUnit Units.Weight.kiloGram then
+                pat.Weight
+            else
+                pat |> calcBSA
+        )
+
+
     /// The patient the EHR data is at a date: the age at that date in days, from the birthdate
     /// or the age value the EHR gave; weight and height from the calculation values, measured
     /// when there are any; the gestational age in days and the post-menstrual age calculated
