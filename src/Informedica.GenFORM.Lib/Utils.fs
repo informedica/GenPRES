@@ -320,3 +320,16 @@ module Utils =
                     Min = min
                     Max = max
                 }
+
+
+        /// One text per named range whose minimum lies above its maximum, giving the name and
+        /// both limits. A range with only a minimum, only a maximum or neither is never inverted.
+        let invertedRanges named =
+            named
+            |> List.choose (fun (name, mm) ->
+                match mm |> MinMax.validate with
+                | Error(Errors.MinLargerThanMax(min, max)) ->
+                    $"%s{name} %s{min |> Limit.toString true} > %s{max |> Limit.toString false}"
+                    |> Some
+                | _ -> None
+            )

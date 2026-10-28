@@ -1079,3 +1079,53 @@ module DoseRule =
         )
         |> Array.choose id
         |> Array.tryHead
+
+
+    /// The rule as an admin finds it in the sheet: generic, route, indication, patient and
+    /// dose type.
+    let label (dr: DoseRule) =
+        [
+            dr.Generic |> Generic.toString
+            dr.Route
+            dr.Indication
+            dr.PatientCategory |> PatientCategory.toString
+            dr.DoseType |> DoseType.toString
+        ]
+        |> List.filter String.notEmpty
+        |> String.concat ", "
+        |> sprintf "dose rule %s"
+
+
+    /// Every range a dose rule carries, each with its name.
+    let ranges (dr: DoseRule) =
+        [
+            yield! dr.PatientCategory |> PatientCategory.ranges
+            "administration time", dr.AdministrationTime
+            "interval time", dr.IntervalTime
+            "duration", dr.Duration
+            match dr.FormLimit with
+            | Some dl -> yield! dl |> DoseLimit.ranges "form"
+            | None -> ()
+            for cl in dr.ComponentLimits do
+                match cl.Limit with
+                | Some dl -> yield! dl |> DoseLimit.ranges cl.Name
+                | None -> ()
+
+                for sl in cl.SubstanceLimits do
+                    yield! sl |> DoseLimit.ranges cl.Name
+        ]
+
+
+    /// One warning per inverted range in the dose rules. A sheet row expands to a dose rule
+    /// per product form, so the same warning is given once.
+    let invertedRanges (rules: DoseRule[]) =
+        rules
+        |> Array.toList
+        |> List.collect (fun dr ->
+            dr
+            |> ranges
+            |> MinMax.invertedRanges
+            |> List.map (fun s -> $"%s{dr |> label}: minimum above maximum, %s{s}")
+        )
+        |> List.distinct
+        |> List.map Warning
