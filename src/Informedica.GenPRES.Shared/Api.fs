@@ -157,12 +157,11 @@ module Api =
 
         /// The client's preview of a command while its request is under way: the context as the
         /// command changes it; the context as it is when the command leaves it, as an index past the
-        /// values does. The domain's answer replaces it.
+        /// values does, or a recalculation, whose field keeps its value until the answer. The
+        /// domain's answer replaces it.
         let preview (cmd: OrderViewCommand) (ctx: OrderContext) =
             let setNth target n =
                 ctx |> Ctx.setNth target n |> Result.map (Option.defaultValue ctx)
-
-            let reCalc target = ctx |> Ctx.reCalc target
 
             match cmd with
             | OrderViewCommand.SetNthFilterProperty(field, n) -> ctx |> Ctx.changeFilter field (Some n)
@@ -173,13 +172,9 @@ module Api =
             | OrderViewCommand.SetNthComponentsProperty ns -> ctx |> Ctx.setNthComponents ns
             | OrderViewCommand.SelectNthOrderScenario n -> ctx |> Ctx.selectNthScenario n
             | OrderViewCommand.SetNthScheduleProperty(prop, n) -> setNth (Ctx.Target.Schedule prop) n
-            | OrderViewCommand.ReCalcScheduleProperty prop -> reCalc (Ctx.Target.Schedule prop)
             | OrderViewCommand.SetNthOrderableProperty(prop, n) -> setNth (Ctx.Target.Orderable prop) n
-            | OrderViewCommand.ReCalcOrderableProperty prop -> reCalc (Ctx.Target.Orderable prop)
             | OrderViewCommand.SetNthComponentProperty(cmp, prop, n) -> setNth (Ctx.Target.Component(cmp, prop)) n
-            | OrderViewCommand.ReCalcComponentProperty(cmp, prop) -> reCalc (Ctx.Target.Component(cmp, prop))
             | OrderViewCommand.SetNthItemProperty(cmp, itm, prop, n) -> setNth (Ctx.Target.Item(cmp, itm, prop)) n
-            | OrderViewCommand.ReCalcItemProperty(cmp, itm, prop) -> reCalc (Ctx.Target.Item(cmp, itm, prop))
             | OrderViewCommand.SetArgumentationProperty text -> Ok(ctx |> Ctx.Argumentation.write text)
             | OrderViewCommand.SeedFilter(source, ind, gen, rte, frm, dt) ->
                 Ok(ctx |> Ctx.seedFilter source ind gen rte frm dt)

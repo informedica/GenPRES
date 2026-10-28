@@ -139,11 +139,51 @@ let processed med =
     |> Tests.TestOrder.solve SolveOrder
 
 
+/// The dose variables the dose checks read for the schedule of the order: the rates of a timed or
+/// continuous order, the frequency of a repeated one, and the item doses of an order with a quantity.
+let doseCheckVariables (ord: Order) =
+    let items = ord.Orderable.Components |> List.collect _.Items |> List.map _.Dose
+    let rates =
+        (ord.Orderable.Dose.Rate :: (items |> List.map _.Rate))
+        |> List.map OrderVariable.Rate.toOrdVar
+
+    let quantities =
+        [
+            yield! items |> List.map (_.Quantity >> OrderVariable.Quantity.toOrdVar)
+            yield! items |> List.map (_.PerTime >> OrderVariable.PerTime.toOrdVar)
+            yield! items |> List.map (_.PerTimeAdjust >> OrderVariable.PerTimeAdjust.toOrdVar)
+        ]
+
+    let frequency = ord.Schedule |> Order.Schedule.toOrdVars |> fst |> Option.toList
+
+    match ord.Schedule with
+    | Continuous _ -> rates
+    | Timed _ -> rates @ frequency @ quantities
+    | OnceTimed _ -> rates @ quantities
+    | Discontinuous _ -> frequency @ quantities
+    | Once -> quantities
+
+
 [<Tests>]
 let tests =
     testList
         "OrderProcessor recalculation"
         [
+            test "no solved or recalculated order leaves a variable the dose checks read cleared" {
+                [
+                    for name, ord in Tests.RecipeTests.solvedFixtures.Value do
+                        name, ord
+
+                    for name, _, recipe, _, res in cases.Value do
+                        match res with
+                        | Ok after -> $"%s{name} %A{recipe}", after
+                        | Error _ -> ()
+                ]
+                |> List.filter (snd >> doseCheckVariables >> List.exists OrderVariable.isCleared)
+                |> List.map fst
+                |> Expect.equal "no order" []
+            }
+
             test "every recipe recalculation of the solved fixtures solves" {
                 cases.Value |> Expect.isNonEmpty "recalculations"
 

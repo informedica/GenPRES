@@ -272,14 +272,6 @@ let tests =
                                         |> Expect.equal "today's change" (ord |> Today.change target (Some keys[n]))
                                     }
 
-                                test $"%s{name}: %A{target} cleared" {
-                                    ord
-                                    |> Ctx.Target.map
-                                        target
-                                        (Informedica.GenPRES.Shared.Models.Order.OrderVariable.setOvar None)
-                                    |> Expect.equal "today's change" (ord |> Today.change target None)
-                                }
-
                                 test $"%s{name}: %A{target} counted" {
                                     ctx
                                     |> Ctx.count (Ctx.Options.Variable target)
@@ -425,12 +417,6 @@ let tests =
                                     |> Expect.isTrue "an error"
                                 }
 
-                                test $"%s{name}: %A{target} cleared" {
-                                    let today = ctx |> Ctx.withOrder (ord |> Today.change target None)
-
-                                    ctx |> Ctx.reCalc target |> Expect.equal "today's context" (Ok today)
-                                }
-
                     test "a target the order does not hold" {
                         let ctx = Fixtures.all.Value[0] |> snd
                         let target =
@@ -440,7 +426,6 @@ let tests =
                             )
 
                         ctx |> Ctx.setNth target 0 |> Result.isError |> Expect.isTrue "an error"
-                        ctx |> Ctx.reCalc target |> Result.isError |> Expect.isTrue "an error"
                     }
 
                     test "a context without one scenario" {
@@ -603,6 +588,13 @@ let tests =
                         }
 
                     for target in targets ord do
+                        if ord |> Ctx.Target.tryGet target |> Option.isSome then
+                            test $"%A{target} recalculated keeps its value until the answer" {
+                                ctx
+                                |> Cmd.preview (reCalcCommand target)
+                                |> Expect.equal "the context as it is" (Ok ctx)
+                            }
+
                         match ord |> Ctx.Target.tryGet target |> Option.map Ctx.values with
                         | Some keys when keys.Length > 1 ->
                             test $"%A{target} set to its last value" {
@@ -613,12 +605,6 @@ let tests =
                                 |> Expect.equal
                                     "the update of the scenario"
                                     (ctx |> Ctx.setNth target n |> Result.map _.Value)
-                            }
-
-                            test $"%A{target} cleared" {
-                                ctx
-                                |> Cmd.preview (reCalcCommand target)
-                                |> Expect.equal "the field cleared" (ctx |> Ctx.reCalc target)
                             }
 
                             test $"%A{target} past its values" {

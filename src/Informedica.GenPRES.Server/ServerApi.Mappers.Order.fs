@@ -54,21 +54,13 @@ module Mappers =
             let dto = Informedica.GenSolver.Lib.Variable.Dto.dto ()
 
             dto.Name <- var.Name
-
-            // a variable the client cleared goes as the mark alone, the bounds it kept left out, so
-            // that it reaches the domain unrestricted also when it has an increment; the solver
-            // marks only a variable without bounds, so a mark beside bounds is a clear
-            if var.IsNonZeroPositive then
-                dto.IsNonZeroPositive <- true
-
-            else
-                dto.IsNonZeroPositive <- var.IsNonZeroPositive
-                dto.MinOpt <- var.Min |> Option.map mapFromValueUnit
-                dto.MinIncl <- var.MinIncl
-                dto.IncrOpt <- var.Incr |> Option.map mapFromValueUnit
-                dto.MaxOpt <- var.Max |> Option.map mapFromValueUnit
-                dto.MaxIncl <- var.MaxIncl
-                dto.ValsOpt <- var.Vals |> Option.map mapFromValueUnit
+            dto.IsNonZeroPositive <- var.IsNonZeroPositive
+            dto.MinOpt <- var.Min |> Option.map mapFromValueUnit
+            dto.MinIncl <- var.MinIncl
+            dto.IncrOpt <- var.Incr |> Option.map mapFromValueUnit
+            dto.MaxOpt <- var.Max |> Option.map mapFromValueUnit
+            dto.MaxIncl <- var.MaxIncl
+            dto.ValsOpt <- var.Vals |> Option.map mapFromValueUnit
 
             dto
 
