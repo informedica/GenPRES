@@ -433,9 +433,15 @@ module RenalRule =
                 | Some v ->
                     let abs = renalAdj |> MinMax.apply (fun vu -> vu * v)
 
+                    // with an absolute renal bound on the same side, the tighter of the two stays
+                    let tighter isTighter lim1 lim2 =
+                        match lim1, lim2 with
+                        | Some l1, Some l2 -> Some(if isTighter l1 l2 then l1 else l2)
+                        | _ -> lim1 |> Option.orElse lim2
+
                     {
-                        Min = renal.Min |> Option.orElse abs.Min
-                        Max = renal.Max |> Option.orElse abs.Max
+                        Min = tighter (fun l1 l2 -> l1 |> Limit.gt true true <| l2) renal.Min abs.Min
+                        Max = tighter (fun l1 l2 -> l1 |> Limit.st false false <| l2) renal.Max abs.Max
                     },
                     MinMax.empty
                 | None -> renal, MinMax.empty

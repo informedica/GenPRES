@@ -4321,6 +4321,31 @@ module Tests =
                         dl.QuantityAdjust |> Expect.equal "no per kg bound" MinMax.empty
                     }
 
+                    test "a converted per m2 renal maximum below the absolute renal maximum wins" {
+                        let pat =
+                            { patient (Some 30N) with
+                                Height = Some(ValueUnit.singleWithUnit Units.Height.centiMeter 130N)
+                            }
+
+                        let bsa = pat |> Patient.calcBSA |> Option.get |> ValueUnit.getValue |> Array.head
+
+                        let renal maxMg =
+                            { absolute with
+                                Quantity = range mg None (Some maxMg)
+                                QuantityAdjust = range (mg |> ValueUnit.per Units.BSA.m2) None (Some 300N)
+                            }
+
+                        let maxOf rl =
+                            { doseLimit with Quantity = range mg (Some 100N) (Some 2000N) }
+                            |> RenalRule.adjustDoseLimit pat (reducedRule rl)
+                            |> _.Quantity
+                            |> valuesIn mg
+                            |> snd
+
+                        renal 1000N |> maxOf |> Expect.equal "300 mg/m2 at the BSA" (Some(300N * bsa))
+                        renal 100N |> maxOf |> Expect.equal "the absolute 100 mg" (Some 100N)
+                    }
+
                     test "a per m2 renal maximum on a per kg dose limit is left out without a BSA" {
                         { doseLimit with Quantity = range mg (Some 250N) (Some 500N) }
                         |> adjust
