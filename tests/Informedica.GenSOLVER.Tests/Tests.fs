@@ -2957,6 +2957,14 @@ module Tests =
             |> TestSolver.setValues ml "b" [ 1N ]
 
 
+        /// Two variables unrestricted, so the solver loop would skip the sum: tot = 1 mg + 1 mL + c.
+        let twoUnrestricted () =
+            [ "tot = a + b + c" ]
+            |> TestSolver.init
+            |> TestSolver.setValues mg "a" [ 1N ]
+            |> TestSolver.setValues ml "b" [ 1N ]
+
+
         /// A sum in one unit group across unit scales: tot = 1 mg + 1 g.
         let sameGroupSum () =
             [ "tot = a + b" ]
@@ -2997,6 +3005,7 @@ module Tests =
                 "all solved, 2 mg = 1 mg + 1 mL", allSolved
                 "tot open, a = 1 mg, b = 1 mL", totOpen
                 "a open {1, 2} mg, b = 1 mL", summandOpen
+                "tot and c unrestricted, a = 1 mg, b = 1 mL", twoUnrestricted
             ]
 
 
