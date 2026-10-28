@@ -155,7 +155,7 @@ module ViewHelpers =
 
             let allowed = reopen |> Option.exists _.allowed
 
-            let offer = FieldOpenPolicy.orderVariable values allowed (not (disabled || isEmpty))
+            let selectable = FieldOpenPolicy.orderVariable values allowed (not (disabled || isEmpty))
 
             let trace event effects =
                 StepTrail.event
@@ -165,7 +165,7 @@ module ViewHelpers =
                     (Components.SimpleSelect.fieldState shown values false)
 
             let reopenField =
-                match offer.Selectable, reopen with
+                match selectable, reopen with
                 | FieldOpenPolicy.Selectable.ReCalc, Some r ->
                     Some(fun () ->
                         trace "open" [ "reopen" ]
@@ -190,7 +190,7 @@ module ViewHelpers =
                     isLoading = isLoading
                     disabled = disabled || isEmpty
                     hasClear = false
-                    readOnly = offer.Selectable = FieldOpenPolicy.Selectable.No && not (disabled || isEmpty)
+                    readOnly = selectable = FieldOpenPolicy.Selectable.No && not (disabled || isEmpty)
                     reopen = reopenField
                     restore = reopen |> Option.map _.restore |> Option.defaultValue ignore
                     busy = reopen |> Option.exists _.busy

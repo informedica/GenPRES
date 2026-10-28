@@ -1607,14 +1607,6 @@ module OrderVariable =
         let isSolved = toOrdVar >> isSolved
 
 
-        /// Check whether a Count is cleared
-        let isCleared = toOrdVar >> isCleared
-
-
-        /// Clear the values of a Count
-        let clear = toOrdVar >> clear >> count
-
-
         /// Set a Count to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> count
 
@@ -1700,10 +1692,6 @@ module OrderVariable =
         let isSolved = toOrdVar >> isSolved
 
 
-        /// Check whether Time is cleared
-        let isCleared = toOrdVar >> isCleared
-
-
         /// Set the minimum value for Time
         let setMinValue = toOrdVar >> setMinValue >> time
 
@@ -1714,10 +1702,6 @@ module OrderVariable =
 
         /// Set the median value for Time
         let setMedianValue = toOrdVar >> setMedianValue >> time
-
-
-        /// Clear the values of Time
-        let clear = toOrdVar >> clear >> time
 
 
         /// Set the variable to its nth value, counted from 0.
@@ -1836,12 +1820,6 @@ module OrderVariable =
         let setPercValue nth = apply (setPercValue nth)
 
 
-        let decrease = apply (decrease false 1)
-
-
-        let increase = apply (increase false 1)
-
-
         /// Set standard frequency values based on the time unit (e.g., per day/week)
         let setStandardValues frq =
             let oldCs = frq |> toOrdVar |> getConstraints
@@ -1867,10 +1845,6 @@ module OrderVariable =
 
         /// Check whether a Frequency is cleared
         let isCleared = toOrdVar >> isCleared
-
-
-        /// Clear the values of a Frequency
-        let clear = apply clear
 
 
         /// Set a Frequency to non-zero positive values
@@ -1959,14 +1933,6 @@ module OrderVariable =
 
         /// Check whether a Concentration is solved
         let isSolved = toOrdVar >> isSolved
-
-
-        /// Check whether a Concentration is cleared
-        let isCleared = toOrdVar >> isCleared
-
-
-        /// Clear the values of a Concentration
-        let clear = toOrdVar >> clear >> Concentration
 
 
         /// Set the minimum value for a Concentration
@@ -2132,40 +2098,8 @@ module OrderVariable =
         let setPercValue perc = toOrdVar >> setPercValue perc >> Quantity
 
 
-        /// Clear the values of a Quantity
-        let clear = toOrdVar >> clear >> Quantity
-
-
         /// Set a Quantity to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> Quantity
-
-
-        /// Materialize Min/Incr/Max of a Quantity into a ValueSet
-        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues [] None >> Quantity
-
-
-        let stepQuantity step useCalc n qty =
-            let n =
-                if not useCalc then
-                    n
-                else
-                    let mult =
-                        match qty |> toOrdVar |> _.CalculatedConstraints |> _.Incr with
-                        | Some incr ->
-                            let vu = incr |> Increment.toValueUnit
-                            let ml = Units.Volume.milliLiter |> ValueUnit.singleWithValue (1N / 10N)
-                            if vu = ml then 10 else 1
-                        | None -> 1
-
-                    n * mult
-
-            qty |> toOrdVar |> step useCalc n |> Quantity
-
-
-        let decrease = stepQuantity decrease // toOrdVar >> decrease useCalc n >> Quantity
-
-
-        let increase = stepQuantity increase // useCalc n >> Quantity
 
 
         let pickNearestHigherElseLower qty1 qty2 =
@@ -2273,20 +2207,12 @@ module OrderVariable =
         let isCleared = toOrdVar >> isCleared
 
 
-        /// Clear the values of a PerTime
-        let clear = toOrdVar >> clear >> PerTime
-
-
         /// Set the variable to its nth value, counted from 0.
         let setNthValue nth = toOrdVar >> setNthValue nth >> PerTime
 
 
         /// Set a PerTime to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> PerTime
-
-
-        /// Materialize Min/Incr/Max of a PerTime into a ValueSet
-        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues [] None >> PerTime
 
 
     module Rate =
@@ -2384,20 +2310,12 @@ module OrderVariable =
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
 
-        /// Materialize Min/Incr/Max of a Rate into a ValueSet
-        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues [] None >> Rate
-
-
         /// Check whether a Rate is solved
         let isSolved = toOrdVar >> isSolved
 
 
         /// Check whether a Rate is cleared
         let isCleared = toOrdVar >> isCleared
-
-
-        /// Clear the values of a Rate
-        let clear = toOrdVar >> clear >> Rate
 
 
         /// Set the minimum value for a Rate
@@ -2424,12 +2342,6 @@ module OrderVariable =
 
         /// Set a Rate to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> Rate
-
-
-        let decrease useCalc n = toOrdVar >> decrease useCalc n >> Rate
-
-
-        let increase useCalc n = toOrdVar >> increase useCalc n >> Rate
 
 
     /// Type and functions that represent a total
@@ -2511,18 +2423,8 @@ module OrderVariable =
         /// Check whether a Total is solved
         let isSolved = toOrdVar >> isSolved
 
-        /// Check whether a Total is cleared
-        let isCleared = toOrdVar >> isCleared
-
-
-        let clear = toOrdVar >> clear >> Total
-
         /// Set a Total to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> Total
-
-        /// Materialize Min/Incr/Max of a Total into a ValueSet
-        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues [] None >> Total
-
 
     /// Type and functions that represent an adjusted quantity,
     /// i.e., an amount per adjust unit (for example, mg/kg)
@@ -2614,13 +2516,6 @@ module OrderVariable =
 
         /// Check whether a QuantityAdjust is solved
         let isSolved = toOrdVar >> isSolved
-
-        /// Check whether a QuantityAdjust is cleared
-        let isCleared = toOrdVar >> isCleared
-
-        /// Clear the values of a QuantityAdjust
-        let clear = toOrdVar >> clear >> QuantityAdjust
-
 
         /// Set the variable to its nth value, counted from 0.
         let setNthValue nth = toOrdVar >> setNthValue nth >> QuantityAdjust
@@ -2738,10 +2633,6 @@ module OrderVariable =
         let isCleared = toOrdVar >> isCleared
 
 
-        /// Clear the values of a PerTimeAdjust
-        let clear = toOrdVar >> clear >> PerTimeAdjust
-
-
         /// Set the variable to its nth value, counted from 0.
         let setNthValue nth = toOrdVar >> setNthValue nth >> PerTimeAdjust
 
@@ -2854,14 +2745,6 @@ module OrderVariable =
         let isSolved = toOrdVar >> isSolved
 
 
-        /// Check whether a RateAdjust is cleared
-        let isCleared = toOrdVar >> isCleared
-
-
-        /// Clear the values of a RateAdjust
-        let clear = toOrdVar >> clear >> RateAdjust
-
-
         /// Set the variable to its nth value, counted from 0.
         let setNthValue nth = toOrdVar >> setNthValue nth >> RateAdjust
 
@@ -2960,12 +2843,6 @@ module OrderVariable =
 
         /// Check whether a TotalAdjust is solved
         let isSolved = toOrdVar >> isSolved
-
-        /// Check whether a TotalAdjust is cleared
-        let isCleared = toOrdVar >> isCleared
-
-        /// Clear the values of a TotalAdjust
-        let clear = toOrdVar >> clear >> TotalAdjust
 
         /// Set a TotalAdjust to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> TotalAdjust

@@ -327,16 +327,6 @@ module Order =
 
 
             /// <summary>
-            /// Apply rate constraints to a Dose
-            /// </summary>
-            let applyRateConstraints dos =
-                { (dos |> inf) with
-                    Rate = dos.Rate |> Rate.applyConstraints
-                    RateAdjust = dos.RateAdjust |> RateAdjust.applyConstraints
-                }
-
-
-            /// <summary>
             /// Set min, max or median dose value
             /// </summary>
             /// <param name="set">The function to set the value</param>
@@ -362,18 +352,6 @@ module Order =
                 | Continuous _ -> { dos with Rate = dos.Rate |> Rate.toOrdVar |> set |> Rate }
 
 
-            /// Set the min dose value
-            let setMinDose = setDose OrderVariable.setMinValue
-
-
-            /// Set the max dose value
-            let setMaxDose = setDose OrderVariable.setMaxValue
-
-
-            /// Set the median dose value
-            let setMedianDose = setDose OrderVariable.setMedianValue
-
-
             let setNthValue nth = setDose (OrderVariable.setNthValue nth)
 
 
@@ -387,146 +365,10 @@ module Order =
             let isSolved = toOrdVars >> List.forall OrderVariable.isSolved
 
 
-            /// Apply a function to Quantity of a Dose
-            let applyToQuantity f dos = { (dos |> inf) with Quantity = f dos.Quantity }
-
-
-            /// Apply a function to PerTime of a Dose
-            let applyToPerTime f dos = { (dos |> inf) with PerTime = f dos.PerTime }
-
-
-            /// Apply a function to Rate of a Dose
-            let applyToRate f dos = { (dos |> inf) with Rate = f dos.Rate }
-
-
-            /// Apply a function to Total of a Dose
-            let applyToTotal f dos = { (dos |> inf) with Total = f dos.Total }
-
-
-            /// Apply a function to QuantityAdjust of a Dose
-            let applyToQuantityAdjust f dos = { (dos |> inf) with QuantityAdjust = f dos.QuantityAdjust }
-
-
-            /// Apply a function to PerTimeAdjust of a Dose
-            let applyToPerTimeAdjust f dos = { (dos |> inf) with PerTimeAdjust = f dos.PerTimeAdjust }
-
-
-            /// Apply a function to RateAdjust of a Dose
-            let applyToRateAdjust f dos = { (dos |> inf) with RateAdjust = f dos.RateAdjust }
-
-
-            /// Clear the rate of a Dose (not the rateAdjust)
-            let clearRate = applyToRate Rate.clear
-
-
-            let stepRate step useCalc n dos =
-                let n =
-                    if not useCalc then
-                        n
-                    else
-                        let mult =
-                            match dos.Rate |> Rate.toOrdVar |> _.CalculatedConstraints |> _.Incr with
-                            | Some incr ->
-                                let vu = incr |> Increment.toValueUnit
-
-                                let dr =
-                                    Units.Volume.milliLiter
-                                    |> ValueUnit.per Units.Time.hour
-                                    |> ValueUnit.singleWithValue (1N / 10N)
-
-                                if vu = dr then 10 else 1
-                            | None -> 1
-
-                        n * mult
-
-                { (dos |> inf) with Rate = dos.Rate |> step useCalc n }
-
-            /// Decrease the rate of a Dose
-            let decreaseRate = stepRate Rate.decrease
-
-
-            /// Increase the rate of a Dose
-            let increaseRate = stepRate Rate.increase
-
-
-            /// Clear both the rate and rateAdjust of a Dose
-            /// by setting them to non-zero positive
-            let setRateToNonZeroPositive dos =
-                { (dos |> inf) with
-                    Rate = dos.Rate |> Rate.setToNonZeroPositive
-                    RateAdjust = dos.RateAdjust |> RateAdjust.setToNonZeroPositive
-                }
-
-
-            /// Clear only rateAdjust of a Dose
-            /// by setting them to non-zero positive
-            let setRateAdjustToNonZeroPositive dos =
-                { (dos |> inf) with RateAdjust = dos.RateAdjust |> RateAdjust.setToNonZeroPositive }
-
-
-            /// Convert min, incr, max to values for the rate of a Dose
-            /// by creating a ValueSet from min, incr, max
-            let rateMinIncrMaxToValues dos = { (dos |> inf) with Rate = dos.Rate |> Rate.minIncrMaxToValues }
-
-
             /// Check if the quantity or quantityAdjust of a Dose has a max constraint
             let hasQuantityMaxConstraint dos =
                 (dos |> inf).Quantity |> Quantity.hasMaxConstraint
                 || dos.QuantityAdjust |> QuantityAdjust.hasMaxConstraint
-
-
-            /// Clear the quantity of a Dose (not the quantityAdjust)
-            let clearQuantity dos = { (dos |> inf) with Quantity = dos.Quantity |> Quantity.clear }
-
-
-            /// Decrease the quantity of a Dose
-            let decreaseQuantity useCalc n dos =
-                { (dos |> inf) with Quantity = dos.Quantity |> Quantity.decrease useCalc n }
-
-
-            /// Increase the quantity of a Dose
-            let increaseQuantity useCalc n dos =
-                { (dos |> inf) with Quantity = dos.Quantity |> Quantity.increase useCalc n }
-
-
-            /// Clear both the quantity and quantityAdjust of a Dose
-            /// by setting them to non-zero positive
-            let setQuantityToNonZeroPositive dos =
-                { (dos |> inf) with
-                    Quantity = dos.Quantity |> Quantity.setToNonZeroPositive
-                    QuantityAdjust = dos.QuantityAdjust |> QuantityAdjust.setToNonZeroPositive
-                }
-
-
-            /// Clear only quantityAdjust of a Dose
-            /// by setting them to non-zero positive
-            let setQuantityAdjustToNonZeroPositive dos =
-                { (dos |> inf) with QuantityAdjust = dos.QuantityAdjust |> QuantityAdjust.setToNonZeroPositive }
-
-
-            /// Convert min, incr, max to values for the quantity of a Dose
-            /// by creating a ValueSet from min, incr, max
-            let quantityMinIncrMaxToValues dos =
-                { (dos |> inf) with Quantity = dos.Quantity |> Quantity.minIncrMaxToValues }
-
-
-            /// Clear the per time of a Dose (not the per time adjust)
-            let clearPerTime dos = (dos |> inf).PerTime |> PerTime.clear
-
-
-            /// Clear both the per time and per time adjust of a Dose
-            /// by setting them to non-zero positive
-            let setPerTimeToNonZeroPositive dos =
-                { (dos |> inf) with
-                    PerTime = dos.PerTime |> PerTime.setToNonZeroPositive
-                    PerTimeAdjust = dos.PerTimeAdjust |> PerTimeAdjust.setToNonZeroPositive
-                }
-
-
-            /// Convert min, incr, max to values for the per time of a Dose
-            /// by creating a ValueSet from min, incr, max
-            let perTimeMinIncrMaxToValues dos =
-                { (dos |> inf) with PerTime = dos.PerTime |> PerTime.minIncrMaxToValues }
 
 
             /// <Summary>
