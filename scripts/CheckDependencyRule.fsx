@@ -16,7 +16,9 @@
 // Run with: dotnet fsi scripts/CheckDependencyRule.fsx
 // Prototype per the script-only policy in AGENTS.md; no build is required.
 
-#r "nuget: Expecto"
+// Pinned to the Expecto version in paket.lock: an exact version restores from the NuGet
+// packages folder the CI cache restores, where an unpinned reference queries nuget.org on every run.
+#r "nuget: Expecto, 10.2.3"
 #load "DependencyRule.fsx"
 
 open System
