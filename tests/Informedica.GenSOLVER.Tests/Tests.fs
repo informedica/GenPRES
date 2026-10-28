@@ -2918,6 +2918,137 @@ module Tests =
                 ]
 
 
+    /// A sum equation whose variables are in different unit groups cannot be added, and the solve
+    /// errors with a unit mismatch on every path instead of throwing.
+    module SumUnitMismatchTests =
+
+        module ValueRange = Variable.ValueRange
+        module ValueSet = ValueRange.ValueSet
+
+
+        let mg = Units.Mass.milliGram
+        let gram = Units.Mass.gram
+        let ml = Units.Volume.milliLiter
+        let mgPerMl = mg |> ValueUnit.per ml
+
+
+        /// All solved: 2 mg = 1 mg + 1 mL.
+        let allSolved () =
+            [ "tot = a + b" ]
+            |> TestSolver.init
+            |> TestSolver.setValues mg "tot" [ 2N ]
+            |> TestSolver.setValues mg "a" [ 1N ]
+            |> TestSolver.setValues ml "b" [ 1N ]
+
+
+        /// The total open: tot = 1 mg + 1 mL.
+        let totOpen () =
+            [ "tot = a + b" ]
+            |> TestSolver.init
+            |> TestSolver.setValues mg "a" [ 1N ]
+            |> TestSolver.setValues ml "b" [ 1N ]
+
+
+        /// A summand open with two values: tot = {1, 2} mg + 1 mL.
+        let summandOpen () =
+            [ "tot = a + b" ]
+            |> TestSolver.init
+            |> TestSolver.setValues mg "a" [ 1N; 2N ]
+            |> TestSolver.setValues ml "b" [ 1N ]
+
+
+        /// Two variables unrestricted, so the solver loop would skip the sum: tot = 1 mg + 1 mL + c.
+        let twoUnrestricted () =
+            [ "tot = a + b + c" ]
+            |> TestSolver.init
+            |> TestSolver.setValues mg "a" [ 1N ]
+            |> TestSolver.setValues ml "b" [ 1N ]
+
+
+        /// A sum in one unit group across unit scales: tot = 1 mg + 1 g.
+        let sameGroupSum () =
+            [ "tot = a + b" ]
+            |> TestSolver.init
+            |> TestSolver.setValues mg "a" [ 1N ]
+            |> TestSolver.setValues gram "b" [ 1N ]
+
+
+        /// A product of different units: qty = 2 mg/mL * 5 mL.
+        let mixedProduct () =
+            [ "qty = conc * vol" ]
+            |> TestSolver.init
+            |> TestSolver.setValues mgPerMl "conc" [ 2N ]
+            |> TestSolver.setValues ml "vol" [ 5N ]
+
+
+        let isUnitMismatch errs =
+            errs
+            |> List.exists (
+                function
+                | Exceptions.EquationSumUnitMismatch _ -> true
+                | _ -> false
+            )
+
+
+        /// The values of a variable in base units.
+        let values n eqs =
+            eqs
+            |> List.collect Equation.toVars
+            |> List.find (fun v -> v.Name |> Variable.Name.toString = n)
+            |> Variable.getValueRange
+            |> ValueRange.getValSet
+            |> Option.map (ValueSet.toValueUnit >> ValueUnit.toBaseValue)
+
+
+        let mismatchCases =
+            [
+                "all solved, 2 mg = 1 mg + 1 mL", allSolved
+                "tot open, a = 1 mg, b = 1 mL", totOpen
+                "a open {1, 2} mg, b = 1 mL", summandOpen
+                "tot and c unrestricted, a = 1 mg, b = 1 mL", twoUnrestricted
+            ]
+
+
+        let tests =
+            testList
+                "sum with mismatched units"
+                [
+                    for name, solve in [ "values", TestSolver.solveAll; "min max", TestSolver.solveMinMax ] do
+                        for case, eqs in mismatchCases do
+                            test $"a %s{name} solve errors with a unit mismatch: %s{case}" {
+                                match eqs () |> solve with
+                                | Error(_, errs) -> errs |> isUnitMismatch |> Expect.isTrue "a unit mismatch error"
+                                | Ok _ -> failtest "solved a sum of mg and mL"
+                            }
+
+                    for case, eqs in mismatchCases do
+                        test $"Equation.solve returns Errored with a unit mismatch: %s{case}" {
+                            match eqs () |> List.head |> Equation.solve false TestSolver.logger |> snd with
+                            | Errored errs -> errs |> isUnitMismatch |> Expect.isTrue "a unit mismatch error"
+                            | r -> failtest $"expected Errored, got %A{r}"
+                        }
+
+                    test "a sum in one unit group solves: 1 mg + 1 g = 1001 mg" {
+                        sameGroupSum ()
+                        |> TestSolver.solveAll
+                        |> function
+                            | Ok eqs ->
+                                eqs
+                                |> values "tot"
+                                |> Expect.equal "1.001 g, the base unit of mass is the gram" (Some [| 1001N / 1000N |])
+                            | Error(_, errs) -> failtest $"%A{errs}"
+                    }
+
+                    test "a product of different units solves: 2 mg/mL * 5 mL = 10 mg" {
+                        mixedProduct ()
+                        |> TestSolver.solveAll
+                        |> function
+                            | Ok eqs -> eqs |> values "qty" |> Expect.equal "0.01 g" (Some [| 1N / 100N |])
+                            | Error(_, errs) -> failtest $"%A{errs}"
+                    }
+                ]
+
+
     module OperatorMatchTests =
 
         open Informedica.GenSolver.Lib.Utils.ValueUnit.Operators
@@ -3066,6 +3197,7 @@ module Tests =
             EquationTests.tests
             IncrementEquationTests.tests
             SolvedEquationTests.tests
+            SumUnitMismatchTests.tests
             OperatorMatchTests.tests
         ]
         |> testList "GenSolver"
