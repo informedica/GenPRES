@@ -254,6 +254,8 @@ module AgeValue =
 
     let ten = create (Some 10<year>) None None None
 
+    let sixteen = create (Some 16<year>) None None None
+
     let eighteen = create (Some 18<year>) None None None
 
 

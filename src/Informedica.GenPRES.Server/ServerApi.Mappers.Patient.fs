@@ -114,6 +114,7 @@ module Patient =
             HeightCm = model |> Patient.getHeight |> Option.map (int >> BigRational.fromInt)
             WeightMeasured = model.Weight.Measured.IsSome
             HeightMeasured = model.Height.Measured.IsSome
+            MarkedAdult = false
             GestAgeDays = model |> Patient.getGestAgeInDays |> Option.map BigRational.fromInt
             PMAgeDays = model |> Patient.getPostConceptionalAgeInDays |> Option.map BigRational.fromInt
             Access = model.Access |> List.map (access >> LibAccess.toString) |> List.toArray
@@ -189,6 +190,7 @@ module Patient =
         | Lib.PatientError.UnknownGender s -> $"Onbekend geslacht: %s{s}"
         | Lib.PatientError.UnknownAccess s -> $"Onbekende toegang: %s{s}"
         | Lib.PatientError.UnknownRenalFunction s -> $"Onbekende nierfunctie: %s{s}"
+        | Lib.PatientError.MarkedAdultBelowSixteen -> "Onder 16 jaar kan een patiënt niet als volwassene gelden"
 
 
     /// The patient the contract model's data is, or why it is none: the Dto's reasons in the

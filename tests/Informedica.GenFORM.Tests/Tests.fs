@@ -3793,6 +3793,290 @@ module Tests =
                 ]
 
 
+    module AdultTests =
+
+        open System
+        open System.IO
+
+
+        let days n = n |> ValueUnit.singleWithUnit Units.Time.day
+
+        let years n = n * 365N |> days
+
+        let kg n = n |> ValueUnit.singleWithUnit Units.Weight.kiloGram
+
+        let aged age = { Patient.patient with Age = age }
+
+        let marked (pat: Patient) = { pat with MarkedAdult = true }
+
+        let ageRange min max : MinMax =
+            {
+                Min = min |> Option.map Inclusive
+                Max = max |> Option.map Exclusive
+            }
+
+        let category age weight =
+            { PatientCategory.empty with
+                Age = age
+                Weight = weight
+            }
+
+        let adults = category IsAdult MinMax.empty
+
+        let allAges = category (MinMax.empty |> AbsoluteAge) MinMax.empty
+
+        let fromEighteen = category (ageRange (Some(years 18N)) None |> AbsoluteAge) MinMax.empty
+
+        let twelveToTwentyFive =
+            category (ageRange (Some(years 12N)) (Some(years 25N)) |> AbsoluteAge) MinMax.empty
+
+        let childrenOneToEighteen =
+            category (ageRange (Some(years 1N)) (Some(years 18N)) |> AbsoluteAge) MinMax.empty
+
+        let filterFor pat = { Filter.doseFilter with Patient = pat }
+
+        let private load<'T> name =
+            Path.Combine(AppContext.BaseDirectory, "fixtures", name)
+            |> File.ReadAllText
+            |> FixtureJson.deSerialize<'T>
+
+        // lazy for the same reason as the fixtures of DoseRuleRoundtripTests
+        let private demoCategories =
+            lazy
+                (DoseRuleLoader.fromData
+                    (load<RouteMapping[]> "routemappings.json")
+                    [||]
+                    (load<ProductComponent[]> "products.json")
+                    (load<DoseRuleData[]> "doserules.json")
+                 |> fst
+                 |> Array.map _.PatientCategory
+                 |> Array.distinct)
+
+        /// Patients of every age group, with and without a weight and a height.
+        let demoPatients =
+            [
+                for age in
+                    [
+                        None
+                        Some(days 1N)
+                        Some(days 200N)
+                        Some(years 2N)
+                        Some(years 17N)
+                        Some(years 40N)
+                    ] do
+                    for weight in [ None; Some(kg 3N); Some(kg 60N) ] do
+                        { aged age with
+                            Weight = weight
+                            Height =
+                                weight
+                                |> Option.map (fun _ -> 150N |> ValueUnit.singleWithUnit Units.Height.centiMeter)
+                        }
+            ]
+
+
+        let tests =
+            testList
+                "Adult"
+                [
+                    testList
+                        "Adult.isAdult"
+                        [
+                            test "a patient of 18 years without the mark is an adult" {
+                                aged (Some(years 18N)) |> Adult.isAdult |> Expect.isTrue "adult"
+                            }
+
+                            test "a patient of 17 years with the mark is an adult" {
+                                aged (Some(years 17N)) |> marked |> Adult.isAdult |> Expect.isTrue "adult"
+                            }
+
+                            test "a patient without an age with the mark is an adult" {
+                                aged None |> marked |> Adult.isAdult |> Expect.isTrue "adult"
+                            }
+
+                            test "a patient of 17 years without the mark is not an adult" {
+                                aged (Some(years 17N)) |> Adult.isAdult |> Expect.isFalse "not an adult"
+                            }
+
+                            test "a patient of exactly 16 years with the mark is an adult" {
+                                aged (Some(years 16N)) |> marked |> Adult.isAdult |> Expect.isTrue "adult"
+                            }
+
+                            test "a patient of 16 years less one day with the mark is refused and is not an adult" {
+                                let pat = aged (Some(days 5839N)) |> marked
+
+                                pat |> Adult.isAdult |> Expect.isFalse "not an adult"
+
+                                pat
+                                |> Patient.validate
+                                |> Expect.equal "validate refuses" (Error PatientError.MarkedAdultBelowSixteen)
+
+                                pat
+                                |> Patient.Dto.toDto
+                                |> Patient.Dto.fromDto
+                                |> Expect.equal "fromDto refuses" (Error [ PatientError.MarkedAdultBelowSixteen ])
+                            }
+                        ]
+
+                    testList
+                        "the minimum data"
+                        [
+                            test "a marked patient without an age passes validate and fromDto" {
+                                let pat = aged None |> marked
+
+                                pat |> Patient.validate |> Expect.isOk "validate accepts"
+                                pat |> Patient.Dto.toDto |> Patient.Dto.fromDto |> Expect.isOk "fromDto accepts"
+                            }
+
+                            test "the mark survives the Dto" {
+                                let pat = aged (Some(years 17N)) |> marked
+
+                                pat
+                                |> Patient.Dto.toDto
+                                |> Patient.Dto.fromDto
+                                |> Expect.equal "the same patient" (Ok pat)
+                            }
+
+                            test "an unmarked patient without an age is refused as before" {
+                                aged None
+                                |> Patient.validate
+                                |> Expect.equal "no minimum data" (Error PatientError.NoAgeOrMeasuredWeightAndHeight)
+                            }
+                        ]
+
+                    testList
+                        "the patient category"
+                        [
+                            for name, pat in [ "without an age", aged None; "of 17 years", aged (Some(years 17N)) ] do
+                                let pat = pat |> marked
+
+                                test $"a marked patient %s{name} matches the adult, the all-age and the from-18 rules" {
+                                    [ adults; allAges; fromEighteen ]
+                                    |> List.map (PatientCategory.filter (filterFor pat))
+                                    |> Expect.allEqual "filter matches" true
+
+                                    [ adults; allAges; fromEighteen ]
+                                    |> List.map (PatientCategory.filterPatient pat)
+                                    |> Expect.allEqual "filterPatient matches" true
+                                }
+
+                                test $"a marked patient %s{name} does not match a rule of 12 to 25 years" {
+                                    twelveToTwentyFive
+                                    |> PatientCategory.filter (filterFor pat)
+                                    |> Expect.isFalse "filter does not match"
+
+                                    twelveToTwentyFive
+                                    |> PatientCategory.filterPatient pat
+                                    |> Expect.isFalse "filterPatient does not match"
+                                }
+
+                            test
+                                "a marked patient of 17 with a weight matches the adult rules and not a rule for children" {
+                                let pat = { aged (Some(years 17N)) with Weight = Some(kg 60N) } |> marked
+
+                                [ adults; childrenOneToEighteen ]
+                                |> List.map (PatientCategory.filter (filterFor pat))
+                                |> Expect.equal "the adult rule only" [ true; false ]
+
+                                [ adults; childrenOneToEighteen ]
+                                |> List.map (PatientCategory.filterPatient pat)
+                                |> Expect.equal "the adult rule only" [ true; false ]
+                            }
+
+                            test "a marked patient with a preterm gestational age matches the adult rules" {
+                                let pat = { aged (Some(years 17N)) with GestAge = Some(days (30N * 7N)) } |> marked
+
+                                adults
+                                |> PatientCategory.filter (filterFor pat)
+                                |> Expect.isTrue "filter matches"
+
+                                adults
+                                |> PatientCategory.filterPatient pat
+                                |> Expect.isTrue "filterPatient matches"
+                            }
+
+                            test "a marked patient without a weight does not match a rule with a weight range" {
+                                let byWeight = category IsAdult { MinMax.empty with Min = Some(Inclusive(kg 50N)) }
+
+                                byWeight
+                                |> PatientCategory.filter (filterFor (aged None |> marked))
+                                |> Expect.isFalse "no weight, no match"
+                            }
+
+                            test "a marked patient of 18 years and over matches every demo rule as an unmarked one" {
+                                let cats = demoCategories.Value
+                                cats |> Array.isEmpty |> Expect.isFalse "the fixtures hold dose rules"
+
+                                for pat in demoPatients |> List.filter Adult.isAdult do
+                                    for cat in cats do
+                                        cat
+                                        |> PatientCategory.filter (filterFor (pat |> marked))
+                                        |> Expect.equal
+                                            "the mark changes nothing"
+                                            (cat |> PatientCategory.filter (filterFor pat))
+                            }
+                        ]
+
+                    testList
+                        "the renal rules"
+                        [
+                            let renalRule age =
+                                {
+                                    Generic = ""
+                                    Route = ""
+                                    Indication = ""
+                                    Source = ""
+                                    Age = age
+                                    RenalFunction = EGFR(Some 10, Some 30)
+                                    DoseType = NoDoseType
+                                    Frequencies = None
+                                    IntervalTime = MinMax.empty
+                                    RenalLimits = [||]
+                                }
+
+                            let allAgesRenal = renalRule MinMax.empty
+                            let adultRenal = renalRule (ageRange (Some(years 18N)) None)
+                            let twelveToTwentyFiveRenal = renalRule (ageRange (Some(years 12N)) (Some(years 25N)))
+
+                            let reduced (pat: Patient) = { pat with RenalFunction = Some(EGFR(Some 20, Some 20)) }
+
+                            let selected pat rule =
+                                [| rule |]
+                                |> RenalRule.filter [||] (filterFor (reduced pat))
+                                |> Array.isEmpty
+                                |> not
+
+                            for name, pat in [ "without an age", aged None; "of 17 years", aged (Some(years 17N)) ] do
+                                let pat = pat |> marked
+
+                                test $"a marked patient %s{name} gets the all-age and the adult renal rules" {
+                                    [ allAgesRenal; adultRenal ]
+                                    |> List.map (selected pat)
+                                    |> Expect.allEqual "selected" true
+                                }
+
+                                test $"a marked patient %s{name} does not get a renal rule of 12 to 25 years" {
+                                    twelveToTwentyFiveRenal |> selected pat |> Expect.isFalse "not selected"
+                                }
+
+                            test "a patient without an age and without the mark gets only the all-age renal rules" {
+                                [ allAgesRenal; adultRenal; twelveToTwentyFiveRenal ]
+                                |> List.map (selected (aged None))
+                                |> Expect.equal "the all-age rule only" [ true; false; false ]
+                            }
+
+                            test "an unmarked patient of 17 years gets the renal rules for the age held" {
+                                [ allAgesRenal; adultRenal; twelveToTwentyFiveRenal ]
+                                |> List.map (selected (aged (Some(years 17N))))
+                                |> Expect.equal "not the adult rule" [ true; false; true ]
+                            }
+
+                            test "a patient younger than 28 days gets no renal rule" {
+                                allAgesRenal |> selected (aged (Some(days 27N))) |> Expect.isFalse "too young"
+                            }
+                        ]
+                ]
+
+
     module DoseTypeTests =
 
 
@@ -4796,6 +5080,7 @@ module Tests =
                 AdjustDoseLimitTests.tests
                 MaxQtyConflictTests.tests
                 PatientCategoryTests.tests
+                AdultTests.tests
                 PatientTests.tests
                 EhrPatientDataTests.tests
                 PatientDtoTests.tests

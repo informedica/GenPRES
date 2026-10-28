@@ -356,6 +356,9 @@ module Types =
             WeightMeasured: bool
             /// Whether the Height held was measured; false for an estimate
             HeightMeasured: bool
+            /// Whether the user marked the patient as an adult. The mark counts from 16 years and for
+            /// a patient without an age; from 18 years a patient is an adult without the mark.
+            MarkedAdult: bool
             /// The Gestational Age in days of the Patient
             GestAge: ValueUnit option
             /// The Post Menstrual Age in days of the Patient
@@ -416,6 +419,8 @@ module Types =
         | UnknownAccess of string
         /// A renal function string the Dto carries that names no renal function
         | UnknownRenalFunction of string
+        /// A patient marked as an adult who is younger than 16 years
+        | MarkedAdultBelowSixteen
 
 
     type ProductId =

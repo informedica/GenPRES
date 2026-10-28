@@ -210,6 +210,17 @@ module Utils =
             |> ValueUnit.singleWithUnit Units.Time.day
 
 
+        /// The youngest age at which a patient may be marked as an adult: the domain's sixteen
+        /// years, stated in GenCORE.Lib, in days and 365 to the year, as the adult age is.
+        let ageMarkable =
+            AgeValue.sixteen
+            |> AgeValue.SetGet.getYearsDef0
+            |> int
+            |> (*) 365
+            |> BigRational.fromInt
+            |> ValueUnit.singleWithUnit Units.Time.day
+
+
         let withOptSingleAndOptUnit u v =
             match v, u with
             | Some v, Some u -> v |> ValueUnit.singleWithUnit u |> Some
