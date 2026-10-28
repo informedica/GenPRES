@@ -18,7 +18,6 @@ module OrderProcessor =
     module RateAdjust = OrderVariable.RateAdjust
     module Dose = Orderable.Dose
     module Increment = Informedica.GenSolver.Lib.Variable.ValueRange.Increment
-    module Name = Informedica.GenSolver.Lib.Variable.Name
     module Variable = Informedica.GenSolver.Lib.Variable
 
 
@@ -49,10 +48,6 @@ module OrderProcessor =
         | NoValues -> "NoValues"
         | HasValues -> "HasValues"
         | DoseSolved -> "DoseSolved"
-
-
-    /// The name of an order variable, as the picks list it.
-    let nameOf (ovar: OrderVariable) = ovar |> OrderVariable.getName |> Name.toString
 
 
     // New: A lightweight classification and step-driven pipeline

@@ -5121,9 +5121,9 @@ module ReachablePickTests =
 
 
 /// The rate of a timed or once timed order gets its values only once the dose quantity has one
-/// value, and then the median of them; a cleared rate gives its list back. The orders come from
-/// TestOrder.processed, the commands the dose dialog sends; ReachablePickTests keeps its own, which
-/// also runs IncreaseIncrements, times the run and takes the caps.
+/// value, and then the median of them. The orders come from TestOrder.processed, the commands the
+/// dose dialog sends; ReachablePickTests keeps its own, which also runs IncreaseIncrements, times the
+/// run and takes the caps.
 module RateAfterQuantityTests =
 
     open TestOrder
@@ -5172,7 +5172,7 @@ module RateAfterQuantityTests =
     let private pickMiddleDoseQuantity ord =
         let qty = ord |> doseQuantity
         let n = qty |> valuesOf |> Array.length
-        ord |> pick (n / 2) qty, [ qty |> OrderProcessor.nameOf ]
+        ord |> pick (n / 2) qty, [ qty |> OrderVariable.getName |> Variable.Name.toString ]
 
 
     /// Every component quantity picked in turn, as the dialog completes an order.

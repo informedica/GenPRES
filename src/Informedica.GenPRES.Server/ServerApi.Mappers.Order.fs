@@ -136,8 +136,7 @@ module Mappers =
             u |> ValueUnit.singleWithValue (BigRational.fromInt 1 / BigRational.fromInt 10)
 
         // The server's special "×10" outer-step cases key on these increments: a quantity
-        // increment of 1/10 mL (OrderVariable.stepQuantity) and a rate increment of
-        // 1/10 mL/hour (Dose.stepRate).
+        // increment of 1/10 mL and a rate increment of 1/10 mL/hour.
         let mlTenth = Units.Volume.milliLiter |> tenthOf
 
         let mlPerHourTenth = Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour |> tenthOf

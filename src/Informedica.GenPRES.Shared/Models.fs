@@ -1706,7 +1706,8 @@ module Models =
             )
 
 
-        /// The variable cleared, as the dose dialog clears it before a recalculation.
+        /// The variable the target addresses cleared: the preview of a recalculation while its
+        /// request is under way.
         let reCalc target (ctx: OrderContext) =
             scenario ctx
             |> Result.bind (fun sc ->
