@@ -4283,6 +4283,17 @@ module Tests =
                         |> Expect.equal "the minimum at 30 kg equals the maximum" (Some 600N)
                     }
 
+                    test "a dose limit without an adjust unit is compared at the weight of a per kg renal bound" {
+                        { doseLimit with
+                            AdjustUnit = None
+                            Quantity = range mg (Some 250N) (Some 500N)
+                        }
+                        |> adjust (Some 30N) { absolute with QuantityAdjust = range (mg |> perKg) (Some 20N) None }
+                        |> _.Quantity
+                        |> valuesIn mg
+                        |> Expect.equal "at most 600 mg" (None, Some 600N)
+                    }
+
                     test "the renal rule parser reads every renal limit as inclusive" {
                         let columns =
                             [

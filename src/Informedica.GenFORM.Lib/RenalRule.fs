@@ -397,7 +397,21 @@ module RenalRule =
                         | _ -> mmOrig.Max
                 }
 
-        let adj = dl.AdjustUnit |> Patient.adjustValue pat
+        // the adjust unit of the dose limit, or, for a dose limit without one, the unit of the
+        // renal rule's per kg or per m2 bounds, which the order applies at the weight or the BSA
+        let adjustUnit (rl: RenalLimit) =
+            dl.AdjustUnit
+            |> Option.orElse (
+                [ rl.QuantityAdjust; rl.PerTimeAdjust; rl.RateAdjust ]
+                |> List.collect (fun mm -> [ mm.Min; mm.Max ] |> List.choose id)
+                |> List.collect (Limit.getValueUnit >> ValueUnit.getUnit >> ValueUnit.getUnits)
+                |> List.tryFind (
+                    function
+                    | Weight _
+                    | BSA _ -> true
+                    | _ -> false
+                )
+            )
 
         renalRule.RenalLimits
         |> Array.tryFind (fun rl -> rl.DoseLimitTarget = dl.DoseLimitTarget)
@@ -407,6 +421,8 @@ module RenalRule =
                 match rl.DoseReduction with
                 | NoReduction -> dl
                 | Absolute ->
+                    let adj = rl |> adjustUnit |> Patient.adjustValue pat
+
                     let qty, qtyAdj =
                         (dl.Quantity, dl.QuantityAdjust)
                         |> absoluteDose adj (rl.Quantity, rl.QuantityAdjust)
