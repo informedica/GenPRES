@@ -137,7 +137,7 @@ The maintainer decided these on 2026-10-28.
 | The adult marker | A separate field on the patient, next to the age, not a change to the age's type. Below 16 years a patient cannot be marked as an adult: the mark is refused, and the adult test ignores it. From the 16th birthday to 18 years the mark is the user's choice. From 18 years it is implied. |
 | Where the mark comes from | Only the user sets it, in the patient panel. The hospital record (EHR) never supplies it. It is kept wherever the patient is kept, like the weight. |
 | What the mark allows | A patient who is an adult may be prescribed for without a weight or a height, on the rules that need no adjustment. |
-| Matching a marked patient | A marked patient without an age, or of 16 or 17, is matched against a rule's patient category as an age of 18 years and over, with or without a weight. A marked patient of 16 or 17 therefore gets the adult rules and no longer the rules for children. Rules for adults and rules without an age range are selected. A rule whose age range ends below 18, or reaches below 18 (for example 12 to 25 years), is not, since the age may fall outside it. Without an age, the gestational and post-menstrual age checks are skipped, as they are for any patient without an age, and the minimum data is met. |
+| Matching a marked patient | A marked patient without an age, or of 16 or 17, is matched against a rule's patient category as an age of 18 years and over, with or without a weight. A marked patient of 16 or 17 therefore gets the adult rules and no longer the rules for children. Rules for adults and rules without an age range are selected. A rule whose age range ends below 18, or reaches below 18 (for example 12 to 25 years), is not, since the age may fall outside it. The other checks see an age of 18 years and no gestational age, since a gestational age says nothing about a patient older than one year; the post-menstrual age follows from 18 years and a term birth, so a rule with only a post-menstrual range is not selected. A marked patient without an age meets the minimum data. |
 | One adult test | The adult test is written once in GenFORM and once in Shared, with a test that keeps the two in line. The client uses the Shared test, also for the patient text ("Man" or "Jongen"). |
 | The estimate | An adult gets no estimated weight or height. A child keeps the estimate and the gate. An adult therefore loses the per kg rules that an estimate gives today, until a weight is entered. The step that stops the estimate counts the rules this affects, and the release notes say it. |
 | The rules an adult gets | The absolute rules. With a weight, also the per kg rules. With a weight and a height, also the per m2 rules. |
@@ -263,23 +263,35 @@ The work is done in one pull request per step, after the maintainer's go.
 1. **GenFORM: the adult marker.**
    Script: `src/Informedica.GenFORM.Lib/Scripts/Issue1495AdultMarker.fsx`.
    - **The field.** `MarkedAdult: bool` on the GenFORM `Patient` (`Types.fs`, next to
-     `WeightMeasured`).
-     - False in the empty `Patient.patient` (`Patient.fs:596`) and in `Patient.ofEhr`.
-     - False in the Dto, so an existing Dto without the field reads as not marked.
-     - Every other place that builds the patient in full fills in false: `matchedPatient`
-       (`OrderContext.fs:682`), GenORDER's `Patient.fs:28`, the server's patient mapper, and the test
-       files that build one.
-   - **The test.** `Patient.isAdult` is true when the age is at least `ageAdult`, or when the patient
+     `HeightMeasured`).
+     - False in the empty `Patient.patient` (`Patient.fs:596`), and so in `Patient.ofEhr`.
+     - On the Dto, so an existing Dto without the field reads as not marked.
+     - Every other place that builds the patient in full: GenORDER's `Patient.fs:28` and the server's
+       patient mapper fill in false; `matchedPatient` (`OrderContext.fs:682`) copies the mark, so the
+       rule lookup keeps it. The test files build the patient from `Patient.patient` and need no
+       change.
+   - **The ages.** `AgeValue.sixteen` in GenCORE, next to `eighteen`, and
+     `Utils.ValueUnit.ageMarkable` from it, in days and 365 to the year, as `ageAdult` is.
+   - **The test.** `Adult.isAdult` is true when the age is at least `ageAdult`, or when the patient
      is marked and is at least 16 years old or has no age. Below 16 years it ignores the mark and
      answers false.
-     - It goes with the patient's own functions in `Patient.fs`, next to `calcBSA` (`:628`).
-     - `getAge` at `:105` belongs to the patient category, not to the patient.
+     - It goes in a module `Adult` of its own in `Patient.fs`, before `PatientCategory`, since the
+       category filter needs it and the `Patient` module comes after the category.
+     - `Adult.markRefused` says when the mark is refused, and `Adult.matchedAsAdult` when a patient
+       is matched as an adult: marked, and without an age or of 16 or 17.
    - **The checks.** `Patient.validate` and `Patient.Dto.fromDto` refuse the mark below 16 years, with
-     a new `PatientError` case. `meetsMinimumData` accepts a marked patient without an age.
+     a new case `PatientError.MarkedAdultBelowSixteen`. `meetsMinimumData` accepts a marked patient
+     without an age. The new case forces a line in the server's words for a patient error:
+     "Onder 16 jaar kan een patiënt niet als volwassene gelden".
    - **The patient category.** In `PatientCategory.filter` and `PatientCategory.filterPatient`, a
      marked patient without an age, or of 16 or 17, is matched as every age from `ageAdult` up, with
-     or without a weight. The age check passes only when the rule's age range holds every age from 18
-     years up.
+     or without a weight. One helper, `forAdultMatch`, serves both: it gives the patient with an age
+     of 18 years and no gestational age, and a check that the rule's age range has no upper bound.
+     The existing age check then tests that 18 years lies within the range.
+   - **The stored order plan.** The plan's patient writes the mark, so the JSON structure version of
+     a stored order plan goes from 6 to 7 (`SqlDatabase.jsonVersionRead` and `jsonVersionWritten`).
+     A row of version 6 reads as not marked; a new fixture `order_plan_v7.json` is the version 6
+     fixture as this release writes it.
    - **Tests:**
      - `isAdult` for six patients, each age built in days, 365 to the year, as `ageAdult` is:
        - 18 years without the mark: an adult;
@@ -289,11 +301,16 @@ The work is done in one pull request per step, after the maintainer's go.
        - exactly 16 years with the mark: an adult;
        - 16 years less one day (5,839 days) with the mark: refused by `validate` and by `fromDto`, and
          not an adult;
+     - a marked patient without an age passes `validate` and `fromDto`, and the mark survives the Dto;
      - a marked patient without an age, and one of 17, matches an adult rule, an all-age rule and a
        rule whose age range starts at exactly 18 years, and does not match a rule of 12 to 25 years;
      - a marked patient of 17 with a weight matches the adult rules and not a rule for children of 1
        to 18 years;
-     - an unmarked patient matches every rule as today, as a law over the demo rules.
+     - a marked patient of 17 with a gestational age of 30 weeks matches the adult rules;
+     - a marked patient without a weight does not match a rule with a weight range;
+     - from 18 years the mark changes nothing, as a law over the demo rules. An unmarked patient
+       never reaches the new code, so a law for one would only compare the function with itself;
+     - a stored order plan of version 6 reads as not marked and is written as version 7.
    - `feat(genform): mark a patient as an adult`.
 
 2. **GenFORM: under an absolute renal reduction the renal bounds win (#1535).**
@@ -509,7 +526,7 @@ The work is done in one pull request per step, after the maintainer's go.
        patient is kept, as the weight is; the script lists those places.
      - `Patient.applyNormalValues` gives no estimate for an adult.
      - The adult test is added once to the Shared `Patient` module, with the same rule as GenFORM's
-       `Patient.isAdult`. It reads the age in days, 365 to the year, as `Utils.ValueUnit.ageAdult`
+       `Adult.isAdult`. It reads the age in days, 365 to the year, as `Utils.ValueUnit.ageAdult`
        does.
    - **Client.Core.** The patient editing (`PatientEdit`) builds the Shared patient, so it fills in
      "not marked". This small change goes through the step's script as well.
