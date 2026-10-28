@@ -26,6 +26,7 @@ module Patient =
             Height = None
             WeightMeasured = true
             HeightMeasured = true
+            MarkedAdult = false
             GestAge = None
             PMAge = None
             Access = []

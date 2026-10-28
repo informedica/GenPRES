@@ -159,10 +159,10 @@ module SqlDatabase =
 
 
     /// The highest JSON structure version this release reads.
-    let jsonVersionRead = 6
+    let jsonVersionRead = 7
 
     /// The JSON structure version this release writes.
-    let jsonVersionWritten = 6
+    let jsonVersionWritten = 7
 
 
     /// Brings plan JSON written under a structure version to the structure this release
@@ -171,7 +171,8 @@ module SqlDatabase =
     /// read as none when absent. Version 3 to 4 removed the picks again: a field the read does
     /// not know is ignored. Version 4 to 5 added the access on every order scenario, read as
     /// any access when absent. Version 5 to 6 added the products on every component, read as
-    /// none when absent. So the steps leave the JSON as it is, and no read path recomputes a
+    /// none when absent. Version 6 to 7 added the mark as an adult on every patient, read as not
+    /// marked when absent. So the steps leave the JSON as it is, and no read path recomputes a
     /// digest of a stored version.
     let upgrade (version: int) (json: string) : Result<string, string> =
         if version < 1 then

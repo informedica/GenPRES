@@ -690,6 +690,7 @@ module OrderContext =
             Height = Some h
             WeightMeasured = ctx.Patient.WeightMeasured
             HeightMeasured = ctx.Patient.HeightMeasured
+            MarkedAdult = ctx.Patient.MarkedAdult
             Diagnoses = [||]
             Gender = ctx.Patient.Gender
             Access = ctx.Patient.Access
