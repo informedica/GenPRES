@@ -120,7 +120,9 @@ module OrderScenario =
             )
             |> Array.distinct
 
-        let useAdjust = pr.DoseRule |> DoseRule.useAdjust
+        // the order has a per kg or per m2 dose when an adjusted dose has a limit, also beside an
+        // absolute limit of the same dose
+        let useAdjust = ord |> EquationMapping.usesAdjust
 
         let dils =
             pr.SolutionRules
@@ -1275,21 +1277,32 @@ Scenarios: {scenarios}
     let noDoseRulesMessage = "Geen doseerregels gevonden voor het geselecteerde filter"
 
 
+    /// Whether the patient lacks a measurement for every prescription rule: at least one rule, and
+    /// none of them can be prescribed for the patient. No rules at all is not a missing measurement.
+    let measurementMissing pat prs =
+        prs |> Array.isEmpty |> not
+        && prs |> Array.forall (PrescriptionRule.isPrescribable pat >> not)
+
+
     /// Which refusal an empty answer is, from the dose rules for the picks: none in the
-    /// patient's department is the first case; none with the patient in is the second; some with
-    /// the patient in, which the rule lookup then dropped for having no product or no dose
-    /// type, is the third. Reads only whether each set is empty.
-    let refusalOf (forPicks: 'a[]) (forPatient: 'a[]) =
+    /// patient's department is the first case; none with the patient in is the second; every
+    /// prescription rule for the picks needing a measurement the patient lacks is the third;
+    /// otherwise the rule lookup dropped them for having no product or no dose type, the fourth.
+    /// Reads only whether each set is empty, and the missing measurement as given.
+    let refusalOf (forPicks: 'a[]) (forPatient: 'a[]) measurementMissing =
         if forPicks |> Array.isEmpty then
             Refusal.NoDoseRules
         elif forPatient |> Array.isEmpty then
             Refusal.NoDoseRulesForPatient
+        elif measurementMissing then
+            Refusal.MeasurementMissing
         else
             Refusal.NoProducts
 
 
     /// The refusal for the context, read from the provider's dose rules: the picks in the
-    /// patient's department, then the picks with the patient as the rules match it. Without a
+    /// patient's department, then the picks with the patient as the rules match it, then whether
+    /// each prescription rule for the picks needs a measurement the patient lacks. Without a
     /// weight and a height no rule covers the patient.
     let refusal provider (ctx: OrderContext) =
         // the department alone, so that a rule of the patient's ward counts as one for the picks
@@ -1301,10 +1314,15 @@ Scenarios: {scenarios}
 
         match ctx.Patient.Weight, ctx.Patient.Height with
         | Some w, Some h ->
-            forPicks
-            |> Api.filterDoseRules provider { picks ctx with Patient = ctx |> matchedPatient w h }
-            |> refusalOf forPicks
-        | _ -> refusalOf forPicks [||]
+            let filter = { picks ctx with Patient = ctx |> matchedPatient w h }
+            let forPatient = forPicks |> Api.filterDoseRules provider filter
+
+            filter
+            |> Api.filterPrescriptionRules provider
+            |> Result.defaultValue [||]
+            |> measurementMissing filter.Patient
+            |> refusalOf forPicks forPatient
+        | _ -> refusalOf forPicks [||] false
 
 
     /// The scenarios for the context, as an outcome: evaluated, or refused with the context
@@ -1367,6 +1385,28 @@ Scenarios: {scenarios}
         Api.reloadCache logger provider
 
         ctx |> getScenarios start logger provider
+
+
+    /// Whether the change sets or recalculates a dose per kg or per m2. A new change of a dose per kg
+    /// or per m2 must be added here; the last case answers false for every change not listed.
+    let changesAdjustedDose change =
+        match change with
+        | SetNthComponentDoseQuantityAdjust _
+        | SetNthItemDoseQuantityAdjust _
+        | SetNthItemDosePerTimeAdjust _
+        | SetNthItemDoseRateAdjust _
+        | ReCalcComponentDoseQuantityAdjust _
+        | ReCalcItemDoseQuantityAdjust _
+        | ReCalcItemDosePerTimeAdjust _
+        | ReCalcItemDoseRateAdjust _ -> true
+        | _ -> false
+
+
+    /// Whether the one scenario of the context holds an order without a dose per kg or per m2.
+    let hasNoAdjustedDose (ctx: OrderContext) =
+        ctx.Scenarios
+        |> Array.tryExactlyOne
+        |> Option.exists (_.Order >> EquationMapping.usesAdjust >> not)
 
 
     /// A refused outcome answers the command as it was sent, so a value that cannot be solved
@@ -1517,6 +1557,10 @@ Scenarios: {scenarios}
             ctx
             |> selectNthScenario n
             |> evaluateAs SelectOrderScenario (fun ctx -> SelectNthOrderScenario(ctx, n))
+        // a dose per kg or per m2 on an order without one is not changed
+        | SetNthOrderValue(ctx, change)
+        | ReCalcOrderValue(ctx, Some change) when change |> changesAdjustedDose && ctx |> hasNoAdjustedDose ->
+            Ok(Refused(cmd, Refusal.NoAdjustedDose))
         // a value the order program sets reads the order alone
         | SetNthOrderValue(ctx, change) when change |> OrderProcessor.CommandBridge.ofChangeProperty |> Option.isSome ->
             ctx
@@ -1556,8 +1600,10 @@ Scenarios: {scenarios}
         |> Result.bind (
             function
             | Evaluated cmd
-            // an order that cannot be solved has always answered the context as it was sent
-            | Refused(cmd, Refusal.NotSolved) -> Ok cmd
+            // an order that cannot be solved has always answered the context as it was sent, and
+            // a change of a dose per kg or per m2 the order does not have answers it the same way
+            | Refused(cmd, Refusal.NotSolved)
+            | Refused(cmd, Refusal.NoAdjustedDose) -> Ok cmd
             | Refused _ -> Error [ ErrorMsg(noDoseRulesMessage, None) ]
         )
 

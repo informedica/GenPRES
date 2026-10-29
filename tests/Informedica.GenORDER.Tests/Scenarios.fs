@@ -2221,3 +2221,27 @@ Components:
             - "0.155"
           Unit: mmol/ml
 """
+
+
+/// The medication without any per kg or per m2 limit, so its order has no adjusted constraint.
+let absolute (med: Medication) =
+    let strip =
+        Option.map (fun (dl: DoseLimit) ->
+            { dl with
+                QuantityAdjust = MinMax.empty
+                PerTimeAdjust = MinMax.empty
+                RateAdjust = MinMax.empty
+            }
+        )
+
+    { med with
+        Dose = med.Dose |> strip
+        Components =
+            med.Components
+            |> List.map (fun c ->
+                { c with
+                    Dose = c.Dose |> strip
+                    Substances = c.Substances |> List.map (fun s -> { s with Dose = s.Dose |> strip })
+                }
+            )
+    }
