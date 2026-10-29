@@ -639,17 +639,26 @@ module OrderContext =
         }
 
 
+    /// Whether the rules are looked up for the patient: an adult always, a child only with a
+    /// weight. A height is never needed to look them up: a rule that needs one is left out by the
+    /// check whether it can be prescribed.
+    let selectsRules pat = pat |> Adult.isAdult || pat.Weight |> Option.isSome
+
+
     /// The context afresh for a patient: the pick lists of the rules for the patient that can be
     /// prescribed for the patient, matched as every rule lookup matches it, so they hold what the
-    /// evaluation offers.
+    /// evaluation offers. No pick lists when the rules are not looked up for the patient.
     let create logger provider (pat: Patient) =
         let pat = { pat with Weight = pat.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram) }
 
         let opts =
-            pat
-            |> getPrescriptionRules logger provider
-            |> Array.filter (PrescriptionRule.isPrescribable pat)
-            |> PrescriptionRule.filterOptions
+            if pat |> selectsRules then
+                pat
+                |> getPrescriptionRules logger provider
+                |> Array.filter (PrescriptionRule.isPrescribable pat)
+                |> PrescriptionRule.filterOptions
+            else
+                PrescriptionRule.emptyFilterOptions
 
         let filter =
             { emptyFilter with
@@ -699,42 +708,24 @@ module OrderContext =
         || read.DoseType <> ctx.Filter.DoseType
 
 
-    /// The patient of the context with the weight and the height it has, as the rule lookup
-    /// takes it.
-    let matchedPatient w h (ctx: OrderContext) : Patient =
-        {
-            Location = ctx.Patient.Location
-            Department = ctx.Patient.Department
-            Age = ctx.Patient.Age
-            GestAge = ctx.Patient.GestAge
-            PMAge = ctx.Patient.PMAge
-            Weight = Some w
-            Height = Some h
-            WeightMeasured = ctx.Patient.WeightMeasured
-            HeightMeasured = ctx.Patient.HeightMeasured
-            MarkedAdult = ctx.Patient.MarkedAdult
-            Diagnoses = [||]
-            Gender = ctx.Patient.Gender
-            Access = ctx.Patient.Access
-            RenalFunction = ctx.Patient.RenalFunction
-        }
+    /// The patient of the context as the rule lookup takes it: without its diagnoses.
+    let matchedPatient (ctx: OrderContext) = { ctx.Patient with Diagnoses = [||] }
 
 
     /// The rules for the context's selection and patient that can be prescribed, and the context
-    /// with its pick lists narrowed to them. A weight and a height are needed; a department is not,
-    /// a patient without one being matched as a patient of the provider's default department,
-    /// while the patient itself keeps none. Without a weight and a height the context is made
-    /// afresh and there are no rules.
+    /// with its pick lists narrowed to them. The rules are looked up for an adult, and for a child
+    /// with a weight; a department is not needed, a patient without one being matched as a patient
+    /// of the provider's default department, while the patient itself keeps none. For a child
+    /// without a weight the context is made afresh and there are no rules.
     let getRules logger (provider: Resources.IResourceProvider) (ctx: OrderContext) =
 
-        match ctx.Patient.Weight, ctx.Patient.Height with
-        | Some w, Some h ->
+        if ctx.Patient |> selectsRules then
 
             let doseFilter =
                 { picks ctx with
                     Diluent = ctx.Filter.Diluent
                     Components = ctx.Filter.SelectedComponents |> Array.toList //TODO probably go for lists
-                    Patient = ctx |> matchedPatient w h
+                    Patient = ctx |> matchedPatient
                 }
 
             let opts =
@@ -777,7 +768,7 @@ module OrderContext =
                 }
                 |> getPrescribableRules logger provider
             | _ -> Ok [||]
-        | _ ->
+        else
             // the context afresh, its argumentation kept: the text is the clinician's, not a
             // rule's, and survives every command
             let fresh = ctx.Patient |> create logger provider
@@ -1302,8 +1293,8 @@ Scenarios: {scenarios}
 
     /// The refusal for the context, read from the provider's dose rules: the picks in the
     /// patient's department, then the picks with the patient as the rules match it, then whether
-    /// each prescription rule for the picks needs a measurement the patient lacks. Without a
-    /// weight and a height no rule covers the patient.
+    /// each prescription rule for the picks needs a measurement the patient lacks. For a child
+    /// without a weight no rule covers the patient.
     let refusal provider (ctx: OrderContext) =
         // the department alone, so that a rule of the patient's ward counts as one for the picks
         let forPicks =
@@ -1312,9 +1303,8 @@ Scenarios: {scenarios}
                 provider
                 { picks ctx with Patient = { Patient.patient with Department = ctx.Patient.Department } }
 
-        match ctx.Patient.Weight, ctx.Patient.Height with
-        | Some w, Some h ->
-            let filter = { picks ctx with Patient = ctx |> matchedPatient w h }
+        if ctx.Patient |> selectsRules then
+            let filter = { picks ctx with Patient = ctx |> matchedPatient }
             let forPatient = forPicks |> Api.filterDoseRules provider filter
 
             filter
@@ -1322,7 +1312,8 @@ Scenarios: {scenarios}
             |> Result.defaultValue [||]
             |> measurementMissing filter.Patient
             |> refusalOf forPicks forPatient
-        | _ -> refusalOf forPicks [||] false
+        else
+            refusalOf forPicks [||] false
 
 
     /// The scenarios for the context, as an outcome: evaluated, or refused with the context

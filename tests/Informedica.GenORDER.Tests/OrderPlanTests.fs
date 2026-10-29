@@ -1009,10 +1009,75 @@ module RuleFixtures =
                 }
         }
 
+    /// A row of the suppository for the indication, with the adjust unit, the dose limit and the
+    /// patient category changed.
+    let rowFor indication adjustUnit limit category =
+        let r = row Resources.Departments.defaultDepartment
+
+        { r with
+            Indication = indication
+            Patient = category r.Patient
+            ScheduleData =
+                { r.ScheduleData with
+                    AdjustUnit = adjustUnit
+                    DoseLimitData = limit r.ScheduleData.DoseLimitData
+                }
+        }
+
+    /// At most 20 mg/kg in place of the 100 mg of the row.
+    let perKg (dl: DoseLimitData) =
+        { dl with
+            MaxQty = None
+            MaxQtyAdj = Some(BigRational.FromInt 20)
+        }
+
+    /// At most 600 mg/m2 in place of the 100 mg of the row.
+    let perM2 (dl: DoseLimitData) =
+        { dl with
+            MaxQty = None
+            MaxQtyAdj = Some(BigRational.FromInt 600)
+        }
+
+    /// The patient category of adults.
+    let adults (c: PatientCategoryData) = { c with IsAdult = true }
+
+
+    /// The patient category of children below 18 years.
+    let children (c: PatientCategoryData) = { c with MaxAge = Some(BigRational.FromInt(18 * 365)) }
+
+
+    /// The rules for every age, for adults and for children: for every age an absolute, a per kg
+    /// and a per m2 rule; for adults an absolute and a per kg rule; for children below 18 years an
+    /// absolute rule.
+    let adultsAndChildren () =
+        rules
+            [|
+                rowFor "koorts" "" id id
+                rowFor "pijn" "kg" perKg id
+                rowFor "kanker pijn" "m2" perM2 id
+                rowFor "volwassen koorts" "" id adults
+                rowFor "volwassen pijn" "kg" perKg adults
+                rowFor "kind koorts" "" id children
+            |]
+
     /// The rules of both rows for the default department.
     let feverAndPain () =
         let dep = Resources.Departments.defaultDepartment
         rules [| row dep; perKgRow dep |]
+
+
+    /// A patient of the default department with the age in years, the adult mark, the weight in kg
+    /// and the height in cm.
+    let patient years marked weight height =
+        { Patient.patient with
+            Age =
+                years
+                |> Option.map (fun y -> ValueUnit.singleWithUnit Units.Time.day (y * 365N))
+            MarkedAdult = marked
+            Weight = weight |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram)
+            Height = height |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
+            Department = Some Resources.Departments.defaultDepartment
+        }
 
 
 /// A provider holding the dose rules given and the route mapping they are built with, naming
@@ -1243,19 +1308,12 @@ let prescribableTests =
     let provider () =
         RulesOf(RuleFixtures.feverAndPain ()) :> Resources.IResourceProvider
 
-    let patient years weight height =
-        { Patient.patient with
-            Age = Some(ValueUnit.singleWithUnit Units.Time.day (years * 365N))
-            Weight = weight |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram)
-            Height = height |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
-        }
-
-    let noWeight = patient 40N None None
-    let weightOnly = patient 40N (Some 70N) None
+    let noWeight = RuleFixtures.patient (Some 40N) false None None
+    let weightOnly = RuleFixtures.patient (Some 40N) false (Some 70N) None
 
     let measured =
         [ 1N / 10N, 3N, 50N; 6N, 20N, 115N; 30N, 70N, 175N ]
-        |> List.map (fun (a, w, h) -> patient a (Some w) (Some h))
+        |> List.map (fun (a, w, h) -> RuleFixtures.patient (Some a) false (Some w) (Some h))
 
     // the warnings among the events a logger captured
     let capture () =
@@ -1356,28 +1414,6 @@ let prescribableTests =
                 noWeight |> lookup |> Expect.equal "no rule, one warning" (Ok 0, 1)
                 weightOnly |> lookup |> Expect.equal "the rule, no warning" (Ok 1, 0)
             }
-
-            test "the pain picked for a patient with a weight and no height gives no rules" {
-                // the rule lookup needs a weight and a height; without both the context is made afresh
-                let provider = provider ()
-                let ctx = weightOnly |> OrderContext.create logger provider
-
-                let _, rules =
-                    { ctx with Filter = { ctx.Filter with Indication = Some "pijn" } }
-                    |> OrderContext.getRules logger provider
-
-                rules |> Expect.equal "no rules" (Ok [||])
-            }
-
-            test "without a weight the context is made afresh with the fever alone" {
-                let provider = provider ()
-                let ctx = weightOnly |> OrderContext.create logger provider
-
-                let ctx, rules = { ctx with Patient = noWeight } |> OrderContext.getRules logger provider
-
-                rules |> Expect.equal "no rules" (Ok [||])
-                ctx.Filter.Indications |> Expect.equal "the fever" [| "koorts" |]
-            }
         ]
 
 
@@ -1433,6 +1469,156 @@ let useAdjustTests =
                 |> prescription
                 // the print marks values with # and units with |, so mg||/kg is the unit of a dose per kg
                 |> Expect.stringContains "the dose per kg beside the dose" "mg||/kg"
+            }
+        ]
+
+
+/// The rules are looked up for an adult, with or without a weight or a height, and for a child
+/// with a weight; the check whether a rule can be prescribed then leaves out what a missing
+/// measurement makes unusable.
+let selectsRulesTests =
+    let logger = OrderLogging.noOp
+
+    let provider () =
+        RulesOf(RuleFixtures.adultsAndChildren ()) :> Resources.IResourceProvider
+
+    let patient = RuleFixtures.patient
+
+    let contextOf pat = pat |> OrderContext.create logger (provider ())
+
+    // the indications the pick lists offer the patient after the rule lookup
+    let indications pat =
+        pat
+        |> contextOf
+        |> OrderContext.getRules logger (provider ())
+        |> fst
+        |> _.Filter.Indications
+        |> Array.sort
+        |> Array.toList
+
+    // the prescription rules the lookup returns with the indication picked
+    let rules pat indication =
+        let ctx = pat |> contextOf
+
+        { ctx with Filter = { ctx.Filter with Indication = Some indication } }
+        |> OrderContext.getRules logger (provider ())
+        |> snd
+        |> Result.map Array.length
+
+    testList
+        "the rules are looked up for an adult, and for a child with a weight"
+        [
+            test "an adult without a weight gets the absolute rules, and no per kg or per m2 rule" {
+                patient (Some 40N) false None None
+                |> indications
+                |> Expect.equal "absolute only" [ "koorts"; "volwassen koorts" ]
+
+                rules (patient (Some 40N) false None None) "koorts"
+                |> Expect.equal "the rule" (Ok 1)
+            }
+
+            test "an adult with a weight and no height gets the absolute and per kg rules, and no per m2 rule" {
+                patient (Some 40N) false (Some 70N) None
+                |> indications
+                |> Expect.equal "absolute and per kg" [ "koorts"; "pijn"; "volwassen koorts"; "volwassen pijn" ]
+            }
+
+            test "an adult with a weight and a height gets the absolute, per kg and per m2 rules" {
+                patient (Some 40N) false (Some 70N) (Some 175N)
+                |> indications
+                |> Expect.equal
+                    "every rule for an adult"
+                    [ "kanker pijn"; "koorts"; "pijn"; "volwassen koorts"; "volwassen pijn" ]
+            }
+
+            test "a child without a weight is offered no pick, gets no rules and is refused" {
+                let child = patient (Some 10N) false None (Some 140N)
+
+                child |> OrderContext.selectsRules |> Expect.isFalse "no rule lookup"
+                (contextOf child).Filter.Indications |> Expect.isEmpty "no pick"
+                rules child "koorts" |> Expect.equal "no rules" (Ok 0)
+
+                let ctx = contextOf child
+
+                { ctx with Filter = { ctx.Filter with Indication = Some "koorts" } }
+                |> OrderContext.refusal (provider ())
+                |> Expect.equal "none for the patient" Refusal.NoDoseRulesForPatient
+            }
+
+            test "a child with a weight and no height gets the absolute and per kg rules, and no per m2 rule" {
+                let child = patient (Some 10N) false (Some 30N) None
+
+                child
+                |> indications
+                |> Expect.equal "absolute and per kg" [ "kind koorts"; "koorts"; "pijn" ]
+
+                rules child "pijn" |> Expect.equal "the per kg rule" (Ok 1)
+            }
+
+            test "an adult whose weight is cleared gets the absolute rules and the fever rule" {
+                let ctx = patient (Some 40N) false (Some 70N) None |> contextOf
+                let cleared = { ctx with Patient = { ctx.Patient with Weight = None } }
+
+                let ctx, _ = cleared |> OrderContext.getRules logger (provider ())
+
+                ctx.Filter.Indications
+                |> Array.sort
+                |> Expect.equal "absolute only" [| "koorts"; "volwassen koorts" |]
+
+                let _, rules =
+                    { ctx with Filter = { ctx.Filter with Indication = Some "koorts" } }
+                    |> OrderContext.getRules logger (provider ())
+
+                rules
+                |> Result.map (Array.map _.DoseRule.Indication)
+                |> Expect.equal "the fever rule" (Ok [| "koorts" |])
+            }
+
+            test "the empty patient gets no rules from the order context" {
+                { Patient.patient with Department = Some Resources.Departments.defaultDepartment }
+                |> contextOf
+                |> OrderContext.getRules logger (provider ())
+                |> snd
+                |> Expect.equal "no rules" (Ok [||])
+            }
+
+            test "a weight cleared after a per kg pick is refused with MeasurementMissing" {
+                let picked =
+                    patient (Some 40N) false (Some 70N) None
+                    |> contextOf
+                    |> fun ctx -> { ctx with Filter = { ctx.Filter with Indication = Some "pijn" } }
+
+                { picked with Patient = { picked.Patient with Weight = None } }
+                |> OrderContext.refusal (provider ())
+                |> Expect.equal "the weight is missing" Refusal.MeasurementMissing
+            }
+
+            test "a marked patient of 17 without a weight gets the adult and all-age absolute rules" {
+                patient (Some 17N) true None None
+                |> indications
+                |> Expect.equal "absolute adult and all-age" [ "koorts"; "volwassen koorts" ]
+            }
+
+            test "a marked patient of 17 with a weight gets the adult rules and no rules for children" {
+                patient (Some 17N) true (Some 60N) None
+                |> indications
+                |> Expect.equal "adult and all-age" [ "koorts"; "pijn"; "volwassen koorts"; "volwassen pijn" ]
+            }
+
+            test "a patient marked as an adult without an age gets the adult and all-age rules" {
+                patient None true None None
+                |> indications
+                |> Expect.equal "absolute adult and all-age" [ "koorts"; "volwassen koorts" ]
+            }
+
+            test "a patient of 17 not marked is a child, and needs a weight" {
+                patient (Some 17N) false None None
+                |> OrderContext.selectsRules
+                |> Expect.isFalse "no rule lookup"
+
+                patient (Some 17N) false (Some 60N) None
+                |> indications
+                |> Expect.equal "the child rules" [ "kind koorts"; "koorts"; "pijn" ]
             }
         ]
 
