@@ -833,8 +833,16 @@ The work is done in one pull request per step, after the maintainer's go.
    - `feat(api): say why a rule or a per kg command is refused`.
 
 8. **GenORDER, Shared and the server: open the gate for an adult.**
-   Script: `src/Informedica.GenPRES.Server/Scripts/Issue1495AdultGate.fsx`. Whether this step is split
-   into GenORDER, and Shared with the server, is decided once the script shows its size.
+   Script: `src/Informedica.GenPRES.Server/Scripts/Issue1495AdultGate.fsx`. The step is split in two
+   pull requests:
+   - **8a, GenORDER.** Script: `src/Informedica.GenORDER.Lib/Scripts/Issue1495AdultRules.fsx`.
+     `getRules`, `refusal` and `create` look the rules up for an adult, and for a child with a weight,
+     through one test, `OrderContext.selectsRules`. `create` offers a child without a weight no pick.
+     Nothing changes in the app, since the server still refuses a patient without a weight and a
+     height.
+   - **8b, Shared, the server and Client.Core.** The Shared field and functions are written first,
+     since a script cannot add a field to the contract's patient; the server and `PatientEdit` are
+     prototyped against the rebuilt contract. This part opens the gate.
    - **GenORDER.**
      - `getRules` and `refusal` select rules for an adult, and for a child with a weight, with or
        without a height.
