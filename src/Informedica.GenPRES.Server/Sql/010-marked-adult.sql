@@ -14,7 +14,7 @@ create table measurement_new (
     check (
         case kind
             when 'gestage' then (value is null) = (days is null)
-            when 'marked-adult' then value in (0, 1) and days is null
+            when 'marked-adult' then value is not null and value in (0, 1) and days is null
             else days is null
         end
     )

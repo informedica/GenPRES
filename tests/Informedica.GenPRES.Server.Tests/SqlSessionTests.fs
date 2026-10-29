@@ -796,19 +796,20 @@ let writerTests =
                 )
             }
 
-            test "a mark as an adult of another value is refused by the table" {
+            test "a mark as an adult of another value, or none, is refused by the table" {
                 withSessions (fun cs ->
                     insertSession cs "s-1" (Some "prescriber") "prescriber"
                     use conn = connect cs
 
-                    use cmd =
-                        SqlSessions.command
-                            conn
-                            null
-                            "insert into measurement (session_id, kind, value, days, at) values ('s-1', 'marked-adult', 2, null, 0)"
-                            []
+                    for value in [ "2"; "null" ] do
+                        use cmd =
+                            SqlSessions.command
+                                conn
+                                null
+                                $"insert into measurement (session_id, kind, value, days, at) values ('s-1', 'marked-adult', %s{value}, null, 0)"
+                                []
 
-                    Expect.throws "the check" (fun () -> cmd.ExecuteNonQuery() |> ignore)
+                        Expect.throws $"the check refuses %s{value}" (fun () -> cmd.ExecuteNonQuery() |> ignore)
                 )
             }
 
