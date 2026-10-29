@@ -72,6 +72,17 @@ module Trail =
         let shortId (id: string) = if id.Length > 8 then id.Substring(0, 8) else id
 
 
+        /// Why the server refused the order context.
+        let contextRefusal (r: OrderContextRefusal) =
+            match r with
+            | OrderContextRefusal.NoDoseRules -> "NoDoseRules"
+            | OrderContextRefusal.NoDoseRulesForPatient -> "NoDoseRulesForPatient"
+            | OrderContextRefusal.NoProducts -> "NoProducts"
+            | OrderContextRefusal.MeasurementMissing -> "MeasurementMissing"
+            | OrderContextRefusal.NotSolved -> "NotSolved"
+            | OrderContextRefusal.NoAdjustedDose -> "NoAdjustedDose"
+
+
         /// A sentence the snackbar shows, by its case.
         let alert (a: Alert.Alert) =
             match a with
@@ -91,7 +102,7 @@ module Trail =
             | Alert.Alert.SignedPlanOpened _ -> "SignedPlanOpened"
             | Alert.Alert.NewerSignedPlan _ -> "NewerSignedPlan"
             | Alert.Alert.PatientRefreshFailed -> "PatientRefreshFailed"
-            | Alert.Alert.ChangeNotApplied -> "ChangeNotApplied"
+            | Alert.Alert.ChangeNotApplied r -> $"ChangeNotApplied %s{contextRefusal r}"
 
 
         /// The value described, or none.
@@ -297,15 +308,6 @@ module Trail =
             | SigningRefusal.StoreFailed -> "StoreFailed"
             | SigningRefusal.PlanUnreadable -> "PlanUnreadable"
             | SigningRefusal.ContextDiffers -> "ContextDiffers"
-
-
-        /// Why the server refused the order context.
-        let contextRefusal (r: OrderContextRefusal) =
-            match r with
-            | OrderContextRefusal.NoDoseRules -> "NoDoseRules"
-            | OrderContextRefusal.NoDoseRulesForPatient -> "NoDoseRulesForPatient"
-            | OrderContextRefusal.NoProducts -> "NoProducts"
-            | OrderContextRefusal.NotSolved -> "NotSolved"
 
 
         /// What a reply told besides its answer.
@@ -641,7 +643,7 @@ module Trail =
                 $"CallContext UpdatePatient %s{Part.contextId ctx} %s{Part.shortId request}"
             | OrderContextEffect.SyncPages _ -> "SyncPages"
             | OrderContextEffect.TellError _ -> "TellError"
-            | OrderContextEffect.TellNotSolved -> "TellNotSolved"
+            | OrderContextEffect.TellNotApplied r -> $"TellNotApplied %s{Part.contextRefusal r}"
 
 
         /// The order context state as the page reads it; a context by its id.

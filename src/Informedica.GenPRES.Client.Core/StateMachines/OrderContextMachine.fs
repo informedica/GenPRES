@@ -124,8 +124,8 @@ module OrderContextMachine =
         | SyncPages of Filter
         /// Tell the user what went wrong.
         | TellError of string[]
-        /// Tell the user the change could not be applied.
-        | TellNotSolved
+        /// Tell the user the change could not be applied, and why.
+        | TellNotApplied of OrderContextRefusal
 
 
     /// What the page reads of the OrderContextState. The page renders Settled, Refused and Changing
@@ -363,11 +363,14 @@ module OrderContextMachine =
                 let workbench, told =
                     match result with
                     | Ok(OrderContextResponse.Evaluated ctx) -> OrderContextWorkbench.Evaluated(pat, ctx), []
-                    // a change that cannot be applied answers the context as it was sent; a reset is sent
-                    // without the argumentation, so the one held is kept; the dialog stays open
-                    | Ok(OrderContextResponse.Refused(back, OrderContextRefusal.NotSolved)) ->
+                    // a change that cannot be applied, or that sets a dose per kg the order does not
+                    // have, answers the context as it was sent; a reset is sent without the
+                    // argumentation, so the one held is kept; the dialog stays open
+                    | Ok(OrderContextResponse.Refused(back, refusal)) when
+                        refusal |> OrderContextRefusalPolicy.refusesChange
+                        ->
                         OrderContextWorkbench.Evaluated(pat, { back with Argumentation = held.Argumentation }),
-                        [ OrderContextEffect.TellNotSolved ]
+                        [ OrderContextEffect.TellNotApplied refusal ]
                     | Ok(OrderContextResponse.Refused(back, refusal)) ->
                         OrderContextWorkbench.Refused(pat, { back with Scenarios = [||] }, refusal), []
                     // a failed change leaves the workbench as it was, not as sent

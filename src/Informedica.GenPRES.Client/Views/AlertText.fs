@@ -40,8 +40,8 @@ module AlertText =
         | Alert.Alert.SignedPlanOpened head -> SigningPolicy.versionOpenedSentence signing head
         | Alert.Alert.NewerSignedPlan head -> SigningPolicy.newerPlanSentence signing head
         | Alert.Alert.PatientRefreshFailed -> signing Terms.``Session Refresh Failed``
-        | Alert.Alert.ChangeNotApplied ->
-            let term = Terms.``Prescribe Refusal Not solved``
+        | Alert.Alert.ChangeNotApplied refusal ->
+            let term = OrderContextRefusalPolicy.bodyTerm refusal
 
             terms (OrderContextRefusalPolicy.english term) term
 

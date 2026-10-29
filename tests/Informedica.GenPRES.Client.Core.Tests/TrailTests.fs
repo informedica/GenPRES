@@ -462,6 +462,18 @@ let tests =
                 OrderPlanEffect.TellAnswered
                 |> Trail.OrderPlan.effect
                 |> Expect.equal "the plan's answer" "TellAnswered"
+
+                OrderContextEffect.TellNotApplied OrderContextRefusal.NoAdjustedDose
+                |> Trail.OrderContext.effect
+                |> Expect.equal "the change not applied, with its reason" "TellNotApplied NoAdjustedDose"
+
+                Alert.Alert.ChangeNotApplied OrderContextRefusal.NotSolved
+                |> Trail.Part.alert
+                |> Expect.equal "the alert, with its reason" "ChangeNotApplied NotSolved"
+
+                OrderContextRefusal.MeasurementMissing
+                |> Trail.Part.contextRefusal
+                |> Expect.equal "the missing measurement" "MeasurementMissing"
             }
 
             test "the patient data given again shows the change and nothing out" {

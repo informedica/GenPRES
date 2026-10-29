@@ -620,28 +620,45 @@ let refusalTests =
                 |> Expect.equal "refused" (OrderContextView.Refused(paracetamol, OrderContextRefusal.NoDoseRules))
             }
 
-            test "a change that cannot be applied keeps the context held and the dialog, and says so" {
-                // a reset goes out without the argumentation, so the answer lacks it
-                let argued = { withOrder with Argumentation = Some "Sepsis" }
+            for refusal in [ OrderContextRefusal.NotSolved; OrderContextRefusal.NoAdjustedDose ] do
+                test $"a change that cannot be applied keeps the context held and the dialog, and says why: %A{refusal}" {
+                    // a reset goes out without the argumentation, so the answer lacks it
+                    let argued = { withOrder with Argumentation = Some "Sepsis" }
 
-                let busy =
-                    inFlight OrderViewCommand.ResetOrderScenario withOrder argued "r-1"
-                    |> OrderContextState.select (Some "o-1")
+                    let busy =
+                        inFlight OrderViewCommand.ResetOrderScenario withOrder argued "r-1"
+                        |> OrderContextState.select (Some "o-1")
 
-                let landed, effects =
+                    let landed, effects =
+                        transition (OrderContextMsg.Answered("r-1", refusedAnswer withOrder refusal)) busy
+
+                    effects
+                    |> List.head
+                    |> Expect.equal "told first" (OrderContextEffect.TellNotApplied refusal)
+                    landed
+                    |> dialog
+                    |> Expect.equal "the dialog kept" (Some(OrderContextView.Settled argued))
+                    landed
+                    |> view
+                    |> Expect.equal "the context held, not refused" (OrderContextView.Settled argued)
+                }
+
+            test "a missing measurement refuses the workbench with the picks kept and no scenarios" {
+                let busy = evaluating withOrder withOrder "r-1"
+
+                let landed, _ =
                     transition
-                        (OrderContextMsg.Answered("r-1", refusedAnswer withOrder OrderContextRefusal.NotSolved))
+                        (OrderContextMsg.Answered("r-1", refusedAnswer withOrder OrderContextRefusal.MeasurementMissing))
                         busy
 
-                effects
-                |> List.head
-                |> Expect.equal "told first" OrderContextEffect.TellNotSolved
-                landed
-                |> dialog
-                |> Expect.equal "the dialog kept" (Some(OrderContextView.Settled argued))
                 landed
                 |> view
-                |> Expect.equal "the context held, not refused" (OrderContextView.Settled argued)
+                |> Expect.equal
+                    "refused, without the scenarios"
+                    (OrderContextView.Refused(
+                        { withOrder with Scenarios = [||] },
+                        OrderContextRefusal.MeasurementMissing
+                    ))
             }
 
             test "a selection that cannot be calculated keeps the dialog on the scenario selected" {
