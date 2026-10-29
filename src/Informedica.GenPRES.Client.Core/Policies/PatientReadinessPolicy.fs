@@ -115,9 +115,9 @@ module PatientReadinessPolicy =
         | Terms.``Patient enter patient data`` -> "Enter patient data"
         | Terms.``Patient enter age or weight and height`` -> "Enter an age, or a weight AND a height"
         | Terms.``Patient Age unknown`` -> "Age unknown: enter it, what depends on the age is left out"
-        | Terms.``Prescribe Weight and height unknown`` -> "Weight and height unknown: enter them, there is no estimate"
-        | Terms.``Prescribe Weight unknown`` -> "Weight unknown: enter it, there is no estimate"
-        | Terms.``Prescribe Height unknown`` -> "Height unknown: enter it, there is no estimate"
+        | Terms.``Prescribe Weight and height unknown`` -> "Weight and height unknown: enter them, no estimate is used"
+        | Terms.``Prescribe Weight unknown`` -> "Weight unknown: enter it, no estimate is used"
+        | Terms.``Prescribe Height unknown`` -> "Height unknown: enter it, no estimate is used"
         | Terms.``Patient Gestational age unknown`` ->
             "Gestational age unknown: enter it, the patient is younger than 28 weeks"
         | Terms.``Patient Needed Dose Check`` -> "The dose check needs a patient"

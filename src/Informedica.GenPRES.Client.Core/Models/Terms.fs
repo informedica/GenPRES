@@ -148,6 +148,8 @@ type Terms =
     | ``Patient Access``
     | ``Patient Enteral Tube``
     | ``Patient Renal Function``
+    // the switch that shows whether the patient is an adult, and marks one of 16 to 18 years or without an age
+    | ``Patient Adult``
     // the panel's reset: the question asked before the patient's data is discarded
     | ``Patient Reset Dialog Title``
     | ``Patient Reset Dialog Text``

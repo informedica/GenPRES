@@ -43,6 +43,8 @@ module PatientDraftPolicy =
         | TogglePVL
         /// An enteral tube added or removed.
         | ToggleET
+        /// The mark as an adult set or cleared, from the switch.
+        | UpdateMarkedAdult of bool
 
 
     /// What becomes of the estimated weight and height after an edit.
@@ -83,6 +85,7 @@ module PatientDraftPolicy =
         | Msg.ToggleCVL -> draft |> PatientEdit.toggleCVL
         | Msg.TogglePVL -> draft |> PatientEdit.togglePVL
         | Msg.ToggleET -> draft |> PatientEdit.toggleET
+        | Msg.UpdateMarkedAdult marked -> draft |> PatientEdit.setMarkedAdult marked
 
 
     /// Whether the App estimates the weight and height again after the edit: after an edit of the
@@ -103,7 +106,8 @@ module PatientDraftPolicy =
         | Msg.UpdateDepartment _
         | Msg.ToggleCVL
         | Msg.TogglePVL
-        | Msg.ToggleET -> Estimates.Kept
+        | Msg.ToggleET
+        | Msg.UpdateMarkedAdult _ -> Estimates.Kept
 
 
     /// The edited draft with the weight and the height the edit does not set as they were in the

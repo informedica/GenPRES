@@ -550,6 +550,49 @@ module Patient =
             </FormControl>
             """
 
+        // the mark as an adult is offered from 16 years and for a patient without an age; below 16
+        // years a patient cannot be an adult, so the switch is not shown
+        let adultOffered =
+            pat
+            |> Option.bind Patient.getAgeInDays
+            |> Option.forall (fun d -> d >= Patient.markableAgeInDays)
+
+        // the mark as an adult: checked and fixed from 18 years, the user's choice from 16 to 18
+        // years and for a patient without an age
+        let adultSwitch =
+            let adultChecked = pat |> Option.exists Patient.isAdult
+
+            let adultDisabled =
+                pat
+                |> Option.bind Patient.getAgeInDays
+                |> Option.exists (fun d -> d >= Patient.adultAgeInDays)
+
+            let changeMarkedAdult =
+                fun ev ->
+                    keepOpen ()
+                    ev?target?``checked`` |> unbox<bool> |> Msg.UpdateMarkedAdult |> dispatch
+
+            let adultLabel = Terms.``Patient Adult`` |> getTerm "Volwassene"
+            let disabled = busy || adultDisabled
+
+            let switch =
+                JSX.jsx
+                    $"""
+                import Switch from '@mui/material/Switch';
+
+                <Switch id="patient-adult" checked={adultChecked} disabled={disabled} onChange={changeMarkedAdult} />
+                """
+
+            JSX.jsx
+                $"""
+            import FormControl from '@mui/material/FormControl';
+            import FormControlLabel from '@mui/material/FormControlLabel';
+
+            <FormControl>
+                <FormControlLabel control={switch} label={adultLabel} />
+            </FormControl>
+            """
+
         let items1 =
             [|
                 [| 0..19 |]
@@ -654,6 +697,9 @@ module Patient =
         let items2 =
             [|
                 gender
+
+                if adultOffered then
+                    adultSwitch
 
                 let accessLabel = Terms.``Patient Access`` |> getTerm "Toegangen"
                 let tubeLabel = Terms.``Patient Enteral Tube`` |> getTerm "Sonde"
