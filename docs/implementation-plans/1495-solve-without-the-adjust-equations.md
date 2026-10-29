@@ -759,7 +759,9 @@ The work is done in one pull request per step, after the maintainer's go.
        adjusted variable; for paracetamol suppository, for example, the order's equations go from 38
        to 22;
      - a law over the golden fixtures with an absolute rule: at the min-max, values and final stage,
-       every non-adjusted variable equals the result with all equations;
+       every non-adjusted variable equals the result with all equations. The law runs in the script
+       only, because the test project has no mapping with all equations to compare against; the
+       pull request reports its result;
      - the per kg fixtures keep their equations: pcmSupp, cotrim, amfo, morfCont and tpn;
      - "without a weight only the values a solve refutes are dropped" (`:390`) becomes "an absolute
        rule without a weight". It uses the hydrocortisone fixture (`Scenarios.fs:2106`) with an

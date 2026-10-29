@@ -362,9 +362,13 @@ module OrderProcessor =
         let maxSolves = 1000
 
 
-        /// The names of the basic variables and the invariants, without the order count: the order
-        /// count has no maximum, so every multiple of a total over the order is reached.
+        /// The names of the basic variables and the invariants that occur in the equations of the
+        /// order, without the order count: the order count has no maximum, so every multiple of a
+        /// total over the order is reached. A variable outside the equations, such as the adjust
+        /// quantity of an order without an adjusted dose, is not searched.
         let freeNames (ord: Order) =
+            let names = (ord |> Determination.ofOrder).Names
+
             [
                 OrderVariableReference.ScheduleFrequency
                 OrderVariableReference.OrderableDose DoseProperty.Quantity
@@ -375,6 +379,7 @@ module OrderProcessor =
             |> fun basics -> basics @ (ord |> OrderVariableReference.invariants)
             |> List.choose (OrderVariableReference.tryGet ord)
             |> List.map OrderVariable.getName
+            |> List.filter names.Contains
 
 
         /// The variable of an order with the name.
