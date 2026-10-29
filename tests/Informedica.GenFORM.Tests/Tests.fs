@@ -1331,7 +1331,7 @@ module DoseRuleRoundtripTests =
     // (FixtureJson.fs), used by both this test and Scripts/DownloadFixtures.fsx.
 
 
-    let private load<'T> name =
+    let load<'T> name =
         Path.Combine(AppContext.BaseDirectory, "fixtures", name)
         |> File.ReadAllText
         |> FixtureJson.deSerialize<'T>
@@ -1342,9 +1342,9 @@ module DoseRuleRoundtripTests =
     // failure — exactly how a red build once hid behind "0 failed". Lazy is
     // thread-safe by default, so each is still computed at most once even though
     // Expecto runs tests in parallel.
-    let private data = lazy (load<DoseRuleData[]> "doserules.json")
-    let private rm = lazy (load<RouteMapping[]> "routemappings.json")
-    let private prods = lazy (load<ProductComponent[]> "products.json")
+    let data = lazy (load<DoseRuleData[]> "doserules.json")
+    let rm = lazy (load<RouteMapping[]> "routemappings.json")
+    let prods = lazy (load<ProductComponent[]> "products.json")
 
     // fr = [||]: fromData uses FormRoute only for FormLimit, which toData does not
     // emit and the round-trip does not compare (as DoseRuleProductTests do).
@@ -5551,6 +5551,194 @@ module Tests =
                 ]
 
 
+    module RuleUnitTests =
+
+        module Fixtures = DoseRuleRoundtripTests
+
+        let private doseRuleData = Fixtures.data
+
+        let private fromData data =
+            DoseRuleLoader.fromData Fixtures.rm.Value [||] Fixtures.prods.Value data
+
+        let private hasWarning (text: string) msgs =
+            msgs
+            |> List.exists (
+                function
+                | Warning s -> s.Contains text
+                | _ -> false
+            )
+
+        let private withLimit f (r: DoseRuleData) =
+            { r with ScheduleData = { r.ScheduleData with DoseLimitData = r.ScheduleData.DoseLimitData |> f } }
+
+        let private withAdjust u (r: DoseRuleData) = { r with ScheduleData = { r.ScheduleData with AdjustUnit = u } }
+
+        let private absoluteOnly =
+            withLimit (fun l ->
+                { l with
+                    MinQtyAdj = None
+                    MaxQtyAdj = None
+                    MinPerTimeAdj = None
+                    MaxPerTimeAdj = None
+                    MinRateAdj = None
+                    MaxRateAdj = None
+                    MaxQty = Some 500N
+                }
+            )
+
+        /// A demo row of amoxicillin IV with a per kg dose (50 mg/kg, at most 2,000 mg).
+        let private perKgRow =
+            lazy
+                (doseRuleData.Value
+                 |> Array.find (fun r ->
+                     r.Generic.Name = "amoxicilline"
+                     && r.Route = "INTRAVENEUS"
+                     && r.ScheduleData.AdjustUnit = "kg"
+                     && r.ScheduleData.DoseLimitData.MaxQtyAdj.IsSome
+                 ))
+
+        /// The rows of one rule: the per kg row, and an absolute row for clavulanic acid with the
+        /// given adjust unit.
+        let private twoRows adjOfSecond =
+            [|
+                perKgRow.Value
+                perKgRow.Value
+                |> withLimit (fun l -> { l with Substance = "clavulaanzuur" })
+                |> absoluteOnly
+                |> withAdjust adjOfSecond
+            |]
+
+        let private m2 n = n |> ValueUnit.singleWithUnit Units.BSA.m2
+
+        let private patient weight height =
+            { Patient.patient with
+                Weight = weight |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram)
+                Height = height |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
+            }
+
+        let private noWeight = patient None None
+        let private weightOnly = patient (Some 70N) None
+        let private measured = patient (Some 70N) (Some 175N)
+
+        let private oneToTwo =
+            { PatientCategory.empty with
+                BSA =
+                    {
+                        Min = Some(Inclusive(m2 1N))
+                        Max = Some(Exclusive(m2 2N))
+                    }
+            }
+
+        let private both pat (cat: PatientCategory) =
+            cat |> PatientCategory.filterPatient pat,
+            cat |> PatientCategory.filter { Filter.doseFilter with Patient = pat }
+
+
+        let tests =
+            testList
+                "Rule units"
+                [
+                    test "a rule whose rows mix kg and m2 is left out at load, with its message" {
+                        let drs, msgs = twoRows "m2" |> fromData
+
+                        drs |> Expect.isEmpty "left out"
+                        msgs
+                        |> hasWarning "different adjust units (kg, m2)"
+                        |> Expect.isTrue "with a message"
+
+                        msgs
+                        |> hasWarning "give every row of the rule the rule's adjust unit"
+                        |> Expect.isTrue "telling the author what to do"
+                    }
+
+                    test "a rule whose first row is absolute and a later row per m2 is left out" {
+                        let drs, msgs = [| (twoRows "")[1]; perKgRow.Value |> withAdjust "m2" |] |> fromData
+
+                        drs |> Expect.isEmpty "left out"
+                        msgs
+                        |> hasWarning "different adjust units (none, m2)"
+                        |> Expect.isTrue "with a message"
+                    }
+
+                    test "a per kg row and an absolute row that also says kg, as amoxicillin/clavulanic acid, is loaded" {
+                        let drs, msgs = twoRows "kg" |> fromData
+
+                        drs |> Expect.isNonEmpty "loaded"
+                        msgs |> hasWarning "is left out" |> Expect.isFalse "no refusal"
+                        msgs |> hasWarning "but no per" |> Expect.isFalse "no warning"
+                    }
+
+                    test
+                        "with the absolute row's adjust unit empty the rule is left out, whatever the order of the rows" {
+                        for rows in [ twoRows ""; twoRows "" |> Array.rev ] do
+                            let drs, msgs = rows |> fromData
+
+                            drs |> Expect.isEmpty "left out"
+                            msgs |> hasWarning "different adjust units" |> Expect.isTrue "with a message"
+                    }
+
+                    test "a rule with a per kg value without an adjust unit is left out, with a message naming the row" {
+                        let row = perKgRow.Value |> withAdjust ""
+
+                        let drs, msgs = [| row |] |> fromData
+
+                        drs |> Expect.isEmpty "left out"
+
+                        msgs
+                        |> hasWarning "the row for amoxicilline has a per kg or per m2 value without an adjust unit"
+                        |> Expect.isTrue "the row named"
+                    }
+
+                    test "a rule with an adjust unit and only absolute limits gives a warning, and is loaded" {
+                        let drs, msgs = [| perKgRow.Value |> absoluteOnly |] |> fromData
+
+                        drs |> Expect.isNonEmpty "loaded"
+
+                        msgs
+                        |> hasWarning "has the adjust unit kg but no per kg value"
+                        |> Expect.isTrue "warned"
+                    }
+
+                    test "the demo rules load with no rule refused" {
+                        let drs, msgs = doseRuleData.Value |> fromData
+
+                        drs |> Expect.isNonEmpty "loaded"
+                        msgs |> hasWarning "is left out" |> Expect.isFalse "none refused"
+                    }
+
+                    test "a rule with a BSA range is not selected without a height" {
+                        [ noWeight; weightOnly; measured ]
+                        |> List.map (fun pat -> oneToTwo |> both pat)
+                        |> Expect.equal "only with a BSA" [ false, false; false, false; true, true ]
+                    }
+
+                    test "two BSA bands, as for dexamethasone, are not both selected without a BSA" {
+                        let band min max =
+                            { PatientCategory.empty with
+                                BSA =
+                                    {
+                                        Min = min |> Option.map (m2 >> Inclusive)
+                                        Max = max |> Option.map (m2 >> Exclusive)
+                                    }
+                            }
+
+                        [ band None (Some(3N / 5N)); band (Some(3N / 5N)) None ]
+                        |> List.map (both weightOnly)
+                        |> Expect.equal "neither" [ false, false; false, false ]
+                    }
+
+                    test "with a weight and a height the BSA decides" {
+                        let small = patient (Some 10N) (Some 80N)
+
+                        [ small; measured ]
+                        |> List.map (fun pat -> oneToTwo |> both pat, PatientCategory.empty |> both pat)
+                        |> Expect.equal
+                            "below the range, in the range, and no range"
+                            [ (false, false), (true, true); (true, true), (true, true) ]
+                    }
+                ]
+
+
     module RuleCheckTests =
 
         open Informedica.GenForm.Lib.Resources
@@ -6014,4 +6202,5 @@ module Tests =
                 ResourceRegistryTests.tests
                 DepartmentsTests.tests
                 RuleCheckTests.tests
+                RuleUnitTests.tests
             ]

@@ -511,6 +511,99 @@ module DoseRuleData =
         deduped, warns |> List.ofSeq
 
 
+    /// The adjust unit of a row: kg, m2, or none.
+    let adjustUnitOf (d: DoseRuleData) = d.ScheduleData.AdjustUnit |> Units.adjustUnit
+
+
+    /// Whether a row has a value in a per kg or per m2 column.
+    let hasAdjustedValue (d: DoseRuleData) =
+        let l = d.ScheduleData.DoseLimitData
+
+        [
+            l.MinQtyAdj
+            l.MaxQtyAdj
+            l.MinPerTimeAdj
+            l.MaxPerTimeAdj
+            l.MinRateAdj
+            l.MaxRateAdj
+        ]
+        |> List.exists Option.isSome
+
+
+    /// The dose rule a row belongs to, as a sheet author finds it.
+    let describe (d: DoseRuleData) =
+        $"the dose rule %s{d.Generic.Name} %s{d.Route} %s{d.Indication} (%s{d.Source}, %s{d.PatientText}, %s{d.ScheduleData.DoseType} %s{d.ScheduleData.DoseText})"
+
+
+    /// The reasons a dose rule, given as its rows, is refused at load: rows with different adjust
+    /// units, an empty one included, and a row with a per kg or per m2 value without an adjust unit.
+    /// An order has a single adjust quantity, and the rule takes its adjust unit from its first row,
+    /// so such a rule is calculated wrongly, or right only by the order of its rows.
+    let unitRefusals (rows: DoseRuleData[]) =
+        [
+            let units = rows |> Array.map adjustUnitOf |> Array.distinct
+
+            if units |> Array.length > 1 then
+                let names =
+                    units
+                    |> Array.map (DoseRule.adjStr >> fun s -> if s = "" then "none" else s)
+                    |> String.concat ", "
+
+                $"its rows have different adjust units (%s{names}); give every row of the rule the rule's adjust unit"
+
+            for r in
+                rows
+                |> Array.filter (fun r -> r |> hasAdjustedValue && r |> adjustUnitOf |> Option.isNone) do
+                let l = r.ScheduleData.DoseLimitData
+                let name =
+                    if l.Substance |> String.isNullOrWhiteSpace then
+                        l.Component
+                    else
+                        l.Substance
+                $"the row for %s{name} has a per kg or per m2 value without an adjust unit"
+        ]
+
+
+    /// A warning for a dose rule with an adjust unit and no per kg or per m2 value in any row.
+    let unitWarning (rows: DoseRuleData[]) =
+        match rows |> Array.map adjustUnitOf |> Array.distinct with
+        | [| Some _ as u |] when rows |> Array.exists hasAdjustedValue |> not ->
+            let u = u |> DoseRule.adjStr
+
+            $"%s{rows |> Array.head |> describe} has the adjust unit %s{u} but no per %s{u} value"
+            |> Some
+        | _ -> None
+
+
+    /// The rows of the dose rules that pass the unit checks, and the messages: one per refused
+    /// rule with the reasons, and one per rule with an adjust unit and no adjusted value. A rule is
+    /// the rows that share a rule id, whatever their order.
+    let checkUnits (data: DoseRuleData[]) =
+        let data = data |> Array.map setDataHashIds
+        let rules = data |> Array.groupBy _.RuleId
+
+        let refused =
+            rules
+            |> Array.choose (fun (id, rows) ->
+                match rows |> unitRefusals with
+                | [] -> None
+                | reasons ->
+                    let reasons = reasons |> String.concat "; "
+                    Some(id, $"%s{rows |> Array.head |> describe} is left out: %s{reasons}")
+            )
+
+        let ids = refused |> Array.map fst |> Set.ofArray
+
+        data |> Array.filter (_.RuleId >> ids.Contains >> not),
+        [|
+            yield! refused |> Array.map snd
+            yield!
+                rules
+                |> Array.filter (fst >> ids.Contains >> not)
+                |> Array.choose (snd >> unitWarning)
+        |]
+
+
     /// Pretty print dose rule data for  logging
     let doseRuleDataToString dd =
         let showOpt = Option.map string >> Option.defaultValue "-"
