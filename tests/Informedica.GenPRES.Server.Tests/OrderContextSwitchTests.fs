@@ -102,7 +102,9 @@ let tests =
                     Refusal.NoDoseRules
                     Refusal.NoDoseRulesForPatient
                     Refusal.NoProducts
+                    Refusal.MeasurementMissing
                     Refusal.NotSolved
+                    Refusal.NoAdjustedDose
                 ]
                 |> List.map OrderContextService.refusalToModel
                 |> Expect.equal
@@ -111,7 +113,9 @@ let tests =
                         OrderContextRefusal.NoDoseRules
                         OrderContextRefusal.NoDoseRulesForPatient
                         OrderContextRefusal.NoProducts
+                        OrderContextRefusal.MeasurementMissing
                         OrderContextRefusal.NotSolved
+                        OrderContextRefusal.NoAdjustedDose
                     ]
             }
 

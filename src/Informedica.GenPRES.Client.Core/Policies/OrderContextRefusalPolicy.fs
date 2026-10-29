@@ -35,8 +35,12 @@ module OrderContextRefusalPolicy =
             "There are dose rules for {0}, but none covers the age, weight or department of this patient"
         | Terms.``Prescribe Refusal No products`` ->
             "There are dose rules for {0} that cover this patient, but none has a product and dose type to prescribe"
+        | Terms.``Prescribe Refusal Measurement`` ->
+            "The dose rules for {0} need a weight, or a weight and a height, that this patient does not have. Enter them to see a dose"
         | Terms.``Prescribe Refusal Not solved`` ->
             "This change cannot be applied: the order cannot be calculated with it. The order stays as it was"
+        | Terms.``Prescribe Refusal No adjusted dose`` ->
+            "This change cannot be applied: the order has no dose per kg or per m2. The order stays as it was"
         | Terms.``Prescribe Refusal Contact`` ->
             "Report this to the pharmacy or the application manager, so that the rule can be added"
         | term -> $"{term}"
@@ -63,7 +67,18 @@ module OrderContextRefusalPolicy =
         | OrderContextRefusal.NoDoseRules -> Terms.``Prescribe Refusal No dose rules``
         | OrderContextRefusal.NoDoseRulesForPatient -> Terms.``Prescribe Refusal Patient``
         | OrderContextRefusal.NoProducts -> Terms.``Prescribe Refusal No products``
+        | OrderContextRefusal.MeasurementMissing -> Terms.``Prescribe Refusal Measurement``
         | OrderContextRefusal.NotSolved -> Terms.``Prescribe Refusal Not solved``
+        | OrderContextRefusal.NoAdjustedDose -> Terms.``Prescribe Refusal No adjusted dose``
+
+
+    /// Whether the refusal is of a change in the dose dialog, not of the picks: the order stays as it
+    /// was sent, and the snackbar says why.
+    let refusesChange (refusal: OrderContextRefusal) =
+        match refusal with
+        | OrderContextRefusal.NotSolved
+        | OrderContextRefusal.NoAdjustedDose -> true
+        | _ -> false
 
 
     /// Whether the patient lacks a weight or a height, measured or estimated. When rules exist for
@@ -74,17 +89,21 @@ module OrderContextRefusalPolicy =
 
     /// The notice for a refused context. None when the patient lacks a weight or height: the page
     /// already says what to enter, and a notice blaming the rules would mislead. None for a change
-    /// that cannot be applied, which the snackbar tells while the order stays.
+    /// that cannot be applied, which the snackbar tells while the order stays. A missing
+    /// measurement names no one to tell: the rules are right, the patient needs the measurement.
     let notice (tr: Terms -> string) (ctx: OrderContext) (refusal: OrderContextRefusal) : Notice option =
         match refusal with
         | OrderContextRefusal.NoDoseRulesForPatient when ctx.Patient |> patientIncomplete -> None
-        | OrderContextRefusal.NotSolved -> None
+        | _ when refusal |> refusesChange -> None
         | _ ->
             Some
                 {
                     Title = tr Terms.``Prescribe Refusal``
                     Body = tr (bodyTerm refusal) |> TermText.fill [ picks ctx.Filter ]
-                    Contact = tr Terms.``Prescribe Refusal Contact``
+                    Contact =
+                        match refusal with
+                        | OrderContextRefusal.MeasurementMissing -> ""
+                        | _ -> tr Terms.``Prescribe Refusal Contact``
                 }
 
 

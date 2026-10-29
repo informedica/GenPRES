@@ -500,8 +500,8 @@ module Client =
             [ ClientMsg.Loader(LoaderMsg.FilterAnswered filter) ]
         | ClientEffect.Lanes(LanesEffect.Workbench(OrderContextEffect.TellError errs)) ->
             alert (Alert.Alert.WorkbenchFailed(first errs))
-        | ClientEffect.Lanes(LanesEffect.Workbench OrderContextEffect.TellNotSolved) ->
-            alert Alert.Alert.ChangeNotApplied
+        | ClientEffect.Lanes(LanesEffect.Workbench(OrderContextEffect.TellNotApplied refusal)) ->
+            alert (Alert.Alert.ChangeNotApplied refusal)
         | ClientEffect.Lanes(LanesEffect.Plan(OrderPlanEffect.CheckInteractions drugs)) ->
             [ ClientMsg.Loader(LoaderMsg.CheckInteractions drugs) ]
         | ClientEffect.Lanes(LanesEffect.Plan(OrderPlanEffect.TellError errs)) ->

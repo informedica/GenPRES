@@ -821,7 +821,10 @@ The work is done in one pull request per step, after the maintainer's go.
      (`ServerApi.Services.fs:335`). Those match lines are forced by the new cases and written directly,
      under the same decision as in step 6.
    - **Client.Core.** `OrderContextRefusalPolicy` shows both refusals, and the trail names them
-     (`Trail.fs:306`).
+     (`Trail.fs:306`). `NoAdjustedDose` refuses a change in the dose dialog, as `NotSolved` does, so
+     it takes the path of `NotSolved` in `OrderContextMachine`: the context as sent, the dialog open,
+     and a snackbar with its own text. The effect and the alert of that path carry the refusal.
+     `MeasurementMissing` shows a notice, as the other rule refusals do, without whom to tell.
    - **The text.** Two new `Terms` cases, their entries in `localization.tsv`, and the Localization
      sheet. The text of `MeasurementMissing` says that the rule needs a weight, or a weight and a
      height. `CheckLocalization.fsx` passes.

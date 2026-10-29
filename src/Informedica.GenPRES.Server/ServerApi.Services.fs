@@ -334,10 +334,9 @@ module OrderContextService =
         | Refusal.NoDoseRules -> OrderContextRefusal.NoDoseRules
         | Refusal.NoDoseRulesForPatient -> OrderContextRefusal.NoDoseRulesForPatient
         | Refusal.NoProducts -> OrderContextRefusal.NoProducts
+        | Refusal.MeasurementMissing -> OrderContextRefusal.MeasurementMissing
         | Refusal.NotSolved -> OrderContextRefusal.NotSolved
-        // a stop-gap until the contract carries these two refusals of their own (#1495)
-        | Refusal.MeasurementMissing -> OrderContextRefusal.NoDoseRulesForPatient
-        | Refusal.NoAdjustedDose -> OrderContextRefusal.NotSolved
+        | Refusal.NoAdjustedDose -> OrderContextRefusal.NoAdjustedDose
 
 
     /// The outcome mapped out as the contract's response, with the environment's demo flag.
