@@ -275,6 +275,8 @@ module Resources =
         let doseRules = ResourceKey.create<DoseRule[]> "doseRules"
         let solutionRules = ResourceKey.create<SolutionRule[]> "solutionRules"
         let renalRules = ResourceKey.create<RenalRule[]> "renalRules"
+        // The renal rules refused by the unit checks, each with the reasons.
+        let refusedRenalRules = ResourceKey.create<(RenalRule * string list)[]> "refusedRenalRules"
         // The renal rules checked against the dose rules; only gives messages.
         let renalRuleChecks = ResourceKey.create<unit> "renalRuleChecks"
         // The dose rules and solution rules checked for inverted ranges and missing diluents;
@@ -285,6 +287,11 @@ module Resources =
 
         // Nederlands Kinder Formularium link lookup, likewise function-valued.
         let nkfLinkProvider = ResourceKey.create<Source.LinkProvider> "nkfLinkProvider"
+
+
+    /// The loader of the renal rule data. A renal sheet that fails to load fails the whole load:
+    /// served empty, it would give every patient with a reduced kidney function the full dose.
+    let renalRuleDataLoader fetch = ofResult fetch
 
 
     /// Default resource registry using the standard v2 get functions.
@@ -336,7 +343,7 @@ module Resources =
 
                 Keys.doseRuleData.Name, ofResult (fun () -> DoseRuleLoader.getData dataUrlId)
                 Keys.solutionRuleData.Name, ofResult (fun () -> SolutionRule.getData dataUrlId)
-                Keys.renalRuleData.Name, ofResult (fun () -> RenalRule.getData dataUrlId)
+                Keys.renalRuleData.Name, renalRuleDataLoader (fun () -> RenalRule.getData dataUrlId)
 
                 // the departments the rules name, and the default: derived, so it loads once
                 // and after the three rows it reads
@@ -391,11 +398,18 @@ module Resources =
                 // Built rules carry product-matching warnings -> ResourceState.Messages.
                 Keys.doseRules.Name,
                 deriveWith (fun r ->
-                    DoseRuleLoader.fromData
-                        (r.Get Keys.routeMappings)
-                        (r.Get Keys.formRoutes)
-                        (r.Get Keys.products)
-                        (r.Get Keys.doseRuleData)
+                    let drs, msgs =
+                        DoseRuleLoader.fromData
+                            (r.Get Keys.routeMappings)
+                            (r.Get Keys.formRoutes)
+                            (r.Get Keys.products)
+                            (r.Get Keys.doseRuleData)
+
+                    let drs, renalMsgs =
+                        drs
+                        |> RenalRule.withoutRefused (r.Get Keys.routeMappings) (r.Get Keys.refusedRenalRules)
+
+                    drs, msgs @ renalMsgs
                 )
 
                 Keys.solutionRules.Name,
@@ -407,6 +421,8 @@ module Resources =
                         (r.Get Keys.solutionRuleData)
                     |> Result.map (fun v -> box v, [])
                 )
+
+                Keys.refusedRenalRules.Name, derive (fun r -> r.Get Keys.renalRuleData |> RenalRule.refused logger)
 
                 Keys.renalRules.Name,
                 (fun r ->
