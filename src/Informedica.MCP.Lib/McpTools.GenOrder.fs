@@ -210,7 +210,8 @@ module GenOrderTools =
 
         let opts =
             filter
-            |> Api.getFilterOptions OrderLogging.noOp provider
+            |> FilterHelpers.getPrescribableRules OrderLogging.noOp provider
+            |> Result.map PrescriptionRule.filterOptions
             |> FilterHelpers.orLogErrors OrderLogging.noOp PrescriptionRule.emptyFilterOptions
 
         {

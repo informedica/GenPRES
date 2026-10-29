@@ -5463,6 +5463,7 @@ let tests =
             OrderPlanTests.tests
             OrderPlanTests.evaluateTests
             OrderPlanTests.rulesTests
+            OrderPlanTests.prescribableTests
             OrderPlanTests.scenarioAccessTests
             OrderPlanTests.refusalTests
             OrderPlanTests.argumentationTests
