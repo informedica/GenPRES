@@ -169,118 +169,180 @@ module RenalRule =
             |> Some
 
 
-    let map logger (data: RenalRuleData[]) : Result<_, Message list> =
+    /// The key that the rows of one renal rule share.
+    let groupKey (r: RenalRuleData) =
+        r.Generic,
+        r.Route,
+        r.Indication,
+        r.Source,
+        r.MinAge,
+        r.MaxAge,
+        DoseType.fromString r.DoseType r.DoseText,
+        (match r.FreqUnit |> Units.freqUnit with
+         | None -> None
+         | Some u ->
+             if r.Frequencies |> Array.isEmpty then
+                 None
+             else
+                 r.Frequencies |> ValueUnit.withUnit u |> Some),
+        (r.MinInterval, r.MaxInterval)
+        |> fromTupleInclIncl (r.IntervalUnit |> Units.timeUnit),
+        createRenalFunction r.ContDial r.IntDial r.PerDial r.MinGFR r.MaxGFR
+
+
+    /// The rows of the sheet grouped per renal rule.
+    let groups (data: RenalRuleData[]) =
         data
         |> Array.filter (fun r -> r.Generic <> "" && r.Source <> "")
-        |> Array.choose (fun r ->
-            createRenalFunction r.ContDial r.IntDial r.PerDial r.MinGFR r.MaxGFR
-            |> Option.map (fun rf -> {| r with RenalFunction = rf |})
-        )
-        |> Array.groupBy (fun r ->
-            r.Generic
-            , r.Route
-            , r.Indication
-            , r.Source
-            , r.MinAge
-            , r.MaxAge
-            , DoseType.fromString r.DoseType r.DoseText
-            , match r.FreqUnit |> Units.freqUnit with
-              | None -> None
-              | Some u ->
-                  if r.Frequencies |> Array.isEmpty then
-                      None
-                  else
-                      r.Frequencies |> ValueUnit.withUnit u |> Some
-            , (r.MinInterval, r.MaxInterval)
-              |> fromTupleInclIncl (r.IntervalUnit |> Units.timeUnit)
-            , r.RenalFunction
-        )
-        |> Array.map (fun ((gen, rte, ind, src, minAge, maxAge, dt, fr, it, rf), rules) ->
-            let limits =
-                rules
-                |> Array.filter (fun r -> r.DoseRed |> String.notEmpty)
-                |> Array.map (fun r ->
-                    let times = Units.Count.times |> Some
+        |> Array.groupBy groupKey
 
-                    // the adjust unit
-                    let adj =
-                        if r.DoseRed = DoseReduction.REL then
-                            None
-                        else
-                            r.AdjustUnit |> Units.adjustUnit
-                    // the dose unit
-                    let du =
-                        if r.DoseRed = DoseReduction.REL then
-                            times
-                        else
-                            r.DoseUnit |> UnitsParse.fromString
-                    // the adjusted dose unit
-                    let duAdj =
-                        if r.DoseRed = DoseReduction.REL then
-                            times
-                        else
-                            match adj, du with
-                            | Some adj, Some du -> du |> ValueUnit.per adj |> Some
-                            | _ -> None
-                    // the time unit
-                    let tu = r.FreqUnit |> Units.timeUnit
-                    // the dose unit per time unit
-                    let duTime =
-                        if r.DoseRed = DoseReduction.REL then
-                            times
-                        else
-                            match du, tu with
-                            | Some du, Some tu -> du |> ValueUnit.per tu |> Some
-                            | _ -> None
-                    // the adjusted dose unit per time unit
-                    let duAdjTime =
-                        if r.DoseRed = DoseReduction.REL then
-                            times
-                        else
-                            match duAdj, tu with
-                            | Some duAdj, Some tu -> duAdj |> ValueUnit.per tu |> Some
-                            | _ -> None
-                    // the rate unit
-                    let ru =
-                        if r.DoseRed = DoseReduction.REL then
-                            times
-                        else
-                            r.RateUnit |> UnitsParse.fromString
-                    // the dose unit per rate unit
-                    let duRate =
-                        if r.DoseRed = DoseReduction.REL then
-                            times
-                        else
-                            match du, ru with
-                            | Some du, Some ru -> du |> ValueUnit.per ru |> Some
-                            | _ -> None
-                    // the adjusted dose unit per rate unit
-                    let duAdjRate =
-                        if r.DoseRed = DoseReduction.REL then
-                            times
-                        else
-                            match duAdj, ru with
-                            | Some duAdj, Some ru -> duAdj |> ValueUnit.per ru |> Some
-                            | _ -> None
 
-                    Limit.create
-                        (r.Substance |> LimitTarget.SubstanceLimitTarget)
-                        (r.DoseRed |> DoseReduction.fromString logger)
-                        ((r.MinQty, r.MaxQty) |> fromTupleInclIncl du)
-                        (r.NormQtyAdj |> ValueUnit.withArrayAndOptUnit duAdj)
-                        ((r.MinQtyAdj, r.MaxQtyAdj) |> fromTupleInclIncl duAdj)
-                        ((r.MinPerTime, r.MaxPerTime) |> fromTupleInclIncl duTime)
-                        (r.NormPerTimeAdj |> ValueUnit.withArrayAndOptUnit duAdjTime)
-                        ((r.MinPerTimeAdj, r.MaxPerTimeAdj) |> fromTupleInclIncl duAdjTime)
-                        ((r.MinRate, r.MaxRate) |> fromTupleInclIncl duRate)
-                        ((r.MinRateAdj, r.MaxRateAdj) |> fromTupleInclIncl duAdjRate)
-                )
+    /// The renal rule of the rows of one group; none for rows without a renal function.
+    let ofRows logger ((gen, rte, ind, src, minAge, maxAge, dt, fr, it, rf), rules: RenalRuleData[]) =
+        let limits =
+            rules
+            |> Array.filter (fun r -> r.DoseRed |> String.notEmpty)
+            |> Array.map (fun r ->
+                let times = Units.Count.times |> Some
 
-            let age = (minAge, maxAge) |> fromTupleInclIncl (Some Units.Time.day)
+                // the adjust unit
+                let adj =
+                    if r.DoseRed = DoseReduction.REL then
+                        None
+                    else
+                        r.AdjustUnit |> Units.adjustUnit
+                // the dose unit
+                let du =
+                    if r.DoseRed = DoseReduction.REL then
+                        times
+                    else
+                        r.DoseUnit |> UnitsParse.fromString
+                // the adjusted dose unit
+                let duAdj =
+                    if r.DoseRed = DoseReduction.REL then
+                        times
+                    else
+                        match adj, du with
+                        | Some adj, Some du -> du |> ValueUnit.per adj |> Some
+                        | _ -> None
+                // the time unit
+                let tu = r.FreqUnit |> Units.timeUnit
+                // the dose unit per time unit
+                let duTime =
+                    if r.DoseRed = DoseReduction.REL then
+                        times
+                    else
+                        match du, tu with
+                        | Some du, Some tu -> du |> ValueUnit.per tu |> Some
+                        | _ -> None
+                // the adjusted dose unit per time unit
+                let duAdjTime =
+                    if r.DoseRed = DoseReduction.REL then
+                        times
+                    else
+                        match duAdj, tu with
+                        | Some duAdj, Some tu -> duAdj |> ValueUnit.per tu |> Some
+                        | _ -> None
+                // the rate unit
+                let ru =
+                    if r.DoseRed = DoseReduction.REL then
+                        times
+                    else
+                        r.RateUnit |> UnitsParse.fromString
+                // the dose unit per rate unit
+                let duRate =
+                    if r.DoseRed = DoseReduction.REL then
+                        times
+                    else
+                        match du, ru with
+                        | Some du, Some ru -> du |> ValueUnit.per ru |> Some
+                        | _ -> None
+                // the adjusted dose unit per rate unit
+                let duAdjRate =
+                    if r.DoseRed = DoseReduction.REL then
+                        times
+                    else
+                        match duAdj, ru with
+                        | Some duAdj, Some ru -> duAdj |> ValueUnit.per ru |> Some
+                        | _ -> None
 
-            create gen rte ind src age dt fr it rf limits
-        )
+                Limit.create
+                    (r.Substance |> LimitTarget.SubstanceLimitTarget)
+                    (r.DoseRed |> DoseReduction.fromString logger)
+                    ((r.MinQty, r.MaxQty) |> fromTupleInclIncl du)
+                    (r.NormQtyAdj |> ValueUnit.withArrayAndOptUnit duAdj)
+                    ((r.MinQtyAdj, r.MaxQtyAdj) |> fromTupleInclIncl duAdj)
+                    ((r.MinPerTime, r.MaxPerTime) |> fromTupleInclIncl duTime)
+                    (r.NormPerTimeAdj |> ValueUnit.withArrayAndOptUnit duAdjTime)
+                    ((r.MinPerTimeAdj, r.MaxPerTimeAdj) |> fromTupleInclIncl duAdjTime)
+                    ((r.MinRate, r.MaxRate) |> fromTupleInclIncl duRate)
+                    ((r.MinRateAdj, r.MaxRateAdj) |> fromTupleInclIncl duAdjRate)
+            )
+
+        let age = (minAge, maxAge) |> fromTupleInclIncl (Some Units.Time.day)
+
+        rf |> Option.map (fun rf -> create gen rte ind src age dt fr it rf limits)
+
+
+    /// Whether a row has a value in a per kg or per m2 column.
+    let hasAdjustedValue (r: RenalRuleData) =
+        [
+            r.MinQtyAdj
+            r.MaxQtyAdj
+            r.MinPerTimeAdj
+            r.MaxPerTimeAdj
+            r.MinRateAdj
+            r.MaxRateAdj
+        ]
+        |> List.exists Option.isSome
+        || r.NormQtyAdj |> Array.isEmpty |> not
+        || r.NormPerTimeAdj |> Array.isEmpty |> not
+
+
+    /// The reasons a renal rule, given as its rows, is refused at load: both per kg and per m2
+    /// bounds, which the single adjust quantity of an order cannot hold, and a per kg or per m2
+    /// value without an adjust unit, which is lost. Only the rows with an absolute reduction are
+    /// checked: the relative rows hold reduction factors without a unit in the same columns.
+    let unitRefusals (rows: RenalRuleData[]) =
+        let rows =
+            rows
+            |> Array.filter (fun r -> r.DoseRed |> String.equalsCapInsens DoseReduction.ABS && r |> hasAdjustedValue)
+
+        [
+            let units = rows |> Array.choose (_.AdjustUnit >> Units.adjustUnit) |> Array.distinct
+
+            if units |> Array.length > 1 then
+                "it has both per kg and per m2 bounds"
+
+            for r in rows |> Array.filter (_.AdjustUnit >> Units.adjustUnit >> Option.isNone) do
+                $"the row for %s{r.Substance} has a per kg or per m2 value without an adjust unit"
+        ]
+
+
+    /// The groups of the sheet, each with the reasons the unit checks refuse it; no reasons for a group
+    /// that passes.
+    let checkedGroups data =
+        data |> groups |> Array.map (fun grp -> grp, grp |> snd |> unitRefusals)
+
+
+    /// The renal rules of the sheet, without those refused by the unit checks.
+    let map logger (data: RenalRuleData[]) : Result<_, Message list> =
+        data
+        |> checkedGroups
+        |> Array.filter (snd >> List.isEmpty)
+        |> Array.choose (fst >> ofRows logger)
         |> Ok
+
+
+    /// The renal rules refused by the unit checks, each with the reasons.
+    let refused logger (data: RenalRuleData[]) =
+        data
+        |> checkedGroups
+        |> Array.choose (fun (grp, reasons) ->
+            match reasons with
+            | [] -> None
+            | _ -> grp |> ofRows logger |> Option.map (fun rr -> rr, reasons)
+        )
 
 
     let get logger dataUrlId : Result<_, Message list> = getData dataUrlId |> Result.bind (map logger)
@@ -297,6 +359,18 @@ module RenalRule =
         && (rr.Indication |> String.isNullOrWhiteSpace || rr.Indication |> eqs indication)
         && (rr.DoseType = NoDoseType
             || doseType |> Option.forall (DoseType.eqsType rr.DoseType))
+
+
+    /// Whether a renal rule applies to a dose rule: the generic, and the route, indication and
+    /// dose type when the renal rule names them.
+    let appliesToDoseRule routeMapping (rr: RenalRule) (dr: DoseRule) =
+        rr
+        |> appliesTo
+            routeMapping
+            (dr.Generic |> Generic.genericName |> Some)
+            (Some dr.Route)
+            (Some dr.Indication)
+            (Some dr.DoseType)
 
 
     let filter mapping (filter: DoseFilter) (renalRules: RenalRule[]) =
@@ -455,7 +529,8 @@ module RenalRule =
                 match rl.DoseReduction with
                 | NoReduction -> dl
                 | Absolute ->
-                    let adj = rl |> adjustUnit |> Patient.adjustValue pat
+                    let adjUnit = rl |> adjustUnit
+                    let adj = adjUnit |> Patient.adjustValue pat
 
                     let dose renal = absoluteDose adj (ownMeasure renal)
 
@@ -464,6 +539,9 @@ module RenalRule =
                     let rate, rateAdj = (dl.Rate, dl.RateAdjust) |> dose (rl.Rate, rl.RateAdjust)
 
                     { dl with
+                        // a dose limit without an adjust unit takes the unit of the renal per kg or
+                        // per m2 bounds, so the order applies them at that measurement
+                        AdjustUnit = adjUnit
                         Quantity = qty
                         QuantityAdjust = qtyAdj
                         PerTime = perTime
@@ -482,6 +560,8 @@ module RenalRule =
                     }
 
 
+    /// The dose rule under a renal rule. A dose rule without an adjust unit takes the adjust unit
+    /// that a dose limit took from the renal rule.
     let adjustDoseRule pat (renalRule: RenalRule) (doseRule: DoseRule) =
 
         { doseRule with
@@ -497,6 +577,16 @@ module RenalRule =
                     { dl with SubstanceLimits = dl.SubstanceLimits |> Array.map (adjustDoseLimit pat renalRule) }
                 )
         }
+        |> fun dr ->
+            { dr with
+                AdjustUnit =
+                    dr.AdjustUnit
+                    |> Option.orElse (
+                        dr.ComponentLimits
+                        |> Array.collect _.SubstanceLimits
+                        |> Array.tryPick _.AdjustUnit
+                    )
+            }
 
 
     /// Whether a renal function is reduced: an eGFR range that stays at or below 90 mL/min, or
@@ -525,18 +615,9 @@ module RenalRule =
                 r |> Limit.gt false false <| d
             | _ -> false
 
-        let applies rr (dr: DoseRule) =
-            rr
-            |> appliesTo
-                routeMapping
-                (dr.Generic |> Generic.genericName |> Some)
-                (Some dr.Route)
-                (Some dr.Indication)
-                (Some dr.DoseType)
-
         [
             for rr in renalRules do
-                for dr in doseRules |> Array.filter (applies rr) do
+                for dr in doseRules |> Array.filter (appliesToDoseRule routeMapping rr) do
                     for rl in rr.RenalLimits |> Array.filter (fun rl -> rl.DoseReduction = Absolute) do
                         for dl in
                             dr.ComponentLimits
@@ -576,4 +657,26 @@ module RenalRule =
                                 if kinds |> List.isEmpty |> not then
                                     let kinds = kinds |> String.concat ", "
                                     Warning $"%s{renal} has a higher maximum %s{kinds} for %s{target} than %s{dose}"
+        ]
+
+
+    /// The renal rule as a sheet author finds it.
+    let describe (rr: RenalRule) =
+        let rf = rr.RenalFunction |> RenalFunction.toString
+        $"the renal rule %s{rr.Generic} %s{rr.Route} %s{rr.Indication} (%s{rr.Source}, %s{rf})"
+
+
+    /// The dose rules without those a refused renal rule applies to, and one message per refused
+    /// renal rule. A refused renal rule matches no patient, so without this a patient in its eGFR
+    /// range would get the dose rule's full dose.
+    let withoutRefused routeMapping (refused: (RenalRule * string list)[]) (doseRules: DoseRule[]) =
+        let applies dr =
+            refused |> Array.exists (fun (rr, _) -> appliesToDoseRule routeMapping rr dr)
+
+        doseRules |> Array.filter (applies >> not),
+        [
+            for rr, reasons in refused do
+                let n = doseRules |> Array.filter (appliesToDoseRule routeMapping rr) |> Array.length
+                Warning
+                    $"""%s{describe rr} is left out: %s{reasons |> String.concat "; "}; %i{n} dose rules of %s{rr.Generic} are left out with it, until the sheet is fixed"""
         ]

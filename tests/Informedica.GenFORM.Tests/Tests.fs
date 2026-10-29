@@ -5739,6 +5739,391 @@ module Tests =
                 ]
 
 
+    module RenalUnitTests =
+
+        open Informedica.GenForm.Lib.Resources
+
+
+        module Fixtures = DoseRuleRoundtripTests
+
+        let private mg = Units.Mass.milliGram
+        let private kg = Units.Weight.kiloGram
+        let private m2 = Units.BSA.m2
+        let private perKg u = u |> ValueUnit.per kg
+        let private perM2 u = u |> ValueUnit.per m2
+        let private perDay u = u |> ValueUnit.per Units.Time.day
+
+        let private range u min max =
+            {
+                Min = min |> Option.map (ValueUnit.singleWithUnit u >> Inclusive)
+                Max = max |> Option.map (ValueUnit.singleWithUnit u >> Inclusive)
+            }
+
+        let private measured =
+            { Patient.patient with
+                Weight = Some(ValueUnit.singleWithUnit kg 70N)
+                Height = Some(ValueUnit.singleWithUnit Units.Height.centiMeter 175N)
+            }
+
+        let private noLogger = Informedica.Logging.Lib.Logging.noOp
+
+        let private doseRules =
+            lazy
+                (DoseRuleLoader.fromData Fixtures.rm.Value [||] Fixtures.prods.Value Fixtures.data.Value
+                 |> fst)
+
+        let private isAmoxIV (dr: DoseRule) =
+            dr.Generic |> Generic.genericName = "amoxicilline" && dr.Route = "INTRAVENEUS"
+
+        let private substanceLimits (dr: DoseRule) = dr.ComponentLimits |> Array.collect _.SubstanceLimits
+
+        let private maxOf (mm: MinMax) = mm.Max |> Option.map Limit.getValueUnit
+
+        let private minOf (mm: MinMax) = mm.Min |> Option.map Limit.getValueUnit
+
+        /// A renal row for amoxicillin IV at an eGFR of 10 to 30, with an absolute reduction to at
+        /// most 25 mg/kg.
+        let private renalRow: RenalRuleData =
+            {
+                Generic = "amoxicilline"
+                Route = "INTRAVENEUS"
+                Indication = ""
+                Source = "test"
+                MinAge = None
+                MaxAge = None
+                ContDial = ""
+                IntDial = ""
+                PerDial = ""
+                MinGFR = Some 10N
+                MaxGFR = Some 30N
+                DoseType = ""
+                DoseText = ""
+                Frequencies = [||]
+                MinInterval = None
+                MaxInterval = None
+                IntervalUnit = ""
+                Substance = "amoxicilline"
+                DoseRed = "abs"
+                DoseUnit = "mg"
+                AdjustUnit = "kg"
+                FreqUnit = ""
+                RateUnit = ""
+                MinQty = None
+                MaxQty = None
+                NormQtyAdj = [||]
+                MinQtyAdj = None
+                MaxQtyAdj = Some 25N
+                MinPerTime = None
+                MaxPerTime = None
+                NormPerTimeAdj = [||]
+                MinPerTimeAdj = None
+                MaxPerTimeAdj = None
+                MinRate = None
+                MaxRate = None
+                MinRateAdj = None
+                MaxRateAdj = None
+            }
+
+        let private renalLimit qtyAdj perTimeAdj : RenalLimit =
+            {
+                DoseLimitTarget = SubstanceLimitTarget "paracetamol"
+                DoseReduction = Absolute
+                Quantity = MinMax.empty
+                NormQuantityAdjust = None
+                QuantityAdjust = qtyAdj
+                PerTime = MinMax.empty
+                NormPerTimeAdjust = None
+                PerTimeAdjust = perTimeAdj
+                Rate = MinMax.empty
+                RateAdjust = MinMax.empty
+            }
+
+        let private renalRule limit : RenalRule =
+            {
+                Generic = "paracetamol"
+                Route = ""
+                Indication = ""
+                Source = "test"
+                Age = MinMax.empty
+                RenalFunction = EGFR(Some 10, Some 30)
+                DoseType = NoDoseType
+                Frequencies = None
+                IntervalTime = MinMax.empty
+                RenalLimits = [| limit |]
+            }
+
+        /// A demo dose rule with a single paracetamol substance limit and the given adjust unit.
+        let private doseRuleWith adjustUnit (dl: DoseLimit) =
+            let dr = doseRules.Value |> Array.head
+
+            { dr with
+                AdjustUnit = adjustUnit
+                ComponentLimits =
+                    [|
+                        { dr.ComponentLimits[0] with
+                            Limit = None
+                            SubstanceLimits =
+                                [|
+                                    { dl with
+                                        DoseLimitTarget = SubstanceLimitTarget "paracetamol"
+                                        DoseUnit = mg
+                                        AdjustUnit = adjustUnit
+                                    }
+                                |]
+                        }
+                    |]
+            }
+
+        let private refusedMessage n =
+            List.filter (
+                function
+                | Warning s -> s.Contains $"%i{n} dose rules of amoxicilline are left out with it"
+                | _ -> false
+            )
+
+
+        let tests =
+            testList
+                "Renal rule units"
+                [
+                    test "a renal rule with both kg and m2 bounds is refused, with its reason" {
+                        let rows =
+                            [|
+                                renalRow
+                                { renalRow with
+                                    Substance = "other"
+                                    AdjustUnit = "m2"
+                                }
+                            |]
+
+                        rows
+                        |> RenalRule.refused noLogger
+                        |> Array.map snd
+                        |> Expect.equal "refused" [| [ "it has both per kg and per m2 bounds" ] |]
+
+                        rows |> RenalRule.map noLogger |> Expect.equal "not mapped" (Ok [||])
+                    }
+
+                    test "an absolute renal row with a per kg value and no adjust unit is refused" {
+                        [| { renalRow with AdjustUnit = "" } |]
+                        |> RenalRule.refused noLogger
+                        |> Array.map snd
+                        |> Expect.equal
+                            "refused"
+                            [|
+                                [
+                                    "the row for amoxicilline has a per kg or per m2 value without an adjust unit"
+                                ]
+                            |]
+                    }
+
+                    test "an absolute renal row with a norm per kg value and no adjust unit is refused" {
+                        [|
+                            { renalRow with
+                                AdjustUnit = ""
+                                MaxQtyAdj = None
+                                NormQtyAdj = [| 4N; 5N |]
+                            }
+                        |]
+                        |> RenalRule.refused noLogger
+                        |> Array.length
+                        |> Expect.equal "refused" 1
+                    }
+
+                    test "a relative renal rule is not refused" {
+                        let rows =
+                            [|
+                                { renalRow with
+                                    DoseRed = "rel"
+                                    AdjustUnit = ""
+                                    MaxQtyAdj = Some(1N / 2N)
+                                }
+                            |]
+
+                        rows |> RenalRule.refused noLogger |> Expect.isEmpty "not refused"
+
+                        rows
+                        |> RenalRule.map noLogger
+                        |> Result.map Array.length
+                        |> Expect.equal "mapped" (Ok 1)
+                    }
+
+                    test "a renal rule with kg bounds only is mapped, and not refused" {
+                        [| renalRow |] |> RenalRule.refused noLogger |> Expect.isEmpty "not refused"
+
+                        [| renalRow |]
+                        |> RenalRule.map noLogger
+                        |> Result.map (Array.map (_.RenalLimits >> Array.map _.QuantityAdjust))
+                        |> Expect.equal "at most 25 mg/kg" (Ok [| [| range (perKg mg) None (Some 25N) |] |])
+                    }
+
+                    test "a refused renal rule leaves out the dose rules of its generic and route, with one message" {
+                        let refused = [| { renalRow with AdjustUnit = "" } |] |> RenalRule.refused noLogger
+                        let rr = refused |> Array.head |> fst
+                        let n = doseRules.Value |> Array.filter isAmoxIV |> Array.length
+                        n > 0 |> Expect.isTrue "the demo has amoxicillin IV"
+
+                        let kept, msgs = doseRules.Value |> RenalRule.withoutRefused Fixtures.rm.Value refused
+
+                        kept
+                        |> Array.exists isAmoxIV
+                        |> Expect.isFalse "amoxicillin IV is left out for every patient"
+
+                        kept
+                        |> Array.length
+                        |> Expect.equal "every other dose rule stays" (doseRules.Value.Length - n)
+
+                        msgs
+                        |> Expect.equal
+                            "one message"
+                            [
+                                Warning
+                                    $"%s{RenalRule.describe rr} is left out: the row for amoxicilline has a per kg or per m2 value without an adjust unit; %i{n} dose rules of amoxicilline are left out with it, until the sheet is fixed"
+                            ]
+                    }
+
+                    test "a dose rule of the same generic on another route stays" {
+                        let refused =
+                            [|
+                                { renalRow with
+                                    AdjustUnit = ""
+                                    Route = "ORAAL"
+                                }
+                            |]
+                            |> RenalRule.refused noLogger
+
+                        doseRules.Value
+                        |> RenalRule.withoutRefused Fixtures.rm.Value refused
+                        |> fst
+                        |> Array.exists isAmoxIV
+                        |> Expect.isTrue "amoxicillin IV stays"
+                    }
+
+                    test "the matching of a renal rule to dose rules, for the route, the indication and the dose type" {
+                        let dr = doseRules.Value |> Array.find isAmoxIV
+
+                        let rr = { renalRule (renalLimit MinMax.empty MinMax.empty) with Generic = "amoxicilline" }
+
+                        let applies rr = RenalRule.appliesToDoseRule Fixtures.rm.Value rr dr
+
+                        applies rr |> Expect.isTrue "naming none takes every dose rule of the generic"
+                        applies { rr with Route = dr.Route } |> Expect.isTrue "the named route"
+                        applies { rr with Route = "RECTAAL" } |> Expect.isFalse "another route"
+                        applies { rr with Indication = dr.Indication }
+                        |> Expect.isTrue "the named indication"
+                        applies { rr with Indication = "another" }
+                        |> Expect.isFalse "another indication"
+                        applies { rr with DoseType = dr.DoseType }
+                        |> Expect.isTrue "the named dose type"
+                        applies { rr with DoseType = Continuous "other" }
+                        |> Expect.isFalse "another dose type"
+                    }
+
+                    test "a renal sheet that fails to load fails the whole load" {
+                        // only the renal key: the load must fail on the renal sheet alone, without the network
+                        let reg =
+                            Map
+                                [
+                                    Keys.renalRuleData.Name,
+                                    renalRuleDataLoader (fun () ->
+                                        Error [ ErrorMsg("the renal sheet is offline", None) ]
+                                    )
+                                ]
+
+                        (fun () -> LoadEngine(reg).ForceAll()) |> Expect.throws "the load fails"
+                    }
+
+                    test
+                        "through the registry a refused renal rule is gone from the renal and the dose rules, with one message" {
+                        let valid =
+                            { renalRow with
+                                MinGFR = Some 30N
+                                MaxGFR = Some 50N
+                            }
+
+                        let wrong = { renalRow with AdjustUnit = "" }
+                        let defaults = defaultRegistry noLogger ""
+
+                        let reg =
+                            Map
+                                [
+                                    Keys.routeMappings.Name, ofResult (fun () -> Ok Fixtures.rm.Value)
+                                    Keys.formRoutes.Name, ofResult (fun () -> Ok([||]: FormRoute[]))
+                                    Keys.products.Name, ofResult (fun () -> Ok Fixtures.prods.Value)
+                                    Keys.doseRuleData.Name, ofResult (fun () -> Ok Fixtures.data.Value)
+                                    Keys.renalRuleData.Name, renalRuleDataLoader (fun () -> Ok [| valid; wrong |])
+                                    for key in
+                                        [
+                                            Keys.refusedRenalRules.Name
+                                            Keys.renalRules.Name
+                                            Keys.doseRules.Name
+                                            Keys.renalRuleChecks.Name
+                                        ] do
+                                        key, defaults[key]
+                                ]
+
+                        let eng = LoadEngine reg
+                        eng.ForceAll()
+
+                        eng.Resolve Keys.doseRules
+                        |> Array.exists isAmoxIV
+                        |> Expect.isFalse "no amoxicillin IV dose rule"
+
+                        eng.Resolve Keys.renalRules
+                        |> Array.map _.RenalFunction
+                        |> Expect.equal "only the valid renal rule" [| EGFR(Some 30, Some 50) |]
+
+                        let n = doseRules.Value |> Array.filter isAmoxIV |> Array.length
+
+                        eng.Warnings |> refusedMessage n |> List.length |> Expect.equal "one message" 1
+                    }
+
+                    test "a renal per m2 bound on a dose rule without an adjust unit gives the rule m2" {
+                        let dl = { DoseLimit.limit with Quantity = range mg (Some 500N) (Some 1000N) }
+
+                        let rr = renalRule (renalLimit (range (perM2 mg) None (Some 400N)) MinMax.empty)
+
+                        let dr = doseRuleWith None dl |> RenalRule.adjustDoseRule measured rr
+                        let dl = dr |> substanceLimits |> Array.head
+
+                        dr.AdjustUnit |> Expect.equal "the rule" (Some m2)
+                        dl.AdjustUnit |> Expect.equal "the limit" (Some m2)
+
+                        dl.Quantity
+                        |> minOf
+                        |> Expect.equal "at least 500 mg" (Some(ValueUnit.singleWithUnit mg 500N))
+
+                        dl.Quantity |> maxOf |> Expect.isNone "the 1,000 mg goes"
+
+                        dl.QuantityAdjust
+                        |> maxOf
+                        |> Expect.equal "at most 400 mg/m2" (Some(ValueUnit.singleWithUnit (perM2 mg) 400N))
+                    }
+
+                    test "a renal per m2 bound per day on a per kg rule gives the absolute maximum, and kg stays" {
+                        let dl = { DoseLimit.limit with PerTimeAdjust = range (perDay (perKg mg)) None (Some 30N) }
+
+                        let rr = renalRule (renalLimit MinMax.empty (range (perDay (perM2 mg)) None (Some 600N)))
+
+                        let dr = doseRuleWith (Some kg) dl |> RenalRule.adjustDoseRule measured rr
+                        let dl = dr |> substanceLimits |> Array.head
+                        let bsa = Patient.calcBSA measured |> Option.get
+
+                        dr.AdjustUnit |> Expect.equal "the rule keeps kg" (Some kg)
+                        dl.AdjustUnit |> Expect.equal "the limit keeps kg" (Some kg)
+
+                        dl.PerTime
+                        |> maxOf
+                        |> Option.map (ValueUnit.convertTo (perDay mg))
+                        |> Expect.equal
+                            "600 mg/m2 at the BSA"
+                            (ValueUnit.singleWithUnit (perDay (perM2 mg)) 600N * bsa
+                             |> ValueUnit.convertTo (perDay mg)
+                             |> Some)
+                    }
+                ]
+
+
     module RuleCheckTests =
 
         open Informedica.GenForm.Lib.Resources
@@ -6203,4 +6588,5 @@ module Tests =
                 DepartmentsTests.tests
                 RuleCheckTests.tests
                 RuleUnitTests.tests
+                RenalUnitTests.tests
             ]
