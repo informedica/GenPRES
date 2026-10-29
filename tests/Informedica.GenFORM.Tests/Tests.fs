@@ -6304,6 +6304,28 @@ module Tests =
                             [ [ true; true; true ]; [ false; true; true ]; [ false; false; true ] ]
                     }
 
+                    test "a form limit with a per kg bound makes the rule need a weight" {
+                        let formLimit =
+                            { DoseLimit.limit with
+                                DoseLimitTarget = OrderableLimitTarget
+                                DoseUnit = mL
+                                QuantityAdjust = RR.range (RR.perKg mL) None (Some(1N / 2N))
+                            }
+
+                        let rule = ruleWith noWeight absoluteLimit
+
+                        let withForm = { rule with DoseRule = { rule.DoseRule with FormLimit = Some formLimit } }
+
+                        [
+                            withForm |> PrescriptionRule.isPrescribable noWeight
+                            withForm |> PrescriptionRule.isPrescribable weightOnly
+                            rule |> PrescriptionRule.isPrescribable noWeight
+                        ]
+                        |> Expect.equal
+                            "with the form limit without and with a weight, without it"
+                            [ false; true; true ]
+                    }
+
                     test "a solution rule with a per kg volume makes the rule need a weight" {
                         let withSolution volumeAdjust =
                             { ruleWith noWeight absoluteLimit with SolutionRules = [| solutionRule volumeAdjust |] }
