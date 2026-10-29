@@ -117,9 +117,9 @@ When the normal values are not loaded there is no estimate, and the patient is r
   (`Medication.fs:1322-1340`), and the solver keeps what both allow. For 10 to 20 mg/kg at 30 kg with
   an absolute maximum of 500 mg, the order allows 300 to 500 mg.
 - **Renal rules.** After the map, a renal rule can adjust the limits (`PrescriptionRule.fs:311`,
-  `RenalRule.adjustDoseLimit`, `RenalRule.fs:405`). Since step 2 (#1541), under an absolute reduction
+  `RenalRule.adjustDoseLimit`, `RenalRule.fs:405`). Since step 2 (#1541), under a replacing reduction
   the renal rule's bounds replace the dose rule's, and the dose rule fills in what the renal rule does
-  not give (`RenalRule.absoluteDose`, `:368`). A kind the renal rule does not limit keeps the dose
+  not give (`RenalRule.replaceDose`, `:368`). A kind the renal rule does not limit keeps the dose
   rule's maximum and drops its minimum. A relative reduction multiplies, so a factor above 1 raises
   the dose.
 - **Completion.** `PrescriptionRule.filter` completes each selected dose rule with the product details
@@ -133,8 +133,8 @@ When the normal values are not loaded there is no estimate, and the patient is r
   adjust unit keeps a renal per m2 bound as it is, and the order, which falls back to kg
   (`Medication.fs:1137`), would then apply it against the weight. The export of 2026-10-27 has no per
   m2 renal rule, so this does not occur today; for a per kg renal rule the fallback to kg is right.
-- **Renal bounds without a measurement.** Under an absolute reduction, a renal bound replaces the dose
-  rule's bound on that side in both forms (`RenalRule.absoluteDose`). Without the patient's weight, a
+- **Renal bounds without a measurement.** Under a replacing reduction, a renal bound replaces the dose
+  rule's bound on that side in both forms (`RenalRule.replaceDose`). Without the patient's weight, a
   renal maximum in mg therefore drops the dose rule's maximum in mg/kg, and the rule no longer shows
   that it needed a weight.
 - **The applied renal rule.** The renal step makes one prescription rule per matching renal rule
@@ -196,9 +196,9 @@ the sheet export of 2026-10-27.
 | A renal rule that needs a measurement | A renal rule with a per kg or per m2 bound, for a patient without that measurement, makes the prescription rule one that cannot be prescribed. Skipping the renal rule instead would give the unreduced dose. To let the check see this on the selected rule, each prescription rule keeps only the renal rule applied to it, and without the patient's measurement the renal step drops no per kg or per m2 bound of the dose rule. A lookup without a weight then shows the renal bound beside the dose rule's per kg bound. |
 | Adjusting the limits | A dose limit is adjusted to the patient only where an adjusted limit and an absolute limit conflict at the patient's weight or BSA: the dose is pinned to the absolute limit and the adjusted limit is emptied. Where the two overlap, both stay. When every adjusted limit of an order is pinned, the order has no adjusted constraint left, and step 5 leaves out its adjust equations. The adjustment needs the measurement that the limit's own per kg or per m2 bounds need, read with a match on `Patient.adjustValue`. Without it the limit stays as it is, and the check refuses the rule, so a rule never loses its adjust equations for a patient who does not provide the measurement. A limit without a per kg or per m2 bound has nothing to adjust, whatever its adjust unit. The guard that needs both a weight and a height goes. This changes the behaviour only for a patient who lacks one of the two: a patient with a weight and no height now gets the per kg limits and the solution rules adjusted, and every patient gets the component pick. For a patient with both, the result is unchanged. Today `Option.get` cannot throw, since the guard admits only a patient with both measurements; the match replaces it so that the guard can go. |
 | The component selection | The user's pick of components applies whatever the patient has. The measurement check runs on what the pick leaves: a component that was not picked does not count. |
-| A renal rule with per kg or per m2 bounds | An absolute reduction replaces the dose rule's limits, so the patient must provide the renal rule's measurement and the order has an adjust with its equations. A relative reduction multiplies the dose rule's own bounds and follows their form. An order has a single adjust, so an absolute renal unit is handled per case. A dose rule without an adjust unit takes the renal rule's unit, for the dose limit and the dose rule, so the order gets that adjust. Example at 1.8 m2: 500 to 1,000 mg per administration with a renal maximum of 400 mg/m2 gives at least 500 mg and at most 400 mg/m2, 720 mg; today the order would fall back to kg and apply 400 mg/m2 against the weight. The export of 2026-10-27 has no per m2 renal rule, so this is a guard for a future one; for a per kg renal rule the fallback to kg already gives the right result. A dose rule with the other unit gets the renal bound moved to the absolute form at the patient's measurement, as step 2 does. Example at 70 kg and 1.8 m2: 10 to 20 mg/kg per administration and at most 4 g per day, with a renal maximum of 600 mg/m2 per day, gives at most 1,080 mg per day, and the order keeps kg. |
-| A rule that mixes per kg and per m2 | Left out when the sheet is loaded, with a message that names the rule and the reason, like the other sheet checks, and tells the sheet author to give every row of the rule the rule's adjust unit. An order has a single adjust quantity (`Order.Adjust`, GenORDER `Types.fs:255`), so it cannot hold both, and the rule takes its adjust unit from its first row. The check at load is therefore that every row of a dose rule has the same adjust unit, an empty one included, which does not depend on the order of the rows. A refused rule is either calculated wrongly today, or has a shape that is right only by the order of its rows, such as a per kg first row and an absolute row without an adjust unit; the export of 2026-10-27 has none of the second kind. The same holds for a renal rule with both per kg and per m2 bounds, so the column order of the sheet never decides a unit. A refused renal rule would match no patient and so give the full dose for a reduced kidney function; it therefore also leaves out the dose rules it applies to, so the medicine is not offered until the sheet is fixed. A row with a per kg or per m2 value but no adjust unit loses that value today without a message, so its rule is refused at load too; this check covers the dose rules and the absolute renal rules, not the relative renal rules, whose adjusted columns hold reduction factors without a unit. A rule with an adjust unit but no per kg or per m2 value in any of its rows changes no calculation, and gets a warning at load so the sheet can be tidied; an absolute row inside a per kg rule gets none, since it needs the rule's adjust unit. Step 3a gives the counts of the export. |
-| An absolute renal reduction | A renal rule is selected by an eGFR range, and may describe a reduced kidney function or hyper clearance, which needs higher doses; "reduction" in the code (`DoseReduction`) and in this plan covers both. A relative reduction with a factor above 1 already raises the dose, and is unchanged. The renal rule's bounds win, and the dose rule fills in what the renal rule does not give. The absolute and the per kg (or per m2) form of one dose count as one dose here: a bound the renal rule gives for a dose, in either form, replaces the dose rule's bound on that side in both forms. Example at 30 kg: a dose rule of 500 to 1,000 mg and at most 20 mg/kg per dose, with a renal range of 700 to 800 mg per dose, gives 700 to 800 mg; the per kg maximum goes. Per kind of limit and per bound: a bound the renal rule gives replaces the dose rule's bound; a bound the renal rule does not give, in a kind it limits, is kept from the dose rule and moved to the renal bound when the two conflict, compared at the patient's weight or BSA when one is per kg or per m2 and the other absolute, and left as it is without that measurement; a kind the renal rule does not limit keeps the dose rule's maximum and drops its minimum, as today, since no renal bound of that kind can make the minimum fit. A renal range wider than the dose rule's therefore widens the dose. A renal rule for a reduced kidney function that does so is almost certainly a sheet error, so the load warns about it (next row). With a renal minimum only, the dose rule's maximum is raised to that minimum, so a dose never loses its maximum and the rule stays selectable; a hyper-clearance rule that wants a range gives both bounds. Examples: 2 to 4 g per day with a renal maximum of 1 g gives exactly 1 g; 0.5 to 1 g per day with a renal minimum of 2 g gives exactly 2 g; 0.5 to 1 g per day with a renal range of 2 to 3 g gives 2 to 3 g. Renal limits are always inclusive (`RenalRule.fs:269` to `:276`), so a replaced or moved bound never leaves an empty range. A step of its own (#1535), before the rule selection changes; it does not depend on step 1 and can land first, or alone. |
+| A renal rule with per kg or per m2 bounds | A replacing reduction replaces the dose rule's limits, so the patient must provide the renal rule's measurement and the order has an adjust with its equations. A relative reduction multiplies the dose rule's own bounds and follows their form. An order has a single adjust, so the adjust unit of a replacing renal rule is handled per case. A dose rule without an adjust unit takes the renal rule's unit, for the dose limit and the dose rule, so the order gets that adjust. Example at 1.8 m2: 500 to 1,000 mg per administration with a renal maximum of 400 mg/m2 gives at least 500 mg and at most 400 mg/m2, 720 mg; today the order would fall back to kg and apply 400 mg/m2 against the weight. The export of 2026-10-27 has no per m2 renal rule, so this is a guard for a future one; for a per kg renal rule the fallback to kg already gives the right result. A dose rule with the other unit gets the renal bound moved to the absolute form at the patient's measurement, as step 2 does. Example at 70 kg and 1.8 m2: 10 to 20 mg/kg per administration and at most 4 g per day, with a renal maximum of 600 mg/m2 per day, gives at most 1,080 mg per day, and the order keeps kg. |
+| A rule that mixes per kg and per m2 | Left out when the sheet is loaded, with a message that names the rule and the reason, like the other sheet checks, and tells the sheet author to give every row of the rule the rule's adjust unit. An order has a single adjust quantity (`Order.Adjust`, GenORDER `Types.fs:255`), so it cannot hold both, and the rule takes its adjust unit from its first row. The check at load is therefore that every row of a dose rule has the same adjust unit, an empty one included, which does not depend on the order of the rows. A refused rule is either calculated wrongly today, or has a shape that is right only by the order of its rows, such as a per kg first row and an absolute row without an adjust unit; the export of 2026-10-27 has none of the second kind. The same holds for a renal rule with both per kg and per m2 bounds, so the column order of the sheet never decides a unit. A refused renal rule would match no patient and so give the full dose for a reduced kidney function; it therefore also leaves out the dose rules it applies to, so the medicine is not offered until the sheet is fixed. A row with a per kg or per m2 value but no adjust unit loses that value today without a message, so its rule is refused at load too; this check covers the dose rules and the replacing renal rules, not the relative renal rules, whose adjusted columns hold reduction factors without a unit. A rule with an adjust unit but no per kg or per m2 value in any of its rows changes no calculation, and gets a warning at load so the sheet can be tidied; an absolute row inside a per kg rule gets none, since it needs the rule's adjust unit. Step 3a gives the counts of the export. |
+| A replacing renal reduction | A renal rule is selected by an eGFR range, and may describe a reduced kidney function or hyper clearance, which needs higher doses; "reduction" in the code (`DoseReduction`) and in this plan covers both. A relative reduction with a factor above 1 already raises the dose, and is unchanged. The renal rule's bounds win, and the dose rule fills in what the renal rule does not give. The absolute and the per kg (or per m2) form of one dose count as one dose here: a bound the renal rule gives for a dose, in either form, replaces the dose rule's bound on that side in both forms. Example at 30 kg: a dose rule of 500 to 1,000 mg and at most 20 mg/kg per dose, with a renal range of 700 to 800 mg per dose, gives 700 to 800 mg; the per kg maximum goes. Per kind of limit and per bound: a bound the renal rule gives replaces the dose rule's bound; a bound the renal rule does not give, in a kind it limits, is kept from the dose rule and moved to the renal bound when the two conflict, compared at the patient's weight or BSA when one is per kg or per m2 and the other absolute, and left as it is without that measurement; a kind the renal rule does not limit keeps the dose rule's maximum and drops its minimum, as today, since no renal bound of that kind can make the minimum fit. A renal range wider than the dose rule's therefore widens the dose. A renal rule for a reduced kidney function that does so is almost certainly a sheet error, so the load warns about it (next row). With a renal minimum only, the dose rule's maximum is raised to that minimum, so a dose never loses its maximum and the rule stays selectable; a hyper-clearance rule that wants a range gives both bounds. Examples: 2 to 4 g per day with a renal maximum of 1 g gives exactly 1 g; 0.5 to 1 g per day with a renal minimum of 2 g gives exactly 2 g; 0.5 to 1 g per day with a renal range of 2 to 3 g gives 2 to 3 g. Renal limits are always inclusive (`RenalRule.fs:269` to `:276`), so a replaced or moved bound never leaves an empty range. A step of its own (#1535), before the rule selection changes; it does not depend on step 1 and can land first, or alone. |
 | A renal rule that raises a reduced dose | When the sheets are loaded, each renal rule is compared with the dose rules of its generic, and of its route, indication and dose type when it names them. A renal rule whose eGFR range stays below 90 mL/min (it has a maximum eGFR of at most 90), or that applies to dialysis, and whose maximum of a kind lies above the dose rule's maximum of that kind, is reported with a message that names both rules, in the resource messages. There is no patient at load, so a maximum is compared only with one of the same kind and form: absolute with absolute, per kg with per kg. The rule is still used as the sheet says. |
 | A line forced by a new case | A new case of a union type forces a new line in each match over it. When that line sits in a project the step's script cannot load, it is written directly, without a script, and named in the pull request, as the call-site changes of a deletion are. The maintainer's exception to the script-first policy, for steps 6 and 7. |
 | Weight and BSA ranges | A rule restricted to a weight range is not selected for a patient without a weight, as today. A rule restricted to a BSA range is not selected for a patient without a BSA; today it is. This holds in the patient category check itself, so for a lookup with patient data as well; a lookup without a patient skips that check. Without it, two rules for BSA bands with absolute doses only, such as dexamethasone for nausea from chemotherapy (2 mg up to 0.6 m2, 4 mg from 0.6 m2), would both pass the measurement check without a BSA. |
@@ -266,7 +266,7 @@ the sheet export of 2026-10-27.
 **Step 1, the adult marker.** GenFORM's patient gets the marker, the adult test, and the matching of a
 marked patient against a rule's patient category. Nothing in the app sets the marker yet.
 
-**Step 2, the renal reduction.** Under an absolute renal reduction, for a reduced kidney function as
+**Step 2, the renal reduction.** Under a replacing renal reduction, for a reduced kidney function as
 for hyper clearance, the renal rule's bounds replace the dose rule's, and the dose rule fills in what
 the renal rule does not give (#1535).
 
@@ -279,7 +279,7 @@ the check.
   per kg and per m2, or has a per kg value without an adjust unit, together with the dose rules it
   applies to, so that no dose is given unreduced. A rule with an adjust unit and no per kg or per m2
   value in any of its rows gets a warning.
-- An absolute renal rule with per kg or per m2 bounds gives a dose rule without an adjust unit its
+- A replacing renal rule with per kg or per m2 bounds gives a dose rule without an adjust unit its
   unit; a guard for a future per m2 renal rule, since the sheet has none.
 - The patient category check fails a BSA range when the BSA is unknown, as it fails a weight range when
   the weight is unknown.
@@ -428,10 +428,10 @@ The work is done in one pull request per step, after the maintainer's go.
        than 28 days gets none.
    - `feat(genform): mark a patient as an adult`.
 
-2. **GenFORM: under an absolute renal reduction the renal bounds win (#1535).** Done, #1541.
+2. **GenFORM: under a replacing renal reduction the renal bounds win (#1535).** Done, #1541.
    Script: `src/Informedica.GenFORM.Lib/Scripts/Issue1535RenalReduction.fsx`.
    - **The change.** In `RenalRule.adjustDoseLimit` (`RenalRule.fs:405`), the `Absolute` case, now
-     `RenalRule.absoluteDose` (`:368`), for each kind of limit:
+     `RenalRule.replaceDose` (`:368`), for each kind of limit:
      - the renal rule gives no range of the kind: the dose rule's maximum stays, its minimum is
        dropped, as today;
      - the renal rule gives a range without a maximum: the renal minimum replaces the dose rule's
@@ -453,7 +453,7 @@ The work is done in one pull request per step, after the maintainer's go.
      without it; the load reports such a renal rule as a sheet error.
    - **Tests:**
      - a dose rule of 500 to 1,000 mg per administration, 4 times a day and at most 4 g per day, and a
-       renal rule with an absolute reduction to at most 1 g per day only: the order keeps at most
+       renal rule with a replacing reduction to at most 1 g per day only: the order keeps at most
        1,000 mg per administration and drops the minimum of 500 mg, which would ask for at least 2 g
        per day, so the order can still be solved;
      - a renal rule with only a minimum per day keeps the dose rule's maximum per day, when the minimum
@@ -480,7 +480,7 @@ The work is done in one pull request per step, after the maintainer's go.
      - those with both bounds whose renal maximum lies above the dose rule's maximum, which now widen
        or raise the dose;
      - those the new warning reports.
-   - The commit has a `=== changelog ===` block: under an absolute renal reduction the renal rule's
+   - The commit has a `=== changelog ===` block: under a replacing renal reduction the renal rule's
      bounds replace the dose rule's, also when they are higher, as for hyper clearance; the dose
      rule's other bounds stay, moved to the renal bound when they conflict.
    - **The warning.** When the sheets are loaded, in a resource of its own that only gives messages
@@ -507,11 +507,11 @@ The work is done in one pull request per step, after the maintainer's go.
    - **A per kg or per m2 value without an adjust unit.** A row with a value in an adjusted column
      (`MinQtyAdj` to `MaxRateAdj`) and no adjust unit loses that value today without a message
      (`DoseRule.fs:409`, `Utils.fs:248`). Its rule is left out at load, with a message that names the
-     row. The check covers the dose rules and the absolute renal rules; the relative renal rows hold
+     row. The check covers the dose rules and the replacing renal rules; the relative renal rows hold
      reduction factors without a unit in the same columns, and are not checked. For a renal row the
      norm columns `NormQtyAdj` and `NormPerTimeAdj` count as well: they are read with the same adjusted
      unit and are lost the same way, which matters once the norm doses are applied (#1536). The export's 70
-     absolute renal rows all have kg.
+     replacing renal rows all have kg.
    - **An adjust unit without a per kg or per m2 value.** A rule with an adjust unit and no value in an
      adjusted column in any of its rows gets a warning at load, and is used as today. Examples:
      blinatumomab IV, cortisone oral, factor VII. An absolute row inside a per kg rule, such as the
@@ -558,7 +558,7 @@ The work is done in one pull request per step, after the maintainer's go.
      (5084 to 5089). These are fixed in the sheet before the step lands; the pull request shows that
      the load refuses no rule on the fixed sheet. No rule in the export mixes kg and m2 or has rows with
      different adjust units.
-   - **An absolute renal rule with per kg or per m2 bounds.** In `RenalRule.adjustDoseLimit` and
+   - **A replacing renal rule with per kg or per m2 bounds.** In `RenalRule.adjustDoseLimit` and
      `adjustDoseRule`, a dose rule without an adjust unit takes the renal rule's unit, on the dose limit
      and on the dose rule, so `Medication.fromRule` uses it. Step 2 already uses that unit for the
      adjust value, and moves a renal bound in the other unit to the absolute form at the patient's
@@ -584,7 +584,7 @@ The work is done in one pull request per step, after the maintainer's go.
        the amoxicillin/clavulanic acid shape, a per kg row and an absolute row both with kg, gives none;
      - a per kg first row and an absolute row without an adjust unit is left out, as is the same rule
        with the rows swapped;
-     - an absolute renal row with a per kg value and no adjust unit is left out at load, with its
+     - a replacing renal row with a per kg value and no adjust unit is left out at load, with its
        message;
      - a relative renal rule is not refused;
      - a renal rule that fails a load check leaves out the dose rules of its generic, and of its route
@@ -634,7 +634,7 @@ The work is done in one pull request per step, after the maintainer's go.
    - **The applied renal rule.** In the renal step of `PrescriptionRule.filter` (`:311`), each
      prescription rule keeps only the renal rule applied to it (`RenalRules = [| rr |]`). The order
      context reads only whether there is one (`OrderContext.fs:129`).
-   - **Strict under a renal rule.** A guard in `RenalRule.absoluteDose` that applies only when the
+   - **Strict under a renal rule.** A guard in `RenalRule.replaceDose` that applies only when the
      adjust value is none: no per kg or per m2 bound of the dose rule is dropped. A per kg or per m2
      bound the renal rule does not give in that form stays, on a side the renal rule gives and when
      the renal rule gives nothing for a dose; in that last case the per kg or per m2 minimum stays,
@@ -661,9 +661,9 @@ The work is done in one pull request per step, after the maintainer's go.
      - the check: a per kg rule cannot be prescribed without a weight and can with one; a per m2 rule
        cannot with a weight and no height; an absolute rule can without a weight; a solution rule with
        a per kg volume makes the rule need a weight;
-     - a renal rule with a per kg bound makes the rule need a weight; an absolute renal rule on an
+     - a renal rule with a per kg bound makes the rule need a weight; a renal rule with only absolute bounds on an
        absolute dose rule does not;
-     - strict: a dose rule of 10 to 20 mg/kg per dose with an absolute renal rule of 500 to 750 mg per
+     - strict: a dose rule of 10 to 20 mg/kg per dose with a replacing renal rule of 500 to 750 mg per
        dose keeps its per kg bounds without a weight, and cannot be prescribed; with a weight of 30 kg
        it gives 500 to 750 mg, as step 2 does;
      - each prescription rule keeps only the renal rule applied to it;
@@ -676,7 +676,7 @@ The work is done in one pull request per step, after the maintainer's go.
        generics; the renal rules each rule keeps are left out of the comparison.
 
      The pull request counts the demo rules per case, among them the dose rules without an adjust unit
-     that an absolute per kg renal rule makes need a weight, and says that the component pick now
+     that a replacing per kg renal rule makes need a weight, and says that the component pick now
      applies without a weight and a height.
    - `feat(genform): tell whether a rule can be prescribed`.
 

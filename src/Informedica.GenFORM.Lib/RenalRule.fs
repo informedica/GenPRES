@@ -19,11 +19,21 @@ module RenalRule =
         let REL = "rel"
 
         [<Literal>]
+        let REPL = "repl"
+
+        /// The old sheet value of the replacing reduction, still read until the sheet is updated.
+        [<Literal>]
         let ABS = "abs"
+
+
+        /// Whether a sheet value is the replacing reduction: "repl", or the old "abs", in any case.
+        let isReplace s =
+            s |> String.equalsCapInsens REPL || s |> String.equalsCapInsens ABS
+
 
         let fromString logger s =
             match s with
-            | _ when s |> String.equalsCapInsens ABS -> Absolute
+            | _ when s |> isReplace -> Replace
             | _ when s |> String.equalsCapInsens REL -> Relative
             | _ ->
                 Warning $"{s} is not a valid dosereduction" |> Logging.logWarning logger
@@ -32,7 +42,7 @@ module RenalRule =
 
         let toString =
             function
-            | Absolute -> ABS
+            | Replace -> REPL
             | Relative -> REL
             | NoReduction -> ""
 
@@ -301,12 +311,12 @@ module RenalRule =
 
     /// The reasons a renal rule, given as its rows, is refused at load: both per kg and per m2
     /// bounds, which the single adjust quantity of an order cannot hold, and a per kg or per m2
-    /// value without an adjust unit, which is lost. Only the rows with an absolute reduction are
+    /// value without an adjust unit, which is lost. Only the rows with a replacing reduction are
     /// checked: the relative rows hold reduction factors without a unit in the same columns.
     let unitRefusals (rows: RenalRuleData[]) =
         let rows =
             rows
-            |> Array.filter (fun r -> r.DoseRed |> String.equalsCapInsens DoseReduction.ABS && r |> hasAdjustedValue)
+            |> Array.filter (fun r -> r.DoseRed |> DoseReduction.isReplace && r |> hasAdjustedValue)
 
         [
             let units = rows |> Array.choose (_.AdjustUnit >> Units.adjustUnit) |> Array.distinct
@@ -435,7 +445,7 @@ module RenalRule =
         | _ -> false
 
 
-    /// The bounds of one dose under an absolute renal reduction. A dose has an absolute and an
+    /// The bounds of one dose under a replacing renal reduction. A dose has an absolute and an
     /// adjusted form, per kg or per m2, and the dose rule and the renal rule each give both. The
     /// adjust value is the patient's weight or BSA, when known, and converts a bound from one form
     /// into the other. When the renal rule gives no bound for the dose, the dose rule's maximum
@@ -445,7 +455,7 @@ module RenalRule =
     /// stay, each moved to a renal bound on the other side that it conflicts with, compared at the
     /// adjust value when the two are in different forms. Without an adjust value no per kg or per m2
     /// bound of the dose rule is dropped: a bound the renal rule does not give in that form stays.
-    let absoluteDose adj (renal: MinMax, renalAdj: MinMax) (dose: MinMax, doseAdj: MinMax) =
+    let replaceDose adj (renal: MinMax, renalAdj: MinMax) (dose: MinMax, doseAdj: MinMax) =
         let convert (f: ValueUnit -> ValueUnit -> ValueUnit) lim =
             adj
             |> Option.map (fun adj -> lim |> Limit.apply (fun vu -> f vu adj) (fun vu -> f vu adj))
@@ -548,11 +558,11 @@ module RenalRule =
             | Some rl ->
                 match rl.DoseReduction with
                 | NoReduction -> dl
-                | Absolute ->
+                | Replace ->
                     let adjUnit = rl |> adjustUnit
                     let adj = adjUnit |> Patient.adjustValue pat
 
-                    let dose renal = absoluteDose adj (ownMeasure renal)
+                    let dose renal = replaceDose adj (ownMeasure renal)
 
                     let qty, qtyAdj = (dl.Quantity, dl.QuantityAdjust) |> dose (rl.Quantity, rl.QuantityAdjust)
                     let perTime, perTimeAdj = (dl.PerTime, dl.PerTimeAdjust) |> dose (rl.PerTime, rl.PerTimeAdjust)
@@ -622,7 +632,7 @@ module RenalRule =
 
     /// The warnings for the renal rules checked against the dose rules they apply to. A renal rule
     /// applies to the dose rules of its generic, and of its route, indication and dose type when
-    /// it names them. Only an absolute reduction is checked. A renal rule whose per kg or per m2
+    /// it names them. Only a replacing reduction is checked. A renal rule whose per kg or per m2
     /// bound has another measurement than the dose rule's adjust unit is reported for every
     /// renal function. A renal rule for a reduced kidney function with a higher maximum than the
     /// dose rule is reported, comparing a maximum only with one of the same kind and form, since
@@ -638,7 +648,7 @@ module RenalRule =
         [
             for rr in renalRules do
                 for dr in doseRules |> Array.filter (appliesToDoseRule routeMapping rr) do
-                    for rl in rr.RenalLimits |> Array.filter (fun rl -> rl.DoseReduction = Absolute) do
+                    for rl in rr.RenalLimits |> Array.filter (fun rl -> rl.DoseReduction = Replace) do
                         for dl in
                             dr.ComponentLimits
                             |> Array.collect _.SubstanceLimits
