@@ -470,17 +470,32 @@ module OrderPlan =
                         else
                             ""
 
+                    // an order without a per kg or per m2 limit is solved without its adjusted
+                    // dose, which stays open, so the dose itself is shown
+                    let adjustedOr adj dose =
+                        if adj |> OrderDisplay.Variable.renderValue 3 = "" then
+                            dose
+                        else
+                            adj
+
                     let dose =
                         if o.Schedule.IsDiscontinuous || o.Schedule.IsTimed then
-                            itms |> Array.map _.Dose.PerTimeAdjust.Variable |> parseVals
+                            itms
+                            |> Array.map (fun i -> adjustedOr i.Dose.PerTimeAdjust.Variable i.Dose.PerTime.Variable)
+                            |> parseVals
                         else if o.Schedule.IsContinuous then
                             itms
                             |> Array.tryHead
-                            |> Option.map (fun i -> i.Dose.RateAdjust.Variable |> OrderDisplay.Variable.renderValue 3)
+                            |> Option.map (fun i ->
+                                adjustedOr i.Dose.RateAdjust.Variable i.Dose.Rate.Variable
+                                |> OrderDisplay.Variable.renderValue 3
+                            )
                             |> Option.defaultValue ""
 
                         else if o.Schedule.IsOnce || o.Schedule.IsOnceTimed then
-                            itms |> Array.map _.Dose.QuantityAdjust.Variable |> parseVals
+                            itms
+                            |> Array.map (fun i -> adjustedOr i.Dose.QuantityAdjust.Variable i.Dose.Quantity.Variable)
+                            |> parseVals
                         else
                             ""
 
