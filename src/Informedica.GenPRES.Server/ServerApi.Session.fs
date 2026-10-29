@@ -1422,10 +1422,12 @@ module Session =
 
 
     /// The Session's patient from EHR data, at a date: the user's measurements on the core
-    /// patient, projected there and estimated, the age the birthdate gives at that date.
+    /// patient, projected there and estimated, the age the birthdate gives at that date, and the
+    /// user's mark as an adult on the projection.
     let merged (at: DateTime) (patientData: PatientDataPort) (measured: Measurements) (ehr: GenForm.EhrPatientData) =
         { ehr with Patient = Measurements.onCore measured ehr.Patient }
         |> patientData.patient at
+        |> Measurements.onLibPatient measured
 
 
     /// The data a notice is told over: the fresh read merged at the date of the open, so that

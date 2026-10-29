@@ -195,7 +195,7 @@ let tests =
 
                     insertRow cs "plan-1" 1 1 (fixtureText ())
 
-                    SqlSchema.apply cs |> Expect.equal "the columns added" [ 9 ]
+                    SqlSchema.apply cs |> Expect.equal "migration 9, then 10" [ 9; 10 ]
 
                     match SqlDatabase.loadRecords cs "stub-patient" with
                     | [ StoredVersion.Readable(v, whom) ] ->

@@ -2,7 +2,9 @@
 //
 // Reads every migration in src/Informedica.GenPRES.Server/Sql/ in order: each `create table`
 // gives a table, its columns and their keys, each `alter table ... add column` a column added
-// later, and each `references` a declared foreign key. The migrations cannot say how the store
+// later, and each `references` a declared foreign key. A table rebuilt to change a check, made
+// anew, the old one dropped and the new one renamed to the old name, reads as the new table
+// under the old name. The migrations cannot say how the store
 // is split into readable parts, nor which tables join by id without a declared key; `parts`
 // below says that, and the run fails when a table is in no part, in two, or when a join names
 // a column no table has. The diagrams live in ARCHITECTURE.md between the `db-schema` markers;
@@ -106,6 +108,14 @@ let alterPattern =
     )
 
 
+let dropPattern =
+    Regex(@"drop\s+table\s+(?<name>[a-z_]+)\s*;", RegexOptions.IgnoreCase)
+
+
+let renamePattern =
+    Regex(@"alter\s+table\s+(?<from>[a-z_]+)\s+rename\s+to\s+(?<to>[a-z_]+)\s*;", RegexOptions.IgnoreCase)
+
+
 let compositeKeyPattern =
     Regex(@"^\s*primary\s+key\s*\((?<columns>[^)]*)\)", RegexOptions.IgnoreCase)
 
@@ -144,7 +154,24 @@ let readTables () =
             )
             |> Seq.toList
 
-        let tables = tables @ created
+        // a rebuild within one migration: the new table is created, the old one dropped and the
+        // new one renamed to the old name
+        let dropped =
+            dropPattern.Matches text |> Seq.map _.Groups["name"].Value |> Set.ofSeq
+
+        let renamed =
+            renamePattern.Matches text
+            |> Seq.map (fun m -> m.Groups["from"].Value, m.Groups["to"].Value)
+            |> Map.ofSeq
+
+        let tables =
+            tables @ created
+            |> List.filter (fun t -> dropped.Contains t.Name |> not)
+            |> List.map (fun t ->
+                match renamed |> Map.tryFind t.Name with
+                | Some name -> { t with Name = name }
+                | None -> t
+            )
 
         (tables, alterPattern.Matches text)
         ||> Seq.fold (fun tables m ->
