@@ -205,7 +205,7 @@ the sheet export of 2026-10-27.
 | A per kg command on an order without per kg limits | Refused with a refusal of its own, which says that the order has no per kg dose. The callers of the older `OrderContext.evaluate` get the context as sent, as they do for "not solved". |
 | A picked rule that cannot be prescribed | A pick the user chose stays when it is no longer offered, so a picked rule can fail the check: an adult with a weight picks morphine IV, then the weight is cleared. MCP and a stored context can set such a pick as well. The order context refuses it with a refusal of its own, which says that the rule needs a weight, or a weight and a height. Today's refusal would answer "no products", which is the wrong reason. |
 | Telling the user what a measurement adds | An adult without a weight never sees a per kg rule in the pick lists. The client says that the per kg rules need a weight and the per m2 rules a weight and a height, whenever the patient lacks one of them, so a missing medicine is explained. |
-| The order of the steps | GenFORM first, then GenORDER, then the gates. Step 2, the renal fix, stands on its own, and so does step 3a, which fixes calculations that are wrong on `master` today; its renal changes split off as step 3c when the script passes 200 lines. The rule check comes in two steps: the check itself in GenFORM (step 3b), then its use in the order context (step 4). |
+| The order of the steps | GenFORM first, then GenORDER, then the gates. Step 2, the renal fix, stands on its own, and so does step 3a, which fixes calculations that are wrong on `master` today; its renal changes land as step 3c, a second pull request from the same script. The rule check comes in two steps: the check itself in GenFORM (step 3b), then its use in the order context (step 4). |
 | The empty patient | The dose rule filter skips the whole patient check for the empty patient, which makes a formulary lookup return every rule. The empty patient never reaches a prescription: it has no age, no weight and no adult mark, so the gate in `OrderContext.getRules` refuses it. A test shows this; no extra code. |
 
 ## Approaches considered
@@ -507,7 +507,9 @@ The work is done in one pull request per step, after the maintainer's go.
      (`MinQtyAdj` to `MaxRateAdj`) and no adjust unit loses that value today without a message
      (`DoseRule.fs:409`, `Utils.fs:248`). Its rule is left out at load, with a message that names the
      row. The check covers the dose rules and the absolute renal rules; the relative renal rows hold
-     reduction factors without a unit in the same columns, and are not checked. The export's 70
+     reduction factors without a unit in the same columns, and are not checked. For a renal row the
+     norm columns `NormQtyAdj` and `NormPerTimeAdj` count as well: they are read with the same adjusted
+     unit and are lost the same way, which matters once the norm doses are applied (#1536). The export's 70
      absolute renal rows all have kg.
    - **An adjust unit without a per kg or per m2 value.** A rule with an adjust unit and no value in an
      adjusted column in any of its rows gets a warning at load, and is used as today. Examples:
@@ -529,21 +531,27 @@ The work is done in one pull request per step, after the maintainer's go.
      from the renal rule data (`:411`), and only the renal warning `Keys.renalRuleChecks` (`:419`)
      reads both. A registry entry maps one key to one loader, so the refused renal rules get a key of
      their own, `Keys.refusedRenalRules`, derived from `Keys.renalRuleData` with the same check that
-     `RenalRule.map` uses to refuse. The messages stay with `Keys.renalRules`, so they are given once,
-     and `Keys.renalRules` and `ResourceState.RenalRules` are unchanged. `Keys.doseRules` reads the new
-     key and leaves out the matching dose rules. Which dose rules a renal rule applies to is decided by one function,
-     taken out of `RenalRule.doseRuleWarnings` (`RenalRule.fs:521`) and used by the warning and the
-     refusal alike. There is no cycle: the warning reads the dose rules, and the dose rules read only
-     the refused renal rules, which come from the renal rule data.
+     `RenalRule.map` uses to refuse, each refused renal rule with its reasons. `Keys.renalRules` gives
+     the renal rules without the refused ones, and gives no message for them. `Keys.doseRules` reads the
+     new key, leaves out the matching dose rules, and gives the one message per refused renal rule,
+     since only it can count the dose rules left out. Which dose rules a renal rule applies to is
+     decided by one function, taken out of `RenalRule.doseRuleWarnings` (`RenalRule.fs:521`) and used
+     by the warning and the refusal alike. There is no cycle: the warning reads the dose rules, and the
+     dose rules read only the refused renal rules, which come from the renal rule data.
    - **A renal sheet that fails to load** already fails the whole load today, and that stays: the renal
      rule data is an `ofResult` resource (`Resources.fs:339`), a failing loader raises
      `ResourceLoadError` (`:146`), and the load resolves every resource and stops at the first failure
-     (`:478`). No medicine is then offered, so no dose is given unreduced. A test guards this.
-   - **The size.** When the script shows more than 200 lines of shipped code, the renal changes split
-     off as step 3c, after the dose rule checks: the check of a per kg value without an adjust unit
-     for the absolute renal rows, the renal kg and m2 check, the refused renal rule taking its dose
-     rules along with its wiring, and the renal unit guard. Step 3a then keeps the dose rule checks,
-     the warning and the BSA range.
+     (`:478`). No medicine is then offered, so no dose is given unreduced. The loader becomes a function
+     of its own, `Resources.renalRuleDataLoader`, which `defaultRegistry` uses; a test gives it a fetch
+     that fails and checks that the load fails, without a network request.
+   - **Two pull requests.** The script would come close to 200 lines of shipped code in one pull
+     request, so the step lands in two, from the one script:
+     - **3a**, about 90 lines: the dose rule checks (one adjust unit per rule, a per kg value without
+       an adjust unit, the warning for an adjust unit without a per kg value) and the BSA range;
+     - **3c**, about 120 lines, after 3a: the renal checks (kg and m2 mixed, a per kg value without an
+       adjust unit), the refused renal rule taking its dose rules along, the wiring with
+       `Keys.refusedRenalRules`, the renal rule data loader with its test, and the renal unit guard.
+       Its pull request deletes the script.
    - **The sheet first.** The export of 2026-10-27 has ten rows with a per kg value and no adjust
      unit: clonidine oral (rows 938 and 940), lorazepam oral (2887), pancreatin (3766) and perindopril
      (5084 to 5089). These are fixed in the sheet before the step lands; the pull request shows that
@@ -585,8 +593,11 @@ The work is done in one pull request per step, after the maintainer's go.
      - the shared matching of a renal rule to dose rules, for the route, the indication and the dose
        type each: a dose rule with another value stays, a dose rule with the named value is taken, and
        a renal rule that names none takes every dose rule of its generic;
-     - a guard on today's behaviour, not a change: a renal sheet that fails to load fails the whole
-       load, so a later move of the renal rule data to `ofResultOrDefault` fails the test;
+     - a guard on today's behaviour, not a change: `renalRuleDataLoader` with a fetch that fails makes
+       the load fail, so a later move of the renal rule data to `ofResultOrDefault` fails the test;
+     - through a registry of the demo fixtures and the new entries: a refused renal rule is gone from
+       the renal rules and its dose rules from the dose rules, the load gives one message for it, and
+       resolving every resource raises no cycle;
      - a renal maximum of 400 mg/m2 on a dose rule of 500 to 1,000 mg without an adjust unit, at
        1.8 m2: the rule takes m2, and gives at least 500 mg and at most 400 mg/m2; on today's code the
        rule falls back to kg first, which shows the wrong result;

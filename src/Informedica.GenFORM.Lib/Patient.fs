@@ -226,11 +226,11 @@ module PatientCategory =
              fun (p: PatientCategory) -> filter.Patient.Age |> MinMax.inRange (p |> getAge)
              // patient weight must be within patient category weight range (if specified)
              fun (p: PatientCategory) -> filter.Patient.Weight |> MinMax.inRange p.Weight
-             // if both weight and height are given, calculate BSA and check if within patient category BSA range
+             // the BSA from the weight and the height must be within the patient category BSA range;
+             // without a weight or a height there is no BSA, which fails a BSA range
              fun (p: PatientCategory) ->
-                 match filter.Patient.Weight, filter.Patient.Height with
-                 | Some w, Some h -> Calculations.calcDuBois w h |> Some |> MinMax.inRange p.BSA
-                 | _ -> true
+                 Option.map2 Calculations.calcDuBois filter.Patient.Weight filter.Patient.Height
+                 |> MinMax.inRange p.BSA
              if filter.Patient.Age |> Option.isSome then
                  yield!
                      [|
@@ -289,9 +289,8 @@ module PatientCategory =
              fun (p: PatientCategory) -> pat.Age |> MinMax.inRange (p |> getAge)
              fun (p: PatientCategory) -> pat.Weight |> MinMax.inRange p.Weight
              fun (p: PatientCategory) ->
-                 match pat.Weight, pat.Height with
-                 | Some w, Some h -> Calculations.calcDuBois w h |> Some |> MinMax.inRange p.BSA
-                 | _ -> true
+                 Option.map2 Calculations.calcDuBois pat.Weight pat.Height
+                 |> MinMax.inRange p.BSA
              if pat.Age |> Option.isSome then
                  yield!
                      [|

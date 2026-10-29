@@ -95,6 +95,10 @@ module DoseRuleLoader =
 
             valid |> Array.map fst, invalid |> Array.map (snd >> List.toArray) |> Array.collect id
 
+        // a rule whose rows do not share one adjust unit, or with a per kg or per m2 value without
+        // one, is left out
+        let data, unitWarnings = data |> DoseRuleData.checkUnits
+
         let addFormLimits = DoseRule.addFormLimits routeMapping formRoutes
 
         let grouped =
@@ -146,7 +150,10 @@ module DoseRuleLoader =
         // drop dose rules left with no meaningful limits (a row that passes
         // validateData but carries no dose values yields an empty dose rule)
         |> DoseRule.removeEmptyLimits,
-        Array.append warnings dedupWarnings |> Array.map Warning |> Array.toList
+        [ warnings; unitWarnings; dedupWarnings ]
+        |> Array.concat
+        |> Array.map Warning
+        |> Array.toList
 
 
     /// <summary>
