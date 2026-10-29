@@ -799,6 +799,9 @@ The work is done in one pull request per step, after the maintainer's go.
      - The adult test is added once to the Shared `Patient` module, with the same rule as GenFORM's
        `Adult.isAdult`. It reads the age in days, 365 to the year, as `Utils.ValueUnit.ageAdult`
        does.
+     - `Patient.validate` (`Models.fs:65`) accepts a marked patient without an age, and refuses the
+       mark below 16 years with a new Shared `PatientError.MarkedAdultBelowSixteen`, as GenFORM's
+       `validate` does.
    - **Client.Core.** The patient editing (`PatientEdit`) builds the Shared patient, so it fills in
      "not marked". This small change goes through the step's script as well.
    - **Tests:**
@@ -820,7 +823,9 @@ The work is done in one pull request per step, after the maintainer's go.
      - a patient older than 18 years gets no estimate; a patient of exactly 18 years, a marked patient
        of 17 and a child do;
      - the Shared and GenFORM adult tests agree for every age from 0 to 20 years, with and without
-       the mark, around the 16th and the 18th birthday to the day.
+       the mark, around the 16th and the 18th birthday to the day;
+     - the Shared and GenFORM `validate` agree on the same ages, with and without the mark, an age, a
+       measured weight and a measured height.
    - **The pull request** counts the demo rules an adult without a measured weight loses compared with
      today. Its commit has a `=== changelog ===` block saying that an adult needs a measured weight
      for a per kg dose.
@@ -910,5 +915,5 @@ The work is done in one pull request per step, after the maintainer's go.
   - **The mark is kept.** Mark a patient of 17 as an adult, reload the page: the mark is still set.
   - **A patient of 15.** The adult switch is not offered.
   - **A child.** Without a weight, the child is estimated as today, and refused when there are no
-    normal values. With a weight, on a mg/kg rule, nothing changes. A child without an age, with a
-    weight and no height, gets the per kg rules and no per m2 rule.
+    normal values. With a weight, on a mg/kg rule, nothing changes. A child of 5 years, with a weight
+    and no height, gets the per kg rules and no per m2 rule.
