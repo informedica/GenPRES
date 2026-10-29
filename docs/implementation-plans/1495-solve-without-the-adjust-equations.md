@@ -905,11 +905,17 @@ The work is done in one pull request per step, after the maintainer's go.
 9. **The client: an adult without a weight or a height.**
    `Client.Core` goes through the script
    `src/Informedica.GenPRES.Client.Core/Scripts/Issue1495AdultPatient.fsx`; the Fable views are edited
-   directly.
-   - **The Session.** The server holds the mark for a resume, as it holds the measurements: the
-     Session's measurements get the mark, stored in its own row, and a resume puts it back on the
-     contract patient and the core patient. Otherwise a marked patient of 16 or 17 would resume as a
-     child, on the rules for children, while the plan was made on the rules for adults.
+   directly. The step is split in three pull requests:
+   - **9a, the Session.** Script: `src/Informedica.GenPRES.Server/Scripts/Issue1495SessionMark.fsx`.
+     The server holds the mark for a resume, as it holds the measurements: the Session's
+     measurements get the mark, stored as a measurement row of the kind `marked-adult`, and a resume puts it
+     back on the contract patient. The core patient has no mark, so the Session's patient gets it
+     after the EHR port's projection. Migration 10 rebuilds the measurement table, since its check
+     allowed only the weight, the height and the gestational age. Otherwise a marked patient of 16 or
+     17 would resume as a child, on the rules for children, while the plan was made on the rules for
+     adults. Nothing sets the mark yet, so nothing changes in the app.
+   - **9b, `Client.Core`.** The items under `Client.Core` below.
+   - **9c, the views.** The adult switch and the hint, edited directly.
    - **`Client.Core`.**
      - `PatientEdit` gets a setter for the mark. The mark is cleared when the age changes to below 16
        years.

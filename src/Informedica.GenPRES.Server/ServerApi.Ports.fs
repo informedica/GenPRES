@@ -236,6 +236,9 @@ type Measurements =
         Weight: Measured<int<gram>> option
         Height: Measured<int<cm>> option
         GestAge: Measured<GestAge> option
+        /// The mark as an adult the user set or cleared: its value is true or false, never none,
+        /// since clearing the mark writes false.
+        MarkedAdult: Measured<bool> option
     }
 
 
@@ -246,6 +249,8 @@ type Measurement =
     | Weight of int<gram> option
     | Height of int<cm> option
     | GestAge of GestAge option
+    /// The mark as an adult: set or cleared.
+    | MarkedAdult of bool
 
 
 /// What the store holds of an open Session: who, for which patient and on what data, the

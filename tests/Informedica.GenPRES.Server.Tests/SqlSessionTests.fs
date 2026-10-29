@@ -20,7 +20,7 @@ open Informedica.GenPRES.Server.Tests.SqlSchemaTests
 let withSessions f =
     withDb (fun cs ->
         SqlSchema.apply cs
-        |> Expect.equal "every migration" [ 1; 2; 3; 4; 5; 6; 7; 8; 9 ]
+        |> Expect.equal "every migration" [ 1; 2; 3; 4; 5; 6; 7; 8; 9; 10 ]
         f cs
     )
 
@@ -769,6 +769,49 @@ let writerTests =
                 )
             }
 
+            test "the mark as an adult is written as a row and loads back, the latest deciding" {
+                withSessions (fun cs ->
+                    insertSession cs "s-1" (Some "prescriber") "prescriber"
+
+                    runWrites
+                        cs
+                        [
+                            Session.WriteMeasurement("s-1", Measurement.MarkedAdult true, t0)
+                            Session.WriteMeasurement("s-1", Measurement.MarkedAdult false, t0.AddMinutes 1.0)
+                            Session.WriteMeasurement("s-1", Measurement.MarkedAdult true, t0.AddMinutes 2.0)
+                        ]
+                    |> Expect.equal "written" Session.StoreOutcome.Written
+
+                    match loadedSession cs "s-1" with
+                    | Some(Choice1Of2(Ok loaded)) ->
+                        loaded.Opened.Measured.MarkedAdult
+                        |> Expect.equal
+                            "the latest mark"
+                            (Some
+                                {
+                                    Value = Some true
+                                    At = t0.AddMinutes 2.0
+                                })
+                    | other -> failtest $"expected the Session, got %A{other}"
+                )
+            }
+
+            test "a mark as an adult of another value is refused by the table" {
+                withSessions (fun cs ->
+                    insertSession cs "s-1" (Some "prescriber") "prescriber"
+                    use conn = connect cs
+
+                    use cmd =
+                        SqlSessions.command
+                            conn
+                            null
+                            "insert into measurement (session_id, kind, value, days, at) values ('s-1', 'marked-adult', 2, null, 0)"
+                            []
+
+                    Expect.throws "the check" (fun () -> cmd.ExecuteNonQuery() |> ignore)
+                )
+            }
+
             test "the measurements of a Session are written one row each and load back, the latest per kind" {
                 withSessions (fun cs ->
                     insertSession cs "s-1" (Some "prescriber") "prescriber"
@@ -812,6 +855,7 @@ let writerTests =
                                             Value = Some gestAge
                                             At = t0.AddMinutes 3.0
                                         }
+                                MarkedAdult = None
                             }
                     | other -> failtest $"expected the Session, got %A{other}"
 

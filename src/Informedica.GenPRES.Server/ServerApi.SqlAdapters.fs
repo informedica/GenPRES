@@ -648,8 +648,8 @@ module SqlSessions =
 
 
     /// What the user measured in a Session, its rows oldest first, the latest per kind
-    /// deciding; a kind this release does not know, or a gestational age with its weeks and
-    /// not its days, is a reason.
+    /// deciding; a kind this release does not know, a gestational age with its weeks and not
+    /// its days, or a mark as an adult that is not 1 or 0, is a reason.
     let loadMeasurements (conn: SqliteConnection) (sid: string) : Result<Measurements, string> =
         rows
             conn
@@ -675,6 +675,9 @@ module SqlSessions =
                     Ok(Measurement.GestAge(Some gestAge), at)
                 | "gestage", None, None -> Ok(Measurement.GestAge None, at)
                 | "gestage", _, _ -> Error "a gestational age has its weeks and its days, or neither"
+                | "marked-adult", Some 1, None -> Ok(Measurement.MarkedAdult true, at)
+                | "marked-adult", Some 0, None -> Ok(Measurement.MarkedAdult false, at)
+                | "marked-adult", _, _ -> Error "a mark as an adult is 1 or 0, without days"
                 | kind, _, _ -> Error $"the measurement kind %s{kind} is not known"
             )
         |> List.fold
@@ -1143,6 +1146,7 @@ module SqlSessions =
                 | Measurement.Height cm -> "height", cm |> Option.map int, None
                 | Measurement.GestAge ga ->
                     "gestage", ga |> Option.map (fun g -> int g.Weeks), ga |> Option.map (fun g -> int g.Days)
+                | Measurement.MarkedAdult marked -> "marked-adult", Some(if marked then 1 else 0), None
 
             exec
                 conn
@@ -1337,6 +1341,7 @@ module SqlSessions =
                 | Measurement.Weight _ -> "weight"
                 | Measurement.Height _ -> "height"
                 | Measurement.GestAge _ -> "gestational-age"
+                | Measurement.MarkedAdult _ -> "marked-adult"
 
             Some
                 { auditEntry at "measurement-recorded" "ok" with

@@ -370,3 +370,124 @@ let tests =
                     }
                 ]
         ]
+
+
+/// A patient of 17 years, marked as an adult or not, with a measured weight.
+let seventeen marked : Patient =
+    let empty = Informedica.GenPRES.Shared.Models.Patient.empty
+
+    { empty with
+        Age = Informedica.GenPRES.Shared.Models.Patient.Age.fromDays (17 * 365) |> Some
+        MarkedAdult = marked
+        Weight = { empty.Weight with Measured = Some 60000<gram> }
+    }
+
+
+/// The EHR's patient of 17 as shown: unmarked, with the same weight, so that only the mark differs.
+let shownSeventeen = Some(seventeen false)
+
+
+[<Tests>]
+let markTests =
+    testList
+        "the Session holds the mark as an adult"
+        [
+            test "a mark set on the draft is recorded as a row, and held" {
+                let held, rows = seventeen true |> Measurements.record today shownSeventeen Measurements.none
+
+                rows |> Expect.equal "the mark's row" [ Measurement.MarkedAdult true ]
+
+                held.MarkedAdult
+                |> Expect.equal
+                    "held"
+                    (Some
+                        {
+                            Value = Some true
+                            At = today
+                        })
+            }
+
+            test "the same mark again records nothing" {
+                let held, _ = seventeen true |> Measurements.record today shownSeventeen Measurements.none
+
+                seventeen true
+                |> Measurements.record later shownSeventeen held
+                |> snd
+                |> Expect.isEmpty "no row"
+            }
+
+            test "a mark cleared is recorded, and held as cleared" {
+                let held, _ = seventeen true |> Measurements.record today shownSeventeen Measurements.none
+
+                let held, rows = seventeen false |> Measurements.record later shownSeventeen held
+
+                rows |> Expect.equal "the clearing row" [ Measurement.MarkedAdult false ]
+                held.MarkedAdult |> Option.bind _.Value |> Expect.equal "cleared" (Some false)
+            }
+
+            test "an unmarked draft over an unmarked EHR records nothing" {
+                seventeen false
+                |> Measurements.record today shownSeventeen Measurements.none
+                |> snd
+                |> Expect.isEmpty "no row"
+            }
+
+            test "a mark below 16 years is no patient and records nothing" {
+                { seventeen true with Age = Informedica.GenPRES.Shared.Models.Patient.Age.fromDays 100 |> Some }
+                |> Measurements.record today shownSeventeen Measurements.none
+                |> snd
+                |> Expect.isEmpty "no row"
+            }
+
+            test "a changed weight and mark write both rows" {
+                { seventeen true with Weight = { (seventeen true).Weight with Measured = Some 61000<gram> } }
+                |> Measurements.record today shownSeventeen Measurements.none
+                |> snd
+                |> Expect.equal
+                    "the weight, then the mark"
+                    [ Measurement.Weight(Some 61000<gram>); Measurement.MarkedAdult true ]
+            }
+
+            test "a resume puts the mark back on the contract patient" {
+                let held, _ = seventeen true |> Measurements.record today shownSeventeen Measurements.none
+
+                seventeen false
+                |> Measurements.apply held
+                |> _.MarkedAdult
+                |> Expect.isTrue "marked"
+
+                seventeen false
+                |> Measurements.apply Measurements.none
+                |> _.MarkedAdult
+                |> Expect.isFalse "as shown"
+            }
+
+            test "the Session's patient from the EHR carries the mark held, and the EHR alone never marks" {
+                let held = [ Measurement.MarkedAdult true, today ] |> Measurements.ofRows
+
+                Session.merged today StubPatientData.port held ehr
+                |> _.MarkedAdult
+                |> Expect.isTrue "marked"
+
+                Session.merged today StubPatientData.port Measurements.none ehr
+                |> _.MarkedAdult
+                |> Expect.isFalse "not marked"
+            }
+
+            test "the latest mark row decides" {
+                [
+                    Measurement.MarkedAdult true, today
+                    Measurement.MarkedAdult false, today.AddMinutes 1.0
+                    Measurement.MarkedAdult true, today.AddMinutes 2.0
+                ]
+                |> Measurements.ofRows
+                |> _.MarkedAdult
+                |> Expect.equal
+                    "the last"
+                    (Some
+                        {
+                            Value = Some true
+                            At = today.AddMinutes 2.0
+                        })
+            }
+        ]
