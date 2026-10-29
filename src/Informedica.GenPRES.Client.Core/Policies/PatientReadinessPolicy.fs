@@ -79,10 +79,13 @@ module PatientReadinessPolicy =
 
 
     /// What the calculations of a patient still miss, in the order the notice says it. A weight or
-    /// a height counts measured or estimated, as the rules read it.
+    /// a height counts measured or estimated, as the rules read it. An adult misses no age, since
+    /// the rules match an adult without one.
     let missingOf (p: Patient) : Missing list =
+        let adult = p |> Patient.isAdult
+
         [
-            if p.Age.IsNone then
+            if not adult && p.Age.IsNone then
                 Missing.Age
             if (p |> Patient.getWeight).IsNone then
                 Missing.Weight

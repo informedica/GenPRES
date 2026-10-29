@@ -201,6 +201,32 @@ let patientTests =
 
 
 [<Tests>]
+let selectsRulesTests =
+    testList
+        "Patient.selectsRules"
+        [
+            test "the rules are selected for an adult, and for a child with a weight" {
+                [
+                    { Patient.empty with Age = days (40 * 365) }
+                    { Patient.empty with
+                        Age = days (17 * 365)
+                        MarkedAdult = true
+                    }
+                    { Patient.empty with MarkedAdult = true }
+                    { Patient.empty with
+                        Age = days (5 * 365)
+                        Patient.Weight.Estimated = Some 18000<gram>
+                    }
+                    { Patient.empty with Age = days (5 * 365) }
+                    { Patient.empty with Age = days (17 * 365) }
+                ]
+                |> List.map Patient.selectsRules
+                |> Expect.equal "adults and a child with a weight" [ true; true; true; true; false; false ]
+            }
+        ]
+
+
+[<Tests>]
 let isAdultTests =
     testList
         "Patient.isAdult"

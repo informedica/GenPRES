@@ -167,12 +167,12 @@ let tests =
                 n |> message |> Expect.equal "the message is the body alone" n.Body
             }
 
-            test "a patient without a weight or a height gets no notice for the patient case" {
+            test "a patient the rules are not looked up for gets no notice for the patient case" {
                 // the page's own notice above the picks already says what to enter
                 let incomplete = { salbutamol with Patient = Models.Patient.empty }
 
                 notice english incomplete OrderContextRefusal.NoDoseRulesForPatient
-                |> Expect.isNone "nothing to add to the missing weight and height"
+                |> Expect.isNone "nothing to add to the missing weight"
 
                 notice english incomplete OrderContextRefusal.NoDoseRules
                 |> Expect.isSome "no rule at all is said whatever the patient"
@@ -183,7 +183,7 @@ let tests =
                 let noHeight = { measured with Height = Models.Patient.empty.Height }
 
                 notice english { salbutamol with Patient = noHeight } OrderContextRefusal.NoDoseRulesForPatient
-                |> Expect.isNone "a height alone missing"
+                |> Expect.isSome "a height alone missing: the rules are looked up, so the patient case is said"
             }
 
             test "the message is the body then the contact, an empty contact adding nothing" {

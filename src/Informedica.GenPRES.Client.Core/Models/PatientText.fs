@@ -73,6 +73,17 @@ module PatientText =
         | None, Some w, None, Some h -> BodySurfaceArea.calcDuBois w h |> Some
 
 
+    /// The word for the patient's gender and age group: an adult by the Shared adult test, the
+    /// mark as an adult included.
+    let genderWord (pat: Patient) =
+        let adult = pat |> isAdult
+
+        match pat.Gender with
+        | Male -> if adult then "Man" else "Jongen"
+        | Female -> if adult then "Vrouw" else "Meisje"
+        | UnknownGender -> "Onbekend geslacht"
+
+
     let toString terms lang markDown (pat: Patient) =
         let getTerm = LocalizationText.getTerm terms lang
 
@@ -83,17 +94,8 @@ module PatientText =
 
         let italic s = s |> Option.map (fun s -> if markDown then $"*{s}*" else s)
 
-        let isAdult =
-            pat.Age
-            |> Option.map (fun a -> a.Years >= 18<year>)
-            |> Option.defaultValue false
-
         [
-            match pat.Gender with
-            | Male -> if isAdult then Some "Man" else Some "Jongen"
-            | Female -> if isAdult then Some "Vrouw" else Some "Meisje"
-            | UnknownGender -> Some "Onbekend geslacht"
-            |> bold
+            pat |> genderWord |> Some |> bold
 
             Some $"{Terms.``Patient Age`` |> getTerm}:" |> italic
 
