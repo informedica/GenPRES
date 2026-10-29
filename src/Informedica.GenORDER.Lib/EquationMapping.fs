@@ -222,6 +222,30 @@ module EquationMapping =
         && ord.Orderable.Components |> List.collect _.Items |> List.forall hasOneStrength
 
 
+    /// Whether an order uses its adjusted doses: an adjusted dose of the orderable, of a component or
+    /// of an item has constraints. An order without one gets the same values for every variable that
+    /// is not adjusted, with or without the equations of the adjusted doses.
+    let usesAdjust (ord: Order) =
+        let adjusted (dos: Dose) =
+            [
+                dos.QuantityAdjust |> OrderVariable.QuantityAdjust.toOrdVar
+                dos.PerTimeAdjust |> OrderVariable.PerTimeAdjust.toOrdVar
+                dos.RateAdjust |> OrderVariable.RateAdjust.toOrdVar
+                dos.TotalAdjust |> OrderVariable.TotalAdjust.toOrdVar
+            ]
+
+        [
+            ord.Orderable.Dose
+            for c in ord.Orderable.Components do
+                c.Dose
+
+                for i in c.Items do
+                    i.Dose
+        ]
+        |> List.collect adjusted
+        |> List.exists OrderVariable.hasConstraints
+
+
     /// <summary>
     /// Create an Equations mapping for an <c>Order</c>
     /// </summary>
@@ -231,6 +255,13 @@ module EquationMapping =
     /// A tuple of <c>SumMapping</c> and <c>ProductMapping</c>
     /// </returns>
     let getEqsMapping (ord: Order) (eqs: string list) =
+        // an order that does not use its adjusted doses solves without the equations that name one
+        let eqs =
+            if ord |> usesAdjust then
+                eqs
+            else
+                eqs |> List.filter (String.contains $"_%s{Literals.adj}" >> not)
+
         let eqs =
             if ord.Orderable.Components |> List.length > 1 then
                 eqs

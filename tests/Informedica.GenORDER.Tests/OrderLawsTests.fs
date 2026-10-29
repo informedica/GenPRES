@@ -45,6 +45,7 @@ let medications () =
 
 module Variable = Informedica.GenSolver.Lib.Variable
 module ValueRange = Variable.ValueRange
+module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
 
 
 /// Whether every value a variable allows is whole: every value of a list, or the min and the
@@ -274,7 +275,7 @@ let tests =
 
             test "creation gives a medication whose rules give no dose count a dose count of 1" {
                 let _, cs =
-                    { Scenarios.pcmSupp with DoseCount = Informedica.GenCore.Lib.Ranges.MinMax.empty }
+                    { Scenarios.pcmSupp with DoseCount = MinMax.empty }
                     |> Tests.TestOrder.toOrder
                     |> countConstraints
 
@@ -357,6 +358,128 @@ let doseCountIsFree (ord: Order) =
     |> not
 
 
+/// Whether the name is that of an adjusted variable or of the adjust quantity.
+let isAdjusted (name: string) = name.Contains $"_%s{EquationMapping.Literals.adj}"
+
+
+/// The medication without any per kg or per m2 limit, so its order has no adjusted constraint.
+let absolute (med: Medication) =
+    let strip =
+        Option.map (fun (dl: DoseLimit) ->
+            { dl with
+                QuantityAdjust = MinMax.empty
+                PerTimeAdjust = MinMax.empty
+                RateAdjust = MinMax.empty
+            }
+        )
+
+    { med with
+        Dose = med.Dose |> strip
+        Components =
+            med.Components
+            |> List.map (fun c ->
+                { c with
+                    Dose = c.Dose |> strip
+                    Substances = c.Substances |> List.map (fun s -> { s with Dose = s.Dose |> strip })
+                }
+            )
+    }
+
+
+/// Hydrocortison intravenous with an absolute limit of 27 to 30 mg in place of 2 mg/kg.
+let hydrocortisonAbsolute () =
+    let perKg =
+        """          AdjustUnit: kg
+          QuantityAdjust:
+            Min:
+              Value:
+                - "2"
+              Unit: mg/kg
+              Inclusive: true
+            Max:
+              Value:
+                - "2"
+              Unit: mg/kg
+              Inclusive: true"""
+
+    let absolute =
+        """          Quantity:
+            Min:
+              Value:
+                - "27"
+              Unit: mg
+              Inclusive: true
+            Max:
+              Value:
+                - "30"
+              Unit: mg
+              Inclusive: true"""
+
+    Scenarios.hydrocortisonIvText.Contains perKg
+    |> Expect.isTrue "the per kg limit of the fixture"
+
+    Scenarios.hydrocortisonIvText.Replace(perKg, absolute) |> Tests.TestOrder.parse
+
+
+/// The equations of an order as mapped from the templates.
+let equationStrings ord =
+    match ord |> Order.equationMapping with
+    | SumMapping s, ProductMapping p -> s @ p
+    | _ -> failtest "a sum and a product mapping"
+
+
+[<Tests>]
+let adjustEquationTests =
+    testList
+        "Order adjust equations"
+        [
+            test "every fixture uses its adjusted doses, and without its per kg limits it does not" {
+                [
+                    for name, med in medications () do
+                        if med |> Tests.TestOrder.toOrder |> EquationMapping.usesAdjust |> not then
+                            $"%s{name} per kg"
+
+                        if med |> absolute |> Tests.TestOrder.toOrder |> EquationMapping.usesAdjust then
+                            $"%s{name} absolute"
+                ]
+                |> Expect.isEmpty "usesAdjust"
+            }
+
+            test "the per kg fixtures keep their equations" {
+                let fixtures = medications () |> Map.ofList
+
+                [ "pcmSupp"; "cotrim"; "amfo"; "morfCont"; "tpn" ]
+                |> List.map (fun name ->
+                    name, fixtures[name] |> Tests.TestOrder.toOrder |> Order.equations |> List.length
+                )
+                |> Expect.equal
+                    "the number of equations"
+                    [ "pcmSupp", 38; "cotrim", 55; "amfo", 107; "morfCont", 87; "tpn", 157 ]
+            }
+
+            test "without an adjusted constraint exactly the equations with an adjusted variable are left out" {
+                [
+                    for name, med in medications () do
+                        let perKg = med |> Tests.TestOrder.toOrder |> equationStrings
+                        let absolute = med |> absolute |> Tests.TestOrder.toOrder |> equationStrings
+
+                        if absolute <> (perKg |> List.filter (isAdjusted >> not)) then
+                            name
+                ]
+                |> Expect.isEmpty "the equations without an adjusted variable"
+            }
+
+            test "the equations of paracetamol suppository go from 38 to 22" {
+                Scenarios.pcmSupp
+                |> absolute
+                |> Tests.TestOrder.toOrder
+                |> Order.equations
+                |> List.length
+                |> Expect.equal "22 of 38" 22
+            }
+        ]
+
+
 [<Tests>]
 let impossibleValuesTests =
     let hydrocortison () = Scenarios.hydrocortisonIvText |> Tests.TestOrder.parse
@@ -387,21 +510,24 @@ let impossibleValuesTests =
                 |> Expect.equal "every value with a complete order is kept" (narrowed |> diluentSingles |> List.length)
             }
 
-            test "without a weight only the values a solve refutes are dropped" {
-                let ord = { hydrocortison () with Adjust = None } |> hydrocortisonBeforeNormDose
-                ord |> doseCountIsFree |> Expect.isTrue "the dose count is free"
+            test "an absolute rule without a weight" {
+                let ord = { hydrocortisonAbsolute () with Adjust = None } |> hydrocortisonBeforeNormDose
+                let adjust = ord.Adjust |> OrderVariable.Quantity.toOrdVar |> OrderVariable.getName
 
-                let left = ord |> dropImpossibleValues |> diluentSingles |> List.map _.Variable.Values
+                (ord |> Determination.ofOrder).Names
+                |> Set.map Variable.Name.toString
+                |> Set.filter isAdjusted
+                |> Expect.isEmpty "no adjust equation is left"
 
                 ord
-                |> diluentSingles
-                |> List.filter (fun s -> left |> List.contains s.Variable.Values |> not)
-                |> List.filter (fun s ->
-                    ord
-                    |> OrderProcessor.CompleteOrder.setAndSolve OrderLogging.noOp s
-                    |> Result.isOk
-                )
-                |> Expect.isEmpty "every value dropped makes the solve fail"
+                |> OrderProcessor.CompleteOrder.freeNames
+                |> List.contains adjust
+                |> Expect.isFalse "the adjust quantity is not an input of the search"
+
+                let search = ord |> OrderProcessor.CompleteOrder.search OrderLogging.noOp false
+
+                search.Finished |> Expect.isTrue "the search finishes"
+                search.Complete |> Expect.isNonEmpty "the search finds a complete order"
             }
 
             test "only a failure that says the values do not fit proves them impossible" {
