@@ -7,11 +7,37 @@ module PrescriptionRule =
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
 
-    let adjustDoseLimitToPatient (freqs: ValueUnit option) (pat: Patient) (dl: DoseLimit) =
-        if dl.AdjustUnit |> Option.isNone then
-            dl
-        else
-            let adj = dl.AdjustUnit |> Patient.adjustValue pat |> Option.get
+    /// The measurements the per kg and per m2 bounds of a dose limit need: a weight unit for a per kg
+    /// bound, a BSA unit for a per m2 bound. A limit with an adjust unit and only absolute bounds needs
+    /// none.
+    let doseLimitMeasures (dl: DoseLimit) =
+        [ dl.QuantityAdjust; dl.PerTimeAdjust; dl.RateAdjust ]
+        |> List.choose RenalRule.measureOf
+
+
+    /// Whether a prescription rule can be prescribed for the patient: the patient has every
+    /// measurement, the weight or the BSA, that the per kg and per m2 bounds of its dose limits, its
+    /// solution rules and its applied renal rule need.
+    let isPrescribable pat (pr: PrescriptionRule) =
+        [
+            for dl in pr.DoseRule |> DoseRule.allLimits do
+                yield! dl |> doseLimitMeasures
+            for sr in pr.SolutionRules do
+                yield!
+                    sr.VolumeAdjust :: (sr.SolutionLimits |> Array.toList |> List.map _.QuantityAdj)
+                    |> List.choose RenalRule.measureOf
+            for rl in pr.RenalRules |> Array.collect _.RenalLimits do
+                yield! rl |> RenalRule.limitMeasures
+        ]
+        |> List.forall (Some >> Patient.adjustValue pat >> Option.isSome)
+
+
+    /// The dose limit adjusted to the patient, when the patient has the measurement its per kg or per m2
+    /// bounds need; otherwise the dose limit as it is.
+    let adjustDoseLimitToPatient freqs pat dl =
+        match dl |> doseLimitMeasures |> List.tryHead |> Patient.adjustValue pat with
+        | None -> dl
+        | Some adj ->
             // The frequency that minimizes the per administration dose (highest
             // frequency), used to test whether an adjusted target is reachable
             // at all before pinning the absolute quantity.
@@ -269,43 +295,39 @@ module PrescriptionRule =
         )
         // recalculate adjusted dose limits
         |> Array.map (fun pr ->
-            if filter.Patient.Weight |> Option.isNone || filter.Patient.Height |> Option.isNone then
-                pr
-            else
-                // pass the full frequency set: adjustDoseLimitToPatient derives
-                // both the highest frequency (reachability) and the lowest
-                // frequency (floor) from it
-                let freq = pr.DoseRule.Frequencies
+            // pass the full frequency set: adjustDoseLimitToPatient derives
+            // both the highest frequency (reachability) and the lowest
+            // frequency (floor) from it
+            let freq = pr.DoseRule.Frequencies
 
-                { pr with
-                    DoseRule =
-                        { pr.DoseRule with
-                            ComponentLimits =
-                                // component selection mechanism
-                                if filter.Components |> List.isEmpty then
+            { pr with
+                DoseRule =
+                    { pr.DoseRule with
+                        ComponentLimits =
+                            // component selection mechanism
+                            if filter.Components |> List.isEmpty then
+                                pr.DoseRule.ComponentLimits
+                            else
+                                match pr.DoseRule.ComponentLimits |> Array.tryHead with
+                                | None -> [||]
+                                | Some dl ->
                                     pr.DoseRule.ComponentLimits
-                                else
-                                    match pr.DoseRule.ComponentLimits |> Array.tryHead with
-                                    | None -> [||]
-                                    | Some dl ->
-                                        pr.DoseRule.ComponentLimits
-                                        |> Array.tail
-                                        |> Array.filter (fun dl -> filter.Components |> List.exists ((=) dl.Name))
-                                        |> Array.append [| dl |]
+                                    |> Array.tail
+                                    |> Array.filter (fun dl -> filter.Components |> List.exists ((=) dl.Name))
+                                    |> Array.append [| dl |]
 
-                                // applies to all targets?
-                                // |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
-                                |> Array.map (fun dl ->
-                                    { dl with
-                                        Limit = dl.Limit |> Option.map (adjustDoseLimitToPatient freq filter.Patient)
-                                        SubstanceLimits =
-                                            dl.SubstanceLimits
-                                            |> Array.map (adjustDoseLimitToPatient freq filter.Patient)
-                                    }
-                                )
-                        }
-                    SolutionRules = pr.SolutionRules |> Array.map (adjustSolutionRuleToPatient filter.Patient)
-                }
+                            // applies to all targets?
+                            // |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
+                            |> Array.map (fun dl ->
+                                { dl with
+                                    Limit = dl.Limit |> Option.map (adjustDoseLimitToPatient freq filter.Patient)
+                                    SubstanceLimits =
+                                        dl.SubstanceLimits |> Array.map (adjustDoseLimitToPatient freq filter.Patient)
+                                }
+                            )
+                    }
+                SolutionRules = pr.SolutionRules |> Array.map (adjustSolutionRuleToPatient filter.Patient)
+            }
         )
         // Recalculate the dose rule according to a renal rules
         |> Array.collect (fun pr ->
@@ -314,7 +336,10 @@ module PrescriptionRule =
             else
                 pr.RenalRules
                 |> Array.map (fun rr ->
-                    { pr with DoseRule = pr.DoseRule |> RenalRule.adjustDoseRule filter.Patient rr }
+                    { pr with
+                        DoseRule = pr.DoseRule |> RenalRule.adjustDoseRule filter.Patient rr
+                        RenalRules = [| rr |]
+                    }
                 )
         )
         |> Ok

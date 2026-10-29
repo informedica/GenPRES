@@ -4258,13 +4258,19 @@ module Tests =
                         dl.QuantityAdjust |> Expect.equal "no per kg bound" MinMax.empty
                     }
 
-                    for weight, expected in [ Some 150N, 20N / 3N; Some 50N, 10N; None, 10N ] do
+                    // without a weight the per kg maximum, which the renal rule does not give per kg, stays
+                    for weight, expected in
+                        [
+                            Some 150N, (Some(20N / 3N), None)
+                            Some 50N, (Some 10N, None)
+                            None, (Some 10N, Some 20N)
+                        ] do
                         test $"a per kg range against an absolute renal maximum is compared at a weight of %A{weight}" {
                             { doseLimit with PerTimeAdjust = range (mg |> perKg |> perDay) (Some 10N) (Some 20N) }
                             |> adjust weight { absolute with PerTime = range (gram |> perDay) None (Some 1N) }
                             |> _.PerTimeAdjust
                             |> valuesIn (mg |> perKg |> perDay)
-                            |> Expect.equal "the per kg minimum" (Some expected, None)
+                            |> Expect.equal "the per kg range" expected
                         }
 
                     test "an absolute maximum is raised to a per kg renal minimum at the weight" {
@@ -5783,7 +5789,7 @@ module Tests =
 
         /// A renal row for amoxicillin IV at an eGFR of 10 to 30, with an absolute reduction to at
         /// most 25 mg/kg.
-        let private renalRow: RenalRuleData =
+        let renalRow: RenalRuleData =
             {
                 Generic = "amoxicilline"
                 Route = "INTRAVENEUS"
@@ -6120,6 +6126,455 @@ module Tests =
                             (ValueUnit.singleWithUnit (perDay (perM2 mg)) 600N * bsa
                              |> ValueUnit.convertTo (perDay mg)
                              |> Some)
+                    }
+                ]
+
+
+    module PrescribableTests =
+
+
+        module Fixtures = DoseRuleRoundtripTests
+
+        module RR = RenalReductionTests
+
+        let private mL = Units.Volume.milliLiter
+        let private m2 = Units.BSA.m2
+        let private perM2 u = u |> ValueUnit.per m2
+
+        let private years n = ValueUnit.singleWithUnit RR.day (n * 365N)
+
+        let private patient weight height =
+            { Patient.patient with
+                Age = Some(years 5N)
+                Weight = weight |> Option.map (ValueUnit.singleWithUnit RR.kg)
+                Height = height |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
+            }
+
+        let private noWeight = patient None None
+        let private weightOnly = patient (Some 30N) None
+        let private measured = patient (Some 70N) (Some 175N)
+
+        let private demoRules =
+            lazy
+                (DoseRuleLoader.fromData Fixtures.rm.Value [||] Fixtures.prods.Value Fixtures.data.Value
+                 |> fst)
+
+        let private filterFor pat = { Filter.doseFilter with Patient = pat }
+
+        let private doseLimit adjustUnit = { RR.doseLimit with AdjustUnit = adjustUnit }
+
+        let private absoluteLimit = { doseLimit None with Quantity = RR.range RR.mg (Some 500N) (Some 1000N) }
+
+        let private perKgLimit =
+            { doseLimit (Some RR.kg) with QuantityAdjust = RR.range (RR.perKg RR.mg) (Some 10N) (Some 20N) }
+
+        let private perM2Limit =
+            { doseLimit (Some m2) with PerTimeAdjust = RR.range (RR.mg |> perM2 |> RR.perDay) None (Some 500N) }
+
+        /// A demo dose rule of paracetamol for a child of 5 years, whatever the weight.
+        let private paracetamol =
+            lazy
+                (demoRules.Value
+                 |> Array.find (fun dr ->
+                     dr.Generic |> Generic.genericName = "paracetamol"
+                     && dr.PatientCategory |> PatientCategory.filterPatient noWeight
+                 ))
+
+        /// The demo prescription rule of paracetamol with the given substance limit, for the patient.
+        let private ruleWith pat (dl: DoseLimit) : PrescriptionRule =
+            let dr = paracetamol.Value
+
+            {
+                Patient = pat
+                DoseRule =
+                    { dr with
+                        AdjustUnit = dl.AdjustUnit
+                        ComponentLimits =
+                            [|
+                                { dr.ComponentLimits[0] with
+                                    Limit = None
+                                    SubstanceLimits = [| dl |]
+                                }
+                            |]
+                    }
+                SolutionRules = [||]
+                RenalRules = [||]
+            }
+
+        let private solutionRule volumeAdjust : SolutionRule =
+            {
+                Generic = "paracetamol"
+                Form = None
+                Route = ""
+                Indication = None
+                DoseType = NoDoseType
+                PatientCategory = PatientCategory.empty
+                Dose = MinMax.empty
+                Diluents = [||]
+                Div = None
+                Volumes = None
+                Volume = RR.range mL None (Some 500N)
+                VolumeAdjust = volumeAdjust
+                DripRate = MinMax.empty
+                DosePerc = MinMax.empty
+                SolutionLimits = [||]
+            }
+
+        let private renalLimit qty qtyAdj =
+            { RR.renalLimit Absolute with
+                Quantity = qty
+                QuantityAdjust = qtyAdj
+            }
+
+        /// A renal sheet row for the generic, route and substance of a dose rule, at an eGFR of 10 to 30.
+        let private renalRow (dr: DoseRule) : RenalRuleData =
+            let dl = dr |> DoseRule.allLimits |> Array.head
+
+            { RenalUnitTests.renalRow with
+                Generic = dr.Generic |> Generic.genericName
+                Route = dr.Route
+                Substance =
+                    match dl.DoseLimitTarget with
+                    | SubstanceLimitTarget s -> s
+                    | _ -> ""
+                DoseUnit = dl.DoseUnit |> DoseRule.unitStr
+                AdjustUnit = ""
+                MaxQtyAdj = None
+            }
+
+        let private noLogger = Informedica.Logging.Lib.Logging.noOp
+
+
+        let tests =
+            testList
+                "whether a rule can be prescribed"
+                [
+                    test "a limit needs a measurement only for a per kg or per m2 bound" {
+                        [
+                            absoluteLimit
+                            { absoluteLimit with AdjustUnit = Some RR.kg }
+                            perKgLimit
+                            perM2Limit
+                        ]
+                        |> List.map PrescriptionRule.doseLimitMeasures
+                        |> Expect.equal
+                            "absolute, an adjust unit with absolute bounds, per kg, per m2"
+                            [ []; []; [ RR.kg ]; [ m2 ] ]
+                    }
+
+                    test "a limit with an adjust unit and only absolute bounds is unchanged without a weight" {
+                        let dl = { absoluteLimit with AdjustUnit = Some RR.kg }
+
+                        dl
+                        |> PrescriptionRule.adjustDoseLimitToPatient None noWeight
+                        |> Expect.equal "unchanged" dl
+                    }
+
+                    test "a per kg limit is adjusted with a weight and unchanged without one" {
+                        // 10 to 20 mg/kg with at most 200 mg: at 30 kg the per kg minimum, 300 mg, conflicts
+                        let dl = { perKgLimit with Quantity = RR.range RR.mg None (Some 200N) }
+
+                        dl
+                        |> PrescriptionRule.adjustDoseLimitToPatient None noWeight
+                        |> Expect.equal "unchanged without a weight" dl
+
+                        let adjusted = dl |> PrescriptionRule.adjustDoseLimitToPatient None weightOnly
+                        adjusted.QuantityAdjust
+                        |> Expect.equal "the per kg range is pinned" MinMax.empty
+                        adjusted.Quantity
+                        |> Expect.equal "to 200 mg" (RR.range RR.mg (Some 200N) (Some 200N))
+                    }
+
+                    test "a per m2 limit is unchanged for a patient with a weight and no height" {
+                        let dl = { perM2Limit with PerTime = RR.range (RR.perDay RR.mg) None (Some 100N) }
+
+                        dl
+                        |> PrescriptionRule.adjustDoseLimitToPatient None weightOnly
+                        |> Expect.equal "unchanged" dl
+                    }
+
+                    test "the check: per kg needs a weight, per m2 a weight and a height, absolute nothing" {
+                        [ absoluteLimit; perKgLimit; perM2Limit ]
+                        |> List.map (fun dl ->
+                            [ noWeight; weightOnly; measured ]
+                            |> List.map (fun pat -> dl |> ruleWith pat |> PrescriptionRule.isPrescribable pat)
+                        )
+                        |> Expect.equal
+                            "absolute, per kg, per m2; without a weight, a weight only, both"
+                            [ [ true; true; true ]; [ false; true; true ]; [ false; false; true ] ]
+                    }
+
+                    test "a form limit with a per kg bound makes the rule need a weight" {
+                        let formLimit =
+                            { DoseLimit.limit with
+                                DoseLimitTarget = OrderableLimitTarget
+                                DoseUnit = mL
+                                QuantityAdjust = RR.range (RR.perKg mL) None (Some(1N / 2N))
+                            }
+
+                        let rule = ruleWith noWeight absoluteLimit
+
+                        let withForm = { rule with DoseRule = { rule.DoseRule with FormLimit = Some formLimit } }
+
+                        [
+                            withForm |> PrescriptionRule.isPrescribable noWeight
+                            withForm |> PrescriptionRule.isPrescribable weightOnly
+                            rule |> PrescriptionRule.isPrescribable noWeight
+                        ]
+                        |> Expect.equal
+                            "with the form limit without and with a weight, without it"
+                            [ false; true; true ]
+                    }
+
+                    test "a solution rule with a per kg volume makes the rule need a weight" {
+                        let withSolution volumeAdjust =
+                            { ruleWith noWeight absoluteLimit with SolutionRules = [| solutionRule volumeAdjust |] }
+
+                        [
+                            withSolution (RR.range (RR.perKg mL) None (Some 10N))
+                            |> PrescriptionRule.isPrescribable noWeight
+                            withSolution (RR.range (RR.perKg mL) None (Some 10N))
+                            |> PrescriptionRule.isPrescribable weightOnly
+                            withSolution MinMax.empty |> PrescriptionRule.isPrescribable noWeight
+                        ]
+                        |> Expect.equal "per kg without and with a weight, absolute without" [ false; true; true ]
+                    }
+
+                    test "a renal rule with a per kg bound makes the rule need a weight, an absolute one does not" {
+                        let withRenal limit =
+                            { ruleWith noWeight absoluteLimit with RenalRules = [| RR.reducedRule limit |] }
+
+                        [
+                            withRenal (renalLimit MinMax.empty (RR.range (RR.perKg RR.mg) None (Some 10N)))
+                            |> PrescriptionRule.isPrescribable noWeight
+                            withRenal (renalLimit MinMax.empty (RR.range (RR.perKg RR.mg) None (Some 10N)))
+                            |> PrescriptionRule.isPrescribable weightOnly
+                            withRenal (renalLimit (RR.range RR.mg None (Some 500N)) MinMax.empty)
+                            |> PrescriptionRule.isPrescribable noWeight
+                        ]
+                        |> Expect.equal "per kg without and with a weight, absolute without" [ false; true; true ]
+                    }
+
+                    test "strict: an absolute renal rule keeps the per kg bounds of the dose rule without a weight" {
+                        let rr = RR.reducedRule (renalLimit (RR.range RR.mg (Some 500N) (Some 750N)) MinMax.empty)
+
+                        // the prescription rule of the patient after the renal step
+                        let adjusted pat =
+                            let pr = { ruleWith pat perKgLimit with RenalRules = [| rr |] }
+                            { pr with DoseRule = pr.DoseRule |> RenalRule.adjustDoseRule pat rr }
+
+                        let dl pat = (adjusted pat).DoseRule |> DoseRule.allLimits |> Array.head
+
+                        let noWeightLimit = dl noWeight
+                        noWeightLimit.Quantity
+                        |> Expect.equal "500 to 750 mg" (RR.range RR.mg (Some 500N) (Some 750N))
+                        noWeightLimit.QuantityAdjust
+                        |> Expect.equal "10 to 20 mg/kg stays" perKgLimit.QuantityAdjust
+
+                        adjusted noWeight
+                        |> PrescriptionRule.isPrescribable noWeight
+                        |> Expect.isFalse "cannot be prescribed"
+
+                        let weightLimit = dl weightOnly
+                        weightLimit.Quantity
+                        |> Expect.equal "500 to 750 mg at 30 kg" (RR.range RR.mg (Some 500N) (Some 750N))
+                        weightLimit.QuantityAdjust |> Expect.equal "the per kg range goes" MinMax.empty
+                    }
+
+                    test "strict: a per kg minimum stays without a weight when the renal rule limits another kind" {
+                        let rr =
+                            RR.reducedRule
+                                { renalLimit MinMax.empty MinMax.empty with
+                                    PerTime = RR.range (RR.perDay RR.mg) None (Some 2000N)
+                                }
+
+                        let dl = (ruleWith noWeight perKgLimit).DoseRule |> RenalRule.adjustDoseRule noWeight rr
+
+                        (dl |> DoseRule.allLimits |> Array.head).QuantityAdjust
+                        |> Expect.equal "10 to 20 mg/kg" perKgLimit.QuantityAdjust
+                    }
+
+                    test "an absolute dose rule under an absolute renal rule takes the renal maximum" {
+                        let rr =
+                            RR.reducedRule
+                                { renalLimit MinMax.empty MinMax.empty with
+                                    PerTime = RR.range (RR.perDay RR.mg) None (Some 2000N)
+                                }
+
+                        let dr =
+                            (ruleWith
+                                noWeight
+                                { absoluteLimit with PerTime = RR.range (RR.perDay RR.mg) (Some 1000N) (Some 4000N) })
+                                .DoseRule
+
+                        for pat in [ noWeight; measured ] do
+                            let dl = dr |> RenalRule.adjustDoseRule pat rr |> DoseRule.allLimits |> Array.head
+
+                            dl.PerTime
+                            |> Expect.equal
+                                "1,000 to 2,000 mg/day"
+                                (RR.range (RR.perDay RR.mg) (Some 1000N) (Some 2000N))
+                            dl.PerTimeAdjust |> Expect.equal "no per kg range" MinMax.empty
+                    }
+
+                    test "each prescription rule keeps only the renal rule applied to it" {
+                        let dr = paracetamol.Value
+
+                        let renalRules =
+                            [| renalRow dr; { renalRow dr with Source = "other" } |]
+                            |> RenalRule.map noLogger
+                            |> Result.defaultValue [||]
+
+                        let pat = { measured with RenalFunction = Some(EGFR(Some 20, Some 20)) }
+
+                        let prs =
+                            { filterFor pat with
+                                Generic = Some "paracetamol"
+                                Route = Some dr.Route
+                            }
+                            |> PrescriptionRule.filter demoRules.Value [||] renalRules Fixtures.rm.Value
+                            |> Result.defaultValue [||]
+
+                        prs |> Array.isEmpty |> Expect.isFalse "paracetamol is selected"
+
+                        prs
+                        |> Array.map (_.RenalRules >> Array.length)
+                        |> Array.distinct
+                        |> Expect.equal "one renal rule each" [| 1 |]
+
+                        prs
+                        |> Array.map (_.RenalRules >> Array.map _.Source)
+                        |> Array.concat
+                        |> Array.distinct
+                        |> Array.sort
+                        |> Expect.equal "both renal rules are applied" [| "other"; "test" |]
+                    }
+
+                    test "the component pick applies without a weight, and a per kg component not picked does not count" {
+                        let rule = ruleWith noWeight absoluteLimit
+                        let cl = rule.DoseRule.ComponentLimits[0]
+
+                        let dr =
+                            { rule.DoseRule with
+                                ComponentLimits =
+                                    [|
+                                        cl
+                                        { cl with
+                                            Name = "other"
+                                            SubstanceLimits = [| perKgLimit |]
+                                        }
+                                    |]
+                            }
+
+                        let prs components =
+                            { filterFor noWeight with
+                                Generic = Some "paracetamol"
+                                Route = Some dr.Route
+                                Components = components
+                            }
+                            |> PrescriptionRule.filter [| dr |] [||] [||] Fixtures.rm.Value
+                            |> Result.defaultValue [||]
+
+                        let pr components =
+                            match prs components with
+                            | [| pr |] -> pr
+                            | prs -> failtest $"expected one rule, got %i{prs.Length}"
+
+                        (pr [ cl.Name ]).DoseRule.ComponentLimits
+                        |> Array.map _.Name
+                        |> Expect.equal "only the picked component" [| cl.Name |]
+
+                        [ [ cl.Name ]; [ cl.Name; "other" ]; [] ]
+                        |> List.map (pr >> PrescriptionRule.isPrescribable noWeight)
+                        |> Expect.equal "picked alone, with the per kg one, nothing picked" [ true; false; false ]
+                    }
+
+                    test "a lookup with the empty patient gets every dose rule of the generic, per kg ones included" {
+                        let prs =
+                            { Filter.doseFilter with Generic = Some "paracetamol" }
+                            |> PrescriptionRule.filter demoRules.Value [||] [||] Fixtures.rm.Value
+                            |> Result.defaultValue [||]
+
+                        // the count of the demo fixture's paracetamol rules before the check existed
+                        prs |> Array.length |> Expect.equal "45 rules" 45
+
+                        prs
+                        |> Array.exists (
+                            _.DoseRule
+                            >> DoseRule.allLimits
+                            >> Array.exists (PrescriptionRule.doseLimitMeasures >> List.isEmpty >> not)
+                        )
+                        |> Expect.isTrue "per kg rules included"
+                    }
+
+                    test "with a weight and a height every selected rule can be prescribed" {
+                        let drs = demoRules.Value
+
+                        let generics = drs |> Array.distinctBy (fun dr -> dr.Generic |> Generic.genericName, dr.Route)
+
+                        let solutionRules =
+                            generics
+                            |> Array.collect (fun dr ->
+                                let sr = solutionRule (RR.range (RR.perKg mL) None (Some 10N))
+
+                                let sr =
+                                    { sr with
+                                        Generic = dr.Generic |> Generic.genericName
+                                        Route = dr.Route
+                                    }
+
+                                [|
+                                    sr
+                                    { sr with
+                                        VolumeAdjust = MinMax.empty
+                                        Volume = RR.range mL None (Some 250N)
+                                    }
+                                |]
+                            )
+
+                        let renalRules =
+                            generics
+                            |> Array.filter (DoseRule.allLimits >> Array.isEmpty >> not)
+                            |> Array.collect (fun dr ->
+                                let row = renalRow dr
+
+                                [|
+                                    { row with MaxQty = Some 100N }
+                                    { row with
+                                        Source = "per kg"
+                                        AdjustUnit = "kg"
+                                        MaxQtyAdj = Some 5N
+                                    }
+                                    { row with
+                                        Source = "relative"
+                                        DoseRed = "rel"
+                                        MaxQty = Some(1N / 2N)
+                                    }
+                                |]
+                            )
+                            |> RenalRule.map noLogger
+                            |> Result.defaultValue [||]
+
+                        renalRules
+                        |> Array.isEmpty
+                        |> Expect.isFalse "renal rules for the demo generics"
+
+                        for weight, height, age in [ 3N, 50N, 1N / 10N; 20N, 115N, 6N; 70N, 175N, 30N ] do
+                            let pat =
+                                { patient (Some weight) (Some height) with
+                                    Age = Some(years age)
+                                    RenalFunction = Some(EGFR(Some 20, Some 20))
+                                }
+
+                            let prs =
+                                filterFor pat
+                                |> PrescriptionRule.filter drs solutionRules renalRules Fixtures.rm.Value
+
+                            prs |> Result.map Array.isEmpty |> Expect.equal "rules are selected" (Ok false)
+
+                            prs
+                            |> Result.map (Array.forall (PrescriptionRule.isPrescribable pat))
+                            |> Expect.equal "every selected rule can be prescribed" (Ok true)
                     }
                 ]
 
@@ -6589,4 +7044,5 @@ module Tests =
                 RuleCheckTests.tests
                 RuleUnitTests.tests
                 RenalUnitTests.tests
+                PrescribableTests.tests
             ]
