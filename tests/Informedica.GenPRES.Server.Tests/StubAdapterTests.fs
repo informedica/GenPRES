@@ -5544,10 +5544,10 @@ let ingressTests =
                 Patient.empty |> Patient.patient |> refusedAs Patient.noPatient
             }
 
-            test "an age without an estimate is refused, the weight and height named" {
+            test "an age of a child without an estimate is refused, the weight named" {
                 { Patient.empty with Age = Some ten }
                 |> Patient.patient
-                |> refusedAs Patient.noWeightAndHeight
+                |> refusedAs Patient.noWeight
             }
 
             test "an age with the estimate, or a measured weight and height, is a patient" {

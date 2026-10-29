@@ -97,6 +97,7 @@ let fullPatient: Patient =
         RenalFunction = Some(EGFR(Some 30, Some 50))
         Location = Some "bed 4"
         Department = Some "ICK"
+        MarkedAdult = true
     }
 
 

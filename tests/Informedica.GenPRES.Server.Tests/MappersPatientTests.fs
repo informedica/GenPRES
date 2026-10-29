@@ -163,7 +163,7 @@ let tests =
 
                 { Informedica.GenPRES.Shared.Models.Patient.empty with Age = stub.Age }
                 |> ServerApi.Patient.parse
-                |> Expect.equal "no weight and height" (Error [| ServerApi.Patient.noWeightAndHeight |])
+                |> Expect.equal "no weight" (Error [| ServerApi.Patient.noWeight |])
             }
         ]
 
@@ -271,5 +271,175 @@ let estimateTests =
 
                 (port |> ServerApi.Patient.estimating (fun () -> None)).patient at bare
                 |> Expect.equal "as projected" (port.patient at bare)
+            }
+        ]
+
+
+/// The draft with an age in days, the mark as an adult, and the measured weight in kg and height in cm.
+let draft days marked weight height : Informedica.GenPRES.Shared.Types.Patient =
+    let empty = Informedica.GenPRES.Shared.Models.Patient.empty
+
+    { empty with
+        Age = days |> Option.map Informedica.GenPRES.Shared.Models.Patient.Age.fromDays
+        MarkedAdult = marked
+        Weight =
+            { empty.Weight with
+                Measured = weight |> Option.map ((*) 1000 >> Informedica.GenPRES.Shared.Measures.toGram)
+            }
+        Height = { empty.Height with Measured = height |> Option.map Informedica.GenPRES.Shared.Measures.toCm }
+    }
+
+
+[<Tests>]
+let adultTests =
+    testList
+        "the patient the rules are looked up for: an adult, or a child with a weight"
+        [
+            test "the Shared and GenFORM adult tests agree around the 16th and the 18th birthday" {
+                for years in [ 0..20 ] do
+                    for d in [ -1; 0; 1 ] do
+                        for marked in [ false; true ] do
+                            let days = years * 365 + d
+
+                            if days >= 0 then
+                                let shared = draft (Some days) marked None None
+
+                                match shared |> ServerApi.Patient.ofModel |> LibPatient.Dto.fromDto with
+                                | Ok lib ->
+                                    shared
+                                    |> Informedica.GenPRES.Shared.Models.Patient.isAdult
+                                    |> Expect.equal $"%i{days} days, marked %b{marked}" (lib |> Adult.isAdult)
+                                | Error _ ->
+                                    shared
+                                    |> Informedica.GenPRES.Shared.Models.Patient.validate
+                                    |> Expect.equal
+                                        $"%i{days} days refused"
+                                        (Error Informedica.GenPRES.Shared.Models.PatientError.MarkedAdultBelowSixteen)
+
+                for marked in [ false; true ] do
+                    draft None marked None None
+                    |> Informedica.GenPRES.Shared.Models.Patient.isAdult
+                    |> Expect.equal $"no age, marked %b{marked}" marked
+            }
+
+            test "the Shared and GenFORM validate agree with and without the mark, an age and the measures" {
+                let libError =
+                    function
+                    | Informedica.GenPRES.Shared.Models.PatientError.NoAgeOrMeasuredWeightAndHeight ->
+                        Lib.PatientError.NoAgeOrMeasuredWeightAndHeight
+                    | Informedica.GenPRES.Shared.Models.PatientError.MarkedAdultBelowSixteen ->
+                        Lib.PatientError.MarkedAdultBelowSixteen
+
+                for age in [ None; Some(16 * 365 - 1); Some(16 * 365); Some(18 * 365); Some(40 * 365) ] do
+                    for marked in [ false; true ] do
+                        for weight in [ None; Some 70 ] do
+                            for height in [ None; Some 175 ] do
+                                let shared = draft age marked weight height
+
+                                shared
+                                |> Informedica.GenPRES.Shared.Models.Patient.validate
+                                |> Result.map ignore
+                                |> Result.mapError libError
+                                |> Expect.equal
+                                    $"%A{age} %b{marked} %A{weight} %A{height}"
+                                    (shared
+                                     |> ServerApi.Patient.ofModel
+                                     |> LibPatient.Dto.fromDto
+                                     |> Result.map ignore
+                                     |> Result.mapError List.head)
+            }
+
+            test "an adult without a weight and a height passes the gate, and gets no estimate" {
+                let adult = draft (Some(40 * 365)) false None None
+
+                adult |> ServerApi.Patient.patient |> Expect.equal "passes" (Ok adult)
+
+                adult
+                |> ServerApi.Patient.estimate (fun () -> Some tables)
+                |> ServerApi.Patient.parse
+                |> Result.map (fun p -> p.Weight, p.Height)
+                |> Expect.equal "no weight, no height" (Ok(None, None))
+            }
+
+            test "an adult with a weight and no height passes" {
+                draft (Some(40 * 365)) false (Some 70) None
+                |> ServerApi.Patient.parse
+                |> Result.map (fun p -> p.Weight.IsSome, p.Height.IsSome)
+                |> Expect.equal "weight, no height" (Ok(true, false))
+            }
+
+            test "a child with a weight and no height passes" {
+                let child = draft (Some(10 * 365)) false (Some 30) None
+
+                child |> ServerApi.Patient.patient |> Expect.equal "passes" (Ok child)
+
+                child
+                |> ServerApi.Patient.parse
+                |> Result.map _.Height.IsSome
+                |> Expect.equal "no height" (Ok false)
+            }
+
+            test "a child without a weight is refused" {
+                let child = draft (Some(10 * 365)) false None (Some 140)
+
+                child
+                |> ServerApi.Patient.patient
+                |> Expect.equal "refused at the gate" (Error [| ServerApi.Patient.noWeight |])
+
+                child
+                |> ServerApi.Patient.parse
+                |> Expect.equal "refused" (Error [| ServerApi.Patient.noWeight |])
+            }
+
+            test "a child of 2 without measures is estimated and passes" {
+                draft (Some(2 * 365)) false None None
+                |> ServerApi.Patient.estimate (fun () -> Some tables)
+                |> ServerApi.Patient.parse
+                |> Result.map (fun p -> p.Weight.IsSome, p.Height.IsSome)
+                |> Expect.equal "both estimated" (Ok(true, true))
+            }
+
+            test "the mark is carried into the GenFORM patient, and back" {
+                let marked = draft (Some(17 * 365)) true None None
+
+                marked
+                |> ServerApi.Patient.parse
+                |> Result.map (fun p -> p.MarkedAdult, p |> Adult.isAdult)
+                |> Expect.equal "marked, an adult" (Ok(true, true))
+
+                marked
+                |> ServerApi.Patient.ofModel
+                |> ServerApi.Patient.toModel
+                |> _.MarkedAdult
+                |> Expect.isTrue "back"
+            }
+
+            test "the mark at 16 years less one day is refused by the server, at exactly 16 years accepted" {
+                let young = draft (Some 5839) true None None
+
+                young
+                |> ServerApi.Patient.patient
+                |> Expect.equal "refused at the gate" (Error [| ServerApi.Patient.markedBelowSixteen |])
+
+                young
+                |> ServerApi.Patient.parse
+                |> Expect.equal "refused" (Error [| ServerApi.Patient.markedBelowSixteen |])
+
+                draft (Some(16 * 365)) true None None
+                |> ServerApi.Patient.parse
+                |> Result.isOk
+                |> Expect.isTrue "accepted"
+            }
+
+            test "the EHR reading of an adult keeps the weight it has and is never marked" {
+                let reading =
+                    draft (Some(40 * 365)) false (Some 70) None
+                    |> ServerApi.Patient.parse
+                    |> Result.defaultWith (fun _ -> failtest "a patient")
+
+                let estimated = reading |> ServerApi.Patient.estimated tables
+
+                (estimated.Weight, estimated.Height, estimated.MarkedAdult)
+                |> Expect.equal "as read" (reading.Weight, None, false)
             }
         ]

@@ -840,9 +840,17 @@ The work is done in one pull request per step, after the maintainer's go.
      through one test, `OrderContext.selectsRules`. `create` offers a child without a weight no pick.
      Nothing changes in the app, since the server still refuses a patient without a weight and a
      height.
-   - **8b, Shared, the server and Client.Core.** The Shared field and functions are written first,
-     since a script cannot add a field to the contract's patient; the server and `PatientEdit` are
-     prototyped against the rebuilt contract. This part opens the gate.
+   - **8b, Shared, the server and the MCP host.** The Shared field is written first, since a script
+     cannot add a field to the contract's patient; the rest is prototyped in the script against the
+     rebuilt contract. This part opens the gate.
+     - `Patient.applyNormalValues` leaves a patient older than 18 years as it is, so `estimate` and
+       the estimating port follow without a change of their own.
+     - The MCP host's `validPatient` checks the patient with `OrderContext.selectsRules`, since without
+       an estimate for an adult it would otherwise refuse an adult without a weight.
+     - `PatientEdit` builds the draft from the blank patient, which is not marked, and needs no change.
+     - The mark is carried with every request but not held by the Session for a resume, as the
+       measurements are; a resume loses it. Nothing sets the mark before step 9, so step 9 holds it
+       in the Session, together with the switch that sets it.
    - **GenORDER.**
      - `getRules` and `refusal` select rules for an adult, and for a child with a weight, with or
        without a height.
@@ -898,6 +906,10 @@ The work is done in one pull request per step, after the maintainer's go.
    `Client.Core` goes through the script
    `src/Informedica.GenPRES.Client.Core/Scripts/Issue1495AdultPatient.fsx`; the Fable views are edited
    directly.
+   - **The Session.** The server holds the mark for a resume, as it holds the measurements: the
+     Session's measurements get the mark, stored in its own row, and a resume puts it back on the
+     contract patient and the core patient. Otherwise a marked patient of 16 or 17 would resume as a
+     child, on the rules for children, while the plan was made on the rules for adults.
    - **`Client.Core`.**
      - `PatientEdit` gets a setter for the mark. The mark is cleared when the age changes to below 16
        years.
