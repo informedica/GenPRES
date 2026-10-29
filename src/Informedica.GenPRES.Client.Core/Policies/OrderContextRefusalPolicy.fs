@@ -81,19 +81,14 @@ module OrderContextRefusalPolicy =
         | _ -> false
 
 
-    /// Whether the patient lacks a weight or a height, measured or estimated. When rules exist for
-    /// the picks, the server refuses such a patient before matching any rule.
-    let patientIncomplete (patient: Patient) =
-        (patient |> Patient.getWeight).IsNone || (patient |> Patient.getHeight).IsNone
-
-
-    /// The notice for a refused context. None when the patient lacks a weight or height: the page
-    /// already says what to enter, and a notice blaming the rules would mislead. None for a change
-    /// that cannot be applied, which the snackbar tells while the order stays. A missing
-    /// measurement names no one to tell: the rules are right, the patient needs the measurement.
+    /// The notice for a refused context. None for a child without a weight, for whom the rules are
+    /// not looked up: the page already says what to enter, and a notice blaming the rules would
+    /// mislead. None for a change that cannot be applied, which the snackbar tells while the order
+    /// stays. A missing measurement names no one to tell: the rules are right, the patient needs the
+    /// measurement.
     let notice (tr: Terms -> string) (ctx: OrderContext) (refusal: OrderContextRefusal) : Notice option =
         match refusal with
-        | OrderContextRefusal.NoDoseRulesForPatient when ctx.Patient |> patientIncomplete -> None
+        | OrderContextRefusal.NoDoseRulesForPatient when ctx.Patient |> Patient.selectsRules |> not -> None
         | _ when refusal |> refusesChange -> None
         | _ ->
             Some

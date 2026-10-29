@@ -228,6 +228,11 @@ module Models =
                 pat.Height.Estimated
 
 
+        /// Whether the rules are looked up for the patient: an adult always, a child only with a
+        /// weight, measured or estimated. The same test as the server's gate and GenORDER's.
+        let selectsRules (pat: Patient) = pat |> isAdult || pat |> getWeight |> Option.isSome
+
+
         let create years months weeks days weight height gw gd gend cvl gfr dep : Patient option =
             let a =
                 if

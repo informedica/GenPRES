@@ -91,9 +91,9 @@ module PatientMachine =
         /// failure puts back the draft the change started from, the one the orders were calculated for.
         /// The patient data the orders were calculated for, given again while no change is under way, is
         /// not sent again: the state, the draft included, stays as it is.
-        /// An answered patient without a weight or a height, measured or estimated, is held back: every
-        /// request would be refused for it, so the pages keep the patient they have, and the notice on
-        /// the page says what is missing.
+        /// An answered patient the rules are not looked up for, a child without a weight, measured or
+        /// estimated, is held back: every request would be refused for it, so the pages keep the
+        /// patient they have, and the notice on the page says what is missing.
         let transition (msg: PatientMsg) (state: PatientState) : PatientState * PatientEffect list =
             match msg with
             // the Session gives the patient as signed after a signature; the draft is kept, so a weight
@@ -122,15 +122,14 @@ module PatientMachine =
                         | PatientDraftPolicy.Estimates.Renewed -> Some pat
                         | PatientDraftPolicy.Estimates.Kept -> state.Draft
 
-                    match pat |> Patient.getWeight, pat |> Patient.getHeight with
-                    | Some _, Some _ ->
+                    if pat |> Patient.selectsRules then
                         {
                             Draft = draft
                             Answered = Some pat
                             InFlight = None
                         },
                         [ PatientEffect.SetPatientData(Some pat) ]
-                    | _ ->
+                    else
                         { state with
                             Draft = draft
                             InFlight = None

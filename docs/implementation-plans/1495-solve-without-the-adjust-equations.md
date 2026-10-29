@@ -921,28 +921,28 @@ The work is done in one pull request per step, after the maintainer's go.
        years.
      - `PatientMachine` sends the patient of an adult without a weight or a height, and of a child
        with a weight and no height.
-     - `PatientReadinessPolicy.missingOf` (`:83`) and `OrderContextRefusalPolicy.patientIncomplete`
-       (`:71`) name nothing missing for an adult, and only the weight for a child.
+     - `PatientReadinessPolicy.missingOf` (`:83`) names no missing age for an adult; it keeps naming a
+       missing weight or height for every patient, as a warning, since those leave the per kg and per
+       m2 rules out. The refusal notice holds back only for a child without a weight, the one patient
+       the rules are not looked up for; `patientIncomplete` goes.
      - `Client.estimated` (`Client.fs:253`) gives a patient older than 18 years no estimate.
-     - **The hint.** A policy decides when the client says that the per kg rules need a weight and
-       the per m2 rules a weight and a height: for a patient without a weight, or with a weight and
-       no height. Its text is a new `Terms` case, with its entry in `localization.tsv` and the
-       Localization sheet.
+     - **No separate hint.** The existing warnings "Weight unknown", "Height unknown" and "Weight and
+       height unknown" say what an adult lacks; their wording is in the Localization sheet and can
+       name the per kg and per m2 rules there.
      - `PatientText` (`:86`) uses the Shared adult test in place of its own `Years >= 18`.
    - **The views.** The patient panel gets an adult switch:
      - shown checked and fixed from 18 years;
      - free from 16 to 18 years, and when there is no age;
      - not offered below 16 years.
 
-     The panel shows a patient older than 18 years without an estimate, and shows the hint when the policy asks for it,
-     beside the pick lists of the order context.
+     The panel shows a patient older than 18 years without an estimate; the existing warnings say
+     what the patient lacks.
    - **Tests:**
-     - an adult without a weight is ready, a child with a weight and no height is ready, and a child
-       without a weight is not;
+     - an adult without a weight is set on the pages, a child with a weight and no height is set, and
+       a child without a weight is held back;
+     - a patient marked as an adult without an age misses no age;
      - the mark goes when the age drops below 16;
-     - a marked patient of 17 is written as "Man" or "Vrouw";
-     - the hint shows for an adult without a weight, and for a patient with a weight and no height,
-       and not for a patient with both.
+     - a marked patient of 17 is written as "Man" or "Vrouw".
    - `feat(client): prescribe for an adult without weight or height`.
 
 ## Left out
@@ -979,7 +979,7 @@ The work is done in one pull request per step, after the maintainer's go.
       without the per kg fields.
     - Morphine IV single dose, whose demo rule applies to all ages with per kg limits, is not offered.
       After entering a weight it is.
-    - The hint says that the per kg rules need a weight.
+    - The warning says that the weight and the height are unknown.
     - Pick morphine IV with a weight, then clear the weight: the refusal says that the rule needs a
       weight.
     - The search of a recalculation finishes.

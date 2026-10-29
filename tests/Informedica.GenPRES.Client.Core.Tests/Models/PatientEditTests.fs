@@ -476,3 +476,45 @@ let estimateTests =
                     (Some NeonatalEstimateFixtures.premature, Some 32000<gram>)
             }
         ]
+
+
+[<Tests>]
+let markTests =
+    testList
+        "the mark as an adult"
+        [
+            test "the mark is set, and goes when the age drops below 16 years" {
+                let marked = PatientEdit.setYear (Some "17") None |> PatientEdit.setMarkedAdult true
+
+                marked |> Option.map _.MarkedAdult |> Expect.equal "marked" (Some true)
+
+                marked
+                |> PatientEdit.setYear (Some "15")
+                |> Option.map _.MarkedAdult
+                |> Expect.equal "cleared below 16" (Some false)
+
+                marked
+                |> PatientEdit.setYear (Some "16")
+                |> Option.map _.MarkedAdult
+                |> Expect.equal "kept at 16" (Some true)
+            }
+
+            test "the mark is not set below 16 years, and is set without an age" {
+                PatientEdit.setYear (Some "15") None
+                |> PatientEdit.setMarkedAdult true
+                |> Option.map _.MarkedAdult
+                |> Expect.equal "not set" (Some false)
+
+                PatientEdit.setMarkedAdult true None
+                |> Option.map _.MarkedAdult
+                |> Expect.equal "set" (Some true)
+            }
+
+            test "setting the mark keeps what was measured and blanks the estimates, as every setter does" {
+                fullPatient
+                |> Some
+                |> PatientEdit.setMarkedAdult false
+                |> Option.map (fun p -> p.Weight.Measured, p.Weight.Estimated, p.MarkedAdult)
+                |> Expect.equal "measured kept, estimate blanked" (Some(fullPatient.Weight.Measured, None, false))
+            }
+        ]

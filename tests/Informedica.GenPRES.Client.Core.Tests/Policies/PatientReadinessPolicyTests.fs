@@ -157,6 +157,14 @@ let tests =
                             |> Expect.equal $"%A{draft |> Option.map _.Age}" (Readiness.Patient [])
                     }
 
+                    test "a patient marked as an adult without an age misses no age" {
+                        PatientEdit.setMarkedAdult true None
+                        |> readiness
+                        |> Expect.equal
+                            "the weight and the height"
+                            (Readiness.Patient [ Missing.Weight; Missing.Height ])
+                    }
+
                     test "what is missing is said in one order: age, weight, height, gestational age" {
                         infant
                         |> readiness

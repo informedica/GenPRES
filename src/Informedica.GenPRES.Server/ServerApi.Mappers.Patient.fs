@@ -40,7 +40,7 @@ module Patient =
         | Error PatientError.NoAgeOrMeasuredWeightAndHeight -> Error [| noPatient |]
         | Error PatientError.MarkedAdultBelowSixteen -> Error [| markedBelowSixteen |]
         | Ok pat ->
-            if pat |> Patient.isAdult || pat |> Patient.getWeight |> Option.isSome then
+            if pat |> Patient.selectsRules then
                 Ok pat
             else
                 Error [| noWeight |]

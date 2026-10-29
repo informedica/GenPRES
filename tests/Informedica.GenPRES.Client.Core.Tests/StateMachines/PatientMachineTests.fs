@@ -80,7 +80,7 @@ let tests =
                 |> Expect.equal "the draft as typed" (Some draft, [ PatientEffect.SetPatientData(Some answered) ])
             }
 
-            test "an answered patient without a weight or a height is held back, the pages keep theirs" {
+            test "an answered child without a weight is held back, the pages keep theirs" {
                 let unestimated = { draft with Department = Some "unestimated" }
 
                 let state, effects =
@@ -94,6 +94,33 @@ let tests =
                 |> Expect.equal
                     "the answer on the panel, the earlier patient kept, nothing set"
                     (Some unestimated, Some answered, false, [])
+            }
+
+            test "an answered adult without a weight or a height is set on the pages" {
+                let adult =
+                    { below with
+                        Age = Some { Informedica.GenPRES.Shared.Models.Patient.Age.ageZero with Age.Years = 40<year> }
+                    }
+
+                let state, effects =
+                    transition (PatientMsg.Changed(Some adult, renewed, "r-1")) none
+                    |> fst
+                    |> transition (PatientMsg.Answered("r-1", Ok adult))
+
+                (PatientState.answered state, effects)
+                |> Expect.equal "set" (Some adult, [ PatientEffect.SetPatientData(Some adult) ])
+            }
+
+            test "an answered child with a weight and no height is set on the pages" {
+                let child = { draft with Weight = { draft.Weight with Measured = Some 30000<gram> } }
+
+                let state, effects =
+                    transition (PatientMsg.Changed(Some child, renewed, "r-1")) none
+                    |> fst
+                    |> transition (PatientMsg.Answered("r-1", Ok child))
+
+                (PatientState.answered state, effects)
+                |> Expect.equal "set" (Some child, [ PatientEffect.SetPatientData(Some child) ])
             }
 
             test "an answer to an earlier change is dropped" {

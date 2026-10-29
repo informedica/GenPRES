@@ -70,16 +70,26 @@ module PatientEdit =
         p |> Option.defaultValue empty |> withEstimates None None |> change |> Some
 
 
+    /// The patient with the mark as an adult cleared when the age is below 16 years, the youngest
+    /// age at which a patient may be marked; a patient without an age keeps the mark.
+    let clearMarkBelowSixteen (p: Patient) =
+        if p |> getAgeInDays |> Option.exists (fun d -> d < markableAgeInDays) then
+            { p with MarkedAdult = false }
+        else
+            p
+
+
     /// One part of the age written from the field. A draft with no age gets one when the
     /// part is given and stays without one when it is not; a part cleared while the age
-    /// exists reads as zero, so the age is never lost by emptying one field of it.
+    /// exists reads as zero, so the age is never lost by emptying one field of it. The mark as
+    /// an adult goes when the age drops below 16 years.
     let editAgePart (write: int -> Age -> Age) (s: string option) (p: Patient) =
         match p.Age, s |> Option.bind tryParse with
         | None, None -> p
         | age, v ->
             let age = age |> Option.defaultValue Age.ageZero |> write (v |> Option.defaultValue 0)
 
-            { p with Age = Some age }
+            { p with Age = Some age } |> clearMarkBelowSixteen
 
 
     let setYear s (p: Patient option) =
@@ -96,6 +106,11 @@ module PatientEdit =
 
     let setDay s (p: Patient option) =
         p |> edit (editAgePart (fun v a -> { a with Days = v |> Measures.toDay }) s)
+
+
+    /// The mark as an adult set or cleared; below 16 years the mark is not set.
+    let setMarkedAdult marked (p: Patient option) =
+        p |> edit (fun p -> { p with MarkedAdult = marked } |> clearMarkBelowSixteen)
 
 
     /// One part of the gestational age written from the field, as the age parts are, with
