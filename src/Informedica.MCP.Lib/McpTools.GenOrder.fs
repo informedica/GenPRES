@@ -322,9 +322,10 @@ module GenOrderTools =
 
 
     /// The patient of the input, checked: an age or both measures (see requireAgeOrMeasures), a department
-    /// the rules know if one is given (see checkDepartment), and, after the estimate, both a weight and a
-    /// height. The rules would silently answer nothing for less, so the caller is told which measure to give.
-    /// Returns the input with the department as the rules spell it, next to the patient built from it.
+    /// the rules know if one is given (see checkDepartment), and, after the estimate, a patient the rules
+    /// are looked up for: an adult, or a child with a weight. The rules would silently answer nothing for a
+    /// child without a weight, so the caller is told to give it. Returns the input with the department as
+    /// the rules spell it, next to the patient built from it.
     let validPatient
         (provider: IResourceProvider)
         (input: CreateOrderContextInput)
@@ -336,19 +337,12 @@ module GenOrderTools =
         |> Result.bind (fun input ->
             let patient = buildPatient provider input
 
-            // the estimate can leave a measure blank, the tables not loaded or without a row for
-            // the age and sex; the rules would then answer nothing, so the caller is told which
-            match patient.Weight, patient.Height with
-            | Some _, Some _ -> Ok(input, patient)
-            | w, h ->
-                [
-                    if w.IsNone then
-                        "WeightKg"
-                    if h.IsNone then
-                        "HeightCm"
-                ]
-                |> noEstimate
-                |> Error
+            // the estimate can leave the weight blank, the tables not loaded or without a row for
+            // the age and sex; for a child the rules would then answer nothing, so the caller is told
+            if patient |> OrderContext.selectsRules then
+                Ok(input, patient)
+            else
+                [ "WeightKg" ] |> noEstimate |> Error
         )
 
 

@@ -587,16 +587,30 @@ module Tests =
                         (pat.Weight, pat.Height) |> Expect.equal "none" (None, None)
                     }
 
-                    test "an age alone while the tables are not loaded is refused, naming both measures" {
+                    test "a child's age alone while the tables are not loaded is refused, naming the weight" {
                         ageAlone
                         |> evaluateOrderContext noTables
-                        |> Expect.equal "refused before the rules" (Error(noEstimate [ "WeightKg"; "HeightCm" ]))
+                        |> Expect.equal "refused before the rules" (Error(noEstimate [ "WeightKg" ]))
                     }
 
-                    test "a weight given while the tables are not loaded is refused, naming the height alone" {
+                    test "a child with a weight and no height while the tables are not loaded passes the check" {
                         { ageAlone with WeightKg = Some 14.0 }
-                        |> evaluateOrderContext noTables
-                        |> Expect.equal "the height" (Error(noEstimate [ "HeightCm" ]))
+                        |> validPatient noTables
+                        |> Result.isOk
+                        |> Expect.isTrue "passes"
+                    }
+
+                    test "an adult without a weight and a height while the tables are not loaded passes the check" {
+                        { ageAlone with AgeMonths = Some(40.0 * 12.0) }
+                        |> validPatient noTables
+                        |> Result.isOk
+                        |> Expect.isTrue "passes"
+                    }
+
+                    test "an adult of 40 gets no estimate" {
+                        let pat = { ageAlone with AgeMonths = Some(40.0 * 12.0) } |> buildPatient tablesOnly
+
+                        (pat.Weight, pat.Height) |> Expect.equal "none" (None, None)
                     }
 
                     test "the tables loaded without a row for the sex are refused the same way" {

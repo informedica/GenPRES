@@ -23,21 +23,27 @@ module Patient =
     /// A draft that is no patient: it has no age, and no measured weight and height.
     let noPatient = "Geen patiënt: een leeftijd, of een gemeten gewicht en lengte, is nodig"
 
-    /// A patient without a weight or a height, measured or estimated. The server estimates a
-    /// reading from the platform and the MCP host's values, and the client estimates its own
-    /// drafts; one that arrives here with neither is refused with the two named, since the
-    /// rules would answer nothing and say nothing.
-    let noWeightAndHeight = "Gewicht en lengte onbekend: voer ze in"
+    /// A child without a weight, measured or estimated. The server estimates a reading from the
+    /// platform and the MCP host's values, and the client estimates its own drafts; a child that
+    /// arrives here without a weight is refused with the weight named, since the rules are not
+    /// looked up for it. An adult needs no weight, and no patient needs a height.
+    let noWeight = "Gewicht onbekend: voer het in"
 
 
-    /// The patient the data is, or why it is none.
+    /// A patient marked as an adult who is younger than 16 years.
+    let markedBelowSixteen = "Onder 16 jaar kan een patiënt niet als volwassene gelden"
+
+
+    /// The patient the data is, or why it is none: an adult, or a child with a weight.
     let patient (dto: Patient) : Result<Patient, string[]> =
         match dto |> Patient.validate with
         | Error PatientError.NoAgeOrMeasuredWeightAndHeight -> Error [| noPatient |]
+        | Error PatientError.MarkedAdultBelowSixteen -> Error [| markedBelowSixteen |]
         | Ok pat ->
-            match dto |> Patient.getWeight, dto |> Patient.getHeight with
-            | Some _, Some _ -> Ok pat
-            | _ -> Error [| noWeightAndHeight |]
+            if pat |> Patient.isAdult || pat |> Patient.getWeight |> Option.isSome then
+                Ok pat
+            else
+                Error [| noWeight |]
 
 
     /// Data that may be absent: none is no patient and no refusal.
@@ -99,7 +105,7 @@ module Patient =
     /// Total: the contract model's patient as the domain's Dto, nothing dropped. The age in
     /// days as the contract model computes it, the weight and height the measured ones when
     /// there are any and the estimates otherwise, with the flags saying which; the department
-    /// as given, an empty one staying empty.
+    /// as given, an empty one staying empty; the mark as an adult as given.
     let ofModel (model: Informedica.GenPRES.Shared.Types.Patient) : LibPatient.Dto.Dto =
         {
             Location = model.Location
@@ -114,7 +120,7 @@ module Patient =
             HeightCm = model |> Patient.getHeight |> Option.map (int >> BigRational.fromInt)
             WeightMeasured = model.Weight.Measured.IsSome
             HeightMeasured = model.Height.Measured.IsSome
-            MarkedAdult = false
+            MarkedAdult = model.MarkedAdult
             GestAgeDays = model |> Patient.getGestAgeInDays |> Option.map BigRational.fromInt
             PMAgeDays = model |> Patient.getPostConceptionalAgeInDays |> Option.map BigRational.fromInt
             Access = model.Access |> List.map (access >> LibAccess.toString) |> List.toArray
@@ -178,6 +184,7 @@ module Patient =
             RenalFunction = dto.RenalFunction |> Option.bind LibRenal.tryFromString |> Option.map renalBack
             Location = dto.Location
             Department = dto.Department
+            MarkedAdult = dto.MarkedAdult
         }
 
 
@@ -190,21 +197,22 @@ module Patient =
         | Lib.PatientError.UnknownGender s -> $"Onbekend geslacht: %s{s}"
         | Lib.PatientError.UnknownAccess s -> $"Onbekende toegang: %s{s}"
         | Lib.PatientError.UnknownRenalFunction s -> $"Onbekende nierfunctie: %s{s}"
-        | Lib.PatientError.MarkedAdultBelowSixteen -> "Onder 16 jaar kan een patiënt niet als volwassene gelden"
+        | Lib.PatientError.MarkedAdultBelowSixteen -> markedBelowSixteen
 
 
     /// The patient the contract model's data is, or why it is none: the Dto's reasons in the
-    /// server's words, and the server's own gate that the rules need a weight and a height,
-    /// measured or estimated.
+    /// server's words, and the server's own gate that the rules are looked up for an adult, and
+    /// for a child with a weight, measured or estimated.
     let parse (model: Informedica.GenPRES.Shared.Types.Patient) : Result<Lib.Patient, string[]> =
         model
         |> ofModel
         |> LibPatient.Dto.fromDto
         |> Result.mapError (List.map words >> List.toArray)
         |> Result.bind (fun pat ->
-            match pat.Weight, pat.Height with
-            | Some _, Some _ -> Ok pat
-            | _ -> Error [| noWeightAndHeight |]
+            if pat |> Informedica.GenOrder.Lib.OrderContext.selectsRules then
+                Ok pat
+            else
+                Error [| noWeight |]
         )
 
 
@@ -222,9 +230,9 @@ module Patient =
         |> Result.defaultValue pat
 
 
-    /// The EHR port with every projection estimated: the inbound boundary, so no reading with
-    /// an age alone reaches the rules without a weight and a height. Unestimated while the
-    /// tables are not loaded.
+    /// The EHR port with every projection estimated: the inbound boundary, so no child's reading
+    /// with an age alone reaches the rules without a weight. A reading of a patient older than
+    /// 18 years is left as read. Unestimated while the tables are not loaded.
     let estimating (nv: unit -> NormalValues option) (port: PatientDataPort) : PatientDataPort =
         { port with
             patient =
@@ -276,8 +284,9 @@ module Patient =
     /// The draft with the estimates it lacks filled in from the normal values, per measure: a
     /// weight or a height that is neither measured nor estimated gets the estimate; a measured
     /// value and an estimate already there are kept, so that the calculation uses the estimate
-    /// the panel shows. The normal values are asked only when a measure is missing; without
-    /// them the draft stays as it is, and the gate refuses it.
+    /// the panel shows. A patient older than 18 years gets no estimate. The normal values are
+    /// asked only when a measure is missing; without them the draft stays as it is, and the gate
+    /// refuses a child without a weight.
     let estimate (normalValues: unit -> NormalValues option) (draft: Patient) : Patient =
         let lacks (measured: 'a option) (estimated: 'a option) = measured.IsNone && estimated.IsNone
         let lacksWeight = lacks draft.Weight.Measured draft.Weight.Estimated

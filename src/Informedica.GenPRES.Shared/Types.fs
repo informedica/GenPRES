@@ -90,6 +90,9 @@ module Types =
             RenalFunction: RenalFunction option
             Location: string option
             Department: string option
+            /// Whether the clinician marks the patient as an adult: from 16 years, or without an
+            /// age, the patient is then matched to the rules for adults.
+            MarkedAdult: bool
         }
 
 

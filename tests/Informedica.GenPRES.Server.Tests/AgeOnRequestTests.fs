@@ -534,7 +534,7 @@ let tests =
                         let pat = ageOnly 10 |> Patient.estimate (fun () -> None)
 
                         (pat = ageOnly 10, pat |> Patient.patient)
-                        |> Expect.equal "unchanged, refused" (true, Error [| Patient.noWeightAndHeight |])
+                        |> Expect.equal "unchanged, refused" (true, Error [| Patient.noWeight |])
                     }
 
                     test "empty tables leave the estimate out and the gate refuses" {
@@ -549,7 +549,7 @@ let tests =
                         ageOnly 10
                         |> Patient.estimate (fun () -> Some empty)
                         |> Patient.patient
-                        |> Expect.equal "refused" (Error [| Patient.noWeightAndHeight |])
+                        |> Expect.equal "refused" (Error [| Patient.noWeight |])
                     }
 
                     test "an unknown gender over tables with rows for one sex only is refused" {
@@ -562,7 +562,7 @@ let tests =
                         ageOnly 10
                         |> Patient.estimate (fun () -> Some oneSex)
                         |> Patient.patient
-                        |> Expect.equal "refused" (Error [| Patient.noWeightAndHeight |])
+                        |> Expect.equal "refused" (Error [| Patient.noWeight |])
                     }
 
                     test "the patient change estimates at the Session's age, not the client's" {
@@ -633,7 +633,7 @@ let tests =
                         { Informedica.GenPRES.Shared.Models.OrderContext.empty with Patient = resumedAfterClearing () }
                         |> evaluatedWith loaded
                         |> Result.mapError List.ofArray
-                        |> Expect.equal "refused" (Error [ Patient.noWeightAndHeight ])
+                        |> Expect.equal "refused" (Error [ Patient.noWeight ])
                     }
 
                     test "signing takes no estimate: the plan is signed as sent, whatever the normal values" {

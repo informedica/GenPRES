@@ -109,6 +109,9 @@ module PatientFixtures =
 
     let ten = { Patient.Age.ageZero with Age.Years = 10<year> }
 
+    /// The age of a number of days, split as the contract model splits it.
+    let days n = Patient.Age.fromDays n |> Some
+
     let measured (w: int<gram>) (h: int<cm>) (dto: Patient) =
         { dto with
             Patient.Weight.Measured = Some w
@@ -169,6 +172,56 @@ let patientTests =
                     |> measured 32000<gram> 140<cm>
 
                 dto |> Patient.validate |> Expect.equal "the same draft" (Ok dto)
+            }
+
+            test "a patient marked as an adult without an age is a patient" {
+                { Patient.empty with MarkedAdult = true }
+                |> Patient.validate
+                |> Result.isOk
+                |> Expect.isTrue "a patient"
+            }
+
+            test "the mark at 16 years less one day is refused, at exactly 16 years accepted" {
+                { Patient.empty with
+                    Age = days 5839
+                    MarkedAdult = true
+                }
+                |> Patient.validate
+                |> Expect.equal "refused" (Error PatientError.MarkedAdultBelowSixteen)
+
+                { Patient.empty with
+                    Age = days (16 * 365)
+                    MarkedAdult = true
+                }
+                |> Patient.validate
+                |> Result.isOk
+                |> Expect.isTrue "accepted"
+            }
+        ]
+
+
+[<Tests>]
+let isAdultTests =
+    testList
+        "Patient.isAdult"
+        [
+            test "an adult from 18 years, a marked patient from 16 years, and a marked patient without an age" {
+                [
+                    days (18 * 365 - 1), false
+                    days (18 * 365), false
+                    days (16 * 365 - 1), true
+                    days (16 * 365), true
+                    None, true
+                    None, false
+                ]
+                |> List.map (fun (age, marked) ->
+                    { Patient.empty with
+                        Age = age
+                        MarkedAdult = marked
+                    }
+                    |> Patient.isAdult
+                )
+                |> Expect.equal "the adults" [ false; true; false; true; true; false ]
             }
         ]
 
@@ -233,6 +286,43 @@ let estimateTests =
                 |> Expect.equal "the estimate" (Some 32000<gram>, Some 140<cm>)
             }
 
+            test "a patient older than 18 years gets no estimate; at exactly 18 years one does" {
+                let estimate age =
+                    { Patient.empty with
+                        Age = days age
+                        Gender = Male
+                    }
+                    |> estimated
+                    |> fun dto -> dto.Weight.Estimated, dto.Height.Estimated
+
+                [ 18 * 365 + 1; 40 * 365 ]
+                |> List.map estimate
+                |> Expect.equal "none" [ None, None; None, None ]
+
+                18 * 365 |> estimate |> fst |> Expect.isSome "at 18"
+            }
+
+            test "a marked patient of 17 gets an estimate" {
+                { Patient.empty with
+                    Age = days (17 * 365)
+                    Gender = Male
+                    MarkedAdult = true
+                }
+                |> estimated
+                |> _.Weight.Estimated
+                |> Expect.isSome "an estimate"
+            }
+
+            test "an estimate already on a patient older than 18 years is kept" {
+                let dto =
+                    { Patient.empty with
+                        Age = days (40 * 365)
+                        Gender = Male
+                    }
+                    |> Patient.withEstimates (Some(60000<gram>, 70000<gram>, 80000<gram>)) None
+
+                dto |> estimated |> Expect.equal "as it was" dto
+            }
         ]
 
 
