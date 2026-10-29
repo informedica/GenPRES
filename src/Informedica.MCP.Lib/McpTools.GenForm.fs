@@ -131,7 +131,7 @@ module GenFormTools =
             |> Array.tryHead
             |> Option.map (fun rl ->
                 match rl.DoseReduction with
-                | DoseReduction.Absolute -> "absolute"
+                | DoseReduction.Replace -> "replace"
                 | DoseReduction.Relative -> "relative"
                 | DoseReduction.NoReduction -> "none"
             )

@@ -633,7 +633,9 @@ module Types =
         }
 
     and DoseReduction =
-        | Absolute
+        /// The renal values replace the dose limits of the dose rule.
+        | Replace
+        /// The renal values are factors that scale the dose limits of the dose rule.
         | Relative
         | NoReduction
 
@@ -1141,8 +1143,9 @@ module Types =
                 IntervalUnit: string
                 Substance: string
                 /// sheet column "DoseRed": how to read the dose values below -
-                /// "rel" for a relative (multiplier) adjustment, "abs" for an
-                /// absolute one
+                /// "rel" for a relative (multiplier) adjustment, "repl" for values
+                /// that replace the dose limits; the old value "abs" is still read
+                /// as "repl"
                 DoseRed: string
                 DoseUnit: string
                 AdjustUnit: string
