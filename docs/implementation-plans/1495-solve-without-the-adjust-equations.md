@@ -31,8 +31,9 @@ The GenFORM changes land first, and the gates that refuse a patient without a we
 last. At no step can an adult be prescribed a per kg dose without a weight, or a per m2 dose without a
 BSA, which takes a weight and a height.
 
-The plan closes #1495; step 2's pull request closed #1535. It refers to #1453, #1463, #1545 and #1546. Line
-numbers are from `master` at `34c4eb7a`. Steps 1 and 2 are done: #1538 and #1541.
+The plan closes #1495; step 2's pull request closed #1535, and step 3d closes #1550. The plan refers
+to #1453, #1463, #1545 and #1546. Line numbers are from `master` at `34c4eb7a`. Steps 1 and 2 are
+done: #1538 and #1541.
 
 ## Problem description
 
@@ -205,7 +206,7 @@ the sheet export of 2026-10-27.
 | A per kg command on an order without per kg limits | Refused with a refusal of its own, which says that the order has no per kg dose. The callers of the older `OrderContext.evaluate` get the context as sent, as they do for "not solved". |
 | A picked rule that cannot be prescribed | A pick the user chose stays when it is no longer offered, so a picked rule can fail the check: an adult with a weight picks morphine IV, then the weight is cleared. MCP and a stored context can set such a pick as well. The order context refuses it with a refusal of its own, which says that the rule needs a weight, or a weight and a height. Today's refusal would answer "no products", which is the wrong reason. |
 | Telling the user what a measurement adds | An adult without a weight never sees a per kg rule in the pick lists. The client says that the per kg rules need a weight and the per m2 rules a weight and a height, whenever the patient lacks one of them, so a missing medicine is explained. |
-| The order of the steps | GenFORM first, then GenORDER, then the gates. Step 2, the renal fix, stands on its own, and so does step 3a, which fixes calculations that are wrong on `master` today; its renal changes land as step 3c, a second pull request from the same script. The rule check comes in two steps: the check itself in GenFORM (step 3b), then its use in the order context (step 4). |
+| The order of the steps | GenFORM first, then GenORDER, then the gates. Step 2, the renal fix, stands on its own, and so does step 3a, which fixes calculations that are wrong on `master` today; its renal changes land as step 3c, a second pull request from the same script. The rule check comes in two steps: the check itself in GenFORM (step 3b), then its use in the order context (step 4). The rename of the absolute renal reduction to Replace (#1550) is step 3d, after step 3b, which changes the same renal code, and before step 4. |
 | The empty patient | The dose rule filter skips the whole patient check for the empty patient, which makes a formulary lookup return every rule. The empty patient never reaches a prescription: it has no age, no weight and no adult mark, so the gate in `OrderContext.getRules` refuses it. A test shows this; no extra code. |
 
 ## Approaches considered
@@ -678,6 +679,44 @@ The work is done in one pull request per step, after the maintainer's go.
      that an absolute per kg renal rule makes need a weight, and says that the component pick now
      applies without a weight and a height.
    - `feat(genform): tell whether a rule can be prescribed`.
+
+3d. **GenFORM: the absolute renal reduction is renamed Replace (#1550).**
+   Script: `src/Informedica.GenFORM.Lib/Scripts/Issue1550ReplaceReduction.fsx`. "Absolute" also names
+   the limits of a dose rule that are not per kg or per m2, so "an absolute renal rule with a per kg
+   bound" reads as a contradiction. Under this reduction the renal values replace the dose limits, in
+   contrast with a relative reduction, where they scale the dose limits. A naming change only; no
+   calculation changes. The step comes after step 3b, which changes `RenalRule.absoluteDose`, and
+   before step 4; steps 4 to 9 do not touch the renal code.
+   - **The case.** `DoseReduction.Absolute` (`Types.fs:636`) becomes `DoseReduction.Replace`, at its
+     uses in `RenalRule.adjustDoseLimit` and in the load warnings (`RenalRule.fs:551`, `:641`), and in
+     the tests.
+   - **The sheet value.** A value `REPL = "repl"` beside `REL` and `ABS` (`RenalRule.fs:19`).
+     `DoseReduction.fromString` reads both `repl` and `abs` as `Replace`, so the live sheet keeps
+     working until it is updated; `toString` gives `repl`. One function decides whether a sheet value
+     is the replacing reduction, and both `fromString` and `unitRefusals` (`RenalRule.fs:309`) use it:
+     today `unitRefusals` compares the text with `abs`, so a sheet that moves to `repl` would skip the
+     check that refuses a renal rule mixing per kg and per m2.
+   - **The names and the text.** `RenalRule.absoluteDose` becomes `RenalRule.replaceDose`; the
+     comments, messages and test names that say "absolute renal rule" or "absolute reduction" say
+     "replacing renal rule" or "replacing reduction". The `///` comment on `RenalRuleData.DoseRed`
+     (`Types.fs:1143`) names `repl`, and `abs` as the old value that is still read. The column-contract
+     test checks column names only and stays.
+   - **MCP.** The renal rule output (`McpTools.GenForm.fs:134`) gives `replace` in place of `absolute`.
+   - **This plan.** The text of steps 2 to 3b and the decisions says "replacing reduction" where it
+     means the renal reduction; "absolute" keeps its meaning of a limit that is not per kg or per m2.
+   - **Order of the rollout.** The live sheet moves to `repl` only after the release with this step
+     runs. A server without it reads `repl` as no reduction, with a warning only, and would give the
+     full dose for a reduced kidney function.
+   - **Tests:**
+     - `fromString` reads `repl`, `abs`, `REPL` and `Abs` as `Replace`, and `rel` as `Relative`;
+     - `toString` of `Replace` is `repl`, and `fromString` of it gives `Replace` back;
+     - a renal rule given as rows with `repl` that mixes per kg and per m2 is refused at load, as the
+       same rows with `abs` are;
+     - the renal reduction tests of step 2 pass with the new case name, with unchanged results.
+
+     The pull request says the sheet can be updated once the release runs, and that `abs` is to be
+     removed in a later change.
+   - `refactor(genform): rename the absolute renal reduction to Replace`, with `Closes #1550`.
 
 4. **GenORDER: offer only the rules that can be prescribed.**
    Script: `src/Informedica.GenORDER.Lib/Scripts/Issue1495Prescribable.fsx`, on the GenFORM DLL of
