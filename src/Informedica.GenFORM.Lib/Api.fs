@@ -130,14 +130,3 @@ module Api =
 
         Warning
             $"No prescription rules for generic %s{show filter.Generic}, route %s{show filter.Route}, form %s{show filter.Form}"
-
-
-    /// The filter options of the prescription rules that match the filter; a warning is logged when none match.
-    let getFilterOptions logger provider filter =
-        filterPrescriptionRules provider filter
-        |> Result.map (fun prs ->
-            if prs |> Array.isEmpty then
-                filter |> noRulesWarning |> Logging.logWarning logger
-
-            prs |> PrescriptionRule.filterOptions
-        )

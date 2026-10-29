@@ -972,6 +972,29 @@ module RuleFixtures =
     let rules (rows: DoseRuleData[]) =
         DoseRuleLoader.fromData routeMapping [||] [| suppository |] rows |> fst
 
+    /// A second row beside the first: the same suppository, for pain, at most 20 mg/kg, so its rule
+    /// needs a weight. The first row, for a fever at most 100 mg, needs none.
+    let perKgRow department =
+        let r = row department
+
+        { r with
+            Indication = "pijn"
+            ScheduleData =
+                { r.ScheduleData with
+                    AdjustUnit = "kg"
+                    DoseLimitData =
+                        { r.ScheduleData.DoseLimitData with
+                            MaxQty = None
+                            MaxQtyAdj = Some(BigRational.FromInt 20)
+                        }
+                }
+        }
+
+    /// The rules of both rows for the default department.
+    let feverAndPain () =
+        let dep = Resources.Departments.defaultDepartment
+        rules [| row dep; perKgRow dep |]
+
 
 /// A provider holding the dose rules given and the route mapping they are built with, naming
 /// the default department.
@@ -1189,6 +1212,152 @@ let rulesTests =
 
                 ctx.Scenarios |> Expect.isEmpty "afresh: no scenarios"
                 ctx.Argumentation |> Expect.equal "the text kept" held.Argumentation
+            }
+        ]
+
+
+/// The order context offers only the rules that can be prescribed for the patient: a rule that
+/// needs a weight is not offered without one.
+let prescribableTests =
+    let logger = OrderLogging.noOp
+
+    let provider () =
+        RulesOf(RuleFixtures.feverAndPain ()) :> Resources.IResourceProvider
+
+    let patient years weight height =
+        { Patient.patient with
+            Age = Some(ValueUnit.singleWithUnit Units.Time.day (years * 365N))
+            Weight = weight |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram)
+            Height = height |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
+        }
+
+    let noWeight = patient 40N None None
+    let weightOnly = patient 40N (Some 70N) None
+
+    let measured =
+        [ 1N / 10N, 3N, 50N; 6N, 20N, 115N; 30N, 70N, 175N ]
+        |> List.map (fun (a, w, h) -> patient a (Some w) (Some h))
+
+    // the warnings among the events a logger captured
+    let capture () =
+        let events = ResizeArray<Informedica.Logging.Lib.Event>()
+        Informedica.Logging.Lib.Logging.create events.Add, events
+
+    let warnings (events: ResizeArray<Informedica.Logging.Lib.Event>) =
+        events
+        |> Seq.filter (fun e -> e.Level = Informedica.Logging.Lib.Level.Warning)
+        |> Seq.length
+
+    // the options of the pick lists of a context whose rules for the patient all fail the check
+    let unprescribableOptions provider (ctx: OrderContext) =
+        let pat = ctx.Patient
+
+        let failing field options setPick =
+            options
+            |> Array.filter (fun o ->
+                // the lookup matches the patient as create does, through the default department
+                { Filter.doseFilter with Patient = pat }
+                |> setPick o
+                |> Api.filterPrescriptionRules provider
+                |> Result.defaultValue [||]
+                |> Array.exists (PrescriptionRule.isPrescribable pat)
+                |> not
+            )
+            |> Array.map (fun o -> field, $"%A{o}")
+
+        [|
+            yield! failing "indication" ctx.Filter.Indications (fun o f -> { f with Indication = Some o })
+            yield! failing "generic" ctx.Filter.Generics (fun o f -> { f with Generic = Some o })
+            yield! failing "route" ctx.Filter.Routes (fun o f -> { f with Route = Some o })
+            yield! failing "form" ctx.Filter.Forms (fun o f -> { f with Form = Some o })
+            yield! failing "dose type" ctx.Filter.DoseTypes (fun o f -> { f with DoseType = Some o })
+        |]
+
+    testList
+        "the order context offers only the rules that can be prescribed"
+        [
+            test "the fixture builds an absolute and a per kg rule" {
+                RuleFixtures.feverAndPain ()
+                |> Array.map (fun dr -> dr.Indication, dr.AdjustUnit)
+                |> Array.sort
+                |> Expect.equal "fever without, pain with kg" [| "koorts", None; "pijn", Some Units.Weight.kiloGram |]
+            }
+
+            test "without a weight only the fever is offered, with a weight both" {
+                (noWeight |> OrderContext.create logger (provider ())).Filter.Indications
+                |> Expect.equal "the fever" [| "koorts" |]
+
+                (weightOnly |> OrderContext.create logger (provider ())).Filter.Indications
+                |> Array.sort
+                |> Expect.equal "both" [| "koorts"; "pijn" |]
+            }
+
+            test "a pick list never holds an option whose rules all fail the check" {
+                let provider = provider ()
+
+                for pat in [ noWeight; weightOnly ] do
+                    pat
+                    |> OrderContext.create logger provider
+                    |> unprescribableOptions provider
+                    |> Expect.isEmpty $"none for %A{pat.Weight}"
+            }
+
+            test "with a weight and a height every rule of the patient is offered and found" {
+                let provider = provider ()
+
+                for pat in measured do
+                    let ctx = pat |> OrderContext.create logger provider
+
+                    ctx.Filter.Indications
+                    |> Array.sort
+                    |> Expect.equal "both" [| "koorts"; "pijn" |]
+
+                    for ind in ctx.Filter.Indications do
+                        let _, rules =
+                            { ctx with Filter = { ctx.Filter with Indication = Some ind } }
+                            |> OrderContext.getRules logger provider
+
+                        rules |> Result.map Array.length |> Expect.equal $"the rule of %s{ind}" (Ok 1)
+            }
+
+            test "no rule left after the check gives one warning, a rule left none" {
+                let lookup pat =
+                    let logger, events = capture ()
+
+                    let rules =
+                        { Filter.doseFilter with
+                            Patient = pat
+                            Indication = Some "pijn"
+                        }
+                        |> FilterHelpers.getPrescribableRules logger (provider ())
+                        |> Result.map Array.length
+
+                    rules, events |> warnings
+
+                noWeight |> lookup |> Expect.equal "no rule, one warning" (Ok 0, 1)
+                weightOnly |> lookup |> Expect.equal "the rule, no warning" (Ok 1, 0)
+            }
+
+            test "the pain picked for a patient with a weight and no height gives no rules" {
+                // the rule lookup needs a weight and a height; without both the context is made afresh
+                let provider = provider ()
+                let ctx = weightOnly |> OrderContext.create logger provider
+
+                let _, rules =
+                    { ctx with Filter = { ctx.Filter with Indication = Some "pijn" } }
+                    |> OrderContext.getRules logger provider
+
+                rules |> Expect.equal "no rules" (Ok [||])
+            }
+
+            test "without a weight the context is made afresh with the fever alone" {
+                let provider = provider ()
+                let ctx = weightOnly |> OrderContext.create logger provider
+
+                let ctx, rules = { ctx with Patient = noWeight } |> OrderContext.getRules logger provider
+
+                rules |> Expect.equal "no rules" (Ok [||])
+                ctx.Filter.Indications |> Expect.equal "the fever" [| "koorts" |]
             }
         ]
 

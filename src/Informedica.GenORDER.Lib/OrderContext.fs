@@ -2,6 +2,7 @@ namespace Informedica.GenOrder.Lib
 
 module FilterHelpers =
 
+    open Informedica.Logging.Lib
     open Informedica.GenForm.Lib
 
 
@@ -15,6 +16,20 @@ module FilterHelpers =
 
 
     let getPrescriptionRules logger provider = Api.getPrescriptionRules provider >> orLogErrors logger [||]
+
+
+    /// The prescription rules for the filter that can be prescribed for the filter's patient; the
+    /// warning that there are no rules is logged when none are left.
+    let getPrescribableRules logger provider filter =
+        Api.filterPrescriptionRules provider filter
+        |> Result.map (fun prs ->
+            let prs = prs |> Array.filter (PrescriptionRule.isPrescribable filter.Patient)
+
+            if prs |> Array.isEmpty then
+                filter |> Api.noRulesWarning |> Logging.logWarning logger
+
+            prs
+        )
 
 
 module OrderScenario =
@@ -622,12 +637,17 @@ module OrderContext =
         }
 
 
-    /// The context afresh for a patient: the pick lists of the rules for the patient, matched
-    /// as every rule lookup matches it, so they hold what the evaluation offers.
+    /// The context afresh for a patient: the pick lists of the rules for the patient that can be
+    /// prescribed for the patient, matched as every rule lookup matches it, so they hold what the
+    /// evaluation offers.
     let create logger provider (pat: Patient) =
         let pat = { pat with Weight = pat.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram) }
 
-        let opts = pat |> getPrescriptionRules logger provider |> PrescriptionRule.filterOptions
+        let opts =
+            pat
+            |> getPrescriptionRules logger provider
+            |> Array.filter (PrescriptionRule.isPrescribable pat)
+            |> PrescriptionRule.filterOptions
 
         let filter =
             { emptyFilter with
@@ -698,11 +718,11 @@ module OrderContext =
         }
 
 
-    /// The rules for the context's selection and patient, and the context with its pick lists
-    /// narrowed to them. A weight and a height are needed; a department is not, a patient
-    /// without one being matched as a patient of the provider's default department, while the
-    /// patient itself keeps none. Without a weight and a height the context is made afresh and
-    /// there are no rules.
+    /// The rules for the context's selection and patient that can be prescribed, and the context
+    /// with its pick lists narrowed to them. A weight and a height are needed; a department is not,
+    /// a patient without one being matched as a patient of the provider's default department,
+    /// while the patient itself keeps none. Without a weight and a height the context is made
+    /// afresh and there are no rules.
     let getRules logger (provider: Resources.IResourceProvider) (ctx: OrderContext) =
 
         match ctx.Patient.Weight, ctx.Patient.Height with
@@ -717,7 +737,8 @@ module OrderContext =
 
             let opts =
                 doseFilter
-                |> Api.getFilterOptions logger provider
+                |> getPrescribableRules logger provider
+                |> Result.map PrescriptionRule.filterOptions
                 |> orLogErrors logger PrescriptionRule.emptyFilterOptions
 
             let ind = opts.Indications |> Array.someIfOne
@@ -752,7 +773,7 @@ module OrderContext =
                     Form = frm
                     DoseType = dst
                 }
-                |> Api.filterPrescriptionRules provider
+                |> getPrescribableRules logger provider
             | _ -> Ok [||]
         | _ ->
             // the context afresh, its argumentation kept: the text is the clinician's, not a
