@@ -252,6 +252,79 @@ let notSolvedTests =
         ]
 
 
+/// The eight commands that set or recalculate a dose per kg or per m2, over the first component
+/// of the order and its first item.
+let adjustedCommands (ord: Order) =
+    let c = ord.Orderable.Components |> List.head
+    let i = c.Items |> List.head |> _.Name |> Name.toString
+    let c = c.Name |> Name.toString
+
+    [
+        fun ctx -> OrderContext.SetNthOrderValue(ctx, SetNthComponentDoseQuantityAdjust(c, 0))
+        fun ctx -> OrderContext.SetNthOrderValue(ctx, SetNthItemDoseQuantityAdjust(c, i, 0))
+        fun ctx -> OrderContext.SetNthOrderValue(ctx, SetNthItemDosePerTimeAdjust(c, i, 0))
+        fun ctx -> OrderContext.SetNthOrderValue(ctx, SetNthItemDoseRateAdjust(c, i, 0))
+        fun ctx -> OrderContext.ReCalcOrderValue(ctx, Some(ReCalcComponentDoseQuantityAdjust c))
+        fun ctx -> OrderContext.ReCalcOrderValue(ctx, Some(ReCalcItemDoseQuantityAdjust(c, i)))
+        fun ctx -> OrderContext.ReCalcOrderValue(ctx, Some(ReCalcItemDosePerTimeAdjust(c, i)))
+        fun ctx -> OrderContext.ReCalcOrderValue(ctx, Some(ReCalcItemDoseRateAdjust(c, i)))
+    ]
+
+
+/// The context of a value command scenario without its per kg and per m2 limits.
+let absoluteContext med =
+    med |> Scenarios.absolute |> OrderValueCommandTests.built |> contextOf
+
+
+[<Tests>]
+let noAdjustedDoseTests =
+    testList
+        "a change of a dose per kg on an order without one"
+        [
+            for name, med in OrderValueCommandTests.scenarios do
+                test $"each per kg command is refused on %s{name} without its per kg limits" {
+                    let sent = absoluteContext med
+
+                    sent.Scenarios[0].Order
+                    |> EquationMapping.usesAdjust
+                    |> Expect.isFalse "no adjusted dose"
+
+                    [
+                        for cmd in adjustedCommands sent.Scenarios[0].Order do
+                            match cmd sent |> evaluate with
+                            | Ok(Refused(back, Refusal.NoAdjustedDose)) when OrderContext.Command.get back = sent -> ()
+                            | _ -> cmd sent |> OrderContext.Command.toString
+                    ]
+                    |> Expect.isEmpty "refused with the context as sent"
+                }
+
+                test $"the per kg commands on %s{name} with its per kg limits are not refused with NoAdjustedDose" {
+                    let sent = builtScenarios[name].Value |> contextOf
+
+                    [
+                        for cmd in adjustedCommands sent.Scenarios[0].Order do
+                            match cmd sent |> evaluate with
+                            | Ok(Refused(_, Refusal.NoAdjustedDose)) -> cmd sent |> OrderContext.Command.toString
+                            | _ -> ()
+                    ]
+                    |> Expect.isEmpty "not refused with NoAdjustedDose"
+                }
+
+            test "the message-list evaluate answers a per kg command on an absolute order with the context as sent" {
+                let sent = absoluteContext Scenarios.pcmSupp
+                let evaluate = OrderContext.evaluate start OrderLogging.noOp (OrderPlanTests.NoRules())
+
+                [
+                    for cmd in adjustedCommands sent.Scenarios[0].Order do
+                        match cmd sent |> evaluate with
+                        | Ok back when OrderContext.Command.get back = sent -> ()
+                        | _ -> cmd sent |> OrderContext.Command.toString
+                ]
+                |> Expect.isEmpty "the context as sent"
+            }
+        ]
+
+
 [<Tests>]
 let seedTests =
     let seed source ind gen rte frm dt = pcmContext |> OrderContext.seedFilter source ind gen rte frm dt

@@ -362,30 +362,6 @@ let doseCountIsFree (ord: Order) =
 let isAdjusted (name: string) = name.Contains $"_%s{EquationMapping.Literals.adj}"
 
 
-/// The medication without any per kg or per m2 limit, so its order has no adjusted constraint.
-let absolute (med: Medication) =
-    let strip =
-        Option.map (fun (dl: DoseLimit) ->
-            { dl with
-                QuantityAdjust = MinMax.empty
-                PerTimeAdjust = MinMax.empty
-                RateAdjust = MinMax.empty
-            }
-        )
-
-    { med with
-        Dose = med.Dose |> strip
-        Components =
-            med.Components
-            |> List.map (fun c ->
-                { c with
-                    Dose = c.Dose |> strip
-                    Substances = c.Substances |> List.map (fun s -> { s with Dose = s.Dose |> strip })
-                }
-            )
-    }
-
-
 /// Hydrocortison intravenous with an absolute limit of 27 to 30 mg in place of 2 mg/kg.
 let hydrocortisonAbsolute () =
     let perKg =
@@ -439,7 +415,12 @@ let adjustEquationTests =
                         if med |> Tests.TestOrder.toOrder |> EquationMapping.usesAdjust |> not then
                             $"%s{name} per kg"
 
-                        if med |> absolute |> Tests.TestOrder.toOrder |> EquationMapping.usesAdjust then
+                        if
+                            med
+                            |> Scenarios.absolute
+                            |> Tests.TestOrder.toOrder
+                            |> EquationMapping.usesAdjust
+                        then
                             $"%s{name} absolute"
                 ]
                 |> Expect.isEmpty "usesAdjust"
@@ -461,7 +442,7 @@ let adjustEquationTests =
                 [
                     for name, med in medications () do
                         let perKg = med |> Tests.TestOrder.toOrder |> equationStrings
-                        let absolute = med |> absolute |> Tests.TestOrder.toOrder |> equationStrings
+                        let absolute = med |> Scenarios.absolute |> Tests.TestOrder.toOrder |> equationStrings
 
                         if absolute <> (perKg |> List.filter (isAdjusted >> not)) then
                             name
@@ -471,7 +452,7 @@ let adjustEquationTests =
 
             test "the equations of paracetamol suppository go from 38 to 22" {
                 Scenarios.pcmSupp
-                |> absolute
+                |> Scenarios.absolute
                 |> Tests.TestOrder.toOrder
                 |> Order.equations
                 |> List.length

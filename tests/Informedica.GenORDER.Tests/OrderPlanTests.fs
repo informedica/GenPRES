@@ -990,6 +990,25 @@ module RuleFixtures =
                 }
         }
 
+    /// The row with a per kg limit beside an absolute one: 5 to 20 mg/kg and 50 to 100 mg. For a
+    /// child of 10 kg the per kg limit allows 50 to 200 mg, so the two overlap and both stay.
+    let overlapRow department =
+        let r = row department
+
+        { r with
+            ScheduleData =
+                { r.ScheduleData with
+                    AdjustUnit = "kg"
+                    DoseLimitData =
+                        { r.ScheduleData.DoseLimitData with
+                            MinQty = Some(BigRational.FromInt 50)
+                            MaxQty = Some(BigRational.FromInt 100)
+                            MinQtyAdj = Some(BigRational.FromInt 5)
+                            MaxQtyAdj = Some(BigRational.FromInt 20)
+                        }
+                }
+        }
+
     /// The rules of both rows for the default department.
     let feverAndPain () =
         let dep = Resources.Departments.defaultDepartment
@@ -1362,6 +1381,62 @@ let prescribableTests =
         ]
 
 
+/// The per kg fields and the printed order follow the order of the scenario: a scenario uses the
+/// dose per kg when an adjusted dose of its order has a limit, also beside an absolute limit.
+let useAdjustTests =
+    let child =
+        { Patient.patient with
+            Age = Some(ValueUnit.singleWithUnit Units.Time.day 365N)
+            Weight = Some(ValueUnit.singleWithUnit Units.Weight.kiloGram 10N)
+            Height = Some(ValueUnit.singleWithUnit Units.Height.centiMeter 75N)
+            Department = Some Resources.Departments.defaultDepartment
+        }
+
+    // the one scenario the row gives the child of 10 kg
+    let scenarioOf row =
+        let provider = RulesOf(RuleFixtures.rules [| row |]) :> Resources.IResourceProvider
+
+        { Filter.doseFilter with Patient = child }
+        |> Api.filterPrescriptionRules provider
+        |> Result.defaultWith (fun e -> failtest $"no rules: %A{e}")
+        |> OrderContext.Helpers.evaluateRules Scenarios.testStart OrderLogging.noOp
+        |> Array.exactlyOne
+        |> function
+            | Ok(ord, pr, _) -> OrderScenario.fromRule 0 pr ord
+            | Error _ -> failtest "not evaluated"
+
+    let prescription (sc: OrderScenario) =
+        sc.Prescription |> Array.concat |> Array.map (sprintf "%A") |> String.concat " "
+
+    let dep = Resources.Departments.defaultDepartment
+
+    testList
+        "the per kg fields and the print follow the order"
+        [
+            test "a rule whose per kg and absolute limits overlap uses the dose per kg" {
+                let sc = RuleFixtures.overlapRow dep |> scenarioOf
+
+                sc.Order
+                |> EquationMapping.usesAdjust
+                |> Expect.isTrue "the order has a per kg limit"
+                sc.UseAdjust |> Expect.isTrue "the per kg fields"
+            }
+
+            test "an absolute rule does not use the dose per kg" {
+                (RuleFixtures.row dep |> scenarioOf).UseAdjust
+                |> Expect.isFalse "no per kg fields"
+            }
+
+            test "the printed order of the overlapping rule shows the dose per kg" {
+                RuleFixtures.overlapRow dep
+                |> scenarioOf
+                |> prescription
+                // the print marks values with # and units with |, so mg||/kg is the unit of a dose per kg
+                |> Expect.stringContains "the dose per kg beside the dose" "mg||/kg"
+            }
+        ]
+
+
 /// The access device a scenario is labelled with: that of the solution rule its order was made
 /// from, paired by place with the medications of the rule.
 let scenarioAccessTests =
@@ -1490,15 +1565,44 @@ let refusalTests =
             testList
                 "the refusal"
                 [
-                    test "the three cases, read from the two rule sets" {
-                        OrderContext.refusalOf [||] [||]
+                    test "the four cases, read from the two rule sets and the missing measurement" {
+                        OrderContext.refusalOf [||] [||] false
                         |> Expect.equal "none at all" Refusal.NoDoseRules
 
-                        OrderContext.refusalOf [| 1 |] [||]
+                        OrderContext.refusalOf [| 1 |] [||] false
                         |> Expect.equal "none for the patient" Refusal.NoDoseRulesForPatient
 
-                        OrderContext.refusalOf [| 1 |] [| 1 |]
+                        OrderContext.refusalOf [| 1 |] [| 1 |] true
+                        |> Expect.equal "every rule needs a measurement" Refusal.MeasurementMissing
+
+                        OrderContext.refusalOf [| 1 |] [| 1 |] false
                         |> Expect.equal "rules for the patient, dropped for their products" Refusal.NoProducts
+                    }
+
+                    test "a measurement is missing only when every prescription rule needs one the patient lacks" {
+                        let provider = RulesOf(RuleFixtures.feverAndPain ()) :> Resources.IResourceProvider
+
+                        let noWeight =
+                            { Patient.patient with Age = Some(ValueUnit.singleWithUnit Units.Time.day (40N * 365N)) }
+
+                        // the fever rule needs no measurement, the pain rule a weight
+                        let rulesFor indication =
+                            { Filter.doseFilter with
+                                Indication = Some indication
+                                Patient = noWeight
+                            }
+                            |> Api.filterPrescriptionRules provider
+                            |> Result.defaultValue [||]
+
+                        let fever, pain = rulesFor "koorts", rulesFor "pijn"
+
+                        [
+                            pain |> OrderContext.measurementMissing noWeight
+                            Array.append fever pain |> OrderContext.measurementMissing noWeight
+                            fever |> OrderContext.measurementMissing noWeight
+                            [||] |> OrderContext.measurementMissing noWeight
+                        ]
+                        |> Expect.equal "only the pain rule alone" [ true; false; false; false ]
                     }
 
                     test "no rules for the picks is the first case" {

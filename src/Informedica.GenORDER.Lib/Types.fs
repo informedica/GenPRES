@@ -903,8 +903,9 @@ module Types =
         }
 
 
-    /// Why an evaluation is refused: the picks of the filter match no dose rule, or the order
-    /// cannot be solved with a change to it.
+    /// Why an evaluation is refused: the picks of the filter match no dose rule, the picked rule
+    /// needs a measurement the patient does not have, the order cannot be solved with a change to
+    /// it, or the change sets a dose per kg or per m2 the order does not have.
     [<RequireQualifiedAccess>]
     type Refusal =
         /// No dose rule exists for the picks at all.
@@ -914,8 +915,14 @@ module Types =
         /// Dose rules cover the picks and the patient, and none of them can be prescribed: no
         /// product, or no dose type.
         | NoProducts
+        /// Dose rules cover the picks and the patient, and each needs a weight, or a weight and a
+        /// height, the patient does not have.
+        | MeasurementMissing
         /// The order cannot be solved with the change; the order stays as it was.
         | NotSolved
+        /// The change sets or recalculates a dose per kg or per m2, and the order has none: no
+        /// adjusted dose of the order has a limit. The order stays as it was.
+        | NoAdjustedDose
 
 
     /// What an evaluation answers when it does not fail: the value evaluated, or the value as
