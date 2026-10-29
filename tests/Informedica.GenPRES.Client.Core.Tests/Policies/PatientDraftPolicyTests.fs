@@ -185,6 +185,7 @@ module PatientDraftPolicyTests =
             Msg.ToggleCVL
             Msg.TogglePVL
             Msg.ToggleET
+            Msg.UpdateMarkedAdult true
         ]
 
 
@@ -217,6 +218,23 @@ module PatientDraftPolicyTests =
                     |> update (Msg.UpdateDepartment(Some "ICK"))
                     |> Option.map _.Department
                     |> Expect.equal "ICK" (Some(Some "ICK"))
+                }
+
+                test "the mark set on a patient without an age: only the mark changes" {
+                    let edited = None |> update (Msg.UpdateMarkedAdult true)
+
+                    edited |> Option.map _.MarkedAdult |> Expect.equal "marked" (Some true)
+
+                    edited
+                    |> update (Msg.UpdateMarkedAdult false)
+                    |> Expect.equal "otherwise the blank patient" (Some Patient.empty)
+                }
+
+                test "the mark set on the ten-year-old boy is refused" {
+                    estimatedBoy
+                    |> update (Msg.UpdateMarkedAdult true)
+                    |> Option.map _.MarkedAdult
+                    |> Expect.equal "not marked" (Some false)
                 }
 
                 test "the draft cleared: no draft" { weighedBoy |> update Msg.Clear |> Expect.isNone "no draft" }
@@ -273,6 +291,26 @@ module PatientDraftPolicyTests =
 
                     (measuredWeight held, estimatedHeight held)
                     |> Expect.equal "28 kg measured, 140 cm" (Some 28000<gram>, Some 140<cm>)
+                }
+
+                test "a seventeen-year-old marked as an adult keeps the estimated weight and height" {
+                    let seventeen =
+                        None
+                        |> PatientEdit.setYear (Some "17")
+                        |> PatientEdit.setGender "male"
+                        |> appStep
+
+                    let marked = seventeen |> afterEdit (Msg.UpdateMarkedAdult true)
+
+                    marked |> Option.map _.MarkedAdult |> Expect.equal "marked" (Some true)
+
+                    estimatedWeight marked
+                    |> Expect.equal "the weight estimate stays" (estimatedWeight seventeen)
+
+                    estimatedHeight marked
+                    |> Expect.equal "the height estimate stays" (estimatedHeight seventeen)
+
+                    estimatedWeight marked |> Expect.isSome "an estimate"
                 }
 
                 test "a cleared weight stays cleared over an edit of the department" {

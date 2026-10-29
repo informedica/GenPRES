@@ -43,9 +43,9 @@ Prescribe Prescription	Prescription	Voorschrift	Ordonnance	Verschreibung	Prescri
 Prescribe Preparation	Preparation	Bereiding	Préparation	Vorbereitung	Preparación	Preparazione
 Prescribe Administration	Administration	Toediening	Administration	Verabreichung	Administración	Amministrazione
 Prescribe Age unknown	Age unknown: only dose rules without an age bound are offered	Leeftijd onbekend: alleen doseerregels zonder leeftijdsgrens worden getoond	Âge inconnu : seules les règles de dosage sans limite d'âge sont proposées	Alter unbekannt: nur Dosierregeln ohne Altersgrenze werden angeboten	Edad desconocida: solo se ofrecen reglas de dosificación sin límite de edad	Età sconosciuta: vengono proposte solo le regole di dosaggio senza limite di età
-Prescribe Weight and height unknown	Weight and height unknown: enter them, there is no estimate	Gewicht en lengte onbekend: voer ze in, er is geen schatting	Poids et taille inconnus : saisissez-les, il n'y a pas d'estimation	Gewicht und Größe unbekannt: geben Sie sie ein, es gibt keine Schätzung	Peso y talla desconocidos: introdúzcalos, no hay estimación	Peso e altezza sconosciuti: inseriscili, non c'è una stima
-Prescribe Weight unknown	Weight unknown: enter it, there is no estimate	Gewicht onbekend: voer het in, er is geen schatting	Poids inconnu : saisissez-le, il n'y a pas d'estimation	Gewicht unbekannt: geben Sie es ein, es gibt keine Schätzung	Peso desconocido: introdúzcalo, no hay estimación	Peso sconosciuto: inseriscilo, non c'è una stima
-Prescribe Height unknown	Height unknown: enter it, there is no estimate	Lengte onbekend: voer die in, er is geen schatting	Taille inconnue : saisissez-la, il n'y a pas d'estimation	Größe unbekannt: geben Sie sie ein, es gibt keine Schätzung	Talla desconocida: introdúzcala, no hay estimación	Altezza sconosciuta: inseriscila, non c'è una stima
+Prescribe Weight and height unknown	Weight and height unknown: enter them, no estimate is used	Gewicht en lengte onbekend: voer ze in, er wordt geen schatting gebruikt	Poids et taille inconnus : saisissez-les, aucune estimation n'est utilisée	Gewicht und Größe unbekannt: geben Sie sie ein, es wird keine Schätzung verwendet	Peso y talla desconocidos: introdúzcalos, no se usa ninguna estimación	Peso e altezza sconosciuti: inseriscili, non viene usata alcuna stima
+Prescribe Weight unknown	Weight unknown: enter it, no estimate is used	Gewicht onbekend: voer het in, er wordt geen schatting gebruikt	Poids inconnu : saisissez-le, aucune estimation n'est utilisée	Gewicht unbekannt: geben Sie es ein, es wird keine Schätzung verwendet	Peso desconocido: introdúzcalo, no se usa ninguna estimación	Peso sconosciuto: inseriscilo, non viene usata alcuna stima
+Prescribe Height unknown	Height unknown: enter it, no estimate is used	Lengte onbekend: voer die in, er wordt geen schatting gebruikt	Taille inconnue : saisissez-la, aucune estimation n'est utilisée	Größe unbekannt: geben Sie sie ein, es wird keine Schätzung verwendet	Talla desconocida: introdúzcala, no se usa ninguna estimación	Altezza sconosciuta: inseriscila, non viene usata alcuna stima
 Nutrition	Nutrition	Voeding	Nutrition	Ernährung	Nutrición	Nutrizione
 Order Plan	Order Plan	Order Plan	Plan de traitement	Behandlungsplan	Plan de tratamiento	Piano di trattamento
 Order	Order	Order	Ordonnance	Anweisung	Orden	Prescrizione
@@ -98,6 +98,7 @@ Patient Gender	Gender	Geslacht	Sexe	Geschlecht	Sexo	Sesso
 Patient Access	Access	Toegangen	Accès	Zugänge	Accesos	Accessi
 Patient Enteral Tube	Enteral tube	Sonde	Sonde entérale	Magensonde	Sonda enteral	Sondino enterale
 Patient Renal Function	Renal function	Nierfunctie	Fonction rénale	Nierenfunktion	Función renal	Funzione renale
+Patient Adult	Adult	Volwassene	Adulte	Erwachsener	Adulto	Adulto
 Print	Print	Print	Imprimer	Drucken	Imprimir	Stampa
 Not Configured	not configured	niet geconfigureerd	non configuré	nicht konfiguriert	no configurado	non configurato
 Nutrition Parenteral	Parenteral Nutrition	Parenterale Voeding	Nutrition parentérale	Parenterale Ernährung	Nutrición parenteral	Nutrizione parenterale
