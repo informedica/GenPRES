@@ -31,8 +31,9 @@ The GenFORM changes land first, and the gates that refuse a patient without a we
 last. At no step can an adult be prescribed a per kg dose without a weight, or a per m2 dose without a
 BSA, which takes a weight and a height.
 
-The plan closes #1495; step 2's pull request closed #1535, and step 3d closes #1550. It refers to
-#1453, #1463, #1545 and #1546. Line numbers are from `master` at `34c4eb7a`. Steps 1 and 2 are done: #1538 and #1541.
+The plan closes #1495; step 2's pull request closed #1535, and step 3d closes #1550. The plan refers
+to #1453, #1463, #1545 and #1546. Line numbers are from `master` at `34c4eb7a`. Steps 1 and 2 are
+done: #1538 and #1541.
 
 ## Problem description
 
