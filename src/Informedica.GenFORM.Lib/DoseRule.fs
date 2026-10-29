@@ -1048,6 +1048,12 @@ module DoseRule =
     let frequencies (drs: DoseRule array) = drs |> Array.map Print.printFreqs |> Array.distinct
 
 
+    /// Every dose limit of a dose rule: the limit of each component and its substance limits.
+    let allLimits (dr: DoseRule) =
+        dr.ComponentLimits
+        |> Array.collect (fun cl -> Array.append (cl.Limit |> Option.toArray) cl.SubstanceLimits)
+
+
     let useAdjust (dr: DoseRule) =
         let substUseAdj =
             dr.ComponentLimits

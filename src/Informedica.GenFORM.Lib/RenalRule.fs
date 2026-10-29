@@ -422,6 +422,11 @@ module RenalRule =
         )
 
 
+    /// The measurements the per kg and per m2 bounds of a renal limit need.
+    let limitMeasures (rl: RenalLimit) =
+        [ rl.QuantityAdjust; rl.PerTimeAdjust; rl.RateAdjust ] |> List.choose measureOf
+
+
     /// Whether two adjust units measure the same: both a weight or both a BSA.
     let sameMeasure u1 u2 =
         match u1, u2 with
@@ -438,7 +443,8 @@ module RenalRule =
     /// where the renal rule gives a bound, in either form, the renal bounds replace the dose rule's
     /// bounds in both forms. On a side where the renal rule gives no bound, the dose rule's bounds
     /// stay, each moved to a renal bound on the other side that it conflicts with, compared at the
-    /// adjust value when the two are in different forms.
+    /// adjust value when the two are in different forms. Without an adjust value no per kg or per m2
+    /// bound of the dose rule is dropped: a bound the renal rule does not give in that form stays.
     let absoluteDose adj (renal: MinMax, renalAdj: MinMax) (dose: MinMax, doseAdj: MinMax) =
         let convert (f: ValueUnit -> ValueUnit -> ValueUnit) lim =
             adj
@@ -470,10 +476,25 @@ module RenalRule =
                         mm.Max |> move (Limit.st false true) (renalBounds _.Min)
             }
 
-        if renal = MinMax.empty && renalAdj = MinMax.empty then
-            { dose with Min = None }, { doseAdj with Min = None }
-        else
-            bounds dose renal (renalBounds renal renalAdj (*)), bounds doseAdj renalAdj (renalBounds renalAdj renal (/))
+        let reduced, reducedAdj =
+            if renal = MinMax.empty && renalAdj = MinMax.empty then
+                { dose with Min = None }, { doseAdj with Min = None }
+            else
+                bounds dose renal (renalBounds renal renalAdj (*)),
+                bounds doseAdj renalAdj (renalBounds renalAdj renal (/))
+
+        let reducedAdj =
+            match adj with
+            | Some _ -> reducedAdj
+            // without the patient's weight or BSA no per kg or per m2 bound of the dose rule is dropped,
+            // so the rule still shows the measurement it needs
+            | None ->
+                {
+                    Min = reducedAdj.Min |> Option.orElse doseAdj.Min
+                    Max = reducedAdj.Max |> Option.orElse doseAdj.Max
+                }
+
+        reduced, reducedAdj
 
 
     let adjustDoseLimit (pat: Patient) (renalRule: RenalRule) (dl: DoseLimit) =
@@ -495,8 +516,7 @@ module RenalRule =
         // the adjust unit of the dose limit, or, for a dose limit without one, the unit of the
         // renal rule's per kg or per m2 bounds, which the order applies at the weight or the BSA
         let adjustUnit (rl: RenalLimit) =
-            dl.AdjustUnit
-            |> Option.orElse ([ rl.QuantityAdjust; rl.PerTimeAdjust; rl.RateAdjust ] |> List.tryPick measureOf)
+            dl.AdjustUnit |> Option.orElse (rl |> limitMeasures |> List.tryHead)
 
         // a renal per kg or per m2 range in another measurement than the dose limit's adjust unit
         // moves to the absolute form at its own measurement, and is left out without it
@@ -633,8 +653,8 @@ module RenalRule =
                                 $"the dose rule %s{dr.Generic |> Generic.genericName} %s{dr.Route} %s{dr.Indication} (%s{dr.Source |> Source.toString}, %s{dr.PatientText})"
 
                             let otherMeasure =
-                                [ rl.QuantityAdjust; rl.PerTimeAdjust; rl.RateAdjust ]
-                                |> List.choose measureOf
+                                rl
+                                |> limitMeasures
                                 |> List.exists (fun ru -> dl.AdjustUnit |> Option.exists (sameMeasure ru >> not))
 
                             if otherMeasure then

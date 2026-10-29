@@ -616,10 +616,10 @@ The work is done in one pull request per step, after the maintainer's go.
    - `fix(genform): refuse rules that mix adjust units`.
 
 3b. **GenFORM: whether a rule can be prescribed.**
-   Script: `src/Informedica.GenFORM.Lib/Scripts/Issue1495AdjustedLimits.fsx`. The first versions of
-   this script left a rule out inside the filter, through adjustments that returned an option; it is
-   rewritten for a check on the selected rule. It keeps its measurement helpers; its load check for
-   mixed rules moves to step 3a.
+   Script: `src/Informedica.GenFORM.Lib/Scripts/Issue1495Prescribable.fsx`. It replaces
+   `Issue1495AdjustedLimits.fsx`, whose first versions left a rule out inside the filter, through
+   adjustments that returned an option; the new script checks the selected rule. It keeps the
+   measurement helpers; the load check for mixed rules moved to step 3a.
    - **What a rule needs.** A dose limit needs a weight for a per kg bound and a BSA for a per m2 bound,
      read from the bounds with `RenalRule.measureOf`; a limit with an adjust unit and only absolute
      bounds needs nothing. A solution rule needs a weight for a per kg volume or quantity. A renal rule
@@ -633,14 +633,14 @@ The work is done in one pull request per step, after the maintainer's go.
    - **The applied renal rule.** In the renal step of `PrescriptionRule.filter` (`:311`), each
      prescription rule keeps only the renal rule applied to it (`RenalRules = [| rr |]`). The order
      context reads only whether there is one (`OrderContext.fs:129`).
-   - **Strict under a renal rule.** A guard in `RenalRule.absoluteDose` (`:368`) that applies only when
-     the adjust value is none, in two places:
-     - on a side the renal rule gives, the dose rule's own bound in the same form stays when the renal
-       rule gives none in that form: `renalMm.Max |> Option.orElse (if adj.IsNone then mm.Max else
-       None)`, and the same for the minimum;
-     - when the renal rule gives nothing for a dose, the minimum stays.
+   - **Strict under a renal rule.** A guard in `RenalRule.absoluteDose` that applies only when the
+     adjust value is none: no per kg or per m2 bound of the dose rule is dropped. A per kg or per m2
+     bound the renal rule does not give in that form stays, on a side the renal rule gives and when
+     the renal rule gives nothing for a dose; in that last case the per kg or per m2 minimum stays,
+     and the absolute minimum is dropped as in step 2.
 
-     With the measurement the result is unchanged, so step 2's tests stay as they are. A dose rule
+     With the measurement the result is unchanged. Step 2's test of a per kg range against an
+     absolute renal maximum without a weight now keeps the per kg maximum. A dose rule
      that needs a weight therefore still shows it after the renal step, and the check refuses it.
    - **Adjusting the limits.** `adjustDoseLimitToPatient` reads the measurement from the limit's own
      bounds and matches on `Patient.adjustValue`: none gives the limit as it is, some runs today's
