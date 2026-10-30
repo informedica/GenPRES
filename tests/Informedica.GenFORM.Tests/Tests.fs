@@ -6736,6 +6736,90 @@ module Tests =
             }
 
 
+        let mL = Units.Volume.milliLiter
+
+
+        let maxConc n =
+            { MinMax.empty with Max = n |> ValueUnit.singleWithUnit mgPerMl |> Limit.inclusive |> Some }
+
+
+        let substance name conc : Substance =
+            {
+                Name = name
+                Concentration = conc
+                MolarConcentration = None
+            }
+
+
+        // an intravenous product of the generic with the substances
+        let product generic subs : ProductComponent =
+            {
+                GPK = generic
+                ATC = ""
+                MainGroup = ""
+                SubGroup = ""
+                Generic = generic
+                TallMan = ""
+                Synonyms = [||]
+                ProductLabels = []
+                Label = generic
+                Form = "injectievloeistof"
+                Routes = [| "INTRAVENEUS" |]
+                FormQuantities = 1N |> ValueUnit.singleWithUnit mL
+                FormUnit = mL
+                RequiresReconstitution = false
+                Reconstitution = [||]
+                Divisible = None
+                Substances = subs
+                TradeProducts = []
+            }
+
+
+        // a liquid at n mg/mL
+        let liquid generic n =
+            product generic [| substance generic (n |> ValueUnit.singleWithUnit mgPerMl |> Some) |]
+
+
+        // a vial of n mg, dissolved in vol mL for the department; the product cache holds a powder per mL
+        let powder generic n vol dep =
+            { liquid generic n with
+                Form = "poeder voor injectievloeistof"
+                RequiresReconstitution = true
+                Reconstitution =
+                    [|
+                        {
+                            GPK = generic
+                            Route = "INTRAVENEUS"
+                            Location = None
+                            Department = dep
+                            DiluentVolume = vol |> ValueUnit.singleWithUnit mL
+                            ExpansionVolume = None
+                            Diluents = [||]
+                        }
+                    |]
+            }
+
+
+        // an intravenous dose rule of the generic in the form, with one component that holds the products
+        let ivDoseRule generic form products =
+            let dr = doseRule generic [||]
+
+            { dr with
+                Generic = { dr.Generic with Form = form }
+                Route = "INTRAVENEUS"
+                ComponentLimits = [| { dr.ComponentLimits[0] with Products = products } |]
+            }
+
+
+        let ivRouteMapping: RouteMapping[] =
+            [|
+                {
+                    Long = "INTRAVENEUS"
+                    Short = "iv"
+                }
+            |]
+
+
         let parenteral generic : ProductComponent =
             {
                 GPK = ""
@@ -7022,6 +7106,328 @@ module Tests =
                         ]
 
                     testList
+                        "substances without an allowed strength"
+                        [
+                            test "a limit below the only strength reports the substance" {
+                                solutionRule "zidovudine" (maxConc (5N / 2N))
+                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "zidovudine" 10N |]
+                                |> Expect.equal "zidovudine" [| "zidovudine" |]
+                            }
+
+                            test "a limit that allows one of two strengths reports nothing" {
+                                solutionRule "midazolam" (maxConc 5N)
+                                |> SolutionRule.substancesWithoutAllowedStrength
+                                    [| liquid "midazolam" 1N; liquid "midazolam" 5N |]
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "a limit below both of two strengths reports the substance" {
+                                solutionRule "teicoplanine" (maxConc 10N)
+                                |> SolutionRule.substancesWithoutAllowedStrength
+                                    [| liquid "teicoplanine" 64N; liquid "teicoplanine" 127N |]
+                                |> Expect.equal "teicoplanine" [| "teicoplanine" |]
+                            }
+
+                            test "a strength equal to an inclusive maximum is allowed" {
+                                solutionRule "tigecycline" (maxConc 1N)
+                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "tigecycline" 1N |]
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "a limit of 10 to 10 mg/mL allows 10.5 mg/mL, as an order widens it to 9 to 11" {
+                                solutionRule "voriconazol" (range mgPerMl 10N 10N)
+                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "voriconazol" (21N / 2N) |]
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "a limit of 10 to 10 mg/mL does not allow 11.5 mg/mL" {
+                                solutionRule "voriconazol" (range mgPerMl 10N 10N)
+                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "voriconazol" (23N / 2N) |]
+                                |> Expect.equal "voriconazol" [| "voriconazol" |]
+                            }
+
+                            test "a strength in grams per mL is compared in the same unit group" {
+                                let gPerMl = Units.Mass.gram |> ValueUnit.per mL
+
+                                solutionRule "tigecycline" (maxConc 1N)
+                                |> SolutionRule.substancesWithoutAllowedStrength
+                                    [|
+                                        product
+                                            "tigecycline"
+                                            [|
+                                                substance
+                                                    "tigecycline"
+                                                    ((1N / 100N) |> ValueUnit.singleWithUnit gPerMl |> Some)
+                                            |]
+                                    |]
+                                |> Expect.equal "10 mg/mL is above 1 mg/mL" [| "tigecycline" |]
+                            }
+
+                            test "a strength per piece is not compared, so nothing is reported" {
+                                let mgPerVial = mg |> ValueUnit.per (Units.General.general "flacon")
+
+                                solutionRule "teicoplanine" (maxConc 10N)
+                                |> SolutionRule.substancesWithoutAllowedStrength
+                                    [|
+                                        product
+                                            "teicoplanine"
+                                            [|
+                                                substance
+                                                    "teicoplanine"
+                                                    (400N |> ValueUnit.singleWithUnit mgPerVial |> Some)
+                                            |]
+                                    |]
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "a product without the substance reports nothing" {
+                                solutionRule "zidovudine" (maxConc (5N / 2N))
+                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "esmolol" 10N |]
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "no products report nothing" {
+                                solutionRule "zidovudine" (maxConc (5N / 2N))
+                                |> SolutionRule.substancesWithoutAllowedStrength [||]
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "a rule without a concentration limit reports nothing" {
+                                solutionRule "zidovudine" MinMax.empty
+                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "zidovudine" 10N |]
+                                |> Expect.isEmpty "none"
+                            }
+                        ]
+
+                    testList
+                        "undilutable rules"
+                        [
+                            let injection = Solution "injectievloeistof"
+                            let zidovudine = [| ivDoseRule "zidovudine" injection [| liquid "zidovudine" 10N |] |]
+                            let undilutable = SolutionRule.undilutableRules ivRouteMapping
+                            let ick = { PatientCategory.empty with Department = Some "ICK" }
+
+                            test "a rule without diluents whose limit allows no strength gives one warning" {
+                                [| solutionRule "zidovudine" (maxConc (5N / 2N)) |]
+                                |> undilutable zidovudine
+                                |> List.map warningText
+                                |> function
+                                    | [ s ] ->
+                                        s |> Expect.stringContains "names the generic" "zidovudine"
+                                        s |> Expect.stringContains "says why" "no diluent"
+                                    | ws -> ws |> failtestf "expected one warning, got %A"
+                            }
+
+                            test "a rule with a diluent gives no warning" {
+                                [|
+                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with
+                                        Diluents = [| liquid "glucose 5%" 50N |]
+                                    }
+                                |]
+                                |> undilutable zidovudine
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "a rule whose limit allows the strength gives no warning" {
+                                [| solutionRule "zidovudine" (maxConc 10N) |]
+                                |> undilutable zidovudine
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "a dose rule with two components gives no warning, the second can dilute" {
+                                let dr = zidovudine[0]
+
+                                let dr =
+                                    { dr with
+                                        ComponentLimits =
+                                            Array.append
+                                                dr.ComponentLimits
+                                                [| { dr.ComponentLimits[0] with Name = "glucose 5%" } |]
+                                    }
+
+                                [| solutionRule "zidovudine" (maxConc (5N / 2N)) |]
+                                |> undilutable [| dr |]
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "a dose rule of another generic gives no warning" {
+                                [| solutionRule "zidovudine" (maxConc (5N / 2N)) |]
+                                |> undilutable [| ivDoseRule "esmolol" injection [| liquid "zidovudine" 10N |] |]
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "a dose rule of another indication gives no warning" {
+                                [|
+                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with
+                                        Indication = Some "HIV profylaxe"
+                                    }
+                                |]
+                                |> undilutable zidovudine
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "a dose rule of another dose type gives no warning" {
+                                [|
+                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with DoseType = Continuous "" }
+                                |]
+                                |> undilutable zidovudine
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "a powder is compared at the strength it has once dissolved for the department" {
+                                // 400 mg in 3 mL is about 133 mg/mL
+                                [| { solutionRule "teicoplanine" (maxConc 10N) with PatientCategory = ick } |]
+                                |> undilutable
+                                    [|
+                                        ivDoseRule
+                                            "teicoplanine"
+                                            (Solid "poeder voor injectievloeistof")
+                                            [| powder "teicoplanine" 400N 3N (Some "ICK") |]
+                                    |]
+                                |> List.length
+                                |> Expect.equal "one" 1
+                            }
+
+                            test "a powder dissolved to a strength within the limit gives no warning" {
+                                // 400 mg in 40 mL is 10 mg/mL
+                                [| { solutionRule "teicoplanine" (maxConc 10N) with PatientCategory = ick } |]
+                                |> undilutable
+                                    [|
+                                        ivDoseRule
+                                            "teicoplanine"
+                                            (Solid "poeder voor injectievloeistof")
+                                            [| powder "teicoplanine" 400N 40N (Some "ICK") |]
+                                    |]
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "a powder dose rule that fails next to a liquid dose rule that fits gives one warning" {
+                                [| { solutionRule "teicoplanine" (maxConc 10N) with PatientCategory = ick } |]
+                                |> undilutable
+                                    [|
+                                        ivDoseRule
+                                            "teicoplanine"
+                                            (Solution "infusievloeistof")
+                                            [| liquid "teicoplanine" 4N |]
+                                        ivDoseRule
+                                            "teicoplanine"
+                                            (Solid "poeder voor injectievloeistof")
+                                            [| powder "teicoplanine" 400N 3N (Some "ICK") |]
+                                    |]
+                                |> List.length
+                                |> Expect.equal "one" 1
+                            }
+
+                            test "a dose rule for another department gives no warning" {
+                                let dr = zidovudine[0]
+
+                                [|
+                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with PatientCategory = ick }
+                                |]
+                                |> undilutable
+                                    [|
+                                        { dr with
+                                            PatientCategory = { dr.PatientCategory with Department = Some "NEO" }
+                                        }
+                                    |]
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "a dose rule for another location gives no warning" {
+                                let dr = zidovudine[0]
+
+                                [|
+                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with
+                                        PatientCategory = { PatientCategory.empty with Location = Some "UMCU" }
+                                    }
+                                |]
+                                |> undilutable
+                                    [|
+                                        { dr with PatientCategory = { dr.PatientCategory with Location = Some "AMC" } }
+                                    |]
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "a dose rule for the same department gives the warning" {
+                                let dr = zidovudine[0]
+
+                                [|
+                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with PatientCategory = ick }
+                                |]
+                                |> undilutable
+                                    [|
+                                        { dr with
+                                            PatientCategory = { dr.PatientCategory with Department = Some "ICK" }
+                                        }
+                                    |]
+                                |> List.length
+                                |> Expect.equal "one" 1
+                            }
+
+                            test "a rule without a department checks a powder for the department of its reconstitution" {
+                                // 400 mg in 3 mL is about 133 mg/mL, reconstituted only for ICK
+                                [| solutionRule "teicoplanine" (maxConc 10N) |]
+                                |> undilutable
+                                    [|
+                                        ivDoseRule
+                                            "teicoplanine"
+                                            (Solid "poeder voor injectievloeistof")
+                                            [| powder "teicoplanine" 400N 3N (Some "ICK") |]
+                                    |]
+                                |> List.length
+                                |> Expect.equal "one" 1
+                            }
+
+                            test "a rule without a department gives no warning when the powder fits in that department" {
+                                // 400 mg in 40 mL is 10 mg/mL, reconstituted only for ICK
+                                [| solutionRule "teicoplanine" (maxConc 10N) |]
+                                |> undilutable
+                                    [|
+                                        ivDoseRule
+                                            "teicoplanine"
+                                            (Solid "poeder voor injectievloeistof")
+                                            [| powder "teicoplanine" 400N 40N (Some "ICK") |]
+                                    |]
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "two equal rules give one warning" {
+                                [|
+                                    solutionRule "zidovudine" (maxConc (5N / 2N))
+                                    solutionRule "zidovudine" (maxConc (5N / 2N))
+                                |]
+                                |> undilutable zidovudine
+                                |> List.length
+                                |> Expect.equal "one" 1
+                            }
+
+                            test "the rule checks at load report the rule" {
+                                let reg =
+                                    Map
+                                        [
+                                            Keys.ruleChecks.Name,
+                                            (Resources.defaultRegistry FormLogging.noOp "")[Keys.ruleChecks.Name]
+                                            Keys.parenteralMeds.Name,
+                                            ofResult (fun () -> Ok(Array.empty<ProductComponent>))
+                                            Keys.solutionRuleData.Name,
+                                            ofResult (fun () -> Ok(Array.empty<SolutionRuleData>))
+                                            Keys.doseRules.Name, ofResult (fun () -> Ok zidovudine)
+                                            Keys.solutionRules.Name,
+                                            ofResult (fun () -> Ok [| solutionRule "zidovudine" (maxConc (5N / 2N)) |])
+                                            Keys.routeMappings.Name, ofResult (fun () -> Ok ivRouteMapping)
+                                        ]
+
+                                let eng = LoadEngine reg
+                                eng.Resolve Keys.ruleChecks
+
+                                eng.Warnings
+                                |> List.map warningText
+                                |> List.exists (String.contains "no diluent")
+                                |> Expect.isTrue "reported"
+                            }
+                        ]
+
+                    testList
                         "the rule checks registry entry"
                         [
                             // The entry of the default registry, run on hand-built dependencies.
@@ -7036,6 +7442,7 @@ module Tests =
                                             Keys.solutionRuleData.Name, ofResult (fun () -> Ok rows)
                                             Keys.doseRules.Name, ofResult (fun () -> Ok doseRules)
                                             Keys.solutionRules.Name, ofResult (fun () -> Ok solutionRules)
+                                            Keys.routeMappings.Name, ofResult (fun () -> Ok(Array.empty<RouteMapping>))
                                         ]
 
                                 let eng = LoadEngine reg
