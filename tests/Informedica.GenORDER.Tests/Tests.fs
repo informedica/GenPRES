@@ -5415,6 +5415,166 @@ module SolutionDoseCountTests =
             ]
 
 
+/// A medication given undiluted, whose product concentrations must fall within its solution limit.
+module UndilutedSolutionTests =
+
+    open Informedica.GenCore.Lib.Ranges
+
+
+    let mgPerMl = Units.Mass.milliGram |> ValueUnit.per Units.Volume.milliLiter
+
+
+    /// The amphotericin scenario without glucose 10% as the diluent: a 4 mg/mL vial with a solution limit of 0.2
+    /// to 2 mg/mL.
+    let amfoUndiluted = { Scenarios.amfo with Components = [ Scenarios.amfo.Components |> List.head ] }
+
+
+    /// The amphotericin scenario with the concentrations of the amphotericin vial replaced.
+    let withVialConcentrations brs (med: Medication) =
+        { med with
+            Components =
+                med.Components
+                |> List.mapi (fun i pc ->
+                    if i > 0 then
+                        pc
+                    else
+                        { pc with
+                            Substances =
+                                pc.Substances
+                                |> List.map (fun si ->
+                                    if si.Name = "amfotericine b liposomaal" then
+                                        { si with Concentrations = brs |> ValueUnit.withUnit mgPerMl |> Some }
+                                    else
+                                        si
+                                )
+                        }
+                )
+        }
+
+
+    /// The constraints the orderable concentration of the amphotericin item was defined with.
+    let amfoOrbCnc (ord: Order) =
+        ord.Orderable.Components
+        |> List.head
+        |> _.Items
+        |> List.find (fun itm -> (itm.Name |> Variable.Name.toString).Contains "amfotericine")
+        |> _.OrderableConcentration
+        |> OrderVariable.Concentration.toOrdVar
+        |> _.DefinedConstraints
+
+
+    let tests =
+        testList
+            "an undiluted concentration outside the solution limit"
+            [
+                test "a substance keeps only the concentrations its solution limit allows" {
+                    Scenarios.amfo
+                    |> withVialConcentrations [| 1N; 4N |]
+                    |> _.Components.Head.Substances
+                    |> List.find (fun si -> si.Name = "amfotericine b liposomaal")
+                    |> Medication.concentrationsWithinSolution
+                    |> Expect.equal
+                        "1 mg/mL is within 0.2 to 2 mg/mL, 4 mg/mL is not"
+                        (1N |> ValueUnit.singleWithUnit mgPerMl |> Some)
+                }
+
+                test
+                    "a limit with an equal minimum and maximum allows the concentrations within 90 to 110 percent of the value" {
+                    { Medication.SubstanceItem.item with
+                        Name = "vancomycine"
+                        Concentrations = [| 9N; 21N / 2N; 12N; 50N |] |> ValueUnit.withUnit mgPerMl |> Some
+                        Solution =
+                            { SolutionLimit.limit with
+                                Concentration = 10N |> ValueUnit.singleWithUnit mgPerMl |> MinMax.createExact
+                            }
+                            |> Some
+                    }
+                    |> Medication.concentrationsWithinSolution
+                    |> Expect.equal
+                        "9 and 10.5 mg/mL are within 9 to 11 mg/mL"
+                        ([| 9N; 21N / 2N |] |> ValueUnit.withUnit mgPerMl |> Some)
+                }
+
+                test "a concentration in a unit the limit cannot be compared with keeps every strength" {
+                    let mmolPerMl = Units.Molar.milliMole |> ValueUnit.per Units.Volume.milliLiter
+                    let si =
+                        { Medication.SubstanceItem.item with
+                            Name = "vancomycine"
+                            Concentrations = [| 1N; 50N |] |> ValueUnit.withUnit mmolPerMl |> Some
+                            Solution =
+                                { SolutionLimit.limit with
+                                    Concentration =
+                                        { MinMax.empty with
+                                            Min = 9N |> ValueUnit.singleWithUnit mgPerMl |> Limit.inclusive |> Some
+                                            Max = 11N |> ValueUnit.singleWithUnit mgPerMl |> Limit.inclusive |> Some
+                                        }
+                                }
+                                |> Some
+                        }
+
+                    si
+                    |> Medication.concentrationsWithinSolution
+                    |> Expect.equal "a molar concentration is not compared with a mass limit" si.Concentrations
+                }
+
+                test "a substance without a solution limit keeps every concentration" {
+                    let si =
+                        Scenarios.amfo.Components.Head.Substances
+                        |> List.find (fun si -> si.Name = "saccharose")
+
+                    si
+                    |> Medication.concentrationsWithinSolution
+                    |> Expect.equal "saccharose has no solution limit" si.Concentrations
+                }
+
+                test "the undiluted amphotericin order is refused" {
+                    amfoUndiluted
+                    |> Medication.undilutedOutsideSolution
+                    |> List.map _.Name
+                    |> Expect.equal "the amphotericin is outside the limit" [ "amfotericine b liposomaal" ]
+
+                    amfoUndiluted
+                    |> Medication.toOrder Scenarios.testStart
+                    |> Result.isError
+                    |> Expect.isTrue "a 4 mg/mL vial with no diluent cannot meet 0.2 to 2 mg/mL"
+                }
+
+                test "an undiluted order offers only the vial concentrations within the limit" {
+                    amfoUndiluted
+                    |> withVialConcentrations [| 1N; 4N |]
+                    |> Medication.toOrder Scenarios.testStart
+                    |> Result.map (amfoOrbCnc >> _.Values >> Option.map Variable.ValueRange.ValueSet.toValueUnit)
+                    |> Expect.equal "only 1 mg/mL is offered" (Ok(1N |> ValueUnit.singleWithUnit mgPerMl |> Some))
+                }
+
+                test "the diluted amphotericin order keeps the solution limit and offers no concentration" {
+                    match
+                        Scenarios.amfo
+                        |> Medication.toOrder Scenarios.testStart
+                        |> Result.map amfoOrbCnc
+                    with
+                    | Ok cs ->
+                        cs.Values |> Expect.isNone "the solver finds the concentration"
+                        cs.Min |> Expect.isSome "the minimum of the solution limit is kept"
+                        cs.Max |> Expect.isSome "the maximum of the solution limit is kept"
+                    | Error msg -> failtest $"the diluted order is not built: %A{msg}"
+                }
+
+                test "a medication without a solution limit is built" {
+                    let pcm = Scenarios.pcmSupp
+
+                    pcm
+                    |> Medication.undilutedOutsideSolution
+                    |> Expect.isEmpty "paracetamol suppository has no solution limit"
+
+                    pcm
+                    |> Medication.toOrder Scenarios.testStart
+                    |> Result.isOk
+                    |> Expect.isTrue "it is built"
+                }
+            ]
+
+
 [<Tests>]
 let tests =
     testList
@@ -5456,4 +5616,5 @@ let tests =
             MedicationTextTests.MedicationTextYamlTests.tests
             MedicationSchemaTests.tests
             SolutionDoseCountTests.tests
+            UndilutedSolutionTests.tests
         ]
