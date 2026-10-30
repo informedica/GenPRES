@@ -5,6 +5,8 @@ open Expecto.Flip
 open Informedica.GenPRES.Shared.Types
 open Informedica.GenPRES.Shared.Models
 
+module Calculations = Informedica.GenPRES.Shared.Calculations
+
 
 [<Tests>]
 let tests =
@@ -248,6 +250,61 @@ let isAdultTests =
                     |> Patient.isAdult
                 )
                 |> Expect.equal "the adults" [ false; true; false; true; true; false ]
+            }
+        ]
+
+
+[<Tests>]
+let ageInMonthsTests =
+    let inMonths months marked =
+        { Patient.empty with
+            Age = Patient.Age.create 0<year> (Some(months * 1<month>)) None None |> Some
+            MarkedAdult = marked
+        }
+
+    testList
+        "Patient age in months"
+        [
+            for months, expected in [ 216, 6570; 11, 330; 14, 425 ] do
+                test $"monthsToDays: %i{months} months is %i{expected} days" {
+                    months * 1<month>
+                    |> Calculations.Age.monthsToDays
+                    |> Expect.equal "the days" (expected * 1<day>)
+                }
+
+            test "0 years and 216 months is 6,570 days" {
+                inMonths 216 false
+                |> Patient.getAgeInDays
+                |> Expect.equal "6,570 days" (Some 6570.)
+            }
+
+            test "0 years and 216 months is an adult" { inMonths 216 false |> Patient.isAdult |> Expect.isTrue "adult" }
+
+            test "0 years and 215 months is a child" { inMonths 215 false |> Patient.isAdult |> Expect.isFalse "child" }
+
+            test "0 years and 192 months may be marked as an adult" {
+                inMonths 192 true
+                |> Patient.validate
+                |> Result.isOk
+                |> Expect.isTrue "the mark is valid"
+            }
+
+            test "0 years and 191 months may not be marked as an adult" {
+                inMonths 191 true
+                |> Patient.validate
+                |> Expect.equal "the mark is refused" (Error PatientError.MarkedAdultBelowSixteen)
+            }
+
+            test "6,565 days is 17 years and 11 months" {
+                Patient.Age.fromDays 6565
+                |> fun a -> a.Years, a.Months
+                |> Expect.equal "never 12 months" (17<year>, 11<month>)
+            }
+
+            test "every day count up to 20 years survives the round trip" {
+                [ 0 .. 20 * 365 ]
+                |> List.filter (fun d -> { Patient.empty with Age = days d } |> Patient.getAgeInDays <> Some(float d))
+                |> Expect.isEmpty "no day count changes"
             }
         ]
 

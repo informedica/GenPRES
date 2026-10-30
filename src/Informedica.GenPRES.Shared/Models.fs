@@ -90,7 +90,9 @@ module Models =
 
             let fromDays days =
                 let yrs = days / 365
-                let mos = (days - yrs * 365) / 30
+                // at most 11 months: 360 to 364 days after the years are 11 months and some
+                // weeks, never 12 months, which would count as a year
+                let mos = (days - yrs * 365) / 30 |> min 11
                 let wks = (days - yrs * 365 - mos * 30) / 7
 
                 let dys =
@@ -153,7 +155,7 @@ module Models =
         let getAgeInDays p =
             [
                 p |> getAgeYears |> Option.map (fun ys -> (ys |> float) * 365.)
-                p |> getAgeMonths |> Option.map (fun ms -> (ms |> float) * 30.)
+                p |> getAgeMonths |> Option.map (Calculations.Age.monthsToDays >> float)
                 p |> getAgeWeeks |> Option.map (fun ws -> (ws |> float) * 7.)
                 p |> getAgeDays |> Option.map (fun ds -> (ds |> float) / 1.)
             ]

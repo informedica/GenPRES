@@ -8,6 +8,9 @@ module Patient =
     open Informedica.GenForm.Lib
     open Informedica.GenUnits.Lib
 
+    module Calculations = Informedica.GenCore.Lib.Calculations
+    module Conversions = Informedica.GenCore.Lib.Conversions
+
     type Patient = Types.Patient
     type Access = AccessDevice
 
@@ -55,7 +58,7 @@ module Patient =
                 (fun acc a ->
                     match a with
                     | Years x -> (x |> decimal) * 365m
-                    | Months x -> (x |> decimal) * 30m
+                    | Months x -> x |> Conversions.monthFromInt |> Calculations.Age.monthsToDays |> int |> decimal
                     | Weeks x -> (x |> decimal) * 7m
                     | Days x -> (x |> decimal)
                     |> fun x -> acc + x
@@ -78,7 +81,9 @@ module Patient =
                 |> BigRational.toDecimal
 
             let yrs = (vu / 365m) |> int
-            let mos = ((vu - (365 * yrs |> decimal)) / 30m) |> int
+            // at most 11 months: 360 to 364 days after the years are 11 months and some weeks,
+            // never 12 months, which would count as a year
+            let mos = ((vu - (365 * yrs |> decimal)) / 30m) |> int |> min 11
             let wks = (vu - (365 * yrs |> decimal) - (30 * mos |> decimal)) / 7m |> int
 
             let dys =
