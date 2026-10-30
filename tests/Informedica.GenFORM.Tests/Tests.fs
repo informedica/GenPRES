@@ -4739,6 +4739,38 @@ module Tests =
                 Max = Some(mk vmax u)
             }
 
+        let month v = v |> ValueUnit.singleWithUnit Units.Time.month
+
+        let day v = v |> ValueUnit.singleWithUnit Units.Time.day
+
+        let limitValues (lim: Limit option) = lim |> Option.map (Limit.getValueUnit >> ValueUnit.getValue)
+
+        /// A ZForm patient dosage with an age from min months, inclusive, to max months, exclusive.
+        let zformAge min max : Informedica.ZForm.Lib.Types.PatientDosage =
+            {
+                Patient =
+                    { Informedica.ZForm.Lib.PatientCategory.empty with
+                        Age =
+                            {
+                                Min = min |> Option.map (month >> Limit.inclusive)
+                                Max = max |> Option.map (month >> Limit.exclusive)
+                            }
+                    }
+                FormDosage = ZFDR.Dosage.empty
+                SubstanceDosages = []
+            }
+
+        /// A GenFORM patient category with an age from min days, inclusive, to max days, exclusive.
+        let ageCategory min max =
+            { PatientCategory.empty with
+                Age =
+                    {
+                        Min = min |> Option.map (day >> Limit.inclusive)
+                        Max = max |> Option.map (day >> Limit.exclusive)
+                    }
+                    |> AbsoluteAge
+            }
+
         let private adjUnitStr (mm: MinMax) =
             match mm.Min |> Option.map Limit.getValueUnit with
             | Some vu -> vu |> ValueUnit.getUnit |> Check.unitToString
@@ -4841,11 +4873,91 @@ module Tests =
                         |> Expect.equal "min unchanged" (Some [| 100.0 |])
                     }
 
-                    test "MEDIUM-3 monthsMinMaxToDays at 30 days/month" {
-                        let d = Check.monthsMinMaxToDays (mmOf 1N 3N Units.Time.month)
-                        d |> minVal |> Expect.equal "1mo -> 30d" (Some [| 30.0 |])
-                        d |> maxVal |> Expect.equal "3mo -> 90d" (Some [| 90.0 |])
+                    testList
+                        "ageInMonths, the age the G-Standaard rules are looked up with"
+                        [
+                            for d, months in [ 6570N, 216.; 6569N, 215.99; 365N, 12.; 364N, 11.99 ] do
+                                test $"%s{d |> BigRational.toString} days is %.2f{months} months" {
+                                    { Patient.patient with Age = Some(day d) }
+                                    |> Check.ageInMonths
+                                    |> Expect.equal "months" (Some months)
+                                }
+
+                            test "a patient without an age has no age in months" {
+                                Patient.patient |> Check.ageInMonths |> Expect.isNone "none"
+                            }
+                        ]
+
+                    test "monthsMinMaxToDays converts the limits at 12 months to a year, in days" {
+                        let mm = Check.monthsMinMaxToDays (mmOf 12N 216N Units.Time.month)
+
+                        mm.Min |> limitValues |> Expect.equal "12 months" (Some [| 365N |])
+                        mm.Max |> limitValues |> Expect.equal "216 months" (Some [| 6570N |])
+
+                        mm.Min
+                        |> Option.map (Limit.getValueUnit >> ValueUnit.getUnit)
+                        |> Expect.equal "day" (Some Units.Time.day)
                     }
+
+                    test "monthsMinMaxToDays keeps each limit inclusive or exclusive" {
+                        let mm =
+                            {
+                                Min = 1N |> month |> Limit.inclusive |> Some
+                                Max = 216N |> month |> Limit.exclusive |> Some
+                            }
+                            |> Check.monthsMinMaxToDays
+
+                        mm.Min
+                        |> Option.map Limit.isInclusive
+                        |> Expect.equal "the minimum inclusive" (Some true)
+                        mm.Max
+                        |> Option.map Limit.isInclusive
+                        |> Expect.equal "the maximum exclusive" (Some false)
+                    }
+
+                    test "monthsMinMaxToDays keeps an age without limits without limits" {
+                        MinMax.empty |> Check.monthsMinMaxToDays |> Expect.equal "empty" MinMax.empty
+                    }
+
+                    testList
+                        "filterPatient at the age bounds in months"
+                        [
+                            test "a G-Standaard adult rule from 216 months matches an adult category from 6,570 days" {
+                                zformAge (Some 216N) None
+                                |> Check.filterPatient (ageCategory (Some 6570N) None)
+                                |> Expect.isTrue "the adult rule matches"
+                            }
+
+                            test "a G-Standaard child rule up to 216 months does not match an adult category" {
+                                zformAge (Some 1N) (Some 216N)
+                                |> Check.filterPatient (ageCategory (Some 6570N) None)
+                                |> Expect.isFalse "the child rule does not match"
+                            }
+
+                            test "a G-Standaard adult rule from 216 months does not match a category up to 18 years" {
+                                zformAge (Some 216N) None
+                                |> Check.filterPatient (ageCategory (Some 30N) (Some 6570N))
+                                |> Expect.isFalse "the adult rule does not match"
+                            }
+
+                            test "a G-Standaard child rule up to 216 months matches a category of 17 years" {
+                                zformAge (Some 1N) (Some 216N)
+                                |> Check.filterPatient (ageCategory (Some(17N * 365N)) (Some 6570N))
+                                |> Expect.isTrue "the child rule matches"
+                            }
+
+                            test "a G-Standaard rule from 1 year matches a category from 365 days" {
+                                zformAge (Some 12N) (Some 24N)
+                                |> Check.filterPatient (ageCategory (Some 365N) (Some 730N))
+                                |> Expect.isTrue "the rule from 1 year matches"
+                            }
+
+                            test "a G-Standaard rule up to 1 year does not match a category from 365 days" {
+                                zformAge (Some 1N) (Some 12N)
+                                |> Check.filterPatient (ageCategory (Some 365N) (Some 730N))
+                                |> Expect.isFalse "the rule up to 1 year does not match"
+                            }
+                        ]
 
                     test "LOW-3 interchangeable frequency time units" {
                         Check.interchangeable "per maand" "per 4 weken"

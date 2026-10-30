@@ -62,6 +62,77 @@ module Tests =
                                     |> Expect.equal "the days" (expected * 1<day>)
                                 }
 
+                            for m, d in
+                                [
+                                    0N, 0N
+                                    1N / 2N, 15N
+                                    1N, 30N
+                                    11N, 330N
+                                    12N, 365N
+                                    25N / 2N, 380N
+                                    216N, 6570N
+                                    9999N, 833N * 365N + 3N * 30N
+                                ] do
+                                test
+                                    $"fractionalMonthsToDays: %s{m |> BigRational.toString} months is %s{d |> BigRational.toString} days" {
+                                    m |> Calculations.Age.fractionalMonthsToDays |> Expect.equal "the days" d
+                                }
+
+                            for d, m in
+                                [
+                                    0N, 0N
+                                    15N, 1N / 2N
+                                    30N, 1N
+                                    330N, 11N
+                                    359N, 359N / 30N
+                                    360N, 1199N / 100N
+                                    364N, 1199N / 100N
+                                    365N, 12N
+                                    380N, 25N / 2N
+                                    6569N, 204N + 1199N / 100N
+                                    6570N, 216N
+                                ] do
+                                test
+                                    $"daysToFractionalMonths: %s{d |> BigRational.toString} days is %s{m |> BigRational.toString} months" {
+                                    d |> Calculations.Age.daysToFractionalMonths |> Expect.equal "the months" m
+                                }
+
+                            test "every whole month up to 120 years goes to days and back" {
+                                [ 0N .. 1440N ]
+                                |> List.filter (fun m ->
+                                    m
+                                    |> Calculations.Age.fractionalMonthsToDays
+                                    |> Calculations.Age.daysToFractionalMonths
+                                    <> m
+                                )
+                                |> Expect.isEmpty "no month that does not come back"
+                            }
+
+                            test "the months of the days never go down from one day to the next" {
+                                [ 0N .. 20N * 365N ]
+                                |> List.map Calculations.Age.daysToFractionalMonths
+                                |> List.pairwise
+                                |> List.filter (fun (m1, m2) -> m2 < m1)
+                                |> Expect.isEmpty "no day with fewer months than the day before"
+                            }
+
+                            test "an age reaches a bound in months with two decimals on the day the bound gives in days" {
+                                // for each bound up to 20 years, the first whole day at or after the bound in days
+                                // is at or above the bound in months, and the day before it is below
+                                let toDays = Calculations.Age.fractionalMonthsToDays
+                                let toMonths = Calculations.Age.daysToFractionalMonths
+
+                                [ 0N .. 24000N ]
+                                |> List.map (fun n -> n / 100N)
+                                |> List.filter (fun b ->
+                                    let d = b |> toDays |> BigRational.ToBigInt |> BigRational.FromBigInt
+                                    let d = if d < (b |> toDays) then d + 1N else d
+
+                                    (d |> toMonths) < b || (d > 0N && (d - 1N |> toMonths) >= b)
+                                )
+                                |> Expect.isEmpty "no bound reached a day early or late"
+                            }
+
                             let days = Calculations.Age.yearsMonthsWeeksDaysToDays
 
                             test "216 months is 18 years of 365 days" {
