@@ -5575,6 +5575,95 @@ module UndilutedSolutionTests =
             ]
 
 
+/// The minimum and maximum volume of a solution rule, which limit the orderable quantity.
+module SolutionVolumeTests =
+
+    open Informedica.GenCore.Lib.Ranges
+    open Informedica.GenSolver.Lib.Variable
+
+
+    let mL n = n |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+
+
+    let incl n = n |> mL |> Limit.inclusive |> Some
+
+
+    /// The amphotericin scenario with a solution volume of the given minimum and maximum, and no list of volumes.
+    let amfoWithVolume min max =
+        { Scenarios.amfo with
+            Quantity =
+                { MinMax.empty with
+                    Min = min
+                    Max = max
+                }
+            Quantities = None
+        }
+
+
+    /// The orderable quantity of an order as an order variable.
+    let orbQty (ord: Order) =
+        ord.Orderable.OrderableQuantity |> OrderVariable.Quantity.toOrdVar
+
+
+    /// The minimum and the maximum the orderable quantity was defined with, each as a pair of the inclusive flag
+    /// and the value.
+    let orbQtyBounds (ord: Order) =
+        let cs = ord |> orbQty |> _.DefinedConstraints
+
+        cs.Min |> Option.map ValueRange.Minimum.toBoolValueUnit, cs.Max |> Option.map ValueRange.Maximum.toBoolValueUnit
+
+
+    let tests =
+        testList
+            "the solution volume of the orderable quantity"
+            [
+                test "a minimum volume without a list of volumes reaches the order" {
+                    amfoWithVolume (incl 10N) (incl 50N)
+                    |> TestOrder.toOrder
+                    |> orbQtyBounds
+                    |> Expect.equal "10 to 50 mL, both inclusive" (Some(true, mL 10N), Some(true, mL 50N))
+                }
+
+                test "only a maximum volume keeps a minimum above 0" {
+                    amfoWithVolume None (incl 50N)
+                    |> TestOrder.toOrder
+                    |> orbQtyBounds
+                    |> Expect.equal "above 0 to 50 mL" (Some(false, mL 0N), Some(true, mL 50N))
+                }
+
+                test "no volume keeps a minimum above 0" {
+                    amfoWithVolume None None
+                    |> TestOrder.toOrder
+                    |> orbQtyBounds
+                    |> Expect.equal "above 0 mL" (Some(false, mL 0N), None)
+                }
+
+                test "a list of volumes is offered as the values" {
+                    let vols = [| 20N; 40N |] |> ValueUnit.withUnit Units.Volume.milliLiter
+
+                    { amfoWithVolume (incl 10N) (incl 50N) with Quantities = Some vols }
+                    |> TestOrder.toOrder
+                    |> orbQty
+                    |> _.DefinedConstraints.Values
+                    |> Option.map ValueRange.ValueSet.toValueUnit
+                    |> Expect.equal "20 and 40 mL" (Some vols)
+                }
+
+                // the amphotericin scenario solves to at least 22 mL without a volume limit, so a minimum of 30 mL is
+                // what makes the solved minimum 30 mL
+                test "the order with a minimum volume above what the scenario reaches solves to that volume" {
+                    amfoWithVolume (incl 30N) (incl 50N)
+                    |> TestOrder.toOrder
+                    |> TestOrder.solve CalcMinMax
+                    |> orbQty
+                    |> _.Variable.Values
+                    |> ValueRange.getMin
+                    |> Option.map ValueRange.Minimum.toBoolValueUnit
+                    |> Expect.equal "at least 30 mL" (Some(true, mL 30N))
+                }
+            ]
+
+
 [<Tests>]
 let tests =
     testList
@@ -5617,4 +5706,5 @@ let tests =
             MedicationSchemaTests.tests
             SolutionDoseCountTests.tests
             UndilutedSolutionTests.tests
+            SolutionVolumeTests.tests
         ]
