@@ -18,6 +18,31 @@ module Calculations =
             + (int m % Constants.monthsInYear |> (*) 30 |> Conversions.dayFromInt)
 
 
+        /// The days of an age in months that may hold a fraction of a month: each 12 months a year of
+        /// 365 days, the rest 30 days each. So 12.5 months is 380 days and 0.5 months 15 days.
+        let fractionalMonthsToDays m =
+            let months = Constants.monthsInYear |> BigRational.fromInt
+            let years = m / months |> BigRational.ToBigInt |> BigRational.FromBigInt
+
+            years * (Constants.daysInYear |> BigRational.fromInt)
+            + (m - years * months) * 30N
+
+
+        /// The months of an age in days: each year of 365 days 12 months, the rest 30 days to the month.
+        /// For whole months this is the inverse of fractionalMonthsToDays. The rest of 360 to 364 days
+        /// after the whole years is capped at 11.99 months; without the cap it would count as 12 months
+        /// or more and match a rule from the next year up to 5 days early.
+        let daysToFractionalMonths d =
+            // the highest bound below a whole year that a G-Standaard age bound with two decimals can hold
+            let highestMonthsBelowAYear = 1199N / 100N
+            let days = Constants.daysInYear |> BigRational.fromInt
+            let years = d / days |> BigRational.ToBigInt |> BigRational.FromBigInt
+
+            // a plain min names the unit of measure for minutes here
+            years * (Constants.monthsInYear |> BigRational.fromInt)
+            + Operators.min ((d - years * days) / 30N) highestMonthsBelowAYear
+
+
         let yearsMonthsWeeksDaysToDays y (m: int<month>) w d =
             let dy, dm, dw = y |> Conversions.intYearsToDays, m |> monthsToDays, w |> Conversions.weeksToDays
 

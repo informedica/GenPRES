@@ -14,6 +14,7 @@ module Check =
     module GStand = Informedica.ZForm.Lib.GStand
     module Dosage = Informedica.ZForm.Lib.DoseRule.Dosage
     module RuleFinder = Informedica.ZIndex.Lib.RuleFinder
+    module Age = Informedica.GenCore.Lib.Calculations.Age
 
     type Dosage = Informedica.ZForm.Lib.Types.Dosage
     type DoseRange = Informedica.ZForm.Lib.Types.DoseRange
@@ -67,22 +68,14 @@ module Check =
         else MinMax.empty
 
 
-    /// Convert a months-based age MinMax to days at the IR 3.3 rate of
-    /// 30 days/month, so a ZForm (month) age can be intersected with a GenFORM
-    /// (day) age.
-    let monthsMinMaxToDays (mm: MinMax) : MinMax =
-        let toDays lim =
-            lim
-            |> Limit.getValueUnit
-            |> ValueUnit.convertTo Units.Time.month
-            |> ValueUnit.applyToValue (Array.map ((*) 30N))
-            |> ValueUnit.setUnit Units.Time.day
-            |> Limit.inclusive
-
-        {
-            Min = mm.Min |> Option.map toDays
-            Max = mm.Max |> Option.map toDays
-        }
+    /// Converts an age MinMax in months to days with fractionalMonthsToDays, so a ZForm age in months
+    /// can be intersected with a GenFORM age in days. Each limit stays inclusive or exclusive.
+    let monthsMinMaxToDays =
+        MinMax.apply (
+            ValueUnit.convertTo Units.Time.month
+            >> ValueUnit.applyToValue (Array.map Age.fractionalMonthsToDays)
+            >> ValueUnit.setUnit Units.Time.day
+        )
 
 
     /// IR 3.4 interchangeable frequency time-unit groups. per-12-weken vs
@@ -204,17 +197,21 @@ module Check =
         |> Option.defaultValue ""
 
 
+    /// The age of the patient in months that the G-Standaard dose rules are looked up with.
+    let ageInMonths (pat: Patient) =
+        pat.Age
+        |> Option.bind (fun vu ->
+            vu
+            |> ValueUnit.convertTo Units.Time.day
+            |> ValueUnit.getValue
+            |> function
+                | [| v |] -> v |> Age.daysToFractionalMonths |> BigRational.toDouble |> Some
+                | _ -> None
+        )
+
+
     let createDoseRulesWithMapping routeMapping (pat: Patient) gen frm rte =
-        let a =
-            pat.Age
-            |> Option.bind (fun vu ->
-                vu
-                |> ValueUnit.convertTo Units.Time.month
-                |> ValueUnit.getValue
-                |> function
-                    | [| v |] -> v |> BigRational.toDouble |> Some
-                    | _ -> None
-            )
+        let a = pat |> ageInMonths
 
         let w =
             pat.Weight
@@ -416,9 +413,8 @@ module Check =
 
     let filterPatient (pat: PatientCategory) (pdsg: Informedica.ZForm.Lib.Types.PatientDosage) =
         let patAge = pat |> PatientCategory.getAge
-        // IR 3.3: the ZForm/G-Standaard age is in months; the GenFORM patient
-        // category age is in days. Normalise to days (30 days/month) before
-        // intersecting so the two are comparable on the same unit.
+        // The ZForm age is in months and the GenFORM patient category age in days; both are
+        // brought to days before they are intersected.
         let zformAge = pdsg.Patient.Age |> monthsMinMaxToDays
 
         let age =
