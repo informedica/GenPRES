@@ -944,7 +944,7 @@ module Medication =
         let valueReciprocal = ValueUnit.applyToValue (Array.map (fun v -> 1N / v))
         let limitReciprocal = Limit.apply valueReciprocal valueReciprocal
 
-        match doseFraction.Min |> SolutionRule.nonZeroFraction, doseFraction.Max |> SolutionRule.nonZeroFraction with
+        match doseFraction.Min |> SolutionRule.nonZeroLimit, doseFraction.Max |> SolutionRule.nonZeroLimit with
         | None, None -> MinMax.empty
         | min, max ->
             let max =

@@ -7522,6 +7522,61 @@ module Tests =
                                 |> Expect.equal "a warning" 1
                             }
 
+                            testList
+                                "a solution limit"
+                                [
+                                    let mgPerKg = mg |> ValueUnit.per Units.Weight.kiloGram
+                                    let limit u n = n |> ValueUnit.singleWithUnit u |> Limit.inclusive |> Some
+                                    let qtyMax = bounds None (limit mg 100N)
+                                    let qtyAdjMax = bounds None (limit mgPerKg 10N)
+                                    let cncMin = bounds (limit mgPerMl 1N) None
+
+                                    let withLimit qty qtyAdj cnc =
+                                        { unboundedRule with
+                                            SolutionLimits =
+                                                [|
+                                                    { SolutionLimit.limit with
+                                                        SolutionLimitTarget = SubstanceLimitTarget "vancomycine"
+                                                        Quantity = qty
+                                                        QuantityAdj = qtyAdj
+                                                        Concentration = cnc
+                                                    }
+                                                |]
+                                        }
+
+                                    test "with a maximum quantity and a minimum concentration bounds the preparation" {
+                                        withLimit qtyMax MinMax.empty cncMin |> warns |> Expect.equal "no warning" 0
+                                    }
+
+                                    test "with a maximum quantity per kg and a minimum concentration bounds it" {
+                                        withLimit MinMax.empty qtyAdjMax cncMin |> warns |> Expect.equal "no warning" 0
+                                    }
+
+                                    test "with a maximum quantity and no minimum concentration does not bound it" {
+                                        withLimit qtyMax MinMax.empty MinMax.empty
+                                        |> warns
+                                        |> Expect.equal "a warning" 1
+                                    }
+
+                                    test "with a minimum concentration and no maximum quantity does not bound it" {
+                                        withLimit MinMax.empty MinMax.empty cncMin
+                                        |> warns
+                                        |> Expect.equal "a warning" 1
+                                    }
+
+                                    test "with a minimum concentration of 0 does not bound it" {
+                                        withLimit qtyMax MinMax.empty (bounds (limit mgPerMl 0N) None)
+                                        |> warns
+                                        |> Expect.equal "a warning" 1
+                                    }
+
+                                    test "with a minimum quantity and a minimum concentration does not bound it" {
+                                        withLimit (bounds (limit mg 100N) None) MinMax.empty cncMin
+                                        |> warns
+                                        |> Expect.equal "a warning" 1
+                                    }
+                                ]
+
                             test "two rules that differ only in the dose give one warning" {
                                 [| unboundedRule; { unboundedRule with Dose = range mg 1N 2N } |]
                                 |> SolutionRule.openDoseCounts
