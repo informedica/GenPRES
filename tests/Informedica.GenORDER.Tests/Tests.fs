@@ -1665,6 +1665,69 @@ module PatientConstructorTests =
             ]
 
 
+module PatientAgeTests =
+
+    open Informedica.GenOrder.Lib.Patient.Optics
+
+
+    let orderPatient ags marked =
+        { Patient.patient with MarkedAdult = marked } |> Patient.setAge ags
+
+
+    let orderDays ags =
+        (orderPatient ags false).Age
+        |> Option.map (ValueUnit.getValue >> Array.head)
+        |> Option.defaultValue 0N
+
+
+    let tests =
+        testList
+            "Patient age in months"
+            [
+                test "216 months is 6,570 days" { orderDays [ Months 216 ] |> Expect.equal "6,570 days" 6570N }
+
+                test "216 months is an adult" {
+                    orderPatient [ Months 216 ] false |> Adult.isAdult |> Expect.isTrue "adult"
+                }
+
+                test "215 months is a child" {
+                    orderPatient [ Months 215 ] false |> Adult.isAdult |> Expect.isFalse "child"
+                }
+
+                test "192 months marked is an adult" {
+                    orderPatient [ Months 192 ] true |> Adult.isAdult |> Expect.isTrue "adult"
+                }
+
+                test "191 months marked is refused" {
+                    (orderPatient [ Months 191 ] true).Age
+                    |> Adult.markRefused true
+                    |> Expect.isTrue "refused"
+                }
+
+                test "1 year and 14 months is 2 years and 2 months" {
+                    orderDays [ Years 1; Months 14 ]
+                    |> Expect.equal "the same days" (orderDays [ Years 2; Months 2 ])
+                }
+
+                test "6 months is 180 days" { orderDays [ Months 6 ] |> Expect.equal "180 days" 180N }
+
+                test "6,565 days is 17 years, 11 months, 4 weeks and 2 days" {
+                    orderPatient [ Days 6565 ] false
+                    |> Patient.getAge
+                    |> Expect.equal "never 12 months" [ Years 17; Months 11; Weeks 4; Days 2 ]
+                }
+
+                test "every day count up to 20 years survives the round trip" {
+                    [ 0 .. 20 * 365 ]
+                    |> List.filter (fun d ->
+                        orderPatient [ Days d ] false |> Patient.getAge |> orderDays
+                        <> BigRational.FromInt d
+                    )
+                    |> Expect.isEmpty "no day count changes"
+                }
+            ]
+
+
 module OrderBuilderTests =
 
     open Informedica.GenOrder.Lib.Medication
@@ -5471,6 +5534,7 @@ let tests =
             OrderPlanTests.argumentationTests
             DosePrintoutTests.tests
             PatientConstructorTests.tests
+            PatientAgeTests.tests
             OrderVariableTests.tests
             HelperTests.tests
             DeterminationTests.tests

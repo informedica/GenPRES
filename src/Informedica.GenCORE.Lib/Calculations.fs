@@ -10,11 +10,16 @@ module Calculations =
     module Age =
 
 
+        /// The days of a number of months: each 12 months a year of 365 days, the rest 30 days each.
+        let monthsToDays (m: int<month>) =
+            (int m / Constants.monthsInYear
+             |> Conversions.yearFromInt
+             |> Conversions.intYearsToDays)
+            + (int m % Constants.monthsInYear |> (*) 30 |> Conversions.dayFromInt)
+
+
         let yearsMonthsWeeksDaysToDays y (m: int<month>) w d =
-            let dy, dm, dw =
-                y |> Conversions.intYearsToDays,
-                m |> int |> (*) 30 |> Conversions.dayFromInt,
-                w |> Conversions.weeksToDays
+            let dy, dm, dw = y |> Conversions.intYearsToDays, m |> monthsToDays, w |> Conversions.weeksToDays
 
             d + dy + dm + dw
 

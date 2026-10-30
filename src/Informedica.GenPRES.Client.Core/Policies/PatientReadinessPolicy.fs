@@ -57,9 +57,13 @@ module PatientReadinessPolicy =
     let gestationalAgeMattersUnderDays = 28 * 7
 
 
-    /// The age in days, counted as the age helpers count it: a year 365 days, a month 30.
+    /// The age in days, counted as the age helpers count it: a year 365 days, each 12 months a
+    /// year, the other months 30 days.
     let ageInDays (age: Age) =
-        int age.Years * 365 + int age.Months * 30 + int age.Weeks * 7 + int age.Days
+        int age.Years * 365
+        + int (Calculations.Age.monthsToDays age.Months)
+        + int (Calculations.Age.weeksToDays age.Weeks)
+        + int age.Days
 
 
     /// Whether a draft holds nothing at all: no age, no measurement, and none of the other data the

@@ -54,6 +54,33 @@ module Tests =
                                 Calculations.Age.adjustedAge 0<day> 36<week> dtBd dtNow
                                 |> Expect.equal "should be 21 days" 21<day>
                             }
+
+                            for months, expected in [ 216, 6570; 11, 330; 14, 425 ] do
+                                test $"monthsToDays: %i{months} months is %i{expected} days" {
+                                    months * 1<month>
+                                    |> Calculations.Age.monthsToDays
+                                    |> Expect.equal "the days" (expected * 1<day>)
+                                }
+
+                            let days = Calculations.Age.yearsMonthsWeeksDaysToDays
+
+                            test "216 months is 18 years of 365 days" {
+                                days 0<year> 216<month> 0<week> 0<day> |> Expect.equal "6,570 days" 6570<day>
+                            }
+
+                            test "1 year and 14 months is 2 years and 2 months" {
+                                days 1<year> 14<month> 0<week> 0<day>
+                                |> Expect.equal "the same days" (days 2<year> 2<month> 0<week> 0<day>)
+                            }
+
+                            test "11 months is still 330 days" {
+                                days 0<year> 11<month> 0<week> 0<day> |> Expect.equal "330 days" 330<day>
+                            }
+
+                            test "17 years and 11 months by the calendar stays below 18 years" {
+                                days 17<year> 11<month> 4<week> 2<day> < 6570<day>
+                                |> Expect.isTrue "below 6,570 days"
+                            }
                         ]
 
                     testList

@@ -784,7 +784,7 @@ let toStringTests =
          |],
          French,
          11310,
-         "30 Some(w4o), 12 Some(rYiQ)")
+         "30 Some(w4o), 11 Some(rYiQ), 4 Some(lTNK4), 2 Some(f)")
         ([|
             [|
                 "Patient Age day"
@@ -1301,7 +1301,7 @@ let toStringTests =
          |],
          Italian,
          29199,
-         "79 Some(oifz7), 12 Some(iCwt1l), 4 Some(tqY)")
+         "79 Some(oifz7), 11 Some(iCwt1l), 4 Some(cw), 6 Some(tqY)")
         ([|
             [| "Patient Age day"; "bJ"; "cw4oVfN7F"; "Z"; "0kScJ3BV"; ""; "O8G0xRp" |]
             [|
@@ -3632,7 +3632,7 @@ let toStringTests =
          |],
          Dutch,
          18247,
-         "49 Some(6EXvPnhey6), 12 Some(0ySpJh), 2 Some(PmGeyspX)")
+         "49 Some(6EXvPnhey6), 11 Some(0ySpJh), 4 Some(UsMkDbv), 4 Some(PmGeyspX)")
         ([|
             [|
                 "Patient Age day"
