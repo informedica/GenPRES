@@ -267,6 +267,115 @@ module SolutionRule =
         |> Array.toList
 
 
+    /// Whether a solution rule applies to a dose rule: the generic and the route, and the form,
+    /// indication and dose type when the solution rule names them, matched as filter matches them
+    /// for an order.
+    let appliesToDoseRule routeMapping (sr: SolutionRule) (dr: DoseRule) =
+        sr.Generic |> String.equalsCapInsens (dr.Generic |> Generic.genericName)
+        && sr.Form
+           |> Option.forall (String.equalsCapInsens (dr.Generic.Form |> PharmaceuticalForm.toString))
+        && sr.Indication |> Option.forall (String.equalsCapInsens dr.Indication)
+        && sr.Route |> Mapping.eqsRoute routeMapping (Some dr.Route)
+        && (sr.DoseType = NoDoseType
+            || if sr.DoseType |> DoseType.getText |> String.isNullOrWhiteSpace then
+                   DoseType.eqsType sr.DoseType dr.DoseType
+               else
+                   DoseType.eqs sr.DoseType dr.DoseType)
+
+
+    /// The substances whose concentration limit allows no strength of the products. A strength
+    /// in a unit group the limit cannot be compared with is skipped. The limit is inclusive, and
+    /// a limit with a minimum equal to the maximum is widened to 90% and 110%, as an order does
+    /// until #1579 decides whether a concentration limit is widened.
+    let substancesWithoutAllowedStrength (products: ProductComponent[]) (sr: SolutionRule) =
+        sr.SolutionLimits
+        |> Array.choose (fun sl ->
+            match sl.SolutionLimitTarget with
+            | SubstanceLimitTarget s when sl.Concentration |> MinMax.isEmpty |> not ->
+                let conc = sl.Concentration
+
+                let comparable vu =
+                    [ conc.Min; conc.Max ]
+                    |> List.choose id
+                    |> List.forall (Limit.getValueUnit >> ValueUnit.eqsGroup vu)
+
+                let isNorm =
+                    match conc.Min, conc.Max with
+                    | Some min, Some max -> min |> Limit.eq max
+                    | _ -> false
+
+                let bound factor =
+                    Option.map (fun lim ->
+                        let vu = lim |> Limit.getValueUnit
+
+                        if isNorm then
+                            vu * (factor |> ValueUnit.singleWithUnit Units.Count.times)
+                        else
+                            vu
+                        |> Limit.inclusive
+                    )
+
+                let allowed =
+                    {
+                        Min = conc.Min |> bound (9N / 10N)
+                        Max = conc.Max |> bound (11N / 10N)
+                    }
+
+                let strengths =
+                    products
+                    |> Array.collect _.Substances
+                    |> Array.filter (fun sub -> sub.Name |> String.equalsCapInsens s)
+                    |> Array.choose _.Concentration
+                    |> Array.filter comparable
+
+                if
+                    strengths |> Array.isEmpty |> not
+                    && strengths |> Array.forall (Some >> MinMax.inRange allowed >> not)
+                then
+                    Some s
+                else
+                    None
+            | _ -> None
+        )
+
+
+    /// A warning for each solution rule without diluents whose concentration limit allows no
+    /// strength of the products of a dose rule it applies to. Only a dose rule with one component
+    /// is checked, because a second component can dilute the first. The products are
+    /// reconstituted for the location and the department of the solution rule.
+    let undilutableRules routeMapping (doseRules: DoseRule[]) (rules: SolutionRule[]) =
+        let substances (sr: SolutionRule) =
+            doseRules
+            |> Array.filter (fun dr ->
+                dr.ComponentLimits |> Array.length = 1
+                && dr |> appliesToDoseRule routeMapping sr
+            )
+            |> Array.collect (fun dr ->
+                let dr, _ =
+                    dr
+                    |> DoseRule.reconstitute routeMapping sr.PatientCategory.Location sr.PatientCategory.Department
+
+                sr
+                |> substancesWithoutAllowedStrength (dr.ComponentLimits |> Array.collect _.Products)
+            )
+            |> Array.distinct
+
+        rules
+        |> Array.filter (fun sr -> sr.Diluents |> Array.isEmpty)
+        |> Array.choose (fun sr ->
+            match sr |> substances with
+            | [||] -> None
+            | subs ->
+                let names = subs |> String.concat ", "
+
+                Warning
+                    $"%s{sr |> label}: no diluent, and the concentration limit of %s{names} allows no strength of its products"
+                |> Some
+        )
+        |> Array.distinct
+        |> Array.toList
+
+
     let get dataUrlId routeMapping (parenteral: ProductComponent[]) products : Result<_, Message list> =
         try
             dataUrlId |> getData |> Result.bind (map routeMapping parenteral products)
