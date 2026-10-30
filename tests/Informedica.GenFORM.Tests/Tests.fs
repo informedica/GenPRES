@@ -2848,7 +2848,7 @@ module Tests =
                                 Volume = MinMax.empty
                                 VolumeAdjust = MinMax.empty
                                 DripRate = MinMax.empty
-                                DosePerc = MinMax.empty
+                                DoseFraction = MinMax.empty
                                 SolutionLimits = [||]
                             }
 
@@ -5348,7 +5348,7 @@ module Tests =
                                 Volume = MinMax.empty
                                 VolumeAdjust = MinMax.empty
                                 DripRate = MinMax.empty
-                                DosePerc = MinMax.empty
+                                DoseFraction = MinMax.empty
                                 SolutionLimits = [||]
                             }
 
@@ -6280,7 +6280,7 @@ module Tests =
                 Volume = RR.range mL None (Some 500N)
                 VolumeAdjust = volumeAdjust
                 DripRate = MinMax.empty
-                DosePerc = MinMax.empty
+                DoseFraction = MinMax.empty
                 SolutionLimits = [||]
             }
 
@@ -6725,7 +6725,7 @@ module Tests =
                 Volume = MinMax.empty
                 VolumeAdjust = MinMax.empty
                 DripRate = MinMax.empty
-                DosePerc = MinMax.empty
+                DoseFraction = MinMax.empty
                 SolutionLimits =
                     [|
                         { SolutionLimit.limit with

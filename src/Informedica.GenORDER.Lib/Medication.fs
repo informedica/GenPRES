@@ -933,6 +933,39 @@ module Medication =
         )
 
 
+    /// Converts the fraction of the preparation that makes up one dose into the number of doses
+    /// in the preparation. A higher fraction is fewer doses, so the minimum of the dose count comes
+    /// from the maximum of the fraction and the maximum from the minimum. Without a maximum
+    /// fraction, and with a minimum fraction of at most 1, the maximum fraction is 1, the whole
+    /// preparation, so the dose count is at least 1. Without a minimum fraction the dose count has
+    /// no maximum. A fraction of 0 counts as no fraction, and without either fraction the dose
+    /// count is empty.
+    let doseFractionToDoseCount (doseFraction: MinMax) =
+        let nonZero lim =
+            if lim |> Limit.getValueUnit |> ValueUnit.isZero then
+                None
+            else
+                Some lim
+
+        let valueReciprocal = ValueUnit.applyToValue (Array.map (fun v -> 1N / v))
+        let limitReciprocal = Limit.apply valueReciprocal valueReciprocal
+
+        match doseFraction.Min |> Option.bind nonZero, doseFraction.Max |> Option.bind nonZero with
+        | None, None -> MinMax.empty
+        | min, max ->
+            let max =
+                match min, max with
+                // a minimum fraction above 1 with a maximum of 1 would be an empty range
+                | Some lim, None when lim |> Limit.getValue |> Option.exists (fun v -> v > 1N) -> None
+                | _, None -> Some Limit.one
+                | _, Some _ -> max
+
+            { MinMax.empty with
+                Min = max |> Option.map limitReciprocal
+                Max = min |> Option.map limitReciprocal
+            }
+
+
     /// Add an optional solution rule to a medication order
     let addSolution logger (pat: Patient) sr med =
         match sr with
@@ -948,12 +981,7 @@ module Medication =
                 Quantity = sr.Volume
                 Quantities = if sr.Volumes.IsNone then med.Quantities else sr.Volumes
                 Div = sr.Div
-                DoseCount =
-                    // Change percentage to count!
-                    { MinMax.empty with
-                        Min = sr.DosePerc.Max
-                        Max = sr.DosePerc.Min
-                    }
+                DoseCount = sr.DoseFraction |> doseFractionToDoseCount
                 Components =
                     let ps =
                         med.Components
@@ -1764,7 +1792,7 @@ module Medication =
 
 
         /// The dose count set to 1 in its defined constraints when the rules give it no constraints, as
-        /// a solution rule without a minimum and maximum percentage does. A count is created above 0,
+        /// a solution rule without a minimum and a maximum dose fraction does. A count is created above 0,
         /// which counts as no constraint. Dose count constraints the rules give are kept as they are.
         let withDoseCount (ord: Order) =
             if
