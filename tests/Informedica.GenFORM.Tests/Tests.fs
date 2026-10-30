@@ -6745,9 +6745,7 @@ module Tests =
                                 |> Expect.isEmpty "none"
                             }
 
-                            // Pending: MinMax.validate in GenCORE does not report an inclusive minimum equal to an
-                            // exclusive maximum, a range no value fits.
-                            ptest "an inclusive minimum equal to an exclusive maximum is reported, no value fits" {
+                            test "an inclusive minimum equal to an exclusive maximum is reported, no value fits" {
                                 let mm =
                                     { range mg 100N 100N with
                                         Max = 100N |> ValueUnit.singleWithUnit mg |> Limit.exclusive |> Some

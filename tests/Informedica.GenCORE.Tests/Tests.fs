@@ -427,6 +427,10 @@ module Tests =
                 [
                     test "minGTmax" { mgIncl20 |> Limit.minGTmax mgIncl10 |> Expect.isTrue $"{mgIncl20} > {mgIncl10}" }
 
+                    test "minGTmax is false for a minimum below the maximum" {
+                        mgIncl10 |> Limit.minGTmax mgIncl20 |> Expect.isFalse $"{mgIncl10} < {mgIncl20}"
+                    }
+
                     test "toString" { toString () |> Expect.equal "should equal" "1 mg - 10 mg" }
 
                     testList
@@ -438,6 +442,66 @@ module Tests =
                                 |> function
                                     | Ok mm -> false |> Expect.isTrue $"{mm |> mmToStr} is not valid!"
                                     | Error msg -> true |> Expect.isTrue $"{msg}"
+                            }
+
+                            for min, max, valid in
+                                [
+                                    mgIncl10, mgIncl10, true
+                                    mgIncl10, mgExcl10, false
+                                    mgExcl10, mgIncl10, false
+                                    mgExcl10, mgExcl10, false
+                                    mgIncl10, mgExcl20, true
+                                    mgExcl10, mgExcl20, true
+                                    mgIncl20, mgIncl10, false
+                                    mgExcl20, mgExcl10, false
+                                ] do
+                                test $"{min |> Limit.toString true} {max |> Limit.toString false} is valid: {valid}" {
+                                    MinMax.create (Some min) (Some max)
+                                    |> MinMax.validate
+                                    |> Result.isOk
+                                    |> Expect.equal $"should be {valid}" valid
+                                }
+
+                            test "a range with one limit or none is valid" {
+                                [
+                                    MinMax.empty
+                                    MinMax.create (Some mgExcl10) None
+                                    MinMax.create None (Some mgExcl10)
+                                ]
+                                |> List.forall (MinMax.validate >> Result.isOk)
+                                |> Expect.isTrue "all valid"
+                            }
+                        ]
+
+                    testList
+                        "intersect"
+                        [
+                            let day v = fromDecimal v Units.Time.day
+
+                            test "two ranges that touch at an exclusive limit have no overlap" {
+                                MinMax.create (day 30m |> Inclusive |> Some) (day 365m |> Exclusive |> Some)
+                                |> MinMax.intersect (
+                                    MinMax.create (day 365m |> Inclusive |> Some) (day 730m |> Exclusive |> Some)
+                                )
+                                |> Expect.equal "empty" MinMax.empty
+                            }
+
+                            test "two ranges that touch at inclusive limits overlap at the single value" {
+                                MinMax.create (day 30m |> Inclusive |> Some) (day 365m |> Inclusive |> Some)
+                                |> MinMax.intersect (
+                                    MinMax.create (day 365m |> Inclusive |> Some) (day 730m |> Exclusive |> Some)
+                                )
+                                |> Expect.equal "365 days" (day 365m |> MinMax.createExact)
+                            }
+
+                            test "two ranges that overlap keep the overlap" {
+                                MinMax.create (day 30m |> Inclusive |> Some) (day 400m |> Exclusive |> Some)
+                                |> MinMax.intersect (
+                                    MinMax.create (day 365m |> Inclusive |> Some) (day 730m |> Exclusive |> Some)
+                                )
+                                |> Expect.equal
+                                    "365 to 400 days"
+                                    (MinMax.create (day 365m |> Inclusive |> Some) (day 400m |> Exclusive |> Some))
                             }
                         ]
 

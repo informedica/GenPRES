@@ -306,7 +306,9 @@ module Limit =
     let optSTE isMin1 isMin2 = compOpt (ste isMin1 isMin2) false false true
 
 
-    let minGTmax min max = min |> gt false true max
+    /// Whether the minimum min lies above the maximum max, so no value fits between the two.
+    /// A minimum equal to the maximum lies above it when one of the two limits is exclusive.
+    let minGTmax max min = gt true false min max
 
 
     let cmpToStr cp =
