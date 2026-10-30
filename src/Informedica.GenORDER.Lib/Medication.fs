@@ -1514,7 +1514,8 @@ module Medication =
 
 
         /// How much of the orderable is given, and how often it is counted. A medication that
-        /// names its quantities takes those; one that does not takes anything above nothing.
+        /// names its quantities takes those; one that does not keeps its minimum quantity, or takes
+        /// anything above nothing when it has no minimum.
         let withOrderableQuantity (med: Medication) (ord: Order) =
             let zero = med |> orderableUnit |> Option.bind (fun u -> 0N |> singleOrNone u)
             let con f = OrderVariable.mapConstraints f
@@ -1529,12 +1530,10 @@ module Medication =
                             ord.Orderable.OrderableQuantity
                             |> OrderVariable.Quantity.apply (
                                 con (fun cs ->
-                                    cs
+                                    (match med.Quantities with
+                                     | None -> cs |> OrderVariable.Constraints.setMin false zero
+                                     | Some _ -> cs |> OrderVariable.Constraints.setValues med.Quantities)
                                     |> OrderVariable.Constraints.setMinMax false med.Quantity
-                                    |> fun cs ->
-                                        match med.Quantities with
-                                        | None -> cs |> OrderVariable.Constraints.setMin false zero
-                                        | Some _ -> cs |> OrderVariable.Constraints.setValues med.Quantities
                                 )
                             )
                     }
