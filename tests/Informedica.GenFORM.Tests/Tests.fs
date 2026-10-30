@@ -7318,6 +7318,79 @@ module Tests =
                                 |> Expect.equal "one" 1
                             }
 
+                            test "a dose rule for another department gives no warning" {
+                                let dr = zidovudine[0]
+
+                                [|
+                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with PatientCategory = ick }
+                                |]
+                                |> undilutable
+                                    [|
+                                        { dr with
+                                            PatientCategory = { dr.PatientCategory with Department = Some "NEO" }
+                                        }
+                                    |]
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "a dose rule for another location gives no warning" {
+                                let dr = zidovudine[0]
+
+                                [|
+                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with
+                                        PatientCategory = { PatientCategory.empty with Location = Some "UMCU" }
+                                    }
+                                |]
+                                |> undilutable
+                                    [|
+                                        { dr with PatientCategory = { dr.PatientCategory with Location = Some "AMC" } }
+                                    |]
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "a dose rule for the same department gives the warning" {
+                                let dr = zidovudine[0]
+
+                                [|
+                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with PatientCategory = ick }
+                                |]
+                                |> undilutable
+                                    [|
+                                        { dr with
+                                            PatientCategory = { dr.PatientCategory with Department = Some "ICK" }
+                                        }
+                                    |]
+                                |> List.length
+                                |> Expect.equal "one" 1
+                            }
+
+                            test "a rule without a department checks a powder for the department of its reconstitution" {
+                                // 400 mg in 3 mL is about 133 mg/mL, reconstituted only for ICK
+                                [| solutionRule "teicoplanine" (maxConc 10N) |]
+                                |> undilutable
+                                    [|
+                                        ivDoseRule
+                                            "teicoplanine"
+                                            (Solid "poeder voor injectievloeistof")
+                                            [| powder "teicoplanine" 400N 3N (Some "ICK") |]
+                                    |]
+                                |> List.length
+                                |> Expect.equal "one" 1
+                            }
+
+                            test "a rule without a department gives no warning when the powder fits in that department" {
+                                // 400 mg in 40 mL is 10 mg/mL, reconstituted only for ICK
+                                [| solutionRule "teicoplanine" (maxConc 10N) |]
+                                |> undilutable
+                                    [|
+                                        ivDoseRule
+                                            "teicoplanine"
+                                            (Solid "poeder voor injectievloeistof")
+                                            [| powder "teicoplanine" 400N 40N (Some "ICK") |]
+                                    |]
+                                |> Expect.isEmpty "none"
+                            }
+
                             test "two equal rules give one warning" {
                                 [|
                                     solutionRule "zidovudine" (maxConc (5N / 2N))

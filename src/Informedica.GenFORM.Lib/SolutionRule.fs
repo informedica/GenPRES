@@ -269,9 +269,18 @@ module SolutionRule =
 
     /// Whether a solution rule applies to a dose rule: the generic and the route, and the form,
     /// indication and dose type when the solution rule names them, matched as filter matches them
-    /// for an order.
+    /// for an order. A solution rule and a dose rule that name different departments or different
+    /// locations apply to different patients, so they do not match.
     let appliesToDoseRule routeMapping (sr: SolutionRule) (dr: DoseRule) =
+        // a value only one of the two rules names restricts nothing
+        let canMeet a b =
+            match a, b with
+            | Some a, Some b -> a = b
+            | _ -> true
+
         sr.Generic |> String.equalsCapInsens (dr.Generic |> Generic.genericName)
+        && canMeet sr.PatientCategory.Department dr.PatientCategory.Department
+        && canMeet sr.PatientCategory.Location dr.PatientCategory.Location
         && sr.Form
            |> Option.forall (String.equalsCapInsens (dr.Generic.Form |> PharmaceuticalForm.toString))
         && sr.Indication |> Option.forall (String.equalsCapInsens dr.Indication)
@@ -342,7 +351,9 @@ module SolutionRule =
     /// A warning for each solution rule without diluents whose concentration limit allows no
     /// strength of the products of a dose rule it applies to. Only a dose rule with one component
     /// is checked, because a second component can dilute the first. The products are
-    /// reconstituted for the location and the department of the solution rule.
+    /// reconstituted for the location and the department of the solution rule. A solution rule
+    /// and a dose rule without a department apply to every department, so the products are then
+    /// reconstituted for each department their reconstitution rules name, and for none.
     let undilutableRules routeMapping (doseRules: DoseRule[]) (rules: SolutionRule[]) =
         let substances (sr: SolutionRule) =
             doseRules
@@ -351,12 +362,25 @@ module SolutionRule =
                 && dr |> appliesToDoseRule routeMapping sr
             )
             |> Array.collect (fun dr ->
-                let dr, _ =
-                    dr
-                    |> DoseRule.reconstitute routeMapping sr.PatientCategory.Location sr.PatientCategory.Department
+                let departments =
+                    match sr.PatientCategory.Department, dr.PatientCategory.Department with
+                    | Some dep, _
+                    | None, Some dep -> [| Some dep |]
+                    | None, None ->
+                        dr.ComponentLimits
+                        |> Array.collect _.Products
+                        |> Array.collect _.Reconstitution
+                        |> Array.map _.Department
+                        |> Array.append [| None |]
+                        |> Array.distinct
 
-                sr
-                |> substancesWithoutAllowedStrength (dr.ComponentLimits |> Array.collect _.Products)
+                departments
+                |> Array.collect (fun dep ->
+                    let dr, _ = dr |> DoseRule.reconstitute routeMapping sr.PatientCategory.Location dep
+
+                    sr
+                    |> substancesWithoutAllowedStrength (dr.ComponentLimits |> Array.collect _.Products)
+                )
             )
             |> Array.distinct
 
