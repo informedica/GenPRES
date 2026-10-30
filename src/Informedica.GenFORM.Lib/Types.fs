@@ -612,18 +612,21 @@ module Types =
             DoseLimitTarget: LimitTarget
             DoseReduction: DoseReduction
             Quantity: MinMax
-            /// A MinMax Quantity Adjust for the DoseLimit. A minimum equal to the maximum is a norm
-            /// dose, which the order widens to 90% and 110% of the value.
+            /// A MinMax Quantity Adjust for the DoseLimit. A minimum equal to the maximum is a norm dose;
+            /// the renal limit adjusts a substance limit, and the order widens a norm of a substance to 90% and
+            /// 110% of the value.
             QuantityAdjust: MinMax
             /// An optional Dose Per Time for the DoseLimit
             PerTime: MinMax
-            /// A MinMax Per Time Adjust for the DoseLimit. A minimum equal to the maximum is a norm
-            /// dose, which the order widens to 90% and 110% of the value.
+            /// A MinMax Per Time Adjust for the DoseLimit. A minimum equal to the maximum is a norm dose;
+            /// the renal limit adjusts a substance limit, and the order widens a norm of a substance to 90% and
+            /// 110% of the value.
             PerTimeAdjust: MinMax
             /// A MinMax Rate for the DoseLimit
             Rate: MinMax
-            /// A MinMax Rate Adjust for the DoseLimit. A minimum equal to the maximum is a norm dose,
-            /// which the order widens to 90% and 110% of the value.
+            /// A MinMax Rate Adjust for the DoseLimit. A minimum equal to the maximum is a norm dose;
+            /// the renal limit adjusts a substance limit, and the order widens a norm of a substance to 90% and
+            /// 110% of the value.
             RateAdjust: MinMax
         }
 
