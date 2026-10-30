@@ -55,26 +55,13 @@ module RenalRule =
         /// <returns>
         /// RenalLimit
         /// </returns>
-        let create
-            doseLimitTarget
-            doseReduction
-            quantity
-            normQuantityAdjust
-            quantityAdjust
-            perTime
-            normPerTimeAdjust
-            perTimeAdjust
-            rate
-            rateAdjust
-            =
+        let create doseLimitTarget doseReduction quantity quantityAdjust perTime perTimeAdjust rate rateAdjust =
             {
                 DoseLimitTarget = doseLimitTarget
                 DoseReduction = doseReduction
                 Quantity = quantity
-                NormQuantityAdjust = normQuantityAdjust
                 QuantityAdjust = quantityAdjust
                 PerTime = perTime
-                NormPerTimeAdjust = normPerTimeAdjust
                 PerTimeAdjust = perTimeAdjust
                 Rate = rate
                 RateAdjust = rateAdjust
@@ -134,12 +121,10 @@ module RenalRule =
                         Substance = get "Substance"
                         MinQty = get "MinQty" |> toBrOpt
                         MaxQty = get "MaxQty" |> toBrOpt
-                        NormQtyAdj = get "NormQtyAdj" |> String.replace " - " ";" |> BigRational.toBrs
                         MinQtyAdj = get "MinQtyAdj" |> toBrOpt
                         MaxQtyAdj = get "MaxQtyAdj" |> toBrOpt
                         MinPerTime = get "MinPerTime" |> toBrOpt
                         MaxPerTime = get "MaxPerTime" |> toBrOpt
-                        NormPerTimeAdj = get "NormPerTimeAdj" |> String.replace " - " ";" |> BigRational.toBrs
                         MinPerTimeAdj = get "MinPerTimeAdj" |> toBrOpt
                         MaxPerTimeAdj = get "MaxPerTimeAdj" |> toBrOpt
                         MinRate = get "MinRate" |> toBrOpt
@@ -280,10 +265,8 @@ module RenalRule =
                     (r.Substance |> LimitTarget.SubstanceLimitTarget)
                     (r.DoseRed |> DoseReduction.fromString logger)
                     ((r.MinQty, r.MaxQty) |> fromTupleInclIncl du)
-                    (r.NormQtyAdj |> ValueUnit.withArrayAndOptUnit duAdj)
                     ((r.MinQtyAdj, r.MaxQtyAdj) |> fromTupleInclIncl duAdj)
                     ((r.MinPerTime, r.MaxPerTime) |> fromTupleInclIncl duTime)
-                    (r.NormPerTimeAdj |> ValueUnit.withArrayAndOptUnit duAdjTime)
                     ((r.MinPerTimeAdj, r.MaxPerTimeAdj) |> fromTupleInclIncl duAdjTime)
                     ((r.MinRate, r.MaxRate) |> fromTupleInclIncl duRate)
                     ((r.MinRateAdj, r.MaxRateAdj) |> fromTupleInclIncl duAdjRate)
@@ -305,8 +288,6 @@ module RenalRule =
             r.MaxRateAdj
         ]
         |> List.exists Option.isSome
-        || r.NormQtyAdj |> Array.isEmpty |> not
-        || r.NormPerTimeAdj |> Array.isEmpty |> not
 
 
     /// The reasons a renal rule, given as its rows, is refused at load: both per kg and per m2

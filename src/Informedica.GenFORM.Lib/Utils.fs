@@ -227,15 +227,6 @@ module Utils =
             | _ -> None
 
 
-        let withArrayAndOptUnit u v =
-            if v |> Array.isEmpty then
-                None
-            else
-                match u with
-                | Some u -> v |> ValueUnit.withUnit u |> Some
-                | _ -> None
-
-
         let toString prec vu =
             ValueUnit.toStringDecimalDutchShortWithPrec prec vu |> String.replace ";" ", "
 

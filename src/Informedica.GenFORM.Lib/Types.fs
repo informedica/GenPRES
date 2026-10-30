@@ -612,23 +612,18 @@ module Types =
             DoseLimitTarget: LimitTarget
             DoseReduction: DoseReduction
             Quantity: MinMax
-            /// An optional Dose Quantity Adjust for the DoseLimit.
-            /// Note: if this is specified a min and max QuantityAdjust
-            /// will be assumed to be 10% minus and plus the normal value
-            NormQuantityAdjust: ValueUnit option
-            /// A MinMax Quantity Adjust for the DoseLimit
+            /// A MinMax Quantity Adjust for the DoseLimit. A minimum equal to the maximum is a norm
+            /// dose, which the order widens to 90% and 110% of the value.
             QuantityAdjust: MinMax
             /// An optional Dose Per Time for the DoseLimit
             PerTime: MinMax
-            /// An optional Per Time Adjust for the DoseLimit
-            /// Note: if this is specified a min and max NormPerTimeAdjust
-            /// will be assumed to be 10% minus and plus the normal value
-            NormPerTimeAdjust: ValueUnit option
-            /// A MinMax Per Time Adjust for the DoseLimit
+            /// A MinMax Per Time Adjust for the DoseLimit. A minimum equal to the maximum is a norm
+            /// dose, which the order widens to 90% and 110% of the value.
             PerTimeAdjust: MinMax
             /// A MinMax Rate for the DoseLimit
             Rate: MinMax
-            /// A MinMax Rate Adjust for the DoseLimit
+            /// A MinMax Rate Adjust for the DoseLimit. A minimum equal to the maximum is a norm dose,
+            /// which the order widens to 90% and 110% of the value.
             RateAdjust: MinMax
         }
 
@@ -976,8 +971,8 @@ module Types =
         /// administration, PerTime is accumulated per FreqUnit, Rate is continuous
         /// delivery speed; the *Adj variants are normalized to AdjustUnit.
         ///
-        /// Note there is deliberately no NormQtyAdj/NormPerTimeAdj here - normative
-        /// adjusted doses exist on RenalRuleData only.
+        /// A norm dose has no column of its own: an adjusted minimum equal to the adjusted maximum
+        /// is the norm, as in the renal rules.
         and DoseLimitData =
             {
                 /// sheet column "CmpBased", "x" for true: the limit targets the
@@ -1153,15 +1148,10 @@ module Types =
                 RateUnit: string
                 MinQty: BigRational option
                 MaxQty: BigRational option
-                /// " - "-separated in the sheet (e.g. "4 - 5"), unlike the
-                /// ';'-separated multi-value columns elsewhere
-                NormQtyAdj: BigRational array
                 MinQtyAdj: BigRational option
                 MaxQtyAdj: BigRational option
                 MinPerTime: BigRational option
                 MaxPerTime: BigRational option
-                /// " - "-separated, see NormQtyAdj
-                NormPerTimeAdj: BigRational array
                 MinPerTimeAdj: BigRational option
                 MaxPerTimeAdj: BigRational option
                 MinRate: BigRational option

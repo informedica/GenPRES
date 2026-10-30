@@ -1176,12 +1176,10 @@ module DoseRuleToDataTests =
                     "Substance"
                     "MinQty"
                     "MaxQty"
-                    "NormQtyAdj"
                     "MinQtyAdj"
                     "MaxQtyAdj"
                     "MinPerTime"
                     "MaxPerTime"
-                    "NormPerTimeAdj"
                     "MinPerTimeAdj"
                     "MaxPerTimeAdj"
                     "MinRate"
@@ -4054,10 +4052,8 @@ module Tests =
                 target
                 reduction
                 MinMax.empty
-                None
                 MinMax.empty
                 MinMax.empty
-                None
                 MinMax.empty
                 MinMax.empty
                 MinMax.empty
@@ -4328,12 +4324,10 @@ module Tests =
                                 "Substance", "paracetamol"
                                 "MinQty", "1"
                                 "MaxQty", "2"
-                                "NormQtyAdj", ""
                                 "MinQtyAdj", "1"
                                 "MaxQtyAdj", "2"
                                 "MinPerTime", "1"
                                 "MaxPerTime", "2"
-                                "NormPerTimeAdj", ""
                                 "MinPerTimeAdj", "1"
                                 "MaxPerTimeAdj", "2"
                                 "MinRate", "1"
@@ -5864,12 +5858,10 @@ module Tests =
                 RateUnit = ""
                 MinQty = None
                 MaxQty = None
-                NormQtyAdj = [||]
                 MinQtyAdj = None
                 MaxQtyAdj = Some 25N
                 MinPerTime = None
                 MaxPerTime = None
-                NormPerTimeAdj = [||]
                 MinPerTimeAdj = None
                 MaxPerTimeAdj = None
                 MinRate = None
@@ -5883,10 +5875,8 @@ module Tests =
                 DoseLimitTarget = SubstanceLimitTarget "paracetamol"
                 DoseReduction = Replace
                 Quantity = MinMax.empty
-                NormQuantityAdjust = None
                 QuantityAdjust = qtyAdj
                 PerTime = MinMax.empty
-                NormPerTimeAdjust = None
                 PerTimeAdjust = perTimeAdj
                 Rate = MinMax.empty
                 RateAdjust = MinMax.empty
@@ -5969,19 +5959,6 @@ module Tests =
                                     "the row for amoxicilline has a per kg or per m2 value without an adjust unit"
                                 ]
                             |]
-                    }
-
-                    test "a replacing renal row with a norm per kg value and no adjust unit is refused" {
-                        [|
-                            { renalRow with
-                                AdjustUnit = ""
-                                MaxQtyAdj = None
-                                NormQtyAdj = [| 4N; 5N |]
-                            }
-                        |]
-                        |> RenalRule.refused noLogger
-                        |> Array.length
-                        |> Expect.equal "refused" 1
                     }
 
                     test "repl and abs in any case read as the replacing reduction, rel as relative" {
