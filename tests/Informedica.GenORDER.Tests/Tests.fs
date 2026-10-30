@@ -5176,6 +5176,245 @@ module DoseTotalTests =
             ]
 
 
+/// The fraction of the preparation that makes up one dose, from the MinPerc and MaxPerc columns of a
+/// solution rule, turned into the dose count of the order.
+module SolutionDoseCountTests =
+
+    open Informedica.GenCore.Lib.Ranges
+
+
+    let times n = n |> ValueUnit.singleWithUnit Units.Count.times
+
+
+    let incl n = n |> times |> Limit.inclusive |> Some
+
+
+    let excl n = n |> times |> Limit.exclusive |> Some
+
+
+    let fraction min max =
+        { MinMax.empty with
+            Min = min
+            Max = max
+        }
+
+
+    let solutionRule doseFraction : SolutionRule =
+        {
+            Generic = "amfotericine b liposomaal"
+            Form = None
+            Route = "iv"
+            Indication = None
+            DoseType = NoDoseType
+            PatientCategory = PatientCategory.empty
+            Dose = MinMax.empty
+            Diluents = [||]
+            Div = None
+            Volumes = None
+            Volume = MinMax.empty
+            VolumeAdjust = MinMax.empty
+            DripRate = MinMax.empty
+            DoseFraction = doseFraction
+            SolutionLimits = [||]
+        }
+
+
+    let withRule doseFraction =
+        Scenarios.amfo
+        |> Medication.addSolution OrderLogging.noOp Patient.patient (doseFraction |> solutionRule |> Some)
+
+
+    let solved doseFraction =
+        doseFraction |> withRule |> TestOrder.toOrder |> TestOrder.solve CalcMinMax
+
+
+    let minOf (var: Informedica.GenSolver.Lib.Types.Variable) =
+        var
+        |> Informedica.GenSolver.Lib.Variable.getValueRange
+        |> Informedica.GenSolver.Lib.Variable.ValueRange.getMin
+        |> Option.map (
+            Informedica.GenSolver.Lib.Variable.ValueRange.Minimum.toValueUnit
+            >> ValueUnit.getValue
+        )
+
+
+    let maxOf (var: Informedica.GenSolver.Lib.Types.Variable) =
+        var
+        |> Informedica.GenSolver.Lib.Variable.getValueRange
+        |> Informedica.GenSolver.Lib.Variable.ValueRange.getMax
+        |> Option.map (
+            Informedica.GenSolver.Lib.Variable.ValueRange.Maximum.toValueUnit
+            >> ValueUnit.getValue
+        )
+
+
+    let tests =
+        testList
+            "the dose fraction of a solution rule as the dose count"
+            [
+                testList
+                    "doseFractionToDoseCount"
+                    [
+                        test "0.5 to 0.5, half the preparation, is a dose count of exactly 2" {
+                            fraction (incl (1N / 2N)) (incl (1N / 2N))
+                            |> Medication.doseFractionToDoseCount
+                            |> Expect.equal "exactly 2" (fraction (incl 2N) (incl 2N))
+                        }
+
+                        test "2 to 2, twice the preparation, is a dose count of exactly 1/2" {
+                            fraction (incl 2N) (incl 2N)
+                            |> Medication.doseFractionToDoseCount
+                            |> Expect.equal "exactly 1/2" (fraction (incl (1N / 2N)) (incl (1N / 2N)))
+                        }
+
+                        test "1 to 1 is a dose count of exactly 1" {
+                            fraction (incl 1N) (incl 1N)
+                            |> Medication.doseFractionToDoseCount
+                            |> Expect.equal "exactly 1" (fraction (incl 1N) (incl 1N))
+                        }
+
+                        test "an empty minimum and a maximum of 1 is a dose count of at least 1 without a maximum" {
+                            fraction None (incl 1N)
+                            |> Medication.doseFractionToDoseCount
+                            |> Expect.equal "at least 1" (fraction (incl 1N) None)
+                        }
+
+                        test "0.25 to 0.5 is a dose count of 2 to 4" {
+                            fraction (incl (1N / 4N)) (incl (1N / 2N))
+                            |> Medication.doseFractionToDoseCount
+                            |> Expect.equal "2 to 4" (fraction (incl 2N) (incl 4N))
+                        }
+
+                        test "an exclusive limit stays exclusive on the other side" {
+                            fraction (excl (1N / 4N)) (incl (1N / 2N))
+                            |> Medication.doseFractionToDoseCount
+                            |> Expect.equal "2 to below 4" (fraction (incl 2N) (excl 4N))
+                        }
+
+                        test "empty columns are an empty dose count" {
+                            MinMax.empty
+                            |> Medication.doseFractionToDoseCount
+                            |> Expect.equal "empty" MinMax.empty
+                        }
+
+                        test "a minimum of 0.5 and an empty maximum is a dose count of 1 to 2" {
+                            fraction (incl (1N / 2N)) None
+                            |> Medication.doseFractionToDoseCount
+                            |> Expect.equal "1 to 2" (fraction (incl 1N) (incl 2N))
+                        }
+
+                        test "an empty minimum and a maximum of 0.5 is a dose count of at least 2" {
+                            fraction None (incl (1N / 2N))
+                            |> Medication.doseFractionToDoseCount
+                            |> Expect.equal "at least 2" (fraction (incl 2N) None)
+                        }
+
+                        test "a minimum of 0 gives no maximum" {
+                            fraction (incl 0N) (incl 1N)
+                            |> Medication.doseFractionToDoseCount
+                            |> Expect.equal "at least 1" (fraction (incl 1N) None)
+                        }
+
+                        test "a maximum of 0 counts as empty, so the dose count is at least 1" {
+                            fraction (incl (1N / 2N)) (incl 0N)
+                            |> Medication.doseFractionToDoseCount
+                            |> Expect.equal "1 to 2" (fraction (incl 1N) (incl 2N))
+                        }
+
+                        test "both 0 are an empty dose count" {
+                            fraction (incl 0N) (incl 0N)
+                            |> Medication.doseFractionToDoseCount
+                            |> Expect.equal "empty" MinMax.empty
+                        }
+
+                        test "a minimum of 2 and an empty maximum is a dose count of at most 1/2 without a minimum" {
+                            fraction (incl 2N) None
+                            |> Medication.doseFractionToDoseCount
+                            |> Expect.equal "at most 1/2" (fraction None (incl (1N / 2N)))
+                        }
+
+                        test "a minimum of 1 and an empty maximum is a dose count of exactly 1" {
+                            fraction (incl 1N) None
+                            |> Medication.doseFractionToDoseCount
+                            |> Expect.equal "exactly 1" (fraction (incl 1N) (incl 1N))
+                        }
+
+                        // the minimum comes from the default of 1 and the maximum from 1 / 0.5
+                        test "both limits of the dose count have the unit times" {
+                            let count = fraction (incl (1N / 2N)) None |> Medication.doseFractionToDoseCount
+                            let unitOf = Option.map (Limit.getValueUnit >> ValueUnit.getUnit)
+
+                            (count.Min |> unitOf, count.Max |> unitOf)
+                            |> Expect.equal "times" (Some Units.Count.times, Some Units.Count.times)
+                        }
+                    ]
+
+                testList
+                    "addSolution"
+                    [
+                        test "a rule with 0.5 gives the medication a dose count of exactly 2" {
+                            fraction (incl (1N / 2N)) (incl (1N / 2N))
+                            |> withRule
+                            |> _.DoseCount
+                            |> Expect.equal "exactly 2" (fraction (incl 2N) (incl 2N))
+                        }
+
+                        test "a rule with empty columns gives an empty dose count" {
+                            MinMax.empty |> withRule |> _.DoseCount |> Expect.equal "empty" MinMax.empty
+                        }
+                    ]
+
+                testList
+                    "an order solved from a rule with 0.5"
+                    [
+                        test "the orderable dose count is 2" {
+                            let ord = fraction (incl (1N / 2N)) (incl (1N / 2N)) |> solved
+
+                            ord.Orderable.DoseCount
+                            |> OrderVariable.Count.toOrdVar
+                            |> TestOrder.valuesOf
+                            |> Expect.equal "2" [| 2N |]
+                        }
+
+                        test "the minimum orderable quantity is twice the minimum dose quantity" {
+                            let ord = fraction (incl (1N / 2N)) (incl (1N / 2N)) |> solved
+
+                            let orb =
+                                (ord.Orderable.OrderableQuantity |> OrderVariable.Quantity.toOrdVar).Variable
+                                |> minOf
+                            let dos =
+                                (ord.Orderable.Dose.Quantity |> OrderVariable.Quantity.toOrdVar).Variable
+                                |> minOf
+
+                            dos |> Expect.isSome "the dose quantity has a minimum"
+
+                            orb |> Expect.equal "twice the dose" (dos |> Option.map (Array.map ((*) 2N)))
+                        }
+
+                        test "a rule with empty columns gives an orderable dose count of 1" {
+                            let ord = MinMax.empty |> solved
+
+                            ord.Orderable.DoseCount
+                            |> OrderVariable.Count.toOrdVar
+                            |> TestOrder.valuesOf
+                            |> Expect.equal "1" [| 1N |]
+                        }
+
+                        // the other constraints of the order may narrow the dose count further
+                        test "a rule with 0.5 and an empty maximum keeps the orderable dose count within 1 to 2" {
+                            let ord = fraction (incl (1N / 2N)) None |> solved
+                            let cnt = (ord.Orderable.DoseCount |> OrderVariable.Count.toOrdVar).Variable
+
+                            match cnt |> minOf, cnt |> maxOf with
+                            | Some [| min |], Some [| max |] ->
+                                (min >= 1N && max <= 2N)
+                                |> Expect.isTrue $"%s{min |> string} to %s{max |> string} lies within 1 to 2"
+                            | min, max -> failtest $"no single minimum and maximum: %A{min}, %A{max}"
+                        }
+                    ]
+            ]
+
+
 [<Tests>]
 let tests =
     testList
@@ -5216,4 +5455,5 @@ let tests =
             MedicationTextTests.MedicationTextScenarioTests.tests
             MedicationTextTests.MedicationTextYamlTests.tests
             MedicationSchemaTests.tests
+            SolutionDoseCountTests.tests
         ]

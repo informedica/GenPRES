@@ -370,8 +370,8 @@ do. There is now one copy, the inventory of what is actually built: the Core Lib
 | SolutionRule                 | MaxVolAdj  | float                                                 | mL / kg         |     | The maximum allowed solution volume                                |
 | SolutionRule                 | MinDrip    | float                                                 | mL / hour       |     | The minimum allowed infusion rate                                  |
 | SolutionRule                 | MaxDrip    | float                                                 | mL / hour       |     | The maximum allowed infusion rate                                  |
-| SolutionRule                 | MinPerc    | float                                                 | perc            |     | The minimum percentage of the solution to use for the DoseQuantity |
-| SolutionRule                 | MaxPerc    | float                                                 | perc            |     | The maximum percentage of the solution to use for the DoseQuantity |
+| SolutionRule                 | MinPerc    | float                                                 | fraction        |     | The minimum fraction of the preparation that makes up one dose     |
+| SolutionRule                 | MaxPerc    | float                                                 | fraction        |     | The maximum fraction of the preparation that makes up one dose     |
 | SolutionLimit                | Substance  | text                                                  |                 |     | The substance used for the below fields                            |
 | SolutionLimit                | SubstUnit  | text                                                  |                 |     | The unit to measure the substance                                  |
 | SolutionLimit                | Quantities | float list                                            | subst_unit      |     | The substance quantities that can be used                          |

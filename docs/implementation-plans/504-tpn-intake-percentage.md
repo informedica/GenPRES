@@ -266,9 +266,10 @@ becomes the medication's `Div`. With it set, the orderable dose quantity steps b
 empty, the orderable and its dose quantity step by the coarsest `Divisible` of the products, 1 mL
 for the TPN products. Either way the percentage has steps to pick from.
 
-`Medication.addSolution` turns `MinPerc`/`MaxPerc` into the dose count as they are, without dividing
-by 100 and with minimum and maximum swapped, so `MaxPerc` holds `1` for a dose count of at least one
-and `MinPerc` stays empty. A dose count defined as exactly one forbids every partial dose.
+`Medication.addSolution` turns `MinPerc`/`MaxPerc` into the dose count as 1 divided by the
+fraction, the minimum from `MaxPerc` and the maximum from `MinPerc`, so `MaxPerc` holds `1` for a
+dose count of at least one and `MinPerc` stays empty. A dose count defined as exactly one forbids
+every partial dose.
 
 Every component needs a component row, the filler too (for example `gluc 10%` at `65` to `80`
 mL/kg): a component without one has no upper bound, the orderable quantity then never becomes one
@@ -288,11 +289,10 @@ weight is required.
 
 ## Open questions
 
-1. **`MinPerc`/`MaxPerc`.** The sheet documents these columns as "the percentage of the solution
-   that makes up one dose quantity", but `Medication.addSolution` uses the values as a dose count,
-   unscaled and with minimum and maximum swapped (`Min = DosePerc.Max`, `Max = DosePerc.Min`). For a
-   dose count of at least one `MaxPerc` holds `1`, not `100`. Whether the column name, its documentation or
-   the conversion should change is not yet settled.
+1. **`MinPerc`/`MaxPerc`** (settled). The columns hold the fraction of the preparation that makes up
+   one dose, not a percentage. `Medication.addSolution` takes 1 divided by the fraction as the dose
+   count: the dose count minimum is 1 / `MaxPerc` and the dose count maximum is 1 / `MinPerc`. The
+   column names stay; their documentation says a fraction.
 2. **Component picks in the processor** (settled: no change). The increase and decrease of a
    component quantity go through `orderPropertyIncrOrDecrComponentOrderableQuantity`, which sets the
    dose count back to one; the minimum, median and maximum picks (`setCmpOrbQty`) do not. Routing

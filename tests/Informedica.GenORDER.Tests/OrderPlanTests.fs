@@ -1641,7 +1641,7 @@ let scenarioAccessTests =
             Volume = Informedica.GenCore.Lib.Ranges.MinMax.empty
             VolumeAdjust = Informedica.GenCore.Lib.Ranges.MinMax.empty
             DripRate = Informedica.GenCore.Lib.Ranges.MinMax.empty
-            DosePerc = Informedica.GenCore.Lib.Ranges.MinMax.empty
+            DoseFraction = Informedica.GenCore.Lib.Ranges.MinMax.empty
             SolutionLimits = [||]
         }
 

@@ -139,7 +139,7 @@ module SolutionRule =
                 DripRate =
                     (r.MinDrip, r.MaxDrip)
                     |> fromTupleInclIncl (Some(Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour))
-                DosePerc = (r.MinPerc, r.MaxPerc) |> fromTupleInclIncl (Some Units.Count.times)
+                DoseFraction = (r.MinPerc, r.MaxPerc) |> fromTupleInclIncl (Some Units.Count.times)
                 SolutionLimits = [||]
             }
         )
@@ -218,7 +218,7 @@ module SolutionRule =
             "volume", sr.Volume
             "volume adjust", sr.VolumeAdjust
             "drip rate", sr.DripRate
-            "dose percentage", sr.DosePerc
+            "dose fraction", sr.DoseFraction
             for sl in sr.SolutionLimits do
                 let target = sl.SolutionLimitTarget |> LimitTarget.toString
                 $"%s{target} quantity", sl.Quantity
@@ -358,9 +358,9 @@ module SolutionRule =
 
 
         /// Format the rule-wide "geef X% van de bereiding" line from the
-        /// DosePerc bounds on the rule. Returns an empty string when no bounds
+        /// DoseFraction bounds on the rule. Returns an empty string when no bounds
         /// are set.
-        let printDosePerc (sr: SolutionRule) =
+        let printDoseFraction (sr: SolutionRule) =
             let toPerc l =
                 l
                 |> Limit.getValueUnit
@@ -370,7 +370,7 @@ module SolutionRule =
                 |> fun x -> $"{x * 100.}"
 
             let p =
-                match sr.DosePerc.Min, sr.DosePerc.Max with
+                match sr.DoseFraction.Min, sr.DoseFraction.Max with
                 | None, None -> ""
                 | Some l, None -> $"min. {l |> toPerc}"
                 | None, Some l -> $"max. {l |> toPerc}"
@@ -588,12 +588,12 @@ module SolutionRule =
                                                             [| heads; concBlock |] |> Array.filter String.notEmpty
                                                         )
 
-                                                    let dosePercBlock = printDosePerc r
+                                                    let doseFractionBlock = printDoseFraction r
 
                                                     [|
                                                         yield! targetBlocks
-                                                        if dosePercBlock |> String.notEmpty then
-                                                            yield dosePercBlock
+                                                        if doseFractionBlock |> String.notEmpty then
+                                                            yield doseFractionBlock
                                                     |]
                                             )
                                             |> String.concat "\n"

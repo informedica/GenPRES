@@ -599,8 +599,9 @@ module Types =
             VolumeAdjust: MinMax
             /// A MinMax Drip Rate for the SolutionRule
             DripRate: MinMax
-            /// The percentage to be used as a DoseQuantity
-            DosePerc: MinMax
+            /// The fraction of the preparation that makes up one dose, for example 0.5 for half the preparation.
+            /// The order uses 1 divided by the fraction as the number of doses in the preparation.
+            DoseFraction: MinMax
             /// The SolutionLimits for the SolutionRule
             SolutionLimits: SolutionLimit[]
         }
@@ -1077,8 +1078,8 @@ module Types =
                 /// volume bounds per kg, in mL/kg
                 MinVolAdj: BigRational option
                 MaxVolAdj: BigRational option
-                /// administration fraction: the percentage of the solution that makes
-                /// up one dose quantity
+                /// administration fraction: the fraction of the preparation that makes up one dose,
+                /// for example 0.5 for half the preparation and 1 for the whole preparation
                 MinPerc: BigRational option
                 MaxPerc: BigRational option
                 /// solution limit section
