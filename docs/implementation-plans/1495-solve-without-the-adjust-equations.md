@@ -508,9 +508,9 @@ The work is done in one pull request per step, after the maintainer's go.
      (`MinQtyAdj` to `MaxRateAdj`) and no adjust unit loses that value today without a message
      (`DoseRule.fs:409`, `Utils.fs:248`). Its rule is left out at load, with a message that names the
      row. The check covers the dose rules and the replacing renal rules; the relative renal rows hold
-     reduction factors without a unit in the same columns, and are not checked. For a renal row the
-     norm columns `NormQtyAdj` and `NormPerTimeAdj` count as well: they are read with the same adjusted
-     unit and are lost the same way, which matters once the norm doses are applied (#1536). The export's 70
+     reduction factors without a unit in the same columns, and are not checked. The norm columns
+     `NormQtyAdj` and `NormPerTimeAdj` of the renal rules were removed with #1536: a norm is an adjusted
+     minimum equal to the adjusted maximum, as in the dose rules. The export's 70
      replacing renal rows all have kg.
    - **An adjust unit without a per kg or per m2 value.** A rule with an adjust unit and no value in an
      adjusted column in any of its rows gets a warning at load, and is used as today. Examples:
