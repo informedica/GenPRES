@@ -1176,7 +1176,7 @@ module Models =
     module OrderScenario =
 
 
-        let create ind nme frm rte dst dil cmp itm dils cmps itms prs prep adm o adj rr rn ids acc =
+        let create ind nme frm rte dst dil cmp itm dils cmps itms prs prep adm o adj rr rn fits ids acc =
             {
                 Name = nme
                 Indication = ind
@@ -1196,6 +1196,7 @@ module Models =
                 UseAdjust = adj
                 UseRenalRule = rr
                 RenalRule = rn
+                FitsOnlyWithoutDivisible = fits
                 ProductIds = ids
                 Access = acc
             }

@@ -741,6 +741,15 @@ module OrderVariable =
     let hasIncrement (ovar: OrderVariable) = ovar.Variable |> Variable.isMinIncrMax
 
 
+    /// Whether the OrderVariable has a defined increment. The solver calculates values without an
+    /// increment, so the values do not count.
+    let hasIncrConstraint ovar = (ovar |> getConstraints).Incr |> Option.isSome
+
+
+    /// Whether the values of the OrderVariable have a maximum, also when they are a single value.
+    let hasMaxValue (ovar: OrderVariable) = ovar.Variable.Values |> ValueRange.getMax |> Option.isSome
+
+
     /// <summary>
     /// Try and increase the increment of a <c>ValueRange</c> of a Variable to an
     /// increment in incrs such that the resulting ValueRange contains

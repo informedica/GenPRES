@@ -2981,6 +2981,13 @@ module Order =
     let components ord = ord.Orderable.Components |> List.map (_.Name >> Name.toString)
 
 
+    /// The orderable quantity of the main component, the first component of the order.
+    let mainComponentQuantity ord =
+        ord.Orderable.Components
+        |> List.tryHead
+        |> Option.map (_.OrderableQuantity >> OrderVariable.Quantity.toOrdVar)
+
+
     /// Check whether every component orderable quantity holds one value, so the user has set the
     /// composition a dose is a part of.
     let isComposed ord =

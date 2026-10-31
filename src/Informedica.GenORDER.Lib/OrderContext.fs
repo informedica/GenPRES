@@ -62,7 +62,7 @@ module OrderScenario =
                 | Alert _ -> s |> Alert
 
 
-    let create no nm ind frm rte dst dil cmp itm dils cmps itms ord adj ren rrl ids : OrderScenario =
+    let create no nm ind frm rte dst dil cmp itm dils cmps itms ord adj ren rrl fits ids : OrderScenario =
         {
             No = no
             Name = nm
@@ -83,6 +83,7 @@ module OrderScenario =
             UseAdjust = adj
             UseRenalRule = ren
             RenalRule = rrl
+            FitsOnlyWithoutDivisible = fits
             ProductsIds = ids
             Access = AnyAccess
         }
@@ -97,17 +98,67 @@ module OrderScenario =
             pr.SolutionRules |> Array.map _.PatientCategory.Access
 
 
+    /// The warning on an order with a Divisible but no limit, and on an order that fits its rule
+    /// only without the Divisible.
+    let notPreparableWarning =
+        "Dosis niet te bereiden met de deelbaarheid van het product: "
+        + "controle door de apotheek of een tweede validatie is nodig"
+
+
+    /// The note on an order of a product without a Divisible.
+    let noPreparationNote = "Geen bereiding"
+
+
+    /// Whether the orderable quantity of the main component has a defined increment, which the
+    /// Divisible gives.
+    let hasStep ord =
+        ord
+        |> Order.mainComponentQuantity
+        |> Option.exists OrderVariable.hasIncrConstraint
+
+
+    /// Whether the orderable quantity of the main component has a maximum or a single value.
+    let isBounded ord =
+        ord |> Order.mainComponentQuantity |> Option.exists OrderVariable.hasMaxValue
+
+
+    /// Whether the order has a quantity that can be made: a step, and a limit to count up to. Only
+    /// the main component counts, because a diluent has no maximum when it fills up to a volume.
+    let isPreparable ord = ord |> hasStep && ord |> isBounded
+
+
+    /// The line that says why the order has no preparation. An order with a Divisible should have
+    /// one, so without a limit that is a warning, as it is for an order that fits only without
+    /// the Divisible. An order that has a preparation and fits its rule with the Divisible gets
+    /// no line.
+    let preparationNotice fitsOnlyWithoutDivisible ord =
+        match fitsOnlyWithoutDivisible, ord |> hasStep, ord |> isBounded with
+        | true, _, _
+        | _, true, false -> notPreparableWarning |> Warning |> Some
+        | _, true, true -> None
+        | _, false, _ -> noPreparationNote |> Caution |> Some
+
+
     let setOrderTableFormat (sc: OrderScenario) =
         let prs, prp, adm = sc.Order |> Order.Print.printOrderToTableFormat sc.UseAdjust true sc.Items
 
         { sc with
-            Prescription = prs |> Array.map (Array.map replace)
-            Preparation = prp |> Array.map (Array.map replace)
+            Prescription =
+                sc.Order
+                |> preparationNotice sc.FitsOnlyWithoutDivisible
+                |> Option.map (Array.singleton >> Array.singleton)
+                |> Option.defaultValue [||]
+                |> Array.append (prs |> Array.map (Array.map replace))
+            Preparation =
+                if sc.Order |> isPreparable then
+                    prp |> Array.map (Array.map replace)
+                else
+                    [||]
             Administration = adm |> Array.map (Array.map replace)
         }
 
 
-    let fromRule no pr ord =
+    let fromRule fitsOnlyWithoutDivisible no pr ord =
         let cmps = pr.DoseRule.ComponentLimits |> Array.map _.Name
 
         let itms =
@@ -164,6 +215,7 @@ module OrderScenario =
             useAdjust
             useRenalRule
             pr.DoseRule.RenalRuleSource
+            fitsOnlyWithoutDivisible
         |> setOrderTableFormat
 
 
@@ -192,6 +244,7 @@ module OrderScenario =
                 UseAdjust: bool
                 UseRenalRule: bool
                 RenalRule: string option
+                FitsOnlyWithoutDivisible: bool
                 ProductsIds: string[]
                 Access: string
             }
@@ -238,6 +291,7 @@ module OrderScenario =
                 UseAdjust = sc.UseAdjust
                 UseRenalRule = sc.UseRenalRule
                 RenalRule = sc.RenalRule
+                FitsOnlyWithoutDivisible = sc.FitsOnlyWithoutDivisible
                 ProductsIds = sc.ProductsIds
                 Access = sc.Access |> AccessDevice.toString
             }
@@ -299,6 +353,8 @@ module OrderScenario =
                                 UseAdjust = dto.UseAdjust
                                 UseRenalRule = dto.UseRenalRule
                                 RenalRule = dto.RenalRule
+                                // a scenario stored before the field existed reads as false
+                                FitsOnlyWithoutDivisible = dto.FitsOnlyWithoutDivisible
                                 ProductsIds = dto.ProductsIds |> DtoResult.orEmpty
                                 // a scenario stored before the field existed has none
                                 Access =
@@ -592,12 +648,14 @@ module OrderContext =
                 |> Array.filter Result.isOk
 
 
-        let processEvaluationResults prs =
+        let processEvaluationResults fitsOnlyWithoutDivisible prs =
             prs
             |> Array.mapi (fun i r -> i, r)
             |> Array.choose (
                 function
-                | i, Ok(ord, pr, access) -> { OrderScenario.fromRule i pr ord with Access = access } |> Some
+                | i, Ok(ord, pr, access) ->
+                    { OrderScenario.fromRule fitsOnlyWithoutDivisible i pr ord with Access = access }
+                    |> Some
                 | _, Error(ord, ctx, errs) ->
                     // TODO: this never gets written!! (evaluateRules already filters to Ok
                     // results before this function ever sees them)
@@ -1142,37 +1200,15 @@ Scenarios: {scenarios}
 """
 
 
+    /// The scenarios per dose type: only the preparable ones when there are any, otherwise all.
     let filterScenariosByPreparation (scs: OrderScenario[]) =
-        if scs |> Array.length <= 1 then
-            scs
-        else
-            // filter out prescriptions without preparation when not needed
-            let grouped = scs |> Array.groupBy _.DoseType
-
-            [|
-                for _, scs in grouped do
-                    if scs |> Array.length <= 1 then
-                        scs
-                    else if
-                        scs
-                        |> Array.filter (fun sc ->
-                            sc.Preparation
-                            |> Array.exists (Array.exists Order.Print.textBlockIsEmpty >> not)
-                        )
-                        |> Array.length
-                            =
-                            0
-                    then
-                        scs
-                    else
-                        scs
-                        |> Array.filter (fun sc ->
-                            sc.Preparation
-                            |> Array.exists (Array.exists Order.Print.textBlockIsEmpty >> not)
-                        )
-
-            |]
-            |> Array.collect id
+        scs
+        |> Array.groupBy _.DoseType
+        |> Array.collect (fun (_, scs) ->
+            match scs |> Array.filter (_.Order >> OrderScenario.isPreparable) with
+            | [||] -> scs
+            | preparable -> preparable
+        )
 
 
     let updateFilterIfOneScenario ctx =
@@ -1367,16 +1403,17 @@ Scenarios: {scenarios}
             else
                 // Note: different prescription rules can exist based on multiple pharmaceutical forms
                 // and multiple solution rules
+                let fitsOnlyWithoutDivisible, results =
+                    match prs |> evaluateRules start logger with
+                    | [||] ->
+                        // no valid results so evaluate again
+                        // with changed product divisibility
+                        true, prs |> Array.map changeRuleProductsDivisible |> evaluateRules start logger
+                    | results -> false, results
+
                 let scenarios =
-                    prs
-                    |> evaluateRules start logger
-                    |> function
-                        | [||] ->
-                            // no valid results so evaluate again
-                            // with changed product divisibility
-                            prs |> Array.map changeRuleProductsDivisible |> evaluateRules start logger
-                        | results -> results
-                    |> processEvaluationResults
+                    results
+                    |> processEvaluationResults fitsOnlyWithoutDivisible
                     |> filterScenariosByPreparation
 
                 let meds () = prs |> Array.collect (Medication.fromRule logger)
