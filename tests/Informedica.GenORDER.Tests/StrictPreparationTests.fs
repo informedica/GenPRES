@@ -47,9 +47,8 @@ module Fixture =
     let prescribed (sc: OrderScenario) = sc.Prescription |> Array.collect id
 
 
-    /// The suppository of 240 mg with a Divisible of 1: the rule allows at most 100 mg, so a whole
-    /// suppository does not fit and only the retry gives an order.
-    let wholeSuppository =
+    /// The rule of the suppository with a product of the strength in mg and the Divisible.
+    let suppositoryRule strength divisible =
         let stuk = Units.General.general "stuk"
         let perStuk = Units.Mass.milliGram |> ValueUnit.per stuk
 
@@ -57,14 +56,36 @@ module Fixture =
         |> OrderPlanTests.RuleFixtures.mapProducts (fun p ->
             { p with
                 GPK = "1"
-                Divisible = Some 1N
+                Divisible = divisible
                 FormUnit = stuk
                 FormQuantities = 1N |> ValueUnit.singleWithUnit stuk
                 Substances =
                     p.Substances
-                    |> Array.map (fun s -> { s with Concentration = 240N |> ValueUnit.singleWithUnit perStuk |> Some })
+                    |> Array.map (fun s ->
+                        { s with Concentration = strength |> ValueUnit.singleWithUnit perStuk |> Some }
+                    )
             }
         )
+
+
+    /// The suppository of 240 mg with a Divisible of 1: the rule allows at most 100 mg, so a whole
+    /// suppository does not fit and only the retry gives an order.
+    let wholeSuppository = suppositoryRule 240N (Some 1N)
+
+
+    /// The rule as a rule of another form.
+    let ofForm form (rules: DoseRule[]) =
+        rules
+        |> Array.map (fun dr -> { dr with DoseRule.Generic.Form = form |> PharmaceuticalForm.fromString })
+        |> OrderPlanTests.RuleFixtures.mapProducts (fun p -> { p with Form = form })
+
+
+    /// The same rule in two forms: "zetpil" with a Divisible, and "drank" without one.
+    let twoForms =
+        [|
+            yield! suppositoryRule 100N (Some 1N) |> ofForm "zetpil"
+            yield! suppositoryRule 100N None |> ofForm "drank"
+        |]
 
 
     /// The paracetamol context with its order marked.
@@ -171,6 +192,17 @@ let tests =
                         |> Expect.equal "dropped" [| 1 |]
                     }
 
+                    test "a scenario that is not preparable is dropped beside two that are, and both stay" {
+                        [|
+                            scenario false 0 undivided.Value
+                            scenario false 1 divided.Value
+                            scenario false 2 divided.Value
+                        |]
+                        |> OrderContext.filterScenariosByPreparation
+                        |> Array.map _.No
+                        |> Expect.equal "the two preparable" [| 1; 2 |]
+                    }
+
                     test "the warning does not make a scenario preparable" {
                         [| scenario true 0 undivided.Value; scenario false 1 divided.Value |]
                         |> OrderContext.filterScenariosByPreparation
@@ -206,13 +238,46 @@ let tests =
                         |> Expect.equal "both" 2
                     }
 
-                    test "picking the form brings a scenario that is not preparable back" {
-                        [| scenario false 0 undivided.Value |]
-                        |> OrderContext.filterScenariosByPreparation
-                        |> Array.length
-                        |> Expect.equal "one" 1
-                    }
                 ]
+
+            test "the form of a dropped scenario can be picked through the evaluation" {
+                let provider = OrderPlanTests.RulesOf twoForms :> Resources.IResourceProvider
+                let evaluate cmd =
+                    cmd
+                    |> OrderContext.evaluateOutcome Scenarios.testStart OrderLogging.noOp provider
+
+                match
+                    child
+                    |> OrderContext.create OrderLogging.noOp provider
+                    |> OrderContext.UpdateOrderContext
+                    |> evaluate
+                with
+                | Ok(Evaluated(OrderContext.UpdateOrderContext ctx)) ->
+                    ctx.Scenarios
+                    |> Array.map _.Form
+                    |> Expect.equal "the preparable scenario is left" [| "zetpil" |]
+                    ctx.Filter.Form |> Expect.equal "its form is picked" (Some "zetpil")
+                    ctx.Filter.Forms
+                    |> Array.sort
+                    |> Expect.equal "the other form is offered" [| "drank"; "zetpil" |]
+
+                    let n = ctx.Filter.Forms |> Array.findIndex ((=) "drank")
+
+                    match
+                        OrderContext.ChangeFilter(ctx, OrderCategory.Drug, FilterField.Form, Some n)
+                        |> evaluate
+                    with
+                    | Ok(Evaluated cmd) ->
+                        let ctx = cmd |> OrderContext.Command.get
+                        ctx.Filter.Form |> Expect.equal "the picked form" (Some "drank")
+
+                        let sc = ctx.Scenarios |> Array.exactlyOne
+                        sc.Form |> Expect.equal "the dropped scenario is back" "drank"
+                        sc.Preparation |> Expect.isEmpty "without a preparation"
+                        sc |> prescribed |> Expect.contains "with the note" note
+                    | r -> failtestf "no scenario after the pick: %A" r
+                | r -> failtestf "no scenario: %A" r
+            }
 
             testList
                 "the mark of an order that fits only without the Divisible"
