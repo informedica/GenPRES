@@ -99,6 +99,16 @@ let tests =
                             |> Expect.isFalse "the sum of the components cannot be solved"
                         }
 
+                    test "in different unit groups are refused with the reason" {
+                        match
+                            morfContWith (ValueUnit.singleWithUnit mg 1N) 1N
+                            |> Medication.toOrder Scenarios.testStart
+                        with
+                        | Error(Exceptions.OrderCouldNotBeCreated(:? System.InvalidOperationException as exn)) ->
+                            exn.Message |> Expect.stringContains "says why" "different unit groups"
+                        | other -> failtest $"should be refused, got %A{other}"
+                    }
+
                     test "all get the coarsest step, also in another unit of the group" {
                         match
                             morfContWith (ValueUnit.singleWithUnit l (1N / 1000N)) 1000N

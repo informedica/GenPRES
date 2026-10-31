@@ -327,7 +327,8 @@ module Medication =
 
 
         /// A unit from its text, or None. The parser raises a FormatException for an unknown
-        /// unit group, as in mg[Banana], and returns None for the rest it cannot read.
+        /// unit group, as in mg[Banana], and for a factor of 0, as in 0 IU/ml, and returns None
+        /// for the rest it cannot read.
         let tryParseUnit s =
             try
                 s |> UnitsParse.fromString
@@ -1332,6 +1333,8 @@ module Medication =
         /// is 1 divided by the Div, in the unit of the orderable. Without a Div the step is the
         /// coarsest of 1 divided by the Divisible of each component in the unit group of the
         /// orderable, compared in base units. A Div or Divisible of zero or less gives no step.
+        /// Without a step, the orderable dose quantity and the component orderable quantity take
+        /// any value within their limits, and the order has no preparation and says so.
         let divisibility (med: Medication) =
             let stepOf br = if br > 0N then Some(1N / br) else None
 
@@ -1355,8 +1358,9 @@ module Medication =
             | None, _ -> None
 
 
-        /// The step for a component. A component in another unit group than the step keeps its
-        /// own unit, so the sum of the components refuses the order.
+        /// The step for a component. A component in another unit group than the step gets no
+        /// step. An order of such a medication is refused before it is built, because the
+        /// components add up to the orderable.
         let componentDivisibility (pc: ProductComponent) (med: Medication) =
             med
             |> divisibility
@@ -1835,26 +1839,51 @@ module Medication =
             |> withDoseCount
 
 
+    /// The name and unit of each component with a quantity, when those components are in more than
+    /// one unit group, otherwise an empty list.
+    let componentsInUnitGroups (med: Medication) =
+        let cs =
+            med.Components
+            |> List.choose (fun pc -> pc.Quantities |> Option.map (fun q -> pc.Name, q |> ValueUnit.getUnit))
+
+        match cs |> List.distinctBy (snd >> ValueUnit.Group.unitToGroup) with
+        | []
+        | [ _ ] -> []
+        | _ -> cs
+
+
     /// Build an Order from a Medication, or say why it could not be built. The start is the
     /// caller's, in UTC. A medication given undiluted at a concentration its solution limit
     /// forbids is not built: there is no diluent to bring it within the limit, so no order of
-    /// it can be prescribed.
+    /// it can be prescribed. A medication with components in different unit groups is not built
+    /// either, because the components add up to the orderable.
     let toOrder (start: DateTime) (med: Medication) : Result<Order, Exceptions.Message> =
-        match med |> undilutedOutsideSolution with
-        | [] ->
+        let refuse msg =
+            msg |> InvalidOperationException :> exn
+            |> Exceptions.OrderCouldNotBeCreated
+            |> Error
+
+        match med |> undilutedOutsideSolution, med |> componentsInUnitGroups with
+        | [], [] ->
             try
                 med |> OrderBuilder.build start |> Ok
             with exn ->
                 exn |> Exceptions.OrderCouldNotBeCreated |> Error
-        | sis ->
+        | [], cs ->
+            let names =
+                cs
+                |> List.map (fun (name, u) -> $"%s{name} in %s{u |> Units.toStringEngShortWithoutGroup}")
+                |> String.concat ", "
+
+            $"%s{med.Name} cannot be ordered: the components add up to the orderable, so they need one unit "
+            + $"group, and %s{names} are in different unit groups"
+            |> refuse
+        | sis, _ ->
             let names = sis |> List.map _.Name |> String.concat ", "
 
             $"%s{med.Name} has no diluent, and its solution limit allows no concentration of %s{names} "
             + "its product has"
-            |> InvalidOperationException
-            :> exn
-            |> Exceptions.OrderCouldNotBeCreated
-            |> Error
+            |> refuse
 
 
     /// Convert a Medication to an Order Dto, for the callers that still want one, chiefly the

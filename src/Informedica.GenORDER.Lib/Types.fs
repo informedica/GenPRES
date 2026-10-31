@@ -660,7 +660,9 @@ module Types =
             Dose: DoseLimit option
             /// The amount of orderable that will be given each time
             DoseCount: MinMax
-            /// Dividability option
+            /// The number of equal parts one unit of the orderable can be divided into, set by a
+            /// solution rule. The step of the orderable is 1 divided by this value, in the unit of
+            /// the orderable, and it takes the place of the Divisible of the components.
             Div: BigRational option
             /// The adjust quantity for the adjusted dose calculations
             Adjust: ValueUnit option
@@ -681,7 +683,11 @@ module Types =
             /// Note: the first (main) component has the same unit as
             /// the medication order unit
             Quantities: ValueUnit option
-            /// The "divisibility" of the products
+            /// The number of equal parts one unit of the product can be divided into, or the
+            /// number of drops per mL for a droplet form, so the step is 1 divided by this value
+            /// in the unit of the component. For a droplet form that step is one drop. A rule is
+            /// split so that the products of a component share one value. No value means the
+            /// component gives no step.
             Divisible: BigRational option
             /// The dose limits for the product
             Dose: DoseLimit option
