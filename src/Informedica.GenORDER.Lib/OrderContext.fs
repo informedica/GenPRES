@@ -578,15 +578,15 @@ module OrderContext =
                 |> List.toArray
 
 
-        /// The groups of a rule that hold a picked product; all groups when none does, so a pick of
-        /// another medication hides nothing.
+        /// The groups of a rule that hold a picked product in each component limit with products; all
+        /// groups when none does, so a pick of another medication hides nothing.
         let pickedGroups products groups =
             let isPicked (p: Product) = products |> Array.contains p.GPK
 
-            match
-                groups
-                |> Array.filter (_.DoseRule.ComponentLimits >> Array.exists (_.Products >> Array.exists isPicked))
-            with
+            let holdsPick (cl: ComponentLimit) =
+                cl.Products |> Array.isEmpty || cl.Products |> Array.exists isPicked
+
+            match groups |> Array.filter (_.DoseRule.ComponentLimits >> Array.forall holdsPick) with
             | [||] -> groups
             | picked -> picked
 

@@ -230,6 +230,26 @@ let tests =
                         |> Expect.hasLength "all groups" 2
                     }
 
+                    test "a pick needs a picked product in each component limit with products" {
+                        let cl = baseRule.Value.ComponentLimits[0]
+                        let c = product "5" 100N (Some 1N)
+
+                        let pr =
+                            { rule [||] with
+                                DoseRule =
+                                    { baseRule.Value with
+                                        ComponentLimits =
+                                            [| { cl with Products = [| one; two |] }; { cl with Products = [| c |] } |]
+                                    }
+                            }
+
+                        pr
+                        |> OrderContext.Helpers.splitByDivisible id
+                        |> OrderContext.Helpers.pickedGroups [| "1"; "5" |]
+                        |> Array.map (_.DoseRule.ComponentLimits >> Array.collect (_.Products >> Array.map _.GPK))
+                        |> Expect.equal "only the group of the pick" [| [| "1"; "5" |] |]
+                    }
+
                     test "a command on a picked scenario keeps its group" {
                         p.Value
                         |> contextOf (p.Value |> picked |> OrderContext.SelectOrderScenario)
