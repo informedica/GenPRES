@@ -46,7 +46,7 @@ let pageMsg (cmd: OrderPlanCommand, request) =
         | OrderPlanCommand.NewOrderContext(_, category) -> OrderPlanChange.NewNutrition category
         | OrderPlanCommand.RemoveOrderContexts(_, ids) -> OrderPlanChange.Remove ids
         | OrderPlanCommand.FilterRows(ids, _) -> OrderPlanChange.FilterRows ids
-        | OrderPlanCommand.Navigate(_, id, ctxCmd, _) -> OrderPlanChange.OrderDialogCommand(id, ctxCmd)
+        | OrderPlanCommand.EvaluateContext(_, id, ctxCmd, _) -> OrderPlanChange.OrderDialogCommand(id, ctxCmd)
         | OrderPlanCommand.UpdatePatient _
         | OrderPlanCommand.Open _ -> invalidArg (nameof cmd) "no page sends this command"
 

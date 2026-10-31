@@ -334,11 +334,11 @@ module Trail =
             match cmd with
             | OrderPlanCommand.UpdatePatient _ -> "UpdatePatient"
             | OrderPlanCommand.FilterRows(ids, _) -> $"FilterRows %i{ids.Length}"
-            | OrderPlanCommand.Navigate(_, id, ctxCmd, ctx) ->
+            | OrderPlanCommand.EvaluateContext(_, id, ctxCmd, ctx) ->
                 // an effect describes the context by its id, which the line already shows
                 let described = describeContext ctx
                 let context = if described = shortId id then "" else $" %s{described}"
-                $"Navigate %s{shortId id} %s{OrderViewCommand.toString (ctxCmd, ctx)}%s{context}"
+                $"EvaluateContext %s{shortId id} %s{OrderViewCommand.toString (ctxCmd, ctx)}%s{context}"
             | OrderPlanCommand.AddOrderContext(_, ctx) -> $"AddOrderContext %s{describeContext ctx}"
             | OrderPlanCommand.NewOrderContext(_, category) -> $"NewOrderContext %s{nutrition category}"
             | OrderPlanCommand.RemoveOrderContexts(_, ids) -> $"RemoveOrderContexts %i{ids.Length}"

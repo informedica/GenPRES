@@ -32,31 +32,6 @@ module PlanContext =
     let contribution (pc: PlanContext) = pc.Context |> OrderContext.contribution
 
 
-    /// The plan context evaluated with the three steps passed in: its context reconciled,
-    /// the command run over it, and its intake recorded over the answer. The id and the
-    /// category stay the plan's. An evaluation that fails is the answer.
-    let evaluateWith
-        (reconcile: OrderContext -> OrderContext)
-        (evaluate: OrderContext.Command -> Result<OrderContext.Command, 'e>)
-        (intake: OrderContext -> Totals)
-        (cmd: OrderContext -> OrderContext.Command)
-        (pc: PlanContext)
-        : Result<PlanContext, 'e>
-        =
-        pc.Context
-        |> reconcile
-        |> cmd
-        |> evaluate
-        |> Result.map (fun answer ->
-            let ctx = answer |> OrderContext.Command.get
-
-            { pc with
-                Context = ctx
-                Intake = ctx |> intake
-            }
-        )
-
-
     /// A filter or scenario pick reads its index in the lists the user saw, and a seed or a patient
     /// change is checked against the rules as an update of the context is, so each is applied to
     /// the context as sent, before the context is reconciled with the rules: the existing command
@@ -66,28 +41,6 @@ module PlanContext =
         | Some(Ok(changed, asCommand)) -> Ok(asCommand, { pc with Context = changed })
         | Some(Error e) -> Error [ ErrorMsg(e, None) ]
         | None -> Ok(cmd, pc)
-
-
-    /// The plan context evaluated against the rules: reconciled, evaluated and its intake
-    /// computed over the totals data.
-    let evaluate
-        (start: System.DateTime)
-        logger
-        provider
-        (totalsData: Types.Data.TotalsData[])
-        (cmd: OrderContext -> OrderContext.Command)
-        (pc: PlanContext)
-        =
-        pc
-        |> resolveChange cmd
-        |> Result.bind (fun (cmd, pc) ->
-            pc
-            |> evaluateWith
-                (OrderContext.reconcile logger provider)
-                (OrderContext.evaluate start logger provider)
-                (OrderContext.intake totalsData)
-                cmd
-        )
 
 
     /// The plan context evaluated against the rules as an outcome. For the two commands that
@@ -147,6 +100,15 @@ module PlanContext =
         pc
         |> resolveChange cmd
         |> Result.bind (fun (cmd, pc) -> pc |> evaluateSent start logger provider totalsData cmd)
+
+
+    /// The plan context evaluated against the rules, as the message-list contract answers it:
+    /// the outcome, with a refusal as its message, so a pick the rules no longer offer is not
+    /// dropped in silence when the context is updated.
+    let evaluate start logger provider totalsData cmd pc =
+        pc
+        |> evaluateOutcome start logger provider (fun () -> totalsData) cmd
+        |> Result.bind OrderContext.ofOutcome
 
 
     /// The serializable shape of a PlanContext: the category as a string, the context and

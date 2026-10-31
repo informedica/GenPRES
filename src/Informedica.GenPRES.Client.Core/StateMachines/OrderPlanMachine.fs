@@ -60,7 +60,7 @@ module OrderPlanMachine =
             | OrderPlanChange.OrderDialogCommand(id, cmd) ->
                 tp.OrderContexts
                 |> Array.tryFind (fun c -> c.Id = id)
-                |> Option.map (fun ctx -> OrderPlanCommand.Navigate(tp, id, cmd, ctx))
+                |> Option.map (fun ctx -> OrderPlanCommand.EvaluateContext(tp, id, cmd, ctx))
 
 
     /// Everything the order plan machine holds, hidden from the pages, which read an OrderPlanView of

@@ -104,7 +104,7 @@ module Adapters =
 
         {
             recalculate = fun plan -> async { return plan |> recalc |> Ok }
-            navigate =
+            evaluateContext =
                 fun plan contextId cmd pc ->
                     async {
                         let evaluate cmd pc = pc |> OrderContextService.evaluate (now ()) logger provider cmd

@@ -77,7 +77,7 @@ module OrderPlanCommand =
         // the server writes the patient and the rows; the client sends the plan as answered
         | OrderPlanCommand.UpdatePatient(pat, plan) -> recalculate env { plan with Patient = pat }
         | OrderPlanCommand.FilterRows(ids, plan) -> recalculate env { plan with Filtered = ids }
-        | OrderPlanCommand.Navigate(plan, contextId, ctxCmd, ctx) ->
+        | OrderPlanCommand.EvaluateContext(plan, contextId, ctxCmd, ctx) ->
             match ctxCmd with
             // the argumentation is written by the server on the plan's context, without the domain
             | OrderViewCommand.SetArgumentationProperty text when
@@ -116,7 +116,7 @@ module OrderPlanCommand =
                             env
                             (both (parsePlan plan) (OrderContextService.parse ctx))
                             (fun (p, pc) ->
-                                env.orderPlan.navigate
+                                env.orderPlan.evaluateContext
                                     p
                                     contextId
                                     (OrderContextMapper.Command.toDomain ctx.Category ctxCmd)

@@ -136,11 +136,11 @@ module Order =
             =
             // every change and every step is over the order shown, the one the context sent
             // has while a change is under way; the lane holds it, the dialog holds none
-            let handleNav nav =
+            let handleStep step =
                 match shown with
                 | None -> state, Cmd.none
                 | Some ord ->
-                    OrderLoader.create state.SelectedComponent state.SelectedItem ord |> nav
+                    OrderLoader.create state.SelectedComponent state.SelectedItem ord |> step
                     state, Cmd.none
 
             // a pick of a variable of the order shown, sent to the lane; nothing to pick without one
@@ -232,29 +232,29 @@ module Order =
             | ChangeOrderableQuantity s -> pick (orderable OrderableProperty.Quantity) s
 
             // == Frequency ==
-            | SetMinFrequencyProperty -> handleNav stepper.setFreqMin
-            | DecreaseFrequencyProperty -> handleNav stepper.setFreqDec
-            | SetMedianFrequencyProperty -> handleNav stepper.setFreqMed
-            | IncreaseFrequencyProperty -> handleNav stepper.setFreqInc
-            | SetMaxFrequencyProperty -> handleNav stepper.setFreqMax
+            | SetMinFrequencyProperty -> handleStep stepper.setFreqMin
+            | DecreaseFrequencyProperty -> handleStep stepper.setFreqDec
+            | SetMedianFrequencyProperty -> handleStep stepper.setFreqMed
+            | IncreaseFrequencyProperty -> handleStep stepper.setFreqInc
+            | SetMaxFrequencyProperty -> handleStep stepper.setFreqMax
             // == Rate ==
-            | SetMinDoseRateProperty -> handleNav stepper.setRateMin
-            | DecreaseDoseRateProperty(n, uc) -> handleNav (stepper.setRateDec (n, uc))
-            | SetMedianDoseRateProperty -> handleNav stepper.setRateMed
-            | IncreaseDoseRateProperty(n, uc) -> handleNav (stepper.setRateInc (n, uc))
-            | SetMaxDoseRateProperty -> handleNav stepper.setRateMax
+            | SetMinDoseRateProperty -> handleStep stepper.setRateMin
+            | DecreaseDoseRateProperty(n, uc) -> handleStep (stepper.setRateDec (n, uc))
+            | SetMedianDoseRateProperty -> handleStep stepper.setRateMed
+            | IncreaseDoseRateProperty(n, uc) -> handleStep (stepper.setRateInc (n, uc))
+            | SetMaxDoseRateProperty -> handleStep stepper.setRateMax
             // == DoseQty ==
-            | SetMinDoseQuantityProperty -> handleNav stepper.setDoseQtyMin
-            | DecreaseDoseQuantityProperty(n, uc) -> handleNav (stepper.setDoseQtyDec (n, uc))
-            | SetMedianDoseQuantityProperty -> handleNav stepper.setDoseQtyMed
-            | IncreaseDoseQuantityProperty(n, uc) -> handleNav (stepper.setDoseQtyInc (n, uc))
-            | SetMaxDoseQuantityProperty -> handleNav stepper.setDoseQtyMax
+            | SetMinDoseQuantityProperty -> handleStep stepper.setDoseQtyMin
+            | DecreaseDoseQuantityProperty(n, uc) -> handleStep (stepper.setDoseQtyDec (n, uc))
+            | SetMedianDoseQuantityProperty -> handleStep stepper.setDoseQtyMed
+            | IncreaseDoseQuantityProperty(n, uc) -> handleStep (stepper.setDoseQtyInc (n, uc))
+            | SetMaxDoseQuantityProperty -> handleStep stepper.setDoseQtyMax
             // == ComponentQty ==
-            | SetMinComponentQuantityProperty -> handleNav stepper.setComponentQtyMin
-            | DecreaseComponentQuantityProperty(n, uc) -> handleNav (stepper.setComponentQtyDec (n, uc))
-            | SetMedianComponentQuantityProperty -> handleNav stepper.setComponentQtyMed
-            | IncreaseComponentQuantityProperty(n, uc) -> handleNav (stepper.setComponentQtyInc (n, uc))
-            | SetMaxComponentQuantityProperty -> handleNav stepper.setComponentQtyMax
+            | SetMinComponentQuantityProperty -> handleStep stepper.setComponentQtyMin
+            | DecreaseComponentQuantityProperty(n, uc) -> handleStep (stepper.setComponentQtyDec (n, uc))
+            | SetMedianComponentQuantityProperty -> handleStep stepper.setComponentQtyMed
+            | IncreaseComponentQuantityProperty(n, uc) -> handleStep (stepper.setComponentQtyInc (n, uc))
+            | SetMaxComponentQuantityProperty -> handleStep stepper.setComponentQtyMax
 
 
         let showOrderName (ord: Order option) =

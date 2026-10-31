@@ -70,7 +70,7 @@ module ParenteralNutrition =
         (props:
             {|
                 nutritionContext: OrderContext
-                planNavigate: string * Api.OrderViewCommand -> unit
+                planEvaluate: string * Api.OrderViewCommand -> unit
                 // the list of a recalculation closed without a pick
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
@@ -82,7 +82,7 @@ module ParenteralNutrition =
             useSlot
                 {|
                     nutritionContext = props.nutritionContext
-                    planNavigate = props.planNavigate
+                    planEvaluate = props.planEvaluate
                     planRestore = props.planRestore
                     localizationTerms = props.localizationTerms
                     busy = props.busy
@@ -396,7 +396,7 @@ module ParenteralNutrition =
                 plan: OrderPlan
                 planNew: NutritionCategory -> unit
                 planRemove: string[] -> unit
-                planNavigate: string * Api.OrderViewCommand -> unit
+                planEvaluate: string * Api.OrderViewCommand -> unit
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
                 busy: bool
@@ -419,7 +419,7 @@ module ParenteralNutrition =
             SlotView
                 {|
                     nutritionContext = nc
-                    planNavigate = props.planNavigate
+                    planEvaluate = props.planEvaluate
                     planRestore = props.planRestore
                     localizationTerms = props.localizationTerms
                     onRemove = Some onRemove

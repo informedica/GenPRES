@@ -26,6 +26,32 @@ let plan: OrderPlan =
     { Informedica.GenPRES.Shared.Models.OrderPlan.create patient [| ctx |] with Filtered = [| "c-1" |] }
 
 
+/// A provider holding no rules: what the rule lookup reads answers empty, every other resource
+/// raises.
+type NoRules() =
+    interface Informedica.GenForm.Lib.Resources.IResourceProvider with
+        member _.Get(_: Informedica.GenForm.Lib.Resources.ResourceKey<'T>) : 'T =
+            raise (System.NotImplementedException())
+
+        member _.GetData() = raise (System.NotImplementedException())
+        member _.GetUnitMappings() = raise (System.NotImplementedException())
+        member _.GetRouteMappings() = [||]
+        member _.GetValidForms() = raise (System.NotImplementedException())
+        member _.GetFormRoutes() = [||]
+        member _.GetFormularyProducts() = raise (System.NotImplementedException())
+        member _.GetReconstitution() = raise (System.NotImplementedException())
+        member _.GetParenteralMeds() = raise (System.NotImplementedException())
+        member _.GetEnteralFeeding() = raise (System.NotImplementedException())
+        member _.GetProducts() = raise (System.NotImplementedException())
+        member _.GetDoseRules() = [||]
+        member _.GetSolutionRules() = [||]
+        member _.GetRenalRules() = [||]
+        member _.GetTotals() = [||]
+        member _.GetGStandProvider() = raise (System.NotImplementedException())
+        member _.GetDepartments() = Informedica.GenForm.Lib.Resources.Departments.ofNamed []
+        member _.GetResourceInfo() = raise (System.NotImplementedException())
+
+
 let answering (seen: string list ref) name (p: Informedica.GenOrder.Lib.Types.OrderPlan) =
     seen.Value <- name :: seen.Value
     async { return Ok p }
@@ -34,7 +60,7 @@ let answering (seen: string list ref) name (p: Informedica.GenOrder.Lib.Types.Or
 let echoPort seen : OrderPlanPort =
     {
         recalculate = answering seen "recalculate"
-        navigate = fun p _ _ _ -> answering seen "navigate" p
+        evaluateContext = fun p _ _ _ -> answering seen "evaluateContext" p
         addOrderContext = fun p _ -> answering seen "addOrderContext" p
         newOrderContext = fun p _ -> answering seen "newOrderContext" p
         removeOrderContexts = fun p _ -> answering seen "removeOrderContexts" p
@@ -66,7 +92,7 @@ let tests =
 
                 let! _ =
                     run (
-                        Informedica.GenPRES.Shared.Api.OrderPlanCommand.Navigate(
+                        Informedica.GenPRES.Shared.Api.OrderPlanCommand.EvaluateContext(
                             plan,
                             "c-1",
                             Informedica.GenPRES.Shared.Api.OrderViewCommand.SeedFilter(
@@ -93,7 +119,7 @@ let tests =
                     "each to its port"
                     [
                         "recalculate"
-                        "navigate"
+                        "evaluateContext"
                         "addOrderContext"
                         "newOrderContext"
                         "removeOrderContexts"
@@ -164,7 +190,7 @@ let tests =
 
                 let port =
                     { echoPort (ref []) with
-                        navigate =
+                        evaluateContext =
                             fun p id cmd pc ->
                                 seen.Value <- Some(p.Filtered, id, cmd pc.Context, pc.Category)
                                 async { return Ok p }
@@ -173,7 +199,7 @@ let tests =
                 let! _ =
                     OrderPlanCommand.processCmd
                         (envOver false port)
-                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.Navigate(
+                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.EvaluateContext(
                             plan,
                             "c-1",
                             Informedica.GenPRES.Shared.Api.OrderViewCommand.SelectNthOrderScenario 0,
@@ -254,5 +280,26 @@ let tests =
                 OrderPlanError.NoSuchContext "c-9"
                 |> words
                 |> Expect.equal "no context" "The plan holds no context c-9"
+            }
+
+            testAsync "the port refuses a pick the rules no longer offer, in words" {
+                let picked =
+                    { ctx with
+                        Category = OrderCategory.Drug
+                        Filter = { Informedica.GenPRES.Shared.Models.OrderContext.filter with Generic = Some "glucose" }
+                    }
+
+                match
+                    OrderContextService.parse picked,
+                    OrderPlanCommand.parsePlan { plan with OrderContexts = [| picked |] }
+                with
+                | Ok pc, Ok p ->
+                    let sut = Adapters.makeAppEnv (NoRules())
+                    let! answer = sut.orderPlan.evaluateContext p "c-1" OrderContext.UpdateOrderContext pc
+
+                    match answer with
+                    | Error [| words |] -> words |> Expect.stringContains "says why" OrderContext.noDoseRulesMessage
+                    | other -> failtest $"expected the refusal, got %A{other}"
+                | parsed -> failtest $"expected a context and a plan, got %A{parsed}"
             }
         ]

@@ -744,7 +744,7 @@ let tests =
                 ]
 
             testList
-                "the plan navigates with a new case"
+                "the plan evaluates a context with a new case"
                 [
                     let ctx = { (Fixtures.all.Value[0] |> snd) with Id = "c-1" }
                     let plan = Informedica.GenPRES.Shared.Models.OrderPlan.create ctx.Patient [| ctx |]
@@ -754,7 +754,7 @@ let tests =
                         |> List.find (fun t -> ctx |> Ctx.count (Ctx.Options.Variable t) > 1)
 
                     let recalculated = ref None
-                    let navigated = ref None
+                    let evaluated = ref None
 
                     let run cmd =
                         let seen = ref []
@@ -768,10 +768,10 @@ let tests =
                         let port: ServerApi.OrderPlanPort =
                             {
                                 recalculate = answering "recalculate"
-                                navigate =
+                                evaluateContext =
                                     fun p _ _ pc ->
-                                        navigated.Value <- Some(p, pc)
-                                        answering "navigate" p
+                                        evaluated.Value <- Some(p, pc)
+                                        answering "evaluateContext" p
                                 addOrderContext = fun p _ -> answering "addOrderContext" p
                                 newOrderContext = fun p _ -> answering "newOrderContext" p
                                 removeOrderContexts = fun p _ -> answering "removeOrderContexts" p
@@ -793,10 +793,10 @@ let tests =
                             return answer, seen.Value
                         }
 
-                    testAsync "a value pick navigates" {
+                    testAsync "a value pick evaluates the context" {
                         let! answer, seen =
                             run (
-                                Informedica.GenPRES.Shared.Api.OrderPlanCommand.Navigate(
+                                Informedica.GenPRES.Shared.Api.OrderPlanCommand.EvaluateContext(
                                     plan,
                                     "c-1",
                                     setNthCommand target 0,
@@ -804,13 +804,13 @@ let tests =
                                 )
                             )
                         answer |> Result.isOk |> Expect.isTrue "answered"
-                        seen |> Expect.equal "the navigation" [ "navigate" ]
+                        seen |> Expect.equal "the evaluation" [ "evaluateContext" ]
                     }
 
                     testAsync "the argumentation is written into the plan, which is recalculated" {
                         let! answer, seen =
                             run (
-                                Informedica.GenPRES.Shared.Api.OrderPlanCommand.Navigate(
+                                Informedica.GenPRES.Shared.Api.OrderPlanCommand.EvaluateContext(
                                     plan,
                                     "c-1",
                                     Api.SetArgumentationProperty "bewust",
@@ -825,7 +825,7 @@ let tests =
                     testAsync "the argumentation for a context the plan does not hold is refused" {
                         let! answer, seen =
                             run (
-                                Informedica.GenPRES.Shared.Api.OrderPlanCommand.Navigate(
+                                Informedica.GenPRES.Shared.Api.OrderPlanCommand.EvaluateContext(
                                     plan,
                                     "c-2",
                                     Api.SetArgumentationProperty "bewust",
@@ -848,7 +848,7 @@ let tests =
 
                         let! answer, _ =
                             run (
-                                Informedica.GenPRES.Shared.Api.OrderPlanCommand.Navigate(
+                                Informedica.GenPRES.Shared.Api.OrderPlanCommand.EvaluateContext(
                                     plan,
                                     "c-1",
                                     Api.SetArgumentationProperty "bewust",
@@ -873,7 +873,7 @@ let tests =
 
                         let! answer, _ =
                             run (
-                                Informedica.GenPRES.Shared.Api.OrderPlanCommand.Navigate(
+                                Informedica.GenPRES.Shared.Api.OrderPlanCommand.EvaluateContext(
                                     argued',
                                     "c-1",
                                     Api.ResetOrderScenario,
@@ -883,20 +883,20 @@ let tests =
 
                         answer |> Result.isOk |> Expect.isTrue "answered"
 
-                        match navigated.Value with
+                        match evaluated.Value with
                         | Some(p, pc) ->
                             pc.Context.Argumentation |> Expect.isNone "the context's text cleared"
                             p.Contexts
                             |> Array.map _.Context.Argumentation
                             |> Expect.equal "the plan's copy cleared" [| None |]
-                        | None -> failtest "expected the navigation"
+                        | None -> failtest "expected the evaluation"
                     }
 
-                    testAsync "an index past the values navigates, where it leaves the order as it is" {
+                    testAsync "an index past the values evaluates the context, where it leaves the order as it is" {
                         let past = ctx |> Ctx.count (Ctx.Options.Variable target)
                         let! answer, seen =
                             run (
-                                Informedica.GenPRES.Shared.Api.OrderPlanCommand.Navigate(
+                                Informedica.GenPRES.Shared.Api.OrderPlanCommand.EvaluateContext(
                                     plan,
                                     "c-1",
                                     setNthCommand target past,
@@ -904,7 +904,7 @@ let tests =
                                 )
                             )
                         answer |> Result.isOk |> Expect.isTrue "answered"
-                        seen |> Expect.equal "the navigation" [ "navigate" ]
+                        seen |> Expect.equal "the evaluation" [ "evaluateContext" ]
                     }
                 ]
         ]

@@ -404,7 +404,7 @@ let workTests =
 
             test "a step into an order counts when it goes out" {
                 let step =
-                    OrderPlanCommand.Navigate(
+                    OrderPlanCommand.EvaluateContext(
                         one,
                         "c-1",
                         OrderViewCommand.IncreaseScheduleFrequencyProperty,
@@ -578,7 +578,7 @@ let argueTests =
                     "the text into c-2, over the plan held"
                     [
                         OrderPlanEffect.CallPlan(
-                            OrderPlanCommand.Navigate(two, "c-2", argue, two.OrderContexts[1]),
+                            OrderPlanCommand.EvaluateContext(two, "c-2", argue, two.OrderContexts[1]),
                             "r-1"
                         )
                     ]
@@ -634,7 +634,7 @@ let awaitsTests =
 
 
 [<Tests>]
-let navigateTests =
+let evaluateContextTests =
     let step = OrderViewCommand.IncreaseScheduleFrequencyProperty
     let open' = held two (Some "c-1")
 
@@ -642,7 +642,7 @@ let navigateTests =
         "a command from the order dialog"
         [
             test "goes over the plan held and that context as answered" {
-                let sent = OrderPlanCommand.Navigate(two, "c-1", step, two.OrderContexts[0])
+                let sent = OrderPlanCommand.EvaluateContext(two, "c-1", step, two.OrderContexts[0])
 
                 open'
                 |> OrderPlanState.transition (
@@ -675,7 +675,7 @@ let reCalcTests =
         )
     // the clear as the machine sends it, over the plan and the context held
     let clear =
-        OrderPlanCommand.Navigate(
+        OrderPlanCommand.EvaluateContext(
             two,
             "c-1",
             OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Time,
@@ -754,7 +754,7 @@ let reCalcTests =
 
             test "a pick ends the look: a restore after it changes nothing" {
                 let pick =
-                    OrderPlanCommand.Navigate(
+                    OrderPlanCommand.EvaluateContext(
                         answer,
                         "c-1",
                         OrderViewCommand.SetNthScheduleProperty(ScheduleProperty.Frequency, 0),
@@ -812,7 +812,7 @@ let changeTests =
                     OrderPlanChange.Remove [| "c-2" |], OrderPlanCommand.RemoveOrderContexts(two, [| "c-2" |])
                     OrderPlanChange.FilterRows [| "c-1" |], OrderPlanCommand.FilterRows([| "c-1" |], two)
                     OrderPlanChange.OrderDialogCommand("c-1", step),
-                    OrderPlanCommand.Navigate(two, "c-1", step, two.OrderContexts[0])
+                    OrderPlanCommand.EvaluateContext(two, "c-1", step, two.OrderContexts[0])
                 ]
                 |> List.iter (fun (change, expected) ->
                     change

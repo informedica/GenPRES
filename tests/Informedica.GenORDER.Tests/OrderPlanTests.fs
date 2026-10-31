@@ -739,67 +739,6 @@ let evaluateTests =
                 rounds.Value |> Expect.equal "evaluated once" 1
             }
 
-            test "a plan context is evaluated in order: reconciled, the command, the intake on the answer" {
-                let seen = ResizeArray<string>()
-
-                let reconcile (ctx: OrderContext) =
-                    seen.Add "reconcile"
-                    { ctx with Filter = { ctx.Filter with Generic = Some "reconciled" } }
-
-                let evaluate (cmd: OrderContext.Command) =
-                    seen.Add "evaluate"
-
-                    match cmd with
-                    | OrderContext.SelectOrderScenario ctx ->
-                        ctx.Filter.Generic
-                        |> Expect.equal "the command carries the reconciled context" (Some "reconciled")
-
-                        Ok(OrderContext.SelectOrderScenario { ctx with Scenarios = [| pcmScenario; pcmScenario |] })
-                    | other -> failtest $"the command as given, got {other}"
-
-                let intake (ctx: OrderContext) =
-                    seen.Add "intake"
-                    { Totals.empty with Volume = Some $"%i{ctx.Scenarios.Length} scenarios" }
-
-                let pc =
-                    { PlanContext.create "c-1" (OrderCategory.Nutrition NutritionCategory.TPN) pcmContext with
-                        Intake = { Totals.empty with Energy = Some "stale" }
-                    }
-
-                match
-                    pc
-                    |> PlanContext.evaluateWith reconcile evaluate intake OrderContext.SelectOrderScenario
-                with
-                | Ok pc ->
-                    seen
-                    |> List.ofSeq
-                    |> Expect.equal "in order" [ "reconcile"; "evaluate"; "intake" ]
-
-                    pc.Id |> Expect.equal "the plan's id" "c-1"
-
-                    pc.Category
-                    |> Expect.equal "the plan's category" (OrderCategory.Nutrition NutritionCategory.TPN)
-
-                    pc.Context.Scenarios.Length |> Expect.equal "the answer's context" 2
-                    pc.Context.Filter.Generic |> Expect.equal "as reconciled" (Some "reconciled")
-
-                    pc.Intake.Volume
-                    |> Expect.equal "the intake over the answer" (Some "2 scenarios")
-
-                    pc.Intake.Energy |> Expect.equal "the stale intake gone" None
-                | Error e -> failtest $"{e}"
-            }
-
-            test "an evaluation that fails is the answer, and no intake is computed" {
-                let intake _ = failtest "no intake on a failed evaluation"
-
-                let pc = PlanContext.create "c-1" OrderCategory.Drug pcmContext
-
-                pc
-                |> PlanContext.evaluateWith id (fun _ -> Error [ "no" ]) intake OrderContext.UpdateOrderContext
-                |> Expect.equal "the failure" (Error [ "no" ])
-            }
-
             test "no totals data, or no scenario: no intake" {
                 pcmContext |> OrderContext.intake [||] |> Expect.equal "no data" Totals.empty
 
@@ -2087,6 +2026,67 @@ let refusalTests =
                         | other -> failtest $"expected an evaluation, got %A{other}"
                     }
                 ]
+
+            testList
+                "a pick the rules no longer offer in the plan"
+                [
+                    let picked = PlanContext.create "c-1" OrderCategory.Drug EvaluateFixtures.pcmContext
+
+                    let noPick = { picked with Context = { picked.Context with Filter = EvaluateFixtures.fresh } }
+
+                    let evaluate cmd pc =
+                        pc |> PlanContext.evaluate start OrderLogging.noOp (NoRules()) [||] cmd
+
+                    test "is refused with the message of a context without rules" {
+                        picked
+                        |> evaluate OrderContext.UpdateOrderContext
+                        |> Expect.equal "the message" (Error [ ErrorMsg(OrderContext.noDoseRulesMessage, None) ])
+                    }
+
+                    test "is refused for a change of the patient, which looks the rules up" {
+                        picked
+                        |> evaluate (fun ctx -> OrderContext.UpdatePatient(ctx, ctx.Patient))
+                        |> Result.isError
+                        |> Expect.isTrue "refused"
+                    }
+
+                    test "can be cleared, so the user is not stuck" {
+                        picked
+                        |> evaluate OrderContext.ClearAllFilter
+                        |> Result.isOk
+                        |> Expect.isTrue "nothing is chosen, so nothing is dropped"
+                    }
+
+                    test "a context without a pick evaluates" {
+                        noPick
+                        |> evaluate OrderContext.UpdateOrderContext
+                        |> Result.isOk
+                        |> Expect.isTrue "nothing is dropped"
+                    }
+
+                    test "a scenario command still runs over the context reconciled" {
+                        match picked |> evaluate OrderContext.SelectOrderScenario with
+                        | Ok pc -> pc.Context.Filter.Generic |> Expect.isNone "dropped, as on the workbench"
+                        | Error e -> failtest $"expected an evaluation, got %A{e}"
+                    }
+
+                    test "the id and the category stay the plan's" {
+                        match noPick |> evaluate OrderContext.UpdateOrderContext with
+                        | Ok pc ->
+                            pc.Id |> Expect.equal "the id" "c-1"
+                            pc.Category |> Expect.equal "the category" OrderCategory.Drug
+                        | Error e -> failtest $"expected an evaluation, got %A{e}"
+                    }
+
+                    test "the intake of the answer takes the place of the stale one" {
+                        match
+                            { noPick with Intake = { Totals.empty with Energy = Some "stale" } }
+                            |> evaluate OrderContext.UpdateOrderContext
+                        with
+                        | Ok pc -> pc.Intake |> Expect.equal "the stale intake gone" Totals.empty
+                        | Error e -> failtest $"expected an evaluation, got %A{e}"
+                    }
+                ]
         ]
 
 
@@ -2136,17 +2136,16 @@ let argumentationTests =
             }
 
             test "a plan context evaluated keeps its argumentation: every command copies the record" {
-                let evaluate (cmd: OrderContext.Command) =
-                    match cmd with
-                    | OrderContext.SelectOrderScenario ctx ->
-                        Ok(OrderContext.SelectOrderScenario { ctx with Scenarios = [| EvaluateFixtures.pcmScenario |] })
-                    | other -> failtest $"the command as given, got {other}"
-
                 let pc = PlanContext.create "c-1" OrderCategory.Drug argued
 
                 match
                     pc
-                    |> PlanContext.evaluateWith id evaluate (fun _ -> Totals.empty) OrderContext.SelectOrderScenario
+                    |> PlanContext.evaluate
+                        (System.DateTime(2026, 9, 28))
+                        OrderLogging.noOp
+                        (NoRules())
+                        [||]
+                        OrderContext.SelectOrderScenario
                 with
                 | Ok pc -> pc.Context.Argumentation |> Expect.equal "the text survives" (Some text)
                 | Error e -> failtest $"{e}"

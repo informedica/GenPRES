@@ -205,9 +205,14 @@ let tests =
                 |> Expect.equal "awaits and kept" "Changing ctx-1 awaits r-9 kept"
             }
 
-            test "a plan navigation shows the context in a message, and its id once in an effect" {
+            test "a plan evaluation shows the context in a message, and its id once in an effect" {
                 let cmd =
-                    OrderPlanCommand.Navigate(OrderPlan.empty, "ctx-1", OrderViewCommand.ResetOrderScenario, ctxPicked)
+                    OrderPlanCommand.EvaluateContext(
+                        OrderPlan.empty,
+                        "ctx-1",
+                        OrderViewCommand.ResetOrderScenario,
+                        ctxPicked
+                    )
 
                 [
                     Trail.OrderPlan.msg (
@@ -222,7 +227,7 @@ let tests =
                     "the lines"
                     [
                         "Change OrderDialogCommand ctx-1 ResetOrderScenario r-3"
-                        "CallPlan Navigate ctx-1 ResetOrderScenario r-3"
+                        "CallPlan EvaluateContext ctx-1 ResetOrderScenario r-3"
                     ]
             }
 

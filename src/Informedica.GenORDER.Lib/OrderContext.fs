@@ -1696,23 +1696,23 @@ Scenarios: {scenarios}
             |> evaluateAs UpdateOrderContext (fun ctx -> SeedFilter(ctx, source, ind, gen, rte, frm, dt))
 
 
-    /// The evaluate of the message-list contract, over the outcome: a refusal is the message
-    /// it has always been. Keeps the callers that read messages as they are until they read
-    /// the outcome.
+    /// An outcome as the message-list contract answers it: a refusal is the message it has always
+    /// been. Keeps the callers that read messages as they are until they read the outcome.
+    let ofOutcome outcome =
+        match outcome with
+        | Evaluated a
+        // an order that cannot be solved has always answered the context as it was sent, and
+        // a change of a dose per kg or per m2 the order does not have answers it the same way
+        | Refused(a, Refusal.NotSolved)
+        | Refused(a, Refusal.NoAdjustedDose)
+        // and a medication without its diluent answers the context with no scenario
+        | Refused(a, Refusal.NoDiluent) -> Ok a
+        | Refused _ -> Error [ ErrorMsg(noDoseRulesMessage, None) ]
+
+
+    /// The evaluate of the message-list contract, over the outcome.
     let evaluate (start: System.DateTime) logger provider cmd : Result<Command, Message list> =
-        cmd
-        |> evaluateOutcome start logger provider
-        |> Result.bind (
-            function
-            | Evaluated cmd
-            // an order that cannot be solved has always answered the context as it was sent, and
-            // a change of a dose per kg or per m2 the order does not have answers it the same way
-            | Refused(cmd, Refusal.NotSolved)
-            | Refused(cmd, Refusal.NoAdjustedDose)
-            // and a medication without its diluent answers the context with no scenario
-            | Refused(cmd, Refusal.NoDiluent) -> Ok cmd
-            | Refused _ -> Error [ ErrorMsg(noDoseRulesMessage, None) ]
-        )
+        cmd |> evaluateOutcome start logger provider |> Result.bind ofOutcome
 
 
     /// The context as an evaluation starts from it: its patient as the rules take it, its

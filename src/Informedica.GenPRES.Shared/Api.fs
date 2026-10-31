@@ -364,7 +364,7 @@ module Api =
         | FilterRows of ids: string[] * OrderPlan
         // an order-context command evaluated over the context named, in that context's own
         // patient, its order following
-        | Navigate of OrderPlan * contextId: string * OrderViewCommand * OrderContext
+        | EvaluateContext of OrderPlan * contextId: string * OrderViewCommand * OrderContext
         // a workbench evaluated elsewhere, narrowed to one scenario, into the plan as it is
         | AddOrderContext of OrderPlan * OrderContext
         // a fresh workbench for a nutrition category, its filter discovered
@@ -383,7 +383,7 @@ module Api =
             match cmd with
             | OrderPlanCommand.UpdatePatient _ -> "UpdatePatient"
             | OrderPlanCommand.FilterRows(ids, _) -> $"FilterRows %i{ids.Length}"
-            | OrderPlanCommand.Navigate(_, _, ctxCmd, _) -> $"Navigate {ctxCmd}"
+            | OrderPlanCommand.EvaluateContext(_, _, ctxCmd, _) -> $"EvaluateContext {ctxCmd}"
             | OrderPlanCommand.AddOrderContext _ -> "AddOrderContext"
             | OrderPlanCommand.NewOrderContext(_, category) -> $"NewOrderContext {category}"
             | OrderPlanCommand.RemoveOrderContexts(_, ids) -> $"RemoveOrderContexts %i{ids.Length}"
