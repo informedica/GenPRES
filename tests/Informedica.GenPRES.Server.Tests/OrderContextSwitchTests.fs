@@ -103,6 +103,7 @@ let tests =
                     Refusal.NoDoseRulesForPatient
                     Refusal.NoProducts
                     Refusal.MeasurementMissing
+                    Refusal.NoDiluent
                     Refusal.NotSolved
                     Refusal.NoAdjustedDose
                 ]
@@ -114,6 +115,7 @@ let tests =
                         OrderContextRefusal.NoDoseRulesForPatient
                         OrderContextRefusal.NoProducts
                         OrderContextRefusal.MeasurementMissing
+                        OrderContextRefusal.NoDiluent
                         OrderContextRefusal.NotSolved
                         OrderContextRefusal.NoAdjustedDose
                     ]

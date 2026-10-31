@@ -79,6 +79,7 @@ module Trail =
             | OrderContextRefusal.NoDoseRulesForPatient -> "NoDoseRulesForPatient"
             | OrderContextRefusal.NoProducts -> "NoProducts"
             | OrderContextRefusal.MeasurementMissing -> "MeasurementMissing"
+            | OrderContextRefusal.NoDiluent -> "NoDiluent"
             | OrderContextRefusal.NotSolved -> "NotSolved"
             | OrderContextRefusal.NoAdjustedDose -> "NoAdjustedDose"
 

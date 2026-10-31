@@ -335,6 +335,7 @@ module OrderContextService =
         | Refusal.NoDoseRulesForPatient -> OrderContextRefusal.NoDoseRulesForPatient
         | Refusal.NoProducts -> OrderContextRefusal.NoProducts
         | Refusal.MeasurementMissing -> OrderContextRefusal.MeasurementMissing
+        | Refusal.NoDiluent -> OrderContextRefusal.NoDiluent
         | Refusal.NotSolved -> OrderContextRefusal.NotSolved
         | Refusal.NoAdjustedDose -> OrderContextRefusal.NoAdjustedDose
 

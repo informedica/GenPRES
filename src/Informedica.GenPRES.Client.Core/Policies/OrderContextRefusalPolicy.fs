@@ -37,6 +37,8 @@ module OrderContextRefusalPolicy =
             "There are dose rules for {0} that cover this patient, but none has a product and dose type to prescribe"
         | Terms.``Prescribe Refusal Measurement`` ->
             "The dose rules for {0} need a weight, or a weight and a height, that this patient does not have. Enter them to see a dose"
+        | Terms.``Prescribe Refusal No diluent`` ->
+            "The dose rules for {0} need a diluent, and the formulary has none that brings the drug within its solution rule"
         | Terms.``Prescribe Refusal Not solved`` ->
             "This change cannot be applied: the order cannot be calculated with it. The order stays as it was"
         | Terms.``Prescribe Refusal No adjusted dose`` ->
@@ -68,6 +70,7 @@ module OrderContextRefusalPolicy =
         | OrderContextRefusal.NoDoseRulesForPatient -> Terms.``Prescribe Refusal Patient``
         | OrderContextRefusal.NoProducts -> Terms.``Prescribe Refusal No products``
         | OrderContextRefusal.MeasurementMissing -> Terms.``Prescribe Refusal Measurement``
+        | OrderContextRefusal.NoDiluent -> Terms.``Prescribe Refusal No diluent``
         | OrderContextRefusal.NotSolved -> Terms.``Prescribe Refusal Not solved``
         | OrderContextRefusal.NoAdjustedDose -> Terms.``Prescribe Refusal No adjusted dose``
 

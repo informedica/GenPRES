@@ -66,6 +66,8 @@ type Terms =
     | ``Prescribe Refusal No products``
     // every rule for the picks needs a weight, or a weight and a height, the patient does not have
     | ``Prescribe Refusal Measurement``
+    // every rule for the picks needs a diluent the formulary does not have
+    | ``Prescribe Refusal No diluent``
     // a change in the dose dialog that the order cannot be calculated with
     | ``Prescribe Refusal Not solved``
     // a change in the dose dialog to a dose per kg or per m2 that the order does not have
