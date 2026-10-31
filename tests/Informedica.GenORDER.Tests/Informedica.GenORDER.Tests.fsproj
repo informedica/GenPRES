@@ -24,6 +24,7 @@
     <Compile Include="DoseQuantityPercTests.fs" />
     <Compile Include="DivisibilityTests.fs" />
     <Compile Include="StrictPreparationTests.fs" />
+    <Compile Include="SplitByDivisibleTests.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="OrderReCalcTests.fs" />
     <Compile Include="OrderSetTests.fs" />

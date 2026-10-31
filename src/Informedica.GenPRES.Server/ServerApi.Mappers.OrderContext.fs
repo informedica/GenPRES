@@ -142,6 +142,7 @@ module OrderContextMapper =
             DoseType = f.DoseType |> Option.map doseType
             Diluent = f.Diluent
             SelectedComponents = f.SelectedComponents
+            PickedProducts = f.PickedProducts
         }
 
 
@@ -161,6 +162,7 @@ module OrderContextMapper =
             DoseType = dto.DoseType |> Option.map doseTypeBack
             Diluent = dto.Diluent
             SelectedComponents = dto.SelectedComponents
+            PickedProducts = dto.PickedProducts
         }
 
 

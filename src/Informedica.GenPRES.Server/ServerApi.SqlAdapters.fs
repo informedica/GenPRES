@@ -159,10 +159,10 @@ module SqlDatabase =
 
 
     /// The highest JSON structure version this release reads.
-    let jsonVersionRead = 8
+    let jsonVersionRead = 9
 
     /// The JSON structure version this release writes.
-    let jsonVersionWritten = 8
+    let jsonVersionWritten = 9
 
 
     /// Brings plan JSON written under a structure version to the structure this release
@@ -176,6 +176,7 @@ module SqlDatabase =
     /// - 6 to 7 added the mark as an adult on every patient, not marked when absent
     /// - 7 to 8 added on every order scenario whether the order fits its rule only without the
     ///   Divisible of its products, false when absent
+    /// - 8 to 9 added the picked products on every filter, none when absent
     let upgrade (version: int) (json: string) : Result<string, string> =
         if version < 1 then
             Error $"JSON structure version %i{version} does not exist"

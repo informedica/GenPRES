@@ -151,15 +151,15 @@ module DoseTypeDto =
 
 module Filter =
 
-    /// The held selections reconciled against fresh pick lists: a selection still offered
+    /// The sent selections reconciled against fresh pick lists: a selection still offered
     /// narrows its list to that one entry, in the fresh spelling; a selection no longer
     /// offered is dropped and its fresh list kept whole. The dose types are the fresh list
-    /// when it has exactly one entry, the held dose type narrowed to it or not, and the
-    /// held list otherwise, since the fresh list is computed once the generic is chosen.
-    /// The diluents, the components and what is
-    /// selected among them are the held ones: the pick lists for them come from the
-    /// evaluation, not from the rules.
-    let reconcile (fresh: Filter) (held: Filter) : Filter =
+    /// when it has exactly one entry, the sent dose type narrowed to it or not, and the
+    /// sent list otherwise, since the fresh list is computed once the generic is chosen.
+    /// The diluents, the components, what is selected
+    /// among them and the picked products are the sent ones: these come from the evaluation,
+    /// not from the rules.
+    let reconcile (fresh: Filter) (sent: Filter) : Filter =
         let pick eqs itm (items: 'a[]) =
             match
                 items
@@ -168,11 +168,11 @@ module Filter =
             | Some x -> itm, [| x |]
             | None -> None, items
 
-        let ind, inds = fresh.Indications |> pick String.equalsCapInsens held.Indication
-        let gen, gens = fresh.Generics |> pick String.equalsCapInsens held.Generic
-        let rte, rtes = fresh.Routes |> pick String.equalsCapInsens held.Route
-        let frm, frms = fresh.Forms |> pick String.equalsCapInsens held.Form
-        let dtp, dtps = fresh.DoseTypes |> pick DoseType.eqs held.DoseType
+        let ind, inds = fresh.Indications |> pick String.equalsCapInsens sent.Indication
+        let gen, gens = fresh.Generics |> pick String.equalsCapInsens sent.Generic
+        let rte, rtes = fresh.Routes |> pick String.equalsCapInsens sent.Route
+        let frm, frms = fresh.Forms |> pick String.equalsCapInsens sent.Form
+        let dtp, dtps = fresh.DoseTypes |> pick DoseType.eqs sent.DoseType
 
         { fresh with
             Indication = ind
@@ -184,24 +184,25 @@ module Filter =
             Form = frm
             Forms = frms
             DoseType = dtp
-            DoseTypes = if dtps |> Array.length = 1 then dtps else held.DoseTypes
-            Diluents = held.Diluents
-            Components = held.Components
-            Diluent = held.Diluent
-            SelectedComponents = held.SelectedComponents
+            DoseTypes = if dtps |> Array.length = 1 then dtps else sent.DoseTypes
+            Diluents = sent.Diluents
+            Components = sent.Components
+            Diluent = sent.Diluent
+            SelectedComponents = sent.SelectedComponents
+            PickedProducts = sent.PickedProducts
         }
 
 
-    /// Whether the reconciliation let a pick go: the held filter chose what the reconciled one
+    /// Whether the reconciliation let a pick go: the sent filter chose what the reconciled one
     /// no longer does, for any of the five picks.
-    let dropped (held: Filter) (reconciled: Filter) =
-        let gone (chosen: 'a option) (kept: 'a option) = chosen.IsSome && kept.IsNone
+    let dropped (sent: Filter) (reconciled: Filter) =
+        let gone (chosen: 'a option) (remaining: 'a option) = chosen.IsSome && remaining.IsNone
 
-        gone held.Indication reconciled.Indication
-        || gone held.Generic reconciled.Generic
-        || gone held.Route reconciled.Route
-        || gone held.Form reconciled.Form
-        || gone held.DoseType reconciled.DoseType
+        gone sent.Indication reconciled.Indication
+        || gone sent.Generic reconciled.Generic
+        || gone sent.Route reconciled.Route
+        || gone sent.Form reconciled.Form
+        || gone sent.DoseType reconciled.DoseType
 
 
     /// The serializable shape of a Filter: the same fields, dose types as strings.
@@ -223,6 +224,7 @@ module Filter =
                 DoseType: string option
                 Diluent: string option
                 SelectedComponents: string[]
+                PickedProducts: string[]
             }
 
 
@@ -242,6 +244,7 @@ module Filter =
                 DoseType = f.DoseType |> Option.map DoseTypeDto.toString
                 Diluent = f.Diluent
                 SelectedComponents = f.SelectedComponents
+                PickedProducts = f.PickedProducts
             }
 
 
@@ -285,6 +288,8 @@ module Filter =
                                 DoseType = doseType
                                 Diluent = dto.Diluent
                                 SelectedComponents = dto.SelectedComponents |> DtoResult.orEmpty
+                                // a filter stored before the field existed has none
+                                PickedProducts = dto.PickedProducts |> DtoResult.orEmpty
                             }
                     | Error e1, Error e2 -> Error(e1 @ e2)
                     | Error e, _

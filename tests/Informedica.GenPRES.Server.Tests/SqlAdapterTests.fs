@@ -493,7 +493,7 @@ let tests =
 
                         let fixture = Informedica.GenPRES.Server.Tests.SqlRecordTests.fixtureText ()
 
-                        Informedica.GenPRES.Server.Tests.SqlRecordTests.insertRow cs "plan-2" 2 9 fixture
+                        Informedica.GenPRES.Server.Tests.SqlRecordTests.insertRow cs "plan-2" 2 10 fixture
 
                         // a Session over that patient: loading it brings the record with it
                         let port, directory, _ = portOn cs
