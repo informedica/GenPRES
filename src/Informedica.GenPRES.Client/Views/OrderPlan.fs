@@ -157,7 +157,7 @@ module OrderPlan =
             tp.OrderContexts
             |> Array.tryFind (fun c -> OrderContext.contribution c |> Option.exists (fun sc -> sc.Order.Id = orderId))
 
-        // an order-context command into the selected context, sent over the plan held
+        // an order-context command into the selected context, sent with the current plan
         let orderContextMsg cmd =
             match orderPlan with
             | OrderPlanView.Settled(_, Some id)
@@ -256,7 +256,7 @@ module OrderPlan =
         // the quantity field a cell steps, its commands sent into the row's own context, as the
         // order dialog builds the same field
         let cellField (tp: OrderPlan) (ctx: OrderContext) (ord: Order) (field, ovar: OrderVariable) =
-            let send cmd = envOrderPlan.OrderDialogCommand(ctx.Id, cmd)
+            let evaluate cmd = envOrderPlan.OrderDialogCommand(ctx.Id, cmd)
 
             let stepable = QuantityModePolicy.Mode.Stepable
 
@@ -264,7 +264,7 @@ module OrderPlan =
                 match field with
                 | QuantityModePolicy.Field.Frequency ->
                     ViewHelpers.frequencyStepper
-                        send
+                        evaluate
                         stepable
                         Api.OrderViewCommand.SetMinScheduleFrequencyProperty
                         Api.OrderViewCommand.DecreaseScheduleFrequencyProperty
@@ -274,7 +274,7 @@ module OrderPlan =
                     Terms.``Order Frequency`` |> getTerm "frequentie"
                 | QuantityModePolicy.Field.DoseQuantity ->
                     ViewHelpers.createDoseQtyStepper
-                        send
+                        evaluate
                         ord
                         Api.OrderViewCommand.SetMinOrderableDoseQuantityProperty
                         Api.OrderViewCommand.DecreaseOrderableDoseQuantityProperty
@@ -284,7 +284,7 @@ module OrderPlan =
                     "toedien hoeveelheid"
                 | QuantityModePolicy.Field.DoseRate ->
                     ViewHelpers.doseRateStepper
-                        send
+                        evaluate
                         stepable
                         ovar
                         Api.OrderViewCommand.SetMinOrderableDoseRateProperty

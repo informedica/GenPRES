@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Informedica.MCP.Lib\Informedica.MCP.Lib.fsproj" />
+    <ProjectReference Include="..\Informedica.GenORDER.Tests\Informedica.GenORDER.Tests.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 
