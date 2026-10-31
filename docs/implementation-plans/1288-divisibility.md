@@ -165,13 +165,16 @@ with the same picks returns all groups, because `Filter` cannot tell them apart.
 workbench when the patient is changed (`OrderContextCommand.UpdatePatient`), which keeps the filter, and
 on a plan row (`OrderPlan.fs:120`) when the diluent or the selected components change or the resources
 reload. `contribution` then gives nothing until a scenario is picked again, so the row leaves the plan
-totals. The filter therefore gets a field for the Divisible of the group. It is not shown. It is set in
-`selectNthScenario`, which sets the form, and in `updateFilterIfOneScenario`, which sets the form and
-the diluent. `applyChange`, which every other change of a filter choice goes through and which empties
-the scenarios, clears it, because the other choices stay when a choice gets a new value. The diluent and
-the components are written without `applyChange`, so they keep it. It is read only in `getScenarios`, so
-it does not reach the rule lookup. Nothing is lost when the field cannot decide:
+totals. The filter therefore gets a field for the Divisible of the group, together with the indication, generic,
+route, form and dose type it was picked for. It is not shown. It is set in `selectNthScenario`, which
+sets the form, and in `updateFilterIfOneScenario`, which sets the form and the diluent. It needs no
+reset: picks are written in several places (`applyChange`, `seedFilter`, the `setFilter` helpers), and
+`getScenarios` uses the field only while the picks as `picks` resolves them still match, so a value from
+another medication cannot hide a group. `Filter.reconcile` builds a new filter and copies the held fields
+by name, so it has to copy this one. The field is read only in `getScenarios`, so it does not reach the
+rule lookup. Nothing is lost when the field cannot decide:
 
+- A value whose picks no longer match is ignored, so all groups return.
 - A value that no group has any more selects nothing, so all groups return.
 - A group that gives no scenario after the patient changed, such as a corrected weight, does not start
   the retry: all groups are evaluated first, and the retry runs only when all of them give nothing.
@@ -273,8 +276,13 @@ script first. A step that is too large is split further when it starts.
       `OrderPlan`. `Filter` records are built in `GenORDER.Lib/OrderContext.fs`, `GenORDER.Lib/Dtos.fs`,
       `Shared/Models.fs`, `ServerApi.Adapters.fs` and `ServerApi.Mappers.OrderContext.fs`, and in the
       tests `Tests.fs`, `OrderPlanTests.fs`, `MappersOrderContextTests.fs` and
-      `FilterAgreementTests.fs`. A saved plan has no value, so its lookup returns all groups. A test
-      holds a picked group that no longer fits the patient, and gets the other groups, not the retry.
+      `FilterAgreementTests.fs`. `Filter.reconcile` (`Dtos.fs:162`) copies the field. A saved plan has
+      no value, so its lookup returns all groups. The tests:
+      - a picked group that no longer fits the patient gives the other groups, not the retry;
+      - the field survives a command on a plan row;
+      - switching to another medication through the formulary page, with a group of the same Divisible,
+        returns all groups of the new medication;
+      - picks that `getRules` fills in when one option remains count as the same picks.
    3. Test through `OrderContext.evaluate`, with a scenario selected, that the commands work on a
       split scenario.
    4. Set the drop size per group, as `addFormLimits` does on the form limit (`DoseRule.fs:382`), from
