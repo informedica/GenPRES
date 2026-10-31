@@ -636,6 +636,11 @@ module MinMax =
             | Error _ -> empty
 
 
+    /// Whether one value can fall in both ranges. An empty range restricts nothing. The intersect
+    /// of a range with an empty range is that range, so only two empty ranges need the equality.
+    let canMeet a b = a = b || a |> intersect b <> empty
+
+
     /// perform a calculation op to
     /// 2 values v1 and v2.
     let calcLimit op v1 v2 =

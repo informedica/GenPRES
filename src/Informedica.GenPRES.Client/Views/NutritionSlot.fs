@@ -546,6 +546,8 @@ module NutritionSlot =
             DoseQuantityShare: decimal option
             /// Why the components are locked, while the dose of the TPN is a part of the total.
             CompositionHint: JSX.Element
+            /// What the user sees instead of an order when the rules give more than one scenario.
+            ScenarioNotice: JSX.Element
         }
 
 
@@ -1092,6 +1094,22 @@ module NutritionSlot =
             else
                 null
 
+        // the slot shows the order of a single scenario, so with more it has nothing to show
+        let scenarioNotice =
+            if ctx.Scenarios |> Array.length > 1 then
+                let text = "Er zijn meerdere regels gevonden voor deze keuze, daarom kan er geen order getoond worden"
+
+                Components.Notice.View
+                    {|
+                        kind = Components.Notice.Kind.Warning
+                        title = None
+                        message = Terms.``Nutrition Several Rules`` |> getTerm text
+                        action = None
+                        onClose = None
+                    |}
+            else
+                null
+
         let canSetDoseQuantityPerc = shownOrder |> Option.exists IntakePolicy.canSetDoseQuantityPerc
 
         let indicationFilter =
@@ -1154,4 +1172,5 @@ module NutritionSlot =
             CanSetDoseQuantityPerc = canSetDoseQuantityPerc
             DoseQuantityShare = shownOrder |> Option.bind IntakePolicy.doseShare
             CompositionHint = compositionHint
+            ScenarioNotice = scenarioNotice
         }

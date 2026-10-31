@@ -577,6 +577,36 @@ module Tests =
                         ]
 
                     testList
+                        "canMeet"
+                        [
+                            let day v = fromDecimal v Units.Time.day
+
+                            let range min max =
+                                MinMax.create (day min |> Inclusive |> Some) (day max |> Exclusive |> Some)
+
+                            test "two empty ranges meet" {
+                                MinMax.canMeet MinMax.empty MinMax.empty |> Expect.isTrue "nothing restricts"
+                            }
+
+                            test "an empty range meets a range, on either side" {
+                                MinMax.canMeet MinMax.empty (range 30m 365m) |> Expect.isTrue "first empty"
+                                MinMax.canMeet (range 30m 365m) MinMax.empty |> Expect.isTrue "second empty"
+                            }
+
+                            test "two equal ranges meet" {
+                                MinMax.canMeet (range 30m 365m) (range 30m 365m) |> Expect.isTrue "the same"
+                            }
+
+                            test "two ranges that overlap meet" {
+                                MinMax.canMeet (range 30m 400m) (range 365m 730m) |> Expect.isTrue "overlap"
+                            }
+
+                            test "two ranges that touch at an exclusive limit do not meet" {
+                                MinMax.canMeet (range 30m 365m) (range 365m 730m) |> Expect.isFalse "touch"
+                            }
+                        ]
+
+                    testList
                         "valueComparison"
                         [
 

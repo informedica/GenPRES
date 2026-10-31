@@ -323,6 +323,7 @@ module ParenteralNutrition =
                  else
                      compositionRow}
                 {slot.IndicationFilter}
+                {slot.ScenarioNotice}
             </Stack>
             """
 

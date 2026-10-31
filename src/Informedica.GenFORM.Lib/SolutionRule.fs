@@ -309,15 +309,9 @@ module SolutionRule =
     /// for an order. A solution rule and a dose rule that name different departments or different
     /// locations apply to different patients, so they do not match.
     let appliesToDoseRule routeMapping (sr: SolutionRule) (dr: DoseRule) =
-        // a value only one of the two rules names restricts nothing
-        let canMeet a b =
-            match a, b with
-            | Some a, Some b -> a = b
-            | _ -> true
-
         sr.Generic |> String.equalsCapInsens (dr.Generic |> Generic.genericName)
-        && canMeet sr.PatientCategory.Department dr.PatientCategory.Department
-        && canMeet sr.PatientCategory.Location dr.PatientCategory.Location
+        && PatientCategory.canMeet sr.PatientCategory.Department dr.PatientCategory.Department
+        && PatientCategory.canMeet sr.PatientCategory.Location dr.PatientCategory.Location
         && sr.Form
            |> Option.forall (String.equalsCapInsens (dr.Generic.Form |> PharmaceuticalForm.toString))
         && sr.Indication |> Option.forall (String.equalsCapInsens dr.Indication)
@@ -327,6 +321,36 @@ module SolutionRule =
                    DoseType.eqsType sr.DoseType dr.DoseType
                else
                    DoseType.eqs sr.DoseType dr.DoseType)
+
+
+    /// One warning per pair of solution rules that apply to the same dose rule and can meet the
+    /// same patient. Each rule gives its own scenario, so the user has to choose between them, and
+    /// a view that shows a single order shows none. The dose range of a solution rule does not
+    /// take part in the matching, so rules that differ only in dose range also compete.
+    let competingRules routeMapping (doseRules: DoseRule[]) (rules: SolutionRule[]) =
+        let appliesToBoth a b dr =
+            dr |> appliesToDoseRule routeMapping a && dr |> appliesToDoseRule routeMapping b
+
+        let pairs (rules: SolutionRule[]) =
+            rules
+            |> Array.indexed
+            |> Array.collect (fun (i, a) -> rules[i + 1 ..] |> Array.map (fun b -> a, b))
+
+        // a dose rule has one generic, and the matching ignores the case of its name
+        rules
+        |> Array.groupBy (_.Generic >> String.toLower)
+        |> Array.collect (snd >> pairs)
+        |> Array.filter (fun (a, b) ->
+            PatientCategory.canShare a.PatientCategory b.PatientCategory
+            && doseRules |> Array.exists (appliesToBoth a b)
+        )
+        |> Array.map (fun (a, b) ->
+            $"%s{a |> label} and %s{b |> label}: both apply to one dose rule and one patient, "
+            + "so each gives its own scenario"
+        )
+        |> Array.toList
+        |> List.distinct
+        |> List.map Warning
 
 
     /// The substances whose concentration limit allows no strength of the products. A strength

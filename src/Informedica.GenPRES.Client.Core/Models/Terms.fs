@@ -201,6 +201,8 @@ type Terms =
     | ``Nutrition Add Supplement``
     | ``Nutrition Lipids``
     | ``Nutrition Electrolytes Glucose``
+    // the rules for the choice give more than one scenario, so the slot has no order to show
+    | ``Nutrition Several Rules``
     | ``Nutrition Remove Enteral Title``
     | ``Nutrition Remove Enteral Text``
     // Interactions

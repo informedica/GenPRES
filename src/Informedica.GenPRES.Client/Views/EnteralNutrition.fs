@@ -156,6 +156,7 @@ module EnteralNutrition =
                 {if slot.Order.IsSome then null else genericFilter}
                 {slot.IndicationFilter}
                 {slot.DoseTypeFilter}
+                {slot.ScenarioNotice}
             </Stack>
             """
 

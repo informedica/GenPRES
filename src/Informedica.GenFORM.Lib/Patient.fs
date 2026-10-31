@@ -11,6 +11,15 @@ module VenousAccess =
         | _ -> venousAccess |> List.exists ((=) location)
 
 
+    /// Whether a patient can have both access devices: any access goes with every device, and
+    /// otherwise the devices are the same.
+    let canMeet a b =
+        match a, b with
+        | AnyAccess, _
+        | _, AnyAccess -> true
+        | a, b -> a = b
+
+
 module Gender =
 
     open Informedica.Utils.Lib.BCL
@@ -133,6 +142,26 @@ module PatientCategory =
         match pat.Age with
         | AbsoluteAge a -> a
         | IsAdult -> { MinMax.empty with Min = Some(Inclusive Utils.ValueUnit.ageAdult) }
+
+
+    /// Whether two optional values can hold together: a value only one side names restricts nothing.
+    let canMeet a b =
+        match a, b with
+        | Some a, Some b -> a = b
+        | _ -> true
+
+
+    /// Whether one patient can be in both categories. Categories for a CVL and for a PVL have no
+    /// patient in common, because the access device tells them apart.
+    let canShare (a: PatientCategory) (b: PatientCategory) =
+        MinMax.canMeet (a |> getAge) (b |> getAge)
+        && VenousAccess.canMeet a.Access b.Access
+        && canMeet a.Department b.Department
+        && canMeet a.Location b.Location
+        && MinMax.canMeet a.Weight b.Weight
+        && MinMax.canMeet a.BSA b.BSA
+        && MinMax.canMeet a.GestAge b.GestAge
+        && MinMax.canMeet a.PMAge b.PMAge
 
 
     /// <summary>
