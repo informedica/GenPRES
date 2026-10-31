@@ -63,6 +63,7 @@ let context: OrderContext =
                 DoseType = Some(Discontinuous "3-4 x/dag")
                 Diluents = [| "NaCl 0.9%" |]
                 SelectedComponents = [| "paracetamol" |]
+                PickedProducts = [||]
             }
         Patient = StubPatientData.patient
         Scenarios = [| scenario |]
@@ -107,6 +108,21 @@ let tests =
                     |> OrderContextMapper.scenarioBack
                     |> _.FitsOnlyWithoutDivisible
                     |> Expect.equal "the same mark" fitsOnlyWithoutDivisible
+            }
+
+            test "the picked products go to the Dto and back, and a change of a choice clears them" {
+                let picked = { context.Filter with PickedProducts = [| "gpk-1" |] }
+
+                picked
+                |> OrderContextMapper.filter
+                |> OrderContextMapper.filterBack
+                |> _.PickedProducts
+                |> Expect.equal "the same products" [| "gpk-1" |]
+
+                { context with Filter = picked }
+                |> Informedica.GenPRES.Shared.Models.OrderContext.indicationChange (Some "pijn")
+                |> _.Filter.PickedProducts
+                |> Expect.isEmpty "cleared, as the domain does"
             }
 
             test "a scenario Dto without an access reads as none" {

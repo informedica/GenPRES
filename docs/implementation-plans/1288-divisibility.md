@@ -166,23 +166,18 @@ with the same picks returns all groups, because `Filter` cannot tell them apart.
 workbench when the patient is changed (`OrderContextCommand.UpdatePatient`), which keeps the filter, and
 on a plan row (`OrderPlan.fs:120`) when the diluent or the selected components change or the resources
 reload. `contribution` then gives nothing until a scenario is picked again, so the row leaves the plan
-totals. The filter therefore gets a field for the Divisible of the group, together with the indication, generic,
-route, form and dose type it was picked for. It is not shown. It is set in `selectNthScenario`, which
-sets the form, and in `updateFilterIfOneScenario`, which sets the form and the diluent. It needs no
-reset: picks are written in several places (`applyChange`, `seedFilter`, the `setFilter` helpers), and
-`getScenarios` uses the field only while the picks as `picks` resolves them still match, so a value from
-another medication cannot hide a group. `Filter.reconcile` builds a new filter and copies the held fields
-by name, so it has to copy this one. The field is read only in `getScenarios`, so it does not reach the
-rule lookup. Nothing is lost when the field cannot decide:
+totals. The filter therefore gets the field `PickedProducts`: the products of the picked scenario, which
+every scenario already carries. It is not shown. `updateFilterIfOneScenario`, which sets the form and the
+diluent, sets it. `applyChange`, which every change of a choice of the rule lookup passes through, clears
+it, and so does `seedFilter` when a choice differs. A change of the diluent, the selected components or
+the patient, and a reload, keep it, because those are the reasons it exists. `Filter.reconcile` copies
+it. `getScenarios` reads it per rule, so a rule that did not split is never narrowed. Nothing is lost when
+the field cannot decide:
 
-- A value whose picks no longer match is ignored, so all groups return.
-- A value that no group has any more selects nothing, so all groups return.
+- Products that no group holds select nothing, so all groups return.
 - A group that gives no scenario after the patient changed, such as a corrected weight, does not start
   the retry: all groups are evaluated first, and the retry runs only when all of them give nothing.
-- A group without a Divisible cannot be told from no pick, so all groups return and the prescriber
-  picks again, until the sheet is filled.
-- No rule in the 247 filters has two component limits that disagree, so one value is enough. A rule
-  that does gets all its groups back.
+- A group without a Divisible can be picked, because it has products.
 
 **The rules that change are medical validation.** The split changes orders, for example adrenaline in
 anaphylaxis for the toddler falls from 0,3 mL into the retry, because the 0,5 mg/mL product has
@@ -290,24 +285,23 @@ script first. A step that is too large is split further when it starts.
    1. Split the prescription rules by the Divisible of the products of a component limit in
       `getScenarios`, with the products without a value as a group of their own. A test holds three
       products with 1, none and 2, in every order, and gets the same three groups.
-   2. Add the hidden filter field, and the value on `OrderScenario` it is set from, with a test through
-      `OrderPlan`. `Filter` records are built in `GenORDER.Lib/OrderContext.fs`, `GenORDER.Lib/Dtos.fs`,
-      `Shared/Models.fs`, `ServerApi.Adapters.fs` and `ServerApi.Mappers.OrderContext.fs`, and in the
-      tests `Tests.fs`, `OrderPlanTests.fs`, `MappersOrderContextTests.fs` and
-      `FilterAgreementTests.fs`. `Filter.reconcile` (`Dtos.fs:162`) copies the field. A saved plan has
-      no value, so its lookup returns all groups. The tests:
+   2. Add `PickedProducts` to the filter. `Filter` records are built in `GenORDER.Lib/OrderContext.fs`,
+      `GenORDER.Lib/Dtos.fs`, `Shared/Models.fs`, `ServerApi.Adapters.fs` and
+      `ServerApi.Mappers.OrderContext.fs`. A signed version stores the filter, so its JSON structure
+      version goes from 8 to 9 with a fixture `order_plan_v9.json`, and a row of version 8 has none.
+      The tests:
       - a picked group that no longer fits the patient gives the other groups, not the retry;
-      - the field survives a command on a plan row;
-      - switching to another medication through the formulary page, with a group of the same Divisible,
-        returns all groups of the new medication;
-      - picks that `getRules` fills in when one option remains count as the same picks.
+      - the field survives a reconciliation of a plan row and the Dto of a signed version;
+      - each of the five choices of the rule lookup clears it, and the diluent, the components, the
+        patient and a reload keep it.
    3. Test through `OrderContext.evaluate`, with a scenario selected, that the commands work on a
       split scenario.
    4. Set the drop size per group, as `addFormLimits` does on the form limit (`DoseRule.fs:382`), from
       `GetFormRoutes` and `GetRouteMappings` of the provider. The test builds a dose rule with two
       droplet products as a fixture, because the tests run without the sheets.
-   5. List the rules that change for the medical validation of the release, starting with the 3
-      filters of the prototype.
+   5. List the rules that change for the medical validation of the release: losartan for hypertension
+      for the infant and the toddler, and adrenaline in anaphylaxis for the toddler, all three now through
+      the retry with the warning. Colecalciferol for cystic fibrosis is new for the teenager and the adult.
 
 5. **Write down the meaning.** Update the `///` comments on Divisible and Div, on the product, the
    component and the `Data` records: what each value means, that for droplets the step is one drop, and

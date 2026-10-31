@@ -42,6 +42,7 @@ module Contract =
             DoseType = f.DoseType |> Option.map doseType
             Diluent = f.Diluent
             SelectedComponents = f.SelectedComponents
+            PickedProducts = f.PickedProducts
         }
 
 

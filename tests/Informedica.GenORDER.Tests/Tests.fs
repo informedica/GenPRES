@@ -1123,6 +1123,7 @@ module TypeTests =
                 DoseType = None
                 Diluent = None
                 SelectedComponents = [||]
+                PickedProducts = [||]
             }
 
 
@@ -3887,6 +3888,7 @@ module DtoTests =
                 DoseType = Some(Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag")
                 Diluent = None
                 SelectedComponents = [| "paracetamol" |]
+                PickedProducts = [||]
             }
 
         let scenario (ord: Order) : OrderScenario =
@@ -4214,6 +4216,7 @@ module OrderPlanDtoTests =
                 DoseType = Some(Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag")
                 Diluent = None
                 SelectedComponents = [| "paracetamol" |]
+                PickedProducts = [||]
             }
 
         let scenario: OrderScenario =

@@ -855,6 +855,9 @@ module Types =
             Diluent: string option
             /// The list of components that are selected
             SelectedComponents: string[]
+            /// The products of the picked scenario. A rule splits per Divisible and the other fields
+            /// cannot tell these rules apart, so this says which one was picked.
+            PickedProducts: string[]
         }
 
 

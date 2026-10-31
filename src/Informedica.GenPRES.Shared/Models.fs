@@ -1233,6 +1233,7 @@ module Models =
                 DoseType = None
                 Diluent = None
                 SelectedComponents = [||]
+                PickedProducts = [||]
             }
 
 
@@ -1391,7 +1392,7 @@ module Models =
                     filterFields |> List.fold (fun f x -> f |> clearField x) filter
 
             { ctx with
-                Filter = filter
+                Filter = { filter with PickedProducts = [||] }
                 Scenarios = [||]
             }
 
@@ -1691,6 +1692,9 @@ module Models =
         /// domain's seed applies the same rules; the agreement test in the server tests keeps them
         /// equal.
         let seedFilter source ind gen rte frm dt (ctx: OrderContext) =
+            let f = ctx.Filter
+            let same = gen = f.Generic && rte = f.Route && frm = f.Form
+
             let write keep (ctx: OrderContext) =
                 { ctx with
                     Filter =
@@ -1702,11 +1706,13 @@ module Models =
                             DoseType = dt
                             Diluent = if keep then ctx.Filter.Diluent else None
                             SelectedComponents = if keep then ctx.Filter.SelectedComponents else [||]
+                            PickedProducts =
+                                if same && ind = f.Indication && dt = f.DoseType then
+                                    f.PickedProducts
+                                else
+                                    [||]
                         }
                 }
-
-            let f = ctx.Filter
-            let same = gen = f.Generic && rte = f.Route && frm = f.Form
 
             match source with
             | SeedSource.Formulary -> { (ctx |> write (same && ind = f.Indication)) with Scenarios = [||] }

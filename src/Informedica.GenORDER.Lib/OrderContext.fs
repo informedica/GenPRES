@@ -549,6 +549,48 @@ module OrderContext =
         open Informedica.Logging.Lib
 
 
+        /// The component limit once per Divisible of its products, sorted so the scenarios come in one
+        /// order, the products without a Divisible first as a group of their own. A limit whose products
+        /// agree stays as it is.
+        let limitsByDivisible (cl: ComponentLimit) =
+            match cl.Products |> Array.groupBy _.Divisible |> Array.sortBy fst with
+            | [||]
+            | [| _ |] -> [| cl |]
+            | groups -> groups |> Array.map (fun (_, ps) -> { cl with Products = ps })
+
+
+        /// The prescription rule once per combination of the groups of its component limits, so a
+        /// product does not take the step of another product. A group has its own drop size, from
+        /// addFormLimits. A rule whose products agree stays as it is.
+        let splitByDivisible addFormLimits pr =
+            let groups = pr.DoseRule.ComponentLimits |> Array.map limitsByDivisible
+
+            if groups |> Array.forall (Array.length >> (=) 1) then
+                [| pr |]
+            else
+                groups
+                |> Array.map Array.toList
+                |> Array.toList
+                |> List.combinations
+                |> List.map (fun cls ->
+                    { pr with DoseRule = { pr.DoseRule with ComponentLimits = cls |> List.toArray } |> addFormLimits }
+                )
+                |> List.toArray
+
+
+        /// The groups of a rule that hold a picked product; all groups when none does, so a pick of
+        /// another medication hides nothing.
+        let pickedGroups products groups =
+            let isPicked (p: Product) = products |> Array.contains p.GPK
+
+            match
+                groups
+                |> Array.filter (_.DoseRule.ComponentLimits >> Array.exists (_.Products >> Array.exists isPicked))
+            with
+            | [||] -> groups
+            | picked -> picked
+
+
         let changeRuleProductsDivisible pr =
             { pr with
                 DoseRule =
@@ -694,6 +736,7 @@ module OrderContext =
             DoseType = None
             Diluent = None
             SelectedComponents = [||]
+            PickedProducts = [||]
         }
 
 
@@ -935,9 +978,10 @@ module OrderContext =
         || f.DoseType.IsSome
 
 
-    /// A change to one of the choices: the change is written and the scenarios go. An emptied
-    /// field lets go of the choices in the steps below it and keeps neither its choice nor its
-    /// options; with nothing chosen anywhere afterwards no options are kept either.
+    /// A change to one of the choices: the change is written and the scenarios go, and with them
+    /// the picked products. An emptied field lets go of the choices in the steps below it and keeps
+    /// neither its choice nor its options; with nothing chosen anywhere afterwards no options are
+    /// kept either.
     let applyChange category field clearOwn write (ctx: OrderContext) =
         let below =
             if not clearOwn then
@@ -960,7 +1004,7 @@ module OrderContext =
                 filterFields |> List.fold (fun f x -> f |> clearField x) filter
 
         { ctx with
-            Filter = filter
+            Filter = { filter with PickedProducts = [||] }
             Scenarios = [||]
         }
 
@@ -1078,6 +1122,9 @@ module OrderContext =
     /// unchanged, and the scenarios go; the url's medication is written over the filter as it is, a
     /// list item's over an empty one; a reload changes nothing.
     let seedFilter source ind gen rte frm dt (ctx: OrderContext) =
+        let f = ctx.Filter
+        let same = gen = f.Generic && rte = f.Route && frm = f.Form
+
         let write keep (ctx: OrderContext) =
             { ctx with
                 OrderContext.Filter.Indication = ind
@@ -1087,10 +1134,12 @@ module OrderContext =
                 OrderContext.Filter.DoseType = dt
                 OrderContext.Filter.Diluent = if keep then ctx.Filter.Diluent else None
                 OrderContext.Filter.SelectedComponents = if keep then ctx.Filter.SelectedComponents else [||]
+                OrderContext.Filter.PickedProducts =
+                    if same && ind = f.Indication && dt = f.DoseType then
+                        f.PickedProducts
+                    else
+                        [||]
             }
-
-        let f = ctx.Filter
-        let same = gen = f.Generic && rte = f.Route && frm = f.Form
 
         match source with
         | SeedSource.Formulary -> { (ctx |> write (same && ind = f.Indication)) with Scenarios = [||] }
@@ -1219,6 +1268,7 @@ Scenarios: {scenarios}
                 Filter =
                     { ctx.Filter with
                         Form = Some sc.Form
+                        PickedProducts = sc.ProductsIds
                         Diluent = sc.Diluent
                         // set mechanism once, so when a scenario has only
                         // one diluent, the others are still available
@@ -1403,8 +1453,22 @@ Scenarios: {scenarios}
             else
                 // Note: different prescription rules can exist based on multiple pharmaceutical forms
                 // and multiple solution rules
+                let addFormLimits = DoseRule.addFormLimits (provider.GetRouteMappings()) (provider.GetFormRoutes())
+
+                let groups = prs |> Array.map (splitByDivisible addFormLimits)
+                let allGroups = groups |> Array.concat
+                let picked = groups |> Array.collect (pickedGroups ctx.Filter.PickedProducts)
+                let evaluated = picked |> evaluateRules start logger
+
+                // a picked group that no longer fits gives the other groups, not the retry
+                let evaluated =
+                    if evaluated |> Array.isEmpty && picked.Length < allGroups.Length then
+                        allGroups |> evaluateRules start logger
+                    else
+                        evaluated
+
                 let fitsOnlyWithoutDivisible, results =
-                    match prs |> evaluateRules start logger with
+                    match evaluated with
                     | [||] ->
                         // no valid results so evaluate again
                         // with changed product divisibility

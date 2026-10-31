@@ -39,6 +39,7 @@ module Fixtures =
             DoseType = None
             Diluent = None
             SelectedComponents = [| "paracetamol" |]
+            PickedProducts = [||]
         }
 
 
@@ -432,6 +433,7 @@ module EvaluateFixtures =
             DoseType = None
             Diluent = None
             SelectedComponents = [||]
+            PickedProducts = [||]
         }
 
     let held: Filter =
@@ -448,6 +450,7 @@ module EvaluateFixtures =
             Components = [| "paracetamol" |]
             Diluent = Some "NaCl 0.9%"
             SelectedComponents = [| "paracetamol" |]
+            PickedProducts = [||]
         }
 
     let child =
@@ -821,7 +824,7 @@ type NoRules() =
 
         member _.GetValidForms() = raise (System.NotImplementedException())
 
-        member _.GetFormRoutes() = raise (System.NotImplementedException())
+        member _.GetFormRoutes() = [||]
 
         member _.GetFormularyProducts() = raise (System.NotImplementedException())
 

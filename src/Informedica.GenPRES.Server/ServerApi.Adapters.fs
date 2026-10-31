@@ -170,6 +170,7 @@ module Adapters =
                                                 DoseType = None
                                                 Diluent = None
                                                 SelectedComponents = [||]
+                                                PickedProducts = [||]
                                             }
                                         Patient = plan.Patient
                                         Scenarios = [||]

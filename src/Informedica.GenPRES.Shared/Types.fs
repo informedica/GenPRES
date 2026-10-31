@@ -478,6 +478,7 @@ module Types =
             DoseType: DoseType option
             Diluent: string option
             SelectedComponents: string[]
+            PickedProducts: string[]
         }
 
 
