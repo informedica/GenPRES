@@ -324,12 +324,16 @@ module SolutionRule =
 
 
     /// One warning per pair of solution rules that apply to the same dose rule and can meet the
-    /// same patient. Each rule gives its own scenario, so the user has to choose between them, and
+    /// same patient of that dose rule. Ranges that overlap pair by pair share a value, so comparing
+    /// each pair of the three rules is enough. Each rule gives its own scenario, so the user has to choose between them, and
     /// a view that shows a single order shows none. The dose range of a solution rule does not
     /// take part in the matching, so rules that differ only in dose range also compete.
     let competingRules routeMapping (doseRules: DoseRule[]) (rules: SolutionRule[]) =
-        let appliesToBoth a b dr =
-            dr |> appliesToDoseRule routeMapping a && dr |> appliesToDoseRule routeMapping b
+        let reaches (dr: DoseRule) (sr: SolutionRule) =
+            dr |> appliesToDoseRule routeMapping sr
+            && PatientCategory.canShare sr.PatientCategory dr.PatientCategory
+
+        let appliesToBoth a b dr = a |> reaches dr && b |> reaches dr
 
         let pairs (rules: SolutionRule[]) =
             rules

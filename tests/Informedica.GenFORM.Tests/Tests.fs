@@ -7616,6 +7616,23 @@ module Tests =
                                 |> Expect.stringContains "says what is wrong" "one dose rule and one patient"
                             }
 
+                            test "rules that overlap outside the weights of the dose rule do not compete" {
+                                let dr = ivDoseRule "samenstelling c" injection [||]
+
+                                let dr =
+                                    { dr with
+                                        DoseType = day1
+                                        PatientCategory = { dr.PatientCategory with Weight = weights 1000N 5000N }
+                                    }
+
+                                [|
+                                    rule day1 |> withWeight (weights 10000N 20000N)
+                                    rule day1 |> withWeight (weights 10000N 20000N)
+                                |]
+                                |> SolutionRule.competingRules ivRouteMapping [| dr |]
+                                |> Expect.isEmpty "no patient of the dose rule reaches them"
+                            }
+
                             test "two spellings of one generic compete" {
                                 [| rule NoDoseType; { rule day1 with Generic = "Samenstelling C" } |]
                                 |> competing
@@ -7623,6 +7640,12 @@ module Tests =
                             }
 
                             test "a rule for adults and a rule for infants do not compete" {
+                                let anyPatient =
+                                    { ivDoseRule "samenstelling c" injection [||] with
+                                        DoseType = day1
+                                        PatientCategory = PatientCategory.empty
+                                    }
+
                                 let days n =
                                     n |> ValueUnit.singleWithUnit Units.Time.day |> Limit.exclusive |> Some
 
@@ -7633,7 +7656,7 @@ module Tests =
                                         { pc with Age = AbsoluteAge { MinMax.empty with Max = days 365N } }
                                     )
                                 |]
-                                |> competing
+                                |> SolutionRule.competingRules ivRouteMapping [| anyPatient |]
                                 |> Expect.isEmpty "no patient is both"
                             }
 

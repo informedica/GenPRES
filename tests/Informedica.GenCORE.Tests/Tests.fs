@@ -604,6 +604,14 @@ module Tests =
                             test "two ranges that touch at an exclusive limit do not meet" {
                                 MinMax.canMeet (range 30m 365m) (range 365m 730m) |> Expect.isFalse "touch"
                             }
+
+                            test "a range with a minimum above its maximum meets no range" {
+                                let inverted = range 365m 30m
+
+                                MinMax.canMeet inverted inverted |> Expect.isFalse "itself"
+                                MinMax.canMeet inverted MinMax.empty |> Expect.isFalse "an empty range"
+                                MinMax.canMeet inverted (range 1m 100m) |> Expect.isFalse "another range"
+                            }
                         ]
 
                     testList

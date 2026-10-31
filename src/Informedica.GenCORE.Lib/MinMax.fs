@@ -637,8 +637,9 @@ module MinMax =
 
 
     /// Whether one value can fall in both ranges. An empty range restricts nothing. The intersect
-    /// of a range with an empty range is that range, so only two empty ranges need the equality.
-    let canMeet a b = a = b || a |> intersect b <> empty
+    /// of a range with an empty range is that range, so only two empty ranges need their own test.
+    /// A range with a minimum above its maximum holds no value, so it meets no range.
+    let canMeet a b = (a = empty && b = empty) || a |> intersect b <> empty
 
 
     /// perform a calculation op to
