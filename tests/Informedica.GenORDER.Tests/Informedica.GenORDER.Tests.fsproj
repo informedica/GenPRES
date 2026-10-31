@@ -23,6 +23,7 @@
     <Compile Include="MedicationSchemaTests.fs" />
     <Compile Include="DoseQuantityPercTests.fs" />
     <Compile Include="DivisibilityTests.fs" />
+    <Compile Include="StrictPreparationTests.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="OrderReCalcTests.fs" />
     <Compile Include="OrderSetTests.fs" />

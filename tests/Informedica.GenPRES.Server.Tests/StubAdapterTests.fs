@@ -412,6 +412,7 @@ module SessionStubTests =
             true
             false
             None
+            false
             [||]
             None
 

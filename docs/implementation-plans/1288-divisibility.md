@@ -192,18 +192,27 @@ released software is used, so the steps need not be safe to use one by one.
 **Missing values and rules that only fit through the retry are validation issues.** Code reports them
 and does not guess. The rule owner corrects the sheets.
 
-**A preparation is strict.** Divisibility means that an orderable quantity has an increment. Without
-one there is no quantity that can be made, so the order gets no preparation text. The test reads the
-defined constraints of the component orderable quantity, not its values: the solver calculates values
-without an increment, such as bosentan 3,91 stuk, and those must not count. Of the 11,004 scenarios
-on the first evaluation over the five patients, after the preparation filter, 10,233 have a preparation
-text, and 493 of those have no increment. None of the 493 has defined values, so a defined increment is
-the whole test.
+**A preparation is strict, and the rules decide it.** An order can be prepared when the orderable
+quantity of its main component, the first component, has a defined increment and a maximum or a single
+value. The Divisible gives the increment, and the rules are the clinical validation of what is possible.
+The test reads the order and not the printed text, and the preparation filter uses the same test. A
+diluent does not count: it has no maximum when it fills up to a volume, in 69 scenarios.
 
-The 493 are not only errors. They hold nasal spray 96, cream 38, nebuliser liquid 29 and ointment 24
-beside dispersible tablet 108 and soft capsule 45, so forms without a step lose their preparation until
-their Divisible is filled. The validation therefore covers every form, and no form is accepted without
-a Divisible.
+| The order | Scenarios | Preparation text | Line in the prescription text |
+|---|---|---|---|
+| A Divisible and a limit | 9740 | yes | none |
+| A Divisible and no limit | 384 | no | warning |
+| No Divisible | 880 | no | note, the `Caution` severity |
+| Retried | | as above | warning, not the note |
+
+A product with a Divisible should have a preparation, so an order of it without a limit needs a
+matching rule: dobutamine infusion fluid has a step of 0,1 mL and no maximum. The warning is the same
+text as for a retried order. The solver calculates values without an increment, such as bosentan 3,91
+stuk, and those must not count. `OrderVariable.hasIncrement` cannot be the test: it is false for an
+order whose quantity is a list of values, and `SolutionRule.openDoseCounts` gives no warning for these
+orders. No form is accepted without a Divisible: the 880 hold nasal spray, cream, nebuliser liquid and
+ointment beside dispersible tablet and soft capsule, so a sheet that is not filled gets the note, and
+the load warning reports it to the rule owner.
 
 The administration text stays as it is. A clinician sees from 0,16 - 0,77 stuk why the preparation is
 missing. What that means in practice is outside GenPRES.
@@ -250,7 +259,8 @@ script first. A step that is too large is split further when it starts.
    GPK has no row to fill in and is left out. Give the rule owner the list of the retried filters.
 
 3. **The strict preparation and the warning.**
-   1. Mark a retried order with a field on `OrderScenario`. It goes on the domain type, `create`,
+   1. Mark a retried order with the field `FitsOnlyWithoutDivisible` on `OrderScenario`. It goes on the
+      domain type, `create`,
       `Dto`, `toDto` and `fromDto` in `OrderContext.fs`, `Shared/Types.fs:506`, `Shared/Models.fs:1179`,
       and both directions of `ServerApi.Mappers.OrderContext.fs`. In the tests it goes on
       `FilterFixtures.fs`, `Tests.fs` and `OrderPlanTests.fs` of GenORDER and on
@@ -264,16 +274,17 @@ script first. A step that is too large is split further when it starts.
       for every form, because the retry reaches liquids as well as tablets, and names the need for a
       pharmacy or second validation.
    3. Test that the mark and the warning reach the printed order, an order plan and a signed version.
+      A signed version is a stored row, so its JSON structure version goes from 7 to 8
+      (`SqlDatabase.jsonVersionRead` and `jsonVersionWritten`) with a fixture `order_plan_v8.json`, and
+      a row of version 7 reads as false.
    4. Check the text a prescriber gets on clicking a range, because the commands are refused with
       `NotSolved`.
-   5. Print no preparation text for an order without a defined increment on the component orderable
-      quantity. Test this against `filterScenariosByPreparation`: as written it counts a row without
-      blocks as a preparation, and a row with an empty block as none, also beside a block with text.
-      A scenario without a preparation is dropped beside one with a preparation of the same dose type.
-      That is intended: before that filter, with the form open, 880 scenarios have no increment, and
-      134 of them are dropped until their Divisible is filled, for example amoxicilline dispersible
-      tablet beside suspension. Test that picking the form brings such a scenario back when no other
-      scenario of that form has a preparation.
+   5. Print no preparation text for an order that cannot be prepared, and have
+      `filterScenariosByPreparation` read that test and no text. As it was, the filter counted a row
+      without blocks as a preparation, and a row with an empty block as none, also beside a block with
+      text. In each dose type a scenario that cannot be prepared is dropped beside one that can: 229 of
+      the 11,004 scenarios, for example amoxicilline dispersible tablet beside suspension. Test that
+      picking the form brings such a scenario back when no other scenario of that form can be prepared.
 
 4. **The split.**
    1. Split the prescription rules by the Divisible of the products of a component limit in

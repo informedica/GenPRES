@@ -523,6 +523,8 @@ module Types =
             UseAdjust: bool
             UseRenalRule: bool
             RenalRule: string option
+            /// Whether the order only fits its rule without the Divisible of its products
+            FitsOnlyWithoutDivisible: bool
             ProductIds: string[]
             /// The access device the scenario's solution rule makes the preparation for; none when
             /// the preparation is for any access. Never the patient's access.

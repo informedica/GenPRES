@@ -64,6 +64,7 @@ module Fixtures =
             UseAdjust = false
             UseRenalRule = false
             RenalRule = None
+            FitsOnlyWithoutDivisible = false
             ProductsIds = [||]
             Access = AnyAccess
         }
@@ -479,6 +480,7 @@ module EvaluateFixtures =
             UseAdjust = true
             UseRenalRule = false
             RenalRule = None
+            FitsOnlyWithoutDivisible = false
             ProductsIds = [||]
             Access = AnyAccess
         }
@@ -1060,6 +1062,17 @@ module RuleFixtures =
                 rowFor "kind koorts" "" id children
             |]
 
+    /// The dose rules with a change to each of their products.
+    let mapProducts f (rules: DoseRule[]) =
+        rules
+        |> Array.map (fun dr ->
+            { dr with
+                ComponentLimits =
+                    dr.ComponentLimits
+                    |> Array.map (fun cl -> { cl with Products = cl.Products |> Array.map f })
+            }
+        )
+
     /// The rules of both rows for the default department.
     let feverAndPain () =
         let dep = Resources.Departments.defaultDepartment
@@ -1518,7 +1531,7 @@ let useAdjustTests =
         |> OrderContext.Helpers.evaluateRules Scenarios.testStart OrderLogging.noOp
         |> Array.exactlyOne
         |> function
-            | Ok(ord, pr, _) -> OrderScenario.fromRule 0 pr ord
+            | Ok(ord, pr, _) -> OrderScenario.fromRule false 0 pr ord
             | Error _ -> failtest "not evaluated"
 
     let prescription (sc: OrderScenario) =
@@ -1773,7 +1786,7 @@ let scenarioAccessTests =
 
                     [| rule accesses |]
                     |> OrderContext.Helpers.evaluateRules (System.DateTime(2026, 1, 1)) OrderLogging.noOp
-                    |> OrderContext.Helpers.processEvaluationResults
+                    |> OrderContext.Helpers.processEvaluationResults false
                     |> Array.map _.Access
                     |> Expect.equal "the access of each rule, in the order of the rules" expected
                 }

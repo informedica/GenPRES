@@ -43,6 +43,7 @@ let scenario: OrderScenario =
         true
         false
         None
+        false
         [| "gpk-1" |]
         None
 
@@ -98,6 +99,15 @@ let tests =
                     |> _.Access
                     |> Expect.equal "the same access" access
                 }
+
+            test "the mark of an order that fits only without the Divisible goes to the Dto and back" {
+                for fitsOnlyWithoutDivisible in [ true; false ] do
+                    { scenario with FitsOnlyWithoutDivisible = fitsOnlyWithoutDivisible }
+                    |> OrderContextMapper.scenario 0
+                    |> OrderContextMapper.scenarioBack
+                    |> _.FitsOnlyWithoutDivisible
+                    |> Expect.equal "the same mark" fitsOnlyWithoutDivisible
+            }
 
             test "a scenario Dto without an access reads as none" {
                 { (scenario |> OrderContextMapper.scenario 0) with Access = null }
