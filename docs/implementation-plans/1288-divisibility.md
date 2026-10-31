@@ -74,8 +74,9 @@ step is one drop. `DoseRule.addFormLimits` sets the drop size on the form limit 
 products of the dose rule share one value. 15 of the 121 droplet component limits hold two values, all
 colecalciferol. No droplet component limit holds a product of another form.
 
-**A Divisible can be missing.** 133 of 2789 products in the dose rules have none. Most are nasal
-sprays, nebuliser liquids, creams and patches. 17 are dispersible tablets and 4 soft capsules. 17
+**A Divisible can be missing.** 132 of 2788 products in the dose rules have none. Most are nasal
+sprays, nebuliser liquids, creams and patches. 17 are dispersible tablets and 4 soft capsules. Another
+71 generics have a dose rule but no product in the formulary, so there is no row to give a Divisible. 17
 component limits mix products with and without a Divisible, in 4 sets: budesonide, ipratropium and
 salbutamol/ipratropium nebuliser liquid, and everolimus dispersible tablet. For everolimus 5 mg (GPK
 147990) both the formulary row and the form-route row of `dispergeerbare tablet` are empty.
@@ -243,10 +244,10 @@ script first. A step that is too large is split further when it starts.
    unit. A test through `Medication.toOrder` shows that a component in mg beside mL is still refused.
 
 2. **Validation messages.** Through the existing load messages, the `Message list` of a
-   `ResourceLoader` (`Resources.fs:40`), in the way of `DoseRuleData.unitWarning`, report a product of
+   `ResourceLoader` (`Resources.fs:40`), in the way of `DoseRule.invertedRanges`, report a product of
    any form without a Divisible and a component limit that mixes products with and without one. Report
-   a component limit in mL whose products disagree, for the rule owner to judge. Give the rule owner
-   the list of the retried filters.
+   a component limit in mL whose products disagree, for the rule owner to judge. A product without a
+   GPK has no row to fill in and is left out. Give the rule owner the list of the retried filters.
 
 3. **The strict preparation and the warning.**
    1. Mark a retried order with a field on `OrderScenario`. It goes on the domain type, `create`,

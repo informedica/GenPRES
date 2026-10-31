@@ -6915,6 +6915,56 @@ module Tests =
             | m -> $"%A{m}"
 
 
+        let single ws =
+            match ws with
+            | [ s ] -> s
+            | ws -> ws |> failtestf "expected one warning, got %A"
+
+
+        // The entry of the default registry, run on hand-built dose rules and solution rules.
+        let ruleCheckWarnings (doseRules: DoseRule[]) (solutionRules: SolutionRule[]) =
+            let reg =
+                Map
+                    [
+                        Keys.ruleChecks.Name, (Resources.defaultRegistry FormLogging.noOp "")[Keys.ruleChecks.Name]
+                        Keys.parenteralMeds.Name, ofResult (fun () -> Ok(Array.empty<ProductComponent>))
+                        Keys.solutionRuleData.Name, ofResult (fun () -> Ok(Array.empty<SolutionRuleData>))
+                        Keys.doseRules.Name, ofResult (fun () -> Ok doseRules)
+                        Keys.solutionRules.Name, ofResult (fun () -> Ok solutionRules)
+                        Keys.routeMappings.Name, ofResult (fun () -> Ok ivRouteMapping)
+                    ]
+
+            let eng = LoadEngine reg
+            eng.Resolve Keys.ruleChecks
+            eng.Warnings |> List.map warningText
+
+
+        let divisibleProduct gpk formUnit div : ProductComponent =
+            { ProductFilterTests.baseProd with
+                GPK = gpk
+                Label = $"product %s{gpk}"
+                Form = "form"
+                FormUnit = formUnit
+                Divisible = div
+            }
+
+
+        let pieceProduct gpk div = divisibleProduct gpk Units.Count.times div
+        let volumeProduct gpk div = divisibleProduct gpk Units.Volume.milliLiter div
+
+
+        let withProducts prods =
+            let dr = doseRule "gen" [||]
+
+            { dr with ComponentLimits = dr.ComponentLimits |> Array.map (fun cl -> { cl with Products = prods }) }
+
+
+        let divisibleWarnings prods =
+            [| prods |> withProducts |]
+            |> DoseRule.divisibleWarnings
+            |> List.map warningText
+
+
         let tests =
             testList
                 "Rule checks"
@@ -6981,25 +7031,23 @@ module Tests =
                         "dose rules"
                         [
                             test "the paracetamol quantity of the paracetamol/coffeine rule is reported, coffeine not" {
-                                [|
-                                    doseRule
-                                        "paracetamol/coffeine"
-                                        [|
-                                            substanceLimit "paracetamol" (range mg 500N 100N)
-                                            substanceLimit "coffeine" (range mg 50N 100N)
-                                        |]
-                                |]
-                                |> DoseRule.invertedRanges
-                                |> List.map warningText
-                                |> function
-                                    | [ s ] ->
-                                        s |> Expect.stringContains "names the generic" "paracetamol/coffeine"
-                                        s |> Expect.stringContains "names the route" "ORAAL"
-                                        s
-                                        |> Expect.stringContains
-                                            "names the range"
-                                            "paracetamol quantity Min Incl 500 mg"
-                                    | ws -> ws |> failtestf "expected one warning, got %A"
+                                let s =
+                                    [|
+                                        doseRule
+                                            "paracetamol/coffeine"
+                                            [|
+                                                substanceLimit "paracetamol" (range mg 500N 100N)
+                                                substanceLimit "coffeine" (range mg 50N 100N)
+                                            |]
+                                    |]
+                                    |> DoseRule.invertedRanges
+                                    |> List.map warningText
+                                    |> single
+
+                                s |> Expect.stringContains "names the generic" "paracetamol/coffeine"
+                                s |> Expect.stringContains "names the route" "ORAAL"
+                                s
+                                |> Expect.stringContains "names the range" "paracetamol quantity Min Incl 500 mg"
                             }
 
                             test "a rule with no inverted range gives no warning" {
@@ -7039,17 +7087,112 @@ module Tests =
                         ]
 
                     testList
+                        "the Divisible of the products"
+                        [
+                            test "products with the same Divisible give no warning" {
+                                [| pieceProduct "1" (Some 2N); pieceProduct "2" (Some 2N) |]
+                                |> divisibleWarnings
+                                |> Expect.isEmpty "none"
+                            }
+
+                            testList
+                                "a product without a Divisible is reported, whatever its form"
+                                [
+                                    for name, p in
+                                        [ "a piece", pieceProduct "1" None; "a volume", volumeProduct "1" None ] do
+                                        test $"%s{name}" {
+                                            [| p |]
+                                            |> divisibleWarnings
+                                            |> single
+                                            |> Expect.stringContains "names the GPK" "GPK 1,"
+                                        }
+                                ]
+
+                            test "a product without a GPK is left out, also beside a product without a Divisible" {
+                                [| pieceProduct "" None; pieceProduct "" None; pieceProduct "1" None |]
+                                |> withProducts
+                                |> Array.singleton
+                                |> DoseRule.missingDivisibles
+                                |> List.length
+                                |> Expect.equal "only the product with a GPK" 1
+                            }
+
+                            test "a product in two dose rules is reported once" {
+                                let dr = withProducts [| pieceProduct "1" None |]
+
+                                [| dr; { dr with Route = "RECTAAL" } |]
+                                |> DoseRule.missingDivisibles
+                                |> List.length
+                                |> Expect.equal "one" 1
+                            }
+
+                            test "a component limit that mixes products with and without a Divisible is reported" {
+                                let s =
+                                    [| pieceProduct "1" (Some 2N); pieceProduct "2" None |]
+                                    |> divisibleWarnings
+                                    |> List.filter (String.contains "component gen")
+                                    |> single
+
+                                s |> Expect.stringContains "names the product" "no Divisible for product 2"
+                                s |> Expect.stringContains "names the route" "ORAAL"
+                            }
+
+                            test "only products without a Divisible is no mix" {
+                                [| pieceProduct "1" None; pieceProduct "2" None |]
+                                |> withProducts
+                                |> Array.singleton
+                                |> DoseRule.mixedDivisibles
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "products in mL that disagree are reported with their values" {
+                                let s =
+                                    [| volumeProduct "1" (Some 10N); volumeProduct "2" (Some 1N) |]
+                                    |> divisibleWarnings
+                                    |> single
+
+                                s |> Expect.stringContains "first" "product 1: 10"
+                                s |> Expect.stringContains "second" "product 2: 1"
+                            }
+
+                            test "products in pieces that disagree are not reported" {
+                                [| pieceProduct "1" (Some 4N); pieceProduct "2" (Some 1N) |]
+                                |> divisibleWarnings
+                                |> Expect.isEmpty "the split handles these"
+                            }
+
+                            test "a volume product is not compared with a product in pieces" {
+                                [| volumeProduct "1" (Some 10N); pieceProduct "2" (Some 1N) |]
+                                |> divisibleWarnings
+                                |> Expect.isEmpty "only one value in a volume unit"
+                            }
+
+                            test "the same warning from a rule expanded for two forms is given once" {
+                                let dr = withProducts [| volumeProduct "1" (Some 10N); volumeProduct "2" (Some 1N) |]
+
+                                [| dr; { dr with Id = "2" } |]
+                                |> DoseRule.disagreeingDivisibles
+                                |> List.length
+                                |> Expect.equal "one" 1
+                            }
+
+                            test "no dose rules give no warnings" {
+                                [||] |> DoseRule.divisibleWarnings |> Expect.isEmpty "none"
+                            }
+                        ]
+
+                    testList
                         "solution rules"
                         [
                             test "the granisetron concentration of 0.5 to 0.1 mg/mL is reported" {
-                                [| solutionRule "granisetron" (range mgPerMl (1N / 2N) (1N / 10N)) |]
-                                |> SolutionRule.invertedRanges
-                                |> List.map warningText
-                                |> function
-                                    | [ s ] ->
-                                        s |> Expect.stringContains "names the generic" "granisetron"
-                                        s |> Expect.stringContains "names the range" "granisetron concentration"
-                                    | ws -> ws |> failtestf "expected one warning, got %A"
+                                let s =
+                                    [| solutionRule "granisetron" (range mgPerMl (1N / 2N) (1N / 10N)) |]
+                                    |> SolutionRule.invertedRanges
+                                    |> List.map warningText
+                                    |> single
+
+                                s |> Expect.stringContains "names the generic" "granisetron"
+                                s |> Expect.stringContains "names the range" "granisetron concentration"
                             }
 
                             test "a concentration of 0.1 to 0.5 mg/mL is not reported" {
@@ -7077,14 +7220,14 @@ module Tests =
                             }
 
                             test "solutions that match no parenteral product give one warning naming them" {
-                                [| solutionRow "granisetron" [ "NaCl 0,45%"; "glucose 10%" ] |]
-                                |> SolutionRule.missingDiluents parenteral
-                                |> List.map warningText
-                                |> function
-                                    | [ s ] ->
-                                        s |> Expect.stringContains "names the generic" "granisetron"
-                                        s |> Expect.stringContains "names the solutions" "NaCl 0,45%|glucose 10%"
-                                    | ws -> ws |> failtestf "expected one warning, got %A"
+                                let s =
+                                    [| solutionRow "granisetron" [ "NaCl 0,45%"; "glucose 10%" ] |]
+                                    |> SolutionRule.missingDiluents parenteral
+                                    |> List.map warningText
+                                    |> single
+
+                                s |> Expect.stringContains "names the generic" "granisetron"
+                                s |> Expect.stringContains "names the solutions" "NaCl 0,45%|glucose 10%"
                             }
 
                             test "one matching solution among several is enough" {
@@ -7230,14 +7373,14 @@ module Tests =
                             let ick = { PatientCategory.empty with Department = Some "ICK" }
 
                             test "a rule without diluents whose limit allows no strength gives one warning" {
-                                [| solutionRule "zidovudine" (maxConc (5N / 2N)) |]
-                                |> undilutable zidovudine
-                                |> List.map warningText
-                                |> function
-                                    | [ s ] ->
-                                        s |> Expect.stringContains "names the generic" "zidovudine"
-                                        s |> Expect.stringContains "says why" "no diluent"
-                                    | ws -> ws |> failtestf "expected one warning, got %A"
+                                let s =
+                                    [| solutionRule "zidovudine" (maxConc (5N / 2N)) |]
+                                    |> undilutable zidovudine
+                                    |> List.map warningText
+                                    |> single
+
+                                s |> Expect.stringContains "names the generic" "zidovudine"
+                                s |> Expect.stringContains "says why" "no diluent"
                             }
 
                             test "a rule with a diluent gives no warning" {
@@ -7423,27 +7566,14 @@ module Tests =
                                 |> Expect.equal "one" 1
                             }
 
+                            test "the rule checks at load report a product without a Divisible" {
+                                ruleCheckWarnings [| withProducts [| pieceProduct "1" None |] |] [||]
+                                |> List.exists (String.contains "no Divisible")
+                                |> Expect.isTrue "reported"
+                            }
+
                             test "the rule checks at load report the rule" {
-                                let reg =
-                                    Map
-                                        [
-                                            Keys.ruleChecks.Name,
-                                            (Resources.defaultRegistry FormLogging.noOp "")[Keys.ruleChecks.Name]
-                                            Keys.parenteralMeds.Name,
-                                            ofResult (fun () -> Ok(Array.empty<ProductComponent>))
-                                            Keys.solutionRuleData.Name,
-                                            ofResult (fun () -> Ok(Array.empty<SolutionRuleData>))
-                                            Keys.doseRules.Name, ofResult (fun () -> Ok zidovudine)
-                                            Keys.solutionRules.Name,
-                                            ofResult (fun () -> Ok [| solutionRule "zidovudine" (maxConc (5N / 2N)) |])
-                                            Keys.routeMappings.Name, ofResult (fun () -> Ok ivRouteMapping)
-                                        ]
-
-                                let eng = LoadEngine reg
-                                eng.Resolve Keys.ruleChecks
-
-                                eng.Warnings
-                                |> List.map warningText
+                                ruleCheckWarnings zidovudine [| solutionRule "zidovudine" (maxConc (5N / 2N)) |]
                                 |> List.exists (String.contains "no diluent")
                                 |> Expect.isTrue "reported"
                             }

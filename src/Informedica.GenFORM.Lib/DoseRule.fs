@@ -1123,3 +1123,79 @@ module DoseRule =
         )
         |> List.distinct
         |> List.map Warning
+
+
+    /// One warning per product in the dose rules without a Divisible. A product is in many dose
+    /// rules, so the warning names the product and is given once. A dose rule of a generic
+    /// without a product in the formulary has a product without a GPK: there is no row to give a
+    /// Divisible, so it is left out.
+    let missingDivisibles (rules: DoseRule[]) =
+        rules
+        |> Array.collect (_.ComponentLimits >> Array.collect _.Products)
+        |> Array.filter (fun p -> p.GPK |> String.notEmpty && p.Divisible |> Option.isNone)
+        |> Array.distinctBy _.GPK
+        |> Array.map (fun p -> $"GPK %s{p.GPK}, %s{p.Label}, form %s{p.Form}: no Divisible")
+        |> Array.toList
+        |> List.map Warning
+
+
+    /// One warning per component limit the check reports, labelled with the dose rule and the
+    /// component. A sheet row expands to a dose rule per product form, so the same warning is
+    /// given once.
+    let componentWarnings check (rules: DoseRule[]) =
+        rules
+        |> Array.toList
+        |> List.collect (fun dr ->
+            dr.ComponentLimits
+            |> Array.toList
+            |> List.choose (fun cl ->
+                cl
+                |> check
+                |> Option.map (fun s -> $"%s{dr |> label}, component %s{cl.Name}: %s{s}")
+            )
+        )
+        |> List.distinct
+        |> List.map Warning
+
+
+    /// One warning per component limit with products with and without a Divisible.
+    let mixedDivisibles rules =
+        rules
+        |> componentWarnings (fun cl ->
+            match cl.Products |> Array.partition (_.Divisible >> Option.isSome) with
+            | [||], _
+            | _, [||] -> None
+            | _, without ->
+                let labels = without |> Array.map _.Label |> String.concat ", "
+                Some $"no Divisible for %s{labels}, other products have one"
+        )
+
+
+    /// One warning per component limit whose products in a volume unit have different values for
+    /// Divisible, for the rule owner to judge.
+    let disagreeingDivisibles rules =
+        rules
+        |> componentWarnings (fun cl ->
+            let values =
+                cl.Products
+                |> Array.filter (_.FormUnit >> ValueUnit.Group.eqsGroup Units.Volume.milliLiter)
+                |> Array.choose (fun p -> p.Divisible |> Option.map (fun d -> p.Label, d))
+
+            match values |> Array.distinctBy snd with
+            | [||]
+            | [| _ |] -> None
+            | _ ->
+                let shown =
+                    values
+                    |> Array.map (fun (l, d) -> $"%s{l}: %s{d |> BigRational.toStringNl}")
+                    |> String.concat ", "
+
+                Some $"products in a volume unit differ in Divisible, %s{shown}"
+        )
+
+
+    /// The warnings for the Divisible of the products in the dose rules.
+    let divisibleWarnings rules =
+        (rules |> missingDivisibles)
+        @ (rules |> mixedDivisibles)
+        @ (rules |> disagreeingDivisibles)
