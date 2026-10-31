@@ -7580,6 +7580,168 @@ module Tests =
                         ]
 
                     testList
+                        "competing solution rules"
+                        [
+                            let day1 = Timed "dag 1"
+                            let day2 = Timed "dag 2"
+                            let injection = Solution "injectievloeistof"
+
+                            let rule doseType =
+                                { solutionRule "samenstelling c" MinMax.empty with DoseType = doseType }
+
+                            // the weights from the minimum up to, not including, the maximum, as the sheet reads them
+                            let weights min max =
+                                {
+                                    Min = min |> ValueUnit.singleWithUnit Units.Weight.gram |> Limit.inclusive |> Some
+                                    Max = max |> ValueUnit.singleWithUnit Units.Weight.gram |> Limit.exclusive |> Some
+                                }
+
+                            let withPatient f (sr: SolutionRule) = { sr with PatientCategory = sr.PatientCategory |> f }
+
+                            let withWeight mm = withPatient (fun pc -> { pc with Weight = mm })
+                            let withAccess access = withPatient (fun pc -> { pc with Access = access })
+                            let withDepartment dep = withPatient (fun pc -> { pc with Department = Some dep })
+
+                            let competing rules =
+                                let dr = ivDoseRule "samenstelling c" injection [||]
+
+                                rules
+                                |> SolutionRule.competingRules ivRouteMapping [| { dr with DoseType = day1 } |]
+
+                            test "a rule without a dose type competes with a rule of the dose type" {
+                                [| rule NoDoseType; rule day1 |]
+                                |> competing
+                                |> List.map warningText
+                                |> single
+                                |> Expect.stringContains "says what is wrong" "one dose rule and one patient"
+                            }
+
+                            test "rules that overlap outside the weights of the dose rule do not compete" {
+                                let dr = ivDoseRule "samenstelling c" injection [||]
+
+                                let dr =
+                                    { dr with
+                                        DoseType = day1
+                                        PatientCategory = { dr.PatientCategory with Weight = weights 1000N 5000N }
+                                    }
+
+                                [|
+                                    rule day1 |> withWeight (weights 10000N 20000N)
+                                    rule day1 |> withWeight (weights 10000N 20000N)
+                                |]
+                                |> SolutionRule.competingRules ivRouteMapping [| dr |]
+                                |> Expect.isEmpty "no patient of the dose rule reaches them"
+                            }
+
+                            test "two spellings of one generic compete" {
+                                [| rule NoDoseType; { rule day1 with Generic = "Samenstelling C" } |]
+                                |> competing
+                                |> Expect.hasLength "the matching ignores the case" 1
+                            }
+
+                            test "a rule for adults and a rule for infants do not compete" {
+                                let anyPatient =
+                                    { ivDoseRule "samenstelling c" injection [||] with
+                                        DoseType = day1
+                                        PatientCategory = PatientCategory.empty
+                                    }
+
+                                let days n =
+                                    n |> ValueUnit.singleWithUnit Units.Time.day |> Limit.exclusive |> Some
+
+                                [|
+                                    rule day1 |> withPatient (fun pc -> { pc with Age = IsAdult })
+                                    rule day1
+                                    |> withPatient (fun pc ->
+                                        { pc with Age = AbsoluteAge { MinMax.empty with Max = days 365N } }
+                                    )
+                                |]
+                                |> SolutionRule.competingRules ivRouteMapping [| anyPatient |]
+                                |> Expect.isEmpty "no patient is both"
+                            }
+
+                            test "rules of another dose text do not compete" {
+                                [| rule day1; rule day2 |] |> competing |> Expect.isEmpty "one rule per day"
+                            }
+
+                            test "rules for weights that touch do not compete" {
+                                [|
+                                    rule day1 |> withWeight (weights 7000N 10000N)
+                                    rule day1 |> withWeight (weights 10000N 16000N)
+                                |]
+                                |> competing
+                                |> Expect.isEmpty "10 kg is in the second rule only"
+                            }
+
+                            test "rules for weights that overlap compete" {
+                                [|
+                                    rule day1 |> withWeight (weights 7000N 11000N)
+                                    rule day1 |> withWeight (weights 10000N 16000N)
+                                |]
+                                |> competing
+                                |> Expect.hasLength "from 10 to 11 kg" 1
+                            }
+
+                            test "a rule without a weight competes with a rule with a weight" {
+                                [| rule day1; rule day1 |> withWeight (weights 7000N 10000N) |]
+                                |> competing
+                                |> Expect.hasLength "no weight restricts nothing" 1
+                            }
+
+                            test "rules of two departments do not compete" {
+                                [| rule day1 |> withDepartment "ICK"; rule day1 |> withDepartment "ICC" |]
+                                |> competing
+                                |> Expect.isEmpty "a patient is in one department"
+                            }
+
+                            test "a rule without a department competes with a rule of a department" {
+                                [| rule day1; rule day1 |> withDepartment "ICK" |]
+                                |> competing
+                                |> Expect.hasLength "both reach a patient on the ICK" 1
+                            }
+
+                            test "a CVL rule and a PVL rule do not compete" {
+                                [| rule day1 |> withAccess CVL; rule day1 |> withAccess PVL |]
+                                |> competing
+                                |> Expect.isEmpty "the access device picks"
+                            }
+
+                            test "a rule for any access competes with a CVL rule" {
+                                [| rule day1; rule day1 |> withAccess CVL |]
+                                |> competing
+                                |> Expect.hasLength "both reach a patient with a CVL" 1
+                            }
+
+                            test "rules without a shared dose rule do not compete" {
+                                [| rule NoDoseType; rule day1 |]
+                                |> SolutionRule.competingRules ivRouteMapping [||]
+                                |> Expect.isEmpty "no dose rule"
+                            }
+
+                            test "a single rule does not compete" {
+                                [| rule day1 |] |> competing |> Expect.isEmpty "one rule"
+                            }
+
+                            test "three rules that compete give each pair once" {
+                                [|
+                                    rule day1 |> withWeight (weights 1000N 5000N)
+                                    rule day1 |> withWeight (weights 2000N 6000N)
+                                    rule NoDoseType
+                                |]
+                                |> competing
+                                |> Expect.hasLength "three pairs" 3
+                            }
+
+                            test "the rule checks at load report the pair" {
+                                let dr = ivDoseRule "samenstelling c" injection [||]
+
+                                ruleCheckWarnings [| { dr with DoseType = day1 } |] [| rule NoDoseType; rule day1 |]
+                                |> List.exists (String.contains "one dose rule and one patient")
+                                |> Expect.isTrue "reported"
+                            }
+                        ]
+
+                    testList
                         "open dose counts"
                         [
                             let volume n = n |> ValueUnit.singleWithUnit mL |> Limit.inclusive |> Some

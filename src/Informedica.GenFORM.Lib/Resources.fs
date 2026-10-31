@@ -444,6 +444,7 @@ module Resources =
                 // - a solution rule whose solutions match no parenteral product
                 // - a solution rule without diluents whose concentration limit allows no strength of its products
                 // - a solution rule whose dose count has no maximum and no maximum on the preparation
+                // - two solution rules that apply to one dose rule and one patient
                 // - a product of a dose rule without a Divisible, or products whose Divisible disagree
                 Keys.ruleChecks.Name,
                 deriveWith (fun r ->
@@ -454,6 +455,8 @@ module Resources =
                     @ (r.Get Keys.doseRules |> DoseRule.divisibleWarnings)
                     @ (r.Get Keys.solutionRules |> SolutionRule.invertedRanges)
                     @ (r.Get Keys.solutionRules |> SolutionRule.openDoseCounts)
+                    @ (r.Get Keys.solutionRules
+                       |> SolutionRule.competingRules (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
                     @ (r.Get Keys.solutionRules
                        |> SolutionRule.undilutableRules (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
                 )

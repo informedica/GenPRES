@@ -577,6 +577,44 @@ module Tests =
                         ]
 
                     testList
+                        "canMeet"
+                        [
+                            let day v = fromDecimal v Units.Time.day
+
+                            let range min max =
+                                MinMax.create (day min |> Inclusive |> Some) (day max |> Exclusive |> Some)
+
+                            test "two empty ranges meet" {
+                                MinMax.canMeet MinMax.empty MinMax.empty |> Expect.isTrue "nothing restricts"
+                            }
+
+                            test "an empty range meets a range, on either side" {
+                                MinMax.canMeet MinMax.empty (range 30m 365m) |> Expect.isTrue "first empty"
+                                MinMax.canMeet (range 30m 365m) MinMax.empty |> Expect.isTrue "second empty"
+                            }
+
+                            test "two equal ranges meet" {
+                                MinMax.canMeet (range 30m 365m) (range 30m 365m) |> Expect.isTrue "the same"
+                            }
+
+                            test "two ranges that overlap meet" {
+                                MinMax.canMeet (range 30m 400m) (range 365m 730m) |> Expect.isTrue "overlap"
+                            }
+
+                            test "two ranges that touch at an exclusive limit do not meet" {
+                                MinMax.canMeet (range 30m 365m) (range 365m 730m) |> Expect.isFalse "touch"
+                            }
+
+                            test "a range with a minimum above its maximum meets no range" {
+                                let inverted = range 365m 30m
+
+                                MinMax.canMeet inverted inverted |> Expect.isFalse "itself"
+                                MinMax.canMeet inverted MinMax.empty |> Expect.isFalse "an empty range"
+                                MinMax.canMeet inverted (range 1m 100m) |> Expect.isFalse "another range"
+                            }
+                        ]
+
+                    testList
                         "valueComparison"
                         [
 
