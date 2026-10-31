@@ -15,11 +15,19 @@ module UnitsParse =
         xs |> Seq.map _.Value |> Seq.forall (String.equalsCapInsens "general")
 
 
+    /// Whether a unit, or a part of a combined unit, has a factor of 0, as in 0 IU/ml.
+    let rec hasZeroFactor u =
+        match u with
+        | CombiUnit(u1, _, u2) -> u1 |> hasZeroFactor || u2 |> hasZeroFactor
+        | _ -> u |> getUnitValue |> Option.exists ((=) 0N)
+
+
     /// <summary>
     /// Creates a Unit from a string s, if possible,
     /// otherwise returns None. Note will take care of
     /// the n value of a unit! So, for example, the unit
     /// 36 hours can be parsed correctly.
+    /// A unit with a factor of 0 cannot convert a value, so it raises a FormatException.
     /// </summary>
     /// <example>
     /// fromString "36 hours" = Some (Time (Hour 36N))
@@ -39,6 +47,8 @@ module UnitsParse =
                         let s = s |> String.replace "nan" "nnn"
 
                         match s |> run Parser.parseUnit with
+                        | Success(u, _, _) when u |> hasZeroFactor ->
+                            raise (System.FormatException $"unit {s} has a factor of 0")
                         | Success(u, _, _) -> Some u
                         | Failure _ ->
                             if s |> String.isNullOrWhiteSpace then

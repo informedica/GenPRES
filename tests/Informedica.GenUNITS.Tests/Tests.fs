@@ -328,6 +328,12 @@ module Tests =
                     |> Expect.throws "should throw an exception"
                 }
 
+                test "unit with a factor of 0 should throw a format exception" {
+                    for s in [ "0 IU/ml"; "ml/0 IU"; "0 stuk" ] do
+                        fun () -> s |> UnitsParse.fromString |> ignore
+                        |> Expect.throwsT<System.FormatException> $"%s{s} should not parse"
+                }
+
                 test "parse single value and toString roundtrip" {
                     "1.5 mg"
                     |> fromString

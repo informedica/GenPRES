@@ -38,7 +38,8 @@ module Types =
             MinDoseQtyPerKg: ValueUnit option
             /// The maximum Adjusted Dose quantity; sheet column "MaxDoseQtyKg"
             MaxDoseQtyPerKg: ValueUnit option
-            /// The divisibility of a pharmaceutical form; sheet column "Divisible"
+            /// The Divisible of a pharmaceutical form, for a product whose Formulary row has none;
+            /// sheet column "Divisible". It means the same as the Divisible on the product.
             Divisibility: BigRational option
             /// Whether a Dose runs over a Time
             Timed: bool
@@ -179,7 +180,11 @@ module Types =
             RequiresReconstitution: bool
             /// The possible reconstitution rules for the Product
             Reconstitution: Reconstitution[]
-            /// The division factor of the Product
+            /// The number of equal parts one unit of the Product can be divided into, from the
+            /// Formulary row and else from the pharmaceutical form. A tablet in 4 parts has
+            /// 4, so the step is 1/4 tablet. For a droplet form the value is the number of drops
+            /// per mL, so the step of 1 divided by this value is one drop, and the value also
+            /// sets the size of the droplet unit. No value means the Product has no step.
             Divisible: BigRational option
             /// The Substances in the Product
             Substances: Substance array
@@ -218,7 +223,9 @@ module Types =
             Generic: string
             /// The TallMan alternative name
             TallMan: string
-            /// The Divisibility of the product
+            /// The number of equal parts one unit of the product can be divided into, or the
+            /// number of drops per mL for a droplet form; sheet column "Divisible". See the
+            /// Divisible on the Product.
             Divisible: int option
             /// Use generic name; sheet column "UseGenName", "x" for true
             UseGenName: bool
@@ -589,7 +596,9 @@ module Types =
             Dose: MinMax
             /// The possible Solutions to use
             Diluents: ProductComponent[]
-            /// An optional dividability option
+            /// The number of equal parts one unit of the prepared solution can be divided into, so
+            /// the step of the orderable is 1 divided by this value. It takes the place of the
+            /// Divisible of the products of the medication.
             Div: BigRational option
             /// The possible Volumes to use
             Volumes: ValueUnit option
@@ -1068,7 +1077,8 @@ module Types =
                 DoseText: string
                 /// sheet column "Solutions": acceptable diluents, '|'-separated
                 Solutions: string list
-                /// sheet column "Div": divisibility of the solution
+                /// sheet column "Div": the number of equal parts one unit of the prepared
+                /// solution can be divided into, see the Div on the SolutionRule
                 Div: BigRational option
                 /// standard volumes in mL, ';'-separated
                 Volumes: BigRational array
