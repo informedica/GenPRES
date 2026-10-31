@@ -1275,6 +1275,18 @@ Scenarios: {scenarios}
         && prs |> Array.forall (PrescriptionRule.isPrescribable pat >> not)
 
 
+    /// The context holding the scenarios of the prescription rules, refused when no scenario is
+    /// left because each medication needs a diluent that is not supplied. The medications are only
+    /// read when there is no scenario.
+    let withScenarios (ctx: OrderContext) meds scenarios =
+        let answered = { ctx with Scenarios = scenarios }
+
+        if scenarios |> Array.isEmpty && meds () |> Medication.allLackNeededDiluent then
+            Refused(answered, Refusal.NoDiluent)
+        else
+            answered |> updateFilterIfOneScenario |> Evaluated
+
+
     /// Which refusal an empty answer is, from the dose rules for the picks: none in the
     /// patient's department is the first case; none with the patient in is the second; every
     /// prescription rule for the picks needing a measurement the patient lacks is the third;
@@ -1316,9 +1328,10 @@ Scenarios: {scenarios}
             refusalOf forPicks [||] false
 
 
-    /// The scenarios for the context, as an outcome: evaluated, or refused with the context
-    /// as it was sent, so the picks that matched nothing stay the user's. The rule lookup's
-    /// own failure stays an error.
+    /// The scenarios for the context, as an outcome: evaluated, or refused. Picks that match
+    /// nothing are refused with the context as it was sent, so they stay the user's; picks whose
+    /// medications lack a diluent are refused with the picks as the rule lookup narrowed them. The
+    /// rule lookup's own failure stays an error.
     let getScenarios
         (start: System.DateTime)
         logger
@@ -1350,26 +1363,25 @@ Scenarios: {scenarios}
                 | Error _ -> [||]
 
             if prs |> Array.isEmpty then
-                ctx
+                ctx |> updateFilterIfOneScenario |> Evaluated |> Ok
             else
-                { ctx with
-                    Scenarios =
-                        // Note: different prescription rules can exist based on multiple pharmaceutical forms
-                        // and multiple solution rules
-                        prs
-                        |> evaluateRules start logger
-                        |> function
-                            | [||] ->
-                                // no valid results so evaluate again
-                                // with changed product divisibility
-                                prs |> Array.map changeRuleProductsDivisible |> evaluateRules start logger
-                            | results -> results
-                        |> processEvaluationResults
-                        |> filterScenariosByPreparation
-                }
-            |> updateFilterIfOneScenario
-            |> Evaluated
-            |> Ok
+                // Note: different prescription rules can exist based on multiple pharmaceutical forms
+                // and multiple solution rules
+                let scenarios =
+                    prs
+                    |> evaluateRules start logger
+                    |> function
+                        | [||] ->
+                            // no valid results so evaluate again
+                            // with changed product divisibility
+                            prs |> Array.map changeRuleProductsDivisible |> evaluateRules start logger
+                        | results -> results
+                    |> processEvaluationResults
+                    |> filterScenariosByPreparation
+
+                let meds () = prs |> Array.collect (Medication.fromRule logger)
+
+                scenarios |> withScenarios ctx meds |> Ok
 
 
     let reloadResources (start: System.DateTime) logger provider ctx =
@@ -1409,8 +1421,9 @@ Scenarios: {scenarios}
 
 
     /// The command evaluated, as an outcome. The two commands that look the rules up are refused
-    /// when no rule fits the picks; a command over the scenario's order is refused when the order
-    /// cannot be solved; every other command is evaluated as it is.
+    /// when no rule fits the picks or each medication lacks its diluent; a command over the
+    /// scenario's order is refused when the order cannot be solved; every other command is
+    /// evaluated as it is.
     let rec evaluateOutcome (start: System.DateTime) logger provider cmd : Result<Outcome<Command>, Message list> =
         // Helper to process property commands when there's exactly one scenario with an order
         let processPropertyCmd ctx propCmd wrapResult =
@@ -1594,7 +1607,9 @@ Scenarios: {scenarios}
             // an order that cannot be solved has always answered the context as it was sent, and
             // a change of a dose per kg or per m2 the order does not have answers it the same way
             | Refused(cmd, Refusal.NotSolved)
-            | Refused(cmd, Refusal.NoAdjustedDose) -> Ok cmd
+            | Refused(cmd, Refusal.NoAdjustedDose)
+            // and a medication without its diluent answers the context with no scenario
+            | Refused(cmd, Refusal.NoDiluent) -> Ok cmd
             | Refused _ -> Error [ ErrorMsg(noDoseRulesMessage, None) ]
         )
 

@@ -5424,11 +5424,6 @@ module UndilutedSolutionTests =
     let mgPerMl = Units.Mass.milliGram |> ValueUnit.per Units.Volume.milliLiter
 
 
-    /// The amphotericin scenario without glucose 10% as the diluent: a 4 mg/mL vial with a solution limit of 0.2
-    /// to 2 mg/mL.
-    let amfoUndiluted = { Scenarios.amfo with Components = [ Scenarios.amfo.Components |> List.head ] }
-
-
     /// The amphotericin scenario with the concentrations of the amphotericin vial replaced.
     let withVialConcentrations brs (med: Medication) =
         { med with
@@ -5528,19 +5523,19 @@ module UndilutedSolutionTests =
                 }
 
                 test "the undiluted amphotericin order is refused" {
-                    amfoUndiluted
+                    Scenarios.amfoUndiluted
                     |> Medication.undilutedOutsideSolution
                     |> List.map _.Name
                     |> Expect.equal "the amphotericin is outside the limit" [ "amfotericine b liposomaal" ]
 
-                    amfoUndiluted
+                    Scenarios.amfoUndiluted
                     |> Medication.toOrder Scenarios.testStart
                     |> Result.isError
                     |> Expect.isTrue "a 4 mg/mL vial with no diluent cannot meet 0.2 to 2 mg/mL"
                 }
 
                 test "an undiluted order offers only the vial concentrations within the limit" {
-                    amfoUndiluted
+                    Scenarios.amfoUndiluted
                     |> withVialConcentrations [| 1N; 4N |]
                     |> Medication.toOrder Scenarios.testStart
                     |> Result.map (amfoOrbCnc >> _.Values >> Option.map Variable.ValueRange.ValueSet.toValueUnit)
@@ -5558,6 +5553,28 @@ module UndilutedSolutionTests =
                         cs.Min |> Expect.isSome "the minimum of the solution limit is kept"
                         cs.Max |> Expect.isSome "the maximum of the solution limit is kept"
                     | Error msg -> failtest $"the diluted order is not built: %A{msg}"
+                }
+
+                test "an undiluted medication outside its limit needs a diluent" {
+                    [| Scenarios.amfoUndiluted; Scenarios.amfoUndiluted |]
+                    |> Medication.allLackNeededDiluent
+                    |> Expect.isTrue "both are refused"
+                }
+
+                test "a medication that has its diluent means no diluent is needed" {
+                    [| Scenarios.amfoUndiluted; Scenarios.amfo |]
+                    |> Medication.allLackNeededDiluent
+                    |> Expect.isFalse "the diluted order can be built"
+                }
+
+                test "a medication without a solution limit means no diluent is needed" {
+                    [| Scenarios.amfoUndiluted; Scenarios.pcmSupp |]
+                    |> Medication.allLackNeededDiluent
+                    |> Expect.isFalse "the suppository can be built"
+                }
+
+                test "no medications need no diluent" {
+                    [||] |> Medication.allLackNeededDiluent |> Expect.isFalse "nothing was dropped"
                 }
 
                 test "a medication without a solution limit is built" {

@@ -1139,6 +1139,12 @@ module Medication =
         | _ -> []
 
 
+    /// Whether there are medications and each one needs a diluent that is not supplied.
+    let allLackNeededDiluent (meds: Medication[]) =
+        meds |> Array.isEmpty |> not
+        && meds |> Array.forall (undilutedOutsideSolution >> List.isEmpty >> not)
+
+
     /// An Order built from a Medication: the shape first, then one pass per constraint
     /// concern, each pass pure and each leaving the rest of the order alone.
     module OrderBuilder =

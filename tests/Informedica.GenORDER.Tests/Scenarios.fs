@@ -178,6 +178,10 @@ let amfo =
     }
 
 
+/// The amphotericin scenario without its diluent: a 4 mg/mL vial with a solution limit of 0.2 to 2 mg/mL.
+let amfoUndiluted = { amfo with Components = [ amfo.Components |> List.head ] }
+
+
 let morfCont =
     let au = Units.Weight.kiloGram
     let fu = Units.Volume.milliLiter

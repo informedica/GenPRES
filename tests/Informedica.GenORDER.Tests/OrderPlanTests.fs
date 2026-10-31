@@ -1090,6 +1090,86 @@ type RulesOf(rules: DoseRule[]) =
         member _.GetRouteMappings() = RuleFixtures.routeMapping
 
 
+/// A provider holding one intravenous rule for vancomycin: a vial of 50 mg/mL, a solution limit of
+/// 9 to 11 mg/mL and no diluent, so the medication cannot become an order.
+type UndilutedVancomycin() =
+    inherit NoRules()
+
+    let mgPerMl = Units.Mass.milliGram |> ValueUnit.per Units.Volume.milliLiter
+
+    let routeMapping: RouteMapping[] =
+        [|
+            {
+                Long = "INTRAVENEUS"
+                Short = "iv"
+            }
+        |]
+
+    let vial =
+        { Product.create "vancomycine" "injectievloeistof" "INTRAVENEUS" [| "vancomycine" |] with
+            FormQuantities = 1N |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+            Substances =
+                [|
+                    {
+                        Name = "vancomycine"
+                        Concentration = 50N |> ValueUnit.singleWithUnit mgPerMl |> Some
+                        MolarConcentration = None
+                    }
+                |]
+        }
+
+    let row =
+        let r = RuleFixtures.row Resources.Departments.defaultDepartment
+
+        { r with
+            Generic = { r.Generic with Name = "vancomycine" }
+            Indication = "infectie"
+            Route = "INTRAVENEUS"
+            ScheduleData =
+                { r.ScheduleData with
+                    DoseLimitData =
+                        { r.ScheduleData.DoseLimitData with
+                            Component = "vancomycine"
+                            Substance = "vancomycine"
+                        }
+                }
+        }
+
+    let solutionRule: SolutionRule =
+        {
+            Generic = "vancomycine"
+            Form = None
+            Route = "INTRAVENEUS"
+            Indication = None
+            DoseType = NoDoseType
+            PatientCategory = PatientCategory.empty
+            Dose = Informedica.GenCore.Lib.Ranges.MinMax.empty
+            Diluents = [||]
+            Div = None
+            Volumes = None
+            Volume = Informedica.GenCore.Lib.Ranges.MinMax.empty
+            VolumeAdjust = Informedica.GenCore.Lib.Ranges.MinMax.empty
+            DripRate = Informedica.GenCore.Lib.Ranges.MinMax.empty
+            DoseFraction = Informedica.GenCore.Lib.Ranges.MinMax.empty
+            SolutionLimits =
+                [|
+                    { SolutionLimit.limit with
+                        SolutionLimitTarget = SubstanceLimitTarget "vancomycine"
+                        Concentration =
+                            Informedica.GenCore.Lib.Ranges.MinMax.createInclIncl
+                                (9N |> ValueUnit.singleWithUnit mgPerMl)
+                                (11N |> ValueUnit.singleWithUnit mgPerMl)
+                    }
+                |]
+        }
+
+    interface Resources.IResourceProvider with
+        member _.GetDoseRules() =
+            DoseRuleLoader.fromData routeMapping [||] [| vial |] [| row |] |> fst
+        member _.GetSolutionRules() = [| solutionRule |]
+        member _.GetRouteMappings() = routeMapping
+
+
 /// The rules for a patient without a department: the lookup runs on the context as held,
 /// where it used to answer a context made afresh and no rules.
 let rulesTests =
@@ -1764,6 +1844,84 @@ let refusalTests =
                         OrderContext.refusalOf [| 1 |] [| 1 |] false
                         |> Expect.equal "rules for the patient, dropped for their products" Refusal.NoProducts
                     }
+
+                    testList
+                        "for want of a diluent"
+                        [
+                            let ctx = EvaluateFixtures.pcmContext
+                            let undiluted = Scenarios.amfoUndiluted
+
+                            let answer meds scenarios = scenarios |> OrderContext.withScenarios ctx (fun () -> meds)
+
+                            let isNoDiluent =
+                                function
+                                | Refused(_, Refusal.NoDiluent) -> true
+                                | _ -> false
+
+                            test "no scenario and every medication lacking its diluent is refused, picks kept" {
+                                match [||] |> answer [| undiluted |] with
+                                | Refused(refused, Refusal.NoDiluent) ->
+                                    refused.Filter |> Expect.equal "the narrowed picks" ctx.Filter
+                                    refused.Scenarios |> Expect.isEmpty "no scenario"
+                                | other -> failtest $"not refused: %A{other}"
+                            }
+
+                            test "no scenario and a medication with its diluent is not refused" {
+                                [||]
+                                |> answer [| undiluted; Scenarios.amfo |]
+                                |> isNoDiluent
+                                |> Expect.isFalse "it failed for another reason"
+                            }
+
+                            test "a scenario left is not refused, and the medications are not read" {
+                                ctx.Scenarios |> Expect.isNonEmpty "the fixture holds a scenario"
+
+                                ctx.Scenarios
+                                |> OrderContext.withScenarios ctx (fun () -> failtest "the medications are read")
+                                |> isNoDiluent
+                                |> Expect.isFalse "the scenario is answered"
+                            }
+
+                            testList
+                                "through the rule lookup"
+                                [
+                                    let provider = UndilutedVancomycin() :> Resources.IResourceProvider
+                                    let start = System.DateTime(2026, 9, 28, 0, 0, 0, System.DateTimeKind.Utc)
+
+                                    let picked =
+                                        RuleFixtures.patient (Some 40N) false (Some 70N) None
+                                        |> OrderContext.create OrderLogging.noOp provider
+                                        |> fun ctx ->
+                                            { ctx with
+                                                Filter =
+                                                    { ctx.Filter with
+                                                        Indication = Some "infectie"
+                                                        Generic = Some "vancomycine"
+                                                    }
+                                            }
+
+                                    test "the rules with no diluent answer the refusal, the picks named" {
+                                        match picked |> OrderContext.getScenarios start OrderLogging.noOp provider with
+                                        | Ok(Refused(refused, Refusal.NoDiluent)) ->
+                                            refused.Filter.Generic |> Expect.equal "the generic" (Some "vancomycine")
+
+                                            refused.Filter.Route
+                                            |> Expect.equal "the route the lookup narrowed" (Some "INTRAVENEUS")
+                                        | other -> failtest $"not refused: %A{other}"
+                                    }
+
+                                    test "the message-list evaluate answers the context with no scenario" {
+                                        match
+                                            OrderContext.UpdateOrderContext picked
+                                            |> OrderContext.evaluate start OrderLogging.noOp provider
+                                        with
+                                        | Ok cmd ->
+                                            (OrderContext.Command.get cmd).Scenarios
+                                            |> Expect.isEmpty "no scenario, and no error"
+                                        | Error msgs -> failtest $"an error: %A{msgs}"
+                                    }
+                                ]
+                        ]
 
                     test "a measurement is missing only when every prescription rule needs one the patient lacks" {
                         let provider = RulesOf(RuleFixtures.feverAndPain ()) :> Resources.IResourceProvider

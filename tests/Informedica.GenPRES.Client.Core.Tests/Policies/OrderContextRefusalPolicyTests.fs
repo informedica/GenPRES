@@ -41,6 +41,7 @@ let refusalTerms =
         Terms.``Prescribe Refusal Patient``
         Terms.``Prescribe Refusal No products``
         Terms.``Prescribe Refusal Measurement``
+        Terms.``Prescribe Refusal No diluent``
         Terms.``Prescribe Refusal Not solved``
         Terms.``Prescribe Refusal No adjusted dose``
         Terms.``Prescribe Refusal Contact``
@@ -73,6 +74,7 @@ let tests =
                         OrderContextRefusal.NoDoseRulesForPatient
                         OrderContextRefusal.NoProducts
                         OrderContextRefusal.MeasurementMissing
+                        OrderContextRefusal.NoDiluent
                     ] do
                     (english (bodyTerm refusal)).Contains "{0}"
                     |> Expect.isTrue $"{refusal} names the picks"
@@ -123,14 +125,16 @@ let tests =
                     OrderContextRefusal.NoDoseRules
                     OrderContextRefusal.NoDoseRulesForPatient
                     OrderContextRefusal.NoProducts
+                    OrderContextRefusal.NoDiluent
                 ]
                 |> List.map (fun r -> (notice named salbutamol r |> Expect.wantSome "a notice").Body)
                 |> Expect.equal
-                    "the three bodies"
+                    "the four bodies"
                     [
                         "<Prescribe Refusal No dose rules>"
                         "<Prescribe Refusal Patient>"
                         "<Prescribe Refusal No products>"
+                        "<Prescribe Refusal No diluent>"
                     ]
             }
 
