@@ -1328,31 +1328,39 @@ module Medication =
             |> Option.bind (fun pc -> pc.Quantities |> Option.map ValueUnit.getUnit)
 
 
-        /// The smallest step a product can be divided into. A medication that says how
-        /// divisible it is says it for the orderable; otherwise the coarsest of what its
-        /// components say.
-        let divisibility (pc: ProductComponent option) (med: Medication) =
-            let ou = med |> orderableUnit
-            let pu = pc |> Option.bind (_.Quantities >> Option.map ValueUnit.getUnit)
+        /// The smallest step a product can be divided into. With a Div on the medication the step
+        /// is 1 divided by the Div, in the unit of the orderable. Without a Div the step is the
+        /// coarsest of 1 divided by the Divisible of each component in the unit group of the
+        /// orderable, compared in base units. A Div or Divisible of zero or less gives no step.
+        let divisibility (med: Medication) =
+            let stepOf br = if br > 0N then Some(1N / br) else None
 
-            match ou, med.Div with
-            | Some ou, Some br when pu.IsNone || Some ou = pu -> 1N / br |> singleOrNone ou
+            match med |> orderableUnit, med.Div with
+            | Some ou, Some br -> br |> stepOf |> Option.bind (singleOrNone ou)
             | Some ou, None ->
-                let incrs =
-                    med.Components
-                    |> List.choose (fun pc ->
-                        if pc.Quantities |> Option.map ValueUnit.getUnit = pu || pu.IsNone then
-                            pc.Divisible |> Option.map (fun d -> 1N / d)
-                        else
-                            None
-                    )
+                med.Components
+                |> List.choose (fun pc ->
+                    let pu =
+                        pc.Quantities
+                        |> Option.map ValueUnit.getUnit
+                        |> Option.filter (ValueUnit.Group.eqsGroup ou)
 
-                if incrs |> List.isEmpty then
-                    None
-                else
-                    let u = pu |> Option.defaultValue ou
-                    incrs |> List.max |> singleOrNone u
-            | _ -> None
+                    match pu, pc.Divisible |> Option.bind stepOf with
+                    | Some u, Some step -> step |> singleOrNone u
+                    | _ -> None
+                )
+                |> function
+                    | [] -> None
+                    | incrs -> incrs |> List.maxBy ValueUnit.toBaseValue |> Some
+            | None, _ -> None
+
+
+        /// The step for a component. A component in another unit group than the step keeps its
+        /// own unit, so the sum of the components refuses the order.
+        let componentDivisibility (pc: ProductComponent) (med: Medication) =
+            med
+            |> divisibility
+            |> Option.filter (fun step -> pc.Quantities |> Option.forall (ValueUnit.eqsGroup step))
 
 
         /// Walk the medication's components and the order's together.
@@ -1372,7 +1380,7 @@ module Medication =
         /// one it is all of it.
         let withComponentQtyConc (med: Medication) (pc: ProductComponent) (cmp: Types.Component) =
             let single = med.Components |> List.length = 1
-            let incr = med |> divisibility (Some pc)
+            let incr = med |> componentDivisibility pc
             let all = Units.Count.times |> ValueUnit.singleWithValue 1N |> Some
             let con f = OrderVariable.mapConstraints f
 
@@ -1547,7 +1555,7 @@ module Medication =
             let ou = med |> orderableUnit
             let rateUnit = ou |> Option.map (ValueUnit.per Units.Time.hour)
             let freqTimeUnit = med |> frequencyTimeUnit
-            let incr = med |> divisibility None
+            let incr = med |> divisibility
             let con f = OrderVariable.mapConstraints f
 
             let rate (dl: DoseLimit option) (dos: Dose) =
