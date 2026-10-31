@@ -155,7 +155,8 @@ module Filter =
     /// narrows its list to that one entry, in the fresh spelling; a selection no longer
     /// offered is dropped and its fresh list kept whole. The dose types are the fresh list
     /// when it has exactly one entry, the sent dose type narrowed to it or not, and the
-    /// sent list otherwise, since the fresh list is computed once the generic is chosen.
+    /// sent list otherwise, since the fresh list holds the dose types of every rule for the
+    /// patient, and the sent list is narrowed to the picks.
     /// The diluents, the components, what is selected
     /// among them and the picked products are the sent ones: these come from the evaluation,
     /// not from the rules.

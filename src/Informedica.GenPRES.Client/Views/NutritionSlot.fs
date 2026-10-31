@@ -63,13 +63,13 @@ module NutritionSlot =
             | ChangeFrequency of string option
             | UpdateOrderScenario of OrderContext.Target option * string option
             | ResetOrderScenario
-            // Rate navigation
+            // Rate steps
             | DecreaseDoseRateProperty of ntimes: int * useCalc: bool
             | IncreaseDoseRateProperty of ntimes: int * useCalc: bool
             | SetMinDoseRateProperty
             | SetMaxDoseRateProperty
             | SetMedianDoseRateProperty
-            // Dose Quantity navigation
+            // Dose Quantity steps
             | ChangeOrderableDoseQuantity of string option
             | DecreaseDoseQuantityProperty of ntimes: int * useCalc: bool
             | IncreaseDoseQuantityProperty of ntimes: int * useCalc: bool
@@ -79,13 +79,13 @@ module NutritionSlot =
             | SetDoseQuantityPercProperty of perc: int
             // the move to 100% the slot makes by itself once the TPN is composed
             | StartDoseQuantityPercProperty
-            // Component Quantity navigation (carries component name)
+            // Component Quantity steps (carries component name)
             | DecreaseComponentQuantityProperty of cmp: string * ntimes: int * useCalc: bool
             | IncreaseComponentQuantityProperty of cmp: string * ntimes: int * useCalc: bool
             | SetMinComponentQuantityProperty of cmp: string
             | SetMaxComponentQuantityProperty of cmp: string
             | SetMedianComponentQuantityProperty of cmp: string
-            // Frequency navigation
+            // Frequency steps
             | DecreaseFrequencyProperty
             | IncreaseFrequencyProperty
             | SetMinFrequencyProperty
@@ -144,18 +144,18 @@ module NutritionSlot =
             =
             // every change and every step is over the order shown, the slot's context's; the
             // plan lane holds it, the slot holds none
-            let handleNav nav =
+            let handleStep step =
                 match shown with
                 | None -> state, Cmd.none
                 | Some ord ->
-                    OrderLoader.create state.SelectedComponent None ord |> nav
+                    OrderLoader.create state.SelectedComponent None ord |> step
                     state, Cmd.none
 
-            let handleNavWithCmp cmpName nav =
+            let handleStepWithCmp cmpName step =
                 match shown with
                 | None -> state, Cmd.none
                 | Some ord ->
-                    OrderLoader.create (Some cmpName) None ord |> nav
+                    OrderLoader.create (Some cmpName) None ord |> step
                     state, Cmd.none
 
             // a pick of a variable of the order shown, sent to the plan lane; nothing to pick without one
@@ -194,35 +194,37 @@ module NutritionSlot =
             | ChangeFrequency s -> pick (OrderContext.Target.Schedule ScheduleProperty.Frequency) s
             | ChangeOrderableDoseQuantity s -> pick (OrderContext.Target.Orderable OrderableProperty.DoseQuantity) s
 
-            // Rate navigation
-            | SetMinDoseRateProperty -> handleNav stepper.setRateMin
-            | DecreaseDoseRateProperty(n, uc) -> handleNav (stepper.setRateDec (n, uc))
-            | SetMedianDoseRateProperty -> handleNav stepper.setRateMed
-            | IncreaseDoseRateProperty(n, uc) -> handleNav (stepper.setRateInc (n, uc))
-            | SetMaxDoseRateProperty -> handleNav stepper.setRateMax
+            // Rate steps
+            | SetMinDoseRateProperty -> handleStep stepper.setRateMin
+            | DecreaseDoseRateProperty(n, uc) -> handleStep (stepper.setRateDec (n, uc))
+            | SetMedianDoseRateProperty -> handleStep stepper.setRateMed
+            | IncreaseDoseRateProperty(n, uc) -> handleStep (stepper.setRateInc (n, uc))
+            | SetMaxDoseRateProperty -> handleStep stepper.setRateMax
 
-            // Dose Quantity navigation
-            | SetMinDoseQuantityProperty -> handleNav stepper.setDoseQtyMin
-            | DecreaseDoseQuantityProperty(n, uc) -> handleNav (stepper.setDoseQtyDec (n, uc))
-            | SetMedianDoseQuantityProperty -> handleNav stepper.setDoseQtyMed
-            | IncreaseDoseQuantityProperty(n, uc) -> handleNav (stepper.setDoseQtyInc (n, uc))
-            | SetMaxDoseQuantityProperty -> handleNav stepper.setDoseQtyMax
-            | SetDoseQuantityPercProperty perc -> handleNav (stepper.setDoseQtyPerc perc)
-            | StartDoseQuantityPercProperty -> handleNav (stepper.setDoseQtyPerc 100)
+            // Dose Quantity steps
+            | SetMinDoseQuantityProperty -> handleStep stepper.setDoseQtyMin
+            | DecreaseDoseQuantityProperty(n, uc) -> handleStep (stepper.setDoseQtyDec (n, uc))
+            | SetMedianDoseQuantityProperty -> handleStep stepper.setDoseQtyMed
+            | IncreaseDoseQuantityProperty(n, uc) -> handleStep (stepper.setDoseQtyInc (n, uc))
+            | SetMaxDoseQuantityProperty -> handleStep stepper.setDoseQtyMax
+            | SetDoseQuantityPercProperty perc -> handleStep (stepper.setDoseQtyPerc perc)
+            | StartDoseQuantityPercProperty -> handleStep (stepper.setDoseQtyPerc 100)
 
-            // Component Quantity navigation
-            | SetMinComponentQuantityProperty cmp -> handleNavWithCmp cmp stepper.setComponentQtyMin
-            | DecreaseComponentQuantityProperty(cmp, n, uc) -> handleNavWithCmp cmp (stepper.setComponentQtyDec (n, uc))
-            | SetMedianComponentQuantityProperty cmp -> handleNavWithCmp cmp stepper.setComponentQtyMed
-            | IncreaseComponentQuantityProperty(cmp, n, uc) -> handleNavWithCmp cmp (stepper.setComponentQtyInc (n, uc))
-            | SetMaxComponentQuantityProperty cmp -> handleNavWithCmp cmp stepper.setComponentQtyMax
+            // Component Quantity steps
+            | SetMinComponentQuantityProperty cmp -> handleStepWithCmp cmp stepper.setComponentQtyMin
+            | DecreaseComponentQuantityProperty(cmp, n, uc) ->
+                handleStepWithCmp cmp (stepper.setComponentQtyDec (n, uc))
+            | SetMedianComponentQuantityProperty cmp -> handleStepWithCmp cmp stepper.setComponentQtyMed
+            | IncreaseComponentQuantityProperty(cmp, n, uc) ->
+                handleStepWithCmp cmp (stepper.setComponentQtyInc (n, uc))
+            | SetMaxComponentQuantityProperty cmp -> handleStepWithCmp cmp stepper.setComponentQtyMax
 
-            // Frequency navigation
-            | SetMinFrequencyProperty -> handleNav stepper.setFreqMin
-            | DecreaseFrequencyProperty -> handleNav stepper.setFreqDec
-            | SetMedianFrequencyProperty -> handleNav stepper.setFreqMed
-            | IncreaseFrequencyProperty -> handleNav stepper.setFreqInc
-            | SetMaxFrequencyProperty -> handleNav stepper.setFreqMax
+            // Frequency steps
+            | SetMinFrequencyProperty -> handleStep stepper.setFreqMin
+            | DecreaseFrequencyProperty -> handleStep stepper.setFreqDec
+            | SetMedianFrequencyProperty -> handleStep stepper.setFreqMed
+            | IncreaseFrequencyProperty -> handleStep stepper.setFreqInc
+            | SetMaxFrequencyProperty -> handleStep stepper.setFreqMax
 
 
     open Elmish
@@ -558,7 +560,7 @@ module NutritionSlot =
             {|
                 nutritionContext: OrderContext
                 // a command into the slot's context, sent over the plan held
-                planNavigate: string * Api.OrderViewCommand -> unit
+                planEvaluate: string * Api.OrderViewCommand -> unit
                 // the list of a recalculation closed without a pick
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
@@ -592,14 +594,14 @@ module NutritionSlot =
 
         let markOf = ViewHelpers.markOf
 
-        let navigate cmd = props.planNavigate (ncId, cmd)
+        let evaluate cmd = props.planEvaluate (ncId, cmd)
 
         // a filter pick goes as its position in the options the field offers, an emptied field as
         // a clear; a value the field does not offer is a bug, written to the console and not sent
         let pickFilter field (options: 'a[]) (picked: 'a option) =
             match picked |> Option.map (fun x -> options |> Array.tryFindIndex ((=) x)) with
-            | None -> navigate (Api.OrderViewCommand.ClearFilterProperty field)
-            | Some(Some n) -> navigate (Api.OrderViewCommand.SetNthFilterProperty(field, n))
+            | None -> evaluate (Api.OrderViewCommand.ClearFilterProperty field)
+            | Some(Some n) -> evaluate (Api.OrderViewCommand.SetNthFilterProperty(field, n))
             | Some None -> Logging.warning "a pick the field does not offer is not sent" picked
 
         let genericChange s = pickFilter OrderContext.Generic ctx.Filter.Generics s
@@ -620,22 +622,22 @@ module NutritionSlot =
             match located, s with
             | Some(t, ovar), Some key ->
                 match OrderContext.values ovar |> Array.tryFindIndex ((=) key) with
-                | Some n -> navigate (ViewHelpers.setNthCommand t n)
+                | Some n -> evaluate (ViewHelpers.setNthCommand t n)
                 | None -> Logging.warning "a value the field does not offer is not sent" key
             | _ -> Logging.warning "a change no field holds is not sent" s
 
-        let resetOrderScenario (_ol: OrderLoader) = navigate Api.OrderViewCommand.ResetOrderScenario
+        let resetOrderScenario (_ol: OrderLoader) = evaluate Api.OrderViewCommand.ResetOrderScenario
 
         let stepper =
-            let create cmd = fun (_: OrderLoader) -> navigate cmd
+            let create cmd = fun (_: OrderLoader) -> evaluate cmd
 
-            let createWithN cmd = fun (n, uc) (_: OrderLoader) -> navigate (cmd (n, uc))
+            let createWithN cmd = fun (n, uc) (_: OrderLoader) -> evaluate (cmd (n, uc))
 
             let createWithCmp cmd =
-                fun (ol: OrderLoader) -> ol.Component |> Option.iter (cmd >> navigate)
+                fun (ol: OrderLoader) -> ol.Component |> Option.iter (cmd >> evaluate)
 
             let createWithCmpN cmd =
-                fun (n, uc) (ol: OrderLoader) -> ol.Component |> Option.iter (fun c -> navigate (cmd (c, n, uc)))
+                fun (n, uc) (ol: OrderLoader) -> ol.Component |> Option.iter (fun c -> evaluate (cmd (c, n, uc)))
 
             {|
                 // Dose Rate
@@ -735,7 +737,7 @@ module NutritionSlot =
         let reCalcOf target : ViewHelpers.ReCalc =
             {|
                 allowed = shownOrder |> Option.exists (IntentPolicy.isReCalcAllowed target)
-                reCalc = fun () -> navigate (ViewHelpers.reCalcCommand target)
+                reCalc = fun () -> evaluate (ViewHelpers.reCalcCommand target)
                 restore = props.planRestore
                 busy = busy
             |}

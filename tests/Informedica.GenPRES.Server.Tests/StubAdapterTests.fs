@@ -103,7 +103,7 @@ module StubAdapters =
 
         {
             recalculate = fun _ -> async { return Ok answer }
-            navigate = fun _ _ _ _ -> async { return Ok answer }
+            evaluateContext = fun _ _ _ _ -> async { return Ok answer }
             addOrderContext = fun _ _ -> async { return Ok answer }
             newOrderContext = fun _ _ -> async { return Ok answer }
             removeOrderContexts = fun _ _ -> async { return Ok answer }
@@ -174,7 +174,7 @@ module StubAdapters =
             orderPlan =
                 {
                     recalculate = fun _ -> async { return Error [| "not loaded" |] }
-                    navigate = fun _ _ _ _ -> async { return Error [| "not loaded" |] }
+                    evaluateContext = fun _ _ _ _ -> async { return Error [| "not loaded" |] }
                     addOrderContext = fun _ _ -> async { return Error [| "not loaded" |] }
                     newOrderContext = fun _ _ -> async { return Error [| "not loaded" |] }
                     removeOrderContexts = fun _ _ -> async { return Error [| "not loaded" |] }
@@ -5447,7 +5447,7 @@ module PlanTests =
                     let port: OrderPlanPort =
                         {
                             recalculate = answering "recalculate"
-                            navigate = fun p _ _ _ -> answering "navigate" p
+                            evaluateContext = fun p _ _ _ -> answering "evaluateContext" p
                             addOrderContext = fun p _ -> answering "addOrderContext" p
                             newOrderContext = fun p _ -> answering "newOrderContext" p
                             removeOrderContexts = fun p _ -> answering "removeOrderContexts" p
@@ -5466,7 +5466,7 @@ module PlanTests =
                     let! _ =
                         OrderPlanCommand.processCmd
                             env
-                            (OrderPlanCommand.Navigate(
+                            (OrderPlanCommand.EvaluateContext(
                                 p,
                                 "c-1",
                                 Api.OrderViewCommand.SeedFilter(
@@ -5494,7 +5494,7 @@ module PlanTests =
                         "each to its port"
                         [
                             "recalculate"
-                            "navigate"
+                            "evaluateContext"
                             "addOrderContext"
                             "newOrderContext"
                             "removeOrderContexts"
@@ -5506,9 +5506,14 @@ module PlanTests =
                     let p = OrderPlan.empty
 
                     OrderPlanCommand.toString (
-                        OrderPlanCommand.Navigate(p, "c-1", Api.OrderViewCommand.ResetOrderScenario, OrderContext.empty)
+                        OrderPlanCommand.EvaluateContext(
+                            p,
+                            "c-1",
+                            Api.OrderViewCommand.ResetOrderScenario,
+                            OrderContext.empty
+                        )
                     )
-                    |> Expect.equal "the command, not the context" "Navigate ResetOrderScenario"
+                    |> Expect.equal "the command, not the context" "EvaluateContext ResetOrderScenario"
 
                     OrderPlanCommand.toString (OrderPlanCommand.NewOrderContext(p, NutritionCategory.TPN))
                     |> Expect.equal "category" "NewOrderContext TPN"
@@ -5600,10 +5605,10 @@ let ingressTests =
                     OrderPlanCommand.processCmd env (Api.OrderPlanCommand.FilterRows(draft.Filtered, draft))
                 recalculated |> refusedAs Patient.noPatient
 
-                let! navigated =
+                let! evaluated =
                     OrderPlanCommand.processCmd
                         env
-                        (Api.OrderPlanCommand.Navigate(
+                        (Api.OrderPlanCommand.EvaluateContext(
                             emptyPlan,
                             "c-1",
                             Api.OrderViewCommand.SeedFilter(
@@ -5617,7 +5622,7 @@ let ingressTests =
                             Models.OrderContext.empty
                         ))
 
-                navigated |> refusedAs Patient.noPatient
+                evaluated |> refusedAs Patient.noPatient
 
                 let! added = OrderPlanCommand.processCmd env (Api.OrderPlanCommand.AddOrderContext(draft, emptyCtx))
 

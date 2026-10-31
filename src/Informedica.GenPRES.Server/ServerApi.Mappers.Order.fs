@@ -65,7 +65,7 @@ module Mappers =
             dto
 
 
-        /// The per-click increment used by the outer (first/last) navigation buttons: the
+        /// The per-click increment used by the outer (first and last) step buttons: the
         /// calculated increment (OrderVariable.step uses CalculatedConstraints.Incr for the
         /// useCalc path). When coarse is given and the calculated increment equals it, the
         /// count is multiplied by 10 — mirroring the server's role-specific special cases.
@@ -121,7 +121,7 @@ module Mappers =
 
 
         /// Generic mapping: no outer ×10 multiple (used for every order variable that is
-        /// not navigated as a rate or quantity).
+        /// not stepped as a rate or quantity).
         let mapToOrderVariable = mapToOrderVariableWith None
 
         let tenthOf u =
@@ -133,7 +133,7 @@ module Mappers =
 
         let mlPerHourTenth = Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour |> tenthOf
 
-        // The rate / quantity an order navigates DO get the server's ×10 outer step when
+        // The rate and quantity an order steps DO get the server's ×10 outer step when
         // their calculated increment is the 1/10 mL[/hour] coarse increment.
         let mapToRateOrderVariable = mapToOrderVariableWith (Some mlPerHourTenth)
         let mapToQuantityOrderVariable = mapToOrderVariableWith (Some mlTenth)
@@ -249,7 +249,7 @@ module Mappers =
                 dto.Name
                 dto.Form
                 (dto.ComponentQuantity |> mapToOrderVariable)
-                // the component's orderable quantity is navigated as a quantity (×10 outer)
+                // the component's orderable quantity is stepped as a quantity (×10 outer)
                 (dto.OrderableQuantity |> mapToQuantityOrderVariable)
                 (dto.OrderableCount |> mapToOrderVariable)
                 (dto.OrderQuantity |> mapToOrderVariable)

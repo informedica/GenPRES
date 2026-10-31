@@ -134,7 +134,7 @@ the first time one is added. `Api.fs` is the contract; read it there. `OrderPlan
 enough to name: every case acts on the plan's Order Contexts and says so. `Open` hands a signed
 version back with nothing evaluated; `AddOrderContext` moves the prescribing workbench, narrowed
 to one scenario, into the plan; `NewOrderContext` makes a fresh nutrition workbench for a
-category; `Navigate` evaluates an order-context command over the context named, in that
+category; `EvaluateContext` evaluates an order-context command over the context named, in that
 context's own patient; `RemoveOrderContexts` removes contexts of every kind, a feeding taking
 its supplements with it; `Recalculate` recomputes the totals over the filtered contexts.
 

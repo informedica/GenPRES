@@ -439,7 +439,7 @@ let tests =
                     test "the plan's patient and that of every context, on every plan command" {
                         [
                             OrderPlanCommand.FilterRows(plan.Filtered, plan)
-                            OrderPlanCommand.Navigate(
+                            OrderPlanCommand.EvaluateContext(
                                 plan,
                                 "1",
                                 OrderViewCommand.SeedFilter(

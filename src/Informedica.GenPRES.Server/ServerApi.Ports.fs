@@ -31,13 +31,13 @@ type OrderContextPort =
 
 
 /// The one plan: every member answers the plan with its totals recomputed over its orders.
-/// The verb of a navigation is the wire's, mapped by the command handler; the plan and the
+/// The command handler maps the command from the wire to the domain; the plan and the
 /// contexts are parsed there too, so the port never sees the contract model.
 type OrderPlanPort =
     {
         recalculate: GenOrder.OrderPlan -> Async<Result<GenOrder.OrderPlan, string[]>>
         // the command into the context named
-        navigate:
+        evaluateContext:
             GenOrder.OrderPlan
                 -> string
                 -> (GenOrder.OrderContext -> GenOrderContext.Command)

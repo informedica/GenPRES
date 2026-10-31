@@ -64,13 +64,13 @@ let tests =
                 countBefore <! countAfter
             }
 
-            testAsync "navigate doesn't cache totals" {
+            testAsync "evaluateContext does not cache totals" {
                 let spy = TotalsSpy()
                 let sut = ServerApi.Adapters.makeAppEnv spy
                 let countBefore = spy.CallCount
 
                 let dummyCmd = Informedica.GenOrder.Lib.OrderContext.UpdateOrderContext
-                let! _ = sut.orderPlan.navigate (emptyPlan ()) "dummy ID" dummyCmd (emptyContext ())
+                let! _ = sut.orderPlan.evaluateContext (emptyPlan ()) "dummy ID" dummyCmd (emptyContext ())
 
                 let countAfter = spy.CallCount
                 countBefore <! countAfter

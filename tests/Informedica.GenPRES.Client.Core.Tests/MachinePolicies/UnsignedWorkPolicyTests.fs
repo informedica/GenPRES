@@ -34,8 +34,8 @@ module UnsignedWorkPolicyTests =
             "UpdatePatient", updatePatient, false
             "FilterRows", filterRows, false
             "Open", OrderPlanCommand.Open(patient, [||]), false
-            "Navigate",
-            OrderPlanCommand.Navigate(
+            "EvaluateContext",
+            OrderPlanCommand.EvaluateContext(
                 plan,
                 "c-1",
                 OrderViewCommand.SetNthFilterProperty(Informedica.GenPRES.Shared.Models.OrderContext.Route, 0),
