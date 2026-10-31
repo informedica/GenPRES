@@ -207,18 +207,23 @@ a Divisible.
 The administration text stays as it is. A clinician sees from 0,16 - 0,77 stuk why the preparation is
 missing. What that means in practice is outside GenPRES.
 
-**`divisibility` follows from the unit group rule.** It needs no check on unit groups, so its product
-parameter goes. It compares steps in base units and gives no step for a value of zero or less.
+**`divisibility` keeps a check, on the unit group.** The step sets the unit of the orderable quantity of
+a component, so a common step would overwrite the unit of a component in another unit group: morphine in
+mg in an orderable of 50 mL would then solve. `divisibility` therefore leaves out a component outside the
+unit group of the orderable, and a component outside the unit group of the step gets no step, keeps its
+own unit, and the sum of the components refuses the order. It compares steps in base units and gives no
+step for a value of zero or less.
 
 ## Confidence
 
 Medium.
 
-- Step 1 is high: the 3 unit group tests and the 9 tests of `divisibility` pass in the script, the
-  library fails 5 of the 9, and on 28,451 lookups for
-  13,665 real medications no step changes. A test sets a step in L on components in mL and the order
-  solves. That order then shows the quantities in L, which no real medication does today. The GenORDER
-  tests run at migration.
+- Step 1 is high: the tests of `divisibility` pass, and on 28,451 lookups for 13,665 real medications
+  no step changes. A test sets a step in L on components in mL and the order solves. That order then
+  shows the quantities in L, which no real medication does today. A first migration without the check
+  on the unit group failed the test that refuses mg beside mL. The script showed the refusal only
+  through the callers of the library, which do not see a shadow, so the check is proved in the script
+  by reapplying the steps to the order, and through the real callers only after its migration.
 - Step 2 is high.
 - Step 3 is high for the mark and the strict preparation, and medium for the mark reaching an order
   plan and a signed version, which is not tested yet.
@@ -232,9 +237,10 @@ Each step is one pull request of at most 200 changed lines of shipped code, writ
 script first. A step that is too large is split further when it starts.
 
 1. **`divisibility`.** Migrate `src/Informedica.GenORDER.Lib/Scripts/Divisibility.fsx`, with its tests,
-   and delete the script. The two callers (`Medication.fs:1375`, `1550`) drop the product argument. A
-   component in another unit of the group then gets the common step, where the library gave it only
-   the steps in its own unit.
+   and delete the script. `withOrderableDose` (`Medication.fs:1550`) drops the product argument and
+   `withComponentQtyConc` (`Medication.fs:1375`) calls the new `componentDivisibility`. A component in another
+   unit of the group then gets the common step, where the library gave it only the steps in its own
+   unit. A test through `Medication.toOrder` shows that a component in mg beside mL is still refused.
 
 2. **Validation messages.** Through the existing load messages, the `Message list` of a
    `ResourceLoader` (`Resources.fs:40`), in the way of `DoseRuleData.unitWarning`, report a product of
