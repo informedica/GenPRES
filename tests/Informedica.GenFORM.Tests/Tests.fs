@@ -7570,6 +7570,12 @@ module Tests =
                                         |> Expect.equal "a warning" 1
                                     }
 
+                                    test "with a negative minimum concentration does not bound it" {
+                                        withLimit qtyMax MinMax.empty (bounds (limit mgPerMl -1N) None)
+                                        |> warns
+                                        |> Expect.equal "a warning" 1
+                                    }
+
                                     test "with a minimum quantity and a minimum concentration does not bound it" {
                                         withLimit (bounds (limit mg 100N) None) MinMax.empty cncMin
                                         |> warns

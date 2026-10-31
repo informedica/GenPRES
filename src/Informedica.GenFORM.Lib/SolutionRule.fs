@@ -251,7 +251,7 @@ module SolutionRule =
     /// of that substance is a maximum volume.
     let boundsPreparation (sl: SolutionLimit) =
         (sl.Quantity.Max.IsSome || sl.QuantityAdj.Max.IsSome)
-        && sl.Concentration.Min |> nonZeroLimit |> Option.isSome
+        && sl.Concentration.Min |> Option.exists (Limit.getValueUnit >> ValueUnit.gtZero)
 
 
     /// One warning per solution rule whose dose count has no maximum, because the rule gives a
