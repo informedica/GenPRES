@@ -440,8 +440,9 @@ module Resources =
                 )
 
                 // A rule with a minimum above its maximum, a solution rule whose solutions match no
-                // parenteral product, and a solution rule without diluents whose concentration limit
-                // allows no strength of its products are reported -> ResourceState.Messages.
+                // parenteral product, a solution rule without diluents whose concentration limit
+                // allows no strength of its products, and a solution rule whose dose count has no
+                // maximum and no maximum on the preparation are reported -> ResourceState.Messages.
                 Keys.ruleChecks.Name,
                 deriveWith (fun r ->
                     (),
@@ -449,6 +450,7 @@ module Resources =
                      |> SolutionRule.missingDiluents (r.Get Keys.parenteralMeds))
                     @ (r.Get Keys.doseRules |> DoseRule.invertedRanges)
                     @ (r.Get Keys.solutionRules |> SolutionRule.invertedRanges)
+                    @ (r.Get Keys.solutionRules |> SolutionRule.openDoseCounts)
                     @ (r.Get Keys.solutionRules
                        |> SolutionRule.undilutableRules (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
                 )

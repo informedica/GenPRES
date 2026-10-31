@@ -241,6 +241,43 @@ module SolutionRule =
         |> List.map Warning
 
 
+    /// A limit, or nothing when the limit is 0, which counts as empty.
+    let nonZeroLimit (lim: Limit option) =
+        lim |> Option.filter (Limit.getValueUnit >> ValueUnit.isZero >> not)
+
+
+    /// Whether a solution limit bounds the preparation: the maximum quantity of a substance, or
+    /// the maximum quantity per kg once the weight is known, divided by the minimum concentration
+    /// of that substance is a maximum volume.
+    let boundsPreparation (sl: SolutionLimit) =
+        (sl.Quantity.Max.IsSome || sl.QuantityAdj.Max.IsSome)
+        && sl.Concentration.Min |> Option.exists (Limit.getValueUnit >> ValueUnit.gtZero)
+
+
+    /// One warning per solution rule whose dose count has no maximum, because the rule gives a
+    /// maximum dose fraction and no minimum, while the preparation has no maximum either: no
+    /// maximum volume, no list of volumes, no maximum volume per kg, which bounds the preparation
+    /// once the weight is known, and no solution limit that bounds it. The user then cannot set
+    /// the preparation.
+    let openDoseCounts (rules: SolutionRule[]) =
+        rules
+        |> Array.filter (fun sr ->
+            sr.DoseFraction.Max |> nonZeroLimit |> Option.isSome
+            && sr.DoseFraction.Min |> nonZeroLimit |> Option.isNone
+            && sr.Volume.Max |> Option.isNone
+            && sr.Volumes |> Option.isNone
+            && sr.VolumeAdjust.Max |> Option.isNone
+            && sr.SolutionLimits |> Array.exists boundsPreparation |> not
+        )
+        |> Array.map (fun sr ->
+            $"%s{sr |> label}: a maximum dose fraction without a minimum and no maximum volume, "
+            + "so the preparation cannot be set"
+        )
+        |> Array.toList
+        |> List.distinct
+        |> List.map Warning
+
+
     /// One warning per solution rule whose rows name solutions none of which matches a
     /// parenteral product, so the rule loads with no diluents. Each row is built into a rule
     /// on its own and the rules are grouped without their limits, which is the grouping map

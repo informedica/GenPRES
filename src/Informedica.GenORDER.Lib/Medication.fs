@@ -941,16 +941,10 @@ module Medication =
     /// no maximum. A fraction of 0 counts as no fraction, and without either fraction the dose
     /// count is empty.
     let doseFractionToDoseCount (doseFraction: MinMax) =
-        let nonZero lim =
-            if lim |> Limit.getValueUnit |> ValueUnit.isZero then
-                None
-            else
-                Some lim
-
         let valueReciprocal = ValueUnit.applyToValue (Array.map (fun v -> 1N / v))
         let limitReciprocal = Limit.apply valueReciprocal valueReciprocal
 
-        match doseFraction.Min |> Option.bind nonZero, doseFraction.Max |> Option.bind nonZero with
+        match doseFraction.Min |> SolutionRule.nonZeroLimit, doseFraction.Max |> SolutionRule.nonZeroLimit with
         | None, None -> MinMax.empty
         | min, max ->
             let max =

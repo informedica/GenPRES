@@ -6739,6 +6739,28 @@ module Tests =
         let mL = Units.Volume.milliLiter
 
 
+        let times n =
+            n |> ValueUnit.singleWithUnit Units.Count.times |> Limit.inclusive |> Some
+
+
+        let bounds min max =
+            { MinMax.empty with
+                Min = min
+                Max = max
+            }
+
+
+        let doseFractionRule doseFraction =
+            { solutionRule "vancomycine" MinMax.empty with
+                SolutionLimits = [||]
+                DoseFraction = doseFraction
+            }
+
+
+        /// A solution rule with a maximum dose fraction and nothing that bounds the preparation.
+        let unboundedRule = bounds None (times 1N) |> doseFractionRule
+
+
         let maxConc n =
             { MinMax.empty with Max = n |> ValueUnit.singleWithUnit mgPerMl |> Limit.inclusive |> Some }
 
@@ -7428,6 +7450,155 @@ module Tests =
                         ]
 
                     testList
+                        "open dose counts"
+                        [
+                            let volume n = n |> ValueUnit.singleWithUnit mL |> Limit.inclusive |> Some
+
+                            let warns sr = [| sr |] |> SolutionRule.openDoseCounts |> List.length
+
+                            test "a maximum dose fraction alone gives a warning that names the rule" {
+                                [| unboundedRule |]
+                                |> SolutionRule.openDoseCounts
+                                |> List.map warningText
+                                |> Expect.equal
+                                    "one warning"
+                                    [
+                                        "solution rule vancomycine, INTRAVENEUS: a maximum dose fraction without a "
+                                        + "minimum and no maximum volume, so the preparation cannot be set"
+                                    ]
+                            }
+
+                            test "a maximum volume bounds the preparation" {
+                                { unboundedRule with Volume = bounds None (volume 50N) }
+                                |> warns
+                                |> Expect.equal "no warning" 0
+                            }
+
+                            test "a minimum volume alone does not bound the preparation" {
+                                { unboundedRule with Volume = bounds (volume 10N) None }
+                                |> warns
+                                |> Expect.equal "a warning" 1
+                            }
+
+                            test "a list of volumes bounds the preparation" {
+                                { unboundedRule with Volumes = [| 10N; 20N |] |> ValueUnit.withUnit mL |> Some }
+                                |> warns
+                                |> Expect.equal "no warning" 0
+                            }
+
+                            test "a maximum volume per kg bounds the preparation" {
+                                let mLPerKg = mL |> ValueUnit.per Units.Weight.kiloGram
+
+                                { unboundedRule with
+                                    VolumeAdjust =
+                                        bounds None (10N |> ValueUnit.singleWithUnit mLPerKg |> Limit.inclusive |> Some)
+                                }
+                                |> warns
+                                |> Expect.equal "no warning" 0
+                            }
+
+                            test "a minimum and a maximum dose fraction bound the dose count" {
+                                bounds (times (1N / 2N)) (times 1N)
+                                |> doseFractionRule
+                                |> warns
+                                |> Expect.equal "no warning" 0
+                            }
+
+                            test "a minimum dose fraction alone bounds the dose count" {
+                                bounds (times (1N / 2N)) None
+                                |> doseFractionRule
+                                |> warns
+                                |> Expect.equal "no warning" 0
+                            }
+
+                            test "both dose fractions empty give no warning" {
+                                MinMax.empty |> doseFractionRule |> warns |> Expect.equal "no warning" 0
+                            }
+
+                            test "a minimum dose fraction of 0 counts as empty" {
+                                bounds (times 0N) (times 1N)
+                                |> doseFractionRule
+                                |> warns
+                                |> Expect.equal "a warning" 1
+                            }
+
+                            testList
+                                "a solution limit"
+                                [
+                                    let mgPerKg = mg |> ValueUnit.per Units.Weight.kiloGram
+                                    let limit u n = n |> ValueUnit.singleWithUnit u |> Limit.inclusive |> Some
+                                    let qtyMax = bounds None (limit mg 100N)
+                                    let qtyAdjMax = bounds None (limit mgPerKg 10N)
+                                    let cncMin = bounds (limit mgPerMl 1N) None
+
+                                    let withLimit qty qtyAdj cnc =
+                                        { unboundedRule with
+                                            SolutionLimits =
+                                                [|
+                                                    { SolutionLimit.limit with
+                                                        SolutionLimitTarget = SubstanceLimitTarget "vancomycine"
+                                                        Quantity = qty
+                                                        QuantityAdj = qtyAdj
+                                                        Concentration = cnc
+                                                    }
+                                                |]
+                                        }
+
+                                    test "with a maximum quantity and a minimum concentration bounds the preparation" {
+                                        withLimit qtyMax MinMax.empty cncMin |> warns |> Expect.equal "no warning" 0
+                                    }
+
+                                    test "with a maximum quantity per kg and a minimum concentration bounds it" {
+                                        withLimit MinMax.empty qtyAdjMax cncMin |> warns |> Expect.equal "no warning" 0
+                                    }
+
+                                    test "with a maximum quantity and no minimum concentration does not bound it" {
+                                        withLimit qtyMax MinMax.empty MinMax.empty
+                                        |> warns
+                                        |> Expect.equal "a warning" 1
+                                    }
+
+                                    test "with a minimum concentration and no maximum quantity does not bound it" {
+                                        withLimit MinMax.empty MinMax.empty cncMin
+                                        |> warns
+                                        |> Expect.equal "a warning" 1
+                                    }
+
+                                    test "with a minimum concentration of 0 does not bound it" {
+                                        withLimit qtyMax MinMax.empty (bounds (limit mgPerMl 0N) None)
+                                        |> warns
+                                        |> Expect.equal "a warning" 1
+                                    }
+
+                                    test "with a negative minimum concentration does not bound it" {
+                                        withLimit qtyMax MinMax.empty (bounds (limit mgPerMl -1N) None)
+                                        |> warns
+                                        |> Expect.equal "a warning" 1
+                                    }
+
+                                    test "with a minimum quantity and a minimum concentration does not bound it" {
+                                        withLimit (bounds (limit mg 100N) None) MinMax.empty cncMin
+                                        |> warns
+                                        |> Expect.equal "a warning" 1
+                                    }
+                                ]
+
+                            test "two rules that differ only in the dose give one warning" {
+                                [| unboundedRule; { unboundedRule with Dose = range mg 1N 2N } |]
+                                |> SolutionRule.openDoseCounts
+                                |> List.length
+                                |> Expect.equal "one warning" 1
+                            }
+
+                            test "a maximum dose fraction of 0 counts as empty" {
+                                bounds None (times 0N)
+                                |> doseFractionRule
+                                |> warns
+                                |> Expect.equal "no warning" 0
+                            }
+                        ]
+
+                    testList
                         "the rule checks registry entry"
                         [
                             // The entry of the default registry, run on hand-built dependencies.
@@ -7471,6 +7642,13 @@ module Tests =
                                 ws
                                 |> List.exists (String.contains "granisetron concentration")
                                 |> Expect.isTrue "solution rule"
+                            }
+
+                            test "gives a warning for a dose count without a maximum" {
+                                Array.empty<SolutionRuleData>
+                                |> warnings [||] [| unboundedRule |]
+                                |> List.exists (String.contains "maximum dose fraction")
+                                |> Expect.isTrue "reported"
                             }
 
                             test "gives no warning for sound rules" {
