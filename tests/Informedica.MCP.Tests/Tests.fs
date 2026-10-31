@@ -400,11 +400,11 @@ module Tests =
                         |> Expect.equal "refused for lack of rules, not for the department" (Error false)
                     }
 
-                    test "evaluateOrderContext names the evaluation when the rules refuse it" {
+                    test "evaluateOrderContext gives the reason of the refusal" {
                         measured
                         |> evaluateOrderContext emptyRules
-                        |> Result.mapError _.StartsWith("Failed to evaluate order context: ")
-                        |> Expect.equal "the evaluation refusal keeps its prefix" (Error true)
+                        |> Result.mapError _.StartsWith("Failed to evaluate order context: no dose rule")
+                        |> Expect.equal "the reason of the refusal" (Error true)
                     }
 
                     test "applyFilters sets each of the four filters on its own field" {
@@ -618,6 +618,90 @@ module Tests =
                         |> evaluateOrderContext boysOnly
                         |> Result.mapError (fun m -> m.Contains "hold no row")
                         |> Expect.equal "named as a missing row too" (Error true)
+                    }
+                ]
+
+
+    module RefusalTests =
+
+        open Informedica.GenForm.Lib.Resources
+        open Informedica.GenOrder.Lib
+        open Informedica.MCP.Lib.GenOrderTools
+
+        /// The vancomycin rule without a diluent, with the growth tables the tool reads for the
+        /// patient, here empty because the input gives the weight and the height.
+        type UndilutedVancomycin() =
+            inherit OrderPlanTests.UndilutedVancomycin()
+
+            interface IResourceProvider with
+                member _.Get(key: ResourceKey<'T>) : 'T =
+                    if key.Name = Keys.normalValueRows.Name then
+                        box Map.empty<string, string[][]> :?> 'T
+                    else
+                        raise (NotImplementedException key.Name)
+
+
+        let refusals =
+            [
+                Refusal.NoDoseRules
+                Refusal.NoDoseRulesForPatient
+                Refusal.NoProducts
+                Refusal.MeasurementMissing
+                Refusal.NoDiluent
+                Refusal.NotSolved
+                Refusal.NoAdjustedDose
+            ]
+
+        let tests =
+            testList
+                "the order context tools answer a refusal with its reason"
+                [
+                    test "a value evaluated is answered as it is" {
+                        Evaluated 1 |> refusedAsError |> Expect.equal "the value" (Ok 1)
+                    }
+
+                    testList
+                        "a refusal is an error, with the prefix of an evaluation that failed"
+                        [
+                            for refusal in refusals do
+                                test $"%A{refusal}" {
+                                    Refused(1, refusal)
+                                    |> refusedAsError
+                                    |> Result.mapError _.StartsWith("Failed to evaluate order context: ")
+                                    |> Expect.equal "the prefix" (Error true)
+                                }
+                        ]
+
+                    test "each refusal has a reason of its own" {
+                        refusals
+                        |> List.map refusalReason
+                        |> List.distinct
+                        |> List.length
+                        |> Expect.equal "as many reasons as refusals" refusals.Length
+                    }
+
+                    test "a medication without its diluent is not an empty success" {
+                        Refused(1, Refusal.NoDiluent)
+                        |> refusedAsError
+                        |> Result.mapError _.Contains("no diluent")
+                        |> Expect.equal "names the diluent" (Error true)
+                    }
+
+                    test "a medication without its diluent is an error through the tool path" {
+                        {
+                            AgeMonths = Some 480.0
+                            WeightKg = Some 70.0
+                            HeightCm = Some 175.0
+                            Sex = None
+                            Department = None
+                            Generic = Some "vancomycine"
+                            Indication = Some "infectie"
+                            Route = None
+                            Form = None
+                        }
+                        |> evaluateOrderContext (UndilutedVancomycin())
+                        |> Result.mapError _.Contains("no diluent")
+                        |> Expect.equal "names the diluent" (Error true)
                     }
                 ]
 
@@ -841,6 +925,7 @@ module Tests =
                 GenOrderToolsTests.tests
                 CheckDepartmentTests.tests
                 EstimateTests.tests
+                RefusalTests.tests
                 ToJsonResultTests.tests
                 FilterOptionsToolTests.tests
                 SdkInvocationTests.tests

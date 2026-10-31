@@ -67,7 +67,7 @@ type IOrderPlan =
     abstract NewNutrition: NutritionCategory -> unit
     // the contexts with these ids removed
     abstract Remove: ids: string[] -> unit
-    // a command from the order dialog into the plan's context with this id, sent over the plan held
+    // a command from the order dialog into the plan's context with this id, sent with the current plan
     abstract OrderDialogCommand: string * Api.OrderViewCommand -> unit
     // the list of a recalculation closed without a pick: the plan kept is put back, as signed or
     // changed

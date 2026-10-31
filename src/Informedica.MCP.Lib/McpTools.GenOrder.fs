@@ -378,6 +378,35 @@ module GenOrderTools =
         |> Option.foldBack OrderContext.setFilterForm input.Form
 
 
+    /// Why the evaluation was refused, in the words a caller of the tools can act on.
+    let refusalReason =
+        function
+        | Refusal.NoDoseRules -> "no dose rule exists for the picks"
+        | Refusal.NoDoseRulesForPatient -> "dose rules exist for the picks, and none of them covers this patient"
+        | Refusal.NoProducts ->
+            "dose rules cover the picks and the patient, and none of them can be prescribed: "
+            + "they have no product or no dose type"
+        | Refusal.MeasurementMissing ->
+            "dose rules cover the picks and the patient, and each needs a weight, or a weight and a height, "
+            + "the patient does not have"
+        | Refusal.NoDiluent ->
+            "each medication must be diluted to meet its solution rule, and the formulary has no diluent for it"
+        | Refusal.NotSolved -> "the order cannot be solved"
+        | Refusal.NoAdjustedDose -> "the order has no dose per kg or per m2"
+
+
+    /// The error a tool answers when the evaluation did not give a context.
+    let evaluationFailed reason = $"Failed to evaluate order context: %s{reason}"
+
+
+    /// An evaluation as the tools answer it: the value evaluated, or an error that gives the
+    /// reason for the refusal.
+    let refusedAsError outcome =
+        match outcome with
+        | Evaluated a -> Ok a
+        | Refused(_, refusal) -> Error(evaluationFailed (refusalReason refusal))
+
+
     /// The order context for the input's patient and filter selection, evaluated against the given provider.
     /// The patient is checked by validPatient; shared by createOrderContext and getOrderScenarios so the
     /// guards and the patient/filter/evaluate pipeline exist in exactly one place.
@@ -393,10 +422,10 @@ module GenOrderTools =
 
             match
                 OrderContext.UpdateOrderContext ctx
-                |> OrderContext.evaluate System.DateTime.UtcNow OrderLogging.noOp provider
+                |> OrderContext.evaluateOutcome System.DateTime.UtcNow OrderLogging.noOp provider
             with
-            | Error e -> Error $"Failed to evaluate order context: {e}"
-            | Ok result -> Ok(OrderContext.Command.get result)
+            | Error e -> Error(evaluationFailed $"%A{e}")
+            | Ok outcome -> outcome |> refusedAsError |> Result.map OrderContext.Command.get
 
 
     let createOrderContext

@@ -559,8 +559,8 @@ module NutritionSlot =
         (props:
             {|
                 nutritionContext: OrderContext
-                // a command into the slot's context, sent over the plan held
-                planEvaluate: string * Api.OrderViewCommand -> unit
+                // a command into the slot's context, sent with the current plan
+                evaluateContext: string * Api.OrderViewCommand -> unit
                 // the list of a recalculation closed without a pick
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
@@ -594,7 +594,7 @@ module NutritionSlot =
 
         let markOf = ViewHelpers.markOf
 
-        let evaluate cmd = props.planEvaluate (ncId, cmd)
+        let evaluate cmd = props.evaluateContext (ncId, cmd)
 
         // a filter pick goes as its position in the options the field offers, an emptied field as
         // a clear; a value the field does not offer is a bug, written to the console and not sent
