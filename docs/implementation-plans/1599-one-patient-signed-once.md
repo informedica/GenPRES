@@ -13,6 +13,13 @@ the schema changes in place and no data is copied.
 - **Unsigned orders on the plan**: new or changed orders not yet signed. Today a patient data update
   is blocked while they exist, so that they stay on the data they were composed on (plan 1075).
   Plan 1430 step 7 lets them follow the data instead.
+- **The data notice**: the answer to a request to sign when the EHR's data differ from the data the
+  session opened on. It shows the EHR's data and asks the clinician what to do before any PIN.
+- **The inactive-tab answer**: the answer to a request from a tab whose token is not the one the
+  session holds. It says that another tab has taken the session over.
+- **The session gate**: the full-page message the client shows in place of the application when
+  there is no session to work in, with what the user can do next. Today it shows an ended session
+  or a refused launch.
 
 Issue #1599 is about a tab that still shows one patient while the browser's cookie names the session of
 another patient. The requests at fault are patient data updates, sent by the old tab for its own
@@ -50,18 +57,24 @@ needs rebuilding.
    The panel keeps it read-only for an identified patient. No age is stamped on a request, and the
    sign records the age the plan carries. The post-menstrual age follows the age everywhere.
 5. **The data notice is a choice, not a merge.** When a fresh read differs from the EHR data as
-   read, the notice shows the EHR's data next to the clinician's, without the age. The clinician
-   takes the EHR's data or keeps the plan's; either answer returns the notice token and asks the
-   challenge again. With unsigned orders on the plan, taking the EHR's data does what Refresh does
-   today: it takes the data and drops the new and changed orders. Nothing is applied after the sign.
+   read, the notice shows the EHR's data next to the clinician's. The clinician takes the EHR's
+   data or keeps the plan's; either answer returns the notice token and asks the challenge again.
+   The EHR's data has no age: the age is the birthdate's at a date, and the date is the session's
+   (rule 4). So the notice's data carries no age and the dialog shows none; taking the EHR's data
+   replaces every other field, the gestational age included, and the client keeps the age it
+   holds. With unsigned orders on the plan, taking the EHR's data does what Refresh does today: it
+   takes the data and drops the new and changed orders. Nothing is applied after the sign.
 6. **After a sign, the patient is the signed one.** The server answers the signed plan's patient
    with the age computed again at the sign. Estimates are not recomputed; a new estimate from a new
    age is plan 1430 step 8.
-7. **A resume is read-only.** GetSession reads no EHR and mints no token. The panel shows the
-   patient of the head when the head was signed at or after the session's open, else the EHR data
-   as read, projected at the open; in both cases with the age computed at the resume. Without EHR
-   data and without a head, the patient has the identity and nothing else, as today. Unsigned
-   orders are gone, as today; a typed value not signed is gone with them.
+7. **A resume is read-only, and shows the latest act.** GetSession reads no EHR and mints no
+   token. What the session stands on is the newest row of what it opened with, and that row says
+   which act wrote it: the open, a version opened, a refresh or a sign. When the latest act is a
+   sign, the panel shows the patient of the version signed; otherwise the EHR data as read,
+   projected at the open. In both cases the age is computed at the resume. No time is compared:
+   the order of the rows is the order of the acts. Without EHR data and without a head, the
+   patient has the identity and nothing else, as today. Unsigned orders are gone, as today; a
+   typed value not signed is gone with them.
 8. **A refresh is the EHR read again.** The server answers the EHR projection at the refresh, age
    included, and the client takes it as a whole, dropping the new and changed orders, as today.
 9. **The version records what was typed against.** The version holds the plan's patient as signed
@@ -69,8 +82,9 @@ needs rebuilding.
    difference between the two. `Verified` stays.
 10. **A request from a tab that is not the active one changes nothing and is told.** A computing
     request whose token is not the session's own writes no patient data (there is none to write),
-    takes no age (none is taken), and is answered with a notice that the tab is no longer the active
-    one; the tab shows the gate without closing the session. `OpenVersion`, `Refresh` and
+    takes no age (none is taken), and gets the inactive-tab answer. The tab then shows the session
+    gate, saying that another tab took the session over, and does not close the session, which is
+    the other tab's. `OpenVersion`, `Refresh` and
     `CloseSession` carry the token and refuse a token that is not the session's; a close without a
     token still acknowledges an ending; a refused close leaves the cookie alone.
 
@@ -98,8 +112,8 @@ needs rebuilding.
 ## The store after the change
 
 No store runs, so the migration files are edited in place: `008-measurement.sql` and
-`010-marked-adult.sql` are deleted, `002-session.sql` loses two columns, every other file stays as
-it is. The schema test that lists the migrations follows. The tables that hold patient data, after
+`010-marked-adult.sql` are deleted, `002-session.sql` loses two columns and gains one, every other
+file stays as it is. The schema test that lists the migrations follows. The tables that hold patient data, after
 the change:
 
 ```sql
@@ -140,13 +154,16 @@ create table session (
     opened_at      integer not null
 );
 
--- What the Session opened with: the version, the head, the token and the EHR data as read.
--- The patient JSON and its structure version are gone; the patient shown is computed from
--- ehr_data, the head and the date. ehr_data stays for the data notice: a fresh read is
--- compared against it. The two EHR columns come from migration 006, as today.
+-- What the Session opened with: the act that wrote the row, the version, the head, the token
+-- and the EHR data as read. A row per act, the newest counts; its act tells a resume whether
+-- a sign was the latest thing that happened. The patient JSON and its structure version are
+-- gone; the patient shown is computed from ehr_data, the head and the date. ehr_data stays
+-- for the data notice: a fresh read is compared against it. The two EHR columns come from
+-- migration 006, as today.
 create table session_opened_with (
     id               integer primary key,
     session_id       text not null references session (session_id),
+    act              text not null check (act in ('opened', 'version', 'refresh', 'signed')),
     version_id       text null,          -- null: from nothing
     head_id          text null,          -- null: the patient had no order plan version
     opened_token     text null,
@@ -199,13 +216,15 @@ an entry per measurement, since no measurement is written.
 | Situation | Result |
 |---|---|
 | Patient data update in the old tab after a launch for another patient B in a new tab: a weight typed for A | No patient data is written; the heartbeat still is. B's session and B's panel are as they were |
-| The same update, the age | Answered at A's age, the one the old tab sent; no session is read, so B's age never reaches A's tab |
-| Any computing request from the old tab | The notice; the old tab shows the gate, B's session stays open |
+| The reply to that weight update, which today rewrites the age from the cookie's session | The reply hands the age back unchanged: the one the server set at A's open, read-only in A's panel since. No session is read, so B's age never reaches A's tab |
+| Any computing request from the old tab | The inactive-tab answer; the old tab shows the session gate and takes no more input; B's session stays open |
 | Refresh, OpenVersion or close in the old tab | Refused; B's session, token and cookie untouched |
 | Sign in the old tab | Refused with `StaleToken`, as today |
 | Open at 10 kg, EHR now 12 kg, clinician typed 11 kg | Notice shows 12 kg beside 11 kg; take the EHR's data gives 12, keep the plan's gives 11; the sign records the choice and the 12 kg reading |
 | The same, with unsigned orders on the plan | Taking the EHR's data drops the new and changed orders, as Refresh does; keeping the plan's signs on 11 kg |
-| EHR 10 kg, typed 12 kg, signed, reload | The panel shows the signed 12 kg, age at the resume |
+| Open at 10 kg, EHR now 12 kg, clinician takes the EHR's data | Weight and gestational age the EHR's, the age unchanged |
+| EHR 10 kg, typed 12 kg, signed, reload | The latest act is the sign: the panel shows the signed 12 kg, age at the resume |
+| Typed 11 kg, signed, refreshed to the EHR's 12 kg, reload | The latest act is the refresh: the panel shows the EHR's 12 kg, age at the resume |
 | Reload before any sign | The EHR data as read, projected at the open, age at the resume; typed values gone |
 | EHR outage, head from an earlier session | The head's patient with the age computed from the identity at the resume |
 | Two tabs of one session, both sign | The second is refused with `StaleToken`: the first sign minted a new token |
@@ -227,21 +246,26 @@ first.
    out. Harmless while the server still merges: the notice's data is then the merged one.
 3. **Measurements go, server.** `seen` without a draft, `Compute.bound` without `patientOf`,
    `Opened.Measured` and the `Measurements` module and type deleted, the table and its loader,
-   writer and audit kind deleted. The notice's data is the fresh read projected at the open without
-   the age; the sign answers the signed plan's patient at the sign's age; the refresh answers the
-   projection at the refresh. The version gains the EHR data of its challenge (rule 9): a field on
+   writer and audit kind deleted. The notice's data is the fresh read projected at the open with
+   the age left out, and the client keeps its age when it takes that data (rule 5); the sign
+   answers the signed plan's patient at the sign's age; the refresh answers the projection at the
+   refresh. The version gains the EHR data of its challenge (rule 9): a field on
    `OrderPlanVersion`, its Dto and the plan JSON structure version raised. `MeasurementsTests`
    goes; the `SqlSession`, `SqlSchema` and `StubAdapter` tests follow.
-4. **The token on every request, and the notice.** Rule 10: a `RecordNotice` case for a token
-   that is not the session's, answered by `seen`; the client shows the gate without a close;
+4. **The token on every request, and the inactive-tab answer.** Rule 10: a `RecordNotice` case
+   for a token that is not the session's, answered by `seen`; the client shows the session gate
+   without closing the session;
    `OpenVersion`, `Refresh` and `CloseSession` carry the token on the wire and the server compares
    it as the challenge does; the stale close does not delete the cookie. With this step #1599
    closes and `OldTabToken.fsx` is deleted.
 5. **The session's patient copy goes.** `Opened.Patient` removed; where it was read, the patient is
    computed by `sessionPatient` from the EHR data, the head and the date, with the port and the
-   date passed in; `toOpened` gets them. The resume rule 7 lands here. The two columns of
-   `session_opened_with` dropped; the patient of a remembered submission answer rebuilt from the
-   version. A refactor on its own, no behaviour the earlier steps have not set.
+   date passed in; `toOpened` gets them. The resume rule 7 lands here: `RecordOpenedWith` names
+   the act that writes it, the `act` column holds it, and the resume reads the newest row's act.
+   The audit reads the same act instead of telling a version open by the absence of other writes.
+   The two patient columns of `session_opened_with` dropped; the patient of a remembered
+   submission answer rebuilt from the version. A refactor on its own, no behaviour the earlier
+   steps have not set.
 6. **Documents.** Plan 1430 amended: rule 3 says the old tab is told and refused, not that
    measurements and age are checked; rule 15 adds the resume and the refresh as moments the age is
    taken; the data notice as a choice; "held" written as unsigned orders on the plan. Plan 1075
@@ -251,7 +275,7 @@ first.
 
 Every scenario above is a test at the level where its rule lives: `Client.Core` for step 2, the
 server tests for steps 1, 3, 4 and 5. A run in the browser with two tabs for the first five
-scenarios, and one for the notice with and without unsigned orders.
+scenarios, and one for the data notice with and without unsigned orders.
 
 ## Decisions taken
 
@@ -260,9 +284,12 @@ scenarios, and one for the notice with and without unsigned orders.
 - The age is set by the server and trusted at the sign; no check at the challenge.
 - The EHR data as read stays on the session for the data notice.
 - A resume is read-only. One tab per session is not pursued: a reload in a left-behind tab would
-  take the session and lose the active tab's unsigned work. The notice of rule 10 covers the
-  mix-up instead.
-- Typed and accepted values are one thing; the notice offers two choices and nothing merges.
+  take the session and lose the active tab's unsigned work. The inactive-tab answer of rule 10
+  covers the mix-up instead.
+- Typed and accepted values are one thing; the data notice offers two choices and nothing merges. The
+  EHR's data has no age, so taking it leaves the client's age as it is.
+- A resume shows the latest act, read from the newest row of what the session opened with, which
+  names the act that wrote it. No time is compared.
 - The version keeps the EHR data of its challenge, so the record shows what was typed against.
 - Schema changes edit the migration files in place, since no store runs; a numbered migration can
   replace this when one does. The plan JSON structure version is raised as every change to it is;
