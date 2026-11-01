@@ -74,7 +74,10 @@ let tests =
                         Terms.``Signing Proceed``
                         Terms.``Signing Signed``
                         Terms.``Signing Data Changed``
-                        Terms.``Signing Data Changed Held``
+                        Terms.``Signing Data Changed Unsigned``
+                        Terms.``Signing Take Ehr Data``
+                        Terms.``Signing Keep Plan Data``
+                        Terms.``Signing Notice Ehr``
                         Terms.``Signing Data Unverified``
                         Terms.``Signing Refusal No Session``
                         Terms.``Signing Refusal No Patient``
@@ -204,18 +207,97 @@ let tests =
                         Data = Some patient
                         Token = "d"
                     }
-                |> Expect.equal "changed while held: signed over the data as it was" "<Signing Data Changed Held>"
+                |> Expect.equal "changed with unsigned orders" "<Signing Data Changed Unsigned>"
 
-                for held in [ false; true ] do
+                for unsigned in [ false; true ] do
                     noticeSentence
                         named
-                        held
+                        unsigned
                         {
                             Data = None
                             Token = "d"
                         }
-                    |> Expect.equal $"unverified, held %b{held}" "<Signing Data Unverified>"
+                    |> Expect.equal $"unverified, unsigned orders %b{unsigned}" "<Signing Data Unverified>"
             }
+
+            testList
+                "the lines of the data notice"
+                [
+                    let notice data =
+                        {
+                            Data = data
+                            Token = "d"
+                        }
+
+                    let weighed grams =
+                        { patient with Weight = { patient.Weight with Measured = Some grams } }
+
+                    test "only what differs, the plan's beside the EHR's" {
+                        noticeRows
+                            named
+                            (weighed 11000<gram>)
+                            (notice (Some { weighed 12500<gram> with Department = Some "ICK" }))
+                        |> Expect.equal
+                            "weight and department"
+                            [
+                                {
+                                    Label = Terms.``Patient Weight``
+                                    Plan = "11 kg"
+                                    Ehr = "12.5 kg"
+                                }
+                                {
+                                    Label = Terms.``Patient Department``
+                                    Plan = patient.Department |> Option.defaultValue "-"
+                                    Ehr = "ICK"
+                                }
+                            ]
+                    }
+
+                    test "the age and the mark as an adult are not shown, even when they differ" {
+                        noticeRows
+                            named
+                            patient
+                            (notice (
+                                Some
+                                    { patient with
+                                        Age = Some(Informedica.GenPRES.Shared.Models.Patient.Age.fromDays 9000)
+                                        MarkedAdult = not patient.MarkedAdult
+                                    }
+                            ))
+                        |> Expect.isEmpty "no lines"
+                    }
+
+                    test "the order of the access devices is no difference" {
+                        noticeRows
+                            named
+                            { patient with Access = [ CVL; PVL ] }
+                            (notice (Some { patient with Access = [ PVL; CVL ] }))
+                        |> Expect.isEmpty "no lines"
+                    }
+
+                    test "the gestational age is in words, as in the patient line" {
+                        noticeRows
+                            named
+                            patient
+                            (notice (
+                                Some
+                                    { patient with
+                                        GestationalAge =
+                                            Some
+                                                {
+                                                    Weeks = 30<week>
+                                                    Days = 2<day>
+                                                }
+                                    }
+                            ))
+                        |> List.map _.Ehr
+                        |> Expect.equal "words" [ "30 <Patient Age weeks> 2 <Patient Age days>" ]
+                    }
+
+                    test "an unverified notice has no lines" {
+                        noticeRows named patient (notice None) |> Expect.isEmpty "no lines"
+                    }
+                ]
 
             test "the PIN's own check is the enrolment's: four to six digits" {
                 for ok in [ "1234"; "123456" ] do

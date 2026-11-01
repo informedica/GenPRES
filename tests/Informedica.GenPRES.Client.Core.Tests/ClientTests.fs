@@ -528,7 +528,8 @@ let tests =
                         |> Expect.isTrue "the plan told"
                     }
 
-                    test "a signature takes the plan's differences, and an accept whether the patient is held" {
+                    test
+                        "a signature takes the plan's differences, and taking the EHR's data whether the patient is held" {
                         let differences = heldState.Lanes.OrderPlan |> OrderPlanState.differences one
 
                         heldState
@@ -541,10 +542,10 @@ let tests =
                         |> Expect.isTrue "the differences"
 
                         heldState
-                        |> play [ ClientMsg.AcceptDataChange ]
+                        |> play [ ClientMsg.TakeEhrData ]
                         |> hasStep (
                             function
-                            | ClientStep.Lanes(LanesStep.Signing(SigningMsg.AcceptDataChange true, _, _)) -> true
+                            | ClientStep.Lanes(LanesStep.Signing(SigningMsg.TakeEhrData true, _, _)) -> true
                             | _ -> false
                         )
                         |> Expect.isTrue "held"

@@ -363,6 +363,14 @@ let tests =
                 |> Expect.equal "the outcome alone" [ SigningEffect.TellSigned SigningFixtures.signed ]
             }
 
+            test "dropping the changes goes to the plan, and only the plan's answer starts the refresh" {
+                route (fun () -> "r-1") (LanesEffect.Signing SigningEffect.DropChangesAndRefresh)
+                |> Expect.equal "the plan first" [ LanesMsg.Plan(OrderPlanMsg.DropChanges "r-1") ]
+
+                route (fun () -> "r-1") (LanesEffect.Plan OrderPlanEffect.ChangesDropped)
+                |> Expect.equal "then the Session" [ LanesMsg.Session SessionMsg.RefreshPatient ]
+            }
+
             test "a signature answered: the token, the patient and the signed plan land in the same transition" {
                 let lanes =
                     { Lanes.initial (Some draft) with

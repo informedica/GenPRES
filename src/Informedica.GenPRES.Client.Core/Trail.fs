@@ -471,11 +471,12 @@ module Trail =
                 $"Sign %s{Part.plan p} %i{differences.Length} differences %s{Part.shortId request}"
             | SigningMsg.ChallengeAnswered(request, r) ->
                 $"ChallengeAnswered %s{Part.shortId request} %s{r |> Part.result response}"
-            | SigningMsg.AcceptDataChange held ->
-                if held then
-                    "AcceptDataChange holding the context"
+            | SigningMsg.TakeEhrData unsigned ->
+                if unsigned then
+                    "TakeEhrData dropping the unsigned orders"
                 else
-                    "AcceptDataChange"
+                    "TakeEhrData"
+            | SigningMsg.KeepPlanData -> "KeepPlanData"
             | SigningMsg.ConfirmPin _ -> "ConfirmPin"
             | SigningMsg.Cancel -> "Cancel"
             | SigningMsg.SubmitAnswered(_, r) -> $"SubmitAnswered %s{r |> Part.result response}"
@@ -494,6 +495,7 @@ module Trail =
             | SigningEffect.TellSigned s -> $"TellSigned %s{Part.signed s}"
             | SigningEffect.TellRefused r -> $"TellRefused %s{Part.signingRefusal r}"
             | SigningEffect.TellError _ -> "TellError"
+            | SigningEffect.DropChangesAndRefresh -> "DropChangesAndRefresh"
 
 
         /// The signing state as the dialog reads it; never the challenge.
@@ -521,6 +523,7 @@ module Trail =
         /// Never the argumentation.
         let msg (msg: OrderPlanMsg) =
             match msg with
+            | OrderPlanMsg.DropChanges request -> $"DropChanges %s{Part.shortId request}"
             | OrderPlanMsg.PatientDataChanged(p, request) ->
                 $"PatientDataChanged %s{Part.patientOption p} %s{Part.shortId request}"
             | OrderPlanMsg.OpenSignedPlan(s, request) -> $"OpenSignedPlan %s{Part.signed s} %s{Part.shortId request}"
@@ -539,6 +542,7 @@ module Trail =
             | OrderPlanEffect.CheckInteractions drugs -> $"CheckInteractions %i{drugs.Length} drugs"
             | OrderPlanEffect.TellError _ -> "TellError"
             | OrderPlanEffect.TellAnswered -> "TellAnswered"
+            | OrderPlanEffect.ChangesDropped -> "ChangesDropped"
 
 
         /// The order plan state as the pages read it.
@@ -1093,7 +1097,7 @@ module Trail =
             | ClientMsg.EmergencyListItemChosen item -> $"EmergencyListItemChosen %s{item}"
             | ClientMsg.ContinuousMedicationChosen item -> $"ContinuousMedicationChosen %s{item}"
             | ClientMsg.Sign(_, request) -> $"Sign %s{Part.shortId request}"
-            | ClientMsg.AcceptDataChange -> "AcceptDataChange"
+            | ClientMsg.TakeEhrData -> "TakeEhrData"
 
 
     /// One step of a machine, described with that machine's describers.

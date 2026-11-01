@@ -174,12 +174,7 @@ module Prescribe =
                     // the access the preparation is for, labelled as the patient panel labels it
                     let access =
                         sc.Access
-                        |> Option.map (
-                            function
-                            | CVL -> "CVL"
-                            | PVL -> "PVL"
-                            | EnteralTube -> Terms.``Patient Enteral Tube`` |> getTerm "Sonde"
-                        )
+                        |> Option.map (PatientText.accessText (Terms.``Patient Enteral Tube`` |> getTerm "Sonde"))
                         |> Option.map (fun s -> $" (%s{s})")
                         |> Option.defaultValue ""
 

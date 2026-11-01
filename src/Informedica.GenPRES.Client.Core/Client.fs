@@ -60,8 +60,8 @@ module Client =
         | ContinuousMedicationChosen of item: string
         /// Sign the plan, under this request id.
         | Sign of OrderPlan * request: string
-        /// The patient data change accepted in the sign dialog.
-        | AcceptDataChange
+        /// The EHR's data taken in the sign dialog; whether the plan has unsigned orders is read here.
+        | TakeEhrData
 
 
     /// The parts' effects, each as its part emitted it.
@@ -462,9 +462,7 @@ module Client =
                 [
                     ClientMsg.Lanes(LanesMsg.Signing(SigningMsg.Sign(plan, differences, request)))
                 ]
-        // held, the plan keeps the data its new and changed orders were composed on
-        | ClientMsg.AcceptDataChange ->
-            becomes [ ClientMsg.Lanes(LanesMsg.Signing(SigningMsg.AcceptDataChange(held state))) ]
+        | ClientMsg.TakeEhrData -> becomes [ ClientMsg.Lanes(LanesMsg.Signing(SigningMsg.TakeEhrData(held state))) ]
 
 
     /// The messages an effect becomes for other parts, over the state at the moment it is passed on;

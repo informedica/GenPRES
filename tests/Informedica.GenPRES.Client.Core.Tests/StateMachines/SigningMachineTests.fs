@@ -80,51 +80,73 @@ let tests =
                     transition (issued "r-1") state |> Expect.equal $"{state}" (state, [])
             }
 
-            test
-                "a notice accepted: the challenge is asked again with the token as the request id, over the data as it stands (Rule 44)" {
-                let changed =
-                    {
-                        Data = Some otherData
-                        Token = "d-1"
+            testList
+                "a data notice answered"
+                [
+                    let changed =
+                        {
+                            Data = Some otherData
+                            Token = "d-1"
+                        }
+
+                    let unverified =
+                        {
+                            Data = None
+                            Token = "d-2"
+                        }
+
+                    let asked plan token =
+                        SigningState.requesting plan (Some token) token,
+                        [ SigningEffect.CallChallenge(plan, Some token, token) ]
+
+                    test "the plan's data kept: the challenge is asked again over the plan as it is" {
+                        for notice in [ changed; unverified ] do
+                            transition SigningMsg.KeepPlanData (SigningState.noticed plan notice)
+                            |> Expect.equal "the token as the request id" (asked plan notice.Token)
                     }
 
-                let shown = { plan with Patient = otherData }
+                    test "the EHR's data taken: the plan takes them, with its own age and mark as an adult" {
+                        let marked =
+                            { plan with
+                                Patient =
+                                    { plan.Patient with
+                                        MarkedAdult = true
+                                        Age = Some(Informedica.GenPRES.Shared.Models.Patient.Age.fromDays 6000)
+                                    }
+                            }
 
-                transition (SigningMsg.AcceptDataChange false) (SigningState.noticed plan changed)
-                |> Expect.equal
-                    "over the reading"
-                    (SigningState.requesting shown (Some "d-1") "d-1",
-                     [ SigningEffect.CallChallenge(shown, Some "d-1", "d-1") ])
+                        let shown =
+                            { marked with
+                                Patient =
+                                    { otherData with
+                                        Age = marked.Patient.Age
+                                        MarkedAdult = true
+                                    }
+                            }
 
-                let unverified =
-                    {
-                        Data = None
-                        Token = "d-2"
+                        transition (SigningMsg.TakeEhrData false) (SigningState.noticed marked changed)
+                        |> Expect.equal "over the EHR's data" (asked shown "d-1")
                     }
 
-                transition (SigningMsg.AcceptDataChange false) (SigningState.noticed plan unverified)
-                |> Expect.equal
-                    "over the opened data"
-                    (SigningState.requesting plan (Some "d-2") "d-2",
-                     [ SigningEffect.CallChallenge(plan, Some "d-2", "d-2") ])
+                    test "the EHR's data taken with unsigned orders: the signature ends and the changes go" {
+                        transition (SigningMsg.TakeEhrData true) (SigningState.noticed plan changed)
+                        |> Expect.equal "no challenge" (SigningState.idle, [ SigningEffect.DropChangesAndRefresh ])
+                    }
 
-                // held: the plan keeps the data its new and changed orders were composed on
-                transition (SigningMsg.AcceptDataChange true) (SigningState.noticed plan changed)
-                |> Expect.equal
-                    "held: over the plan as it is, no patient set"
-                    (SigningState.requesting plan (Some "d-1") "d-1",
-                     [ SigningEffect.CallChallenge(plan, Some "d-1", "d-1") ])
+                    test "an unverified notice has nothing to take: the dialog stays" {
+                        for unsigned in [ false; true ] do
+                            let state = SigningState.noticed plan unverified
 
-                transition (SigningMsg.AcceptDataChange true) (SigningState.noticed plan unverified)
-                |> Expect.equal
-                    "held, no reading: over the plan as it is"
-                    (SigningState.requesting plan (Some "d-2") "d-2",
-                     [ SigningEffect.CallChallenge(plan, Some "d-2", "d-2") ])
+                            transition (SigningMsg.TakeEhrData unsigned) state
+                            |> Expect.equal "unchanged" (state, [])
+                    }
 
-                for state in [ SigningState.idle; requesting; challenged; submitting; unsent ] do
-                    transition (SigningMsg.AcceptDataChange false) state
-                    |> Expect.equal $"{state}" (state, [])
-            }
+                    test "an answer lands only on a notice" {
+                        for state in [ SigningState.idle; requesting; challenged; submitting; unsent ] do
+                            for msg in [ SigningMsg.KeepPlanData; SigningMsg.TakeEhrData false ] do
+                                transition msg state |> Expect.equal $"{state}" (state, [])
+                    }
+                ]
 
             test
                 "Confirm sends the PIN over the challenged plan under the caller's key, once at a time; Cancel drops the challenge but not a request in flight" {

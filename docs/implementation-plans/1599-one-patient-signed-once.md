@@ -62,8 +62,11 @@ needs rebuilding.
    The EHR's data has no age: the age is the birthdate's at a date, and the date is the session's
    (rule 4). So the notice's data carries no age and the dialog shows none; taking the EHR's data
    replaces every other field, the gestational age included, and the client keeps the age it
-   holds. With unsigned orders on the plan, taking the EHR's data does what Refresh does today: it
-   takes the data and drops the new and changed orders. Nothing is applied after the sign.
+   holds. The mark as an adult is the user's alone, since the EHR never sets it: it stays, and the
+   dialog does not show it. With unsigned orders on the plan, taking the EHR's data ends the
+   signature with no challenge: the new and changed orders go and the Session reads the EHR again,
+   as a refresh does. A notice that could not be verified has no data to take, so it can only be
+   kept or cancelled. Nothing is applied after the sign.
 6. **After a sign, the patient is the signed one.** The server answers the signed plan's patient
    with the age computed again at the sign. Estimates are not recomputed; a new estimate from a new
    age is plan 1430 step 8.
@@ -245,8 +248,9 @@ first.
    before the challenge or the commit, no longer touches the Session. Those two touch it themselves.
 2. **The data notice as a choice, client.** `SigningMachine`: `AcceptDataChange held` becomes two
    messages, take the EHR's data and keep the plan's; taking it with unsigned orders on the plan
-   goes through the refresh path. The dialog shows the EHR's data next to the plan's, the age left
-   out. Harmless while the server still merges: the notice's data is then the merged one.
+   ends the signature, removes those orders and goes through the refresh path. The dialog shows
+   the EHR's data next to the plan's, the age left out. Harmless while the server still merges:
+   the notice's data is then the merged one.
 3. **Measurements go, server.** `seen` without a draft, `Compute.bound` without `patientOf`,
    `Opened.Measured` and the `Measurements` module and type deleted, the table and its loader,
    writer and audit kind deleted. The notice's data is the fresh read projected at the open with

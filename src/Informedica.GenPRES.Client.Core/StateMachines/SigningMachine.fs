@@ -21,7 +21,7 @@ module SigningMachine =
     type SigningPhase =
         /// Not signing.
         | Idle
-        /// The patient data changed; the user accepts it or cancels.
+        /// The EHR's data differ; the user takes them, keeps the plan's or cancels.
         | DataChanged of OrderPlan * DataNotice
         /// The dialog asks for the PIN over this plan, under the server's challenge, with the last
         /// refusal if any.
@@ -32,7 +32,7 @@ module SigningMachine =
     [<RequireQualifiedAccess>]
     type SigningRequest =
         /// The challenge asked over the plan, under a request id, with the notice token when the user
-        /// accepted a data notice.
+        /// answered a data notice.
         | Challenge of OrderPlan * notice: string option * request: string
         /// The submission, under its key.
         | Submission of key: string
@@ -66,7 +66,7 @@ module SigningMachine =
         | Idle
         /// The dialog is closed while the challenge is asked.
         | RequestingChallenge
-        /// The patient data changed; the user accepts it or cancels.
+        /// The EHR's data differ; the user takes them, keeps the plan's or cancels.
         | DataChanged of OrderPlan * DataNotice
         /// The PIN is asked over the plan, with the last refusal if any.
         | AskingPin of OrderPlan * SigningRefusal option
@@ -82,9 +82,12 @@ module SigningMachine =
         | Sign of OrderPlan * differences: (OrderContext * HeldContextPolicy.Difference)[] * request: string
         /// The answer to the challenge request with this id; Error is a transport failure.
         | ChallengeAnswered of request: string * Result<SigningResponse, string>
-        /// The data notice is accepted. The plan is signed over the new data, unless the patient
-        /// context is held; then it keeps the data its new and changed orders were composed on.
-        | AcceptDataChange of held: bool
+        /// The EHR's data are taken. Without unsigned orders on the plan the plan is signed over them;
+        /// with unsigned orders the signature ends, the orders go and the Session reads the EHR again.
+        /// An unverified notice has nothing to take.
+        | TakeEhrData of unsigned: bool
+        /// The plan's data are kept, and the plan is signed as it is.
+        | KeepPlanData
         /// The PIN, and a new idempotency key the caller made; the key is ignored on a retry.
         | ConfirmPin of pin: string * key: string
         /// The user cancels.
@@ -116,6 +119,8 @@ module SigningMachine =
         | TellRefused of SigningRefusal
         /// Tell the user a request failed.
         | TellError of reason: string
+        /// Remove the new and changed orders and read the EHR again.
+        | DropChangesAndRefresh
 
 
     /// The constructors and the transition of the signing machine.
@@ -141,7 +146,7 @@ module SigningMachine =
             }
 
 
-        /// The data notice to accept or cancel.
+        /// The data notice to answer or cancel.
         let noticed (plan: OrderPlan) (notice: DataNotice) =
             {
                 Phase = SigningPhase.DataChanged(plan, notice)
@@ -200,18 +205,20 @@ module SigningMachine =
             | SigningPhase.AskingPin(_, plan, refusal), _ -> SigningView.AskingPin(plan, refusal)
 
 
-        /// The data notice accepted: the challenge is asked again, under the notice token as request
-        /// id. With new data and the patient context not held, the plan takes the new data. When held,
-        /// the plan keeps the data its new and changed orders were composed on. Either way the new
-        /// data reaches the patient with the signed answer. Without new data the plan stays.
-        let accepted (held: bool) (plan: OrderPlan) (notice: DataNotice) =
-            let plan =
-                match notice.Data with
-                | Some data when not held -> { plan with Patient = data }
-                | _ -> plan
-
+        /// The data notice answered: the challenge is asked again over the plan, under the notice
+        /// token as request id.
+        let answered (plan: OrderPlan) (notice: DataNotice) =
             requesting plan (Some notice.Token) notice.Token,
             [ SigningEffect.CallChallenge(plan, Some notice.Token, notice.Token) ]
+
+
+        /// The patient after taking the EHR's data: every field of the EHR. The EHR does not hold the
+        /// age or whether the patient counts as an adult, so the plan keeps both.
+        let taken (patient: Patient) (data: Patient) =
+            { data with
+                Age = patient.Age
+                MarkedAdult = patient.MarkedAdult
+            }
 
 
         /// What is told of a submission's answer that lands after the Session ended: its outcome only,
@@ -260,9 +267,14 @@ module SigningMachine =
                 idle, [ SigningEffect.TellError reason ]
             | SigningMsg.ChallengeAnswered _, _, _ -> state, []
 
-            | SigningMsg.AcceptDataChange held, SigningPhase.DataChanged(plan, notice), None ->
-                accepted held plan notice
-            | SigningMsg.AcceptDataChange _, _, _ -> state, []
+            | SigningMsg.TakeEhrData true, SigningPhase.DataChanged(_, { Data = Some _ }), None ->
+                idle, [ SigningEffect.DropChangesAndRefresh ]
+            | SigningMsg.TakeEhrData false, SigningPhase.DataChanged(plan, ({ Data = Some data } as notice)), None ->
+                answered { plan with Patient = taken plan.Patient data } notice
+            | SigningMsg.TakeEhrData _, _, _ -> state, []
+
+            | SigningMsg.KeepPlanData, SigningPhase.DataChanged(plan, notice), None -> answered plan notice
+            | SigningMsg.KeepPlanData, _, _ -> state, []
 
             // the plan submitted is the plan challenged, never the live cart; a retry after a lost
             // answer keeps its key, so the server answers what it already did

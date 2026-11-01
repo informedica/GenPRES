@@ -84,6 +84,18 @@ module PatientText =
         | UnknownGender -> "Onbekend geslacht"
 
 
+    /// A weight in kg, as the patient line shows it.
+    let weightText (g: int<gram>) = $"%s{float g / 1000. |> Math.fixPrecision 3 |> string} kg"
+
+
+    /// An access device as the patient panel labels it, with the translated word for a tube.
+    let accessText tube access =
+        match access with
+        | CVL -> "CVL"
+        | PVL -> "PVL"
+        | EnteralTube -> tube
+
+
     let toString terms lang markDown (pat: Patient) =
         let getTerm = LocalizationText.getTerm terms lang
 
@@ -106,11 +118,7 @@ module PatientText =
 
             Some $"{Terms.``Patient Weight`` |> getTerm}:" |> italic
 
-            pat.Weight.Measured
-            |> Option.map (fun x -> float x / 1000.)
-            |> toStr ""
-            |> Option.map (fun s -> $"{s} kg")
-            |> bold
+            pat.Weight.Measured |> Option.map weightText |> bold
 
 
             match pat.Weight.EstimatedP3, pat.Weight.EstimatedP97 with

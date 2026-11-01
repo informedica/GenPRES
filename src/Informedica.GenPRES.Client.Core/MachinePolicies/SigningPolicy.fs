@@ -26,11 +26,14 @@ module SigningPolicy =
         | Terms.``Signing Proceed`` -> "Continue"
         | Terms.``Signing Signed`` -> "Version {0} was signed by {1}."
         | Terms.``Signing Data Changed`` ->
-            "The patient data changed since the session opened. It is shown as it stands now; continue to sign over it, or cancel."
-        | Terms.``Signing Data Changed Held`` ->
-            "The patient data changed since the session opened, but the plan has new or changed orders composed on the data as it was. Continue to sign over the data as it was; the new data applies after the sign. Or cancel."
+            "The EHR's data differ from the data the session opened on. Take the EHR's data, keep the plan's, or cancel."
+        | Terms.``Signing Data Changed Unsigned`` ->
+            "The EHR's data differ from the data the session opened on, and the plan has new or changed orders. Taking the EHR's data removes those orders and ends this signature. Keeping the plan's data signs them on the data shown."
+        | Terms.``Signing Take Ehr Data`` -> "Take the EHR's data"
+        | Terms.``Signing Keep Plan Data`` -> "Keep the plan's data"
+        | Terms.``Signing Notice Ehr`` -> "EHR"
         | Terms.``Signing Data Unverified`` ->
-            "The patient data could not be verified. Continue to sign over the data the session opened with, or cancel."
+            "The patient data could not be verified. Continue to sign over the plan's data, or cancel."
         | Terms.``Signing Refusal No Session`` -> "There is no session to sign in. Open GenPRES again from MainEHR."
         | Terms.``Signing Refusal No Patient`` -> "The plan is not over this session's patient."
         | Terms.``Signing Refusal Not Prescriber`` -> "Only a Prescriber can sign."
@@ -93,11 +96,82 @@ module SigningPolicy =
         |> TermText.fill [ string head.No; head.By.DisplayName ]
 
 
-    /// The sentence of the data notice: the data changed, or could not be verified. When the patient
-    /// context is held, the plan is signed over the data as it was, and the notice says so.
-    let noticeSentence (tr: Terms -> string) (held: bool) (notice: DataNotice) =
+    /// One line of the data notice: what the plan holds beside what the EHR holds.
+    type NoticeRow =
+        {
+            Label: Terms
+            Plan: string
+            Ehr: string
+        }
+
+
+    /// The lines of the data notice: every field that differs. The age and the mark as an adult are
+    /// left out, since the EHR holds neither. An unverified notice has no lines.
+    let noticeRows (tr: Terms -> string) (patient: Patient) (notice: DataNotice) =
+        let text value show = value |> Option.map show |> Option.defaultValue "-"
+
+        let row label held ehr show =
+            if held = ehr then
+                None
+            else
+                Some
+                    {
+                        Label = label
+                        Plan = text held show
+                        Ehr = text ehr show
+                    }
+
+        let height (c: int<cm>) = $"%i{int c} cm"
+
+        let gestAge (g: GestAge) =
+            $"%i{int g.Weeks} %s{tr Terms.``Patient Age weeks``} %i{int g.Days} %s{tr Terms.``Patient Age days``}"
+
+        let gender =
+            function
+            | Male -> tr Terms.``Patient Male``
+            | Female -> tr Terms.``Patient Female``
+            | UnknownGender -> tr Terms.``Patient Unknown Gender``
+
+        let access =
+            function
+            | [] -> "-"
+            | devices ->
+                devices
+                |> List.map (PatientText.accessText (tr Terms.``Patient Enteral Tube``))
+                |> String.concat ", "
+
         match notice.Data with
-        | Some _ when held -> tr Terms.``Signing Data Changed Held``
+        | None -> []
+        | Some ehr ->
+            [
+                row
+                    Terms.``Patient Weight``
+                    (patient |> Informedica.GenPRES.Shared.Models.Patient.getWeight)
+                    (ehr |> Informedica.GenPRES.Shared.Models.Patient.getWeight)
+                    PatientText.weightText
+                row
+                    Terms.``Patient Length``
+                    (patient |> Informedica.GenPRES.Shared.Models.Patient.getHeight)
+                    (ehr |> Informedica.GenPRES.Shared.Models.Patient.getHeight)
+                    height
+                row Terms.``Patient GA Age`` patient.GestationalAge ehr.GestationalAge gestAge
+                row Terms.``Patient Gender`` (Some patient.Gender) (Some ehr.Gender) gender
+                row Terms.``Patient Access`` (Some(List.sort patient.Access)) (Some(List.sort ehr.Access)) access
+                row
+                    Terms.``Patient Renal Function``
+                    patient.RenalFunction
+                    ehr.RenalFunction
+                    RenalFunctionText.renalToOption
+                row Terms.``Patient Department`` patient.Department ehr.Department id
+            ]
+            |> List.choose id
+
+
+    /// The sentence of the data notice: the EHR's data differ, or could not be verified. With
+    /// unsigned orders on the plan the notice says what taking the EHR's data does to them.
+    let noticeSentence (tr: Terms -> string) (unsigned: bool) (notice: DataNotice) =
+        match notice.Data with
+        | Some _ when unsigned -> tr Terms.``Signing Data Changed Unsigned``
         | Some _ -> tr Terms.``Signing Data Changed``
         | None -> tr Terms.``Signing Data Unverified``
 

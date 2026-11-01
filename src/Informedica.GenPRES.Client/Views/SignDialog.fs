@@ -4,10 +4,11 @@ namespace Views
 /// <summary>
 /// The signing dialog: modal over the order plan while a challenge stands. It lists the
 /// orders new, changed or removed since the version last opened or signed, each tagged, and
-/// asks the PIN; the whole plan is signed as shown, or the user cancels and edits. Before a challenge, when the patient data changed or cannot be read, it is the data
-/// notice instead: continue over the data
-/// as it stands, or cancel. Every text is a Terms case; what the dialog offers comes from
-/// SigningPolicy, and what happens from the signing machine.
+/// asks the PIN; the whole plan is signed as shown, or the user cancels and edits. Before a
+/// challenge, when the patient data changed or cannot be read, it is the data
+/// notice instead: the EHR's data beside the plan's, to take, keep or cancel. Every text is a
+/// Terms case; what the dialog offers comes from SigningPolicy, and what happens from the
+/// signing machine.
 /// </summary>
 module SignDialog =
 
@@ -91,7 +92,8 @@ module SignDialog =
             confirm ()
 
         let onCancel = fun _ -> signing.Cancel()
-        let onAccept = fun _ -> signing.Accept()
+        let onTake = fun _ -> signing.TakeEhrData()
+        let onKeep = fun _ -> signing.KeepPlanData()
 
         let refusal =
             match phase with
@@ -109,7 +111,7 @@ module SignDialog =
 
         let notice =
             match phase with
-            | SigningView.DataChanged(_, notice) -> Some notice
+            | SigningView.DataChanged(plan, notice) -> Some(plan, notice)
             | _ -> None
 
         // the orders that differ from the version last opened or signed, as they stood at the
@@ -179,8 +181,48 @@ module SignDialog =
 
         let body =
             match notice with
-            | Some notice -> noticeSentence tr signing.Held notice
+            | Some(_, notice) -> noticeSentence tr signing.Held notice
             | None -> tr Terms.``Signing Dialog Text``
+
+        // the EHR's data beside the plan's, only what differs
+        let noticeTable =
+            match notice with
+            | Some(plan, notice) ->
+                match noticeRows tr plan.Patient notice with
+                | [] -> null
+                | rows ->
+                    let lines =
+                        rows
+                        |> List.toArray
+                        |> Array.map (fun row ->
+                            let label = tr row.Label
+
+                            JSX.jsx
+                                $"""
+                            <TableRow key={label}>
+                                <TableCell>{label}</TableCell>
+                                <TableCell>{row.Plan}</TableCell>
+                                <TableCell>{row.Ehr}</TableCell>
+                            </TableRow>
+                            """
+                        )
+
+                    JSX.jsx
+                        $"""
+                    <Table size="small">
+                        <TableHead>
+                            <TableRow>
+                                <TableCell></TableCell>
+                                <TableCell>{tr Terms.``Order Plan``}</TableCell>
+                                <TableCell>{tr Terms.``Signing Notice Ehr``}</TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {lines}
+                        </TableBody>
+                    </Table>
+                    """
+            | None -> null
 
         // the rows are block elements, so the secondary text is a div, not the paragraph
         // ListItemText makes of it
@@ -285,14 +327,28 @@ module SignDialog =
 
         let progress = ViewHelpers.busyProgress busy
 
+        // with unsigned orders, taking the EHR's data removes them
+        let takeColor = if signing.Held then "warning" else "primary"
+
         let primary =
             match notice with
+            // an unverified notice has nothing to take
+            | Some(_, { Data = None }) ->
+                JSX.jsx
+                    $"""
+                <Button key="keep" variant="contained" color="primary" onClick={onKeep}>
+                    {tr Terms.``Signing Proceed``}
+                </Button>
+                """
             | Some _ ->
                 JSX.jsx
                     $"""
-                <Button key="accept" variant="contained" color="primary" onClick={onAccept}>
-                    {tr Terms.``Signing Proceed``}
-                </Button>
+                <>
+                    <Button onClick={onKeep}>{tr Terms.``Signing Keep Plan Data``}</Button>
+                    <Button variant="contained" color={takeColor} onClick={onTake}>
+                        {tr Terms.``Signing Take Ehr Data``}
+                    </Button>
+                </>
                 """
             | None ->
                 JSX.jsx
@@ -315,6 +371,11 @@ module SignDialog =
         import List from '@mui/material/List';
         import ListItem from '@mui/material/ListItem';
         import ListItemText from '@mui/material/ListItemText';
+        import Table from '@mui/material/Table';
+        import TableBody from '@mui/material/TableBody';
+        import TableCell from '@mui/material/TableCell';
+        import TableHead from '@mui/material/TableHead';
+        import TableRow from '@mui/material/TableRow';
         import TextField from '@mui/material/TextField';
         import Typography from '@mui/material/Typography';
 
@@ -322,6 +383,7 @@ module SignDialog =
             <DialogTitle id="sign-dialog-title">{tr Terms.``Signing Dialog Title``}</DialogTitle>
             <DialogContent>
                 <DialogContentText>{body}</DialogContentText>
+                {noticeTable}
                 {noChanges}
                 <List dense={true}>
                     {orderList}
