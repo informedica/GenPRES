@@ -23,18 +23,15 @@ create table data_notice (
 create index ix_data_notice on data_notice (session_id, id);
 
 -- Rules 42 and 43. The challenge a signature answers: the digest of the order plan it was
--- issued over, never the plan itself, and the platform's reading at that moment, which decides
--- whether the version is signed as verified.
+-- issued over, never the plan itself. Migration 7 adds the EHR data as read at that moment,
+-- which decides whether the version is signed as verified.
 create table challenge (
     id           integer primary key,
     session_id   text not null references session (session_id),
     nonce        text not null,
     digest       text not null,
-    json_version integer null,       -- null: the reading could not be taken
-    reading      text null,          -- json: Patient.Dto
     expiry       integer not null,
-    at           integer not null,
-    check ((reading is null) = (json_version is null))
+    at           integer not null
 );
 create index ix_challenge on challenge (session_id, id);
 

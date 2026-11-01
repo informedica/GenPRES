@@ -462,17 +462,16 @@ module Session =
 
 
     /// A signing challenge as the store holds it: one per Session, the digest of exactly the
-    /// plan shown over the store's canonical form, the EHR data as read when it was issued and
-    /// its projection at the date of the open, for two minutes. The plan itself is never held:
-    /// the submission carries it and is compared by digest.
+    /// plan shown over the store's canonical form and the EHR data as read when it was issued,
+    /// for two minutes. The plan itself is never held: the submission carries it and is compared
+    /// by digest.
     type Challenge =
         {
             Nonce: string
             Digest: string
-            /// the EHR data as read at the challenge; none when it could not be read
+            /// the EHR data as read at the challenge; none when it could not be read, which makes
+            /// the version signed on it unverified
             Ehr: GenForm.EhrPatientData option
-            /// its projection at the date of the open; only whether there is one is read
-            Reading: GenForm.Patient option
             Expiry: DateTime
         }
 
@@ -546,8 +545,8 @@ module Session =
         | WriteVersion of GenOrder.OrderPlanVersion * identity: Informedica.GenCore.Lib.Patients.PatientIdentity option
         | RecordLaunch of LaunchRecord
         | RecordLaunchOutcome of nonce: string * LaunchResult * at: DateTime
-        /// the Session opened, what it opened with (at the open, at a version opened and at a
-        /// commit), and a request from it
+        /// the Session opened, what it opened with, with the act that wrote it, and a request from
+        /// it
         | OpenSession of sessionId: string * SessionRecord
         | RecordOpenedWith of sessionId: string * SessionRecord * at: DateTime
         | RecordSeen of sessionId: string * at: DateTime
@@ -708,28 +707,24 @@ module Session =
             |> Informedica.GenForm.Lib.Patient.calcPMAge
 
 
-    /// The patient data a Session opens on: the EHR's data, the source of truth, projected at
-    /// the date of the open, when there is any (the adapter answers none for a reading that is
-    /// no patient); without any, the patient data the head of the record was signed on, the
-    /// last seen, at the age of that date, when the head can be read; from nothing, none, so
-    /// that the User enters it and a data outage does not block prescribing.
-    let sessionPatient
-        (now: DateTime)
-        (patientData: PatientDataPort)
-        (ehr: GenForm.EhrPatientData option)
-        (head: StoredVersion option)
-        : GenForm.Patient option
-        =
-        ehr
-        |> Option.map (patientData.patient now)
-        |> Option.orElse (
-            head
-            |> Option.bind (fun h ->
-                match h with
-                | StoredVersion.Readable(v, whom) -> Some(v.Plan.Patient |> atBirthDate now whom)
-                | StoredVersion.Unreadable _ -> None
-            )
-        )
+    /// The patient a Session shows at a date. When the latest act is a sign, the patient of the
+    /// version signed; after any other act, the EHR's data, the source of truth. Each falls back
+    /// on the other, so that a head that cannot be read or a data outage still shows what there
+    /// is. The age is the one at the date in every case. From nothing, none, so that the User
+    /// enters the data and a data outage does not block prescribing.
+    let sessionPatient now (patientData: PatientDataPort) (opened: OpenedSession) =
+        let ofEhr = opened.EhrData |> Option.map (patientData.patient now)
+
+        let ofHead =
+            match opened.Head with
+            | Some(StoredVersion.Readable(v, whom)) -> Some(v.Plan.Patient |> atBirthDate now whom)
+            | _ -> None
+
+        match opened.Act with
+        | SessionAct.Signed -> ofHead |> Option.orElse ofEhr
+        | SessionAct.Opened
+        | SessionAct.VersionOpened
+        | SessionAct.Refreshed -> ofEhr |> Option.orElse ofHead
 
 
     /// The open, one act, from whatever carried the launch this far: a LaunchRecord at the
@@ -757,10 +752,10 @@ module Session =
                 User = Some user
                 PatientId = Some patientId
                 EhrData = ehr
-                Patient = sessionPatient now patientData ehr head
                 OpenedToken = Some(OpenedToken $"opened-{id}")
                 KeyThumbprint = Some(PublicKey.thumbprint key)
                 Head = head
+                Act = SessionAct.Opened
             }
 
         let login = Some user.UserId
@@ -1321,7 +1316,12 @@ module Session =
                 match version with
                 | None -> state, Some record.Opened, seen
                 | Some version when record.OpenedWith = Some id ->
-                    let opened = { record.Opened with Head = Some version }
+                    let opened =
+                        { record.Opened with
+                            Head = Some version
+                            Act = SessionAct.VersionOpened
+                        }
+
                     let session = { state.Sessions[sid] with Opened = opened }
 
                     { state with Sessions = state.Sessions |> Map.add sid session },
@@ -1332,6 +1332,7 @@ module Session =
                         { record.Opened with
                             OpenedToken = Some(OpenedToken $"opened-{newId ()}")
                             Head = Some version
+                            Act = SessionAct.VersionOpened
                         }
 
                     let session =
@@ -1400,8 +1401,10 @@ module Session =
 
     /// The Session refreshed: the EHR read again and projected at the time of the refresh, under
     /// a fresh OpenedToken, the standing challenge spent and the notice dropped. The order plan
-    /// version the Session opened with stays: opening the last signed one is a separate action. None for no Session, an anonymous one or one without a
-    /// Patient. No reading: the patient and the EHR data as they were.
+    /// version the Session opened with stays: opening the last signed one is a separate action.
+    /// None for no Session, an anonymous one or one without a Patient. No reading: the Session as
+    /// it was, its token and its act included, and only a read writes a row, so that the act of the
+    /// newest row stays true.
     let refresh
         (now: DateTime)
         (newId: unit -> string)
@@ -1419,35 +1422,31 @@ module Session =
             | None, _
             | _, None -> state, None, seen
             | Some _, Some patientId ->
-                let read = patientData.read patientId
+                match patientData.read patientId with
+                | None -> state, Some record.Opened, seen
+                | Some read ->
+                    let opened =
+                        { record.Opened with
+                            OpenedToken = Some(OpenedToken $"opened-{newId ()}")
+                            EhrData = Some read
+                            Act = SessionAct.Refreshed
+                        }
 
-                let patient =
-                    read
-                    |> Option.map (patientData.patient now)
-                    |> Option.orElse record.Opened.Patient
+                    let session = { state.Sessions[sid] with Opened = opened }
 
-                let opened =
-                    { record.Opened with
-                        OpenedToken = Some(OpenedToken $"opened-{newId ()}")
-                        EhrData = read |> Option.orElse record.Opened.EhrData
-                        Patient = patient
-                    }
+                    let spent =
+                        state.Challenges
+                        |> Map.tryFind sid
+                        |> Option.map (fun c -> [ SpendChallenge(sid, c.Nonce, now) ])
+                        |> Option.defaultValue []
 
-                let session = { state.Sessions[sid] with Opened = opened }
-
-                let spent =
-                    state.Challenges
-                    |> Map.tryFind sid
-                    |> Option.map (fun c -> [ SpendChallenge(sid, c.Nonce, now) ])
-                    |> Option.defaultValue []
-
-                { state with
-                    Sessions = state.Sessions |> Map.add sid session
-                    Challenges = state.Challenges |> Map.remove sid
-                    Notices = state.Notices |> Map.remove sid
-                },
-                Some opened,
-                seen @ spent @ [ RecordOpenedWith(sid, session, now) ]
+                    { state with
+                        Sessions = state.Sessions |> Map.add sid session
+                        Challenges = state.Challenges |> Map.remove sid
+                        Notices = state.Notices |> Map.remove sid
+                    },
+                    Some opened,
+                    seen @ spent @ [ RecordOpenedWith(sid, session, now) ]
 
 
     /// The challenge request, checked in order: the Session with a User and a Patient; the
@@ -1487,16 +1486,17 @@ module Session =
                 elif record.Opened.OpenedToken <> Some opened then
                     refuse SigningRefusal.StaleToken
                 else
-                    // read again and compared as read, so that only the EHR data tells a change;
-                    // projected at the date of the open, so that the age the Session opened on
-                    // holds; the adapter answers none for a reading that is no patient
+                    // read again and compared as read, so that only the EHR data tells a change
                     let currentEhr = patientData.read patientId
-                    let current = currentEhr |> Option.map (patientData.patient record.OpenedAt)
                     let accepted = Reads.accepted state.Notices sid notice currentEhr
 
                     // no reading, or another than the Session opened on: told before the challenge
                     if Reads.changed record.Opened.EhrData currentEhr && accepted.IsNone then
                         let nonce = newId ()
+
+                        // projected at the date of the open, so that the age the Session opened
+                        // on holds; the adapter answers none for a reading that is no patient
+                        let current = currentEhr |> Option.map (patientData.patient record.OpenedAt)
 
                         let notice =
                             {
@@ -1537,7 +1537,6 @@ module Session =
                                     Nonce = nonce
                                     Digest = digest plan
                                     Ehr = currentEhr
-                                    Reading = current
                                     Expiry = now + challengeLifetime
                                 }
 
@@ -1556,9 +1555,10 @@ module Session =
     /// this Session was issued, over exactly this plan by digest; and last the PIN, so that a
     /// Submission that was never going to land costs no attempt. A pure function: on an
     /// accepted sign the returned state already holds the new head, which carries the
-    /// Session's identity, with the challenge spent, the OpenedToken re-minted over it and the
-    /// Session's patient set to the patient signed at the age of the sign, and the third value is
-    /// the write for the adapter to run; on a refusal it is none. The answer is remembered under the key, refusals too.
+    /// Session's identity, with the challenge spent and the OpenedToken re-minted over it, the
+    /// answer carries the patient signed at the age of the sign, and the third value is the write
+    /// for the adapter to run; on a refusal it is none. The answer is remembered under the key,
+    /// refusals too.
     /// Three wrong PINs end the Session (WrongPinLimit), lock signing and mail the User; a
     /// wrong PIN while locked pushes the lock out; a right PIN while locked is refused and
     /// counts nothing.
@@ -1659,14 +1659,14 @@ module Session =
                                                     }
                                                 SignedAt = now
                                                 Plan = signature.Plan
-                                                Verified = challenge.Reading.IsSome
+                                                Verified = challenge.Ehr.IsSome
                                                 EhrData = challenge.Ehr
                                             }
 
                                         let token = OpenedToken $"opened-{newId ()}"
 
                                         // the EHR data is the read just signed on, and the identity the
-                                        // version names is that read's; the Session's patient is the
+                                        // version names is that read's; the answer's patient is the
                                         // one just signed at the age of the sign; the version keeps
                                         // the age it was signed at
                                         let ehr = Reads.afterCommit challenge record.Opened.EhrData
@@ -1681,7 +1681,7 @@ module Session =
                                                         OpenedToken = Some token
                                                         Head = Some(StoredVersion.Readable(version, whom))
                                                         EhrData = ehr
-                                                        Patient = Some patient
+                                                        Act = SessionAct.Signed
                                                     }
                                                 OpenedWith = Some id
                                             }

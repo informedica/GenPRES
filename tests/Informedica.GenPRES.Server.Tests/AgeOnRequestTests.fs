@@ -39,22 +39,17 @@ let prescriber: UserContext =
 
 
 /// A Session as the store holds it after an open, seen at the open.
-let record
-    (sid: string)
-    (ehr: Informedica.GenForm.Lib.Types.EhrPatientData option)
-    (patient: Informedica.GenForm.Lib.Types.Patient option)
-    : Session.SessionRecord
-    =
+let record (sid: string) (ehr: Informedica.GenForm.Lib.Types.EhrPatientData option) : Session.SessionRecord =
     {
         Opened =
             {
                 User = Some prescriber
                 PatientId = Some "p1"
                 EhrData = ehr
-                Patient = patient
                 OpenedToken = Some(OpenedToken $"opened-{sid}")
                 KeyThumbprint = Some "t"
                 Head = None
+                Act = SessionAct.Opened
             }
         Login = Some prescriber.UserId
         OpenedWith = None
@@ -77,10 +72,9 @@ let state =
         Sessions =
             Map.ofList
                 [
-                    identified, record identified (Some ehr) (Some(StubPatientData.port.patient today ehr))
-                    anonymous,
-                    record anonymous (Some unidentified) (Some(StubPatientData.port.patient today unidentified))
-                    entered, record entered None (Patient.parse StubPatientData.patient |> Result.toOption)
+                    identified, record identified (Some ehr)
+                    anonymous, record anonymous (Some unidentified)
+                    entered, record entered None
                 ]
     }
 

@@ -33,21 +33,20 @@ create table session (
 create index ix_session_login on session (login, id);
 
 -- What the Session opened with and the token that names it: written at the open, at a version
--- opened and at a commit. The newest row counts. version_id is what it opened with, a version
--- that can be read; head_id is the head it saw, whatever its case, so a Session that opened on
--- a head it cannot read opens from nothing and still holds that head. Both name order_plan
--- rows, from which the loader rebuilds the head. The patient is the JSON Dto of the patient
--- data the Session shows, under its structure version, null when it opened on none.
+-- opened, at a refresh that read the EHR and at a commit. The newest row counts, and its act
+-- tells a resume whether a sign was the latest thing that happened. version_id is what it
+-- opened with, a version that can be read; head_id is the head it saw, whatever its case, so a
+-- Session that opened on a head it cannot read opens from nothing and still holds that head.
+-- Both name order_plan rows, from which the loader rebuilds the head. No patient data: the
+-- patient shown is computed from the EHR data of migration 6, the head and the date.
 create table session_opened_with (
     id           integer primary key,
     session_id   text not null references session (session_id),
+    act          text not null check (act in ('opened', 'version', 'refresh', 'signed')),
     version_id   text null,              -- null: from nothing
     head_id      text null,              -- null: the patient had no order plan version
     opened_token text null,              -- null: a Session without one
-    json_version integer null,           -- the JSON structure version of patient
-    patient      text null,              -- json: the patient data as shown
-    at           integer not null,       -- unix ms
-    check ((patient is null) = (json_version is null))
+    at           integer not null        -- unix ms
 );
 -- as for the heartbeats: the newest row of one Session, not a scan of every row
 create index ix_session_opened_with on session_opened_with (session_id, id);

@@ -655,6 +655,7 @@ module StubDatabase =
                     }
             callback = fun cb -> async { return update (Slice.LaunchState cb.State) (callbackStep cb) }
             find = fun id -> async { return overSession id (fun at -> Session.find at id) }
+            patient = fun opened -> Session.sessionPatient (now ()) patientData opened
             close = fun id -> async { return update (Slice.Session id) (Session.close (now ()) id >> asUnit) }
             closeTab =
                 fun id opened ->

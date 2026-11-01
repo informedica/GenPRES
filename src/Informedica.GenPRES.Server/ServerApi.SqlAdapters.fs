@@ -654,31 +654,43 @@ module SqlSessions =
         | _ -> Error "the EHR data and its JSON structure version are not both present"
 
 
-    /// What a Session opened with, the newest row: the token, the id of the version it opened
-    /// with, the head it saw, the EHR data it opened on and the patient data it shows, whose
-    /// reasons for not reading make the Session unreadable.
+    /// The act as the column holds it.
+    let actWord act =
+        match act with
+        | SessionAct.Opened -> "opened"
+        | SessionAct.VersionOpened -> "version"
+        | SessionAct.Refreshed -> "refresh"
+        | SessionAct.Signed -> "signed"
+
+
+    /// The act a column holds; an error for a word this release does not know.
+    let actOf word =
+        match word with
+        | "opened" -> Ok SessionAct.Opened
+        | "version" -> Ok SessionAct.VersionOpened
+        | "refresh" -> Ok SessionAct.Refreshed
+        | "signed" -> Ok SessionAct.Signed
+        | other -> Error $"the act %s{other} is not known to this release"
+
+
+    /// What a Session opened with, the newest row: the act that wrote it, the token, the id of the
+    /// version it opened with, the head it saw and the EHR data it opened on, whose reasons for not
+    /// reading make the Session unreadable.
     let loadOpenedWith (conn: SqliteConnection) (sid: string) =
         rows
             conn
             """
-            select version_id, head_id, opened_token, json_version, patient, ehr_json_version, ehr_data
+            select version_id, head_id, opened_token, act, ehr_json_version, ehr_data
             from session_opened_with where session_id = $sid order by id desc limit 1
             """
             [ "$sid", box sid ]
             (fun r ->
-                let patient =
-                    match r.IsDBNull 3, r.IsDBNull 4 with
-                    | false, false -> readPatient (r.GetInt32 3) (r.GetString 4) |> Result.map Some
-                    | _ -> Ok None // a Session that opened on no patient data at all
-
-                let ehr = readEhrColumns r 5 6
-
                 {|
                     VersionId = textOrNull r 0
                     HeadId = textOrNull r 1
                     OpenedToken = textOrNull r 2 |> Option.map OpenedToken
-                    Patient = patient
-                    EhrData = ehr
+                    Act = r.GetString 3 |> actOf
+                    EhrData = readEhrColumns r 4 5
                 |}
             )
         |> List.tryHead
@@ -793,18 +805,18 @@ module SqlSessions =
                     userOf row.UserId row.UserDisplay row.UserRole
                     |> Result.bind (fun user ->
                         opened
-                        |> Option.map _.Patient
-                        |> Option.defaultValue (Ok None)
-                        |> Result.bind (fun patient ->
+                        |> Option.map _.Act
+                        |> Option.defaultValue (Ok SessionAct.Opened)
+                        |> Result.bind (fun act ->
                             opened
                             |> Option.map _.EhrData
                             |> Option.defaultValue (Ok None)
-                            |> Result.map (fun ehr -> user, patient, ehr)
+                            |> Result.map (fun ehr -> user, act, ehr)
                         )
                     )
 
                 read
-                |> Result.map (fun (user, patient, ehr) ->
+                |> Result.map (fun (user, act, ehr) ->
                     let session: Session.SessionRecord =
                         {
                             Opened =
@@ -812,10 +824,10 @@ module SqlSessions =
                                     User = user
                                     PatientId = row.PatientId
                                     EhrData = ehr
-                                    Patient = patient
                                     OpenedToken = opened |> Option.bind _.OpenedToken
                                     KeyThumbprint = row.KeyThumbprint
                                     Head = opened |> Option.bind _.HeadId |> Option.bind headOf
+                                    Act = act
                                 }
                             Login = row.Login
                             OpenedWith = opened |> Option.bind _.VersionId
@@ -829,7 +841,7 @@ module SqlSessions =
         )
 
 
-    /// The JSON structure version this release writes for the patient a Session shows.
+    /// The JSON structure version this release writes for the patient a data notice shows.
     let patientJsonWritten = 1
 
 
@@ -953,17 +965,15 @@ module SqlSessions =
                 tx
                 """
                 insert into session_opened_with
-                    (session_id, version_id, head_id, opened_token, json_version, patient,
-                     ehr_json_version, ehr_data, at)
-                values ($sid, $version, $head, $token, $jv, $patient, $ejv, $ehr, $at)
+                    (session_id, act, version_id, head_id, opened_token, ehr_json_version, ehr_data, at)
+                values ($sid, $act, $version, $head, $token, $ejv, $ehr, $at)
                 """
                 [
                     "$sid", box sid
+                    "$act", box (actWord session.Opened.Act)
                     "$version", nullable session.OpenedWith
                     "$head", nullable (session.Opened.Head |> Option.map StoredVersion.id)
                     "$token", nullable token
-                    "$jv", nullable (session.Opened.Patient |> Option.map (fun _ -> patientJsonWritten))
-                    "$patient", nullable (session.Opened.Patient |> Option.map patientJson)
                     "$ejv", nullable (session.Opened.EhrData |> Option.map (fun _ -> ehrJsonWritten))
                     "$ehr", nullable (session.Opened.EhrData |> Option.map ehrJson)
                     "$at", box (ms at)
@@ -1106,15 +1116,13 @@ module SqlSessions =
                 tx
                 """
                 insert into challenge
-                    (session_id, nonce, digest, json_version, reading, ehr_json_version, ehr_data, expiry, at)
-                values ($sid, $n, $d, $jv, $reading, $ejv, $ehr, $e, $at)
+                    (session_id, nonce, digest, ehr_json_version, ehr_data, expiry, at)
+                values ($sid, $n, $d, $ejv, $ehr, $e, $at)
                 """
                 [
                     "$sid", box sid
                     "$n", box challenge.Nonce
                     "$d", box challenge.Digest
-                    "$jv", nullable (challenge.Reading |> Option.map (fun _ -> patientJsonWritten))
-                    "$reading", nullable (challenge.Reading |> Option.map patientJson)
                     "$ejv", nullable (challenge.Ehr |> Option.map (fun _ -> ehrJsonWritten))
                     "$ehr", nullable (challenge.Ehr |> Option.map ehrJson)
                     "$e", box (ms challenge.Expiry)
@@ -1288,9 +1296,10 @@ module SqlSessions =
                     }
             // a challenge and a notice are answers of `challenge`, which remembers nothing
             | _ -> None
-        // facts of an act that another of its writes audits: the heartbeat of a request, what
-        // a Session opened with, an ending acknowledged, a code or a challenge used up, and the
-        // enrolment attempts an act of the person's already tells
+        // facts of an act that another of its writes audits, or that auditOf tells from the
+        // request as a whole: the heartbeat of a request, what a Session opened with, an ending
+        // acknowledged, a code or a challenge used up, and the enrolment attempts an act of the
+        // person's already tells
         | Session.RecordOpenedWith _
         | Session.RecordSeen _
         | Session.AcknowledgeEnding _
@@ -1309,33 +1318,22 @@ module SqlSessions =
     let auditOf (now: DateTime) (writes: Session.Persist list) : AuditEntry list =
         let named = writes |> List.map namedBy
 
-        // a version opened is the one act with no write of its own: it writes what the Session
-        // now opens with, as an open and a signature also do, and nothing else. It is told
-        // apart by what it does not write.
-        let versionOpened =
-            let opensWith =
-                writes
-                |> List.exists (
-                    function
-                    | Session.RecordOpenedWith _ -> true
-                    | _ -> false
-                )
+        // a version opened and a refresh have no write of their own: what the Session now opens
+        // with names the act. An open and a signature are told by their own writes.
+        let reopened =
+            writes
+            |> List.choose (
+                function
+                | Session.RecordOpenedWith(_, session, _) ->
+                    match session.Opened.Act with
+                    | SessionAct.VersionOpened -> Some(auditEntry now "version-opened" "ok")
+                    | SessionAct.Refreshed -> Some(auditEntry now "session-refreshed" "ok")
+                    | SessionAct.Opened
+                    | SessionAct.Signed -> None
+                | _ -> None
+            )
 
-            let openedOrSigned =
-                writes
-                |> List.exists (
-                    function
-                    | Session.OpenSession _
-                    | Session.WriteVersion _ -> true
-                    | _ -> false
-                )
-
-            if opensWith && not openedOrSigned then
-                [ auditEntry now "version-opened" "ok" ]
-            else
-                []
-
-        versionOpened @ (writes |> List.choose (entryOf now))
+        reopened @ (writes |> List.choose (entryOf now))
         |> List.map (fun e ->
             { e with
                 SessionId = e.SessionId |> Option.orElse (named |> List.tryPick fst)
@@ -1582,7 +1580,7 @@ module SqlSessions =
         rows
             conn
             """
-            select c.nonce, c.digest, c.json_version, c.reading, c.expiry,
+            select c.nonce, c.digest, c.expiry,
                    exists (select 1 from challenge_spent s where s.challenge_id = c.id),
                    c.ehr_json_version, c.ehr_data
             from challenge c
@@ -1591,23 +1589,16 @@ module SqlSessions =
             """
             [ ("$sid", box sid) ]
             (fun r ->
-                let reading =
-                    match r.IsDBNull 2, r.IsDBNull 3 with
-                    | false, false -> readPatient (r.GetInt32 2) (r.GetString 3) |> Result.map Some
-                    | _ -> Ok None
+                let spent = r.GetInt64 3 = 1L
 
-                let spent = r.GetInt64 5 = 1L
-
-                reading
-                |> Result.bind (fun reading -> readEhrColumns r 6 7 |> Result.map (fun ehr -> reading, ehr))
-                |> Result.map (fun (reading, ehr) ->
+                readEhrColumns r 4 5
+                |> Result.map (fun ehr ->
                     spent,
                     ({
                         Nonce = r.GetString 0
                         Digest = r.GetString 1
                         Ehr = ehr
-                        Reading = reading
-                        Expiry = at (r.GetInt64 4)
+                        Expiry = at (r.GetInt64 2)
                     }
                     : Session.Challenge)
                 )
@@ -1650,7 +1641,6 @@ module SqlSessions =
     let loadAnswer
         (conn: SqliteConnection)
         (headOf: string -> StoredVersion option)
-        (held: GenForm.Patient option)
         (sid: string)
         (key: string)
         : (SigningOutcome * DateTime) option
@@ -1672,11 +1662,10 @@ module SqlSessions =
 
                 let outcome =
                     if word = "submitted" then
-                        // the Session's patient is the one the commit wrote with this answer, as
-                        // the Session holds it; the plan just signed when it holds none
+                        // the patient the commit answered: the plan signed, at the age of the sign
                         match versionId |> Option.bind headOf, token with
                         | Some(StoredVersion.Readable(v, whom)), Some t ->
-                            let patient = held |> Option.defaultValue v.Plan.Patient
+                            let patient = v.Plan.Patient |> Session.atBirthDate v.SignedAt whom
                             Some(SigningOutcome.Submitted(v, whom, OpenedToken t, patient))
                         // the version it names cannot be read: there is no answer to repeat
                         | _ -> None
@@ -1843,10 +1832,13 @@ module SqlSessions =
                     |> Option.flatten
                 PatientId = row.PatientId
                 EhrData = opened |> Option.bind (fun o -> o.EhrData |> Result.toOption |> Option.flatten)
-                Patient = opened |> Option.bind (fun o -> o.Patient |> Result.toOption |> Option.flatten)
                 OpenedToken = opened |> Option.bind _.OpenedToken
                 KeyThumbprint = row.KeyThumbprint
                 Head = opened |> Option.bind _.HeadId |> Option.bind headOf
+                Act =
+                    opened
+                    |> Option.bind (fun o -> o.Act |> Result.toOption)
+                    |> Option.defaultValue SessionAct.Opened
             }
         )
 
@@ -1966,10 +1958,8 @@ module SqlSessions =
                     |> Seq.collect snd
                     |> Seq.tryFind (fun v -> StoredVersion.id v = id)
 
-                let held = state.Sessions |> Map.tryFind sid |> Option.bind _.Opened.Patient
-
                 // the answer this key was already given, when it was given one at all
-                match loadAnswer conn headOf held sid key with
+                match loadAnswer conn headOf sid key with
                 | Some answer -> { state with Answered = state.Answered |> Map.add (sid, key) answer }
                 | None -> { state with Answered = state.Answered |> Map.remove (sid, key) }
             )

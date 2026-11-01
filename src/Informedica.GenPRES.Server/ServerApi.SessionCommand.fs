@@ -15,10 +15,11 @@ module SessionCommand =
     /// Session's own. The exception still propagates after the delete, so the failure stays
     /// visible.
     let processCmd (env: AppEnv) (cookie: SessionCookie) (enrolment: EnrolmentCookie) (cmd: SessionCommand) =
+        let toOpened = SessionMapper.toOpened env.demo env.session.patient
+
         let reopened answer =
             match answer with
-            | OnOwnToken.Done opened ->
-                SessionResponse.SessionResp(opened |> Option.map (SessionMapper.toOpened env.demo))
+            | OnOwnToken.Done opened -> SessionResponse.SessionResp(opened |> Option.map toOpened)
             | OnOwnToken.InactiveTab -> SessionResponse.InactiveTab
 
         async {
@@ -31,7 +32,7 @@ module SessionCommand =
                         | Some id ->
                             match! env.session.find id with
                             | SessionLookup.Found opened ->
-                                return Some(SessionResponse.SessionResp(Some(SessionMapper.toOpened env.demo opened)))
+                                return Some(SessionResponse.SessionResp(Some(toOpened opened)))
                             | SessionLookup.NotFound -> return None
                             | SessionLookup.Ended ending -> return Some(SessionResponse.SessionEnded ending)
                     }
@@ -53,7 +54,7 @@ module SessionCommand =
                     | SupplyPinResult.Opened(id, opened) ->
                         enrolment.delete ()
                         cookie.write id
-                        return SessionResponse.SessionResp(Some(SessionMapper.toOpened env.demo opened))
+                        return SessionResponse.SessionResp(Some(toOpened opened))
                     | SupplyPinResult.Refused(PinRefusal.CodeVoid as refusal)
                     | SupplyPinResult.Refused(PinRefusal.AttemptExpired as refusal)
                     | SupplyPinResult.Refused(PinRefusal.WrongActivePatient as refusal) ->

@@ -230,6 +230,7 @@ module Adapters =
                             )
                     }
             find = fun _ -> async { return SessionLookup.NotFound }
+            patient = fun _ -> None
             close = fun _ -> async { return () }
             closeTab = fun _ _ -> async { return OnOwnToken.Done() }
             findEnrolment = fun _ -> async { return None }
