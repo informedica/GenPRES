@@ -340,6 +340,14 @@ type SessionLookup =
     | Ended of SessionEnding
 
 
+/// What a command that changes a Session comes to: done, or refused because its token is not the
+/// Session's own, with nothing changed.
+[<RequireQualifiedAccess>]
+type OnOwnToken<'a> =
+    | Done of 'a
+    | InactiveTab
+
+
 type SessionPort =
     {
         // idempotent per public key within the Launch lifetime: a repeat from the same
@@ -349,8 +357,10 @@ type SessionPort =
         callback: Callback -> Async<CallbackResult>
         // by session id from the cookie; an ending is told until it is acknowledged
         find: string -> Async<SessionLookup>
-        // explicit close by the User
+        // the Session ended by a new launch of this browser, whatever token stands
         close: string -> Async<unit>
+        // explicit close by the User, on the token of the tab
+        closeTab: string -> OpenedToken option -> Async<OnOwnToken<unit>>
         // what a browser holding an enrolment attempt is told
         findEnrolment: string -> Async<EnrolmentPending option>
         // the confirmation code and the chosen PIN, for the attempt in the cookie
@@ -365,9 +375,9 @@ type SessionPort =
         // whether the record moved on or the Session ended
         seen: string -> OpenedToken option -> Async<RecordNotice option>
         // the version named becomes what the Session the cookie names opened with
-        openVersion: string -> string -> Async<OpenedSession option>
+        openVersion: string -> string -> OpenedToken option -> Async<OnOwnToken<OpenedSession option>>
         // the EHR read again for the Session the cookie names and the head reopened on it
-        refresh: string -> Async<OpenedSession option>
+        refresh: string -> OpenedToken option -> Async<OnOwnToken<OpenedSession option>>
     }
 
 

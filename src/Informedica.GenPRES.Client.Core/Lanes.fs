@@ -100,6 +100,16 @@ module Lanes =
             { lanes with Signing = next },
             effects |> List.map LanesEffect.Signing,
             [ LanesStep.Signing(m, next, effects) ]
+        // a signature under way mints the token itself, so a reply to a request the server took
+        // after it says nothing about another tab; the next request tells what still holds. Every
+        // notice passes here, from a lane's answer and from the drug names, which can be out during
+        // a signature
+        | LanesMsg.Session(SessionMsg.NoticeReceived(_, RecordNotice.Ended SessionEnding.InactiveTab)) when
+            (match lanes.Signing |> SigningState.view with
+             | SigningView.Submitting _ -> true
+             | _ -> false)
+            ->
+            lanes, [], []
         | LanesMsg.Session m ->
             let next, effects = SessionState.transition m lanes.Session
             let before = SessionState.view lanes.Session

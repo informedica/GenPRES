@@ -86,6 +86,8 @@ module SessionGatePolicy =
         | Terms.``Session Role Prescriber`` -> "Prescriber"
         | Terms.``Session Role Reader`` -> "Reader"
         | Terms.``Session Gate Ended`` -> "Your session was ended"
+        | Terms.``Session Gate Inactive Tab`` -> "This tab is no longer active"
+        | Terms.``Session Ending Inactive Tab`` -> "Another tab took this session over. Continue in that tab."
         | Terms.``Session Ending Superseded`` ->
             "Another launch of yours opened a newer session, and this one was closed."
         | Terms.``Session Ending Pin Limit`` ->
@@ -239,7 +241,10 @@ module SessionGatePolicy =
         | SessionView.Ended ending ->
             Some
                 {
-                    Title = tr Terms.``Session Gate Ended``
+                    Title =
+                        match ending with
+                        | SessionEnding.InactiveTab -> tr Terms.``Session Gate Inactive Tab``
+                        | _ -> tr Terms.``Session Gate Ended``
                     Body =
                         sentences
                             [
@@ -248,7 +253,10 @@ module SessionGatePolicy =
                                 | SessionEnding.WrongPinLimit -> tr Terms.``Session Ending Pin Limit``
                                 | SessionEnding.Unreadable -> tr Terms.``Session Ending Unreadable``
                                 | SessionEnding.Idle -> tr Terms.``Session Ending Idle``
-                                tr Terms.``Session Relaunch``
+                                | SessionEnding.InactiveTab -> tr Terms.``Session Ending Inactive Tab``
+                                // the session stands, for the other tab: there is nothing to launch
+                                if ending <> SessionEnding.InactiveTab then
+                                    tr Terms.``Session Relaunch``
                             ]
                     Busy = false
                     Actions = [ Action.ContinueWithoutLaunch ]

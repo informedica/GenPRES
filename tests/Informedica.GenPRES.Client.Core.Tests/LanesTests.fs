@@ -167,7 +167,7 @@ let tests =
                 started |> Expect.equal "as at a page load, the Session leaving" atLoad
 
                 effects
-                |> Expect.equal "the close alone" [ LanesEffect.Session SessionEffect.CallCloseSession ]
+                |> Expect.equal "the close alone" [ LanesEffect.Session(SessionEffect.CallCloseSession None) ]
 
                 steps
                 |> List.head
@@ -207,7 +207,9 @@ let tests =
                 |> Expect.equal "anonymous" SessionView.Anonymous
 
                 effects
-                |> Expect.equal "the close alone" [ LanesEffect.Session SessionEffect.CallCloseSession ]
+                |> Expect.equal
+                    "the close alone"
+                    [ LanesEffect.Session(SessionEffect.CallCloseSession(Some(OpenedToken "t"))) ]
             }
 
             test "a Session resumed with saved orders: the patient and the version reach their machines at once" {
@@ -534,6 +536,67 @@ let tests =
                 effects
                 |> List.contains (LanesEffect.Signing(SigningEffect.TellRefused(SigningRefusal.Blocked head.Head)))
                 |> Expect.isTrue "the refusal comes out"
+            }
+
+            test "the inactive-tab answer during a signature says nothing; the sign's own token lands" {
+                let session = SessionMachineTests.full
+
+                let lanes =
+                    { Lanes.initial (Some draft) with
+                        Session = SessionState.opened session None
+                        Signing = SigningState.submitting "c-1" SigningFixtures.plan "k-1"
+                    }
+
+                let answer =
+                    LanesMsg.Answer(
+                        LanesMsg.Patient(PatientMsg.Answered("p-1", Ok measured)),
+                        session.OpenedToken,
+                        Some(RecordNotice.Ended SessionEnding.InactiveTab)
+                    )
+
+                let lanes, _, _ = lanes |> Lanes.transition (counter ()) answer
+
+                lanes.Session
+                |> SessionState.view
+                |> Expect.equal "still open" (SessionView.Open session)
+            }
+
+            test "a notice that comes in by itself, as the drug names' does, is held off during a signature too" {
+                let session = SessionMachineTests.full
+
+                let lanes =
+                    { Lanes.initial (Some draft) with
+                        Session = SessionState.opened session None
+                        Signing = SigningState.submitting "c-1" SigningFixtures.plan "k-1"
+                    }
+
+                let notice =
+                    LanesMsg.Session(
+                        SessionMsg.NoticeReceived(session.OpenedToken, RecordNotice.Ended SessionEnding.InactiveTab)
+                    )
+
+                let lanes, effects, _ = lanes |> Lanes.transition (counter ()) notice
+
+                (lanes.Session |> SessionState.view, effects)
+                |> Expect.equal "still open, nothing to do" (SessionView.Open session, [])
+            }
+
+            test "the inactive-tab answer without a signature shows the gate" {
+                let session = SessionMachineTests.full
+                let lanes = { Lanes.initial (Some draft) with Session = SessionState.opened session None }
+
+                let answer =
+                    LanesMsg.Answer(
+                        LanesMsg.Patient(PatientMsg.Answered("p-1", Ok measured)),
+                        session.OpenedToken,
+                        Some(RecordNotice.Ended SessionEnding.InactiveTab)
+                    )
+
+                let lanes, _, _ = lanes |> Lanes.transition (counter ()) answer
+
+                lanes.Session
+                |> SessionState.view
+                |> Expect.equal "the gate" (SessionView.Ended SessionEnding.InactiveTab)
             }
 
             test "an answer with a newer-version notice: the answer and the notice in one transition" {

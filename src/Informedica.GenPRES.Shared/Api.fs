@@ -232,18 +232,19 @@ module Api =
     type SessionCommand =
         // the Session of this browser, if any (reload, IdP return)
         | GetSession
-        // explicit close; always removes the cookie
-        | CloseSession
+        // explicit close with the token of the tab; removes the cookie, unless the token is not the
+        // Session's own, so that a tab left behind cannot close the Session of another tab
+        | CloseSession of OpenedToken option
         // the confirmation code from the mail and the chosen PIN, for the attempt the
         // enrolment cookie names
         | SupplyPin of code: string * pin: string
         // the version named becomes what the Session opened with, which lifts the block on
         // signing when it is the head; answered with the Session as it then is,
         // `SessionResp None` where there is no Session, no User or no Patient
-        | OpenVersion of id: string
+        | OpenVersion of id: string * OpenedToken option
         // the EHR read again and the head reopened on it, with a fresh OpenedToken: the way out
         // of a held patient context that takes the EHR's data; answered as OpenVersion is
-        | Refresh
+        | Refresh of OpenedToken option
 
 
     [<RequireQualifiedAccess>]
@@ -255,6 +256,8 @@ module Api =
         // the launch waits on a PIN; answered to GetSession while the attempt stands
         | EnrolmentPending of EnrolmentPending
         | PinRefused of PinRefusal
+        // the token of the command is not the Session's own: nothing changed, the cookie stays
+        | InactiveTab
 
 
     /// The signing command family: always cookie-authenticated, like the session family.
@@ -280,11 +283,11 @@ module Api =
         let toString cmd =
             match cmd with
             | SessionCommand.GetSession -> "GetSession"
-            | SessionCommand.CloseSession -> "CloseSession"
+            | SessionCommand.CloseSession _ -> "CloseSession"
             // never the code or the PIN
             | SessionCommand.SupplyPin _ -> "SupplyPin"
             | SessionCommand.OpenVersion _ -> "OpenVersion"
-            | SessionCommand.Refresh -> "Refresh"
+            | SessionCommand.Refresh _ -> "Refresh"
 
 
     module SigningCommand =

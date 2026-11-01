@@ -846,7 +846,8 @@ module SqlSessions =
 
 
     /// The word an ending is stored under. Every ending matched, so that one without a word
-    /// fails to compile; a supersession is never written, since the newer Session tells it.
+    /// fails to compile; a supersession is never written, since the newer Session tells it, and
+    /// neither is an inactive tab, which is told to a tab only.
     let endingWord =
         function
         | Session.StoredEnding.Closed -> "closed"
@@ -854,6 +855,7 @@ module SqlSessions =
         | Session.StoredEnding.Ended SessionEnding.Unreadable -> "unreadable"
         | Session.StoredEnding.Ended SessionEnding.Idle -> "idle"
         | Session.StoredEnding.Ended SessionEnding.SupersededByLaunch -> "superseded"
+        | Session.StoredEnding.Ended SessionEnding.InactiveTab -> "inactive-tab"
 
 
     let exec (conn: SqliteConnection) (tx: SqliteTransaction) sql parameters =

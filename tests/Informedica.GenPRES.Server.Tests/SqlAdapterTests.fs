@@ -14,6 +14,7 @@ open Microsoft.Data.Sqlite
 open Informedica.GenPRES.Shared.Types
 open ServerApi
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.SessionStubTests
+open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
 open Informedica.GenPRES.Server.Tests.SqlSchemaTests
 open Informedica.GenPRES.Server.Tests.SqlRecordTests
 
@@ -296,12 +297,14 @@ let tests =
 
                         rows cs |> Expect.equal "one row" 1L
 
-                        match! port.openVersion sid written.Value.Value with
-                        | Some reopened ->
+                        let! token = tokenOf port sid
+
+                        match! port.openVersion sid written.Value.Value token with
+                        | OnOwnToken.Done(Some reopened) ->
                             reopened.Head
                             |> Option.map StoredVersion.id
                             |> Expect.equal "opens the row" written.Value
-                        | None -> failtest "openVersion should open the row"
+                        | _ -> failtest "openVersion should open the row"
                     }
                 )
 
@@ -452,7 +455,7 @@ let tests =
 
                                 let! before = port.find sid
                                 failing.Value <- true
-                                let! failed = fails (port.openVersion sid id)
+                                let! failed = fails (port.openVersion sid id opened.OpenedToken)
                                 failed |> Expect.isTrue "the call fails"
 
                                 // `find` reads the store too, so the store has to answer again
@@ -680,12 +683,14 @@ let tests =
 
                         let loserPort, loserSid = if noOf answers[0] = None then portA, sidA else portB, sidB
 
-                        match! loserPort.openVersion loserSid winner with
-                        | Some reopened ->
+                        let! token = tokenOf loserPort loserSid
+
+                        match! loserPort.openVersion loserSid winner token with
+                        | OnOwnToken.Done(Some reopened) ->
                             reopened.Head
                             |> Option.map StoredVersion.id
                             |> Expect.equal "opens the winner" (Some winner)
-                        | None -> failtest "the losing Session should open the winning row"
+                        | _ -> failtest "the losing Session should open the winning row"
                     }
                 )
 

@@ -11,9 +11,16 @@ module SessionCommand =
     /// first; without one, a standing enrolment attempt; a gone attempt loses its cookie.
     /// SupplyPin works on the attempt in the cookie, never on one the client names. CloseSession
     /// drops both, even when nothing is found and even when the server-side close throws: an
-    /// explicit close always leaves the browser without a credential. The exception still
-    /// propagates after the delete, so the failure stays visible.
+    /// explicit close leaves the browser without a credential, unless the token is not the
+    /// Session's own. The exception still propagates after the delete, so the failure stays
+    /// visible.
     let processCmd (env: AppEnv) (cookie: SessionCookie) (enrolment: EnrolmentCookie) (cmd: SessionCommand) =
+        let reopened answer =
+            match answer with
+            | OnOwnToken.Done opened ->
+                SessionResponse.SessionResp(opened |> Option.map (SessionMapper.toOpened env.demo))
+            | OnOwnToken.InactiveTab -> SessionResponse.InactiveTab
+
         async {
             match cmd with
             | SessionCommand.GetSession ->
@@ -55,32 +62,44 @@ module SessionCommand =
                     | SupplyPinResult.Refused refusal -> return SessionResponse.PinRefused refusal
             // a version is taken up for the Session the cookie names; without a cookie there is
             // nothing to open. Writes no cookie.
-            | SessionCommand.OpenVersion id ->
+            | SessionCommand.OpenVersion(id, token) ->
                 match cookie.read () with
                 | None -> return SessionResponse.SessionResp None
                 | Some sid ->
-                    let! opened = env.session.openVersion sid id
-                    return SessionResponse.SessionResp(opened |> Option.map (SessionMapper.toOpened env.demo))
+                    let! answer = env.session.openVersion sid id token
+                    return reopened answer
             // the EHR read again for the Session the cookie names and its head reopened on it;
             // without a cookie there is nothing to refresh. Writes no cookie.
-            | SessionCommand.Refresh ->
+            | SessionCommand.Refresh token ->
                 match cookie.read () with
                 | None -> return SessionResponse.SessionResp None
                 | Some sid ->
-                    let! opened = env.session.refresh sid
-                    return SessionResponse.SessionResp(opened |> Option.map (SessionMapper.toOpened env.demo))
-            | SessionCommand.CloseSession ->
-                try
-                    match cookie.read () with
-                    | Some id -> do! env.session.close id
-                    | None -> ()
-
-                    match enrolment.read () with
-                    | Some attempt -> do! env.session.dropEnrolment attempt
-                    | None -> ()
-                finally
+                    let! answer = env.session.refresh sid token
+                    return reopened answer
+            | SessionCommand.CloseSession token ->
+                let clear () =
                     cookie.delete ()
                     enrolment.delete ()
 
-                return SessionResponse.SessionClosed
+                let! closed =
+                    match cookie.read () with
+                    | Some id -> env.session.closeTab id token
+                    | None -> async { return OnOwnToken.Done() }
+                    |> Async.Catch
+
+                match closed with
+                // the Session and both cookies belong to another tab
+                | Choice1Of2 OnOwnToken.InactiveTab -> return SessionResponse.InactiveTab
+                | Choice1Of2(OnOwnToken.Done()) ->
+                    try
+                        match enrolment.read () with
+                        | Some attempt -> do! env.session.dropEnrolment attempt
+                        | None -> ()
+                    finally
+                        clear ()
+
+                    return SessionResponse.SessionClosed
+                | Choice2Of2 ex ->
+                    clear ()
+                    return raise ex
         }

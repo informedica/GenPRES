@@ -51,6 +51,7 @@ module Compute =
                 let told =
                     match notice with
                     | Some(RecordNotice.NewerVersion _) -> ", the record moved on"
+                    | Some(RecordNotice.Ended SessionEnding.InactiveTab) -> ", the tab is not the active one"
                     | Some(RecordNotice.Ended _) -> ", the Session ended"
                     | None -> ""
 
