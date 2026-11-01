@@ -1246,7 +1246,7 @@ module Session =
     /// Session's own, the head compared against the version it opened with: a newer version,
     /// whose and when. The notice informs and gates nothing; the refusal at a Submission stays
     /// the only guard. An anonymous Session, one without a Patient, no head, or a token that
-    /// is not the Session's: nothing to say.
+    /// is none: nothing to say. A token that is not the Session's: the tab is told so.
     let seen
         (now: DateTime)
         (sid: string)
@@ -1260,12 +1260,26 @@ module Session =
             let state, writes = touch now sid state
 
             let told =
-                match record.Opened.User, record.Opened.PatientId with
-                | Some _, Some patientId when opened.IsSome && opened = record.Opened.OpenedToken ->
-                    blockedBy record patientId state |> Option.map RecordNotice.NewerVersion
-                | _ -> None
+                if opened.IsSome && opened <> record.Opened.OpenedToken then
+                    Some(RecordNotice.Ended SessionEnding.InactiveTab)
+                else
+                    match record.Opened.User, record.Opened.PatientId with
+                    | Some _, Some patientId when opened.IsSome ->
+                        blockedBy record patientId state |> Option.map RecordNotice.NewerVersion
+                    | _ -> None
 
             state, told, writes
+
+
+    /// A command that changes a Session runs only on the Session's own token; no token counts as
+    /// another here. A Session that is gone is left to the command, so that a close still
+    /// acknowledges an ending.
+    let whenOwnToken sid opened run (state: State) =
+        match state.Sessions |> Map.tryFind sid with
+        | Some record when opened <> record.Opened.OpenedToken -> state, OnOwnToken.InactiveTab, []
+        | _ ->
+            let state, answer, writes = run state
+            state, OnOwnToken.Done answer, writes
 
 
     /// Version id becomes what the Session opened with. No Session, an anonymous one or one

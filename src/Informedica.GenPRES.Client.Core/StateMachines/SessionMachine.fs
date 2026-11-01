@@ -191,6 +191,8 @@ module SessionMachine =
         | NoticeReceived of from: OpenedToken option * RecordNotice
         /// A signature was refused because a newer version exists; this is the version to offer.
         | SignatureBlocked of OrderPlanHead
+        /// A session command was refused: another tab holds the session.
+        | InactiveTab
 
 
     /// What the App carries out for the session machine.
@@ -200,8 +202,8 @@ module SessionMachine =
         | CallPresentLaunch of Launch * PublicKey
         /// Read the session from the server.
         | CallResume
-        /// Close the session on the server.
-        | CallCloseSession
+        /// Close the session on the server, with the token the tab holds, if any.
+        | CallCloseSession of OpenedToken option
         /// Send the mailed code and the PIN to the server.
         | CallSupplyPin of code: string * pin: string
         /// Go to the url the server redirected to.
@@ -504,9 +506,10 @@ module SessionMachine =
             | _, Some(SessionRequest.PresentingLaunch _ | SessionRequest.SupplyingPin), _ ->
                 { state with Phase = SessionPhase.UrlMovedOn following }, []
             | _, Some SessionRequest.Closing, _ -> leaving following, []
-            | SessionPhase.Open _, _, _ -> leaving following, [ SessionEffect.CallCloseSession ]
+            | SessionPhase.Open session, _, _ ->
+                leaving following, [ SessionEffect.CallCloseSession session.OpenedToken ]
             | _, None, SessionFollow.Launch(launch, key) -> present launch key
-            | _ -> leaving following, [ SessionEffect.CallCloseSession ]
+            | _ -> leaving following, [ SessionEffect.CallCloseSession None ]
 
 
         /// The next state and effects for a message. Every new state is built through a constructor,
@@ -522,11 +525,12 @@ module SessionMachine =
               SessionPhase.UrlMovedOn next,
               Some(SessionRequest.PresentingLaunch _) when state.Presentation = Some(launch, key) ->
                 match result with
-                | Ok(LaunchOutcome.Opened _) -> leaving next, [ SessionEffect.CallCloseSession ]
+                | Ok(LaunchOutcome.Opened session) ->
+                    leaving next, [ SessionEffect.CallCloseSession session.OpenedToken ]
                 | _ -> follow next
-            | SessionMsg.PinAnswered(Ok(PinOutcome.Opened _)),
+            | SessionMsg.PinAnswered(Ok(PinOutcome.Opened session)),
               SessionPhase.UrlMovedOn next,
-              Some SessionRequest.SupplyingPin -> leaving next, [ SessionEffect.CallCloseSession ]
+              Some SessionRequest.SupplyingPin -> leaving next, [ SessionEffect.CallCloseSession session.OpenedToken ]
             | SessionMsg.PinAnswered _, SessionPhase.UrlMovedOn next, Some SessionRequest.SupplyingPin
             | SessionMsg.SessionClosed, SessionPhase.UrlMovedOn next, Some SessionRequest.Closing
             | SessionMsg.CloseFailed _, SessionPhase.UrlMovedOn next, Some SessionRequest.Closing -> follow next
@@ -582,7 +586,7 @@ module SessionMachine =
             // the gate says why once and the user chooses; the close tells the server to delete the
             // cookie
             | SessionMsg.Resumed(Ok(ResumeResult.Ended ending)), SessionPhase.Anonymous, Some SessionRequest.Resuming ->
-                ended ending, [ SessionEffect.CallCloseSession ]
+                ended ending, [ SessionEffect.CallCloseSession None ]
             // the launch waits on a PIN; the gate shows the form
             | SessionMsg.Resumed(Ok(ResumeResult.Enrolling pending)),
               SessionPhase.Anonymous,
@@ -625,7 +629,7 @@ module SessionMachine =
             | SessionMsg.PinAnswered _, _, _ -> state, []
 
             | SessionMsg.CloseSession, SessionPhase.Open session, None ->
-                closing session, [ SessionEffect.CallCloseSession ]
+                closing session, [ SessionEffect.CallCloseSession session.OpenedToken ]
             | SessionMsg.CloseSession, _, _ -> state, []
 
             // the patient leaves with the session. SessionClosed lands only on a close under way, so a late
@@ -644,7 +648,7 @@ module SessionMachine =
             // the server ended the session at a signature: the gate says why and the close tells the
             // server; a close under way is left to complete
             | SessionMsg.SignatureEndedSession ending, SessionPhase.Open _, None ->
-                ended ending, [ SessionEffect.CallCloseSession ]
+                ended ending, [ SessionEffect.CallCloseSession None ]
             | SessionMsg.SignatureEndedSession _, _, _ -> state, []
 
             // the new token for the next signature, the version signed as the session's head, and the
@@ -731,9 +735,20 @@ module SessionMachine =
                          [ SessionEffect.TellNewerSignedPlan head ]
                      else
                          [])
+                // a refresh or an open under way mints the token itself, so a reply to a request
+                // sent before it says nothing about another tab; the lanes do the same for a signature
+                | RecordNotice.Ended SessionEnding.InactiveTab when state.Reopening.IsSome -> state, []
+                // the session is the other tab's: the gate says so, and nothing closes it
+                | RecordNotice.Ended SessionEnding.InactiveTab -> ended SessionEnding.InactiveTab, []
                 // the server ended the session: the gate says why and the close tells the server
-                | RecordNotice.Ended ending -> ended ending, [ SessionEffect.CallCloseSession ]
+                | RecordNotice.Ended ending -> ended ending, [ SessionEffect.CallCloseSession None ]
             | SessionMsg.NoticeReceived _, _, _ -> state, []
+
+            // a close refused on the way out leaves what follows to go on; anywhere else the gate
+            // says that another tab holds the session
+            | SessionMsg.InactiveTab, SessionPhase.UrlMovedOn next, Some SessionRequest.Closing -> follow next
+            | SessionMsg.InactiveTab, SessionPhase.Open _, _ -> ended SessionEnding.InactiveTab, []
+            | SessionMsg.InactiveTab, _, _ -> state, []
 
             // a signature refused for a newer version: the version is kept for the bar, not told
             // again, since the refusal said it

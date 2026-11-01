@@ -231,14 +231,15 @@ module Adapters =
                     }
             find = fun _ -> async { return SessionLookup.NotFound }
             close = fun _ -> async { return () }
+            closeTab = fun _ _ -> async { return OnOwnToken.Done() }
             findEnrolment = fun _ -> async { return None }
             supplyPin = fun _ _ _ -> async { return SupplyPinResult.Refused PinRefusal.AttemptExpired }
             dropEnrolment = fun _ -> async { return () }
             challenge = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             submit = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             seen = fun _ _ -> async { return None }
-            openVersion = fun _ _ -> async { return None }
-            refresh = fun _ -> async { return None }
+            openVersion = fun _ _ _ -> async { return OnOwnToken.Done None }
+            refresh = fun _ _ -> async { return OnOwnToken.Done None }
         }
 
 

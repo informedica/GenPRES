@@ -232,6 +232,7 @@ type Terms =
     | ``Session Role Reader``
     // the gate after the server ended the Session
     | ``Session Gate Ended``
+    | ``Session Gate Inactive Tab``
     | ``Session Ending Superseded``
     // the Session ended at the third wrong PIN
     | ``Session Ending Pin Limit``
@@ -239,6 +240,8 @@ type Terms =
     | ``Session Ending Unreadable``
     // the Session ended after an hour, or the site's lifetime, without a request
     | ``Session Ending Idle``
+    // the session stands on the token of another tab
+    | ``Session Ending Inactive Tab``
     // the enrolment form: title, body with {0} the name and {1} the hinted
     // mail address, the three field labels, the button, and one sentence per refusal
     | ``Session Gate Enrolment``

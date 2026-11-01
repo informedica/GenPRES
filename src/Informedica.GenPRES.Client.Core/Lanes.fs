@@ -136,6 +136,14 @@ module Lanes =
             let lanes, effects, taken = step answer lanes
 
             match notice with
+            // a signature under way mints the token itself, so a reply to a request the server took
+            // after it says nothing about another tab; the next request tells what still holds
+            | Some(RecordNotice.Ended SessionEnding.InactiveTab) when
+                (match lanes.Signing |> SigningState.view with
+                 | SigningView.Submitting _ -> true
+                 | _ -> false)
+                ->
+                lanes, effects, taken
             | Some notice ->
                 let lanes, told, toldTaken = step (LanesMsg.Session(SessionMsg.NoticeReceived(from, notice))) lanes
                 lanes, effects @ told, taken @ toldTaken

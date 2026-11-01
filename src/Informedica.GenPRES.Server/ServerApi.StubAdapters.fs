@@ -656,6 +656,14 @@ module StubDatabase =
             callback = fun cb -> async { return update (Slice.LaunchState cb.State) (callbackStep cb) }
             find = fun id -> async { return overSession id (fun at -> Session.find at id) }
             close = fun id -> async { return update (Slice.Session id) (Session.close (now ()) id >> asUnit) }
+            closeTab =
+                fun id opened ->
+                    async {
+                        return
+                            update
+                                (Slice.Session id)
+                                (Session.whenOwnToken id opened (Session.close (now ()) id >> asUnit))
+                    }
             findEnrolment =
                 fun attempt ->
                     async {
@@ -716,8 +724,22 @@ module StubDatabase =
                                         )))
                     }
             seen = fun sid opened -> async { return overSession sid (fun at -> Session.seen at sid opened) }
-            openVersion = fun sid id -> async { return overSession sid (fun at -> Session.openVersion at newId sid id) }
-            refresh = fun sid -> async { return overSession sid (fun at -> Session.refresh at newId patientData sid) }
+            openVersion =
+                fun sid id opened ->
+                    async {
+                        return
+                            overSession
+                                sid
+                                (fun at -> Session.whenOwnToken sid opened (Session.openVersion at newId sid id))
+                    }
+            refresh =
+                fun sid opened ->
+                    async {
+                        return
+                            overSession
+                                sid
+                                (fun at -> Session.whenOwnToken sid opened (Session.refresh at newId patientData sid))
+                    }
         }
 
 

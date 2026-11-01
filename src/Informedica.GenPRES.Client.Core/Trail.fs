@@ -281,6 +281,7 @@ module Trail =
             | SessionEnding.WrongPinLimit -> "WrongPinLimit"
             | SessionEnding.Unreadable -> "Unreadable"
             | SessionEnding.Idle -> "Idle"
+            | SessionEnding.InactiveTab -> "InactiveTab"
 
 
         /// Why the server refused the PIN or the code.
@@ -402,6 +403,7 @@ module Trail =
             | SessionMsg.OpenSignedPlan id -> $"OpenSignedPlan %s{Part.shortId id}"
             | SessionMsg.SignedPlanOpened(from, r) -> $"SignedPlanOpened %s{Part.token from} %s{reopened r}"
             | SessionMsg.RefreshPatient -> "RefreshPatient"
+            | SessionMsg.InactiveTab -> "InactiveTab"
             | SessionMsg.PatientRefreshed(from, r) -> $"PatientRefreshed %s{Part.token from} %s{reopened r}"
             | SessionMsg.NoticeReceived(from, n) -> $"NoticeReceived %s{Part.token from} %s{Part.notice n}"
             | SessionMsg.SignatureBlocked h -> $"SignatureBlocked %s{Part.head h}"
@@ -412,7 +414,7 @@ module Trail =
             match effect with
             | SessionEffect.CallPresentLaunch _ -> "CallPresentLaunch"
             | SessionEffect.CallResume -> "CallResume"
-            | SessionEffect.CallCloseSession -> "CallCloseSession"
+            | SessionEffect.CallCloseSession _ -> "CallCloseSession"
             | SessionEffect.CallSupplyPin _ -> "CallSupplyPin"
             | SessionEffect.GoToIdentityProvider _ -> "GoToIdentityProvider"
             | SessionEffect.SetPatientData p -> $"SetPatientData %s{Part.patientOption p}"

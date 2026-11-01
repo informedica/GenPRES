@@ -111,6 +111,15 @@ module StubAdapters =
         }
 
 
+    /// The token a Session stands on now.
+    let tokenOf (port: SessionPort) sid =
+        async {
+            match! port.find sid with
+            | SessionLookup.Found opened -> return opened.OpenedToken
+            | other -> return failtest $"expected the Session, got %A{other}"
+        }
+
+
     /// A session port that opens nothing and knows nothing.
     let sessionNone: SessionPort =
         {
@@ -120,14 +129,15 @@ module StubAdapters =
                     async { return CallbackResult.Refused(LaunchRefusal.LaunchInvalid, "/#/session?refused=invalid") }
             find = fun _ -> async { return SessionLookup.NotFound }
             close = fun _ -> async { return () }
+            closeTab = fun _ _ -> async { return OnOwnToken.Done() }
             findEnrolment = fun _ -> async { return None }
             supplyPin = fun _ _ _ -> async { return SupplyPinResult.Refused PinRefusal.AttemptExpired }
             dropEnrolment = fun _ -> async { return () }
             challenge = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             submit = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             seen = fun _ _ -> async { return None }
-            openVersion = fun _ _ -> async { return None }
-            refresh = fun _ -> async { return None }
+            openVersion = fun _ _ _ -> async { return OnOwnToken.Done None }
+            refresh = fun _ _ -> async { return OnOwnToken.Done None }
         }
 
 
@@ -2361,9 +2371,10 @@ module SessionStubTests =
                         |> Expect.isSome "newer version"
                     }
 
-                    test "a token that is not the Session's, or none: nothing to say, still touched" {
+                    test "a token that is not the Session's is told so, none has nothing to say, still touched" {
                         let state, notice = movedOn |> Machine.seen t1 "s-1" (own "s-2")
-                        notice |> Expect.isNone "foreign token"
+                        notice
+                        |> Expect.equal "foreign token" (Some(RecordNotice.Ended SessionEnding.InactiveTab))
                         state.Sessions["s-1"].Seen |> Expect.equal "seen" t1
 
                         movedOn |> Machine.seen t1 "s-1" None |> snd |> Expect.isNone "no token"
@@ -4144,7 +4155,7 @@ module SessionStubTests =
 
                     // the client acknowledges with a close: cookie deleted, ending dropped
                     let! closed =
-                        SessionCommand.processCmd env firstBrowser (noEnrolment ()) SessionCommand.CloseSession
+                        SessionCommand.processCmd env firstBrowser (noEnrolment ()) (SessionCommand.CloseSession None)
 
                     closed |> Expect.equal "closed" SessionResponse.SessionClosed
                     heldFirst.Value |> Expect.isNone "cookie deleted"
@@ -4178,8 +4189,10 @@ module SessionStubTests =
                             "prescriber"
 
                     let id = held.Value.Value
+                    let! token = tokenOf env.session id
 
-                    let! response = SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.CloseSession
+                    let! response =
+                        SessionCommand.processCmd env cookie (noEnrolment ()) (SessionCommand.CloseSession token)
 
                     response |> Expect.equal "closed" SessionResponse.SessionClosed
                     held.Value |> Expect.isNone "cookie deleted"
@@ -4191,7 +4204,8 @@ module SessionStubTests =
                     let _, env = envWithStub newStore ()
                     let cookie, held = memoryCookie None
 
-                    let! response = SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.CloseSession
+                    let! response =
+                        SessionCommand.processCmd env cookie (noEnrolment ()) (SessionCommand.CloseSession None)
 
                     response |> Expect.equal "closed" SessionResponse.SessionClosed
                     held.Value |> Expect.isNone "still none"
@@ -4204,14 +4218,14 @@ module SessionStubTests =
                         { env with
                             session =
                                 { env.session with
-                                    close = fun _ -> async { return raise (InvalidOperationException "boom") }
+                                    closeTab = fun _ _ -> async { return raise (InvalidOperationException "boom") }
                                 }
                         }
 
                     let cookie, held = memoryCookie (Some "session-1")
 
                     let! result =
-                        SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.CloseSession
+                        SessionCommand.processCmd env cookie (noEnrolment ()) (SessionCommand.CloseSession None)
                         |> Async.Catch
 
                     match result with
@@ -4372,7 +4386,7 @@ module SessionStubTests =
                         openVia directory env cookie stateCookie enrolment (mintFor "n-1" "stub-patient") keyA "no-pin"
 
                     let held = attempt.Value
-                    let! closed = SessionCommand.processCmd env cookie enrolment SessionCommand.CloseSession
+                    let! closed = SessionCommand.processCmd env cookie enrolment (SessionCommand.CloseSession None)
                     closed |> Expect.equal "closed" SessionResponse.SessionClosed
                     attempt.Value |> Expect.isNone "cookie deleted"
                     let stale, _, _ = memoryEnrolmentCookie held
@@ -4891,7 +4905,7 @@ module SessionStubTests =
                     let stateCookie, _ = memoryStateCookie None
                     let api = CompositionRoot.compose (fun _ -> settings) env cookie stateCookie (noEnrolment ())
 
-                    let! before = api.processSession (SessionCommand.OpenVersion "plan-1")
+                    let! before = api.processSession (SessionCommand.OpenVersion("plan-1", None))
                     before |> Expect.equal "no session" (SessionResponse.SessionResp None)
 
                     let! _ =
@@ -4906,7 +4920,7 @@ module SessionStubTests =
                             "prescriber"
 
                     let! opened = sessionOf env cookie
-                    let! answer = api.processSession (SessionCommand.OpenVersion "plan-1")
+                    let! answer = api.processSession (SessionCommand.OpenVersion("plan-1", opened.OpenedToken))
                     answer |> Expect.equal "as it is" (SessionResponse.SessionResp(Some opened))
                 }
             ]

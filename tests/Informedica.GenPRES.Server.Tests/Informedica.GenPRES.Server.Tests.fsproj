@@ -27,6 +27,7 @@
     <Compile Include="SessionStoreTests.fs" />
     <Compile Include="SessionWritesTests.fs" />
     <Compile Include="AgeOnRequestTests.fs" />
+    <Compile Include="InactiveTabTests.fs" />
     <Compile Include="PatientCommandTests.fs" />
     <Compile Include="IdleSessionTests.fs" />
     <Compile Include="HeldContextTests.fs" />

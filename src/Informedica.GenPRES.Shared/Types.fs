@@ -766,6 +766,9 @@ module Types =
         // no request for the idle lifetime: a Session left behind, whose data and age a
         // relaunch reads again
         | Idle
+        // told to a tab only, never stored: the Session stands on another token, so another tab
+        // took it over, and it stays open for that tab; this is no ending of the Session itself
+        | InactiveTab
 
 
     /// What the client learns when its launch is waiting on a PIN: whom to greet and
