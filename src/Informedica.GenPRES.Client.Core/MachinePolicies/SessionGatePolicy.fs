@@ -111,7 +111,7 @@ module SessionGatePolicy =
         | Terms.``Session Open Last Signed`` -> "Open the last signed order plan"
         | Terms.``Session Version Opened`` -> "Version {0} by {1} is now open."
         | Terms.``Session Refresh Failed`` ->
-            "The patient data could not be read from the EHR again. Nothing changed; the orders are as they were."
+            "The patient data could not be read from the EHR again. The patient data are as they were."
         | _ -> $"{term}"
 
 

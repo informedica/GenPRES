@@ -849,6 +849,70 @@ let changeTests =
         ]
 
 
+/// The new and changed orders dropped from the sign dialog, the patient read again after.
+[<Tests>]
+let dropChangesTests =
+    // the version holds one context, the plan a second one
+    let unsigned =
+        OrderPlanState.changing patient one None (OrderPlanCommand.FilterRows(one.Filtered, one)) "r-0"
+        |> transition (OrderPlanMsg.Answered("r-0", Ok two))
+        |> fst
+
+    let ids = unsigned |> OrderPlanState.changed
+    let dropping, sent = unsigned |> transition (OrderPlanMsg.DropChanges "r-1")
+
+    testList
+        "the changes dropped"
+        [
+            test "only the new and changed orders are removed" {
+                sent
+                |> Expect.equal
+                    "the removal"
+                    [
+                        OrderPlanEffect.CallPlan(OrderPlanCommand.RemoveOrderContexts(two, ids), "r-1")
+                    ]
+            }
+
+            test "the patient is read again only once the removal has landed" {
+                sent |> List.contains OrderPlanEffect.ChangesDropped |> Expect.isFalse "not yet"
+
+                dropping
+                |> transition (OrderPlanMsg.Answered("r-1", Ok one))
+                |> snd
+                |> List.contains OrderPlanEffect.ChangesDropped
+                |> Expect.isTrue "after the answer"
+            }
+
+            test "a removal that failed reads nothing again, and is told" {
+                dropping
+                |> transition (OrderPlanMsg.Answered("r-1", Error [| "no" |]))
+                |> snd
+                |> Expect.equal "the error alone" [ OrderPlanEffect.TellError [| "no" |] ]
+            }
+
+            test "another change after the drop reads nothing again" {
+                let changing, _ =
+                    dropping
+                    |> transition (OrderPlanMsg.Answered("r-1", Ok one))
+                    |> fst
+                    |> transition (pageMsg (OrderPlanCommand.FilterRows(one.Filtered, one), "r-2"))
+
+                changing
+                |> transition (OrderPlanMsg.Answered("r-2", Ok one))
+                |> snd
+                |> List.contains OrderPlanEffect.ChangesDropped
+                |> Expect.isFalse "once only"
+            }
+
+            test "with a request out or no patient the drop leaves the state" {
+                for state in [ dropping; OrderPlanState.noPatient ] do
+                    state
+                    |> transition (OrderPlanMsg.DropChanges "r-9")
+                    |> Expect.equal "unchanged" (state, [])
+            }
+        ]
+
+
 /// With a request out nothing but its answer and the patient cleared reaches the plan: its pages
 /// are disabled, and whatever comes anyway falls to the closing arm.
 [<Tests>]

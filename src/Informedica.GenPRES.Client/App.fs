@@ -666,7 +666,9 @@ type private Projection(state: State, dispatch: Msg -> unit) =
 
         member _.Held = Client.held state
 
-        member _.Accept() = Msg.AcceptDataChange |> dispatch
+        member _.TakeEhrData() = Msg.TakeEhrData |> dispatch
+
+        member _.KeepPlanData() = Messages.signing SigningMsg.KeepPlanData |> dispatch
 
         // one key per confirmation, so the commit takes effect once; the machine keeps it for a retry
         member _.Confirm pin =

@@ -263,8 +263,11 @@ type Terms =
     | ``Signing Proceed``
     | ``Signing Signed``
     | ``Signing Data Changed``
-    // the data changed while the patient context is held: signed over the data as it was
-    | ``Signing Data Changed Held``
+    // the EHR's data differ and the plan has new or changed orders
+    | ``Signing Data Changed Unsigned``
+    | ``Signing Take Ehr Data``
+    | ``Signing Keep Plan Data``
+    | ``Signing Notice Ehr``
     | ``Signing Data Unverified``
     | ``Signing Refusal No Session``
     | ``Signing Refusal No Patient``

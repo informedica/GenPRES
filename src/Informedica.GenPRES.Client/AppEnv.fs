@@ -161,10 +161,11 @@ type ISigning =
     abstract Differences: (OrderContext * HeldContextPolicy.Difference)[]
     // ask a challenge over the plan as shown
     abstract Sign: OrderPlan -> unit
-    // whether the patient context is held: a notice accepted then signs over the data as it was
+    // whether the patient context is held: taking the EHR's data then drops the unsigned orders
     abstract Held: bool
-    // the data notice accepted
-    abstract Accept: unit -> unit
+    // the data notice answered: the EHR's data taken, or the plan's kept
+    abstract TakeEhrData: unit -> unit
+    abstract KeepPlanData: unit -> unit
     // the PIN; the idempotency key is minted here, once per confirmation
     abstract Confirm: string -> unit
     abstract Cancel: unit -> unit

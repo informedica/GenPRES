@@ -181,6 +181,10 @@ module Lanes =
         | LanesEffect.Signing(SigningEffect.EndSession ending) ->
             [ LanesMsg.Session(SessionMsg.SignatureEndedSession ending) ]
         | LanesEffect.Signing(SigningEffect.TellSigned _) -> [ LanesMsg.Plan OrderPlanMsg.Signed ]
+        // the plan drops the orders first; the Session reads the patient again once that has landed
+        | LanesEffect.Signing SigningEffect.DropChangesAndRefresh ->
+            [ LanesMsg.Plan(OrderPlanMsg.DropChanges(newId ())) ]
+        | LanesEffect.Plan OrderPlanEffect.ChangesDropped -> [ LanesMsg.Session SessionMsg.RefreshPatient ]
         | LanesEffect.Signing(SigningEffect.TellRefused(SigningRefusal.Blocked head)) ->
             [ LanesMsg.Session(SessionMsg.SignatureBlocked head) ]
         // the Session's patient data goes to the patient machine, with the estimates renewed as for
