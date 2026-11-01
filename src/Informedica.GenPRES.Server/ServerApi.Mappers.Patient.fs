@@ -273,14 +273,6 @@ module Patient =
     let reading (dto: Patient option) = dto |> Option.filter (Patient.validate >> Result.isOk)
 
 
-    /// The draft with the Session's age in place of the one the client sent, everything else
-    /// as sent; as sent when the Session holds none.
-    let aged (age: Age option) (draft: Patient) : Patient =
-        match age with
-        | Some age -> { draft with Age = Some age }
-        | None -> draft
-
-
     /// The draft with the estimates it lacks filled in from the normal values, per measure: a
     /// weight or a height that is neither measured nor estimated gets the estimate; a measured
     /// value and an estimate already there are kept, so that the calculation uses the estimate

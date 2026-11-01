@@ -681,7 +681,7 @@ module Patient =
     module Conversions = Informedica.GenCore.Lib.Conversions
     module Limit = Informedica.GenCore.Lib.Ranges.Limit
     module CorePatient = Informedica.GenCore.Lib.Patients.Patient
-    module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
+    module CorePatientAge = Informedica.GenCore.Lib.Patients.PatientAge
     module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
     module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
     module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
@@ -786,10 +786,7 @@ module Patient =
             Department = core.Department |> CoreDepartment.name
             Diagnoses = core.Diagnoses
             Gender = core.Gender |> gender
-            Age =
-                core
-                |> CorePatient.SetGet.getAgeValue now
-                |> Option.map (CoreAgeValue.getAgeInDays >> days)
+            Age = core.Age |> CorePatientAge.ageInDays now
             Weight = weight
             Height = height
             WeightMeasured = weight.IsSome

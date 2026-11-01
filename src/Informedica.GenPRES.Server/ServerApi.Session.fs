@@ -387,6 +387,9 @@ module Mails =
 /// are parameters. StubDatabase.makeSessionPort runs it over an in-memory store.
 module Session =
 
+    module CorePatientAge = Informedica.GenCore.Lib.Patients.PatientAge
+
+
     /// The refusal words of #/session?refused=<word>; the client's parseRefusal reads them.
     let refusalWord refusal =
         match refusal with
@@ -696,11 +699,22 @@ module Session =
                 [ RecordLaunch record ]
 
 
+    /// The patient a head was signed on at the age its birthdate gives at a date, with the
+    /// post-menstrual age that follows from that age. Without an identity there is no birthdate,
+    /// and the patient stays as signed.
+    let atBirthDate now (whom: Informedica.GenCore.Lib.Patients.PatientIdentity option) (pat: GenForm.Patient) =
+        match whom with
+        | None -> pat
+        | Some identity ->
+            { pat with Age = identity.BirthDate |> CorePatientAge.birthDate |> CorePatientAge.ageInDays now }
+            |> Informedica.GenForm.Lib.Patient.calcPMAge
+
+
     /// The patient data a Session opens on: the EHR's data, the source of truth, projected at
     /// the date of the open, when there is any (the adapter answers none for a reading that is
     /// no patient); without any, the patient data the head of the record was signed on, the
-    /// last seen, when the head can be read; from nothing, none, so that the User enters it
-    /// and a data outage does not block prescribing.
+    /// last seen, at the age of that date, when the head can be read; from nothing, none, so
+    /// that the User enters it and a data outage does not block prescribing.
     let sessionPatient
         (now: DateTime)
         (patientData: PatientDataPort)
@@ -714,7 +728,7 @@ module Session =
             head
             |> Option.bind (fun h ->
                 match h with
-                | StoredVersion.Readable(v, _) -> Some v.Plan.Patient
+                | StoredVersion.Readable(v, whom) -> Some(v.Plan.Patient |> atBirthDate now whom)
                 | StoredVersion.Unreadable _ -> None
             )
         )
@@ -1228,19 +1242,6 @@ module Session =
         match headOf patientId state with
         | Some(StoredVersion.Readable(v, _)) -> Some v.Plan
         | _ -> None
-
-
-    /// The age a Session holds for an identified patient, as the contract carries it: the age
-    /// in days of the patient it opened on, split as the contract splits a number of days.
-    /// None without a Session, in a Session whose EHR data names no patient, or when its
-    /// patient has no age. No clock: the age is the one the Session opened on, up to and
-    /// including the next sign.
-    let age (sid: string) (state: State) : Age option =
-        state.Sessions
-        |> Map.tryFind sid
-        |> Option.filter (fun r -> r.Opened |> OpenedSession.identity |> Option.isSome)
-        |> Option.bind _.Opened.Patient
-        |> Option.bind (Informedica.GenForm.Lib.Patient.Dto.toDto >> ServerApi.Patient.toModel >> _.Age)
 
 
     /// For every computing request that names a Session: no Session under this id and an

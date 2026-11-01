@@ -264,8 +264,8 @@ type OpenedSession =
         PatientId: string option
         /// the EHR data as read at the launch; none for no-data and for a launch without EHR
         EhrData: GenForm.EhrPatientData option
-        /// the data shown for the patient: the EHR data projected at the open, else the head's,
-        /// else none
+        /// the data shown for the patient: the EHR data projected at the open, else the head's
+        /// at the age of the open, else none
         Patient: GenForm.Patient option
         /// what the user measured in the Session, held beside the EHR data as read
         Measured: Measurements
@@ -399,10 +399,6 @@ type SessionPort =
         // whether the record moved on or the Session ended; what a patient change measures is
         // recorded
         seen: string -> OpenedToken option -> Patient option -> Async<RecordNotice option>
-        // the age the Session the cookie names holds for an identified patient, asked first by
-        // every signing request, which it marks seen; a store that fails answers StoreFailed,
-        // as the challenge and the commit do
-        age: string -> Async<Result<Age option, SigningRefusal>>
         // the version named becomes what the Session the cookie names opened with
         openVersion: string -> string -> Async<OpenedSession option>
         // the EHR read again for the Session the cookie names and the head reopened on it
