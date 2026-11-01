@@ -712,18 +712,10 @@ module StubDatabase =
                                         now
                                         sid
                                         (fun at ->
-                                            Session.commit
-                                                at
-                                                newId
-                                                digest
-                                                patientData
-                                                registry.standing
-                                                mail.send
-                                                sid
-                                                signature
+                                            Session.commit at newId digest registry.standing mail.send sid signature
                                         )))
                     }
-            seen = fun sid opened draft -> async { return overSession sid (fun at -> Session.seen at sid opened draft) }
+            seen = fun sid opened -> async { return overSession sid (fun at -> Session.seen at sid opened) }
             openVersion = fun sid id -> async { return overSession sid (fun at -> Session.openVersion at newId sid id) }
             refresh = fun sid -> async { return overSession sid (fun at -> Session.refresh at newId patientData sid) }
         }

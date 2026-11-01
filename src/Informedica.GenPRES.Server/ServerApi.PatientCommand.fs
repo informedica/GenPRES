@@ -8,12 +8,6 @@ module PatientCommand =
     open Informedica.GenPRES.Shared.Api
 
 
-    /// The patient the request edits: the change's own.
-    let patientOf (cmd: PatientCommand) =
-        match cmd with
-        | PatientCommand.ChangePatient pat -> Some pat
-
-
     /// A patient that lacks a weight or a height is refused while the server loads, since its
     /// estimate needs the normal values; any other patient is answered.
     let gate (cmd: PatientCommand) =

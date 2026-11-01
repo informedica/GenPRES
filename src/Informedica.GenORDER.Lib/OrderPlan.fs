@@ -6,6 +6,7 @@ namespace Informedica.GenOrder.Lib
 open System
 open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
+open FsToolkit.ErrorHandling
 
 
 module PlanContext =
@@ -497,6 +498,7 @@ module OrderPlanVersion =
                 SignedAt: DateTime
                 Plan: OrderPlan.Dto.Dto
                 Verified: bool
+                EhrData: EhrPatientData.Dto.Dto option
             }
 
 
@@ -510,6 +512,7 @@ module OrderPlanVersion =
                 SignedAt = v.SignedAt
                 Plan = v.Plan |> OrderPlan.Dto.toDto
                 Verified = v.Verified
+                EhrData = v.EhrData |> Option.map EhrPatientData.Dto.toDto
             }
 
 
@@ -521,8 +524,13 @@ module OrderPlanVersion =
                     let signer = Nested.required "SignedBy" dto.SignedBy Signer.Dto.fromDto
                     let plan = Nested.required "Plan" dto.Plan OrderPlan.Dto.fromDto
 
-                    match signer, plan with
-                    | Ok signer, Ok plan ->
+                    let ehr =
+                        dto.EhrData
+                        |> Option.traverseResult EhrPatientData.Dto.fromDto
+                        |> Result.mapError (List.map DtoError.EhrData)
+
+                    match signer, plan, ehr with
+                    | Ok signer, Ok plan, Ok ehr ->
                         Ok
                             {
                                 Id = dto.Id |> DtoResult.orBlank
@@ -533,6 +541,7 @@ module OrderPlanVersion =
                                 SignedAt = dto.SignedAt
                                 Plan = plan
                                 Verified = dto.Verified
+                                EhrData = ehr
                             }
                     | _ ->
                         let errorsOf r =
@@ -540,5 +549,5 @@ module OrderPlanVersion =
                             | Error es -> es
                             | Ok _ -> []
 
-                        Error(errorsOf signer @ errorsOf plan)
+                        Error(errorsOf signer @ errorsOf plan @ errorsOf ehr)
                 )

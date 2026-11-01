@@ -60,9 +60,9 @@ needs rebuilding.
    read, the notice shows the EHR's data next to the clinician's. The clinician takes the EHR's
    data or keeps the plan's; either answer returns the notice token and asks the challenge again.
    The EHR's data has no age: the age is the birthdate's at a date, and the date is the session's
-   (rule 4). So the notice's data carries no age and the dialog shows none; taking the EHR's data
-   replaces every other field, the gestational age included, and the client keeps the age it
-   holds. The mark as an adult is the user's alone, since the EHR never sets it: it stays, and the
+   (rule 4). So the dialog shows no age and the client ignores the one the notice's data carries;
+   taking the EHR's data replaces every other field, the gestational age included, and the client
+   keeps the age it holds. The mark as an adult is the user's alone, since the EHR never sets it: it stays, and the
    dialog does not show it. With unsigned orders on the plan, taking the EHR's data ends the
    signature with no challenge: the new and changed orders go and the Session reads the EHR again,
    as a refresh does. A notice that could not be verified has no data to take, so it can only be
@@ -253,8 +253,8 @@ first.
    the notice's data is then the merged one.
 3. **Measurements go, server.** `seen` without a draft, `Compute.bound` without `patientOf`,
    `Opened.Measured` and the `Measurements` module and type deleted, the table and its loader,
-   writer and audit kind deleted. The notice's data is the fresh read projected at the open with
-   the age left out, and the client keeps its age when it takes that data (rule 5); the sign
+   writer and audit kind deleted. The notice's data is the fresh read projected at the open, and
+   the client keeps its age when it takes that data (rule 5); the sign
    answers the signed plan's patient at the sign's age; the refresh answers the projection at the
    refresh. The version gains the EHR data of its challenge (rule 9): a field on
    `OrderPlanVersion`, its Dto and the plan JSON structure version raised. `MeasurementsTests`
@@ -271,8 +271,9 @@ first.
    the act that writes it, the `act` column holds it, and the resume reads the newest row's act.
    The audit reads the same act instead of telling a version open by the absence of other writes.
    The two patient columns of `session_opened_with` dropped; the patient of a remembered
-   submission answer rebuilt from the version. A refactor on its own, no behaviour the earlier
-   steps have not set.
+   submission answer rebuilt from the version. `Challenge.Reading` and its column go too: only
+   whether it is there is read, which `Challenge.Ehr` says, so `Verified` is `Challenge.Ehr.IsSome`.
+   A refactor on its own, no behaviour the earlier steps have not set.
 6. **Documents.** Plan 1430 amended: rule 3 says the old tab is told and refused, not that
    measurements and age are checked; rule 15 adds the resume and the refresh as moments the age is
    taken; the data notice as a choice; "held" written as unsigned orders on the plan. Plan 1075

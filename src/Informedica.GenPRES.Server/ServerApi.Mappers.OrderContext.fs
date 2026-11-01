@@ -495,6 +495,7 @@ module OrderContextMapper =
         | DtoError.UnknownCategory s -> $"Onbekende categorie: %s{s}"
         | DtoError.Missing f -> $"Ontbreekt: %s{f}"
         | DtoError.Unreadable m -> $"Onleesbare tekst: %s{m}"
+        | DtoError.EhrData m -> $"Onleesbare EPD-gegevens: %s{m}"
         | DtoError.NotANumber(p, s) -> $"Geen getal in %s{p}: %s{s}"
         | DtoError.UnknownUnit(p, u) -> $"Onbekende eenheid in %s{p}: %s{u}"
         | DtoError.WrongUnit(p, r) -> $"Verkeerde eenheid in %s{p}: %s{r}"

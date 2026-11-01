@@ -34,7 +34,7 @@ module Machine =
 
     let touch now sid state = ServerApi.Session.touch now sid state |> fst
 
-    let seen now sid opened state = ServerApi.Session.seen now sid opened None state |> answered
+    let seen now sid opened state = ServerApi.Session.seen now sid opened state |> answered
 
     let openVersion now newId sid id state = ServerApi.Session.openVersion now newId sid id state |> answered
 
@@ -125,7 +125,7 @@ module StubAdapters =
             dropEnrolment = fun _ -> async { return () }
             challenge = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             submit = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
-            seen = fun _ _ _ -> async { return None }
+            seen = fun _ _ -> async { return None }
             openVersion = fun _ _ -> async { return None }
             refresh = fun _ -> async { return None }
         }
@@ -309,7 +309,6 @@ let requireLoadedTests =
             noCookie
             Api.OrderViewCommand.toString
             (fun _ -> Gate.RequiresLoaded)
-            (fun _ -> None)
             (OrderContextCommand.processViewCmd env)
             {
                 Opened = None
@@ -583,7 +582,6 @@ module SessionStubTests =
                                 p |> Option.map (ehrOf pid)
                         )
                     Patient = patient |> Option.bind snd |> Option.map parsePatient
-                    Measured = Measurements.none
                     OpenedToken = Some(OpenedToken $"opened-{sid}")
                     KeyThumbprint = Some "t"
                     Head = None
@@ -3100,9 +3098,7 @@ module SessionStubTests =
             let submitAt now ids send state sid (s: Signature) =
                 StubDatabase.submitWith
                     StubDatabase.persistNothing
-                    (fun st ->
-                        Session.commit now ids StubDatabase.digest StubAdapters.patientData registry send sid s st
-                    )
+                    (fun st -> Session.commit now ids StubDatabase.digest registry send sid s st)
                     state
 
             let submit state sid s = submitAt t0 (counter "id") ignore state sid s
@@ -3149,8 +3145,14 @@ module SessionStubTests =
 
                             state.Sessions["s-1"].Opened.Patient
                             |> Expect.equal
-                                "verified: the Session's patient is the reading, unchanged"
-                                (Some(parsePatient stubPatient))
+                                "the Session's patient is the one signed, at the age of the sign"
+                                (Some(
+                                    version.Plan.Patient
+                                    |> Session.atBirthDate
+                                        t0
+                                        (StubPatientData.data "stub-patient"
+                                         |> Informedica.GenForm.Lib.EhrPatientData.identity)
+                                ))
 
                             state.Answered[("s-1", "k-1")] |> fst |> Expect.equal "remembered" answer
                         | other -> failtest $"expected Submitted, got {other}"
@@ -3377,7 +3379,7 @@ module SessionStubTests =
                         | other -> failtest $"expected Submitted, got {other}"
                     }
 
-                    test "a changed reading accepted at the notice: the Session's patient is that reading" {
+                    test "a changed reading taken at the notice: the Session's patient is the one signed" {
                         let sid, over = challenged "s-1" t0
 
                         let ready =
@@ -3404,7 +3406,8 @@ module SessionStubTests =
                             version.Verified |> Expect.isTrue "the reading"
 
                             state.Sessions["s-1"].Opened.Patient
-                            |> Expect.equal "the newer reading, not the one opened on" (Some(parsePatient otherData))
+                            |> Option.bind _.Department
+                            |> Expect.equal "the data signed, not the data opened on" otherData.Department
                         | other -> failtest $"expected Submitted, got {other}"
                     }
 
@@ -4628,6 +4631,12 @@ module SessionStubTests =
                     let wrong key =
                         SigningCommand.Submit
                             { submission "0000" key with
+                                Plan =
+                                    OrderPlan.create
+                                        (opened.PatientContext
+                                         |> Option.bind _.Patient
+                                         |> Option.defaultValue StubPatientData.patient)
+                                        [||]
                                 Opened = opened.OpenedToken.Value
                                 Challenge = challenge
                             }
@@ -5211,7 +5220,7 @@ module BoundTests =
 
         { env with
             requireLoaded = (fun () -> if loaded then None else Some [| "not loaded" |])
-            session = { env.session with seen = fun _ _ _ -> async { return told } }
+            session = { env.session with seen = fun _ _ -> async { return told } }
         }
 
     let run env cookie handler cmd =
@@ -5220,7 +5229,6 @@ module BoundTests =
             cookie
             OrderViewCommand.toString
             (fun _ -> Gate.RequiresLoaded)
-            (fun _ -> None)
             handler
             {
                 Opened = None
@@ -5245,7 +5253,6 @@ module BoundTests =
             cookie
             InteractionCommand.toString
             InteractionCommand.gate
-            (fun _ -> None)
             (InteractionCommand.processCmd env)
             {
                 Opened = None

@@ -247,7 +247,6 @@ let parts =
                     "session_seen"
                     "session_ending"
                     "session_acknowledged"
-                    "measurement"
                     "audit_entry"
                 ]
             Stubs = [ ("session", [ "session_id" ]) ]

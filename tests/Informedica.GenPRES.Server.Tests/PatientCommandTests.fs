@@ -11,39 +11,23 @@ open ServerApi
 open Informedica.GenPRES.Server.Tests.AgeOnRequestTests
 
 
-/// The answer to a patient data update in the Session named, with the normal values given, and the
-/// patients the Session was told.
+/// The answer to a patient data update in the Session named, with the normal values given.
 let changed normalValues (sid: string option) (pat: Patient) =
-    let told = ResizeArray()
-    let port = portOver (ResizeArray())
+    let env = { envOver (portOver (ResizeArray())) with normalValues = normalValues }
 
-    let port =
-        { port with
-            seen =
-                fun sid opened draft ->
-                    told.Add draft
-                    port.seen sid opened draft
+    Compute.bound
+        env
+        (cookieOf sid)
+        PatientCommand.toString
+        PatientCommand.gate
+        (PatientCommand.processCmd env)
+        {
+            Opened = sid |> Option.map (fun sid -> OpenedToken $"opened-{sid}")
+            Command = PatientCommand.ChangePatient pat
         }
-
-    let env = { envOver port with normalValues = normalValues }
-
-    let answer =
-        Compute.bound
-            env
-            (cookieOf sid)
-            PatientCommand.toString
-            PatientCommand.gate
-            PatientCommand.patientOf
-            (PatientCommand.processCmd env)
-            {
-                Opened = sid |> Option.map (fun sid -> OpenedToken $"opened-{sid}")
-                Command = PatientCommand.ChangePatient pat
-            }
-        |> Async.RunSynchronously
-        |> Result.map _.Response
-        |> Result.defaultWith (fun errs -> failtest $"%A{errs}")
-
-    answer, told |> List.ofSeq
+    |> Async.RunSynchronously
+    |> Result.map _.Response
+    |> Result.defaultWith (fun errs -> failtest $"%A{errs}")
 
 
 let withWeight grams (pat: Patient) = { pat with Weight = { pat.Weight with Measured = Some grams } }
@@ -55,26 +39,25 @@ let tests =
         "the patient command"
         [
             test "an identified patient's measured weight is kept" {
-                (changed loaded (Some identified) sent |> fst).Weight.Measured
+                (changed loaded (Some identified) sent).Weight.Measured
                 |> Expect.equal "as sent" sent.Weight.Measured
             }
 
             test "the age answered is the same whatever Session the cookie names" {
                 [ None; Some identified; Some anonymous; Some entered; Some "nobody" ]
-                |> List.map (fun sid -> (changed loaded sid sent |> fst).Age)
+                |> List.map (fun sid -> (changed loaded sid sent).Age)
                 |> Expect.allEqual "the age sent" sent.Age
             }
 
             test "the estimates follow the age the patient comes with" {
                 for sid in [ None; Some identified; Some anonymous; Some entered ] do
                     changed loaded sid (ageOnly 5)
-                    |> fst
                     |> weightAndHeight
                     |> Expect.equal $"18 kg and 110 cm, %A{sid}" (Some 18000<gram>, Some 110<cm>)
             }
 
             test "a measured weight is kept, the missing height estimated" {
-                let pat, _ = changed loaded None (ageOnly 10 |> withWeight 28000<gram>)
+                let pat = changed loaded None (ageOnly 10 |> withWeight 28000<gram>)
 
                 (pat.Weight.Measured, pat.Weight.Estimated, pat.Height.Estimated)
                 |> Expect.equal
@@ -88,11 +71,5 @@ let tests =
                 |> Expect.equal
                     "loaded for the two that lack a measure, open for the measured one"
                     [ Gate.RequiresLoaded; Gate.RequiresLoaded; Gate.Open ]
-            }
-
-            test "the Session is told the patient as sent" {
-                let _, told = changed loaded (Some identified) sent
-
-                told |> Expect.equal "the patient the client sent, once" [ Some sent ]
             }
         ]

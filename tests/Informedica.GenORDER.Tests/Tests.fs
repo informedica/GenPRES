@@ -1235,6 +1235,7 @@ module TypeTests =
                             SignedAt = System.DateTime(2026, 9, 16, 12, 0, 0)
                             Plan = plan
                             Verified = true
+                            EhrData = None
                         }
 
                     version.Plan |> Expect.equal "the plan as signed" plan
@@ -4310,6 +4311,7 @@ module OrderPlanDtoTests =
                 SignedAt = DateTime(2026, 9, 16, 12, 0, 0, DateTimeKind.Utc)
                 Plan = plan
                 Verified = true
+                EhrData = None
             }
 
 

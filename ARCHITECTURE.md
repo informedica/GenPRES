@@ -302,18 +302,9 @@ erDiagram
         text outcome
         text detail
     }
-    measurement {
-        int id PK
-        text session_id FK
-        text kind
-        int value
-        int days
-        int at
-    }
     session ||--o{ session_seen : "FK session_id"
     session ||--o| session_ending : "FK session_id"
     session ||--o| session_acknowledged : "FK session_id"
-    session ||--o{ measurement : "FK session_id"
     session |o--o{ audit_entry : "session_id (logical)"
 ```
 

@@ -302,7 +302,6 @@ let processCmdGuardTests =
                         noCookie
                         ServerApi.FormularyCommand.toString
                         (fun _ -> ServerApi.Gate.RequiresLoaded)
-                        (fun _ -> None)
                         (ServerApi.FormularyCommand.processCmd env)
                         {
                             Opened = None
@@ -327,7 +326,6 @@ let processCmdGuardTests =
                         noCookie
                         ServerApi.ParenteraliaCommand.toString
                         (fun _ -> ServerApi.Gate.RequiresLoaded)
-                        (fun _ -> None)
                         (ServerApi.ParenteraliaCommand.processCmd env)
                         {
                             Opened = None

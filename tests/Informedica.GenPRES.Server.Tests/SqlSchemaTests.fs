@@ -58,11 +58,11 @@ let tests =
             test "a fresh file gets the embedded migrations, in order, and their tables" {
                 withDb (fun cs ->
                     SqlSchema.apply cs
-                    |> Expect.equal "every migration, in order" [ 1; 2; 3; 4; 5; 6; 7; 8; 9; 10 ]
+                    |> Expect.equal "every migration, in order" [ 1; 2; 3; 4; 5; 6; 7; 9 ]
 
                     scalar cs "select group_concat(migration) from schema_version"
                     |> string
-                    |> Expect.equal "schema_version records them" "1,2,3,4,5,6,7,8,9,10"
+                    |> Expect.equal "schema_version records them" "1,2,3,4,5,6,7,9"
 
                     // named one by one, so that a migration missing from the assembly's
                     // resources fails here instead of at the first request that needs its rows
@@ -94,7 +94,6 @@ let tests =
                             "challenge_spent"
                             "submission_answer"
                             "audit_entry"
-                            "measurement"
                         ] do
                         tables |> Expect.contains $"the table %s{table}" table
                 )
@@ -150,45 +149,6 @@ let tests =
 
                     cmd.ExecuteNonQuery()
                     |> Expect.equal "a credential without a PIN is a credential" 1
-                )
-            }
-
-            test "migration 10 keeps the measurement rows written before it" {
-                withDb (fun cs ->
-                    let migrations = typeof<SqlSchema.Migration>.Assembly |> SqlSchema.embedded
-
-                    migrations
-                    |> List.filter (fun m -> m.Number < 10)
-                    |> SqlSchema.applyAll cs
-                    |> Expect.equal "1 to 9" [ 1..9 ]
-
-                    use conn = new SqliteConnection(cs)
-                    conn.Open()
-
-                    for sql in
-                        [
-                            "insert into session (session_id, login, user_id, user_display, user_role, patient_id, key_thumbprint, opened_at) values ('s-1', 'p', 'u', 'U', 'prescriber', 'p-1', 't', 0)"
-                            "insert into measurement (session_id, kind, value, days, at) values ('s-1', 'weight', 33000, null, 1)"
-                            "insert into measurement (session_id, kind, value, days, at) values ('s-1', 'gestage', 36, 3, 2)"
-                        ] do
-                        use cmd = SqlSessions.command conn null sql []
-                        cmd.ExecuteNonQuery() |> ignore
-
-                    migrations |> SqlSchema.applyAll cs |> Expect.equal "10" [ 10 ]
-
-                    SqlSessions.loadMeasurements conn "s-1"
-                    |> Result.map (fun m ->
-                        m.Weight |> Option.bind _.Value,
-                        m.GestAge |> Option.bind _.Value |> Option.map _.Days,
-                        m.MarkedAdult
-                    )
-                    |> Expect.equal
-                        "as before, no mark"
-                        (Ok(
-                            Some(Informedica.GenPRES.Shared.Measures.toGram 33000),
-                            Some(Informedica.GenPRES.Shared.Measures.toDay 3),
-                            None
-                        ))
                 )
             }
 
