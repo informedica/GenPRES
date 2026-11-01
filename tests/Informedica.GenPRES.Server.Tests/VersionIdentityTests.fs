@@ -174,13 +174,79 @@ let tests =
                         |> fun r -> r.Opened |> OpenedSession.identity
                         |> Expect.isNone "the EHR data decides"
                     }
+                ]
 
-                    test "a Session opened from the head is identified and holds the head's age" {
-                        Store.stateOf [ opened "s-1" None (Some(StoredVersion.Readable(version, identity))) ] []
-                        |> Session.age "s-1"
+            testList
+                "without EHR data, the head's patient"
+                [
+                    let later = today.AddYears 2
+                    let readable = StoredVersion.Readable(version, identity)
+                    let days n =
+                        n |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Time.day
+                    let openedLater = Session.sessionPatient later port None
+
+                    let withoutAges (pat: Informedica.GenForm.Lib.Types.Patient) =
+                        { pat with
+                            Age = None
+                            PMAge = None
+                        }
+
+                    let premature =
+                        { version with
+                            Plan =
+                                { version.Plan with
+                                    Patient =
+                                        { version.Plan.Patient with
+                                            GestAge = Some(days 210)
+                                            PMAge = Some(days 1)
+                                        }
+                                }
+                        }
+
+                    test "has the age of the date asked for, not of the sign" {
+                        let age = openedLater (Some readable) |> Option.bind _.Age
+
+                        age
+                        |> Expect.equal "the age the EHR's projection gives at that date" (port.patient later ehr).Age
+
+                        age
+                        |> Expect.notEqual "another age than the one signed" version.Plan.Patient.Age
+                    }
+
+                    test "is the head's in every other field" {
+                        openedLater (Some readable)
+                        |> Option.map withoutAges
+                        |> Expect.equal "the signed data" (Some(version.Plan.Patient |> withoutAges))
+                    }
+
+                    test "has the post-menstrual age that follows the new age" {
+                        let pat =
+                            openedLater (Some(StoredVersion.Readable(premature, identity)))
+                            |> Option.defaultWith (fun () -> failtest "no patient")
+
+                        pat.PMAge
                         |> Expect.equal
-                            "the age the version was signed at"
-                            (Some(Informedica.GenPRES.Shared.Models.Patient.Age.fromDays 3841))
+                            "the age plus the gestational age"
+                            (pat.Age |> Option.map (fun a -> a + days 210))
+                    }
+
+                    test "has no post-menstrual age without a gestational age" {
+                        openedLater (Some readable) |> Option.bind _.PMAge |> Expect.isNone "none"
+                    }
+
+                    test "stays as signed without an identity" {
+                        openedLater (Some(StoredVersion.Readable(version, None)))
+                        |> Expect.equal "as signed" (Some version.Plan.Patient)
+                    }
+
+                    test "gives way to EHR data, whatever the head" {
+                        Session.sessionPatient later port (Some ehr) (Some readable)
+                        |> Expect.equal "the projection" (Some(port.patient later ehr))
+                    }
+
+                    test "is none from nothing, and from a head that cannot be read" {
+                        [ openedLater None; openedLater (Some(StoredVersion.Unreadable unreadable)) ]
+                        |> Expect.allEqual "none" None
                     }
                 ]
 

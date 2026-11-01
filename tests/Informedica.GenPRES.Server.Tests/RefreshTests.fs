@@ -105,13 +105,13 @@ let tests =
                 let before = stateWith (record (opened Measurements.none))
                 let after, _, _ = before |> refreshed StubPatientData.port
 
-                Session.age "s1" before
-                |> Option.map _.Months
-                |> Expect.equal "ten years at the open" (Some 0<month>)
+                let months (state: Session.State) =
+                    state.Sessions["s1"].Opened.Patient
+                    |> Option.bind (Informedica.GenForm.Lib.Patient.Dto.toDto >> Patient.toModel >> _.Age)
+                    |> Option.map _.Months
 
-                Session.age "s1" after
-                |> Option.map _.Months
-                |> Expect.equal "six months more at the refresh" (Some 6<month>)
+                before |> months |> Expect.equal "ten years at the open" (Some 0<month>)
+                after |> months |> Expect.equal "six months more at the refresh" (Some 6<month>)
             }
 
             test "the measurements stand" {

@@ -239,7 +239,10 @@ first.
 1. **The age.** `PatientCommand` answers the estimate only and reads no session; the age port
    member, `Session.age`, `Patient.aged` and the age read in `SigningCommand` go. The projection
    at the open computes the age already. `sessionPatient` recomputes the age and the post-menstrual
-   age from the identity when it falls back to the head. `AgeOnRequestTests` shrinks to the open.
+   age from the identity when it falls back to the head. `AgeOnRequestTests` keeps the patients on
+   each request and the estimates.
+   The age read was also the heartbeat of a signing request; a request refused at the boundary,
+   before the challenge or the commit, no longer touches the Session. Those two touch it themselves.
 2. **The data notice as a choice, client.** `SigningMachine`: `AcceptDataChange held` becomes two
    messages, take the EHR's data and keep the plan's; taking it with unsigned orders on the plan
    goes through the refresh path. The dialog shows the EHR's data next to the plan's, the age left

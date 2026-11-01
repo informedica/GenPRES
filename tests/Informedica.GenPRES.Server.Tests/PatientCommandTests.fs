@@ -1,6 +1,6 @@
-/// The patient command: a patient change answered with the patient made complete, through
-/// Compute.bound as the composition root wires it. An identified patient gets the Session's age,
-/// an anonymous one keeps the client's; both get the weight and height they lack estimated.
+/// The patient command: a patient data update answered with the patient made complete, through
+/// Compute.bound as the composition root wires it. The patient gets the weight and height it
+/// lacks estimated.
 module Informedica.GenPRES.Server.Tests.PatientCommandTests
 
 open Expecto
@@ -11,11 +11,11 @@ open ServerApi
 open Informedica.GenPRES.Server.Tests.AgeOnRequestTests
 
 
-/// The answer to a patient change in the Session named, with the normal values given, and the
+/// The answer to a patient data update in the Session named, with the normal values given, and the
 /// patients the Session was told.
 let changed normalValues (sid: string option) (pat: Patient) =
     let told = ResizeArray()
-    let port = portOver (fun () -> today) (ResizeArray())
+    let port = portOver (ResizeArray())
 
     let port =
         { port with
@@ -34,7 +34,7 @@ let changed normalValues (sid: string option) (pat: Patient) =
             PatientCommand.toString
             PatientCommand.gate
             PatientCommand.patientOf
-            (PatientCommand.processCmd env (cookieOf sid))
+            (PatientCommand.processCmd env)
             {
                 Opened = sid |> Option.map (fun sid -> OpenedToken $"opened-{sid}")
                 Command = PatientCommand.ChangePatient pat
@@ -54,30 +54,23 @@ let tests =
     testList
         "the patient command"
         [
-            test "an identified patient gets the Session's age, its measured weight kept" {
-                let pat, _ = changed loaded (Some identified) sent
-
-                (pat.Age, pat.Weight.Measured)
-                |> Expect.equal "the Session's age, the weight as measured" (Some sessionAge, Some 12000<gram>)
+            test "an identified patient's measured weight is kept" {
+                (changed loaded (Some identified) sent |> fst).Weight.Measured
+                |> Expect.equal "as sent" sent.Weight.Measured
             }
 
-            test "an identified patient is estimated at the Session's age, not the client's" {
-                let pat, _ = changed loaded (Some identified) (ageOnly 5)
-
-                (pat.Age, pat |> weightAndHeight)
-                |> Expect.equal
-                    "the Session's age, the ten-year estimate"
-                    (Some sessionAge, (Some 32000<gram>, Some 140<cm>))
+            test "the age answered is the same whatever Session the cookie names" {
+                [ None; Some identified; Some anonymous; Some entered; Some "nobody" ]
+                |> List.map (fun sid -> (changed loaded sid sent |> fst).Age)
+                |> Expect.allEqual "the age sent" sent.Age
             }
 
-            test "an anonymous patient keeps the client's age and gets the estimates" {
-                for sid in [ None; Some anonymous; Some entered ] do
-                    let pat, _ = changed loaded sid (ageOnly 10)
-
-                    (pat.Age, pat |> weightAndHeight)
-                    |> Expect.equal
-                        $"the client's age, 32 kg and 140 cm, %A{sid}"
-                        ((ageOnly 10).Age, (Some 32000<gram>, Some 140<cm>))
+            test "the estimates follow the age the patient comes with" {
+                for sid in [ None; Some identified; Some anonymous; Some entered ] do
+                    changed loaded sid (ageOnly 5)
+                    |> fst
+                    |> weightAndHeight
+                    |> Expect.equal $"18 kg and 110 cm, %A{sid}" (Some 18000<gram>, Some 110<cm>)
             }
 
             test "a measured weight is kept, the missing height estimated" {

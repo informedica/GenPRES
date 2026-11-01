@@ -724,29 +724,6 @@ module StubDatabase =
                                         )))
                     }
             seen = fun sid opened draft -> async { return overSession sid (fun at -> Session.seen at sid opened draft) }
-            // a signing request marks the Session seen also when refused before its challenge or
-            // commit, which touch it themselves; a store that fails is answered as they answer it
-            age =
-                fun sid ->
-                    async {
-                        let storeFailed = Error SigningRefusal.StoreFailed
-
-                        return
-                            guarded
-                                storeFailed
-                                (Slice.Session sid)
-                                (runWith
-                                    persisting
-                                    (fun _ -> storeFailed)
-                                    (idleFirst
-                                        idle
-                                        now
-                                        sid
-                                        (fun at s ->
-                                            let s, touched = Session.touch at sid s
-                                            s, Ok(Session.age sid s), touched
-                                        )))
-                    }
             openVersion = fun sid id -> async { return overSession sid (fun at -> Session.openVersion at newId sid id) }
             refresh = fun sid -> async { return overSession sid (fun at -> Session.refresh at newId patientData sid) }
         }

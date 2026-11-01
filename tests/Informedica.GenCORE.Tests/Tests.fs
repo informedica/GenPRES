@@ -1068,6 +1068,41 @@ module Tests =
 
                     ]
 
+        module PatientAgeTests =
+
+            let days n =
+                n |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Time.day |> Some
+
+            let birthDate =
+                BirthDate.create (Conversions.yearFromInt 2016) (Conversions.monthFromInt 3) (Conversions.dayFromInt 15)
+                |> PatientAge.birthDate
+
+            let tenthBirthday = DateTime(2026, 3, 15)
+
+            let tests =
+                testList
+                    "PatientAge.ageInDays"
+                    [
+                        test "a birthdate gives the days at the date" {
+                            [ tenthBirthday; tenthBirthday.AddDays 1.0; tenthBirthday.AddYears 1 ]
+                            |> List.map (fun at -> birthDate |> PatientAge.ageInDays at)
+                            |> Expect.equal "3650, 3651, 4015 days" [ days 3650; days 3651; days 4015 ]
+                        }
+
+                        test "an age value gives its own days, at any date" {
+                            [ tenthBirthday; tenthBirthday.AddYears 2 ]
+                            |> List.map (fun at -> AgeValue.ten |> PatientAge.ageValue |> PatientAge.ageInDays at)
+                            |> Expect.allEqual "ten years" (days (AgeValue.ten |> AgeValue.getAgeInDays |> int))
+                        }
+
+                        test "an unknown age is none" {
+                            PatientAge.unknown
+                            |> PatientAge.ageInDays tenthBirthday
+                            |> Expect.isNone "no days"
+                        }
+                    ]
+
+
         module AgeWeekDaysTests =
 
             open AgeWeeksDays.Operators
@@ -1258,6 +1293,7 @@ module Tests =
             PatientTests.BirthDateTests.tests
             PatientTests.WeightTests.tests
             PatientTests.HeightTests.tests
+            PatientTests.PatientAgeTests.tests
             PatientTests.AgeWeekDaysTests.tests
             PatientTests.EnteralAccessTests.tests
             PatientTests.VenousAccessTests.tests

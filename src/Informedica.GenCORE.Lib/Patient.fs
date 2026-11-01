@@ -583,6 +583,8 @@ module BirthDate =
 
 module PatientAge =
 
+    open Informedica.GenUnits.Lib
+
 
     let birthDate bd = bd |> BirthDate
 
@@ -615,6 +617,18 @@ module PatientAge =
             |> fun (ys, ms, ws, ds) -> AgeValue.create (Some ys) (Some ms) (Some ws) (Some ds) |> Some
 
         map None get Some
+
+
+    /// The age at a date in days, with the unit day; none for an unknown age.
+    let ageInDays dt age =
+        age
+        |> getAgeValue dt
+        |> Option.map (
+            AgeValue.getAgeInDays
+            >> int
+            >> BigRational.fromInt
+            >> ValueUnit.singleWithUnit Units.Time.day
+        )
 
 
     let fromAgeType = AgeValue.fromAgeType >> ageValue

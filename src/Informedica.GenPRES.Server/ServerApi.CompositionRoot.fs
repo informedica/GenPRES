@@ -57,7 +57,7 @@ module CompositionRoot =
                     PatientCommand.toString
                     PatientCommand.gate
                     PatientCommand.patientOf
-                    (PatientCommand.processCmd env cookie)
+                    (PatientCommand.processCmd env)
 
             // the one plan, nutrition included
             processOrderPlan =
