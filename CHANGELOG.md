@@ -1,5 +1,5 @@
 ---
-last_commit_released: 95425d4fd991b233399fed20924b12278ad8d37a
+last_commit_released: ac161859e138a30d708a5c8b2d850a87cde08745
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,154 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.46 - 2026-11-01
+
+### 🚀 Features
+
+* *(api)* Carry the products of a component ([1e3db118](https://github.com/informedica/GenPRES/commit/1e3db118f9388e387492d46727f30078f4a25b49))
+* *(api)* Say why a rule or a per kg command is refused ([e7bcf5fc](https://github.com/informedica/GenPRES/commit/e7bcf5fcab5c1d6ef4ace78065366630ce4acf98))
+
+    The prescribing page says when the dose rules need a weight, or a
+    weight and a height, that the patient does not have, and the dose
+    dialog says when a change to a dose per kg or per m2 is refused because
+    the order has none.
+* *(api)* Say why a drug without a diluent is refused ([93afed24](https://github.com/informedica/GenPRES/commit/93afed24911067651c325fa9d7e2b49c11a0f294))
+* *(client)* The intent policy says which field offers a recalculation ([57b514c1](https://github.com/informedica/GenPRES/commit/57b514c1d45d1ffdfec98e8db64072398002cbc9))
+* *(client)* Prescribe for an adult without weight or height ([d93bec09](https://github.com/informedica/GenPRES/commit/d93bec09d3c24f516f374798de0b75f7f30257ac))
+* *(client)* Mark a patient as an adult ([b6588472](https://github.com/informedica/GenPRES/commit/b6588472b94dc03748b6d93e5965ba523e4db0f1))
+* *(genform)* Mark a patient as an adult ([dddba8d7](https://github.com/informedica/GenPRES/commit/dddba8d7c5674e5f24e73dd93cbc33ed732cada9))
+* *(genform)* Warn on inverted limits and missing diluents ([0a1ed62b](https://github.com/informedica/GenPRES/commit/0a1ed62b43215cf379ba2f38d7e8bfd65615d139))
+* *(genform)* Tell whether a rule can be prescribed ([a9a1b0a1](https://github.com/informedica/GenPRES/commit/a9a1b0a14e53582aa8a961fbbbc25ea09d32e499))
+
+    A selected rule can be checked for whether the patient has the weight
+    or BSA its per kg or per m2 bounds need. Per kg limits are adjusted for
+    a patient with a weight and no height, and the component pick applies
+    without a weight or a height.
+* *(genform)* Warn at load for undilutable solution rules ([8c818c54](https://github.com/informedica/GenPRES/commit/8c818c541487634ddbf65d051a633a703f479cff))
+* *(genform)* Warn for an unbounded dose count ([6ceba3a1](https://github.com/informedica/GenPRES/commit/6ceba3a1cd01a976884b89f8c3a1b1137a95c79d))
+* *(genform)* Warn about products without a Divisible ([019a0a1d](https://github.com/informedica/GenPRES/commit/019a0a1da735ee5d0a4590c09262d5aa3a10daa8))
+* *(genorder)* Carry the products of a component ([651cbd6f](https://github.com/informedica/GenPRES/commit/651cbd6f60afff8e76647ac0e6135176a2200248))
+* *(genorder)* Write and read a medication as YAML ([9fc2116b](https://github.com/informedica/GenPRES/commit/9fc2116b4069c9c0518fa6baf521206b90ffbb99))
+* *(genorder)* Add the order variable helpers of the order program ([8b90866a](https://github.com/informedica/GenPRES/commit/8b90866a1ea31166f08234177db78221335cff53))
+* *(genorder)* Which variables the kept variables determine ([7c6d599a](https://github.com/informedica/GenPRES/commit/7c6d599abb45a73b0db0b25682b0d945a6498710))
+* *(genorder)* Add the types of the order program ([24b96e9a](https://github.com/informedica/GenPRES/commit/24b96e9ad6bd03626321f20156ec7ea30047ed1e))
+* *(genorder)* Select and set back an order variable by reference ([f7684b1c](https://github.com/informedica/GenPRES/commit/f7684b1c71fefeff82be878627bb4816e327bb4c))
+* *(genorder)* Run an order action as a list of effects ([5d6b354b](https://github.com/informedica/GenPRES/commit/5d6b354b52ebc0d8ceea55f3bc71d5467bb825f7))
+* *(genorder)* The step recipes of the order program ([9aa8083f](https://github.com/informedica/GenPRES/commit/9aa8083fddf141cc3ab2412dc12a1bd128b7504a))
+* *(genorder)* The recalculation kinds of the order program ([2686b2a3](https://github.com/informedica/GenPRES/commit/2686b2a369284dec79336b6bdb23b84e361dca3e))
+* *(genorder)* Set an order value through the order program ([9a2b888c](https://github.com/informedica/GenPRES/commit/9a2b888cf858fcfa1d08d567ae32305ba947fb61))
+* *(genorder)* The item concentrations of a component per product ([58167c24](https://github.com/informedica/GenPRES/commit/58167c247f7f22958b33db03ec6a024154b451af))
+* *(genorder)* Solve an order per combination of concentrations ([4b3ba2c2](https://github.com/informedica/GenPRES/commit/4b3ba2c24e5d031bdf7c5475f44d00f7b511e02a))
+* *(genorder)* Offer only the rules that can be prescribed ([65ff8f44](https://github.com/informedica/GenPRES/commit/65ff8f44cd9c6f583fcd41470e8bad2aea8ee7c8))
+
+    The order context offers only the rules that can be prescribed for the
+    patient: a rule whose per kg or per m2 bounds need a weight or a BSA
+    the patient does not have is not offered.
+* *(genorder)* Select rules for an adult or a weight ([41438187](https://github.com/informedica/GenPRES/commit/41438187e8eba72873100e4f98194afab2740f2b))
+* *(genorder)* Show when an order has no preparation ([967b23a7](https://github.com/informedica/GenPRES/commit/967b23a7eabbd4d9848bbf9a74fdbc183271271b))
+* *(genorder)* Split a rule per product Divisible ([c28d1ffb](https://github.com/informedica/GenPRES/commit/c28d1ffbbbefaf328098c9f6ff4f0158e3130e47))
+* *(server)* Prescribe for an adult without weight or height ([d944ea5d](https://github.com/informedica/GenPRES/commit/d944ea5dd46e4944cb5c7c5c82e36d6d81a8a3c5))
+* *(server)* Hold the adult mark for a resume ([92f36b05](https://github.com/informedica/GenPRES/commit/92f36b057234aab0bcc3a0a545ab7707977233b7))
+* *(utils)* Write and read a BigRational as exact text ([19df2941](https://github.com/informedica/GenPRES/commit/19df2941f6f5cb3e56289dc71e171f87b14e3e15))
+
+### 🐞 Bug Fixes
+
+* *(client)* Keep the order and picks on a refused change ([0de6430a](https://github.com/informedica/GenPRES/commit/0de6430af0607eddfe6b8a8c7ce21d6bd360d24f))
+* *(client)* Keep a refused selection on its scenario ([fd7d7894](https://github.com/informedica/GenPRES/commit/fd7d7894bc0fe860c85fc6a025630840d10082ab))
+* *(client)* Show the running time as a range ([3b986131](https://github.com/informedica/GenPRES/commit/3b9861318c812dea6e5493e217c039f3f03641c9))
+* *(client)* A recalculated field shows loading until its answer ([4afb87aa](https://github.com/informedica/GenPRES/commit/4afb87aa86abea6a8067b23f54d6c4298b71d13d))
+* *(client)* Show the dose itself when no dose per kg ([74eb82c1](https://github.com/informedica/GenPRES/commit/74eb82c187e550742bcc6a1303b45c96ace7ab1d))
+* *(client)* Make the data notice a choice ([fbb251cf](https://github.com/informedica/GenPRES/commit/fbb251cf29871bd7e99fc34f6f67f2fd57fa9b9d))
+* *(client)* Show estimates in the data notice ([53f9e8b2](https://github.com/informedica/GenPRES/commit/53f9e8b2bd63e3fb8947520af3baa21dd82a22f2))
+* *(client)* Hold off every false inactive-tab answer ([110bbc28](https://github.com/informedica/GenPRES/commit/110bbc2806a55a9a0ecce8794d38ed99c037d0f7))
+* *(gencore)* Count 12 months of an age as one year ([e1aa1bb2](https://github.com/informedica/GenPRES/commit/e1aa1bb2c52597fa749d74e5bba69137bad2aee6))
+* *(gencore)* Reject a range no value fits ([2b970943](https://github.com/informedica/GenPRES/commit/2b9709431fb297c244e44b9391659b3463ce02c5))
+* *(genform)* Select renal rules for a patient without an age ([95cea9e1](https://github.com/informedica/GenPRES/commit/95cea9e14fa11eece85d55d1a58159b003e47593))
+* *(genform)* Let absolute renal bounds win ([f5efa607](https://github.com/informedica/GenPRES/commit/f5efa607a06fb8ecf813593e47c5b2a816ebedef))
+
+    Under an absolute renal reduction the renal rule's bounds replace the
+    dose rule's, also when they are higher, as for hyper clearance. The
+    dose rule's other bounds stay, moved to the renal bound when they
+    conflict, so a dose no longer loses its maximum to a renal rule. A
+    renal rule for a reduced kidney function that raises a maximum is
+    reported when the sheets load.
+* *(genform)* Adjust at a per kg renal bound's weight ([3fb7cefa](https://github.com/informedica/GenPRES/commit/3fb7cefa76c79d6ac1759ed289d33d717ee820f9))
+* *(genform)* Apply a renal bound at its own measurement ([77d7a7b6](https://github.com/informedica/GenPRES/commit/77d7a7b68eca047da4413b62b644150597264937))
+* *(genform)* Keep the tighter converted renal bound ([d1cef0c2](https://github.com/informedica/GenPRES/commit/d1cef0c2967f04598118ac8022321a5e2a197565))
+* *(genform)* Refuse rules that mix adjust units ([f79f1000](https://github.com/informedica/GenPRES/commit/f79f1000f0ad81df2a1e0d0224c8b9b9209fa94e))
+
+    A dose rule whose rows do not share one adjust unit, or that has a per
+    kg or per m2 value without an adjust unit, is refused when the sheet is
+    loaded, with a message naming the rule. A rule restricted to a BSA
+    range is no longer selected without a BSA.
+* *(genform)* Refuse renal rules that mix adjust units ([5522a53e](https://github.com/informedica/GenPRES/commit/5522a53eaecdd4768625c41624c49f0909bdd630))
+
+    A renal rule that mixes per kg and per m2 bounds, or has a per kg or
+    per m2 value without an adjust unit, is refused when the sheet is
+    loaded; the dose rules it applies to are left out with it, with a
+    message naming the renal rule.
+* *(genform)* Check the form limit for a measurement ([0211bb17](https://github.com/informedica/GenPRES/commit/0211bb17e0db8c7ecf29fd293ba5914bef5557b9))
+* *(genform)* Count 12 months of an age bound as a year ([6545e300](https://github.com/informedica/GenPRES/commit/6545e300e1439e9c6fccd148bebcf237202f1297))
+* *(genform)* Remove the norm columns of the renal rules ([e656dab3](https://github.com/informedica/GenPRES/commit/e656dab38a168fbad46b2ea8263c1d2ba052e851))
+* *(genform)* Match undilutable solution rules by department ([aad4ddc6](https://github.com/informedica/GenPRES/commit/aad4ddc605654d62b5d0045ae73dd4510754bd5e))
+* *(genform)* Count solution limits as a preparation bound ([a124e03d](https://github.com/informedica/GenPRES/commit/a124e03d4547d94e40b0bf3a48cd480483a1819d))
+* *(genform)* Require a positive concentration bound ([805ae098](https://github.com/informedica/GenPRES/commit/805ae098fae911121ab65fc72c166ca3d7550a52))
+* *(genform)* Warn when two solution rules compete ([932ecf28](https://github.com/informedica/GenPRES/commit/932ecf28cfe305c0fa7dd3e7ea3061f4242b1f82))
+* *(genform)* Warn only for a patient that exists ([7abc58ea](https://github.com/informedica/GenPRES/commit/7abc58eadb9d73983e356a3350930914b4642d8e))
+* *(genorder)* Offer reachable rounded dose values ([be6e047b](https://github.com/informedica/GenPRES/commit/be6e047b81165da322412c2ffe0b82e4d97c4374))
+* *(genorder)* Tie item concentrations to the component share ([b3d654c8](https://github.com/informedica/GenPRES/commit/b3d654c890e66dd30224c97a532e5faa64c819cc))
+* *(genorder)* Report a pick that cannot be solved ([9743852a](https://github.com/informedica/GenPRES/commit/9743852aedba8d601b0d187b04a10740389a1331))
+* *(genorder)* Solve item concentrations by share ([def801ea](https://github.com/informedica/GenPRES/commit/def801eaec3d3b5401d80bb0950b2353f9d6ed81))
+* *(genorder)* Keep products when calculating ([be379560](https://github.com/informedica/GenPRES/commit/be379560e716d6bb2c12fe057f8dcc64151e6b78))
+* *(genorder)* Pair item strengths by product ([158f6a42](https://github.com/informedica/GenPRES/commit/158f6a428c1cf03fd501d3341e080d97169dbf8c))
+* *(genorder)* Cap the rounded steps ([adfff2f2](https://github.com/informedica/GenPRES/commit/adfff2f2a081574d708c7e3dd7d95a2035960c3e))
+* *(genorder)* Give the rate after the dose quantity ([12629d6d](https://github.com/informedica/GenPRES/commit/12629d6d47aa11471a06bef837e5dcf0496e1c07))
+* *(genorder)* Give a missing medication value an error ([7f027a9d](https://github.com/informedica/GenPRES/commit/7f027a9dcdd1f2949df64d06593272beec030a94))
+* *(genorder)* Refuse a product without an id ([b65ee470](https://github.com/informedica/GenPRES/commit/b65ee47069db5f5a018342fdc9fb2a425d1efd54))
+* *(genorder)* Dose total by rate for continuous only ([fae43ae3](https://github.com/informedica/GenPRES/commit/fae43ae351e415e50d146f5de9810c7f4b1a8640))
+* *(genorder)* Stop offering undiluted IV orders ([154c12a4](https://github.com/informedica/GenPRES/commit/154c12a4b722762cf25c595cdf2a3ff9dd13ed52))
+* *(genorder)* Swap the value caps of a timed order ([7d82edda](https://github.com/informedica/GenPRES/commit/7d82edda204949328dafb4b4e82e20bf4166ed55))
+* *(genorder)* Select from a large range without listing it ([5aad6191](https://github.com/informedica/GenPRES/commit/5aad6191f3b7c936ccd00f646eee94ae03df7b7a))
+* *(genorder)* A failed effect keeps the order it ran on ([b3d88d03](https://github.com/informedica/GenPRES/commit/b3d88d03e579738b596d948bbe2e475736066758))
+* *(genorder)* Match component names in any case in a step ([45a6f80d](https://github.com/informedica/GenPRES/commit/45a6f80d6b70656a21bf559397574de257426d5d))
+* *(genorder)* A recalculation changes what depends on the field ([3e36bafb](https://github.com/informedica/GenPRES/commit/3e36bafbb4bf44c801d4177e8e42bbf38abe381d))
+* *(genorder)* Creation writes the order and dose counts ([ec44803f](https://github.com/informedica/GenPRES/commit/ec44803fec0fed7059401effafe94270a1c5b64a))
+* *(genorder)* Set the dose count when the rules give none ([781f6527](https://github.com/informedica/GenPRES/commit/781f6527fb6022949db8dd4d651f091903a98625))
+* *(genorder)* Offer only values a complete order reaches ([27bd91e2](https://github.com/informedica/GenPRES/commit/27bd91e21a7e951d1a369d0b94f29ccc56b9f2b5))
+* *(genorder)* Drop a value only when a failed solve proves it ([e0c6e471](https://github.com/informedica/GenPRES/commit/e0c6e471e2ca44e94efb2aa2b54bb714dec68516))
+* *(genorder)* Run whole when a stepped range cannot be listed ([0c2c636b](https://github.com/informedica/GenPRES/commit/0c2c636b502f8556faf90870e049a5d954ffa21a))
+* *(genorder)* Refuse per kg commands and unusable picks ([c2aaf06a](https://github.com/informedica/GenPRES/commit/c2aaf06af7e4b5f3f3abb4c48cbbb926f5f3ec47))
+
+    The dose dialog shows the per kg fields, and the printed order the
+    per kg doses, also for a rule whose per kg and absolute limits overlap.
+* *(genorder)* Use a solution dose fraction as 1 / x doses ([561e142c](https://github.com/informedica/GenPRES/commit/561e142cff2f5afeb3e66469dae2f1fb931b2f9d))
+* *(genorder)* Keep the minimum solution volume ([fbdc88fa](https://github.com/informedica/GenPRES/commit/fbdc88fa216d901e79bd2058ac70d017653b2095))
+* *(genorder)* Compare divisibility in unit groups ([b9a90fcf](https://github.com/informedica/GenPRES/commit/b9a90fcf2eb0dba396f8eb2fb79fe9f73606ce49))
+* *(genorder)* Match a pick in each component limit ([58605e1d](https://github.com/informedica/GenPRES/commit/58605e1dd548dbf840040bbab7f09165f85e3a0e))
+* *(genorder)* Refuse mixed component unit groups ([5e234aff](https://github.com/informedica/GenPRES/commit/5e234affa39a45f9709a667d5dc16093351e671f))
+* *(genorder)* Refuse a dropped pick in the plan ([83589144](https://github.com/informedica/GenPRES/commit/83589144f54847ab72a6b3bbb00f1481c52d1549))
+* *(gensolver)* Combine increments by lcm ([3f76a5b5](https://github.com/informedica/GenPRES/commit/3f76a5b5d7773ecec443ebd847a8a726f6159127))
+* *(gensolver)* Compare divisors on base values ([9e75a944](https://github.com/informedica/GenPRES/commit/9e75a9447b0e52ef892df380be9b5cfd6aaf7c7d))
+* *(gensolver)* Evaluate solved equations ([f953d483](https://github.com/informedica/GenPRES/commit/f953d483fa812afa5129d75efbf59eb831a8c7e6))
+* *(gensolver)* Count a range with two increments exactly ([aa4092e2](https://github.com/informedica/GenPRES/commit/aa4092e2f924eb8d2568ffc7d5fca9c168c3e0b6))
+* *(gensolver)* Error on a sum with mismatched units ([af711d9d](https://github.com/informedica/GenPRES/commit/af711d9d0df48234fb907cab76cb5742045d2b35))
+* *(gensolver)* Error on a skipped mismatched-unit sum ([7a8630cd](https://github.com/informedica/GenPRES/commit/7a8630cd0bc5895c7349400952ce71b6fb7d56d5))
+* *(mcp)* Say why an order context is refused ([67800f0f](https://github.com/informedica/GenPRES/commit/67800f0fd4c8036e2d4a6a4c0eb8890cda8ad349))
+* *(server)* Refuse a null adult mark ([d4ab1d0f](https://github.com/informedica/GenPRES/commit/d4ab1d0fbf53f8631bd5dc2d91638e7552bb54d0))
+* *(server)* Stop reading the age from the session ([b8e41453](https://github.com/informedica/GenPRES/commit/b8e41453a576f79be20bf2b683ffcc275ff90338))
+* *(server)* Remove the session measurements ([3c548660](https://github.com/informedica/GenPRES/commit/3c548660fbe4634e8e5da67d4c80d831d45104dd))
+* *(server)* Tell and refuse a tab that is not active ([55fb8bf0](https://github.com/informedica/GenPRES/commit/55fb8bf09c3ae9219355a4656cfbbcdaa16fedec))
+* *(utils)* Read a long decimal exactly ([8434146b](https://github.com/informedica/GenPRES/commit/8434146b9fef6195c9175b737430f4f0184a5b65))
+
+### ⚡ Performance Improvements
+
+* *(genorder)* Solve without the adjust equations when unused ([6a4c56f5](https://github.com/informedica/GenPRES/commit/6a4c56f5b389905c6b084f77dc8fc3e9239ee678))
+
+    An order without a per kg or per m2 limit is solved without the
+    equations of its adjusted doses, which roughly halves its solve time.
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/95425d4fd991b233399fed20924b12278ad8d37a..ac161859e138a30d708a5c8b2d850a87cde08745)</small></strong>
 
 ## 0.1.2-alpha.45 - 2026-10-10
 
