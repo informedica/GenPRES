@@ -32,7 +32,6 @@ sequenceDiagram
     Note over U,S: the context patient data can be changed
     U->>C: 1. enters a bedside weight
     C->>S: processOrderPlan (order plan on the new weight)
-    S->>D: Session.seen: the measurement recorded
     S-->>C: Reply, the order plan's totals recalculated, its orders as signed
     end
 
@@ -52,7 +51,7 @@ sequenceDiagram
     U->>C: 6. the PIN
     C->>S: Submit
     Note over S: the challenge's digest ties the order plan signed to the one checked
-    S-->>C: Submitted (order plan, fresh OpenedToken, the Session's patient)
+    S-->>C: Submitted (order plan, fresh OpenedToken, the patient signed at the age of the sign)
     Note over U,S: 7. the order plan is its new signed version: the context is released
 ```
 
@@ -60,8 +59,8 @@ sequenceDiagram
 
 1. **User A changes the patient data.** The order plan has no new or changed order, so the
    context is released. User A enters a bedside weight; the Client sends the order plan on the
-   new weight, the Server records the measurement (`Session.seen`) and recalculates the order
-   plan's totals. The orders of the last signed version stay as they were signed.
+   new weight, and the Server recalculates the order plan's totals. The Server stores nothing of
+   the weight before the sign. The orders of the last signed version stay as they were signed.
 2. **User A adds an order.** It is computed on the order plan's patient data. From here the
    order plan has a new order, and the context is held.
 3. **The patient data takes no change.** The fields keep their values and refuse a change: the
@@ -144,11 +143,11 @@ and changed orders are dropped and the order plan is that version again, release
 signed order plan there is nothing to open: the question offers the removal alone, which drops
 the same orders.
 
-**12c The EHR reads other data at the sign.** The data notice is shown as in uc-03, saying that
-the version is signed on the data as it was and the new data applies after the sign; the version
-is signed on the held context. That it rests on data other than the EHR's reading is not
-stored: the commit keeps the EHR reading it was signed on beside the version, and the two tell
-the difference. The new data applies from the next round, once the context is released.
+**12c The EHR reads other data at the sign.** The data notice is shown as in uc-03, with the EHR's
+data next to the plan's. With unsigned orders on the plan, keeping the plan's data signs on the
+held context, and taking the EHR's data ends the signature with no challenge: the new and changed
+orders go and the Session reads the EHR again, as 12f does. The version holds the plan's patient as
+signed and the EHR data as read at the challenge, and the two tell the difference.
 
 **12d Two Users.** Each holds their own context in their own order plan. The first to sign wins
 ([uc-04](uc-04-two-users.md)); the other rebuilds on the new head, and their new and changed
@@ -160,10 +159,9 @@ Client state as they do today; the relaunch starts released. Once the carry-over
 the next Session carries its hold with it.
 
 **12f User A refreshes the patient data.** The panel's refresh reads the EHR again and nothing
-else. The Server projects the reading at the time of the refresh with the user's measurements
-over it, under a fresh OpenedToken; the standing challenge is spent and the notice dropped, and
-the order plan version the Session opened with stays. The Session's patient becomes the one read
-again, the age with it, and the order plan and the workbench follow it as after any edit, the
+else. The Server projects the reading at the time of the refresh, under a fresh OpenedToken; the standing challenge is spent and the notice dropped, and
+the order plan version the Session opened with stays. The patient becomes the one read again, the
+age with it, and the order plan and the workbench follow it as after any edit, the
 order plan with its new and changed orders. While the context is held the refresh asks instead,
 as the fields do (step 3). A refresh that did not happen is told, and changes nothing.
 
@@ -181,8 +179,8 @@ the notice's data, orders or not. The order plan could change while a signature 
 - **Concept 15** makes prescribing change the Patient Data of the PatientContext freely within a
   Session. Under this page it does so only while the order plan has no new or changed order.
 - **Concept 16**, the WorkPlan, gains a state: held or released, derived from its orders.
-- **Rule 44**, the data notice before the challenge: while the context is held the version is
-  signed on the held context, not on the data as it stands.
+- **Rule 44**, the data notice before the challenge: while the context is held the clinician
+  signs on the held context or takes the EHR's data and loses the new and changed orders.
 - The model in [`Integration.fsx`](Integration.fsx) has prescribing change the patient data at
   any step; it has no hold.
 
@@ -194,8 +192,9 @@ the notice's data, orders or not. The order plan could change while a signature 
   not offer.
 - **Which Sessions.** Settled: an identified patient only. Anonymous use and the url mode are
   never held, since nothing is signed there.
-- **Measurements.** As built: recorded per request; while the context is held the panel's edits
-  are ignored, so it sends none. They stand over a refresh, as they stand over a sign.
+- **Measurements.** Settled by [plan 1599](../../implementation-plans/1599-one-patient-signed-once.md):
+  the Server keeps none. A typed value lives on the plan and is stored with the version signed; it
+  is gone at a refresh and at a resume before a sign.
 - **What counts as changed.** As built: an order context whose id the head does not hold, or
   whose content differs from the head's; the Server compares the domain values less the age and
   the intake. A change to the order plan's filter alone is not.
