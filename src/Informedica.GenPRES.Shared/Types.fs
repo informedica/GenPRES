@@ -864,7 +864,7 @@ module Types =
         // no challenge yet; the data as it stands, to show and to accept or not
         | DataNotice of DataNotice
         // the version committed, a fresh OpenedToken over it, and the Session's patient after
-        // the sign: the age computed again, what the user measured kept
+        // the sign: the age computed again
         | Submitted of SignedOrderPlan * OpenedToken * Patient
         | Refused of SigningRefusal
 

@@ -13,6 +13,7 @@ open ServerApi
 module Store = Informedica.GenPRES.Server.Tests.SessionStoreTests
 module GenFormPatient = Informedica.GenForm.Lib.Patient
 module EhrPatientData = Informedica.GenForm.Lib.EhrPatientData
+module OrderPlanVersion = Informedica.GenOrder.Lib.OrderPlanVersion
 module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
 module CoreWeightAtDate = Informedica.GenCore.Lib.Patients.WeightAtDate
 module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
@@ -70,7 +71,6 @@ let opened (sid: string) (ehr: Informedica.GenForm.Lib.Types.EhrPatientData opti
                     ehr
                     |> Option.map (port.patient today)
                     |> Option.orElse (Session.sessionPatient today port None head)
-                Measured = Measurements.none
                 OpenedToken = Some(Store.token sid)
                 KeyThumbprint = Some "t"
                 Head = head
@@ -118,7 +118,6 @@ let signedAt (record: string * Session.SessionRecord) (challenge: Session.Challe
             tomorrow
             (Store.counter "id")
             StubDatabase.digest
-            port
             Store.registry
             ignore
             sid
@@ -251,6 +250,53 @@ let tests =
                 ]
 
             testList
+                "the record of a sign"
+                [
+                    let typed =
+                        { version with
+                            Plan =
+                                { version.Plan with
+                                    Patient =
+                                        { version.Plan.Patient with
+                                            Weight = 30N |> ValueUnit.singleWithUnit Units.Weight.kiloGram |> Some
+                                        }
+                                }
+                        }
+
+                    let signed = typed.Plan.Patient
+
+                    test "the typed weight stands after the sign, whatever the EHR reads" {
+                        signed
+                        |> Session.atBirthDate tomorrow identity
+                        |> weightInKg
+                        |> Expect.equal "30 kg" (Some 30N)
+                    }
+
+                    test "the patient after the sign is at the age of the sign, the version keeps its own" {
+                        (signed |> Session.atBirthDate tomorrow identity |> ageInDays, signed |> ageInDays)
+                        |> Expect.equal "a day more" (Some 3842N, Some 3841N)
+                    }
+
+                    test "the EHR data of the challenge go with the version and come back as read" {
+                        { typed with EhrData = Some heavier }
+                        |> OrderPlanVersion.Dto.toDto
+                        |> Informedica.GenOrder.Lib.Canonical.serialize
+                        |> Informedica.GenOrder.Lib.Canonical.deserialize<OrderPlanVersion.Dto.Dto>
+                        |> OrderPlanVersion.Dto.fromDto
+                        |> Result.map _.EhrData
+                        |> Expect.equal "as read" (Ok(Some heavier))
+                    }
+
+                    test "a challenge without a reading keeps none" {
+                        typed
+                        |> OrderPlanVersion.Dto.toDto
+                        |> OrderPlanVersion.Dto.fromDto
+                        |> Result.map _.EhrData
+                        |> Expect.equal "none" (Ok None)
+                    }
+                ]
+
+            testList
                 "once a signature has landed"
                 [
                     test
@@ -295,39 +341,12 @@ let tests =
                         |> Expect.equal "3842 on the Session, 3841 on the version" (Some 3842N, Some 3841N)
                     }
 
-                    test "where the EHR reports another weight, the Session keeps the weight the user measured" {
+                    test "the version keeps the EHR data of its challenge, and the Session the patient signed" {
                         let sid, record = opened "s-1" (Some ehr) None
+                        let after, version, _, _, patient = signedAt (sid, record) (challengeOver (Some heavier))
 
-                        let measured =
-                            { record with
-                                Opened =
-                                    { record.Opened with
-                                        Measured = Measurements.ofRows [ Measurement.Weight(Some 30000<gram>), today ]
-                                    }
-                            }
-
-                        let after, _, _, _, _ = signedAt (sid, measured) (challengeOver (Some heavier))
-
-                        (after.Opened.EhrData
-                         |> Option.bind (fun e -> e.Patient.Weight.Calculation)
-                         |> Option.map (fun w -> CoreWeightValue.getWeightInKg w.Weight |> decimal),
-                         after.Opened.Patient |> Option.bind weightInKg,
-                         after.Opened.Patient |> Option.map _.WeightMeasured)
-                        |> Expect.equal
-                            "the EHR data as read says 34 kg; the Session's patient 30 kg, measured"
-                            (Some 34m, Some 30N, Some true)
-                    }
-
-                    test "the data a notice is told over is merged at the date of the open" {
-                        let measured = Measurements.ofRows [ Measurement.Weight(Some 30000<gram>), today ]
-                        let told = Session.noticeData today port measured (Some heavier)
-
-                        (told |> Option.bind ageInDays,
-                         told |> Option.bind weightInKg,
-                         Session.noticeData today port measured None)
-                        |> Expect.equal
-                            "the age of the open, the measured weight; none for no read"
-                            (Some 3841N, Some 30N, None)
+                        (version.EhrData, patient |> weightInKg, after.Opened.Patient |> Option.bind weightInKg)
+                        |> Expect.equal "the 34 kg read, the 32 kg signed" (Some heavier, Some 32N, Some 32N)
                     }
                 ]
         ]

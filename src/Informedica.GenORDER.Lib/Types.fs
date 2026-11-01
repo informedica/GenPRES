@@ -1061,6 +1061,9 @@ module Types =
             /// Whether the patient data was verified against the platform's reading
             /// at the challenge
             Verified: bool
+            /// The EHR data as read at the challenge, none when they could not be read. A value the
+            /// prescriber typed shows as a difference with the patient of the plan.
+            EhrData: Informedica.GenForm.Lib.Types.EhrPatientData option
         }
 
 
@@ -1095,6 +1098,8 @@ module Types =
         | Missing of string
         /// The patient of a context or an order plan is none
         | Patient of Informedica.GenForm.Lib.Types.PatientError
+        /// The EHR data of a version do not parse, with the reason
+        | EhrData of string
         /// A text that is not a document of its shape: no YAML, a wrong type or an unknown key,
         /// with the reader's message, its line and its column
         | Unreadable of message: string

@@ -52,7 +52,6 @@ let record
                 PatientId = Some "p1"
                 EhrData = ehr
                 Patient = patient
-                Measured = Measurements.none
                 OpenedToken = Some(OpenedToken $"opened-{sid}")
                 KeyThumbprint = Some "t"
                 Head = None
@@ -105,9 +104,9 @@ let portOver (captured: ResizeArray<Informedica.GenOrder.Lib.Types.OrderPlan>) =
                     return SigningOutcome.Refused SigningRefusal.PinLimit
                 }
         seen =
-            fun sid opened draft ->
+            fun sid opened ->
                 async {
-                    let next, told, _ = Session.seen today sid opened draft st.Value
+                    let next, told, _ = Session.seen today sid opened st.Value
                     st.Value <- next
                     return told
                 }
@@ -161,7 +160,7 @@ let over (sid: string option) (cmd: 'cmd) : 'cmd =
             return Ok()
         }
 
-    Compute.bound env (cookieOf sid) (fun _ -> "test") (fun _ -> Gate.Open) (fun _ -> None) handler request
+    Compute.bound env (cookieOf sid) (fun _ -> "test") (fun _ -> Gate.Open) handler request
     |> Async.RunSynchronously
     |> ignore
 
@@ -253,7 +252,7 @@ let estimatedOver normalValues (sid: string option) (cmd: 'cmd) : 'cmd =
             return Ok()
         }
 
-    Compute.bound env (cookieOf sid) (fun _ -> "test") (fun _ -> Gate.Open) (fun _ -> None) handler request
+    Compute.bound env (cookieOf sid) (fun _ -> "test") (fun _ -> Gate.Open) handler request
     |> Async.RunSynchronously
     |> ignore
 
@@ -271,7 +270,6 @@ let evaluatedWith normalValues (ctx: OrderContext) =
         (cookieOf None)
         (fun _ -> "test")
         (fun _ -> Gate.Open)
-        (fun _ -> None)
         (OrderContextCommand.processViewCmd env)
         {
             Opened = None
@@ -289,28 +287,6 @@ let evaluatedWith normalValues (ctx: OrderContext) =
     |> Async.RunSynchronously
 
 
-/// The patient the identified Session resumes on, as the client gets it, after the measured
-/// weight and height were cleared.
-let resumedAfterClearing () : Patient =
-    let cleared: Measured<_> =
-        {
-            Value = None
-            At = today
-        }
-
-    { (state.Sessions |> Map.find identified).Opened with
-        Measured =
-            { Measurements.none with
-                Weight = Some cleared
-                Height = Some cleared
-            }
-    }
-    |> SessionMapper.toOpened true
-    |> _.PatientContext
-    |> Option.bind _.Patient
-    |> Option.defaultWith (fun () -> failtest "the Session resumes without a patient")
-
-
 /// The patient a patient data update answers in the Session named, with the normal values given.
 let changedIn normalValues (sid: string option) (pat: Patient) =
     let env = { envOver (portOver (ResizeArray())) with normalValues = normalValues }
@@ -320,7 +296,6 @@ let changedIn normalValues (sid: string option) (pat: Patient) =
         (cookieOf sid)
         PatientCommand.toString
         (fun _ -> Gate.Open)
-        PatientCommand.patientOf
         (PatientCommand.processCmd env)
         {
             Opened = sid |> Option.map (fun sid -> OpenedToken $"opened-{sid}")
@@ -353,7 +328,7 @@ let tests =
                 [
                     test "seen marks the Session and tells nothing else" {
                         let _, told, writes =
-                            Session.seen today identified (Some(OpenedToken $"opened-{identified}")) None state
+                            Session.seen today identified (Some(OpenedToken $"opened-{identified}")) state
 
                         (told, writes |> List.length)
                         |> Expect.equal "no notice, and the one touch" (None, 1)
@@ -565,21 +540,6 @@ let tests =
                         |> ignore
 
                         count.Value |> Expect.equal "asked none: asking may load" 0
-                    }
-
-                    test
-                        "a Session resumed after its weight and height were cleared gets them from the patient data update" {
-                        changedIn loaded (Some identified) (resumedAfterClearing ())
-                        |> Patient.patient
-                        |> Result.isOk
-                        |> Expect.isTrue "a patient, its weight and height estimated"
-                    }
-
-                    test "a Session resumed after its weight and height were cleared is refused as sent" {
-                        { Informedica.GenPRES.Shared.Models.OrderContext.empty with Patient = resumedAfterClearing () }
-                        |> evaluatedWith loaded
-                        |> Result.mapError List.ofArray
-                        |> Expect.equal "refused" (Error [ Patient.noWeight ])
                     }
 
                     test "signing takes no estimate: the plan is signed as sent, whatever the normal values" {

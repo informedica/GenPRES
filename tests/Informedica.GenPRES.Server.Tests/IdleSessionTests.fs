@@ -33,7 +33,6 @@ let record (sid: string) (seen: DateTime) : Session.SessionRecord =
                 PatientId = Some "p1"
                 EhrData = None
                 Patient = None
-                Measured = Measurements.none
                 OpenedToken = Some(OpenedToken $"opened-{sid}")
                 KeyThumbprint = Some "t"
                 Head = None
@@ -217,7 +216,7 @@ let portTests =
                 let clock = ref (openedAt + TimeSpan.FromHours 2.0)
                 let port = portAt clock (stateSeenAt openedAt)
 
-                let! told = port.seen sid None None
+                let! told = port.seen sid None
 
                 told |> Expect.equal "the ending" (Some(RecordNotice.Ended SessionEnding.Idle))
             }

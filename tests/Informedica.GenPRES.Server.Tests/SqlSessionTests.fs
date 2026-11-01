@@ -19,8 +19,7 @@ open Informedica.GenPRES.Server.Tests.SqlSchemaTests
 /// A fresh database with every migration applied.
 let withSessions f =
     withDb (fun cs ->
-        SqlSchema.apply cs
-        |> Expect.equal "every migration" [ 1; 2; 3; 4; 5; 6; 7; 8; 9; 10 ]
+        SqlSchema.apply cs |> Expect.equal "every migration" [ 1; 2; 3; 4; 5; 6; 7; 9 ]
         f cs
     )
 
@@ -531,7 +530,6 @@ let sessionOf sid login openedWith head : Session.SessionRecord =
                 PatientId = Some "stub-patient"
                 EhrData = None
                 Patient = Some patient
-                Measured = Measurements.none
                 OpenedToken = Some(OpenedToken $"opened-%s{sid}")
                 KeyThumbprint = Some "thumb"
                 Head = head
@@ -766,114 +764,6 @@ let writerTests =
                     |> Expect.equal "under the version it was written with" SqlSessions.ehrJsonWritten
                     r.GetString 1
                     |> Expect.equal "the canonical form of its Dto" (SqlSessions.ehrJson ehr)
-                )
-            }
-
-            test "the mark as an adult is written as a row and loads back, the latest deciding" {
-                withSessions (fun cs ->
-                    insertSession cs "s-1" (Some "prescriber") "prescriber"
-
-                    runWrites
-                        cs
-                        [
-                            Session.WriteMeasurement("s-1", Measurement.MarkedAdult true, t0)
-                            Session.WriteMeasurement("s-1", Measurement.MarkedAdult false, t0.AddMinutes 1.0)
-                            Session.WriteMeasurement("s-1", Measurement.MarkedAdult true, t0.AddMinutes 2.0)
-                        ]
-                    |> Expect.equal "written" Session.StoreOutcome.Written
-
-                    match loadedSession cs "s-1" with
-                    | Some(Choice1Of2(Ok loaded)) ->
-                        loaded.Opened.Measured.MarkedAdult
-                        |> Expect.equal
-                            "the latest mark"
-                            (Some
-                                {
-                                    Value = Some true
-                                    At = t0.AddMinutes 2.0
-                                })
-                    | other -> failtest $"expected the Session, got %A{other}"
-                )
-            }
-
-            test "a mark as an adult of another value, or none, is refused by the table" {
-                withSessions (fun cs ->
-                    insertSession cs "s-1" (Some "prescriber") "prescriber"
-                    use conn = connect cs
-
-                    for value in [ "2"; "null" ] do
-                        use cmd =
-                            SqlSessions.command
-                                conn
-                                null
-                                $"insert into measurement (session_id, kind, value, days, at) values ('s-1', 'marked-adult', %s{value}, null, 0)"
-                                []
-
-                        Expect.throws $"the check refuses %s{value}" (fun () -> cmd.ExecuteNonQuery() |> ignore)
-                )
-            }
-
-            test "the measurements of a Session are written one row each and load back, the latest per kind" {
-                withSessions (fun cs ->
-                    insertSession cs "s-1" (Some "prescriber") "prescriber"
-                    let gestAge: GestAge =
-                        {
-                            Weeks = 36<week>
-                            Days = 3<day>
-                        }
-
-                    runWrites
-                        cs
-                        [
-                            Session.WriteMeasurement("s-1", Measurement.Weight(Some 33000<gram>), t0)
-                            Session.WriteMeasurement("s-1", Measurement.Weight(Some 34000<gram>), t0.AddMinutes 1.0)
-                            Session.WriteMeasurement("s-1", Measurement.Height None, t0.AddMinutes 2.0)
-                            Session.WriteMeasurement("s-1", Measurement.GestAge(Some gestAge), t0.AddMinutes 3.0)
-                        ]
-                    |> Expect.equal "written" Session.StoreOutcome.Written
-
-                    match loadedSession cs "s-1" with
-                    | Some(Choice1Of2(Ok loaded)) ->
-                        loaded.Opened.Measured
-                        |> Expect.equal
-                            "the latest weight, the height cleared, the gestational age"
-                            {
-                                Weight =
-                                    Some
-                                        {
-                                            Value = Some 34000<gram>
-                                            At = t0.AddMinutes 1.0
-                                        }
-                                Height =
-                                    Some
-                                        {
-                                            Value = None
-                                            At = t0.AddMinutes 2.0
-                                        }
-                                GestAge =
-                                    Some
-                                        {
-                                            Value = Some gestAge
-                                            At = t0.AddMinutes 3.0
-                                        }
-                                MarkedAdult = None
-                            }
-                    | other -> failtest $"expected the Session, got %A{other}"
-
-                    // a gestational age with its weeks and not its days is no row the store takes
-                    use conn = connect cs
-
-                    (fun () ->
-                        use cmd =
-                            SqlSessions.command
-                                conn
-                                null
-                                "insert into measurement (session_id, kind, value, days, at) values ('s-1', 'gestage', 36, null, 0)"
-                                []
-
-                        cmd.ExecuteNonQuery() |> ignore
-                    )
-                    |> Expect.throws "the schema refuses it"
                 )
             }
 

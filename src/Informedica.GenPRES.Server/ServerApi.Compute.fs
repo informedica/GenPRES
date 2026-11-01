@@ -15,16 +15,14 @@ type Gate =
 module Compute =
 
     /// Every computing member: the Session the cookie names is marked seen and told whether the
-    /// record moved on or the Session ended, and what a patient change measures is recorded.
-    /// Every patient the command carries is computed as sent. The gate refuses a command that
-    /// needs the formulary while it is not loaded, with the provider's messages. An exception is
-    /// an Error with its message. The token is never logged.
+    /// record moved on or the Session ended. Every patient the command carries is computed as
+    /// sent. The gate refuses a command that needs the formulary while it is not loaded, with the
+    /// provider's messages. An exception is an Error with its message. The token is never logged.
     let bound
         (env: AppEnv)
         (cookie: SessionCookie)
         (name: 'cmd -> string)
         (gate: 'cmd -> Gate)
-        (patientOf: 'cmd -> Patient option)
         (handler: 'cmd -> Async<Result<'resp, string[]>>)
         (request: Request<'cmd>)
         : Async<Result<Reply<'resp>, string[]>>
@@ -39,7 +37,7 @@ module Compute =
                 let! notice =
                     match cookie.read () with
                     | None -> async { return None }
-                    | Some id -> env.session.seen id request.Opened (patientOf cmd)
+                    | Some id -> env.session.seen id request.Opened
 
                 // an open command never asks the provider: asking may load
                 let! result =

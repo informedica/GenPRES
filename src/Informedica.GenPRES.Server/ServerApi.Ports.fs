@@ -221,38 +221,6 @@ module StoredVersion =
             }
 
 
-/// A value the user measured in the Session and when; none says the user cleared it.
-type Measured<'v> =
-    {
-        Value: 'v option
-        At: System.DateTime
-    }
-
-
-/// The user's measurements a Session holds, each the latest row: nothing for one the user
-/// never touched, so that the EHR's value stands; a value; or cleared.
-type Measurements =
-    {
-        Weight: Measured<int<gram>> option
-        Height: Measured<int<cm>> option
-        GestAge: Measured<GestAge> option
-        /// The mark as an adult the user set or cleared: its value is true or false, never none,
-        /// since clearing the mark writes false.
-        MarkedAdult: Measured<bool> option
-    }
-
-
-/// One measurement as the store writes it, in its own row: the kind and the value, none
-/// clearing it.
-[<RequireQualifiedAccess>]
-type Measurement =
-    | Weight of int<gram> option
-    | Height of int<cm> option
-    | GestAge of GestAge option
-    /// The mark as an adult: set or cleared.
-    | MarkedAdult of bool
-
-
 /// What the store holds of an open Session: who, for which patient and on what data, the
 /// token, the key thumbprint, and the head of the record it opened with, readable or not.
 /// The command handlers map it to what the client keeps.
@@ -267,8 +235,6 @@ type OpenedSession =
         /// the data shown for the patient: the EHR data projected at the open, else the head's
         /// at the age of the open, else none
         Patient: GenForm.Patient option
-        /// what the user measured in the Session, held beside the EHR data as read
-        Measured: Measurements
         OpenedToken: OpenedToken option
         /// RFC 7638 thumbprint of the public key this Session will sign requests with
         KeyThumbprint: string option
@@ -396,9 +362,8 @@ type SessionPort =
         // the signature, its plan parsed, for the Session the cookie names
         submit: string -> Signature -> Async<SigningOutcome>
         // every computing request: the Session the cookie names is marked seen and told
-        // whether the record moved on or the Session ended; what a patient change measures is
-        // recorded
-        seen: string -> OpenedToken option -> Patient option -> Async<RecordNotice option>
+        // whether the record moved on or the Session ended
+        seen: string -> OpenedToken option -> Async<RecordNotice option>
         // the version named becomes what the Session the cookie names opened with
         openVersion: string -> string -> Async<OpenedSession option>
         // the EHR read again for the Session the cookie names and the head reopened on it

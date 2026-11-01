@@ -19,7 +19,6 @@
     <Compile Include="MappersPatientTests.fs" />
     <Compile Include="MappersOrderContextTests.fs" />
     <Compile Include="MappersOrderPlanTests.fs" />
-    <Compile Include="MeasurementsTests.fs" />
     <Compile Include="OrderContextSwitchTests.fs" />
     <Compile Include="OrderContextCommandTests.fs" />
     <Compile Include="FilterAgreementTests.fs" />

@@ -159,10 +159,10 @@ module SqlDatabase =
 
 
     /// The highest JSON structure version this release reads.
-    let jsonVersionRead = 9
+    let jsonVersionRead = 10
 
     /// The JSON structure version this release writes.
-    let jsonVersionWritten = 9
+    let jsonVersionWritten = 10
 
 
     /// Brings plan JSON written under a structure version to the structure this release
@@ -177,6 +177,10 @@ module SqlDatabase =
     /// - 7 to 8 added on every order scenario whether the order fits its rule only without the
     ///   Divisible of its products, false when absent
     /// - 8 to 9 added the picked products on every filter, none when absent
+    /// - 9 to 10 added the EHR data of the challenge on every version, none when absent
+    ///
+    /// The JSON of a version carries EHR data, so a change to the shape of the EHR data needs a step
+    /// here as well as in upgradeEhr.
     let upgrade (version: int) (json: string) : Result<string, string> =
         if version < 1 then
             Error $"JSON structure version %i{version} does not exist"
@@ -650,50 +654,6 @@ module SqlSessions =
         | _ -> Error "the EHR data and its JSON structure version are not both present"
 
 
-    /// What the user measured in a Session, its rows oldest first, the latest per kind
-    /// deciding; a kind this release does not know, a gestational age with its weeks and not
-    /// its days, or a mark as an adult that is not 1 or 0, is a reason.
-    let loadMeasurements (conn: SqliteConnection) (sid: string) : Result<Measurements, string> =
-        rows
-            conn
-            "select kind, value, days, at from measurement where session_id = $sid order by id"
-            [ "$sid", box sid ]
-            (fun r ->
-                let value = if r.IsDBNull 1 then None else Some(r.GetInt32 1)
-                let days = if r.IsDBNull 2 then None else Some(r.GetInt32 2)
-                let at = at (r.GetInt64 3)
-
-                match r.GetString 0, value, days with
-                | "weight", _, _ ->
-                    Ok(Measurement.Weight(value |> Option.map Informedica.GenPRES.Shared.Measures.toGram), at)
-                | "height", _, _ ->
-                    Ok(Measurement.Height(value |> Option.map Informedica.GenPRES.Shared.Measures.toCm), at)
-                | "gestage", Some w, Some d ->
-                    let gestAge: GestAge =
-                        {
-                            Weeks = Informedica.GenPRES.Shared.Measures.toWeek w
-                            Days = Informedica.GenPRES.Shared.Measures.toDay d
-                        }
-
-                    Ok(Measurement.GestAge(Some gestAge), at)
-                | "gestage", None, None -> Ok(Measurement.GestAge None, at)
-                | "gestage", _, _ -> Error "a gestational age has its weeks and its days, or neither"
-                | "marked-adult", Some 1, None -> Ok(Measurement.MarkedAdult true, at)
-                | "marked-adult", Some 0, None -> Ok(Measurement.MarkedAdult false, at)
-                | "marked-adult", _, _ -> Error "a mark as an adult is 1 or 0, without days"
-                | kind, _, _ -> Error $"the measurement kind %s{kind} is not known"
-            )
-        |> List.fold
-            (fun acc row ->
-                match acc, row with
-                | Ok rows, Ok row -> Ok(row :: rows)
-                | Error e, _
-                | _, Error e -> Error e
-            )
-            (Ok [])
-        |> Result.map (List.rev >> Measurements.ofRows)
-
-
     /// What a Session opened with, the newest row: the token, the id of the version it opened
     /// with, the head it saw, the EHR data it opened on and the patient data it shows, whose
     /// reasons for not reading make the Session unreadable.
@@ -839,15 +799,12 @@ module SqlSessions =
                             opened
                             |> Option.map _.EhrData
                             |> Option.defaultValue (Ok None)
-                            |> Result.bind (fun ehr ->
-                                loadMeasurements conn sid
-                                |> Result.map (fun measured -> user, patient, ehr, measured)
-                            )
+                            |> Result.map (fun ehr -> user, patient, ehr)
                         )
                     )
 
                 read
-                |> Result.map (fun (user, patient, ehr, measured) ->
+                |> Result.map (fun (user, patient, ehr) ->
                     let session: Session.SessionRecord =
                         {
                             Opened =
@@ -856,7 +813,6 @@ module SqlSessions =
                                     PatientId = row.PatientId
                                     EhrData = ehr
                                     Patient = patient
-                                    Measured = measured
                                     OpenedToken = opened |> Option.bind _.OpenedToken
                                     KeyThumbprint = row.KeyThumbprint
                                     Head = opened |> Option.bind _.HeadId |> Option.bind headOf
@@ -1142,26 +1098,6 @@ module SqlSessions =
                     "$e", box (ms notice.Expiry)
                     "$at", box (ms at)
                 ]
-        | Session.WriteMeasurement(sid, measurement, at) ->
-            let kind, value, days =
-                match measurement with
-                | Measurement.Weight g -> "weight", g |> Option.map int, None
-                | Measurement.Height cm -> "height", cm |> Option.map int, None
-                | Measurement.GestAge ga ->
-                    "gestage", ga |> Option.map (fun g -> int g.Weeks), ga |> Option.map (fun g -> int g.Days)
-                | Measurement.MarkedAdult marked -> "marked-adult", Some(if marked then 1 else 0), None
-
-            exec
-                conn
-                tx
-                "insert into measurement (session_id, kind, value, days, at) values ($sid, $k, $v, $d, $at)"
-                [
-                    "$sid", box sid
-                    "$k", box kind
-                    "$v", nullable value
-                    "$d", nullable days
-                    "$at", box (ms at)
-                ]
         | Session.WriteChallenge(sid, challenge, at) ->
             exec
                 conn
@@ -1270,8 +1206,7 @@ module SqlSessions =
         | Session.WriteNotice(sid, _, _)
         | Session.WriteChallenge(sid, _, _)
         | Session.SpendChallenge(sid, _, _)
-        | Session.RememberAnswer(sid, _, _, _)
-        | Session.WriteMeasurement(sid, _, _) -> Some sid, None
+        | Session.RememberAnswer(sid, _, _, _) -> Some sid, None
         | Session.WriteVersion(v, _) -> None, Some v.SignedBy.UserId
         | Session.WriteCredential(userId, _, _, _)
         | Session.CountCodeTry(userId, _, _)
@@ -1337,20 +1272,6 @@ module SqlSessions =
             Some { auditEntry at "code-entered" "refused" with Actor = Some userId }
         | Session.WriteNotice(sid, _, at) -> Some { auditEntry at "notice-told" "ok" with SessionId = Some sid }
         | Session.WriteChallenge(sid, _, at) -> Some { auditEntry at "challenge-issued" "ok" with SessionId = Some sid }
-        // what was measured is the value's business: the audit names the kind alone
-        | Session.WriteMeasurement(sid, measurement, at) ->
-            let kind =
-                match measurement with
-                | Measurement.Weight _ -> "weight"
-                | Measurement.Height _ -> "height"
-                | Measurement.GestAge _ -> "gestational-age"
-                | Measurement.MarkedAdult _ -> "marked-adult"
-
-            Some
-                { auditEntry at "measurement-recorded" "ok" with
-                    SessionId = Some sid
-                    Detail = Some $"""{{"kind":%s{jsonText kind}}}"""
-                }
         | Session.RememberAnswer(sid, _, outcome, at) ->
             match outcome with
             // the signature itself is audited by the version it wrote
@@ -1921,10 +1842,6 @@ module SqlSessions =
                 PatientId = row.PatientId
                 EhrData = opened |> Option.bind (fun o -> o.EhrData |> Result.toOption |> Option.flatten)
                 Patient = opened |> Option.bind (fun o -> o.Patient |> Result.toOption |> Option.flatten)
-                Measured =
-                    loadMeasurements conn sid
-                    |> Result.toOption
-                    |> Option.defaultValue Measurements.none
                 OpenedToken = opened |> Option.bind _.OpenedToken
                 KeyThumbprint = row.KeyThumbprint
                 Head = opened |> Option.bind _.HeadId |> Option.bind headOf
