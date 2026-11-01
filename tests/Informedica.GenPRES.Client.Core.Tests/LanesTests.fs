@@ -561,6 +561,26 @@ let tests =
                 |> Expect.equal "still open" (SessionView.Open session)
             }
 
+            test "a notice that comes in by itself, as the drug names' does, is held off during a signature too" {
+                let session = SessionMachineTests.full
+
+                let lanes =
+                    { Lanes.initial (Some draft) with
+                        Session = SessionState.opened session None
+                        Signing = SigningState.submitting "c-1" SigningFixtures.plan "k-1"
+                    }
+
+                let notice =
+                    LanesMsg.Session(
+                        SessionMsg.NoticeReceived(session.OpenedToken, RecordNotice.Ended SessionEnding.InactiveTab)
+                    )
+
+                let lanes, effects, _ = lanes |> Lanes.transition (counter ()) notice
+
+                (lanes.Session |> SessionState.view, effects)
+                |> Expect.equal "still open, nothing to do" (SessionView.Open session, [])
+            }
+
             test "the inactive-tab answer without a signature shows the gate" {
                 let session = SessionMachineTests.full
                 let lanes = { Lanes.initial (Some draft) with Session = SessionState.opened session None }

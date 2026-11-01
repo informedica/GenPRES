@@ -1402,7 +1402,7 @@ module SessionMachineTests =
                         (SessionState.opened full None)
                     |> Expect.equal "the gate, no close" (SessionState.ended SessionEnding.InactiveTab, [])
 
-                    transition SessionMsg.InactiveTab (SessionState.opened full None)
+                    transition (SessionMsg.InactiveTab full.OpenedToken) (SessionState.opened full None)
                     |> Expect.equal "a refused command too" (SessionState.ended SessionEnding.InactiveTab, [])
                 }
 
@@ -1425,10 +1425,17 @@ module SessionMachineTests =
                     |> Expect.equal "a refresh is out" (refreshing, [])
                 }
 
+                test "a late refusal of an earlier token leaves a newer session alone" {
+                    let newer = SessionState.opened full None
+
+                    transition (SessionMsg.InactiveTab(Some(OpenedToken "t-old"))) newer
+                    |> Expect.equal "the session stands" (newer, [])
+                }
+
                 test "a close refused on the way out goes on to what follows" {
                     let leaving, _ = transition SessionMsg.UrlMovedOn (SessionState.opened full None)
 
-                    transition SessionMsg.InactiveTab leaving
+                    transition (SessionMsg.InactiveTab full.OpenedToken) leaving
                     |> Expect.equal "anonymous" (SessionState.anonymous, [])
                 }
 

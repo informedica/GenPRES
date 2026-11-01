@@ -262,7 +262,7 @@ module private Effects =
                     match! serverApi.processSession (Api.SessionCommand.OpenVersion(id, from)) with
                     | Api.SessionResponse.SessionResp session ->
                         return Messages.session (SessionMsg.SignedPlanOpened(from, Ok session))
-                    | Api.SessionResponse.InactiveTab -> return Messages.session SessionMsg.InactiveTab
+                    | Api.SessionResponse.InactiveTab -> return Messages.session (SessionMsg.InactiveTab from)
                     // never an answer to OpenVersion
                     | _ -> return Messages.session (SessionMsg.SignedPlanOpened(from, Ok None))
                 with ex ->
@@ -275,7 +275,7 @@ module private Effects =
                     match! serverApi.processSession (Api.SessionCommand.Refresh from) with
                     | Api.SessionResponse.SessionResp session ->
                         return Messages.session (SessionMsg.PatientRefreshed(from, Ok session))
-                    | Api.SessionResponse.InactiveTab -> return Messages.session SessionMsg.InactiveTab
+                    | Api.SessionResponse.InactiveTab -> return Messages.session (SessionMsg.InactiveTab from)
                     // never an answer to Refresh
                     | _ -> return Messages.session (SessionMsg.PatientRefreshed(from, Ok None))
                 with ex ->
@@ -287,7 +287,7 @@ module private Effects =
                 // the server deletes the cookie whatever its close returns (finally), unless another
                 // tab holds the session; only a request that never got there fails
                 match! serverApi.processSession (Api.SessionCommand.CloseSession token) |> Async.Catch with
-                | Choice1Of2 Api.SessionResponse.InactiveTab -> return Messages.session SessionMsg.InactiveTab
+                | Choice1Of2 Api.SessionResponse.InactiveTab -> return Messages.session (SessionMsg.InactiveTab token)
                 | Choice1Of2 _ -> return Messages.session SessionMsg.SessionClosed
                 | Choice2Of2 ex ->
                     Logging.error "could not close the session on the server" ex.Message

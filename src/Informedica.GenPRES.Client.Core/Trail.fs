@@ -403,7 +403,7 @@ module Trail =
             | SessionMsg.OpenSignedPlan id -> $"OpenSignedPlan %s{Part.shortId id}"
             | SessionMsg.SignedPlanOpened(from, r) -> $"SignedPlanOpened %s{Part.token from} %s{reopened r}"
             | SessionMsg.RefreshPatient -> "RefreshPatient"
-            | SessionMsg.InactiveTab -> "InactiveTab"
+            | SessionMsg.InactiveTab from -> $"InactiveTab %s{Part.token from}"
             | SessionMsg.PatientRefreshed(from, r) -> $"PatientRefreshed %s{Part.token from} %s{reopened r}"
             | SessionMsg.NoticeReceived(from, n) -> $"NoticeReceived %s{Part.token from} %s{Part.notice n}"
             | SessionMsg.SignatureBlocked h -> $"SignatureBlocked %s{Part.head h}"

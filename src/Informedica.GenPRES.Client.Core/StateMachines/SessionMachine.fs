@@ -191,8 +191,9 @@ module SessionMachine =
         | NoticeReceived of from: OpenedToken option * RecordNotice
         /// A signature was refused because a newer version exists; this is the version to offer.
         | SignatureBlocked of OrderPlanHead
-        /// A session command was refused: another tab holds the session.
-        | InactiveTab
+        /// A session command was refused: another tab holds the session. The token the request
+        /// started from guards it, as for SignedPlanOpened.
+        | InactiveTab of from: OpenedToken option
 
 
     /// What the App carries out for the session machine.
@@ -746,9 +747,10 @@ module SessionMachine =
 
             // a close refused on the way out leaves what follows to go on; anywhere else the gate
             // says that another tab holds the session
-            | SessionMsg.InactiveTab, SessionPhase.UrlMovedOn next, Some SessionRequest.Closing -> follow next
-            | SessionMsg.InactiveTab, SessionPhase.Open _, _ -> ended SessionEnding.InactiveTab, []
-            | SessionMsg.InactiveTab, _, _ -> state, []
+            | SessionMsg.InactiveTab _, SessionPhase.UrlMovedOn next, Some SessionRequest.Closing -> follow next
+            | SessionMsg.InactiveTab from, SessionPhase.Open current, _ when current.OpenedToken = from ->
+                ended SessionEnding.InactiveTab, []
+            | SessionMsg.InactiveTab _, _, _ -> state, []
 
             // a signature refused for a newer version: the version is kept for the bar, not told
             // again, since the refusal said it
