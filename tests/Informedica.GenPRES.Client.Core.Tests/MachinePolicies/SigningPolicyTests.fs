@@ -275,6 +275,21 @@ let tests =
                         |> Expect.isEmpty "no lines"
                     }
 
+                    test "the same value measured instead of estimated is a difference, and the estimate is labelled" {
+                        let estimated =
+                            { patient with
+                                Weight =
+                                    { patient.Weight with
+                                        Measured = None
+                                        Estimated = Some 28000<gram>
+                                    }
+                            }
+
+                        noticeRows named estimated (notice (Some(weighed 28000<gram>)))
+                        |> List.map (fun r -> r.Plan, r.Ehr)
+                        |> Expect.equal "estimated beside measured" [ "28 kg (<Patient Estimated>)", "28 kg" ]
+                    }
+
                     test "the gestational age is in words, as in the patient line" {
                         noticeRows
                             named

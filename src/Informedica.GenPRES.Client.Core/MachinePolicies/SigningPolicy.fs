@@ -123,6 +123,19 @@ module SigningPolicy =
 
         let height (c: int<cm>) = $"%i{int c} cm"
 
+        // a measured value, else the estimate; the kind counts as a difference, since taking the
+        // EHR's data can turn an estimate into a measurement of the same value
+        let measure measured estimated =
+            measured
+            |> Option.map (fun v -> v, true)
+            |> Option.orElse (estimated |> Option.map (fun v -> v, false))
+
+        let labelled show (value, measured) =
+            if measured then
+                show value
+            else
+                $"%s{show value} (%s{tr Terms.``Patient Estimated``})"
+
         let gestAge (g: GestAge) =
             $"%i{int g.Weeks} %s{tr Terms.``Patient Age weeks``} %i{int g.Days} %s{tr Terms.``Patient Age days``}"
 
@@ -146,14 +159,14 @@ module SigningPolicy =
             [
                 row
                     Terms.``Patient Weight``
-                    (patient |> Informedica.GenPRES.Shared.Models.Patient.getWeight)
-                    (ehr |> Informedica.GenPRES.Shared.Models.Patient.getWeight)
-                    PatientText.weightText
+                    (measure patient.Weight.Measured patient.Weight.Estimated)
+                    (measure ehr.Weight.Measured ehr.Weight.Estimated)
+                    (labelled PatientText.weightText)
                 row
                     Terms.``Patient Length``
-                    (patient |> Informedica.GenPRES.Shared.Models.Patient.getHeight)
-                    (ehr |> Informedica.GenPRES.Shared.Models.Patient.getHeight)
-                    height
+                    (measure patient.Height.Measured patient.Height.Estimated)
+                    (measure ehr.Height.Measured ehr.Height.Estimated)
+                    (labelled height)
                 row Terms.``Patient GA Age`` patient.GestationalAge ehr.GestationalAge gestAge
                 row Terms.``Patient Gender`` (Some patient.Gender) (Some ehr.Gender) gender
                 row Terms.``Patient Access`` (Some(List.sort patient.Access)) (Some(List.sort ehr.Access)) access
