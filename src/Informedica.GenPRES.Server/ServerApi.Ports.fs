@@ -221,8 +221,23 @@ module StoredVersion =
             }
 
 
+/// The act that wrote what a Session opened with. The newest row counts, so that a resume knows
+/// what the Session stands on without comparing times.
+[<RequireQualifiedAccess>]
+type SessionAct =
+    /// the Session opened, from a launch
+    | Opened
+    /// a version of the record opened in the Session
+    | VersionOpened
+    /// the EHR read again
+    | Refreshed
+    /// a plan signed
+    | Signed
+
+
 /// What the store holds of an open Session: who, for which patient and on what data, the
-/// token, the key thumbprint, and the head of the record it opened with, readable or not.
+/// token, the key thumbprint, the head of the record it opened with, readable or not, and the
+/// act that wrote it. It holds no patient data: the patient shown is computed from these.
 /// The command handlers map it to what the client keeps.
 type OpenedSession =
     {
@@ -232,14 +247,13 @@ type OpenedSession =
         PatientId: string option
         /// the EHR data as read at the launch; none for no-data and for a launch without EHR
         EhrData: GenForm.EhrPatientData option
-        /// the data shown for the patient: the EHR data projected at the open, else the head's
-        /// at the age of the open, else none
-        Patient: GenForm.Patient option
         OpenedToken: OpenedToken option
         /// RFC 7638 thumbprint of the public key this Session will sign requests with
         KeyThumbprint: string option
         /// the head of the record it opened with; None from nothing
         Head: StoredVersion option
+        /// the latest act: it says whether the patient shown is the signed one
+        Act: SessionAct
     }
 
 
@@ -357,6 +371,8 @@ type SessionPort =
         callback: Callback -> Async<CallbackResult>
         // by session id from the cookie; an ending is told until it is acknowledged
         find: string -> Async<SessionLookup>
+        // the patient an open Session shows, computed from it at the date of asking; reads no store
+        patient: OpenedSession -> GenForm.Patient option
         // the Session ended by a new launch of this browser, whatever token stands
         close: string -> Async<unit>
         // explicit close by the User, on the token of the tab

@@ -67,13 +67,10 @@ let opened (sid: string) (ehr: Informedica.GenForm.Lib.Types.EhrPatientData opti
                 User = Some Store.prescriber
                 PatientId = Some "stub-patient"
                 EhrData = ehr
-                Patient =
-                    ehr
-                    |> Option.map (port.patient today)
-                    |> Option.orElse (Session.sessionPatient today port None head)
                 OpenedToken = Some(Store.token sid)
                 KeyThumbprint = Some "t"
                 Head = head
+                Act = SessionAct.Opened
             }
         Login = Some Store.prescriber.UserId
         OpenedWith = head |> Option.bind StoredVersion.readableId
@@ -81,6 +78,10 @@ let opened (sid: string) (ehr: Informedica.GenForm.Lib.Types.EhrPatientData opti
         Seen = today
     }
     : Session.SessionRecord)
+
+
+/// What the Session given shows at a date, through the port whose projection moves with the clock.
+let shownAt date (_, record: Session.SessionRecord) = record.Opened |> Session.sessionPatient date port
 
 
 let unreadable: UnreadableVersion =
@@ -101,7 +102,6 @@ let challengeOver (read: Informedica.GenForm.Lib.Types.EhrPatientData option) : 
         Nonce = "c-s-1"
         Digest = StubDatabase.digest plan
         Ehr = read
-        Reading = read |> Option.map (port.patient today)
         Expiry = tomorrow + Session.challengeLifetime
     }
 
@@ -182,7 +182,7 @@ let tests =
                     let readable = StoredVersion.Readable(version, identity)
                     let days n =
                         n |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Time.day
-                    let openedLater = Session.sessionPatient later port None
+                    let openedLater head = opened "s-1" None head |> shownAt later
 
                     let withoutAges (pat: Informedica.GenForm.Lib.Types.Patient) =
                         { pat with
@@ -239,13 +239,56 @@ let tests =
                     }
 
                     test "gives way to EHR data, whatever the head" {
-                        Session.sessionPatient later port (Some ehr) (Some readable)
+                        opened "s-1" (Some ehr) (Some readable)
+                        |> shownAt later
                         |> Expect.equal "the projection" (Some(port.patient later ehr))
                     }
 
                     test "is none from nothing, and from a head that cannot be read" {
                         [ openedLater None; openedLater (Some(StoredVersion.Unreadable unreadable)) ]
                         |> Expect.allEqual "none" None
+                    }
+                ]
+
+            testList
+                "the latest act says which patient a Session shows, the age at the resume"
+                [
+                    let resume = today.AddMonths 2
+                    let readable = Some(StoredVersion.Readable(version, identity))
+                    let shownEhr = Some(port.patient resume heavier)
+                    let shownSigned = Some(version.Plan.Patient |> Session.atBirthDate resume identity)
+
+                    let afterAct act head =
+                        let sid, record = opened "s-1" (Some heavier) head
+
+                        (sid, { record with Opened = { record.Opened with Act = act } })
+                        |> shownAt resume
+
+                    test "the fixtures tell the EHR's patient from the signed one" {
+                        shownEhr |> Expect.notEqual "another weight" shownSigned
+                    }
+
+                    test "a reload before any sign shows the EHR data" {
+                        afterAct SessionAct.Opened None |> Expect.equal "the projection" shownEhr
+                    }
+
+                    test "a reload after a sign shows the patient signed" {
+                        afterAct SessionAct.Signed readable
+                        |> Expect.equal "the signed patient" shownSigned
+                    }
+
+                    test "signed, then refreshed, shows the EHR data" {
+                        afterAct SessionAct.Refreshed readable |> Expect.equal "the projection" shownEhr
+                    }
+
+                    test "signed, then a version opened, shows the EHR data" {
+                        afterAct SessionAct.VersionOpened readable
+                        |> Expect.equal "the projection" shownEhr
+                    }
+
+                    test "a sign whose head cannot be read shows the EHR data" {
+                        afterAct SessionAct.Signed (Some(StoredVersion.Unreadable unreadable))
+                        |> Expect.equal "the projection" shownEhr
                     }
                 ]
 
@@ -311,7 +354,11 @@ let tests =
                          Some patient)
                         |> Expect.equal
                             "the stub's identity on the answer and on the head; opened with the version; the fresh token; the Session's patient"
-                            (identity, identity, Some version.Id, Some token, record.Opened.Patient)
+                            (identity,
+                             identity,
+                             Some version.Id,
+                             Some token,
+                             record.Opened |> Session.sessionPatient tomorrow port)
                     }
 
                     test "the version names the patient of the read signed on: a notice accepted over another name" {
@@ -337,7 +384,8 @@ let tests =
                         let record, version, _, _, _ =
                             signedAt (opened "s-1" (Some ehr) None) (challengeOver (Some ehr))
 
-                        (record.Opened.Patient |> Option.bind ageInDays, version.Plan.Patient |> ageInDays)
+                        (record.Opened |> Session.sessionPatient tomorrow port |> Option.bind ageInDays,
+                         version.Plan.Patient |> ageInDays)
                         |> Expect.equal "3842 on the Session, 3841 on the version" (Some 3842N, Some 3841N)
                     }
 
@@ -345,7 +393,9 @@ let tests =
                         let sid, record = opened "s-1" (Some ehr) None
                         let after, version, _, _, patient = signedAt (sid, record) (challengeOver (Some heavier))
 
-                        (version.EhrData, patient |> weightInKg, after.Opened.Patient |> Option.bind weightInKg)
+                        (version.EhrData,
+                         patient |> weightInKg,
+                         after.Opened |> Session.sessionPatient tomorrow port |> Option.bind weightInKg)
                         |> Expect.equal "the 34 kg read, the 32 kg signed" (Some heavier, Some 32N, Some 32N)
                     }
                 ]

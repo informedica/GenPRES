@@ -115,8 +115,8 @@ needs rebuilding.
 ## The store after the change
 
 No store runs, so the migration files are edited in place: `008-measurement.sql` and
-`010-marked-adult.sql` are deleted, `002-session.sql` loses two columns and gains one, every other
-file stays as it is. The schema test that lists the migrations follows. The tables that hold patient data, after
+`010-marked-adult.sql` are deleted, `002-session.sql` loses two columns and gains one, `004-notices.sql`
+loses the two columns of the challenge's reading, and the comments of 006 and 007 follow. The schema test that lists the migrations follows. The tables that hold patient data, after
 the change:
 
 ```sql

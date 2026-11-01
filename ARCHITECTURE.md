@@ -257,11 +257,10 @@ erDiagram
     session_opened_with {
         int id PK
         text session_id FK
+        text act
         text version_id
         text head_id
         text opened_token
-        int json_version
-        text patient "json"
         int at
         int ehr_json_version "migr 6"
         text ehr_data "migr 6"
@@ -334,8 +333,6 @@ erDiagram
         text session_id FK
         text nonce
         text digest
-        int json_version
-        text reading "json"
         int expiry
         int at
         int ehr_json_version "migr 7"

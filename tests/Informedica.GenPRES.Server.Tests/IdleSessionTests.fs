@@ -32,10 +32,10 @@ let record (sid: string) (seen: DateTime) : Session.SessionRecord =
                 User = Some prescriber
                 PatientId = Some "p1"
                 EhrData = None
-                Patient = None
                 OpenedToken = Some(OpenedToken $"opened-{sid}")
                 KeyThumbprint = Some "t"
                 Head = None
+                Act = SessionAct.Opened
             }
         Login = Some prescriber.UserId
         OpenedWith = None
@@ -210,6 +210,18 @@ let portTests =
                 match! port.find sid with
                 | SessionLookup.Ended SessionEnding.Idle -> ()
                 | other -> failtest $"expected still ended idle, got %A{other}"
+            }
+
+            test "the patient an open Session shows has the age at the port's clock" {
+                let clock = ref (openedAt + TimeSpan.FromDays 60.0)
+                let port = portAt clock (stateSeenAt openedAt)
+                let ehr = StubPatientData.data "p1"
+                let opened = { (record sid openedAt).Opened with EhrData = Some ehr }
+                let data = Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters.patientData
+
+                opened
+                |> port.patient
+                |> Expect.equal "the projection at the clock" (Some(data.patient clock.Value ehr))
             }
 
             testAsync "a computing request in an idle Session is told the ending" {

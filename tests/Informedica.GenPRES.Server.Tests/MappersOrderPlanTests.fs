@@ -199,17 +199,19 @@ let tests =
                         User = Some prescriber
                         PatientId = Some "stub-patient"
                         EhrData = None
-                        Patient =
-                            StubPatientData.patient
-                            |> Patient.parse
-                            |> Result.defaultWith (fun e -> failtest $"no patient: %A{e}")
-                            |> Some
                         OpenedToken = Some(OpenedToken "opened-1")
                         KeyThumbprint = Some "thumb"
                         Head = Some(StoredVersion.Readable(version, None))
+                        Act = SessionAct.Opened
                     }
 
-                let opened = SessionMapper.toOpened false stored
+                let shown _ =
+                    StubPatientData.patient
+                    |> Patient.parse
+                    |> Result.defaultWith (fun e -> failtest $"no patient: %A{e}")
+                    |> Some
+
+                let opened = SessionMapper.toOpened false shown stored
 
                 opened.User |> Expect.equal "user" (Some prescriber)
 
@@ -225,7 +227,7 @@ let tests =
 
                 let identified =
                     { stored with EhrData = Some(StubPatientData.data "stub-patient") }
-                    |> SessionMapper.toOpened false
+                    |> SessionMapper.toOpened false shown
 
                 identified.PatientContext
                 |> Option.bind _.Identity
@@ -266,15 +268,15 @@ let tests =
                             Reason = "json_version 9 is newer than this release knows"
                         }
 
-                (SessionMapper.toOpened false { stored with Head = Some unreadable }).Head
+                (SessionMapper.toOpened false shown { stored with Head = Some unreadable }).Head
                 |> Expect.isNone "an unreadable head cannot be shown"
 
                 SessionMapper.toOpened
                     false
+                    shown
                     { stored with
                         User = None
                         PatientId = None
-                        Patient = None
                         Head = None
                     }
                 |> Expect.equal

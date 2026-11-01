@@ -141,7 +141,6 @@ let challenged sid (at: DateTime) (p: Types.OrderPlan) : string * Session.Challe
         Nonce = $"c-{sid}"
         Digest = StubDatabase.digest p
         Ehr = Some(StubPatientData.data "stub-patient")
-        Reading = Some(SessionStubTests.parsePatient stubPatient)
         Expiry = at + Session.challengeLifetime
     }
 

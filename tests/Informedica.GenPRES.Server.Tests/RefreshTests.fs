@@ -41,10 +41,10 @@ module Fixtures =
             User = Some prescriber
             PatientId = Some "p1"
             EhrData = Some ehr
-            Patient = Some(StubPatientData.port.patient openedAt ehr)
             OpenedToken = Some(OpenedToken "opened-s1")
             KeyThumbprint = Some "t"
             Head = None
+            Act = SessionAct.Opened
         }
 
     let record (opened: OpenedSession) : Session.SessionRecord =
@@ -83,7 +83,7 @@ let tests =
                 reads.Value |> Expect.equal "read once" 1
 
                 opened
-                |> Option.bind _.Patient
+                |> Option.bind (Session.sessionPatient later port)
                 |> Expect.equal
                     "the projection at the refresh"
                     (Some(StubPatientData.port.patient later (StubPatientData.data "p1")))
@@ -93,22 +93,44 @@ let tests =
                 let before = stateWith (record opened)
                 let after, _, _ = before |> refreshed StubPatientData.port
 
-                let months (state: Session.State) =
-                    state.Sessions["s1"].Opened.Patient
+                let months date (state: Session.State) =
+                    state.Sessions["s1"].Opened
+                    |> Session.sessionPatient date StubPatientData.port
                     |> Option.bind (Informedica.GenForm.Lib.Patient.Dto.toDto >> Patient.toModel >> _.Age)
                     |> Option.map _.Months
 
-                before |> months |> Expect.equal "ten years at the open" (Some 0<month>)
-                after |> months |> Expect.equal "six months more at the refresh" (Some 6<month>)
+                before
+                |> months openedAt
+                |> Expect.equal "ten years at the open" (Some 0<month>)
+                after
+                |> months later
+                |> Expect.equal "six months more at the refresh" (Some 6<month>)
             }
 
-            test "a refresh with no EHR data leaves the patient as it was" {
-                let before = opened
+            test "a refresh with no EHR data changes nothing and writes no row" {
+                let signed = { opened with Act = SessionAct.Signed }
                 let nothing = { StubPatientData.port with read = fun _ -> None }
-                let _, after, _ = stateWith (record before) |> refreshed nothing
+                let before = stateWith (record signed)
+                let state, after, writes = before |> refreshed nothing
 
-                after |> Option.bind _.Patient |> Expect.equal "the patient" before.Patient
-                after |> Option.bind _.EhrData |> Expect.equal "the EHR data" before.EhrData
+                after
+                |> Expect.equal "the Session as it was, token and act included" (Some signed)
+                state.Sessions["s1"].Opened |> Expect.equal "in the store too" signed
+
+                writes
+                |> List.exists (
+                    function
+                    | Session.RecordOpenedWith _ -> true
+                    | _ -> false
+                )
+                |> Expect.isFalse "no row: the newest still says what the Session stands on"
+            }
+
+            test "a refresh that reads names itself as the latest act" {
+                let signed = { opened with Act = SessionAct.Signed }
+                let _, after, _ = stateWith (record signed) |> refreshed StubPatientData.port
+
+                after |> Option.map _.Act |> Expect.equal "the act" (Some SessionAct.Refreshed)
             }
 
             test "a fresh token, the version kept, the challenge spent and the notice dropped" {
@@ -117,7 +139,6 @@ let tests =
                         Nonce = "n-1"
                         Digest = "d"
                         Ehr = None
-                        Reading = None
                         Expiry = later.AddMinutes 1.0
                     }
 
