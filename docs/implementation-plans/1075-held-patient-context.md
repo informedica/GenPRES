@@ -9,6 +9,12 @@ it.
 was reviewed before the build, and speak of the code as it was then; [As built](#as-built) says
 what landed and where the build deviated from it.
 
+**Amended by [plan 1599](1599-one-patient-signed-once.md).** The hold stays until step 7 of plan
+1430 removes it. The data notice is no longer accepted with data that applies after the sign: the
+clinician takes the EHR's data or keeps the plan's, and with unsigned orders on the plan, taking the
+EHR's data removes those orders and reads the EHR again. The Server records no measurements and
+keeps no patient of its own beside the plan. What this page says about those is history.
+
 Builds on [the two patient modes](976-two-patient-modes.md), which fixes an identified patient's
 age from the open to the sign, and on the idle end of a Session (#1061).
 

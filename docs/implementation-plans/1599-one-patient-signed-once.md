@@ -74,12 +74,16 @@ needs rebuilding.
    token. What the session stands on is the newest row of what it opened with, and that row says
    which act wrote it: the open, a version opened, a refresh or a sign. When the latest act is a
    sign, the panel shows the patient of the version signed; otherwise the EHR data as read,
-   projected at the open. In both cases the age is computed at the resume. No time is compared:
-   the order of the rows is the order of the acts. Without EHR data and without a head, the
+   projected at the resume, so that the age and an estimate come from one date. In both cases the
+   age is computed at the resume. An estimate from the EHR data can move at a resume when an age
+   step falls inside the session; nobody entered that change, but it is rare and the unsigned
+   orders are gone at a resume anyway. No time is compared: the order of the rows is the order of
+   the acts. Without EHR data and without a head, the
    patient has the identity and nothing else, as today. Unsigned orders are gone, as today; a
    typed value not signed is gone with them.
 8. **A refresh is the EHR read again.** The server answers the EHR projection at the refresh, age
-   included, and the client takes it as a whole, dropping the new and changed orders, as today.
+   included, and the client takes it as a whole, dropping the new and changed orders, as today. A
+   refresh that reads nothing changes nothing and writes no row: the token and the act stay.
 9. **The version records what was typed against.** The version holds the plan's patient as signed
    and the EHR data as read at the challenge. A typed value is readable from the record as the
    difference between the two. `Verified` stays.
@@ -96,6 +100,7 @@ needs rebuilding.
 - The `measurement` table, the `Measurements` type and module, `Opened.Measured`, the measurement
   rows in the loader, the writer and the audit, and the draft parameter of `seen`.
 - `Opened.Patient` and the `patient` and `json_version` columns of `session_opened_with`.
+- `Challenge.Reading` and the `reading` and `json_version` columns of `challenge`.
 - The age port member, `Session.age`, `Patient.aged`, the age read in `PatientCommand` and in
   `SigningCommand`.
 - `patientOf` on the commands and the patient parameter of `Compute.bound`.
@@ -177,9 +182,9 @@ create table session_opened_with (
 );
 create index ix_session_opened_with on session_opened_with (session_id, id);
 
--- 004-notices.sql with 007, unchanged. The notice shows the EHR's data as the projection at
--- the open; the challenge keeps the reading it was issued over and the EHR data as read, which
--- the commit copies into the version.
+-- 004-notices.sql with 007. The notice shows the EHR's data as the projection at the open; the
+-- challenge keeps the EHR data as read, which the commit copies into the version. Whether the
+-- challenge has EHR data says whether the version is verified.
 create table data_notice (
     id               integer primary key,
     session_id       text not null references session (session_id),
@@ -198,13 +203,10 @@ create table challenge (
     session_id       text not null references session (session_id),
     nonce            text not null,
     digest           text not null,
-    json_version     integer null,
-    reading          text null,          -- json: Patient.Dto, the projection at the challenge
     ehr_json_version integer null,
     ehr_data         text null,          -- json: the read, copied into the version at the commit
     expiry           integer not null,
-    at               integer not null,
-    check ((reading is null) = (json_version is null))
+    at               integer not null
 );
 
 -- 008 and 010: the measurement table is gone. No row of the user's exists before a sign.
@@ -228,7 +230,8 @@ an entry per measurement, since no measurement is written.
 | Open at 10 kg, EHR now 12 kg, clinician takes the EHR's data | Weight and gestational age the EHR's, the age unchanged |
 | EHR 10 kg, typed 12 kg, signed, reload | The latest act is the sign: the panel shows the signed 12 kg, age at the resume |
 | Typed 11 kg, signed, refreshed to the EHR's 12 kg, reload | The latest act is the refresh: the panel shows the EHR's 12 kg, age at the resume |
-| Reload before any sign | The EHR data as read, projected at the open, age at the resume; typed values gone |
+| Reload before any sign | The EHR data as read, projected at the resume, age at the resume; typed values gone |
+| Refresh during an EHR outage after a typed value was signed | Nothing changes; a reload still shows the signed patient |
 | EHR outage, head from an earlier session | The head's patient with the age computed from the identity at the resume |
 | Two tabs of one session, both sign | The second is refused with `StaleToken`: the first sign minted a new token |
 | A version read back | Its patient as signed and the EHR data of its challenge; what was typed is the difference |
@@ -273,7 +276,8 @@ first.
    The two patient columns of `session_opened_with` dropped; the patient of a remembered
    submission answer rebuilt from the version. `Challenge.Reading` and its column go too: only
    whether it is there is read, which `Challenge.Ehr` says, so `Verified` is `Challenge.Ehr.IsSome`.
-   A refactor on its own, no behaviour the earlier steps have not set.
+   No behaviour the earlier steps have not set, with one correction: a refresh was audited as a
+   version opened and is now `session-refreshed`.
 6. **Documents.** Plan 1430 amended: rule 3 says the old tab is told and refused, not that
    measurements and age are checked; rule 15 adds the resume and the refresh as moments the age is
    taken; the data notice as a choice; "held" written as unsigned orders on the plan. Plan 1075
@@ -296,6 +300,8 @@ scenarios, and one for the data notice with and without unsigned orders.
   covers the mix-up instead.
 - Typed and accepted values are one thing; the data notice offers two choices and nothing merges. The
   EHR's data has no age, so taking it leaves the client's age as it is.
+- A resume projects the EHR data at the resume, not at the open, so that the age and an estimate
+  come from one date.
 - A resume shows the latest act, read from the newest row of what the session opened with, which
   names the act that wrote it. No time is compared.
 - The version keeps the EHR data of its challenge, so the record shows what was typed against.

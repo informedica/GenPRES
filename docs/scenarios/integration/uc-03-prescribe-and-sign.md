@@ -74,11 +74,13 @@ and no order twice. The OpenedToken is opaque in the same way: the Session holds
 Submission must present it, and the commit re-mints it over the new head.
 
 **The data notice has no token type of its own.** When the platform reads other data than the
-Session shows, or none, the answer is a `DataNotice` with the data as it stands and a token.
-The Client shows it and the User proceeds by returning the token; the challenge then records
-whether the data was the platform's reading (`Verified`), and the version is signed as
-unverified when it was not. What the User entered or was shown is what the signed version
-records; the Patient is the Session's, and nothing compares the plan's data with the Session's.
+EHR data the Session opened on, or none, the answer is a `DataNotice` with the data as it stands
+and a token. The Client shows that data next to the plan's, and the User takes it or keeps the
+plan's; either answer returns the token. Data that could not be read can only be kept. The
+challenge then records whether the platform answered (`Verified`), and the version is signed as
+unverified when it did not. The version holds the plan's patient as signed and the EHR data as
+read at the challenge; the Patient's identity is the Session's, and nothing compares the plan's
+data with the EHR's at the commit.
 
 **The Role is taken twice.** Once at the launch, and again at every commit, from the registry.
 A registry that answers no standing, or a Role other than Prescriber, refuses the signature
