@@ -455,8 +455,6 @@ module OrderContext =
         /// One order value recalculated by the property command; refused as not solved when the
         /// field has no recalculation command.
         | ReCalcOrderValue of OrderContext * ChangePropertyCommand option
-        /// The patient updated elsewhere: the context evaluated for it, its filter kept.
-        | UpdatePatient of OrderContext * Patient
         /// The filter's choices set from outside its own fields, by name, with the rule of their
         /// source; the rules looked up again.
         | SeedFilter of
@@ -509,7 +507,6 @@ module OrderContext =
             | SelectNthOrderScenario(ctx, _) -> ctx
             | SetNthOrderValue(ctx, _) -> ctx
             | ReCalcOrderValue(ctx, _) -> ctx
-            | UpdatePatient(ctx, _) -> ctx
             | SeedFilter(ctx, _, _, _, _, _, _) -> ctx
 
 
@@ -553,7 +550,6 @@ module OrderContext =
             | SelectNthOrderScenario(_, n) -> $"SelectNthOrderScenario nth=%i{n}"
             | SetNthOrderValue(_, change) -> $"SetNthOrderValue %A{change}"
             | ReCalcOrderValue(_, change) -> $"ReCalcOrderValue %A{change}"
-            | UpdatePatient _ -> "UpdatePatient"
             | SeedFilter(_, source, _, gen, _, _, _) -> $"SeedFilter %A{source} %A{gen}"
 
 
@@ -1463,8 +1459,7 @@ Scenarios: {scenarios}
         | evaluated -> evaluated
 
 
-    /// A filter or scenario pick, a seed or a patient change applied to its context, read in the
-    /// lists as sent: the context it changes and the existing command it is evaluated as, or why
+    /// A filter or scenario pick or a seed applied to its context, read in the lists as sent: the context it changes and the existing command it is evaluated as, or why
     /// the index is past the options. None for any other command.
     let resolveChange cmd =
         let over asCommand changed = changed |> Result.map (fun ctx -> ctx, asCommand) |> Some
@@ -1474,7 +1469,6 @@ Scenarios: {scenarios}
         | SetNthComponents(ctx, ns) -> ctx |> setNthComponents ns |> over UpdateOrderContext
         | ClearAllFilter ctx -> Ok(clearAll ctx) |> over UpdateOrderContext
         | SelectNthOrderScenario(ctx, n) -> ctx |> selectNthScenario n |> over SelectOrderScenario
-        | UpdatePatient(ctx, pat) -> Ok { ctx with Patient = pat } |> over UpdateOrderContext
         | SeedFilter(ctx, source, ind, gen, rte, frm, dt) ->
             Ok(ctx |> seedFilter source ind gen rte frm dt) |> over UpdateOrderContext
         | _ -> None
@@ -1824,9 +1818,6 @@ Scenarios: {scenarios}
             |> Ok
         // a field without a recalculation is not recalculated: the context stays as it was sent
         | ReCalcOrderValue _ -> Ok(Refused(cmd, Refusal.NotSolved))
-        | UpdatePatient(ctx, pat) ->
-            Ok { ctx with Patient = pat }
-            |> evaluateAs UpdateOrderContext (fun ctx -> UpdatePatient(ctx, pat))
         | SeedFilter(ctx, source, ind, gen, rte, frm, dt) ->
             Ok(ctx |> seedFilter source ind gen rte frm dt)
             |> evaluateAs UpdateOrderContext (fun ctx -> SeedFilter(ctx, source, ind, gen, rte, frm, dt))

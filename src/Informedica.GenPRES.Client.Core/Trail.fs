@@ -104,6 +104,8 @@ module Trail =
             | Alert.Alert.NewerSignedPlan _ -> "NewerSignedPlan"
             | Alert.Alert.PatientRefreshFailed -> "PatientRefreshFailed"
             | Alert.Alert.ChangeNotApplied r -> $"ChangeNotApplied %s{contextRefusal r}"
+            | Alert.Alert.PatientDataChanged summary ->
+                $"PatientDataChanged %i{summary.Orders} orders %i{summary.Marked} marked"
 
 
         /// The value described, or none.
@@ -544,6 +546,8 @@ module Trail =
             | OrderPlanEffect.CheckInteractions drugs -> $"CheckInteractions %i{drugs.Length} drugs"
             | OrderPlanEffect.TellError _ -> "TellError"
             | OrderPlanEffect.TellAnswered -> "TellAnswered"
+            | OrderPlanEffect.TellPatientDataChanged summary ->
+                $"TellPatientDataChanged %i{summary.Orders} orders %i{summary.Marked} marked"
             | OrderPlanEffect.ChangesDropped -> "ChangesDropped"
 
 
@@ -646,8 +650,6 @@ module Trail =
             match effect with
             | OrderContextEffect.CallContext(OrderContextCommand.Command(cmd, ctx), request) ->
                 $"CallContext %s{command Part.contextId cmd ctx} %s{Part.shortId request}"
-            | OrderContextEffect.CallContext(OrderContextCommand.UpdatePatient(_, ctx), request) ->
-                $"CallContext UpdatePatient %s{Part.contextId ctx} %s{Part.shortId request}"
             | OrderContextEffect.SyncPages _ -> "SyncPages"
             | OrderContextEffect.TellError _ -> "TellError"
             | OrderContextEffect.TellNotApplied r -> $"TellNotApplied %s{Part.contextRefusal r}"

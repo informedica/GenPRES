@@ -345,7 +345,7 @@ The DSL has one `Set` action, with a variable and a choice, and one `ReCalc` act
 | none today; `ComponentInStock` is a case of the shipped `ChangePropertyCommand` that no wire command reaches and the processor does not implement | `NarrowProducts` |
 | Clear of a property, to be renamed ReCalc; the list of selected names it carries today goes, only the variable name to be recalculated remains | `ReCalc v`; refused for a variable that no kind recalculates (Table 13) |
 | ResetOrderScenario | `Reset` |
-| UpdatePatient; SetNthFilter, ClearFilter, ClearAllFilter; SetNthDiluent, ClearDiluent; SetNthComponents; SelectNthOrderScenario | the context is evaluated again and its orders created from the medication and the patient: creation, outside the DSL, then CalcConstraints |
+| SetNthFilter, ClearFilter, ClearAllFilter; SetNthDiluent, ClearDiluent; SetNthComponents; SelectNthOrderScenario | the context is evaluated again and its orders created from the medication and the patient: creation, outside the DSL, then CalcConstraints |
 | SetArgumentation | text on the context; outside the DSL |
 
 The state of section 5 is the contract's context, with the order inside. The client holds it between requests and sends it back, so a request on the state the client returns equals the request on the state the server last sent.

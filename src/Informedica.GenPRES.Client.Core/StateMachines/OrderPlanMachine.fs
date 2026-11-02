@@ -12,6 +12,7 @@ namespace Informedica.GenPRES.Client.Core.StateMachines
 /// - a failed change leaves the plan as it was, so the next action is the retry.
 module OrderPlanMachine =
 
+    open Informedica.GenPRES.Client.Core.Helpers
     open Informedica.GenPRES.Client.Core.Policies
     open Informedica.GenPRES.Shared.Types
     open Informedica.GenPRES.Shared.Models
@@ -123,6 +124,8 @@ module OrderPlanMachine =
         | TellError of string[]
         /// The answer the plan waited for landed; an error it raised can go.
         | TellAnswered
+        /// The orders follow new patient data; tell the prescriber in one summary.
+        | TellPatientDataChanged of Alert.PatientDataSummary
         /// The new and changed orders are gone; the patient can be read again.
         | ChangesDropped
 
@@ -382,6 +385,12 @@ module OrderPlanMachine =
                         | OrderPlanCommand.Open _ -> tp.OrderContexts
                         | _ -> state.Opened
 
+                    // the plan takes the new patient only now, with the orders calculated on it
+                    let pat =
+                        match sent with
+                        | OrderPlanCommand.UpdatePatient(updated, _) -> updated
+                        | _ -> pat
+
                     { state with
                         Cart = OrderPlanCart.Opened(pat, tp)
                         Selected = selectionIn tp state.Selected
@@ -390,6 +399,10 @@ module OrderPlanMachine =
                     [
                         interactions tp
                         OrderPlanEffect.TellAnswered
+                        yield!
+                            PatientDataSummaryPolicy.summaryOf sent tp
+                            |> Option.map OrderPlanEffect.TellPatientDataChanged
+                            |> Option.toList
                         if refresh then
                             OrderPlanEffect.ChangesDropped
                     ]
@@ -417,13 +430,16 @@ module OrderPlanMachine =
             // the first plan for a patient: the waiting version, or an empty plan, is opened
             | OrderPlanMsg.PatientDataChanged(Some pat, request), OrderPlanCart.NoPatient awaiting, None ->
                 opening pat awaiting request state
-            // the plan held is recalculated for the patient updated
+            // the same data given again is no change
+            | OrderPlanMsg.PatientDataChanged(Some pat, _), OrderPlanCart.Opened(before, _), None when before = pat ->
+                state, []
+            // the plan held is recalculated for the patient updated; it stays on the patient held until
+            // the answer, so the same data given again after a failure is sent again
             | OrderPlanMsg.PatientDataChanged(Some pat, request), OrderPlanCart.Opened(_, tp), None ->
                 send
                     (OrderPlanCommand.UpdatePatient(pat, tp))
                     request
                     { state with
-                        Cart = OrderPlanCart.Opened(pat, tp)
                         Selected = None
                         Kept = None
                     }

@@ -249,6 +249,7 @@ module private Effects =
                     | Api.SessionResponse.EnrolmentPending pending ->
                         return Messages.session (SessionMsg.Resumed(Ok(ResumeResult.Enrolling pending)))
                     // never an answer to GetSession
+                    | Api.SessionResponse.InactiveTab
                     | Api.SessionResponse.PinRefused _ ->
                         return Messages.session (SessionMsg.Resumed(Ok ResumeResult.NotFound))
                 with ex ->
@@ -306,7 +307,8 @@ module private Effects =
                     | Api.SessionResponse.SessionResp None
                     | Api.SessionResponse.SessionClosed
                     | Api.SessionResponse.SessionEnded _
-                    | Api.SessionResponse.EnrolmentPending _ ->
+                    | Api.SessionResponse.EnrolmentPending _
+                    | Api.SessionResponse.InactiveTab ->
                         return
                             Messages.session (SessionMsg.PinAnswered(Ok(PinOutcome.Refused PinRefusal.AttemptExpired)))
                 with ex ->

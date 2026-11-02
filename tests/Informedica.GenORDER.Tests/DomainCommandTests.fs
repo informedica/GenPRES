@@ -418,13 +418,4 @@ let seedTests =
                 |> Expect.isEmpty "the same answer for every source"
             }
 
-            test "a patient change answers in the plan as the update of the context with the patient" {
-                let pat = { pcmContext.Patient with Department = Some "NEO" }
-
-                // today the client sends the context with the patient as an update
-                inPlan pcmContext (fun ctx -> OrderContext.UpdatePatient(ctx, pat))
-                |> Expect.equal
-                    "the same answer"
-                    (inPlan { pcmContext with Patient = pat } OrderContext.UpdateOrderContext)
-            }
         ]

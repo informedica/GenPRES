@@ -57,12 +57,9 @@ module OrderContextMachine =
             | _ -> false
 
 
-        /// The context a request shows while it is under way: for a command the context sent as the
-        /// command changes it; for a patient update the context sent with the patient updated.
-        let shown (sent: OrderContextCommand) =
-            match sent with
-            | OrderContextCommand.Command(cmd, ctx) -> CommandPreview.shown cmd ctx
-            | OrderContextCommand.UpdatePatient(pat, ctx) -> { ctx with Patient = pat }
+        /// The context a request shows while it is under way: the context sent as the command
+        /// changes it.
+        let shown (OrderContextCommand.Command(cmd, ctx)) = CommandPreview.shown cmd ctx
 
 
         /// The patient and the context the workbench holds; None without a patient.
@@ -117,8 +114,7 @@ module OrderContextMachine =
     /// What the App carries out for the order context machine.
     [<RequireQualifiedAccess>]
     type OrderContextEffect =
-        /// Send the order context command, a command over a context or a patient change, under this
-        /// request id.
+        /// Send the order context command under this request id.
         | CallContext of OrderContextCommand * request: string
         /// Put the filter on the formulary and parenteralia pages.
         | SyncPages of Filter
@@ -219,16 +215,6 @@ module OrderContextMachine =
             }
 
 
-        /// A patient change under way over the context sent; a failure goes back to the context held.
-        let patientChanging (pat: Patient) (sent: OrderContext) (held: OrderContext) (request: string) =
-            {
-                Workbench = OrderContextWorkbench.Evaluated(pat, held)
-                InFlight = Some(OrderContextCommand.UpdatePatient(pat, sent), request)
-                Selected = None
-                Kept = None
-            }
-
-
         /// The patient the workbench is evaluated for, if any.
         let patient (state: OrderContextState) = state.Workbench |> OrderContextWorkbench.held |> Option.map fst
 
@@ -304,14 +290,11 @@ module OrderContextMachine =
 
 
         /// The filter the formulary and parenteralia pages take from an answer: the filter of the
-        /// context answered, evaluated or refused, when the request sent changed the filter or updated
-        /// the patient; None for any other request, so a dose step fetches neither page, and for a
-        /// failure, which leaves the pages as they were.
-        let synced sent result =
-            let follows =
-                match sent with
-                | OrderContextCommand.Command(cmd, _) -> OrderContextWorkbench.changesFilter cmd
-                | OrderContextCommand.UpdatePatient _ -> true
+        /// context answered, evaluated or refused, when the request sent changed the filter; None for
+        /// any other request, so a dose step fetches neither page, and for a failure, which leaves the
+        /// pages as they were.
+        let synced (OrderContextCommand.Command(cmd, _)) result =
+            let follows = OrderContextWorkbench.changesFilter cmd
 
             match result with
             | Ok(OrderContextResponse.Evaluated ctx)
@@ -355,6 +338,11 @@ module OrderContextMachine =
                     Selected = None
                     Kept = None
                 }
+
+            // the empty workbench for the patient, shown while the command evaluates it
+            let fromEmpty cmd pat request =
+                let empty = emptyFor pat
+                call cmd empty request (renewed (OrderContextWorkbench.Evaluated(pat, empty)))
 
             match msg, OrderContextWorkbench.held state.Workbench, state.InFlight with
             // only an answer to the request under way lands; the formulary and parenteralia pages
@@ -402,20 +390,17 @@ module OrderContextMachine =
             // the first patient: the empty workbench is shown while it is evaluated, with the seed
             // waiting, if any
             | OrderContextMsg.PatientDataChanged(Some pat, request), None, None ->
-                let empty = emptyFor pat
-
                 let cmd =
                     match state.Workbench with
                     | OrderContextWorkbench.NoPatient(Some seed) -> FilterSeed.command seed
                     | _ -> OrderViewCommand.ClearAllFilterProperty
 
-                call cmd empty request (renewed (OrderContextWorkbench.Evaluated(pat, empty)))
-            // the patient changed: the workbench keeps its filter and is evaluated again
-            | OrderContextMsg.PatientDataChanged(Some pat, request), Some(_, ctx), None ->
-                send
-                    (OrderContextCommand.UpdatePatient(pat, ctx))
-                    request
-                    (renewed (OrderContextWorkbench.Evaluated(pat, { ctx with Patient = pat })))
+                fromEmpty cmd pat request
+            // the same data given again is no change, so the selection stays
+            | OrderContextMsg.PatientDataChanged(Some pat, _), Some(before, _), None when before = pat -> state, []
+            // the selection was made under the old data: nothing of it stays, also after a failure
+            | OrderContextMsg.PatientDataChanged(Some pat, request), Some _, None ->
+                fromEmpty OrderViewCommand.ClearAllFilterProperty pat request
 
             // a seed needs a patient, so without one it waits for it
             | OrderContextMsg.SeedFilter(seed, _), None, None ->

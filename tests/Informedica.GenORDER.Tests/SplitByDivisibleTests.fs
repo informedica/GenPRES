@@ -310,9 +310,9 @@ let tests =
                         |> Expect.equal "the components" (Ok [| "2" |])
 
                         p.Value
-                        |> contextOf (OrderContext.UpdatePatient(ctx, ctx.Patient))
+                        |> contextOf (OrderContext.UpdateOrderContext ctx)
                         |> products
-                        |> Expect.equal "the patient" [| [| "2" |] |]
+                        |> Expect.equal "an update" [| [| "2" |] |]
                     }
                 ]
         ]

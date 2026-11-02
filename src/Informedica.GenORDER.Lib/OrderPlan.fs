@@ -37,9 +37,9 @@ module PlanContext =
     let contribution (pc: PlanContext) = pc.Context |> OrderContext.contribution
 
 
-    /// A filter or scenario pick reads its index in the lists the user saw, and a seed or a patient
-    /// change is checked against the rules as an update of the context is, so each is applied to
-    /// the context as sent, before the context is reconciled with the rules: the existing command
+    /// A filter or scenario pick reads its index in the lists the user saw, and a seed is checked
+    /// against the rules as an update of the context is, so each is applied to the context as sent,
+    /// before the context is reconciled with the rules: the existing command
     /// it is evaluated as, over the context it changed. Any other command stays as it is.
     let resolveChange (cmd: OrderContext -> OrderContext.Command) (pc: PlanContext) =
         match pc.Context |> cmd |> OrderContext.resolveChange with

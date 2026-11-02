@@ -44,14 +44,5 @@ module OrderContextCommand =
         evaluated env ctx domainCmd
 
 
-    /// A command over the order context being worked on, or that context evaluated again for
-    /// the patient updated: the patient written into the context, so that it is made and parsed
-    /// as the context's own, and the domain takes the parsed context's patient.
-    let processCmd (env: AppEnv) (cmd: OrderContextCommand) =
-        match cmd with
-        | OrderContextCommand.Command(cmd, ctx) -> processViewCmd env (cmd, ctx)
-        | OrderContextCommand.UpdatePatient(pat, ctx) ->
-            let change (ctx: Informedica.GenOrder.Lib.Types.OrderContext) =
-                Informedica.GenOrder.Lib.OrderContext.UpdatePatient(ctx, ctx.Patient)
-
-            Some change |> evaluated env { ctx with Patient = pat }
+    /// A command over the order context being worked on.
+    let processCmd (env: AppEnv) (OrderContextCommand.Command(cmd, ctx)) = processViewCmd env (cmd, ctx)

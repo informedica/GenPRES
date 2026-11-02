@@ -219,7 +219,9 @@ The order comes from the logic: the domain first, then what uses it.
    chosen for, so the intake of a context, its totals per kg with it, takes the patient of the plan.
    A nutrition slot without an order starts again on the new patient, as the workbench does, until
    #1612 moves nutrition slots out of the plan. Rules 4 and 19 are client work and go in a pull request of
-   their own.
+   their own. The same data given again is no change: the workbench stays, the plan is not
+   recalculated and there is no summary. A plan without orders gets no summary. The workbench clears
+   in anonymous mode too, without the question of rule 2 until step 6.
 
    The lookup rewrites a rule for the patient: a dose at its maximum, a per kg solution limit as an
    amount. Both end as defined limits, so they have one mechanism. With the same rules, an order built

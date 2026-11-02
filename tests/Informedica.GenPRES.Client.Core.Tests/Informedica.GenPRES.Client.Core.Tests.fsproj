@@ -35,6 +35,7 @@
     <Compile Include="Policies/LanguagePolicyTests.fs" />
     <Compile Include="Policies/OrderContextRefusalPolicyTests.fs" />
     <Compile Include="Policies/PatientDraftPolicyTests.fs" />
+    <Compile Include="Policies/PatientDataSummaryPolicyTests.fs" />
     <Compile Include="Policies/PatientReadinessPolicyTests.fs" />
     <Compile Include="Policies/PickPolicyTests.fs" />
     <Compile Include="Policies/StepPolicyTests.fs" />

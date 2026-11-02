@@ -46,6 +46,7 @@
 #load "../Policies/TotalsChangePolicy.fs"
 #load "../Policies/PlanWorkPolicy.fs"
 #load "../Policies/HeldContextPolicy.fs"
+#load "../Policies/PatientDataSummaryPolicy.fs"
 #load "../Policies/ServerErrorPolicy.fs"
 #load "../Policies/BusyPolicy.fs"
 #load "../Policies/UrlPolicy.fs"

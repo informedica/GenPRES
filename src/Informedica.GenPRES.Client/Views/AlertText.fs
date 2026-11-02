@@ -44,6 +44,9 @@ module AlertText =
             let term = OrderContextRefusalPolicy.bodyTerm refusal
 
             terms (OrderContextRefusalPolicy.english term) term
+        | Alert.Alert.PatientDataChanged summary ->
+            terms PatientDataSummaryPolicy.english Terms.``Patient Data Changed``
+            |> PatientDataSummaryPolicy.sentence summary
 
 
     /// The severity as the snackbar names it.

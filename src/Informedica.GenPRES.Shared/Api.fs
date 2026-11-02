@@ -188,18 +188,12 @@ module Api =
     type OrderContextCommand =
         /// A command of the order view over the context as held.
         | Command of OrderViewCommand * OrderContext
-        /// The patient the patient command answered, with the context as held; the server writes
-        /// the patient into it.
-        | UpdatePatient of patient: Patient * OrderContext
 
 
     module OrderContextCommand =
 
         /// For the log: the command alone, never the context nor the patient.
-        let toString (cmd: OrderContextCommand) =
-            match cmd with
-            | OrderContextCommand.Command(cmd, ctx) -> OrderViewCommand.toString (cmd, ctx)
-            | OrderContextCommand.UpdatePatient _ -> "UpdatePatient"
+        let toString (OrderContextCommand.Command(cmd, ctx)) = OrderViewCommand.toString (cmd, ctx)
 
 
     /// The patient command family: a patient change on the panel, answered with the patient made
