@@ -16,7 +16,7 @@ module Fixture =
 
     open OrderPlanTests
 
-    let logger = OrderLogging.noOp
+    let logger = DataUpdateFixtures.logger
     let limit v = Some(BigRational.FromInt v)
     let counted = SolutionRuleComparison.Counted
     let ignored = SolutionRuleComparison.Ignored
@@ -56,19 +56,12 @@ module Fixture =
 
         RulesOf(RuleFixtures.rules [| row |]) :> Resources.IResourceProvider
 
-    let patient w = RuleFixtures.patient (Some 1N) false (Some w) None
+    let patient = DataUpdateFixtures.patient
 
-    let order = lazy (Scenarios.cotrim |> Tests.TestOrder.processed)
-
-    let scenario ord =
-        { Fixtures.scenario "o" with
-            Order = ord
-            Form = "zetpil"
-            Components = [| "cotrimoxazol" |]
-        }
+    let order = DataUpdateFixtures.order
 
     let context provider pat =
-        { OrderContext.create logger provider pat with Scenarios = [| scenario order.Value |] }
+        { OrderContext.create logger provider pat with Scenarios = [| DataUpdateFixtures.scenario order.Value |] }
 
     /// The context at 9.5 kg, with the provider of rule A and B.
     let start () =
@@ -116,14 +109,16 @@ module Fixture =
                 |> Count
         }
 
-    let check provider start current =
-        context provider (patient start)
-        |> OrderContext.rulesNoLongerApply logger provider (patient current) order.Value
+    /// Whether the rules no longer apply to the order for the current patient.
+    let verdict provider current (ctx: OrderContext) =
+        let rules pat = ctx |> OrderContext.rulesFor logger provider pat
 
-    let onData provider pat ctx =
-        match ctx |> OrderContext.orderOnPatientData logger provider pat with
-        | Evaluated after -> after
-        | Refused _ -> failtest "refused"
+        OrderContext.rulesVerdict logger order.Value (rules ctx.Patient) (rules current)
+
+    let check provider start current =
+        context provider (patient start) |> verdict provider (patient current)
+
+    let onData = DataUpdateFixtures.onData
 
 
 [<Tests>]
@@ -183,9 +178,7 @@ let tests =
                         Age = None
                     }
 
-                ctx
-                |> OrderContext.rulesNoLongerApply Fixture.logger p other Fixture.order.Value
-                |> Expect.equal "notice" (Some true)
+                ctx |> Fixture.verdict p other |> Expect.equal "notice" (Some true)
             }
 
             test "a per kg rule with a maximum gives no notice while the maximum is not reached" {
@@ -193,9 +186,9 @@ let tests =
                 |> Expect.equal "no notice" (Some false)
             }
 
-            test "a per kg rule that reaches its maximum gives a notice" {
+            test "a per kg rule rewritten at its maximum is the same rule: no notice" {
                 Fixture.check (Fixture.perKgWithMaximum ()) 55N 70N
-                |> Expect.equal "notice" (Some true)
+                |> Expect.equal "no notice" (Some false)
             }
 
             test "a lookup that fails gives no verdict, whichever lookup it is" {
@@ -244,6 +237,21 @@ let tests =
                 |> Fixture.twoDoses
                 |> Order.isOneDose
                 |> Expect.isFalse "two"
+            }
+
+            test "with a renal rule the whole rule counts, so another renal band is another rule" {
+                let renal =
+                    Fixture.rules ()
+                    |> Array.map (fun r -> { r with RenalRules = [| Fixture.renalRule |] })
+
+                let band =
+                    renal
+                    |> Array.map (fun r ->
+                        { r with DoseRule = { r.DoseRule with RenalRuleSource = Some "another band" } }
+                    )
+
+                PrescriptionRule.sameRules Fixture.ignored renal band
+                |> Expect.isFalse "other rules"
             }
 
             test "a renal rule that starts to apply counts as other rules" {

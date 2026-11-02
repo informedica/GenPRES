@@ -12,7 +12,7 @@ open Expecto.Flip
 
 module Fixture =
 
-    let logger = OrderLogging.noOp
+    let logger = DataUpdateFixtures.logger
 
     let processed = Tests.TestOrder.processed
 
@@ -77,32 +77,7 @@ module Fixture =
         |> List.filter (fun ovar -> names |> Set.contains (ovar |> OrderVariable.getName))
         |> List.map (fun ovar -> ovar |> OrderVariable.getName, ovar.Variable.Values)
 
-    let scenario ord : OrderScenario =
-        {
-            No = 1
-            Name = "cotrim"
-            Indication = ""
-            Form = ""
-            Route = ""
-            DoseType = Informedica.GenForm.Lib.Types.NoDoseType
-            Diluent = None
-            Component = None
-            Item = None
-            Diluents = [||]
-            Components = [| "cotrimoxazol" |]
-            Items = [||]
-            Prescription = [||]
-            Preparation = [||]
-            Administration = [||]
-            Order = ord
-            UseAdjust = true
-            UseRenalRule = false
-            RenalRule = None
-            FitsOnlyWithoutDivisible = false
-            RulesNoLongerApply = false
-            ProductsIds = [||]
-            Access = Informedica.GenForm.Lib.Types.AnyAccess
-        }
+    let scenario = DataUpdateFixtures.scenario
 
     /// One suppository of 240 mg at 10 to 20 mg/kg: from 25 kg no allowed dose exists.
     let suppository240 =
@@ -120,7 +95,7 @@ module Fixture =
                 )
         }
 
-    let kg v = v |> ValueUnit.singleWithUnit Units.Weight.kiloGram
+    let kg = DataUpdateFixtures.kg
 
     /// The dose of the first item.
     let itemDose (ord: Order) = ord.Orderable.Components[0].Items[0].Dose
@@ -173,7 +148,7 @@ module Fixture =
                 )
         }
 
-    let cm v = v |> ValueUnit.singleWithUnit Units.Height.centiMeter
+    let cm = DataUpdateFixtures.cm
 
     let provider = OrderPlanTests.RulesOf [||] :> Informedica.GenForm.Lib.Resources.IResourceProvider
 
@@ -377,13 +352,13 @@ let tests =
 
                 let ctx = [| Fixture.scenario ord |] |> Fixture.context
 
-                match ctx |> OrderContext.orderOnPatientData Fixture.logger Fixture.provider pat with
-                | Evaluated after ->
-                    after.Patient |> Expect.equal "the patient of the rules" ctx.Patient
-                    after.Scenarios[0].Order
-                    |> Fixture.adjustOf
-                    |> Expect.equal "the weight" (ord |> Fixture.adjustOf |> (*) 2N)
-                | Refused _ -> failtest "refused"
+                let after = ctx |> DataUpdateFixtures.onData Fixture.provider pat
+
+                after.Patient |> Expect.equal "the patient of the rules" ctx.Patient
+
+                after.Scenarios[0].Order
+                |> Fixture.adjustOf
+                |> Expect.equal "the weight" (ord |> Fixture.adjustOf |> (*) 2N)
             }
 
             test "a patient without the value leaves the order as it is" {
@@ -391,46 +366,22 @@ let tests =
 
                 let ctx = [| Fixture.scenario ord |] |> Fixture.context
 
-                match
-                    ctx
-                    |> OrderContext.orderOnPatientData Fixture.logger Fixture.provider Patient.patient
-                with
-                | Evaluated after ->
-                    after.Scenarios[0].Order
-                    |> Fixture.adjustOf
-                    |> Expect.equal "the weight" (ord |> Fixture.adjustOf)
-                | Refused _ -> failtest "refused"
-            }
-
-            test "a context without a single order is refused and keeps its patient" {
-                let ord = Scenarios.cotrim |> Fixture.processed
-                let pat = { Patient.patient with Weight = ord |> Fixture.times 2N |> Some }
-
-                for scenarios in [ [||]; [| Fixture.scenario ord; Fixture.scenario ord |] ] do
-                    match
-                        scenarios
-                        |> Fixture.context
-                        |> OrderContext.orderOnPatientData Fixture.logger Fixture.provider pat
-                    with
-                    | Refused(sent, _) -> sent.Patient |> Expect.equal "the patient" Patient.patient
-                    | Evaluated _ -> failtest "not refused"
+                (ctx |> DataUpdateFixtures.onData Fixture.provider Patient.patient).Scenarios[0].Order
+                |> Fixture.adjustOf
+                |> Expect.equal "the weight" (ord |> Fixture.adjustOf)
             }
 
             test "the same weight does not calculate the order again" {
                 let ord = Scenarios.cotrim |> Fixture.processed |> Order.withoutCalculatedConstraints
                 let pat = { Patient.patient with Weight = ord |> Fixture.times 1N |> Some }
 
-                match
-                    [| Fixture.scenario ord |]
-                    |> Fixture.context
-                    |> OrderContext.orderOnPatientData Fixture.logger Fixture.provider pat
-                with
-                | Evaluated after ->
-                    after.Scenarios[0].Order
-                    |> Order.toOrdVars
-                    |> List.filter (_.CalculatedConstraints >> OrderVariable.Constraints.isEmpty >> not)
-                    |> Expect.isEmpty "no calculated constraints made"
-                | Refused _ -> failtest "refused"
+                ([| Fixture.scenario ord |]
+                 |> Fixture.context
+                 |> DataUpdateFixtures.onData Fixture.provider pat)
+                    .Scenarios[0].Order
+                |> Order.toOrdVars
+                |> List.filter (_.CalculatedConstraints >> OrderVariable.Constraints.isEmpty >> not)
+                |> Expect.isEmpty "no calculated constraints made"
             }
 
             test "a weight in gram reaches the order in the unit of the order" {
@@ -464,13 +415,8 @@ let tests =
                         Weight = Some(30N |> Fixture.kg)
                         Height = Some(h |> Fixture.cm)
                     }
-                let update pat ctx =
-                    ctx |> OrderContext.orderOnPatientData Fixture.logger Fixture.provider pat
-
-                let order outcome =
-                    match outcome with
-                    | Evaluated(ctx: OrderContext) -> ctx.Scenarios[0].Order
-                    | Refused _ -> failtest "refused"
+                let update pat ctx = ctx |> DataUpdateFixtures.onData Fixture.provider pat
+                let order (ctx: OrderContext) = ctx.Scenarios[0].Order
 
                 let context = [| Fixture.scenario ord |] |> Fixture.context
                 let short = context |> update (patient 130N) |> order

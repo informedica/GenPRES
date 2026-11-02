@@ -60,6 +60,7 @@ let answering (seen: string list ref) name (p: Informedica.GenOrder.Lib.Types.Or
 let echoPort seen : OrderPlanPort =
     {
         recalculate = answering seen "recalculate"
+        followPatientData = answering seen "followPatientData"
         evaluateContext = fun p _ _ _ -> answering seen "evaluateContext" p
         addOrderContext = fun p _ -> answering seen "addOrderContext" p
         newOrderContext = fun p _ -> answering seen "newOrderContext" p
@@ -136,7 +137,7 @@ let tests =
                 | Error e -> failtest $"open refused: %A{e}"
             }
 
-            testAsync "a patient update recalculates the plan for that patient, each context keeping its own" {
+            testAsync "a patient update calculates the plan for that patient, each context keeping its own" {
                 let seen = ref []
                 let updated = { patient with Department = Some "NEO" }
 
@@ -145,7 +146,7 @@ let tests =
                         (envOver true (echoPort seen))
                         (Informedica.GenPRES.Shared.Api.OrderPlanCommand.UpdatePatient(updated, plan))
 
-                seen.Value |> Expect.equal "recalculated" [ "recalculate" ]
+                seen.Value |> Expect.equal "every order on the patient" [ "followPatientData" ]
 
                 answer
                 |> Result.map (fun p -> p.Patient.Department, p.OrderContexts |> Array.map _.Patient.Department)

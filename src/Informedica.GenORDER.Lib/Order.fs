@@ -2957,16 +2957,91 @@ module Order =
     let withoutCalculatedConstraints ord = ord |> mapOrdVars OrderVariable.clearCalculatedConstraints
 
 
-    /// The order with the calculated constraints of the variables with the same name in from.
-    let withCalculatedConstraintsOf from ord =
-        let calculated = from |> toOrdVars |> OrderVariable.byName
+    /// The order with each variable taken over by take from the variable with the same name in from.
+    /// A variable that from does not have stays as it is.
+    let withVariablesOf take from ord =
+        let byName = from |> toOrdVars |> OrderVariable.byName
 
         ord
         |> mapOrdVars (fun ovar ->
-            match calculated |> Map.tryFind ovar.Variable.Name with
-            | Some o -> { ovar with CalculatedConstraints = o.CalculatedConstraints }
+            match byName |> Map.tryFind ovar.Variable.Name with
+            | Some other -> ovar |> take other
             | None -> ovar
         )
+
+
+    /// The order with the calculated constraints of the variables with the same name in from.
+    let withCalculatedConstraintsOf from ord =
+        ord
+        |> withVariablesOf
+            (fun (other: OrderVariable) ovar -> { ovar with CalculatedConstraints = other.CalculatedConstraints })
+            from
+
+
+    /// Whether the order holds a dose count of 1, so that the whole preparation is one dose.
+    let isOneDose ord =
+        (ord |> inf).Orderable.DoseCount
+        |> OrderVariable.Count.toOrdVar
+        |> OrderVariable.getValSetValueUnit
+        |> Option.exists (ValueUnit.getValue >> (=) [| 1N |])
+
+
+    /// The orderable quantity of the order and of each component.
+    let preparationQuantities (ord: Order) =
+        [
+            ord.Orderable.OrderableQuantity |> Quantity.toOrdVar
+            yield! ord.Orderable.Components |> List.map (_.OrderableQuantity >> Quantity.toOrdVar)
+        ]
+
+
+    /// The names of the variables of the preparation: the quantities, the concentrations and the
+    /// counts of the orderable, its components and their items.
+    let preparationNames (ord: Order) =
+        [
+            yield! ord |> preparationQuantities
+
+            for c in ord.Orderable.Components do
+                c.OrderableCount |> OrderVariable.Count.toOrdVar
+                c.OrderableConcentration |> OrderVariable.Concentration.toOrdVar
+
+                for i in c.Items do
+                    i.OrderableQuantity |> Quantity.toOrdVar
+                    i.OrderableConcentration |> OrderVariable.Concentration.toOrdVar
+        ]
+        |> List.map OrderVariable.getName
+        |> Set.ofList
+
+
+    /// The defined limits of every variable of an order.
+    let definedLimits ord = ord |> toOrdVars |> List.map _.DefinedConstraints
+
+
+    /// The moment an order starts.
+    let startOf (ord: Order) =
+        match ord.StartStop with
+        | Start start
+        | StartStop(start, _) -> start
+
+
+    /// The order with the defined limits of the order built with its id from the same rule, matched
+    /// by name. A variable the built order does not have keeps its limits. The adjust value is the
+    /// order's own, and with more doses so is the whole preparation.
+    let withDefinedLimitsOf built (ord: Order) =
+        let adjust = ord |> getAdjust |> Quantity.toOrdVar |> OrderVariable.getName
+
+        let fixedNames =
+            if ord |> isOneDose then
+                Set.singleton adjust
+            else
+                ord |> preparationNames |> Set.add adjust
+
+        let take (other: OrderVariable) ovar =
+            if fixedNames |> Set.contains (ovar |> OrderVariable.getName) then
+                ovar
+            else
+                { ovar with DefinedConstraints = other.DefinedConstraints }
+
+        ord |> withVariablesOf take built
 
 
     /// The order with the adjust value replaced in its range and in both of its constraints.
@@ -2984,14 +3059,6 @@ module Order =
                 ord.Adjust
                 |> Quantity.apply (setConstraints >> OrderVariable.applyDefinedConstraints)
         }
-
-
-    /// Whether the order holds a dose count of 1, so that the whole preparation is one dose.
-    let isOneDose ord =
-        (ord |> inf).Orderable.DoseCount
-        |> OrderVariable.Count.toOrdVar
-        |> OrderVariable.getValSetValueUnit
-        |> Option.exists (ValueUnit.getValue >> (=) [| 1N |])
 
 
     /// Whether every variable of an order that has constraints holds one value. A variable without
@@ -3102,10 +3169,8 @@ module Order =
     /// Check whether the orderable quantity and every component orderable quantity are within their
     /// constraints.
     let isPrepWithinConstraints ord =
-        [
-            ord.Orderable.OrderableQuantity |> Quantity.toOrdVar
-            yield! ord.Orderable.Components |> List.map (_.OrderableQuantity >> Quantity.toOrdVar)
-        ]
+        ord
+        |> preparationQuantities
         |> List.forall (OrderVariable.isWithinConstraints true)
 
 

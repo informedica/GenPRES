@@ -102,8 +102,37 @@ module Adapters =
         let refused r =
             r |> Result.mapError (OrderPlanMapper.words ruleSets >> Array.singleton)
 
+        // a nutrition slot discovered for the patient: of what the evaluation offers, only its rule set
+        let discoverSlot contextId category pat =
+            let evaluate ctx =
+                ctx
+                |> PlanContext.create contextId (OrderCategory.Nutrition category)
+                |> OrderContextService.evaluate (now ()) logger provider OrderContext.UpdateOrderContext
+                |> Result.map _.Context
+
+            NutritionRuleSet.emptyContext (ruleSets |> NutritionRuleSet.tryFind category) pat
+            |> NutritionRuleSet.discover evaluate
+
+        // a nutrition slot starts again on new patient data; a drug context without an order only
+        // takes the patient
+        let restart pat (pc: PlanContext) =
+            match pc |> PlanContext.nutritionCategory with
+            | Some category ->
+                discoverSlot pc.Id category pat
+                |> Result.map (fun ctx -> { pc with Context = ctx })
+            | None -> pc |> PlanContext.withPatient pat |> Ok
+
         {
             recalculate = fun plan -> async { return plan |> recalc |> Ok }
+            followPatientData =
+                fun plan ->
+                    async {
+                        return
+                            plan
+                            |> OrderPlan.followPatientData logger provider restart
+                            |> refused
+                            |> Result.map recalc
+                    }
             evaluateContext =
                 fun plan contextId cmd pc ->
                     async {
@@ -146,51 +175,10 @@ module Adapters =
                             match plan |> OrderPlan.admits category |> refused with
                             | Error e -> Error e
                             | Ok() ->
-                                let set = ruleSets |> NutritionRuleSet.tryFind category
+                                let id = newId ()
+                                let planContext = PlanContext.create id (OrderCategory.Nutrition category)
 
-                                // the workbench: the plan's patient, the category's indications
-                                // and generics, nothing else offered yet and nothing selected;
-                                // the discovery keeps of what the evaluation offers only these
-                                let workbench: OrderContext =
-                                    {
-                                        Filter =
-                                            {
-                                                Indications =
-                                                    set |> Option.map _.Indications |> Option.defaultValue [||]
-                                                Generics = set |> Option.map _.Generics |> Option.defaultValue [||]
-                                                Routes = [||]
-                                                Forms = [||]
-                                                DoseTypes = [||]
-                                                Diluents = [||]
-                                                Components = [||]
-                                                Indication = None
-                                                Generic = None
-                                                Route = None
-                                                Form = None
-                                                DoseType = None
-                                                Diluent = None
-                                                SelectedComponents = [||]
-                                                PickedProducts = [||]
-                                            }
-                                        Patient = plan.Patient
-                                        Scenarios = [||]
-                                        Argumentation = None
-                                    }
-
-                                let planContext = PlanContext.create (newId ()) (OrderCategory.Nutrition category)
-
-                                let evaluate ctx =
-                                    ctx
-                                    |> planContext
-                                    |> OrderContextService.evaluate
-                                        (now ())
-                                        logger
-                                        provider
-                                        OrderContext.UpdateOrderContext
-                                    |> Result.map _.Context
-
-                                workbench
-                                |> NutritionRuleSet.discover evaluate
+                                discoverSlot id category plan.Patient
                                 |> Result.map (fun discovered ->
                                     let pc = discovered |> planContext
 

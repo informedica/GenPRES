@@ -1088,7 +1088,7 @@ module Types =
     type OrderPlanError =
         /// The plan holds no context with the id
         | NoSuchContext of id: string
-        /// The workbench holds the number of candidates, not one order
+        /// The order context holds the number of candidates, not one order
         | NotNarrowed of candidates: int
         /// The plan already holds the order
         | OrderHeld of orderId: string
@@ -1096,6 +1096,8 @@ module Types =
         | SupplementNeedsFeeding
         /// The plan already holds a context of the category
         | CategoryHeld of NutritionCategory
+        /// The order with the name cannot be calculated on the patient data
+        | NotCalculated of name: string
 
 
     /// Why a Dto does not parse to its domain value.

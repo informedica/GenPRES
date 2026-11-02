@@ -76,10 +76,12 @@ estimate.
    so the notice goes. A lookup that fails says nothing about the rules: it is logged, and the order
    keeps the notice it had.
 
-   - **Which rules count.** The dose and renal rules always count. Rules are compared as rules, not
-     by their limits, so another rule row with the same limits also gives a notice. A rule counts as
-     the lookup adapts it to the patient: a dose that reaches the maximum of its rule at the new
-     weight has other limits, so it gets the notice.
+   - **Which rules count.** The dose and renal rules always count. Rules are compared by rule row,
+     not by their limits, so another rule row with the same limits also gives a notice. A rule that
+     the lookup rewrites for the patient, to end a conflict between its limits, is the same rule: a
+     dose that reaches the maximum of its rule gives no notice, and the order shows the normal
+     notification against the rewritten limits. When a renal rule applies the whole rule is compared,
+     since a renal band is a limit of its own.
    - **When the solution rules count.** Only when the order holds a dose count of 1. The whole
      preparation is then one dose, so a solution limit is a limit on what the patient gets. With more
      doses the preparation stays as it is.
@@ -179,7 +181,7 @@ estimate.
 | Identified, weight 9.5 to 10.5 to 11 kg | Rule A up to 10 kg, rule B from 10 kg | The notice stays at 11 kg, the context still has the patient of rule A |
 | Identified, weight 9.5 to 10.5 kg and back to 9.5 kg | Rule A up to 10 kg, rule B from 10 kg | The notice goes |
 | Identified, TPN at 5 mL/kg | Weight changes, the same rule | No notice: the rule is compared, not the amount it gives |
-| Identified, 15 mg/kg with a maximum of 1000 mg | Weight 55 to 70 kg, the maximum is reached | Recalculated, general notice |
+| Identified, 15 mg/kg with a maximum of 1000 mg | Weight 55 to 70 kg, the maximum is reached | Recalculated, the limits follow the rule, a notification if the dose is outside them, no general notice |
 | Identified, 3 unsigned orders | The EHR launches another patient in the same tab | The question about unsigned work, then the other patient opens |
 | Identified, 3 unsigned orders | The EHR launches another patient in a new tab | The other patient opens in the new tab, the old tab is stopped, its unsigned orders are lost |
 | Identified, session on A | The EHR moves on to B without a launch, the prescriber signs for A | A warning before the PIN, the prescriber can still sign for A |
@@ -214,9 +216,17 @@ The order comes from the logic: the domain first, then what uses it.
 3. **Rule check.** Rule 8: the check and the general notice.
 4. **The plan follows the data.** Rules 4, 6, 7, 8, 9 and 19 for a whole plan through the patient
    update, and rule 13 for what counts as changed. An order context keeps the patient its rules were
-   chosen for, so what reads that patient as the current one takes the patient of the plan: the
-   intake of a context, its totals per kg with it, and the reconciliation of its filter. A stored
-   absolute limit from a per kg solution limit follows the weight.
+   chosen for, so the intake of a context, its totals per kg with it, takes the patient of the plan.
+   A nutrition slot without an order starts again on the new patient, as the workbench does, until
+   #1612 moves nutrition slots out of the plan. Rules 4 and 19 are client work and go in a pull request of
+   their own.
+
+   The lookup rewrites a rule for the patient: a dose at its maximum, a per kg solution limit as an
+   amount. Both end as defined limits, so they have one mechanism. With the same rules, an order built
+   from the current rule gives its defined limits to the order. With several rule rows or solution
+   rules the rule of the order is not known: the limits stay, with a warning in the log, and the
+   notifications still compare with them. With more doses the whole preparation stays and the dose
+   limits follow.
 5. **One edit rule.** Rules 10 and 11 on the plan page, the order dialog and the nutrition page.
 6. **Patient identity.** Rules 1 and 2: the question in anonymous mode and the clearing; rule 14a,
    the warning at signing. The stopped old tab of rule 3 is built by plan 1599. With this step #1430

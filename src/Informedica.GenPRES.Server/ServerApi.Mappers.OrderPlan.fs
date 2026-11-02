@@ -49,6 +49,7 @@ module OrderPlanMapper =
         | OrderPlanError.NotNarrowed n -> $"The workbench holds %i{n} candidates, not one order"
         | OrderPlanError.OrderHeld _ -> "The plan already holds this order"
         | OrderPlanError.SupplementNeedsFeeding -> "A supplement needs a feeding in the plan"
+        | OrderPlanError.NotCalculated name -> $"The order of %s{name} cannot be calculated on these patient data"
         | OrderPlanError.CategoryHeld category ->
             let label =
                 ruleSets

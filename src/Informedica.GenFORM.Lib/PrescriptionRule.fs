@@ -216,11 +216,16 @@ module PrescriptionRule =
             }
 
 
-    /// What is compared of a rule: the dose rule as adapted to the patient, the renal rules and,
-    /// when they count, the solution rules. The patient of the rule differs between any two patients,
-    /// so it is left out.
+    /// What is compared of a rule: the rule row, the renal rules and, when they count, the solution
+    /// rules. A rule rewritten for the patient, to end a conflict between its limits, is the same
+    /// rule, so the rewritten rule itself counts only when a renal rule applies: a renal band is a
+    /// limit of its own. The patient of the rule differs between any two patients, so it is left out.
     let comparedRule solutions (pr: PrescriptionRule) =
-        pr.DoseRule,
+        pr.DoseRule.Id,
+        (if pr.RenalRules |> Array.isEmpty then
+             None
+         else
+             Some pr.DoseRule),
         pr.RenalRules,
         match solutions with
         | SolutionRuleComparison.Counted -> pr.SolutionRules |> Array.map SolutionRule.withoutPatientAmounts

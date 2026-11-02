@@ -1,5 +1,6 @@
 namespace ServerApi
 
+open FsToolkit.ErrorHandling
 open Informedica.GenOrder.Lib
 // after the domain, so that the contract model's cases win unqualified
 open Informedica.GenPRES.Shared.Types
@@ -25,16 +26,7 @@ module OrderPlanCommand =
 
     /// The contexts parsed, all of them or the first refusal.
     let parseContexts (contexts: OrderContext[]) : Result<PlanContext[], string[]> =
-        contexts
-        |> Array.fold
-            (fun acc ctx ->
-                match acc, ctx |> OrderContextService.parse with
-                | Ok pcs, Ok pc -> Ok(pc :: pcs)
-                | Error e, _
-                | _, Error e -> Error e
-            )
-            (Ok [])
-        |> Result.map (List.rev >> List.toArray)
+        contexts |> Array.traverseResultM OrderContextService.parse
 
 
     let private both a b =
@@ -63,9 +55,13 @@ module OrderPlanCommand =
             }
 
 
+    /// The port function asked over the plan, a draft that is none refused first.
+    let overPlan (env: AppEnv) run (plan: OrderPlan) =
+        Patient.overAll (Patient.ofPlan plan) (fun () -> answer env (parsePlan plan) run)
+
+
     /// The plan as it is, its totals recalculated over its orders.
-    let recalculate (env: AppEnv) (plan: OrderPlan) =
-        Patient.overAll (Patient.ofPlan plan) (fun () -> answer env (parsePlan plan) env.orderPlan.recalculate)
+    let recalculate (env: AppEnv) (plan: OrderPlan) = plan |> overPlan env env.orderPlan.recalculate
 
 
     /// The plan's patient and that of every context it carries, and the context's where a
@@ -75,7 +71,8 @@ module OrderPlanCommand =
     let processCmd (env: AppEnv) (cmd: OrderPlanCommand) =
         match cmd with
         // the server writes the patient and the rows; the client sends the plan as answered
-        | OrderPlanCommand.UpdatePatient(pat, plan) -> recalculate env { plan with Patient = pat }
+        | OrderPlanCommand.UpdatePatient(pat, plan) ->
+            { plan with Patient = pat } |> overPlan env env.orderPlan.followPatientData
         | OrderPlanCommand.FilterRows(ids, plan) -> recalculate env { plan with Filtered = ids }
         | OrderPlanCommand.EvaluateContext(plan, contextId, ctxCmd, ctx) ->
             match ctxCmd with

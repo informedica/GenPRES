@@ -769,6 +769,7 @@ let tests =
                         let port: ServerApi.OrderPlanPort =
                             {
                                 recalculate = answering "recalculate"
+                                followPatientData = answering "followPatientData"
                                 evaluateContext =
                                     fun p _ _ pc ->
                                         evaluated.Value <- Some(p, pc)
