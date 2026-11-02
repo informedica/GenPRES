@@ -257,6 +257,32 @@ let tests =
                             [ LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Formulary ]
                     }
 
+                    test "with a new patient on its way the clear asks no page, and the patient does" {
+                        let state, effects = run [ LoaderMsg.PatientExpected; LoaderMsg.PatientSet None ]
+
+                        effects |> Expect.isEmpty "a request for no patient would be out of date"
+                        state |> out |> Expect.isEmpty "nothing out"
+
+                        state
+                        |> transition (LoaderMsg.PatientSet(Some patient))
+                        |> snd
+                        |> Expect.equal
+                            "one request for each page"
+                            [
+                                LoaderEffect.FetchFormulary { Formulary.empty with Patient = Some patient }
+                                LoaderEffect.FetchParenteralia Parenteralia.empty
+                            ]
+                    }
+
+                    test "a clear after a new patient that never landed asks the pages as usual" {
+                        let state, _ = run [ LoaderMsg.PatientExpected; LoaderMsg.PatientSet None ]
+
+                        state
+                        |> transition (LoaderMsg.PatientSet None)
+                        |> snd
+                        |> Expect.isNonEmpty "only the one clear is skipped"
+                    }
+
                     test "the patient set drops a filter held for the earlier patient" {
                         let state, _ =
                             run

@@ -464,6 +464,9 @@ module Client =
         | ClientMsg.NewPatient(pat, estimates, request) ->
             becomes
                 [
+                    ClientMsg.Loader LoaderMsg.PatientExpected
+                    // no plan lands after a failed patient call, so the warnings go here
+                    ClientMsg.Loader(LoaderMsg.CheckInteractions [])
                     ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Changed(None, estimates, request)))
                     ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Changed(pat, estimates, request)))
                 ]

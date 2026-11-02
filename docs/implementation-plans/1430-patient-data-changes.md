@@ -250,9 +250,11 @@ The order comes from the logic: the domain first, then what uses it.
    the warning at signing, in a pull request of its own, since it needs a new read of the EHR at
    signing.
 
-   Everything clears when the prescriber confirms, and the new data follow. After a failed patient
-   call the panel, the plan and the pages are empty and what was typed is lost, which matches the
-   orders being gone. A nutrition slot without an order is nothing to lose: with nothing else to
+   Everything clears when the prescriber confirms, and the new data follow. The clear asks the
+   formulary and parenteralia pages for nothing, since a request for no patient is out of date when
+   it goes out. The interaction warnings go at the same moment. After a failed patient call the
+   panel, the plan and the pages are empty and what was typed is lost, which matches the orders being
+   gone; the pages hold no lists until the next patient. A nutrition slot without an order is nothing to lose: with nothing else to
    lose there is no question, the slot stays and starts again on the new data. The stopped old tab
    of rule 3 is built by plan 1599. The nutrition part of #1430 as reported needs #1612.
 7. **The hold goes.** Rule 14. Taking the EHR's data at a data notice then becomes a change of data

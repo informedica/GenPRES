@@ -54,6 +54,10 @@ module LoaderMachine =
             Parenteralia: Deferred<Parenteralia>
             /// The workbench filter answered while the parenteralia loaded, asked for once the load lands.
             ParenteraliaAskAgain: Filter option
+            /// Whether a new patient is on its way, so the clear before it asks for no pages: a request
+            /// for no patient is out of date when it goes out, and a late reply would replace the pages
+            /// of the new patient.
+            PatientExpected: bool
             /// The patient the server last answered, which the formulary is asked for and whose presence
             /// lets a page's choice seed the workbench.
             Patient: Patient option
@@ -98,6 +102,8 @@ module LoaderMachine =
         | ServerChecked of Result<unit, string>
         /// The patient the server answered, or none once cleared.
         | PatientSet of Patient option
+        /// A new patient is on its way; the clear before it asks for no pages.
+        | PatientExpected
         /// The filter the workbench answered.
         | FilterAnswered of Filter
         /// A page shown.
@@ -169,6 +175,7 @@ module LoaderMachine =
                 FormularyAskAgain = None
                 Parenteralia = HasNotStartedYet
                 ParenteraliaAskAgain = None
+                PatientExpected = false
                 Patient = None
                 DrugNameFailures = 0
                 Server = HasNotStartedYet
@@ -480,16 +487,24 @@ module LoaderMachine =
                 LoaderEffect.CheckServerLater serverWait
             ]
 
+        | LoaderMsg.PatientExpected -> { state with PatientExpected = true }, []
         // both pages for the new patient, the choices made for the earlier one gone
         | LoaderMsg.PatientSet patient ->
-            { state with
-                Patient = patient
-                Formulary = Resolved { Formulary.empty with Patient = patient }
-                Parenteralia = Resolved Parenteralia.empty
-                FormularyAskAgain = None
-                ParenteraliaAskAgain = None
-            }
-            |> startPages
+            let expected = state.PatientExpected
+
+            let state =
+                { state with
+                    Patient = patient
+                    Formulary = Resolved { Formulary.empty with Patient = patient }
+                    Parenteralia = Resolved Parenteralia.empty
+                    FormularyAskAgain = None
+                    ParenteraliaAskAgain = None
+                    PatientExpected = false
+                }
+
+            match patient with
+            | None when expected -> state, []
+            | _ -> state |> startPages
         | LoaderMsg.FilterAnswered filter ->
             let state, formulary = state |> syncFormulary filter
             let state, parenteralia = state |> syncParenteralia filter

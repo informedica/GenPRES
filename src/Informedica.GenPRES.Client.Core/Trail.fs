@@ -829,6 +829,7 @@ module Trail =
             | LoaderMsg.Landed l -> $"Landed %s{landing l}"
             | LoaderMsg.CheckServer -> "CheckServer"
             | LoaderMsg.ServerChecked r -> $"ServerChecked %s{r |> Part.result answered}"
+            | LoaderMsg.PatientExpected -> "PatientExpected"
             | LoaderMsg.PatientSet p -> $"PatientSet %s{Part.patientOption p}"
             | LoaderMsg.FilterAnswered f -> $"FilterAnswered %s{Part.filter f}"
             | LoaderMsg.PageShown p -> $"PageShown %s{page p}"

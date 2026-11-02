@@ -519,6 +519,29 @@ let tests =
                         cleared < sent |> Expect.isTrue "the clear before the call"
                     }
 
+                    test "a new patient withdraws the warnings and asks no page for no patient" {
+                        let result =
+                            initial Url.none
+                            |> play [ ClientMsg.NewPatient(Some draft, PatientDraftPolicy.Estimates.Kept, "p-1") ]
+
+                        result
+                        |> hasEffect (
+                            function
+                            | ClientEffect.Loader LoaderEffect.WithdrawInteractionsFound -> true
+                            | _ -> false
+                        )
+                        |> Expect.isTrue "the warnings of the previous patient go"
+
+                        result
+                        |> hasEffect (
+                            function
+                            | ClientEffect.Loader(LoaderEffect.FetchFormulary _)
+                            | ClientEffect.Loader(LoaderEffect.FetchParenteralia _) -> true
+                            | _ -> false
+                        )
+                        |> Expect.isFalse "only the patient goes out"
+                    }
+
                     test "a new patient is dropped once the patient is identified" {
                         let confirmed = ClientMsg.NewPatient(Some otherDraft, PatientDraftPolicy.Estimates.Kept, "p-1")
 
