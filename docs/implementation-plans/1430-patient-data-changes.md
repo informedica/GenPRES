@@ -34,15 +34,20 @@ reports, and it is one case of a missing general rule.
    change of data is applied to that patient. GenPRES itself cannot open another patient. Only one
    tab is active, and it belongs to the patient opened by the last launch. A launch takes one of two
    paths:
-   - **In a tab where GenPRES already runs.** This stays as plan 1224 decided: the question about
-     unsigned work comes first, then the session closes and the launch is presented.
-   - **In a new tab.** The other patient opens next to the old tab, and nothing is cleared there. A
-     browser holds one session, so the old tab no longer has a session of its own. The old tab is
-     stopped at its next request: it shows a gate that says another tab took the session over, and can only go on without
-     a patient. A request from a tab that is not the active one changes nothing on the session of
-     the other patient and is told so: a computing request gets the gate, and a refresh, an opened
-     version or a close is refused, the same check as signing. Its unsigned orders are lost, unless
-     #518 is built.
+   - **In a new tab, the normal path.** A launch script hands a url to the operating system, and the
+     browser opens that url in a new tab, since a script cannot address a tab that is already open.
+     The other patient opens next to the old tab, and nothing is cleared there. A browser holds one
+     session, so the old tab no longer has a session of its own. The old tab is stopped at its next
+     request: it shows a gate that says another tab took the session over, and can only go on
+     without a patient. A request from a tab that is not the active one changes nothing on the
+     session of the other patient and is told so: a computing request gets the gate, and a refresh,
+     an opened version or a close is refused, the same check as signing. The unsigned orders of the
+     old tab are lost, unless #518 is built.
+   - **In a tab where GenPRES already runs, a rare exception.** A launch script does not reach this
+     path. A launch url arrives here only in another way, for example when a browser-based EHR
+     reuses a named tab or when someone pastes the url into the address bar. This stays as plan 1224
+     decided: the question about unsigned work comes first, then the session closes and the launch
+     is presented.
 
 ### What a change of data does in identified mode
 
@@ -169,7 +174,8 @@ estimate.
 - **#672** rejected updating a context in place because a signed context is immutable. Rules 12 and
   13 solve that with a new version, so #672 closes with this plan, without replacing contexts.
 - **Plan 1075**, the hold on patient data, is replaced by rule 14.
-- **Plan 667 and plan 1075 get a dated amendment,** and the core domain model is updated.
+- **The core domain model is updated.** Plans 667 and 1075 are historic documents and stay as they
+  are; this section records what replaces them.
 
 ## Not part of this plan
 
@@ -180,7 +186,7 @@ Rule changes in the sheets are the subject of #1594. The check in rule 8 may ser
 One pull request per step, each within the size limit and script first where the policy asks for it.
 The order comes from the logic: the domain first, then what uses it.
 
-1. **Domain documents.** The core domain model and the amendments to plans 667 and 1075.
+1. **Domain documents.** The core domain model.
 2. **Recalculation.** Rules 5 to 7 in the domain: new data on an order context, the given amounts
    unchanged, the adjust value replaced, the constraints compared.
 3. **Rule check.** Rule 8: the check and the general notice.

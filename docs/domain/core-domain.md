@@ -111,6 +111,37 @@ The transformation is implemented by three core systems:
 | *Completeness* | The property that all valid solutions remain within the computed solution space. |
 | *Monotonic Convergence* | The property that each propagation step monotonically reduces the domain until a fixed point is reached. |
 
+### Another patient or a patient data update
+
+This section states the model of [plan 1430](../implementation-plans/1430-patient-data-changes.md),
+which is built step by step. Until its steps land, an Order Context keeps the patient data it was
+created on, and a patient data update waits until the unsigned orders are signed or removed
+([plan 1075](../implementation-plans/1075-held-patient-context.md)).
+
+A *Patient* and the data of a *Patient* are two different things.
+
+**Another patient** means that all orders belong to someone else, so nothing carries over. In
+anonymous mode every change of patient data is another patient, and everything clears after a
+question when there is something to lose. In identified mode only a launch from the EHR opens
+another patient.
+
+**A patient data update** keeps the patient and the orders, and the prescriber sees what the new
+data mean for those orders:
+
+- What the patient gets stays: the orderable dose quantity, the frequency, the orderable dose rate
+  and the preparation. Only a prescriber changes those.
+- Every Order Context in the Order Plan takes the new data, so no order rests on data other than
+  the data shown. The prescribing workbench clears, since a selection on it was made under the old
+  data.
+- A change of weight or BSA replaces the Adjustment Quantity and calculates the Adjusted Doses
+  again. The order is then compared with its constraints, as every order is.
+- Every patient data update looks up the rules again. When the same picks give no rule, or a rule
+  with other limits than the order has, the order gets a notice that the rules no longer apply. The
+  order stays and signing is not blocked. A notice stays as long as it is true.
+
+A signed version never changes. An order changed by new data is a change in the Order Plan, and the
+prescriber signs a new version on the new data.
+
 ### Order Context: conceptual vs API payload
 
 In the **domain model**, an *Order Context* is the bounded clinical context used to determine which rules apply and which Order Scenarios can be generated.
