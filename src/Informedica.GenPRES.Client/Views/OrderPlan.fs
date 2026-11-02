@@ -196,9 +196,7 @@ module OrderPlan =
                 |> Set.ofArray
             | OrderPlanView.NoPatient -> Set.empty
 
-        let lockedText =
-            Terms.``Plan Context Locked``
-            |> getTerm "Berekend met andere patiëntgegevens; deze order kan niet worden aangepast"
+        let lockedText = tr Terms.``Plan Context Locked``
 
         let lockSx =
             {|

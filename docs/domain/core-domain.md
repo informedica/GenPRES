@@ -140,7 +140,8 @@ data mean for those orders:
 - An order the solver cannot calculate on the new data stands as it was, marked and locked, and the
   rest of the plan follows. The prescriber accepts that order by signing, or removes it. Signing
   leaves the mark, so that the signed version shows it. The next patient data update tries the order
-  again, and a calculation that succeeds lifts the mark.
+  again, and the mark goes once the order stands on the current patient. Without the value the order
+  needs, the mark stays.
 
 A signed version never changes. An order changed by new data is a change in the Order Plan, and the
 prescriber signs a new version on the new data.

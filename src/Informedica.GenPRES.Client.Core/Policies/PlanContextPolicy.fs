@@ -27,6 +27,16 @@ module PlanContextPolicy =
         |> Option.exists _.NotRecalculated
 
 
+    /// Whether the intake slider can set the dose of the order of a context: not when the order is
+    /// locked, since the plan would not take the change and the slider would show a value the order
+    /// does not hold.
+    let canSetIntake (ctx: OrderContext) =
+        not (locked ctx)
+        && ctx.Scenarios
+           |> Array.tryExactlyOne
+           |> Option.exists (_.Order >> IntakePolicy.canSetDoseQuantityPerc)
+
+
     /// Whether a field of an order context in the plan can change: the frequency, the orderable
     /// dose quantity and the orderable dose rate can; every other field cannot.
     let editable (field: QuantityModePolicy.Field) =

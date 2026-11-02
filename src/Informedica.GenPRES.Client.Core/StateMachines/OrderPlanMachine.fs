@@ -51,7 +51,7 @@ module OrderPlanMachine =
     module OrderPlanChange =
 
         /// The wire command for the change over the plan given; None for a context the plan no
-        /// longer holds.
+        /// longer holds, and for a locked one, whatever page the command comes from.
         let command (tp: OrderPlan) (change: OrderPlanChange) =
             match change with
             | OrderPlanChange.Add ctx -> Some(OrderPlanCommand.AddOrderContext(tp, ctx))
@@ -61,6 +61,7 @@ module OrderPlanMachine =
             | OrderPlanChange.OrderDialogCommand(id, cmd) ->
                 tp.OrderContexts
                 |> Array.tryFind (fun c -> c.Id = id)
+                |> Option.filter (PlanContextPolicy.locked >> not)
                 |> Option.map (fun ctx -> OrderPlanCommand.EvaluateContext(tp, id, cmd, ctx))
 
 

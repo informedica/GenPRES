@@ -69,6 +69,9 @@ module Fixture =
 
     let adult w = RuleFixtures.patient (Some 12N) false (Some w) None
 
+    /// A patient of 40 years, for whom the rules are looked up without a weight.
+    let grownUp w = RuleFixtures.patient (Some 40N) false (Some w) None
+
     let rulesAt p w =
         OrderContext.create logger p (adult w)
         |> OrderContext.rulesFor logger p (adult w)
@@ -282,6 +285,76 @@ let tests =
 
                     marked.Order |> Expect.equal "the order as it was" refusing.Scenarios[0].Order
                 | other -> failtest $"expected a refusal, got %A{other}"
+            }
+
+            test "a mark stays while the patient lacks the value the order needs" {
+                let p = Fixture.provider ()
+                let start = patient 10N
+                let ctx = Fixture.context p start
+
+                let marked =
+                    { ctx with Scenarios = ctx.Scenarios |> Array.map (fun sc -> { sc with NotRecalculated = true }) }
+
+                let plan = OrderPlan.create start [| PlanContext.create "c1" OrderCategory.Drug marked |]
+                let followed = plan |> Fixture.followed p { start with Weight = None }
+                let scenario = followed.Contexts[0].Context.Scenarios[0]
+
+                scenario.NotRecalculated |> Expect.isTrue "nothing was calculated"
+                scenario.Order |> Expect.equal "the order as it was" ctx.Scenarios[0].Order
+            }
+
+            test "an adult per kg order with the weight cleared stands, with the rules notice" {
+                let p = Fixture.perKgWithMaximum ()
+                let adult = Fixture.grownUp 70N
+
+                let ctx =
+                    match
+                        OrderContext.create logger p adult
+                        |> OrderContext.getScenarios Scenarios.testStart logger p
+                    with
+                    | Ok(Evaluated ctx) when ctx.Scenarios.Length = 1 -> ctx
+                    | other -> failtest $"no single scenario: %A{other}"
+
+                let plan = OrderPlan.create adult [| PlanContext.create "c1" OrderCategory.Drug ctx |]
+
+                OrderContext.selectsRules { adult with Weight = None }
+                |> Expect.isTrue "the rules are looked up"
+
+                let scenario =
+                    (plan |> Fixture.followed p { adult with Weight = None }).Contexts[0].Context.Scenarios[0]
+
+                scenario.Order |> Expect.equal "the order as it was" ctx.Scenarios[0].Order
+                scenario.RulesNoLongerApply |> Expect.isTrue "the rules no longer apply"
+            }
+
+            test "a mark goes at the value of the order with the current rule known" {
+                let p = Fixture.perKgWithMaximum ()
+                let ctx = Fixture.contextAt p 40N
+
+                let marked =
+                    { ctx with Scenarios = ctx.Scenarios |> Array.map (fun sc -> { sc with NotRecalculated = true }) }
+
+                let scenario = (marked |> onData p (Fixture.adult 40N)).Scenarios[0]
+
+                scenario.NotRecalculated |> Expect.isFalse "the order stands on the patient"
+                scenario.Order |> Expect.equal "the order as it was" ctx.Scenarios[0].Order
+            }
+
+            test "a mark stays at the value of the order when the current rule is not known" {
+                let p, ctx = RuleCheckTests.Fixture.start ()
+                let current = RuleCheckTests.Fixture.patient (19N / 2N)
+                let onValue = ctx |> onData p current
+
+                let marked =
+                    { onValue with
+                        Patient = RuleCheckTests.Fixture.patient (21N / 2N)
+                        Scenarios = onValue.Scenarios |> Array.map (fun sc -> { sc with NotRecalculated = true })
+                    }
+
+                let scenario = (marked |> onData p current).Scenarios[0]
+
+                (scenario.NotRecalculated, scenario.RulesNoLongerApply)
+                |> Expect.equal "nothing was calculated, and other rules" (true, true)
             }
 
             test "a mark goes once the order can be calculated" {

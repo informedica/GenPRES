@@ -21,6 +21,7 @@ module SigningPolicy =
         | Terms.``Signing Plan Behind`` ->
             "These orders are not calculated on the patient data shown, because the recalculation failed. Try again to continue."
         | Terms.``Signing Plan Behind Retry`` -> "Try again"
+        | Terms.``Plan Context Locked`` -> "Calculated with other patient data; this order cannot be changed"
         | Terms.``Signing Not Recalculated`` -> "{0}: not calculated on the current patient data."
         | Terms.``Signing Dialog Title`` -> "Sign the order plan"
         | Terms.``Signing Dialog Text`` ->

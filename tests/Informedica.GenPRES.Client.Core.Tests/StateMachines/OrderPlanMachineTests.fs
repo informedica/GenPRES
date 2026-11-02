@@ -921,6 +921,24 @@ let evaluateContextTests =
                 )
                 |> Expect.equal "nothing sent" (open', [])
             }
+
+            test "goes nowhere for a locked context, which can still be removed" {
+                let mark (c: OrderContext) =
+                    { c with Scenarios = c.Scenarios |> Array.map (fun sc -> { sc with NotRecalculated = true }) }
+
+                let locked = held { two with OrderContexts = two.OrderContexts |> Array.map mark } None
+
+                locked
+                |> OrderPlanState.transition (
+                    OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand("c-1", step), "r-1")
+                )
+                |> Expect.equal "nothing sent" (locked, [])
+
+                locked
+                |> OrderPlanState.transition (OrderPlanMsg.Change(OrderPlanChange.Remove [| "c-1" |], "r-1"))
+                |> snd
+                |> Expect.hasLength "the removal goes out" 1
+            }
         ]
 
 

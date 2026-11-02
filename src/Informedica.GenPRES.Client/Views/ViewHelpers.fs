@@ -16,8 +16,8 @@ module ViewHelpers =
     open Informedica.GenPRES.Shared.Models.Order
 
 
-    /// A filter select: what it offers is the pick rule's answer.
-    let filterSelect lbl selected dispatch xs =
+    /// A filter select, enabled or not: what it offers is the pick rule's answer.
+    let filterSelectWhen enabled lbl selected dispatch xs =
         Components.PickField.View
             {|
                 label = lbl
@@ -26,9 +26,13 @@ module ViewHelpers =
                 onChange = dispatch
                 clearable = true
                 isLoading = false
-                enabled = true
+                enabled = enabled
                 shape = Components.PickField.Shape.Scroll
             |}
+
+
+    /// A filter select that can always be used.
+    let filterSelect lbl selected dispatch xs = filterSelectWhen true lbl selected dispatch xs
 
 
     /// What a field shows of a value outside the rules: its severity, and the reason as the
@@ -609,7 +613,7 @@ module ViewHelpers =
 
     /// The same filter select, typed into rather than scrolled, for a list long enough that
     /// reading it is slower than naming it. The same rule decides what it offers.
-    let autoComplete lbl selected dispatch xs =
+    let autoCompleteWhen enabled lbl selected dispatch xs =
         Components.PickField.View
             {|
                 label = lbl
@@ -618,17 +622,27 @@ module ViewHelpers =
                 onChange = dispatch
                 clearable = true
                 isLoading = false
-                enabled = true
+                enabled = enabled
                 shape = Components.PickField.Shape.Type
             |}
 
 
-    /// A filter scrolled on a small screen and typed into on a large one.
-    let responsiveFilter isMobile lbl selected dispatch xs =
+    /// The typed filter select that can always be used.
+    let autoComplete lbl selected dispatch xs = autoCompleteWhen true lbl selected dispatch xs
+
+
+    /// A filter, enabled or not, scrolled on a small screen and typed into on a large one.
+    let responsiveFilterWhen enabled isMobile lbl selected dispatch xs =
         if isMobile then
-            xs |> Array.map (fun s -> s, s) |> filterSelect lbl selected dispatch
+            xs
+            |> Array.map (fun s -> s, s)
+            |> filterSelectWhen enabled lbl selected dispatch
         else
-            xs |> autoComplete lbl selected dispatch
+            xs |> autoCompleteWhen enabled lbl selected dispatch
+
+
+    /// A filter that can always be used, scrolled on a small screen and typed into on a large one.
+    let responsiveFilter isMobile lbl selected dispatch xs = responsiveFilterWhen true isMobile lbl selected dispatch xs
 
 
     /// The text of an item, without the emphasis it is drawn with.

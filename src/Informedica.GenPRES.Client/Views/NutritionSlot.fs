@@ -695,16 +695,19 @@ module NutritionSlot =
                 : DialogTabPolicy.Tab
             )
 
-        let busy = props.busy
+        // a locked order takes nothing: its fields wait as for a request out, and so does the intake
+        // effect, which sends without a click
+        let isLocked = PlanContextPolicy.locked ctx
+        let fieldsWait = props.busy || isLocked
 
         // the page is not disabled while a field counts its step clicks, since the field counting
-        // is on it; what sends waits for the count. The fields themselves take busy alone: the
+        // is on it; what sends waits for the count. The fields themselves take this alone: the
         // field counting must see its own request go out and come back
         let counting = React.useContext Global.counting
-        let held = busy || counting.Counting
+        let held = fieldsWait || counting.Counting
 
         let texts = ViewHelpers.quantityFieldTexts getTerm
-        let select = ViewHelpers.orderSelect texts true busy
+        let select = ViewHelpers.orderSelect texts true fieldsWait
 
         let isTpn = ctx |> isOneOf [ NutritionCategory.TPN ]
 
@@ -731,7 +734,7 @@ module NutritionSlot =
         // of a component would keep the rate of the part for the whole
         let isCompositionLocked = isTpn && shownOrder |> Option.exists IntakePolicy.isCompositionLocked
 
-        let componentSelect = ViewHelpers.orderSelect texts true (busy || isCompositionLocked)
+        let componentSelect = ViewHelpers.orderSelect texts true (fieldsWait || isCompositionLocked)
 
         // a field with one value is recalculated when the intent policy allows it on the order shown
         let reCalcOf target : ViewHelpers.ReCalc =
@@ -739,12 +742,13 @@ module NutritionSlot =
                 allowed = shownOrder |> Option.exists (IntentPolicy.isReCalcAllowed target)
                 reCalc = fun () -> evaluate (ViewHelpers.reCalcCommand target)
                 restore = props.planRestore
-                busy = busy
+                busy = fieldsWait
             |}
         // a value only shown has nothing for a cross to clear
-        let display = ViewHelpers.orderFixed texts true busy
-        let filterSelect = ViewHelpers.filterSelect
-        let responsiveFilter = ViewHelpers.responsiveFilter isMobile
+        let display = ViewHelpers.orderFixed texts true fieldsWait
+        // the filters of a locked order show what was picked, and take nothing
+        let filterSelect = ViewHelpers.filterSelectWhen (not isLocked)
+        let responsiveFilter = ViewHelpers.responsiveFilterWhen (not isLocked) isMobile
 
         let displayOrder = shownOrder
 
@@ -1098,7 +1102,21 @@ module NutritionSlot =
 
         // the slot shows the order of a single scenario, so with more it has nothing to show
         let scenarioNotice =
-            if ctx.Scenarios |> Array.length > 1 then
+            if isLocked then
+                Components.Notice.View
+                    {|
+                        kind = Components.Notice.Kind.Warning
+                        title = None
+                        message =
+                            Terms.``Plan Context Locked``
+                            |> getTerm (
+                                Informedica.GenPRES.Client.Core.MachinePolicies.SigningPolicy.english
+                                    Terms.``Plan Context Locked``
+                            )
+                        action = None
+                        onClose = None
+                    |}
+            elif ctx.Scenarios |> Array.length > 1 then
                 let text = "Er zijn meerdere regels gevonden voor deze keuze, daarom kan er geen order getoond worden"
 
                 Components.Notice.View
@@ -1112,7 +1130,7 @@ module NutritionSlot =
             else
                 null
 
-        let canSetDoseQuantityPerc = shownOrder |> Option.exists IntakePolicy.canSetDoseQuantityPerc
+        let canSetDoseQuantityPerc = PlanContextPolicy.canSetIntake ctx
 
         let indicationFilter =
             if ctx.Filter.Generic.IsNone || ctx.Filter.Indications |> Array.length <= 1 then

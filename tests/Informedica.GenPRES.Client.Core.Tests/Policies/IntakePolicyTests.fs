@@ -78,6 +78,21 @@ module IntakePolicyTests =
                             |> Expect.isFalse "should be false"
                         }
 
+                        test "the slider of a locked order cannot set the dose" {
+                            let scenario =
+                                { Informedica.GenPRES.Client.Core.Tests.OrderFixtures.scenario "o-1" "tpn" with
+                                    Order = started
+                                }
+
+                            let ctx marked =
+                                { Informedica.GenPRES.Shared.Models.OrderContext.empty with
+                                    Scenarios = [| { scenario with NotRecalculated = marked } |]
+                                }
+
+                            ctx false |> PlanContextPolicy.canSetIntake |> Expect.isTrue "not locked"
+                            ctx true |> PlanContextPolicy.canSetIntake |> Expect.isFalse "locked"
+                        }
+
                         test "a TPN that is not composed cannot" {
                             notComposed
                             |> IntakePolicy.canSetDoseQuantityPerc

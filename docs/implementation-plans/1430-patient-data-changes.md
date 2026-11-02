@@ -116,8 +116,11 @@ estimate.
     calculate on the new data stands as it was, marked and locked, and the rest of the plan follows.
     The sign dialog names such an order. The prescriber accepts it by signing, or removes it. Signing
     does not lift the mark, so the signed version shows that the order was not calculated on the data
-    of the version. The next update of the patient data tries the order again, and a calculation that
-    succeeds lifts the lock. The lock is in the client: a page opened before it can still send a step.
+    of the version. The next update of the patient data tries the order again. The lock goes when the
+    order stands on the current patient: a calculation on another value that succeeds, or the value
+    of the order with the current rule known. In any other case the lock stays: a weight cleared, or
+    a rule lookup that fails with nothing calculated. The lock holds on the order plan page and the nutrition page, and the plan machine sends no
+    change for a locked order. The lock is in the client: a page opened before it can still send a step.
 
 ### Signing
 

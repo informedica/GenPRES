@@ -1426,7 +1426,8 @@ Scenarios: {scenarios}
     /// the context keeps the patient its rules were chosen for, so that the rules can always be
     /// compared with the current patient. Without one rule to take them from, the limits stay, with a
     /// warning. A lookup that fails leaves the notice as it is. An order that cannot be solved is
-    /// refused: it stands as it was, marked, with the notice; a calculation that succeeds lifts the mark.
+    /// refused: it stands as it was, marked, with the notice. The mark goes when the order was calculated on
+    /// another value of the patient, or holds that value under a known current rule.
     let orderOnPatientData logger provider pat (sc: OrderScenario) ctx =
         let pat = pat |> Patient.correctAdjustUnit
         let (Id orderId) = sc.Order.Id
@@ -1450,6 +1451,8 @@ Scenarios: {scenarios}
                 built
             | _ -> None
 
+        let adjust = sc.Order |> adjustOfPatient pat
+
         let recalculate ord =
             let orderWithLimits =
                 orderOfCurrentRule
@@ -1457,12 +1460,18 @@ Scenarios: {scenarios}
 
             let limitsMoved = (orderWithLimits |> Order.definedLimits) <> (ord |> Order.definedLimits)
 
-            match ord |> adjustOfPatient pat with
+            match adjust with
             | Some adjust when limitsMoved || Some adjust <> (ord |> Order.adjustValue) ->
                 Readjust(orderWithLimits, adjust) |> OrderProcessor.processPipeline logger
             | _ -> Ok ord
 
         let notice = noLongerApply |> Option.defaultValue sc.RulesNoLongerApply
+
+        // a marked order stands on the patient once it was calculated on another value, or holds the
+        // value of the patient and the current rule is known; anything else leaves the mark
+        let standsOnPatient =
+            adjust.IsSome
+            && (orderOfCurrentRule.IsSome || adjust <> (sc.Order |> Order.adjustValue))
 
         match
             { ctx with
@@ -1470,7 +1479,7 @@ Scenarios: {scenarios}
                     [|
                         { sc with
                             RulesNoLongerApply = notice
-                            NotRecalculated = false
+                            NotRecalculated = sc.NotRecalculated && not standsOnPatient
                         }
                     |]
             }
