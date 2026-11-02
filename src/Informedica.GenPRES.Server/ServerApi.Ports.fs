@@ -36,6 +36,8 @@ type OrderContextPort =
 type OrderPlanPort =
     {
         recalculate: GenOrder.OrderPlan -> Async<Result<GenOrder.OrderPlan, string[]>>
+        // every order calculated on the patient of the plan
+        followPatientData: GenOrder.OrderPlan -> Async<Result<GenOrder.OrderPlan, string[]>>
         // the command into the context named
         evaluateContext:
             GenOrder.OrderPlan

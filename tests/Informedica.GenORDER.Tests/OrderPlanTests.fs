@@ -201,7 +201,15 @@ let tests =
                 let all = p |> OrderPlan.recalculate [| volume |]
                 all.Totals.Volume |> Expect.isSome "the infusion has a volume"
                 all.Totals.Energy |> Expect.isNone "no data for energy"
-                { all with Totals = p.Totals } |> Expect.equal "nothing else changes" p
+                // the context holds a patient without a weight, so a volume comes from the patient of the plan
+                all.Contexts[1].Intake.Volume
+                |> Expect.isSome "the intake is on the patient of the plan"
+
+                { all with
+                    Totals = p.Totals
+                    Contexts = p.Contexts
+                }
+                |> Expect.equal "nothing else changes" p
 
                 { p with Filtered = [| "c-supp" |] }
                 |> OrderPlan.recalculate [| volume |]

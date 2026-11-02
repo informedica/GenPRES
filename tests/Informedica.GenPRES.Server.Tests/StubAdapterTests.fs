@@ -103,6 +103,7 @@ module StubAdapters =
 
         {
             recalculate = fun _ -> async { return Ok answer }
+            followPatientData = fun _ -> async { return Ok answer }
             evaluateContext = fun _ _ _ _ -> async { return Ok answer }
             addOrderContext = fun _ _ -> async { return Ok answer }
             newOrderContext = fun _ _ -> async { return Ok answer }
@@ -184,6 +185,7 @@ module StubAdapters =
             orderPlan =
                 {
                     recalculate = fun _ -> async { return Error [| "not loaded" |] }
+                    followPatientData = fun _ -> async { return Error [| "not loaded" |] }
                     evaluateContext = fun _ _ _ _ -> async { return Error [| "not loaded" |] }
                     addOrderContext = fun _ _ -> async { return Error [| "not loaded" |] }
                     newOrderContext = fun _ _ -> async { return Error [| "not loaded" |] }
@@ -5465,6 +5467,7 @@ module PlanTests =
                     let port: OrderPlanPort =
                         {
                             recalculate = answering "recalculate"
+                            followPatientData = answering "followPatientData"
                             evaluateContext = fun p _ _ _ -> answering "evaluateContext" p
                             addOrderContext = fun p _ -> answering "addOrderContext" p
                             newOrderContext = fun p _ -> answering "newOrderContext" p

@@ -1388,41 +1388,41 @@ Scenarios: {scenarios}
             None
 
 
-    /// Whether the rules no longer apply to the order of the context for the current patient.
-    let rulesNoLongerApply logger provider current ord ctx =
-        let rules pat = ctx |> rulesFor logger provider pat
-
-        rulesVerdict logger ord (rules ctx.Patient) (rules current)
-
-
     /// The context with its single order on new patient data: the order is calculated again when the
     /// value it is adjusted with changed, and the rules are checked. What the patient gets stays, and
     /// the context keeps the patient its rules were chosen for, so that the rules can always be
-    /// compared with the current patient. A lookup that fails leaves the notice as it is. A context
-    /// without a single order, or with an order that cannot be solved, is refused as it was sent.
-    let orderOnPatientData logger provider pat (ctx: OrderContext) =
+    /// compared with the current patient. With the same rules and one dose, the limits of a per kg
+    /// solution rule follow the new value. A lookup that fails leaves the notice as it is. An order
+    /// that cannot be solved refuses the context as it was sent.
+    let orderOnPatientData logger provider pat (sc: OrderScenario) ctx =
         let pat = pat |> withWeightInKg
+        let currentRules = ctx |> rulesFor logger provider pat
+        let noLongerApply =
+            rulesVerdict logger sc.Order (ctx |> rulesFor logger provider ctx.Patient) currentRules
+
+        let solutionRule =
+            match noLongerApply, currentRules with
+            | Some false, Ok rules when sc.Order |> Order.isOneDose -> rules |> PrescriptionRule.singleSolutionRule
+            | _ -> None
 
         let recalculate ord =
             match ord |> adjustOfPatient pat with
             | Some adjust when Some adjust <> (ord |> Order.adjustValue) ->
+                let ord =
+                    solutionRule
+                    |> Option.fold (fun o sr -> o |> Medication.OrderBuilder.withSolutionAmounts sr) ord
+
                 Readjust(ord, adjust) |> OrderProcessor.processPipeline logger
             | _ -> Ok ord
 
-        match ctx.Scenarios |> Array.tryExactlyOne with
-        | None -> Refused(ctx, Refusal.NotSolved)
-        | Some sc ->
-            let notice =
-                ctx
-                |> rulesNoLongerApply logger provider pat sc.Order
-                |> Option.defaultValue sc.RulesNoLongerApply
+        let notice = noLongerApply |> Option.defaultValue sc.RulesNoLongerApply
 
-            match
-                { ctx with Scenarios = [| { sc with RulesNoLongerApply = notice } |] }
-                |> processScenarioOrder logger recalculate
-            with
-            | Refused(_, refusal) -> Refused(ctx, refusal)
-            | evaluated -> evaluated
+        match
+            { ctx with Scenarios = [| { sc with RulesNoLongerApply = notice } |] }
+            |> processScenarioOrder logger recalculate
+        with
+        | Refused(_, refusal) -> Refused(ctx, refusal)
+        | evaluated -> evaluated
 
 
     /// A filter or scenario pick, a seed or a patient change applied to its context, read in the
@@ -1827,14 +1827,16 @@ Scenarios: {scenarios}
         }
 
 
+    /// The totals over the orders of the context's scenarios, for the age and weight of the patient.
+    let intakeFor (totalsData: TotalsData[]) (pat: Patient) (ctx: OrderContext) : Totals =
+        let wght = pat.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
+
+        ctx.Scenarios |> Array.map _.Order |> Totals.getTotals totalsData pat.Age wght
+
+
     /// The totals over the orders of the context's scenarios, for its patient's age and
     /// weight.
-    let intake (totalsData: TotalsData[]) (ctx: OrderContext) : Totals =
-        let wght = ctx.Patient.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
-
-        ctx.Scenarios
-        |> Array.map _.Order
-        |> Totals.getTotals totalsData ctx.Patient.Age wght
+    let intake totalsData (ctx: OrderContext) = ctx |> intakeFor totalsData ctx.Patient
 
 
     let logOrderContext (logger: Logger) msg cmd =

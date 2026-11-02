@@ -214,9 +214,14 @@ The order comes from the logic: the domain first, then what uses it.
 3. **Rule check.** Rule 8: the check and the general notice.
 4. **The plan follows the data.** Rules 4, 6, 7, 8, 9 and 19 for a whole plan through the patient
    update, and rule 13 for what counts as changed. An order context keeps the patient its rules were
-   chosen for, so what reads that patient as the current one takes the patient of the plan: the
-   intake of a context, its totals per kg with it, and the reconciliation of its filter. A stored
-   absolute limit from a per kg solution limit follows the weight.
+   chosen for, so the intake of a context, its totals per kg with it, takes the patient of the plan.
+   A context without an order takes the new patient, since its rules are still to be chosen. Rules 4
+   and 19 are client work and go in a pull request of their own.
+
+   Normally the dose rule sets the dose and a solution rule only the preparation. Nutrition is the
+   exception: its solution rule sets the dose, per component and for the whole preparation. So with
+   the same rules and one dose, the amount from a per kg limit on a component or on the volume
+   follows the weight. With more doses it stays, and a substance has no per kg solution limit.
 5. **One edit rule.** Rules 10 and 11 on the plan page, the order dialog and the nutrition page.
 6. **Patient identity.** Rules 1 and 2: the question in anonymous mode and the clearing; rule 14a,
    the warning at signing. The stopped old tab of rule 3 is built by plan 1599. With this step #1430

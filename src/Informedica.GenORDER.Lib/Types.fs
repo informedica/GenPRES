@@ -1096,6 +1096,8 @@ module Types =
         | SupplementNeedsFeeding
         /// The plan already holds a context of the category
         | CategoryHeld of NutritionCategory
+        /// The order with the name cannot be calculated on the patient data
+        | NotCalculated of name: string
 
 
     /// Why a Dto does not parse to its domain value.

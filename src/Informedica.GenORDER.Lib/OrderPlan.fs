@@ -264,11 +264,17 @@ module OrderPlan =
 
 
     /// The plan with its totals recomputed over the orders of the contexts the filter keeps,
-    /// all of them when it is empty, for its patient's age and weight.
+    /// all of them when it is empty, and the intake of every context, for its patient's age and
+    /// weight. A context can hold an older patient, so its intake is not taken from there.
     let recalculate (totalsData: Informedica.GenForm.Lib.Types.Data.TotalsData[]) (plan: OrderPlan) : OrderPlan =
         let wght = plan.Patient.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
 
         { plan with
+            Contexts =
+                plan.Contexts
+                |> Array.map (fun pc ->
+                    { pc with Intake = pc.Context |> OrderContext.intakeFor totalsData plan.Patient }
+                )
             Totals =
                 plan
                 |> filtered
@@ -276,6 +282,24 @@ module OrderPlan =
                 |> Array.map _.Order
                 |> Totals.getTotals totalsData plan.Patient.Age wght
         }
+
+
+    /// Every order of the plan calculated on the patient of the plan. A context with an order keeps
+    /// its patient. A context without an order takes the patient, since its rules are still to be
+    /// chosen. An order that cannot be calculated refuses the update, so that a plan is never partly
+    /// on new data. This guards a case not seen: the amounts stay and the values per kg follow them.
+    let followPatientData logger provider (plan: OrderPlan) =
+        let follow (pc: PlanContext) =
+            match pc |> PlanContext.contribution with
+            | None -> Ok { pc with Context = { pc.Context with Patient = plan.Patient } }
+            | Some sc ->
+                match pc.Context |> OrderContext.orderOnPatientData logger provider plan.Patient sc with
+                | Evaluated ctx -> Ok { pc with Context = ctx }
+                | Refused _ -> Error(OrderPlanError.NotCalculated sc.Name)
+
+        plan.Contexts
+        |> Array.traverseResultM follow
+        |> Result.map (fun contexts -> { plan with Contexts = contexts })
 
 
     /// Whether the plan holds a context of the nutrition category.

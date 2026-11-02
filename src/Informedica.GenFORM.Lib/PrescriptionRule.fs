@@ -216,6 +216,14 @@ module PrescriptionRule =
             }
 
 
+    /// The solution rule of the rules when there is exactly one. With several rule rows or solution
+    /// rules, the rule an order was made from is not known.
+    let singleSolutionRule (rules: PrescriptionRule[]) =
+        rules
+        |> Array.tryExactlyOne
+        |> Option.bind (_.SolutionRules >> Array.tryExactlyOne)
+
+
     /// What is compared of a rule: the dose rule as adapted to the patient, the renal rules and,
     /// when they count, the solution rules. The patient of the rule differs between any two patients,
     /// so it is left out.
