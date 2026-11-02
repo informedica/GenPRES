@@ -166,6 +166,10 @@ type ISigning =
     abstract Differences: (OrderContext * HeldContextPolicy.Difference)[]
     // ask a challenge over the plan as shown
     abstract Sign: OrderPlan -> unit
+    // whether the patient was no longer active in the EHR at the challenge; told before the PIN
+    abstract EhrMovedOn: bool
+    // who the patient being signed for is; none for a patient the EHR did not identify
+    abstract SignedFor: NameAndBirthDate option
     // whether the patient context is held: taking the EHR's data then drops the unsigned orders
     abstract Held: bool
     // the data notice answered: the EHR's data taken, or the plan's kept

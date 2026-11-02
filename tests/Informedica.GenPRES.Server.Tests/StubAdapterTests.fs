@@ -39,7 +39,7 @@ module Machine =
     let openVersion now newId sid id state = ServerApi.Session.openVersion now newId sid id state |> answered
 
     let challenge now newId digest patientData sid request state =
-        ServerApi.Session.challenge now newId digest patientData sid request state
+        ServerApi.Session.challenge now newId digest patientData (fun _ -> None) sid request state
         |> answered
 
 
@@ -2653,7 +2653,7 @@ module SessionStubTests =
                         <| "s-1"
                         <| (OrderPlan.create otherData [||], token "s-1")
                         |> snd
-                        |> Expect.equal "entered data: issued" (SigningOutcome.ChallengeIssued "n-1")
+                        |> Expect.equal "entered data: issued" (SigningOutcome.ChallengeIssued("n-1", false))
                     }
 
                     test "refuses an order composed on other patient data than the plan's, before a challenge" {
@@ -2669,7 +2669,7 @@ module SessionStubTests =
                         <| "s-1"
                         <| (OrderPlan.create stubPatient [| contextOn stubPatient "c-1" |], token "s-1")
                         |> snd
-                        |> Expect.equal "one patient context: issued" (SigningOutcome.ChallengeIssued "n-1")
+                        |> Expect.equal "one patient context: issued" (SigningOutcome.ChallengeIssued("n-1", false))
 
                         let state, answer =
                             stateOf [ opened ] [] |> ask t0 (counter "n")
@@ -2735,7 +2735,7 @@ module SessionStubTests =
                                 (stateOf [ sid, record ] [])
 
                         answer
-                        |> Expect.equal "issued, not a notice" (SigningOutcome.ChallengeIssued "n-1")
+                        |> Expect.equal "issued, not a notice" (SigningOutcome.ChallengeIssued("n-1", false))
 
                         state.Challenges[sid].Ehr |> Expect.equal "the EHR data as read" (Some ehr)
                     }
@@ -2807,7 +2807,7 @@ module SessionStubTests =
 
                         let state, issued = stateOf [ opened ] [] |> ask t0 nonces <| "s-1" <| (plan, token "s-1")
 
-                        issued |> Expect.equal "issued" (SigningOutcome.ChallengeIssued "n-1")
+                        issued |> Expect.equal "issued" (SigningOutcome.ChallengeIssued("n-1", false))
 
                         // the platform's reading changes under the challenge
                         let changed =
@@ -2840,7 +2840,7 @@ module SessionStubTests =
 
                         let state, answer = askWith "n-1" (t0 + seconds 5.0) nonces state "s-1" (plan, token "s-1")
 
-                        answer |> Expect.equal "issued" (SigningOutcome.ChallengeIssued "n-2")
+                        answer |> Expect.equal "issued" (SigningOutcome.ChallengeIssued("n-2", false))
 
                         state.Challenges["s-1"].Ehr
                         |> Expect.equal "the platform's reading" (Some(StubPatientData.data "stub-patient"))
@@ -2857,7 +2857,7 @@ module SessionStubTests =
                         let state, answer = askWith "n-3" (t0 + seconds 5.0) nonces state "s-2" (plan, token "s-2")
 
                         answer
-                        |> Expect.equal "issued unverified" (SigningOutcome.ChallengeIssued "n-4")
+                        |> Expect.equal "issued unverified" (SigningOutcome.ChallengeIssued("n-4", false))
 
                         state.Challenges["s-2"].Ehr |> Expect.isNone "unverified"
                     }
@@ -2915,7 +2915,7 @@ module SessionStubTests =
 
                         stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (once, token "s-1")
                         |> snd
-                        |> Expect.equal "issued" (SigningOutcome.ChallengeIssued "n-1")
+                        |> Expect.equal "issued" (SigningOutcome.ChallengeIssued("n-1", false))
                     }
 
                     test "a plan holding a nutrition context's order is challenged with that order" {
@@ -2939,7 +2939,7 @@ module SessionStubTests =
                         let state, answer =
                             stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (plan, token "s-1")
 
-                        answer |> Expect.equal "issued" (SigningOutcome.ChallengeIssued "n-1")
+                        answer |> Expect.equal "issued" (SigningOutcome.ChallengeIssued("n-1", false))
 
                         // the digest is over the plan with both orders: another plan does not fit it
                         state.Challenges["s-1"].Digest
@@ -2984,7 +2984,7 @@ module SessionStubTests =
                         <| "s-1"
                         <| (plan, token "s-1")
                         |> snd
-                        |> Expect.equal "opened with the head" (SigningOutcome.ChallengeIssued "n-1")
+                        |> Expect.equal "opened with the head" (SigningOutcome.ChallengeIssued("n-1", false))
                     }
 
                     test
@@ -2996,7 +2996,7 @@ module SessionStubTests =
                         let state, answer =
                             stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (plan, token "s-1")
 
-                        answer |> Expect.equal "issued" (SigningOutcome.ChallengeIssued "n-1")
+                        answer |> Expect.equal "issued" (SigningOutcome.ChallengeIssued("n-1", false))
 
                         state.Challenges["s-1"]
                         |> Expect.equal
@@ -3019,8 +3019,9 @@ module SessionStubTests =
                         let state, again = ask (t0 + seconds 10.0) nonces state "s-1" (plan, token "s-1")
                         let state, theirs = ask (t0 + seconds 20.0) nonces state "s-2" (plan, token "s-2")
 
-                        again |> Expect.equal "replaced" (SigningOutcome.ChallengeIssued "n-2")
-                        theirs |> Expect.equal "their own" (SigningOutcome.ChallengeIssued "n-3")
+                        again |> Expect.equal "replaced" (SigningOutcome.ChallengeIssued("n-2", false))
+                        theirs
+                        |> Expect.equal "their own" (SigningOutcome.ChallengeIssued("n-3", false))
                         state.Challenges |> Map.count |> Expect.equal "one per Session" 2
 
                         let state, _ = ask (t0 + seconds 10.0 + minutes 2.0) nonces state "s-2" (plan, token "s-2")
@@ -4526,7 +4527,7 @@ module SessionStubTests =
                     let! answer = SigningCommand.processCmd env cookie (challengeOver opened)
 
                     match answer with
-                    | SigningResponse.ChallengeIssued nonce -> nonce |> Expect.isNotEmpty "a nonce"
+                    | SigningResponse.ChallengeIssued(nonce, _) -> nonce |> Expect.isNotEmpty "a nonce"
                     | other -> failtest $"expected ChallengeIssued, got {other}"
 
                     held.Value |> Expect.isSome "cookie kept"
@@ -4576,7 +4577,7 @@ module SessionStubTests =
                             )
 
                         match! SigningCommand.processCmd env cookie accepted with
-                        | SigningResponse.ChallengeIssued nonce -> nonce |> Expect.isNotEmpty "issued"
+                        | SigningResponse.ChallengeIssued(nonce, _) -> nonce |> Expect.isNotEmpty "issued"
                         | other -> failtest $"expected ChallengeIssued, got {other}"
                     | other -> failtest $"expected DataNotice, got {other}"
                 }
@@ -4603,7 +4604,7 @@ module SessionStubTests =
                     let! challenge =
                         async {
                             match! SigningCommand.processCmd env cookie (challengeOver opened) with
-                            | SigningResponse.ChallengeIssued nonce -> return nonce
+                            | SigningResponse.ChallengeIssued(nonce, _) -> return nonce
                             | other -> return failtest $"expected ChallengeIssued, got {other}"
                         }
 
@@ -4638,7 +4639,7 @@ module SessionStubTests =
                     let! challenge =
                         async {
                             match! SigningCommand.processCmd env cookie (challengeOver opened) with
-                            | SigningResponse.ChallengeIssued nonce -> return nonce
+                            | SigningResponse.ChallengeIssued(nonce, _) -> return nonce
                             | other -> return failtest $"expected ChallengeIssued, got {other}"
                         }
 
@@ -4706,7 +4707,7 @@ module SessionStubTests =
                     let challenge cookie opened =
                         async {
                             match! SigningCommand.processCmd env cookie (challengeOver opened) with
-                            | SigningResponse.ChallengeIssued nonce -> return nonce
+                            | SigningResponse.ChallengeIssued(nonce, _) -> return nonce
                             | other -> return failtest $"expected ChallengeIssued, got {other}"
                         }
 

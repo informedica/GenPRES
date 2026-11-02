@@ -129,7 +129,8 @@ estimate.
 
 14a. **Signing warns when the EHR has moved on.** When the patient active in the EHR is not the
      patient of the session, the prescriber is told so before entering the PIN: the name of the
-     patient being signed for is shown, and that the EHR now has another patient active. The warning
+     patient being signed for is shown, if the EHR gave one, and that this patient is no longer active
+     in the EHR, whether another patient or none is active now. The warning
      does not block the signature, since a prescriber may finish the orders of the previous patient
      on purpose. The record of the session stays correct either way: a launch for another patient
      already ends the session. The integration design gets this as a new rule, since its rule 6
@@ -248,7 +249,9 @@ The order comes from the logic: the domain first, then what uses it.
    a change of data on the old data, without a notice. The medical check must see the last two.
 6. **Patient identity.** Rules 1 and 2: the question in anonymous mode and the clearing; rule 14a,
    the warning at signing, in a pull request of its own, since it needs a new read of the EHR at
-   signing.
+   signing. That read is the UserRegistry's, at the challenge, with the same check as at a launch:
+   another patient active or none active warns, and no answer of the registry does not. An EHR that
+   moves on after the challenge is not seen.
 
    Everything clears when the prescriber confirms, and the new data follow. The clear asks the
    formulary and parenteralia pages for nothing, since a request for no patient is out of date when

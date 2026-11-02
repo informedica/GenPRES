@@ -354,6 +354,40 @@ let viewTests =
                 |> Expect.equal "requesting" SigningView.RequestingChallenge
             }
 
+            test "what the challenge said about the EHR stays through a wrong PIN and goes with the dialog" {
+                let moved =
+                    requesting
+                    |> transition (
+                        SigningMsg.ChallengeAnswered("r-1", Ok(SigningResponse.ChallengeIssued("c-1", true)))
+                    )
+                    |> fst
+
+                moved |> SigningState.ehrMovedOn |> Expect.isTrue "told before the PIN"
+
+                let again =
+                    moved
+                    |> transition (SigningMsg.ConfirmPin("1234", "k-1"))
+                    |> fst
+                    |> transition (
+                        SigningMsg.SubmitAnswered("k-1", Ok(SigningResponse.Refused(SigningRefusal.PinWrong 2)))
+                    )
+                    |> fst
+
+                again |> SigningState.ehrMovedOn |> Expect.isTrue "still told"
+
+                again
+                |> transition (SigningMsg.SubmitAnswered("k-2", Ok(SigningResponse.Refused SigningRefusal.NoSession)))
+                |> fst
+                |> SigningState.ehrMovedOn
+                |> Expect.isTrue "an answer to no request changes nothing"
+
+                requesting
+                |> transition (issued "r-1")
+                |> fst
+                |> SigningState.ehrMovedOn
+                |> Expect.isFalse "the EHR did not move on"
+            }
+
             test "noticed and challenged show the plan with the notice or the refusal" {
                 SigningState.noticed plan notice
                 |> SigningState.view

@@ -706,7 +706,9 @@ module StubDatabase =
                                         idle
                                         now
                                         sid
-                                        (fun at -> Session.challenge at newId digest patientData sid request)))
+                                        (fun at ->
+                                            Session.challenge at newId digest patientData registry.standing sid request
+                                        )))
                     }
             submit =
                 fun sid signature ->

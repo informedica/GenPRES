@@ -865,8 +865,9 @@ module Types =
     /// answers it, so it lives with the types, not the api.
     [<RequireQualifiedAccess>]
     type SigningResponse =
-        // the challenge over exactly this plan; comes back with the PIN
-        | ChallengeIssued of challenge: string
+        // the challenge over exactly this plan; comes back with the PIN. ehrMovedOn: the patient of
+        // the Session is no longer the patient active in the EHR, which is told before the PIN
+        | ChallengeIssued of challenge: string * ehrMovedOn: bool
         // no challenge yet; the data as it stands, to show and to accept or not
         | DataNotice of DataNotice
         // the version committed, a fresh OpenedToken over it, and the Session's patient after

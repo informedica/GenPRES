@@ -89,7 +89,7 @@ type BrowserIdentity =
     }
 
 
-/// What the UserRegistry says about a login at this launch: the User with the Role, the
+/// What the UserRegistry says about a login at a launch or a challenge: the User with the Role, the
 /// Patient active in MainEHR, and the mail address a confirmation code goes to. Whether a
 /// PIN is set is the credential store's answer, not the registry's.
 type UserStanding =
@@ -288,7 +288,7 @@ type Signature =
 [<RequireQualifiedAccess>]
 type SigningOutcome =
     /// the challenge over exactly this plan; comes back with the PIN
-    | ChallengeIssued of challenge: string
+    | ChallengeIssued of challenge: string * ehrMovedOn: bool
     /// no challenge yet: the token, and the data as it stands, none when it could not be read
     | DataNotice of token: string * data: GenForm.Patient option
     /// the version committed with the identity it names, a fresh OpenedToken over it, and the

@@ -174,7 +174,7 @@ let tests =
             test "the challenge keeps the digest of the plan, never the plan" {
                 let state, answer = ask t0 (counter "n") (stateOf [ opened ] []) "s-1" (domainPlan.Value, token "s-1")
 
-                answer |> Expect.equal "issued" (SigningOutcome.ChallengeIssued "n-1")
+                answer |> Expect.equal "issued" (SigningOutcome.ChallengeIssued("n-1", false))
 
                 state.Challenges["s-1"].Digest
                 |> Expect.equal "the digest of the plan" (StubDatabase.digest domainPlan.Value)
@@ -412,7 +412,7 @@ let tests =
                         challenge =
                             fun _ (p, _, _) ->
                                 seen.Value <- Some p
-                                async { return SigningOutcome.ChallengeIssued "n-1" }
+                                async { return SigningOutcome.ChallengeIssued("n-1", false) }
                         submit =
                             fun _ s ->
                                 seen.Value <- Some s.Plan
@@ -448,7 +448,7 @@ let tests =
                         cookie
                         (Informedica.GenPRES.Shared.Api.SigningCommand.RequestSignChallenge(plan, token "s-1", None))
 
-                issued |> Expect.equal "issued" (SigningResponse.ChallengeIssued "n-1")
+                issued |> Expect.equal "issued" (SigningResponse.ChallengeIssued("n-1", false))
                 seen.Value |> Expect.equal "the plan parsed" (Some domainPlan.Value)
 
                 let submission: Submission =

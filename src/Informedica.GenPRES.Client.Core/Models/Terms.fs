@@ -277,6 +277,10 @@ type Terms =
     | ``Signing Keep Plan Data``
     | ``Signing Notice Ehr``
     | ``Signing Data Unverified``
+    // the patient of the Session is no longer active in the EHR, told before the PIN
+    | ``Signing Ehr Moved On``
+    // the same for a patient the EHR did not identify
+    | ``Signing Ehr Moved On Unnamed``
     | ``Signing Refusal No Session``
     | ``Signing Refusal No Patient``
     | ``Signing Refusal Not Prescriber``

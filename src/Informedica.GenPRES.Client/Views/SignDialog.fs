@@ -289,6 +289,19 @@ module SignDialog =
             else
                 null
 
+        // only a warning: the prescriber may finish the orders of this patient on purpose
+        let ehrMovedOnWarning =
+            match notice, signing.EhrMovedOn with
+            | None, true ->
+                let sentence = signing.SignedFor |> ehrMovedOnSentence tr
+
+                JSX.jsx
+                    $"""
+                import Alert from '@mui/material/Alert';
+                <Alert severity="warning">{sentence}</Alert>
+                """
+            | _ -> null
+
         let pinField =
             match notice with
             | Some _ -> null
@@ -388,6 +401,7 @@ module SignDialog =
                 <List dense={true}>
                     {orderList}
                 </List>
+                {ehrMovedOnWarning}
                 {pinField}
                 {progress}
             </DialogContent>

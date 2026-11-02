@@ -32,6 +32,8 @@ module SigningPolicy =
         | Terms.``Signing Take Ehr Data`` -> "Take the EHR's data"
         | Terms.``Signing Keep Plan Data`` -> "Keep the plan's data"
         | Terms.``Signing Notice Ehr`` -> "EHR"
+        | Terms.``Signing Ehr Moved On`` -> "You are signing for {0}. This patient is no longer active in the EHR."
+        | Terms.``Signing Ehr Moved On Unnamed`` -> "This patient is no longer active in the EHR."
         | Terms.``Signing Data Unverified`` ->
             "The patient data could not be verified. Continue to sign over the plan's data, or cancel."
         | Terms.``Signing Refusal No Session`` -> "There is no session to sign in. Open GenPRES again from MainEHR."
@@ -88,6 +90,13 @@ module SigningPolicy =
     let newerPlanSentence (tr: Terms -> string) (head: OrderPlanHead) =
         tr Terms.``Session Newer Version``
         |> TermText.fill [ head.By.DisplayName; TextFormat.time head.SignedAt ]
+
+
+    /// The warning before the PIN, with the name of the patient being signed for if there is one.
+    let ehrMovedOnSentence (tr: Terms -> string) (who: NameAndBirthDate option) =
+        match who with
+        | Some who -> tr Terms.``Signing Ehr Moved On`` |> TermText.fill [ who.Name ]
+        | None -> tr Terms.``Signing Ehr Moved On Unnamed``
 
 
     /// The sentence when a version is opened.

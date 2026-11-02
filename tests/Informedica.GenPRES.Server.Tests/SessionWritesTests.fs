@@ -293,13 +293,14 @@ let machineTests =
                         newId
                         StubDatabase.digest
                         StubAdapterTests.StubAdapters.patientData
+                        (fun _ -> None)
                         sid
                         (Store.domainPlan.Value, token, None)
                         state
 
                 let nonce =
                     match challenge with
-                    | SigningOutcome.ChallengeIssued n -> n
+                    | SigningOutcome.ChallengeIssued(n, _) -> n
                     | other -> failtest $"expected ChallengeIssued, got %A{other}"
 
                 let signature pin key : Signature =
@@ -465,7 +466,7 @@ let portTests =
                     }
 
                 match! port.challenge sid (Store.domainPlan.Value, opened.OpenedToken.Value, None) with
-                | SigningOutcome.ChallengeIssued nonce ->
+                | SigningOutcome.ChallengeIssued(nonce, _) ->
                     let! answer =
                         port.submit
                             sid
@@ -631,6 +632,64 @@ let flightWrites =
     testList
         "the writes of what a Session holds in flight"
         [
+            testList
+                "a challenge tells whether the EHR moved on"
+                [
+                    let answer active =
+                        Some
+                            {
+                                User =
+                                    {
+                                        UserId = "u"
+                                        DisplayName = "A"
+                                        Role = UserRole.Prescriber
+                                    }
+                                ActivePatientId = active
+                                MailAddress = "a@b"
+                            }
+
+                    /// Whether the challenge in the state tells that the EHR moved on, for the answer of
+                    /// the registry about the patient id of the Session.
+                    let told standing (state: Session.State, sid: string, newId) =
+                        let token = state.Sessions[sid].Opened.OpenedToken.Value
+
+                        match
+                            Session.challenge
+                                t0
+                                newId
+                                StubDatabase.digest
+                                StubAdapterTests.StubAdapters.patientData
+                                (fun _ -> state.Sessions[sid].Opened.PatientId |> standing)
+                                sid
+                                (Store.domainPlan.Value, token, None)
+                                state
+                        with
+                        | _, SigningOutcome.ChallengeIssued(_, moved), _ -> moved
+                        | _, other, _ -> failtest $"expected ChallengeIssued, got %A{other}"
+
+                    for name, standing, moved in
+                        [
+                            "another active patient", (fun _ -> answer (Some "another")), true
+                            "no active patient", (fun _ -> answer None), true
+                            "the patient of the Session active", answer, false
+                            "no answer of the registry", (fun _ -> None), false
+                        ] do
+                        test $"%s{name}: moved on is %b{moved}" {
+                            opened () |> told standing |> Expect.equal "told" moved
+                        }
+
+                    test "a Session without a login is asked about by its user id" {
+                        let state, sid, newId = opened ()
+                        let record = state.Sessions[sid]
+
+                        let state = { state with Sessions = state.Sessions |> Map.add sid { record with Login = None } }
+
+                        (state, sid, newId)
+                        |> told (fun _ -> answer None)
+                        |> Expect.isTrue "the registry is asked all the same"
+                    }
+                ]
+
             test "a challenge is written, and the one it replaces is spent" {
                 let state, sid, newId = opened ()
 
@@ -642,6 +701,7 @@ let flightWrites =
                         newId
                         StubDatabase.digest
                         StubAdapterTests.StubAdapters.patientData
+                        (fun _ -> None)
                         sid
                         (Store.domainPlan.Value, token, None)
                         state
@@ -652,7 +712,7 @@ let flightWrites =
                 |> Expect.equal "the heartbeat and the challenge" [ "RecordSeen"; "WriteChallenge" ]
 
                 match first with
-                | SigningOutcome.ChallengeIssued _ -> ()
+                | SigningOutcome.ChallengeIssued(_, _) -> ()
                 | other -> failtest $"expected ChallengeIssued, got %A{other}"
 
                 // a second challenge in the same Session: the one it replaces is not spent by
@@ -674,13 +734,22 @@ let flightWrites =
                         newId
                         StubDatabase.digest
                         StubAdapterTests.StubAdapters.patientData
+                        (fun _ -> None)
                         sid
                         (Store.domainPlan.Value, token, None)
                         state
 
                 // the EHR now says another ward
                 let _, answer, writes =
-                    Session.challenge t0 newId StubDatabase.digest moved sid (Store.domainPlan.Value, token, None) state
+                    Session.challenge
+                        t0
+                        newId
+                        StubDatabase.digest
+                        moved
+                        (fun _ -> None)
+                        sid
+                        (Store.domainPlan.Value, token, None)
+                        state
 
                 match answer with
                 | SigningOutcome.DataNotice _ ->
@@ -703,6 +772,7 @@ let flightWrites =
                         newId
                         StubDatabase.digest
                         port
+                        (fun _ -> None)
                         sid
                         (Store.domainPlan.Value, token, notice)
                         state
@@ -719,7 +789,7 @@ let flightWrites =
 
                 let nonce =
                     match challenge with
-                    | SigningOutcome.ChallengeIssued n -> n
+                    | SigningOutcome.ChallengeIssued(n, _) -> n
                     | other -> failtest $"expected ChallengeIssued, got %A{other}"
 
                 let signature: Signature =
@@ -762,13 +832,14 @@ let flightWrites =
                         newId
                         StubDatabase.digest
                         StubAdapterTests.StubAdapters.patientData
+                        (fun _ -> None)
                         sid
                         (Store.domainPlan.Value, token, None)
                         state
 
                 let nonce =
                     match challenge with
-                    | SigningOutcome.ChallengeIssued n -> n
+                    | SigningOutcome.ChallengeIssued(n, _) -> n
                     | other -> failtest $"expected ChallengeIssued, got %A{other}"
 
                 let signature: Signature =

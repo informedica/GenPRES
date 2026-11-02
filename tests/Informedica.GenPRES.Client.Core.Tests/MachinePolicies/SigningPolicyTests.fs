@@ -137,6 +137,22 @@ let tests =
 
                 versionOpenedSentence english head
                 |> Expect.equal "opened" "Version 2 by Stub Prescriber B is now open."
+
+                ehrMovedOnSentence
+                    english
+                    (Some
+                        {
+                            Name = "J. Janssen"
+                            BirthYear = 2020
+                            BirthMonth = 1
+                            BirthDay = 2
+                        })
+                |> Expect.equal
+                    "the patient being signed for"
+                    "You are signing for J. Janssen. This patient is no longer active in the EHR."
+
+                ehrMovedOnSentence english None
+                |> Expect.equal "no name to show" "This patient is no longer active in the EHR."
             }
 
             test "one term per refusal; the block names the signer and the time, the tries and the lock are filled" {

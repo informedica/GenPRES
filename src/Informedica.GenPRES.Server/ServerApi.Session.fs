@@ -794,6 +794,10 @@ module Session =
         RecordLaunchOutcome(record.Nonce, outcome, now)
 
 
+    /// Whether the registry has this patient as the active patient in the EHR.
+    let isActive (patientId: string) (standing: UserStanding) = standing.ActivePatientId = Some patientId
+
+
     let private openSession now newId patientData (record: LaunchRecord) (standing: UserStanding) (state: State) =
         let state, (id, session), writes =
             openWith now newId patientData record.PatientId record.PublicKey standing.User state
@@ -963,7 +967,7 @@ module Session =
         =
         let state = dropExpired now state
 
-        if standing.ActivePatientId <> Some record.PatientId then
+        if standing |> isActive record.PatientId |> not then
             refuse now record LaunchRefusal.WrongActivePatient state
         elif
             standing.User.Role = UserRole.Prescriber
@@ -1141,7 +1145,7 @@ module Session =
                 let settled = WriteCredential(e.UserId, "pin-set", credential, now) :: dropped
 
                 match fresh with
-                | Some s when s.ActivePatientId <> Some e.PatientId ->
+                | Some s when s |> isActive e.PatientId |> not ->
                     // the PIN is set and told; no Session opens for a Patient that is no longer
                     // the active one: a relaunch is asked for. The PIN stands all the same, so
                     // its writes go whatever the launch comes to
@@ -1449,6 +1453,21 @@ module Session =
                     seen @ spent @ [ RecordOpenedWith(sid, session, now) ]
 
 
+    /// Who the registry is asked about for a Session: its login, or the user id without one.
+    let identityOf (record: SessionRecord) (user: UserContext) =
+        {
+            Login = record.Login |> Option.defaultValue user.UserId
+            DisplayName = user.DisplayName
+        }
+
+
+    /// Whether the patient of the Session is no longer the patient active in the EHR: another patient
+    /// is active, or none is, the same check as at a launch. A registry that does not answer tells
+    /// nothing about the EHR, and the warning this gives does not block, so that gives no warning.
+    let ehrMovedOn (patientId: string) (standing: UserStanding option) =
+        standing |> Option.exists (isActive patientId >> not)
+
+
     /// The challenge request, checked in order: the Session with a User and a Patient; the
     /// Role Prescriber; the OpenedToken this Session holds; the patient data re-read: when it
     /// is not what the Session opened with and no notice over this reading was accepted, no
@@ -1465,6 +1484,7 @@ module Session =
         (newId: unit -> string)
         (digest: GenOrder.OrderPlan -> string)
         (patientData: PatientDataPort)
+        (standing: BrowserIdentity -> UserStanding option)
         (sid: string)
         (plan: GenOrder.OrderPlan, opened: OpenedToken, notice: string option)
         (state: State)
@@ -1531,6 +1551,7 @@ module Session =
                             refuse SigningRefusal.ContextDiffers
                         | None, None ->
                             let nonce = newId ()
+                            let moved = identityOf record user |> standing |> ehrMovedOn patientId
 
                             let challenge =
                                 {
@@ -1544,7 +1565,7 @@ module Session =
                                 Notices = state.Notices |> Map.remove sid
                                 Challenges = state.Challenges |> Map.add sid challenge
                             },
-                            SigningOutcome.ChallengeIssued nonce,
+                            SigningOutcome.ChallengeIssued(nonce, moved),
                             seen @ [ WriteChallenge(sid, challenge, now) ]
 
 
@@ -1596,13 +1617,7 @@ module Session =
 
                     let refuse refusal = remember state (SigningOutcome.Refused refusal) []
 
-                    let identity =
-                        {
-                            Login = record.Login |> Option.defaultValue user.UserId
-                            DisplayName = user.DisplayName
-                        }
-
-                    match standing identity with
+                    match identityOf record user |> standing with
                     | Some fresh when fresh.User.Role = UserRole.Prescriber ->
                         if record.Opened.OpenedToken <> Some signature.Opened then
                             refuse SigningRefusal.StaleToken
