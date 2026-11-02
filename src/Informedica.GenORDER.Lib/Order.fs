@@ -2813,6 +2813,11 @@ module Order =
     let getAdjust ord = (ord |> inf).Adjust
 
 
+    /// The value an order is adjusted with, None when it holds no single value set.
+    let adjustValue ord =
+        ord |> getAdjust |> Quantity.toOrdVar |> OrderVariable.getValSetValueUnit
+
+
     /// Get the Orderable of an Order
     let getOrderable ord = (ord |> inf).Orderable
 
@@ -2946,6 +2951,39 @@ module Order =
 
 
     let setCalculatedConstraints ord = ord |> mapOrdVars OrderVariable.setCalculatedConstraints
+
+
+    /// The order without calculated constraints.
+    let withoutCalculatedConstraints ord = ord |> mapOrdVars OrderVariable.clearCalculatedConstraints
+
+
+    /// The order with the calculated constraints of the variables with the same name in from.
+    let withCalculatedConstraintsOf from ord =
+        let calculated = from |> toOrdVars |> OrderVariable.byName
+
+        ord
+        |> mapOrdVars (fun ovar ->
+            match calculated |> Map.tryFind ovar.Variable.Name with
+            | Some o -> { ovar with CalculatedConstraints = o.CalculatedConstraints }
+            | None -> ovar
+        )
+
+
+    /// The order with the adjust value replaced in its range and in both of its constraints.
+    let withAdjustValue adjust (ord: Order) =
+        let setValue = OrderVariable.Constraints.setValues (Some adjust)
+
+        let setConstraints (ovar: OrderVariable) =
+            { ovar with
+                DefinedConstraints = ovar.DefinedConstraints |> setValue
+                CalculatedConstraints = ovar.CalculatedConstraints |> setValue
+            }
+
+        { ord with
+            Adjust =
+                ord.Adjust
+                |> Quantity.apply (setConstraints >> OrderVariable.applyDefinedConstraints)
+        }
 
 
     /// Whether every variable of an order that has constraints holds one value. A variable without

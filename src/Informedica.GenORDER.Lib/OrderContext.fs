@@ -1325,6 +1325,38 @@ Scenarios: {scenarios}
             | Error _ -> Refused(ctx, Refusal.NotSolved)
 
 
+    /// The value of the patient the order is adjusted with, in the unit of the order. None when the
+    /// patient does not have that value, or the order holds no adjust value.
+    let adjustOfPatient pat ord =
+        ord
+        |> Order.adjustValue
+        |> Option.map ValueUnit.getUnit
+        |> Option.bind (fun u ->
+            Some u
+            |> Informedica.GenForm.Lib.Patient.adjustValue pat
+            |> Option.map (ValueUnit.convertTo u)
+        )
+
+
+    /// The context on new patient data: the context takes the patient and the single order is
+    /// calculated again when the value it is adjusted with changed. What the patient gets stays. A
+    /// context without a single order, or with an order that cannot be solved, is refused as it was
+    /// sent, so that no context holds a patient its order was not calculated on.
+    let updatePatientData logger pat (ctx: OrderContext) =
+        let recalculate ord =
+            match ord |> adjustOfPatient pat with
+            | Some adjust when Some adjust <> (ord |> Order.adjustValue) ->
+                Readjust(ord, adjust) |> OrderProcessor.processPipeline logger
+            | _ -> Ok ord
+
+        if ctx.Scenarios |> Array.length <> 1 then
+            Refused(ctx, Refusal.NotSolved)
+        else
+            match ctx |> processScenarioOrder logger recalculate with
+            | Evaluated ctx -> Evaluated { ctx with Patient = pat }
+            | outcome -> outcome
+
+
     /// A filter or scenario pick, a seed or a patient change applied to its context, read in the
     /// lists as sent: the context it changes and the existing command it is evaluated as, or why
     /// the index is past the options. None for any other command.
