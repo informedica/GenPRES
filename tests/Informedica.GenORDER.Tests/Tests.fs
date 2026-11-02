@@ -3914,6 +3914,7 @@ module DtoTests =
                 UseRenalRule = false
                 RenalRule = None
                 FitsOnlyWithoutDivisible = false
+                RulesNoLongerApply = false
                 ProductsIds = [| "gpk-1" |]
                 Access = AnyAccess
             }
@@ -4242,6 +4243,7 @@ module OrderPlanDtoTests =
                 UseRenalRule = false
                 RenalRule = None
                 FitsOnlyWithoutDivisible = false
+                RulesNoLongerApply = false
                 ProductsIds = [| "gpk-1" |]
                 Access = AnyAccess
             }

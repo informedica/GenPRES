@@ -759,6 +759,13 @@ module Types =
         }
 
 
+    /// Whether the solution rules count when two prescription rules are compared.
+    [<RequireQualifiedAccess>]
+    type SolutionRuleComparison =
+        | Counted
+        | Ignored
+
+
     type NormDose =
         | NormQuantityAdjust of LimitTarget * ValueUnit
         | NormPerTimeAdjust of LimitTarget * ValueUnit

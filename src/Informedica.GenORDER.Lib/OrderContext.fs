@@ -84,6 +84,7 @@ module OrderScenario =
             UseRenalRule = ren
             RenalRule = rrl
             FitsOnlyWithoutDivisible = fits
+            RulesNoLongerApply = false
             ProductsIds = ids
             Access = AnyAccess
         }
@@ -103,6 +104,11 @@ module OrderScenario =
     let notPreparableWarning =
         "Dosis niet te bereiden met de deelbaarheid van het product: "
         + "controle door de apotheek of een tweede validatie is nodig"
+
+
+    /// The general notice on an order for which the rules of the current patient are not the rules
+    /// of the patient of its context.
+    let rulesNotice = "De regels gelden niet meer voor deze order: beoordeel de order of maak een nieuwe"
 
 
     /// The note on an order of a product without a Divisible.
@@ -144,10 +150,13 @@ module OrderScenario =
 
         { sc with
             Prescription =
-                sc.Order
-                |> preparationNotice sc.FitsOnlyWithoutDivisible
-                |> Option.map (Array.singleton >> Array.singleton)
-                |> Option.defaultValue [||]
+                [|
+                    if sc.RulesNoLongerApply then
+                        rulesNotice |> Warning
+
+                    yield! sc.Order |> preparationNotice sc.FitsOnlyWithoutDivisible |> Option.toArray
+                |]
+                |> Array.map Array.singleton
                 |> Array.append (prs |> Array.map (Array.map replace))
             Preparation =
                 if sc.Order |> isPreparable then
@@ -245,6 +254,7 @@ module OrderScenario =
                 UseRenalRule: bool
                 RenalRule: string option
                 FitsOnlyWithoutDivisible: bool
+                RulesNoLongerApply: bool
                 ProductsIds: string[]
                 Access: string
             }
@@ -292,6 +302,7 @@ module OrderScenario =
                 UseRenalRule = sc.UseRenalRule
                 RenalRule = sc.RenalRule
                 FitsOnlyWithoutDivisible = sc.FitsOnlyWithoutDivisible
+                RulesNoLongerApply = sc.RulesNoLongerApply
                 ProductsIds = sc.ProductsIds
                 Access = sc.Access |> AccessDevice.toString
             }
@@ -355,6 +366,8 @@ module OrderScenario =
                                 RenalRule = dto.RenalRule
                                 // a scenario stored before the field existed reads as false
                                 FitsOnlyWithoutDivisible = dto.FitsOnlyWithoutDivisible
+                                // a scenario stored before the field existed reads as false
+                                RulesNoLongerApply = dto.RulesNoLongerApply
                                 ProductsIds = dto.ProductsIds |> DtoResult.orEmpty
                                 // a scenario stored before the field existed has none
                                 Access =
@@ -746,11 +759,16 @@ module OrderContext =
     let selectsRules pat = pat |> Adult.isAdult || pat.Weight |> Option.isSome
 
 
+    /// The patient with the weight in kg, as the context takes it.
+    let withWeightInKg pat =
+        { pat with Weight = pat.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram) }
+
+
     /// The context afresh for a patient: the pick lists of the rules for the patient that can be
     /// prescribed for the patient, matched as every rule lookup matches it, so they hold what the
     /// evaluation offers. No pick lists when the rules are not looked up for the patient.
     let create logger provider (pat: Patient) =
-        let pat = { pat with Weight = pat.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram) }
+        let pat = pat |> withWeightInKg
 
         let opts =
             if pat |> selectsRules then
@@ -813,6 +831,15 @@ module OrderContext =
     let matchedPatient (ctx: OrderContext) = { ctx.Patient with Diagnoses = [||] }
 
 
+    /// The dose filter of the context for the patient.
+    let doseFilterFor pat ctx =
+        { picks ctx with
+            Diluent = ctx.Filter.Diluent
+            Components = ctx.Filter.SelectedComponents |> Array.toList //TODO probably go for lists
+            Patient = { ctx with Patient = pat } |> matchedPatient
+        }
+
+
     /// The rules for the context's selection and patient that can be prescribed, and the context
     /// with its pick lists narrowed to them. The rules are looked up for an adult, and for a child
     /// with a weight; a department is not needed, a patient without one being matched as a patient
@@ -822,12 +849,7 @@ module OrderContext =
 
         if ctx.Patient |> selectsRules then
 
-            let doseFilter =
-                { picks ctx with
-                    Diluent = ctx.Filter.Diluent
-                    Components = ctx.Filter.SelectedComponents |> Array.toList //TODO probably go for lists
-                    Patient = ctx |> matchedPatient
-                }
+            let doseFilter = ctx |> doseFilterFor ctx.Patient
 
             let opts =
                 doseFilter
@@ -875,6 +897,15 @@ module OrderContext =
             let fresh = ctx.Patient |> create logger provider
 
             { fresh with Argumentation = ctx.Argumentation }, Ok [||]
+
+
+    /// The prescribable rules for the picks of the context and the patient. A child without a weight
+    /// has none.
+    let rulesFor logger provider pat ctx =
+        if pat |> selectsRules then
+            ctx |> doseFilterFor pat |> getPrescribableRules logger provider
+        else
+            Ok [||]
 
 
     let setFilter filter ctx = { ctx with Filter = filter }
@@ -1338,23 +1369,60 @@ Scenarios: {scenarios}
         )
 
 
-    /// The context on new patient data: the context takes the patient and the single order is
-    /// calculated again when the value it is adjusted with changed. What the patient gets stays. A
-    /// context without a single order, or with an order that cannot be solved, is refused as it was
-    /// sent, so that no context holds a patient its order was not calculated on.
-    let updatePatientData logger pat (ctx: OrderContext) =
+    /// Whether the rules no longer apply to the order, from the lookups for the patient of the context
+    /// and for the current patient. None when a lookup failed: a failure is logged, and says nothing
+    /// about the rules.
+    let rulesVerdict logger ord atContext current =
+        match atContext, current with
+        | Ok atContext, Ok current ->
+            let solutions =
+                if ord |> Order.isOneDose then
+                    SolutionRuleComparison.Counted
+                else
+                    SolutionRuleComparison.Ignored
+
+            PrescriptionRule.sameRules solutions atContext current |> not |> Some
+        | Error errs, _
+        | _, Error errs ->
+            errs |> Events.GenFormErrors |> OrderLogging.logOrderEventError logger
+            None
+
+
+    /// Whether the rules no longer apply to the order of the context for the current patient.
+    let rulesNoLongerApply logger provider current ord ctx =
+        let rules pat = ctx |> rulesFor logger provider pat
+
+        rulesVerdict logger ord (rules ctx.Patient) (rules current)
+
+
+    /// The context with its single order on new patient data: the order is calculated again when the
+    /// value it is adjusted with changed, and the rules are checked. What the patient gets stays, and
+    /// the context keeps the patient its rules were chosen for, so that the rules can always be
+    /// compared with the current patient. A lookup that fails leaves the notice as it is. A context
+    /// without a single order, or with an order that cannot be solved, is refused as it was sent.
+    let orderOnPatientData logger provider pat (ctx: OrderContext) =
+        let pat = pat |> withWeightInKg
+
         let recalculate ord =
             match ord |> adjustOfPatient pat with
             | Some adjust when Some adjust <> (ord |> Order.adjustValue) ->
                 Readjust(ord, adjust) |> OrderProcessor.processPipeline logger
             | _ -> Ok ord
 
-        if ctx.Scenarios |> Array.length <> 1 then
-            Refused(ctx, Refusal.NotSolved)
-        else
-            match ctx |> processScenarioOrder logger recalculate with
-            | Evaluated ctx -> Evaluated { ctx with Patient = pat }
-            | outcome -> outcome
+        match ctx.Scenarios |> Array.tryExactlyOne with
+        | None -> Refused(ctx, Refusal.NotSolved)
+        | Some sc ->
+            let notice =
+                ctx
+                |> rulesNoLongerApply logger provider pat sc.Order
+                |> Option.defaultValue sc.RulesNoLongerApply
+
+            match
+                { ctx with Scenarios = [| { sc with RulesNoLongerApply = notice } |] }
+                |> processScenarioOrder logger recalculate
+            with
+            | Refused(_, refusal) -> Refused(ctx, refusal)
+            | evaluated -> evaluated
 
 
     /// A filter or scenario pick, a seed or a patient change applied to its context, read in the

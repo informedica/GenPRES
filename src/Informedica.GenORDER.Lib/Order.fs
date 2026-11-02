@@ -2986,6 +2986,14 @@ module Order =
         }
 
 
+    /// Whether the order holds a dose count of 1, so that the whole preparation is one dose.
+    let isOneDose ord =
+        (ord |> inf).Orderable.DoseCount
+        |> OrderVariable.Count.toOrdVar
+        |> OrderVariable.getValSetValueUnit
+        |> Option.exists (ValueUnit.getValue >> (=) [| 1N |])
+
+
     /// Whether every variable of an order that has constraints holds one value. A variable without
     /// constraints counts as solved. The order count is left out: the dose dialog never sets how many
     /// times an order is dispensed, so it stays a range.

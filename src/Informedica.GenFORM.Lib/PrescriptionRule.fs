@@ -216,6 +216,24 @@ module PrescriptionRule =
             }
 
 
+    /// What is compared of a rule: the dose rule as adapted to the patient, the renal rules and,
+    /// when they count, the solution rules. The patient of the rule differs between any two patients,
+    /// so it is left out.
+    let comparedRule solutions (pr: PrescriptionRule) =
+        pr.DoseRule,
+        pr.RenalRules,
+        match solutions with
+        | SolutionRuleComparison.Counted -> pr.SolutionRules |> Array.map SolutionRule.withoutPatientAmounts
+        | SolutionRuleComparison.Ignored -> [||]
+
+
+    /// Whether the rules of the current patient are the rules of the patient at the context. No rule
+    /// for the current patient means they are not.
+    let sameRules solutions atContext current =
+        (current |> Array.isEmpty |> not)
+        && (atContext |> Array.map (comparedRule solutions)) = (current |> Array.map (comparedRule solutions))
+
+
     /// Use a Filter to get matching PrescriptionRules.
     let filter
         doseRules

@@ -834,6 +834,9 @@ module Types =
             RenalRule: string option
             /// Whether the order only fits its rule without the Divisible of its products
             FitsOnlyWithoutDivisible: bool
+            /// Whether the current patient gets no rule for the picks of the order, or other rules
+            /// than the patient of its context gets
+            RulesNoLongerApply: bool
             /// Associated product identifiers
             ProductsIds: string[]
             /// The access device the scenario's solution rule makes the preparation for; AnyAccess
