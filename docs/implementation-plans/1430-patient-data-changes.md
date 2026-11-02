@@ -266,7 +266,8 @@ The order comes from the logic: the domain first, then what uses it.
    not recalculated. After a refresh the Session holds the new reading, so the next sign gives no
    notice. Keeping the plan's data signs as before. A refresh keeps the mark as an adult, which the
    EHR does not hold. Orders changed by new data count as unsigned work when they differ from the
-   version last opened or signed.
+   version last opened or signed: a dose per kg or per m2 moved, a notification came or went, or the
+   rules no longer apply. An order without any of these stays unchanged.
 
    A read of the EHR that the Session drops, because it is no longer open or another open is under
    way, says nothing: the data are not taken and the next sign shows the notice again.

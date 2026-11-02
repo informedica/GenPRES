@@ -68,6 +68,19 @@ let scenario (id: string) (name: string) : OrderScenario =
     }
 
 
+/// One value in a unit, as an order variable holds it once it is solved.
+let valueIn (json: string) (v: decimal) =
+    Some
+        {
+            Value = [| $"%M{v}", v |]
+            Unit = "x/dag"
+            Group = ""
+            Short = true
+            Language = ""
+            Json = json
+        }
+
+
 let context id name =
     { Informedica.GenPRES.Shared.Models.OrderContext.empty with
         Id = id

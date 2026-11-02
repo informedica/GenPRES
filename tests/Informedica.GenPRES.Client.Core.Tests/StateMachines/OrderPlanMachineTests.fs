@@ -530,11 +530,23 @@ let workAfterUpdateTests =
         |> fst
         |> OrderPlanState.work
 
+    // the given amounts stay; the dose per kg of the orderable moved
     let followed =
         { one with
             OrderContexts =
                 one.OrderContexts
-                |> Array.map (fun c -> { c with Argumentation = Some "new data" })
+                |> Array.map (fun c ->
+                    { c with
+                        Scenarios =
+                            c.Scenarios
+                            |> Array.map (fun sc ->
+                                { sc with
+                                    OrderScenario.Order.Orderable.Dose.QuantityAdjust.Variable.Vals =
+                                        valueIn "mg/kg" 7.5m
+                                }
+                            )
+                    }
+                )
         }
 
     testList
@@ -542,6 +554,10 @@ let workAfterUpdateTests =
         [
             test "orders the new data changed are unsigned work" {
                 held one None |> update followed |> Expect.equal "changed" PlanWork.Changed
+            }
+
+            test "an order without a dose per kg, without a notification, stays as signed" {
+                held one None |> update one |> Expect.equal "as signed" PlanWork.AsSigned
             }
 
             test "a plan equal to the version has nothing to sign, also after a change" {

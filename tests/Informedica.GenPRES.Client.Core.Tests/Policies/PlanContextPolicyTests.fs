@@ -9,6 +9,7 @@ module PlanContextPolicyTests =
 
     open Expecto
     open Expecto.Flip
+    open Informedica.GenPRES.Client.Core.Tests.OrderFixtures
     open Informedica.GenPRES.Shared.Types
 
 
@@ -29,18 +30,6 @@ module PlanContextPolicyTests =
 
     let plan contexts =
         Informedica.GenPRES.Shared.Models.OrderPlan.create patient contexts
-
-    /// One value in a unit, as an order variable holds it once it is solved.
-    let valueIn (json: string) (v: decimal) =
-        Some
-            {
-                Value = [| $"%M{v}", v |]
-                Unit = "x/dag"
-                Group = ""
-                Short = true
-                Language = ""
-                Json = json
-            }
 
     let valueOf = valueIn "x/day"
 
@@ -117,6 +106,69 @@ module PlanContextPolicyTests =
                         test "the orderable dose rate changes it" {
                             PlanContextPolicy.changed para (para |> withDoseRate 2m)
                             |> Expect.isTrue "the dose rate is editable"
+                        }
+
+                        testList
+                            "a dose per kg moved by new patient data, the given amount the same"
+                            [
+                                let onItem v =
+                                    withOrder (fun o ->
+                                        let dose = (defaultFor<Dose>())
+                                        let item =
+                                            { defaultFor<Item>() with
+                                                Dose = { dose with QuantityAdjust.Variable.Vals = valueIn "mg/kg" v }
+                                            }
+
+                                        { o with
+                                            Order.Orderable.Components =
+                                                [| { defaultFor<Component>() with Items = [| item |] } |]
+                                        }
+                                    )
+
+                                let onComponent v =
+                                    withOrder (fun o ->
+                                        let dose = (defaultFor<Dose>())
+
+                                        { o with
+                                            Order.Orderable.Components =
+                                                [|
+                                                    { defaultFor<Component>() with
+                                                        Dose =
+                                                            { dose with
+                                                                QuantityAdjust.Variable.Vals = valueIn "mg/kg" v
+                                                            }
+                                                    }
+                                                |]
+                                        }
+                                    )
+
+                                for name, perKg in [ "on an item", onItem; "on a component", onComponent ] do
+                                    test name {
+                                        let signed = para |> withDoseQuantity 150m |> perKg 10m
+
+                                        PlanContextPolicy.changed signed (signed |> perKg 7.5m)
+                                        |> Expect.isTrue "10 mg/kg is now 7.5 mg/kg"
+
+                                        PlanContextPolicy.changed signed (signed |> perKg 10m)
+                                        |> Expect.isFalse "corrected back"
+                                    }
+                            ]
+
+                        test "a new notification changes it, no dose moved" {
+                            para
+                            |> withOrder (fun o -> { o with Order.Orderable.Dose.Quantity.Level = IsAlert })
+                            |> PlanContextPolicy.changed para
+                            |> Expect.isTrue "the alert is new"
+                        }
+
+                        test "the rules no longer applying changes it" {
+                            let noticed =
+                                { para with
+                                    Scenarios =
+                                        para.Scenarios |> Array.map (fun sc -> { sc with RulesNoLongerApply = true })
+                                }
+
+                            PlanContextPolicy.changed para noticed |> Expect.isTrue "the notice is new"
                         }
 
                         test "the argumentation alone changes it" {

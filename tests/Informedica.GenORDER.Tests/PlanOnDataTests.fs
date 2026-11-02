@@ -197,6 +197,28 @@ let tests =
                 |> Expect.equal "the context as it was" plan.Contexts[0].Context
             }
 
+            test "a real order at another weight and back is the same order, values and units included" {
+                let p = Fixture.provider ()
+                let start = patient 10N
+                let sc = Scenarios.pcmDrink |> Tests.TestOrder.processed |> scenario
+
+                let context =
+                    { Fixture.context p start with Scenarios = [| sc |] }
+                    |> PlanContext.create "c1" OrderCategory.Drug
+
+                let orderOf (plan: OrderPlan) = plan.Contexts[0].Context.Scenarios[0].Order
+
+                // the order on the weight of the plan, as it is when it is signed
+                let signed = OrderPlan.create start [| context |] |> Fixture.followed p start
+                let moved = signed |> Fixture.followed p (patient 20N)
+                let back = moved |> Fixture.followed p start
+
+                moved
+                |> orderOf
+                |> Expect.notEqual "the order follows the weight" (signed |> orderOf)
+                back |> orderOf |> Expect.equal "the order as it was" (signed |> orderOf)
+            }
+
             test "an order that cannot be calculated refuses the update, by the name of the order" {
                 let p = Fixture.provider ()
                 let start = patient 10N
