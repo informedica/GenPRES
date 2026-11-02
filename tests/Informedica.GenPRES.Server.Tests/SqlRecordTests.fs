@@ -114,10 +114,16 @@ let v10FixtureText () =
     File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v10.json"))
 
 
-/// The same version as this release writes it, structure version 11: the version 10 fixture
-/// upgraded, parsed and written, with on every scenario that the rules still apply.
-let currentFixtureText () =
+/// The stored fixture of structure version 11: the version 10 fixture upgraded, parsed and written,
+/// with on every scenario that the rules still apply.
+let v11FixtureText () =
     File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v11.json"))
+
+
+/// The same version as this release writes it, structure version 12: the version 11 fixture
+/// upgraded, parsed and written, with on every scenario that the order was calculated.
+let currentFixtureText () =
+    File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v12.json"))
 
 
 let parse (text: string) =
@@ -167,7 +173,7 @@ let tests =
 
                     // the same row under a structure version this release does not know keeps
                     // naming its patient
-                    run "update order_plan set json_version = 12"
+                    run "update order_plan set json_version = 13"
 
                     (SqlDatabase.loadRecords cs "stub-patient"
                      |> List.map reasonOf
@@ -295,7 +301,7 @@ let tests =
                     let text = fixtureText ()
                     insertRow cs "plan-1" 1 1 text
                     // a structure version newer than the release knows
-                    insertRow cs "plan-2" 2 12 text
+                    insertRow cs "plan-2" 2 13 text
                     // the identity in the JSON (plan-1, number 1) disagrees with the columns
                     insertRow cs "plan-3" 3 1 text
 
@@ -359,7 +365,7 @@ let tests =
 
             test "a signed_at out of range leaves the row unreadable at the earliest time" {
                 withRecord (fun cs ->
-                    insertRowAt cs Int64.MaxValue "plan-1" 1 12 (fixtureText ())
+                    insertRowAt cs Int64.MaxValue "plan-1" 1 13 (fixtureText ())
 
                     match SqlDatabase.loadRecords cs "stub-patient" with
                     | [ StoredVersion.Unreadable u ] ->
@@ -375,11 +381,11 @@ let tests =
                 | other -> failtest $"expected a parsed version, got %A{other}"
             }
 
-            test "this release reads and writes structure version 11; 1 to 10 are left as is, 0 and 12 are reasons" {
+            test "this release reads and writes structure version 12; 1 to 11 are left as is, 0 and 13 are reasons" {
                 let json = currentFixtureText ()
 
                 (SqlDatabase.jsonVersionRead, SqlDatabase.jsonVersionWritten)
-                |> Expect.equal "read and written" (11, 11)
+                |> Expect.equal "read and written" (12, 12)
 
                 SqlDatabase.upgrade 1 json |> Expect.equal "1 leaves the JSON" (Ok json)
                 SqlDatabase.upgrade 2 json |> Expect.equal "2 leaves the JSON" (Ok json)
@@ -391,13 +397,14 @@ let tests =
                 SqlDatabase.upgrade 8 json |> Expect.equal "8 to 9 leaves the JSON" (Ok json)
                 SqlDatabase.upgrade 9 json |> Expect.equal "9 to 10 leaves the JSON" (Ok json)
                 SqlDatabase.upgrade 10 json |> Expect.equal "10 to 11 leaves the JSON" (Ok json)
-                SqlDatabase.upgrade 11 json |> Expect.equal "11 is current" (Ok json)
+                SqlDatabase.upgrade 11 json |> Expect.equal "11 to 12 leaves the JSON" (Ok json)
+                SqlDatabase.upgrade 12 json |> Expect.equal "12 is current" (Ok json)
 
                 SqlDatabase.upgrade 0 json
                 |> Expect.equal "0" (Error "JSON structure version 0 does not exist")
 
-                SqlDatabase.upgrade 12 json
-                |> Expect.equal "12" (Error "JSON structure version 12 is newer than this release knows")
+                SqlDatabase.upgrade 13 json
+                |> Expect.equal "13" (Error "JSON structure version 13 is newer than this release knows")
             }
 
             test "a stored version 9 row, without the EHR data, reads with none and is written with it" {
@@ -438,6 +445,35 @@ let tests =
                     v
                     |> SqlDatabase.toJson
                     |> Expect.equal "the current fixture" (currentFixtureText ())
+                | other -> failtest $"expected a parsed version, got %A{other}"
+            }
+
+            test "a stored version 11 row, without the mark of a calculation, reads as false and is written with it" {
+                let text = v11FixtureText ()
+                text.Contains "\"NotRecalculated\"" |> Expect.isFalse "no mark in the row"
+
+                match text |> SqlDatabase.upgrade 11 |> Result.map parse with
+                | Ok(Ok v) ->
+                    v.Plan.Contexts
+                    |> Array.collect _.Context.Scenarios
+                    |> Expect.all "no mark" (_.NotRecalculated >> not)
+
+                    v
+                    |> SqlDatabase.toJson
+                    |> Expect.equal "the current fixture" (currentFixtureText ())
+                | other -> failtest $"expected a parsed version, got %A{other}"
+            }
+
+            test "a signed version keeps the mark of an order that could not be calculated" {
+                let text = (currentFixtureText ()).Replace("\"NotRecalculated\":false", "\"NotRecalculated\":true")
+
+                match parse text with
+                | Ok v ->
+                    v.Plan.Contexts
+                    |> Array.collect _.Context.Scenarios
+                    |> Expect.all "marked" _.NotRecalculated
+
+                    v |> SqlDatabase.toJson |> Expect.equal "written as read" text
                 | other -> failtest $"expected a parsed version, got %A{other}"
             }
 

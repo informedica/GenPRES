@@ -425,6 +425,7 @@ module SessionStubTests =
             None
             false
             false
+            false
             [||]
             None
 

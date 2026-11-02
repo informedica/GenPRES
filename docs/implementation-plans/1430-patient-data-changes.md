@@ -111,8 +111,13 @@ estimate.
     such as a TPN composition, a component or a filter pick, is deleting the order and creating a new
     one. Because this is one rule, there is no state to track, and a wrong weight that is corrected
     back has nothing to lift.
-11. **No order is locked any more.** The complete lock of an order calculated on other data goes,
-    since rule 6 means that this situation no longer exists.
+11. **Only an order that cannot be calculated is locked.** The lock on every order calculated on
+    other data goes, since rule 6 means that situation no longer exists. An order the solver cannot
+    calculate on the new data stands as it was, marked and locked, and the rest of the plan follows.
+    The sign dialog names such an order. The prescriber accepts it by signing, or removes it. Signing
+    does not lift the mark, so the signed version shows that the order was not calculated on the data
+    of the version. The next update of the patient data tries the order again, and a calculation that
+    succeeds lifts the lock. The lock is in the client: a page opened before it can still send a step.
 
 ### Signing
 

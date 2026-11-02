@@ -32,6 +32,8 @@ module PatientMachine =
         | Answered of request: string * Result<Patient, string[]>
         /// The plan could not follow the patient answered, so the same data can be given again.
         | PlanNotFollowed
+        /// The data of the draft asked again, for a plan that did not follow them.
+        | GiveAgain of request: string
 
 
     /// What the App carries out for the patient machine.
@@ -160,6 +162,9 @@ module PatientMachine =
                 | _ -> state, givePlan state
 
             | PatientMsg.PlanNotFollowed -> { state with Answered = None }, []
+
+            | PatientMsg.GiveAgain request ->
+                transition (PatientMsg.Changed(state.Draft, PatientDraftPolicy.Estimates.Kept, request)) state
 
             | PatientMsg.Answered(request, result) ->
                 match state.InFlight, result with

@@ -125,14 +125,7 @@ module Adapters =
         {
             recalculate = fun plan -> async { return plan |> recalc |> Ok }
             followPatientData =
-                fun plan ->
-                    async {
-                        return
-                            plan
-                            |> OrderPlan.followPatientData logger provider restart
-                            |> refused
-                            |> Result.map recalc
-                    }
+                fun plan -> async { return plan |> OrderPlan.followPatientData logger provider restart |> recalc |> Ok }
             evaluateContext =
                 fun plan contextId cmd pc ->
                     async {

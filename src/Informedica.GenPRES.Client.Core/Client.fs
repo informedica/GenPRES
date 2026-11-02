@@ -261,6 +261,10 @@ module Client =
     let changing (state: ClientState) = state.Lanes.Patient |> PatientState.changing
 
 
+    /// Whether the orders stand on other patient data than the panel, after a failed update.
+    let planBehind (state: ClientState) = OutPolicy.planBehind state.Lanes.Patient state.Lanes.OrderPlan
+
+
     /// The draft with the estimates from the normal values, once they have loaded.
     let estimated (state: ClientState) =
         match state.Loader.NormalValues with

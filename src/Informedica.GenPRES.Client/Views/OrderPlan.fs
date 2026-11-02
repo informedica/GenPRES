@@ -184,6 +184,29 @@ module OrderPlan =
         let tr term =
             Global.getLocalizedTerm localizationTerms lang (SigningPolicy.english term) term
 
+        // the orders the current patient data could not be calculated on: locked, and marked in the
+        // medication cell
+        let lockedOrders =
+            match orderPlan with
+            | OrderPlanView.Settled(tp, _)
+            | OrderPlanView.Changing(tp, _) ->
+                tp.OrderContexts
+                |> Array.filter PlanContextPolicy.locked
+                |> Array.choose (OrderContext.contribution >> Option.map _.Order.Id)
+                |> Set.ofArray
+            | OrderPlanView.NoPatient -> Set.empty
+
+        let lockedText =
+            Terms.``Plan Context Locked``
+            |> getTerm "Berekend met andere patiëntgegevens; deze order kan niet worden aangepast"
+
+        let lockSx =
+            {|
+                display = "flex"
+                alignItems = "center"
+                gap = 1
+            |}
+
         // the medication name reads as a link, since a click on it opens the order: blue, bold,
         // underlined under the pointer, after the icon of the prescribe page's edit button
         let medicationSx =
@@ -197,13 +220,25 @@ module OrderPlan =
                 ``&:hover`` = {| textDecoration = "underline" |}
             |}
 
-        let medicationCell (_: string) (value: string) =
-            JSX.jsx
-                $"""
-                import Box from '@mui/material/Box';
+        let medicationCell (id: string) (value: string) =
+            // a locked order carries the lock in place of the edit icon: it opens read-only
+            if lockedOrders |> Set.contains id then
+                JSX.jsx
+                    $"""
+                    import Box from '@mui/material/Box';
+                    import Tooltip from '@mui/material/Tooltip';
 
-                <Box sx={medicationSx}>{Mui.Icons.CalculateIcon}{value}</Box>
-                """
+                    <Tooltip title={lockedText}>
+                        <Box sx={lockSx}>{Mui.Icons.LockIcon}<Box sx={medicationSx}>{value}</Box></Box>
+                    </Tooltip>
+                    """
+            else
+                JSX.jsx
+                    $"""
+                    import Box from '@mui/material/Box';
+
+                    <Box sx={medicationSx}>{Mui.Icons.CalculateIcon}{value}</Box>
+                    """
 
         // the cell whose field is open, one at a time, by row id and column
         let openCell, setOpenCell = React.useState<string option> None
@@ -634,7 +669,7 @@ module OrderPlan =
                             [|
                                 deleteAction
                                 yield! openLastSignedAction |> Option.toArray
-                                if SigningPolicy.canSign session.Session tp then
+                                if SigningPolicy.canSign session.Session tp && not envOrderPlan.PlanBehind then
                                     signAction
                             |]
                     |}
@@ -671,6 +706,16 @@ module OrderPlan =
                 """
             | None -> null
 
+        // the order dialog under the plan context rule: the fields it allows, or nothing when the
+        // context is locked
+        let editing =
+            match orderPlan with
+            | OrderPlanView.Settled(tp, Some id)
+            | OrderPlanView.Changing(tp, Some id) -> PlanContextPolicy.editingOf tp id
+            | OrderPlanView.Settled(_, None)
+            | OrderPlanView.Changing(_, None)
+            | OrderPlanView.NoPatient -> PlanContextPolicy.Editing.PlanContext
+
         let signDialog = SignDialog.View {| appEnv = props.appEnv |}
 
         let responsiveTable =
@@ -698,7 +743,7 @@ module OrderPlan =
         let orderView =
             Order.View
                 {|
-                    editing = PlanContextPolicy.Editing.PlanContext
+                    editing = editing
                     orderContext = orderContext
                     command = orderContextMsg
                     restoreOrderScenario = envOrderPlan.RestoreField

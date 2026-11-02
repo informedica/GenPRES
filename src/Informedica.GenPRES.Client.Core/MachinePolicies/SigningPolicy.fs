@@ -18,6 +18,10 @@ module SigningPolicy =
     let english (term: Terms) : string =
         match term with
         | Terms.``Signing Sign`` -> "Sign"
+        | Terms.``Signing Plan Behind`` ->
+            "These orders are not calculated on the patient data shown, because the recalculation failed. Try again to continue."
+        | Terms.``Signing Plan Behind Retry`` -> "Try again"
+        | Terms.``Signing Not Recalculated`` -> "{0}: not calculated on the current patient data."
         | Terms.``Signing Dialog Title`` -> "Sign the order plan"
         | Terms.``Signing Dialog Text`` ->
             "The list shows the orders changed since the last signed version. Your PIN signs the whole order plan; or cancel and edit."
@@ -92,6 +96,21 @@ module SigningPolicy =
         match who with
         | Some who -> tr Terms.``Signing Ehr Moved On`` |> TermText.fill [ who.Name ]
         | None -> tr Terms.``Signing Ehr Moved On Unnamed``
+
+
+    /// The warning before the PIN that names the orders of the plan not calculated on the current
+    /// patient data; none when every order is.
+    let notRecalculatedSentence (tr: Terms -> string) (plan: OrderPlan) =
+        match
+            Informedica.GenPRES.Shared.Models.OrderPlan.orders plan
+            |> Array.filter _.NotRecalculated
+            |> Array.map _.Name
+        with
+        | [||] -> None
+        | names ->
+            tr Terms.``Signing Not Recalculated``
+            |> TermText.fill [ names |> String.concat ", " ]
+            |> Some
 
 
     /// The sentence when a version is opened.

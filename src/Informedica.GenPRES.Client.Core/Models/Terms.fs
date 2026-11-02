@@ -259,6 +259,9 @@ type Terms =
     // signing: the button, the dialog, the data notice, the signed
     // sentence with {0} the version and {1} the signer, and one sentence per refusal
     | ``Signing Sign``
+    // the orders stand on other patient data than the panel, after a failed recalculation
+    | ``Signing Plan Behind``
+    | ``Signing Plan Behind Retry``
     | ``Signing Dialog Title``
     | ``Signing Dialog Text``
     | ``Signing Pin``
@@ -293,6 +296,10 @@ type Terms =
     | ``Signing Changed``
     | ``Signing Removed``
     | ``Signing No Changes``
+    // an order the current patient data could not be calculated on: locked, and why
+    | ``Plan Context Locked``
+    // the warning before the PIN, with {0} the orders not calculated on the current patient data
+    | ``Signing Not Recalculated``
     // the record moved on, told once per version; the button that takes the version up;
     // what is told once it is open
     | ``Session Newer Version``

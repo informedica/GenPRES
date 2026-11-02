@@ -697,6 +697,7 @@ module Trail =
             | PatientMsg.Refreshed(p, request) -> $"Refreshed %s{Part.patientOption p} %s{Part.shortId request}"
             | PatientMsg.AgeTaken(p, request) -> $"AgeTaken %s{Part.patientOption p} %s{Part.shortId request}"
             | PatientMsg.PlanNotFollowed -> "PlanNotFollowed"
+            | PatientMsg.GiveAgain request -> $"GiveAgain %s{Part.shortId request}"
 
 
         /// A patient effect; never the error texts.

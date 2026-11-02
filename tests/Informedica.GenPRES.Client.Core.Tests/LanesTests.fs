@@ -50,6 +50,10 @@ let play newId (lanes: LanesState) msgs =
     |> List.tail
 
 
+/// Whether the orders stand on other patient data than the panel.
+let behind (lanes: LanesState) = OutPolicy.planBehind lanes.Patient lanes.OrderPlan
+
+
 let planRequest effects =
     effects
     |> List.tryPick (
@@ -425,6 +429,61 @@ let tests =
                 |> Expect.equal "before the clear, the patient is expected" (Some LanesEffect.PatientExpected)
             }
 
+            test "a Session that brings the patient the page holds answered: the version still opens" {
+                let session =
+                    { SessionMachineTests.full with
+                        Head = Some head
+                        PatientContext =
+                            SessionMachineTests.full.PatientContext
+                            |> Option.map (fun context -> { context with Patient = Some measured })
+                    }
+
+                let newId = counter ()
+
+                let lanes =
+                    play
+                        newId
+                        { Lanes.initial None with Session = SessionState.resuming }
+                        [
+                            LanesMsg.Patient(
+                                PatientMsg.Changed(Some measured, PatientDraftPolicy.Estimates.Renewed, "p-1")
+                            )
+                            LanesMsg.Patient(PatientMsg.Answered("p-1", Ok measured))
+                        ]
+                    |> List.last
+                    |> fun (lanes, _, _) -> lanes
+
+                let lanes, effects, _ =
+                    lanes
+                    |> Lanes.transition newId (LanesMsg.Session(SessionMsg.Resumed(Ok(ResumeResult.Found session))))
+
+                let request =
+                    effects
+                    |> List.tryPick (
+                        function
+                        | LanesEffect.Patient(PatientEffect.CallPatient(_, request)) -> Some request
+                        | _ -> None
+                    )
+
+                request |> Expect.isSome "the same patient is asked for again"
+
+                lanes.OrderPlan
+                |> OrderPlanState.view
+                |> Expect.equal "the version waits for the answer" OrderPlanView.NoPatient
+
+                let _, effects, _ =
+                    lanes
+                    |> Lanes.transition newId (LanesMsg.Patient(PatientMsg.Answered(request.Value, Ok measured)))
+
+                effects
+                |> List.tryPick (
+                    function
+                    | LanesEffect.Plan(OrderPlanEffect.CallPlan(OrderPlanCommand.Open(_, contexts), _)) -> Some contexts
+                    | _ -> None
+                )
+                |> Expect.equal "the plan opens the signed orders" (Some head.OrderContexts)
+            }
+
             test "a Session without a patient over a page holding one: the pages clear as usual" {
                 let session = { SessionMachineTests.full with PatientContext = None }
 
@@ -634,6 +693,59 @@ let tests =
                          |> Expect.isTrue "sent"
                      }
                  ])
+
+            test "a plan that did not follow the patient data is behind until it does" {
+                let newId = counter ()
+
+                let heavier = { measured with Weight = { measured.Weight with Measured = Some 40000<gram> } }
+
+                let start = { Lanes.initial (Some measured) with OrderPlan = OrderPlanState.held measured two None }
+
+                start |> behind |> Expect.isFalse "plan and panel agree"
+
+                let lanes, _, _ =
+                    start
+                    |> Lanes.transition
+                        newId
+                        (LanesMsg.Patient(PatientMsg.Changed(Some heavier, PatientDraftPolicy.Estimates.Kept, "p-1")))
+
+                let lanes, effects, _ =
+                    lanes
+                    |> Lanes.transition newId (LanesMsg.Patient(PatientMsg.Answered("p-1", Ok heavier)))
+
+                lanes |> behind |> Expect.isFalse "not while the update is out"
+
+                let failed, _, _ =
+                    lanes
+                    |> Lanes.transition
+                        newId
+                        (LanesMsg.Plan(OrderPlanMsg.Answered((planRequest effects).Value, Error [| "no" |])))
+
+                failed |> behind |> Expect.isTrue "the update failed"
+
+                failed
+                |> out
+                |> BusyPolicy.page Page.Page.Prescribe
+                |> Expect.isTrue "every page waits for the try again"
+
+                let lanes, effects, _ = failed |> Lanes.transition newId (LanesMsg.Patient(PatientMsg.GiveAgain "p-2"))
+
+                effects
+                |> List.contains (LanesEffect.Patient(PatientEffect.CallPatient(heavier, "p-2")))
+                |> Expect.isTrue "the data of the panel are asked again"
+
+                let lanes, effects, _ =
+                    lanes
+                    |> Lanes.transition newId (LanesMsg.Patient(PatientMsg.Answered("p-2", Ok heavier)))
+
+                let lanes, _, _ =
+                    lanes
+                    |> Lanes.transition
+                        newId
+                        (LanesMsg.Plan(OrderPlanMsg.Answered((planRequest effects).Value, Ok two)))
+
+                lanes |> behind |> Expect.isFalse "the plan followed"
+            }
 
             test "a failed plan update lets the same patient data out again, up to the plan" {
                 let newId = counter ()

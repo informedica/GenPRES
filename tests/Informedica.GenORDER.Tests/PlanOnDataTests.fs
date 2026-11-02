@@ -45,10 +45,7 @@ module Fixture =
 
     let follow provider pat plan = plan |> followWith restart provider pat
 
-    let followed provider pat plan =
-        plan
-        |> follow provider pat
-        |> Result.defaultWith (fun e -> failtest $"refused: %A{e}")
+    let followed provider pat plan = plan |> follow provider pat
 
     let ml v = v |> ValueUnit.singleWithUnit Units.Volume.milliLiter
 
@@ -235,15 +232,72 @@ let tests =
                 back |> orderOf |> Expect.equal "the order as it was signed" (signed |> orderOf)
             }
 
-            test "an order that cannot be calculated refuses the update, by the name of the order" {
+            test "an order that cannot be calculated stands, marked, and the rest of the plan follows" {
                 let p = Fixture.provider ()
                 let start = patient 10N
                 let ctx = { Fixture.context p start with Scenarios = [| scenario (Fixture.unsolvable order.Value) |] }
-                let plan = OrderPlan.create start [| PlanContext.create "c1" OrderCategory.Drug ctx |]
 
-                match plan |> Fixture.follow p (patient 20N) with
-                | Error(OrderPlanError.NotCalculated name) -> name |> Expect.equal "the name" ctx.Scenarios[0].Name
-                | other -> failtest $"not refused: %A{other}"
+                let plan =
+                    OrderPlan.create
+                        start
+                        [|
+                            PlanContext.create "c1" OrderCategory.Drug ctx
+                            PlanContext.create "c2" OrderCategory.Drug (Fixture.context p start)
+                        |]
+
+                let followed = plan |> Fixture.followed p (patient 20N)
+                let scenarioOf i = followed.Contexts[i].Context.Scenarios[0]
+
+                (scenarioOf 0).NotRecalculated |> Expect.isTrue "marked"
+
+                (scenarioOf 0).Order
+                |> Expect.equal "the order as it was" ctx.Scenarios[0].Order
+
+                (scenarioOf 0).Prescription
+                |> Array.concat
+                |> Array.contains (OrderScenario.notRecalculatedNotice |> Warning)
+                |> Expect.isTrue "the order says so"
+
+                (scenarioOf 1).NotRecalculated |> Expect.isFalse "the other order followed"
+            }
+
+            test "an order that cannot be calculated stands, marked, and still gets the rules notice" {
+                let p, ctx = RuleCheckTests.Fixture.start ()
+                let sc = ctx.Scenarios[0]
+                let refusing = { ctx with Scenarios = [| { sc with Order = Fixture.unsolvable sc.Order } |] }
+
+                match
+                    refusing
+                    |> OrderContext.orderOnPatientData
+                        RuleCheckTests.Fixture.logger
+                        p
+                        (RuleCheckTests.Fixture.patient (21N / 2N))
+                        refusing.Scenarios[0]
+                with
+                | Refused(after, _) ->
+                    let marked = after.Scenarios[0]
+
+                    (marked.NotRecalculated, marked.RulesNoLongerApply)
+                    |> Expect.equal "both" (true, true)
+
+                    marked.Order |> Expect.equal "the order as it was" refusing.Scenarios[0].Order
+                | other -> failtest $"expected a refusal, got %A{other}"
+            }
+
+            test "a mark goes once the order can be calculated" {
+                let p = Fixture.provider ()
+                let start = patient 10N
+                let ctx = Fixture.context p start
+
+                let marked =
+                    { ctx with Scenarios = ctx.Scenarios |> Array.map (fun sc -> { sc with NotRecalculated = true }) }
+
+                let plan = OrderPlan.create start [| PlanContext.create "c1" OrderCategory.Drug marked |]
+
+                let followed = plan |> Fixture.followed p (patient 20N)
+
+                followed.Contexts[0].Context.Scenarios[0].NotRecalculated
+                |> Expect.isFalse "calculated again"
             }
 
             test "a nutrition slot goes through restart" {
@@ -263,12 +317,11 @@ let tests =
                 let start = patient 10N
                 let slot = OrderContext.create logger p start |> PlanContext.create "c2" OrderCategory.Drug
 
-                match
+                let after =
                     OrderPlan.create start [| slot |]
                     |> Fixture.followWith (fun _ _ -> Error "failed") p (patient 20N)
-                with
-                | Ok after -> after.Contexts[0].Context.Patient.Weight |> Expect.equal "new" (Some(kg 20N))
-                | Error e -> failtest $"blocked: %A{e}"
+
+                after.Contexts[0].Context.Patient.Weight |> Expect.equal "new" (Some(kg 20N))
             }
 
             testList

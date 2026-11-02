@@ -15,6 +15,16 @@ module PlanContextPolicy =
         /// An order context in the plan: the fields the plan context rule allows and the
         /// argumentation; no Reset, which re-solves from the rules and can change the rest.
         | PlanContext
+        /// An order the current patient data could not be calculated on: nothing; the dialog sends
+        /// no command.
+        | Locked
+
+
+    /// Whether the order a context contributes could not be calculated on the current patient data,
+    /// so that it stands as it was: the order is locked.
+    let locked (ctx: OrderContext) =
+        Informedica.GenPRES.Shared.Models.OrderContext.contribution ctx
+        |> Option.exists _.NotRecalculated
 
 
     /// Whether a field of an order context in the plan can change: the frequency, the orderable
@@ -82,10 +92,13 @@ module PlanContextPolicy =
 
 
     /// What tells the prescriber about the order a context contributes: the notification on each
-    /// order variable, and whether the rules no longer apply. Nothing when it contributes no order.
+    /// order variable, whether the rules no longer apply and whether the order could not be
+    /// calculated. Nothing when it contributes no order.
     let notifications (ctx: OrderContext) =
         Informedica.GenPRES.Shared.Models.OrderContext.contribution ctx
-        |> Option.map (fun sc -> sc.RulesNoLongerApply, sc.Order |> ArgumentationPolicy.variables |> List.map _.Level)
+        |> Option.map (fun sc ->
+            sc.RulesNoLongerApply, sc.NotRecalculated, sc.Order |> ArgumentationPolicy.variables |> List.map _.Level
+        )
 
 
     /// The id of the order a context contributes; nothing when it contributes no order. An order
@@ -123,10 +136,30 @@ module PlanContextPolicy =
         match editing with
         | Editing.Workbench -> true
         | Editing.PlanContext -> key |> fieldKind |> editable
+        | Editing.Locked -> false
 
 
     /// Whether the order dialog offers Reset: on the workbench alone.
     let resets (editing: Editing) =
         match editing with
         | Editing.Workbench -> true
-        | Editing.PlanContext -> false
+        | Editing.PlanContext
+        | Editing.Locked -> false
+
+
+    /// Whether the order dialog lets the argumentation change and commits it: everywhere but a
+    /// locked context.
+    let argues (editing: Editing) =
+        match editing with
+        | Editing.Workbench
+        | Editing.PlanContext -> true
+        | Editing.Locked -> false
+
+
+    /// The editing of the order dialog for the context of the plan with this id: locked when it could
+    /// not be calculated on the current patient data, the plan context rule otherwise.
+    let editingOf (plan: OrderPlan) (contextId: string) =
+        match plan.OrderContexts |> Array.tryFind (fun c -> c.Id = contextId) with
+        | Some ctx when locked ctx -> Editing.Locked
+        | Some _
+        | None -> Editing.PlanContext

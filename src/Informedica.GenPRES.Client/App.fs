@@ -585,6 +585,9 @@ type private Projection(state: State, dispatch: Msg -> unit) =
     interface AppEnv.IOrderPlan with
         member _.OrderPlan = Client.orderPlan state
 
+        member _.PlanBehind = Client.planBehind state
+
+
         member _.Add orderId =
             Msg.Lanes(LanesMsg.Prescribe(orderId, Elmish.newRequest (), Elmish.newRequest ()))
             |> dispatch
@@ -772,6 +775,33 @@ let View () =
                 |}
         | None -> null
 
+    // above every page, since the menu and the pages wait for this button
+    let planBehindBanner =
+        if Client.planBehind state then
+            let tr term =
+                getTerm (Informedica.GenPRES.Client.Core.MachinePolicies.SigningPolicy.english term) term
+
+            Components.Notice.View
+                {|
+                    kind = Components.Notice.Kind.Warning
+                    title = None
+                    message = tr Terms.``Signing Plan Behind``
+                    action =
+                        Some
+                            {|
+                                label = tr Terms.``Signing Plan Behind Retry``
+                                onClick =
+                                    fun () ->
+                                        Msg.Lanes(LanesMsg.Patient(PatientMsg.GiveAgain(Elmish.newRequest ())))
+                                        |> dispatch
+                                // the notice goes while the request it starts is out
+                                disabled = false
+                            |}
+                    onClose = None
+                |}
+        else
+            null
+
     let leaveDialog =
         Views.LeaveDialog.View
             {|
@@ -826,6 +856,7 @@ let View () =
             <Box sx={pageSx}>
                 <CssBaseline />
                 {serverErrorBanner}
+                {planBehindBanner}
                 {Components.Router.View {| onUrlChanged = onUrlChanged |}}
                 {leaveDialog}
                 {Pages.GenPres.View genPresProps

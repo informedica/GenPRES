@@ -837,6 +837,9 @@ module Types =
             /// Whether the current patient gets no rule for the picks of the order, or other rules
             /// than the patient of its context gets
             RulesNoLongerApply: bool
+            /// Whether the order could not be calculated on the current patient data, so that it stands
+            /// as calculated on the patient data before; it is for the prescriber to accept or remove
+            NotRecalculated: bool
             /// Associated product identifiers
             ProductsIds: string[]
             /// The access device the scenario's solution rule makes the preparation for; AnyAccess
@@ -1096,8 +1099,6 @@ module Types =
         | SupplementNeedsFeeding
         /// The plan already holds a context of the category
         | CategoryHeld of NutritionCategory
-        /// The order with the name cannot be calculated on the patient data
-        | NotCalculated of name: string
 
 
     /// Why a Dto does not parse to its domain value.

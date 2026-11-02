@@ -8,7 +8,22 @@ module OutPolicy =
     open Loads
 
 
-    /// The requests out: a field counting its step clicks, the five lanes and the loads.
+    /// Whether the orders stand on other patient data than the panel with no request out for the
+    /// patient or the plan, which a failed update leaves. The orders do not fit the data shown, so nothing goes on
+    /// until the plan has followed.
+    let planBehind patient orderPlan =
+        match
+            PatientMachine.PatientState.changing patient,
+            OrderPlanMachine.OrderPlanState.inFlightRequest orderPlan,
+            OrderPlanMachine.OrderPlanState.patient orderPlan,
+            PatientMachine.PatientState.current patient
+        with
+        | false, None, Some onPlan, Some shown -> onPlan <> shown
+        | _ -> false
+
+
+    /// What holds the pages: the requests out, a field counting its step clicks, the five lanes and
+    /// the loads, and a plan behind the patient data, which is no request but waits as one does.
     let out counting patient orderContext orderPlan session signing loads =
         [
             if counting then
@@ -19,6 +34,8 @@ module OutPolicy =
                 Request.Workbench
             if (OrderPlanMachine.OrderPlanState.inFlightRequest orderPlan).IsSome then
                 Request.Plan
+            if planBehind patient orderPlan then
+                Request.PlanBehind
             if
                 SessionMachine.SessionState.changing session
                 || (SessionMachine.SessionState.reopening session).IsSome

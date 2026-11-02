@@ -315,6 +315,36 @@ let tests =
                         |> Expect.equal "30 kg" (Some 30N)
                     }
 
+                    test "an estimate signed goes once the age has moved on, a measured value stays" {
+                        let estimated =
+                            { typed with
+                                Plan =
+                                    { typed.Plan with
+                                        Patient =
+                                            { signed with
+                                                WeightMeasured = false
+                                                HeightMeasured = true
+                                            }
+                                    }
+                            }
+
+                        let _, record = opened "s-1" (Some ehr) (Some(StoredVersion.Readable(estimated, identity)))
+                        let session = { record.Opened with Act = SessionAct.Signed }
+                        let shown date = session |> Session.sessionPatient date port
+
+                        shown today
+                        |> Option.bind weightInKg
+                        |> Expect.equal "the age signed, the estimate stands" (Some 30N)
+
+                        shown tomorrow
+                        |> Option.bind weightInKg
+                        |> Expect.isNone "a new age, no old estimate"
+
+                        (shown tomorrow |> Option.bind _.Height, signed.Height)
+                        |> fun (shownHeight, signedHeight) ->
+                            shownHeight |> Expect.equal "the measured height stays" signedHeight
+                    }
+
                     test "the patient after the sign is at the age of the sign, the version keeps its own" {
                         (signed |> Session.atBirthDate tomorrow identity |> ageInDays, signed |> ageInDays)
                         |> Expect.equal "a day more" (Some 3842N, Some 3841N)

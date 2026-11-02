@@ -127,7 +127,8 @@ data mean for those orders:
 
 - What the patient gets stays: the orderable dose quantity, the frequency, the orderable dose rate
   and the preparation. Only a prescriber changes those.
-- Every order is calculated on the new data, so no order rests on data other than the data shown.
+- Every order is calculated on the new data, so that no order rests on data other than the data
+  shown, but for an order that cannot be calculated, which is marked and locked.
   The Order Plan holds the current patient, and an Order Context keeps the patient its rules were
   chosen for. An Order Context not yet in the plan clears, since a selection on it was made under the old data.
 - A change of weight or BSA replaces the Adjustment Quantity and calculates the Adjusted Doses
@@ -136,6 +137,10 @@ data mean for those orders:
   the current patient. When the current patient gets no rule, or other rules, the order gets a
   notice that the rules no longer apply. The order stays and signing is not blocked. A notice stays
   as long as it is true, so data set back to those of the Order Context clear it.
+- An order the solver cannot calculate on the new data stands as it was, marked and locked, and the
+  rest of the plan follows. The prescriber accepts that order by signing, or removes it. Signing
+  leaves the mark, so that the signed version shows it. The next patient data update tries the order
+  again, and a calculation that succeeds lifts the mark.
 
 A signed version never changes. An order changed by new data is a change in the Order Plan, and the
 prescriber signs a new version on the new data.

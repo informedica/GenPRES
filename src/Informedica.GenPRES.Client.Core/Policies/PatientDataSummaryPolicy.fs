@@ -11,8 +11,11 @@ module PatientDataSummaryPolicy =
     open Informedica.GenPRES.Client.Core.Helpers.Alert
 
 
-    /// Whether the order has the general notice, or a value the rules mark.
-    let isMarked (sc: OrderScenario) = sc.RulesNoLongerApply || sc.Order |> ArgumentationPolicy.marked
+    /// Whether the order has a general notice, or a value the rules mark.
+    let isMarked (sc: OrderScenario) =
+        sc.RulesNoLongerApply
+        || sc.NotRecalculated
+        || sc.Order |> ArgumentationPolicy.marked
 
 
     /// The summary for the plan answered to a request: only for an update of the patient of a plan

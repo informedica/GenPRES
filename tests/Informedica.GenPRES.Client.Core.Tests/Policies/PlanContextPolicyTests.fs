@@ -89,6 +89,33 @@ module PlanContextPolicyTests =
                 testList
                     "changed"
                     [
+                        test "an order that could not be calculated is locked, and shows as changed" {
+                            let order = para
+
+                            let marked =
+                                { order with
+                                    Scenarios =
+                                        order.Scenarios |> Array.map (fun sc -> { sc with NotRecalculated = true })
+                                }
+
+                            PlanContextPolicy.locked order |> Expect.isFalse "an order calculated"
+                            PlanContextPolicy.locked marked |> Expect.isTrue "an order not calculated"
+
+                            PlanContextPolicy.editingOf (plan [| order |]) order.Id
+                            |> Expect.equal "the plan context rule" PlanContextPolicy.Editing.PlanContext
+
+                            PlanContextPolicy.editingOf (plan [| marked |]) marked.Id
+                            |> Expect.equal "read-only" PlanContextPolicy.Editing.Locked
+
+                            PlanContextPolicy.changed order marked |> Expect.isTrue "the mark is a change"
+                            PlanCellPolicy.stepable marked PlanCellPolicy.Column.Frequency
+                            |> Expect.isNone "no step"
+                            PlanContextPolicy.canEdit PlanContextPolicy.Editing.Locked "x"
+                            |> Expect.isFalse "no field"
+                            PlanContextPolicy.argues PlanContextPolicy.Editing.Locked
+                            |> Expect.isFalse "no argumentation"
+                        }
+
                         test "an unchanged context is not changed" {
                             PlanContextPolicy.changed para para |> Expect.isFalse "nothing differs"
                         }
