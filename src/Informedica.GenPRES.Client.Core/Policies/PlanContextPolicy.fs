@@ -1,8 +1,7 @@
 namespace Informedica.GenPRES.Client.Core.Policies
 
-/// Decides what an order context in the order plan can change and when: only the frequency, the
-/// orderable dose quantity and the orderable dose rate, and only while the patient data it was
-/// calculated with match the plan's.
+/// Decides what an order context in the order plan can change: only the frequency, the orderable
+/// dose quantity and the orderable dose rate, with or without a change of the patient data.
 module PlanContextPolicy =
 
     open Informedica.GenPRES.Shared.Types
@@ -16,8 +15,6 @@ module PlanContextPolicy =
         /// An order context in the plan: the fields the plan context rule allows and the
         /// argumentation; no Reset, which re-solves from the rules and can change the rest.
         | PlanContext
-        /// A locked order context in the plan: nothing; the dialog sends no command.
-        | Locked
 
 
     /// Whether a field of an order context in the plan can change: the frequency, the orderable
@@ -29,45 +26,6 @@ module PlanContextPolicy =
         | QuantityModePolicy.Field.DoseRate -> true
         | QuantityModePolicy.Field.ComponentQuantity
         | QuantityModePolicy.Field.Other -> false
-
-
-    /// The patient data the orders rest on: the age is blanked, since it changes by itself as
-    /// time passes, and so are the P3 and P97 estimates. The estimated weight and height are
-    /// blanked only when a measured value exists; without one, the estimate is what the doses
-    /// were calculated with, so a corrected age that changes it still counts.
-    let entered (p: Patient) =
-        { p with
-            Age = None
-            Weight =
-                { p.Weight with
-                    EstimatedP3 = None
-                    Estimated =
-                        if p.Weight.Measured.IsSome then
-                            None
-                        else
-                            p.Weight.Estimated
-                    EstimatedP97 = None
-                }
-            Height =
-                { p.Height with
-                    EstimatedP3 = None
-                    Estimated =
-                        if p.Height.Measured.IsSome then
-                            None
-                        else
-                            p.Height.Estimated
-                    EstimatedP97 = None
-                }
-        }
-
-
-    /// Whether the patient data an order context was calculated with match the plan's patient
-    /// data: the entered data and the estimates the doses rest on, the age aside.
-    let matches (plan: OrderPlan) (ctx: OrderContext) = entered ctx.Patient = entered plan.Patient
-
-
-    /// Whether an order context in the plan is locked: its patient data do not match the plan's.
-    let locked (plan: OrderPlan) (ctx: OrderContext) = matches plan ctx |> not
 
 
     /// The values of an order variable as numbers with their unit, leaving out how they are
@@ -131,30 +89,10 @@ module PlanContextPolicy =
         match editing with
         | Editing.Workbench -> true
         | Editing.PlanContext -> key |> fieldKind |> editable
-        | Editing.Locked -> false
 
 
     /// Whether the order dialog offers Reset: on the workbench alone.
     let resets (editing: Editing) =
         match editing with
         | Editing.Workbench -> true
-        | Editing.PlanContext
-        | Editing.Locked -> false
-
-
-    /// Whether the order dialog lets the argumentation change and commits it: everywhere but a
-    /// locked context.
-    let argues (editing: Editing) =
-        match editing with
-        | Editing.Workbench
-        | Editing.PlanContext -> true
-        | Editing.Locked -> false
-
-
-    /// The editing of the order dialog for the context of the plan with this id: locked when its
-    /// patient data differ from the plan's, the plan context rule otherwise.
-    let editingOf (plan: OrderPlan) (contextId: string) =
-        match plan.OrderContexts |> Array.tryFind (fun c -> c.Id = contextId) with
-        | Some ctx when locked plan ctx -> Editing.Locked
-        | Some _
-        | None -> Editing.PlanContext
+        | Editing.PlanContext -> false

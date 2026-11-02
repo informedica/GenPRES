@@ -139,6 +139,44 @@ let tests =
                 |> Expect.equal "the order" (Some(kg 20N))
             }
 
+            test "a step after new patient data lands on the order, with its adjust value and its notice" {
+                let p = Fixture.provider ()
+                let start = patient 10N
+                let sc = Scenarios.pcmDrink |> Tests.TestOrder.processed |> scenario
+
+                let context =
+                    { Fixture.context p start with Scenarios = [| sc |] }
+                    |> PlanContext.create "c1" OrderCategory.Drug
+
+                let after = OrderPlan.create start [| context |] |> Fixture.followed p (patient 20N)
+                let followed = after.Contexts[0].Context
+                let marked = { followed.Scenarios[0] with RulesNoLongerApply = true }
+                let doseQuantity (o: Order) =
+                    o.Orderable.Dose.Quantity
+                    |> OrderVariable.Quantity.toOrdVar
+                    |> Tests.TestOrder.valuesOf
+
+                let stepped =
+                    match
+                        { followed with Scenarios = [| marked |] }
+                        |> OrderContext.SetMaxOrderableDoseQuantityProperty
+                        |> OrderContext.evaluateOutcome Scenarios.testStart logger p
+                    with
+                    | Ok(Evaluated command) -> (command |> OrderContext.Command.get).Scenarios[0]
+                    | other -> failtest $"the step did not land: %A{other}"
+
+                stepped.Order
+                |> Order.adjustValue
+                |> Expect.equal "the current patient" (Some(kg 20N))
+
+                stepped.Order
+                |> doseQuantity
+                |> Expect.notEqual "the dose moved" (marked.Order |> doseQuantity)
+
+                stepped.Order |> doseQuantity |> Expect.hasLength "one value" 1
+                stepped.RulesNoLongerApply |> Expect.isTrue "the notice stays"
+            }
+
             test "a context without an order takes the patient" {
                 let p = Fixture.provider ()
                 let start = patient 10N

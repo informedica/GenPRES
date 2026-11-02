@@ -64,7 +64,6 @@ module PlanContextPolicyTests =
         withOrder (fun o -> { o with Order.Orderable.OrderableQuantity.Variable.Vals = valueOf v })
 
     /// The plan of the context, its patient data the context's own changed by f.
-    let planWithPatient (f: Patient -> Patient) (ctx: OrderContext) = { plan [| ctx |] with Patient = f ctx.Patient }
 
     let para = context "c1" "paracetamol"
     let morf = context "c2" "morfine"
@@ -101,93 +100,6 @@ module PlanContextPolicyTests =
                             test $"%A{field} is editable: %b{exp}" {
                                 PlanContextPolicy.editable field |> Expect.equal "as the rule says" exp
                             }
-                    ]
-
-                testList
-                    "matches"
-                    [
-                        test "equal patient data match" {
-                            PlanContextPolicy.matches (plan [| para |]) para
-                            |> Expect.isTrue "the context was calculated with the plan's patient"
-                        }
-
-                        test "only the age different still matches" {
-                            let older = para |> planWithPatient (fun p -> { p with Age = Some eleven })
-
-                            PlanContextPolicy.matches older para |> Expect.isTrue "the age is left out"
-                        }
-
-                        test "a different estimate beside a measured value still matches" {
-                            let measured =
-                                { para with
-                                    Patient =
-                                        { patient with
-                                            Weight = { patient.Weight with Measured = Some 30000<gram> }
-                                            Height = { patient.Height with Measured = Some 135<cm> }
-                                        }
-                                }
-
-                            let estimated =
-                                measured
-                                |> planWithPatient (fun p ->
-                                    { p with
-                                        Weight = { p.Weight with Estimated = Some 35000<gram> }
-                                        Height = { p.Height with Estimated = Some 140<cm> }
-                                    }
-                                )
-
-                            PlanContextPolicy.matches estimated measured
-                            |> Expect.isTrue "the doses rest on the measured values"
-                        }
-
-                        test "a different estimated weight without a measured one locks" {
-                            let estimated =
-                                para
-                                |> planWithPatient (fun p ->
-                                    { p with Weight = { p.Weight with Estimated = Some 35000<gram> } }
-                                )
-
-                            PlanContextPolicy.locked estimated para
-                            |> Expect.isTrue "the doses rest on the estimated weight"
-                        }
-
-                        test "different P3 and P97 estimates still match" {
-                            let bounds =
-                                para
-                                |> planWithPatient (fun p ->
-                                    { p with
-                                        Weight =
-                                            { p.Weight with
-                                                EstimatedP3 = Some 25000<gram>
-                                                EstimatedP97 = Some 45000<gram>
-                                            }
-                                    }
-                                )
-
-                            PlanContextPolicy.matches bounds para |> Expect.isTrue "no dose rests on them"
-                        }
-
-                        test "a different weight locks" {
-                            let heavier =
-                                para
-                                |> planWithPatient (fun p ->
-                                    { p with Weight = { p.Weight with Measured = Some 30000<gram> } }
-                                )
-
-                            PlanContextPolicy.locked heavier para |> Expect.isTrue "the weight counts"
-                        }
-
-                        test "a different department locks" {
-                            let moved = para |> planWithPatient (fun p -> { p with Department = Some "ICK" })
-
-                            PlanContextPolicy.locked moved para |> Expect.isTrue "the department counts"
-                        }
-
-                        test "a different access locks" {
-                            let access = para |> planWithPatient (fun p -> { p with Access = [ CVL ] })
-
-                            PlanContextPolicy.locked access para |> Expect.isTrue "the access counts"
-                        }
                     ]
 
                 testList
@@ -399,7 +311,6 @@ module PlanContextPolicyTests =
                                 PlanContextPolicy.Editing.PlanContext, "ordDoseRate", true
                                 PlanContextPolicy.Editing.PlanContext, "compOrdQty", false
                                 PlanContextPolicy.Editing.PlanContext, "substDoseQty", false
-                                PlanContextPolicy.Editing.Locked, "frequency", false
                             ] do
                             test $"%A{editing} edits %s{key}: %b{exp}" {
                                 PlanContextPolicy.canEdit editing key |> Expect.equal "as the rule says" exp
@@ -412,39 +323,8 @@ module PlanContextPolicyTests =
                 }
 
                 test "Reset on the workbench alone" {
-                    [
-                        PlanContextPolicy.Editing.Workbench
-                        PlanContextPolicy.Editing.PlanContext
-                        PlanContextPolicy.Editing.Locked
-                    ]
+                    [ PlanContextPolicy.Editing.Workbench; PlanContextPolicy.Editing.PlanContext ]
                     |> List.map PlanContextPolicy.resets
-                    |> Expect.equal "only the workbench resets" [ true; false; false ]
-                }
-
-                test "the argumentation everywhere but a locked context" {
-                    [
-                        PlanContextPolicy.Editing.Workbench
-                        PlanContextPolicy.Editing.PlanContext
-                        PlanContextPolicy.Editing.Locked
-                    ]
-                    |> List.map PlanContextPolicy.argues
-                    |> Expect.equal "a locked context commits nothing" [ true; true; false ]
-                }
-
-                test "a context with the plan's patient data follows the plan context rule" {
-                    PlanContextPolicy.editingOf (plan [| para |]) para.Id
-                    |> Expect.equal "not locked" PlanContextPolicy.Editing.PlanContext
-                }
-
-                test "a context with other patient data is locked" {
-                    let moved = para |> planWithPatient (fun p -> { p with Department = Some "ICK" })
-
-                    PlanContextPolicy.editingOf moved para.Id
-                    |> Expect.equal "locked" PlanContextPolicy.Editing.Locked
-                }
-
-                test "an id the plan does not hold follows the plan context rule" {
-                    PlanContextPolicy.editingOf (plan [| para |]) "c-unknown"
-                    |> Expect.equal "nothing to lock" PlanContextPolicy.Editing.PlanContext
+                    |> Expect.equal "only the workbench resets" [ true; false ]
                 }
             ]

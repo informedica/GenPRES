@@ -184,30 +184,6 @@ module OrderPlan =
         let tr term =
             Global.getLocalizedTerm localizationTerms lang (SigningPolicy.english term) term
 
-        // the orders of the contexts whose patient data differ from the plan's: locked, and
-        // marked in the medication cell
-        let lockedOrders =
-            match orderPlan with
-            | OrderPlanView.Settled(tp, _)
-            | OrderPlanView.Changing(tp, _) ->
-                tp.OrderContexts
-                |> Array.filter (PlanContextPolicy.locked tp)
-                |> Array.choose (OrderContext.contribution >> Option.map _.Order.Id)
-                |> Set.ofArray
-            | OrderPlanView.NoPatient -> Set.empty
-
-        let lockedText =
-            Terms.``Plan Context Locked``
-            |> getTerm "Berekend met andere patiëntgegevens; deze order kan niet worden aangepast"
-
-        let lockSx =
-            {|
-                display = "flex"
-                alignItems = "center"
-                gap = 1
-            |}
-
-        // the medication, with the lock and its reason on hover when the order is locked
         // the medication name reads as a link, since a click on it opens the order: blue, bold,
         // underlined under the pointer, after the icon of the prescribe page's edit button
         let medicationSx =
@@ -221,21 +197,9 @@ module OrderPlan =
                 ``&:hover`` = {| textDecoration = "underline" |}
             |}
 
-        let medicationCell (id: string) (value: string) =
-            // a locked order carries the lock in place of the edit icon: it opens read-only
-            if lockedOrders |> Set.contains id then
-                JSX.jsx
-                    $"""
-                    import Box from '@mui/material/Box';
-                    import Tooltip from '@mui/material/Tooltip';
-
-                    <Tooltip title={lockedText}>
-                        <Box sx={lockSx}>{Mui.Icons.LockIcon}<Box sx={medicationSx}>{value}</Box></Box>
-                    </Tooltip>
-                    """
-            else
-                JSX.jsx
-                    $"""
+        let medicationCell (_: string) (value: string) =
+            JSX.jsx
+                $"""
                 import Box from '@mui/material/Box';
 
                 <Box sx={medicationSx}>{Mui.Icons.CalculateIcon}{value}</Box>
@@ -319,7 +283,7 @@ module OrderPlan =
                 | OrderPlanView.Changing(tp, _) ->
                     contextOf tp id
                     |> Option.bind (fun ctx ->
-                        PlanCellPolicy.stepable tp ctx column
+                        PlanCellPolicy.stepable ctx column
                         |> Option.bind (fun fieldOf ->
                             OrderContext.contribution ctx
                             |> Option.map (fun sc -> cellField tp ctx sc.Order fieldOf)
@@ -731,20 +695,10 @@ module OrderPlan =
                     searchLabel = ""
                 |}
 
-        // the order dialog under the plan context rule: the fields it allows, or nothing when
-        // the context is locked
-        let editing =
-            match orderPlan with
-            | OrderPlanView.Settled(tp, Some id)
-            | OrderPlanView.Changing(tp, Some id) -> PlanContextPolicy.editingOf tp id
-            | OrderPlanView.Settled(_, None)
-            | OrderPlanView.Changing(_, None)
-            | OrderPlanView.NoPatient -> PlanContextPolicy.Editing.PlanContext
-
         let orderView =
             Order.View
                 {|
-                    editing = editing
+                    editing = PlanContextPolicy.Editing.PlanContext
                     orderContext = orderContext
                     command = orderContextMsg
                     restoreOrderScenario = envOrderPlan.RestoreField

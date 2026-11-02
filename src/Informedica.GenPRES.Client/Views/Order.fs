@@ -919,8 +919,6 @@ module Order =
                     minWidth
                     shown
 
-        let argues = props.editing |> PlanContextPolicy.argues
-
 
         let fixPrecision = Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision
 
@@ -935,12 +933,11 @@ module Order =
         let onArgumentation (e: Browser.Types.Event) = setArgumentation (e.target?value: string)
 
         // a text goes out only when it differs from the one the context holds, since in the plan
-        // every command counts as a change; a locked context sends nothing, its text is shown only
+        // every command counts as a change
         let argue (text: string) =
             if
-                argues
-                && ArgumentationPolicy.normalise text
-                   <> ArgumentationPolicy.normalise heldArgumentation
+                ArgumentationPolicy.normalise text
+                <> ArgumentationPolicy.normalise heldArgumentation
             then
                 props.command (Api.OrderViewCommand.SetArgumentationProperty text)
 
@@ -1563,14 +1560,7 @@ module Order =
                         Terms.``Order Argumentation Helper``
                         |> getTerm "waarom de dosering afwijkt van wat de regels toestaan"
 
-                    let inputProps =
-                        {|
-                            htmlInput =
-                                {|
-                                    maxLength = ArgumentationPolicy.maxLength
-                                    readOnly = not argues
-                                |}
-                        |}
+                    let inputProps = {| htmlInput = {| maxLength = ArgumentationPolicy.maxLength |} |}
 
                     JSX.jsx
                         $"""
