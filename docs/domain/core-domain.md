@@ -113,9 +113,7 @@ The transformation is implemented by three core systems:
 
 ### Another patient or a patient data update
 
-This section states the model of [plan 1430](../implementation-plans/1430-patient-data-changes.md),
-which is built step by step. Until its last step lands, a version opened on other data than the
-current patient stays on the data it was signed on.
+This section states the model of [plan 1430](../implementation-plans/1430-patient-data-changes.md).
 
 A *Patient* and the data of a *Patient* are two different things.
 

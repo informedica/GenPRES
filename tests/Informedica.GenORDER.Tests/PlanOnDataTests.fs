@@ -219,6 +219,22 @@ let tests =
                 back |> orderOf |> Expect.equal "the order as it was" (signed |> orderOf)
             }
 
+            test "an order from the workbench at another weight and back is the same order" {
+                let p = Fixture.provider ()
+                let start = Fixture.adult 40N
+                let ctx = Fixture.contextAt p 40N
+                let signed = OrderPlan.create start [| PlanContext.create "c1" OrderCategory.Drug ctx |]
+                let orderOf (plan: OrderPlan) = plan.Contexts[0].Context.Scenarios[0].Order
+
+                let moved = signed |> Fixture.followed p (Fixture.adult 60N)
+                let back = moved |> Fixture.followed p start
+
+                moved
+                |> orderOf
+                |> Expect.notEqual "the order follows the weight" (signed |> orderOf)
+                back |> orderOf |> Expect.equal "the order as it was signed" (signed |> orderOf)
+            }
+
             test "an order that cannot be calculated refuses the update, by the name of the order" {
                 let p = Fixture.provider ()
                 let start = patient 10N

@@ -68,6 +68,77 @@ let tests =
                 |> Expect.equal "the plan is behind" [ PatientEffect.CallPatient(Fixtures.answered, "r-2") ]
             }
 
+            testList
+                "the age and the estimates"
+                [
+                    let child = { Fixtures.answered with Patient.Weight.Measured = None }
+
+                    let older = { Fixtures.ten with Age.Years = 11<year> }
+
+                    test "a new age clears the estimates for the server to renew, a measured value stays" {
+                        let measured = { child with Patient.Height.Measured = Some 141<cm> }
+                        let aged = { measured with Age = Some older }
+
+                        let expected = aged |> Informedica.GenPRES.Shared.Models.Patient.withEstimates None None
+
+                        PatientState.init (Some measured)
+                        |> PatientState.transition (PatientMsg.Changed(Some aged, Fixtures.renewed, "r-1"))
+                        |> snd
+                        |> Expect.equal "estimated again" [ PatientEffect.CallPatient(expected, "r-1") ]
+
+                        expected.Height.Measured |> Expect.equal "measured" (Some 141<cm>)
+                    }
+
+                    test "the same age keeps the estimates" {
+                        PatientState.init (Some child)
+                        |> PatientState.transition (PatientMsg.Changed(Some child, Fixtures.renewed, "r-1"))
+                        |> snd
+                        |> Expect.equal "fixed with the age" [ PatientEffect.CallPatient(child, "r-1") ]
+                    }
+
+                    test "a version opened takes the age, not the data" {
+                        let typed = { child with Patient.Weight.Measured = Some 40000<gram> }
+                        let session =
+                            { Fixtures.answered with
+                                Age = Some older
+                                Department = Some "ICK"
+                            }
+
+                        PatientState.init (Some typed)
+                        |> PatientState.transition (PatientMsg.AgeTaken(Some session, "r-1"))
+                        |> snd
+                        |> Expect.equal
+                            "the typed weight, the new age"
+                            [
+                                PatientEffect.CallPatient(
+                                    { typed with Age = Some older }
+                                    |> Informedica.GenPRES.Shared.Models.Patient.withEstimates None None,
+                                    "r-1"
+                                )
+                            ]
+                    }
+
+                    test "the same age leaves the panel, and the plan can go on" {
+                        let state = PatientState.init (Some child)
+
+                        for taken in [ Some child; None ] do
+                            state
+                            |> PatientState.transition (PatientMsg.AgeTaken(taken, "r-1"))
+                            |> Expect.equal "unchanged" (state, [ PatientEffect.GivePlan child ])
+                    }
+
+                    test "a failed age call tells the error, and the plan opens on the data there are" {
+                        let session = { child with Age = Some older }
+
+                        PatientState.init (Some child)
+                        |> PatientState.transition (PatientMsg.AgeTaken(Some session, "r-1"))
+                        |> fst
+                        |> PatientState.transition (PatientMsg.Answered("r-1", Error [| "no" |]))
+                        |> snd
+                        |> Expect.equal "both" [ PatientEffect.TellError [| "no" |]; PatientEffect.GivePlan child ]
+                    }
+                ]
+
             test "a refresh keeps the mark as an adult, which the EHR does not hold" {
                 let sixteen = { Fixtures.ten with Age.Years = 16<year> }
 
@@ -157,8 +228,8 @@ let tests =
 
                 (PatientState.draft state, PatientState.answered state, PatientState.changing state, effects)
                 |> Expect.equal
-                    "the answer on the panel, the earlier patient kept, nothing set"
-                    (Some unestimated, Some answered, false, [])
+                    "the answer on the panel, the earlier patient kept, a waiting version can open on it"
+                    (Some unestimated, Some answered, false, [ PatientEffect.GivePlan answered ])
             }
 
             test "an answered adult without a weight or a height is set on the pages" {
@@ -241,7 +312,7 @@ let tests =
                 (PatientState.draft state, PatientState.inFlightRequest state, effects)
                 |> Expect.equal
                     "the draft before the edit, nothing awaited, told"
-                    (Some older, None, [ PatientEffect.TellError [| "failed" |] ])
+                    (Some older, None, [ PatientEffect.TellError [| "failed" |]; PatientEffect.GivePlan older ])
             }
 
             testList

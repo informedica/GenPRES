@@ -236,8 +236,7 @@ module Api =
         // signing when it is the head; answered with the Session as it then is,
         // `SessionResp None` where there is no Session, no User or no Patient
         | OpenVersion of id: string * OpenedToken option
-        // the EHR read again and the head reopened on it, with a fresh OpenedToken: the way out
-        // of a held patient context that takes the EHR's data; answered as OpenVersion is
+        // the EHR read again, with a fresh OpenedToken; answered as OpenVersion is
         | Refresh of OpenedToken option
 
 

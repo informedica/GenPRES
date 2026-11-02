@@ -245,6 +245,200 @@ let tests =
                 |> Expect.isTrue "the Session's effects still come out"
             }
 
+            test "a sign that renews an estimate: the plan follows and is a change to sign" {
+                let newId = counter ()
+                let estimated (kg: int) (p: Patient) = { p with Patient.Weight.Estimated = Some(kg * 1000<gram>) }
+                let young = draft |> estimated 12
+                let session = SessionMachineTests.full
+                let aged = { young with Age = Some { ten with Age.Years = 11<year> } }
+
+                let lanes =
+                    { Lanes.initial (Some young) with
+                        Session = SessionState.opened session None
+                        OrderPlan = held two None
+                    }
+
+                let lanes, _, _ =
+                    lanes
+                    |> Lanes.transition
+                        newId
+                        (LanesMsg.Patient(PatientMsg.Changed(Some young, PatientDraftPolicy.Estimates.Renewed, "p-0")))
+
+                let lanes, _, _ =
+                    lanes
+                    |> Lanes.transition newId (LanesMsg.Patient(PatientMsg.Answered("p-0", Ok young)))
+
+                let settled = { lanes with OrderPlan = held two None }
+
+                let lanes, effects, _ =
+                    settled
+                    |> Lanes.transition
+                        newId
+                        (LanesMsg.Session(
+                            SessionMsg.SignatureRenewedToken(OpenedToken "t2", aged, SessionMachineTests.signedVersion)
+                        ))
+
+                let cleared = aged |> Informedica.GenPRES.Shared.Models.Patient.withEstimates None None
+
+                let request =
+                    effects
+                    |> List.pick (
+                        function
+                        | LanesEffect.Patient(PatientEffect.CallPatient(p, request)) when p = cleared -> Some request
+                        | _ -> None
+                    )
+
+                let lanes, effects, _ =
+                    lanes
+                    |> Lanes.transition newId (LanesMsg.Patient(PatientMsg.Answered(request, Ok(aged |> estimated 13))))
+
+                let update =
+                    effects
+                    |> List.pick (
+                        function
+                        | LanesEffect.Plan(OrderPlanEffect.CallPlan(OrderPlanCommand.UpdatePatient _, request)) ->
+                            Some request
+                        | _ -> None
+                    )
+
+                let moved =
+                    { two with
+                        OrderContexts =
+                            two.OrderContexts
+                            |> Array.map (fun c -> { c with Argumentation = Some "moved" })
+                    }
+
+                let lanes, _, _ =
+                    lanes
+                    |> Lanes.transition newId (LanesMsg.Plan(OrderPlanMsg.Answered(update, Ok moved)))
+
+                lanes.OrderPlan
+                |> OrderPlanState.work
+                |> Expect.equal "a new version to sign" PlanWorkPolicy.PlanWork.Changed
+            }
+
+            testList
+                "a version opened with a new age: one request at a time"
+                [
+                    let session = SessionMachineTests.full
+                    let older = { ten with Age.Years = 11<year> }
+
+                    let reopened =
+                        { session with
+                            Head = Some head
+                            PatientContext =
+                                session.PatientContext
+                                |> Option.map (fun c -> { c with Patient = Some { measured with Age = Some older } })
+                        }
+
+                    let sent (effects: LanesEffect list) =
+                        effects
+                        |> List.choose (
+                            function
+                            | LanesEffect.Plan(OrderPlanEffect.CallPlan(cmd, request)) -> Some(cmd, request)
+                            | _ -> None
+                        )
+
+                    let opened newId =
+                        { Lanes.initial (Some measured) with
+                            Session = SessionState.opened session None
+                            OrderPlan = held two None
+                        }
+                        |> Lanes.transition
+                            newId
+                            (LanesMsg.Session(SessionMsg.SignedPlanOpened(session.OpenedToken, Ok(Some reopened))))
+
+                    let request effects =
+                        effects
+                        |> List.pick (
+                            function
+                            | LanesEffect.Patient(PatientEffect.CallPatient(_, request)) -> Some request
+                            | _ -> None
+                        )
+
+                    test "the age goes first, and nothing opens until it is answered" {
+                        let _, effects, _ = opened (counter ())
+
+                        effects |> sent |> Expect.isEmpty "the plan waits"
+                        effects |> request |> Expect.isNotEmpty "the age is asked"
+                    }
+
+                    test "the answer opens the version" {
+                        let newId = counter ()
+                        let lanes, effects, _ = opened newId
+                        let aged = { measured with Age = Some older }
+
+                        let _, effects, _ =
+                            lanes
+                            |> Lanes.transition newId (LanesMsg.Patient(PatientMsg.Answered(request effects, Ok aged)))
+
+                        match effects |> sent with
+                        | [ OrderPlanCommand.Open(_, contexts), _ ] ->
+                            contexts |> Expect.equal "the version" head.OrderContexts
+                        | other -> failtest $"not one open: %A{other}"
+                    }
+
+                    test "a failed age call still opens the version, and the error is told" {
+                        let newId = counter ()
+                        let lanes, effects, _ = opened newId
+
+                        let _, effects, _ =
+                            lanes
+                            |> Lanes.transition
+                                newId
+                                (LanesMsg.Patient(PatientMsg.Answered(request effects, Error [| "no" |])))
+
+                        effects
+                        |> List.contains (LanesEffect.Patient(PatientEffect.TellError [| "no" |]))
+                        |> Expect.isTrue "told"
+
+                        effects |> sent |> Expect.hasLength "one open" 1
+                    }
+                ]
+
+            test "a Session that opens over a page holding a plan: the plan waits for the new patient" {
+                let session = { SessionMachineTests.full with Head = Some head }
+
+                let lanes, effects, _ =
+                    { Lanes.initial (Some draft) with
+                        Session = SessionState.resuming
+                        OrderPlan = held two None
+                    }
+                    |> Lanes.transition
+                        (counter ())
+                        (LanesMsg.Session(SessionMsg.Resumed(Ok(ResumeResult.Found session))))
+
+                effects
+                |> List.exists (
+                    function
+                    | LanesEffect.Plan(OrderPlanEffect.CallPlan _) -> true
+                    | _ -> false
+                )
+                |> Expect.isFalse "nothing opens on the patient before"
+
+                lanes.OrderPlan
+                |> OrderPlanState.view
+                |> Expect.equal "the version waits" OrderPlanView.NoPatient
+
+                effects
+                |> List.tryHead
+                |> Expect.equal "before the clear, the patient is expected" (Some LanesEffect.PatientExpected)
+            }
+
+            test "a Session without a patient over a page holding one: the pages clear as usual" {
+                let session = { SessionMachineTests.full with PatientContext = None }
+
+                let _, effects, _ =
+                    { Lanes.initial (Some draft) with Session = SessionState.resuming }
+                    |> Lanes.transition
+                        (counter ())
+                        (LanesMsg.Session(SessionMsg.Resumed(Ok(ResumeResult.Found session))))
+
+                effects
+                |> List.contains LanesEffect.PatientExpected
+                |> Expect.isFalse "no patient comes"
+            }
+
             test "a Session resumed with saved orders and no patient: the plan opens them once the patient is in" {
                 let session =
                     { SessionMachineTests.full with

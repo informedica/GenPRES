@@ -213,6 +213,8 @@ module SessionMachine =
         | SetPatientData of Patient option
         /// Give the patient data read from the EHR by a refresh to the patient machine.
         | SetPatientDataRead of Patient option
+        /// Give the patient of a version opened to the patient machine, for its age alone.
+        | TakeAge of Patient option
         /// Keep this private key and remove the others.
         | KeepBrowserKey of thumbprint: string
         /// The orders of the version the session opened with go into the cart; the patient reaches the
@@ -682,8 +684,8 @@ module SessionMachine =
                 [ SessionEffect.CallOpenSignedPlan(id, session.OpenedToken) ]
             | SessionMsg.OpenSignedPlan _, _, _ -> state, []
 
-            // the session with the version opened: its orders go into the cart; the patient is
-            // unchanged. The answer lands only on the open session that still holds the token the
+            // the session with the version opened: its orders go into the cart; the patient takes the age
+            // alone. The answer lands only on the open session that still holds the token the
             // request started from; nothing to open, or a failure, leaves the session as it was
             | SessionMsg.SignedPlanOpened(from, Ok(Some session)), SessionPhase.Open current, None when
                 current.OpenedToken = from
@@ -693,7 +695,9 @@ module SessionMachine =
                 | Some _, Some head ->
                     opened session (NewerPlan.opened state.NewerPlan head.Head),
                     [
+                        // the version first: it waits for the patient the age gives
                         SessionEffect.LoadSignedPlan head
+                        SessionEffect.TakeAge(session.PatientContext |> Option.bind _.Patient)
                         SessionEffect.TellSignedPlanOpened head.Head
                     ]
                 | _ -> opened session state.NewerPlan, []

@@ -530,6 +530,7 @@ module Client =
             succeeded ServerErrorPolicy.ErrorSource.OrderPlan
         | ClientEffect.Lanes(LanesEffect.Plan(OrderPlanEffect.TellPatientDataChanged summary)) ->
             alert (Alert.Alert.PatientDataChanged summary)
+        | ClientEffect.Lanes LanesEffect.PatientExpected -> [ ClientMsg.Loader LoaderMsg.PatientExpected ]
         | ClientEffect.Lanes LanesEffect.GoToPlanPage -> [ ClientMsg.Shell(ShellMsg.MovedToPage Page.Page.OrderPlan) ]
 
         // the loads: the seed to the workbench, the settings and what the user is told to the shell, the

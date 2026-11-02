@@ -61,6 +61,15 @@ module PatientEdit =
         |> Some
 
 
+    /// The patient with its estimates cleared when its age is not the one before, since an estimate
+    /// belongs to its age and the server estimates again; a measured value stays.
+    let renewEstimates (before: Patient) (p: Patient) =
+        if p.Age = before.Age then
+            p
+        else
+            p |> withEstimates None None
+
+
     /// The rule every setter follows: the draft, or the blank one, with the estimates
     /// blanked and one change applied. Nothing else on the patient is touched, so a value
     /// that was measured is never lost to an edit of another field, and an estimate is never

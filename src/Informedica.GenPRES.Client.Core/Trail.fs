@@ -420,6 +420,7 @@ module Trail =
             | SessionEffect.GoToIdentityProvider _ -> "GoToIdentityProvider"
             | SessionEffect.SetPatientData p -> $"SetPatientData %s{Part.patientOption p}"
             | SessionEffect.SetPatientDataRead p -> $"SetPatientDataRead %s{Part.patientOption p}"
+            | SessionEffect.TakeAge p -> $"TakeAge %s{Part.patientOption p}"
             | SessionEffect.KeepBrowserKey _ -> "KeepBrowserKey"
             | SessionEffect.LoadSignedPlan s -> $"LoadSignedPlan %s{Part.signed s}"
             | SessionEffect.CallOpenSignedPlan(id, from) ->
@@ -694,6 +695,7 @@ module Trail =
                 $"Changed %s{Part.patientOption p} %s{estimates e} %s{Part.shortId request}"
             | PatientMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result Part.patient}"
             | PatientMsg.Refreshed(p, request) -> $"Refreshed %s{Part.patientOption p} %s{Part.shortId request}"
+            | PatientMsg.AgeTaken(p, request) -> $"AgeTaken %s{Part.patientOption p} %s{Part.shortId request}"
             | PatientMsg.PlanNotFollowed -> "PlanNotFollowed"
 
 
@@ -703,6 +705,7 @@ module Trail =
             | PatientEffect.CallPatient(p, request) -> $"CallPatient %s{Part.patient p} %s{Part.shortId request}"
             | PatientEffect.SetPatientData p -> $"SetPatientData %s{Part.patientOption p}"
             | PatientEffect.TellError _ -> "TellError"
+            | PatientEffect.GivePlan p -> $"GivePlan %s{Part.patient p}"
 
 
         /// The draft, with the request it awaits.

@@ -272,7 +272,15 @@ The order comes from the logic: the domain first, then what uses it.
    A read of the EHR that the Session drops, because it is no longer open or another open is under
    way, says nothing: the data are not taken and the next sign shows the notice again.
 8. **Age, estimates and retrieval.** Rules 15 to 18. The age at the open, a resume, a refresh and a
-   sign is built by plan 1599.
+   sign is built by plan 1599. At a version opened the panel keeps its data and takes the age alone.
+   A new age with renewed estimates leaves the estimating to the server; a measured value stays.
+   Any difference with the data of the version is followed, an age alone too. A follow gives no
+   summary: the version opened is told, the orders show their notifications and the sign dialog
+   lists the changes. A version waits for the patient, so that one request goes
+   out at a time: the age first, then the version on the patient it was signed on, then the follow.
+   When the age call fails the error is told and the version opens on the data there are. A session
+   that opens over a page holding a patient clears that patient first; when the session brings a
+   patient the pages ask nothing for the clear.
 
    Retrieval covers a version opened on other data than the current patient: the orders follow the
    data, a failed follow can be tried again, the changes are shown, and a new version is signed. A

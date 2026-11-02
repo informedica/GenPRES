@@ -149,7 +149,10 @@ let tests =
                 "the cart"
                 [
                     test "the signed version opens over the patient held" {
-                        let opening, effects = transition (OrderPlanMsg.OpenSignedPlan(head, "r-1")) shown
+                        let opening, effects =
+                            transition (OrderPlanMsg.OpenSignedPlan(head, "r-0")) shown
+                            |> fst
+                            |> transition (OrderPlanMsg.PatientDataChanged(Some patient, "r-1"))
 
                         opening
                         |> Expect.equal "loading the version" (loading patient two.OrderContexts "r-1")
@@ -177,7 +180,9 @@ let tests =
                         let kept, effects = transition (OrderPlanMsg.OpenSignedPlan(head, "r-1")) noPatient
 
                         (kept, effects)
-                        |> Expect.equal "kept, nothing asked yet" (OrderPlanState.awaiting two.OrderContexts, [])
+                        |> Expect.equal
+                            "kept, nothing asked yet"
+                            (OrderPlanState.awaiting head.Patient two.OrderContexts, [])
 
                         transition (OrderPlanMsg.PatientDataChanged(Some patient, "r-2")) kept
                         |> Expect.equal
@@ -517,6 +522,131 @@ let changedIds (state: OrderPlanState) =
     |> Option.defaultValue [||]
     |> Array.filter (fun (_, difference) -> difference <> PlanDifferencePolicy.Difference.Removed)
     |> Array.map (fun (ctx, _) -> ctx.Id)
+
+
+/// A version opens as signed, on the patient it was signed on, and then follows the current patient.
+[<Tests>]
+let versionFollowTests =
+    let version = { head with Patient = otherDraft }
+
+    let openedOver current =
+        held one None
+        |> transition (OrderPlanMsg.PatientDataChanged(Some current, "r-0"))
+        |> fst
+        |> transition (OrderPlanMsg.Answered("r-0", Ok one))
+        |> fst
+        |> transition (OrderPlanMsg.OpenSignedPlan(version, "r-9"))
+        |> fst
+        |> transition (OrderPlanMsg.PatientDataChanged(Some current, "r-1"))
+
+    let landed tp (state, _) = state |> transition (OrderPlanMsg.Answered("r-1", Ok tp))
+
+    testList
+        "a version opened on other data"
+        [
+            test "it opens on the patient it was signed on" {
+                openedOver patient
+                |> snd
+                |> Expect.equal
+                    "the version"
+                    [
+                        OrderPlanEffect.CallPlan(OrderPlanCommand.Open(otherDraft, version.OrderContexts), "r-1")
+                    ]
+            }
+
+            test "it then follows the current patient, the version the base of the differences" {
+                let state, effects = openedOver patient |> landed two
+
+                effects
+                |> List.contains (OrderPlanEffect.CallPlan(OrderPlanCommand.UpdatePatient(patient, two), "r-1"))
+                |> Expect.isTrue "the follow"
+
+                OrderPlanState.differences two state
+                |> Expect.isEmpty "as opened until the follow lands"
+            }
+
+            test "a version on the current patient has nothing to follow" {
+                openedOver otherDraft
+                |> landed two
+                |> snd
+                |> List.exists (
+                    function
+                    | OrderPlanEffect.CallPlan _ -> true
+                    | _ -> false
+                )
+                |> Expect.isFalse "opened as signed"
+            }
+
+            test "a follow that changes no order says nothing, and nothing is to sign" {
+                let state, effects =
+                    openedOver patient
+                    |> landed two
+                    |> fst
+                    |> transition (OrderPlanMsg.Answered("r-1", Ok two))
+
+                effects
+                |> List.exists (
+                    function
+                    | OrderPlanEffect.TellPatientDataChanged _ -> true
+                    | _ -> false
+                )
+                |> Expect.isFalse "quiet"
+
+                OrderPlanState.work state |> Expect.equal "as signed" PlanWork.AsSigned
+            }
+
+            test "a follow that changes an order gives no summary, and the order is unsigned work" {
+                let moved =
+                    { two with
+                        OrderContexts =
+                            two.OrderContexts
+                            |> Array.map (fun c -> { c with Argumentation = Some "moved" })
+                    }
+
+                let state, effects =
+                    openedOver patient
+                    |> landed two
+                    |> fst
+                    |> transition (OrderPlanMsg.Answered("r-1", Ok moved))
+
+                effects
+                |> List.exists (
+                    function
+                    | OrderPlanEffect.TellPatientDataChanged _ -> true
+                    | _ -> false
+                )
+                |> Expect.isFalse "the version opened stays on screen"
+
+                OrderPlanState.work state |> Expect.equal "changed" PlanWork.Changed
+            }
+
+            test "a failed follow stays on the version, and the same data can be given again" {
+                let failed, effects =
+                    openedOver patient
+                    |> landed two
+                    |> fst
+                    |> transition (OrderPlanMsg.Answered("r-1", Error [| "no" |]))
+
+                effects
+                |> List.contains OrderPlanEffect.PatientDataNotFollowed
+                |> Expect.isTrue "told"
+
+                failed
+                |> transition (OrderPlanMsg.PatientDataChanged(Some patient, "r-2"))
+                |> snd
+                |> Expect.equal
+                    "sent again"
+                    [
+                        OrderPlanEffect.CallPlan(OrderPlanCommand.UpdatePatient(patient, two), "r-2")
+                    ]
+            }
+
+            test "the version waits for the patient, one request at a time" {
+                held one None
+                |> transition (OrderPlanMsg.OpenSignedPlan(version, "r-1"))
+                |> Expect.equal "nothing goes out" (OrderPlanState.awaiting otherDraft version.OrderContexts, [])
+            }
+        ]
 
 
 /// Orders changed by new patient data are a change in the plan, shown against the version.
