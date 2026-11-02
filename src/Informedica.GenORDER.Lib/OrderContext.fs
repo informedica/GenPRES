@@ -759,16 +759,11 @@ module OrderContext =
     let selectsRules pat = pat |> Adult.isAdult || pat.Weight |> Option.isSome
 
 
-    /// The patient with the weight in kg, as the context takes it.
-    let withWeightInKg pat =
-        { pat with Weight = pat.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram) }
-
-
     /// The context afresh for a patient: the pick lists of the rules for the patient that can be
     /// prescribed for the patient, matched as every rule lookup matches it, so they hold what the
     /// evaluation offers. No pick lists when the rules are not looked up for the patient.
     let create logger provider (pat: Patient) =
-        let pat = pat |> withWeightInKg
+        let pat = pat |> Patient.correctAdjustUnit
 
         let opts =
             if pat |> selectsRules then
@@ -1388,31 +1383,74 @@ Scenarios: {scenarios}
             None
 
 
-    /// The context with its single order on new patient data: the order is calculated again when the
-    /// value it is adjusted with changed, and the rules are checked. What the patient gets stays, and
+    /// The rules once per group of products with the same Divisible, as the scenarios are made.
+    let rulesByDivisible (provider: Resources.IResourceProvider) rules =
+        let addFormLimits = DoseRule.addFormLimits (provider.GetRouteMappings()) (provider.GetFormRoutes())
+
+        rules |> Array.map (splitByDivisible addFormLimits)
+
+
+    /// The rule as the scenario was made from it: split by the Divisible of its products to
+    /// the group of the picked products, or without a Divisible when the order fits only without.
+    let ruleOfScenario provider (sc: OrderScenario) (ctx: OrderContext) rules =
+        if sc.FitsOnlyWithoutDivisible then
+            rules |> Array.map changeRuleProductsDivisible
+        else
+            rules
+            |> rulesByDivisible provider
+            |> Array.collect (pickedGroups ctx.Filter.PickedProducts)
+
+
+    /// The order the single rule gives, with the id given. None when there are several rule rows or
+    /// solution rules, or when the rule gives no order: the rule of an order is then not known.
+    let orderOfRule start logger orderId (rules: PrescriptionRule[]) =
+        rules
+        |> Array.tryExactlyOne
+        |> Option.map (Medication.fromRule logger)
+        |> Option.bind Array.tryExactlyOne
+        |> Option.bind (fun med -> { med with Id = orderId } |> Medication.toOrder start |> Result.toOption)
+
+
+    /// The context with its single order on new patient data: the rules are checked, the limits that
+    /// depend on the patient come from the current rule when the rules are the same, and the order is
+    /// calculated again when its adjust value or its limits changed. What the patient gets stays, and
     /// the context keeps the patient its rules were chosen for, so that the rules can always be
-    /// compared with the current patient. With the same rules and one dose, the limits of a per kg
-    /// solution rule follow the new value. A lookup that fails leaves the notice as it is. An order
-    /// that cannot be solved refuses the context as it was sent.
+    /// compared with the current patient. Without one rule to take them from, the limits stay, with a
+    /// warning. A lookup that fails leaves the notice as it is. An order that cannot be solved refuses
+    /// the context as it was sent.
     let orderOnPatientData logger provider pat (sc: OrderScenario) ctx =
-        let pat = pat |> withWeightInKg
+        let pat = pat |> Patient.correctAdjustUnit
+        let (Id orderId) = sc.Order.Id
         let currentRules = ctx |> rulesFor logger provider pat
         let noLongerApply =
             rulesVerdict logger sc.Order (ctx |> rulesFor logger provider ctx.Patient) currentRules
 
-        let solutionRule =
+        let orderOfCurrentRule =
             match noLongerApply, currentRules with
-            | Some false, Ok rules when sc.Order |> Order.isOneDose -> rules |> PrescriptionRule.singleSolutionRule
+            | Some false, Ok rules ->
+                let built =
+                    rules
+                    |> ruleOfScenario provider sc ctx
+                    |> orderOfRule (sc.Order |> Order.startOf) logger orderId
+
+                if built |> Option.isNone then
+                    $"the limits of %s{sc.Name} stay, the rule of the order is not known"
+                    |> Events.OrderScenario
+                    |> Informedica.GenOrder.Lib.Logging.logWarning logger
+
+                built
             | _ -> None
 
         let recalculate ord =
-            match ord |> adjustOfPatient pat with
-            | Some adjust when Some adjust <> (ord |> Order.adjustValue) ->
-                let ord =
-                    solutionRule
-                    |> Option.fold (fun o sr -> o |> Medication.OrderBuilder.withSolutionAmounts sr) ord
+            let orderWithLimits =
+                orderOfCurrentRule
+                |> Option.fold (fun o built -> o |> Order.withDefinedLimitsOf built) ord
 
-                Readjust(ord, adjust) |> OrderProcessor.processPipeline logger
+            let limitsMoved = (orderWithLimits |> Order.definedLimits) <> (ord |> Order.definedLimits)
+
+            match ord |> adjustOfPatient pat with
+            | Some adjust when limitsMoved || Some adjust <> (ord |> Order.adjustValue) ->
+                Readjust(orderWithLimits, adjust) |> OrderProcessor.processPipeline logger
             | _ -> Ok ord
 
         let notice = noLongerApply |> Option.defaultValue sc.RulesNoLongerApply
@@ -1553,9 +1591,7 @@ Scenarios: {scenarios}
             else
                 // Note: different prescription rules can exist based on multiple pharmaceutical forms
                 // and multiple solution rules
-                let addFormLimits = DoseRule.addFormLimits (provider.GetRouteMappings()) (provider.GetFormRoutes())
-
-                let groups = prs |> Array.map (splitByDivisible addFormLimits)
+                let groups = prs |> rulesByDivisible provider
                 let allGroups = groups |> Array.concat
                 let picked = groups |> Array.collect (pickedGroups ctx.Filter.PickedProducts)
                 let evaluated = picked |> evaluateRules start logger
@@ -1827,11 +1863,16 @@ Scenarios: {scenarios}
         }
 
 
-    /// The totals over the orders of the context's scenarios, for the age and weight of the patient.
-    let intakeFor (totalsData: TotalsData[]) (pat: Patient) (ctx: OrderContext) : Totals =
+    /// The totals over the orders, for the age and weight of the patient.
+    let totalsFor (totalsData: TotalsData[]) (pat: Patient) orders =
         let wght = pat.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
 
-        ctx.Scenarios |> Array.map _.Order |> Totals.getTotals totalsData pat.Age wght
+        orders |> Totals.getTotals totalsData pat.Age wght
+
+
+    /// The totals over the orders of the context's scenarios, for the age and weight of the patient.
+    let intakeFor (totalsData: TotalsData[]) (pat: Patient) (ctx: OrderContext) : Totals =
+        ctx.Scenarios |> Array.map _.Order |> totalsFor totalsData pat
 
 
     /// The totals over the orders of the context's scenarios, for its patient's age and

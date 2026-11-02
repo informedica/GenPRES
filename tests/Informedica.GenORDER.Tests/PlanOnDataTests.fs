@@ -28,8 +28,22 @@ module Fixture =
     let plan provider pat =
         OrderPlan.create pat [| PlanContext.create "c1" OrderCategory.Drug (context provider pat) |]
 
-    let follow provider pat plan =
-        { plan with Patient = pat } |> OrderPlan.followPatientData logger provider
+    /// A context without an order starts again on the patient, with its filter cleared.
+    let restart pat (pc: PlanContext) =
+        Ok
+            { pc with
+                Context =
+                    { pc.Context with
+                        Patient = pat
+                        Filter = OrderContext.emptyFilter
+                    }
+            }
+
+    let followWith restart provider pat plan =
+        { plan with Patient = pat }
+        |> OrderPlan.followPatientData logger provider restart
+
+    let follow provider pat plan = plan |> followWith restart provider pat
 
     let followed provider pat plan =
         plan
@@ -37,35 +51,62 @@ module Fixture =
         |> Result.defaultWith (fun e -> failtest $"refused: %A{e}")
 
     let ml v = v |> ValueUnit.singleWithUnit Units.Volume.milliLiter
-    let mlPerKg v =
-        v
-        |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> ValueUnit.per Units.Weight.kiloGram)
 
-    /// A solution rule with a per kg limit of 5 mL/kg on the component with the name, 100 mL at the
-    /// weight of the patient.
-    let componentRule name =
-        (UndilutedVancomycin() :> Resources.IResourceProvider).GetSolutionRules()
-        |> Array.head
-        |> fun sr ->
-            { sr with
-                SolutionLimits =
-                    sr.SolutionLimits
-                    |> Array.map (fun sl ->
-                        { sl with
-                            SolutionLimitTarget = ComponentLimitTarget name
-                            QuantityAdj = MinMax.createExact (mlPerKg 5N)
-                            Quantity = MinMax.createExact (ml 100N)
-                        }
-                    )
-            }
+    let limit v = Some(BigRational.FromInt v)
 
-    let definedMax (q: Quantity) =
-        (q |> OrderVariable.Quantity.toOrdVar).DefinedConstraints.Max
-        |> Option.map Informedica.GenSolver.Lib.Variable.ValueRange.Maximum.toValueUnit
+    /// At least 15 mg/kg with a maximum of 1000 mg.
+    let perKgWithMaximum () =
+        let row =
+            RuleFixtures.rowFor
+                "koorts"
+                "kg"
+                (fun dl ->
+                    { dl with
+                        MaxQty = limit 1000
+                        MinQtyAdj = limit 15
+                    }
+                )
+                id
 
-    let firstComponent (ord: Order) = ord.Orderable.Components[0]
+        RulesOf(RuleFixtures.rules [| row |]) :> Resources.IResourceProvider
 
-    let componentName ord = (ord |> firstComponent).Name |> WrappedString.Name.toString
+    let adult w = RuleFixtures.patient (Some 12N) false (Some w) None
+
+    let rulesAt p w =
+        OrderContext.create logger p (adult w)
+        |> OrderContext.rulesFor logger p (adult w)
+        |> Result.defaultWith (fun e -> failtest $"no rules: %A{e}")
+
+    /// The context of the workbench at the weight, with the single scenario of the rule.
+    let contextAt p w =
+        match
+            OrderContext.create logger p (adult w)
+            |> OrderContext.getScenarios Scenarios.testStart logger p
+        with
+        | Ok(Evaluated ctx) when ctx.Scenarios.Length = 1 -> ctx
+        | _ -> failtest "no single scenario"
+
+    /// The order built with the id of ord from the rule at the weight.
+    let built p w (ord: Order) =
+        let (Id id) = ord.Id
+
+        rulesAt p w
+        |> OrderContext.orderOfRule Scenarios.testStart logger id
+        |> Option.defaultWith (fun () -> failtest "no order")
+
+    let limits = Order.definedLimits
+
+    /// The order with two doses from one preparation.
+    let twoDoses (ord: Order) =
+        { ord with
+            Order.Orderable.DoseCount =
+                ord.Orderable.DoseCount
+                |> OrderVariable.Count.setToNonZeroPositive
+                |> OrderVariable.Count.toOrdVar
+                |> OrderVariable.tryConstrain (2N |> ValueUnit.singleWithUnit Units.Count.times)
+                |> Option.get
+                |> Count
+        }
 
     /// The order with a dose quantity that does not fit its other values, so it cannot be solved.
     let unsolvable (ord: Order) =
@@ -129,72 +170,186 @@ let tests =
                 | other -> failtest $"not refused: %A{other}"
             }
 
+            test "a nutrition slot goes through restart" {
+                let p = Fixture.provider ()
+                let start = patient 10N
+                let slot =
+                    OrderContext.create logger p start
+                    |> PlanContext.create "c2" (OrderCategory.Nutrition NutritionCategory.TPN)
+                let after = OrderPlan.create start [| slot |] |> Fixture.followed p (patient 20N)
+
+                after.Contexts[0].Context.Filter
+                |> Expect.equal "filtered again" OrderContext.emptyFilter
+            }
+
+            test "a context that cannot start again takes the patient and does not block the update" {
+                let p = Fixture.provider ()
+                let start = patient 10N
+                let slot = OrderContext.create logger p start |> PlanContext.create "c2" OrderCategory.Drug
+
+                match
+                    OrderPlan.create start [| slot |]
+                    |> Fixture.followWith (fun _ _ -> Error "failed") p (patient 20N)
+                with
+                | Ok after -> after.Contexts[0].Context.Patient.Weight |> Expect.equal "new" (Some(kg 20N))
+                | Error e -> failtest $"blocked: %A{e}"
+            }
+
             testList
-                "the limits of a per kg solution rule"
+                "the limits follow the current rule"
                 [
-                    test "a component takes the amount of the rule" {
-                        let ord = order.Value
-                        let rule = ord |> Fixture.componentName |> Fixture.componentRule
+                    test "an order built from its rule at the same weight has the same limits" {
+                        let p = Fixture.perKgWithMaximum ()
+                        let ord = (Fixture.contextAt p 40N).Scenarios[0].Order
 
                         ord
-                        |> Medication.OrderBuilder.withSolutionAmounts rule
-                        |> Fixture.firstComponent
-                        |> _.OrderableQuantity
-                        |> Fixture.definedMax
-                        |> Expect.equal "100 mL" (Some(Fixture.ml 100N))
+                        |> Order.withDefinedLimitsOf (ord |> Fixture.built p 40N)
+                        |> Fixture.limits
+                        |> Expect.equal "the same" (ord |> Fixture.limits)
                     }
 
-                    test "the volume of the preparation takes the amount of the rule" {
-                        let ord = order.Value
+                    test "a dose at its maximum takes the rewritten limits, with an alert and no notice" {
+                        let p = Fixture.perKgWithMaximum ()
+                        let ctx = Fixture.contextAt p 55N
+                        let after = ctx |> onData p (Fixture.adult 70N)
+                        let sc = after.Scenarios[0]
+                        let dose = sc.Order.Orderable.Components[0].Items[0].Dose
 
-                        let rule =
-                            { Fixture.componentRule "another" with
-                                VolumeAdjust = MinMax.createExact (Fixture.mlPerKg 5N)
-                                Volume = MinMax.createExact (Fixture.ml 200N)
+                        sc.RulesNoLongerApply |> Expect.isFalse "the same rule"
+                        (dose |> Order.Orderable.Dose.Dto.toDto).Quantity.Level
+                        |> Expect.equal "alert" OrderVariable.Dto.IsAlert
+                    }
+
+                    test "limits at the old weight are restored with the weight unchanged" {
+                        let p = Fixture.perKgWithMaximum ()
+                        let ctx = Fixture.contextAt p 55N
+                        let sc = ctx.Scenarios[0]
+                        let stale =
+                            { sc with Order = sc.Order |> Order.withDefinedLimitsOf (sc.Order |> Fixture.built p 70N) }
+                        let after = { ctx with Scenarios = [| stale |] } |> onData p (Fixture.adult 55N)
+
+                        after.Scenarios[0].Order
+                        |> Fixture.limits
+                        |> Expect.equal "the limits of the rule" (sc.Order |> Fixture.limits)
+                    }
+
+                    test "with more doses the whole preparation stays and the dose limits follow" {
+                        let p = Fixture.perKgWithMaximum ()
+                        let ord = (Fixture.contextAt p 55N).Scenarios[0].Order |> Fixture.twoDoses
+                        let after = ord |> Order.withDefinedLimitsOf (ord |> Fixture.built p 70N)
+                        let cmp (o: Order) = o.Orderable.Components[0]
+                        let itm (o: Order) = (cmp o).Items[0]
+
+                        let preparation (o: Order) =
+                            [
+                                o.Orderable.OrderableQuantity |> OrderVariable.Quantity.toOrdVar
+                                (cmp o).OrderableQuantity |> OrderVariable.Quantity.toOrdVar
+                                (cmp o).OrderableConcentration |> OrderVariable.Concentration.toOrdVar
+                                (cmp o).OrderableCount |> OrderVariable.Count.toOrdVar
+                                (itm o).OrderableQuantity |> OrderVariable.Quantity.toOrdVar
+                                (itm o).OrderableConcentration |> OrderVariable.Concentration.toOrdVar
+                            ]
+                            |> List.map _.DefinedConstraints
+
+                        after |> preparation |> Expect.equal "the preparation" (ord |> preparation)
+                        after |> Fixture.limits |> Expect.notEqual "the dose" (ord |> Fixture.limits)
+                    }
+
+                    test "limits only land on a variable of the same name" {
+                        let p = Fixture.perKgWithMaximum ()
+                        let ord = (Fixture.contextAt p 55N).Scenarios[0].Order
+
+                        ord
+                        |> Order.withDefinedLimitsOf order.Value
+                        |> Fixture.limits
+                        |> Expect.equal "another order changes nothing" (ord |> Fixture.limits)
+                    }
+
+                    test "a picked product gives the rule of its Divisible group, no pick gives no rule" {
+                        let products =
+                            [|
+                                SplitByDivisibleTests.Fixture.product "1" 100N (Some 1N)
+                                SplitByDivisibleTests.Fixture.product "2" 200N (Some 2N)
+                            |]
+
+                        let p = SplitByDivisibleTests.Fixture.provider products
+                        let rules = [| SplitByDivisibleTests.Fixture.rule products |]
+                        let sc = scenario order.Value
+                        let ctx (picks: string[]) : OrderContext =
+                            { Fixture.context p (Fixture.adult 40N) with
+                                Filter = { OrderContext.emptyFilter with PickedProducts = picks }
                             }
 
-                        ord
-                        |> Medication.OrderBuilder.withSolutionAmounts rule
-                        |> _.Orderable.OrderableQuantity
-                        |> Fixture.definedMax
-                        |> Expect.equal "200 mL" (Some(Fixture.ml 200N))
+                        rules
+                        |> OrderContext.ruleOfScenario p sc (ctx [| "1" |])
+                        |> Expect.hasLength "one group" 1
+                        rules
+                        |> OrderContext.ruleOfScenario p sc (ctx [||])
+                        |> Expect.hasLength "both groups" 2
                     }
 
-                    test "a component without a per kg limit keeps its limit" {
-                        let ord = order.Value
-                        let rule = Fixture.componentRule "another"
+                    test "a real order with several products keeps its limits at the same weight" {
+                        let products =
+                            [|
+                                SplitByDivisibleTests.Fixture.product "1" 100N (Some 1N)
+                                SplitByDivisibleTests.Fixture.product "2" 200N (Some 1N)
+                            |]
 
-                        ord
-                        |> Medication.OrderBuilder.withSolutionAmounts rule
-                        |> Fixture.firstComponent
-                        |> _.OrderableQuantity
-                        |> Fixture.definedMax
-                        |> Expect.equal
-                            "as it was"
-                            ((ord |> Fixture.firstComponent).OrderableQuantity |> Fixture.definedMax)
+                        let p = SplitByDivisibleTests.Fixture.provider products
+                        let rules = [| SplitByDivisibleTests.Fixture.rule products |]
+                        let ctx = Fixture.contextAt p 40N
+                        let sc = ctx.Scenarios[0]
+                        let (Id id) = sc.Order.Id
+                        let built =
+                            rules
+                            |> OrderContext.ruleOfScenario p sc ctx
+                            |> OrderContext.orderOfRule Scenarios.testStart logger id
+                            |> Option.defaultWith (fun () -> failtest "no order")
+
+                        sc.Order
+                        |> Order.withDefinedLimitsOf built
+                        |> Fixture.limits
+                        |> Expect.equal "the same" (sc.Order |> Fixture.limits)
                     }
 
-                    test "several rule rows or solution rules give no rule to take an amount from" {
-                        let p = Fixture.provider ()
-                        let pat = patient 10N
-                        let rule = Fixture.componentRule "x"
+                    test "a TPN whose limit falls below its amount gives an answer with an alert" {
+                        let ord = Scenarios.tpn |> Tests.TestOrder.processed
+                        let cmp = ord.Orderable.Components[0]
+                        let half =
+                            (ord |> Order.adjustValue |> Option.get)
+                            / (2N |> ValueUnit.singleWithUnit Units.Count.times)
+                        let low = 1N |> ValueUnit.singleWithUnit Units.Volume.milliLiter
 
-                        let rules =
-                            Fixture.context p pat
-                            |> OrderContext.rulesFor logger p pat
-                            |> Result.defaultWith (fun e -> failtest $"no rules: %A{e}")
+                        let tighter =
+                            { ord with
+                                Order.Orderable.Components =
+                                    { cmp with
+                                        OrderableQuantity =
+                                            cmp.OrderableQuantity
+                                            |> OrderVariable.Quantity.apply (
+                                                OrderVariable.mapConstraints (
+                                                    OrderVariable.Constraints.setMinMax false (MinMax.createExact low)
+                                                )
+                                            )
+                                    }
+                                    :: ord.Orderable.Components.Tail
+                            }
 
-                        let solved n =
-                            rules |> Array.map (fun r -> { r with SolutionRules = Array.create n rule })
+                        match Readjust(tighter, half) |> OrderProcessor.processPipeline logger with
+                        | Ok after ->
+                            (after.Orderable.Components[0].OrderableQuantity
+                             |> OrderVariable.Quantity.isWithinConstraints false)
+                            |> Expect.isFalse "outside its limit"
+                        | Error(_, msgs) -> failtest $"refused: %A{msgs}"
+                    }
 
-                        solved 1 |> PrescriptionRule.singleSolutionRule |> Expect.isSome "one"
-                        solved 2
-                        |> PrescriptionRule.singleSolutionRule
-                        |> Expect.isNone "two solution rules"
+                    test "several rule rows give no order to take limits from" {
+                        let p = Fixture.perKgWithMaximum ()
+                        let rules = Fixture.rulesAt p 40N
 
-                        Array.append (solved 1) (solved 1)
-                        |> PrescriptionRule.singleSolutionRule
-                        |> Expect.isNone "two rule rows"
+                        Array.append rules rules
+                        |> OrderContext.orderOfRule Scenarios.testStart logger "o"
+                        |> Expect.isNone "two rows"
                     }
                 ]
         ]

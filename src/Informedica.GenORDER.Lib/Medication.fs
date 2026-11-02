@@ -1214,52 +1214,19 @@ module Medication =
                 br |> ValueUnit.singleWithUnit u |> Some
 
 
-        /// The quantity with the amount as its defined limit.
-        let withAmount amount =
-            OrderVariable.Quantity.apply (
-                OrderVariable.mapConstraints (OrderVariable.Constraints.setMinMax false amount)
-            )
-
-
         /// What a solution asks of an item: how much of it the orderable may hold, and in
         /// what concentration.
         let withItemSolution (sl: SolutionLimit) (itm: Types.Item) =
             { itm with
-                OrderableQuantity = itm.OrderableQuantity |> withAmount sl.Quantity
+                OrderableQuantity =
+                    itm.OrderableQuantity
+                    |> OrderVariable.Quantity.apply (
+                        OrderVariable.mapConstraints (OrderVariable.Constraints.setMinMax false sl.Quantity)
+                    )
                 OrderableConcentration =
                     itm.OrderableConcentration
                     |> OrderVariable.Concentration.apply (
                         OrderVariable.mapConstraints (OrderVariable.Constraints.setMinMax true sl.Concentration)
-                    )
-            }
-
-
-        /// The order with the defined limits of the solution rule that follow the patient: the amount
-        /// of a component and the volume of the preparation, each only with a per kg limit. Only
-        /// nutrition has these: its solution rule sets the dose. A substance limit has no per kg form.
-        let withSolutionAmounts (sr: SolutionRule) (ord: Order) =
-            let amountOf name =
-                sr.SolutionLimits
-                |> Array.tryFind (fun sl ->
-                    match sl.SolutionLimitTarget with
-                    | ComponentLimitTarget c ->
-                        c |> String.equalsCapInsens name && sl.QuantityAdj |> MinMax.isEmpty |> not
-                    | _ -> false
-                )
-                |> Option.map _.Quantity
-
-            { ord with
-                Order.Orderable.OrderableQuantity =
-                    if sr.VolumeAdjust |> MinMax.isEmpty then
-                        ord.Orderable.OrderableQuantity
-                    else
-                        ord.Orderable.OrderableQuantity |> withAmount sr.Volume
-                Order.Orderable.Components =
-                    ord.Orderable.Components
-                    |> List.map (fun cmp ->
-                        match cmp.Name |> Informedica.GenOrder.Lib.WrappedString.Name.toString |> amountOf with
-                        | Some amount -> { cmp with OrderableQuantity = cmp.OrderableQuantity |> withAmount amount }
-                        | None -> cmp
                     )
             }
 

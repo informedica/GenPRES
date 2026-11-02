@@ -22,6 +22,10 @@ module PlanContext =
         }
 
 
+    /// The context with the patient.
+    let withPatient pat (pc: PlanContext) = { pc with Context = { pc.Context with Patient = pat } }
+
+
     /// The nutrition category of a context, none for a drug.
     let nutritionCategory (pc: PlanContext) =
         match pc.Category with
@@ -211,9 +215,24 @@ module NutritionRuleSet =
         go 5 answer
 
 
-    /// A nutrition workbench's pick lists discovered: the context evaluated as it is, and
+    /// An order context of the rule set before anything is chosen: the patient, the indications and
+    /// generics of the rule set, nothing else offered and nothing selected.
+    let emptyContext (set: NutritionRuleSet option) pat : OrderContext =
+        {
+            Filter =
+                { OrderContext.emptyFilter with
+                    Indications = set |> Option.map _.Indications |> Option.defaultValue [||]
+                    Generics = set |> Option.map _.Generics |> Option.defaultValue [||]
+                }
+            Patient = pat
+            Scenarios = [||]
+            Argumentation = None
+        }
+
+
+    /// The pick lists of a nutrition context discovered: the context evaluated as it is, and
     /// of the indications, generics and dose types the evaluation offers, only those the
-    /// workbench already carried, so a category's rule set bounds what is offered; settled, so
+    /// context already carried, so a category's rule set bounds what is offered; settled, so
     /// a list that leaves one option has it chosen. The evaluation is passed in, so the
     /// discovery is what it does with the answer.
     let discover (evaluate: OrderContext -> Result<OrderContext, 'e>) (ctx: OrderContext) =
@@ -267,8 +286,6 @@ module OrderPlan =
     /// all of them when it is empty, and the intake of every context, for its patient's age and
     /// weight. A context can hold an older patient, so its intake is not taken from there.
     let recalculate (totalsData: Informedica.GenForm.Lib.Types.Data.TotalsData[]) (plan: OrderPlan) : OrderPlan =
-        let wght = plan.Patient.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
-
         { plan with
             Contexts =
                 plan.Contexts
@@ -280,18 +297,30 @@ module OrderPlan =
                 |> filtered
                 |> Array.choose PlanContext.contribution
                 |> Array.map _.Order
-                |> Totals.getTotals totalsData plan.Patient.Age wght
+                |> OrderContext.totalsFor totalsData plan.Patient
         }
 
 
     /// Every order of the plan calculated on the patient of the plan. A context with an order keeps
-    /// its patient. A context without an order takes the patient, since its rules are still to be
-    /// chosen. An order that cannot be calculated refuses the update, so that a plan is never partly
-    /// on new data. This guards a case not seen: the amounts stay and the values per kg follow them.
-    let followPatientData logger provider (plan: OrderPlan) =
+    /// its patient. A context without an order goes through restart, which evaluates a nutrition
+    /// context that is not narrowed again; when that fails it takes the patient and keeps its lists, so
+    /// that it cannot block a change of data. An order that cannot be calculated refuses the update, so that a
+    /// plan is never partly on new data. This guards a case not seen: the amounts stay, and only the
+    /// values per kg are solved.
+    let followPatientData logger provider restart (plan: OrderPlan) =
         let follow (pc: PlanContext) =
             match pc |> PlanContext.contribution with
-            | None -> Ok { pc with Context = { pc.Context with Patient = plan.Patient } }
+            | None ->
+                pc
+                |> restart plan.Patient
+                |> Result.defaultWith (fun e ->
+                    $"context %s{pc.Id} keeps its lists, it could not start again: %A{e}"
+                    |> Events.OrderScenario
+                    |> Informedica.GenOrder.Lib.Logging.logWarning logger
+
+                    pc |> PlanContext.withPatient plan.Patient
+                )
+                |> Ok
             | Some sc ->
                 match pc.Context |> OrderContext.orderOnPatientData logger provider plan.Patient sc with
                 | Evaluated ctx -> Ok { pc with Context = ctx }
@@ -386,19 +415,19 @@ module OrderPlan =
         ids |> Array.fold (fun p id -> p |> removeOrderContext id) plan
 
 
-    /// The prescribing workbench into the plan as a drug context with a minted id, its one
+    /// An order context into the plan as a drug context with a minted id, its one
     /// scenario the order it contributes and its intake as evaluated. Refused when the
-    /// workbench is not narrowed to one scenario, and when the plan already holds that order:
+    /// context is not narrowed to one scenario, and when the plan already holds that order:
     /// the signing challenge would refuse the plan later, so it is said now.
-    let addOrderContext (newId: unit -> string) (workbench: PlanContext) (plan: OrderPlan) =
-        match workbench |> PlanContext.contribution with
-        | None -> Error(OrderPlanError.NotNarrowed workbench.Context.Scenarios.Length)
+    let addOrderContext (newId: unit -> string) (context: PlanContext) (plan: OrderPlan) =
+        match context |> PlanContext.contribution with
+        | None -> Error(OrderPlanError.NotNarrowed context.Context.Scenarios.Length)
         | Some sc when orders plan |> Array.exists (fun s -> s.Order.Id = sc.Order.Id) ->
             let (Id id) = sc.Order.Id
             Error(OrderPlanError.OrderHeld id)
         | Some _ ->
             let added =
-                { workbench with
+                { context with
                     Id = newId ()
                     Category = OrderCategory.Drug
                 }

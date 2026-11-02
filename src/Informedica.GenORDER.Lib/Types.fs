@@ -1088,7 +1088,7 @@ module Types =
     type OrderPlanError =
         /// The plan holds no context with the id
         | NoSuchContext of id: string
-        /// The workbench holds the number of candidates, not one order
+        /// The order context holds the number of candidates, not one order
         | NotNarrowed of candidates: int
         /// The plan already holds the order
         | OrderHeld of orderId: string

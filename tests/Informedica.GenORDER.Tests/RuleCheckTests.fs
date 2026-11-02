@@ -186,9 +186,9 @@ let tests =
                 |> Expect.equal "no notice" (Some false)
             }
 
-            test "a per kg rule that reaches its maximum gives a notice" {
+            test "a per kg rule rewritten at its maximum is the same rule: no notice" {
                 Fixture.check (Fixture.perKgWithMaximum ()) 55N 70N
-                |> Expect.equal "notice" (Some true)
+                |> Expect.equal "no notice" (Some false)
             }
 
             test "a lookup that fails gives no verdict, whichever lookup it is" {
@@ -237,6 +237,21 @@ let tests =
                 |> Fixture.twoDoses
                 |> Order.isOneDose
                 |> Expect.isFalse "two"
+            }
+
+            test "with a renal rule the whole rule counts, so another renal band is another rule" {
+                let renal =
+                    Fixture.rules ()
+                    |> Array.map (fun r -> { r with RenalRules = [| Fixture.renalRule |] })
+
+                let band =
+                    renal
+                    |> Array.map (fun r ->
+                        { r with DoseRule = { r.DoseRule with RenalRuleSource = Some "another band" } }
+                    )
+
+                PrescriptionRule.sameRules Fixture.ignored renal band
+                |> Expect.isFalse "other rules"
             }
 
             test "a renal rule that starts to apply counts as other rules" {
