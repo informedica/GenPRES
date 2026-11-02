@@ -135,7 +135,9 @@ estimate.
 19. **One summary message at the moment of a change.** It says that the patient data changed, that
     the orders were updated, how many have a notification or a notice, and that the workbench was
     cleared. It does not stop the prescriber. The notifications and notices stay on the orders
-    themselves until the order is deleted.
+    themselves as long as they are true. Every change of the data or of the order checks them
+    again, and one that no longer applies goes. A notice is not stored, so a wrong weight that is
+    corrected back leaves nothing behind.
 
 ## Scenarios
 

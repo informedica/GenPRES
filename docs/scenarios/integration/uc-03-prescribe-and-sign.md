@@ -37,12 +37,17 @@ sequenceDiagram
     alt the reading differs from what the Session shows, or there is none
         S->>D: Notice {Nonce, Data, 2 min}, a standing challenge dropped
         S-->>C: DataNotice {Data, Token}
-        Note over U,C: the dialog shows the data as it stands (or that it could not be verified), Doorgaan
-        U->>C: accepts
-        C->>S: RequestSignChallenge (plan on that data, OpenedToken, Some token)
+        Note over U,C: the dialog shows the data as it stands next to the plan's (or that it could not be verified)
+        alt the User keeps the plan's data, or takes the EHR's with no unsigned orders on the plan
+            U->>C: keeps or takes
+            C->>S: RequestSignChallenge (plan on the chosen data, OpenedToken, Some token)
+        else the User takes the EHR's data with unsigned orders on the plan
+            U->>C: takes
+            Note over C,S: no token returns and the signing ends: the unsigned orders go, the Session reads the EHR again
+        end
     end
     Note over S: the record not moved on since the Session opened its version
-    S->>D: Challenge {Nonce, Patient, Scenarios, Reading, 2 min}, the notice spent
+    S->>D: Challenge {Nonce, Patient, Scenarios, Ehr, 2 min}, the notice spent
     S-->>C: ChallengeIssued nonce
 
     Note over U,C: step 3, the dialog lists the orders as they will be signed and asks the PIN
@@ -76,8 +81,10 @@ Submission must present it, and the commit re-mints it over the new head.
 **The data notice has no token type of its own.** When the platform reads other data than the
 EHR data the Session opened on, or none, the answer is a `DataNotice` with the data as it stands
 and a token. The Client shows that data next to the plan's, and the User takes it or keeps the
-plan's; either answer returns the token. Data that could not be read can only be kept. The
-challenge then records whether the platform answered (`Verified`), and the version is signed as
+plan's. Either answer returns the token, with one exception: taking the EHR's data with unsigned
+orders on the plan ends the signature with no challenge, the unsigned orders go and the Session
+reads the EHR again ([uc-12, 12c](uc-12-held-patient-context.md)). Data that could not be read can
+only be kept. The challenge then records whether the platform answered (`Verified`), and the version is signed as
 unverified when it did not. The version holds the plan's patient as signed and the EHR data as
 read at the challenge; the Patient's identity is the Session's, and nothing compares the plan's
 data with the EHR's at the commit.
