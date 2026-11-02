@@ -890,7 +890,7 @@ module SessionMachineTests =
                             (SessionState.opened full None)
                         |> Expect.equal
                             "the patient alone"
-                            (SessionState.opened refreshed None, [ SessionEffect.SetPatientData(Some aged) ])
+                            (SessionState.opened refreshed None, [ SessionEffect.SetPatientDataRead(Some aged) ])
 
                         let noHead = { refreshed with Head = None }
 
@@ -899,7 +899,7 @@ module SessionMachineTests =
                             (SessionState.opened full None)
                         |> Expect.equal
                             "the patient alone"
-                            (SessionState.opened noHead None, [ SessionEffect.SetPatientData(Some aged) ])
+                            (SessionState.opened noHead None, [ SessionEffect.SetPatientDataRead(Some aged) ])
                     }
 
                     test

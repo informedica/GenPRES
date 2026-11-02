@@ -365,12 +365,9 @@ let tests =
                 |> Expect.equal "the outcome alone" [ SigningEffect.TellSigned SigningFixtures.signed ]
             }
 
-            test "dropping the changes goes to the plan, and only the plan's answer starts the refresh" {
-                route (fun () -> "r-1") (LanesEffect.Signing SigningEffect.DropChangesAndRefresh)
-                |> Expect.equal "the plan first" [ LanesMsg.Plan(OrderPlanMsg.DropChanges "r-1") ]
-
-                route (fun () -> "r-1") (LanesEffect.Plan OrderPlanEffect.ChangesDropped)
-                |> Expect.equal "then the Session" [ LanesMsg.Session SessionMsg.RefreshPatient ]
+            test "reading the EHR again goes to the Session at once" {
+                route (fun () -> "r-1") (LanesEffect.Signing SigningEffect.ReadEhrAgain)
+                |> Expect.equal "the Session alone" [ LanesMsg.Session SessionMsg.RefreshPatient ]
             }
 
             testList
@@ -612,7 +609,7 @@ let tests =
                     steps
                     |> List.tryPick (
                         function
-                        | LanesStep.Patient(PatientMsg.Changed(Some p, _, request), _, _) when p = measured ->
+                        | LanesStep.Patient(PatientMsg.Refreshed(Some p, request), _, _) when p = measured ->
                             Some request
                         | _ -> None
                     )

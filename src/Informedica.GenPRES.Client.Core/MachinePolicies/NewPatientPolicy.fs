@@ -10,7 +10,7 @@ module NewPatientPolicy =
 
 
     /// Whether an edit on the panel is taken as a new patient: no patient is identified.
-    let startsNewPatient session = HeldPanelPolicy.identified session |> not
+    let startsNewPatient session = SessionPatientPolicy.identified session |> not
 
 
     /// Whether the panel asks before an edit: the edit is taken as a new patient and there is

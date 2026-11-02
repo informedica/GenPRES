@@ -76,9 +76,6 @@ type IOrderPlan =
     abstract SelectContext: string option -> unit
     // the contexts the rows keep, by id; the totals follow
     abstract FilterRows: string[] -> unit
-    // the contexts of the plan that are new or changed since the version last opened or
-    // signed, by id; while there are any in an open Session the patient context is held
-    abstract Changed: string[]
 
 
 /// Patient data and updates
@@ -163,15 +160,13 @@ type ISigning =
     abstract Signing: SigningMachine.SigningView
     // the orders that differ from the version last opened or signed, as they stood at the sign;
     // the dialog lists these
-    abstract Differences: (OrderContext * HeldContextPolicy.Difference)[]
+    abstract Differences: (OrderContext * PlanDifferencePolicy.Difference)[]
     // ask a challenge over the plan as shown
     abstract Sign: OrderPlan -> unit
     // whether the patient was no longer active in the EHR at the challenge; told before the PIN
     abstract EhrMovedOn: bool
     // who the patient being signed for is; none for a patient the EHR did not identify
     abstract SignedFor: NameAndBirthDate option
-    // whether the patient context is held: taking the EHR's data then drops the unsigned orders
-    abstract Held: bool
     // the data notice answered: the EHR's data taken, or the plan's kept
     abstract TakeEhrData: unit -> unit
     abstract KeepPlanData: unit -> unit

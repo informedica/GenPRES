@@ -105,45 +105,20 @@ let tests =
                             |> Expect.equal "the token as the request id" (asked plan notice.Token)
                     }
 
-                    test "the EHR's data taken: the plan takes them, with its own age and mark as an adult" {
-                        let marked =
-                            { plan with
-                                Patient =
-                                    { plan.Patient with
-                                        MarkedAdult = true
-                                        Age = Some(Informedica.GenPRES.Shared.Models.Patient.Age.fromDays 6000)
-                                    }
-                            }
-
-                        let shown =
-                            { marked with
-                                Patient =
-                                    { otherData with
-                                        Age = marked.Patient.Age
-                                        MarkedAdult = true
-                                    }
-                            }
-
-                        transition (SigningMsg.TakeEhrData false) (SigningState.noticed marked changed)
-                        |> Expect.equal "over the EHR's data" (asked shown "d-1")
-                    }
-
-                    test "the EHR's data taken with unsigned orders: the signature ends and the changes go" {
-                        transition (SigningMsg.TakeEhrData true) (SigningState.noticed plan changed)
-                        |> Expect.equal "no challenge" (SigningState.idle, [ SigningEffect.DropChangesAndRefresh ])
+                    test "the EHR's data taken: the signature ends and the EHR is read again, without a challenge" {
+                        transition SigningMsg.TakeEhrData (SigningState.noticed plan changed)
+                        |> Expect.equal "no challenge" (SigningState.idle, [ SigningEffect.ReadEhrAgain ])
                     }
 
                     test "an unverified notice has nothing to take: the dialog stays" {
-                        for unsigned in [ false; true ] do
-                            let state = SigningState.noticed plan unverified
+                        let state = SigningState.noticed plan unverified
 
-                            transition (SigningMsg.TakeEhrData unsigned) state
-                            |> Expect.equal "unchanged" (state, [])
+                        transition SigningMsg.TakeEhrData state |> Expect.equal "unchanged" (state, [])
                     }
 
                     test "an answer lands only on a notice" {
                         for state in [ SigningState.idle; requesting; challenged; submitting; unsent ] do
-                            for msg in [ SigningMsg.KeepPlanData; SigningMsg.TakeEhrData false ] do
+                            for msg in [ SigningMsg.KeepPlanData; SigningMsg.TakeEhrData ] do
                                 transition msg state |> Expect.equal $"{state}" (state, [])
                     }
                 ]
@@ -287,7 +262,7 @@ let tests =
                 let differ =
                     [|
                         { Informedica.GenPRES.Shared.Models.OrderContext.empty with Id = "o-1" },
-                        HeldContextPolicy.Difference.New
+                        PlanDifferencePolicy.Difference.New
                     |]
 
                 let state, _ = transition (SigningMsg.Sign(plan, differ, "r-1")) SigningState.idle

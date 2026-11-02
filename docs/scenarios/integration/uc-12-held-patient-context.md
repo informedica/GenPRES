@@ -8,6 +8,11 @@ patient followed the edit. So User A could sign orders that were composed on dif
 This page holds the context from the first new or changed order to the sign, so that everything
 a signed version adds rests on one patient context.
 
+**Replaced** by rule 14 of [plan 1430](../../implementation-plans/1430-patient-data-changes.md):
+the hold and `ContextDiffers` are gone. Patient data can always change, the orders follow it, and
+taking the EHR's data at a data notice ends the signature and reads the EHR again without removing
+an order. This page stays as the record of what the hold was.
+
 **Built** in [#1075](https://github.com/informedica/GenPRES/issues/1075), pull requests #1090
 to #1095; the [implementation plan](../../implementation-plans/1075-held-patient-context.md)
 lists what each step landed and where the build deviated from the design. The difference from

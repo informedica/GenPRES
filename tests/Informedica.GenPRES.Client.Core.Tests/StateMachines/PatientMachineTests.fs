@@ -68,6 +68,48 @@ let tests =
                 |> Expect.equal "the plan is behind" [ PatientEffect.CallPatient(Fixtures.answered, "r-2") ]
             }
 
+            test "a refresh keeps the mark as an adult, which the EHR does not hold" {
+                let sixteen = { Fixtures.ten with Age.Years = 16<year> }
+
+                let marked =
+                    { Fixtures.draft with
+                        Age = Some sixteen
+                        MarkedAdult = true
+                    }
+
+                let read =
+                    { Fixtures.answered with
+                        Age = Some sixteen
+                        Department = Some "ICK"
+                        MarkedAdult = false
+                    }
+
+                PatientState.init (Some marked)
+                |> PatientState.transition (PatientMsg.Refreshed(Some read, "r-1"))
+                |> snd
+                |> Expect.equal
+                    "the EHR's data with the mark"
+                    [ PatientEffect.CallPatient({ read with MarkedAdult = true }, "r-1") ]
+            }
+
+            test "a refresh of an unmarked patient stays unmarked, and none read clears" {
+                PatientState.init (Some Fixtures.draft)
+                |> PatientState.transition (PatientMsg.Refreshed(Some Fixtures.answered, "r-1"))
+                |> snd
+                |> Expect.equal "unmarked" [ PatientEffect.CallPatient(Fixtures.answered, "r-1") ]
+
+                // the EHR corrected the age: a mark below sixteen would make the read no patient
+                PatientState.init (Some { Fixtures.draft with MarkedAdult = true })
+                |> PatientState.transition (PatientMsg.Refreshed(Some Fixtures.answered, "r-1"))
+                |> snd
+                |> Expect.equal "the mark goes" [ PatientEffect.CallPatient(Fixtures.answered, "r-1") ]
+
+                PatientState.init (Some { Fixtures.draft with MarkedAdult = true })
+                |> PatientState.transition (PatientMsg.Refreshed(None, "r-1"))
+                |> snd
+                |> Expect.equal "cleared" [ PatientEffect.SetPatientData None ]
+            }
+
             test "a change is sent, the draft kept for the panel" {
                 let state, effects = transition (PatientMsg.Changed(Some draft, renewed, "r-1")) none
 

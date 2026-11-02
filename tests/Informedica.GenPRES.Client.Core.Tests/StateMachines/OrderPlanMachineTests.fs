@@ -509,9 +509,69 @@ let workTests =
         ]
 
 
+/// The ids of the orders new or changed since the version last opened or signed.
+let changedIds (state: OrderPlanState) =
+    state
+    |> OrderPlanState.plan
+    |> Option.map (fun plan -> OrderPlanState.differences plan state)
+    |> Option.defaultValue [||]
+    |> Array.filter (fun (_, difference) -> difference <> PlanDifferencePolicy.Difference.Removed)
+    |> Array.map (fun (ctx, _) -> ctx.Id)
+
+
+/// Orders changed by new patient data are a change in the plan, shown against the version.
+[<Tests>]
+let workAfterUpdateTests =
+    let update tp state =
+        state
+        |> transition (OrderPlanMsg.PatientDataChanged(Some other, "r-1"))
+        |> fst
+        |> transition (OrderPlanMsg.Answered("r-1", Ok tp))
+        |> fst
+        |> OrderPlanState.work
+
+    // the given amounts stay; the dose per kg of the orderable moved
+    let followed =
+        { one with
+            OrderContexts =
+                one.OrderContexts
+                |> Array.map (fun c ->
+                    { c with
+                        Scenarios =
+                            c.Scenarios
+                            |> Array.map (fun sc ->
+                                { sc with
+                                    OrderScenario.Order.Orderable.Dose.QuantityAdjust.Variable.Vals =
+                                        valueIn "mg/kg" 7.5m
+                                }
+                            )
+                    }
+                )
+        }
+
+    testList
+        "the work after a patient update"
+        [
+            test "orders the new data changed are unsigned work" {
+                held one None |> update followed |> Expect.equal "changed" PlanWork.Changed
+            }
+
+            test "an order without a dose per kg, without a notification, stays as signed" {
+                held one None |> update one |> Expect.equal "as signed" PlanWork.AsSigned
+            }
+
+            test "a plan equal to the version has nothing to sign, also after a change" {
+                held one None
+                |> OrderPlanState.withWork PlanWork.Changed
+                |> update one
+                |> Expect.equal "as signed" PlanWork.AsSigned
+            }
+        ]
+
+
 [<Tests>]
 let heldTests =
-    let changedOf (state: OrderPlanState, _: OrderPlanEffect list) = state |> OrderPlanState.changed
+    let changedOf (state: OrderPlanState, _: OrderPlanEffect list) = changedIds state
     let heldOf result = changedOf result |> Array.isEmpty |> not
 
     /// The answer to a command sent over the plan held, landed.
@@ -541,7 +601,7 @@ let heldTests =
                 |> landed (OrderPlanCommand.AddOrderContext(one, context "c-2" "ibuprofen")) (Ok two)
                 |> fun (state, _) -> state |> OrderPlanState.differences two
                 |> Array.map (fun (c, d) -> c.Id, d)
-                |> Expect.equal "the order added is new" [| "c-2", HeldContextPolicy.Difference.New |]
+                |> Expect.equal "the order added is new" [| "c-2", PlanDifferencePolicy.Difference.New |]
             }
 
             test "the differences list an order of the version removed" {
@@ -549,7 +609,7 @@ let heldTests =
                 |> landed (OrderPlanCommand.RemoveOrderContexts(two, [| "c-2" |])) (Ok one)
                 |> fun (state, _) -> state |> OrderPlanState.differences one
                 |> Array.map (fun (c, d) -> c.Id, d)
-                |> Expect.equal "the order removed is listed" [| "c-2", HeldContextPolicy.Difference.Removed |]
+                |> Expect.equal "the order removed is listed" [| "c-2", PlanDifferencePolicy.Difference.Removed |]
             }
 
             test "an order of the version removed does not hold" {
@@ -617,12 +677,12 @@ let signingTests =
                     |> transition (OrderPlanMsg.Answered("r-1", Ok two))
                     |> fst
 
-                added |> OrderPlanState.changed |> Expect.isNonEmpty "the order added holds"
+                added |> changedIds |> Expect.isNonEmpty "the order added holds"
 
                 added
                 |> transition OrderPlanMsg.Signed
                 |> fst
-                |> OrderPlanState.changed
+                |> changedIds
                 |> Expect.isEmpty "the order plan is the version signed"
             }
         ]
@@ -917,70 +977,6 @@ let changeTests =
                     |> snd
                     |> Expect.equal $"%A{msg}" [ OrderPlanEffect.CallPlan(expected, "r-1") ]
                 )
-            }
-        ]
-
-
-/// The new and changed orders dropped from the sign dialog, the patient read again after.
-[<Tests>]
-let dropChangesTests =
-    // the version holds one context, the plan a second one
-    let unsigned =
-        OrderPlanState.changing patient one None (OrderPlanCommand.FilterRows(one.Filtered, one)) "r-0"
-        |> transition (OrderPlanMsg.Answered("r-0", Ok two))
-        |> fst
-
-    let ids = unsigned |> OrderPlanState.changed
-    let dropping, sent = unsigned |> transition (OrderPlanMsg.DropChanges "r-1")
-
-    testList
-        "the changes dropped"
-        [
-            test "only the new and changed orders are removed" {
-                sent
-                |> Expect.equal
-                    "the removal"
-                    [
-                        OrderPlanEffect.CallPlan(OrderPlanCommand.RemoveOrderContexts(two, ids), "r-1")
-                    ]
-            }
-
-            test "the patient is read again only once the removal has landed" {
-                sent |> List.contains OrderPlanEffect.ChangesDropped |> Expect.isFalse "not yet"
-
-                dropping
-                |> transition (OrderPlanMsg.Answered("r-1", Ok one))
-                |> snd
-                |> List.contains OrderPlanEffect.ChangesDropped
-                |> Expect.isTrue "after the answer"
-            }
-
-            test "a removal that failed reads nothing again, and is told" {
-                dropping
-                |> transition (OrderPlanMsg.Answered("r-1", Error [| "no" |]))
-                |> snd
-                |> Expect.equal "the error alone" [ OrderPlanEffect.TellError [| "no" |] ]
-            }
-
-            test "another change after the drop reads nothing again" {
-                let changing, _ =
-                    dropping
-                    |> transition (OrderPlanMsg.Answered("r-1", Ok one))
-                    |> fst
-                    |> transition (pageMsg (OrderPlanCommand.FilterRows(one.Filtered, one), "r-2"))
-
-                changing
-                |> transition (OrderPlanMsg.Answered("r-2", Ok one))
-                |> snd
-                |> List.contains OrderPlanEffect.ChangesDropped
-                |> Expect.isFalse "once only"
-            }
-
-            test "with a request out or no patient the drop leaves the state" {
-                for state in [ dropping; OrderPlanState.noPatient ] do
-                    state
-                    |> transition (OrderPlanMsg.DropChanges "r-9")
-                    |> Expect.equal "unchanged" (state, [])
             }
         ]
 

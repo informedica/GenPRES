@@ -57,6 +57,37 @@ module PlanContextPolicy =
         )
 
 
+    /// What new patient data moves in the order a context contributes, since the given amounts stay as
+    /// they are: the doses per kg or per m2 of the orderable, its components and their items. Nothing
+    /// when it contributes no order.
+    let adjustedValues (ctx: OrderContext) =
+        let adjusted (dose: Dose) =
+            [ dose.QuantityAdjust; dose.PerTimeAdjust; dose.RateAdjust; dose.TotalAdjust ]
+            |> List.map values
+
+        Informedica.GenPRES.Shared.Models.OrderContext.contribution ctx
+        |> Option.map (fun sc ->
+            let orderable = sc.Order.Orderable
+
+            [
+                orderable.Dose
+                for cmp in orderable.Components do
+                    cmp.Dose
+
+                    for item in cmp.Items do
+                        item.Dose
+            ]
+            |> List.collect adjusted
+        )
+
+
+    /// What tells the prescriber about the order a context contributes: the notification on each
+    /// order variable, and whether the rules no longer apply. Nothing when it contributes no order.
+    let notifications (ctx: OrderContext) =
+        Informedica.GenPRES.Shared.Models.OrderContext.contribution ctx
+        |> Option.map (fun sc -> sc.RulesNoLongerApply, sc.Order |> ArgumentationPolicy.variables |> List.map _.Level)
+
+
     /// The id of the order a context contributes; nothing when it contributes no order. An order
     /// created anew from the rules, for another medication or rebuilt, gets a new id; a step keeps
     /// it.
@@ -66,10 +97,13 @@ module PlanContextPolicy =
 
 
     /// Whether an order context in the plan changed against its opened or signed version: it holds
-    /// another order, or one of the editable variables or the argumentation differs.
+    /// another order, or one of the editable variables, a dose per kg or per m2, a notification or the
+    /// argumentation differs.
     let changed (opened: OrderContext) (ctx: OrderContext) =
         orderId opened <> orderId ctx
         || editableValues opened <> editableValues ctx
+        || adjustedValues opened <> adjustedValues ctx
+        || notifications opened <> notifications ctx
         || opened.Argumentation <> ctx.Argumentation
 
 

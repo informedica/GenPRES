@@ -609,8 +609,6 @@ type private Projection(state: State, dispatch: Msg -> unit) =
             Messages.plan (OrderPlanMsg.Change(OrderPlanChange.FilterRows ids, Elmish.newRequest ()))
             |> dispatch
 
-        member _.Changed = Client.changedOrders state
-
     interface AppEnv.IPatient with
         member _.Draft = Client.draft state
 
@@ -676,8 +674,6 @@ type private Projection(state: State, dispatch: Msg -> unit) =
 
         // one request id per Sign, so the answer lands on this request and no other
         member _.Sign plan = Msg.Sign(plan, Elmish.newRequest ()) |> dispatch
-
-        member _.Held = Client.held state
 
         member _.TakeEhrData() = Msg.TakeEhrData |> dispatch
 

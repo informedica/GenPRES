@@ -18,7 +18,7 @@ module NewPatientPolicyTests =
         { ctx with Filter = { ctx.Filter with Generic = Some "paracetamol" } }
 
     let notPicked = { picked with Filter = { picked.Filter with Generic = None } }
-    let identified = HeldPanelPolicyTests.identified |> SessionView.Open
+    let identified = SessionPatientPolicyTests.identified |> SessionView.Open
 
 
     [<Tests>]

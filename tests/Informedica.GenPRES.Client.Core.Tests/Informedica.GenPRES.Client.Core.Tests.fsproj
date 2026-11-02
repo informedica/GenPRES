@@ -47,11 +47,11 @@
     <Compile Include="Policies/FieldOpenPolicyTests.fs" />
     <Compile Include="Policies/IntentPolicyTests.fs" />
     <Compile Include="Policies/PlanContextPolicyTests.fs" />
+    <Compile Include="Policies/PlanDifferencePolicyTests.fs" />
     <Compile Include="Policies/PlanCellPolicyTests.fs" />
     <Compile Include="Policies/SectionFoldPolicyTests.fs" />
     <Compile Include="Policies/TotalsChangePolicyTests.fs" />
     <Compile Include="Policies/PlanWorkPolicyTests.fs" />
-    <Compile Include="Policies/HeldContextPolicyTests.fs" />
     <Compile Include="Policies/ServerErrorPolicyTests.fs" />
     <Compile Include="Policies/UrlPolicyTests.fs" />
 
@@ -71,7 +71,7 @@
     <Compile Include="MachinePolicies/SessionGatePolicyTests.fs" />
     <Compile Include="MachinePolicies/SigningPolicyTests.fs" />
     <Compile Include="MachinePolicies/UnsignedWorkPolicyTests.fs" />
-    <Compile Include="MachinePolicies/HeldPanelPolicyTests.fs" />
+    <Compile Include="MachinePolicies/SessionPatientPolicyTests.fs" />
     <Compile Include="MachinePolicies/NewPatientPolicyTests.fs" />
     <Compile Include="MachinePolicies/StartupPolicyTests.fs" />
     <Compile Include="MachinePolicies/BusyTests.fs" />
