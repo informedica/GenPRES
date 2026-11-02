@@ -235,7 +235,8 @@ module OrderProcessor =
         // the order program runs the calculations, through processPipelineWith
         | CalcMinMax _
         | CalcValues _
-        | ReCalcValues _ -> invalidArg (nameof cmd) "the order program runs this command"
+        | ReCalcValues _
+        | Readjust _ -> invalidArg (nameof cmd) "the order program runs this command"
         | IncreaseIncrements ord ->
             [
                 {
@@ -326,6 +327,28 @@ module OrderProcessor =
             | OrderVariableReference.ComponentOrderableQuantity _ -> true
             | OrderVariableReference.OrderableOrderCount -> not (sch |> Schedule.isOnce || sch |> Schedule.isOnceTimed)
             | _ -> false
+
+
+        /// The per kg or per m2 variables of every dose of the order.
+        let adjusted (ord: Order) =
+            let name = WrappedString.Name.toString
+
+            [
+                for p in
+                    [
+                        DoseProperty.QuantityAdjust
+                        DoseProperty.PerTimeAdjust
+                        DoseProperty.RateAdjust
+                        DoseProperty.TotalAdjust
+                    ] do
+                    OrderVariableReference.OrderableDose p
+
+                    for c in ord.Orderable.Components do
+                        OrderVariableReference.ComponentDose(c.Name |> name, p)
+
+                        for i in c.Items do
+                            OrderVariableReference.ItemDose(c.Name |> name, i.Name |> name, p)
+            ]
 
 
         /// The invariants: the adjustment, the content of each component, the content and
@@ -609,6 +632,7 @@ module OrderProcessor =
                 |> OrderVariable.setMaxToValueOf (ord.Orderable.OrderableQuantity |> Quantity.toOrdVar)
             | SetBackTo.MinIncr -> ovar |> OrderVariable.applyOnlyMinIncrConstraints
             | SetBackTo.AnyPositive -> ovar |> OrderVariable.free
+            | SetBackTo.PositiveOffIncrement -> ovar |> OrderVariable.setToNonZeroPositive
             | SetBackTo.One -> ovar |> OrderVariable.setToOne
             | SetBackTo.AtLeastOne -> ovar |> OrderVariable.setToAtLeastOne
 
@@ -721,6 +745,17 @@ module OrderProcessor =
             |> Set.unionMany
 
 
+        /// Whether the effects change the calculated constraints.
+        let recordsConstraints effects =
+            effects
+            |> List.exists (
+                function
+                | OrderEffect.RecordCalculatedConstraints
+                | OrderEffect.RecalculateConstraints _ -> true
+                | _ -> false
+            )
+
+
         /// Runs one effect; a failure keeps the order the effect was run on, as a failed solve returns the
         /// order it partly solved.
         let rec apply caps logger effect ord =
@@ -792,6 +827,16 @@ module OrderProcessor =
                     Ok ord
                 else
                     ord |> apply caps logger eff
+            | OrderEffect.RecalculateConstraints effects ->
+                match ord |> withoutCalculatedConstraints |> run caps logger effects with
+                | Ok calculated -> ord |> withCalculatedConstraintsOf calculated |> Ok
+                | Error(_, f) ->
+                    // the order is kept, so the failure is logged instead of returned
+                    $"The calculated constraints stay as they are, the effects failed: %A{f}"
+                    |> Events.OrderScenario
+                    |> Logging.logWarning logger
+
+                    Ok ord
             | OrderEffect.Try effects ->
                 match ord |> run caps logger effects with
                 | Ok o -> Ok o
@@ -1232,6 +1277,16 @@ module OrderProcessor =
                     OrderEffect.EnumerateRateValues(cap, selection, original)
                 ]
 
+            // the defined constraints solved for min and max, the increments coarsened and the result
+            // recorded as the calculated constraints
+            let calculateConstraints =
+                [
+                    OrderEffect.SetAllOrderVariableRangesBack SetBackTo.CalculatedElseDefined
+                    OrderEffect.SolveOrder SolveMode.MinMax
+                    OrderEffect.CoarsenIncrements 10
+                    OrderEffect.RecordCalculatedConstraints
+                ]
+
             match action with
             | OrderAction.Set(ovarRef, choice) ->
                 // an nth is solved with values, as a selection from a list is; on an order without lists a
@@ -1307,13 +1362,23 @@ module OrderProcessor =
                             OrderEffect.SolveOrder SolveMode.Values
                             OrderEffect.DropImpossibleValues ovarRef
                         ]
+            | OrderAction.Readjust when ord |> EquationMapping.usesAdjust |> not -> Ok []
+            | OrderAction.Readjust ->
+                // the values of the doses are given, so a per kg or per m2 value follows from them, also
+                // outside its constraints and off its increment
+                Ok
+                    [
+                        OrderEffect.RecalculateConstraints calculateConstraints
+
+                        for ovarRef in ord |> OrderVariableReference.adjusted do
+                            OrderEffect.SetOrderVariableRangeBack(ovarRef, SetBackTo.PositiveOffIncrement)
+
+                        OrderEffect.SolveOrder SolveMode.Values
+                    ]
             | OrderAction.CalcConstraints ->
                 Ok
                     [
-                        OrderEffect.SetAllOrderVariableRangesBack SetBackTo.CalculatedElseDefined
-                        OrderEffect.SolveOrder SolveMode.MinMax
-                        OrderEffect.CoarsenIncrements 10
-                        OrderEffect.RecordCalculatedConstraints
+                        yield! calculateConstraints
                         // the norm dose needs dose values; a failure to make them keeps the order
                         if ord |> hasNormDose && ord |> hasAtMostTwoComponents then
                             OrderEffect.Unless(
@@ -1395,8 +1460,10 @@ module OrderProcessor =
                     // order runs whole
                     | oks when oks |> isListedUnion maxUnionValues |> not -> runWhole ()
                     | oks ->
-                        let records = effs |> List.contains OrderEffect.RecordCalculatedConstraints
-                        Ok(oks |> unionPerConcentration maxUnionValues records ord)
+                        Ok(
+                            oks
+                            |> unionPerConcentration maxUnionValues (effs |> OrderEffect.recordsConstraints) ord
+                        )
 
 
     /// The property commands as actions of the order program, while the order context still sends
@@ -1489,6 +1556,8 @@ module OrderProcessor =
             | CalcMinMax ord -> Some(ord, OrderAction.CalcConstraints)
             | CalcValues ord -> Some(ord, OrderAction.CalcValues)
             | ReCalcValues ord -> Some(ord, OrderAction.Reset)
+            // the value is in place before the action, so the order it starts from holds it
+            | Readjust(ord, adjust) -> Some(ord |> withAdjustValue adjust, OrderAction.Readjust)
             | ChangeProperty(ord, cmd) -> cmd |> ofChangeProperty |> Option.map (fun action -> ord, action)
             | IncreaseIncrements _
             | SolveOrder _ -> None

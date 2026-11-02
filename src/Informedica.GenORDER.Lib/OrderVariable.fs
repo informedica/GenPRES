@@ -618,6 +618,11 @@ module OrderVariable =
     let mapConstraints f (ovar: OrderVariable) = ovar |> setConstraints (ovar |> getConstraints |> f)
 
 
+    /// The order variable without calculated constraints.
+    let clearCalculatedConstraints (ovar: OrderVariable) =
+        { ovar with CalculatedConstraints = Constraints.create None None None None }
+
+
     let setCalculatedConstraints (ovar: OrderVariable) =
         { ovar with
             CalculatedConstraints =

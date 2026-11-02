@@ -320,6 +320,8 @@ module Types =
         | IncreaseIncrements of Order
         | CalcValues of Order
         | ReCalcValues of Order
+        /// The order on a new value of what its doses are adjusted to, such as a new weight.
+        | Readjust of Order * ValueUnit
         | SolveOrder of Order
         | ChangeProperty of Order * ChangePropertyCommand
 
@@ -461,6 +463,9 @@ module Types =
         | Reset
         /// Calculate the values to select from, as selecting a scenario does with its order.
         | CalcValues
+        /// Follow the adjust value the order holds: what the patient gets stays, the calculated
+        /// constraints and the per kg or per m2 values are calculated again.
+        | Readjust
 
 
     /// The range an effect sets the current range of a variable back to.
@@ -479,6 +484,9 @@ module Types =
         /// Any positive value on the defined increment, so the increment is the minimum; any
         /// positive value when there is no defined increment.
         | AnyPositive
+        /// Any positive value without an increment, for a value that follows from the others and may
+        /// fall outside its constraints.
+        | PositiveOffIncrement
         /// The value 1, for a count.
         | One
         /// Any value of 1 or more, for a count.
@@ -574,6 +582,10 @@ module Types =
         | Unless of OrderCondition list * OrderEffect
         /// The effects run in turn; when one fails, the order is kept as it was before the first.
         | Try of OrderEffect list
+        /// The calculated constraints worked out from the defined constraints by the effects, on a
+        /// copy of the order, so its values stay. Effects that fail leave the calculated constraints
+        /// as they are.
+        | RecalculateConstraints of OrderEffect list
 
 
     /// Why an action or effect stops.
