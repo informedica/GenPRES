@@ -130,14 +130,15 @@ data mean for those orders:
 
 - What the patient gets stays: the orderable dose quantity, the frequency, the orderable dose rate
   and the preparation. Only a prescriber changes those.
-- Every Order Context in the Order Plan takes the new data, so no order rests on data other than
-  the data shown. The prescribing workbench clears, since a selection on it was made under the old
-  data.
+- Every order is calculated on the new data, so no order rests on data other than the data shown.
+  The Order Plan holds the current patient, and an Order Context keeps the patient its rules were
+  chosen for. The prescribing workbench clears, since a selection on it was made under the old data.
 - A change of weight or BSA replaces the Adjustment Quantity and calculates the Adjusted Doses
   again. The order is then compared with its constraints, as every order is.
-- Every patient data update looks up the rules again. When the same picks give no rule, or a rule
-  with other limits than the order has, the order gets a notice that the rules no longer apply. The
-  order stays and signing is not blocked. A notice stays as long as it is true.
+- Every patient data update looks up the same picks for the patient of the Order Context and for
+  the current patient. When the current patient gets no rule, or other rules, the order gets a
+  notice that the rules no longer apply. The order stays and signing is not blocked. A notice stays
+  as long as it is true, so data set back to those of the Order Context clear it.
 
 A signed version never changes. An order changed by new data is a change in the Order Plan, and the
 prescriber signs a new version on the new data.

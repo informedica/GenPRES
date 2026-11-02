@@ -59,18 +59,34 @@ estimate.
 5. **What the patient gets stays.** The orderable dose quantity, the frequency, the orderable dose
    rate and the preparation stay exactly as prescribed. A change of data never changes what the
    patient gets. Only a prescriber does that.
-6. **Every order context takes the new data.** After this, no context in the plan rests on data other
-   than the data shown. Contexts added later are made on the same data.
+6. **Every order is calculated on the new data, and its context keeps the patient its rules were
+   chosen for.** After this, no order in the plan is calculated on data other than the data shown.
+   The order plan holds the current patient. An order context holds the patient as it was when the
+   context was made, which rule 8 compares with. Contexts added later are made on the current data.
 7. **A change of weight or BSA recalculates the order.** The adjust value of the order is replaced
    and the values per kg or per m2 are calculated again. The order is then compared with its
    calculated and defined constraints, as every order is, and shows the same notifications. Because
    the given amount stays and the weight and height of an identified patient are changed, never
    deleted, this recalculation always gives an answer. A height changes the BSA. A new estimate of
    the weight or height counts as a change of that value.
-8. **Every change of data checks the rules.** The same picks are looked up for the new data. When
-   that gives no rule, or a rule with other limits than the order has, the order gets a general
-   notice: the rules no longer apply to this order. The dose, solution and renal rules all count.
-   Another rule with the same limits gives no notice. Examples:
+8. **Every change of data checks the rules.** The same picks are looked up twice, for the patient of
+   the order context and for the current patient of the order plan. When the current patient gets no
+   rule, or other rules than the patient of the context, the order gets a general notice: the rules
+   no longer apply to this order. A weight set back to the data of the context gives the same rules,
+   so the notice goes. A lookup that fails says nothing about the rules: it is logged, and the order
+   keeps the notice it had.
+
+   - **Which rules count.** The dose and renal rules always count. Rules are compared as rules, not
+     by their limits, so another rule row with the same limits also gives a notice. A rule counts as
+     the lookup adapts it to the patient: a dose that reaches the maximum of its rule at the new
+     weight has other limits, so it gets the notice.
+   - **When the solution rules count.** Only when the order holds a dose count of 1. The whole
+     preparation is then one dose, so a solution limit is a limit on what the patient gets. With more
+     doses the preparation stays as it is.
+   - **What is left out.** The amount the lookup works out from a per kg solution limit, since that
+     rule is the same at every weight.
+
+   Examples:
    - the weight goes from 9.5 to 10.5 kg and from 10 kg a dose rule with other limits applies
    - the renal function falls and a renal rule now applies
    - the central line is removed and the order needs a central line
@@ -140,9 +156,10 @@ estimate.
 19. **One summary message at the moment of a change.** It says that the patient data changed, that
     the orders were updated, how many have a notification or a notice, and that the workbench was
     cleared. It does not stop the prescriber. The notifications and notices stay on the orders
-    themselves as long as they are true. Every change of the data or of the order checks them
-    again, and one that no longer applies goes. A notice is not stored, so a wrong weight that is
-    corrected back leaves nothing behind.
+    themselves as long as they are true, and one that no longer applies goes. Every change of the
+    data or of the order compares the order with its constraints again. Every change of data also
+    checks the rules. The order holds the result of that check until the next change of data, and a
+    signed version keeps it. So a wrong weight that is corrected back leaves nothing behind.
 
 ## Scenarios
 
@@ -158,7 +175,11 @@ estimate.
 | Identified, TPN | Weight changes | Amounts stay, per kg values and totals follow, the composition stays. Another TPN is delete and create |
 | Identified, signed plan | Weight corrected | Orders show as changed, a new version to sign |
 | Identified, signed plan | Weight typed wrong and corrected back | The plan equals the signed version, nothing to sign, the workbench is cleared |
-| Identified, weight 9.5 to 10.5 kg | Another dose rule with the same limits | Recalculated, no notice |
+| Identified, weight 9.5 to 10.5 kg | Another dose rule row with the same limits | Recalculated, general notice |
+| Identified, weight 9.5 to 10.5 to 11 kg | Rule A up to 10 kg, rule B from 10 kg | The notice stays at 11 kg, the context still has the patient of rule A |
+| Identified, weight 9.5 to 10.5 kg and back to 9.5 kg | Rule A up to 10 kg, rule B from 10 kg | The notice goes |
+| Identified, TPN at 5 mL/kg | Weight changes, the same rule | No notice: the rule is compared, not the amount it gives |
+| Identified, 15 mg/kg with a maximum of 1000 mg | Weight 55 to 70 kg, the maximum is reached | Recalculated, general notice |
 | Identified, 3 unsigned orders | The EHR launches another patient in the same tab | The question about unsigned work, then the other patient opens |
 | Identified, 3 unsigned orders | The EHR launches another patient in a new tab | The other patient opens in the new tab, the old tab is stopped, its unsigned orders are lost |
 | Identified, session on A | The EHR moves on to B without a launch, the prescriber signs for A | A warning before the PIN, the prescriber can still sign for A |
@@ -168,9 +189,10 @@ estimate.
 
 ## What this replaces
 
-- **"The patient of a context never changes"** (plan 667, core domain model) is replaced by rule 6.
-  The rule existed so that an order always matches its context. Rule 6 keeps that aim by updating
-  both, and rule 12 keeps a signed record unchanged.
+- **"The patient of a context never changes"** (plan 667) stays, with a new meaning given by rules 6
+  and 8. The patient of a context says which rules the context was made under. The order no longer
+  stays calculated on that patient: it is calculated on the current patient of the order plan.
+  Rule 12 keeps a signed record unchanged.
 - **#672** rejected updating a context in place because a signed context is immutable. Rules 12 and
   13 solve that with a new version, so #672 closes with this plan, without replacing contexts.
 - **Plan 1075**, the hold on patient data, is replaced by rule 14.
@@ -187,11 +209,14 @@ One pull request per step, each within the size limit and script first where the
 The order comes from the logic: the domain first, then what uses it.
 
 1. **Domain documents.** The core domain model.
-2. **Recalculation.** Rules 5 to 7 in the domain: new data on an order context, the given amounts
-   unchanged, the adjust value replaced, the constraints compared.
+2. **Recalculation.** Rules 5 to 7 in the domain: new data on an order, the given amounts unchanged,
+   the adjust value replaced, the constraints compared.
 3. **Rule check.** Rule 8: the check and the general notice.
 4. **The plan follows the data.** Rules 4, 6, 7, 8, 9 and 19 for a whole plan through the patient
-   update, and rule 13 for what counts as changed.
+   update, and rule 13 for what counts as changed. An order context keeps the patient its rules were
+   chosen for, so what reads that patient as the current one takes the patient of the plan: the
+   intake of a context, its totals per kg with it, and the reconciliation of its filter. A stored
+   absolute limit from a per kg solution limit follows the weight.
 5. **One edit rule.** Rules 10 and 11 on the plan page, the order dialog and the nutrition page.
 6. **Patient identity.** Rules 1 and 2: the question in anonymous mode and the clearing; rule 14a,
    the warning at signing. The stopped old tab of rule 3 is built by plan 1599. With this step #1430

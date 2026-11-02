@@ -99,6 +99,7 @@ module Fixture =
             UseRenalRule = false
             RenalRule = None
             FitsOnlyWithoutDivisible = false
+            RulesNoLongerApply = false
             ProductsIds = [||]
             Access = Informedica.GenForm.Lib.Types.AnyAccess
         }
@@ -173,6 +174,8 @@ module Fixture =
         }
 
     let cm v = v |> ValueUnit.singleWithUnit Units.Height.centiMeter
+
+    let provider = OrderPlanTests.RulesOf [||] :> Informedica.GenForm.Lib.Resources.IResourceProvider
 
     let fixtures =
         [
@@ -368,15 +371,15 @@ let tests =
                 |> Expect.notEqual "another maximum" (ord |> calculatedMax)
             }
 
-            test "the context takes the patient and its order follows the weight" {
+            test "the context keeps its patient and its order follows the weight" {
                 let ord = Scenarios.cotrim |> Fixture.processed
                 let pat = { Patient.patient with Weight = ord |> Fixture.times 2N |> Some }
 
                 let ctx = [| Fixture.scenario ord |] |> Fixture.context
 
-                match ctx |> OrderContext.updatePatientData Fixture.logger pat with
+                match ctx |> OrderContext.orderOnPatientData Fixture.logger Fixture.provider pat with
                 | Evaluated after ->
-                    after.Patient |> Expect.equal "the patient" pat
+                    after.Patient |> Expect.equal "the patient of the rules" ctx.Patient
                     after.Scenarios[0].Order
                     |> Fixture.adjustOf
                     |> Expect.equal "the weight" (ord |> Fixture.adjustOf |> (*) 2N)
@@ -388,7 +391,10 @@ let tests =
 
                 let ctx = [| Fixture.scenario ord |] |> Fixture.context
 
-                match ctx |> OrderContext.updatePatientData Fixture.logger Patient.patient with
+                match
+                    ctx
+                    |> OrderContext.orderOnPatientData Fixture.logger Fixture.provider Patient.patient
+                with
                 | Evaluated after ->
                     after.Scenarios[0].Order
                     |> Fixture.adjustOf
@@ -404,24 +410,22 @@ let tests =
                     match
                         scenarios
                         |> Fixture.context
-                        |> OrderContext.updatePatientData Fixture.logger pat
+                        |> OrderContext.orderOnPatientData Fixture.logger Fixture.provider pat
                     with
                     | Refused(sent, _) -> sent.Patient |> Expect.equal "the patient" Patient.patient
                     | Evaluated _ -> failtest "not refused"
             }
 
-            test "the same weight takes the patient and does not calculate the order again" {
+            test "the same weight does not calculate the order again" {
                 let ord = Scenarios.cotrim |> Fixture.processed |> Order.withoutCalculatedConstraints
                 let pat = { Patient.patient with Weight = ord |> Fixture.times 1N |> Some }
 
                 match
                     [| Fixture.scenario ord |]
                     |> Fixture.context
-                    |> OrderContext.updatePatientData Fixture.logger pat
+                    |> OrderContext.orderOnPatientData Fixture.logger Fixture.provider pat
                 with
                 | Evaluated after ->
-                    after.Patient |> Expect.equal "the patient" pat
-
                     after.Scenarios[0].Order
                     |> Order.toOrdVars
                     |> List.filter (_.CalculatedConstraints >> OrderVariable.Constraints.isEmpty >> not)
@@ -460,7 +464,8 @@ let tests =
                         Weight = Some(30N |> Fixture.kg)
                         Height = Some(h |> Fixture.cm)
                     }
-                let update pat ctx = ctx |> OrderContext.updatePatientData Fixture.logger pat
+                let update pat ctx =
+                    ctx |> OrderContext.orderOnPatientData Fixture.logger Fixture.provider pat
 
                 let order outcome =
                     match outcome with

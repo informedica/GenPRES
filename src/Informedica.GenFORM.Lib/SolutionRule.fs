@@ -479,6 +479,26 @@ module SolutionRule =
     /// <param name="filter">The Filter</param>
     /// <param name="solutionRules">The SolutionRules</param>
     /// <returns>The matching SolutionRules</returns>
+    /// The solution rule without the amounts the rule lookup works out from a per kg limit with the
+    /// weight of the patient, so that one rule compares as equal at every weight.
+    let withoutPatientAmounts (sr: SolutionRule) =
+        { sr with
+            Volume =
+                if sr.VolumeAdjust |> MinMax.isEmpty then
+                    sr.Volume
+                else
+                    MinMax.empty
+            SolutionLimits =
+                sr.SolutionLimits
+                |> Array.map (fun sl ->
+                    if sl.QuantityAdj |> MinMax.isEmpty then
+                        sl
+                    else
+                        { sl with Quantity = MinMax.empty }
+                )
+        }
+
+
     let filter mapping (filter: SolutionFilter) (solutionRules: SolutionRule[]) =
         let eqs a (b: string) =
             a |> Option.map (String.equalsCapInsens b) |> Option.defaultValue true
