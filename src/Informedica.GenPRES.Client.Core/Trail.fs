@@ -1099,6 +1099,7 @@ module Trail =
             | ClientMsg.Shell m -> $"Shell %s{Shell.msg m}"
             | ClientMsg.PageChosen p -> $"PageChosen %s{Loader.page p}"
             | ClientMsg.PanelChanged(_, _, request) -> $"PanelChanged %s{Part.shortId request}"
+            | ClientMsg.NewPatient(_, _, request) -> $"NewPatient %s{Part.shortId request}"
             | ClientMsg.UrlChanged(_, u) -> $"UrlChanged %s{Shell.url u}"
             | ClientMsg.EmergencyListItemChosen item -> $"EmergencyListItemChosen %s{item}"
             | ClientMsg.ContinuousMedicationChosen item -> $"ContinuousMedicationChosen %s{item}"

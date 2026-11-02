@@ -52,6 +52,10 @@ module Client =
         | PageChosen of Page
         /// The patient panel changed the patient data, with what becomes of the estimates.
         | PanelChanged of Patient option * PatientDraftPolicy.Estimates * request: string
+        /// A new patient from the panel, once the prescriber agreed. This is not a patient data
+        /// update, in which the orders follow the data: the patient goes first, so everything clears,
+        /// and the new data follow.
+        | NewPatient of Patient option * PatientDraftPolicy.Estimates * request: string
         /// The url changed in the address bar, as segments and as read.
         | UrlChanged of string list * Url.UrlParts
         /// An item chosen on the emergency list.
@@ -128,6 +132,14 @@ module Client =
             (state.Lanes.OrderContext |> OrderContextState.context)
             (state.Lanes.Signing |> SigningState.view)
             (state.Lanes.OrderPlan |> OrderPlanState.work)
+
+
+    /// Whether an edit on the panel is taken as a new patient and asks first.
+    let asksNewPatient (state: ClientState) =
+        NewPatientPolicy.asks
+            (SessionState.view state.Lanes.Session)
+            (state.Lanes.OrderPlan |> OrderPlanState.plan)
+            (state.Lanes.OrderContext |> OrderContextState.context)
 
 
     /// Every data load with its reading, the server check excepted.
@@ -444,6 +456,15 @@ module Client =
         | ClientMsg.PanelChanged(pat, estimates, request) ->
             becomes
                 [
+                    ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Changed(pat, estimates, request)))
+                ]
+        // the question stays open while a launch can identify the patient, whose orders never clear
+        | ClientMsg.NewPatient _ when not (NewPatientPolicy.startsNewPatient (SessionState.view state.Lanes.Session)) ->
+            becomes []
+        | ClientMsg.NewPatient(pat, estimates, request) ->
+            becomes
+                [
+                    ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Changed(None, estimates, request)))
                     ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Changed(pat, estimates, request)))
                 ]
         | ClientMsg.UrlChanged(sl, url) -> becomes [ ClientMsg.Shell(ShellMsg.UrlChanged(sl, url, urlCheck state)) ]

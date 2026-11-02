@@ -157,6 +157,9 @@ type Terms =
     | ``Patient Reset Dialog Text``
     // the reset of an identified patient: the age is the platform's and stays
     | ``Patient Reset Dialog Text Identified``
+    // the question before an edit taken as a new patient, when orders or a selection are lost
+    | ``Patient New Dialog Title``
+    | ``Patient New Dialog Text``
     // the label before the patient id in the panel's summary
     | ``Patient Id``
     // the department in force, and where it came from

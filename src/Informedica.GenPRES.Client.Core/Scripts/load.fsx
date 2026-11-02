@@ -62,6 +62,7 @@
 #load "../MachinePolicies/SigningPolicy.fs"
 #load "../MachinePolicies/UnsignedWorkPolicy.fs"
 #load "../MachinePolicies/HeldPanelPolicy.fs"
+#load "../MachinePolicies/NewPatientPolicy.fs"
 #load "../MachinePolicies/OutPolicy.fs"
 #load "../MachinePolicies/StartupPolicy.fs"
 #load "../Lanes.fs"

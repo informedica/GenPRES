@@ -373,6 +373,77 @@ let tests =
                 |> Expect.equal "then the Session" [ LanesMsg.Session SessionMsg.RefreshPatient ]
             }
 
+            testList
+                "a new patient"
+                (let another = { measured with Department = Some "other" }
+                 let renewed = PatientDraftPolicy.Estimates.Renewed
+
+                 let changed pat request = LanesMsg.Patient(PatientMsg.Changed(Some pat, renewed, request))
+                 let answered request result = LanesMsg.Patient(PatientMsg.Answered(request, result))
+
+                 /// The lanes with a new patient started over a plan with one order.
+                 let started newId =
+                     let lanes, _, _ = Lanes.initial (Some measured) |> Lanes.transition newId (changed measured "p-1")
+                     let lanes, effects, _ = lanes |> Lanes.transition newId (answered "p-1" (Ok measured))
+                     let request = effects |> planRequest |> Option.defaultWith (fun () -> failtest "no open")
+
+                     let lanes, _, _ =
+                         lanes
+                         |> Lanes.transition newId (LanesMsg.Plan(OrderPlanMsg.Answered(request, Ok one)))
+
+                     let lanes, _, _ =
+                         lanes
+                         |> Lanes.transition newId (LanesMsg.Patient(PatientMsg.Changed(None, renewed, "p-2")))
+
+                     lanes |> Lanes.transition newId (changed another "p-2")
+
+                 [
+                     test "the plan empties and the patient goes out" {
+                         let lanes, effects, _ = started (counter ())
+
+                         lanes.OrderPlan
+                         |> OrderPlanState.view
+                         |> Expect.equal "the orders are gone" OrderPlanView.NoPatient
+
+                         effects
+                         |> List.contains (LanesEffect.Patient(PatientEffect.CallPatient(another, "p-2")))
+                         |> Expect.isTrue "the patient goes out"
+                     }
+
+                     test "the answer opens an empty plan, not an update of the old one" {
+                         let newId = counter ()
+                         let lanes, _, _ = started newId
+                         let _, effects, _ = lanes |> Lanes.transition newId (answered "p-2" (Ok another))
+
+                         effects
+                         |> List.exists (
+                             function
+                             | LanesEffect.Plan(OrderPlanEffect.CallPlan(OrderPlanCommand.Open(pat, [||]), _)) ->
+                                 pat = another
+                             | _ -> false
+                         )
+                         |> Expect.isTrue "an empty plan for the new patient"
+                     }
+
+                     test "after a failed patient call everything stays empty, and the data can go out again" {
+                         let newId = counter ()
+                         let lanes, _, _ = started newId
+                         let lanes, _, _ = lanes |> Lanes.transition newId (answered "p-2" (Error [| "no" |]))
+
+                         lanes.Patient |> PatientState.draft |> Expect.isNone "the panel is empty"
+
+                         lanes.OrderPlan
+                         |> OrderPlanState.view
+                         |> Expect.equal "the plan too" OrderPlanView.NoPatient
+
+                         let _, effects, _ = lanes |> Lanes.transition newId (changed another "p-3")
+
+                         effects
+                         |> List.contains (LanesEffect.Patient(PatientEffect.CallPatient(another, "p-3")))
+                         |> Expect.isTrue "sent"
+                     }
+                 ])
+
             test "a failed plan update lets the same patient data out again, up to the plan" {
                 let newId = counter ()
                 let changed = { measured with Department = Some "other" }
