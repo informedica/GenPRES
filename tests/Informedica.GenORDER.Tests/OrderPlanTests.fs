@@ -67,6 +67,7 @@ module Fixtures =
             RenalRule = None
             FitsOnlyWithoutDivisible = false
             RulesNoLongerApply = false
+            NotRecalculated = false
             ProductsIds = [||]
             Access = AnyAccess
         }
@@ -494,6 +495,7 @@ module EvaluateFixtures =
             RenalRule = None
             FitsOnlyWithoutDivisible = false
             RulesNoLongerApply = false
+            NotRecalculated = false
             ProductsIds = [||]
             Access = AnyAccess
         }

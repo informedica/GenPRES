@@ -302,6 +302,23 @@ module SignDialog =
                 """
             | _ -> null
 
+        // only a warning: signing such an order is accepting it
+        let notRecalculatedWarning =
+            let sentence =
+                match notice, (AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv).OrderPlan with
+                | None, OrderPlanMachine.OrderPlanView.Settled(plan, _)
+                | None, OrderPlanMachine.OrderPlanView.Changing(plan, _) -> plan |> notRecalculatedSentence tr
+                | _ -> None
+
+            match sentence with
+            | Some sentence ->
+                JSX.jsx
+                    $"""
+                import Alert from '@mui/material/Alert';
+                <Alert severity="warning">{sentence}</Alert>
+                """
+            | None -> null
+
         let pinField =
             match notice with
             | Some _ -> null
@@ -399,6 +416,7 @@ module SignDialog =
                     {orderList}
                 </List>
                 {ehrMovedOnWarning}
+                {notRecalculatedWarning}
                 {pinField}
                 {progress}
             </DialogContent>

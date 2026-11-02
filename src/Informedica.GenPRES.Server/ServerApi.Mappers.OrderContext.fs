@@ -191,6 +191,7 @@ module OrderContextMapper =
             RenalRule = sc.RenalRule
             FitsOnlyWithoutDivisible = sc.FitsOnlyWithoutDivisible
             RulesNoLongerApply = sc.RulesNoLongerApply
+            NotRecalculated = sc.NotRecalculated
             ProductsIds = sc.ProductIds
             Access =
                 sc.Access
@@ -222,6 +223,7 @@ module OrderContextMapper =
             dto.RenalRule
             dto.FitsOnlyWithoutDivisible
             dto.RulesNoLongerApply
+            dto.NotRecalculated
             dto.ProductsIds
             (dto.Access
              |> Option.ofObj

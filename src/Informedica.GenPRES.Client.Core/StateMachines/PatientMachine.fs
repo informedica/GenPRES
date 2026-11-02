@@ -26,10 +26,14 @@ module PatientMachine =
         /// The patient data read from the EHR by a refresh. The EHR does not hold the mark as an adult,
         /// so the mark of the draft stays, unless the age read is below the age a mark is allowed at.
         | Refreshed of Patient option * request: string
+        /// The age the Session took at a version opened: the panel keeps its data and takes the age.
+        | AgeTaken of Patient option * request: string
         /// The server's answer, or the failure, for a request.
         | Answered of request: string * Result<Patient, string[]>
         /// The plan could not follow the patient answered, so the same data can be given again.
         | PlanNotFollowed
+        /// The data of the draft asked again, for a plan that did not follow them.
+        | GiveAgain of request: string
 
 
     /// What the App carries out for the patient machine.
@@ -42,6 +46,8 @@ module PatientMachine =
         | SetPatientData of Patient option
         /// Tell the user what went wrong.
         | TellError of string[]
+        /// Give the plan the patient it can open a waiting version for, without any change of data.
+        | GivePlan of Patient
 
 
     /// Everything the patient machine holds.
@@ -92,6 +98,15 @@ module PatientMachine =
         let patient (state: PatientState) = state.Draft |> Option.bind (Patient.validate >> Result.toOption)
 
 
+        /// The patient the plan can go on with: the one last answered, else the one the draft is.
+        let current (state: PatientState) = state.Answered |> Option.orElse (patient state)
+
+
+        /// What gives the plan the patient it can go on with; nothing when there is none.
+        let givePlan (state: PatientState) =
+            current state |> Option.map PatientEffect.GivePlan |> Option.toList
+
+
         /// The next state and effects for a message. A draft below the minimum is no patient: nothing
         /// is sent and the patient is cleared. After an edit that renews the estimates the draft takes
         /// the answered patient; after any other edit it is kept, so a cleared weight stays cleared. A
@@ -101,6 +116,8 @@ module PatientMachine =
         /// An answered patient the rules are not looked up for, a child without a weight, measured or
         /// estimated, is held back: every request would be refused for it, so the pages keep the
         /// patient they have, and the notice on the page says what is missing.
+        /// Renewed estimates with a new age leave the estimating to the server, since an estimate
+        /// belongs to its age; a measured value stays.
         let rec transition (msg: PatientMsg) (state: PatientState) : PatientState * PatientEffect list =
             match msg with
             // the Session gives the patient as signed after a signature; the draft is kept, so a weight
@@ -108,6 +125,12 @@ module PatientMachine =
             | PatientMsg.Changed(Some pat, _, _) when state.InFlight.IsNone && state.Answered = Some pat -> state, []
             | PatientMsg.Changed(dto, estimates, request) ->
                 let before = state.Draft
+
+                let dto =
+                    match estimates, before with
+                    | PatientDraftPolicy.Estimates.Renewed, Some b -> dto |> Option.map (PatientEdit.renewEstimates b)
+                    | _ -> dto
+
                 let state = { state with Draft = dto }
 
                 match patient state with
@@ -130,7 +153,18 @@ module PatientMachine =
 
                 transition (PatientMsg.Changed(read, PatientDraftPolicy.Estimates.Renewed, request)) state
 
+            | PatientMsg.AgeTaken(taken, request) ->
+                match taken, state.Draft with
+                | Some t, Some d when t.Age <> d.Age ->
+                    transition
+                        (PatientMsg.Changed(Some { d with Age = t.Age }, PatientDraftPolicy.Estimates.Renewed, request))
+                        state
+                | _ -> state, givePlan state
+
             | PatientMsg.PlanNotFollowed -> { state with Answered = None }, []
+
+            | PatientMsg.GiveAgain request ->
+                transition (PatientMsg.Changed(state.Draft, PatientDraftPolicy.Estimates.Kept, request)) state
 
             | PatientMsg.Answered(request, result) ->
                 match state.InFlight, result with
@@ -152,12 +186,15 @@ module PatientMachine =
                             Draft = draft
                             InFlight = None
                         },
-                        []
+                        givePlan state
                 | Some(_, before, underWay), Error errs when underWay = request ->
-                    { state with
-                        Draft = before
-                        InFlight = None
-                    },
-                    [ PatientEffect.TellError errs ]
+                    let state =
+                        { state with
+                            Draft = before
+                            InFlight = None
+                        }
+
+                    // a version waiting for this answer opens on the data there are
+                    state, PatientEffect.TellError errs :: givePlan state
                 // an answer to an earlier change
                 | _ -> state, []

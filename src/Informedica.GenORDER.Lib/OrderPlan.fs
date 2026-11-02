@@ -320,15 +320,13 @@ module OrderPlan =
 
                     pc |> PlanContext.withPatient plan.Patient
                 )
-                |> Ok
             | Some sc ->
                 match pc.Context |> OrderContext.orderOnPatientData logger provider plan.Patient sc with
-                | Evaluated ctx -> Ok { pc with Context = ctx }
-                | Refused _ -> Error(OrderPlanError.NotCalculated sc.Name)
+                // a refused order stands, marked, and the rest of the plan follows: the prescriber decides
+                | Evaluated ctx
+                | Refused(ctx, _) -> { pc with Context = ctx }
 
-        plan.Contexts
-        |> Array.traverseResultM follow
-        |> Result.map (fun contexts -> { plan with Contexts = contexts })
+        { plan with Contexts = plan.Contexts |> Array.map follow }
 
 
     /// Whether the plan holds a context of the nutrition category.

@@ -76,6 +76,8 @@ type IOrderPlan =
     abstract SelectContext: string option -> unit
     // the contexts the rows keep, by id; the totals follow
     abstract FilterRows: string[] -> unit
+    // whether the orders stand on other patient data than the panel; such a plan is not signed
+    abstract PlanBehind: bool
 
 
 /// Patient data and updates

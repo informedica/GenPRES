@@ -113,6 +113,36 @@ let tests =
                     english term |> Expect.notEqual $"default for {term}" $"{term}"
             }
 
+            test "the warning before the PIN names the orders not calculated, and is none without them" {
+                let plan names =
+                    Informedica.GenPRES.Client.Core.Tests.OrderFixtures.draft
+                    |> fun pat ->
+                        Informedica.GenPRES.Shared.Models.OrderPlan.create
+                            pat
+                            [|
+                                for name, marked in names do
+                                    { Informedica.GenPRES.Shared.Models.OrderContext.empty with
+                                        Id = name
+                                        Scenarios =
+                                            [|
+                                                { Informedica.GenPRES.Client.Core.Tests.OrderFixtures.scenario name name with
+                                                    NotRecalculated = marked
+                                                }
+                                            |]
+                                    }
+                            |]
+
+                plan [ "paracetamol", false ]
+                |> SigningPolicy.notRecalculatedSentence named
+                |> Expect.isNone "every order calculated"
+
+                plan [ "paracetamol", false; "morfine", true; "ibuprofen", true ]
+                |> SigningPolicy.notRecalculatedSentence SigningPolicy.english
+                |> Expect.equal
+                    "the two orders"
+                    (Some "morfine, ibuprofen: not calculated on the current patient data.")
+            }
+
             test
                 "the moved-on and version-opened sentences name whose version, when and which (Rules 21, 22; UC-4 step 4)" {
                 let at = System.DateTime(2026, 9, 11, 12, 30, 0, System.DateTimeKind.Utc)

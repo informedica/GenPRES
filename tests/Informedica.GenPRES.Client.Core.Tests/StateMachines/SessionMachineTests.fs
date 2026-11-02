@@ -809,6 +809,7 @@ module SessionMachineTests =
                             (SessionState.opened reopened None,
                              [
                                  SessionEffect.LoadSignedPlan head
+                                 SessionEffect.TakeAge(reopened.PatientContext |> Option.bind _.Patient)
                                  SessionEffect.TellSignedPlanOpened head.Head
                              ])
                     }
@@ -1494,6 +1495,7 @@ module SessionMachineTests =
                         (SessionState.opened reopened None,
                          [
                              SessionEffect.LoadSignedPlan signedTwo
+                             SessionEffect.TakeAge(reopened.PatientContext |> Option.bind _.Patient)
                              SessionEffect.TellSignedPlanOpened two
                          ])
 

@@ -14,6 +14,7 @@ module BusyPolicy =
     let changes request page =
         match request, page with
         | Request.Patient, _
+        | Request.PlanBehind, _
         | Request.Session, _
         | Request.Signature, _
         | Request.Load Load.Settings, _

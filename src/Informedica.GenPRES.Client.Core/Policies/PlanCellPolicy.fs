@@ -2,7 +2,7 @@ namespace Informedica.GenPRES.Client.Core.Policies
 
 /// Decides which cells of the order plan table the user can step, and which order variable a
 /// cell steps: a cell opens a quantity field only for a variable the plan context rule lets
-/// change, whose value can be stepped now.
+/// change, of a context that is not locked, whose value can be stepped now.
 module PlanCellPolicy =
 
     open Informedica.GenPRES.Shared.Types
@@ -56,6 +56,7 @@ module PlanCellPolicy =
     /// cell keeps its text.
     let stepable (ctx: OrderContext) (column: Column) =
         Informedica.GenPRES.Shared.Models.OrderContext.contribution ctx
+        |> Option.filter (fun _ -> not (PlanContextPolicy.locked ctx))
         |> Option.bind (fun sc ->
             fieldOf column sc.Order
             |> Option.filter (fun (field, ovar) ->

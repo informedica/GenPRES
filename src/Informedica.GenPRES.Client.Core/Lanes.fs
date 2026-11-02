@@ -64,6 +64,8 @@ module Lanes =
         | Session of SessionEffect
         /// Open the plan page: an order was prescribed.
         | GoToPlanPage
+        /// The pages ask nothing at the clear that comes now, since a patient follows it.
+        | PatientExpected
 
 
     /// A step the transition took, for the trail: a machine's message with its new state and
@@ -113,20 +115,47 @@ module Lanes =
         | LanesMsg.Session m ->
             let next, effects = SessionState.transition m lanes.Session
             let before = SessionState.view lanes.Session
+
+            // a session that opens over a page holding a patient clears it first, so that no version
+            // opens or follows on the data of the patient before
+            let opensOverPatient =
+                match before, SessionState.view next with
+                | SessionView.Open _, _ -> false
+                | _, SessionView.Open _ -> (lanes.Patient |> PatientState.draft).IsSome
+                | _ -> false
+
+            let lanes, cleared, clearing =
+                if opensOverPatient then
+                    // no patient sends nothing, so the request id is never read
+                    step
+                        (LanesMsg.Patient(PatientMsg.Changed(None, PatientDraftPolicy.Estimates.Renewed, "cleared")))
+                        lanes
+                else
+                    lanes, [], []
+
             let lanes = { lanes with Session = next }
-            let taken = LanesStep.Session(m, next, effects)
-            let effects = effects |> List.map LanesEffect.Session
+            let taken = clearing @ [ LanesStep.Session(m, next, effects) ]
+
+            let expected =
+                match SessionState.view next with
+                | SessionView.Open opened when
+                    opensOverPatient && (opened.PatientContext |> Option.bind _.Patient).IsSome
+                    ->
+                    [ LanesEffect.PatientExpected ]
+                | _ -> []
+
+            let effects = expected @ cleared @ (effects |> List.map LanesEffect.Session)
 
             // a signature belongs to an open Session: whatever ends the Session ends it, but for a
             // submission out, whose outcome is still told. Told once, at the step that ends it. The
             // plan's work stays: unsigned is unsigned
             match before, SessionState.view next, SigningState.view lanes.Signing with
             | SessionView.Open _, SessionView.Open _, _
-            | _, _, SigningView.Idle -> lanes, effects, [ taken ]
+            | _, _, SigningView.Idle -> lanes, effects, taken
             | SessionView.Open _, _, _ ->
                 let lanes, told, toldTaken = step (LanesMsg.Signing SigningMsg.SessionEnded) lanes
-                lanes, effects @ told, taken :: toldTaken
-            | _ -> lanes, effects, [ taken ]
+                lanes, effects @ told, taken @ toldTaken
+            | _ -> lanes, effects, taken
         | LanesMsg.Patient m ->
             let next, effects = PatientState.transition m lanes.Patient
             { lanes with Patient = next },
@@ -192,6 +221,8 @@ module Lanes =
             [ LanesMsg.Session(SessionMsg.SignatureEndedSession ending) ]
         | LanesEffect.Signing(SigningEffect.TellSigned _) -> [ LanesMsg.Plan OrderPlanMsg.Signed ]
         | LanesEffect.Signing SigningEffect.ReadEhrAgain -> [ LanesMsg.Session SessionMsg.RefreshPatient ]
+        | LanesEffect.Patient(PatientEffect.GivePlan pat) ->
+            [ LanesMsg.Plan(OrderPlanMsg.PatientDataChanged(Some pat, newId ())) ]
         | LanesEffect.Plan OrderPlanEffect.PatientDataNotFollowed -> [ LanesMsg.Patient PatientMsg.PlanNotFollowed ]
         | LanesEffect.Signing(SigningEffect.TellRefused(SigningRefusal.Blocked head)) ->
             [ LanesMsg.Session(SessionMsg.SignatureBlocked head) ]
@@ -203,6 +234,7 @@ module Lanes =
             ]
         | LanesEffect.Session(SessionEffect.SetPatientDataRead pat) ->
             [ LanesMsg.Patient(PatientMsg.Refreshed(pat, newId ())) ]
+        | LanesEffect.Session(SessionEffect.TakeAge pat) -> [ LanesMsg.Patient(PatientMsg.AgeTaken(pat, newId ())) ]
         | LanesEffect.Session(SessionEffect.LoadSignedPlan head) ->
             [ LanesMsg.Plan(OrderPlanMsg.OpenSignedPlan(head, newId ())) ]
         // the patient data answered goes to the workbench and the plan

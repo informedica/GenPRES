@@ -159,10 +159,10 @@ module SqlDatabase =
 
 
     /// The highest JSON structure version this release reads.
-    let jsonVersionRead = 11
+    let jsonVersionRead = 12
 
     /// The JSON structure version this release writes.
-    let jsonVersionWritten = 11
+    let jsonVersionWritten = 12
 
 
     /// Brings plan JSON written under a structure version to the structure this release
@@ -179,6 +179,8 @@ module SqlDatabase =
     /// - 8 to 9 added the picked products on every filter, none when absent
     /// - 9 to 10 added the EHR data of the challenge on every version, none when absent
     /// - 10 to 11 added on every order scenario whether the rules no longer apply, false when absent
+    /// - 11 to 12 added on every order scenario whether the order could not be calculated, false when
+    ///   absent
     ///
     /// The JSON of a version carries EHR data, so a change to the shape of the EHR data needs a step
     /// here as well as in upgradeEhr.

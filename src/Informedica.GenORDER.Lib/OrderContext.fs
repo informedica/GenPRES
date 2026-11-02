@@ -85,6 +85,7 @@ module OrderScenario =
             RenalRule = rrl
             FitsOnlyWithoutDivisible = fits
             RulesNoLongerApply = false
+            NotRecalculated = false
             ProductsIds = ids
             Access = AnyAccess
         }
@@ -109,6 +110,11 @@ module OrderScenario =
     /// The general notice on an order for which the rules of the current patient are not the rules
     /// of the patient of its context.
     let rulesNotice = "De regels gelden niet meer voor deze order: beoordeel de order of maak een nieuwe"
+
+
+    /// The notice on an order that could not be calculated on the current patient data.
+    let notRecalculatedNotice =
+        "Deze order is niet berekend op de huidige patiëntgegevens. Beoordeel de order en verwijder deze als die niet past."
 
 
     /// The note on an order of a product without a Divisible.
@@ -151,6 +157,9 @@ module OrderScenario =
         { sc with
             Prescription =
                 [|
+                    if sc.NotRecalculated then
+                        notRecalculatedNotice |> Warning
+
                     if sc.RulesNoLongerApply then
                         rulesNotice |> Warning
 
@@ -255,6 +264,7 @@ module OrderScenario =
                 RenalRule: string option
                 FitsOnlyWithoutDivisible: bool
                 RulesNoLongerApply: bool
+                NotRecalculated: bool
                 ProductsIds: string[]
                 Access: string
             }
@@ -303,6 +313,7 @@ module OrderScenario =
                 RenalRule = sc.RenalRule
                 FitsOnlyWithoutDivisible = sc.FitsOnlyWithoutDivisible
                 RulesNoLongerApply = sc.RulesNoLongerApply
+                NotRecalculated = sc.NotRecalculated
                 ProductsIds = sc.ProductsIds
                 Access = sc.Access |> AccessDevice.toString
             }
@@ -368,6 +379,8 @@ module OrderScenario =
                                 FitsOnlyWithoutDivisible = dto.FitsOnlyWithoutDivisible
                                 // a scenario stored before the field existed reads as false
                                 RulesNoLongerApply = dto.RulesNoLongerApply
+                                // a scenario stored before the field existed reads as false
+                                NotRecalculated = dto.NotRecalculated
                                 ProductsIds = dto.ProductsIds |> DtoResult.orEmpty
                                 // a scenario stored before the field existed has none
                                 Access =
@@ -1412,8 +1425,9 @@ Scenarios: {scenarios}
     /// calculated again when its adjust value or its limits changed. What the patient gets stays, and
     /// the context keeps the patient its rules were chosen for, so that the rules can always be
     /// compared with the current patient. Without one rule to take them from, the limits stay, with a
-    /// warning. A lookup that fails leaves the notice as it is. An order that cannot be solved refuses
-    /// the context as it was sent.
+    /// warning. A lookup that fails leaves the notice as it is. An order that cannot be solved is
+    /// refused: it stands as it was, marked, with the notice. The mark goes when the order was calculated on
+    /// another value of the patient, or holds that value under a known current rule.
     let orderOnPatientData logger provider pat (sc: OrderScenario) ctx =
         let pat = pat |> Patient.correctAdjustUnit
         let (Id orderId) = sc.Order.Id
@@ -1437,6 +1451,8 @@ Scenarios: {scenarios}
                 built
             | _ -> None
 
+        let adjust = sc.Order |> adjustOfPatient pat
+
         let recalculate ord =
             let orderWithLimits =
                 orderOfCurrentRule
@@ -1444,18 +1460,40 @@ Scenarios: {scenarios}
 
             let limitsMoved = (orderWithLimits |> Order.definedLimits) <> (ord |> Order.definedLimits)
 
-            match ord |> adjustOfPatient pat with
+            match adjust with
             | Some adjust when limitsMoved || Some adjust <> (ord |> Order.adjustValue) ->
                 Readjust(orderWithLimits, adjust) |> OrderProcessor.processPipeline logger
             | _ -> Ok ord
 
         let notice = noLongerApply |> Option.defaultValue sc.RulesNoLongerApply
 
+        // a marked order stands on the patient once it was calculated on another value, or holds the
+        // value of the patient and the current rule is known; anything else leaves the mark
+        let standsOnPatient =
+            adjust.IsSome
+            && (orderOfCurrentRule.IsSome || adjust <> (sc.Order |> Order.adjustValue))
+
         match
-            { ctx with Scenarios = [| { sc with RulesNoLongerApply = notice } |] }
+            { ctx with
+                Scenarios =
+                    [|
+                        { sc with
+                            RulesNoLongerApply = notice
+                            NotRecalculated = sc.NotRecalculated && not standsOnPatient
+                        }
+                    |]
+            }
             |> processScenarioOrder logger recalculate
         with
-        | Refused(_, refusal) -> Refused(ctx, refusal)
+        | Refused(_, refusal) ->
+            let marked =
+                { sc with
+                    RulesNoLongerApply = notice
+                    NotRecalculated = true
+                }
+                |> OrderScenario.setOrderTableFormat
+
+            Refused({ ctx with Scenarios = [| marked |] }, refusal)
         | evaluated -> evaluated
 
 

@@ -932,12 +932,15 @@ module Order =
 
         let onArgumentation (e: Browser.Types.Event) = setArgumentation (e.target?value: string)
 
+        let argues = props.editing |> PlanContextPolicy.argues
+
         // a text goes out only when it differs from the one the context holds, since in the plan
-        // every command counts as a change
+        // every command counts as a change; a locked context sends nothing, its text is shown only
         let argue (text: string) =
             if
-                ArgumentationPolicy.normalise text
-                <> ArgumentationPolicy.normalise heldArgumentation
+                argues
+                && ArgumentationPolicy.normalise text
+                   <> ArgumentationPolicy.normalise heldArgumentation
             then
                 props.command (Api.OrderViewCommand.SetArgumentationProperty text)
 
@@ -1560,7 +1563,14 @@ module Order =
                         Terms.``Order Argumentation Helper``
                         |> getTerm "waarom de dosering afwijkt van wat de regels toestaan"
 
-                    let inputProps = {| htmlInput = {| maxLength = ArgumentationPolicy.maxLength |} |}
+                    let inputProps =
+                        {|
+                            htmlInput =
+                                {|
+                                    maxLength = ArgumentationPolicy.maxLength
+                                    readOnly = not argues
+                                |}
+                        |}
 
                     JSX.jsx
                         $"""

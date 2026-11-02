@@ -707,6 +707,21 @@ module Session =
             |> Informedica.GenForm.Lib.Patient.calcPMAge
 
 
+    /// The patient of a version as a later Session shows it: at the age at the date, and without
+    /// the estimates when that age is not the one signed, since an estimate belongs to its age and
+    /// the patient machine has no draft to tell that from. A measured value stays.
+    let signedPatientAt now whom (pat: GenForm.Patient) =
+        let aged = pat |> atBirthDate now whom
+
+        if aged.Age = pat.Age then
+            aged
+        else
+            { aged with
+                Weight = if aged.WeightMeasured then aged.Weight else None
+                Height = if aged.HeightMeasured then aged.Height else None
+            }
+
+
     /// The patient a Session shows at a date. When the latest act is a sign, the patient of the
     /// version signed; after any other act, the EHR's data, the source of truth. Each falls back
     /// on the other, so that a head that cannot be read or a data outage still shows what there
@@ -717,7 +732,7 @@ module Session =
 
         let ofHead =
             match opened.Head with
-            | Some(StoredVersion.Readable(v, whom)) -> Some(v.Plan.Patient |> atBirthDate now whom)
+            | Some(StoredVersion.Readable(v, whom)) -> Some(v.Plan.Patient |> signedPatientAt now whom)
             | _ -> None
 
         match opened.Act with

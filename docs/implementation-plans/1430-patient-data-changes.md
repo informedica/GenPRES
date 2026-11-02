@@ -111,8 +111,16 @@ estimate.
     such as a TPN composition, a component or a filter pick, is deleting the order and creating a new
     one. Because this is one rule, there is no state to track, and a wrong weight that is corrected
     back has nothing to lift.
-11. **No order is locked any more.** The complete lock of an order calculated on other data goes,
-    since rule 6 means that this situation no longer exists.
+11. **Only an order that cannot be calculated is locked.** The lock on every order calculated on
+    other data goes, since rule 6 means that situation no longer exists. An order the solver cannot
+    calculate on the new data stands as it was, marked and locked, and the rest of the plan follows.
+    The sign dialog names such an order. The prescriber accepts it by signing, or removes it. Signing
+    does not lift the mark, so the signed version shows that the order was not calculated on the data
+    of the version. The next update of the patient data tries the order again. The lock goes when the
+    order stands on the current patient: a calculation on another value that succeeds, or the value
+    of the order with the current rule known. In any other case the lock stays: a weight cleared, or
+    a rule lookup that fails with nothing calculated. The lock holds on the order plan page and the nutrition page, and the plan machine sends no
+    change for a locked order. The lock is in the client: a page opened before it can still send a step.
 
 ### Signing
 
@@ -272,7 +280,15 @@ The order comes from the logic: the domain first, then what uses it.
    A read of the EHR that the Session drops, because it is no longer open or another open is under
    way, says nothing: the data are not taken and the next sign shows the notice again.
 8. **Age, estimates and retrieval.** Rules 15 to 18. The age at the open, a resume, a refresh and a
-   sign is built by plan 1599.
+   sign is built by plan 1599. At a version opened the panel keeps its data and takes the age alone.
+   A new age with renewed estimates leaves the estimating to the server; a measured value stays.
+   Any difference with the data of the version is followed, an age alone too. A follow gives no
+   summary: the version opened is told, the orders show their notifications and the sign dialog
+   lists the changes. A version waits for the patient, so that one request goes
+   out at a time: the age first, then the version on the patient it was signed on, then the follow.
+   When the age call fails the error is told and the version opens on the data there are. A session
+   that opens over a page holding a patient clears that patient first; when the session brings a
+   patient the pages ask nothing for the clear.
 
    Retrieval covers a version opened on other data than the current patient: the orders follow the
    data, a failed follow can be tried again, the changes are shown, and a new version is signed. A
