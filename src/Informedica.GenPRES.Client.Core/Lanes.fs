@@ -195,6 +195,7 @@ module Lanes =
         | LanesEffect.Signing SigningEffect.DropChangesAndRefresh ->
             [ LanesMsg.Plan(OrderPlanMsg.DropChanges(newId ())) ]
         | LanesEffect.Plan OrderPlanEffect.ChangesDropped -> [ LanesMsg.Session SessionMsg.RefreshPatient ]
+        | LanesEffect.Plan OrderPlanEffect.PatientDataNotFollowed -> [ LanesMsg.Patient PatientMsg.PlanNotFollowed ]
         | LanesEffect.Signing(SigningEffect.TellRefused(SigningRefusal.Blocked head)) ->
             [ LanesMsg.Session(SessionMsg.SignatureBlocked head) ]
         // the Session's patient data goes to the patient machine, with the estimates renewed as for

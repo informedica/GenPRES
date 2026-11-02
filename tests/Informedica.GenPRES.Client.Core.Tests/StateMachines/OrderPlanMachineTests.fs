@@ -63,12 +63,36 @@ let tests =
                         |> Expect.equal "the state stays, no request" (busy, [])
                     }
 
-                    test "a failed update tells no summary" {
+                    test "a failed update tells no summary, and that the plan did not follow" {
                         let busy, _ = transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (held one None)
 
                         transition (OrderPlanMsg.Answered("r-2", Error [| "no" |])) busy
                         |> snd
-                        |> Expect.equal "the error alone" [ OrderPlanEffect.TellError [| "no" |] ]
+                        |> Expect.equal
+                            "the error, and the plan behind"
+                            [ OrderPlanEffect.TellError [| "no" |]; OrderPlanEffect.PatientDataNotFollowed ]
+                    }
+
+                    test "an update with the same drugs starts no interaction check" {
+                        let busy, _ = transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (held one None)
+
+                        transition (OrderPlanMsg.Answered("r-2", Ok one)) busy
+                        |> snd
+                        |> List.exists (
+                            function
+                            | OrderPlanEffect.CheckInteractions _ -> true
+                            | _ -> false
+                        )
+                        |> Expect.isFalse "no check"
+                    }
+
+                    test "an update that brings a new drug starts the interaction check" {
+                        let busy, _ = transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (held one None)
+
+                        transition (OrderPlanMsg.Answered("r-2", Ok two)) busy
+                        |> snd
+                        |> List.contains (OrderPlanEffect.CheckInteractions [ "paracetamol"; "ibuprofen" ])
+                        |> Expect.isTrue "the new drug is checked"
                     }
 
                     test "a patient set opens the empty plan under the request; the answer shows it" {

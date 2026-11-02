@@ -24,6 +24,8 @@ module PatientMachine =
         | Changed of Patient option * PatientDraftPolicy.Estimates * request: string
         /// The server's answer, or the failure, for a request.
         | Answered of request: string * Result<Patient, string[]>
+        /// The plan could not follow the patient answered, so the same data can be given again.
+        | PlanNotFollowed
 
 
     /// What the App carries out for the patient machine.
@@ -45,7 +47,8 @@ module PatientMachine =
                 /// The patient data as the panel edits it and the lists read it.
                 Draft: Patient option
                 /// The patient as the server last answered it, the one the workbench, the plan and the
-                /// pages have.
+                /// pages have; None once the plan could not follow it, so the same data given again goes
+                /// out.
                 Answered: Patient option
                 /// What becomes of the estimates when the change under way is answered, the draft it
                 /// started from, which a failure puts back, and the request id its answer must name.
@@ -113,6 +116,8 @@ module PatientMachine =
                         InFlight = None
                     },
                     [ PatientEffect.SetPatientData None ]
+
+            | PatientMsg.PlanNotFollowed -> { state with Answered = None }, []
 
             | PatientMsg.Answered(request, result) ->
                 match state.InFlight, result with

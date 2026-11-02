@@ -473,6 +473,14 @@ let tests =
                 |> Trail.OrderPlan.effect
                 |> Expect.equal "the summary, counts only" "TellPatientDataChanged 5 orders 2 marked"
 
+                OrderPlanEffect.PatientDataNotFollowed
+                |> Trail.OrderPlan.effect
+                |> Expect.equal "the plan did not follow" "PatientDataNotFollowed"
+
+                PatientMachine.PatientMsg.PlanNotFollowed
+                |> Trail.Patient.msg
+                |> Expect.equal "the patient machine told so" "PlanNotFollowed"
+
                 OrderPlanEffect.TellAnswered
                 |> Trail.OrderPlan.effect
                 |> Expect.equal "the plan's answer" "TellAnswered"

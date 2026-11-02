@@ -128,6 +128,8 @@ module OrderPlanMachine =
         | TellPatientDataChanged of Alert.PatientDataSummary
         /// The new and changed orders are gone; the patient can be read again.
         | ChangesDropped
+        /// The plan could not follow the patient data, so the same data can be given again.
+        | PatientDataNotFollowed
 
 
     /// What the pages read of the OrderPlanState. Pages render Settled and Changing alike, so the
@@ -307,14 +309,17 @@ module OrderPlanMachine =
             | None -> false
 
 
-        /// The check of the plan's drugs for interactions, always asked, so a plan down to one drug
-        /// clears the old warnings.
-        let interactions (tp: OrderPlan) =
+        /// The distinct names of the drugs in the plan.
+        let drugNames (tp: OrderPlan) =
             Informedica.GenPRES.Shared.Models.OrderPlan.orders tp
             |> Array.map _.Name
             |> Array.distinct
             |> Array.toList
-            |> OrderPlanEffect.CheckInteractions
+
+
+        /// The check of the plan's drugs for interactions, always asked, so a plan down to one drug
+        /// clears the old warnings.
+        let interactions (tp: OrderPlan) = drugNames tp |> OrderPlanEffect.CheckInteractions
 
 
         /// The next state and effects for a message. Only an answer, a selection, a restore, the
@@ -367,7 +372,7 @@ module OrderPlanMachine =
             match msg, state.Cart, state.InFlight with
             // only an answer to the request under way lands, for the patient held; an open that
             // landed is the version opened, and a failed change leaves the plan as it was
-            | OrderPlanMsg.Answered(request, result), OrderPlanCart.Opened(pat, _), Some(sent, underWay) when
+            | OrderPlanMsg.Answered(request, result), OrderPlanCart.Opened(pat, before), Some(sent, underWay) when
                 underWay = request
                 ->
                 let refresh = state.RefreshOnAnswer
@@ -377,6 +382,11 @@ module OrderPlanMachine =
                         InFlight = None
                         RefreshOnAnswer = false
                     }
+
+                let patientUpdate =
+                    match sent with
+                    | OrderPlanCommand.UpdatePatient _ -> true
+                    | _ -> false
 
                 match result with
                 | Ok tp ->
@@ -397,7 +407,10 @@ module OrderPlanMachine =
                         Opened = opened
                     },
                     [
-                        interactions tp
+                        // new patient data can bring a new order, from a nutrition context restarted; with the
+                        // same drugs no check is asked, so its answer does not replace the summary
+                        if not patientUpdate || Set.ofList (drugNames before) <> Set.ofList (drugNames tp) then
+                            interactions tp
                         OrderPlanEffect.TellAnswered
                         yield!
                             PatientDataSummaryPolicy.summaryOf sent tp
@@ -406,7 +419,13 @@ module OrderPlanMachine =
                         if refresh then
                             OrderPlanEffect.ChangesDropped
                     ]
-                | Error errs -> state, [ OrderPlanEffect.TellError errs ]
+                | Error errs ->
+                    state,
+                    [
+                        OrderPlanEffect.TellError errs
+                        if patientUpdate then
+                            OrderPlanEffect.PatientDataNotFollowed
+                    ]
             | OrderPlanMsg.Answered _, _, _ -> state, []
 
             // the selection needs no request, and ends a look; nothing can be selected until the

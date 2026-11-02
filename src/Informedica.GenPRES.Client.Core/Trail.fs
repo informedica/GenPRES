@@ -549,6 +549,7 @@ module Trail =
             | OrderPlanEffect.TellPatientDataChanged summary ->
                 $"TellPatientDataChanged %i{summary.Orders} orders %i{summary.Marked} marked"
             | OrderPlanEffect.ChangesDropped -> "ChangesDropped"
+            | OrderPlanEffect.PatientDataNotFollowed -> "PatientDataNotFollowed"
 
 
         /// The order plan state as the pages read it.
@@ -698,6 +699,7 @@ module Trail =
             | PatientMsg.Changed(p, e, request) ->
                 $"Changed %s{Part.patientOption p} %s{estimates e} %s{Part.shortId request}"
             | PatientMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result Part.patient}"
+            | PatientMsg.PlanNotFollowed -> "PlanNotFollowed"
 
 
         /// A patient effect; never the error texts.

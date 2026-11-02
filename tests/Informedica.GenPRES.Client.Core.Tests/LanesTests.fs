@@ -373,6 +373,53 @@ let tests =
                 |> Expect.equal "then the Session" [ LanesMsg.Session SessionMsg.RefreshPatient ]
             }
 
+            test "a failed plan update lets the same patient data out again, up to the plan" {
+                let newId = counter ()
+                let changed = { measured with Department = Some "other" }
+
+                let given request =
+                    LanesMsg.Patient(PatientMsg.Changed(Some changed, PatientDraftPolicy.Estimates.Renewed, request))
+
+                let answered request = LanesMsg.Patient(PatientMsg.Answered(request, Ok changed))
+                let requestOf effects =
+                    effects |> planRequest |> Option.defaultWith (fun () -> failtest "no request")
+
+                let lanes, _, _ =
+                    Lanes.initial (Some measured)
+                    |> Lanes.transition
+                        newId
+                        (LanesMsg.Patient(
+                            PatientMsg.Changed(Some measured, PatientDraftPolicy.Estimates.Renewed, "p-1")
+                        ))
+
+                let lanes, effects, _ =
+                    lanes
+                    |> Lanes.transition newId (LanesMsg.Patient(PatientMsg.Answered("p-1", Ok measured)))
+
+                let lanes, _, _ =
+                    lanes
+                    |> Lanes.transition newId (LanesMsg.Plan(OrderPlanMsg.Answered(requestOf effects, Ok one)))
+
+                let lanes, _, _ = lanes |> Lanes.transition newId (given "p-2")
+                let lanes, effects, _ = lanes |> Lanes.transition newId (answered "p-2")
+
+                let lanes, _, _ =
+                    lanes
+                    |> Lanes.transition
+                        newId
+                        (LanesMsg.Plan(OrderPlanMsg.Answered(requestOf effects, Error [| "no" |])))
+
+                let lanes, effects, _ = lanes |> Lanes.transition newId (given "p-3")
+
+                effects
+                |> List.contains (LanesEffect.Patient(PatientEffect.CallPatient(changed, "p-3")))
+                |> Expect.isTrue "the same data goes out"
+
+                let _, effects, _ = lanes |> Lanes.transition newId (answered "p-3")
+
+                effects |> planRequest |> Expect.isSome "and the plan is sent the update again"
+            }
+
             test "a signature answered: the token, the patient and the signed plan land in the same transition" {
                 let lanes =
                     { Lanes.initial (Some draft) with
