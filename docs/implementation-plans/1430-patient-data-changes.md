@@ -232,6 +232,20 @@ The order comes from the logic: the domain first, then what uses it.
    notifications still compare with them. With more doses the whole preparation stays and the dose
    limits follow.
 5. **One edit rule.** Rules 10 and 11 on the plan page, the order dialog and the nutrition page.
+   The plan page and the order dialog already allow only the steps of rule 10, so this step removes
+   the lock of rule 11.
+
+   Rule 10 waits for nutrition because the nutrition page is the only place where a TPN is composed.
+   An order exists as soon as a slot holds one scenario, so the component steps are the composing.
+   Rule 10 applies to nutrition once an order can really be prescribed, which #1612 builds: prescribed
+   means that the order appears on the overall order plan, and the nutrition page keeps its slots
+   until a new order is prescribed.
+
+   Three things stay open after this step. Until step 7 an order on changed data cannot be signed.
+   Until step 8 an order of a version opened on other data can be stepped while it is on that other
+   data, without a sign of it, so rule 11 holds in full only after step 8. Until #1612 a filter or
+   component pick in a slot with an order rebuilds the order on the patient of the context, so after
+   a change of data on the old data, without a notice. The medical check must see the last two.
 6. **Patient identity.** Rules 1 and 2: the question in anonymous mode and the clearing; rule 14a,
    the warning at signing. The stopped old tab of rule 3 is built by plan 1599. With this step #1430
    as reported is solved, so this step can go earlier if the maintainer wants that.

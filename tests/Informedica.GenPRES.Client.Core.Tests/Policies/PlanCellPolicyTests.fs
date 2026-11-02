@@ -68,13 +68,10 @@ module PlanCellPolicyTests =
             Scenarios = [| { OrderFixtures.scenario "o-1" "test" with Order = ord } |]
         }
 
-    let planOf ctx =
-        Informedica.GenPRES.Shared.Models.OrderPlan.create patient [| ctx |]
-
     /// The field and the order variable a cell of the order steps, if any.
     let stepsOf (ord: Order) column =
         let ctx = contextOf ord
-        stepable (planOf ctx) ctx column
+        stepable ctx column
 
     let steppingFrequency = Some(QuantityModePolicy.Field.Frequency, frequency)
     let steppingDoseQuantity = Some(QuantityModePolicy.Field.DoseQuantity, doseQuantity)
@@ -156,24 +153,22 @@ module PlanCellPolicyTests =
                                     Category = OrderCategory.Nutrition NutritionCategory.EnteralFeeding
                                 }
 
-                            stepable (planOf ctx) ctx Column.Frequency
+                            stepable ctx Column.Frequency
                             |> Expect.equal "the rule applies to every row" steppingFrequency
                         }
 
-                        test "a locked context steps nothing" {
-                            let ctx = contextOf discontinuous
+                        test "a context on other patient data than the plan steps as any other" {
+                            let ctx =
+                                { contextOf discontinuous with Patient = { patient with Department = Some "ICK" } }
 
-                            let moved = { planOf ctx with Patient = { patient with Department = Some "ICK" } }
-
-                            [ Column.Frequency; Column.Solution ]
-                            |> List.choose (stepable moved ctx)
-                            |> Expect.isEmpty "its patient data differ from the plan's"
+                            stepable ctx Column.Frequency
+                            |> Expect.equal "steps as any other" steppingFrequency
                         }
 
                         test "a context without an order steps nothing" {
                             let ctx = { contextOf discontinuous with Scenarios = [||] }
 
-                            stepable (planOf ctx) ctx Column.Frequency |> Expect.isNone "nothing to step"
+                            stepable ctx Column.Frequency |> Expect.isNone "nothing to step"
                         }
                     ]
             ]
