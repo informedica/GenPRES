@@ -219,7 +219,11 @@ The order comes from the logic: the domain first, then what uses it.
    chosen for, so the intake of a context, its totals per kg with it, takes the patient of the plan.
    A nutrition slot without an order starts again on the new patient, as the workbench does, until
    #1612 moves nutrition slots out of the plan. Rules 4 and 19 are client work and go in a pull request of
-   their own.
+   their own. The same data given again is no change: the workbench stays, the plan is not
+   recalculated and there is no summary. A plan without orders gets no summary. The workbench clears
+   in anonymous mode too, without the question of rule 2 until step 6. Until step 8 a version opened
+   on other data than the current patient stays on the data it was signed on, so the panel and the
+   orders can differ.
 
    The lookup rewrites a rule for the patient: a dose at its maximum, a per kg solution limit as an
    amount. Both end as defined limits, so they have one mechanism. With the same rules, an order built
@@ -235,6 +239,10 @@ The order comes from the logic: the domain first, then what uses it.
    under rules 4 to 8, so it no longer removes the unsigned orders.
 8. **Age, estimates and retrieval.** Rules 15 to 18. The age at the open, a resume, a refresh and a
    sign is built by plan 1599.
+
+   Retrieval covers a version opened on other data than the current patient: the orders follow the
+   data, a failed follow can be tried again, the changes are shown, and a new version is signed. A
+   launch into a page that holds a plan must not open the version on the previous patient (#1615).
 
 ## Verification
 

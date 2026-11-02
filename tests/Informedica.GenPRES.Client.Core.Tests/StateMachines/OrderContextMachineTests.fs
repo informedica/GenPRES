@@ -62,11 +62,11 @@ module Fixtures =
     /// An evaluation of the context: the call; the pages follow its answer.
     let evaluated (ctx: OrderContext) request = [ callContext (asIs, ctx, request) ]
 
-    /// A patient change over the context: the call with the context as held; the pages follow its
+    /// A patient change: the clear over the empty context of the patient; the pages follow its
     /// answer.
-    let patientChanged pat (ctx: OrderContext) request =
+    let patientChanged pat request =
         [
-            OrderContextEffect.CallContext(OrderContextCommand.UpdatePatient(pat, ctx), request)
+            callContext (OrderViewCommand.ClearAllFilterProperty, OrderContextState.emptyFor pat, request)
         ]
 
     /// A command over a context: the call; the pages follow its answer.
@@ -118,23 +118,21 @@ let tests =
                     }
 
                     test
-                        "a patient changed keeps the filter and evaluates it for the new patient; a failure restores the last evaluated, for the new patient" {
+                        "a patient changed clears the selection and evaluates the empty workbench; a failure stays empty, for the new patient" {
                         let state, effects = transition (OrderContextMsg.PatientDataChanged(Some other, "r-2")) shown
 
-                        let expected = { paracetamol with Patient = otherDraft }
+                        let cleared = OrderContextState.emptyFor other
 
-                        state
-                        |> Expect.equal
-                            "evaluating for the new patient"
-                            (OrderContextState.patientChanging other paracetamol expected "r-2")
+                        OrderContextState.view state
+                        |> Expect.equal "nothing of the selection shows" (OrderContextView.Changing cleared)
 
                         effects
-                        |> Expect.equal "the patient change and the syncs" (patientChanged other paracetamol "r-2")
+                        |> Expect.equal "the clear for the new patient" (patientChanged other "r-2")
 
                         transition (OrderContextMsg.Answered("r-2", Error [| "not loaded" |])) state
                         |> Expect.equal
-                            "a failure restores the last evaluated, for the new patient"
-                            (heldFor other expected, restored expected [| "not loaded" |])
+                            "a failure stays on the empty workbench, for the new patient"
+                            (heldFor other cleared, restored cleared [| "not loaded" |])
                     }
 
                     test "no patient: no workbench, whatever was in flight answers to nothing" {
@@ -585,7 +583,7 @@ let refusalTests =
                 |> view
                 |> Expect.equal
                     "changing for the other patient"
-                    (OrderContextView.Changing { paracetamol with Patient = other })
+                    (OrderContextView.Changing(OrderContextState.emptyFor other))
 
                 transition (OrderContextMsg.SeedFilter(urlSeed, "r-2")) shown
                 |> fst
@@ -971,12 +969,23 @@ let syncTests =
                 |> Expect.equal "the pages on the filter answered" (synced paracetamol)
             }
 
+            test "new patient data with a request out is dropped, since the panel is disabled then" {
+                let busy, _ = transition (OrderContextMsg.PatientDataChanged(Some other, "r-1")) (held paracetamol)
+
+                transition (OrderContextMsg.PatientDataChanged(Some patient, "r-2")) busy
+                |> Expect.equal "the state stays, no request" (busy, [])
+            }
+
+            test "the same patient data given again leaves the selection" {
+                transition (OrderContextMsg.PatientDataChanged(Some patient, "r-1")) (held paracetamol)
+                |> Expect.equal "as it was, no request" (held paracetamol, [])
+            }
+
             test "a patient update syncs on its answer with the filter answered" {
                 let busy, effects =
                     transition (OrderContextMsg.PatientDataChanged(Some other, "r-1")) (held paracetamol)
 
-                effects
-                |> Expect.equal "the call alone" (patientChanged other paracetamol "r-1")
+                effects |> Expect.equal "the call alone" (patientChanged other "r-1")
 
                 let forOther = { paracetamol with OrderContext.Filter.Routes = [| "or" |] }
 

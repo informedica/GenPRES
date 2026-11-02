@@ -2053,13 +2053,6 @@ let refusalTests =
                         |> Expect.equal "the message" (Error [ ErrorMsg(OrderContext.noDoseRulesMessage, None) ])
                     }
 
-                    test "is refused for a change of the patient, which looks the rules up" {
-                        picked
-                        |> evaluate (fun ctx -> OrderContext.UpdatePatient(ctx, ctx.Patient))
-                        |> Result.isError
-                        |> Expect.isTrue "refused"
-                    }
-
                     test "can be cleared, so the user is not stuck" {
                         picked
                         |> evaluate OrderContext.ClearAllFilter

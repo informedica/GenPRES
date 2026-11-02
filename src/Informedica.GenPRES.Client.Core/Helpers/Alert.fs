@@ -15,6 +15,16 @@ module Alert =
         | Success
 
 
+    /// What the summary at a change of patient data says of the orders in the plan.
+    type PatientDataSummary =
+        {
+            /// The orders in the plan.
+            Orders: int
+            /// The orders with a notification or the general notice.
+            Marked: int
+        }
+
+
     /// A sentence the snackbar shows.
     [<RequireQualifiedAccess>]
     type Alert =
@@ -53,6 +63,8 @@ module Alert =
         /// The change could not be applied, for the reason the server gave; the order stays as it
         /// was.
         | ChangeNotApplied of OrderContextRefusal
+        /// The patient data changed: the orders were updated and the workbench was cleared.
+        | PatientDataChanged of PatientDataSummary
 
 
     /// The severity an alert is shown with.
@@ -73,5 +85,7 @@ module Alert =
         | Alert.NewerSignedPlan _
         | Alert.PatientRefreshFailed
         | Alert.ChangeNotApplied _ -> Severity.Warning
+        | Alert.PatientDataChanged summary when summary.Marked > 0 -> Severity.Warning
+        | Alert.PatientDataChanged _
         | Alert.OrderPlanSigned _
         | Alert.SignedPlanOpened _ -> Severity.Success

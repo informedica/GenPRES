@@ -58,6 +58,7 @@
     <Compile Include="Policies/TotalsChangePolicy.fs" />
     <Compile Include="Policies/PlanWorkPolicy.fs" />
     <Compile Include="Policies/HeldContextPolicy.fs" />
+    <Compile Include="Policies/PatientDataSummaryPolicy.fs" />
     <Compile Include="Policies/ServerErrorPolicy.fs" />
     <Compile Include="Policies/BusyPolicy.fs" />
     <Compile Include="Policies/UrlPolicy.fs" />

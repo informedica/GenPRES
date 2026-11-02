@@ -45,6 +45,29 @@ let tests =
     testList
         "PatientState.transition"
         [
+            test "the same data goes out again once the plan could not follow it" {
+                let asked, _ =
+                    PatientState.init (Some Fixtures.draft)
+                    |> PatientState.transition (PatientMsg.Changed(Some Fixtures.draft, Fixtures.renewed, "r-1"))
+
+                let held, _ =
+                    asked
+                    |> PatientState.transition (PatientMsg.Answered("r-1", Ok Fixtures.answered))
+                let again = PatientMsg.Changed(Some Fixtures.answered, Fixtures.renewed, "r-2")
+
+                held
+                |> PatientState.transition again
+                |> snd
+                |> Expect.isEmpty "the plan has the data, so nothing goes out"
+
+                held
+                |> PatientState.transition PatientMsg.PlanNotFollowed
+                |> fst
+                |> PatientState.transition again
+                |> snd
+                |> Expect.equal "the plan is behind" [ PatientEffect.CallPatient(Fixtures.answered, "r-2") ]
+            }
+
             test "a change is sent, the draft kept for the panel" {
                 let state, effects = transition (PatientMsg.Changed(Some draft, renewed, "r-1")) none
 

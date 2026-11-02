@@ -180,6 +180,8 @@ type Terms =
     | ``Url Leave Launch Text``
     // a launch that came during a signature is not opened
     | ``Url Launch Signing``
+    // the summary of a change of patient data: the orders updated, those with a notification
+    | ``Patient Data Changed``
     // the panel's button that reads the patient from the EHR again
     | ``Patient Refresh``
     // what needs a patient on a page that works without one, said with what is missing

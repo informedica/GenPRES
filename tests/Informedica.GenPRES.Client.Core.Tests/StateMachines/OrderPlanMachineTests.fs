@@ -23,6 +23,78 @@ let tests =
             testList
                 "the patient"
                 [
+                    test "the same patient data given again does not touch the plan" {
+                        transition (OrderPlanMsg.PatientDataChanged(Some patient, "r-2")) (held one None)
+                        |> Expect.equal "as it was, no request" (held one None, [])
+                    }
+
+                    test "new patient data tells the summary with the answer" {
+                        let busy, _ = transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (held one None)
+
+                        transition (OrderPlanMsg.Answered("r-2", Ok one)) busy
+                        |> snd
+                        |> List.contains (
+                            OrderPlanEffect.TellPatientDataChanged
+                                {
+                                    Orders = 1
+                                    Marked = 0
+                                }
+                        )
+                        |> Expect.isTrue "one order, none marked"
+                    }
+
+                    test "the same data after a failed update is sent again, and the plan stays on the old patient" {
+                        let busy, _ = transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (held one None)
+                        let failed, _ = transition (OrderPlanMsg.Answered("r-2", Error [| "no" |])) busy
+
+                        OrderPlanState.patient failed |> Expect.equal "the old patient" (Some patient)
+
+                        transition (OrderPlanMsg.PatientDataChanged(Some other, "r-3")) failed
+                        |> snd
+                        |> Expect.equal
+                            "sent again"
+                            [ OrderPlanEffect.CallPlan(OrderPlanCommand.UpdatePatient(other, one), "r-3") ]
+                    }
+
+                    test "new patient data with a request out is dropped, since the panel is disabled then" {
+                        let busy, _ = transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (held one None)
+
+                        transition (OrderPlanMsg.PatientDataChanged(Some patient, "r-3")) busy
+                        |> Expect.equal "the state stays, no request" (busy, [])
+                    }
+
+                    test "a failed update tells no summary, and that the plan did not follow" {
+                        let busy, _ = transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (held one None)
+
+                        transition (OrderPlanMsg.Answered("r-2", Error [| "no" |])) busy
+                        |> snd
+                        |> Expect.equal
+                            "the error, and the plan behind"
+                            [ OrderPlanEffect.TellError [| "no" |]; OrderPlanEffect.PatientDataNotFollowed ]
+                    }
+
+                    test "an update with the same drugs starts no interaction check" {
+                        let busy, _ = transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (held one None)
+
+                        transition (OrderPlanMsg.Answered("r-2", Ok one)) busy
+                        |> snd
+                        |> List.exists (
+                            function
+                            | OrderPlanEffect.CheckInteractions _ -> true
+                            | _ -> false
+                        )
+                        |> Expect.isFalse "no check"
+                    }
+
+                    test "an update that brings a new drug starts the interaction check" {
+                        let busy, _ = transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (held one None)
+
+                        transition (OrderPlanMsg.Answered("r-2", Ok two)) busy
+                        |> snd
+                        |> List.contains (OrderPlanEffect.CheckInteractions [ "paracetamol"; "ibuprofen" ])
+                        |> Expect.isTrue "the new drug is checked"
+                    }
+
                     test "a patient set opens the empty plan under the request; the answer shows it" {
                         let asked, effects = transition (OrderPlanMsg.PatientDataChanged(Some patient, "r-1")) noPatient
 
@@ -50,7 +122,7 @@ let tests =
                         state
                         |> Expect.equal
                             "the plan held, the patient update in the command"
-                            (recalculatingFor other one None "r-2" update)
+                            (recalculatingFor patient one None "r-2" update)
 
                         effects
                         |> Expect.equal "the patient update" [ OrderPlanEffect.CallPlan(update, "r-2") ]
