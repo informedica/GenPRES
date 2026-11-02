@@ -29,12 +29,14 @@ module HeldPanelPolicy =
         | _ -> None
 
 
+    /// Whether the EHR identified the patient.
+    let identified session = (patientContext session |> Option.bind _.Identity).IsSome
+
+
     /// Whether the patient context is held: an identified patient, and the ids of the orders new or
     /// changed since the version last opened or signed not empty. Anonymous use and the url mode are
     /// never held.
-    let held session (changed: string[]) =
-        (patientContext session |> Option.bind _.Identity).IsSome
-        && not (Array.isEmpty changed)
+    let held session (changed: string[]) = identified session && not (Array.isEmpty changed)
 
 
     /// The last signed order plan of the open Session, the one a refresh of the plan opens; none

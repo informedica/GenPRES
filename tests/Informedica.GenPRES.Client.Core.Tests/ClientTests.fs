@@ -25,6 +25,7 @@ open Informedica.GenPRES.Client.Core.Client
 open Informedica.GenPRES.Client.Core.Tests.OrderFixtures
 
 module Lanes = Informedica.GenPRES.Client.Core.Lanes
+module Client = Informedica.GenPRES.Client.Core.Client
 
 
 /// Messages played one after another over the state, with fresh request ids; the state, the effects
@@ -492,6 +493,87 @@ let tests =
                         heldState
                         |> play [ change ]
                         |> Expect.equal "dropped, and said so" (heldState, [], [ ClientStep.Dropped change ])
+                    }
+
+                    test "a new patient clears everything first, then sends the data" {
+                        let _, effects, _ =
+                            initial Url.none
+                            |> play [ ClientMsg.NewPatient(Some draft, PatientDraftPolicy.Estimates.Kept, "p-1") ]
+
+                        let cleared =
+                            effects
+                            |> List.findIndex (
+                                function
+                                | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.SetPatientData None)) -> true
+                                | _ -> false
+                            )
+
+                        let sent =
+                            effects
+                            |> List.findIndex (
+                                function
+                                | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallPatient(_, "p-1"))) -> true
+                                | _ -> false
+                            )
+
+                        cleared < sent |> Expect.isTrue "the clear before the call"
+                    }
+
+                    test "a new patient withdraws the warnings and asks no page for no patient" {
+                        let result =
+                            initial Url.none
+                            |> play [ ClientMsg.NewPatient(Some draft, PatientDraftPolicy.Estimates.Kept, "p-1") ]
+
+                        result
+                        |> hasEffect (
+                            function
+                            | ClientEffect.Loader LoaderEffect.WithdrawInteractionsFound -> true
+                            | _ -> false
+                        )
+                        |> Expect.isTrue "the warnings of the previous patient go"
+
+                        result
+                        |> hasEffect (
+                            function
+                            | ClientEffect.Loader(LoaderEffect.FetchFormulary _)
+                            | ClientEffect.Loader(LoaderEffect.FetchParenteralia _) -> true
+                            | _ -> false
+                        )
+                        |> Expect.isFalse "only the patient goes out"
+                    }
+
+                    test "a new patient is dropped once the patient is identified" {
+                        let confirmed = ClientMsg.NewPatient(Some otherDraft, PatientDraftPolicy.Estimates.Kept, "p-1")
+
+                        heldState
+                        |> play [ confirmed ]
+                        |> Expect.equal "the orders stay" (heldState, [], [ ClientStep.Dropped confirmed ])
+                    }
+
+                    test "the panel asks over the session, the plan and the workbench of the state" {
+                        let anonymous =
+                            { heldState with
+                                Lanes = { heldState.Lanes with Session = Lanes.initial None |> _.Session }
+                            }
+
+                        anonymous |> Client.asksNewPatient |> Expect.isTrue "orders, and no identity"
+                        heldState |> Client.asksNewPatient |> Expect.isFalse "identified"
+                        initial Url.none |> Client.asksNewPatient |> Expect.isFalse "nothing to lose"
+                    }
+
+                    test "an anonymous edit with nothing to lose takes the ordinary path" {
+                        let state = initial Url.none
+
+                        state |> Client.asksNewPatient |> Expect.isFalse "no question"
+
+                        state
+                        |> play [ ClientMsg.PanelChanged(Some draft, PatientDraftPolicy.Estimates.Kept, "p-1") ]
+                        |> hasEffect (
+                            function
+                            | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.SetPatientData None)) -> true
+                            | _ -> false
+                        )
+                        |> Expect.isFalse "nothing is cleared"
                     }
 
                     test "a panel change reaches the patient when the patient is not held" {

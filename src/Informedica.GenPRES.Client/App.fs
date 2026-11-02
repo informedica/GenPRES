@@ -626,6 +626,10 @@ type private Projection(state: State, dispatch: Msg -> unit) =
             Msg.PanelChanged(pat, PatientDraftPolicy.Estimates.Kept, Elmish.newRequest ())
             |> dispatch
 
+        member _.AsksNewPatient = Client.asksNewPatient state
+
+        member _.NewPatient(pat, estimates) = Msg.NewPatient(pat, estimates, Elmish.newRequest ()) |> dispatch
+
     interface AppEnv.IFormulary with
         member _.Formulary = Client.formulary state
         member _.UpdateFormulary form =

@@ -78,6 +78,7 @@
     <Compile Include="MachinePolicies/SigningPolicy.fs" />
     <Compile Include="MachinePolicies/UnsignedWorkPolicy.fs" />
     <Compile Include="MachinePolicies/HeldPanelPolicy.fs" />
+    <Compile Include="MachinePolicies/NewPatientPolicy.fs" />
     <Compile Include="MachinePolicies/OutPolicy.fs" />
     <Compile Include="MachinePolicies/StartupPolicy.fs" />
 

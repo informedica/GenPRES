@@ -99,6 +99,11 @@ type IPatient =
     // the draft with its estimates as they are: after any other edit, so that a weight or a
     // height the user cleared stays cleared
     abstract EditPatient: Patient option -> unit
+    // whether an edit asks first, since it is taken as a new patient and orders or a selection
+    // would be lost
+    abstract AsksNewPatient: bool
+    // a new patient, with what becomes of the estimates; the plan and the workbench go
+    abstract NewPatient: Patient option * PatientDraftPolicy.Estimates -> unit
 
 
 /// Formulary data and updates

@@ -94,12 +94,28 @@ module Patient =
         // draft it had, and show values the App no longer holds
         let pat = patient
 
-        let dispatch msg =
-            let edited = pat |> update msg
+        // the data of a new patient, while the question whether to lose the orders is open; the
+        // draft stays as it is, so that cancel leaves the panel on the previous data
+        let newPatient, setNewPatient = React.useState (None: (Patient option * Estimates) option)
 
-            match estimates msg with
-            | Estimates.Renewed -> edited |> updatePatient
-            | Estimates.Kept -> edited |> keepEstimates msg pat |> editPatient
+        let dispatch msg =
+            let renewal = estimates msg
+
+            let edited, send =
+                match renewal with
+                | Estimates.Renewed -> pat |> update msg, updatePatient
+                | Estimates.Kept -> pat |> update msg |> keepEstimates msg pat, editPatient
+
+            // the reset has its own question
+            let cleared =
+                match msg with
+                | Msg.Clear -> true
+                | _ -> false
+
+            if envPatient.AsksNewPatient && not cleared && edited <> pat then
+                setNewPatient (Some(edited, renewal))
+            else
+                edited |> send
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
 
@@ -203,6 +219,24 @@ module Patient =
                         onConfirm = onResetConfirmed
                         onCancel = fun () -> setConfirmResetOpen false
                     |}
+
+        let onNewPatientConfirmed () =
+            newPatient |> Option.iter envPatient.NewPatient
+            setNewPatient None
+
+        let newPatientDialog =
+            Components.ConfirmDialog.View
+                {|
+                    isOpen = newPatient.IsSome
+                    title = Terms.``Patient New Dialog Title`` |> getTerm "Nieuwe patiënt"
+                    text =
+                        Terms.``Patient New Dialog Text``
+                        |> getTerm "Dit start een nieuwe patiënt. Alle orders worden verwijderd."
+                    confirmLabel = Terms.Confirm |> getTerm "Bevestigen"
+                    cancelLabel = Terms.Cancel |> getTerm "Annuleren"
+                    onConfirm = onNewPatientConfirmed
+                    onCancel = fun () -> setNewPatient None
+                |}
 
         // a launched patient's department is the platform's, as its age is: shown, not chosen
         let launched =
@@ -777,6 +811,7 @@ module Patient =
                 {departmentNotice}
                 {resetBar}
                 {confirmResetDialog}
+                {newPatientDialog}
                 {heldDialog}
             </React.Fragment>
             """
