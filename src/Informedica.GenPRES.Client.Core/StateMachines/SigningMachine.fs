@@ -55,6 +55,8 @@ module SigningMachine =
                 /// The orders that differ from the version last opened or signed, as they stood when
                 /// the user signed; the dialog lists these, whatever reaches the order plan meanwhile.
                 Differences: (OrderContext * HeldContextPolicy.Difference)[]
+                /// Whether the challenge said that the patient is no longer active in the EHR.
+                EhrMovedOn: bool
             }
 
 
@@ -133,6 +135,7 @@ module SigningMachine =
                 InFlight = None
                 Unsent = None
                 Differences = [||]
+                EhrMovedOn = false
             }
 
 
@@ -143,6 +146,7 @@ module SigningMachine =
                 InFlight = Some(SigningRequest.Challenge(plan, notice, request))
                 Unsent = None
                 Differences = [||]
+                EhrMovedOn = false
             }
 
 
@@ -153,6 +157,7 @@ module SigningMachine =
                 InFlight = None
                 Unsent = None
                 Differences = [||]
+                EhrMovedOn = false
             }
 
 
@@ -163,6 +168,7 @@ module SigningMachine =
                 InFlight = None
                 Unsent = None
                 Differences = [||]
+                EhrMovedOn = false
             }
 
 
@@ -173,6 +179,7 @@ module SigningMachine =
                 InFlight = Some(SigningRequest.Submission key)
                 Unsent = None
                 Differences = [||]
+                EhrMovedOn = false
             }
 
 
@@ -189,7 +196,12 @@ module SigningMachine =
                 InFlight = None
                 Unsent = Some key
                 Differences = [||]
+                EhrMovedOn = false
             }
+
+
+        /// Whether the patient was no longer active in the EHR when the challenge was issued.
+        let ehrMovedOn (state: SigningState) = state.EhrMovedOn
 
 
         /// What the dialog reads: the phase, and the request only while a challenge is asked or a
@@ -247,9 +259,10 @@ module SigningMachine =
                 answered <> request
                 ->
                 state, []
-            | SigningMsg.ChallengeAnswered(_, Ok(SigningResponse.ChallengeIssued challenge)),
+            | SigningMsg.ChallengeAnswered(_, Ok(SigningResponse.ChallengeIssued(challenge, moved))),
               SigningPhase.Idle,
-              Some(SigningRequest.Challenge(plan, _, _)) -> challenged challenge plan None, []
+              Some(SigningRequest.Challenge(plan, _, _)) ->
+                { challenged challenge plan None with EhrMovedOn = moved }, []
             | SigningMsg.ChallengeAnswered(_, Ok(SigningResponse.DataNotice notice)),
               SigningPhase.Idle,
               Some(SigningRequest.Challenge(plan, _, _)) -> noticed plan notice, []
@@ -342,7 +355,8 @@ module SigningMachine =
 
 
         /// The next state and effects for a message, the differences carried along: taken from the
-        /// sign that starts a signature, kept while it is under way, and dropped when it ends.
+        /// sign that starts a signature, kept while it is under way, and dropped when it ends. What
+        /// the challenge said about the EHR stays while the PIN is asked, also after a wrong PIN.
         let transition (msg: SigningMsg) (state: SigningState) : SigningState * SigningEffect list =
             let next, effects = step msg state
 
@@ -352,7 +366,16 @@ module SigningMachine =
                 | _, _, _, SigningPhase.Idle, None -> [||]
                 | _ -> state.Differences
 
-            { next with Differences = differences }, effects
+            let ehrMovedOn =
+                match next.Phase with
+                | SigningPhase.AskingPin _ -> next.EhrMovedOn || state.EhrMovedOn
+                | _ -> false
+
+            { next with
+                Differences = differences
+                EhrMovedOn = ehrMovedOn
+            },
+            effects
 
 
         /// The orders that differ from the version last opened or signed, as they stood when the user

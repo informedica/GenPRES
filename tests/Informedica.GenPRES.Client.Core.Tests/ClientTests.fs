@@ -542,6 +542,29 @@ let tests =
                         |> Expect.isFalse "only the patient goes out"
                     }
 
+                    test "the warning follows the challenge, with the identity of the Session" {
+                        let signingWith moved =
+                            { heldState with
+                                Lanes =
+                                    { heldState.Lanes with
+                                        Signing =
+                                            SigningState.requesting one None "r-1"
+                                            |> SigningState.transition (
+                                                SigningMsg.ChallengeAnswered(
+                                                    "r-1",
+                                                    Ok(SigningResponse.ChallengeIssued("c-1", moved))
+                                                )
+                                            )
+                                            |> fst
+                                    }
+                            }
+
+                        signingWith true |> Client.ehrMovedOn |> Expect.isTrue "told"
+                        signingWith false |> Client.ehrMovedOn |> Expect.isFalse "nothing to tell"
+                        heldState |> Client.signedFor |> Expect.isSome "the name"
+                        initial Url.none |> Client.signedFor |> Expect.isNone "no identity"
+                    }
+
                     test "a new patient is dropped once the patient is identified" {
                         let confirmed = ClientMsg.NewPatient(Some otherDraft, PatientDraftPolicy.Estimates.Kept, "p-1")
 

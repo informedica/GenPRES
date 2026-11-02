@@ -14,7 +14,7 @@ module SigningCommand =
     /// version with the environment's demo flag.
     let toResponse (demo: bool) (outcome: SigningOutcome) =
         match outcome with
-        | SigningOutcome.ChallengeIssued nonce -> SigningResponse.ChallengeIssued nonce
+        | SigningOutcome.ChallengeIssued(nonce, moved) -> SigningResponse.ChallengeIssued(nonce, moved)
         | SigningOutcome.DataNotice(token, data) ->
             SigningResponse.DataNotice
                 {

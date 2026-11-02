@@ -134,6 +134,15 @@ module Client =
             (state.Lanes.OrderPlan |> OrderPlanState.work)
 
 
+    /// Whether the patient was no longer active in the EHR at the challenge.
+    let ehrMovedOn (state: ClientState) = state.Lanes.Signing |> SigningState.ehrMovedOn
+
+
+    /// Who the patient being signed for is; none for a patient the EHR did not identify.
+    let signedFor (state: ClientState) =
+        SessionState.view state.Lanes.Session |> HeldPanelPolicy.identity
+
+
     /// Whether an edit on the panel is taken as a new patient and asks first.
     let asksNewPatient (state: ClientState) =
         NewPatientPolicy.asks

@@ -29,8 +29,12 @@ module HeldPanelPolicy =
         | _ -> None
 
 
+    /// Who the EHR says the patient is; none for a patient it did not identify.
+    let identity session = patientContext session |> Option.bind _.Identity
+
+
     /// Whether the EHR identified the patient.
-    let identified session = (patientContext session |> Option.bind _.Identity).IsSome
+    let identified session = (identity session).IsSome
 
 
     /// Whether the patient context is held: an identified patient, and the ids of the orders new or

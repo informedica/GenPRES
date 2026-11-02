@@ -670,6 +670,10 @@ type private Projection(state: State, dispatch: Msg -> unit) =
 
         member _.Differences = Client.differences state
 
+        member _.EhrMovedOn = Client.ehrMovedOn state
+
+        member _.SignedFor = Client.signedFor state
+
         // one request id per Sign, so the answer lands on this request and no other
         member _.Sign plan = Msg.Sign(plan, Elmish.newRequest ()) |> dispatch
 

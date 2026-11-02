@@ -89,7 +89,7 @@ let portOver (captured: ResizeArray<Informedica.GenOrder.Lib.Types.OrderPlan>) =
             fun _ (plan, _, _) ->
                 async {
                     captured.Add plan
-                    return SigningOutcome.ChallengeIssued "c-1"
+                    return SigningOutcome.ChallengeIssued("c-1", false)
                 }
         submit =
             fun _ signature ->

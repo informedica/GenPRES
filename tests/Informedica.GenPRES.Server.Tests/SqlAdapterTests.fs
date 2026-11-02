@@ -113,7 +113,7 @@ let plan = lazy Store.domainPlan.Value
 let challenged (port: SessionPort) sid (opened: OpenedSession) key =
     async {
         match! port.challenge sid (plan.Value, opened.OpenedToken.Value, None) with
-        | SigningOutcome.ChallengeIssued nonce ->
+        | SigningOutcome.ChallengeIssued(nonce, _) ->
             return
                 {
                     Plan = plan.Value
