@@ -122,10 +122,10 @@ estimate.
     back makes the plan equal to the signed version again, so there is nothing new to sign.
 14. **Patient data can always change.** Blocking a change of data while unsigned orders are on the
     plan was needed because orders could not follow new data. Rules 5 to 8 make the block
-    unnecessary, so it goes, and the refusal at signing for orders on other data goes with it.
-    Until then, a data notice at the sign is a choice: the clinician takes the EHR's data or keeps
-    the plan's. With unsigned orders on the plan, taking the EHR's data removes those orders and
-    reads the EHR again, as a refresh does.
+    unnecessary, so it goes, and the refusal at signing for orders on other data goes with it. A data
+    notice at the sign stays a choice: the clinician takes the EHR's data or keeps the plan's. Taking
+    the EHR's data ends the signature and reads the EHR again, as a refresh does: the orders follow
+    the new data, none is removed, and the prescriber signs again, also without unsigned orders.
 
 14a. **Signing warns when the EHR has moved on.** When the patient active in the EHR is not the
      patient of the session, the prescriber is told so before entering the PIN: the name of the
@@ -244,7 +244,8 @@ The order comes from the logic: the domain first, then what uses it.
 
    Three things stay open after this step. Until step 7 an order on changed data cannot be signed.
    Until step 8 an order of a version opened on other data can be stepped while it is on that other
-   data, without a sign of it, so rule 11 holds in full only after step 8. Until #1612 a filter or
+   data, without a sign of it, and from step 7 it can be signed so: a dose calculated on 32 kg, in a
+   plan on 40 kg, without a warning. Rule 11 holds in full only after step 8. Until #1612 a filter or
    component pick in a slot with an order rebuilds the order on the patient of the context, so after
    a change of data on the old data, without a notice. The medical check must see the last two.
 6. **Patient identity.** Rules 1 and 2: the question in anonymous mode and the clearing; rule 14a,
@@ -260,8 +261,15 @@ The order comes from the logic: the domain first, then what uses it.
    gone; the pages hold no lists until the next patient. A nutrition slot without an order is nothing to lose: with nothing else to
    lose there is no question, the slot stays and starts again on the new data. The stopped old tab
    of rule 3 is built by plan 1599. The nutrition part of #1430 as reported needs #1612.
-7. **The hold goes.** Rule 14. Taking the EHR's data at a data notice then becomes a change of data
-   under rules 4 to 8, so it no longer removes the unsigned orders.
+7. **The hold goes.** Rule 14. Taking the EHR's data at a data notice is a change of data under rules
+   4 to 8, so it no longer removes the unsigned orders and no longer signs straight away over orders
+   not recalculated. After a refresh the Session holds the new reading, so the next sign gives no
+   notice. Keeping the plan's data signs as before. A refresh keeps the mark as an adult, which the
+   EHR does not hold. Orders changed by new data count as unsigned work when they differ from the
+   version last opened or signed.
+
+   A read of the EHR that the Session drops, because it is no longer open or another open is under
+   way, says nothing: the data are not taken and the next sign shows the notice again.
 8. **Age, estimates and retrieval.** Rules 15 to 18. The age at the open, a resume, a refresh and a
    sign is built by plan 1599.
 

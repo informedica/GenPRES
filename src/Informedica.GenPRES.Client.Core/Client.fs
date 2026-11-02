@@ -121,11 +121,6 @@ module Client =
         | _ -> false
 
 
-    /// Whether the patient is held; the panel takes no change then.
-    let held (state: ClientState) =
-        HeldPanelPolicy.held (SessionState.view state.Lanes.Session) (OrderPlanState.changed state.Lanes.OrderPlan)
-
-
     /// Whether leaving the page would lose work.
     let unsignedWork (state: ClientState) =
         UnsignedWorkPolicy.hasUnsignedWork
@@ -140,7 +135,7 @@ module Client =
 
     /// Who the patient being signed for is; none for a patient the EHR did not identify.
     let signedFor (state: ClientState) =
-        SessionState.view state.Lanes.Session |> HeldPanelPolicy.identity
+        SessionState.view state.Lanes.Session |> SessionPatientPolicy.identity
 
 
     /// Whether an edit on the panel is taken as a new patient and asks first.
@@ -256,10 +251,6 @@ module Client =
 
     /// The order plan as the page shows it.
     let orderPlan (state: ClientState) = state.Lanes.OrderPlan |> OrderPlanState.view
-
-
-    /// The orders new or changed since the last signed order plan.
-    let changedOrders (state: ClientState) = state.Lanes.OrderPlan |> OrderPlanState.changed
 
 
     /// The patient as the panel shows it.
@@ -460,8 +451,6 @@ module Client =
                 [ ClientStep.Shell(m, shell, effects) ]
         | ClientMsg.PageChosen page ->
             becomes [ ClientMsg.Shell(ShellMsg.PageChosen(page, state.Admin.IsAuthenticated)) ]
-        // the panel is disabled while the patient is held, so a change that still comes is dropped
-        | ClientMsg.PanelChanged _ when held state -> becomes []
         | ClientMsg.PanelChanged(pat, estimates, request) ->
             becomes
                 [
@@ -495,7 +484,7 @@ module Client =
                 [
                     ClientMsg.Lanes(LanesMsg.Signing(SigningMsg.Sign(plan, differences, request)))
                 ]
-        | ClientMsg.TakeEhrData -> becomes [ ClientMsg.Lanes(LanesMsg.Signing(SigningMsg.TakeEhrData(held state))) ]
+        | ClientMsg.TakeEhrData -> becomes [ ClientMsg.Lanes(LanesMsg.Signing SigningMsg.TakeEhrData) ]
 
 
     /// The messages an effect becomes for other parts, over the state at the moment it is passed on;

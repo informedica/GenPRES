@@ -139,12 +139,12 @@ module SignDialog =
             | SigningView.Idle
             | SigningView.RequestingChallenge -> false
 
-        let differenceTag (difference: HeldContextPolicy.Difference) =
+        let differenceTag (difference: PlanDifferencePolicy.Difference) =
             let label, color =
                 match difference with
-                | HeldContextPolicy.Difference.New -> tr Terms.``Signing New``, "success"
-                | HeldContextPolicy.Difference.Changed -> tr Terms.``Signing Changed``, "warning"
-                | HeldContextPolicy.Difference.Removed -> tr Terms.``Signing Removed``, "error"
+                | PlanDifferencePolicy.Difference.New -> tr Terms.``Signing New``, "success"
+                | PlanDifferencePolicy.Difference.Changed -> tr Terms.``Signing Changed``, "warning"
+                | PlanDifferencePolicy.Difference.Removed -> tr Terms.``Signing Removed``, "error"
 
             JSX.jsx
                 $"""
@@ -181,7 +181,7 @@ module SignDialog =
 
         let body =
             match notice with
-            | Some(_, notice) -> noticeSentence tr signing.Held notice
+            | Some(_, notice) -> noticeSentence tr notice
             | None -> tr Terms.``Signing Dialog Text``
 
         // the EHR's data beside the plan's, only what differs
@@ -340,9 +340,6 @@ module SignDialog =
 
         let progress = ViewHelpers.busyProgress busy
 
-        // with unsigned orders, taking the EHR's data removes them
-        let takeColor = if signing.Held then "warning" else "primary"
-
         let primary =
             match notice with
             // an unverified notice has nothing to take
@@ -358,7 +355,7 @@ module SignDialog =
                     $"""
                 <>
                     <Button onClick={onKeep}>{tr Terms.``Signing Keep Plan Data``}</Button>
-                    <Button variant="contained" color={takeColor} onClick={onTake}>
+                    <Button variant="contained" color="primary" onClick={onTake}>
                         {tr Terms.``Signing Take Ehr Data``}
                     </Button>
                 </>

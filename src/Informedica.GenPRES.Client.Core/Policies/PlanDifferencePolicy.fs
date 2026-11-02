@@ -1,24 +1,10 @@
 namespace Informedica.GenPRES.Client.Core.Policies
 
-/// Lists the orders of the order plan that are new or changed since the version last opened or
-/// signed: while there are any, the patient context is held and the patient data cannot change,
-/// so every order a signed version adds rests on the same patient data. Also lists the
-/// differences against that version, new, changed and removed, as the sign dialog shows them.
-module HeldContextPolicy =
+/// Lists the differences of the order plan against the version last opened or signed, new, changed
+/// and removed, as the sign dialog shows them.
+module PlanDifferencePolicy =
 
     open Informedica.GenPRES.Shared.Types
-
-
-    /// The ids of the order contexts that are new or changed since the version last opened or
-    /// signed. A removed context is in neither list, so a removal holds nothing.
-    let changed (opened: OrderContext[]) (plan: OrderPlan) =
-        plan.OrderContexts
-        |> Array.filter (fun ctx ->
-            opened
-            |> Array.tryFind (fun o -> o.Id = ctx.Id)
-            |> Option.forall (fun o -> o <> ctx)
-        )
-        |> Array.map _.Id
 
 
     /// How an order context differs from the version last opened or signed.

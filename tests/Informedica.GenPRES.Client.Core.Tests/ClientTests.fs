@@ -102,13 +102,12 @@ let seededFrom source =
     )
 
 
-/// A Session open for a patient the EHR identified, with a plan that has a new order: the patient
-/// is held.
-let heldState =
+/// A Session open for a patient the EHR identified, with a plan that has a new order.
+let unsignedState =
     { initial Url.none with
         Lanes =
             { Lanes.initial (Some draft) with
-                Session = SessionState.opened HeldPanelPolicyTests.identified None
+                Session = SessionState.opened SessionPatientPolicyTests.identified None
                 OrderPlan = OrderPlanState.held patient one None |> OrderPlanState.withOpened [||]
             }
     }
@@ -316,7 +315,7 @@ let tests =
                             { initial Url.none with
                                 Lanes =
                                     { Lanes.initial None with
-                                        Session = SessionState.opened HeldPanelPolicyTests.identified None
+                                        Session = SessionState.opened SessionPatientPolicyTests.identified None
                                     }
                             }
 
@@ -436,7 +435,7 @@ let tests =
                                 [
                                     "anonymous", SessionState.anonymous, true
                                     "resuming", SessionState.resuming, false
-                                    "launched", SessionState.opened HeldPanelPolicyTests.identified None, false
+                                    "launched", SessionState.opened SessionPatientPolicyTests.identified None, false
                                     "refused", SessionState.refused LaunchRefusal.NoBrowserIdentity, false
                                 ] do
                                 test name {
@@ -485,14 +484,20 @@ let tests =
                 ]
 
             testList
-                "the patient held and the signature"
+                "the patient and the signature"
                 [
-                    test "a panel change while the patient is held falls to the closing arm" {
-                        let change = ClientMsg.PanelChanged(Some otherDraft, PatientDraftPolicy.Estimates.Kept, "p-1")
-
-                        heldState
-                        |> play [ change ]
-                        |> Expect.equal "dropped, and said so" (heldState, [], [ ClientStep.Dropped change ])
+                    test "a panel change with an unsigned order reaches the patient" {
+                        unsignedState
+                        |> play
+                            [
+                                ClientMsg.PanelChanged(Some otherDraft, PatientDraftPolicy.Estimates.Kept, "p-1")
+                            ]
+                        |> hasEffect (
+                            function
+                            | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallPatient(_, "p-1"))) -> true
+                            | _ -> false
+                        )
+                        |> Expect.isTrue "sent"
                     }
 
                     test "a new patient clears everything first, then sends the data" {
@@ -544,9 +549,9 @@ let tests =
 
                     test "the warning follows the challenge, with the identity of the Session" {
                         let signingWith moved =
-                            { heldState with
+                            { unsignedState with
                                 Lanes =
-                                    { heldState.Lanes with
+                                    { unsignedState.Lanes with
                                         Signing =
                                             SigningState.requesting one None "r-1"
                                             |> SigningState.transition (
@@ -561,26 +566,26 @@ let tests =
 
                         signingWith true |> Client.ehrMovedOn |> Expect.isTrue "told"
                         signingWith false |> Client.ehrMovedOn |> Expect.isFalse "nothing to tell"
-                        heldState |> Client.signedFor |> Expect.isSome "the name"
+                        unsignedState |> Client.signedFor |> Expect.isSome "the name"
                         initial Url.none |> Client.signedFor |> Expect.isNone "no identity"
                     }
 
                     test "a new patient is dropped once the patient is identified" {
                         let confirmed = ClientMsg.NewPatient(Some otherDraft, PatientDraftPolicy.Estimates.Kept, "p-1")
 
-                        heldState
+                        unsignedState
                         |> play [ confirmed ]
-                        |> Expect.equal "the orders stay" (heldState, [], [ ClientStep.Dropped confirmed ])
+                        |> Expect.equal "the orders stay" (unsignedState, [], [ ClientStep.Dropped confirmed ])
                     }
 
                     test "the panel asks over the session, the plan and the workbench of the state" {
                         let anonymous =
-                            { heldState with
-                                Lanes = { heldState.Lanes with Session = Lanes.initial None |> _.Session }
+                            { unsignedState with
+                                Lanes = { unsignedState.Lanes with Session = Lanes.initial None |> _.Session }
                             }
 
                         anonymous |> Client.asksNewPatient |> Expect.isTrue "orders, and no identity"
-                        heldState |> Client.asksNewPatient |> Expect.isFalse "identified"
+                        unsignedState |> Client.asksNewPatient |> Expect.isFalse "identified"
                         initial Url.none |> Client.asksNewPatient |> Expect.isFalse "nothing to lose"
                     }
 
@@ -599,7 +604,7 @@ let tests =
                         |> Expect.isFalse "nothing is cleared"
                     }
 
-                    test "a panel change reaches the patient when the patient is not held" {
+                    test "a panel change reaches the patient without a Session" {
                         initial Url.none
                         |> play [ ClientMsg.PanelChanged(Some draft, PatientDraftPolicy.Estimates.Kept, "p-1") ]
                         |> hasEffect (
@@ -612,7 +617,7 @@ let tests =
 
                     test "a signature answered is said on the snackbar and told to the plan" {
                         let result =
-                            heldState
+                            unsignedState
                             |> play
                                 [
                                     ClientMsg.Sign(one, "s-1")
@@ -633,11 +638,10 @@ let tests =
                         |> Expect.isTrue "the plan told"
                     }
 
-                    test
-                        "a signature takes the plan's differences, and taking the EHR's data whether the patient is held" {
-                        let differences = heldState.Lanes.OrderPlan |> OrderPlanState.differences one
+                    test "a signature takes the plan's differences" {
+                        let differences = unsignedState.Lanes.OrderPlan |> OrderPlanState.differences one
 
-                        heldState
+                        unsignedState
                         |> play [ ClientMsg.Sign(one, "s-1") ]
                         |> hasStep (
                             function
@@ -645,15 +649,36 @@ let tests =
                             | _ -> false
                         )
                         |> Expect.isTrue "the differences"
+                    }
 
-                        heldState
-                        |> play [ ClientMsg.TakeEhrData ]
-                        |> hasStep (
+                    test "taking the EHR's data with an unsigned order reads the EHR again and removes nothing" {
+                        let notice =
+                            {
+                                Data = Some patient
+                                Token = "d-1"
+                            }
+
+                        let effects =
+                            { unsignedState with
+                                Lanes = { unsignedState.Lanes with Signing = SigningState.noticed one notice }
+                            }
+                            |> play [ ClientMsg.TakeEhrData ]
+
+                        effects
+                        |> hasEffect (
                             function
-                            | ClientStep.Lanes(LanesStep.Signing(SigningMsg.TakeEhrData true, _, _)) -> true
+                            | ClientEffect.Lanes(LanesEffect.Session(SessionEffect.CallRefreshPatient _)) -> true
                             | _ -> false
                         )
-                        |> Expect.isTrue "held"
+                        |> Expect.isTrue "read again"
+
+                        effects
+                        |> hasEffect (
+                            function
+                            | ClientEffect.Lanes(LanesEffect.Plan(OrderPlanEffect.CallPlan _)) -> true
+                            | _ -> false
+                        )
+                        |> Expect.isFalse "the plan is left alone until the data come back"
                     }
                 ]
         ]

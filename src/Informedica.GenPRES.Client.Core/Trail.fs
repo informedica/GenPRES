@@ -311,7 +311,6 @@ module Trail =
             | SigningRefusal.Locked _ -> "Locked"
             | SigningRefusal.StoreFailed -> "StoreFailed"
             | SigningRefusal.PlanUnreadable -> "PlanUnreadable"
-            | SigningRefusal.ContextDiffers -> "ContextDiffers"
 
 
         /// What a reply told besides its answer.
@@ -420,6 +419,7 @@ module Trail =
             | SessionEffect.CallSupplyPin _ -> "CallSupplyPin"
             | SessionEffect.GoToIdentityProvider _ -> "GoToIdentityProvider"
             | SessionEffect.SetPatientData p -> $"SetPatientData %s{Part.patientOption p}"
+            | SessionEffect.SetPatientDataRead p -> $"SetPatientDataRead %s{Part.patientOption p}"
             | SessionEffect.KeepBrowserKey _ -> "KeepBrowserKey"
             | SessionEffect.LoadSignedPlan s -> $"LoadSignedPlan %s{Part.signed s}"
             | SessionEffect.CallOpenSignedPlan(id, from) ->
@@ -475,11 +475,7 @@ module Trail =
                 $"Sign %s{Part.plan p} %i{differences.Length} differences %s{Part.shortId request}"
             | SigningMsg.ChallengeAnswered(request, r) ->
                 $"ChallengeAnswered %s{Part.shortId request} %s{r |> Part.result response}"
-            | SigningMsg.TakeEhrData unsigned ->
-                if unsigned then
-                    "TakeEhrData dropping the unsigned orders"
-                else
-                    "TakeEhrData"
+            | SigningMsg.TakeEhrData -> "TakeEhrData"
             | SigningMsg.KeepPlanData -> "KeepPlanData"
             | SigningMsg.ConfirmPin _ -> "ConfirmPin"
             | SigningMsg.Cancel -> "Cancel"
@@ -499,7 +495,7 @@ module Trail =
             | SigningEffect.TellSigned s -> $"TellSigned %s{Part.signed s}"
             | SigningEffect.TellRefused r -> $"TellRefused %s{Part.signingRefusal r}"
             | SigningEffect.TellError _ -> "TellError"
-            | SigningEffect.DropChangesAndRefresh -> "DropChangesAndRefresh"
+            | SigningEffect.ReadEhrAgain -> "ReadEhrAgain"
 
 
         /// The signing state as the dialog reads it; never the challenge.
@@ -527,7 +523,6 @@ module Trail =
         /// Never the argumentation.
         let msg (msg: OrderPlanMsg) =
             match msg with
-            | OrderPlanMsg.DropChanges request -> $"DropChanges %s{Part.shortId request}"
             | OrderPlanMsg.PatientDataChanged(p, request) ->
                 $"PatientDataChanged %s{Part.patientOption p} %s{Part.shortId request}"
             | OrderPlanMsg.OpenSignedPlan(s, request) -> $"OpenSignedPlan %s{Part.signed s} %s{Part.shortId request}"
@@ -548,7 +543,6 @@ module Trail =
             | OrderPlanEffect.TellAnswered -> "TellAnswered"
             | OrderPlanEffect.TellPatientDataChanged summary ->
                 $"TellPatientDataChanged %i{summary.Orders} orders %i{summary.Marked} marked"
-            | OrderPlanEffect.ChangesDropped -> "ChangesDropped"
             | OrderPlanEffect.PatientDataNotFollowed -> "PatientDataNotFollowed"
 
 
@@ -699,6 +693,7 @@ module Trail =
             | PatientMsg.Changed(p, e, request) ->
                 $"Changed %s{Part.patientOption p} %s{estimates e} %s{Part.shortId request}"
             | PatientMsg.Answered(request, r) -> $"Answered %s{Part.shortId request} %s{r |> Part.result Part.patient}"
+            | PatientMsg.Refreshed(p, request) -> $"Refreshed %s{Part.patientOption p} %s{Part.shortId request}"
             | PatientMsg.PlanNotFollowed -> "PlanNotFollowed"
 
 

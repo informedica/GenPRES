@@ -26,9 +26,7 @@ module SigningPolicy =
         | Terms.``Signing Proceed`` -> "Continue"
         | Terms.``Signing Signed`` -> "Version {0} was signed by {1}."
         | Terms.``Signing Data Changed`` ->
-            "The EHR's data differ from the data the session opened on. Take the EHR's data, keep the plan's, or cancel."
-        | Terms.``Signing Data Changed Unsigned`` ->
-            "The EHR's data differ from the data the session opened on, and the plan has new or changed orders. Taking the EHR's data removes those orders and ends this signature. Keeping the plan's data signs them on the data shown."
+            "The EHR's data differ from the data the session opened on. Taking the EHR's data ends this signature: the orders follow the new data, and you sign again. Keeping the plan's data signs the plan as shown."
         | Terms.``Signing Take Ehr Data`` -> "Take the EHR's data"
         | Terms.``Signing Keep Plan Data`` -> "Keep the plan's data"
         | Terms.``Signing Notice Ehr`` -> "EHR"
@@ -50,8 +48,6 @@ module SigningPolicy =
         | Terms.``Signing Refusal Locked`` -> "Signing is locked until {0}."
         | Terms.``Signing Refusal Store Failed`` -> "The version could not be stored. Nothing changed; sign again."
         | Terms.``Signing Refusal Plan Unreadable`` -> "The plan could not be read. Reload the page and sign again."
-        | Terms.``Signing Refusal Context Differs`` ->
-            "An order in the plan was composed on other patient data. Remove the new and changed orders and prescribe them again."
         | Terms.``Signing Send Failed`` -> "The signature could not be sent. Try again."
         | Terms.``Signing New`` -> "New"
         | Terms.``Signing Changed`` -> "Changed"
@@ -77,7 +73,6 @@ module SigningPolicy =
         | SigningRefusal.Locked until -> tr Terms.``Signing Refusal Locked`` |> TermText.fill [ TextFormat.time until ]
         | SigningRefusal.StoreFailed -> tr Terms.``Signing Refusal Store Failed``
         | SigningRefusal.PlanUnreadable -> tr Terms.``Signing Refusal Plan Unreadable``
-        | SigningRefusal.ContextDiffers -> tr Terms.``Signing Refusal Context Differs``
 
 
     /// The sentence once a version is signed.
@@ -189,11 +184,9 @@ module SigningPolicy =
             |> List.choose id
 
 
-    /// The sentence of the data notice: the EHR's data differ, or could not be verified. With
-    /// unsigned orders on the plan the notice says what taking the EHR's data does to them.
-    let noticeSentence (tr: Terms -> string) (unsigned: bool) (notice: DataNotice) =
+    /// The sentence of the data notice: the EHR's data differ, or could not be verified.
+    let noticeSentence (tr: Terms -> string) (notice: DataNotice) =
         match notice.Data with
-        | Some _ when unsigned -> tr Terms.``Signing Data Changed Unsigned``
         | Some _ -> tr Terms.``Signing Data Changed``
         | None -> tr Terms.``Signing Data Unverified``
 

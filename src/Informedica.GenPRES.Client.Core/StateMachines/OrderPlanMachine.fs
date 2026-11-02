@@ -84,8 +84,6 @@ module OrderPlanMachine =
                 /// The state before a recalculation from the dialog, put back when its list closes
                 /// without a pick; None when no recalculation is looked at.
                 Kept: OrderPlanState option
-                /// Whether the patient is read again once the change under way has landed.
-                RefreshOnAnswer: bool
             }
 
 
@@ -95,8 +93,6 @@ module OrderPlanMachine =
     type OrderPlanMsg =
         /// The patient data set, changed or cleared; the plan follows.
         | PatientDataChanged of Patient option * request: string
-        /// Remove the new and changed orders, then have the patient read again.
-        | DropChanges of request: string
         /// The version the session opened with; it replaces the plan and any request.
         | OpenSignedPlan of SignedOrderPlan * request: string
         /// What a page wants of the plan, built over the plan held.
@@ -126,8 +122,6 @@ module OrderPlanMachine =
         | TellAnswered
         /// The orders follow new patient data; tell the prescriber in one summary.
         | TellPatientDataChanged of Alert.PatientDataSummary
-        /// The new and changed orders are gone; the patient can be read again.
-        | ChangesDropped
         /// The plan could not follow the patient data, so the same data can be given again.
         | PatientDataNotFollowed
 
@@ -170,7 +164,6 @@ module OrderPlanMachine =
                 Work = PlanWork.AsSigned
                 Opened = [||]
                 Kept = None
-                RefreshOnAnswer = false
             }
 
 
@@ -183,7 +176,6 @@ module OrderPlanMachine =
                 Work = PlanWork.AsSigned
                 Opened = [||]
                 Kept = None
-                RefreshOnAnswer = false
             }
 
 
@@ -196,7 +188,6 @@ module OrderPlanMachine =
                 Work = PlanWork.AsSigned
                 Opened = [||]
                 Kept = None
-                RefreshOnAnswer = false
             }
 
 
@@ -209,7 +200,6 @@ module OrderPlanMachine =
                 Work = PlanWork.AsSigned
                 Opened = tp.OrderContexts
                 Kept = None
-                RefreshOnAnswer = false
             }
 
 
@@ -228,7 +218,6 @@ module OrderPlanMachine =
                 Work = PlanWork.AsSigned
                 Opened = tp.OrderContexts
                 Kept = None
-                RefreshOnAnswer = false
             }
 
 
@@ -244,16 +233,19 @@ module OrderPlanMachine =
         let withOpened (opened: OrderContext[]) (state: OrderPlanState) = { state with Opened = opened }
 
 
-        /// The ids of the contexts that are new or changed since the version last opened or signed.
-        let changed (state: OrderPlanState) =
-            match state.Cart with
-            | OrderPlanCart.NoPatient _ -> [||]
-            | OrderPlanCart.Opened(_, tp) -> HeldContextPolicy.changed state.Opened tp
+        /// The work after new patient data landed: orders the data changed are a change in the plan, and
+        /// a plan equal to the version last opened or signed, after a weight corrected back, has nothing
+        /// to sign.
+        let workAfterUpdate (opened: OrderContext[]) (tp: OrderPlan) =
+            if PlanDifferencePolicy.differences opened tp |> Array.isEmpty then
+                PlanWork.AsSigned
+            else
+                PlanWork.Changed
 
 
         /// The order contexts of the plan new, changed or removed since the version last opened or
         /// signed, as the sign dialog lists them; the plan is the one the dialog shows.
-        let differences (plan: OrderPlan) (state: OrderPlanState) = HeldContextPolicy.differences state.Opened plan
+        let differences (plan: OrderPlan) (state: OrderPlanState) = PlanDifferencePolicy.differences state.Opened plan
 
 
         /// The plan, if there is a patient; the empty plan while an open runs.
@@ -375,13 +367,7 @@ module OrderPlanMachine =
             | OrderPlanMsg.Answered(request, result), OrderPlanCart.Opened(pat, before), Some(sent, underWay) when
                 underWay = request
                 ->
-                let refresh = state.RefreshOnAnswer
-
-                let state =
-                    { state with
-                        InFlight = None
-                        RefreshOnAnswer = false
-                    }
+                let state = { state with InFlight = None }
 
                 let patientUpdate =
                     match sent with
@@ -405,6 +391,11 @@ module OrderPlanMachine =
                         Cart = OrderPlanCart.Opened(pat, tp)
                         Selected = selectionIn tp state.Selected
                         Opened = opened
+                        Work =
+                            if patientUpdate then
+                                workAfterUpdate opened tp
+                            else
+                                state.Work
                     },
                     [
                         // new patient data can bring a new order, from a nutrition context restarted; with the
@@ -416,8 +407,6 @@ module OrderPlanMachine =
                             PatientDataSummaryPolicy.summaryOf sent tp
                             |> Option.map OrderPlanEffect.TellPatientDataChanged
                             |> Option.toList
-                        if refresh then
-                            OrderPlanEffect.ChangesDropped
                     ]
                 | Error errs ->
                     state,
@@ -477,13 +466,6 @@ module OrderPlanMachine =
                 match cart with
                 | OrderPlanCart.NoPatient _ -> { state with Cart = OrderPlanCart.NoPatient head.OrderContexts }, []
                 | OrderPlanCart.Opened(pat, _) -> opening pat head.OrderContexts request state
-
-            // the new and changed orders removed; the plan takes no patient while a request is out, so
-            // the refresh waits for the answer
-            | OrderPlanMsg.DropChanges request, OrderPlanCart.Opened(_, tp), None ->
-                let state, effects = change (OrderPlanChange.Remove(changed state)) tp request None state
-                { state with RefreshOnAnswer = true }, effects
-            | OrderPlanMsg.DropChanges _, _, _ -> state, []
 
             // a change from a page; a recalculation from the order dialog keeps the state before it
             | OrderPlanMsg.Change(c, request), OrderPlanCart.Opened(_, tp), None ->

@@ -54,7 +54,7 @@ module SigningMachine =
                 Unsent: string option
                 /// The orders that differ from the version last opened or signed, as they stood when
                 /// the user signed; the dialog lists these, whatever reaches the order plan meanwhile.
-                Differences: (OrderContext * HeldContextPolicy.Difference)[]
+                Differences: (OrderContext * PlanDifferencePolicy.Difference)[]
                 /// Whether the challenge said that the patient is no longer active in the EHR.
                 EhrMovedOn: bool
             }
@@ -81,13 +81,13 @@ module SigningMachine =
     type SigningMsg =
         /// Sign the plan as shown, under a request id the caller made, with the orders that differ
         /// from the version last opened or signed as they stand now.
-        | Sign of OrderPlan * differences: (OrderContext * HeldContextPolicy.Difference)[] * request: string
+        | Sign of OrderPlan * differences: (OrderContext * PlanDifferencePolicy.Difference)[] * request: string
         /// The answer to the challenge request with this id; Error is a transport failure.
         | ChallengeAnswered of request: string * Result<SigningResponse, string>
-        /// The EHR's data are taken. Without unsigned orders on the plan the plan is signed over them;
-        /// with unsigned orders the signature ends, the orders go and the Session reads the EHR again.
-        /// An unverified notice has nothing to take.
-        | TakeEhrData of unsigned: bool
+        /// The EHR's data are taken: the signature ends and the Session reads the EHR again, so that
+        /// the orders follow the new data before the prescriber signs. An unverified notice has nothing
+        /// to take.
+        | TakeEhrData
         /// The plan's data are kept, and the plan is signed as it is.
         | KeepPlanData
         /// The PIN, and a new idempotency key the caller made; the key is ignored on a retry.
@@ -121,8 +121,8 @@ module SigningMachine =
         | TellRefused of SigningRefusal
         /// Tell the user a request failed.
         | TellError of reason: string
-        /// Remove the new and changed orders and read the EHR again.
-        | DropChangesAndRefresh
+        /// Read the EHR again; the orders follow the data as after any change of data.
+        | ReadEhrAgain
 
 
     /// The constructors and the transition of the signing machine.
@@ -224,15 +224,6 @@ module SigningMachine =
             [ SigningEffect.CallChallenge(plan, Some notice.Token, notice.Token) ]
 
 
-        /// The patient after taking the EHR's data: every field of the EHR. The EHR does not hold the
-        /// age or whether the patient counts as an adult, so the plan keeps both.
-        let taken (patient: Patient) (data: Patient) =
-            { data with
-                Age = patient.Age
-                MarkedAdult = patient.MarkedAdult
-            }
-
-
         /// What is told of a submission's answer that lands after the Session ended: its outcome only,
         /// since there is no Session to renew or end. A challenge or a data notice is never an answer
         /// to a submission, so neither tells anything.
@@ -280,11 +271,9 @@ module SigningMachine =
                 idle, [ SigningEffect.TellError reason ]
             | SigningMsg.ChallengeAnswered _, _, _ -> state, []
 
-            | SigningMsg.TakeEhrData true, SigningPhase.DataChanged(_, { Data = Some _ }), None ->
-                idle, [ SigningEffect.DropChangesAndRefresh ]
-            | SigningMsg.TakeEhrData false, SigningPhase.DataChanged(plan, ({ Data = Some data } as notice)), None ->
-                answered { plan with Patient = taken plan.Patient data } notice
-            | SigningMsg.TakeEhrData _, _, _ -> state, []
+            | SigningMsg.TakeEhrData, SigningPhase.DataChanged(_, { Data = Some _ }), None ->
+                idle, [ SigningEffect.ReadEhrAgain ]
+            | SigningMsg.TakeEhrData, _, _ -> state, []
 
             | SigningMsg.KeepPlanData, SigningPhase.DataChanged(plan, notice), None -> answered plan notice
             | SigningMsg.KeepPlanData, _, _ -> state, []

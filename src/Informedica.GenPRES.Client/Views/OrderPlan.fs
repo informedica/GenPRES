@@ -612,7 +612,7 @@ module OrderPlan =
         // only once there is one; disabled with the page, also while a step is counted, whose
         // command would go to the plan being replaced
         let openLastSignedAction =
-            HeldPanelPolicy.lastSigned session.Session
+            SessionPatientPolicy.lastSigned session.Session
             |> Option.map (fun signed ->
                 {|
                     label = tr Terms.``Session Open Last Signed``

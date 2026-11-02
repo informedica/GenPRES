@@ -10,6 +10,7 @@ namespace Informedica.GenPRES.Client.Core.StateMachines
 ///   draft.
 module PatientMachine =
 
+    open Informedica.GenPRES.Client.Core.Models
     open Informedica.GenPRES.Client.Core.Policies
     open Informedica.GenPRES.Shared.Types
     open Informedica.GenPRES.Shared.Models
@@ -22,6 +23,9 @@ module PatientMachine =
         /// The patient data from the panel, the url or the Session, with what becomes of the
         /// estimates once the change is answered.
         | Changed of Patient option * PatientDraftPolicy.Estimates * request: string
+        /// The patient data read from the EHR by a refresh. The EHR does not hold the mark as an adult,
+        /// so the mark of the draft stays, unless the age read is below the age a mark is allowed at.
+        | Refreshed of Patient option * request: string
         /// The server's answer, or the failure, for a request.
         | Answered of request: string * Result<Patient, string[]>
         /// The plan could not follow the patient answered, so the same data can be given again.
@@ -97,7 +101,7 @@ module PatientMachine =
         /// An answered patient the rules are not looked up for, a child without a weight, measured or
         /// estimated, is held back: every request would be refused for it, so the pages keep the
         /// patient they have, and the notice on the page says what is missing.
-        let transition (msg: PatientMsg) (state: PatientState) : PatientState * PatientEffect list =
+        let rec transition (msg: PatientMsg) (state: PatientState) : PatientState * PatientEffect list =
             match msg with
             // the Session gives the patient as signed after a signature; the draft is kept, so a weight
             // cleared before the signature stays cleared
@@ -116,6 +120,15 @@ module PatientMachine =
                         InFlight = None
                     },
                     [ PatientEffect.SetPatientData None ]
+
+            | PatientMsg.Refreshed(pat, request) ->
+                let marked = state.Draft |> Option.exists _.MarkedAdult
+
+                let read =
+                    pat
+                    |> Option.map (fun p -> { p with MarkedAdult = marked } |> PatientEdit.clearMarkBelowSixteen)
+
+                transition (PatientMsg.Changed(read, PatientDraftPolicy.Estimates.Renewed, request)) state
 
             | PatientMsg.PlanNotFollowed -> { state with Answered = None }, []
 

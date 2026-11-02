@@ -76,7 +76,6 @@ module Patient =
         let settings = (AppEnv.asEnv<AppEnv.ISettings> props.appEnv).Settings
         let envSession = AppEnv.asEnv<AppEnv.ISession> props.appEnv
         let session = envSession.Session
-        let envPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
 
         // the patient is what every request reads: while anything is out the panel is greyed, so
         // that the patient cannot change under it, and the next edit starts from the answer
@@ -123,36 +122,11 @@ module Patient =
         // an open Session, since a launch without data opens a Session without one, and one
         // with a signed head opens identified from the head. Identified, the age is the
         // platform's, shown, not chosen, and the rest of the data is changed, never cleared
-        let patientContext = HeldPanelPolicy.patientContext session
+        let patientContext = SessionPatientPolicy.patientContext session
 
-        let identity = patientContext |> Option.bind _.Identity
+        let identity = SessionPatientPolicy.identity session
 
-        let identified = identity.IsSome
-
-        let held = HeldPanelPolicy.held session envPlan.Changed
-
-        // held, the fields stay as they are but take no change: an attempt asks instead, with the
-        // way out that removes the new and changed orders; signing is the plan's own button
-        let heldOpen, setHeldOpen = React.useState false
-
-        // not while a request is under way: the panel is greyed then, and the orders cannot be
-        // removed until the plan is settled
-        let onAttempt (e: Browser.Types.Event) =
-            if held then
-                e.preventDefault ()
-                e.stopPropagation ()
-
-                if not busy then
-                    setHeldOpen true
-
-        // every edit of the panel goes out here, so that one the pointer does not make, from the
-        // keyboard or assistive technology, is held too: it asks instead of changing the panel
-        let dispatch msg =
-            if held then
-                if not busy then
-                    setHeldOpen true
-            else
-                dispatch msg
+        let identified = SessionPatientPolicy.identified session
 
         // the summary: the data, and above it, identified, the id the data is held under; the
         // name and the birthdate are the title bar's alone
@@ -339,92 +313,6 @@ module Patient =
                         onClose = None
                     |}
 
-        // only over a settled plan; while a request is under way the question stays open, to be
-        // confirmed once it has landed
-        let onRemoveChanged () =
-            match envPlan.OrderPlan with
-            | OrderPlanView.Settled _ ->
-                setHeldOpen false
-                envPlan.Remove envPlan.Changed
-            | OrderPlanView.NoPatient -> setHeldOpen false
-            | OrderPlanView.Changing _ -> ()
-
-        // the new and changed orders go with the open
-        let onOpenLastSigned id =
-            setHeldOpen false
-            envSession.OpenSignedPlan id
-
-        // the patient read from the EHR again; held, it asks instead, as the fields do
-        let onRefresh () = if held then setHeldOpen true else envSession.Refresh()
-
-        let onHeldClose = fun _ -> setHeldOpen false
-
-        // the question, with the ways out that drop the new and changed orders; signing is the
-        // plan's own button
-        let heldDialog =
-            let title =
-                Terms.``Patient Context Held Title``
-                |> getTerm "Patiëntgegevens kunnen niet worden gewijzigd"
-
-            let text =
-                Terms.``Patient Context Held``
-                |> getTerm
-                    "Het orderplan heeft nieuwe of gewijzigde orders. Onderteken het orderplan om de patiëntgegevens te wijzigen, of laat die orders vervallen."
-
-            let actions =
-                Components.ActionBar.View
-                    {|
-                        actions =
-                            [|
-                                {|
-                                    label = Terms.Cancel |> getTerm "Annuleren"
-                                    kind = Components.ActionBar.Kind.Secondary
-                                    onClick = fun () -> setHeldOpen false
-                                    disabled = false
-                                    icon = None
-                                |}
-                                for action in HeldPanelPolicy.heldActions session do
-                                    match action with
-                                    | HeldPanelPolicy.HeldAction.Remove ->
-                                        {|
-                                            label =
-                                                Terms.``Patient Context Held Remove``
-                                                |> getTerm "Verwijder nieuwe en gewijzigde orders"
-                                            kind = Components.ActionBar.Kind.Destructive
-                                            onClick = onRemoveChanged
-                                            disabled = false
-                                            icon = None
-                                        |}
-                                    | HeldPanelPolicy.HeldAction.OpenLastSigned id ->
-                                        {|
-                                            label =
-                                                Terms.``Session Open Last Signed``
-                                                |> getTerm "Open het laatst ondertekende orderplan"
-                                            kind = Components.ActionBar.Kind.Primary
-                                            onClick = fun () -> onOpenLastSigned id
-                                            disabled = false
-                                            icon = None
-                                        |}
-                            |]
-                    |}
-
-            JSX.jsx
-                $"""
-            import Dialog from '@mui/material/Dialog';
-            import DialogTitle from '@mui/material/DialogTitle';
-            import DialogContent from '@mui/material/DialogContent';
-            import DialogContentText from '@mui/material/DialogContentText';
-            import DialogActions from '@mui/material/DialogActions';
-
-            <Dialog open={heldOpen} onClose={onHeldClose} fullWidth={true} maxWidth="sm">
-                <DialogTitle>{title}</DialogTitle>
-                <DialogContent>
-                    <DialogContentText>{text}</DialogContentText>
-                </DialogContent>
-                <DialogActions>{actions}</DialogActions>
-            </Dialog>
-            """
-
         // bounded and to the left, so the button is not as wide as the panel it sits in and is
         // not where you click by default. The reset only for an anonymous patient; the refresh
         // waits, as the panel does, for every request
@@ -439,11 +327,11 @@ module Patient =
                             disabled = busy
                             icon = Some Mui.Icons.Delete
                         |}
-                    if HeldPanelPolicy.canRefresh session then
+                    if SessionPatientPolicy.canRefresh session then
                         {|
                             label = Terms.``Patient Refresh`` |> getTerm "Ververs uit het EPD"
                             kind = Components.ActionBar.Kind.Secondary
-                            onClick = onRefresh
+                            onClick = fun () -> envSession.Refresh()
                             disabled = busy
                             icon = Some Mui.Icons.RefreshIcon
                         |}
@@ -465,8 +353,8 @@ module Patient =
                     updateSelected = changeValue
                     isLoading = false
                     disabled = busy
-                    readOnly = readOnly || held
-                    hasClear = clearable && not (readOnly || held)
+                    readOnly = readOnly
+                    hasClear = clearable && not readOnly
                     canStep = false
                     severity = Severity.Normal
                     minWidth = None
@@ -800,19 +688,16 @@ module Patient =
             import Grid from '@mui/material/Grid';
 
             <React.Fragment>
-                <Box onClickCapture={onAttempt} onMouseDownCapture={onAttempt}>
-                    <Grid container spacing={2}>
-                        {React.Fragment(items1 |> unbox<seq<ReactElement>>)}
-                    </Grid>
-                    <Grid container spacing={2} sx={ {| marginTop = 2 |} } >
-                        {React.Fragment(items2 |> unbox<seq<ReactElement>>)}
-                    </Grid>
-                </Box>
+                <Grid container spacing={2}>
+                    {React.Fragment(items1 |> unbox<seq<ReactElement>>)}
+                </Grid>
+                <Grid container spacing={2} sx={ {| marginTop = 2 |} } >
+                    {React.Fragment(items2 |> unbox<seq<ReactElement>>)}
+                </Grid>
                 {departmentNotice}
                 {resetBar}
                 {confirmResetDialog}
                 {newPatientDialog}
-                {heldDialog}
             </React.Fragment>
             """
 

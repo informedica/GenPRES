@@ -167,11 +167,6 @@ type Terms =
     | ``Patient Department Default``
     | ``Patient Department Chosen``
     | ``Patient Department Launched``
-    // the patient context held: asked when the panel's data is changed, with the ways out that
-    // drop the order plan's new and changed orders: remove them, or open the last signed order plan
-    | ``Patient Context Held Title``
-    | ``Patient Context Held``
-    | ``Patient Context Held Remove``
     | ``Session Open Last Signed``
     // the question before a url with a patient or a medication: it drops the work not signed,
     // or leaves the launched Session
@@ -271,8 +266,6 @@ type Terms =
     | ``Signing Proceed``
     | ``Signing Signed``
     | ``Signing Data Changed``
-    // the EHR's data differ and the plan has new or changed orders
-    | ``Signing Data Changed Unsigned``
     | ``Signing Take Ehr Data``
     | ``Signing Keep Plan Data``
     | ``Signing Notice Ehr``
@@ -293,7 +286,6 @@ type Terms =
     | ``Signing Refusal Locked``
     | ``Signing Refusal Store Failed``
     | ``Signing Refusal Plan Unreadable``
-    | ``Signing Refusal Context Differs``
     | ``Signing Send Failed``
     // the sign dialog lists what differs from the version last opened or signed: the tag of a
     // new, a changed and a removed order, and the line shown when nothing differs

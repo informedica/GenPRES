@@ -81,11 +81,10 @@ Submission must present it, and the commit re-mints it over the new head.
 **The data notice has no token type of its own.** When the platform reads other data than the
 EHR data the Session opened on, or none, the answer is a `DataNotice` with the data as it stands
 and a token. The Client shows that data next to the plan's, and the User takes it or keeps the
-plan's. Either answer returns the token, with one exception: taking the EHR's data with unsigned
-orders on the plan ends the signature with no challenge, the unsigned orders go and the Session
-reads the EHR again ([uc-12, 12c](uc-12-held-patient-context.md)). Data that could not be read can
-only be kept. The challenge then records whether the platform answered (`Verified`), and the version is signed as
-unverified when it did not. The version holds the plan's patient as signed and the EHR data as
+plan's. Keeping the plan's data returns the token. Taking the EHR's data ends the signature with no
+challenge: the Session reads the EHR again, the orders follow the new data, none is removed, and the
+User signs again. Data that could not be read can only be kept. The challenge then records whether
+the platform answered (`Verified`), and the version is signed as unverified when it did not. The version holds the plan's patient as signed and the EHR data as
 read at the challenge; the Patient's identity is the Session's, and nothing compares the plan's
 data with the EHR's at the commit.
 

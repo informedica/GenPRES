@@ -74,7 +74,6 @@ let tests =
                         Terms.``Signing Proceed``
                         Terms.``Signing Signed``
                         Terms.``Signing Data Changed``
-                        Terms.``Signing Data Changed Unsigned``
                         Terms.``Signing Take Ehr Data``
                         Terms.``Signing Keep Plan Data``
                         Terms.``Signing Notice Ehr``
@@ -91,7 +90,6 @@ let tests =
                         Terms.``Signing Refusal Locked``
                         Terms.``Signing Refusal Store Failed``
                         Terms.``Signing Refusal Plan Unreadable``
-                        Terms.``Signing Refusal Context Differs``
                         Terms.``Signing Send Failed``
                         Terms.``Signing New``
                         Terms.``Signing Changed``
@@ -171,7 +169,6 @@ let tests =
                     SigningRefusal.Locked untilUtc, "<Signing Refusal Locked>"
                     SigningRefusal.StoreFailed, "<Signing Refusal Store Failed>"
                     SigningRefusal.PlanUnreadable, "<Signing Refusal Plan Unreadable>"
-                    SigningRefusal.ContextDiffers, "<Signing Refusal Context Differs>"
                 ]
                 |> List.iter (fun (refusal, term) -> refusalSentence named refusal |> Expect.equal $"{refusal}" term)
 
@@ -209,7 +206,6 @@ let tests =
 
                 noticeSentence
                     named
-                    false
                     {
                         Data = Some patient
                         Token = "d"
@@ -218,22 +214,11 @@ let tests =
 
                 noticeSentence
                     named
-                    true
                     {
-                        Data = Some patient
+                        Data = None
                         Token = "d"
                     }
-                |> Expect.equal "changed with unsigned orders" "<Signing Data Changed Unsigned>"
-
-                for unsigned in [ false; true ] do
-                    noticeSentence
-                        named
-                        unsigned
-                        {
-                            Data = None
-                            Token = "d"
-                        }
-                    |> Expect.equal $"unverified, unsigned orders %b{unsigned}" "<Signing Data Unverified>"
+                |> Expect.equal "unverified" "<Signing Data Unverified>"
             }
 
             testList

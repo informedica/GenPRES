@@ -181,8 +181,8 @@ module SessionMachine =
         /// or a transport failure. The token the request started from lets the answer land only on
         /// the session that asked.
         | SignedPlanOpened of from: OpenedToken option * Result<SessionOpened option, string>
-        /// Read the EHR again and reopen the latest version on it: the way out of a held patient
-        /// context that takes the EHR's data and drops the new and changed orders.
+        /// Read the EHR again: the patient read goes to the panel, and the plan and the workbench
+        /// follow it as after any change of data.
         | RefreshPatient
         /// The answer to RefreshPatient, as for SignedPlanOpened, with the patient read again.
         | PatientRefreshed of from: OpenedToken option * Result<SessionOpened option, string>
@@ -211,6 +211,8 @@ module SessionMachine =
         | GoToIdentityProvider of url: string
         /// Set the patient data, so everything derived from it reloads.
         | SetPatientData of Patient option
+        /// Give the patient data read from the EHR by a refresh to the patient machine.
+        | SetPatientDataRead of Patient option
         /// Keep this private key and remove the others.
         | KeepBrowserKey of thumbprint: string
         /// The orders of the version the session opened with go into the cart; the patient reaches the
@@ -714,7 +716,7 @@ module SessionMachine =
                 ->
                 opened session state.NewerPlan,
                 [
-                    SessionEffect.SetPatientData(session.PatientContext |> Option.bind _.Patient)
+                    SessionEffect.SetPatientDataRead(session.PatientContext |> Option.bind _.Patient)
                 ]
             // the user asked for the refresh, so a refresh that did not happen is told
             | SessionMsg.PatientRefreshed(from, (Ok None | Error _)), SessionPhase.Open current, None when

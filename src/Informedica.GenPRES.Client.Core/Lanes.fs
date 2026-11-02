@@ -191,10 +191,7 @@ module Lanes =
         | LanesEffect.Signing(SigningEffect.EndSession ending) ->
             [ LanesMsg.Session(SessionMsg.SignatureEndedSession ending) ]
         | LanesEffect.Signing(SigningEffect.TellSigned _) -> [ LanesMsg.Plan OrderPlanMsg.Signed ]
-        // the plan drops the orders first; the Session reads the patient again once that has landed
-        | LanesEffect.Signing SigningEffect.DropChangesAndRefresh ->
-            [ LanesMsg.Plan(OrderPlanMsg.DropChanges(newId ())) ]
-        | LanesEffect.Plan OrderPlanEffect.ChangesDropped -> [ LanesMsg.Session SessionMsg.RefreshPatient ]
+        | LanesEffect.Signing SigningEffect.ReadEhrAgain -> [ LanesMsg.Session SessionMsg.RefreshPatient ]
         | LanesEffect.Plan OrderPlanEffect.PatientDataNotFollowed -> [ LanesMsg.Patient PatientMsg.PlanNotFollowed ]
         | LanesEffect.Signing(SigningEffect.TellRefused(SigningRefusal.Blocked head)) ->
             [ LanesMsg.Session(SessionMsg.SignatureBlocked head) ]
@@ -204,6 +201,8 @@ module Lanes =
             [
                 LanesMsg.Patient(PatientMsg.Changed(pat, PatientDraftPolicy.Estimates.Renewed, newId ()))
             ]
+        | LanesEffect.Session(SessionEffect.SetPatientDataRead pat) ->
+            [ LanesMsg.Patient(PatientMsg.Refreshed(pat, newId ())) ]
         | LanesEffect.Session(SessionEffect.LoadSignedPlan head) ->
             [ LanesMsg.Plan(OrderPlanMsg.OpenSignedPlan(head, newId ())) ]
         // the patient data answered goes to the workbench and the plan
