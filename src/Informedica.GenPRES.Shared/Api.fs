@@ -181,9 +181,12 @@ module Api =
             | _ -> Ok ctx
 
 
-    /// The order context command family, for the order context still being worked on: a command
-    /// of the order view over it, or the context evaluated for the patient updated. Only this context takes a patient update: a context in
-    /// the plan keeps the patient it was evaluated for, so a plan cannot carry one.
+    /// The order context command family, for the order context still being worked on: a command of
+    /// the order view over that context. New patient data have no case of their own: they empty the
+    /// context, which goes out as a clear of all filters over the empty context for the new patient.
+    /// The family has a single case and stays a union, so that every API member takes a named
+    /// command family, as the patient and launch families with their single case do, and a new
+    /// command over this context can be added as a case.
     [<RequireQualifiedAccess>]
     type OrderContextCommand =
         /// A command of the order view over the context as held.
