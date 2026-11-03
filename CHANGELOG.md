@@ -1,5 +1,5 @@
 ---
-last_commit_released: 650b5952ee98a615ac526e731aafe8d940f379f4
+last_commit_released: 3a5b4f823d1ddc483706d704faff8cb9c07ed276
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,18 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.47 - 2026-11-03
+
+### 🚀 Features
+
+* *(server)* Add stub test patients for NEO and ICK ([e52a478d](https://github.com/informedica/GenPRES/commit/e52a478de58528e85123c8cf6b8d3548178df265))
+
+### 🐞 Bug Fixes
+
+* *(server)* Normalise the test launch patient and ages ([ca553c2c](https://github.com/informedica/GenPRES/commit/ca553c2c9fe6a39dbf7f348664ddfe8bb86eedb9))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/650b5952ee98a615ac526e731aafe8d940f379f4..3a5b4f823d1ddc483706d704faff8cb9c07ed276)</small></strong>
 
 ## 0.1.2-alpha.46 - 2026-11-03
 
