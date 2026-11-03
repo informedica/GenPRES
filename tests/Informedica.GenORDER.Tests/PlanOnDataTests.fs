@@ -39,7 +39,7 @@ module Fixture =
                     }
             }
 
-    let followWith restart provider pat plan =
+    let followWith restart provider pat (plan: OrderPlan) =
         { plan with Patient = pat }
         |> OrderPlan.followPatientData logger provider restart
 

@@ -389,7 +389,8 @@ module Adapters =
                     directory.idp
                     directory.registry
                     // the platform's reading estimated at the boundary, from the tables as loaded
-                    (StubPatientData.port |> Patient.estimating (normalValuesOf provider))
+                    (StubPatientData.portAt (fun () -> DateTime.UtcNow)
+                     |> Patient.estimating (normalValuesOf provider))
                     mail
                     // the credential store, seeded per stub login
                     (Session.initialState (
