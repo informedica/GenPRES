@@ -152,8 +152,8 @@ means the assertion reads the trail.
 | 5 | The plan refresh shows the last signed orders; new and changed ones gone | Refresh | Sign, change, refresh |
 | 5 | Without a signed plan: no plan refresh, the held dialog offers remove alone | Refresh | Fresh launch |
 | 5 | The patient refresh with a new order opens the held dialog | Refresh | Add, then refresh |
-| 6 | A prescription empties the workbench and shows the plan page at once, greyed until the order lands | Plan | Hold `processOrderPlan` |
-| 6 | A failed prescription leaves an empty workbench and tells the error | Plan | Fail `processOrderPlan` |
+| 6 | A prescription shows the plan page at once, greyed until the order lands, and empties the workbench once the order has landed | Plan | Hold `processOrderPlan` |
+| 6 | A failed prescription leaves the workbench narrowed to the order and tells the error | Plan | Fail `processOrderPlan` |
 | 7 | Anonymous: a url with another medication during a filter request starts over; the first answer lands nowhere | Url | Hold the filter request; change the url; release; trail |
 | 7 | Launched: the same url asks; yes shows the url's patient with no Session | Url | Launch; change the url; answer the question |
 | 7 | A url with the page alone during a request is put back; after the answer Back changes the page alone | Url | Hold; change the url; `GoBack` |

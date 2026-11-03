@@ -191,7 +191,8 @@ module Prescribe =
                     | None -> ()
 
                 // the order into the plan, from the workbench narrowed to its scenario; the page
-                // switches to the plan when the server answers
+                // switches to the plan at the click, and the workbench is emptied once the order
+                // has landed
                 let prescribe () =
                     match orderPlan with
                     | OrderPlanView.Settled _ -> envOrderPlan.Add sc.Order.Id

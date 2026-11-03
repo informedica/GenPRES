@@ -290,19 +290,69 @@ let tests =
                             (held (plan [||]) None, [ OrderPlanEffect.TellError [| "not loaded" |] ])
                     }
 
-                    test "an order prescribed: the answer is shown and checked, nothing more" {
+                    test "an order prescribed: the answer is shown and checked, and the order told added" {
                         let workbench = context "" "ibuprofen"
 
                         let busy = recalculating one None "r-1" (OrderPlanCommand.AddOrderContext(one, workbench))
 
                         transition (OrderPlanMsg.Answered("r-1", Ok two)) busy
                         |> Expect.equal
-                            "shown and checked"
+                            "shown, checked and added"
                             (held two None |> OrderPlanState.withOpened one.OrderContexts,
                              [
                                  OrderPlanEffect.CheckInteractions [ "paracetamol"; "ibuprofen" ]
                                  OrderPlanEffect.TellAnswered
+                                 OrderPlanEffect.OrderAdded
                              ])
+                    }
+
+                    test "an order prescribed that fails: the error told, no order added" {
+                        let workbench = context "" "ibuprofen"
+
+                        let busy = recalculating one None "r-1" (OrderPlanCommand.AddOrderContext(one, workbench))
+
+                        transition (OrderPlanMsg.Answered("r-1", Error [| "down" |])) busy
+                        |> Expect.equal "the plan as before" (held one None, [ OrderPlanEffect.TellError [| "down" |] ])
+                    }
+
+                    test "an answer to an earlier prescription: no order added" {
+                        let workbench = context "" "ibuprofen"
+
+                        let busy = recalculating one None "r-2" (OrderPlanCommand.AddOrderContext(one, workbench))
+
+                        transition (OrderPlanMsg.Answered("r-1", Ok two)) busy
+                        |> snd
+                        |> Expect.isEmpty "the answer is dropped"
+                    }
+
+                    for name, sent in
+                        [
+                            "a new nutrition context", OrderPlanCommand.NewOrderContext(one, NutritionCategory.TPN)
+                            "a removal", OrderPlanCommand.RemoveOrderContexts(one, [| "c-1" |])
+                            "a row filter", OrderPlanCommand.FilterRows([| "c-1" |], one)
+                            "a patient update", OrderPlanCommand.UpdatePatient(patient, one)
+                            "a command from the order dialog",
+                            OrderPlanCommand.EvaluateContext(
+                                one,
+                                "c-1",
+                                OrderViewCommand.ResetOrderScenario,
+                                context "c-1" "paracetamol"
+                            )
+                        ] do
+                        test $"%s{name} that lands: no order added" {
+                            recalculating one None "r-1" sent
+                            |> transition (OrderPlanMsg.Answered("r-1", Ok one))
+                            |> snd
+                            |> List.contains OrderPlanEffect.OrderAdded
+                            |> Expect.isFalse "no add"
+                        }
+
+                    test "an open that lands: no order added" {
+                        loading patient one.OrderContexts "r-1"
+                        |> transition (OrderPlanMsg.Answered("r-1", Ok one))
+                        |> snd
+                        |> List.contains OrderPlanEffect.OrderAdded
+                        |> Expect.isFalse "no add"
                     }
                 ]
 
