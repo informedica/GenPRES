@@ -128,6 +128,8 @@ module OrderPlanMachine =
         | TellPatientDataChanged of Alert.PatientDataSummary
         /// The plan could not follow the patient data, so the same data can be given again.
         | PatientDataNotFollowed
+        /// An order prescribed landed in the plan, so the workbench can be emptied.
+        | OrderAdded
 
 
     /// What the pages read of the OrderPlanState. Pages render Settled and Changing alike, so the
@@ -295,8 +297,9 @@ module OrderPlanMachine =
         let isKept (state: OrderPlanState) = state.Kept.IsSome
 
 
-        /// Whether an answer to request is the one the plan waits for. An answer to a request the
-        /// patient cleared or a start-over has since dropped is not, and the machine drops it.
+        /// Whether the plan waits for the answer to request: a change sent under request and not yet
+        /// answered. Right after a change, this says whether the change went out. An answer to a request
+        /// the patient cleared or a start-over has since dropped is not awaited, and the machine drops it.
         let awaits (request: string) (state: OrderPlanState) =
             match state.InFlight with
             | Some(_, underWay) -> underWay = request
@@ -406,6 +409,9 @@ module OrderPlanMachine =
                             if not patientUpdate || Set.ofList (drugNames before) <> Set.ofList (drugNames tp) then
                                 interactions tp
                             OrderPlanEffect.TellAnswered
+                            match sent with
+                            | OrderPlanCommand.AddOrderContext _ -> OrderPlanEffect.OrderAdded
+                            | _ -> ()
                             yield!
                                 PatientDataSummaryPolicy.summaryOf sent tp
                                 |> Option.filter (fun _ -> not following)

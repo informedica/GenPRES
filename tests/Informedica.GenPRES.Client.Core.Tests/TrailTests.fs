@@ -489,6 +489,10 @@ let tests =
                 |> Trail.OrderPlan.effect
                 |> Expect.equal "the plan's answer" "TellAnswered"
 
+                OrderPlanEffect.OrderAdded
+                |> Trail.OrderPlan.effect
+                |> Expect.equal "the order prescribed landed" "OrderAdded"
+
                 OrderContextEffect.TellNotApplied OrderContextRefusal.NoAdjustedDose
                 |> Trail.OrderContext.effect
                 |> Expect.equal "the change not applied, with its reason" "TellNotApplied NoAdjustedDose"

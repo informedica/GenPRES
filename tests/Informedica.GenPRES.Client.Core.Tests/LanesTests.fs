@@ -72,6 +72,18 @@ let workbenchRequest effects =
     )
 
 
+/// Lanes with the plan of one context and a workbench of two paracetamol orders, o-1 and o-2,
+/// before the prescribe click.
+let twoOrdersOnWorkbench () =
+    let workbench =
+        { context "" "paracetamol" with Scenarios = [| scenario "o-1" "paracetamol"; scenario "o-2" "paracetamol" |] }
+
+    { Lanes.initial (Some draft) with
+        OrderPlan = shown
+        OrderContext = OrderContextState.held patient workbench
+    }
+
+
 [<Tests>]
 let tests =
     testList
@@ -533,26 +545,6 @@ let tests =
                     | _ -> None
                 )
                 |> Expect.equal "the plan opens the saved orders" (Some head.OrderContexts)
-            }
-
-            test "a prescription answered: the plan alone, the workbench and the page already done at the click" {
-                let workbench = context "" "ibuprofen"
-
-                let lanes =
-                    { Lanes.initial (Some draft) with
-                        OrderPlan = recalculating one None "r-1" (OrderPlanCommand.AddOrderContext(one, workbench))
-                        OrderContext = OrderContextState.held patient (OrderContextState.emptyFor patient)
-                    }
-
-                let _, effects, steps =
-                    lanes
-                    |> Lanes.transition (counter ()) (LanesMsg.Plan(OrderPlanMsg.Answered("r-1", Ok two)))
-
-                steps |> List.length |> Expect.equal "the plan's step alone" 1
-
-                effects
-                |> List.contains LanesEffect.GoToPlanPage
-                |> Expect.isFalse "no page switch"
             }
 
             test "the Session closed: the signing lane is told, and goes idle" {
@@ -1048,36 +1040,31 @@ let tests =
                 |> Expect.isTrue "the newer version is told"
             }
 
-            test "the prescribe click: the order into the plan, the workbench emptied and the plan page opened" {
-                let workbench =
-                    { context "" "paracetamol" with
-                        Scenarios = [| scenario "o-1" "paracetamol"; scenario "o-2" "paracetamol" |]
-                    }
+            test "the prescribe click: the order into the plan and the plan page opened, the workbench untouched" {
+                let lanes = twoOrdersOnWorkbench ()
 
-                let lanes =
-                    { Lanes.initial (Some draft) with
-                        OrderPlan = shown
-                        OrderContext = OrderContextState.held patient workbench
-                    }
-
-                let _, effects, steps = lanes |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-2", "r-1", "r-2"))
+                let after, effects, steps = lanes |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-2", "r-1"))
 
                 steps
                 |> List.choose (
                     function
                     | LanesStep.Plan(OrderPlanMsg.Change(OrderPlanChange.Add ctx, "r-1"), _, _) ->
                         Some(ctx.Scenarios |> Array.map _.Order.Id |> String.concat ",")
-                    | LanesStep.Workbench(OrderContextMsg.Reset "r-2", _, _) -> Some "reset"
+                    | LanesStep.Workbench _ -> Some "workbench"
                     | _ -> None
                 )
-                |> Expect.equal "the order o-2 alone, then the reset" [ "o-2"; "reset" ]
+                |> Expect.equal "the order o-2 alone, no reset" [ "o-2" ]
 
                 effects
                 |> List.last
                 |> Expect.equal "the plan page opened" LanesEffect.GoToPlanPage
 
+                after.OrderContext
+                |> OrderContextState.narrowedTo "o-2"
+                |> Expect.isSome "the order is still on the workbench"
+
                 lanes
-                |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-9", "r-1", "r-2"))
+                |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-9", "r-1"))
                 |> fun (_, effects, steps) -> effects, steps
                 |> Expect.equal "nothing for an order the workbench does not show" ([], [])
             }
@@ -1091,8 +1078,7 @@ let tests =
                         OrderContext = OrderContextState.held patient workbench
                     }
 
-                let after, effects, steps =
-                    lanes |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-1", "r-1", "r-2"))
+                let after, effects, steps = lanes |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-1", "r-1"))
 
                 steps
                 |> List.exists (
@@ -1109,6 +1095,70 @@ let tests =
                 after.OrderContext
                 |> OrderContextState.narrowedTo "o-1"
                 |> Expect.isSome "the order is still on the workbench"
+            }
+
+            test "a prescription that fails: the plan as before, the workbench narrowed to the order, no reset" {
+                let clicked, _, _ =
+                    twoOrdersOnWorkbench ()
+                    |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-2", "r-1"))
+
+                let after, effects, steps =
+                    clicked
+                    |> Lanes.transition (counter ()) (LanesMsg.Plan(OrderPlanMsg.Answered("r-1", Error [| "down" |])))
+
+                steps
+                |> List.exists (
+                    function
+                    | LanesStep.Workbench _ -> true
+                    | _ -> false
+                )
+                |> Expect.isFalse "no reset"
+
+                effects
+                |> List.contains (LanesEffect.Plan(OrderPlanEffect.TellError [| "down" |]))
+                |> Expect.isTrue "the error told"
+
+                after.OrderPlan
+                |> OrderPlanState.view
+                |> Expect.equal "the plan as before" (OrderPlanView.Settled(one, None))
+
+                after.OrderContext
+                |> OrderContextState.narrowedTo "o-2"
+                |> Expect.isSome "the order is still on the workbench"
+
+                after
+                |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-2", "r-2"))
+                |> fun (_, effects, _) -> planRequest effects
+                |> Expect.equal "the retry is the same click" (Some "r-2")
+            }
+
+            test "a prescription that lands: the plan, then the workbench reset, in the transition of the answer" {
+                let clicked, _, _ =
+                    twoOrdersOnWorkbench ()
+                    |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-2", "r-1"))
+
+                let after, effects, steps =
+                    clicked
+                    |> Lanes.transition (counter ()) (LanesMsg.Plan(OrderPlanMsg.Answered("r-1", Ok two)))
+
+                steps
+                |> List.choose (
+                    function
+                    | LanesStep.Plan(OrderPlanMsg.Answered _, _, _) -> Some "answer"
+                    | LanesStep.Workbench(OrderContextMsg.Reset "id-1", _, _) -> Some "reset"
+                    | _ -> None
+                )
+                |> Expect.equal "the answer, then the reset" [ "answer"; "reset" ]
+
+                workbenchRequest effects |> Expect.equal "the reset goes out" (Some "id-1")
+
+                effects
+                |> List.contains LanesEffect.GoToPlanPage
+                |> Expect.isFalse "the page moved at the click"
+
+                after.OrderContext
+                |> OrderContextState.narrowedTo "o-2"
+                |> Expect.isNone "the workbench no longer shows the order"
             }
 
             test "a message for one machine only runs that machine" {

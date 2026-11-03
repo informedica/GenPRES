@@ -44,9 +44,9 @@ module Lanes =
         /// A server answer with the notice its reply carried, if any: the answer reaches its
         /// machine and the notice the Session.
         | Answer of LanesMsg * from: OpenedToken option * RecordNotice option
-        /// The prescribe click: the workbench narrowed to the order with this id goes into the plan,
-        /// and the workbench is emptied under the reset request id.
-        | Prescribe of orderId: string * request: string * reset: string
+        /// The prescribe click: the workbench narrowed to the order with this id goes into the plan;
+        /// the workbench is emptied once the order has landed.
+        | Prescribe of orderId: string * request: string
         /// The url brought a patient, a medication or a launch. The patient, the workbench, the plan
         /// and the signing are emptied, as when the page loads with this patient, and the Session is
         /// closed. A launch is not part of this message: the App presents it to the Session once its
@@ -179,26 +179,18 @@ module Lanes =
                 let lanes, told, toldTaken = step (LanesMsg.Session(SessionMsg.NoticeReceived(from, notice))) lanes
                 lanes, effects @ told, taken @ toldTaken
             | None -> lanes, effects, taken
-        // nothing to add when the workbench no longer shows the order. The workbench is emptied and
-        // the plan page opened at the click, but only when the order went out: a plan that takes no
-        // change now drops it, and the workbench keeps it then
-        | LanesMsg.Prescribe(orderId, request, reset) ->
+        // nothing to add when the workbench no longer shows the order. The plan page opens at the
+        // click, but only when the order went out: a plan that takes no change now drops it. The
+        // workbench is emptied at the answer, so a failed add leaves the order on it; nothing reaches
+        // the workbench meanwhile, since the plan page is disabled and the menu locked
+        | LanesMsg.Prescribe(orderId, request) ->
             match lanes.OrderContext |> OrderContextState.narrowedTo orderId with
             | Some ctx ->
                 let lanes, effects, taken =
                     step (LanesMsg.Plan(OrderPlanMsg.Change(OrderPlanChange.Add ctx, request))) lanes
 
-                let sent =
-                    effects
-                    |> List.exists (
-                        function
-                        | LanesEffect.Plan(OrderPlanEffect.CallPlan _) -> true
-                        | _ -> false
-                    )
-
-                if sent then
-                    let lanes, emptied, resetTaken = step (LanesMsg.Workbench(OrderContextMsg.Reset reset)) lanes
-                    lanes, effects @ emptied @ [ LanesEffect.GoToPlanPage ], taken @ resetTaken
+                if lanes.OrderPlan |> OrderPlanState.awaits request then
+                    lanes, effects @ [ LanesEffect.GoToPlanPage ], taken
                 else
                     lanes, effects, taken
             | None -> lanes, [], []
@@ -224,6 +216,8 @@ module Lanes =
         | LanesEffect.Patient(PatientEffect.GivePlan pat) ->
             [ LanesMsg.Plan(OrderPlanMsg.PatientDataChanged(Some pat, newId ())) ]
         | LanesEffect.Plan OrderPlanEffect.PatientDataNotFollowed -> [ LanesMsg.Patient PatientMsg.PlanNotFollowed ]
+        // an order prescribed that landed empties the workbench
+        | LanesEffect.Plan OrderPlanEffect.OrderAdded -> [ LanesMsg.Workbench(OrderContextMsg.Reset(newId ())) ]
         | LanesEffect.Signing(SigningEffect.TellRefused(SigningRefusal.Blocked head)) ->
             [ LanesMsg.Session(SessionMsg.SignatureBlocked head) ]
         // the Session's patient data goes to the patient machine, with the estimates renewed as for
@@ -250,7 +244,9 @@ module Lanes =
     /// effects become are run first, before the messages still waiting, so what an effect causes lands
     /// before anything that came after it; until none is left. The routes run one way, the signing
     /// lane to the Session and the plan, the Session to the patient and the plan, the patient to the
-    /// workbench and the plan, so the list empties: no machine passes an effect back to one before it.
+    /// workbench and the plan, the plan to the patient and the workbench. The plan passes back to the
+    /// patient only a plan that did not follow, which sends nothing to the plan, and the workbench
+    /// passes nothing on, so the list empties.
     let transition newId msg (lanes: LanesState) =
         let rec run queue (lanes, effects, steps) =
             match queue with

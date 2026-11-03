@@ -545,6 +545,7 @@ module Trail =
             | OrderPlanEffect.TellPatientDataChanged summary ->
                 $"TellPatientDataChanged %i{summary.Orders} orders %i{summary.Marked} marked"
             | OrderPlanEffect.PatientDataNotFollowed -> "PatientDataNotFollowed"
+            | OrderPlanEffect.OrderAdded -> "OrderAdded"
 
 
         /// The order plan state as the pages read it.
