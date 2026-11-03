@@ -2,7 +2,9 @@
 
 2026-11-03. Draft for review. Closes #1612 and #1632. Unblocks rule 10 of
 [plan 1430](1430-patient-data-changes.md) for nutrition, and the gap its step 5 names: a pick in a
-slot with an order calculates the order on the patient data the slot was made on.
+slot with an order calculates the order on the patient data the slot was made on. Revised the same day:
+which orders are linked is decided by link rules, data in the LinkedRules sheet, and what a nutrition
+slot offers by rule sets, data in the RuleSets sheet, not by code.
 
 <!-- markdownlint-disable-file MD029 -->
 
@@ -22,10 +24,19 @@ on a change of patient data a slot without an order starts again from its rule s
 order is recalculated on the old data at the next pick, without a notice.
 
 The link between a supplement and its feeding is implicit today: the plan holds one feeding at most,
-and removing the feeding removes every supplement. Once a nutrition order is prescribed like any other
-order, the plan can hold two feedings, and a supplement must say which feeding it belongs to. Some
-medication orders belong together in the same way (#1632): a morning dose and an evening dose that
-differ are two orders.
+removing the feeding removes every supplement, and the code decides this by nutrition category. Once a
+nutrition order is prescribed like any other order, the plan can hold two feedings, and a supplement
+must say which feeding it belongs to. Some medication orders belong together in the same way (#1632):
+ataluren is given as 10 mg/kg in the morning and at midday and 20 mg/kg in the evening, two dose rules
+that are one treatment. Which orders belong together is medical knowledge, so it belongs in data that
+GenPRES reads, as the dose rules are, not in code.
+
+What a slot offers is code as well: `ServerApi.NutritionRuleSets.fs` names, per nutrition category, the
+indications and generics its dose rules are filtered on. The lists drifted from the DoseRules sheet:
+checked on 2026-11-03, the feeding slot offered 7 of the 28 feedings (breast milk, the hypoallergenic,
+amino acid and peptide feedings hidden), the TPN and lipid slots hid a generic each and named some that
+no dose rule has, and the electrolyte and glucose slot named an indication that does not exist, so it
+offered nothing.
 
 ## The rules
 
@@ -35,9 +46,10 @@ differ are two orders.
    nutrition page, until it is prescribed. Its rule set gives the indications and generics, and the
    server narrows its lists to that rule set on every evaluation.
 2. **A nutrition order is prescribed like any other order.** A prescribe button on every slot adds the
-   slot narrowed to one scenario to the plan, keeping its nutrition category. The plan takes any number
-   of orders of every category: no category refuses an order. The refusals left are the one every
-   order has, the same order twice, and the main order rules of rules 11 and 14.
+   slot narrowed to one scenario to the plan, keeping its nutrition category, together with the linked
+   orders chosen in it (rule 9). The plan takes any number of orders of every category: no category
+   refuses an order. The refusals left are the one every order has, the same order twice, and the
+   link refusals of rules 14 and 15.
    Medical decision, 2026-11-03, halcwb: a nutrition order is prescribed like any other order, and the
    plan takes any number per category.
 3. **After a prescribe the slot empties,** once the order is in the plan, as the medication workbench
@@ -46,9 +58,10 @@ differ are two orders.
    takes one change at a time; picks in the other slots and the category buttons stay open. A failed
    add leaves the slot as it was.
 4. **A slot does not count as an order.** It is not signed, not checked for interactions and not in
-   the plan's totals. The nutrition page shows the totals over every order of the plan and every slot
-   narrowed to one scenario, so the combined intake is seen against the norm before a prescribe. The
-   order plan page and the sign dialog count only the plan.
+   the plan's totals. The nutrition page shows the totals over every order of the plan, every slot
+   narrowed to one scenario, and every linked order turned on in a slot and narrowed to one scenario,
+   so the combined intake is seen against the norm before a prescribe. The order plan page and the sign
+   dialog count only the plan.
 5. **A change of patient data starts a slot again from its rule set** for the new data; its picks go,
    as the workbench's filters do. Another patient removes the slots, and the combined totals with them.
 6. **A slot is not stored.** After a reload only the orders of the plan remain, as with the workbench.
@@ -59,32 +72,88 @@ differ are two orders.
    the percentage given as the dose quantity, the step that only the nutrition slot offers today. The
    nutrition page shows the slots and the totals only.
 
-### Linked orders
+### Link rules
 
-8. **An order can be linked to one other order, its main order.** A main order can have any number of
-   orders linked to it, and is not linked itself: one level. Three doses a day with different amounts
-   are a main order and two orders linked to it.
-9. **A link is chosen at prescribe and never changes.** The workbench and every slot offer a choice of
-   main order among the orders of the plan. A different link is a removal and a new prescribe, as rule
-   10 of plan 1430 has for everything that is not a step.
-10. **Removing a main order removes the orders linked to it.** Removing a linked order removes that
-    order only.
-11. **A supplement is linked to a feeding.** The supplement slot is offered while the plan holds a
-    feeding order; its main order choice lists the feedings, preselected when the plan holds exactly one
-    feeding, and it cannot be prescribed without one. A feeding still being composed in a slot does not
-    count.
-12. **The order plan page shows a linked order directly under its main order.** Checking a main order
+8. **The link rules decide which orders are linked.** The LinkedRules sheet holds one row per link: the
+   dose rule of the linked order (Generic, Route, Indication, DoseType, DoseText), the dose rule of its
+   main order (MainGeneric, MainRoute, MainIndication, MainDoseType, MainDoseText), and Required. An
+   empty field matches any value, except DoseType and MainDoseType, which every row fills in (rule 10).
+   So a row "Indication Enterale toevoeging, DoseType discontinuous under MainIndication Enterale
+   voeding, MainDoseType discontinuous" links every supplement to any feeding. An order matches a side
+   of a row on the values it carries: its generic, route and indication, and its dose type with the
+   dose type's text. Required yes means that the linked order cannot be prescribed without its main
+   order. No row, no link: nothing is refused, the order is simply not offered as linked.
+9. **The main order offers its linked orders.** When the workbench or a slot is narrowed to one scenario,
+   the link rules whose main side matches it give the linked orders that may come with it: one optional
+   order context per matching row, and for a row with an empty Generic one per generic the row matches.
+   So a feeding slot offers its supplements as a list, each to turn on. The same linked order twice is a
+   second prescribe. A linked order context is evaluated on the same patient and composed like any
+   order context: its picks go out on the lane of its slot or of the workbench, one request at a time,
+   and the slot or the workbench waits while one is out. A change of the main order's scenario drops
+   the linked order contexts and offers them again from the link rules. The prescribe adds the main
+   order with the linked orders turned on, in one request: all of them enter the plan, or none, and a
+   turned-on linked order not narrowed to one scenario refuses the prescribe.
+   Decisions, 2026-11-03, halcwb: one linked order per row, as a list; a change of the main order
+   offers the linked orders again.
+10. **Only doses that repeat are linked.** A linked order runs side by side with its main order, so both
+    sides of a link rule have the dose type discontinuous, timed or continuous. A once or onceTimed
+    dose follows another dose in time and belongs to a protocol (#1641), not to a link: a loading dose
+    and its maintenance are not linked. Both dose types must be filled in: an empty dose type would
+    match any dose type, once and onceTimed included. A row with an empty dose type, or with once or
+    onceTimed, on either side is refused when the sheet is read.
+11. **A link is one level and never changes.** A main order can have any number of orders linked to it,
+    and is not linked itself. A different link is a removal and a new prescribe, as rule 10 of plan 1430
+    has for everything that is not a step.
+12. **Removing a main order removes the orders linked to it.** Removing a linked order removes that order
+    only.
+13. **The order plan page shows a linked order directly under its main order.** Checking a main order
     checks the orders linked to it, and unchecking it unchecks them; while a main order is checked, the
     orders linked to it stay checked. A linked order can be checked alone while its main order is not
     checked. So the rows checked are always the rows the totals count and the delete button removes.
-    The link is part of the signed version, so a reopen shows it.
-13. **A group locks together.** An order is locked when it, its main order, an order linked to it, or
-    an order linked to the same main order cannot be calculated on the current patient data. An order
-    locked only because of its group says so with a text of its own, a new localization term; the sign
-    dialog still names only the orders not calculated. Removal stays possible.
-14. **A plan with a broken link is refused** where the server reads a plan: a main order that is not in
-    the plan, a main order that is itself linked, a supplement whose main order is not a feeding, and,
-    from step 8, a supplement without a main order.
+    The link is part of the signed version, so a reopen shows it. A group locks together: an order is
+    locked when it, its main order, an order linked to it, or an order linked to the same main order
+    cannot be calculated on the current patient data. An order locked only because of its group says so
+    with a text of its own, a new localization term; the sign dialog still names only the orders not
+    calculated. Removal stays possible.
+14. **The shape of a link is checked wherever the server reads a plan:** a main order that is not in the
+    plan, or a main order that is itself linked, refuses the plan. The link rules are not checked there:
+    the sheet is live configuration, and a signed version must stay readable after an edit of the
+    LinkedRules sheet. A link that held when it was prescribed holds in that version. A supplement
+    without a link, from a plan signed before this change, is read as it is; once the plan slots go
+    (step 10) it stays in the plan when its feeding is removed. The decision that no stored version
+    matters yet covers it (2026-11-03, halcwb).
+15. **The link rules are checked at the prescribe.** The server checks every linked order of the add
+    against the link rules as they are then, as it checks a filter pick against the dose rules: a link
+    no row allows any more is refused, and so is an order whose link rule requires a main order and that
+    comes without one. A refusal names the order.
+
+### The supplement
+
+16. **A supplement is a linked order of a feeding.** The LinkedRules rows of the supplements say so, with
+    Required yes, so a supplement is only offered in a feeding slot, as an optional linked order of the
+    feeding composed there. The separate supplement slot goes. A breast milk fortifier has MainGeneric
+    MM, the breast milk generic of the DoseRules sheet, so it is offered only under breast milk.
+
+### Rule sets
+
+17. **The rule sets decide what a slot offers.** The RuleSets sheet holds one row per category,
+    indication and generic: Category, Label, Indication and Generic. A slot offers the dose rules under
+    the indications of its category, and of those only the generics its rows name; a category whose
+    rows leave Generic empty offers every generic under its indications. Label is the category's name
+    in the server's words.
+18. **The categories and what each does stay in code.** Category names one of the five categories the
+    code knows: EnteralFeeding, EnteralSupplement, TPN, Lipid and ElectrolyteGlucose. Each has its page,
+    its buttons and its slot, and the TPN its composition, its intake slider and the lock of its
+    composition while its dose is a share of the total. A signed version stores the category by name,
+    so the names stay as they are. A row with another category is refused when the sheet is read.
+19. **A linked order takes its category from the rule sets.** The category of a linked order context is
+    the category whose RuleSets rows match its indication and generic, and the medication category when
+    no row matches: a Fantomalt supplement under a feeding is EnteralSupplement, ataluren's evening dose
+    is medication. Decision, 2026-11-03, halcwb.
+20. **An order that needs a main order is only offered as a linked order.** The medication workbench and
+    every slot leave out of their pick lists the dose rules a link rule with Required yes matches on its
+    linked side; such an order is offered only by its main order (rule 9). The check of rule 15 stays
+    as the guard. Decision, 2026-11-03, halcwb.
 
 ## What this replaces
 
@@ -95,11 +164,17 @@ differ are two orders.
   stay, for a prescribed nutrition order stepped in the order dialog.
 - `OrderPlan.holds`, the category rule of `OrderPlan.admits`, `OrderPlanError.CategoryHeld` with its
   words in `ServerApi.Mappers.OrderPlan.fs`, and the client copy `OrderPlan.mayAdd`.
-- `OrderPlanError.SupplementNeedsFeeding`, replaced by the main order check of rule 11.
+- `OrderPlanError.SupplementNeedsFeeding` and every rule in code that names a nutrition category for a
+  link: the link rules of the LinkedRules sheet replace them.
+- The supplement slot and the supplement category button on the nutrition page.
+- `ServerApi.NutritionRuleSets.fs`, the rule sets as code: the RuleSets sheet replaces it.
+  `NutritionCategory.label` in `Shared/Models.fs` stays: the client names a category with its
+  localization terms and uses that label only when a term is missing, and the print uses it.
+- `GenORDER.Lib/Nutrition.fs` (`tpnConstraints`, `proc`, `applyPropChange`), which no code calls.
 - The restart of a context without an order in `OrderPlan.followPatientData`: every context in the plan
   has an order.
 - The supplement removal by category in `OrderPlan.removeOrderContext`, replaced by the link.
-- `OrderPlan.addOrderContext` setting every added context to `Drug`.
+- `OrderPlan.addOrderContext` setting every added context to the medication category.
 - The nutrition page busy on every plan request (`BusyPolicy.changes`).
 - Plan 667's choice to keep the nutrition workbenches in the plan, and plan 654's rule that nutrition
   is signed as soon as a slot holds one scenario: only a prescribed nutrition order is signed.
@@ -117,29 +192,82 @@ differ are two orders.
    the workbench and the plan.
 4. **Linked orders as a group of equals.** Rejected: removal would need a question, and the supplement
    rule a separate check. A main order with linked orders is the supplement rule itself.
-5. **Combined totals in the client.** Not possible: a totals line is text, a sum rendered with the norm
+5. **The link decided in code, by nutrition category.** Rejected: which orders belong together is
+   medical knowledge that changes with the dose rules, and a category says nothing about ataluren or a
+   breast milk fortifier.
+6. **The linked order chooses its main order among the orders of the plan.** Rejected: a list of plan
+   orders to pick from lets the prescriber pick the wrong one, and a link rule then checks after the
+   fact what it could have offered. The main order offering its linked orders (rule 9) makes the rules
+   drive the order, as everywhere else.
+7. **Link rules as columns on the DoseRules sheet.** Rejected: a link names two dose rules, and the
+   columns would repeat on every dose rule row of a generic.
+8. **Loading doses and series as links.** Rejected: they follow each other in time and need a start and
+   an order of steps, which a link does not have. They are protocols (#1641).
+9. **Combined totals in the client.** Not possible: a totals line is text, a sum rendered with the norm
    for the patient's weight and age from the totals sheet (`Totals.getTotals`), so two lines cannot be
    added.
-6. **Combined totals in every slot request.** Rejected: a plan answer, such as a removal on the order
-   plan page, would not refresh them, and every slot request would carry the plan and the other slots.
-7. **A separate totals query, the latest wins.** Chosen: sent when a plan answer or a slot answer lands,
-   numbered, an answer to an older query dropped, as the interaction check does in the loader machine.
-8. **A second prescribe queued while the first is out.** Rejected: it is a request after another
-   request's answer, the pattern #1626 describes. The prescribe buttons wait instead (rule 3).
+10. **Combined totals in every slot request.** Rejected: a plan answer, such as a removal on the order
+    plan page, would not refresh them, and every slot request would carry the plan and the other slots.
+11. **A separate totals query, the latest wins.** Chosen: sent when a plan answer or a slot answer lands,
+    numbered, an answer to an older query dropped, as the interaction check does in the loader machine.
+12. **A second prescribe queued while the first is out.** Rejected: it is a request after another
+    request's answer, the pattern #1626 describes. The prescribe buttons wait instead (rule 3).
+13. **The rule sets kept in code.** Rejected: the lists drifted from the DoseRules sheet without anyone
+    noticing, and a slot that offers too little is a silent failure. In the sheet the lists sit next to
+    the dose rules they name, and a read checks them against each other.
+14. **The category derived from the Formulary product type.** Rejected: the type splits enteral from
+    parenteral, and IsAdditive a supplement from a feeding, but nothing tells a TPN from a lipid, and a
+    lipid with vitamins has several components as a TPN has.
 
 ## Chosen approach
+
+### Rule sets (GenFORM)
+
+- A `Data` record for the RuleSets sheet, one field per column with its `///` comment, read by a mapper
+  with `get` by column name, and a column-contract test. The rows of a category become one
+  `NutritionRuleSet`, the record the order plan rules already take, so `NutritionRuleSet.narrow`,
+  `settle`, `emptyContext` and `discover` stay as they are; an empty generic list already restricts
+  nothing.
+- A resource in `Resources.defaultRegistry`, reached through `IResourceProvider`. The composition root
+  passes the rule sets from the provider where it passes `NutritionRuleSets.all` today.
+- The read refuses a row whose Category names no category, and warns for an indication or a generic that
+  matches no dose rule, and for a generic or component under the indications that has no product in the
+  Formulary sheet.
+
+### Link rules (GenFORM)
+
+- A `LinkRule` record and its `Data` record for the LinkedRules sheet, one field per column with its
+  `///` comment, read by a mapper with `get` by column name, and a column-contract test.
+- A resource in `Resources.defaultRegistry`, reached through `IResourceProvider` as the dose rules are.
+- The read refuses a row with an empty DoseType or MainDoseType, and a row with once or onceTimed on
+  either side (rule 10). It warns for a side that matches no dose rule, as an order can never match it.
+  The dose type is read with GenFORM's `DoseType.parse`, which refuses nothing: an empty or unknown value
+  gives `NoDoseType`, with a warning for an unknown one. So the read refuses a row whose DoseType or
+  MainDoseType parses to `NoDoseType`, which covers the empty dose type, and reports the warning with
+  it.
 
 ### Domain (GenORDER)
 
 - `PlanContext` gains `LinkedTo: string option`, the id of the context whose order is its main order,
   and none for an order that is not linked. The DTO and the signed record carry it. The name does not
   clash with the version head of a signed plan (`SignedOrderPlan.Head`).
-- `OrderPlan.Dto.fromDto` refuses a broken link (rule 14) with a new `DtoError` case.
-- `OrderPlan.addOrderContext` keeps the category of the context and checks the main order of rule 14
-  and the supplement rule of rule 11.
-- `OrderPlan.removeOrderContext` removes the context and every context linked to it.
+- `OrderPlan.linkError` checks the shape of a link (rule 14): the main order is in the plan and is not
+  linked itself. `OrderPlan.Dto.fromDto` refuses a plan with a broken link with a new `DtoError` case
+  that carries the context id and the `OrderPlanError`.
+- `LinkRule.linkedTo` gives, for an order context narrowed to one scenario, the link rules whose main
+  side matches it; `LinkRule.allows` checks a linked order against its main order (rule 15).
+- `OrderPlan.addOrderContexts` adds a main context with its linked contexts in one change: each gets a
+  minted id, the linked ones their main order's new id, and the change is refused as a whole when one
+  of them is. It keeps the category of every context.
+- `OrderPlan.removeOrderContext` removes the context and every context linked to it. Until the plan
+  slots go (step 10) a feeding also takes every supplement without a link, as today, so that master keeps
+  working between the steps.
 - `OrderPlan.followPatientData` loses its restart: every context has an order.
-- `PlanContext.Intake` is renamed `Totals`, as the plan's own field is named.
+- `PlanContext.Intake` is renamed `Totals`, as the plan's own field is named, in the record and the DTO.
+- The stored plan is the JSON of these DTOs, so the link and the rename change its shape: the JSON
+  structure version of a stored plan goes from 12 to 13, with the line "added the link on every plan
+  context, none when absent, and renamed its intake to totals" in `SqlDatabase.upgrade`, in the same
+  pull request.
 - Stored versions are not converted and the DTO reads no old field names. User decision, 2026-11-03,
   halcwb: no stored version matters yet.
 
@@ -147,19 +275,27 @@ differ are two orders.
 
 - The wire `OrderContext` (`Shared/Types.fs`) gains `LinkedTo`, and `OrderContextMapper` maps it both
   ways, so that the link survives every round trip, the add and a reopen.
+- The words of the new `OrderPlanError` cases in `ServerApi.Mappers.OrderPlan.fs`.
 - `OrderContextCommand` gains a case that starts a slot: the category and the patient, answered with
   the context discovered from the rule set. This is the new case the single-case union was kept for.
 - The order context port narrows and settles a nutrition context to its rule set on every evaluation.
   It finds the rule set from the `Category` field of the wire `OrderContext`; the plan port finds it
   from the plan, which a slot is no longer in.
+- The order context answer carries, for a context narrowed to one scenario, the linked orders its link
+  rules offer, each an order context evaluated on the same patient, with the category of rule 19.
+- The order context port leaves out of the pick lists the dose rules a Required link rule matches on
+  its linked side (rule 20).
+- `OrderPlanCommand.AddOrderContext` carries the main context and its linked contexts; the plan port
+  checks them against the link rules (rule 15).
 - The plan port's `evaluateContext` refuses, with `OrderPlanError.NotNarrowed`, a result that is not
   exactly one scenario for a context that held an order before the command, so that a prescribed order
   never loses it. While slots are still in the plan, an unfinished slot evaluates as today.
-- A totals query: the patient and the orders of the plan and of the slots narrowed to one scenario,
+- A totals query: the patient and the orders of the plan, of the slots narrowed to one scenario and of
+  their turned-on linked orders narrowed to one scenario,
   answered with `Totals.getTotals`. A query of its own, so the plan is not changed by it.
-- The wire `OrderContext.Intake` is renamed `Totals`. The comment on `OrderContext.Id` says that a slot
-  carries its slot id there, minted by the client, and the medication workbench an empty id; the server
-  mints a new id at the add, as it does today.
+- The wire `OrderContext.Intake` is renamed `Totals` (step 3). The comment on `OrderContext.Id` says
+  that a slot carries its slot id there, minted by the client, and the medication workbench an empty
+  id; the server mints a new id at the add, as it does today.
 - `NewOrderContext` and the slot discovery in the plan port go.
 
 ### Client.Core
@@ -171,32 +307,78 @@ differ are two orders.
   nutrition page is busy on a slot request; `Page.Nutrition` leaves the plan request line of
   `BusyPolicy.changes`. While a plan request is out, the prescribe button of every slot is disabled,
   and the slot that was prescribed takes no pick (rule 3).
-- `LanesMsg.Prescribe` names the slot id, or none for the workbench, and the main order.
-  `OrderPlanEffect.OrderAdded` carries the id of the context in the `AddOrderContext` the machine sent:
-  an empty id empties the workbench, a slot id that slot.
+- The workbench and every slot hold the linked orders offered with their main order, each turned on or
+  off, each with its own order context. A pick in a linked order context goes out on the lane of its
+  slot or of the workbench, and that slot or the workbench is busy while it is out. A change of the
+  main order's scenario drops the linked order contexts, and the answer offers them again.
+- `LanesMsg.Prescribe` names the slot id, or none for the workbench, and adds the main order with the
+  linked orders turned on. `OrderPlanEffect.OrderAdded` carries the id of the context in the
+  `AddOrderContext` the machine sent: an empty id empties the workbench, a slot id that slot.
 - The totals query as a numbered request in the loader machine, sent when a plan answer or a slot
   answer lands; an answer to an older query is dropped. A new patient and a start-over send the empty
   query, as they send the empty interaction check, so the totals clear and an answer still out for the
   previous patient is dropped.
 - `UnsignedWorkPolicy.hasUnsignedWork` and `NewPatientPolicy.asks` count a slot narrowed to one scenario.
-- `PlanContextPolicy.locked` takes the plan, for rule 13; its callers pass it.
-- The row check of rule 12 as a policy over the plan's links.
+- `PlanContextPolicy.locked` takes the plan, for the group lock of rule 13; its callers pass it.
+- The row check of rule 13 as a policy over the plan's links.
 
 ### Client views
 
 - The nutrition pages read the slots from `Lanes` and the combined totals from the query; a prescribe
-  button on every slot, the main order choice on the supplement slot, the prescribed slot waiting.
-- The workbench gets the optional main order choice.
+  button on every slot, the linked orders offered in a slot (the supplements in a feeding slot), the
+  prescribed slot waiting.
+- The workbench shows the linked orders offered with its order, each to turn on.
 - The order plan page shows a linked order under its main order, the group lock text, and the row check
-  of rule 12.
+  of rule 13.
 - The order dialog gets the intake slider for an order where `PlanContextPolicy.canSetIntake` holds.
+
+## The sheets as found
+
+### RuleSets
+
+The sheet was added on 2026-11-03 and filled from the DoseRules sheet the same day. Every indication
+exists, every row pairs a generic with an indication it has dose rules under, and every nutrition dose
+rule is offered: 28 feedings, 23 supplements, 13 TPN, 2 lipids and the electrolyte and glucose mixture.
+Open in the data:
+
+- "electrolyt/glucose mengsel" has no product in the Formulary sheet, and its dose rules have NaCl 3% and
+  KCl 7,4% as components, no glucose.
+- "CaCl2 10%", a component of a neonatal TPN, has no product in the Formulary sheet.
+- Nutrilon Pepti 1, Pepti 2, Standaard 1 and Standaard 2 have dose rules from the age of one year only,
+  which needs a medical check for infant formulas.
+
+### LinkedRules
+
+The sheet was added to the rules spreadsheet on 2026-11-03 and checked against its DoseRules sheet. It
+holds 50 rows, every one with the dose type discontinuous on both sides.
+
+- The 23 supplement rows match: every supplement generic has dose rules with the indication "Enterale
+  toevoeging", and the main indication "Enterale voeding" exists. The two breast milk fortifiers have
+  MainGeneric "MM", the breast milk generic of the DoseRules sheet.
+- The rows of ataluren and of the hydrocortison taper (week 0 to 4, oral, intramuscular and intravenous)
+  match dose rules on both sides.
+- The row of chlooramfenicol links the eye ointment at night to the eye drops. The drops rule has no
+  DoseText, so the main side also matches the ointment rule; a DoseText on the drops rule would make
+  the main side match the drops alone.
+- The rows of ivacaftor in the evening (under ivacaftor/tezacaftor/elexacaftor and under
+  tezacaftor/ivacaftor), lumacaftor/ivacaftor with Child-Pugh B, and alimemazine name doses that have
+  no dose rule row yet; they match no order until the rows exist.
+- Left out: the bowel clearance with bisacodyl, a protocol (#1641), and a bolus on demand next to an
+  infusion (morfine PCA, hydromorfon, sufentanil, piritramide, ropivacaine). Such a bolus is a dose
+  given as needed, a dose type that does not exist yet; it has an issue and a plan of its own (#1640).
 
 ## Confidence
 
 Medium.
 
 - High: the slot as the workbench machine with its category. It is the same type and the same commands.
-- High: the links in the domain. One field, on the wire and in the domain, checked where a plan is read.
+- High: the link in the plan. One field, on the wire and in the domain, its shape checked where a plan
+  is read.
+- High: the rule sets. The record and the narrowing exist; only their source moves to the sheet.
+- Medium: the link rules. A new sheet and resource follow the existing pattern; the matching on dose
+  type and text is new, and the data needs the fixes above.
+- Medium: the group add. The plan takes several contexts in one change for the first time, and the
+  workbench and the slots hold linked contexts next to their main one.
 - Medium: the totals query. It follows the interaction check, but it is a new member and a new
   request after every answer on the nutrition page.
 - Risk: the prescribed slot that waits for the plan (rule 3), the gap #1627 closed for the workbench.
@@ -208,58 +390,83 @@ Medium.
 ## Steps
 
 Each step is one pull request within 200 lines of `src/`, script first where it touches a library or
-Client.Core. Between step 1 and step 8 master may break a rule: after step 1, removing a feeding leaves
-the supplements the plan slots still add without a main order. No release is cut, and master is not
-deployed for tests or demos, from step 1 until step 8 is merged; the browser runs of these steps do not
-remove a feeding.
+Client.Core. Between the steps master keeps working: until step 10 a feeding still takes the supplements
+the plan slots add without a link.
 
-1. **Linked orders in the domain and on the wire.** `PlanContext.LinkedTo`, the DTO, the wire field and
-   both mapper directions, the link check in `fromDto` without the supplement rule, `addOrderContext`
-   keeping the category and checking the main order, removal by link. Script
-   `src/Informedica.GenORDER.Lib/Scripts/LinkedOrders.fsx`. Seen: nothing new; removing a feeding no
-   longer removes the supplements the plan slots add.
-2. **The server starts and narrows a slot on the order context path,** and refuses a step that leaves a
-   prescribed order without its order. The new `OrderContextCommand` case, the narrowing by `Category`,
-   the `NotNarrowed` refusal in `evaluateContext` for a context that held an order. Script
-   `src/Informedica.GenPRES.Server/Scripts/SlotStart.fsx`. Seen: nothing; the client does not use the
-   case yet, and the slots in the plan compose as today.
-3. **The totals query** on the server and its wire, and the rename of `Intake` to `Totals`. Script
-   `src/Informedica.GenPRES.Server/Scripts/CombinedTotals.fsx`; the rename has no behaviour. Seen:
-   nothing.
-4. **The slot lane in Client.Core.** The category in `OrderContextState`, the slot states in `Lanes`,
+1. **The rule sets from the sheet.** The RuleSets sheet in GenFORM: the `Data` record, the mapper, the
+   column-contract test, the resource and the checks of its read; the server takes the rule sets from
+   the provider; `ServerApi.NutritionRuleSets.fs` and the unused `GenORDER.Lib/Nutrition.fs` go. Script
+   `src/Informedica.GenFORM.Lib/Scripts/RuleSets.fsx`. Seen: the nutrition slots offer every nutrition
+   dose rule, breast milk and the electrolyte and glucose mixture included.
+2. **The link in the plan.** `PlanContext.LinkedTo`, the rename of `PlanContext.Intake` to `Totals`, the
+   DTO, the shape check in `fromDto` and `linkError`, removal by link with the fallback for a supplement
+   without a link, `addOrderContext` keeping the category, and the JSON structure version 13 with its
+   line. Script `src/Informedica.GenORDER.Lib/Scripts/LinkedOrders.fsx`; it still holds the check by
+   nutrition category of the first draft, which goes. Seen: nothing new.
+3. **The link on the wire.** The wire field, both mapper directions, the rename of the wire
+   `OrderContext.Intake` to `Totals`, the words of the new refusals. Script
+   `src/Informedica.GenPRES.Server/Scripts/LinkedOrders.fsx`. Seen: nothing.
+4. **The link rules.** The LinkedRules sheet in GenFORM: the record, the `Data` record, the mapper, the
+   column-contract test, the resource, the refusal of a dose type that parses to `NoDoseType` and of
+   once and onceTimed;
+   `LinkRule.linkedTo` and `LinkRule.allows` in GenORDER. Script
+   `src/Informedica.GenFORM.Lib/Scripts/LinkRules.fsx`. Seen: nothing.
+5. **The server starts and narrows a slot on the order context path, and offers linked orders.** The new
+   `OrderContextCommand` case, the narrowing by `Category`, the linked orders in the answer with their
+   category (rule 19), the dose rules of a Required link rule left out of the pick lists (rule 20), the
+   `NotNarrowed` refusal in `evaluateContext` for a context that held an order. Script
+   `src/Informedica.GenPRES.Server/Scripts/SlotStart.fsx`. Seen: nothing; the client does not use them
+   yet.
+6. **The group add and the totals query** on the server and their wire: `AddOrderContext` with linked
+   contexts, `addOrderContexts` with the check of rule 15, and the totals query. Script
+   `src/Informedica.GenPRES.Server/Scripts/GroupAdd.fsx`. Seen: nothing.
+7. **The slot lane in Client.Core.** The category in `OrderContextState`, the slot states in `Lanes`,
    the request case, `BusyPolicy` and `OutPolicy`, the start and restart from the rule set. Script
    `src/Informedica.GenPRES.Client.Core/Scripts/SlotLane.fsx`. Seen: nothing; the views still use the
    plan slots.
-5. **Prescribe from a slot in Client.Core.** `LanesMsg.Prescribe` with the slot id and the main order,
-   `OrderAdded` with the context id, the prescribed slot and the prescribe buttons waiting, the totals
-   query in the loader with its clear, the unsigned work policies. Script
+8. **Prescribe with linked orders in Client.Core.** The linked orders offered in the workbench and the
+   slots, `LanesMsg.Prescribe` with the slot id and the linked orders turned on, `OrderAdded` with the
+   context id, the prescribed slot and the prescribe buttons waiting, the totals query in the loader
+   with its clear, the unsigned work policies. Script
    `src/Informedica.GenPRES.Client.Core/Scripts/SlotPrescribe.fsx`. Seen: nothing yet.
-6. **The nutrition views on the slots.** A prescribe button on every slot, the main order choice on the
-   supplement slot, staying on the page, the combined totals. Seen: nutrition is composed in slots and
-   enters the plan on prescribe.
-7. **Linked medication orders and the order dialog.** In Client.Core, by script
-   `src/Informedica.GenPRES.Client.Core/Scripts/LinkedOrders.fsx`: the group lock of rule 13 and the row
-   check of rule 12. In the views: the main order choice on the workbench, linked orders under their
-   main order, the group lock text, the intake slider in the order dialog. Two pull requests if it does
-   not fit. Seen: a morning and an evening dose prescribed linked; a TPN stepped in the order dialog.
-8. **The plan slots go.** What is left under "What this replaces": `NewOrderContext` and its client and
-   Trail lines, the slot discovery, `holds`, `CategoryHeld`, `SupplementNeedsFeeding`, `mayAdd`, the
-   restart in `followPatientData`; and the supplement without a main order refused in `fromDto`. Seen:
-   no change; the old path is gone.
-9. **Documents.** Notes in plans 667 and 654. In plan 1430, step 5's sentence "the nutrition page keeps
-   its slots until a new order is prescribed" becomes "a slot on the nutrition page keeps its
-   composition until its order is prescribed; then the slot empties", and rule 11's "The lock holds on
-   the order plan page and the nutrition page" becomes "The lock holds on the order plan page and in
-   the order dialog". The browser tests in document 598.
+9. **The views.** On the nutrition page a prescribe button on every slot, the supplements offered in the
+   feeding slot, staying on the page, the combined totals; on the workbench the linked orders offered;
+   on the order plan page a linked order under its main order, the row check and the group lock text
+   of rule 13; the intake slider in the order dialog. In Client.Core, by script
+   `src/Informedica.GenPRES.Client.Core/Scripts/LinkedOrders.fsx`, the group lock and the row check.
+   Two pull requests if it does not fit. Seen: nutrition is composed in slots and enters the plan on
+   prescribe; ataluren is prescribed with its evening dose linked.
+10. **The plan slots go.** What is left under "What this replaces": `NewOrderContext` and its client and
+   Trail lines, the slot discovery, the supplement slot, `holds`, `CategoryHeld`,
+   `SupplementNeedsFeeding`, `mayAdd`, the restart in `followPatientData`, the removal fallback for a
+   supplement without a link. Seen: no change; the old path is gone.
+11. **Documents.** Notes in plans 667 and 654. In plan 1430, step 5's sentence "the nutrition page keeps
+    its slots until a new order is prescribed" becomes "a slot on the nutrition page keeps its
+    composition until its order is prescribed; then the slot empties", and rule 11's "The lock holds on
+    the order plan page and the nutrition page" becomes "The lock holds on the order plan page and in
+    the order dialog". The browser tests in document 598.
+
+## To decide
+
+- Adding a linked order later to a main order already in the plan, such as a fortifier added to breast
+  milk on the third day. Under rule 9 that is a removal of the feeding and a new prescribe of the group.
+  The order plan page could instead offer the link rules of a main order in the plan and add one under
+  it; the shape check of step 2 already allows it.
+- Whether Required yes on the hydrocortison and ataluren rows means "cannot stand without the main
+  order", as for a supplement, or "always comes with the main order", a dose of the schedule that is
+  not optional. The second needs a value of its own.
 
 ## Verification
 
-Tests at the level of every rule. In the client: compose a TPN and an electrolyte line, prescribe both,
-see the slots empty and the combined totals stay; pick in the prescribed slot and press another
-prescribe while the add is out, and see neither taken; prescribe two feedings and a supplement under
-one, remove that feeding and see the supplement go; change the weight with a slot open and see it start
-again from its rule set; start a new patient while a totals query is out and see no totals of the
-previous patient; prescribe a morning and an evening dose linked, check the morning dose and see both
-checked and the evening dose not uncheckable, remove it and see both go; a linked order locked by its
-main order shows the group text. A medical check of the combined totals, of two TPN orders in one plan,
-and of a TPN prescribed after a change of weight.
+Tests at the level of every rule. In the client: open a feeding slot for an infant and see breast milk
+and the hypoallergenic feedings offered, and an electrolyte and glucose slot offer its mixture; compose
+a TPN and an electrolyte line, prescribe both, see the slots empty and the combined totals stay; pick
+in the prescribed slot and press another prescribe while the add is out, and see neither taken; compose
+breast milk with a fortifier and a formula feeding, see the fortifier offered only with breast milk,
+prescribe both, remove the breast milk and see the fortifier go; change the weight with a slot open and
+see it start again from its rule set; start a new patient while a totals query is out and see no totals
+of the previous patient; prescribe ataluren with its evening dose linked, check the main order and see
+both checked and the evening dose not uncheckable, remove it and see both go; a linked order locked by
+its main order shows the group text; edit the LinkedRules sheet and see a signed version with a link
+the sheet no longer has still open. A medical check of the combined totals, of two TPN orders in one
+plan, of the link rules, and of a TPN prescribed after a change of weight.
