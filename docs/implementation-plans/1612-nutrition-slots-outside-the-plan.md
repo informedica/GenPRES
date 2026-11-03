@@ -315,7 +315,8 @@ offered nothing.
   linked orders turned on. `OrderPlanEffect.OrderAdded` carries the id of the context in the
   `AddOrderContext` the machine sent: an empty id empties the workbench, a slot id that slot.
 - The totals query as a numbered request in the loader machine, sent when a plan answer or a slot
-  answer lands; an answer to an older query is dropped. A new patient and a start-over send the empty
+  answer lands, and when a linked order in a slot is turned on or off, which needs no answer of its
+  own; an answer to an older query is dropped. A new patient and a start-over send the empty
   query, as they send the empty interaction check, so the totals clear and an answer still out for the
   previous patient is dropped.
 - `UnsignedWorkPolicy.hasUnsignedWork` and `NewPatientPolicy.asks` count a slot narrowed to one scenario.
@@ -391,7 +392,11 @@ Medium.
 
 Each step is one pull request within 200 lines of `src/`, script first where it touches a library or
 Client.Core. Between the steps master keeps working: until step 10 a feeding still takes the supplements
-the plan slots add without a link.
+the plan slots add without a link. One gap is accepted: from step 5, which leaves the orders a Required
+link rule matches out of the pick lists, until step 9, which offers them under their main order, such
+an order cannot be prescribed; from step 6 the prescribe refuses it as well. Today these are the
+afternoon and evening doses of the hydrocortison taper and the evening dose of ataluren. No release is
+cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
 
 1. **The rule sets from the sheet.** The RuleSets sheet in GenFORM: the `Data` record, the mapper, the
    column-contract test, the resource and the checks of its read; the server takes the rule sets from
@@ -463,10 +468,11 @@ and the hypoallergenic feedings offered, and an electrolyte and glucose slot off
 a TPN and an electrolyte line, prescribe both, see the slots empty and the combined totals stay; pick
 in the prescribed slot and press another prescribe while the add is out, and see neither taken; compose
 breast milk with a fortifier and a formula feeding, see the fortifier offered only with breast milk,
-prescribe both, remove the breast milk and see the fortifier go; change the weight with a slot open and
-see it start again from its rule set; start a new patient while a totals query is out and see no totals
-of the previous patient; prescribe ataluren with its evening dose linked, check the main order and see
-both checked and the evening dose not uncheckable, remove it and see both go; a linked order locked by
-its main order shows the group text; edit the LinkedRules sheet and see a signed version with a link
-the sheet no longer has still open. A medical check of the combined totals, of two TPN orders in one
-plan, of the link rules, and of a TPN prescribed after a change of weight.
+prescribe both, remove the breast milk and see the fortifier go; turn a composed fortifier off and on
+and see the combined totals follow each time; change the weight with a slot open and see it start again
+from its rule set; start a new patient while a totals query is out and see no totals of the previous
+patient; prescribe ataluren with its evening dose linked, check the main order and see both checked and
+the evening dose not uncheckable, remove it and see both go; a linked order locked by its main order
+shows the group text; edit the LinkedRules sheet and see a signed version with a link the sheet no
+longer has still open. A medical check of the combined totals, of two TPN orders in one plan, of the
+link rules, and of a TPN prescribed after a change of weight.
