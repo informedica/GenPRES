@@ -12,6 +12,8 @@ open ServerApi
 
 module CoreAgeType = Informedica.GenCore.Lib.Patients.AgeType
 module CorePatientAge = Informedica.GenCore.Lib.Patients.PatientAge
+module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
+module CoreBirthDate = Informedica.GenCore.Lib.Patients.BirthDate
 
 
 let now = DateTime(2026, 11, 3, 14, 30, 0)
@@ -48,6 +50,48 @@ let ick =
         "ick-adolescent", "Male", Informedica.GenCore.Lib.Patients.Adolescent, 3650N, 34N, 144N
         "ick-adult", "Female", Informedica.GenCore.Lib.Patients.Adult, 6570N, 58N, 170N
     ]
+
+
+/// The age in days of a test patient read on a day, as GenPRES counts it.
+let coreAgeInDays (day: DateTime) pid =
+    StubPatientData.read (fun () -> day) pid
+    |> Option.bind (fun ehr -> ehr.Patient.Age |> CorePatientAge.getAgeValue day)
+    |> Option.map (CoreAgeValue.getAgeInDays >> int)
+    |> Option.get
+
+
+/// The ICK patients and their age in days.
+let ickTargets =
+    [
+        "ick-newborn", 0
+        "ick-infant", 30
+        "ick-toddler", 365
+        "ick-child", 1095
+        "ick-adolescent", 3650
+        "ick-adult", 6570
+    ]
+
+
+/// Every day from 2026 to 2028, at nine in the morning.
+let threeYears = [ for d in 0 .. 365 * 3 -> DateTime(2026, 1, 1, 9, 0, 0).AddDays(float d) ]
+
+
+/// Whether no birth date, searched 40 days around the calendar date, gives an age in days on a
+/// day: GenPRES counts a year as 365 days and a month as 30, so at the end of March and on
+/// 29 February some ages cannot be made exact.
+let noExactAge target (day: DateTime) =
+    let years, rest = Math.DivRem(target, 365)
+    let calendar = day.Date.AddYears(-years).AddDays(float -rest)
+
+    [ -40 .. 40 ]
+    |> List.forall (fun o ->
+        calendar.AddDays(float o)
+        |> CoreBirthDate.fromDate
+        |> CorePatientAge.birthDate
+        |> CorePatientAge.getAgeValue day.Date
+        |> Option.map (CoreAgeValue.getAgeInDays >> int)
+        <> Some target
+    )
 
 
 [<Tests>]
@@ -212,4 +256,45 @@ let tests =
                 ]
                 |> Expect.equal "patient, typed, typed" [ "neo-26wk"; "typed"; "typed" ]
             }
+
+            test "an empty Other launches the fixed patient, a typed one without spaces" {
+                [
+                    StubLaunch.patientIdOf StubLaunch.otherPatient " p1 "
+                    StubLaunch.patientIdOf StubLaunch.otherPatient ""
+                    StubLaunch.patientIdOf "" "  "
+                ]
+                |> Expect.equal "trimmed, fixed, fixed" [ "p1"; "123456"; "123456" ]
+            }
+
+            testList
+                "the age of an ICK patient on any day"
+                [
+                    test "on 31 March 2026 the ICK infant is 30 days old, not 33" {
+                        coreAgeInDays (DateTime(2026, 3, 31)) "ick-infant" |> Expect.equal "30 days" 30
+                    }
+
+                    test "an ICK patient has the exact age on every day of three years that a birth date fits" {
+                        [
+                            for pid, target in ickTargets do
+                                for day in threeYears do
+                                    let age = coreAgeInDays day pid
+
+                                    if age <> target && not (noExactAge target day) then
+                                        pid, day.ToShortDateString(), age
+                        ]
+                        |> Expect.isEmpty "exact"
+                    }
+
+                    test "on a day no birth date fits, an ICK patient is within 3 days of the age" {
+                        [
+                            for pid, target in ickTargets do
+                                for day in threeYears |> List.filter (noExactAge target) do
+                                    let age = coreAgeInDays day pid
+
+                                    if abs (age - target) > 3 then
+                                        pid, day.ToShortDateString(), age
+                        ]
+                        |> Expect.isEmpty "close"
+                    }
+                ]
         ]
