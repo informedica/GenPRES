@@ -3805,10 +3805,8 @@ module SessionStubTests =
                 }
 
                 test "the page offers every identity choice and names the no-data patient" {
-                    StubLaunch.page.Contains "<select name=\"identity\">" |> Expect.isTrue "select"
-
                     for c in StubDirectory.choices do
-                        StubLaunch.page.Contains $"<option value=\"{c}\">" |> Expect.isTrue c
+                        StubLaunch.page.Contains $"name=\"identity\" value=\"{c}\"" |> Expect.isTrue c
 
                     StubLaunch.page.Contains "no-data" |> Expect.isTrue "no-data hint"
                 }

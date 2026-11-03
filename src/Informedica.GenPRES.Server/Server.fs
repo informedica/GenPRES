@@ -749,10 +749,13 @@ module Host =
                         task {
                             let! form = ctx.Request.ReadFormAsync()
 
-                            let pid =
-                                match form.TryGetValue "pid" with
+                            let field (name: string) =
+                                match form.TryGetValue name with
                                 | true, values -> values.ToString()
                                 | _ -> ""
+
+                            // the chosen stub patient, or the typed PatientId with Other
+                            let pid = StubLaunch.patientIdOf (field "patient") (field "pid")
 
                             let choice =
                                 match form.TryGetValue "identity" with

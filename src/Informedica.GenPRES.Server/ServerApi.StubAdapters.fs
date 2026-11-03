@@ -150,9 +150,9 @@ module StubDirectory =
         }
 
 
-/// The EHR stub: one fixed patient for every PatientId, so a launch fills the patient panel
-/// from the EHR, except that no-data has no record at all, so the Session opens on what was
-/// signed last, or on nothing.
+/// The EHR stub: a test patient for each PatientId of the test patients, one fixed patient for
+/// every other PatientId, so a launch fills the patient panel from the EHR, except that no-data
+/// has no record at all, so the Session opens on what was signed last, or on nothing.
 module StubPatientData =
 
     /// The stub's reading projected at its patient's tenth birthday, as the contract model:
@@ -212,13 +212,140 @@ module StubPatientData =
         |> fun pat -> Informedica.GenForm.Lib.EhrPatientData.create pat None []
 
 
-    /// The EHR data for an id, none for no-data; the patient the rules see is the projection
-    /// at the date, unestimated here.
-    let port: PatientDataPort =
+    /// A patient of the stub EHR that the stub launch page offers by its PatientId.
+    type TestPatient =
         {
-            read = fun pid -> if pid = "no-data" then None else Some(data pid)
+            /// The PatientId the launch page posts.
+            Id: string
+            /// The name the patient panel shows.
+            Name: string
+            /// The ward the patient is admitted to.
+            Department: Department
+            /// The gender.
+            Gender: Gender
+            /// The age at the moment the EHR data is read.
+            Age: AgeValue
+            /// The weight, measured on the day the EHR data is read.
+            Weight: WeightValue
+            /// The height, measured on the day the EHR data is read.
+            Height: HeightValue
+            /// The gestational age at birth; absent when the EHR has none.
+            GestationalAge: AgeWeeksDays option
+        }
+
+
+    /// A NEO patient of a gender, 2 days old, with a gestational age in weeks, a weight in gram and a
+    /// height in cm.
+    let neoPatient gender weeks gram cm =
+        {
+            Id = $"neo-%i{weeks}wk"
+            Name = $"NEO %i{weeks} weeks"
+            Department = Department.neonatalICU "NEO"
+            Gender = gender
+            Age = AgeValue.create None None None (Some(Conversions.dayFromInt 2))
+            Weight = WeightValue.weightInGram gram
+            Height = HeightValue.heightInCm cm
+            GestationalAge = weeks |> Conversions.weekFromInt |> AgeWeeksDays.fromWeeks |> Some
+        }
+
+
+    /// The name of a GenCORE age category in a PatientId and a patient name.
+    let ageTypeName =
+        function
+        | NewBorn -> "newborn"
+        | Infant -> "infant"
+        | Toddler -> "toddler"
+        | Child -> "child"
+        | Adolescent -> "adolescent"
+        | Adult -> "adult"
+        | UnknownAgeType -> "unknown"
+
+
+    /// An ICK patient at the age where a GenCORE age category starts, with the normal weight and
+    /// height of that category for the gender of the patient.
+    let ickPatient gender ageType =
+        match WeightValue.fromAgeType gender ageType, HeightValue.fromAgeType gender ageType with
+        | Some weight, Some height ->
+            {
+                Id = $"ick-%s{ageType |> ageTypeName}"
+                Name = $"ICK %s{ageType |> ageTypeName}"
+                Department = Department.pediatricICU "ICK"
+                Gender = gender
+                Age = AgeValue.fromAgeType ageType
+                Weight = weight
+                Height = height
+                GestationalAge = None
+            }
+        | _ -> invalidArg (nameof ageType) $"No normal values for the age category %A{ageType}"
+
+
+    /// The test patients the stub launch page offers: the NEO patients, then the ICK patients, male and
+    /// female in turn.
+    let testPatients =
+        [
+            neoPatient Male 26 600m 35m
+            neoPatient Female 28 800m 36m
+            neoPatient Male 31 1100m 40m
+            neoPatient Female 34 1800m 42m
+            neoPatient Male 37 2400m 50m
+            neoPatient Female 40 4000m 55m
+            ickPatient Male NewBorn
+            ickPatient Female Infant
+            ickPatient Male Toddler
+            ickPatient Female Child
+            ickPatient Male Adolescent
+            ickPatient Female Adult
+        ]
+
+
+    /// The EHR data of a test patient read at a moment: born the age before that day, measured that day.
+    let testPatientData (now: DateTime) tp =
+        let measuredOn = now.Date
+        let weight = WeightAtDate.create measuredOn tp.Weight
+        let height = HeightAtDate.create measuredOn tp.Height
+
+        let age =
+            tp.Age
+            |> PatientAge.ageValue
+            |> PatientAge.getBirthDate measuredOn
+            |> Option.map PatientAge.birthDate
+            |> Option.defaultValue PatientAge.unknown
+
+        Patient.create
+            tp.Id
+            tp.Name
+            tp.Department
+            [||]
+            tp.Gender
+            age
+            (Weight.create [ weight ] None [] (Some weight))
+            (Height.create [ height ] None (Some height))
+            tp.GestationalAge
+            UnknownEnteral
+            UnknownVenous
+        |> fun pat -> Informedica.GenForm.Lib.EhrPatientData.create pat None []
+
+
+    /// The EHR data for a PatientId read at a moment: a test patient's data, none for no-data,
+    /// and the fixed patient for every other PatientId.
+    let read (now: unit -> DateTime) pid =
+        match testPatients |> List.tryFind (fun tp -> tp.Id = pid) with
+        | Some tp -> tp |> testPatientData (now ()) |> Some
+        | None when pid = "no-data" -> None
+        | None -> Some(data pid)
+
+
+    /// The EHR stub over a clock; the patient the rules see is the projection at the date,
+    /// unestimated here.
+    let portAt now : PatientDataPort =
+        {
+            read = read now
             patient = Informedica.GenForm.Lib.Patient.ofEhr
         }
+
+
+    /// The EHR stub over the system clock, which only the test patients read.
+    let port = portAt (fun () -> DateTime.UtcNow)
 
 
 /// The credential half of the Database, seeded for the stub logins: the Prescribers that sign
@@ -311,38 +438,237 @@ module StubLaunch =
     let lifetime = TimeSpan.FromMinutes 2.0
 
 
-    /// The form for a list of identity choices (the stub directory's). No inline script or
-    /// style, so the CSP (default-src 'self') holds. The PatientId no-data opens a Session
-    /// without imported data.
+    /// The PatientId of the fixed stub patient, launched when no PatientId is given.
+    let defaultPatientId = "123456"
+
+
+    /// The test patient checked on the launch page: the ICK adolescent of 10 years.
+    let checkedPatientId = "ick-adolescent"
+
+
+    /// The patient value that launches the PatientId typed in the field.
+    let otherPatient = "other"
+
+
+    open Informedica.GenCore.Lib.Patients
+
+
+    /// Text made safe to put in the page.
+    let encode (s: string) = System.Net.WebUtility.HtmlEncode s
+
+
+    /// The columns of a test patient in the patient table: gender, age, gestational age, weight and height.
+    let columns (tp: StubPatientData.TestPatient) =
+        let count n unit =
+            match n with
+            | 0 -> None
+            | 1 -> Some $"1 %s{unit}"
+            | _ -> Some $"%i{n} %s{unit}s"
+
+        let age =
+            [
+                tp.Age.Years |> Option.bind (fun n -> count (int n) "year")
+                tp.Age.Months |> Option.bind (fun n -> count (int n) "month")
+                tp.Age.Weeks |> Option.bind (fun n -> count (int n) "week")
+                tp.Age.Days |> Option.bind (fun n -> count (int n) "day")
+            ]
+            |> List.choose id
+            |> function
+                | [] -> "0 days"
+                | parts -> parts |> String.concat " "
+
+        let gestationalAge =
+            match tp.GestationalAge with
+            | Some ga when int ga.Days = 0 -> $"%i{int ga.Weeks} weeks"
+            | Some ga -> $"%i{int ga.Weeks} weeks %i{int ga.Days} days"
+            | None -> "–"
+
+        let weight =
+            match tp.Weight with
+            | Kilogram kg -> $"%M{decimal kg} kg"
+            | Gram g -> $"%i{int g} g"
+
+        let height = $"%M{tp.Height |> HeightValue.getHeightCm |> decimal} cm"
+
+        let gender =
+            match tp.Gender with
+            | Male -> "male"
+            | Female -> "female"
+            | AnyGender
+            | UnknownGender -> "–"
+
+        [ gender; age; gestationalAge; weight; height ]
+
+
+    /// What an identity on the launch page stands for.
+    let identityHint =
+        function
+        | "prescriber" -> "Prescriber A, signs with PIN 1234"
+        | "prescriber-b" -> "Prescriber B on the same patient, signs with PIN 1234"
+        | "reader" -> "a Reader, who never signs"
+        | "prescriber-other-patient" -> "a Prescriber whose active patient is another patient"
+        | "no-pin" -> "a Prescriber without a PIN, who enrols first"
+        | "unknown" -> "a login the registry does not know"
+        | "none" -> "nobody signed on at the browser"
+        | _ -> ""
+
+
+    /// A row of the patient table with a radio button, checked for the default patient.
+    let patientRow isChecked id name (cells: string list) =
+        let checkedAttr = if isChecked then " checked" else ""
+
+        let cells =
+            cells
+            |> List.mapi (fun i c ->
+                let cls = if i >= 3 then " class=\"num\"" else ""
+                $"<td%s{cls}>%s{encode c}</td>"
+            )
+            |> String.concat ""
+
+        $"""      <tr><td><input type="radio" name="patient" id="p-%s{id}" value="%s{id}"%s{checkedAttr}></td><td><label for="p-%s{id}">%s{encode name}</label></td>%s{cells}</tr>"""
+
+
+    /// The rows of the patient table: the test patients per department, and other.
+    let patientRows =
+        let groups =
+            StubPatientData.testPatients
+            |> List.groupBy (fun tp -> tp.Department |> Department.name |> Option.defaultValue "")
+
+        [
+            for department, tps in groups do
+                $"""      <tr class="group"><th colspan="7">%s{encode department}</th></tr>"""
+
+                for tp in tps do
+                    patientRow (tp.Id = checkedPatientId) tp.Id tp.Name (columns tp)
+            $"""      <tr class="other"><td><input type="radio" name="patient" id="p-%s{otherPatient}" value="%s{otherPatient}"></td><td><label for="p-%s{otherPatient}">Other</label></td><td colspan="5"><input name="pid" aria-label="PatientId" placeholder="PatientId"> <small><code>no-data</code>: a patient without imported data</small></td></tr>"""
+        ]
+        |> String.concat "\n"
+
+
+    /// The look of the launch page; an inline style, which the CSP allows, and no script.
+    let style =
+        """
+:root { color-scheme: light dark; --bg: #f4f6f8; --card: #ffffff; --text: #1d2329; --muted: #5f6b76;
+  --line: #dde3e8; --accent: #1565c0; --on-accent: #ffffff; --accent-soft: #e3eefb; --warn: #8a5a00; --warn-bg: #fff3d6; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #14181c; --card: #1d2328; --text: #e6eaee; --muted: #9aa6b1; --line: #2e363d;
+    --accent: #64a8f0; --on-accent: #0b1a2a; --accent-soft: #1d3048; --warn: #f0c46a; --warn-bg: #3a2e14; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 780px; margin: 32px auto; padding: 0 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 24px 28px; }
+h1 { margin: 0 0 4px; font-size: 22px; }
+.badge { display: inline-block; margin-left: 8px; padding: 2px 10px; border-radius: 999px; vertical-align: middle;
+  font-size: 12px; font-weight: 600; color: var(--warn); background: var(--warn-bg); }
+.lead { margin: 0 0 20px; color: var(--muted); }
+fieldset { margin: 0 0 24px; padding: 0; border: 0; }
+legend { margin-bottom: 8px; font-size: 16px; font-weight: 600; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 7px 10px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line); }
+thead th { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+tr.group th { background: var(--bg); font-size: 12px; letter-spacing: .06em; color: var(--muted); }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:has(input[name=patient]:checked) { background: var(--accent-soft); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+label { cursor: pointer; }
+input[type=radio] { accent-color: var(--accent); }
+input[name=pid] { width: 12em; padding: 4px 8px; font: inherit; color: var(--text); background: var(--card);
+  border: 1px solid var(--line); border-radius: 6px; }
+small { color: var(--muted); }
+.segments { display: flex; flex-wrap: wrap; gap: 6px; }
+.segment { position: relative; padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px; }
+.segment input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.segment:has(input:checked) { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+.segment:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+dl.hints { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin: 12px 0 0;
+  font-size: 13px; color: var(--muted); }
+dl.hints dt { font-family: ui-monospace, Menlo, monospace; }
+dl.hints dd { margin: 0; }
+.actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+button { padding: 10px 28px; font: inherit; font-weight: 600; color: var(--on-accent); background: var(--accent);
+  border: 0; border-radius: 8px; cursor: pointer; }
+.note { margin: 12px 0 0; }
+a { color: var(--accent); }
+"""
+
+
+    /// The form for a list of identity choices (the stub directory's): a table of the stub
+    /// patients and a row of identities, the first one checked. A launch opens GenPRES in a new
+    /// tab, as the EHR does, and leaves this page open. No script, so the CSP holds.
+    /// The PatientId no-data opens a Session without imported data.
     let pageFor (choices: string list) =
-        let options =
+        let identities =
             choices
-            |> List.map (fun c -> $"""    <option value="{c}">{c}</option>""")
+            |> List.mapi (fun i c ->
+                let checkedAttr = if i = 0 then " checked" else ""
+                $"""      <label class="segment"><input type="radio" name="identity" value="%s{c}"%s{checkedAttr}>%s{c}</label>"""
+            )
+            |> String.concat "\n"
+
+        let hints =
+            choices
+            |> List.map (fun c -> $"""      <dt>%s{c}</dt><dd>%s{identityHint c}</dd>""")
             |> String.concat "\n"
 
         $"""<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>GenPRES stub launch</title></head>
+<head>
+<meta charset="utf-8">
+<title>GenPRES Test Launch</title>
+<style>%s{style}</style>
+</head>
 <body>
-<h1>Stub LaunchScript</h1>
-<p>Stands in for the MainEHR LaunchScript (uc-01 step 1): mints a sealed Launch for the patient
-below and opens GenPRES on it. Development and test servers only.</p>
-<form method="post" action="{path}">
-  <p><label>PatientId <input name="pid" value="123456" required></label>
-  <small>(<code>no-data</code>: a patient without imported data)</small></p>
-  <p><label>Identity at the browser
-  <select name="identity">
-{options}
-  </select></label>
-  <small>(who the stub IdentityProvider says is there; <code>none</code>: nobody)</small></p>
-  <button type="submit">Launch</button>
+<main>
+<form class="card" method="post" action="%s{path}" target="_blank" rel="noopener">
+  <h1>GenPRES Test Launch <span class="badge">development and test only</span></h1>
+  <p class="lead">Opens GenPRES for the chosen patient and user, the way the hospital's EHR does when a user
+  starts GenPRES from a patient record.</p>
+  <fieldset>
+    <legend>Patient</legend>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>Patient</th><th>Gender</th><th>Age</th><th>GA</th><th class="num">Weight</th><th class="num">Height</th></tr></thead>
+      <tbody>
+%s{patientRows}
+      </tbody>
+    </table>
+    </div>
+  </fieldset>
+  <fieldset>
+    <legend>Identity at the browser</legend>
+    <div class="segments">
+%s{identities}
+    </div>
+    <dl class="hints">
+%s{hints}
+    </dl>
+  </fieldset>
+  <div class="actions">
+    <a href="%s{StubMail.path}" target="_blank" rel="noopener">Mail outbox</a>
+    <button type="submit">Launch</button>
+  </div>
+  <p class="note"><small>Opens GenPRES in a new tab, as the EHR does. The tabs of a browser share one
+  session: a newer launch ends the session of an older tab.</small></p>
 </form>
+</main>
 </body>
 </html>"""
 
 
     /// The page over the stub directory's choices.
     let page = pageFor StubDirectory.choices
+
+
+    /// The PatientId a launch is for: the chosen patient, or the typed PatientId when Other or
+    /// nothing is chosen.
+    let patientIdOf (patient: string) (pid: string) =
+        if patient |> String.isNullOrWhiteSpace || patient = otherPatient then
+            pid
+        else
+            patient
 
 
     /// Where the browser goes after minting: the Launch travels in the url hash, which never
@@ -356,7 +682,7 @@ below and opens GenPRES on it. Development and test servers only.</p>
     let mint (now: DateTime) (newNonce: unit -> string) (key: LaunchSeal.Key) (pid: string) =
         let pid =
             if pid |> String.isNullOrWhiteSpace then
-                "123456"
+                defaultPatientId
             else
                 pid.Trim()
 

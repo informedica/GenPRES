@@ -25,6 +25,8 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000
   },
   server: {
+    // outside production the browser opens on the stub launch page, which starts a session
+    open: genpresProd === "1" ? false : "/stub/launch",
     proxy: {
         // redirect requests that start with /api/ to the server on port 8085
         "/api": {
