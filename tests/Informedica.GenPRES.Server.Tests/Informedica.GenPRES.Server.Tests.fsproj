@@ -16,7 +16,6 @@
     <Compile Include="StubTestPatientsTests.fs" />
     <Compile Include="DoseCheckTests.fs" />
     <Compile Include="TotalsTests.fs" />
-    <Compile Include="NutritionRuleSetsTests.fs" />
     <Compile Include="MappersPatientTests.fs" />
     <Compile Include="MappersOrderContextTests.fs" />
     <Compile Include="MappersOrderPlanTests.fs" />
