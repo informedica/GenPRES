@@ -54,6 +54,7 @@
     <Compile Include="Policies/IntentPolicy.fs" />
     <Compile Include="Policies/PlanContextPolicy.fs" />
     <Compile Include="Policies/PlanCellPolicy.fs" />
+    <Compile Include="Policies/PlanRowPolicy.fs" />
     <Compile Include="Policies/SectionFoldPolicy.fs" />
     <Compile Include="Policies/TotalsChangePolicy.fs" />
     <Compile Include="Policies/PlanWorkPolicy.fs" />

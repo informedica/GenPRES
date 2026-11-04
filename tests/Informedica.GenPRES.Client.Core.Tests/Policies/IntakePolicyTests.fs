@@ -89,8 +89,17 @@ module IntakePolicyTests =
                                     Scenarios = [| { scenario with NotRecalculated = marked } |]
                                 }
 
-                            ctx false |> PlanContextPolicy.canSetIntake |> Expect.isTrue "not locked"
-                            ctx true |> PlanContextPolicy.canSetIntake |> Expect.isFalse "locked"
+                            let planOf marked =
+                                Informedica.GenPRES.Shared.Models.OrderPlan.create
+                                    Informedica.GenPRES.Shared.Models.Patient.empty
+                                    [| ctx marked |]
+
+                            ctx false
+                            |> PlanContextPolicy.canSetIntake (planOf false)
+                            |> Expect.isTrue "not locked"
+                            ctx true
+                            |> PlanContextPolicy.canSetIntake (planOf true)
+                            |> Expect.isFalse "locked"
                         }
 
                         test "a TPN that is not composed cannot" {

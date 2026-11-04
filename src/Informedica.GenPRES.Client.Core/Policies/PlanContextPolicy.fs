@@ -20,20 +20,58 @@ module PlanContextPolicy =
         | Locked
 
 
-    /// Whether the order a context contributes could not be calculated on the current patient data,
-    /// so that it stands as it was: the order is locked.
-    let locked (ctx: OrderContext) =
+    /// Why the order a context contributes is locked, or that it is not.
+    [<RequireQualifiedAccess>]
+    type Lock =
+        /// The order and every order of its group can be calculated on the current patient data.
+        | Unlocked
+        /// The order itself could not be calculated on the current patient data, so it stands as it was.
+        | NotCalculated
+        /// The order can be calculated, but another order of its group could not: its main order, an order
+        /// linked to it, or an order linked to the same main order. The group stands as it was.
+        | Group
+
+
+    /// Whether the order a context contributes could not be calculated on the current patient data.
+    let notCalculated (ctx: OrderContext) =
         Informedica.GenPRES.Shared.Models.OrderContext.contribution ctx
         |> Option.exists _.NotRecalculated
+
+
+    /// The contexts of the plan linked to the main order with this id.
+    let linkedTo (plan: OrderPlan) main =
+        plan.OrderContexts |> Array.filter (fun c -> c.LinkedTo = Some main)
+
+
+    /// The contexts of the plan in the group of a context: its main order and every order linked to
+    /// that main order. A context that is not linked is the main order of its group.
+    let group (plan: OrderPlan) (ctx: OrderContext) =
+        let main = ctx.LinkedTo |> Option.defaultValue ctx.Id
+
+        Array.append (plan.OrderContexts |> Array.filter (fun c -> c.Id = main)) (linkedTo plan main)
+
+
+    /// Why the order a context contributes is locked over the plan given, or that it is not.
+    let lock plan (ctx: OrderContext) =
+        if notCalculated ctx then
+            Lock.NotCalculated
+        elif group plan ctx |> Array.exists notCalculated then
+            Lock.Group
+        else
+            Lock.Unlocked
+
+
+    /// Whether the order a context contributes is locked over the plan given: the order or another order
+    /// of its group could not be calculated on the current patient data.
+    let locked plan ctx = lock plan ctx <> Lock.Unlocked
 
 
     /// Whether the intake slider can set the dose of the order of a context: not when the order is
     /// locked, since the plan would not take the change and the slider would show a value the order
     /// does not hold.
-    let canSetIntake (ctx: OrderContext) =
-        not (locked ctx)
-        && ctx.Scenarios
-           |> Array.tryExactlyOne
+    let canSetIntake plan (ctx: OrderContext) =
+        not (locked plan ctx)
+        && Informedica.GenPRES.Shared.Models.OrderContext.contribution ctx
            |> Option.exists (_.Order >> IntakePolicy.canSetDoseQuantityPerc)
 
 
@@ -166,10 +204,11 @@ module PlanContextPolicy =
         | Editing.Locked -> false
 
 
-    /// The editing of the order dialog for the context of the plan with this id: locked when it could
-    /// not be calculated on the current patient data, the plan context rule otherwise.
+    /// The editing of the order dialog for the context of the plan with this id: locked when it or another
+    /// order of its group could not be calculated on the current patient data, the plan context rule
+    /// otherwise.
     let editingOf (plan: OrderPlan) (contextId: string) =
         match plan.OrderContexts |> Array.tryFind (fun c -> c.Id = contextId) with
-        | Some ctx when locked ctx -> Editing.Locked
+        | Some ctx when locked plan ctx -> Editing.Locked
         | Some _
         | None -> Editing.PlanContext

@@ -1176,7 +1176,7 @@ module Trail =
     let shell = step "Shell" Shell.msg Shell.effect Shell.state
 
 
-    /// A step the lanes took: a machine's step, or the lanes started over.
+    /// A step the lanes took: a machine's step, a nutrition slot taken out, or the lanes started over.
     let lanes no at step =
         match step with
         | Lanes.LanesStep.Signing(msg, state, effects) -> signing no at msg (state, effects)
@@ -1185,6 +1185,15 @@ module Trail =
         | Lanes.LanesStep.Plan(msg, state, effects) -> orderPlan no at msg (state, effects)
         | Lanes.LanesStep.Workbench(msg, state, effects) -> orderContext no at msg (state, effects)
         | Lanes.LanesStep.Slot(id, msg, state, effects) -> slot id no at msg (state, effects)
+        | Lanes.LanesStep.SlotRemoved id ->
+            {
+                No = no
+                At = at
+                Machine = $"Slot %s{id}"
+                Msg = "Removed"
+                Effects = []
+                State = "gone"
+            }
         | Lanes.LanesStep.StartedOver state -> startedOver no at "the url moved on" state
 
 

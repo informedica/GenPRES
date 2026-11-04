@@ -42,6 +42,7 @@
 #load "../Policies/IntentPolicy.fs"
 #load "../Policies/PlanContextPolicy.fs"
 #load "../Policies/PlanCellPolicy.fs"
+#load "../Policies/PlanRowPolicy.fs"
 #load "../Policies/SectionFoldPolicy.fs"
 #load "../Policies/TotalsChangePolicy.fs"
 #load "../Policies/PlanWorkPolicy.fs"

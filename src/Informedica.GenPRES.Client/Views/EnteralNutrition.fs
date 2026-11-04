@@ -33,6 +33,7 @@ module EnteralNutrition =
         (props:
             {|
                 nutritionContext: OrderContext
+                plan: OrderPlan
                 evaluateContext: string * Api.OrderViewCommand -> unit
                 // the list of a recalculation closed without a pick
                 planRestore: unit -> unit
@@ -45,6 +46,7 @@ module EnteralNutrition =
             useSlot
                 {|
                     nutritionContext = props.nutritionContext
+                    plan = props.plan
                     evaluateContext = props.evaluateContext
                     planRestore = props.planRestore
                     localizationTerms = props.localizationTerms
@@ -242,6 +244,7 @@ module EnteralNutrition =
             SlotView
                 {|
                     nutritionContext = nc
+                    plan = plan
                     evaluateContext = props.evaluateContext
                     planRestore = props.planRestore
                     localizationTerms = props.localizationTerms

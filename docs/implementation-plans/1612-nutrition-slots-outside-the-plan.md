@@ -655,7 +655,14 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
        the three files it changes, deleted in this step.
      - **9c. The slot removal, the group lock and the row check**, in Client.Core, by script:
        `PlanContextPolicy.locked` takes the plan, and the row check of rule 13 as a policy over the
-       plan's links. Two pull requests if it does not fit.
+       plan's links. Two pull requests if it does not fit. Done in one, 2026-11-04:
+       - `LanesMsg.RemoveSlot` takes a closed slot out, with a trail line of its own; an answer still out
+         for it is dropped. Whether the close waits while the slot's prescribe is out is for the view of 9d.
+       - `PlanContextPolicy.lock` names why an order is locked, by itself or by its group, so that the
+         view of 9e can show the text of the group lock; until then the order plan page marks only the
+         orders not calculated, as before.
+       - `PlanRowPolicy.checkedRows` gives the rows checked from the rows the table asks for over the
+         rows the plan has checked.
      - **9d. The nutrition page**: the prescribe button on every slot, the supplements offered in a
        feeding slot with the controls of a slot, the prescribed slot waiting, the combined totals and
        closing a slot. Measure the totals query here: the client builds and compares it after every

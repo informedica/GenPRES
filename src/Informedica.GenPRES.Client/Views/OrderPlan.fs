@@ -185,13 +185,13 @@ module OrderPlan =
             Global.getLocalizedTerm localizationTerms lang (SigningPolicy.english term) term
 
         // the orders the current patient data could not be calculated on: locked, and marked in the
-        // medication cell
+        // medication cell. An order locked only by its group was calculated, so it is not marked here
         let lockedOrders =
             match orderPlan with
             | OrderPlanView.Settled(tp, _)
             | OrderPlanView.Changing(tp, _) ->
                 tp.OrderContexts
-                |> Array.filter PlanContextPolicy.locked
+                |> Array.filter PlanContextPolicy.notCalculated
                 |> Array.choose (OrderContext.contribution >> Option.map _.Order.Id)
                 |> Set.ofArray
             | OrderPlanView.NoPatient -> Set.empty
@@ -316,7 +316,7 @@ module OrderPlan =
                 | OrderPlanView.Changing(tp, _) ->
                     contextOf tp id
                     |> Option.bind (fun ctx ->
-                        PlanCellPolicy.stepable ctx column
+                        PlanCellPolicy.stepable tp ctx column
                         |> Option.bind (fun fieldOf ->
                             OrderContext.contribution ctx
                             |> Option.map (fun sc -> cellField tp ctx sc.Order fieldOf)

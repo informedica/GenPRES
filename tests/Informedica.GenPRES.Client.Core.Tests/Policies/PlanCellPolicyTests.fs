@@ -68,10 +68,14 @@ module PlanCellPolicyTests =
             Scenarios = [| { OrderFixtures.scenario "o-1" "test" with Order = ord } |]
         }
 
+    /// The plan of the context alone.
+    let planOf ctx =
+        Informedica.GenPRES.Shared.Models.OrderPlan.create patient [| ctx |]
+
     /// The field and the order variable a cell of the order steps, if any.
     let stepsOf (ord: Order) column =
         let ctx = contextOf ord
-        stepable ctx column
+        stepable (planOf ctx) ctx column
 
     let steppingFrequency = Some(QuantityModePolicy.Field.Frequency, frequency)
     let steppingDoseQuantity = Some(QuantityModePolicy.Field.DoseQuantity, doseQuantity)
@@ -153,7 +157,7 @@ module PlanCellPolicyTests =
                                     Category = OrderCategory.Nutrition NutritionCategory.EnteralFeeding
                                 }
 
-                            stepable ctx Column.Frequency
+                            stepable (planOf ctx) ctx Column.Frequency
                             |> Expect.equal "the rule applies to every row" steppingFrequency
                         }
 
@@ -161,14 +165,14 @@ module PlanCellPolicyTests =
                             let ctx =
                                 { contextOf discontinuous with Patient = { patient with Department = Some "ICK" } }
 
-                            stepable ctx Column.Frequency
+                            stepable (planOf ctx) ctx Column.Frequency
                             |> Expect.equal "steps as any other" steppingFrequency
                         }
 
                         test "a context without an order steps nothing" {
                             let ctx = { contextOf discontinuous with Scenarios = [||] }
 
-                            stepable ctx Column.Frequency |> Expect.isNone "nothing to step"
+                            stepable (planOf ctx) ctx Column.Frequency |> Expect.isNone "nothing to step"
                         }
                     ]
             ]

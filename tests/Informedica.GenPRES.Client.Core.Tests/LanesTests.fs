@@ -112,7 +112,8 @@ let tests =
                     function
                     | LanesStep.Patient _ -> "Patient"
                     | LanesStep.Workbench _ -> "OrderContext"
-                    | LanesStep.Slot _ -> "Slot"
+                    | LanesStep.Slot _
+                    | LanesStep.SlotRemoved _ -> "Slot"
                     | LanesStep.Plan _ -> "OrderPlan"
                     | LanesStep.Session _ -> "Session"
                     | LanesStep.Signing _ -> "Signing"
@@ -1381,6 +1382,35 @@ let slotLaneTests =
                     | _ -> None
                 )
                 |> Expect.equal "medication" [ OrderCategory.Medication ]
+            }
+
+            test "a slot closed is taken out, the other slot stays" {
+                let lanes, effects, steps =
+                    withPatient
+                    |> after (LanesMsg.StartSlot("s-1", NutritionCategory.EnteralFeeding, "r-1"))
+                    |> fst
+                    |> after (LanesMsg.StartSlot("s-2", NutritionCategory.TPN, "r-2"))
+                    |> fst
+                    |> Lanes.step (LanesMsg.RemoveSlot "s-1")
+
+                lanes.Slots |> Map.keys |> List.ofSeq |> Expect.equal "the TPN slot" [ "s-2" ]
+                effects |> Expect.isEmpty "nothing sent"
+                steps |> Expect.equal "one step" [ LanesStep.SlotRemoved "s-1" ]
+            }
+
+            test "the answer still out for a slot closed is dropped" {
+                let removed =
+                    withPatient
+                    |> after (LanesMsg.StartSlot("s-1", NutritionCategory.EnteralFeeding, "r-1"))
+                    |> fst
+                    |> after (LanesMsg.RemoveSlot "s-1")
+                    |> fst
+
+                let answered = OrderContextResponse.Evaluated(OrderContextState.emptyMedication pat)
+
+                removed
+                |> Lanes.step (LanesMsg.Slot("s-1", OrderContextMsg.Answered("r-1", Ok answered)))
+                |> Expect.equal "nothing changes" (removed, [], [])
             }
         ]
 

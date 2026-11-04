@@ -559,6 +559,8 @@ module NutritionSlot =
         (props:
             {|
                 nutritionContext: OrderContext
+                // the plan the slot's context is in, for the lock of its group
+                plan: OrderPlan
                 // a command into the slot's context, sent with the current plan
                 evaluateContext: string * Api.OrderViewCommand -> unit
                 // the list of a recalculation closed without a pick
@@ -697,7 +699,7 @@ module NutritionSlot =
 
         // a locked order takes nothing: its fields wait as for a request out, and so does the intake
         // effect, which sends without a click
-        let isLocked = PlanContextPolicy.locked ctx
+        let isLocked = PlanContextPolicy.locked props.plan ctx
         let fieldsWait = props.busy || isLocked
 
         // the page is not disabled while a field counts its step clicks, since the field counting
@@ -1130,7 +1132,7 @@ module NutritionSlot =
             else
                 null
 
-        let canSetDoseQuantityPerc = PlanContextPolicy.canSetIntake ctx
+        let canSetDoseQuantityPerc = PlanContextPolicy.canSetIntake props.plan ctx
 
         let indicationFilter =
             if ctx.Filter.Generic.IsNone || ctx.Filter.Indications |> Array.length <= 1 then
