@@ -54,6 +54,16 @@ module IntakeSlider =
 
         React.useEffect ((fun () -> setDragged None), [| props.order |])
 
+        // the slider is disabled while the request a release sent is out; once it is enabled again the request
+        // has ended, and a failure keeps the order as it was, so the position goes back to the share it holds
+        React.useEffect (
+            (fun () ->
+                if not props.disabled then
+                    setDragged None
+            ),
+            [| box props.disabled |]
+        )
+
         let position = dragged |> Option.orElse (props.share |> Option.bind IntakePolicy.sliderStep)
         let value = position |> Option.defaultValue 100
         let sliderSx = if position.IsSome then null else box noHandleSx
