@@ -1096,8 +1096,8 @@ module Types =
         | NoSuchMainOrder of id: string
         /// The main order with the id is itself linked to another order
         | MainOrderLinked of id: string
-        /// No link rule links the order to the main order with the id
-        | NotAllowed of id: string
+        /// No link rule links the order to the main order, named by its generic
+        | NotAllowed of generic: string
         /// A link rule requires a main order for the order, and the order is not linked
         | MainOrderRequired
 
@@ -1122,6 +1122,8 @@ module Types =
         | NoRuleSet of NutritionCategory
         /// The plan refuses the link of the context to its main order, for the reason
         | BrokenLink of LinkError
+        /// The plan refuses one order of a group add, named by its generic, for the reason given
+        | OrderRefused of generic: string * OrderPlanError
 
 
     /// Why a Dto does not parse to its domain value.

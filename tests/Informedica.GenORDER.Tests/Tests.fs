@@ -5720,6 +5720,7 @@ let tests =
             OrderPlanTests.linkTests
             OrderPlanTests.linkRuleTests
             OrderPlanTests.linkOfferTests
+            OrderPlanTests.groupAddTests
             DosePrintoutTests.tests
             PatientConstructorTests.tests
             PatientAgeTests.tests

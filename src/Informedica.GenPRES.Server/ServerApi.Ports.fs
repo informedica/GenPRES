@@ -49,8 +49,13 @@ type OrderPlanPort =
                 -> (GenOrder.OrderContext -> GenOrderContext.Command)
                 -> GenOrder.PlanContext
                 -> Async<Result<GenOrder.OrderPlan, string[]>>
-        // a workbench evaluated elsewhere into the plan as it is
-        addOrderContext: GenOrder.OrderPlan -> GenOrder.PlanContext -> Async<Result<GenOrder.OrderPlan, string[]>>
+        // an order context evaluated elsewhere into the plan as it is, with its linked orders; when one of
+        // them is refused, none of them enters the plan
+        addOrderContexts:
+            GenOrder.OrderPlan
+                -> GenOrder.PlanContext
+                -> GenOrder.PlanContext[]
+                -> Async<Result<GenOrder.OrderPlan, string[]>>
         // a fresh workbench for a nutrition category, its filter discovered
         newOrderContext: GenOrder.OrderPlan -> GenOrder.NutritionCategory -> Async<Result<GenOrder.OrderPlan, string[]>>
         // the contexts named, every kind; a feeding takes its supplements with it

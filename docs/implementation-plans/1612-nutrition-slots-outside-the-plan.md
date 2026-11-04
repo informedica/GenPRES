@@ -504,14 +504,22 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
      The tests use week 1 of the oral hydrocortison taper as the sheet has it. A variant makes the 18:00
      dose Required no, a dose that can also be ordered on its own. Script
      `src/Informedica.GenPRES.Server/Scripts/RequiredLinks.fsx`, deleted in this step. Seen: nothing.
-6. **The group add and the totals query** on the server and their wire: `AddOrderContext` with linked
-   contexts, `addOrderContexts` with the check of rule 15, and the totals query. The words of
-   `LinkError.NotAllowed` name the main order by its generic, not by its context id, which a clinician
-   cannot read; step 4b words it with the id, as the other link words do. The add checks that a context
-   is narrowed to one order before it calls `linkRuleError`, since a context that is not narrowed matches
-   no link rule side and so escapes `MainOrderRequired`. Decision, 2026-11-04, halcwb.
-   Script
-   `src/Informedica.GenPRES.Server/Scripts/GroupAdd.fsx`. Seen: nothing.
+6. **The group add and the totals query** on the server and their wire, in two pull requests, since
+   together they go over 200 lines of `src/`. Decision, 2026-11-04, halcwb.
+   - **6a. The group add.** `AddOrderContext` with linked contexts, `addOrderContexts` with the check of
+     rule 15. The words of `LinkError.NotAllowed` name the main order by its generic, not by its context
+     id, which a clinician cannot read; step 4b words it with the id, as the other link words do. The add
+     checks that a context is narrowed to one order before it calls `linkRuleError`, since a context that
+     is not narrowed matches no link rule side and so escapes `MainOrderRequired`. Decision, 2026-11-04,
+     halcwb. A refusal of an order of the group names that order by its generic, with the new case
+     `OrderPlanError.OrderRefused`, also for a single add, since every add is a group add. Decision,
+     2026-11-04, halcwb. The add sets the links itself: the main order is not linked, and each linked
+     order is linked to the main order, whose id is minted first. The single add no longer checks the
+     shape of a link, which the group add sets and every read of a plan checks. No code handles a context
+     without a generic: the client prescribes only a context narrowed to one order, and every offered
+     linked order names its generic. Decisions, 2026-11-04, halcwb. Script
+     `src/Informedica.GenPRES.Server/Scripts/GroupAdd.fsx`. Seen: nothing.
+   - **6b. The totals query.** The query and its wire. Seen: nothing.
 7. **The slot lane in Client.Core.** The category in `OrderContextState`, the slot states in `Lanes`,
    the start case of `OrderContextCommand` on the wire with the port's start and its server handler, the
    request case, `BusyPolicy` and `OutPolicy`, the start and restart from the rule set. Script

@@ -19,7 +19,7 @@ module PlanWorkPolicyTests =
 
     let prescribing = { context with OrderContext.Filter.Generic = Some "paracetamol" }
 
-    let add = OrderPlanCommand.AddOrderContext(plan, context)
+    let add = OrderPlanCommand.AddOrderContext(plan, context, [||])
     let remove = OrderPlanCommand.RemoveOrderContexts(plan, [| "c-1" |])
     let updatePatient = OrderPlanCommand.UpdatePatient(patient, plan)
     let filterRows = OrderPlanCommand.FilterRows([| "c-1" |], plan)

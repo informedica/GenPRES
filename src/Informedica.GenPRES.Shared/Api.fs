@@ -364,8 +364,10 @@ module Api =
         // an order-context command evaluated over the context named, in that context's own
         // patient, its order following
         | EvaluateContext of OrderPlan * contextId: string * OrderViewCommand * OrderContext
-        // a workbench evaluated elsewhere, narrowed to one scenario, into the plan as it is
-        | AddOrderContext of OrderPlan * OrderContext
+        // an order context evaluated elsewhere, narrowed to one scenario, into the plan as it is, with
+        // the linked orders to add with it, each linked to it by the server; when one of them is refused,
+        // none of them enters the plan
+        | AddOrderContext of OrderPlan * OrderContext * linked: OrderContext[]
         // a fresh workbench for a nutrition category, its filter discovered
         | NewOrderContext of OrderPlan * NutritionCategory
         // the contexts named removed, every kind; a feeding takes its supplements with it

@@ -62,7 +62,7 @@ let echoPort seen : OrderPlanPort =
         recalculate = answering seen "recalculate"
         followPatientData = answering seen "followPatientData"
         evaluateContext = fun p _ _ _ -> answering seen "evaluateContext" p
-        addOrderContext = fun p _ -> answering seen "addOrderContext" p
+        addOrderContexts = fun p _ _ -> answering seen "addOrderContexts" p
         newOrderContext = fun p _ -> answering seen "newOrderContext" p
         removeOrderContexts = fun p _ -> answering seen "removeOrderContexts" p
         openWith = fun pat cs -> answering seen "openWith" (Informedica.GenOrder.Lib.OrderPlan.create pat cs)
@@ -108,7 +108,7 @@ let tests =
                         )
                     )
 
-                let! _ = run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.AddOrderContext(plan, ctx))
+                let! _ = run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.AddOrderContext(plan, ctx, [||]))
                 let! _ =
                     run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.NewOrderContext(plan, NutritionCategory.TPN))
                 let! _ = run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.RemoveOrderContexts(plan, [| "c-1" |]))
@@ -121,7 +121,7 @@ let tests =
                     [
                         "recalculate"
                         "evaluateContext"
-                        "addOrderContext"
+                        "addOrderContexts"
                         "newOrderContext"
                         "removeOrderContexts"
                         "openWith"
@@ -290,9 +290,13 @@ let tests =
                 |> words
                 |> Expect.equal "no main order" "The main order c-9 is not in the plan"
 
-                OrderPlanError.BrokenLink(LinkError.NotAllowed "c-1")
+                OrderPlanError.BrokenLink(LinkError.NotAllowed "paracetamol")
                 |> words
-                |> Expect.equal "not allowed" "No link rule links this order to the main order c-1"
+                |> Expect.equal "not allowed" "No link rule links this order to the main order paracetamol"
+
+                OrderPlanError.OrderRefused("ataluren", OrderPlanError.BrokenLink LinkError.MainOrderRequired)
+                |> words
+                |> Expect.equal "an order of a group" "ataluren: This order is only prescribed with its main order"
 
                 OrderPlanError.BrokenLink LinkError.MainOrderRequired
                 |> words

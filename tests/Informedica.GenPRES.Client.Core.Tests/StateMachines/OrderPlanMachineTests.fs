@@ -293,7 +293,7 @@ let tests =
                     test "an order prescribed: the answer is shown and checked, and the order told added" {
                         let workbench = context "" "ibuprofen"
 
-                        let busy = recalculating one None "r-1" (OrderPlanCommand.AddOrderContext(one, workbench))
+                        let busy = recalculating one None "r-1" (OrderPlanCommand.AddOrderContext(one, workbench, [||]))
 
                         transition (OrderPlanMsg.Answered("r-1", Ok two)) busy
                         |> Expect.equal
@@ -309,7 +309,7 @@ let tests =
                     test "an order prescribed that fails: the error told, no order added" {
                         let workbench = context "" "ibuprofen"
 
-                        let busy = recalculating one None "r-1" (OrderPlanCommand.AddOrderContext(one, workbench))
+                        let busy = recalculating one None "r-1" (OrderPlanCommand.AddOrderContext(one, workbench, [||]))
 
                         transition (OrderPlanMsg.Answered("r-1", Error [| "down" |])) busy
                         |> Expect.equal "the plan as before" (held one None, [ OrderPlanEffect.TellError [| "down" |] ])
@@ -318,7 +318,7 @@ let tests =
                     test "an answer to an earlier prescription: no order added" {
                         let workbench = context "" "ibuprofen"
 
-                        let busy = recalculating one None "r-2" (OrderPlanCommand.AddOrderContext(one, workbench))
+                        let busy = recalculating one None "r-2" (OrderPlanCommand.AddOrderContext(one, workbench, [||]))
 
                         transition (OrderPlanMsg.Answered("r-1", Ok two)) busy
                         |> snd
@@ -771,14 +771,14 @@ let heldTests =
 
             test "an order added holds once it lands" {
                 held one None
-                |> landed (OrderPlanCommand.AddOrderContext(one, context "c-2" "ibuprofen")) (Ok two)
+                |> landed (OrderPlanCommand.AddOrderContext(one, context "c-2" "ibuprofen", [||])) (Ok two)
                 |> changedOf
                 |> Expect.equal "the order added is new" [| "c-2" |]
             }
 
             test "the differences list the order added as new" {
                 held one None
-                |> landed (OrderPlanCommand.AddOrderContext(one, context "c-2" "ibuprofen")) (Ok two)
+                |> landed (OrderPlanCommand.AddOrderContext(one, context "c-2" "ibuprofen", [||])) (Ok two)
                 |> fun (state, _) -> state |> OrderPlanState.differences two
                 |> Array.map (fun (c, d) -> c.Id, d)
                 |> Expect.equal "the order added is new" [| "c-2", PlanDifferencePolicy.Difference.New |]
@@ -843,7 +843,7 @@ let heldTests =
 
 [<Tests>]
 let signingTests =
-    let add = OrderPlanCommand.AddOrderContext(one, context "" "ibuprofen")
+    let add = OrderPlanCommand.AddOrderContext(one, context "" "ibuprofen", [||])
     let transition = OrderPlanState.transition
 
     testList
@@ -1136,7 +1136,7 @@ let changeTests =
                 let ctx = context "" "ibuprofen"
 
                 [
-                    OrderPlanChange.Add ctx, OrderPlanCommand.AddOrderContext(two, ctx)
+                    OrderPlanChange.Add ctx, OrderPlanCommand.AddOrderContext(two, ctx, [||])
                     OrderPlanChange.NewNutrition NutritionCategory.TPN,
                     OrderPlanCommand.NewOrderContext(two, NutritionCategory.TPN)
                     OrderPlanChange.Remove [| "c-2" |], OrderPlanCommand.RemoveOrderContexts(two, [| "c-2" |])
@@ -1164,7 +1164,8 @@ let changeTests =
                 let ctx = context "" "ibuprofen"
 
                 [
-                    OrderPlanMsg.Change(OrderPlanChange.Add ctx, "r-1"), OrderPlanCommand.AddOrderContext(one, ctx)
+                    OrderPlanMsg.Change(OrderPlanChange.Add ctx, "r-1"),
+                    OrderPlanCommand.AddOrderContext(one, ctx, [||])
                     OrderPlanMsg.Change(OrderPlanChange.NewNutrition NutritionCategory.TPN, "r-1"),
                     OrderPlanCommand.NewOrderContext(one, NutritionCategory.TPN)
                     OrderPlanMsg.Change(OrderPlanChange.Remove [| "c-1" |], "r-1"),
