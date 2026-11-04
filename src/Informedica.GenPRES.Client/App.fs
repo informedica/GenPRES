@@ -594,6 +594,19 @@ type private Projection(state: State, dispatch: Msg -> unit) =
         member _.SelectScenario id =
             Messages.workbench (OrderContextMsg.SelectScenario id) |> dispatch
 
+        member _.Offers = Client.workbenchOffers state
+
+        member _.Prescribable = Client.workbenchPrescribable state
+
+        member _.TurnOffer(index, switch) =
+            match switch with
+            | OrderContextMachine.OfferSwitch.On -> Messages.workbench (OrderContextMsg.TurnOfferOn index) |> dispatch
+            | OrderContextMachine.OfferSwitch.Off -> Messages.workbench (OrderContextMsg.TurnOfferOff index) |> dispatch
+
+        member _.OfferCommand(index, cmd) =
+            Messages.workbench (OrderContextMsg.OfferCommand(index, cmd, Elmish.newRequest ()))
+            |> dispatch
+
     interface AppEnv.IOrderPlan with
         member _.OrderPlan = Client.orderPlan state
 

@@ -27,10 +27,6 @@ module EnteralNutrition =
     open NutritionSlot
 
 
-    // the room of the switch before an offer's controls, so they stand under its name
-    let private offerControlsSx = {| paddingLeft = 6 |}
-
-
     /// One offer of a feeding: its name with the switch that turns it on, and while it is on the frequency,
     /// the dose and the dose per time. It shows no filter: the link rule decides its composition, its
     /// indication and its dose type, and a nutrition slot has no form to pick.
@@ -62,54 +58,28 @@ module EnteralNutrition =
         let counting = React.useContext Global.counting
         let held = props.busy || counting.Counting
 
-        let isOn = props.offer.Switch = OrderContextMachine.OfferSwitch.On
-
-        let name =
-            props.offer.Context.Filter.Generic
-            |> Option.defaultValue (OrderContextText.label props.offer.Context)
-
-        let switchTo =
-            if isOn then
-                OrderContextMachine.OfferSwitch.Off
-            else
-                OrderContextMachine.OfferSwitch.On
-
-        let handleSwitch _ = props.nutrition.TurnOffer(props.slotId, props.index, switchTo)
-
         let controls =
-            if isOn then
-                JSX.jsx
-                    $"""
-                import Stack from '@mui/material/Stack';
-                import Box from '@mui/material/Box';
-                <Box sx={offerControlsSx}>
-                    <Stack direction="column" spacing={2}>
-                        {slot.ScenarioNotice}
-                        <Stack direction="row" spacing={2}>
-                            {slot.FrequencyControl}
-                            {slot.DoseQuantityControl}
-                            {slot.DosePerTimeAdjustDisplay}
-                        </Stack>
-                    </Stack>
-                </Box>
-                """
-            else
-                null
+            JSX.jsx
+                $"""
+            import Stack from '@mui/material/Stack';
+            <Stack direction="column" spacing={2}>
+                {slot.ScenarioNotice}
+                <Stack direction="row" spacing={2}>
+                    {slot.FrequencyControl}
+                    {slot.DoseQuantityControl}
+                    {slot.DosePerTimeAdjustDisplay}
+                </Stack>
+            </Stack>
+            """
 
-        JSX.jsx
-            $"""
-        import Box from '@mui/material/Box';
-        import FormControlLabel from '@mui/material/FormControlLabel';
-        import Switch from '@mui/material/Switch';
-
-        <Box>
-            <FormControlLabel
-                control={{<Switch checked={isOn} disabled={held} onChange={handleSwitch} />}}
-                label={name}
-            />
-            {controls}
-        </Box>
-        """
+        Components.OfferSwitch.View
+            {|
+                name = OrderContextText.offerName props.offer.Context
+                switch = props.offer.Switch
+                disabled = held
+                onTurn = fun switch -> props.nutrition.TurnOffer(props.slotId, props.index, switch)
+                controls = controls
+            |}
 
 
     /// One feeding: its name with a bin beside it, the filters, the frequency, the dose and the dose per

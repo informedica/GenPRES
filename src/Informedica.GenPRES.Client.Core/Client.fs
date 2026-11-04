@@ -338,6 +338,16 @@ module Client =
     let orderContext (state: ClientState) = state.Lanes.OrderContext |> OrderContextState.view
 
 
+    /// The orders the link rules offer with the order of the workbench, each turned on or off.
+    let workbenchOffers (state: ClientState) = state.Lanes.OrderContext |> OrderContextState.linkedOffers
+
+
+    /// Whether the workbench narrowed to one order can be prescribed with its offers: not while an offer turned
+    /// on is not narrowed to one scenario.
+    let workbenchPrescribable (state: ClientState) =
+        state.Lanes.OrderContext |> OrderContextState.linkedToPrescribe |> Option.isSome
+
+
     /// The workbench dialog, if one is open.
     let orderContextDialog (state: ClientState) = state.Lanes.OrderContext |> OrderContextState.dialog
 

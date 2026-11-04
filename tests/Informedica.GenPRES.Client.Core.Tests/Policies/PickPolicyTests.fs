@@ -114,3 +114,57 @@ module PickPolicyTests =
                         }
                     ]
             ]
+
+
+    let forms = [| "tablet"; "capsule"; "solution" |]
+
+    let form = Informedica.GenPRES.Shared.Models.OrderContext.Form
+
+
+    /// The forms the offer of hydrocortison at 13:00 lists, as the field sends a pick in them.
+    [<Tests>]
+    let filterCommandTests =
+        testList
+            "PickPolicy.filterCommand"
+            [
+                test "the hydrocortison capsule picked is the form at position 1" {
+                    filterCommand form forms (Some "capsule")
+                    |> Expect.equal
+                        "the second form"
+                        (Some(Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthFilterProperty(form, 1)))
+                }
+
+                test "the form emptied clears the form" {
+                    filterCommand form forms None
+                    |> Expect.equal
+                        "a clear"
+                        (Some(Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearFilterProperty form))
+                }
+
+                test "the NaCl 0.9% diluent picked is the diluent at position 1, emptied a clear" {
+                    let diluents = [| "glucose 5%"; "NaCl 0.9%" |]
+
+                    let diluentCommand n =
+                        match n with
+                        | Some n -> Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthDiluentProperty n
+                        | None -> Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearDiluentProperty
+
+                    command diluentCommand diluents (Some "NaCl 0.9%")
+                    |> Expect.equal
+                        "the second diluent"
+                        (Some(Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthDiluentProperty 1))
+
+                    command diluentCommand diluents None
+                    |> Expect.equal
+                        "a clear"
+                        (Some Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearDiluentProperty)
+
+                    command diluentCommand diluents (Some "water") |> Expect.isNone "nothing"
+                }
+
+                test "a form the list does not hold sends nothing" {
+                    position forms (Some "suppository")
+                    |> Expect.equal "not offered" Position.NotOffered
+                    filterCommand form forms (Some "suppository") |> Expect.isNone "nothing"
+                }
+            ]

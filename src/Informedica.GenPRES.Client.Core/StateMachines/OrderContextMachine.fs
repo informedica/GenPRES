@@ -98,6 +98,16 @@ module OrderContextMachine =
         | Off
 
 
+    /// Functions over OfferSwitch.
+    module OfferSwitch =
+
+        /// The switch turned the other way.
+        let flip switch =
+            match switch with
+            | OfferSwitch.On -> OfferSwitch.Off
+            | OfferSwitch.Off -> OfferSwitch.On
+
+
     /// An order the link rules offer to link to the order of the context, composed like any order context
     /// and turned on or off.
     type LinkedOffer =

@@ -88,6 +88,7 @@ module IntakePolicyTests =
                             let ctx id linkedTo marked =
                                 { Informedica.GenPRES.Shared.Models.OrderContext.empty with
                                     Id = id
+                                    Category = OrderCategory.Nutrition NutritionCategory.TPN
                                     LinkedTo = linkedTo
                                     Scenarios = [| { scenario with NotRecalculated = marked } |]
                                 }
@@ -101,15 +102,15 @@ module IntakePolicyTests =
                                     contexts
 
                             main false
-                            |> PlanContextPolicy.canSetIntake (planOf [| main false; linked false |])
+                            |> PlanContextPolicy.canSetDoseShare (planOf [| main false; linked false |])
                             |> Expect.isTrue "not locked"
 
                             main true
-                            |> PlanContextPolicy.canSetIntake (planOf [| main true; linked false |])
+                            |> PlanContextPolicy.canSetDoseShare (planOf [| main true; linked false |])
                             |> Expect.isFalse "locked by itself"
 
                             main false
-                            |> PlanContextPolicy.canSetIntake (planOf [| main false; linked true |])
+                            |> PlanContextPolicy.canSetDoseShare (planOf [| main false; linked true |])
                             |> Expect.isFalse "locked by its group"
                         }
 
@@ -175,4 +176,64 @@ module IntakePolicyTests =
                             |> Expect.equal "should clear" IntakePolicy.Start.Clear
                         }
                     ]
+            ]
+
+
+    /// An order of the category given in a plan of one, calculated or not.
+    let planOf category order marked =
+        let scenario =
+            { Informedica.GenPRES.Client.Core.Tests.OrderFixtures.scenario "o-1" "tpn" with
+                Order = order
+                NotRecalculated = marked
+            }
+
+        let ctx =
+            { Informedica.GenPRES.Shared.Models.OrderContext.empty with
+                Id = "c-1"
+                Category = category
+                Scenarios = [| scenario |]
+            }
+
+        Informedica.GenPRES.Shared.Models.OrderPlan.create Informedica.GenPRES.Shared.Models.Patient.empty [| ctx |]
+
+
+    /// A TPN in a plan of one, calculated or not.
+    let tpnPlan = planOf (OrderCategory.Nutrition NutritionCategory.TPN)
+
+
+    [<Tests>]
+    let doseShareTests =
+        testList
+            "the dose share of the order dialog"
+            [
+                test "a started TPN in the plan has its dose share settable" {
+                    PlanContextPolicy.editingOf (tpnPlan started false) "c-1"
+                    |> Expect.equal
+                        "settable"
+                        (PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Settable)
+                }
+
+                test "a medication of the same shape, such as one paracetamol tablet, has it fixed" {
+                    PlanContextPolicy.editingOf (planOf OrderCategory.Medication started false) "c-1"
+                    |> Expect.equal "fixed" (PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed)
+                }
+
+                test "a TPN not composed has its dose share fixed" {
+                    PlanContextPolicy.editingOf (tpnPlan notComposed false) "c-1"
+                    |> Expect.equal "fixed" (PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed)
+                }
+
+                test "a TPN not calculated is locked, and only a settable share is set" {
+                    PlanContextPolicy.editingOf (tpnPlan started true) "c-1"
+                    |> Expect.equal "locked" PlanContextPolicy.Editing.Locked
+
+                    [
+                        PlanContextPolicy.Editing.Workbench
+                        PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Settable
+                        PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed
+                        PlanContextPolicy.Editing.Locked
+                    ]
+                    |> List.map PlanContextPolicy.setsDoseShare
+                    |> Expect.equal "the settable share only" [ false; true; false; false ]
+                }
             ]

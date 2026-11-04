@@ -35,6 +35,14 @@ module ViewHelpers =
     let filterSelect lbl selected dispatch xs = filterSelectWhen true lbl selected dispatch xs
 
 
+    /// Sends the command of a pick; a pick the field does not offer has none, and is a bug written to the
+    /// console and not sent.
+    let sendPick send (picked: 'a option) cmd =
+        match cmd with
+        | Some cmd -> send cmd
+        | None -> Logging.warning "a pick the field does not offer is not sent" picked
+
+
     /// What a field shows of a value outside the rules: its severity, and the reason as the
     /// field words it on hover.
     type Mark =

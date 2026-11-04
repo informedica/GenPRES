@@ -184,19 +184,12 @@ module OrderPlan =
         let tr term =
             Global.getLocalizedTerm localizationTerms lang (SigningPolicy.english term) term
 
-        // the orders the current patient data could not be calculated on: locked, and marked in the
-        // medication cell. An order locked only by its group was calculated, so it is not marked here
-        let lockedOrders =
+        // the context of the plan an order comes from, by the order's id
+        let planContextOf id =
             match orderPlan with
             | OrderPlanView.Settled(tp, _)
-            | OrderPlanView.Changing(tp, _) ->
-                tp.OrderContexts
-                |> Array.filter PlanContextPolicy.notCalculated
-                |> Array.choose (OrderContext.contribution >> Option.map _.Order.Id)
-                |> Set.ofArray
-            | OrderPlanView.NoPatient -> Set.empty
-
-        let lockedText = tr Terms.``Plan Context Locked``
+            | OrderPlanView.Changing(tp, _) -> contextOf tp id |> Option.map (fun ctx -> tp, ctx)
+            | OrderPlanView.NoPatient -> None
 
         let lockSx =
             {|
@@ -219,8 +212,24 @@ module OrderPlan =
             |}
 
         let medicationCell (id: string) (value: string) =
-            // a locked order carries the lock in place of the edit icon: it opens read-only
-            if lockedOrders |> Set.contains id then
+            let planContext = planContextOf id
+
+            // a linked order is marked with an arrow, under its main order
+            let value =
+                match planContext |> Option.bind (fun (_, ctx) -> ctx.LinkedTo) with
+                | Some _ -> $"↳ %s{value}"
+                | None -> value
+
+            let lock =
+                planContext
+                |> Option.map (fun (tp, ctx) -> PlanContextPolicy.lock tp ctx)
+                |> Option.defaultValue PlanContextPolicy.Lock.Unlocked
+
+            // a locked order carries the lock in place of the edit icon, with why: it opens read-only
+            match lock |> PlanContextPolicy.lockTerm with
+            | Some term ->
+                let lockedText = tr term
+
                 JSX.jsx
                     $"""
                     import Box from '@mui/material/Box';
@@ -230,7 +239,7 @@ module OrderPlan =
                         <Box sx={lockSx}>{Mui.Icons.LockIcon}<Box sx={medicationSx}>{value}</Box></Box>
                     </Tooltip>
                     """
-            else
+            | None ->
                 JSX.jsx
                     $"""
                     import Box from '@mui/material/Box';
@@ -363,7 +372,8 @@ module OrderPlan =
                     headerName = Terms.``Continuous Medication Medication`` |> getTerm "Medicatie"
                     width = 200
                     filterable = true
-                    sortable = true
+                    // no sort, which would part a linked order from its main order
+                    sortable = false
                     renderCell = renderMedicationCell
                     renderCard = renderMedicationCell
                 |}
@@ -373,7 +383,7 @@ module OrderPlan =
                     headerName = Terms.Route |> getTerm "Route"
                     width = 150
                     filterable = true
-                    sortable = true
+                    sortable = false
                 |}
                 |> box
                 {|
@@ -555,13 +565,14 @@ module OrderPlan =
                 | Some c -> envOrderPlan.SelectContext(Some c.Id)
             | OrderPlanView.NoPatient -> ()
 
-        // the rows checked, by order id, become the filter, by context id; only over a plan at
-        // rest, as the filter is sent
+        // the rows checked, by order id, become the filter, by context id, with a main order and the
+        // orders linked to it checked together; only over a settled plan, since the filter is sent to the server
         let filterOrders ids =
             match orderPlan with
             | OrderPlanView.Settled(tp, _) ->
                 ids
                 |> Array.choose (fun id -> contextOf tp id |> Option.map _.Id)
+                |> PlanRowPolicy.checkedRows tp
                 |> envOrderPlan.FilterRows
             | OrderPlanView.NoPatient
             | OrderPlanView.Changing _ -> ()
@@ -712,7 +723,7 @@ module OrderPlan =
             | OrderPlanView.Changing(tp, Some id) -> PlanContextPolicy.editingOf tp id
             | OrderPlanView.Settled(_, None)
             | OrderPlanView.Changing(_, None)
-            | OrderPlanView.NoPatient -> PlanContextPolicy.Editing.PlanContext
+            | OrderPlanView.NoPatient -> PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed
 
         let signDialog = SignDialog.View {| appEnv = props.appEnv |}
 

@@ -66,6 +66,8 @@ module Order =
             | SetMinDoseQuantityProperty
             | SetMaxDoseQuantityProperty
             | SetMedianDoseQuantityProperty
+            // the dose quantity as a share of the full intake, in percent
+            | SetDoseQuantityPercProperty of perc: int
             // Rate property commands
             | DecreaseDoseRateProperty of ntimes: int * useCalc: bool
             | IncreaseDoseRateProperty of ntimes: int * useCalc: bool
@@ -121,6 +123,7 @@ module Order =
                     setDoseQtyMed: OrderLoader -> unit
                     setDoseQtyInc: int * bool -> OrderLoader -> unit
                     setDoseQtyMax: OrderLoader -> unit
+                    setDoseQtyPerc: int -> OrderLoader -> unit
 
                     setComponentQtyMin: OrderLoader -> unit
                     setComponentQtyDec: int * bool -> OrderLoader -> unit
@@ -249,6 +252,7 @@ module Order =
             | SetMedianDoseQuantityProperty -> handleStep stepper.setDoseQtyMed
             | IncreaseDoseQuantityProperty(n, uc) -> handleStep (stepper.setDoseQtyInc (n, uc))
             | SetMaxDoseQuantityProperty -> handleStep stepper.setDoseQtyMax
+            | SetDoseQuantityPercProperty perc -> handleStep (stepper.setDoseQtyPerc perc)
             // == ComponentQty ==
             | SetMinComponentQuantityProperty -> handleStep stepper.setComponentQtyMin
             | DecreaseComponentQuantityProperty(n, uc) -> handleStep (stepper.setComponentQtyDec (n, uc))
@@ -303,7 +307,8 @@ module Order =
         | DecreaseDoseQuantityProperty _
         | SetMedianDoseQuantityProperty
         | IncreaseDoseQuantityProperty _
-        | SetMaxDoseQuantityProperty -> Some "ordDoseQty"
+        | SetMaxDoseQuantityProperty
+        | SetDoseQuantityPercProperty _ -> Some "ordDoseQty"
         | ChangeOrderableDoseRate _
         | SetMinDoseRateProperty
         | DecreaseDoseRateProperty _
@@ -349,6 +354,7 @@ module Order =
         | SetMaxDoseRateProperty
         | SetMaxDoseQuantityProperty
         | SetMaxComponentQuantityProperty -> Kind.Step "max"
+        | SetDoseQuantityPercProperty _ -> Kind.Step "perc"
         | _ -> Kind.Change
 
 
@@ -390,6 +396,7 @@ module Order =
             | SetMinDoseQuantityProperty -> "SetMinDoseQuantityProperty"
             | SetMaxDoseQuantityProperty -> "SetMaxDoseQuantityProperty"
             | SetMedianDoseQuantityProperty -> "SetMedianDoseQuantityProperty"
+            | SetDoseQuantityPercProperty perc -> $"SetDoseQuantityPercProperty %i{perc}"
             | DecreaseDoseRateProperty(n, uc) -> $"DecreaseDoseRateProperty %s{steps (n, uc)}"
             | IncreaseDoseRateProperty(n, uc) -> $"IncreaseDoseRateProperty %s{steps (n, uc)}"
             | SetMinDoseRateProperty -> "SetMinDoseRateProperty"
@@ -448,7 +455,8 @@ module Order =
                 // a request of the page out, or a field counting: the dialog does not close then
                 busy: bool
                 localizationTerms: Deferred<string[][]>
-                // what the user can change: everything on the workbench, less in the plan
+                // what the user can change: everything on the workbench; in the plan the fields the plan context
+                // rule allows, and the dose share of a TPN when it can be set
                 editing: PlanContextPolicy.Editing
             |})
         =
@@ -544,6 +552,7 @@ module Order =
                 setDoseQtyMed = create Api.OrderViewCommand.SetMedianOrderableDoseQuantityProperty
                 setDoseQtyInc = createWithN Api.OrderViewCommand.IncreaseOrderableDoseQuantityProperty
                 setDoseQtyMax = create Api.OrderViewCommand.SetMaxOrderableDoseQuantityProperty
+                setDoseQtyPerc = fun perc -> create (Api.OrderViewCommand.SetOrderableDoseQuantityPercProperty perc)
                 // Component Quantity
                 setComponentQtyMin = createWithCmp Api.OrderViewCommand.SetMinComponentOrderableQuantityProperty
                 setComponentQtyDec = createWithCmpN Api.OrderViewCommand.DecreaseComponentOrderableQuantityProperty
@@ -1461,6 +1470,20 @@ module Order =
                         None
                 | _ -> null
 
+            // the share of the full intake a TPN gives, as the nutrition page sets it
+            let intakeSlider =
+                match shownContext, shownOrder with
+                | Some ctx, Some ord when ctx.Category = OrderCategory.Nutrition NutritionCategory.TPN ->
+                    Components.IntakeSlider.View
+                        {|
+                            labelId = $"order-intake-label-%s{ctx.Id}"
+                            share = ord |> IntakePolicy.doseShare
+                            disabled = not (PlanContextPolicy.setsDoseShare props.editing) || props.busy
+                            onCommit = SetDoseQuantityPercProperty >> dispatch
+                            order = box ord
+                        |}
+                | _ -> null
+
             let ordDoseRateSelect =
                 match shownOrder with
                 | Some ord when ord.Schedule.IsContinuous || ord.Schedule.IsTimed || ord.Schedule.IsOnceTimed ->
@@ -1614,6 +1637,7 @@ module Order =
                     administrationDivider
                     frequencySelect
                     ordDoseQtySelect
+                    intakeSlider
                     ordDoseRateSelect
                     timeSelect
                     argumentationField

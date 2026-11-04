@@ -4,6 +4,7 @@ namespace Informedica.GenPRES.Client.Core.Tests.Policies
 /// What an order context in the order plan can change and when.
 module PlanContextPolicyTests =
 
+    open Informedica.GenPRES.Client.Core.Models
     open Informedica.GenPRES.Client.Core.Policies
     open Informedica.GenPRES.Client.Core.Tests
 
@@ -104,7 +105,9 @@ module PlanContextPolicyTests =
                             |> Expect.isTrue "an order not calculated"
 
                             PlanContextPolicy.editingOf (plan [| order |]) order.Id
-                            |> Expect.equal "the plan context rule" PlanContextPolicy.Editing.PlanContext
+                            |> Expect.equal
+                                "the plan context rule"
+                                (PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed)
 
                             PlanContextPolicy.editingOf (plan [| marked |]) marked.Id
                             |> Expect.equal "read-only" PlanContextPolicy.Editing.Locked
@@ -282,11 +285,21 @@ module PlanContextPolicyTests =
                             [
                                 PlanContextPolicy.Editing.Workbench, "substDoseQty", true
                                 PlanContextPolicy.Editing.Workbench, "compOrdQty", true
-                                PlanContextPolicy.Editing.PlanContext, "frequency", true
-                                PlanContextPolicy.Editing.PlanContext, "ordDoseQty", true
-                                PlanContextPolicy.Editing.PlanContext, "ordDoseRate", true
-                                PlanContextPolicy.Editing.PlanContext, "compOrdQty", false
-                                PlanContextPolicy.Editing.PlanContext, "substDoseQty", false
+                                (PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed),
+                                "frequency",
+                                true
+                                (PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed),
+                                "ordDoseQty",
+                                true
+                                (PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed),
+                                "ordDoseRate",
+                                true
+                                (PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed),
+                                "compOrdQty",
+                                false
+                                (PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed),
+                                "substDoseQty",
+                                false
                             ] do
                             test $"%A{editing} edits %s{key}: %b{exp}" {
                                 PlanContextPolicy.canEdit editing key |> Expect.equal "as the rule says" exp
@@ -299,7 +312,10 @@ module PlanContextPolicyTests =
                 }
 
                 test "Reset on the workbench alone" {
-                    [ PlanContextPolicy.Editing.Workbench; PlanContextPolicy.Editing.PlanContext ]
+                    [
+                        PlanContextPolicy.Editing.Workbench
+                        (PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed)
+                    ]
                     |> List.map PlanContextPolicy.resets
                     |> Expect.equal "only the workbench resets" [ true; false ]
                 }
@@ -391,6 +407,21 @@ module PlanContextPolicyTests =
                     |> Expect.isTrue "the main order locked"
                 }
 
+                test "BMF not calculated: BMF has the lock text, breast milk and Fantomalt the group lock text" {
+                    let tp = withNotCalculated "c-2"
+
+                    [ "c-1"; "c-2"; "c-3"; "c-4" ]
+                    |> List.map (fun id -> id, PlanContextPolicy.lock tp (find id tp) |> PlanContextPolicy.lockTerm)
+                    |> Expect.equal
+                        "the group lock text for the group, no text for paracetamol"
+                        [
+                            "c-1", Some Terms.``Plan Context Group Locked``
+                            "c-2", Some Terms.``Plan Context Locked``
+                            "c-3", Some Terms.``Plan Context Group Locked``
+                            "c-4", None
+                        ]
+                }
+
                 test "a plan with every order calculated locks nothing" {
                     let tp = plan calculated
 
@@ -403,7 +434,9 @@ module PlanContextPolicyTests =
                     let tp = withNotCalculated "c-2"
 
                     PlanContextPolicy.editingOf (plan calculated) "c-1"
-                    |> Expect.equal "the dialog open on a calculated plan" PlanContextPolicy.Editing.PlanContext
+                    |> Expect.equal
+                        "the dialog open on a calculated plan"
+                        (PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed)
 
                     PlanContextPolicy.editingOf tp "c-1"
                     |> Expect.equal "the dialog locked" PlanContextPolicy.Editing.Locked

@@ -298,6 +298,8 @@ type Terms =
     | ``Signing No Changes``
     // an order the current patient data could not be calculated on: locked, and why
     | ``Plan Context Locked``
+    // an order calculated on the current patient data, locked because another order of its group was not
+    | ``Plan Context Group Locked``
     // the warning before the PIN, with {0} the orders not calculated on the current patient data
     | ``Signing Not Recalculated``
     // the record moved on, told once per version; the button that takes the version up;

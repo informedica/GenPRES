@@ -349,7 +349,7 @@ offered nothing.
 - The workbench shows the linked orders offered with its order, each to turn on.
 - The order plan page shows a linked order under its main order, the group lock text, and the row check
   of rule 13.
-- The order dialog gets the intake slider for an order where `PlanContextPolicy.canSetIntake` holds.
+- The order dialog gets the intake slider for an order where `PlanContextPolicy.canSetDoseShare` holds.
 
 ## The sheets as found
 
@@ -693,6 +693,43 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
      - **9e. The workbench, the order plan page and the order dialog**: the linked orders offered on
        the workbench, a linked order under its main order with the group lock text and the row check,
        and the intake slider. Two pull requests if it does not fit.
+       Decisions, 2026-11-05, halcwb:
+       - One pull request for the three parts.
+       - The workbench shows an offer under the scenario it is narrowed to: its name with a switch, and while
+         it is on the form, the one filter open on an offer, and its scenario as order text once it is
+         narrowed to one. No dose step on an offer; the prescribe adds the main order with the offers turned
+         on, and a dose changes afterwards in the order dialog of the plan. The prescribe waits while an
+         offer turned on is not narrowed to one scenario.
+       - The order plan page keeps the rows in the order of the plan, which always holds a linked order
+         directly after its main order: the server adds the main order and then its linked orders in one
+         add, and a link never changes. The columns take no sort, which would split a group, and a linked
+         row shows its medication indented.
+       - The group lock text is the term Plan Context Group Locked: "Another order of its group was
+         calculated with other patient data; this order cannot be changed".
+       Script `src/Informedica.GenPRES.Client.Core/Scripts/WorkbenchOffers.fsx`, with a modified copy of
+       Terms.fs, deleted in this step.
+       Decisions of the review, 2026-11-05, halcwb:
+       - A pick in a filter field is its position in the options, an emptied field a clear, and a value the
+         options do not hold sends nothing: one pure rule in PickPolicy for the workbench, an offer and a slot.
+       - The switch of an offer is one component for both pages, with the flip of the switch in Client.Core.
+       - An offer is named by its generic with the dose text of its dose type, "ataluren (avond)"; a dose
+         type without a text gives the generic alone, "Nutrilon Nenatal BMF pdr".
+       - The editing of the order dialog carries the dose share: an order context in the plan has its dose
+         share settable or fixed, so that the dialog takes one choice and no flag next to it.
+       - A linked row is marked with an arrow only; the intake slider keeps its Dutch text for now and takes
+         the id of its caption; every member of the AppEnv interfaces is documented with three slashes.
+       Script `src/Informedica.GenPRES.Client.Core/Scripts/OfferParts.fsx`, with a modified copy of
+       PlanContextPolicy.fs, deleted in this step.
+       Decisions of the second review, 2026-11-05, halcwb:
+       - One builder in PickPolicy gives the command of a pick from the position of the value, the diluent's
+         included; the filter command is built on it, and the pages log a pick the field does not offer in
+         one place.
+       - The text of a dose type is read in one place in DoseTypeText; the description and the name of an
+         offer read it.
+       - The dose share is settable only for a TPN: a composed order of one paracetamol tablet in the plan has
+         it fixed.
+       Script `src/Informedica.GenPRES.Client.Core/Scripts/PickCommand.fsx`, with modified copies of
+       DoseTypeText.fs, OrderContextText.fs, PickPolicy.fs and PlanContextPolicy.fs, deleted in this step.
 
    Seen: nutrition is composed in slots and enters the plan on prescribe; ataluren is prescribed with
    its evening dose linked.

@@ -113,6 +113,13 @@ let tests =
                     english term |> Expect.notEqual $"default for {term}" $"{term}"
             }
 
+            test "the group lock has its English" {
+                english Terms.``Plan Context Group Locked``
+                |> Expect.equal
+                    "the English"
+                    "Another order of its group was calculated with other patient data; this order cannot be changed"
+            }
+
             test "the warning before the PIN names the orders not calculated, and is none without them" {
                 let plan names =
                     Informedica.GenPRES.Client.Core.Tests.OrderFixtures.draft
