@@ -155,6 +155,63 @@ let tests =
                     (Ok(Some "NEO", [| patient.Department |]))
             }
 
+            testAsync "the linked orders reach the port with the main order" {
+                let received = ref None
+
+                let port =
+                    { echoPort (ref []) with
+                        addOrderContexts =
+                            fun p main linked ->
+                                received.Value <- Some(main.Id, linked |> Array.map _.Id)
+                                async { return Ok p }
+                    }
+
+                let! _ =
+                    OrderPlanCommand.processCmd
+                        (envOver true port)
+                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.AddOrderContext(
+                            plan,
+                            ctx,
+                            [| { ctx with Id = "l-1" }; { ctx with Id = "l-2" } |]
+                        ))
+
+                received.Value
+                |> Expect.equal "the main order and both linked orders" (Some("c-1", [| "l-1"; "l-2" |]))
+            }
+
+            testAsync "a linked order that is no patient is refused before the port" {
+                let seen = ref []
+
+                let! answer =
+                    OrderPlanCommand.processCmd
+                        (envOver true (echoPort seen))
+                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.AddOrderContext(
+                            plan,
+                            ctx,
+                            [| { ctx with Patient = Informedica.GenPRES.Shared.Models.Patient.empty } |]
+                        ))
+
+                answer |> Expect.equal "no patient" (Error [| Patient.noPatient |])
+                seen.Value |> Expect.isEmpty "the port never asked"
+            }
+
+            testAsync "a linked order whose argumentation is too long is refused before the port" {
+                let seen = ref []
+                let tooLong = String.replicate (OrderContextService.Argumentation.maxLength + 1) "a"
+
+                let! answer =
+                    OrderPlanCommand.processCmd
+                        (envOver true (echoPort seen))
+                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.AddOrderContext(
+                            plan,
+                            ctx,
+                            [| { ctx with Argumentation = Some tooLong } |]
+                        ))
+
+                answer |> Expect.isError "too long"
+                seen.Value |> Expect.isEmpty "the port never asked"
+            }
+
             testAsync "a row filter recalculates the plan over the rows chosen" {
                 let seen = ref []
                 let run = OrderPlanCommand.processCmd (envOver true (echoPort seen))
