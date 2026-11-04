@@ -46,7 +46,7 @@ module OrderPlanMapper =
     let words (ruleSets: NutritionRuleSet[]) =
         function
         | OrderPlanError.NoSuchContext id -> $"The plan holds no context %s{id}"
-        | OrderPlanError.NotNarrowed n -> $"The workbench holds %i{n} candidates, not one order"
+        | OrderPlanError.NotNarrowed n -> $"Choose one order first: %i{n} candidates remain"
         | OrderPlanError.OrderHeld _ -> "The plan already holds this order"
         | OrderPlanError.SupplementNeedsFeeding -> "A supplement needs a feeding in the plan"
         | OrderPlanError.CategoryHeld category ->

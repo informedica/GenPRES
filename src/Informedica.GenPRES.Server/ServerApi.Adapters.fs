@@ -74,6 +74,78 @@ module Adapters =
         }
 
 
+    /// Used by the order context port and the order plan port: the nutrition rule sets from the
+    /// provider, the discovery of a nutrition slot, and the evaluation of a context settled to the rule
+    /// set of its category.
+    module NutritionRuleSets =
+
+        /// Maps an order plan error to its words, with a nutrition category named by its rule set label.
+        let refused sets r =
+            r |> Result.mapError (OrderPlanMapper.words sets >> Array.singleton)
+
+
+        /// The rule sets from the rule set rows of the provider, read on every use so that a reload of
+        /// the sheet is seen.
+        let ruleSets (provider: Resources.IResourceProvider) =
+            provider.Get Resources.Keys.ruleSetData
+            |> NutritionRuleSet.ofData
+            |> Result.mapError (List.map (OrderPlanMapper.words [||]) >> List.toArray)
+
+
+        /// The rule sets and the rule set of a nutrition category, refused when the rule sets have
+        /// none for it; for a medication context, no rule sets and no rule set.
+        let ruleSetOf provider category =
+            match category with
+            | Some c ->
+                ruleSets provider
+                |> Result.bind (fun sets ->
+                    sets
+                    |> NutritionRuleSet.find c
+                    |> refused sets
+                    |> Result.map (fun s -> sets, Some s)
+                )
+            | None -> Ok([||], None)
+
+
+        /// The slot of the category discovered for the patient: of what the evaluation offers, only
+        /// its rule set.
+        let discover start logger provider contextId category pat =
+            let evaluate ctx =
+                ctx
+                |> PlanContext.create contextId (OrderCategory.Nutrition category)
+                |> OrderContextService.evaluate start logger provider OrderContext.UpdateOrderContext
+                |> Result.map _.Context
+
+            ruleSetOf provider (Some category)
+            |> Result.bind (fun (_, set) -> NutritionRuleSet.emptyContext set pat |> NutritionRuleSet.discover evaluate)
+
+
+        /// The context evaluated with the command, as an outcome. An evaluated nutrition context is
+        /// narrowed to the rule set and evaluated again, as long as more than one option is left; a
+        /// refusal on the way is answered as the refused context. A medication context is evaluated once.
+        let evaluateSettled start logger provider set cmd pc =
+            let evaluate cmd pc =
+                pc |> OrderContextService.evaluateOutcome start logger provider cmd
+
+            let narrow (set: NutritionRuleSet) =
+                Outcome.map (fun (pc: PlanContext) -> { pc with Context = pc.Context |> NutritionRuleSet.narrow set })
+
+            match pc |> evaluate cmd, set with
+            | Ok(Evaluated e), Some set ->
+                Evaluated e
+                |> NutritionRuleSet.settle
+                    (Outcome.get >> _.Context)
+                    (narrow set)
+                    (function
+                    | Evaluated pc -> pc |> evaluate OrderContext.UpdateOrderContext
+                    // a refusal ends the settling: the same filter again stops it
+                    | refused -> Ok refused
+                    )
+            | answer, _ -> answer
+
+
+    /// The order context port over the domain's rules: an evaluated nutrition context narrowed and
+    /// settled to the rule set of the category it carries, a refused context unchanged.
     let private makeOrderContextPort
         logger
         (provider: Resources.IResourceProvider)
@@ -82,7 +154,14 @@ module Adapters =
         =
         {
             evaluate =
-                fun cmd pc -> async { return pc |> OrderContextService.evaluateOutcome (now ()) logger provider cmd }
+                fun cmd pc ->
+                    async {
+                        return
+                            NutritionRuleSets.ruleSetOf provider (pc |> PlanContext.nutritionCategory)
+                            |> Result.bind (fun (_, set) ->
+                                pc |> NutritionRuleSets.evaluateSettled (now ()) logger provider set cmd
+                            )
+                    }
         }
 
 
@@ -98,32 +177,11 @@ module Adapters =
         =
         let recalc plan = plan |> OrderPlan.recalculate (provider.GetTotals())
 
-        // a refusal in words, a category labelled from the rule sets
-        let refused sets r =
-            r |> Result.mapError (OrderPlanMapper.words sets >> Array.singleton)
-
-        let ruleSets () =
-            provider.Get Resources.Keys.ruleSetData
-            |> NutritionRuleSet.ofData
-            |> Result.mapError (List.map (OrderPlanMapper.words [||]) >> List.toArray)
-
         // the rule sets for the labels of a refusal; without them a category is worded by its name
-        let labels () = ruleSets () |> Result.defaultValue [||]
+        let labels () = NutritionRuleSets.ruleSets provider |> Result.defaultValue [||]
 
-        // a nutrition slot discovered for the patient: of what the evaluation offers, only its rule set
         let discoverSlot contextId category pat =
-            let evaluate ctx =
-                ctx
-                |> PlanContext.create contextId (OrderCategory.Nutrition category)
-                |> OrderContextService.evaluate (now ()) logger provider OrderContext.UpdateOrderContext
-                |> Result.map _.Context
-
-            ruleSets ()
-            |> Result.bind (fun sets -> sets |> NutritionRuleSet.find category |> refused sets)
-            |> Result.bind (fun set ->
-                NutritionRuleSet.emptyContext (Some set) pat
-                |> NutritionRuleSet.discover evaluate
-            )
+            NutritionRuleSets.discover (now ()) logger provider contextId category pat
 
         // a nutrition slot starts again on new patient data; a medication context without an order only
         // takes the patient
@@ -141,46 +199,22 @@ module Adapters =
             evaluateContext =
                 fun plan contextId cmd pc ->
                     async {
-                        let evaluate cmd pc = pc |> OrderContextService.evaluate (now ()) logger provider cmd
-
                         let category =
                             plan.Contexts
                             |> Array.tryFind (fun c -> c.Id = contextId)
                             |> Option.bind PlanContext.nutritionCategory
 
-                        // the rule sets and the rule set of a nutrition context, none for a medication context
-                        let ruleSet =
-                            match category with
-                            | Some c ->
-                                ruleSets ()
-                                |> Result.bind (fun sets ->
-                                    sets
-                                    |> NutritionRuleSet.find c
-                                    |> refused sets
-                                    |> Result.map (fun s -> sets, Some s)
-                                )
-                            | None -> Ok([||], None)
-
-                        // a nutrition context's lists narrowed to its rule set, and evaluated again
-                        // as it is while that leaves a choice open
-                        let settled set (evaluated: PlanContext) =
-                            match set with
-                            | Some set ->
-                                evaluated
-                                |> NutritionRuleSet.settle
-                                    _.Context
-                                    (fun pc -> { pc with Context = pc.Context |> NutritionRuleSet.narrow set })
-                                    (evaluate OrderContext.UpdateOrderContext)
-                            | None -> Ok evaluated
-
+                        // the plan answers a refusal as its message, as the message-list contract does
                         return
-                            ruleSet
+                            NutritionRuleSets.ruleSetOf provider category
                             |> Result.bind (fun (sets, set) ->
                                 pc
-                                |> evaluate cmd
-                                |> Result.bind (settled set)
+                                |> NutritionRuleSets.evaluateSettled (now ()) logger provider set cmd
+                                |> Result.bind (OrderContext.ofOutcome >> Result.mapError OrderContextService.refusal)
                                 |> Result.bind (fun evaluated ->
-                                    plan |> OrderPlan.updateContext sets contextId evaluated |> refused sets
+                                    plan
+                                    |> OrderPlan.updateContext sets contextId evaluated
+                                    |> NutritionRuleSets.refused sets
                                 )
                             )
                             |> Result.map recalc
@@ -191,14 +225,14 @@ module Adapters =
                         return
                             plan
                             |> OrderPlan.addOrderContext newId pc
-                            |> refused (labels ())
+                            |> NutritionRuleSets.refused (labels ())
                             |> Result.map recalc
                     }
             newOrderContext =
                 fun plan category ->
                     async {
                         return
-                            match plan |> OrderPlan.admits category |> refused (labels ()) with
+                            match plan |> OrderPlan.admits category |> NutritionRuleSets.refused (labels ()) with
                             | Error e -> Error e
                             | Ok() ->
                                 let id = newId ()
