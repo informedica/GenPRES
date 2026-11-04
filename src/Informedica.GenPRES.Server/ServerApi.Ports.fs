@@ -34,7 +34,8 @@ type OrderContextPort =
     }
 
 
-/// The one plan: every member answers the plan with its totals recomputed over its orders.
+/// The one plan: every member answers the plan with its totals recomputed over its orders, except totals,
+/// which answers the totals alone.
 /// The command handler maps the command from the wire to the domain; the plan and the
 /// contexts are parsed there too, so the port never sees the contract model.
 type OrderPlanPort =
@@ -62,6 +63,8 @@ type OrderPlanPort =
         removeOrderContexts: GenOrder.OrderPlan -> string[] -> Async<Result<GenOrder.OrderPlan, string[]>>
         // a signed version's patient and contexts as they were, nothing evaluated
         openWith: GenForm.Patient -> GenOrder.PlanContext[] -> Async<Result<GenOrder.OrderPlan, string[]>>
+        // the totals over the orders of the contexts for the patient, no plan changed
+        totals: GenForm.Patient -> GenOrder.PlanContext[] -> Async<Result<GenOrder.Totals, string[]>>
     }
 
 

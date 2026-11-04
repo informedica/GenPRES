@@ -519,7 +519,10 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
      without a generic: the client prescribes only a context narrowed to one order, and every offered
      linked order names its generic. Decisions, 2026-11-04, halcwb. Script
      `src/Informedica.GenPRES.Server/Scripts/GroupAdd.fsx`. Seen: nothing.
-   - **6b. The totals query.** The query and its wire. Seen: nothing.
+   - **6b. The totals query.** The query and its wire: the IServerApi member `processTotals` over the
+     patient and the order contexts to count, answered with the totals; the plan port's `totals` over the
+     totals data of the provider, and `OrderPlan.totalsOver`, which the plan's own recalculation uses too.
+     Script `src/Informedica.GenPRES.Server/Scripts/TotalsQuery.fsx`. Seen: nothing.
 7. **The slot lane in Client.Core.** The category in `OrderContextState`, the slot states in `Lanes`,
    the start case of `OrderContextCommand` on the wire with the port's start and its server handler, the
    request case, `BusyPolicy` and `OutPolicy`, the start and restart from the rule set. Script

@@ -378,6 +378,15 @@ module OrderPlan =
             plan.Contexts |> Array.filter (fun c -> plan.Filtered |> Array.contains c.Id)
 
 
+    /// The totals over the orders of the contexts narrowed to one order, for the age and weight of the
+    /// patient. A context that is not narrowed adds nothing, as in the plan's own totals.
+    let totalsOver totalsData patient contexts =
+        contexts
+        |> Array.choose PlanContext.contribution
+        |> Array.map _.Order
+        |> OrderContext.totalsFor totalsData patient
+
+
     /// The plan with its totals recomputed over the orders of the contexts the filter keeps,
     /// all of them when it is empty, and the totals of every context, for its patient's age and
     /// weight. A context can hold an older patient, so its totals are not taken from there.
@@ -388,12 +397,7 @@ module OrderPlan =
                 |> Array.map (fun pc ->
                     { pc with Totals = pc.Context |> OrderContext.contextTotalsFor totalsData plan.Patient }
                 )
-            Totals =
-                plan
-                |> filtered
-                |> Array.choose PlanContext.contribution
-                |> Array.map _.Order
-                |> OrderContext.totalsFor totalsData plan.Patient
+            Totals = plan |> filtered |> totalsOver totalsData plan.Patient
         }
 
 

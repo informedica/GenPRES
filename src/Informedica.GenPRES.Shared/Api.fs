@@ -338,6 +338,20 @@ module Api =
         | GetDrugNames
 
 
+    /// The patient and the order contexts whose orders are counted in the totals; the plan is not changed.
+    type TotalsQuery =
+        {
+            Patient: Patient
+            OrderContexts: OrderContext[]
+        }
+
+
+    module TotalsQuery =
+
+        /// For the log: the number of contexts, never the contexts.
+        let toString (query: TotalsQuery) = $"TotalsQuery %i{query.OrderContexts.Length}"
+
+
     [<RequireQualifiedAccess>]
     type InteractionResponse =
         | InteractionsChecked of DrugInteraction[]
@@ -423,6 +437,8 @@ module Api =
             processInteraction: Request<InteractionCommand> -> Async<Result<Reply<InteractionResponse>, string[]>>
             // the one plan, nutrition included
             processOrderPlan: Request<OrderPlanCommand> -> Async<Result<Reply<OrderPlan>, string[]>>
+            // the totals over the orders asked for, the plan left as it is
+            processTotals: Request<TotalsQuery> -> Async<Result<Reply<Totals>, string[]>>
             processLaunch: LaunchCommand -> Async<LaunchOutcome>
             processSession: SessionCommand -> Async<SessionResponse>
             processSigning: SigningCommand -> Async<SigningResponse>

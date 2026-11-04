@@ -66,6 +66,10 @@ let echoPort seen : OrderPlanPort =
         newOrderContext = fun p _ -> answering seen "newOrderContext" p
         removeOrderContexts = fun p _ -> answering seen "removeOrderContexts" p
         openWith = fun pat cs -> answering seen "openWith" (Informedica.GenOrder.Lib.OrderPlan.create pat cs)
+        totals =
+            fun _ _ ->
+                seen.Value <- "totals" :: seen.Value
+                async { return Ok Informedica.GenOrder.Lib.Totals.empty }
     }
 
 
@@ -209,6 +213,53 @@ let tests =
                         ))
 
                 answer |> Expect.isError "too long"
+                seen.Value |> Expect.isEmpty "the port never asked"
+            }
+
+            testAsync "the totals query reaches the plan port over the contexts asked for" {
+                let seen = ref []
+
+                let! answer =
+                    OrderPlanCommand.processTotals
+                        (envOver true (echoPort seen))
+                        {
+                            Patient = patient
+                            OrderContexts = [| ctx; { ctx with Id = "l-1" } |]
+                        }
+
+                seen.Value |> Expect.equal "the totals asked" [ "totals" ]
+
+                answer
+                |> Expect.equal "empty totals" (Ok Informedica.GenPRES.Shared.Models.Totals.empty)
+            }
+
+            testAsync "a totals query whose own patient is no patient is refused before the port" {
+                let seen = ref []
+
+                let! answer =
+                    OrderPlanCommand.processTotals
+                        (envOver true (echoPort seen))
+                        {
+                            Patient = Informedica.GenPRES.Shared.Models.Patient.empty
+                            OrderContexts = [| ctx |]
+                        }
+
+                answer |> Expect.equal "no patient" (Error [| Patient.noPatient |])
+                seen.Value |> Expect.isEmpty "the port never asked"
+            }
+
+            testAsync "a totals query over a context that is no patient is refused before the port" {
+                let seen = ref []
+
+                let! answer =
+                    OrderPlanCommand.processTotals
+                        (envOver true (echoPort seen))
+                        {
+                            Patient = patient
+                            OrderContexts = [| { ctx with Patient = Informedica.GenPRES.Shared.Models.Patient.empty } |]
+                        }
+
+                answer |> Expect.equal "no patient" (Error [| Patient.noPatient |])
                 seen.Value |> Expect.isEmpty "the port never asked"
             }
 

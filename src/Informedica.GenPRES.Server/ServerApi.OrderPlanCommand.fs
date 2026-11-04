@@ -36,23 +36,21 @@ module OrderPlanCommand =
         | _, Error e -> Error e
 
 
-    /// The port asked over what parsed, else the refusal; the answer mapped out with the
-    /// environment's demo flag.
-    let private answer
-        (env: AppEnv)
-        (parsed: Result<'a, string[]>)
-        (run: 'a -> Async<Result<Informedica.GenOrder.Lib.Types.OrderPlan, string[]>>)
-        =
+    /// The port asked over what parsed, else the refusal; the answer mapped out.
+    let private answerWith map parsed run =
         match parsed with
         | Error e -> async { return Error e }
         | Ok v ->
             async {
                 let! result = run v
-
-                return
-                    result
-                    |> Result.map (Informedica.GenOrder.Lib.OrderPlan.Dto.toDto >> OrderPlanMapper.toModel env.demo)
+                return result |> Result.map map
             }
+
+
+    /// The port asked over what parsed, else the refusal; the plan answered mapped out with the
+    /// environment's demo flag.
+    let private answer (env: AppEnv) parsed run =
+        answerWith (Informedica.GenOrder.Lib.OrderPlan.Dto.toDto >> OrderPlanMapper.toModel env.demo) parsed run
 
 
     /// The port function asked over the plan, a draft that is none refused first.
@@ -151,3 +149,16 @@ module OrderPlanCommand =
                         (both (Patient.parse pat) (parseContexts contexts))
                         (fun (p, pcs) -> env.orderPlan.openWith p pcs)
                 )
+
+
+    /// The totals over the orders of the query, from the plan port. The patient of the query and of every
+    /// context are checked first, as for a plan command.
+    let processTotals (env: AppEnv) (query: TotalsQuery) =
+        Patient.overAll
+            (query.Patient :: (query.OrderContexts |> Array.map _.Patient |> Array.toList))
+            (fun () ->
+                answerWith
+                    (Totals.Dto.toDto >> OrderContextMapper.totalsBack)
+                    (both (Patient.parse query.Patient) (parseContexts query.OrderContexts))
+                    (fun (pat, pcs) -> env.orderPlan.totals pat pcs)
+            )
