@@ -91,11 +91,17 @@ module StubAdapters =
 
 
     let orderContextAlwaysOk (returnCtx: OrderContext) : OrderContextPort =
-        { evaluate = fun _ _ -> async { return Ok(Informedica.GenOrder.Lib.Types.Evaluated(portContext returnCtx)) } }
+        {
+            evaluate = fun _ _ -> async { return Ok(Informedica.GenOrder.Lib.Types.Evaluated(portContext returnCtx)) }
+            linkedOrders = fun _ -> async { return Ok [||] }
+        }
 
 
     let orderContextAlwaysFails (msgs: string[]) : OrderContextPort =
-        { evaluate = fun _ _ -> async { return Error msgs } }
+        {
+            evaluate = fun _ _ -> async { return Error msgs }
+            linkedOrders = fun _ -> async { return Error msgs }
+        }
 
 
     let planAlwaysOk (returnPlan: OrderPlan) : OrderPlanPort =

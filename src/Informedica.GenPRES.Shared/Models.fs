@@ -1274,6 +1274,7 @@ module Models =
                 Totals = Totals.empty
                 Argumentation = None
                 LinkedTo = None
+                LinkedOrders = [||]
             }
 
         let setPatient pat ctx : OrderContext = { ctx with Patient = pat }

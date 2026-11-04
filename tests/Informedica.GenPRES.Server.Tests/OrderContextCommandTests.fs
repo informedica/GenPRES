@@ -651,6 +651,7 @@ let tests =
                                     seen.Value <-
                                         Some(cmd pc.Context |> Informedica.GenOrder.Lib.OrderContext.Command.toString)
                                     async { return Ok(Informedica.GenOrder.Lib.Types.Evaluated pc) }
+                            linkedOrders = fun _ -> async { return Ok [||] }
                         }
 
                     let env port =

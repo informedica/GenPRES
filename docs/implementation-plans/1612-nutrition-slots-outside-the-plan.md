@@ -473,8 +473,20 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
      second: the order dialog's commands keep the single scenario of an order, and the only path that
      leaves several is a nutrition slot picked again while it is still in the plan, which is not to be
      refused.
-   - **5b. The linked orders in the order context answer,** each an order context evaluated on the same
-     patient, with the category of rule 19.
+   - **5b. The linked orders in the order context answer.** The wire `OrderContext` gains `LinkedOrders`,
+     which the order context answer fills for a context narrowed to one order, through the new port
+     member `linkedOrders`. One offer per link rule, and for a rule without a generic one per generic
+     that the dose rules offer. Each offer is evaluated on the same patient, narrowed to the dose types
+     of its side, and given the category of rule 19 (`NutritionRuleSet.orderCategory`); a rule set is
+     read without regard to case, as the link rules are. An offer the rules refuse for the patient is
+     left out. Only a command that changes the choices or the scenario computes the offers; a value step
+     carries none, since rule 9 offers them again only when the main order's scenario changes. The
+     offers never fail the evaluation: when the rule sets cannot be read, the answer offers nothing and
+     the reason is logged, since the category of an offer would be unknown. Decisions, 2026-11-04,
+     halcwb. The step takes 242 lines of `src/`, over the limit of 200, as one pull request: the review
+     added the full case list of `offersLinked` and the shared reading of a rule set. Decision,
+     2026-11-04, halcwb. Script `src/Informedica.GenPRES.Server/Scripts/LinkedOffers.fsx`, deleted in
+     this step. Seen: nothing.
    - **5c. Rule 20:** the dose rules of a Required link rule left out of the pick lists. The gap between
      step 5 and step 9 opens here.
 6. **The group add and the totals query** on the server and their wire: `AddOrderContext` with linked

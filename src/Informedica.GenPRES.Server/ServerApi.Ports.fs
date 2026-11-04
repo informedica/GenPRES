@@ -23,10 +23,14 @@ type FormularyPort =
 /// sees the contract model.
 type OrderContextPort =
     {
+        /// The context evaluated with the command, as an outcome.
         evaluate:
             (GenOrder.OrderContext -> GenOrderContext.Command)
                 -> GenOrder.PlanContext
                 -> Async<Result<GenOrder.Outcome<GenOrder.PlanContext>, string[]>>
+        /// The order contexts the link rules offer to link to the context, when it is narrowed to one
+        /// order; none otherwise.
+        linkedOrders: GenOrder.PlanContext -> Async<Result<GenOrder.PlanContext[], string[]>>
     }
 
 

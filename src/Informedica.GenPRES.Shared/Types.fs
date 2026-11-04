@@ -581,6 +581,9 @@ module Types =
             /// The id of the plan context that holds the main order of this order; none for an order
             /// that is not linked
             LinkedTo: string option
+            /// The orders the link rules offer to link to this order, filled by the server in an order
+            /// context answer; empty otherwise. Not stored
+            LinkedOrders: OrderContext[]
         }
 
 

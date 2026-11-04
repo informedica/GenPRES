@@ -240,15 +240,33 @@ module NutritionRuleSet =
         |> Result.map List.toArray
 
 
-    /// The context's pick lists narrowed to the set: when the set names indications or
-    /// generics, only those are kept; an empty list in the set restricts nothing. The dose
-    /// types and the selection pass through.
+    /// Whether a list of a rule set allows the name: an empty list allows any name, and names compare
+    /// without regard to case.
+    let allows (allowed: string[]) name =
+        allowed |> Array.isEmpty
+        || allowed |> Array.exists (String.equalsCapInsens name)
+
+
+    /// The category of an order by its indication and generic label: the nutrition category whose rule
+    /// set names the indication and allows the generic; the medication category when no rule set does,
+    /// and when the indication or the generic is absent.
+    let orderCategory (sets: NutritionRuleSet[]) indication generic =
+        match indication, generic with
+        | Some ind, Some gen ->
+            sets
+            |> Array.tryFind (fun s ->
+                s.Indications |> Array.exists (String.equalsCapInsens ind)
+                && allows s.Generics gen
+            )
+            |> Option.map (_.Category >> OrderCategory.Nutrition)
+            |> Option.defaultValue OrderCategory.Medication
+        | _ -> OrderCategory.Medication
+
+
+    /// The context's pick lists narrowed to the set: only the indications and generics the set
+    /// allows are kept. The dose types and the selection pass through.
     let narrow (set: NutritionRuleSet) (ctx: OrderContext) : OrderContext =
-        let keep (allowed: string[]) (xs: string[]) =
-            if allowed |> Array.isEmpty then
-                xs
-            else
-                xs |> Array.filter (fun x -> allowed |> Array.contains x)
+        let keep allowed (xs: string[]) = xs |> Array.filter (allows allowed)
 
         { ctx with
             Filter =
