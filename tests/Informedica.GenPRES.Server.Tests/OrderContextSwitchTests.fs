@@ -21,7 +21,7 @@ let ctx: OrderContext =
         DemoVersion = true
         Filter = { Informedica.GenPRES.Shared.Models.OrderContext.filter with Generic = Some "glucose" }
         Patient = patient
-        Intake = { Informedica.GenPRES.Shared.Models.Totals.empty with Volume = [| Normal "10 ml" |] }
+        Totals = { Informedica.GenPRES.Shared.Models.Totals.empty with Volume = [| Normal "10 ml" |] }
     }
 
 let echo: OrderContextPort = { evaluate = fun _ pc -> async { return Ok(Evaluated pc) } }

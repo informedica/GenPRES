@@ -214,7 +214,7 @@ module PlanContextPolicyTests =
                                     Volume = [| TextItem.Normal "10 mL" |]
                                 }
 
-                            PlanContextPolicy.changed para { para with Intake = intake }
+                            PlanContextPolicy.changed para { para with Totals = intake }
                             |> Expect.isFalse "the intake is no change to an order in the plan"
                         }
 

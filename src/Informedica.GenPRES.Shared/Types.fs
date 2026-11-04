@@ -560,18 +560,27 @@ module Types =
 
     type OrderContext =
         {
-            // the context's id in the plan; empty for a workbench not in the plan, minted by
-            // the server when it is added
+            /// The context's id in the plan; empty for an order context not in the plan, given a
+            /// new id by the server when it is added
             Id: string
+            /// A medication, or the nutrition category the context holds
             Category: OrderCategory
+            /// Whether the server that answered serves the demo data
             DemoVersion: bool
+            /// The pick lists and the picks that select the scenarios
             Filter: Filter
+            /// The patient the context is evaluated for
             Patient: Patient
+            /// The scenarios the picks leave; one when the context is narrowed to one order
             Scenarios: OrderScenario[]
-            Intake: Totals
+            /// The totals over the one scenario the context is narrowed to
+            Totals: Totals
             /// What the clinician wrote when the dose left what the rules allow; none until
             /// written.
             Argumentation: string option
+            /// The id of the plan context that holds the main order of this order; none for an order
+            /// that is not linked
+            LinkedTo: string option
         }
 
 

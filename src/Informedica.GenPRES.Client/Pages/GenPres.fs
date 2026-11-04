@@ -293,7 +293,7 @@ module GenPres =
                     Views.Totals.View
                         {|
                             source = "context"
-                            intake = pr.Intake
+                            totals = pr.Totals
                         |}
                     |> Some
                 | OrderContextView.NoPatient -> None
@@ -306,7 +306,7 @@ module GenPres =
                     Views.Totals.View
                         {|
                             source = "plan"
-                            intake = tp.Totals
+                            totals = tp.Totals
                         |}
                     |> Some
                 | OrderPlanView.NoPatient -> None

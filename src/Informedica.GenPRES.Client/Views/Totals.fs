@@ -117,10 +117,10 @@ module Totals =
         (props:
             {|
                 source: string
-                intake: Totals
+                totals: Totals
             |})
         =
-        let seenRef = React.useRef (TotalsChangePolicy.initial props.source props.intake)
+        let seenRef = React.useRef (TotalsChangePolicy.initial props.source props.totals)
         let timerRef = React.useRef (None: int option)
 
         let flash, setFlash =
@@ -131,7 +131,7 @@ module Totals =
                 |}
 
         let observeTotals () =
-            let seen, changed = seenRef.current |> TotalsChangePolicy.observe props.source props.intake
+            let seen, changed = seenRef.current |> TotalsChangePolicy.observe props.source props.totals
 
             seenRef.current <- seen
 
@@ -157,11 +157,11 @@ module Totals =
                         flashMs
                     |> Some
 
-        React.useEffect (observeTotals, [| box props.source; box props.intake |])
+        React.useEffect (observeTotals, [| box props.source; box props.totals |])
 
         React.useEffect ((fun () -> fun () -> timerRef.current |> Option.iter JS.clearTimeout), [||])
 
-        let mapRow (intake: Totals) row =
+        let mapRow (totals: Totals) row =
             let cell sx content =
                 {|
                     sx = box sx
@@ -171,7 +171,7 @@ module Totals =
             row
             |> Array.map (fun cells ->
                 let name = cells |> Array.head
-                let items = TotalsDisplay.substanceToField intake name
+                let items = TotalsDisplay.substanceToField totals name
                 let isChanged = flash.names |> Set.contains name
 
                 {|
@@ -193,7 +193,7 @@ module Totals =
             rows
             |> Array.filter (fun cells ->
                 let name = cells |> Array.head
-                let items = TotalsDisplay.substanceToField props.intake name
+                let items = TotalsDisplay.substanceToField props.totals name
                 items |> Array.length >= 2
             )
 
@@ -202,7 +202,7 @@ module Totals =
         let content =
             columns
             |> Array.mapi (fun i col ->
-                $"table{i + 1}", Components.BasicTable.View {| rows = mapRow props.intake col |} |> toReact
+                $"table{i + 1}", Components.BasicTable.View {| rows = mapRow props.totals col |} |> toReact
             )
 
         let isMobile = Mui.Hooks.useIsMobile ()

@@ -53,7 +53,7 @@ let context id category name : OrderContext =
         Filter = { Informedica.GenPRES.Shared.Models.OrderContext.filter with Generic = Some name }
         Patient = StubPatientData.patient
         Scenarios = [| scenario name |]
-        Intake = { Informedica.GenPRES.Shared.Models.Totals.empty with Volume = [| Normal "10 ml" |] }
+        Totals = { Informedica.GenPRES.Shared.Models.Totals.empty with Volume = [| Normal "10 ml" |] }
     }
 
 
