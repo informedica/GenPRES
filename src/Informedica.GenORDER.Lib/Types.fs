@@ -796,7 +796,7 @@ module Types =
         {
             /// The scenario number
             No: int
-            /// The name of the order
+            /// The generic of the order by its label, as the dose rules offer it
             Name: string
             /// The indication for the order
             Indication: string

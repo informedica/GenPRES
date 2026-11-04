@@ -450,11 +450,14 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
    LinkRules tab before the merge, the demo spreadsheet included. The step takes 299 lines of `src/`,
    over the limit of 200, as one pull request. Decision, 2026-11-04, halcwb. Seen: nothing.
    4b. **The link rules over the order contexts in GenORDER.** `OrderContext.matchesLinkSide` and
-   `OrderContext.rulesForMainOrder`, the link rules a narrowed context offers, both reading the picks as
-   the rule lookup reads them; `OrderPlan.linkRuleError`, beside `linkError`, why the link rules refuse
-   the link of a plan context, read from its `LinkedTo`, a main order counting only when it is narrowed
-   to one order; and the `LinkError` cases `NotAllowed` and `MainOrderRequired` with their words in the server. No module of
-   its own: each function goes with the type it handles. Decision, 2026-11-04, halcwb. Script
+   `OrderContext.rulesForMainOrder`, the link rules a narrowed context offers. A context matches by the
+   order it is narrowed to: the generic label, indication, route and dose type of its scenario. The
+   filter is not read, since selecting a scenario writes only its form there, so the filter can hold no
+   route while the order has one (found in the review of #1653). A context that is not narrowed matches
+   no side. `OrderPlan.linkRuleError`, beside `linkError`, gives why the link rules refuse the link of a
+   plan context, read from its `LinkedTo`, a main order counting only when it is narrowed to one order.
+   The `LinkError` cases `NotAllowed` and `MainOrderRequired` come with their words in the server. No
+   module of its own: each function goes with the type it handles. Decision, 2026-11-04, halcwb. Script
    `src/Informedica.GenORDER.Lib/Scripts/LinkRules.fsx`. Seen: nothing.
 5. **The server starts and narrows a slot on the order context path, and offers linked orders.** The new
    `OrderContextCommand` case, the narrowing by `Category`, the linked orders in the answer with their
@@ -465,7 +468,9 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
 6. **The group add and the totals query** on the server and their wire: `AddOrderContext` with linked
    contexts, `addOrderContexts` with the check of rule 15, and the totals query. The words of
    `LinkError.NotAllowed` name the main order by its generic, not by its context id, which a clinician
-   cannot read; step 4b words it with the id, as the other link words do. Decision, 2026-11-04, halcwb.
+   cannot read; step 4b words it with the id, as the other link words do. The add checks that a context
+   is narrowed to one order before it calls `linkRuleError`, since a context that is not narrowed matches
+   no link rule side and so escapes `MainOrderRequired`. Decision, 2026-11-04, halcwb.
    Script
    `src/Informedica.GenPRES.Server/Scripts/GroupAdd.fsx`. Seen: nothing.
 7. **The slot lane in Client.Core.** The category in `OrderContextState`, the slot states in `Lanes`,

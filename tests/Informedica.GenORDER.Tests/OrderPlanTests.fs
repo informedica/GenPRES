@@ -2729,9 +2729,17 @@ module LinkRuleFixtures =
 
     // DoseType.Discontinuous is written qualified: GenORDER's own Discontinuous case shadows GenFORM's
 
-    /// An order context narrowed to one order with the picks.
+    /// An order context narrowed to one order with the picks, its order made from a dose rule with the
+    /// same generic label, indication, route and dose type.
     let narrowed ind gen rte dt =
-        let sc = Fixtures.scenario "o-1"
+        let sc =
+            { Fixtures.scenario "o-1" with
+                Name = gen
+                Indication = ind
+                Route = rte
+                DoseType = dt
+            }
+
         let ctx = Fixtures.context [| sc |]
 
         { ctx with
@@ -2750,6 +2758,79 @@ module LinkRuleFixtures =
     let morning = narrowed "Duchenne" "ataluren" "ORAAL" (DoseType.Discontinuous "ochtend middag")
     let evening = narrowed "Duchenne" "ataluren" "ORAAL" (DoseType.Discontinuous "avond")
     let paracetamol = narrowed "Pijn" "paracetamol" "ORAAL" (DoseType.Discontinuous "")
+
+
+    /// The hydrocortison taper of week 0 at the dose type, as "poeder voor injectievloeistof" with
+    /// INTRAMUSCULAIR and INTRAVENEUS offered: a scenario for each route, the route not chosen.
+    let taper doseType =
+        let scenario no route =
+            { Fixtures.scenario $"o-%i{no}" with
+                No = no
+                Name = "hydrocortison"
+                Indication = "Afbouwschema week 0"
+                Form = "poeder voor injectievloeistof"
+                Route = route
+                DoseType = doseType
+            }
+
+        let ctx = Fixtures.context [| scenario 1 "INTRAMUSCULAIR"; scenario 2 "INTRAVENEUS" |]
+
+        { ctx with
+            Filter =
+                { ctx.Filter with
+                    Indication = Some "Afbouwschema week 0"
+                    Generic = Some "hydrocortison"
+                    Route = None
+                    Routes = [| "INTRAMUSCULAIR"; "INTRAVENEUS" |]
+                    Form = Some "poeder voor injectievloeistof"
+                    DoseType = Some doseType
+                }
+        }
+
+
+    let taperMorning = DoseType.Discontinuous "week 0 7:00 uur"
+    let taperLater = DoseType.Discontinuous "week 0 13:00 en 18:00 uur"
+
+
+    /// The taper at the dose type with the nth scenario selected; the selection writes the form, not
+    /// the route.
+    let selected n doseType =
+        taper doseType
+        |> OrderContext.selectNthScenario n
+        |> Result.defaultWith (fun e -> failtest e)
+
+
+    /// The row of the LinkRules sheet for the taper of week 0, intravenous.
+    let taperRules =
+        rulesOf
+            [|
+                {
+                    LinkRuleData.Generic = "hydrocortison"
+                    LinkRuleData.Route = "INTRAVENEUS"
+                    LinkRuleData.Indication = "Afbouwschema week 0"
+                    LinkRuleData.DoseType = "discontinuous"
+                    LinkRuleData.DoseText = "week 0 13:00 en 18:00 uur"
+                    LinkRuleData.MainGeneric = "hydrocortison"
+                    LinkRuleData.MainRoute = "INTRAVENEUS"
+                    LinkRuleData.MainIndication = "Afbouwschema week 0"
+                    LinkRuleData.MainDoseType = "discontinuous"
+                    LinkRuleData.MainDoseText = "week 0 7:00 uur"
+                    LinkRuleData.Required = "yes"
+                }
+            |]
+
+
+    let taperRoutes: RouteMapping[] =
+        [|
+            {
+                Long = "INTRAMUSCULAIR"
+                Short = "im"
+            }
+            {
+                Long = "INTRAVENEUS"
+                Short = "iv"
+            }
+        |]
 
 
     /// A plan context with the id, linked to the main order with the id, if any.
@@ -2809,23 +2890,18 @@ let linkRuleTests =
                         |> Expect.isEmpty "nothing"
                     }
 
-                    test "a list of one without its choice is read as the choice, as the rule lookup reads it" {
+                    test "a narrowed context matches by its order, not by its filter" {
                         { morning with
                             Filter =
                                 { morning.Filter with
                                     Indication = None
-                                    Indications = [| "Duchenne" |]
+                                    Route = None
+                                    DoseType = None
                                 }
                         }
                         |> OrderContext.rulesForMainOrder routes rules
                         |> Array.map _.Linked.DoseType
                         |> Expect.equal "the evening" [| DoseType.Discontinuous "avond" |]
-                    }
-
-                    test "a context without a dose type matches no side" {
-                        { feeding with Filter = { feeding.Filter with DoseType = None } }
-                        |> OrderContext.rulesForMainOrder routes rules
-                        |> Expect.isEmpty "nothing"
                     }
                 ]
 
@@ -2865,16 +2941,10 @@ let linkRuleTests =
                         evening |> refusal optional None |> Expect.isNone "an optional link"
                     }
 
-                    test "an evening dose alone is refused when its indication is a list of one" {
-                        { evening with
-                            Filter =
-                                { evening.Filter with
-                                    Indication = None
-                                    Indications = [| "Duchenne" |]
-                                }
-                        }
-                        |> refusal rules None
-                        |> Expect.equal "alone" (Some LinkError.MainOrderRequired)
+                    test "a context that is not narrowed matches no side" {
+                        { evening with Scenarios = [||] }
+                        |> OrderContext.matchesLinkSide routes rules[1].Linked
+                        |> Expect.isFalse "no order to match"
                     }
 
                     test "a main order that is not narrowed to one order links nothing" {
@@ -2906,6 +2976,42 @@ let linkRuleTests =
                                 |]
 
                         evening |> refusal short (Some("c-m", morning)) |> Expect.isNone "or is ORAAL"
+                    }
+                ]
+
+            testList
+                "a selected scenario of the hydrocortison taper"
+                [
+                    let alone ctx =
+                        let pc = ctx |> planContext "c-l" None
+                        pc |> OrderPlan.linkRuleError taperRoutes taperRules (planOf [| pc |])
+
+                    test "the selection leaves the route of the filter empty" {
+                        (selected 1 taperMorning).Filter.Route
+                        |> Expect.isNone "the filter as the clinician left it"
+                    }
+
+                    test "the IV 7:00 dose offers the 13:00 and 18:00 dose" {
+                        selected 1 taperMorning
+                        |> OrderContext.rulesForMainOrder taperRoutes taperRules
+                        |> Array.map _.Linked.DoseType
+                        |> Expect.equal "the later dose" [| taperLater |]
+                    }
+
+                    test "the IM 7:00 dose offers nothing from the IV row" {
+                        selected 0 taperMorning
+                        |> OrderContext.rulesForMainOrder taperRoutes taperRules
+                        |> Expect.isEmpty "another route"
+                    }
+
+                    test "the IV 13:00 and 18:00 dose alone is refused" {
+                        selected 1 taperLater
+                        |> alone
+                        |> Expect.equal "a main order required" (Some LinkError.MainOrderRequired)
+                    }
+
+                    test "the IM 13:00 and 18:00 dose alone is not refused by the IV row" {
+                        selected 0 taperLater |> alone |> Expect.isNone "another route"
                     }
                 ]
         ]

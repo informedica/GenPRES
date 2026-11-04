@@ -1959,25 +1959,19 @@ Scenarios: {scenarios}
     let contribution (ctx: OrderContext) = ctx.Scenarios |> Array.tryExactlyOne
 
 
-    /// Whether the picks of the order context match a side of a link rule. The picks are read as the
-    /// rule lookup reads them, a list of one being its choice; a pick that is not made matches only an
-    /// empty field of the side, and a context without a dose type matches no side.
+    /// Whether the order context matches a side of a link rule, by the order it is narrowed to: the
+    /// generic label, the indication, the route and the dose type of its scenario. A context that is
+    /// not narrowed to one order matches no side.
     let matchesLinkSide routeMapping (side: LinkSide) (ctx: OrderContext) =
-        let p = ctx |> filterPicks
-        let orEmpty = Option.defaultValue ""
-
-        match p.DoseType with
+        match ctx |> contribution with
+        | Some sc -> LinkRule.matches routeMapping side sc.Indication sc.Name sc.Route sc.DoseType
         | None -> false
-        | Some dt ->
-            LinkRule.matches routeMapping side (p.Indication |> orEmpty) (p.Generic |> orEmpty) (p.Route |> orEmpty) dt
 
 
     /// The link rules for which the order context is the main order, when the context is narrowed to
     /// one order; none otherwise. Their linked sides are the orders that can be linked to it.
     let rulesForMainOrder routeMapping (rules: LinkRule[]) (ctx: OrderContext) =
-        match ctx |> contribution with
-        | None -> [||]
-        | Some _ -> rules |> Array.filter (fun r -> ctx |> matchesLinkSide routeMapping r.Main)
+        rules |> Array.filter (fun r -> ctx |> matchesLinkSide routeMapping r.Main)
 
 
     /// The serializable shape of an OrderContext: its filter, its patient and its scenarios,
