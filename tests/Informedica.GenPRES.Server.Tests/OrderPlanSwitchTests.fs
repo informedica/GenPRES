@@ -260,7 +260,15 @@ let tests =
             }
 
             test "the refusals in the server's words, the category labelled from the rule sets" {
-                let words = OrderPlanMapper.words NutritionRuleSets.all
+                let feeding: NutritionRuleSet =
+                    {
+                        Category = Informedica.GenOrder.Lib.Types.NutritionCategory.EnteralFeeding
+                        Label = "Enterale Voeding"
+                        Indications = [| "Enterale voeding" |]
+                        Generics = [| "Nutrini" |]
+                    }
+
+                let words = OrderPlanMapper.words [| feeding |]
 
                 OrderPlanError.SupplementNeedsFeeding
                 |> words

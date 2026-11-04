@@ -16,7 +16,6 @@
     <Compile Include="LogAnalyzer.fs" />
     <Compile Include="ServerApi.Mappers.Order.fs" />
     <Compile Include="ServerApi.Ports.fs" />
-    <Compile Include="ServerApi.NutritionRuleSets.fs" />
     <Compile Include="ServerApi.Mappers.Patient.fs" />
     <Compile Include="ServerApi.Mappers.OrderContext.fs" />
     <Compile Include="ServerApi.Mappers.OrderPlan.fs" />
