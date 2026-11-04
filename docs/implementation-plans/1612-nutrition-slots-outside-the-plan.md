@@ -636,7 +636,23 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
        replaces the offer; an offer turned on follows its answer. An offer takes no pick and no clear on
        the fields its link side decides, the generic, the indication, the route and the dose type: a
        clear of the dose type would widen the lists of the evening offer of ataluren to the dose of the
-       main order. Decision of the 9a review, 2026-11-04, halcwb.
+       main order. Decision of the 9a review, 2026-11-04, halcwb. The rule lives in a Client.Core policy
+       that the offer view of 9d reads to show which filter fields of an offer are open, as FieldOpenPolicy
+       does for other fields; the machine sends any command. A command the policy closes is refused by
+       the add check of rule 15 all the same: an evening offer of ataluren cleared and picked again as
+       the dose of the main order is not allowed under it. Decision of the 9b review, 2026-11-04, halcwb. Decisions, 2026-11-04, halcwb:
+       - An offer is turned on or off as a switch, as rule 9 has it; the scenario is the one the offer is
+         narrowed to, chosen with a command on the offer as any scenario is. A dose step keeps the order
+         of a scenario and a pick makes a new one, so a scenario carried with the switch would be lost
+         at the next pick. An offer turned on and not narrowed to one scenario is left out of the totals
+         and refuses the prescribe, as after a form clear on the hydrocortison dose of 13:00.
+       - A refusal of a command on an offer keeps the offer as the server sent it back and tells why; a
+         failure leaves it as it was. An offer has no refused state of its own: its lists are the
+         server's answer for the same patient as the main order.
+       - The context and its offers share the one request of the machine, so the lane waits on either,
+         and the page of the context is not shown changing while an offer's request is out.
+       Script `src/Informedica.GenPRES.Client.Core/Scripts/OfferCommands.fsx`, with modified copies of
+       the three files it changes, deleted in this step.
      - **9c. The slot removal, the group lock and the row check**, in Client.Core, by script:
        `PlanContextPolicy.locked` takes the plan, and the row check of rule 13 as a policy over the
        plan's links. Two pull requests if it does not fit.

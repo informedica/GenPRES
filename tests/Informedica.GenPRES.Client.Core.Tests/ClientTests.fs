@@ -798,11 +798,11 @@ let totalsQueryTests =
                     withSlot feedingSlot
                     |> transition
                         (LanesTests.counter ())
-                        (ClientMsg.Lanes(LanesMsg.Slot("s-1", OrderContextMsg.TurnOfferOn(0, bmf.Scenarios[0]))))
+                        (ClientMsg.Lanes(LanesMsg.Slot("s-1", OrderContextMsg.TurnOfferOn 0)))
                     |> fun (state, _, _) -> state
 
                 withSlot feedingSlot
-                |> queries (ClientMsg.Lanes(LanesMsg.Slot("s-1", OrderContextMsg.TurnOfferOn(0, bmf.Scenarios[0]))))
+                |> queries (ClientMsg.Lanes(LanesMsg.Slot("s-1", OrderContextMsg.TurnOfferOn 0)))
                 |> Expect.equal "with BMF" [ Some [| "o-c-1"; "o-feeding"; "o-bmf" |] ]
 
                 on

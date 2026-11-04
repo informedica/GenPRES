@@ -1192,19 +1192,22 @@ module LinkedOfferFixtures =
     /// The workbench with ataluren narrowed to its morning and midday dose, the evening dose offered.
     let atalurenOffered = answered selectScenario atalurenMain [| atalurenEvening |]
 
-    let turnOn offer (sc: OrderScenario) state =
-        state
-        |> OrderContextState.transition (OrderContextMsg.TurnOfferOn(offer, sc))
-        |> fst
+    let turnOn offer state =
+        state |> OrderContextState.transition (OrderContextMsg.TurnOfferOn offer) |> fst
 
     /// The evening dose turned on.
-    let eveningOn = atalurenOffered |> turnOn 0 atalurenEvening.Scenarios[0]
+    let eveningOn = atalurenOffered |> turnOn 0
 
 
     let turnedOn state =
         state
         |> OrderContextState.linkedOffers
-        |> Array.map (fun offer -> offer.Context.Filter.Generic, offer.TurnedOn |> Option.map _.Order.Id)
+        |> Array.map (fun offer ->
+            offer.Context.Filter.Generic,
+            match offer.Switch with
+            | OfferSwitch.On -> offer |> LinkedOffer.narrowed |> Option.map _.Scenarios[0].Order.Id
+            | OfferSwitch.Off -> None
+        )
 
 
 open LinkedOfferFixtures
@@ -1234,7 +1237,7 @@ let linkedOfferTests =
             }
 
             test "a dose step of the feeding leaves BMF offered and turned on" {
-                let bmfOn = answered selectScenario feeding [| bmf |] |> turnOn 0 bmf.Scenarios[0]
+                let bmfOn = answered selectScenario feeding [| bmf |] |> turnOn 0
 
                 bmfOn
                 |> OrderContextState.transition (OrderContextMsg.Command(doseStep, "r-2"))
@@ -1300,5 +1303,256 @@ let linkedOfferTests =
                 |> fst
                 |> turnedOn
                 |> Expect.isEmpty "new patient data"
+            }
+        ]
+
+
+/// Commands on a linked offer, over the evening dose of ataluren and the supplement BMF.
+module OfferCommandFixtures =
+
+    open Informedica.GenPRES.Client.Core.Tests.OrderFixtures
+
+
+    /// The evening dose with two scenarios, the granulate sachets of two strengths, not yet narrowed.
+    let eveningOfTwo =
+        { atalurenEvening with Scenarios = [| scenario "o-avond-1" "ataluren"; scenario "o-avond-2" "ataluren" |] }
+
+
+    let step msg state = state |> OrderContextState.transition msg
+
+
+    let next msg state = state |> step msg |> fst
+
+
+    /// The evening dose of two scenarios offered and turned on.
+    let eveningOfTwoOn =
+        answered selectScenario atalurenMain [| eveningOfTwo |]
+        |> next (OrderContextMsg.TurnOfferOn 0)
+
+
+    /// The offers by their generic and switch.
+    let switches state =
+        state
+        |> OrderContextState.linkedOffers
+        |> Array.map (fun offer -> offer.Context.Filter.Generic, offer.Switch)
+
+
+    let orderIds (contexts: OrderContext[]) = contexts |> Array.collect (_.Scenarios >> Array.map _.Order.Id)
+
+
+    let reCalc = OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Time
+
+
+    /// The evening dose after a dose step on it went out as r-2.
+    let eveningStepped = eveningOn |> step (OrderContextMsg.OfferCommand(0, doseStep, "r-2"))
+
+
+open OfferCommandFixtures
+
+
+[<Tests>]
+let offerCommandTests =
+    testList
+        "commands on a linked offer"
+        [
+            test "a feeding turns on one supplement of two" {
+                let liquigen = { bmf with Filter = { bmf.Filter with Generic = Some "Liquigen pdr" } }
+
+                answered selectScenario feeding [| bmf; liquigen |]
+                |> next (OrderContextMsg.TurnOfferOn 1)
+                |> switches
+                |> Expect.equal
+                    "Liquigen on"
+                    [|
+                        (Some "Nutrilon Nenatal BMF pdr", OfferSwitch.Off)
+                        (Some "Liquigen pdr", OfferSwitch.On)
+                    |]
+            }
+
+            test "an offer turned on and narrowed counts and is prescribed" {
+                eveningOn
+                |> OrderContextState.linkedTurnedOn
+                |> orderIds
+                |> Expect.equal "o-avond" [| "o-avond" |]
+
+                eveningOn
+                |> OrderContextState.linkedToPrescribe
+                |> Option.map orderIds
+                |> Expect.equal "o-avond" (Some [| "o-avond" |])
+            }
+
+            test "an offer turned on with two scenarios is left out of the totals and refuses the prescribe" {
+                eveningOfTwoOn
+                |> OrderContextState.linkedTurnedOn
+                |> Expect.isEmpty "none counted"
+
+                eveningOfTwoOn |> OrderContextState.linkedToPrescribe |> Expect.isNone "refused"
+            }
+
+            test "an offer turned off is not prescribed, also with two scenarios" {
+                answered selectScenario atalurenMain [| eveningOfTwo |]
+                |> OrderContextState.linkedToPrescribe
+                |> Expect.equal "none" (Some [||])
+            }
+
+            test "a command goes out over the offer, for the patient held" {
+                eveningStepped
+                |> snd
+                |> Expect.equal
+                    "the offer sent"
+                    [
+                        OrderContextEffect.CallContext(
+                            OrderContextCommand.Command(doseStep, { atalurenEvening with Patient = patient }),
+                            "r-2"
+                        )
+                    ]
+            }
+
+            test "the lane waits on the command, and the main order stays settled" {
+                let state = eveningStepped |> fst
+
+                state |> OrderContextState.inFlightRequest |> Expect.equal "r-2" (Some "r-2")
+
+                state
+                |> OrderContextState.view
+                |> Expect.equal
+                    "settled"
+                    (OrderContextView.Settled { atalurenMain with LinkedOrders = [| atalurenEvening |] })
+            }
+
+            test "the answer replaces the offer and keeps it turned on" {
+                let stepped =
+                    { atalurenEvening with Scenarios = [| OrderFixtures.scenario "o-avond" "ataluren stepped" |] }
+
+                let state =
+                    eveningStepped
+                    |> fst
+                    |> next (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated stepped)))
+
+                state |> OrderContextState.inFlightRequest |> Expect.isNone "nothing out"
+
+                state
+                |> OrderContextState.linkedOffers
+                |> Array.map (fun o -> o.Context.Scenarios[0].Name, o.Switch)
+                |> Expect.equal "stepped, on" [| ("ataluren stepped", OfferSwitch.On) |]
+            }
+
+            test "an answer of two scenarios to a form clear leaves the offer on, not counted" {
+                let state =
+                    eveningStepped
+                    |> fst
+                    |> next (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated eveningOfTwo)))
+
+                state |> switches |> Expect.equal "on" [| (Some "ataluren", OfferSwitch.On) |]
+                state
+                |> OrderContextState.linkedToPrescribe
+                |> Expect.isNone "refuses the prescribe"
+            }
+
+            test "a refusal keeps the offer as sent back and tells why" {
+                let back =
+                    { atalurenEvening with Scenarios = [| OrderFixtures.scenario "o-avond" "ataluren as sent" |] }
+
+                let state, effects =
+                    eveningStepped
+                    |> fst
+                    |> step (
+                        OrderContextMsg.Answered(
+                            "r-2",
+                            Ok(OrderContextResponse.Refused(back, OrderContextRefusal.NotSolved))
+                        )
+                    )
+
+                effects
+                |> Expect.equal "told" [ OrderContextEffect.TellNotApplied OrderContextRefusal.NotSolved ]
+
+                state
+                |> OrderContextState.linkedOffers
+                |> Array.map _.Context.Scenarios[0].Name
+                |> Expect.equal "as sent" [| "ataluren as sent" |]
+            }
+
+            test "a failure leaves the offer as it was and tells the error" {
+                let state, effects =
+                    eveningStepped
+                    |> fst
+                    |> step (OrderContextMsg.Answered("r-2", Error [| "down" |]))
+
+                effects |> Expect.equal "told" [ OrderContextEffect.TellError [| "down" |] ]
+
+                state
+                |> OrderContextState.linkedOffers
+                |> Array.map _.Context
+                |> Expect.equal "as it was" [| atalurenEvening |]
+            }
+
+            test "the main order's pages do not follow an offer's answer" {
+                eveningStepped
+                |> fst
+                |> step (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated atalurenEvening)))
+                |> snd
+                |> Expect.isEmpty "no page synced"
+            }
+
+            test "the main order's answer to a command of its own keeps the offers" {
+                eveningOn
+                |> next (OrderContextMsg.Command(doseStep, "r-2"))
+                |> next (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated atalurenMain)))
+                |> switches
+                |> Expect.equal "still on" [| (Some "ataluren", OfferSwitch.On) |]
+            }
+
+            test "a refused reset of an offer keeps the explanation the offer holds" {
+                let argued = { atalurenEvening with Argumentation = Some "a higher evening dose, as agreed" }
+
+                let offered =
+                    answered selectScenario atalurenMain [| argued |]
+                    |> next (OrderContextMsg.TurnOfferOn 0)
+                    |> next (OrderContextMsg.OfferCommand(0, OrderViewCommand.ResetOrderScenario, "r-2"))
+
+                offered
+                |> next (
+                    OrderContextMsg.Answered(
+                        "r-2",
+                        Ok(
+                            OrderContextResponse.Refused(
+                                { argued with Argumentation = None },
+                                OrderContextRefusal.NotSolved
+                            )
+                        )
+                    )
+                )
+                |> OrderContextState.linkedOffers
+                |> Array.map _.Context.Argumentation
+                |> Expect.equal "kept" [| Some "a higher evening dose, as agreed" |]
+            }
+
+            test "a recalculation on an offer closed without a pick puts the offer back" {
+                let recalculated =
+                    { atalurenEvening with Scenarios = [| OrderFixtures.scenario "o-avond" "recalculated" |] }
+
+                eveningOn
+                |> next (OrderContextMsg.OfferCommand(0, reCalc, "r-2"))
+                |> next (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated recalculated)))
+                |> next OrderContextMsg.RestoreField
+                |> OrderContextState.linkedOffers
+                |> Array.map _.Context
+                |> Expect.equal "as before" [| atalurenEvening |]
+            }
+
+            test "a command on an offer closes a recalculation list of the main order" {
+                let mainReCalc =
+                    eveningOn
+                    |> next (OrderContextMsg.Command(reCalc, "r-2"))
+                    |> next (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated atalurenMain)))
+
+                mainReCalc
+                |> OrderContextState.isKept
+                |> Expect.isTrue "the main order's state kept"
+
+                mainReCalc
+                |> next (OrderContextMsg.OfferCommand(0, doseStep, "r-3"))
+                |> OrderContextState.isKept
+                |> Expect.isFalse "closed"
             }
         ]

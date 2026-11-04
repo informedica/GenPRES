@@ -222,19 +222,22 @@ module Lanes =
                 | None -> Some lanes.OrderContext
                 | Some id -> lanes.Slots |> Map.tryFind id
 
+            // an offer turned on and not narrowed to one scenario refuses the prescribe
             let narrowed =
                 lane
                 |> Option.bind (fun lane ->
-                    lane
-                    |> OrderContextState.narrowedTo orderId
-                    |> Option.map (fun ctx -> lane, ctx)
+                    match
+                        lane |> OrderContextState.narrowedTo orderId, lane |> OrderContextState.linkedToPrescribe
+                    with
+                    | Some ctx, Some linked -> Some(ctx, linked)
+                    | _ -> None
                 )
 
             match narrowed with
-            | Some(lane, ctx) ->
+            | Some(ctx, linked) ->
                 // the context goes with its slot id, so that the answer empties that slot
                 let ctx = { ctx with Id = slotId |> Option.defaultValue ctx.Id }
-                let add = OrderPlanChange.Add(ctx, lane |> OrderContextState.linkedTurnedOn)
+                let add = OrderPlanChange.Add(ctx, linked)
                 let lanes, effects, taken = step (LanesMsg.Plan(OrderPlanMsg.Change(add, request))) lanes
 
                 if slotId.IsNone && lanes.OrderPlan |> OrderPlanState.awaits request then
