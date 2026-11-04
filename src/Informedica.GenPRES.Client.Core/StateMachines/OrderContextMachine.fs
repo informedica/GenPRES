@@ -153,8 +153,11 @@ module OrderContextMachine =
         /// The list of a recalculation closed without a pick: the context kept is put back, and the
         /// answer to the recalculation is dropped.
         | RestoreField
-        /// The linked offer with this index in the list turned on with the scenario, or off with none.
-        | TurnLinked of index: int * OrderScenario option
+        /// The linked order offer with this index in the list turned on, with the scenario that goes into
+        /// the plan.
+        | TurnOfferOn of index: int * OrderScenario
+        /// The linked order offer with this index in the list turned off.
+        | TurnOfferOff of index: int
 
 
     /// What the App carries out for the order context machine.
@@ -387,6 +390,14 @@ module OrderContextMachine =
                         Kept = kept
                     }
 
+            // the offer with the index turned on with the scenario, or off with none
+            let turned index turnedOn =
+                { state with
+                    LinkedOffers =
+                        state.LinkedOffers
+                        |> Array.mapi (fun i o -> if i = index then { o with TurnedOn = turnedOn } else o)
+                }
+
             // a new workbench, the dialog and the recalculation list closed, and the linked offers gone with the
             // order
             let renewed workbench =
@@ -455,13 +466,8 @@ module OrderContextMachine =
                 | Some kept -> kept, []
                 | None -> state, []
             // turning a linked offer on or off needs no request
-            | OrderContextMsg.TurnLinked(index, turnedOn), _, _ ->
-                { state with
-                    LinkedOffers =
-                        state.LinkedOffers
-                        |> Array.mapi (fun i o -> if i = index then { o with TurnedOn = turnedOn } else o)
-                },
-                []
+            | OrderContextMsg.TurnOfferOn(index, sc), _, _ -> turned index (Some sc), []
+            | OrderContextMsg.TurnOfferOff index, _, _ -> turned index None, []
 
             // the patient cleared reaches every state: no workbench, and the request out is dropped
             | OrderContextMsg.PatientDataChanged(None, _), _, _ -> noPatient, []

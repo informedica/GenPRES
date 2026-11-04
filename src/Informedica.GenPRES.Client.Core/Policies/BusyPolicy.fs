@@ -43,9 +43,14 @@ module BusyPolicy =
 
 
     /// Whether anything is out that holds the menu, the title bar and the patient panel: every
-    /// request but the drug names.
+    /// request but the drug names and the totals, which start without a click.
     let any out =
-        out |> List.exists (fun request -> request <> Request.Load Load.DrugNames)
+        out
+        |> List.exists (fun request ->
+            match request with
+            | Request.Load(Load.DrugNames | Load.Totals) -> false
+            | _ -> true
+        )
 
 
     /// Whether the page is disabled: a request out can change anything on it.

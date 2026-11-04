@@ -173,6 +173,14 @@ module private Effects =
                     Command = Api.InteractionCommand.CheckInteractions drugs
                 }
                 (landed (fun result -> LoaderMachine.Landing.Interactions(check, opened, result)))
+        | LoaderMachine.LoaderEffect.FetchTotals(number, query) ->
+            Cmd.OfAsync.perform
+                serverApi.processTotals
+                {
+                    Opened = opened
+                    Command = query
+                }
+                (landed (fun result -> LoaderMachine.Landing.Totals(number, opened, result)))
         | LoaderMachine.LoaderEffect.FetchDrugNames ->
             Cmd.OfAsync.perform
                 serverApi.processInteraction

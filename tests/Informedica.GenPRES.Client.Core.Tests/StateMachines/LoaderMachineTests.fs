@@ -693,3 +693,108 @@ let tests =
                     }
                 ]
         ]
+
+
+/// A totals query over a feeding, as the client sends one while a feeding slot is narrowed.
+module TotalsFixtures =
+
+    let feeding =
+        { Informedica.GenPRES.Client.Core.Tests.OrderFixtures.context "" "Nutrilon Nenatal 1" with
+            Category = OrderCategory.Nutrition NutritionCategory.EnteralFeeding
+        }
+
+    let query: TotalsQuery =
+        {
+            Patient = Informedica.GenPRES.Client.Core.Tests.OrderFixtures.draft
+            OrderContexts = [| feeding |]
+        }
+
+    let landedTotals n result =
+        LoaderMsg.Landed(
+            Landing.Totals(
+                n,
+                None,
+                result
+                |> Result.map (fun t ->
+                    {
+                        Response = t
+                        Notice = None
+                    }
+                )
+            )
+        )
+
+    let someTotals = Informedica.GenPRES.Shared.Models.Totals.empty
+
+
+open TotalsFixtures
+
+
+[<Tests>]
+let totalsTests =
+    testList
+        "the totals query"
+        [
+            test "a query asks for the totals under its number, the totals shown staying" {
+                LoaderState.initial
+                |> LoaderMachine.transition (LoaderMsg.QueryTotals(Some query))
+                |> fun (state, effects) ->
+                    effects
+                    |> Expect.equal "fetched as query 1" [ LoaderEffect.FetchTotals(1, query) ]
+                    state.Totals |> Expect.equal "refreshing" InProgress
+            }
+
+            test "the answer to the query lands, and an answer to an earlier one is dropped" {
+                let twice =
+                    LoaderState.initial
+                    |> LoaderMachine.transition (LoaderMsg.QueryTotals(Some query))
+                    |> fst
+                    |> LoaderMachine.transition (LoaderMsg.QueryTotals(Some query))
+                    |> fst
+
+                twice
+                |> LoaderMachine.transition (landedTotals 1 (Ok someTotals))
+                |> Expect.equal "query 1 dropped" (twice, [])
+
+                twice
+                |> LoaderMachine.transition (landedTotals 2 (Ok someTotals))
+                |> fun (state, effects) ->
+                    state.Totals |> Expect.equal "query 2 landed" (Resolved someTotals)
+
+                    effects
+                    |> Expect.equal
+                        "the banner cleared"
+                        [ LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Totals ]
+            }
+
+            test "a failed query clears the totals and names them on the banner" {
+                LoaderState.initial
+                |> LoaderMachine.transition (LoaderMsg.QueryTotals(Some query))
+                |> fst
+                |> LoaderMachine.transition (landedTotals 1 (Error [| "down" |]))
+                |> fun (state, effects) ->
+                    state.Totals |> Expect.equal "cleared" HasNotStartedYet
+
+                    effects
+                    |> Expect.equal
+                        "the banner"
+                        [
+                            LoaderEffect.RequestFailed(ServerErrorPolicy.ErrorSource.Totals, [| "down" |])
+                        ]
+            }
+
+            test "the empty query clears the totals, asks nothing and drops an answer still out" {
+                let cleared =
+                    LoaderState.initial
+                    |> LoaderMachine.transition (LoaderMsg.QueryTotals(Some query))
+                    |> fst
+                    |> LoaderMachine.transition (LoaderMsg.QueryTotals None)
+
+                cleared |> snd |> Expect.isEmpty "nothing asked"
+                (fst cleared).Totals |> Expect.equal "cleared" HasNotStartedYet
+
+                fst cleared
+                |> LoaderMachine.transition (landedTotals 1 (Ok someTotals))
+                |> Expect.equal "the answer still out dropped" (fst cleared, [])
+            }
+        ]

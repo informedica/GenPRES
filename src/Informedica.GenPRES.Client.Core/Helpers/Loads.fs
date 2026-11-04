@@ -21,6 +21,9 @@ module Loads =
         /// The drug names of the interactions page; they also start without a click, after a
         /// failure, so they never hold the menu, the title bar or the panel.
         | DrugNames
+        /// The combined totals of the nutrition page. They also start without a click, when a step changed
+        /// the orders they count, so they never hold the menu, the title bar or the panel either.
+        | Totals
         | LogFiles
         | LogAnalysis
         /// The resource reload, until the server has reloaded.

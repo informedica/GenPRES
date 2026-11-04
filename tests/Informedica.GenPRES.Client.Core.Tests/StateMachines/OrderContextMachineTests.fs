@@ -1194,7 +1194,7 @@ module LinkedOfferFixtures =
 
     let turnOn offer (sc: OrderScenario) state =
         state
-        |> OrderContextState.transition (OrderContextMsg.TurnLinked(offer, Some sc))
+        |> OrderContextState.transition (OrderContextMsg.TurnOfferOn(offer, sc))
         |> fst
 
     /// The evening dose turned on.
@@ -1227,7 +1227,7 @@ let linkedOfferTests =
                 |> Expect.equal "on, with o-avond" [| (Some "ataluren", Some "o-avond") |]
 
                 eveningOn
-                |> OrderContextState.transition (OrderContextMsg.TurnLinked(0, None))
+                |> OrderContextState.transition (OrderContextMsg.TurnOfferOff 0)
                 |> fst
                 |> turnedOn
                 |> Expect.equal "off" [| (Some "ataluren", None) |]

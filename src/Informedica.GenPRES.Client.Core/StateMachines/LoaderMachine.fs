@@ -8,7 +8,8 @@ namespace Informedica.GenPRES.Client.Core.StateMachines
 /// medication when it lands. The server is checked until it answers, and the drug names are asked
 /// again after a failure, until the third. The formulary and parenteralia pages follow the
 /// workbench's filter and the patient, and a choice on either page is seeded over the workbench.
-/// Each interaction check is numbered, so that an answer to an earlier check is dropped.
+/// Each interaction check and each query of the combined totals is numbered, so that an answer to an
+/// earlier one is dropped.
 module LoaderMachine =
 
     open Informedica.GenPRES.Client.Core.Helpers
@@ -46,6 +47,10 @@ module LoaderMachine =
             /// The number of the interaction check under way; an answer to an earlier check is dropped,
             /// so it can neither replace the rows nor clear the error of a later one.
             InteractionCheck: int
+            /// The combined totals of the nutrition page, over the orders last asked for.
+            Totals: Deferred<Totals>
+            /// The number of the totals query under way; an answer to an earlier query is dropped.
+            TotalsQueryNumber: int
             /// The formulary page.
             Formulary: Deferred<Formulary>
             /// The workbench filter answered while the formulary loaded, asked for once the load lands.
@@ -83,6 +88,8 @@ module LoaderMachine =
         | DrugNames of from: OpenedToken option * Result<Reply<InteractionResponse>, string[]>
         /// The interactions of a numbered check, with the token the request was sent with.
         | Interactions of check: int * from: OpenedToken option * Result<Reply<InteractionResponse>, string[]>
+        /// The totals of a numbered query, with the token the request was sent with.
+        | Totals of number: int * from: OpenedToken option * Result<Reply<Totals>, string[]>
         /// The formulary page, with the token the request was sent with.
         | Formulary of from: OpenedToken option * Result<Reply<Formulary>, string[]>
         /// The parenteralia page, with the token the request was sent with.
@@ -116,6 +123,8 @@ module LoaderMachine =
         | ResourcesReloaded
         /// The interactions of these drugs asked for.
         | CheckInteractions of drugs: string list
+        /// The combined totals over the orders of the query asked for; an empty query clears them.
+        | QueryTotals of TotalsQuery option
 
 
     /// What the App carries out: a call, whose answer comes back as a message, a wait, or what the
@@ -133,6 +142,8 @@ module LoaderMachine =
         | FetchParenteralia of Parenteralia
         /// Ask for the interactions of these drugs, under the number of the check.
         | FetchInteractions of check: int * drugs: string list
+        /// Ask for the totals over the orders of the query, under the number of the query.
+        | FetchTotals of number: int * TotalsQuery
         /// Seed the workbench's filter.
         | SeedWorkbench of FilterSeed
         /// The server settings landed: the default language and the demo flag.
@@ -171,6 +182,8 @@ module LoaderMachine =
                 DrugNames = HasNotStartedYet
                 Interactions = HasNotStartedYet
                 InteractionCheck = 0
+                Totals = HasNotStartedYet
+                TotalsQueryNumber = 0
                 Formulary = HasNotStartedYet
                 FormularyAskAgain = None
                 Parenteralia = HasNotStartedYet
@@ -199,6 +212,7 @@ module LoaderMachine =
                 Load.Parenteralia, reading state.Parenteralia
                 Load.DrugNames, reading state.DrugNames
                 Load.Interactions, reading state.Interactions
+                Load.Totals, reading state.Totals
             ]
 
 
@@ -465,6 +479,16 @@ module LoaderMachine =
             { state with Interactions = HasNotStartedYet },
             [ LoaderEffect.RequestFailed(ServerErrorPolicy.ErrorSource.Interactions, errs) ]
 
+        // an answer to an earlier query is dropped
+        | LoaderMsg.Landed(Landing.Totals(number, _, _)) when number <> state.TotalsQueryNumber -> state, []
+        | LoaderMsg.Landed(Landing.Totals(_, from, Ok reply)) ->
+            { state with Totals = Resolved reply.Response },
+            LoaderEffect.RequestSucceeded ServerErrorPolicy.ErrorSource.Totals
+            :: told from reply
+        | LoaderMsg.Landed(Landing.Totals(_, _, Error errs)) ->
+            { state with Totals = HasNotStartedYet },
+            [ LoaderEffect.RequestFailed(ServerErrorPolicy.ErrorSource.Totals, errs) ]
+
         | LoaderMsg.CheckServer ->
             let reading, effects = state.Server |> start LoaderEffect.CheckServer
             { state with Server = reading }, effects
@@ -626,5 +650,22 @@ module LoaderMachine =
                     InteractionCheck = check
                 },
                 [ LoaderEffect.FetchInteractions(check, drugs) ]
+        // every query, the empty one too, ends the queries before it; the totals shown stay until the answer
+        | LoaderMsg.QueryTotals query ->
+            let number = state.TotalsQueryNumber + 1
+
+            match query with
+            | None ->
+                { state with
+                    Totals = HasNotStartedYet
+                    TotalsQueryNumber = number
+                },
+                []
+            | Some query ->
+                { state with
+                    Totals = state.Totals |> Deferred.refresh
+                    TotalsQueryNumber = number
+                },
+                [ LoaderEffect.FetchTotals(number, query) ]
 
         | _ -> state, []

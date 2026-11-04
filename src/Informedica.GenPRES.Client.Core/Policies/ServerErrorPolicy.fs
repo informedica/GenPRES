@@ -18,6 +18,8 @@ module ServerErrorPolicy =
         | Parenteralia
         /// Checking the interactions.
         | Interactions
+        /// Counting the combined totals of the nutrition page.
+        | Totals
         /// Logging in to the admin pages.
         | Login
         /// Listing the log files.

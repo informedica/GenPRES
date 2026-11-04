@@ -641,8 +641,8 @@ module Trail =
             | OrderContextMsg.Reset request -> $"Reset %s{Part.shortId request}"
             | OrderContextMsg.SelectScenario id -> $"SelectScenario %s{id |> Part.orNone Part.shortId}"
             | OrderContextMsg.RestoreField -> "RestoreField"
-            | OrderContextMsg.TurnLinked(offer, sc) ->
-                $"TurnLinked %i{offer} %s{sc |> Part.orNone (fun sc -> Part.shortId sc.Order.Id)}"
+            | OrderContextMsg.TurnOfferOn(index, sc) -> $"TurnOfferOn %i{index} %s{Part.shortId sc.Order.Id}"
+            | OrderContextMsg.TurnOfferOff index -> $"TurnOfferOff %i{index}"
 
 
         /// An order context effect; a context by its id, never the filter or the error texts.
@@ -746,6 +746,7 @@ module Trail =
             | Load.Parenteralia -> "Parenteralia"
             | Load.Interactions -> "Interactions"
             | Load.DrugNames -> "DrugNames"
+            | Load.Totals -> "Totals"
             | Load.LogFiles -> "LogFiles"
             | Load.LogAnalysis -> "LogAnalysis"
             | Load.Reload -> "Reload"
@@ -758,6 +759,7 @@ module Trail =
             | ServerErrorPolicy.ErrorSource.Formulary -> "Formulary"
             | ServerErrorPolicy.ErrorSource.Parenteralia -> "Parenteralia"
             | ServerErrorPolicy.ErrorSource.Interactions -> "Interactions"
+            | ServerErrorPolicy.ErrorSource.Totals -> "Totals"
             | ServerErrorPolicy.ErrorSource.Login -> "Login"
             | ServerErrorPolicy.ErrorSource.LogFiles -> "LogFiles"
             | ServerErrorPolicy.ErrorSource.LogAnalysis -> "LogAnalysis"
@@ -816,6 +818,8 @@ module Trail =
                 | Landing.DrugNames(from, r) -> $"DrugNames %s{Part.token from}", r |> Part.result interactionReply
                 | Landing.Interactions(check, from, r) ->
                     $"Interactions check %i{check} %s{Part.token from}", r |> Part.result interactionReply
+                | Landing.Totals(number, from, r) ->
+                    $"Totals %i{number} %s{Part.token from}", r |> Part.result (named "totals")
                 | Landing.Formulary(from, r) -> $"Formulary %s{Part.token from}", r |> Part.result (named "formulary")
                 | Landing.Parenteralia(from, r) ->
                     $"Parenteralia %s{Part.token from}", r |> Part.result (named "parenteralia")
@@ -840,6 +844,7 @@ module Trail =
             | LoaderMsg.ParenteraliaChanged p -> $"ParenteraliaChanged %s{parenteralia p}"
             | LoaderMsg.ResourcesReloaded -> "ResourcesReloaded"
             | LoaderMsg.CheckInteractions drugs -> $"CheckInteractions %i{drugs.Length} drugs"
+            | LoaderMsg.QueryTotals query -> $"QueryTotals %s{query |> Part.orNone TotalsQuery.toString}"
 
 
         /// A call to make.
@@ -856,6 +861,7 @@ module Trail =
             | LoaderEffect.FetchParenteralia p -> $"FetchParenteralia %s{parenteralia p}"
             | LoaderEffect.FetchInteractions(check, drugs) ->
                 $"FetchInteractions check %i{check} %i{drugs.Length} drugs"
+            | LoaderEffect.FetchTotals(number, query) -> $"FetchTotals %i{number} %s{TotalsQuery.toString query}"
             | LoaderEffect.SeedWorkbench seed ->
                 $"SeedWorkbench %s{OrderContext.seedSource seed.Source} %i{OrderContext.seedChoices seed} choices"
             | LoaderEffect.SettingsLanded s ->
