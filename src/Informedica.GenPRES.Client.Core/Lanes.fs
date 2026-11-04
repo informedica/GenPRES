@@ -48,6 +48,9 @@ module Lanes =
         /// A nutrition slot of the category started under the slot id the client minted, evaluated for
         /// the patient the workbench is evaluated for; when the workbench has no patient, no slot starts.
         | StartSlot of slotId: string * NutritionCategory * request: string
+        /// The nutrition slot with the id closed: the slot is taken out, and an answer still out for it finds
+        /// no slot and is dropped.
+        | RemoveSlot of slotId: string
         | Plan of OrderPlanMsg
         /// A server answer with the notice its reply carried, if any: the answer reaches its
         /// machine and the notice the Session.
@@ -87,6 +90,8 @@ module Lanes =
         | Patient of PatientMsg * PatientState * PatientEffect list
         | Workbench of OrderContextMsg * OrderContextState * OrderContextEffect list
         | Slot of slotId: string * OrderContextMsg * OrderContextState * OrderContextEffect list
+        /// The nutrition slot with the id taken out.
+        | SlotRemoved of slotId: string
         | Plan of OrderPlanMsg * OrderPlanState * OrderPlanEffect list
         | Session of SessionMsg * SessionState * SessionEffect list
         /// The patient, the workbench, the slots, the plan and the signing lane set back to their initial
@@ -202,6 +207,8 @@ module Lanes =
             step
                 (LanesMsg.Slot(id, OrderContextMsg.PatientDataChanged(pat, request)))
                 { lanes with Slots = lanes.Slots |> Map.add id (OrderContextState.slot category) }
+        | LanesMsg.RemoveSlot id ->
+            { lanes with Slots = lanes.Slots |> Map.remove id }, [], [ LanesStep.SlotRemoved id ]
         // the answer first, then the notice: the Session decides whether the notice still counts
         | LanesMsg.Answer(answer, from, notice) ->
             let lanes, effects, taken = step answer lanes

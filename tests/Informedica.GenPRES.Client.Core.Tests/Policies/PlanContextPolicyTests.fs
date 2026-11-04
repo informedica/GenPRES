@@ -98,8 +98,10 @@ module PlanContextPolicyTests =
                                         order.Scenarios |> Array.map (fun sc -> { sc with NotRecalculated = true })
                                 }
 
-                            PlanContextPolicy.locked order |> Expect.isFalse "an order calculated"
-                            PlanContextPolicy.locked marked |> Expect.isTrue "an order not calculated"
+                            PlanContextPolicy.locked (plan [| order |]) order
+                            |> Expect.isFalse "an order calculated"
+                            PlanContextPolicy.locked (plan [| marked |]) marked
+                            |> Expect.isTrue "an order not calculated"
 
                             PlanContextPolicy.editingOf (plan [| order |]) order.Id
                             |> Expect.equal "the plan context rule" PlanContextPolicy.Editing.PlanContext
@@ -108,8 +110,6 @@ module PlanContextPolicyTests =
                             |> Expect.equal "read-only" PlanContextPolicy.Editing.Locked
 
                             PlanContextPolicy.changed order marked |> Expect.isTrue "the mark is a change"
-                            PlanCellPolicy.stepable marked PlanCellPolicy.Column.Frequency
-                            |> Expect.isNone "no step"
                             PlanContextPolicy.canEdit PlanContextPolicy.Editing.Locked "x"
                             |> Expect.isFalse "no field"
                             PlanContextPolicy.argues PlanContextPolicy.Editing.Locked
@@ -302,5 +302,121 @@ module PlanContextPolicyTests =
                     [ PlanContextPolicy.Editing.Workbench; PlanContextPolicy.Editing.PlanContext ]
                     |> List.map PlanContextPolicy.resets
                     |> Expect.equal "only the workbench resets" [ true; false ]
+                }
+            ]
+
+
+    /// Breast milk with the fortifier Nutrilon Nenatal BMF pdr linked to it, which the LinkRules sheet links
+    /// with MainGeneric MM and Required yes, a second supplement Fantomalt linked to the same feeding, the
+    /// morning and midday dose of ataluren with its evening dose linked, and paracetamol, linked to nothing.
+    module LinkFixtures =
+
+        let linked id name linkedTo = { context id name with LinkedTo = linkedTo }
+
+
+        /// The context as it stands when it could not be calculated on the current patient data.
+        let notCalculated (ctx: OrderContext) =
+            { ctx with Scenarios = ctx.Scenarios |> Array.map (fun sc -> { sc with NotRecalculated = true }) }
+
+
+        let breastMilk = linked "c-1" "MM" None
+        let fortifier = linked "c-2" "Nutrilon Nenatal BMF pdr" (Some "c-1")
+        let fantomalt = linked "c-3" "Fantomalt" (Some "c-1")
+        let paracetamol = linked "c-4" "paracetamol" None
+        let atalurenMain = linked "c-5" "ataluren" None
+        let atalurenEvening = linked "c-6" "ataluren" (Some "c-5")
+
+
+        /// The plan with every order calculated.
+        let calculated =
+            [|
+                breastMilk
+                fortifier
+                fantomalt
+                paracetamol
+                atalurenMain
+                atalurenEvening
+            |]
+
+
+        /// The plan with the context with the id not calculated.
+        let withNotCalculated id =
+            calculated
+            |> Array.map (fun c -> if c.Id = id then notCalculated c else c)
+            |> plan
+
+
+        /// The context with the id in the plan.
+        let find id (tp: OrderPlan) = tp.OrderContexts |> Array.find (fun c -> c.Id = id)
+
+
+    open LinkFixtures
+    open Informedica.GenPRES.Client.Core.StateMachines.OrderPlanMachine
+
+
+    [<Tests>]
+    let groupLockTests =
+        testList
+            "PlanContextPolicy group lock"
+            [
+                test "a supplement not calculated locks its feeding and the other supplement of the feeding" {
+                    let tp = withNotCalculated "c-2"
+
+                    [ "c-1"; "c-2"; "c-3"; "c-4"; "c-5"; "c-6" ]
+                    |> List.map (fun id -> id, PlanContextPolicy.lock tp (find id tp))
+                    |> Expect.equal
+                        "the group of breast milk locked, the rest not"
+                        [
+                            "c-1", PlanContextPolicy.Lock.Group
+                            "c-2", PlanContextPolicy.Lock.NotCalculated
+                            "c-3", PlanContextPolicy.Lock.Group
+                            "c-4", PlanContextPolicy.Lock.Unlocked
+                            "c-5", PlanContextPolicy.Lock.Unlocked
+                            "c-6", PlanContextPolicy.Lock.Unlocked
+                        ]
+                }
+
+                test "a feeding not calculated locks the supplements linked to it" {
+                    let tp = withNotCalculated "c-1"
+
+                    [ "c-2"; "c-3" ]
+                    |> List.map (fun id -> PlanContextPolicy.lock tp (find id tp))
+                    |> Expect.equal "both by the group" [ PlanContextPolicy.Lock.Group; PlanContextPolicy.Lock.Group ]
+                }
+
+                test "the evening dose of ataluren not calculated locks the morning and midday dose" {
+                    let tp = withNotCalculated "c-6"
+
+                    PlanContextPolicy.locked tp (find "c-5" tp)
+                    |> Expect.isTrue "the main order locked"
+                }
+
+                test "a plan with every order calculated locks nothing" {
+                    let tp = plan calculated
+
+                    tp.OrderContexts
+                    |> Array.exists (PlanContextPolicy.locked tp)
+                    |> Expect.isFalse "nothing locked"
+                }
+
+                test "an order locked by its group opens the order dialog locked and sends no command" {
+                    let tp = withNotCalculated "c-2"
+
+                    PlanContextPolicy.editingOf (plan calculated) "c-1"
+                    |> Expect.equal "the dialog open on a calculated plan" PlanContextPolicy.Editing.PlanContext
+
+                    PlanContextPolicy.editingOf tp "c-1"
+                    |> Expect.equal "the dialog locked" PlanContextPolicy.Editing.Locked
+
+                    OrderPlanChange.command
+                        tp
+                        (OrderPlanChange.OrderDialogCommand(
+                            "c-1",
+                            Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearAllFilterProperty
+                        ))
+                    |> Expect.isNone "no command"
+
+                    OrderPlanChange.command tp (OrderPlanChange.Remove [| "c-1" |])
+                    |> Expect.isSome "the removal goes"
                 }
             ]

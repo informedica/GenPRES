@@ -262,6 +262,12 @@ let tests =
                 |> Expect.equal "the session's step" (Trail.session 3 at SessionMsg.Resume (session, []))
             }
 
+            test "a slot taken out reads as its removal" {
+                Trail.lanes 3 at (Lanes.LanesStep.SlotRemoved "s-1")
+                |> Trail.format
+                |> Expect.equal "the line" "#3 10:41:07.311 Slot s-1 Removed -> none | gone"
+            }
+
             test "the trail keeps the newest lines, oldest first" {
                 [ "a"; "b"; "c" ]
                 |> List.fold (fun lines line -> Trail.append 2 line lines) []

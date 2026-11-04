@@ -62,7 +62,7 @@ module OrderPlanMachine =
             | OrderPlanChange.OrderDialogCommand(id, cmd) ->
                 tp.OrderContexts
                 |> Array.tryFind (fun c -> c.Id = id)
-                |> Option.filter (PlanContextPolicy.locked >> not)
+                |> Option.filter (PlanContextPolicy.locked tp >> not)
                 |> Option.map (fun ctx -> OrderPlanCommand.EvaluateContext(tp, id, cmd, ctx))
 
 

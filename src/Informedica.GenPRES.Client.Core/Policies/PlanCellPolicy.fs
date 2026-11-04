@@ -52,11 +52,11 @@ module PlanCellPolicy =
         | Column.Dose -> None
 
 
-    /// The field and the order variable a cell of a context in the plan steps; nothing when the
-    /// cell keeps its text.
-    let stepable (ctx: OrderContext) (column: Column) =
+    /// The field and the order variable that a cell of a context steps, over the plan given; nothing when
+    /// the cell keeps its text.
+    let stepable plan (ctx: OrderContext) (column: Column) =
         Informedica.GenPRES.Shared.Models.OrderContext.contribution ctx
-        |> Option.filter (fun _ -> not (PlanContextPolicy.locked ctx))
+        |> Option.filter (fun _ -> not (PlanContextPolicy.locked plan ctx))
         |> Option.bind (fun sc ->
             fieldOf column sc.Order
             |> Option.filter (fun (field, ovar) ->
