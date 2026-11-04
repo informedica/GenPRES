@@ -127,6 +127,23 @@ module LinkRule =
         && doseTypeMatches side.DoseType doseType
 
 
+    /// Whether a link rule with Required yes matches the dose rule on its linked side, so that an order
+    /// of that dose rule is only prescribed with its main order.
+    let needsMainOrder routeMapping (rules: LinkRule[]) (doseRule: DoseRule) =
+        let label = doseRule.Generic.Label |> GenericLabel.toString
+
+        rules
+        |> Array.exists (fun r ->
+            r.Requirement = LinkRequirement.Required
+            && matches routeMapping r.Linked doseRule.Indication label doseRule.Route doseRule.DoseType
+        )
+
+
+    /// The dose rules whose orders can be prescribed on their own: those that need no main order.
+    let standAlone routeMapping rules doseRules =
+        doseRules |> Array.filter (needsMainOrder routeMapping rules >> not)
+
+
     /// The warnings for each side of a row that matches no dose rule, since no order can match it. When
     /// a dose rule has the generic under its plain name, the warning gives the label to write. A refused
     /// row is reported by the read, not here.

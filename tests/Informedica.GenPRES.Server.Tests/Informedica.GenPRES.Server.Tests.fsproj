@@ -22,6 +22,7 @@
     <Compile Include="MappersOrderPlanTests.fs" />
     <Compile Include="OrderContextSwitchTests.fs" />
     <Compile Include="NutritionRuleSetsTests.fs" />
+    <Compile Include="RequiredLinksTests.fs" />
     <Compile Include="OrderContextCommandTests.fs" />
     <Compile Include="FilterAgreementTests.fs" />
     <Compile Include="OrderValueAgreementTests.fs" />

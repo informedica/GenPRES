@@ -191,8 +191,42 @@ module Adapters =
             |> Array.collect offers
 
 
+    /// The provider without the dose rules that a link rule with Required yes matches on its linked side;
+    /// such an order is only offered by its main order. When the rules did not load, the resources hold no
+    /// dose rules to leave out, and there are none.
+    let forPickLists (provider: Resources.IResourceProvider) =
+        { new Resources.IResourceProvider with
+            member _.Get key = provider.Get key
+            member _.GetData() = provider.GetData()
+            member _.GetUnitMappings() = provider.GetUnitMappings()
+            member _.GetRouteMappings() = provider.GetRouteMappings()
+            member _.GetValidForms() = provider.GetValidForms()
+            member _.GetFormRoutes() = provider.GetFormRoutes()
+            member _.GetFormularyProducts() = provider.GetFormularyProducts()
+            member _.GetReconstitution() = provider.GetReconstitution()
+            member _.GetParenteralMeds() = provider.GetParenteralMeds()
+            member _.GetEnteralFeeding() = provider.GetEnteralFeeding()
+            member _.GetProducts() = provider.GetProducts()
+
+            member _.GetDoseRules() =
+                // one read of the resources, so that a reload between two reads cannot fail it
+                try
+                    provider.Get Resources.Keys.standAloneDoseRules
+                with :? System.Collections.Generic.KeyNotFoundException ->
+                    [||]
+
+            member _.GetSolutionRules() = provider.GetSolutionRules()
+            member _.GetRenalRules() = provider.GetRenalRules()
+            member _.GetTotals() = provider.GetTotals()
+            member _.GetGStandProvider() = provider.GetGStandProvider()
+            member _.GetDepartments() = provider.GetDepartments()
+            member _.GetResourceInfo() = provider.GetResourceInfo()
+        }
+
+
     /// The order context port over the domain's rules: an evaluated nutrition context narrowed and
-    /// settled to the rule set of the category it carries, a refused context unchanged.
+    /// settled to the rule set of the category it carries, a refused context unchanged. The pick lists
+    /// leave out the orders that need a main order; the linked offers are evaluated over every dose rule.
     let private makeOrderContextPort
         logger
         (provider: Resources.IResourceProvider)
@@ -206,7 +240,8 @@ module Adapters =
                         return
                             NutritionRuleSets.ruleSetOf provider (pc |> PlanContext.nutritionCategory)
                             |> Result.bind (fun (_, set) ->
-                                pc |> NutritionRuleSets.evaluateSettled (now ()) logger provider set cmd
+                                pc
+                                |> NutritionRuleSets.evaluateSettled (now ()) logger (forPickLists provider) set cmd
                             )
                     }
             linkedOrders =

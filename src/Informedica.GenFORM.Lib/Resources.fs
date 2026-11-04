@@ -285,6 +285,8 @@ module Resources =
         let linkRuleChecks = ResourceKey.create<unit> "linkRuleChecks"
         let products = ResourceKey.create<ProductComponent[]> "products"
         let doseRules = ResourceKey.create<DoseRule[]> "doseRules"
+        // The dose rules whose orders can be prescribed on their own, without a main order.
+        let standAloneDoseRules = ResourceKey.create<DoseRule[]> "standAloneDoseRules"
         let solutionRules = ResourceKey.create<SolutionRule[]> "solutionRules"
         let renalRules = ResourceKey.create<RenalRule[]> "renalRules"
         // The renal rules refused by the unit checks, each with the reasons.
@@ -453,6 +455,13 @@ module Resources =
                         |> RenalRule.withoutRefused (r.Get Keys.routeMappings) (r.Get Keys.refusedRenalRules)
 
                     drs, msgs @ renalMsgs
+                )
+
+                // an order that a Required link rule matches on its linked side is only offered by its main order
+                Keys.standAloneDoseRules.Name,
+                derive (fun r ->
+                    r.Get Keys.doseRules
+                    |> LinkRule.standAlone (r.Get Keys.routeMappings) (r.Get Keys.linkRules)
                 )
 
                 Keys.solutionRules.Name,

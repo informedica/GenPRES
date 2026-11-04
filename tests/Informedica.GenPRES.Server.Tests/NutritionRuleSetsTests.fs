@@ -52,7 +52,8 @@ module Fixtures =
         |> RuleSet.expand (RuleSet.DoseRuleNames.ofData data)
 
 
-    /// The rules above with the rule set rows of a feeding; the totals data empty.
+    /// The rules above with the rule set rows of a feeding, every rule one that can be ordered on its own; the
+    /// totals data empty.
     type FeedingRuleSet() =
         inherit OrderPlanTests.RulesOf(rules)
 
@@ -60,6 +61,8 @@ module Fixtures =
             member _.Get(key: Resources.ResourceKey<'T>) : 'T =
                 if key.Name = Resources.Keys.ruleSetData.Name then
                     unbox<'T>(box feedingRows)
+                elif key.Name = Resources.Keys.standAloneDoseRules.Name then
+                    unbox<'T>(box rules)
                 else
                     raise (System.NotImplementedException())
 
