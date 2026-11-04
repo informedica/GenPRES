@@ -1612,7 +1612,7 @@ let prescribeLinkedTests =
                     lanes
                     |> Lanes.transition
                         (counter ())
-                        (LanesMsg.Slot("s-1", OrderContextMsg.TurnLinked(0, Some atalurenEvening.Scenarios[0])))
+                        (LanesMsg.Slot("s-1", OrderContextMsg.TurnOfferOn(0, atalurenEvening.Scenarios[0])))
 
                 lanes.Slots["s-1"]
                 |> turnedOn

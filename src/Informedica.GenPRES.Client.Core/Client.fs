@@ -24,6 +24,8 @@ module Client =
     open AdminMachine
     open ShellMachine
 
+    module Models = Informedica.GenPRES.Shared.Models
+
 
     /// The four parts' states.
     type ClientState =
@@ -111,6 +113,35 @@ module Client =
 
     /// The patient the workbench and the plan are for: the draft, once it is a patient.
     let patient (state: ClientState) = state.Lanes.Patient |> PatientState.patient
+
+
+    /// The query of the combined totals of the nutrition page: the patient, the orders of the plan that its
+    /// filter keeps, every nutrition slot narrowed to one order and the linked orders turned on in it. None
+    /// while no slot is narrowed to one order, since the plan's own totals then hold. A slot counts as it was
+    /// last answered, not as a request under way shows it.
+    let totalsQuery (state: ClientState) =
+        let slotOrders =
+            state.Lanes.Slots
+            |> Map.values
+            |> Seq.collect (fun slot ->
+                match slot |> OrderContextState.answered with
+                | Some ctx when ctx |> Models.OrderContext.contribution |> Option.isSome ->
+                    Array.append [| ctx |] (slot |> OrderContextState.linkedTurnedOn)
+                | _ -> [||]
+            )
+            |> Seq.toArray
+
+        match state.Lanes.OrderPlan |> OrderPlanState.plan with
+        | Some plan when slotOrders |> Array.isEmpty |> not ->
+            // the record is the shared contract's query, whose fields the plan's record shares
+            let query: Informedica.GenPRES.Shared.Api.TotalsQuery =
+                {
+                    Patient = plan.Patient
+                    OrderContexts = Array.append (plan |> Models.OrderPlan.filtered) slotOrders
+                }
+
+            Some query
+        | _ -> None
 
 
     /// Whether a launched Session is open, which a url with a patient, a medication or a launch leaves.
@@ -440,12 +471,22 @@ module Client =
             }
 
         match msg with
+        // the totals follow the orders they count, whichever step changed them
         | ClientMsg.Lanes m ->
             let lanes, effects, taken = Lanes.transition newId m state.Lanes
-            ran
-                { state with Lanes = lanes }
-                (effects |> List.map ClientEffect.Lanes)
-                (taken |> List.map ClientStep.Lanes)
+            let next = { state with Lanes = lanes }
+            let query = totalsQuery next
+
+            {
+                State = next
+                Emitted = effects |> List.map ClientEffect.Lanes
+                Taken = taken |> List.map ClientStep.Lanes
+                Follow =
+                    [
+                        if query <> totalsQuery state then
+                            ClientMsg.Loader(LoaderMsg.QueryTotals query)
+                    ]
+            }
         | ClientMsg.Loader m ->
             let loader, effects = LoaderMachine.transition m state.Loader
             ran

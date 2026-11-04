@@ -566,11 +566,28 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
        pick lists.
 
      **Open:** how the server tells an offer apart from another context, so that it evaluates an offer
-     over every dose rule.
+     over every dose rule. When commands on an offer come, an offer can change while it is on: the
+     scenario turned on then follows the offer's answer, or turning on takes the order id and looks it up.
 
      Script `src/Informedica.GenPRES.Client.Core/Scripts/PrescribeLinked.fsx`, with modified copies of the
      three files it changes, deleted in this step. Seen: nothing yet.
-   - **8c. The totals query in the loader**, with its clear. Seen: nothing yet.
+   - **8c. The totals query in the loader**, with its clear. Decisions, 2026-11-04, halcwb:
+     - The client builds the query from the lanes as they were last answered, after every lanes step, and
+       sends it when it changed. A plan answer, a slot answer, an offer turned on or off and another
+       patient all reach it through that one place, with no effect of their own; a slot answer that lands
+       evaluated emits none.
+     - The query is empty while no slot is narrowed to one order: the totals clear and nothing is asked,
+       since the plan's own totals then hold. Otherwise it holds the patient, the orders of the plan that
+       its filter keeps, as the plan's own totals count them, the narrowed slots and their offers turned on.
+       A new patient and a start-over empty the slots, and so send the empty query.
+     - The query is numbered in the loader, and an answer to an earlier query is dropped. A failed query
+       names the totals on the error banner, with an error source of its own.
+     - A totals query holds neither the menu nor a page: it starts without a click, as the drug names do.
+     - `TurnLinked` is renamed `TurnOfferOn` and `TurnOfferOff`, one case for each way. `TurnOfferOn`
+       carries the scenario, not its order id, since an offer does not change while it is on.
+
+     Script `src/Informedica.GenPRES.Client.Core/Scripts/TotalsLoader.fsx`, with modified copies of the
+     files it changes and of the files that read their types, deleted in this step. Seen: nothing yet.
 9. **The views.** On the nutrition page a prescribe button on every slot, the supplements offered in the
    feeding slot, staying on the page, the combined totals; on the workbench the linked orders offered;
    on the order plan page a linked order under its main order, the row check and the group lock text
@@ -580,7 +597,10 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
    order context port leaves the dose rules of a Required link rule out of the pick lists from step 5c.
    The nutrition page removes a slot the prescriber closes, with a message to the lanes that takes the
    slot out; until then only another patient removes a slot, so the slots started only grow. Decision,
-   2026-11-04, halcwb. Two pull requests if it does not fit. Seen: nutrition is composed in slots and
+   2026-11-04, halcwb. Measure the totals query once the views use the slots: the client builds and
+   compares it after every lanes step, which walks the full contexts while a slot is narrowed. If it
+   shows, compare only what the query depends on, or build it only after a step on the plan or a slot.
+   Two pull requests if it does not fit. Seen: nutrition is composed in slots and
    enters the plan on prescribe; ataluren is prescribed with its evening dose linked.
 10. **The plan slots go.** The plan refuses a filter command on a context it holds, which only a slot
    in the plan sends until then, so that a prescribed order never loses its single scenario. What is left

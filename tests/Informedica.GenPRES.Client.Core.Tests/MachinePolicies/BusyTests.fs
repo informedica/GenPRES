@@ -44,6 +44,7 @@ let allLoads =
         Load.Parenteralia
         Load.Interactions
         Load.DrugNames
+        Load.Totals
         Load.LogFiles
         Load.LogAnalysis
         Load.Reload
@@ -269,7 +270,7 @@ let tests =
                     idle [ load ] |> Expect.equal $"%A{load}" [ Request.Load load ]
             }
 
-            test "every request holds the menu, the drug names excepted" {
+            test "every request holds the menu, the drug names and the totals excepted" {
                 let requests =
                     [
                         Request.Patient
@@ -284,7 +285,9 @@ let tests =
                 for request in requests do
                     [ request ]
                     |> BusyPolicy.any
-                    |> Expect.equal $"%A{request}" (request <> Request.Load Load.DrugNames)
+                    |> Expect.equal
+                        $"%A{request}"
+                        (request <> Request.Load Load.DrugNames && request <> Request.Load Load.Totals)
             }
 
             test "the patient, the Session, the signature, the settings and the localization disable every page" {
@@ -329,6 +332,7 @@ let tests =
                     Load.Parenteralia, [ Page.Page.Parenteralia; Page.Page.Settings ]
                     Load.Interactions, [ Page.Page.Interactions ]
                     Load.DrugNames, [ Page.Page.Interactions ]
+                    Load.Totals, []
                     Load.LogFiles, [ Page.Page.Settings ]
                     Load.LogAnalysis, [ Page.Page.Settings ]
                     Load.Reload, [ Page.Page.Settings ]

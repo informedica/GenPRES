@@ -682,3 +682,149 @@ let tests =
                     }
                 ]
         ]
+
+
+/// A real case: a plan with paracetamol, and a feeding slot narrowed to Nutrilon Nenatal 1 that offers the
+/// supplement Nutrilon Nenatal BMF pdr, as the LinkRules sheet links it.
+module TotalsQueryFixtures =
+
+    let feeding =
+        { context "" "Nutrilon Nenatal 1" with
+            Category = OrderCategory.Nutrition NutritionCategory.EnteralFeeding
+            Scenarios = [| scenario "o-feeding" "Nutrilon Nenatal 1" |]
+        }
+
+    let bmf =
+        { context "" "Nutrilon Nenatal BMF pdr" with
+            Category = OrderCategory.Nutrition NutritionCategory.EnteralSupplement
+            Scenarios = [| scenario "o-bmf" "Nutrilon Nenatal BMF pdr" |]
+        }
+
+    /// A feeding with two orders, not yet narrowed.
+    let twoFeedings =
+        { feeding with
+            Scenarios =
+                [|
+                    scenario "o-feeding" "Nutrilon Nenatal 1"
+                    scenario "o-other" "Nutrilon Nenatal 1"
+                |]
+        }
+
+
+    let answeredWith cmd (main: OrderContext) offers =
+        OrderContextState.changing patient cmd main main "r-0"
+        |> OrderContextState.transition (
+            OrderContextMsg.Answered("r-0", Ok(OrderContextResponse.Evaluated { main with LinkedOrders = offers }))
+        )
+        |> fst
+
+
+    /// The feeding slot narrowed, BMF offered and off.
+    let feedingSlot = answeredWith (OrderViewCommand.SelectNthOrderScenario 0) feeding [| bmf |]
+
+
+    /// The client with the plan of paracetamol and the slot s-1.
+    let withSlot slot =
+        { initial Url.none with
+            Lanes =
+                { Lanes.initial (Some draft) with
+                    OrderPlan = OrderPlanState.held patient one None
+                    Slots = Map [ ("s-1", slot) ]
+                }
+        }
+
+
+    /// The totals queries the step sent: the order ids of each query, none for the empty one.
+    let queries msg state =
+        let _, _, steps = state |> transition (LanesTests.counter ()) msg
+
+        steps
+        |> List.choose (
+            function
+            | ClientStep.Loader(LoaderMsg.QueryTotals query, _, _) ->
+                Some(
+                    query
+                    |> Option.map (fun q -> q.OrderContexts |> Array.map (fun c -> c.Scenarios[0].Order.Id))
+                )
+            | _ -> None
+        )
+
+
+open TotalsQueryFixtures
+
+
+[<Tests>]
+let totalsQueryTests =
+    testList
+        "the totals query the client sends"
+        [
+            test "a feeding narrowed in a slot asks for the totals of the plan and the feeding" {
+                let narrowing = answeredWith (OrderViewCommand.ClearAllFilterProperty) twoFeedings [||]
+
+                withSlot narrowing
+                |> queries (
+                    ClientMsg.Lanes(
+                        LanesMsg.Slot("s-1", OrderContextMsg.Command(OrderViewCommand.SelectNthOrderScenario 0, "r-1"))
+                    )
+                )
+                |> Expect.equal "nothing while the request is out" []
+
+                let sent =
+                    withSlot narrowing
+                    |> transition
+                        (LanesTests.counter ())
+                        (ClientMsg.Lanes(
+                            LanesMsg.Slot(
+                                "s-1",
+                                OrderContextMsg.Command(OrderViewCommand.SelectNthOrderScenario 0, "r-1")
+                            )
+                        ))
+                    |> fun (state, _, _) -> state
+
+                sent
+                |> queries (
+                    ClientMsg.Lanes(
+                        LanesMsg.Slot(
+                            "s-1",
+                            OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated feeding))
+                        )
+                    )
+                )
+                |> Expect.equal "paracetamol and the feeding" [ Some [| "o-c-1"; "o-feeding" |] ]
+            }
+
+            test "BMF turned on asks again with BMF, and turned off again without it" {
+                let on =
+                    withSlot feedingSlot
+                    |> transition
+                        (LanesTests.counter ())
+                        (ClientMsg.Lanes(LanesMsg.Slot("s-1", OrderContextMsg.TurnOfferOn(0, bmf.Scenarios[0]))))
+                    |> fun (state, _, _) -> state
+
+                withSlot feedingSlot
+                |> queries (ClientMsg.Lanes(LanesMsg.Slot("s-1", OrderContextMsg.TurnOfferOn(0, bmf.Scenarios[0]))))
+                |> Expect.equal "with BMF" [ Some [| "o-c-1"; "o-feeding"; "o-bmf" |] ]
+
+                on
+                |> queries (ClientMsg.Lanes(LanesMsg.Slot("s-1", OrderContextMsg.TurnOfferOff 0)))
+                |> Expect.equal "without BMF" [ Some [| "o-c-1"; "o-feeding" |] ]
+            }
+
+            test "a step that changes no counted order asks nothing" {
+                withSlot feedingSlot
+                |> queries (ClientMsg.Lanes(LanesMsg.Workbench(OrderContextMsg.SelectScenario None)))
+                |> Expect.equal "no query" []
+            }
+
+            test "without a narrowed slot nothing is asked" {
+                withSlot (answeredWith OrderViewCommand.ClearAllFilterProperty twoFeedings [||])
+                |> queries (ClientMsg.Lanes(LanesMsg.Slot("s-1", OrderContextMsg.TurnOfferOff 0)))
+                |> Expect.equal "no query" []
+            }
+
+            test "another patient removes the slot and sends the empty query" {
+                withSlot feedingSlot
+                |> queries (ClientMsg.Lanes(LanesMsg.Slot("s-1", OrderContextMsg.PatientDataChanged(None, "r-1"))))
+                |> Expect.equal "the empty query" [ None ]
+            }
+        ]
