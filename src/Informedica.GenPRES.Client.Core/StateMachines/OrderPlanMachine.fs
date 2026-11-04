@@ -291,6 +291,14 @@ module OrderPlanMachine =
             | OrderPlanCart.Opened(_, tp), None -> OrderPlanView.Settled(tp, state.Selected)
 
 
+        /// The id of the context an add under way sends: the slot id for a nutrition slot prescribed, the empty
+        /// id for the workbench. None while no add is under way.
+        let adding (state: OrderPlanState) =
+            match state.InFlight with
+            | Some(OrderPlanCommand.AddOrderContext(_, ctx, _), _) -> Some ctx.Id
+            | _ -> None
+
+
         /// The request id the state waits on; None while no request is under way.
         let inFlightRequest (state: OrderPlanState) = state.InFlight |> Option.map snd
 

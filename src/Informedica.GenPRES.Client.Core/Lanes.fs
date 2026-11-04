@@ -24,8 +24,9 @@ module Lanes =
             Patient: PatientState
             /// The prescribing workbench, as the order context machine holds it.
             OrderContext: OrderContextState
-            /// The nutrition slots by their slot id, each as the order context machine holds it.
-            Slots: Map<string, OrderContextState>
+            /// The nutrition slots by their slot id in the order they were started, each as the order context
+            /// machine holds it.
+            Slots: (string * OrderContextState) list
             /// The one plan, as the order plan machine holds it.
             OrderPlan: OrderPlanState
             /// The launch Session; Anonymous is the state every url patient runs in.
@@ -99,12 +100,26 @@ module Lanes =
         | StartedOver of LanesState
 
 
+    /// The nutrition slot with the id; none for a slot that is gone.
+    let slotOf id (lanes: LanesState) = lanes.Slots |> List.tryFind (fst >> (=) id) |> Option.map snd
+
+
+    /// The lanes with the nutrition slot with the id replaced, in its place.
+    let withSlot id next (lanes: LanesState) =
+        { lanes with Slots = lanes.Slots |> List.map (fun (i, s) -> i, (if i = id then next else s)) }
+
+
+    /// The lanes without the nutrition slot with the id.
+    let withoutSlot id (lanes: LanesState) =
+        { lanes with Slots = lanes.Slots |> List.filter (fst >> (<>) id) }
+
+
     /// The lanes at the page load: the patient from the url, if any, every other lane empty and no slots.
     let initial draft =
         {
             Patient = PatientState.init draft
             OrderContext = OrderContextState.noPatient
-            Slots = Map.empty
+            Slots = []
             OrderPlan = OrderPlanState.noPatient
             Session = SessionState.anonymous
             Signing = SigningState.idle
@@ -189,15 +204,14 @@ module Lanes =
             effects |> List.map LanesEffect.Workbench,
             [ LanesStep.Workbench(m, next, effects) ]
         // another patient arrives as the patient cleared, and removes the slot
-        | LanesMsg.Slot(id, OrderContextMsg.PatientDataChanged(None, _)) ->
-            { lanes with Slots = lanes.Slots |> Map.remove id }, [], []
+        | LanesMsg.Slot(id, OrderContextMsg.PatientDataChanged(None, _)) -> lanes |> withoutSlot id, [], []
         // an answer to a slot that another patient or a start-over removed finds no slot and is dropped
         | LanesMsg.Slot(id, m) ->
-            match lanes.Slots |> Map.tryFind id with
+            match lanes |> slotOf id with
             | Some slot ->
                 let next, effects = OrderContextState.transition m slot
 
-                { lanes with Slots = lanes.Slots |> Map.add id next },
+                lanes |> withSlot id next,
                 effects |> List.map (fun e -> LanesEffect.Slot(id, e)),
                 [ LanesStep.Slot(id, m, next, effects) ]
             | None -> lanes, [], []
@@ -206,9 +220,8 @@ module Lanes =
 
             step
                 (LanesMsg.Slot(id, OrderContextMsg.PatientDataChanged(pat, request)))
-                { lanes with Slots = lanes.Slots |> Map.add id (OrderContextState.slot category) }
-        | LanesMsg.RemoveSlot id ->
-            { lanes with Slots = lanes.Slots |> Map.remove id }, [], [ LanesStep.SlotRemoved id ]
+                { lanes with Slots = lanes.Slots @ [ id, OrderContextState.slot category ] }
+        | LanesMsg.RemoveSlot id -> lanes |> withoutSlot id, [], [ LanesStep.SlotRemoved id ]
         // the answer first, then the notice: the Session decides whether the notice still counts
         | LanesMsg.Answer(answer, from, notice) ->
             let lanes, effects, taken = step answer lanes
@@ -221,13 +234,13 @@ module Lanes =
         // Nothing is added when the workbench or the slot no longer shows the order. For the workbench the
         // plan page opens at the click, but only when the order went out. A slot stays on the nutrition
         // page, so that the next slot can be composed. The context is emptied at the answer, so a failed
-        // add leaves the order on it. Nothing reaches it meanwhile, since a plan request disables the
-        // pages and locks the menu.
+        // add leaves the order on it. Nothing reaches it meanwhile: a plan request disables every page except
+        // the nutrition page, and locks the menu. On the nutrition page the prescribed slot waits for the answer.
         | LanesMsg.Prescribe(slotId, orderId, request) ->
             let lane =
                 match slotId with
                 | None -> Some lanes.OrderContext
-                | Some id -> lanes.Slots |> Map.tryFind id
+                | Some id -> lanes |> slotOf id
 
             // an offer turned on and not narrowed to one scenario refuses the prescribe
             let narrowed =
@@ -296,7 +309,7 @@ module Lanes =
         | LanesEffect.Patient(PatientEffect.SetPatientData pat) ->
             [
                 LanesMsg.Workbench(OrderContextMsg.PatientDataChanged(pat, newId ()))
-                for id in lanes.Slots.Keys do
+                for id, _ in lanes.Slots do
                     LanesMsg.Slot(id, OrderContextMsg.PatientDataChanged(pat, newId ()))
                 LanesMsg.Plan(OrderPlanMsg.PatientDataChanged(pat, newId ()))
             ]

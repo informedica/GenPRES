@@ -62,7 +62,7 @@ let idle loads =
         false
         noPatientChange
         (OrderContextState.held patient (OrderContextState.emptyMedication patient))
-        Map.empty
+        []
         shown
         SessionState.anonymous
         SigningState.idle
@@ -93,29 +93,21 @@ let tests =
                     false
                     patientChanging
                     OrderContextState.noPatient
-                    Map.empty
+                    []
                     shown
                     SessionState.anonymous
                     SigningState.idle
                     []
                 |> Expect.equal "the patient" [ Request.Patient ]
 
-                OutPolicy.out
-                    false
-                    noPatientChange
-                    workbench
-                    Map.empty
-                    shown
-                    SessionState.anonymous
-                    SigningState.idle
-                    []
+                OutPolicy.out false noPatientChange workbench [] shown SessionState.anonymous SigningState.idle []
                 |> Expect.equal "the workbench" [ Request.Workbench ]
 
                 OutPolicy.out
                     false
                     noPatientChange
                     OrderContextState.noPatient
-                    Map.empty
+                    []
                     plan
                     SessionState.anonymous
                     SigningState.idle
@@ -126,7 +118,7 @@ let tests =
                     false
                     noPatientChange
                     OrderContextState.noPatient
-                    Map.empty
+                    []
                     shown
                     SessionState.resuming
                     SigningState.idle
@@ -137,7 +129,7 @@ let tests =
                     false
                     noPatientChange
                     OrderContextState.noPatient
-                    Map.empty
+                    []
                     shown
                     SessionState.anonymous
                     signing
@@ -149,15 +141,7 @@ let tests =
                     |> SessionState.transition SessionMsg.RefreshPatient
                     |> fst
 
-                OutPolicy.out
-                    false
-                    noPatientChange
-                    OrderContextState.noPatient
-                    Map.empty
-                    shown
-                    refreshing
-                    SigningState.idle
-                    []
+                OutPolicy.out false noPatientChange OrderContextState.noPatient [] shown refreshing SigningState.idle []
                 |> Expect.equal "a refresh" [ Request.Session ]
             }
 
@@ -182,7 +166,7 @@ let tests =
                             false
                             noPatientChange
                             OrderContextState.noPatient
-                            Map.empty
+                            []
                             shown
                             SessionState.anonymous
                             signing
@@ -201,7 +185,7 @@ let tests =
                         false
                         noPatientChange
                         (OrderContextState.opening patient "w-1")
-                        Map.empty
+                        []
                         shown
                         SessionState.anonymous
                         SigningState.idle
@@ -216,7 +200,7 @@ let tests =
                         false
                         noPatientChange
                         OrderContextState.noPatient
-                        Map.empty
+                        []
                         (recalculating one None "p-1" (OrderPlanCommand.FilterRows([||], one)))
                         SessionState.anonymous
                         SigningState.idle
@@ -227,7 +211,7 @@ let tests =
                 |> Expect.isTrue "the OrderPlan page"
                 plan
                 |> BusyPolicy.page Page.Page.Nutrition
-                |> Expect.isTrue "the Nutrition page"
+                |> Expect.isFalse "the Nutrition page, whose other slots go on"
             }
 
             test "a patient change disables the pages of both order machines" {
@@ -236,7 +220,7 @@ let tests =
                         false
                         patientChanging
                         OrderContextState.noPatient
-                        Map.empty
+                        []
                         shown
                         SessionState.anonymous
                         SigningState.idle
@@ -252,7 +236,7 @@ let tests =
                         true
                         noPatientChange
                         OrderContextState.noPatient
-                        Map.empty
+                        []
                         shown
                         SessionState.anonymous
                         SigningState.idle
@@ -317,10 +301,10 @@ let tests =
                     ]
             }
 
-            test "a plan request disables the pages that show the plan" {
+            test "a plan request disables the pages that show the plan, not the nutrition page" {
                 Request.Plan
                 |> disabled
-                |> Expect.equal "plan pages" [ Page.Page.Nutrition; Page.Page.OrderPlan; Page.Page.Interactions ]
+                |> Expect.equal "plan pages" [ Page.Page.OrderPlan; Page.Page.Interactions ]
             }
 
             test "a page's own load disables that page; the formulary and parenteralia loads Settings as well" {

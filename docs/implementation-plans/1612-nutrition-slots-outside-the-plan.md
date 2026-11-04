@@ -668,6 +668,28 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
        closing a slot. Measure the totals query here: the client builds and compares it after every
        lanes step, which walks the full contexts while a slot is narrowed. If it shows, compare only
        what the query depends on, or build it only after a step on the plan or a slot.
+       Decisions, 2026-11-04, halcwb:
+       - One pull request, with its size accepted.
+       - The lanes keep the slots in a list in the order they were started, since the slot id is a GUID
+         and a map by id would show them in another order.
+       - The page shows the lane slots and the combined totals only; a prescribed nutrition order lives
+         on the order plan page (rule 7). The buttons start a feeding, a TPN, lipids or electrolytes and
+         glucose; there is no supplement button, since a supplement is offered in a feeding slot.
+       - An offer shows its name with a switch; turned on, it shows the frequency, the dose and the dose
+         per time, and no filter the offer field policy keeps closed.
+       - The bin of a slot waits while its prescribe is out, and closes the slot without a question
+         otherwise.
+       - A plan request leaves the nutrition page open: the slot prescribed waits, and no slot can be
+         prescribed until the plan has answered.
+       - Found in the running app, for a patient of 3 months with MM in a feeding slot: the 23 offers of
+         MM, of about 190 KB each, went back to the server with every request about the context, so the
+         totals query was 10.2 MB and the prescribe 10.4 MB. The server does not read them. The order
+         context machine holds the context of an answer, of a command on the context and of a command on
+         an offer, without the offers the answer carries. Decision, 2026-11-04, halcwb.
+       - Decisions of the review, 2026-11-04, halcwb: the answer to a command on an offer is held
+         without its offers too, since the chlooramfenicol row of the LinkRules sheet, with an empty
+         MainDoseText, offers its own offered dose again; the nutrition offer view shows no filter; the
+         machine still sends any command on an offer, as the 9b review decided.
      - **9e. The workbench, the order plan page and the order dialog**: the linked orders offered on
        the workbench, a linked order under its main order with the group lock text and the row check,
        and the intake slider. Two pull requests if it does not fit.
@@ -679,7 +701,10 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
    under "What this replaces": `NewOrderContext` and its client and Trail lines, the slot discovery,
    the supplement slot, `holds`, `CategoryHeld`,
    `SupplementNeedsFeeding`, `mayAdd`, the restart in `followPatientData`, the removal fallback for a
-   supplement without a link. Seen: no change; the old path is gone.
+   supplement without a link. The offers move from the wire OrderContext to the answer,
+   `OrderContextResponse.Evaluated of OrderContext * linked: OrderContext[]`, so that a request cannot
+   carry them; the client then no longer empties LinkedOrders of an answer. Decision of the 9d review,
+   2026-11-04, halcwb. Seen: no change; the old path is gone.
 11. **Documents.** Notes in plans 667 and 654. In plan 1430, step 5's sentence "the nutrition page keeps
     its slots until a new order is prescribed" becomes "a slot on the nutrition page keeps its
     composition until its order is prescribed; then the slot empties", and rule 11's "The lock holds on

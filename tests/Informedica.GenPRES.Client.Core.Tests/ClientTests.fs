@@ -729,7 +729,7 @@ module TotalsQueryFixtures =
             Lanes =
                 { Lanes.initial (Some draft) with
                     OrderPlan = OrderPlanState.held patient one None
-                    Slots = Map [ ("s-1", slot) ]
+                    Slots = [ "s-1", slot ]
                 }
         }
 
@@ -826,5 +826,147 @@ let totalsQueryTests =
                 withSlot feedingSlot
                 |> queries (ClientMsg.Lanes(LanesMsg.Slot("s-1", OrderContextMsg.PatientDataChanged(None, "r-1"))))
                 |> Expect.equal "the empty query" [ None ]
+            }
+        ]
+
+
+/// The feeding slot of TotalsQueryFixtures, BMF with two orders, and a TPN slot.
+module SlotViewFixtures =
+
+    /// BMF with two orders, the powder in two strengths, not yet narrowed.
+    let twoBmf =
+        { bmf with
+            Scenarios =
+                [|
+                    scenario "o-bmf-1" "Nutrilon Nenatal BMF pdr"
+                    scenario "o-bmf-2" "Nutrilon Nenatal BMF pdr"
+                |]
+        }
+
+    let tpn =
+        { context "" "TPN" with
+            Category = OrderCategory.Nutrition NutritionCategory.TPN
+            Scenarios = [| scenario "o-tpn" "TPN" |]
+        }
+
+    let narrowed main offers =
+        answeredWith (OrderViewCommand.SelectNthOrderScenario 0) main offers
+
+    /// The client with the plan of paracetamol and the slots given.
+    let withSlots slots =
+        { withSlot feedingSlot with Lanes = { (withSlot feedingSlot).Lanes with Slots = slots } }
+
+    let after msg state =
+        let state, _, _ = state |> transition (LanesTests.counter ()) msg
+        state
+
+
+open SlotViewFixtures
+
+
+[<Tests>]
+let slotViewTests =
+    testList
+        "the slots as the nutrition page shows them"
+        [
+            test "a feeding narrowed to one order prescribes that order, with BMF turned off" {
+                withSlots [ "s-1", narrowed feeding [| bmf |] ]
+                |> Client.slots
+                |> List.map (fun s -> s.Id, s.PrescribeOrderId, s.Offers.Length, s.Prescribing)
+                |> Expect.equal "the feeding, one offer" [ "s-1", Some "o-feeding", 1, false ]
+            }
+
+            test "a feeding with two orders prescribes nothing" {
+                withSlots [ "s-1", answeredWith OrderViewCommand.ClearAllFilterProperty twoFeedings [||] ]
+                |> Client.slots
+                |> List.map _.PrescribeOrderId
+                |> Expect.equal "nothing" [ None ]
+            }
+
+            test "BMF turned on with two orders keeps the feeding from being prescribed" {
+                withSlots [ "s-1", narrowed feeding [| twoBmf |] ]
+                |> after (ClientMsg.Lanes(LanesMsg.Slot("s-1", OrderContextMsg.TurnOfferOn 0)))
+                |> Client.slots
+                |> List.map _.PrescribeOrderId
+                |> Expect.equal "nothing" [ None ]
+            }
+
+            test "the slot prescribed waits for the add, the other slot does not" {
+                let state =
+                    withSlots [ "s-1", narrowed feeding [||]; "s-2", narrowed tpn [||] ]
+                    |> after (ClientMsg.Lanes(LanesMsg.Prescribe(Some "s-1", "o-feeding", "r-1")))
+
+                state
+                |> Client.slots
+                |> List.map (fun s -> s.Id, s.Prescribing)
+                |> Expect.equal "the feeding waits" [ "s-1", true; "s-2", false ]
+
+                state
+                |> Client.busyPage Page.Page.Nutrition
+                |> Expect.isFalse "the nutrition page stays open"
+
+                state
+                |> Client.busyPage Page.Page.OrderPlan
+                |> Expect.isTrue "the order plan page waits"
+            }
+
+            test "a request out for a slot still holds the nutrition page" {
+                withSlots [ "s-1", narrowed feeding [||] ]
+                |> after (
+                    ClientMsg.Lanes(
+                        LanesMsg.Slot("s-1", OrderContextMsg.Command(OrderViewCommand.ClearAllFilterProperty, "r-1"))
+                    )
+                )
+                |> Client.busyPage Page.Page.Nutrition
+                |> Expect.isTrue "the page waits"
+            }
+
+            test "the totals query sends the feeding and BMF turned on, without the offers of the feeding" {
+                withSlots [ "s-1", narrowed feeding [| bmf |] ]
+                |> after (ClientMsg.Lanes(LanesMsg.Slot("s-1", OrderContextMsg.TurnOfferOn 0)))
+                |> Client.totalsQuery
+                |> Option.map (fun q ->
+                    q.OrderContexts
+                    |> Array.map (fun c -> c.Scenarios[0].Order.Id, c.LinkedOrders.Length)
+                )
+                |> Expect.equal
+                    "paracetamol, the feeding, BMF, none with offers"
+                    (Some [| "o-c-1", 0; "o-feeding", 0; "o-bmf", 0 |])
+            }
+
+            test "without a narrowed slot the nutrition page shows the plan's own totals" {
+                let state = withSlots [ "s-1", answeredWith OrderViewCommand.ClearAllFilterProperty twoFeedings [||] ]
+
+                state
+                |> Client.nutritionTotals
+                |> Expect.equal "the plan's" (state.Lanes.OrderPlan |> OrderPlanState.plan |> Option.map _.Totals)
+            }
+
+            test "the combined totals once the server answered them, kept while they are asked again" {
+                let combined = { Totals.empty with Energy = [| TextItem.Normal "120 kcal" |] }
+                let reply: Reply<Totals> =
+                    {
+                        Response = combined
+                        Notice = None
+                    }
+                let slots = withSlots [ "s-1", narrowed feeding [||] ]
+
+                let asked =
+                    slots
+                    |> after (ClientMsg.Loader(LoaderMsg.QueryTotals(Client.totalsQuery slots)))
+                let number = asked.Loader.TotalsQueryNumber
+
+                let landed =
+                    asked
+                    |> after (ClientMsg.Loader(LoaderMsg.Landed(Landing.Totals(number, None, Ok reply))))
+
+                landed
+                |> Client.nutritionTotals
+                |> Expect.equal "the combined totals" (Some combined)
+
+                landed
+                |> after (ClientMsg.Loader(LoaderMsg.QueryTotals(Client.totalsQuery landed)))
+                |> Client.nutritionTotals
+                |> Expect.equal "kept while asked again" (Some combined)
             }
         ]

@@ -2,8 +2,11 @@ namespace Informedica.GenPRES.Client.Core.Policies
 
 /// Decides whether a field of an order is selectable. An order variable never offers the cross that
 /// empties it: a field with one value is recalculated instead, when the intent policy allows it,
-/// since clearing it only has the solver fill it again.
+/// since clearing it only has the solver fill it again. Decides too which filter fields of a linked offer
+/// take a pick.
 module FieldOpenPolicy =
+
+    open Informedica.GenPRES.Shared.Models
 
 
     /// Whether a field is selectable, and what selecting it does.
@@ -44,3 +47,15 @@ module FieldOpenPolicy =
         match values with
         | 0 -> AfterReCalc.NoList
         | _ -> AfterReCalc.ShowList
+
+
+    /// Whether a filter field of a linked offer takes a pick or a clear: only the form does. The link rule
+    /// decides the generic, the indication, the route and the dose type of the offer, and a change of one of
+    /// them could widen the offer to the dose of its main order.
+    let offerFilter (field: OrderContext.FilterField) =
+        match field with
+        | OrderContext.FilterField.Form -> true
+        | OrderContext.FilterField.Indication
+        | OrderContext.FilterField.Generic
+        | OrderContext.FilterField.Route
+        | OrderContext.FilterField.DoseType -> false

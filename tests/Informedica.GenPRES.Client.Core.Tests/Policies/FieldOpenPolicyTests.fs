@@ -47,4 +47,10 @@ module FieldOpenPolicyTests =
                             afterReCalc 0 |> Expect.equal "no list" AfterReCalc.NoList
                         }
                     ]
+
+                test "only the form of a linked offer takes a pick" {
+                    Informedica.GenPRES.Shared.Models.OrderContext.filterFields
+                    |> List.filter offerFilter
+                    |> Expect.equal "the form" [ Informedica.GenPRES.Shared.Models.OrderContext.FilterField.Form ]
+                }
             ]

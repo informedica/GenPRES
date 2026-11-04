@@ -9,6 +9,7 @@ module EnteralNutrition =
 
     open Informedica.GenPRES.Client.Core.Models
     open Informedica.GenPRES.Client.Core.Helpers
+    open Informedica.GenPRES.Client.Core.Policies
     open Informedica.GenPRES.Client.Core.StateMachines
 
     open Fable.Core
@@ -26,8 +27,93 @@ module EnteralNutrition =
     open NutritionSlot
 
 
-    /// One feeding or supplement: its name with a bin beside it, the filters, and the
-    /// frequency, the dose and the dose per time on one row.
+    // the room of the switch before an offer's controls, so they stand under its name
+    let private offerControlsSx = {| paddingLeft = 6 |}
+
+
+    /// One offer of a feeding: its name with the switch that turns it on, and while it is on the frequency,
+    /// the dose and the dose per time. It shows no filter: the link rule decides its composition, its
+    /// indication and its dose type, and a nutrition slot has no form to pick.
+    [<JSX.Component>]
+    let private OfferView
+        (props:
+            {|
+                offer: OrderContextMachine.LinkedOffer
+                index: int
+                slotId: string
+                nutrition: AppEnv.INutrition
+                plan: OrderPlan
+                localizationTerms: Deferred<string[][]>
+                busy: bool
+            |})
+        =
+        let slot =
+            useSlot
+                {|
+                    nutritionContext = props.offer.Context
+                    plan = props.plan
+                    evaluateContext = fun (_, cmd) -> props.nutrition.OfferCommand(props.slotId, props.index, cmd)
+                    planRestore = fun () -> props.nutrition.SlotRestore props.slotId
+                    localizationTerms = props.localizationTerms
+                    busy = props.busy
+                    fieldMinWidth = None
+                |}
+
+        let counting = React.useContext Global.counting
+        let held = props.busy || counting.Counting
+
+        let isOn = props.offer.Switch = OrderContextMachine.OfferSwitch.On
+
+        let name =
+            props.offer.Context.Filter.Generic
+            |> Option.defaultValue (OrderContextText.label props.offer.Context)
+
+        let switchTo =
+            if isOn then
+                OrderContextMachine.OfferSwitch.Off
+            else
+                OrderContextMachine.OfferSwitch.On
+
+        let handleSwitch _ = props.nutrition.TurnOffer(props.slotId, props.index, switchTo)
+
+        let controls =
+            if isOn then
+                JSX.jsx
+                    $"""
+                import Stack from '@mui/material/Stack';
+                import Box from '@mui/material/Box';
+                <Box sx={offerControlsSx}>
+                    <Stack direction="column" spacing={2}>
+                        {slot.ScenarioNotice}
+                        <Stack direction="row" spacing={2}>
+                            {slot.FrequencyControl}
+                            {slot.DoseQuantityControl}
+                            {slot.DosePerTimeAdjustDisplay}
+                        </Stack>
+                    </Stack>
+                </Box>
+                """
+            else
+                null
+
+        JSX.jsx
+            $"""
+        import Box from '@mui/material/Box';
+        import FormControlLabel from '@mui/material/FormControlLabel';
+        import Switch from '@mui/material/Switch';
+
+        <Box>
+            <FormControlLabel
+                control={{<Switch checked={isOn} disabled={held} onChange={handleSwitch} />}}
+                label={name}
+            />
+            {controls}
+        </Box>
+        """
+
+
+    /// One feeding: its name with a bin beside it, the filters, the frequency, the dose and the dose per
+    /// time on one row, the supplements its link rules offer, and the bar with the prescribe.
     [<JSX.Component>]
     let private SlotView
         (props:
@@ -39,6 +125,10 @@ module EnteralNutrition =
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
                 onRemove: (unit -> unit) option
+                // the order into the plan; none while the slot cannot be prescribed
+                onPrescribe: (unit -> unit) option
+                // the offers of the feeding, each with its switch
+                offers: JSX.Element[]
                 busy: bool
             |})
         =
@@ -136,6 +226,19 @@ module EnteralNutrition =
             </Box>
             """
 
+        let context: Global.Context = React.useContext Global.context
+        let getTerm = Global.getLocalizedTerm props.localizationTerms context.Localization
+
+        let offersHeading =
+            if props.offers |> Array.isEmpty then
+                null
+            else
+                Components.SectionHeading.View
+                    {|
+                        label = Terms.``Nutrition Enteral Supplement`` |> getTerm "Supplementen"
+                        action = None
+                    |}
+
         let details =
             JSX.jsx
                 $"""
@@ -143,7 +246,9 @@ module EnteralNutrition =
             <Stack direction={"column"} spacing={1} >
                 {frequencyDoseRow}
                 {slot.RateControl}
-                {slot.ResetBar}
+                {offersHeading}
+                {props.offers |> unbox<seq<ReactElement>> |> React.Fragment}
+                {prescribeBar getTerm slot.ResetAction props.onPrescribe}
             </Stack>
             """
 
@@ -200,18 +305,17 @@ module EnteralNutrition =
         """
 
 
-    /// The enteral section: the feedings and supplements in one fold, the values of each in its
-    /// summary, the buttons that add one, and the question before a feeding with supplements is
-    /// removed.
+    /// The enteral section: the feeding slots in one fold, the values of each in its summary, and the
+    /// button that starts one. A supplement is offered in a feeding slot, not started on its own.
     [<JSX.Component>]
     let Section
         (props:
             {|
                 plan: OrderPlan
-                planNew: NutritionCategory -> unit
-                planRemove: string[] -> unit
-                evaluateContext: string * Api.OrderViewCommand -> unit
-                planRestore: unit -> unit
+                slots: Informedica.GenPRES.Client.Core.Client.SlotView list
+                nutrition: AppEnv.INutrition
+                // a change to the plan under way: no slot is prescribed meanwhile
+                planChanging: bool
                 localizationTerms: Deferred<string[][]>
                 busy: bool
             |})
@@ -222,74 +326,71 @@ module EnteralNutrition =
         let isMobile = Mui.Hooks.useIsMobile ()
 
         let expanded, setExpanded = React.useState true
-        let confirmDeleteTarget, setConfirmDeleteTarget = React.useState<string option> None
 
         let plan = props.plan
-        let contexts = plan.OrderContexts |> Array.filter (isOneOf enteral)
-
-        // removing a feeding removes its supplements too, so it asks first when there are any
-        let removeOf (nc: OrderContext) =
-            let hasSupplements =
-                nc |> isOneOf [ NutritionCategory.EnteralFeeding ]
-                && plan.OrderContexts
-                   |> Array.exists (isOneOf [ NutritionCategory.EnteralSupplement ])
-
-            fun () ->
-                if hasSupplements then
-                    setConfirmDeleteTarget (Some nc.Id)
-                else
-                    props.planRemove [| nc.Id |]
-
-        let slotOf (nc: OrderContext) =
-            SlotView
-                {|
-                    nutritionContext = nc
-                    plan = plan
-                    evaluateContext = props.evaluateContext
-                    planRestore = props.planRestore
-                    localizationTerms = props.localizationTerms
-                    onRemove = Some(removeOf nc)
-                    busy = props.busy
-                |}
-
-        let slots = contexts |> Array.map slotOf
 
         // the page is not disabled while a field counts its step clicks, since the field counting
         // is on it; the controls that send wait for the count themselves
         let counting = React.useContext Global.counting
         let held = props.busy || counting.Counting
 
-        // the buttons the plan admits a context for, as the server would rule
-        let addButton category label =
-            if plan |> OrderPlan.mayAdd category then
-                Components.AddButton.View
-                    {|
-                        label = label
-                        onClick = fun () -> props.planNew category
-                        disabled = held
-                    |}
-            else
-                null
+        let slotsShown =
+            props.slots
+            |> List.choose (fun slot -> contextOf slot |> Option.map (fun ctx -> slot, ctx))
+            |> List.filter (snd >> isOneOf enteral)
+
+        // a slot whose prescribe is under way takes nothing, its bin and its offers included
+        let slotOf (slot: Informedica.GenPRES.Client.Core.Client.SlotView, nc: OrderContext) =
+            let busy = props.busy || slot.Prescribing
+
+            let offers =
+                slot.Offers
+                |> Array.mapi (fun index offer ->
+                    OfferView
+                        {|
+                            offer = offer
+                            index = index
+                            slotId = slot.Id
+                            nutrition = props.nutrition
+                            plan = plan
+                            localizationTerms = props.localizationTerms
+                            busy = busy
+                        |}
+                )
+
+            SlotView
+                {|
+                    nutritionContext = nc
+                    plan = plan
+                    evaluateContext = fun (_, cmd) -> props.nutrition.SlotCommand(slot.Id, cmd)
+                    planRestore = fun () -> props.nutrition.SlotRestore slot.Id
+                    localizationTerms = props.localizationTerms
+                    onRemove = Some(fun () -> props.nutrition.RemoveSlot slot.Id)
+                    onPrescribe = slot |> prescribeOf props.nutrition props.planChanging held
+                    offers = offers
+                    busy = busy
+                |}
+
+        let slots = slotsShown |> List.map slotOf |> List.toArray
 
         let feedingAddButton =
-            Terms.``Nutrition Enteral Feeding``
-            |> getTerm "Enterale Voeding"
-            |> addButton NutritionCategory.EnteralFeeding
-
-        let supplementAddButton =
-            Terms.``Nutrition Add Supplement``
-            |> getTerm "Supplement toevoegen"
-            |> addButton NutritionCategory.EnteralSupplement
+            Components.AddButton.View
+                {|
+                    label = Terms.``Nutrition Enteral Feeding`` |> getTerm "Enterale Voeding"
+                    onClick = fun () -> props.nutrition.StartSlot NutritionCategory.EnteralFeeding
+                    disabled = held
+                |}
 
         let summary =
             let adminSummaries =
-                contexts
-                |> Array.choose (fun nc ->
+                slotsShown
+                |> List.choose (fun (slot, nc) ->
                     match nc.Scenarios with
                     | [| sc |] when sc.Administration |> Array.isEmpty |> not ->
-                        (string nc.Id, adminSummary sc.Order.Orderable.Name sc.Administration) |> Some
+                        (slot.Id, adminSummary sc.Order.Orderable.Name sc.Administration) |> Some
                     | _ -> None
                 )
+                |> List.toArray
                 |> withKey
 
             JSX.jsx
@@ -310,57 +411,17 @@ module EnteralNutrition =
             <Stack direction="column" spacing={{2}}>
                 {slots |> unbox<seq<ReactElement>> |> React.Fragment}
                 {feedingAddButton}
-                {supplementAddButton}
             </Stack>
             """
 
-        let disclosure =
-            Components.Disclosure.View
-                {|
-                    isOpen = expanded
-                    onToggle = fun () -> setExpanded (not expanded)
-                    summary = summary
-                    children = children
-                    isMobile = isMobile
-                    detailsPaddingTop = if isMobile then None else Some 4
-                    ariaControls = None
-                    summaryId = None
-                |}
-
-        let confirmDeleteDialog =
-            // the plan takes one change at a time: a confirmation while one is under way removes
-            // nothing and closes the dialog
-            let handleConfirm =
-                fun () ->
-                    match confirmDeleteTarget with
-                    | Some ncId when not held -> props.planRemove [| ncId |]
-                    | Some _
-                    | None -> ()
-
-                    setConfirmDeleteTarget None
-
-            Components.ConfirmDialog.View
-                {|
-                    isOpen = confirmDeleteTarget.IsSome
-                    title =
-                        Terms.``Nutrition Remove Enteral Title``
-                        |> getTerm "Enterale voeding verwijderen"
-                    text =
-                        Terms.``Nutrition Remove Enteral Text``
-                        |> getTerm
-                            "Als u de enterale voeding verwijdert, worden ook alle bijbehorende supplementen verwijderd. Wilt u doorgaan?"
-                    confirmLabel = Terms.Delete |> getTerm "Verwijderen"
-                    cancelLabel = Terms.Cancel |> getTerm "Annuleren"
-                    onConfirm = handleConfirm
-                    onCancel = fun () -> setConfirmDeleteTarget None
-                |}
-
-        JSX.jsx
-            $"""
-        import React from 'react';
-
-        <React.Fragment>
-            {disclosure}
-            {confirmDeleteDialog}
-        </React.Fragment>
-        """
+        Components.Disclosure.View
+            {|
+                isOpen = expanded
+                onToggle = fun () -> setExpanded (not expanded)
+                summary = summary
+                children = children
+                isMobile = isMobile
+                detailsPaddingTop = if isMobile then None else Some 4
+                ariaControls = None
+                summaryId = None
+            |}

@@ -1225,7 +1225,7 @@ module SlotLaneFixtures =
         )
 
 
-    let slotOf id (lanes: LanesState) = lanes.Slots |> Map.find id
+    let slotOf id (lanes: LanesState) = lanes |> Lanes.slotOf id |> Option.get
 
 
 open SlotLaneFixtures
@@ -1393,7 +1393,7 @@ let slotLaneTests =
                     |> fst
                     |> Lanes.step (LanesMsg.RemoveSlot "s-1")
 
-                lanes.Slots |> Map.keys |> List.ofSeq |> Expect.equal "the TPN slot" [ "s-2" ]
+                lanes.Slots |> List.map fst |> Expect.equal "the TPN slot" [ "s-2" ]
                 effects |> Expect.isEmpty "nothing sent"
                 steps |> Expect.equal "one step" [ LanesStep.SlotRemoved "s-1" ]
             }
@@ -1412,6 +1412,46 @@ let slotLaneTests =
                 |> Lanes.step (LanesMsg.Slot("s-1", OrderContextMsg.Answered("r-1", Ok answered)))
                 |> Expect.equal "nothing changes" (removed, [], [])
             }
+
+            testList
+                "in the order they were started"
+                [
+                    // the ids sort the other way round, so a map by id would list the TPN slot first
+                    let started =
+                        withPatient
+                        |> after (LanesMsg.StartSlot("s-b", NutritionCategory.EnteralFeeding, "r-1"))
+                        |> fst
+                        |> after (LanesMsg.StartSlot("s-a", NutritionCategory.TPN, "r-2"))
+                        |> fst
+                        |> after (LanesMsg.StartSlot("s-c", NutritionCategory.Lipid, "r-3"))
+                        |> fst
+
+                    test "the slots keep the order they were started in" {
+                        started.Slots
+                        |> List.map fst
+                        |> Expect.equal "feeding, TPN, lipids" [ "s-b"; "s-a"; "s-c" ]
+                    }
+
+                    test "an answer to a slot keeps the slot in its place" {
+                        let answered = OrderContextResponse.Evaluated(OrderContextState.emptyMedication pat)
+
+                        started
+                        |> after (LanesMsg.Slot("s-a", OrderContextMsg.Answered("r-2", Ok answered)))
+                        |> fst
+                        |> _.Slots
+                        |> List.map fst
+                        |> Expect.equal "the same order" [ "s-b"; "s-a"; "s-c" ]
+                    }
+
+                    test "a slot closed leaves the others in their order" {
+                        started
+                        |> after (LanesMsg.RemoveSlot "s-a")
+                        |> fst
+                        |> _.Slots
+                        |> List.map fst
+                        |> Expect.equal "feeding, lipids" [ "s-b"; "s-c" ]
+                    }
+                ]
         ]
 
 
@@ -1427,7 +1467,7 @@ module SlotPrescribeFixtures =
         { Lanes.initial (Some draft) with
             OrderPlan = shown
             OrderContext = OrderContextState.held patient (twoOrders "paracetamol")
-            Slots = Map [ "s-1", OrderContextState.held patient (twoOrders "TPN") ]
+            Slots = [ "s-1", OrderContextState.held patient (twoOrders "TPN") ]
         }
 
 
@@ -1631,7 +1671,7 @@ let prescribeLinkedTests =
                 let lanes =
                     { Lanes.initial (Some draft) with
                         OrderPlan = shown
-                        Slots = Map [ ("s-1", slot) ]
+                        Slots = [ "s-1", slot ]
                     }
 
                 let feedingOrder = "o-feeding"
@@ -1649,14 +1689,14 @@ let prescribeLinkedTests =
                 let lanes =
                     { Lanes.initial (Some draft) with
                         OrderPlan = shown
-                        Slots = Map [ ("s-1", atalurenOffered) ]
+                        Slots = [ "s-1", atalurenOffered ]
                     }
 
                 let lanes, _, _ =
                     lanes
                     |> Lanes.transition (counter ()) (LanesMsg.Slot("s-1", OrderContextMsg.TurnOfferOn 0))
 
-                lanes.Slots["s-1"]
+                (lanes |> Lanes.slotOf "s-1" |> Option.get)
                 |> turnedOn
                 |> Expect.equal "on in s-1" [| (Some "ataluren", Some "o-avond") |]
                 lanes.OrderContext |> turnedOn |> Expect.isEmpty "the workbench has none"

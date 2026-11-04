@@ -25,7 +25,8 @@ module BusyPolicy =
         | Request.Counting, _ -> true
         | Request.Workbench, (Page.Prescribe | Page.LifeSupport | Page.ContinuousMeds)
         | Request.Workbench, (Page.Formulary | Page.Parenteralia)
-        | Request.Plan, (Page.OrderPlan | Page.Nutrition | Page.Interactions) -> true
+        // a plan request leaves the nutrition page open: the slot prescribed waits for it, the others do not
+        | Request.Plan, (Page.OrderPlan | Page.Interactions) -> true
         | Request.Slots, Page.Nutrition -> true
         // the Settings page waits for what a reload starts: the seed over the workbench, or the
         // formulary and parenteralia loads without a patient

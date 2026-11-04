@@ -42,17 +42,6 @@ module ParenteralNutrition =
         |]
 
 
-    let private toolbarSx =
-        {|
-            display = "flex"
-            flexWrap = "wrap"
-            width = "100%"
-            justifyContent = "space-between"
-            alignItems = "center"
-            gap = 2
-        |}
-
-
     // on the right the room of the severity mark of a field, so the slider is as wide as the
     // fields of its column; no room above it, so the total row is no higher than the others and
     // the value that pops up while it moves lies over the caption
@@ -76,6 +65,8 @@ module ParenteralNutrition =
                 planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
                 onRemove: (unit -> unit) option
+                // the order into the plan; none while the slot cannot be prescribed
+                onPrescribe: (unit -> unit) option
                 busy: bool
             |})
         =
@@ -205,35 +196,8 @@ module ParenteralNutrition =
             </Grid>
             """
 
-        // the TPN ends in one bar: reset on the left, prescribe on the right; prescribe does nothing
-        // yet
-        let tpnToolbar =
-            let resetButton = Components.ActionBar.ActionButton slot.ResetAction
-
-            let prescribeButton =
-                Components.ActionBar.ActionButton
-                    {|
-                        label = Terms.``Prescribe`` |> getTerm "Voorschrijven"
-                        kind = Components.ActionBar.Kind.Primary
-                        onClick = ignore
-                        disabled = false
-                        icon = None
-                    |}
-
-            JSX.jsx
-                $"""
-            import Box from '@mui/material/Box';
-            <Box sx={toolbarSx}>
-                {resetButton}
-                {prescribeButton}
-            </Box>
-            """
-
-        let actionBar =
-            if props.nutritionContext |> isOneOf [ NutritionCategory.TPN ] then
-                tpnToolbar
-            else
-                slot.ResetBar
+        // every slot ends in one bar: reset on the left, prescribe on the right
+        let actionBar = prescribeBar getTerm slot.ResetAction props.onPrescribe
 
         // a little more room above the divider under the components; padding, because the Stack
         // it sits in sets its top margin, and the line is drawn at its bottom
@@ -389,17 +353,17 @@ module ParenteralNutrition =
             |}
 
 
-    /// The parenteral section: its heading with the button that prints the orders, a fold per
-    /// order, and the buttons that add one.
+    /// The parenteral section: its heading with the button that prints the slots, a fold per slot, and
+    /// the buttons that start one.
     [<JSX.Component>]
     let Section
         (props:
             {|
                 plan: OrderPlan
-                planNew: NutritionCategory -> unit
-                planRemove: string[] -> unit
-                evaluateContext: string * Api.OrderViewCommand -> unit
-                planRestore: unit -> unit
+                slots: Informedica.GenPRES.Client.Core.Client.SlotView list
+                nutrition: AppEnv.INutrition
+                // a change to the plan under way: no slot is prescribed meanwhile
+                planChanging: bool
                 localizationTerms: Deferred<string[][]>
                 busy: bool
             |})
@@ -415,25 +379,30 @@ module ParenteralNutrition =
         let printOpen, setPrintOpen = React.useState false
 
         let plan = props.plan
-        let contexts = plan.OrderContexts |> Array.filter (isOneOf parenteral)
 
-        let slotOf onRemove (nc: OrderContext) =
+        let slotsShown =
+            props.slots
+            |> List.choose (fun slot -> contextOf slot |> Option.map (fun ctx -> slot, ctx))
+            |> List.filter (snd >> isOneOf parenteral)
+
+        let contexts = slotsShown |> List.map snd |> List.toArray
+
+        // a slot whose prescribe is under way takes nothing, its bin included
+        let slotOf (slot: Informedica.GenPRES.Client.Core.Client.SlotView, nc: OrderContext) =
             SlotView
                 {|
                     nutritionContext = nc
                     plan = plan
-                    evaluateContext = props.evaluateContext
-                    planRestore = props.planRestore
+                    evaluateContext = fun (_, cmd) -> props.nutrition.SlotCommand(slot.Id, cmd)
+                    planRestore = fun () -> props.nutrition.SlotRestore slot.Id
                     localizationTerms = props.localizationTerms
-                    onRemove = Some onRemove
-                    busy = props.busy
+                    onRemove = Some(fun () -> props.nutrition.RemoveSlot slot.Id)
+                    onPrescribe = slot |> prescribeOf props.nutrition props.planChanging held
+                    busy = props.busy || slot.Prescribing
                 |}
 
-        let slots =
-            contexts
-            |> Array.map (fun nc -> slotOf (fun () -> props.planRemove [| nc.Id |]) nc)
+        let slots = slotsShown |> List.map slotOf |> List.toArray
 
-        // the buttons the plan admits a context for, as the server would rule
         let addButtons =
             [|
                 NutritionCategory.TPN, Terms.``Nutrition TPN`` |> getTerm "TPN"
@@ -441,12 +410,11 @@ module ParenteralNutrition =
                 NutritionCategory.ElectrolyteGlucose,
                 Terms.``Nutrition Electrolytes Glucose`` |> getTerm "Elektrolyten/Glucose"
             |]
-            |> Array.filter (fun (category, _) -> plan |> OrderPlan.mayAdd category)
             |> Array.map (fun (category, label) ->
                 Components.AddButton.View
                     {|
                         label = label
-                        onClick = fun () -> props.planNew category
+                        onClick = fun () -> props.nutrition.StartSlot category
                         disabled = held
                     |}
             )
@@ -455,9 +423,10 @@ module ParenteralNutrition =
 
         let printDialog =
             if printOpen then
+                // the print shows the slots on the page
                 ParenteralPrint.View
                     {|
-                        plan = plan
+                        plan = { plan with OrderContexts = contexts }
                         onClose = fun () -> setPrintOpen false
                     |}
             else

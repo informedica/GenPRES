@@ -34,7 +34,7 @@ module OutPolicy =
                 Request.Workbench
             if
                 slots
-                |> Map.exists (fun _ slot -> (OrderContextMachine.OrderContextState.inFlightRequest slot).IsSome)
+                |> List.exists (fun (_, slot) -> (OrderContextMachine.OrderContextState.inFlightRequest slot).IsSome)
             then
                 Request.Slots
             if (OrderPlanMachine.OrderPlanState.inFlightRequest orderPlan).IsSome then
