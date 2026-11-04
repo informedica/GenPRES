@@ -32,15 +32,14 @@ module Nutrition =
 
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
-        // the one plan: the nutrition workbenches live in the order plan, which is there
-        // with the patient
+        // the slots live outside the plan until they are prescribed; the plan is there with the patient
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
         let orderPlan = envOrderPlan.OrderPlan
+        let nutrition = AppEnv.asEnv<AppEnv.INutrition> props.appEnv
 
         let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
-        // no patient: the notice says what is missing. A patient whose plan is being opened
-        // shows as Changing, with the sections' own overlay and greyed slots, so no spinner here
+        // no patient: the notice says what is missing
         let patientNotice =
             Components.PatientNotice.View
                 {|
@@ -49,10 +48,10 @@ module Nutrition =
                 |}
 
         // a request out that changes the page. The page is disabled then, but that stops clicks
-        // only: the slots' intake effect sends without one, and the delete confirmation opens
-        // outside the page, so these check this themselves. A field counting its step clicks does
-        // not disable the page, since the field is on it: the controls that send wait for the
-        // count themselves
+        // only: the slots' intake effect sends without one, so it checks this itself. A field counting
+        // its step clicks does not disable the page, since the field is on it: the controls that send
+        // wait for the count themselves. A prescribe under way leaves the page open: the slot prescribed
+        // waits, and the others can be composed meanwhile
         let busy = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Page Global.Pages.Nutrition
 
         let content =
@@ -62,10 +61,9 @@ module Nutrition =
                 let sectionProps =
                     {|
                         plan = plan
-                        planNew = envOrderPlan.NewNutrition
-                        planRemove = envOrderPlan.Remove
-                        evaluateContext = envOrderPlan.OrderDialogCommand
-                        planRestore = envOrderPlan.RestoreField
+                        slots = nutrition.Slots
+                        nutrition = nutrition
+                        planChanging = orderPlan.IsChanging
                         localizationTerms = localizationTerms
                         busy = busy
                     |}

@@ -43,6 +43,7 @@ module private Messages =
     let signing m = Msg.Lanes(LanesMsg.Signing m)
     let workbench m = Msg.Lanes(LanesMsg.Workbench m)
     let plan m = Msg.Lanes(LanesMsg.Plan m)
+    let slot id m = Msg.Lanes(LanesMsg.Slot(id, m))
 
 
 module private Effects =
@@ -620,6 +621,36 @@ type private Projection(state: State, dispatch: Msg -> unit) =
 
         member _.FilterRows ids =
             Messages.plan (OrderPlanMsg.Change(OrderPlanChange.FilterRows ids, Elmish.newRequest ()))
+            |> dispatch
+
+    interface AppEnv.INutrition with
+        member _.Slots = Client.slots state
+
+        member _.Totals = Client.nutritionTotals state
+
+        member _.StartSlot category =
+            Msg.Lanes(LanesMsg.StartSlot(Elmish.newRequest (), category, Elmish.newRequest ()))
+            |> dispatch
+
+        member _.RemoveSlot id = Msg.Lanes(LanesMsg.RemoveSlot id) |> dispatch
+
+        member _.SlotCommand(id, cmd) =
+            Messages.slot id (OrderContextMsg.Command(cmd, Elmish.newRequest ()))
+            |> dispatch
+
+        member _.SlotRestore id = Messages.slot id OrderContextMsg.RestoreField |> dispatch
+
+        member _.Prescribe(id, orderId) =
+            Msg.Lanes(LanesMsg.Prescribe(Some id, orderId, Elmish.newRequest ()))
+            |> dispatch
+
+        member _.TurnOffer(id, index, switch) =
+            match switch with
+            | OrderContextMachine.OfferSwitch.On -> Messages.slot id (OrderContextMsg.TurnOfferOn index) |> dispatch
+            | OrderContextMachine.OfferSwitch.Off -> Messages.slot id (OrderContextMsg.TurnOfferOff index) |> dispatch
+
+        member _.OfferCommand(id, index, cmd) =
+            Messages.slot id (OrderContextMsg.OfferCommand(index, cmd, Elmish.newRequest ()))
             |> dispatch
 
     interface AppEnv.IPatient with

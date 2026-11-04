@@ -80,6 +80,30 @@ type IOrderPlan =
     abstract PlanBehind: bool
 
 
+/// The nutrition slots outside the plan, the combined totals, and the commands on them.
+/// Mangled, as IOrderContext is: the members share an object with the other interfaces.
+[<Interface; Fable.Core.Mangle>]
+type INutrition =
+    // the slots in the order they were started
+    abstract Slots: Informedica.GenPRES.Client.Core.Client.SlotView list
+    // the totals of the plan with the slots narrowed to one order, the plan's own while none is
+    abstract Totals: Totals option
+    // a slot of the category started
+    abstract StartSlot: NutritionCategory -> unit
+    // the slot with this id closed
+    abstract RemoveSlot: slotId: string -> unit
+    // a command into the slot with this id
+    abstract SlotCommand: slotId: string * Api.OrderViewCommand -> unit
+    // the list of a recalculation in the slot with this id closed without a pick
+    abstract SlotRestore: slotId: string -> unit
+    // the slot with this id narrowed to the order with this id into the plan, with its offers turned on
+    abstract Prescribe: slotId: string * orderId: string -> unit
+    // the offer at the index in the slot with this id turned on or off
+    abstract TurnOffer: slotId: string * index: int * OrderContextMachine.OfferSwitch -> unit
+    // a command into the offer at the index in the slot with this id
+    abstract OfferCommand: slotId: string * index: int * Api.OrderViewCommand -> unit
+
+
 /// Patient data and updates
 [<Interface>]
 type IPatient =

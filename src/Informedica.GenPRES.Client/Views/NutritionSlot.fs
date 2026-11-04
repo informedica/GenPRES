@@ -47,6 +47,40 @@ module NutritionSlot =
         ]
 
 
+    /// The context a nutrition slot shows; none while there is no patient.
+    let contextOf (slot: Informedica.GenPRES.Client.Core.Client.SlotView) =
+        slot.Context |> OrderContextMachine.OrderContextView.context
+
+
+    /// The prescribe of a nutrition slot: there while the slot names the order it adds, no change to the
+    /// plan is under way and nothing holds the page, since the plan takes one change at a time.
+    let prescribeOf
+        (nutrition: AppEnv.INutrition)
+        planChanging
+        held
+        (slot: Informedica.GenPRES.Client.Core.Client.SlotView)
+        =
+        match slot.PrescribeOrderId with
+        | Some orderId when not planChanging && not held -> Some(fun () -> nutrition.Prescribe(slot.Id, orderId))
+        | Some _
+        | None -> None
+
+
+    /// The bar that ends a slot: the reset on the left, the prescribe on the right, which waits while the
+    /// slot cannot be prescribed.
+    let prescribeBar getTerm (resetAction: Components.ActionBar.Action) (onPrescribe: (unit -> unit) option) =
+        let prescribe =
+            {|
+                label = Terms.``Prescribe`` |> getTerm "Voorschrijven"
+                kind = Components.ActionBar.Kind.Primary
+                onClick = onPrescribe |> Option.defaultValue ignore
+                disabled = onPrescribe.IsNone
+                icon = Some Mui.Icons.Add
+            |}
+
+        Components.ActionBar.View {| actions = [| resetAction; prescribe |] |}
+
+
     module private Elmish =
 
 

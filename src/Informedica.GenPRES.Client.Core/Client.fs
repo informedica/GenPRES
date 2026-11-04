@@ -42,6 +42,23 @@ module Client =
         }
 
 
+    /// A nutrition slot as the nutrition page shows it.
+    type SlotView =
+        {
+            /// The slot id the client minted when the slot started.
+            Id: string
+            /// The context of the slot, as the order context machine shows it.
+            Context: OrderContextView
+            /// The orders the link rules offer with the order of the slot, each turned on or off.
+            Offers: LinkedOffer[]
+            /// The id of the order the prescribe adds: the slot settled and narrowed to one scenario, with every
+            /// offer turned on narrowed to one scenario too. None while the slot cannot be prescribed.
+            PrescribeOrderId: string option
+            /// Whether the prescribe of this slot is under way, while the slot takes nothing.
+            Prescribing: bool
+        }
+
+
     /// What reaches the client: a message for one part, or what the user wants that needs what the
     /// parts hold.
     [<RequireQualifiedAccess>]
@@ -122,7 +139,7 @@ module Client =
     let totalsQuery (state: ClientState) =
         let slotOrders =
             state.Lanes.Slots
-            |> Map.values
+            |> Seq.map snd
             |> Seq.collect (fun slot ->
                 match slot |> OrderContextState.answered with
                 | Some ctx when ctx |> Models.OrderContext.contribution |> Option.isSome ->
@@ -155,9 +172,43 @@ module Client =
     /// The contexts the nutrition slots show.
     let slotContexts (state: ClientState) =
         state.Lanes.Slots
-        |> Map.values
+        |> Seq.map snd
         |> Seq.choose OrderContextState.context
         |> Seq.toList
+
+
+    /// The nutrition slots in the order they were started, as the nutrition page shows them.
+    let slots (state: ClientState) =
+        let adding = state.Lanes.OrderPlan |> OrderPlanState.adding
+
+        state.Lanes.Slots
+        |> List.map (fun (id, slot) ->
+            let view = slot |> OrderContextState.view
+
+            let prescribes =
+                match view, slot |> OrderContextState.linkedToPrescribe with
+                | OrderContextView.Settled ctx, Some _ ->
+                    ctx |> Models.OrderContext.contribution |> Option.map _.Order.Id
+                | _ -> None
+
+            {
+                Id = id
+                Context = view
+                Offers = slot |> OrderContextState.linkedOffers
+                PrescribeOrderId = prescribes
+                Prescribing = adding = Some id
+            }
+        )
+
+
+    /// The totals the nutrition page shows: the combined totals of the plan and the slots once the server
+    /// answered them, the plan's own otherwise, which hold while no slot is narrowed to one order.
+    let nutritionTotals (state: ClientState) =
+        match state.Loader.Totals with
+        | Resolved totals
+        | Refreshing totals -> Some totals
+        | HasNotStartedYet
+        | InProgress -> state.Lanes.OrderPlan |> OrderPlanState.plan |> Option.map _.Totals
 
 
     /// Whether leaving the page would lose work.

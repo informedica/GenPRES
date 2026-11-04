@@ -1415,9 +1415,7 @@ let offerCommandTests =
 
                 state
                 |> OrderContextState.view
-                |> Expect.equal
-                    "settled"
-                    (OrderContextView.Settled { atalurenMain with LinkedOrders = [| atalurenEvening |] })
+                |> Expect.equal "settled, the offers held apart" (OrderContextView.Settled atalurenMain)
             }
 
             test "the answer replaces the offer and keeps it turned on" {
@@ -1554,5 +1552,146 @@ let offerCommandTests =
                 |> next (OrderContextMsg.OfferCommand(0, doseStep, "r-3"))
                 |> OrderContextState.isKept
                 |> Expect.isFalse "closed"
+            }
+        ]
+
+
+/// MM narrowed in a feeding slot, offering Nutrilon Nenatal BMF pdr and Fantomalt pdr, as the LinkRules sheet
+/// links them to MM.
+module OffersNotSentFixtures =
+
+    open Informedica.GenPRES.Client.Core.Tests.OrderFixtures
+
+    let supplement name =
+        { context "" name with
+            Category = OrderCategory.Nutrition NutritionCategory.EnteralSupplement
+            Scenarios = [| scenario $"o-%s{name}" name |]
+        }
+
+    let mm =
+        { context "" "MM" with
+            Category = OrderCategory.Nutrition NutritionCategory.EnteralFeeding
+            Scenarios = [| scenario "o-mm" "MM" |]
+        }
+
+    let offers = [| supplement "Nutrilon Nenatal BMF pdr"; supplement "Fantomalt pdr" |]
+
+    /// The slot after the answer to the pick of MM, which carries the two offers.
+    let answered =
+        OrderContextState.changing patient (OrderViewCommand.SelectNthOrderScenario 0) mm mm "r-0"
+        |> OrderContextState.transition (
+            OrderContextMsg.Answered("r-0", Ok(OrderContextResponse.Evaluated { mm with LinkedOrders = offers }))
+        )
+        |> fst
+
+
+open OffersNotSentFixtures
+
+
+[<Tests>]
+let offersNotSentTests =
+    testList
+        "the offers of an answer are not sent back"
+        [
+            test "the slot holds the two offers, and its context holds none" {
+                answered
+                |> OrderContextState.linkedOffers
+                |> Array.length
+                |> Expect.equal "two offers" 2
+
+                answered
+                |> OrderContextState.context
+                |> Option.map _.LinkedOrders
+                |> Expect.equal "no offers in the context" (Some [||])
+            }
+
+            test "a command on MM sends the context without the offers, and keeps them" {
+                let next, effects =
+                    answered
+                    |> OrderContextState.transition (
+                        OrderContextMsg.Command(OrderViewCommand.ClearAllFilterProperty, "r-1")
+                    )
+
+                effects
+                |> List.choose (
+                    function
+                    | OrderContextEffect.CallContext(OrderContextCommand.Command(_, ctx), _) -> Some ctx.LinkedOrders
+                    | _ -> None
+                )
+                |> Expect.equal "sent without them" [ [||] ]
+
+                next
+                |> OrderContextState.linkedOffers
+                |> Array.length
+                |> Expect.equal "still two" 2
+            }
+        ]
+
+
+/// Chlooramfenicol eye drops on the workbench, offering the eye ointment "aanvulling op oogdruppels", whose own
+/// answer offers it again, as the LinkRules row with an empty MainDoseText does.
+module OfferAnswerFixtures =
+
+    open Informedica.GenPRES.Client.Core.Tests.OrderFixtures
+
+    let chlooramfenicol doseText orderId =
+        let ctx = context "" "chlooramfenicol"
+
+        { ctx with
+            Filter =
+                { ctx.Filter with
+                    Generic = Some "chlooramfenicol"
+                    Indication = Some "Ooginfecties (geen trachoma)"
+                    Route = Some "OCULAIR"
+                    DoseType = Some(DoseType.Discontinuous doseText)
+                }
+            Scenarios = [| scenario orderId "chlooramfenicol" |]
+        }
+
+    let drops = chlooramfenicol "" "o-drops"
+    let ointment = chlooramfenicol "aanvulling op oogdruppels" "o-ointment"
+
+    let offered =
+        OrderContextState.changing patient (OrderViewCommand.SelectNthOrderScenario 0) drops drops "r-0"
+        |> OrderContextState.transition (
+            OrderContextMsg.Answered(
+                "r-0",
+                Ok(OrderContextResponse.Evaluated { drops with LinkedOrders = [| ointment |] })
+            )
+        )
+        |> fst
+
+
+open OfferAnswerFixtures
+
+
+[<Tests>]
+let offerAnswerTests =
+    testList
+        "the answer to a command on an offer"
+        [
+            test "a pick on the ointment offer is held without the offer its answer carries" {
+                let answer = { ointment with LinkedOrders = [| ointment |] }
+
+                offered
+                |> OrderContextState.transition (
+                    OrderContextMsg.OfferCommand(0, OrderViewCommand.SelectNthOrderScenario 0, "r-1")
+                )
+                |> fst
+                |> OrderContextState.transition (
+                    OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated answer))
+                )
+                |> fst
+                |> OrderContextState.linkedOffers
+                |> Array.map (fun o -> o.Context.Scenarios[0].Order.Id, o.Context.LinkedOrders.Length)
+                |> Expect.equal "the ointment, without an offer" [| "o-ointment", 0 |]
+            }
+
+            test "the view gives the context it shows" {
+                offered
+                |> OrderContextState.view
+                |> OrderContextView.context
+                |> Option.map _.Scenarios[0].Order.Id
+                |> Expect.equal "the drops" (Some "o-drops")
             }
         ]

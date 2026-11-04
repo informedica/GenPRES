@@ -297,8 +297,17 @@ module GenPres =
                         |}
                     |> Some
                 | OrderContextView.NoPatient -> None
-            // the one plan: the nutrition page shows the plan's totals, nutrition included
-            | Global.Pages.Nutrition
+            // the nutrition page shows the plan's totals with the slots narrowed to one order, so that the
+            // combined intake is seen before a prescribe
+            | Global.Pages.Nutrition ->
+                (AppEnv.asEnv<AppEnv.INutrition> props.appEnv).Totals
+                |> Option.map (fun totals ->
+                    Views.Totals.View
+                        {|
+                            source = "nutrition"
+                            totals = totals
+                        |}
+                )
             | Global.Pages.OrderPlan ->
                 match orderPlan with
                 | OrderPlanView.Settled(tp, _)
