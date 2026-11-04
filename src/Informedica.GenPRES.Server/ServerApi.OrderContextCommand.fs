@@ -8,52 +8,6 @@ open Informedica.GenPRES.Shared.Api
 /// The order-context member: the prescribing workbench over the order-context port.
 module OrderContextCommand =
 
-    /// Whether the command changes the choices or the scenario of the context, so that the answer
-    /// carries the linked orders offered again; a value step keeps the scenario, so the answer carries
-    /// no offers.
-    let offersLinked =
-        function
-        | OrderViewCommand.SetNthFilterProperty _
-        | OrderViewCommand.ClearFilterProperty _
-        | OrderViewCommand.ClearAllFilterProperty
-        | OrderViewCommand.SelectNthOrderScenario _
-        | OrderViewCommand.SeedFilter _ -> true
-        | OrderViewCommand.ResetOrderScenario
-        | OrderViewCommand.DecreaseScheduleFrequencyProperty
-        | OrderViewCommand.IncreaseScheduleFrequencyProperty
-        | OrderViewCommand.SetMinScheduleFrequencyProperty
-        | OrderViewCommand.SetMaxScheduleFrequencyProperty
-        | OrderViewCommand.SetMedianScheduleFrequencyProperty
-        | OrderViewCommand.DecreaseOrderableDoseQuantityProperty _
-        | OrderViewCommand.IncreaseOrderableDoseQuantityProperty _
-        | OrderViewCommand.SetMinOrderableDoseQuantityProperty
-        | OrderViewCommand.SetMaxOrderableDoseQuantityProperty
-        | OrderViewCommand.SetMedianOrderableDoseQuantityProperty
-        | OrderViewCommand.SetOrderableDoseQuantityPercProperty _
-        | OrderViewCommand.DecreaseOrderableDoseRateProperty _
-        | OrderViewCommand.IncreaseOrderableDoseRateProperty _
-        | OrderViewCommand.SetMinOrderableDoseRateProperty
-        | OrderViewCommand.SetMaxOrderableDoseRateProperty
-        | OrderViewCommand.SetMedianOrderableDoseRateProperty
-        | OrderViewCommand.DecreaseComponentOrderableQuantityProperty _
-        | OrderViewCommand.IncreaseComponentOrderableQuantityProperty _
-        | OrderViewCommand.SetMinComponentOrderableQuantityProperty _
-        | OrderViewCommand.SetMaxComponentOrderableQuantityProperty _
-        | OrderViewCommand.SetMedianComponentOrderableQuantityProperty _
-        | OrderViewCommand.SetNthDiluentProperty _
-        | OrderViewCommand.ClearDiluentProperty
-        | OrderViewCommand.SetNthComponentsProperty _
-        | OrderViewCommand.SetNthScheduleProperty _
-        | OrderViewCommand.ReCalcScheduleProperty _
-        | OrderViewCommand.SetNthOrderableProperty _
-        | OrderViewCommand.ReCalcOrderableProperty _
-        | OrderViewCommand.SetNthComponentProperty _
-        | OrderViewCommand.ReCalcComponentProperty _
-        | OrderViewCommand.SetNthItemProperty _
-        | OrderViewCommand.ReCalcItemProperty _
-        | OrderViewCommand.SetArgumentationProperty _ -> false
-
-
     /// The context's patient made at the inbound boundary, the context parsed into the domain, the
     /// port asked with the domain command, or the context answered as it is without one; the
     /// outcome mapped out as the response with the environment's demo flag. A draft that is none,
@@ -71,7 +25,7 @@ module OrderContextCommand =
                         let! answer = env.orderContext.evaluate cmd pc
 
                         match answer with
-                        | Ok(Evaluated e) when viewCmd |> offersLinked ->
+                        | Ok(Evaluated e) when viewCmd |> OrderViewCommand.offersLinked ->
                             let! offers = env.orderContext.linkedOrders e
 
                             // the offers never fail the evaluation: without them the answer offers none

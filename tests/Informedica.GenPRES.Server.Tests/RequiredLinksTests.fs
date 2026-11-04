@@ -183,14 +183,14 @@ let tests =
                 [
                     test "a linked order that needs its main order is not offered: only 7:00" {
                         provider sheetRows
-                        |> ServerApi.Adapters.forPickLists
+                        |> ServerApi.Adapters.withStandAloneDoseRules
                         |> offeredDoseTypes
                         |> Expect.equal "7:00" [| "week 1 7:00 uur" |]
                     }
 
                     test "a linked order that can also be ordered on its own is offered: 7:00 and 18:00" {
                         provider standAloneRows
-                        |> ServerApi.Adapters.forPickLists
+                        |> ServerApi.Adapters.withStandAloneDoseRules
                         |> offeredDoseTypes
                         |> Expect.equal "7:00 and 18:00" [| "week 1 7:00 uur"; "week 1 18:00 uur" |]
                     }
@@ -225,7 +225,7 @@ let tests =
                             None
                         )
                         :> Resources.IResourceProvider)
-                        |> ServerApi.Adapters.forPickLists
+                        |> ServerApi.Adapters.withStandAloneDoseRules
                         |> _.GetDoseRules()
                         |> Expect.isEmpty "none"
                     }

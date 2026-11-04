@@ -191,10 +191,11 @@ module Adapters =
             |> Array.collect offers
 
 
-    /// The provider without the dose rules that a link rule with Required yes matches on its linked side;
-    /// such an order is only offered by its main order. When the rules did not load, the resources hold no
-    /// dose rules to leave out, and there are none.
-    let forPickLists (provider: Resources.IResourceProvider) =
+    /// The provider whose dose rules are the stand-alone dose rules: every dose rule but those that a link
+    /// rule with Required yes matches on its linked side, since such an order is only offered by its main
+    /// order. Every dose rule lookup reads them, for the pick lists, the scenarios and the refusal alike.
+    /// When the dose rules did not load, the provider has no dose rules, so this provider has none either.
+    let withStandAloneDoseRules (provider: Resources.IResourceProvider) =
         { new Resources.IResourceProvider with
             member _.Get key = provider.Get key
             member _.GetData() = provider.GetData()
@@ -225,8 +226,8 @@ module Adapters =
 
 
     /// The order context port over the domain's rules: an evaluated nutrition context narrowed and
-    /// settled to the rule set of the category it carries, a refused context unchanged. The pick lists
-    /// leave out the orders that need a main order; the linked offers are evaluated over every dose rule.
+    /// settled to the rule set of the category it carries, a refused context unchanged. The evaluation leaves
+    /// out the orders that need a main order; the linked offers are evaluated over every dose rule.
     let private makeOrderContextPort
         logger
         (provider: Resources.IResourceProvider)
@@ -241,7 +242,12 @@ module Adapters =
                             NutritionRuleSets.ruleSetOf provider (pc |> PlanContext.nutritionCategory)
                             |> Result.bind (fun (_, set) ->
                                 pc
-                                |> NutritionRuleSets.evaluateSettled (now ()) logger (forPickLists provider) set cmd
+                                |> NutritionRuleSets.evaluateSettled
+                                    (now ())
+                                    logger
+                                    (withStandAloneDoseRules provider)
+                                    set
+                                    cmd
                             )
                     }
             linkedOrders =

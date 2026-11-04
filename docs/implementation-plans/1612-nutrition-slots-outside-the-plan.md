@@ -491,7 +491,7 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
    - **5c. Rule 20:** the dose rules of a Required link rule left out of the pick lists. The gap between
      step 5 and step 9 opens here. GenFORM derives the dose rules that need no main order once per load,
      `Keys.standAloneDoseRules` over `LinkRule.needsMainOrder`. The order context port evaluates a command
-     over a provider whose dose rules are those, `Adapters.forPickLists`, which every dose rule lookup
+     over a provider whose dose rules are those, `Adapters.withStandAloneDoseRules`, which every dose rule lookup
      passes through. The linked offers are evaluated over every dose rule. The plan port is unchanged, so
      the plan slots still offer the supplements until step 10.
 
@@ -546,9 +546,30 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
      until the views use the slots, a plan request disables the whole nutrition page, so no pick reaches a
      slot then. Script `src/Informedica.GenPRES.Client.Core/Scripts/SlotPrescribe.fsx`, with modified copies of
      the four files it changes, deleted in this step. Seen: nothing yet.
-   - **8b. The linked orders.** The linked orders offered in the workbench and the slots, each turned on
-     or off with its own order context, and `LanesMsg.Prescribe` with the linked orders turned on. Seen:
-     nothing yet.
+   - **8b. The linked orders.** The linked orders offered in the workbench and the slots, and
+     `LanesMsg.Prescribe` with the linked orders turned on. Decisions, 2026-11-04, halcwb:
+     - The offers live in `OrderContextState`, beside the context they are offered with, so that the
+       workbench and every slot hold them alike.
+     - An answer to a change of the choices or the scenario takes the offers it carries, each turned off,
+       and none for a refusal; any other answer leaves them as they were, since the server computes the
+       offers only for such a change. Both sides read the list of those commands, `offersLinked`, from
+       the shared contract.
+     - An offer is turned on with one of its scenarios, as the prescribe button belongs to one scenario
+       of the main order, and goes into the plan narrowed to that scenario.
+     - Commands on an offer, each with its own order context, do not come in this step: the order
+       context port evaluates every command over the stand-alone dose rules, so a pick in an offer that
+       needs its main order is refused and a dose step drops its picks. They come with the server's
+       evaluation of an offer over every dose rule, before or with step 9.
+     - A refactor pull request comes first, so that 8b stays under 200 lines of `src/`: `offersLinked`
+       moves from the server to `Api.OrderViewCommand`, and `Adapters.forPickLists` is renamed
+       `withStandAloneDoseRules`, since every dose rule lookup of the evaluation reads it, not only the
+       pick lists.
+
+     **Open:** how the server tells an offer apart from another context, so that it evaluates an offer
+     over every dose rule.
+
+     Script `src/Informedica.GenPRES.Client.Core/Scripts/PrescribeLinked.fsx`, with modified copies of the
+     three files it changes. Seen: nothing yet.
    - **8c. The totals query in the loader**, with its clear. Seen: nothing yet.
 9. **The views.** On the nutrition page a prescribe button on every slot, the supplements offered in the
    feeding slot, staying on the page, the combined totals; on the workbench the linked orders offered;

@@ -436,15 +436,5 @@ let linkedOfferTests =
                         |> Expect.equal "evaluated, nothing offered" (Ok [||])
                     }
 
-                    test "the commands that change the choices or the scenario" {
-                        [
-                            Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearAllFilterProperty
-                            Informedica.GenPRES.Shared.Api.OrderViewCommand.SelectNthOrderScenario 0
-                            Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthDiluentProperty 0
-                            Informedica.GenPRES.Shared.Api.OrderViewCommand.ResetOrderScenario
-                        ]
-                        |> List.map ServerApi.OrderContextCommand.offersLinked
-                        |> Expect.equal "filter and scenario only" [ true; true; false; false ]
-                    }
                 ]
         ]
