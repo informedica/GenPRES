@@ -174,13 +174,16 @@ module private Effects =
                 }
                 (landed (fun result -> LoaderMachine.Landing.Interactions(check, opened, result)))
         | LoaderMachine.LoaderEffect.FetchTotals(number, query) ->
-            Cmd.OfAsync.perform
+            let totals result = LoaderMachine.Landing.Totals(number, opened, result)
+
+            Cmd.OfAsync.either
                 serverApi.processTotals
                 {
                     Opened = opened
                     Command = query
                 }
-                (landed (fun result -> LoaderMachine.Landing.Totals(number, opened, result)))
+                (landed totals)
+                (fun ex -> Error [| ex.Message |] |> landed totals)
         | LoaderMachine.LoaderEffect.FetchDrugNames ->
             Cmd.OfAsync.perform
                 serverApi.processInteraction
