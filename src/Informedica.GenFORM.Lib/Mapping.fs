@@ -29,6 +29,9 @@ module Mapping =
         [<Literal>]
         let totalsSheet = "Totals"
 
+        [<Literal>]
+        let ruleSetsSheet = "RuleSets"
+
 
     let parseSheet apply (data: string[][]) =
         try
@@ -109,6 +112,24 @@ module Mapping =
         totalsRow
         |> getData dataUrlId Constants.totalsSheet
         |> Result.mapErrorSource "getTotals"
+
+
+    /// Map one row of the "RuleSets" sheet, every cell trimmed.
+    let ruleSetRow (get: string -> string) (_: string -> float option) =
+        {
+            RuleSetData.Category = get "Category" |> String.trim
+            RuleSetData.Label = get "Label" |> String.trim
+            RuleSetData.Indication = get "Indication" |> String.trim
+            RuleSetData.Generic = get "Generic" |> String.trim
+        }
+
+
+    /// The rows of the "RuleSets" sheet, without the rows that name no category.
+    let getRuleSets dataUrlId =
+        ruleSetRow
+        |> getData dataUrlId Constants.ruleSetsSheet
+        |> Result.map (Array.filter (fun r -> r.Category |> String.notEmpty))
+        |> Result.mapErrorSource "getRuleSets"
 
 
     /// The emergency-list workbook, where the normal values of weight and height by age and

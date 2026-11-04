@@ -87,20 +87,28 @@ module Adapters =
 
 
     /// The order plan port over the domain's rules: the plan's contexts through the order
-    /// context service, its totals over the provider's data, the refusals worded with the
-    /// nutrition rule sets the server owns.
+    /// context service, its totals over the provider's data, the nutrition rule sets from the
+    /// rule set rows of the provider, read on every use so that a reload of the sheet is seen.
     let private makeOrderPlanPort
         logger
         (provider: Resources.IResourceProvider)
-        (ruleSets: NutritionRuleSet[])
         (newId: unit -> string)
         (now: unit -> DateTime)
         : OrderPlanPort
         =
         let recalc plan = plan |> OrderPlan.recalculate (provider.GetTotals())
 
-        let refused r =
-            r |> Result.mapError (OrderPlanMapper.words ruleSets >> Array.singleton)
+        // a refusal in words, a category labelled from the rule sets
+        let refused sets r =
+            r |> Result.mapError (OrderPlanMapper.words sets >> Array.singleton)
+
+        let ruleSets () =
+            provider.Get Resources.Keys.ruleSetData
+            |> NutritionRuleSet.ofData
+            |> Result.mapError (List.map (OrderPlanMapper.words [||]) >> List.toArray)
+
+        // the rule sets for the labels of a refusal; without them a category is worded by its name
+        let labels () = ruleSets () |> Result.defaultValue [||]
 
         // a nutrition slot discovered for the patient: of what the evaluation offers, only its rule set
         let discoverSlot contextId category pat =
@@ -110,8 +118,12 @@ module Adapters =
                 |> OrderContextService.evaluate (now ()) logger provider OrderContext.UpdateOrderContext
                 |> Result.map _.Context
 
-            NutritionRuleSet.emptyContext (ruleSets |> NutritionRuleSet.tryFind category) pat
-            |> NutritionRuleSet.discover evaluate
+            ruleSets ()
+            |> Result.bind (fun sets -> sets |> NutritionRuleSet.find category |> refused sets)
+            |> Result.bind (fun set ->
+                NutritionRuleSet.emptyContext (Some set) pat
+                |> NutritionRuleSet.discover evaluate
+            )
 
         // a nutrition slot starts again on new patient data; a drug context without an order only
         // takes the patient
@@ -131,15 +143,27 @@ module Adapters =
                     async {
                         let evaluate cmd pc = pc |> OrderContextService.evaluate (now ()) logger provider cmd
 
-                        // a nutrition context's lists narrowed to its rule set, and evaluated again
-                        // as it is while that leaves a choice open
-                        let set =
+                        let category =
                             plan.Contexts
                             |> Array.tryFind (fun c -> c.Id = contextId)
                             |> Option.bind PlanContext.nutritionCategory
-                            |> Option.bind (fun c -> ruleSets |> NutritionRuleSet.tryFind c)
 
-                        let settled (evaluated: PlanContext) =
+                        // the rule sets and the rule set of a nutrition context, none for a medication context
+                        let ruleSet =
+                            match category with
+                            | Some c ->
+                                ruleSets ()
+                                |> Result.bind (fun sets ->
+                                    sets
+                                    |> NutritionRuleSet.find c
+                                    |> refused sets
+                                    |> Result.map (fun s -> sets, Some s)
+                                )
+                            | None -> Ok([||], None)
+
+                        // a nutrition context's lists narrowed to its rule set, and evaluated again
+                        // as it is while that leaves a choice open
+                        let settled set (evaluated: PlanContext) =
                             match set with
                             | Some set ->
                                 evaluated
@@ -150,22 +174,31 @@ module Adapters =
                             | None -> Ok evaluated
 
                         return
-                            pc
-                            |> evaluate cmd
-                            |> Result.bind settled
-                            |> Result.bind (fun evaluated ->
-                                plan |> OrderPlan.updateContext ruleSets contextId evaluated |> refused
+                            ruleSet
+                            |> Result.bind (fun (sets, set) ->
+                                pc
+                                |> evaluate cmd
+                                |> Result.bind (settled set)
+                                |> Result.bind (fun evaluated ->
+                                    plan |> OrderPlan.updateContext sets contextId evaluated |> refused sets
+                                )
                             )
                             |> Result.map recalc
                     }
             addOrderContext =
                 fun plan pc ->
-                    async { return plan |> OrderPlan.addOrderContext newId pc |> refused |> Result.map recalc }
+                    async {
+                        return
+                            plan
+                            |> OrderPlan.addOrderContext newId pc
+                            |> refused (labels ())
+                            |> Result.map recalc
+                    }
             newOrderContext =
                 fun plan category ->
                     async {
                         return
-                            match plan |> OrderPlan.admits category |> refused with
+                            match plan |> OrderPlan.admits category |> refused (labels ()) with
                             | Error e -> Error e
                             | Ok() ->
                                 let id = newId ()
@@ -306,7 +339,6 @@ module Adapters =
                 makeOrderPlanPort
                     orderPlanLogger
                     provider
-                    NutritionRuleSets.all
                     (fun () -> Guid.NewGuid().ToString())
                     (fun () -> DateTime.UtcNow)
             demo = demo

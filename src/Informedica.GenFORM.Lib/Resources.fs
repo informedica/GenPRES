@@ -271,6 +271,9 @@ module Resources =
         let normalValueRows = ResourceKey.create<Map<string, string[][]>> "normalValueRows"
         let renalRuleData = ResourceKey.create<RenalRuleData[]> "renalRuleData"
         let totalsData = ResourceKey.create<TotalsData[]> "totalsData"
+        let ruleSetData = ResourceKey.create<RuleSetData[]> "ruleSetData"
+        // The rule set rows checked against the dose rules and the formulary; only gives messages.
+        let ruleSetChecks = ResourceKey.create<unit> "ruleSetChecks"
         let products = ResourceKey.create<ProductComponent[]> "products"
         let doseRules = ResourceKey.create<DoseRule[]> "doseRules"
         let solutionRules = ResourceKey.create<SolutionRule[]> "solutionRules"
@@ -370,6 +373,17 @@ module Resources =
                     "Totals resource not loaded"
                     ([||]: TotalsData[])
                     (fun () -> Mapping.getTotals dataUrlId)
+
+                // a sheet that fails to load fails the whole load: a category without a rule set
+                // is refused
+                Keys.ruleSetData.Name, ofResult (fun () -> Mapping.getRuleSets dataUrlId)
+
+                Keys.ruleSetChecks.Name,
+                deriveWith (fun r ->
+                    (),
+                    r.Get Keys.ruleSetData
+                    |> RuleSet.checkData (r.Get Keys.doseRuleData) (r.Get Keys.formularyProducts)
+                )
 
                 // Narrow the raw ZIndex products to those referenced by dose rules
                 // BEFORE building, so discarded products are never constructed.

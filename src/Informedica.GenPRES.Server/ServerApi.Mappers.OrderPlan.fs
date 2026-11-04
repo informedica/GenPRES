@@ -42,7 +42,7 @@ module OrderPlanMapper =
 
 
     /// The server's words for a change the plan refuses; the category's label from the rule
-    /// sets the server owns.
+    /// sets.
     let words (ruleSets: NutritionRuleSet[]) =
         function
         | OrderPlanError.NoSuchContext id -> $"The plan holds no context %s{id}"
@@ -57,3 +57,5 @@ module OrderPlanMapper =
                 |> Option.defaultValue $"%A{category}"
 
             $"The plan already holds a %s{label} context"
+        | OrderPlanError.UnknownCategory name -> $"RuleSets: %s{name} is not a nutrition category"
+        | OrderPlanError.NoRuleSet category -> $"RuleSets: no rule set for %s{category |> NutritionRuleSet.sheetName}"

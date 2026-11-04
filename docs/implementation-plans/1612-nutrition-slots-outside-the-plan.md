@@ -224,15 +224,19 @@ offered nothing.
 ### Rule sets (GenFORM)
 
 - A `Data` record for the RuleSets sheet, one field per column with its `///` comment, read by a mapper
-  with `get` by column name, and a column-contract test. The rows of a category become one
-  `NutritionRuleSet`, the record the order plan rules already take, so `NutritionRuleSet.narrow`,
-  `settle`, `emptyContext` and `discover` stay as they are; an empty generic list already restricts
-  nothing.
-- A resource in `Resources.defaultRegistry`, reached through `IResourceProvider`. The composition root
-  passes the rule sets from the provider where it passes `NutritionRuleSets.all` today.
-- The read refuses a row whose Category names no category, and warns for an indication or a generic that
-  matches no dose rule, and for a generic or component under the indications that has no product in the
-  Formulary sheet.
+  with `get` by column name, and a column-contract test. GenORDER's `NutritionRuleSet.ofData` makes the
+  rows of a category one `NutritionRuleSet`, the record the order plan rules already take, and refuses a
+  row whose Category names no category with `OrderPlanError.UnknownCategory`, since the categories are
+  GenORDER's. `NutritionRuleSet.sheetName` gives the name of every category in the sheet.
+- `NutritionRuleSet.discover` reads an empty generic list as no restriction, as `narrow` does: a rule
+  set without generics offers every generic under its indications. An empty indication list still
+  offers nothing. A category without a rule set is refused with `OrderPlanError.NoRuleSet`.
+- A resource in `Resources.defaultRegistry`, reached through `IResourceProvider`; a sheet that does not
+  load fails the whole load. The order plan port reads the rule sets from the provider on every use, so
+  that a reload of the sheet is seen.
+- A second resource, as the renal rule checks are, gives only warnings: a category with more than one
+  label, an indication or a generic that matches no dose rule, and a generic or component under the
+  indication of a row that has no product in the Formulary sheet.
 
 ### Link rules (GenFORM)
 
@@ -399,10 +403,17 @@ afternoon and evening doses of the hydrocortison taper and the evening dose of a
 cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
 
 1. **The rule sets from the sheet.** The RuleSets sheet in GenFORM: the `Data` record, the mapper, the
-   column-contract test, the resource and the checks of its read; the server takes the rule sets from
-   the provider; `ServerApi.NutritionRuleSets.fs` and the unused `GenORDER.Lib/Nutrition.fs` go. Script
-   `src/Informedica.GenFORM.Lib/Scripts/RuleSets.fsx`. Seen: the nutrition slots offer every nutrition
-   dose rule, breast milk and the electrolyte and glucose mixture included.
+   column-contract test, the resource and the checks of its read; `NutritionRuleSet.ofData`, the
+   `discover` change and the two new `OrderPlanError` cases in GenORDER; the server takes the rule sets
+   from the provider. Script `src/Informedica.GenFORM.Lib/Scripts/RuleSets.fsx`. Every spreadsheet a
+   server runs on needs the RuleSets tab before the merge, the demo spreadsheet included. The step
+   takes about 290 lines of `src/`, over the limit of 200, as one pull request. Decision, 2026-11-04,
+   halcwb. Seen: the
+   nutrition slots offer every nutrition dose rule, breast milk and the electrolyte and glucose mixture
+   included.
+   1b. **The hard-coded rule sets go.** `ServerApi.NutritionRuleSets.fs` and the unused
+   `GenORDER.Lib/Nutrition.fs` with their tests; the words test in `OrderPlanSwitchTests` takes rule
+   sets made in the test. A pull request of its own, for the 200-line limit. Seen: nothing.
 2. **The link in the plan.** `PlanContext.LinkedTo`, the rename of `PlanContext.Intake` to `Totals`, the
    DTO, the shape check in `fromDto` and `linkError`, removal by link with the fallback for a supplement
    without a link, `addOrderContext` keeping the category, and the JSON structure version 13 with its

@@ -169,20 +169,86 @@ module PlanContext =
 
 module NutritionRuleSet =
 
-    /// The set serving a category, if the composition root supplied one.
+    /// The set serving a category, if the rule sets have one.
     let tryFind category (sets: NutritionRuleSet[]) = sets |> Array.tryFind (fun s -> s.Category = category)
+
+
+    /// The rule set of a category, refused when the rule sets have none for it.
+    let find category sets =
+        sets
+        |> tryFind category
+        |> Result.requireSome (OrderPlanError.NoRuleSet category)
+
+
+    /// Every nutrition category.
+    let categories =
+        [|
+            NutritionCategory.EnteralFeeding
+            NutritionCategory.EnteralSupplement
+            NutritionCategory.TPN
+            NutritionCategory.Lipid
+            NutritionCategory.ElectrolyteGlucose
+        |]
+
+
+    /// The name of a category in the "RuleSets" sheet.
+    let sheetName =
+        function
+        | NutritionCategory.EnteralFeeding -> "EnteralFeeding"
+        | NutritionCategory.EnteralSupplement -> "EnteralSupplement"
+        | NutritionCategory.TPN -> "TPN"
+        | NutritionCategory.Lipid -> "Lipid"
+        | NutritionCategory.ElectrolyteGlucose -> "ElectrolyteGlucose"
+
+
+    /// The nutrition category a name in the "RuleSets" sheet gives, refused for a name the code
+    /// does not know.
+    let categoryOf name =
+        categories
+        |> Array.tryFind (sheetName >> (=) name)
+        |> Result.requireSome (OrderPlanError.UnknownCategory name)
+
+
+    /// The values of a list kept, an empty list restricting nothing.
+    let keep (allowed: 'a[]) (xs: 'a[]) =
+        if allowed |> Array.isEmpty then
+            xs
+        else
+            xs |> Array.filter (fun x -> allowed |> Array.contains x)
+
+
+    /// The rule set of every category the rows name: the label from the first row of the category,
+    /// and its indications and generics, each once, in the order of the rows. A category whose rows
+    /// leave every generic empty gets no generics, which restricts nothing. Refused, naming each
+    /// one once, when a row names a category the code does not know.
+    let ofData (rows: Types.Data.RuleSetData[]) =
+        rows
+        |> Array.groupBy _.Category
+        |> Array.toList
+        |> List.traverseResultA (fun (name, rs) ->
+            let distinct f =
+                rs
+                |> Array.map f
+                |> Array.filter Informedica.Utils.Lib.BCL.String.notEmpty
+                |> Array.distinct
+
+            categoryOf name
+            |> Result.map (fun category ->
+                {
+                    Category = category
+                    Label = rs[0].Label
+                    Indications = distinct _.Indication
+                    Generics = distinct _.Generic
+                }
+            )
+        )
+        |> Result.map List.toArray
 
 
     /// The context's pick lists narrowed to the set: when the set names indications or
     /// generics, only those are kept; an empty list in the set restricts nothing. The dose
     /// types and the selection pass through.
     let narrow (set: NutritionRuleSet) (ctx: OrderContext) : OrderContext =
-        let keep (allowed: string[]) (xs: string[]) =
-            if allowed |> Array.isEmpty then
-                xs
-            else
-                xs |> Array.filter (fun x -> allowed |> Array.contains x)
-
         { ctx with
             Filter =
                 { ctx.Filter with
@@ -233,8 +299,9 @@ module NutritionRuleSet =
     /// The pick lists of a nutrition context discovered: the context evaluated as it is, and
     /// of the indications, generics and dose types the evaluation offers, only those the
     /// context already carried, so a category's rule set bounds what is offered; settled, so
-    /// a list that leaves one option has it chosen. The evaluation is passed in, so the
-    /// discovery is what it does with the answer.
+    /// a list that leaves one option has it chosen. An empty list of generics restricts
+    /// nothing, as in the narrowing. The evaluation is passed in, so the discovery is what it
+    /// does with the answer.
     let discover (evaluate: OrderContext -> Result<OrderContext, 'e>) (ctx: OrderContext) =
         let offered (xs: 'a[]) (ys: 'a[]) = ys |> Array.filter (fun y -> xs |> Array.contains y)
 
@@ -243,7 +310,7 @@ module NutritionRuleSet =
                 Filter =
                     { resolved.Filter with
                         Indications = resolved.Filter.Indications |> offered ctx.Filter.Indications
-                        Generics = resolved.Filter.Generics |> offered ctx.Filter.Generics
+                        Generics = resolved.Filter.Generics |> keep ctx.Filter.Generics
                         DoseTypes = resolved.Filter.DoseTypes |> offered ctx.Filter.DoseTypes
                     }
             }

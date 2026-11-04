@@ -12,7 +12,22 @@ type TotalsSpy() =
     member this.CallCount = callCount
 
     interface Resources.IResourceProvider with
-        member _.Get _ = raise (NotImplementedException())
+        // the rule set rows answer one TPN row, a nutrition slot reads them; every other resource raises
+        member _.Get(key: Resources.ResourceKey<'T>) : 'T =
+            if key.Name = Resources.Keys.ruleSetData.Name then
+                unbox<'T>(
+                    box
+                        [|
+                            {
+                                RuleSetData.Category = "TPN"
+                                RuleSetData.Label = "TPN"
+                                RuleSetData.Indication = "TPN"
+                                RuleSetData.Generic = ""
+                            }
+                        |]
+                )
+            else
+                raise (NotImplementedException())
         member _.GetData() = raise (NotImplementedException())
         member _.GetDoseRules() = raise (NotImplementedException())
         member _.GetEnteralFeeding() = raise (NotImplementedException())

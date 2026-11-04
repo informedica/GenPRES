@@ -509,6 +509,16 @@ module EvaluateFixtures =
         }
 
 
+    /// One row of the "RuleSets" sheet.
+    let ruleSetRow category label indication generic : Informedica.GenForm.Lib.Types.Data.RuleSetData =
+        {
+            Category = category
+            Label = label
+            Indication = indication
+            Generic = generic
+        }
+
+
 open EvaluateFixtures
 
 
@@ -614,6 +624,116 @@ let evaluateTests =
                 workbench
                 |> NutritionRuleSet.discover (fun _ -> Error "no")
                 |> Expect.equal "an evaluation that fails is the answer" (Error "no")
+            }
+
+            test "discovery over a nutrition context without generics offers every generic the evaluation gives" {
+                let workbench =
+                    { pcmContext with
+                        Filter =
+                            { fresh with
+                                Indications = [| "voeding" |]
+                                Generics = [||]
+                                DoseTypes = [| disc |]
+                            }
+                    }
+
+                let evaluate (ctx: OrderContext) =
+                    Ok
+                        { ctx with
+                            Filter =
+                                { ctx.Filter with
+                                    Indications = [| "voeding"; "pijn" |]
+                                    Generics = [| "glucose"; "paracetamol" |]
+                                    DoseTypes = [| disc; once |]
+                                }
+                        }
+
+                match workbench |> NutritionRuleSet.discover evaluate with
+                | Ok r ->
+                    r.Filter.Indications |> Expect.equal "the indication bounded" [| "voeding" |]
+
+                    r.Filter.Generics
+                    |> Expect.equal "every generic offered" [| "glucose"; "paracetamol" |]
+
+                    r.Filter.DoseTypes |> Expect.equal "the dose types bounded" [| disc |]
+                | Error e -> failtest $"{e}"
+            }
+
+            test "the rows of a category are one rule set, each value once, in the order of the rows" {
+                [|
+                    ruleSetRow "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "Primene"
+                    ruleSetRow "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "NICU mix"
+                    ruleSetRow "TPN" "Totale Parenterale Voeding" "Totale Parenterale Voeding" "Primene"
+                    ruleSetRow "Lipid" "Vetten" "Parenterale vetten" ""
+                |]
+                |> NutritionRuleSet.ofData
+                |> Expect.equal
+                    "two sets, the lipids without generics"
+                    (Ok
+                        [|
+                            {
+                                Category = NutritionCategory.TPN
+                                Label = "Totale Parenterale Voeding"
+                                Indications = [| "Neonatale Parenterale Voeding"; "Totale Parenterale Voeding" |]
+                                Generics = [| "Primene"; "NICU mix" |]
+                            }
+                            {
+                                Category = NutritionCategory.Lipid
+                                Label = "Vetten"
+                                Indications = [| "Parenterale vetten" |]
+                                Generics = [||]
+                            }
+                        |])
+            }
+
+            test "every nutrition category is read back from its sheet name" {
+                let cases =
+                    Microsoft.FSharp.Reflection.FSharpType.GetUnionCases typeof<NutritionCategory>
+                    |> Array.length
+
+                NutritionRuleSet.categories
+                |> Array.length
+                |> Expect.equal "every case is listed" cases
+
+                NutritionRuleSet.categories
+                |> Array.map (NutritionRuleSet.sheetName >> NutritionRuleSet.categoryOf)
+                |> Expect.equal "every case round-trips" (NutritionRuleSet.categories |> Array.map Ok)
+            }
+
+            test "a category the code does not know refuses the rule sets, named once" {
+                [|
+                    ruleSetRow "Enteral" "x" "Enterale voeding" "MM"
+                    ruleSetRow "Enteral" "x" "Enterale voeding" "Infatrini"
+                    ruleSetRow "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "Primene"
+                |]
+                |> NutritionRuleSet.ofData
+                |> Expect.equal "refused" (Error [ OrderPlanError.UnknownCategory "Enteral" ])
+            }
+
+            test "a category without a rule set is refused" {
+                [||]
+                |> NutritionRuleSet.find NutritionCategory.Lipid
+                |> Expect.equal "refused" (Error(OrderPlanError.NoRuleSet NutritionCategory.Lipid))
+            }
+
+            test "discovery over a nutrition context without indications offers no indication" {
+                let workbench =
+                    { pcmContext with
+                        Filter =
+                            { fresh with
+                                Indications = [||]
+                                Generics = [||]
+                                DoseTypes = [| disc |]
+                            }
+                    }
+
+                let evaluate (ctx: OrderContext) =
+                    Ok { ctx with Filter = { ctx.Filter with Indications = [| "voeding"; "pijn" |] } }
+
+                workbench
+                |> NutritionRuleSet.discover evaluate
+                |> Result.map _.Filter.Indications
+                |> Expect.equal "no indication" (Ok [||])
             }
 
             test "a narrowing that leaves one generic without its choice is evaluated again, which picks it" {
