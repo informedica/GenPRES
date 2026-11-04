@@ -1974,6 +1974,32 @@ Scenarios: {scenarios}
         rules |> Array.filter (fun r -> ctx |> matchesLinkSide routeMapping r.Main)
 
 
+    /// The order context a side of a link rule offers for the patient, before it is evaluated: the
+    /// indication, the generic and the route set when the side gives them; a blank field is left open.
+    let ofLinkSide (side: LinkSide) patient =
+        {
+            Filter =
+                { emptyFilter with
+                    Indication = LinkRule.fieldOf side.Indication
+                    Generic = LinkRule.fieldOf side.Generic
+                    Route = LinkRule.fieldOf side.Route
+                }
+            Patient = patient
+            Scenarios = [||]
+            Argumentation = None
+        }
+
+
+    /// The context's dose types narrowed to the dose types the side matches.
+    let narrowToLinkSide (side: LinkSide) (ctx: OrderContext) =
+        { ctx with
+            Filter =
+                { ctx.Filter with
+                    DoseTypes = ctx.Filter.DoseTypes |> Array.filter (LinkRule.doseTypeMatches side.DoseType)
+                }
+        }
+
+
     /// The serializable shape of an OrderContext: its filter, its patient and its scenarios,
     /// each as its own Dto, and its argumentation as written.
     module Dto =

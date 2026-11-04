@@ -97,6 +97,14 @@ module LinkRule =
         | es -> Error es
 
 
+    /// A field of a side as an option: a blank field gives none.
+    let fieldOf (field: string) =
+        if field |> String.isNullOrWhiteSpace then
+            None
+        else
+            Some field
+
+
     /// Whether a field of a side matches a value: an empty field matches any value, and names compare
     /// without regard to case.
     let fieldMatches (field: string) (value: string) =
@@ -113,15 +121,9 @@ module LinkRule =
     /// Whether a side matches an order with the indication, the generic label, the route and the dose
     /// type. The routes compare by the route mapping, so a long and a short name of a route match.
     let matches routeMapping (side: LinkSide) indication label route doseType =
-        let sideRoute =
-            if side.Route |> String.isNullOrWhiteSpace then
-                None
-            else
-                Some side.Route
-
         fieldMatches side.Indication indication
         && fieldMatches side.Generic label
-        && (route |> Mapping.eqsRoute routeMapping sideRoute)
+        && (route |> Mapping.eqsRoute routeMapping (fieldOf side.Route))
         && doseTypeMatches side.DoseType doseType
 
 

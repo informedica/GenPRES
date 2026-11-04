@@ -3015,3 +3015,93 @@ let linkRuleTests =
                     }
                 ]
         ]
+
+
+/// The order context a side of a link rule offers, and the category of an offered order.
+let linkOfferTests =
+    let doseTypes =
+        [|
+            DoseType.Discontinuous ""
+            DoseType.Discontinuous "ochtend middag"
+            DoseType.Discontinuous "avond"
+            DoseType.Continuous ""
+        |]
+
+    let sets: NutritionRuleSet[] =
+        [|
+            {
+                Category = NutritionCategory.EnteralFeeding
+                Label = "Enterale Voeding"
+                Indications = [| "Enterale voeding" |]
+                Generics = [| "Nutrini (Nutricia)" |]
+            }
+            {
+                Category = NutritionCategory.EnteralSupplement
+                Label = "Enterale Toevoeging"
+                Indications = [| "Enterale toevoeging" |]
+                Generics = [||]
+            }
+        |]
+
+    let evening = rulesOf [| ataluren |] |> Array.head |> _.Linked
+    let supplement = rulesOf [| row |] |> Array.head |> _.Linked
+
+    testList
+        "the linked offers"
+        [
+            test "the context a side offers picks the indication, generic and route the side names" {
+                (OrderContext.ofLinkSide evening Patient.patient).Filter
+                |> fun f -> f.Indication, f.Generic, f.Route, f.DoseType
+                |> Expect.equal "the evening dose" (Some "Duchenne", Some "ataluren", Some "ORAAL", None)
+            }
+
+            test "the context a side offers leaves out what the side leaves empty" {
+                (OrderContext.ofLinkSide supplement Patient.patient).Filter.Route
+                |> Expect.isNone "any route"
+            }
+
+            test "the dose types are narrowed to the ones the side matches" {
+                OrderContext.ofLinkSide evening Patient.patient
+                |> fun ctx -> { ctx with Filter = { ctx.Filter with DoseTypes = doseTypes } }
+                |> OrderContext.narrowToLinkSide evening
+                |> _.Filter.DoseTypes
+                |> Expect.equal "the evening only" [| DoseType.Discontinuous "avond" |]
+            }
+
+            test "a supplement under a supplement rule set without generics" {
+                NutritionRuleSet.orderCategory sets (Some "Enterale toevoeging") (Some "Fantomalt pdr")
+                |> Expect.equal "supplement" (OrderCategory.Nutrition NutritionCategory.EnteralSupplement)
+            }
+
+            test "a generic the rule set does not hold is a medication" {
+                NutritionRuleSet.orderCategory sets (Some "Enterale voeding") (Some "Infatrini")
+                |> Expect.equal "medication" OrderCategory.Medication
+            }
+
+            test "the rule sets are read without regard to case" {
+                NutritionRuleSet.orderCategory sets (Some "enterale VOEDING") (Some "nutrini (nutricia)")
+                |> Expect.equal "feeding" (OrderCategory.Nutrition NutritionCategory.EnteralFeeding)
+            }
+
+            test "an absent indication or generic is a medication" {
+                NutritionRuleSet.orderCategory sets None (Some "Fantomalt pdr")
+                |> Expect.equal "no indication" OrderCategory.Medication
+
+                NutritionRuleSet.orderCategory sets (Some "Enterale toevoeging") None
+                |> Expect.equal "no generic" OrderCategory.Medication
+            }
+
+            test "an empty list of a rule set allows any name, a list compares without case" {
+                [
+                    NutritionRuleSet.allows [||] "x"
+                    NutritionRuleSet.allows [| "Nutrini" |] "NUTRINI"
+                    NutritionRuleSet.allows [| "Nutrini" |] "Infatrini"
+                ]
+                |> Expect.equal "allowed, allowed, not" [ true; true; false ]
+            }
+
+            test "an indication no rule set holds is a medication" {
+                NutritionRuleSet.orderCategory sets (Some "Duchenne") (Some "ataluren")
+                |> Expect.equal "medication" OrderCategory.Medication
+            }
+        ]

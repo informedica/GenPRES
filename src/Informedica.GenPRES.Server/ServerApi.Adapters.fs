@@ -144,6 +144,53 @@ module Adapters =
             | answer, _ -> answer
 
 
+        /// The order contexts the link rules offer to link to the main context, when it is narrowed to
+        /// one order. There is one offer per rule, and for a rule without a generic one per generic that
+        /// the dose rules offer. Each offer is evaluated for the main context's patient, with its dose
+        /// types narrowed to the side, its category from the rule sets and, for a nutrition category,
+        /// its lists narrowed to that rule set. An offer the rules refuse, whose evaluation fails, or
+        /// whose evaluation finds no dose type of the side, is left out.
+        let linkedOffers routeMapping rules sets evaluate (main: PlanContext) =
+            let offer side (ctx: OrderContext) =
+                let category = NutritionRuleSet.orderCategory sets ctx.Filter.Indication ctx.Filter.Generic
+
+                let set =
+                    match category with
+                    | OrderCategory.Nutrition c -> sets |> NutritionRuleSet.tryFind c
+                    | OrderCategory.Medication -> None
+
+                match ctx |> PlanContext.create "" category |> evaluate set with
+                | Ok(Evaluated pc) ->
+                    // the evaluation picks a dose type when it finds only one, so an offer without a
+                    // dose type of the side is left out rather than offered with another dose
+                    let narrowed = pc.Context |> OrderContext.narrowToLinkSide side
+
+                    if narrowed.Filter.DoseTypes |> Array.isEmpty then
+                        None
+                    else
+                        Some { pc with Context = narrowed }
+                | _ -> None
+
+            let offers (rule: LinkRule) =
+                let unpicked = OrderContext.ofLinkSide rule.Linked main.Context.Patient
+
+                match unpicked.Filter.Generic with
+                | Some _ -> [| unpicked |]
+                | None ->
+                    // a rule without a generic offers every generic the dose rules give under its other
+                    // fields; a refusal offers none
+                    match unpicked |> PlanContext.create "" OrderCategory.Medication |> evaluate None with
+                    | Ok(Evaluated pc) ->
+                        pc.Context.Filter.Generics
+                        |> Array.map (fun g -> { unpicked with OrderContext.Filter.Generic = Some g })
+                    | _ -> [||]
+                |> Array.choose (offer rule.Linked)
+
+            main.Context
+            |> OrderContext.rulesForMainOrder routeMapping rules
+            |> Array.collect offers
+
+
     /// The order context port over the domain's rules: an evaluated nutrition context narrowed and
     /// settled to the rule set of the category it carries, a refused context unchanged.
     let private makeOrderContextPort
@@ -161,6 +208,38 @@ module Adapters =
                             |> Result.bind (fun (_, set) ->
                                 pc |> NutritionRuleSets.evaluateSettled (now ()) logger provider set cmd
                             )
+                    }
+            linkedOrders =
+                fun pc ->
+                    async {
+                        let start = now ()
+
+                        let evaluate set pc =
+                            pc
+                            |> NutritionRuleSets.evaluateSettled
+                                start
+                                logger
+                                provider
+                                set
+                                OrderContext.UpdateOrderContext
+
+                        // without readable rule sets an offer's category is unknown, so nothing is offered
+                        return
+                            match NutritionRuleSets.ruleSets provider with
+                            | Ok sets ->
+                                pc
+                                |> NutritionRuleSets.linkedOffers
+                                    (provider.GetRouteMappings())
+                                    (provider.Get Resources.Keys.linkRules)
+                                    sets
+                                    evaluate
+                                |> Ok
+                            | Error errs ->
+                                Logging.ServerLogging.Error
+                                    $"no linked orders offered, the rule sets cannot be read: %A{errs}"
+                                |> Informedica.Logging.Lib.Logging.logError logger
+
+                                Ok [||]
                     }
         }
 

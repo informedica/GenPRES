@@ -320,6 +320,7 @@ module OrderContextMapper =
             Totals = dto.Totals |> totalsBack
             Argumentation = dto.Context.Argumentation
             LinkedTo = dto.LinkedTo
+            LinkedOrders = [||]
         }
 
 

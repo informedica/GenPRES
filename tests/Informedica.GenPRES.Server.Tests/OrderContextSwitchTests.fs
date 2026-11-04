@@ -24,7 +24,11 @@ let ctx: OrderContext =
         Totals = { Informedica.GenPRES.Shared.Models.Totals.empty with Volume = [| Normal "10 ml" |] }
     }
 
-let echo: OrderContextPort = { evaluate = fun _ pc -> async { return Ok(Evaluated pc) } }
+let echo: OrderContextPort =
+    {
+        evaluate = fun _ pc -> async { return Ok(Evaluated pc) }
+        linkedOrders = fun _ -> async { return Ok [||] }
+    }
 
 let envOver demo (port: OrderContextPort) =
     { makeEnv (formularyAlwaysOk Informedica.GenPRES.Shared.Models.Formulary.empty) port with demo = demo }
@@ -75,7 +79,7 @@ let tests =
 
             testAsync "the port's refusal is the response, the context as sent with why in the contract's words" {
                 let port: OrderContextPort =
-                    { evaluate = fun _ pc -> async { return Ok(Refused(pc, Refusal.NoDoseRulesForPatient)) } }
+                    { echo with evaluate = fun _ pc -> async { return Ok(Refused(pc, Refusal.NoDoseRulesForPatient)) } }
 
                 let! answer =
                     OrderContextCommand.processViewCmd
@@ -125,7 +129,7 @@ let tests =
                 let seen = ref None
 
                 let port: OrderContextPort =
-                    {
+                    { echo with
                         evaluate =
                             fun cmd pc ->
                                 seen.Value <- Some(cmd pc.Context, pc.Id, pc.Category)
@@ -154,7 +158,7 @@ let tests =
                 let asked = ref false
 
                 let port: OrderContextPort =
-                    {
+                    { echo with
                         evaluate =
                             fun _ pc ->
                                 asked.Value <- true
@@ -179,7 +183,8 @@ let tests =
             }
 
             testAsync "the port's failure is the answer" {
-                let port: OrderContextPort = { evaluate = fun _ _ -> async { return Error [| "ctx error" |] } }
+                let port: OrderContextPort =
+                    { echo with evaluate = fun _ _ -> async { return Error [| "ctx error" |] } }
 
                 let! answer =
                     OrderContextCommand.processViewCmd

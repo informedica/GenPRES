@@ -155,3 +155,293 @@ let tests =
                 |> Expect.equal "voedsel" (Ok [| "voedsel" |])
             }
         ]
+
+
+/// The linked orders a narrowed context offers, and the order context answer that carries them.
+module LinkedOffers =
+
+    let row: LinkRuleData =
+        {
+            LinkRuleData.Generic = "Fantomalt pdr"
+            LinkRuleData.Route = ""
+            LinkRuleData.Indication = "Enterale toevoeging"
+            LinkRuleData.DoseType = "discontinuous"
+            LinkRuleData.DoseText = ""
+            LinkRuleData.MainGeneric = ""
+            LinkRuleData.MainRoute = ""
+            LinkRuleData.MainIndication = "Enterale voeding"
+            LinkRuleData.MainDoseType = "discontinuous"
+            LinkRuleData.MainDoseText = ""
+            LinkRuleData.Required = "yes"
+        }
+
+
+    let ataluren: LinkRuleData =
+        { row with
+            Generic = "ataluren"
+            Route = "ORAAL"
+            Indication = "Duchenne"
+            DoseText = "avond"
+            MainGeneric = "ataluren"
+            MainRoute = "ORAAL"
+            MainIndication = "Duchenne"
+            MainDoseText = "ochtend middag"
+        }
+
+
+    let rulesOf rows =
+        rows |> LinkRule.ofRows |> Result.defaultWith (fun e -> failtest $"%A{e}")
+
+
+    let routes: RouteMapping[] =
+        [|
+            {
+                Long = "ORAAL"
+                Short = "or"
+            }
+        |]
+
+
+    let sets: NutritionRuleSet[] =
+        [|
+            {
+                Category = NutritionCategory.EnteralFeeding
+                Label = "Enterale Voeding"
+                Indications = [| "Enterale voeding" |]
+                Generics = [| "Nutrini (Nutricia)" |]
+            }
+            {
+                Category = NutritionCategory.EnteralSupplement
+                Label = "Enterale Toevoeging"
+                Indications = [| "Enterale toevoeging" |]
+                Generics = [||]
+            }
+        |]
+
+
+    /// A plan context narrowed to one order made from a dose rule with the generic label, indication,
+    /// route and dose type.
+    let narrowed category ind gen rte dt =
+        let sc =
+            { OrderPlanTests.Fixtures.scenario "o-1" with
+                Name = gen
+                Indication = ind
+                Route = rte
+                DoseType = dt
+            }
+
+        OrderPlanTests.Fixtures.context [| sc |] |> PlanContext.create "c-1" category
+
+
+    let feeding =
+        narrowed
+            (OrderCategory.Nutrition NutritionCategory.EnteralFeeding)
+            "Enterale voeding"
+            "Nutrini (Nutricia)"
+            "ORAAL"
+            (DoseType.Discontinuous "")
+
+
+    let morning =
+        narrowed OrderCategory.Medication "Duchenne" "ataluren" "ORAAL" (DoseType.Discontinuous "ochtend middag")
+
+
+    let doseTypes =
+        [|
+            DoseType.Discontinuous ""
+            DoseType.Discontinuous "ochtend middag"
+            DoseType.Discontinuous "avond"
+            DoseType.Continuous ""
+        |]
+
+
+    /// An evaluation that offers the generics given when none is picked and every dose type above, and
+    /// writes the label of the rule set it was given into the argumentation, so that a test can read it.
+    /// A context whose generic is "refused" is refused.
+    let evaluateWith generics (set: NutritionRuleSet option) (pc: PlanContext) =
+        let f = pc.Context.Filter
+
+        let answered =
+            { pc with
+                Context =
+                    { pc.Context with
+                        Filter =
+                            { f with
+                                Generics = f.Generic |> Option.map Array.singleton |> Option.defaultValue generics
+                                DoseTypes = doseTypes
+                            }
+                        Argumentation = set |> Option.map _.Label
+                    }
+            }
+
+        if f.Generic = Some "refused" then
+            Ok(Refused(answered, Refusal.NoDoseRules))
+        else
+            Ok(Evaluated answered)
+
+
+    let offersOf rows generics main =
+        main
+        |> ServerApi.Adapters.NutritionRuleSets.linkedOffers routes (rulesOf rows) sets (evaluateWith generics)
+
+
+open LinkedOffers
+
+
+[<Tests>]
+let linkedOfferTests =
+    testList
+        "the linked orders a narrowed context offers"
+        [
+            test "a feeding offers its supplement, as a supplement narrowed to its rule set" {
+                feeding
+                |> offersOf [| row |] [||]
+                |> Array.map (fun pc -> pc.Context.Filter.Generic, pc.Category, pc.Context.Argumentation)
+                |> Expect.equal
+                    "Fantomalt"
+                    [|
+                        Some "Fantomalt pdr",
+                        OrderCategory.Nutrition NutritionCategory.EnteralSupplement,
+                        Some "Enterale Toevoeging"
+                    |]
+            }
+
+            test "the morning dose of ataluren offers the evening dose, a medication" {
+                morning
+                |> offersOf [| row; ataluren |] [||]
+                |> Array.map (fun pc -> pc.Category, pc.Context.Filter.DoseTypes)
+                |> Expect.equal "the evening" [| OrderCategory.Medication, [| DoseType.Discontinuous "avond" |] |]
+            }
+
+            test "an offer whose evaluation finds only another dose type is left out" {
+                // the patient has only the morning rule, which the evaluation picks with its scenarios
+                let morningOnly set pc =
+                    evaluateWith [||] set pc
+                    |> Result.map (
+                        Outcome.map (fun (pc: PlanContext) ->
+                            { pc with
+                                Context =
+                                    { morning.Context with
+                                        Filter =
+                                            { pc.Context.Filter with
+                                                DoseTypes = [| DoseType.Discontinuous "ochtend middag" |]
+                                                DoseType = Some(DoseType.Discontinuous "ochtend middag")
+                                            }
+                                    }
+                            }
+                        )
+                    )
+
+                morning
+                |> ServerApi.Adapters.NutritionRuleSets.linkedOffers routes (rulesOf [| ataluren |]) sets morningOnly
+                |> Expect.isEmpty "no evening offer"
+            }
+
+            test "a rule without a generic offers one context per generic" {
+                feeding
+                |> offersOf [| { row with Generic = "" } |] [| "Fantomalt pdr"; "Liquigen pdr" |]
+                |> Array.map _.Context.Filter.Generic
+                |> Expect.equal "both" [| Some "Fantomalt pdr"; Some "Liquigen pdr" |]
+            }
+
+            test "an offer the rules refuse is left out" {
+                feeding
+                |> offersOf [| { row with Generic = "" } |] [| "Fantomalt pdr"; "refused" |]
+                |> Array.map _.Context.Filter.Generic
+                |> Expect.equal "Fantomalt only" [| Some "Fantomalt pdr" |]
+            }
+
+            test "an offer is evaluated for the main context's patient" {
+                let pat = { Patient.patient with Department = Some "NEO" }
+
+                { feeding with Context = { feeding.Context with Patient = pat } }
+                |> offersOf [| row |] [||]
+                |> Array.map _.Context.Patient.Department
+                |> Expect.equal "NEO" [| Some "NEO" |]
+            }
+
+            test "a context that is not narrowed offers nothing" {
+                { feeding with Context = { feeding.Context with Scenarios = [||] } }
+                |> offersOf [| row |] [||]
+                |> Expect.isEmpty "nothing"
+            }
+
+            test "an order no main side matches offers nothing" {
+                morning |> offersOf [| row |] [||] |> Expect.isEmpty "nothing"
+            }
+
+            testList
+                "the order context answer"
+                [
+                    // the answer to the command, and how often the port was asked for the offers
+                    let answer cmd =
+                        let asked = ref 0
+
+                        let port: ServerApi.OrderContextPort =
+                            { OrderContextSwitchTests.echo with
+                                linkedOrders =
+                                    fun pc ->
+                                        asked.Value <- asked.Value + 1
+                                        async { return Ok [| { pc with Id = "offer" } |] }
+                            }
+
+                        let result =
+                            ServerApi.OrderContextCommand.processViewCmd
+                                (OrderContextSwitchTests.envOver true port)
+                                (cmd, OrderContextSwitchTests.ctx)
+                            |> Async.RunSynchronously
+
+                        result, asked.Value
+
+                    let offered =
+                        Result.map (
+                            function
+                            | Informedica.GenPRES.Shared.Types.OrderContextResponse.Evaluated ctx ->
+                                ctx.LinkedOrders |> Array.map _.Id
+                            | _ -> [||]
+                        )
+
+                    test "a command that changes the choices carries the offers" {
+                        let result, asked =
+                            Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearAllFilterProperty |> answer
+
+                        result |> offered |> Expect.equal "the offer" (Ok [| "offer" |])
+                        asked |> Expect.equal "asked once" 1
+                    }
+
+                    test "a value step carries no offers and does not ask for them" {
+                        let result, asked =
+                            Informedica.GenPRES.Shared.Api.OrderViewCommand.IncreaseScheduleFrequencyProperty
+                            |> answer
+
+                        result |> offered |> Expect.equal "none" (Ok [||])
+                        asked |> Expect.equal "not asked" 0
+                    }
+
+                    test "offers that fail leave the evaluation answered, with no offers" {
+                        let port: ServerApi.OrderContextPort =
+                            { OrderContextSwitchTests.echo with
+                                linkedOrders = fun _ -> async { return Error [| "no rule sets" |] }
+                            }
+
+                        ServerApi.OrderContextCommand.processViewCmd
+                            (OrderContextSwitchTests.envOver true port)
+                            (Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearAllFilterProperty,
+                             OrderContextSwitchTests.ctx)
+                        |> Async.RunSynchronously
+                        |> offered
+                        |> Expect.equal "evaluated, nothing offered" (Ok [||])
+                    }
+
+                    test "the commands that change the choices or the scenario" {
+                        [
+                            Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearAllFilterProperty
+                            Informedica.GenPRES.Shared.Api.OrderViewCommand.SelectNthOrderScenario 0
+                            Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthDiluentProperty 0
+                            Informedica.GenPRES.Shared.Api.OrderViewCommand.ResetOrderScenario
+                        ]
+                        |> List.map ServerApi.OrderContextCommand.offersLinked
+                        |> Expect.equal "filter and scenario only" [ true; true; false; false ]
+                    }
+                ]
+        ]
