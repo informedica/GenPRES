@@ -148,8 +148,8 @@ module Adapters =
         /// one order. There is one offer per rule, and for a rule without a generic one per generic that
         /// the dose rules offer. Each offer is evaluated for the main context's patient, with its dose
         /// types narrowed to the side, its category from the rule sets and, for a nutrition category,
-        /// its lists narrowed to that rule set. An offer the rules refuse, or whose evaluation fails, is
-        /// left out.
+        /// its lists narrowed to that rule set. An offer the rules refuse, whose evaluation fails, or
+        /// whose evaluation finds no dose type of the side, is left out.
         let linkedOffers routeMapping rules sets evaluate (main: PlanContext) =
             let offer side (ctx: OrderContext) =
                 let category = NutritionRuleSet.orderCategory sets ctx.Filter.Indication ctx.Filter.Generic
@@ -159,14 +159,16 @@ module Adapters =
                     | OrderCategory.Nutrition c -> sets |> NutritionRuleSet.tryFind c
                     | OrderCategory.Medication -> None
 
-                match
-                    ctx
-                    |> OrderContext.narrowToLinkSide side
-                    |> PlanContext.create "" category
-                    |> evaluate set
-                with
-                // the evaluation offers every dose type again, so the side narrows them once more
-                | Ok(Evaluated pc) -> Some { pc with Context = pc.Context |> OrderContext.narrowToLinkSide side }
+                match ctx |> PlanContext.create "" category |> evaluate set with
+                | Ok(Evaluated pc) ->
+                    // the evaluation picks a dose type when it finds only one, so an offer without a
+                    // dose type of the side is left out rather than offered with another dose
+                    let narrowed = pc.Context |> OrderContext.narrowToLinkSide side
+
+                    if narrowed.Filter.DoseTypes |> Array.isEmpty then
+                        None
+                    else
+                        Some { pc with Context = narrowed }
                 | _ -> None
 
             let offers (rule: LinkRule) =

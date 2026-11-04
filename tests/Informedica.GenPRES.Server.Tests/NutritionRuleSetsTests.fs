@@ -313,6 +313,30 @@ let linkedOfferTests =
                 |> Expect.equal "the evening" [| OrderCategory.Medication, [| DoseType.Discontinuous "avond" |] |]
             }
 
+            test "an offer whose evaluation finds only another dose type is left out" {
+                // the patient has only the morning rule, which the evaluation picks with its scenarios
+                let morningOnly set pc =
+                    evaluateWith [||] set pc
+                    |> Result.map (
+                        Outcome.map (fun (pc: PlanContext) ->
+                            { pc with
+                                Context =
+                                    { morning.Context with
+                                        Filter =
+                                            { pc.Context.Filter with
+                                                DoseTypes = [| DoseType.Discontinuous "ochtend middag" |]
+                                                DoseType = Some(DoseType.Discontinuous "ochtend middag")
+                                            }
+                                    }
+                            }
+                        )
+                    )
+
+                morning
+                |> ServerApi.Adapters.NutritionRuleSets.linkedOffers routes (rulesOf [| ataluren |]) sets morningOnly
+                |> Expect.isEmpty "no evening offer"
+            }
+
             test "a rule without a generic offers one context per generic" {
                 feeding
                 |> offersOf [| { row with Generic = "" } |] [| "Fantomalt pdr"; "Liquigen pdr" |]
