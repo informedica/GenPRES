@@ -1,6 +1,6 @@
 namespace Informedica.GenPRES.Client.Core.MachinePolicies
 
-/// What is out: the requests of the five lanes, a field counting its step clicks and the loads.
+/// What is out: the requests of the lanes, a field counting its step clicks and the loads.
 module OutPolicy =
 
     open Informedica.GenPRES.Client.Core.Helpers
@@ -22,9 +22,9 @@ module OutPolicy =
         | _ -> false
 
 
-    /// What holds the pages: the requests out, a field counting its step clicks, the five lanes and
-    /// the loads, and a plan behind the patient data, which is no request but waits as one does.
-    let out counting patient orderContext orderPlan session signing loads =
+    /// What holds the pages: the requests out, a field counting its step clicks, the lanes, the nutrition
+    /// slots and the loads, and a plan behind the patient data, which is no request but waits as one does.
+    let out counting patient orderContext slots orderPlan session signing loads =
         [
             if counting then
                 Request.Counting
@@ -32,6 +32,11 @@ module OutPolicy =
                 Request.Patient
             if (OrderContextMachine.OrderContextState.inFlightRequest orderContext).IsSome then
                 Request.Workbench
+            if
+                slots
+                |> Map.exists (fun _ slot -> (OrderContextMachine.OrderContextState.inFlightRequest slot).IsSome)
+            then
+                Request.Slots
             if (OrderPlanMachine.OrderPlanState.inFlightRequest orderPlan).IsSome then
                 Request.Plan
             if planBehind patient orderPlan then

@@ -24,6 +24,8 @@ module Lanes =
             Patient: PatientState
             /// The prescribing workbench, as the order context machine holds it.
             OrderContext: OrderContextState
+            /// The nutrition slots by their slot id, each as the order context machine holds it.
+            Slots: Map<string, OrderContextState>
             /// The one plan, as the order plan machine holds it.
             OrderPlan: OrderPlanState
             /// The launch Session; Anonymous is the state every url patient runs in.
@@ -40,6 +42,12 @@ module Lanes =
         | Session of SessionMsg
         | Patient of PatientMsg
         | Workbench of OrderContextMsg
+        /// A message for the nutrition slot with the id; none reaches a slot that is gone. The patient
+        /// cleared removes the slot, since another patient removes the slots.
+        | Slot of slotId: string * OrderContextMsg
+        /// A nutrition slot of the category started under the slot id the client minted, evaluated for
+        /// the patient the workbench is evaluated for; when the workbench has no patient, no slot starts.
+        | StartSlot of slotId: string * NutritionCategory * request: string
         | Plan of OrderPlanMsg
         /// A server answer with the notice its reply carried, if any: the answer reaches its
         /// machine and the notice the Session.
@@ -60,6 +68,8 @@ module Lanes =
         | Signing of SigningEffect
         | Patient of PatientEffect
         | Workbench of OrderContextEffect
+        /// An effect of the nutrition slot with the id.
+        | Slot of slotId: string * OrderContextEffect
         | Plan of OrderPlanEffect
         | Session of SessionEffect
         /// Open the plan page: an order was prescribed.
@@ -75,18 +85,20 @@ module Lanes =
         | Signing of SigningMsg * SigningState * SigningEffect list
         | Patient of PatientMsg * PatientState * PatientEffect list
         | Workbench of OrderContextMsg * OrderContextState * OrderContextEffect list
+        | Slot of slotId: string * OrderContextMsg * OrderContextState * OrderContextEffect list
         | Plan of OrderPlanMsg * OrderPlanState * OrderPlanEffect list
         | Session of SessionMsg * SessionState * SessionEffect list
-        /// The patient, the workbench, the plan and the signing lane set back to their initial
+        /// The patient, the workbench, the slots, the plan and the signing lane set back to their initial
         /// state, which no message of theirs asked for.
         | StartedOver of LanesState
 
 
-    /// The lanes at the page load: the patient from the url, if any, and every other lane empty.
+    /// The lanes at the page load: the patient from the url, if any, every other lane empty and no slots.
     let initial draft =
         {
             Patient = PatientState.init draft
             OrderContext = OrderContextState.noPatient
+            Slots = Map.empty
             OrderPlan = OrderPlanState.noPatient
             Session = SessionState.anonymous
             Signing = SigningState.idle
@@ -170,6 +182,25 @@ module Lanes =
             { lanes with OrderContext = next },
             effects |> List.map LanesEffect.Workbench,
             [ LanesStep.Workbench(m, next, effects) ]
+        // another patient arrives as the patient cleared, and removes the slot
+        | LanesMsg.Slot(id, OrderContextMsg.PatientDataChanged(None, _)) ->
+            { lanes with Slots = lanes.Slots |> Map.remove id }, [], []
+        // an answer to a slot that another patient or a start-over removed finds no slot and is dropped
+        | LanesMsg.Slot(id, m) ->
+            match lanes.Slots |> Map.tryFind id with
+            | Some slot ->
+                let next, effects = OrderContextState.transition m slot
+
+                { lanes with Slots = lanes.Slots |> Map.add id next },
+                effects |> List.map (fun e -> LanesEffect.Slot(id, e)),
+                [ LanesStep.Slot(id, m, next, effects) ]
+            | None -> lanes, [], []
+        | LanesMsg.StartSlot(id, category, request) ->
+            let pat = lanes.OrderContext |> OrderContextState.patient
+
+            step
+                (LanesMsg.Slot(id, OrderContextMsg.PatientDataChanged(pat, request)))
+                { lanes with Slots = lanes.Slots |> Map.add id (OrderContextState.slot category) }
         // the answer first, then the notice: the Session decides whether the notice still counts
         | LanesMsg.Answer(answer, from, notice) ->
             let lanes, effects, taken = step answer lanes
@@ -201,9 +232,9 @@ module Lanes =
             lanes, effects, LanesStep.StartedOver reset :: taken
 
 
-    /// The messages an effect becomes for other machines; none for an effect that only leaves the
-    /// client. The request ids come from newId.
-    let route (newId: unit -> string) effect =
+    /// The messages an effect becomes for other machines, the slots of the lanes included; none for an
+    /// effect that only leaves the client. The request ids come from newId.
+    let route (newId: unit -> string) (lanes: LanesState) effect =
         match effect with
         // the signature's renewed token, ended Session and refusal for a newer version go to the
         // Session, which passes the patient as signed on, and the plan signed to the plan
@@ -231,10 +262,13 @@ module Lanes =
         | LanesEffect.Session(SessionEffect.TakeAge pat) -> [ LanesMsg.Patient(PatientMsg.AgeTaken(pat, newId ())) ]
         | LanesEffect.Session(SessionEffect.LoadSignedPlan head) ->
             [ LanesMsg.Plan(OrderPlanMsg.OpenSignedPlan(head, newId ())) ]
-        // the patient data answered goes to the workbench and the plan
+        // the patient data answered goes to the workbench, to every slot and to the plan; a slot starts
+        // again from its rule set
         | LanesEffect.Patient(PatientEffect.SetPatientData pat) ->
             [
                 LanesMsg.Workbench(OrderContextMsg.PatientDataChanged(pat, newId ()))
+                for id in lanes.Slots.Keys do
+                    LanesMsg.Slot(id, OrderContextMsg.PatientDataChanged(pat, newId ()))
                 LanesMsg.Plan(OrderPlanMsg.PatientDataChanged(pat, newId ()))
             ]
         | _ -> []
@@ -244,16 +278,16 @@ module Lanes =
     /// effects become are run first, before the messages still waiting, so what an effect causes lands
     /// before anything that came after it; until none is left. The routes run one way, the signing
     /// lane to the Session and the plan, the Session to the patient and the plan, the patient to the
-    /// workbench and the plan, the plan to the patient and the workbench. The plan passes back to the
-    /// patient only a plan that did not follow, which sends nothing to the plan, and the workbench
-    /// passes nothing on, so the list empties.
+    /// workbench, the slots and the plan, the plan to the patient and the workbench. The plan passes back
+    /// to the patient only a plan that did not follow, which sends nothing to the plan, and the workbench
+    /// and the slots pass nothing on, so the list empties.
     let transition newId msg (lanes: LanesState) =
         let rec run queue (lanes, effects, steps) =
             match queue with
             | [] -> lanes, effects, steps
             | msg :: rest ->
                 let lanes, emitted, taken = step msg lanes
-                let follow = emitted |> List.collect (route newId)
+                let follow = emitted |> List.collect (route newId lanes)
                 run (follow @ rest) (lanes, effects @ emitted, steps @ taken)
 
         run [ msg ] (lanes, [], [])

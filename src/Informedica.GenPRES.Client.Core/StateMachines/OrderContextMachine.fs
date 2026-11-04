@@ -1,7 +1,8 @@
 namespace Informedica.GenPRES.Client.Core.StateMachines
 
-/// Tracks the prescribing workbench: an order context not yet in the plan, from no patient to an
-/// evaluated context, through changes and resets. The App carries out the effects.
+/// Tracks the prescribing workbench, or a nutrition slot: an order context not yet in the plan, of the
+/// category held in the state, from no patient to an evaluated context, through changes and resets. The App
+/// carries out the effects.
 ///
 /// Four invariants:
 /// - one request is in flight at a time: the pages are disabled while it is, so nothing but its
@@ -39,8 +40,13 @@ module OrderContextMachine =
     /// Functions over OrderContextWorkbench.
     module OrderContextWorkbench =
 
-        /// An empty context for the patient.
-        let emptyFor (pat: Patient) = OrderContext.empty |> OrderContext.setPatient pat
+        /// An empty context of the category for the patient.
+        let emptyOf category (pat: Patient) =
+            { (OrderContext.empty |> OrderContext.setPatient pat) with Category = category }
+
+
+        /// An empty medication context for the patient.
+        let emptyMedication (pat: Patient) = emptyOf OrderCategory.Medication pat
 
 
         /// Whether the command changes the filter, so that the formulary and parenteralia pages follow
@@ -75,6 +81,10 @@ module OrderContextMachine =
     type OrderContextState =
         private
             {
+                /// The category of the context: medication for the workbench, a nutrition category for a
+                /// slot. An empty context is of this category, so that the server narrows it to the
+                /// category's rule set.
+                Category: OrderCategory
                 /// The workbench itself.
                 Workbench: OrderContextWorkbench
                 /// The request sent, which the page shows meanwhile, and the request id its answer
@@ -159,9 +169,10 @@ module OrderContextMachine =
     /// The constructors and the transition of the order context machine.
     module OrderContextState =
 
-        /// No patient, nothing under way.
+        /// No patient, nothing under way: the medication workbench.
         let noPatient =
             {
+                Category = OrderCategory.Medication
                 Workbench = OrderContextWorkbench.NoPatient None
                 InFlight = None
                 Selected = None
@@ -169,37 +180,38 @@ module OrderContextMachine =
             }
 
 
-        /// An empty context for the patient.
-        let emptyFor = OrderContextWorkbench.emptyFor
+        /// A nutrition slot of the category, without a patient and nothing under way.
+        let slot category = { noPatient with Category = OrderCategory.Nutrition category }
 
 
-        /// The first evaluation for the patient under way, with the empty context shown.
+        /// An empty medication context for the patient.
+        let emptyMedication = OrderContextWorkbench.emptyMedication
+
+
+        /// A medication state: the first evaluation for the patient under way, with the empty context shown.
         let opening (pat: Patient) (request: string) =
-            {
-                Workbench = OrderContextWorkbench.Evaluated(pat, emptyFor pat)
+            { noPatient with
+                Workbench = OrderContextWorkbench.Evaluated(pat, emptyMedication pat)
                 InFlight =
-                    Some(OrderContextCommand.Command(OrderViewCommand.ClearAllFilterProperty, emptyFor pat), request)
-                Selected = None
-                Kept = None
+                    Some(
+                        OrderContextCommand.Command(OrderViewCommand.ClearAllFilterProperty, emptyMedication pat),
+                        request
+                    )
             }
 
 
-        /// The context evaluated for the patient, nothing under way.
+        /// A medication state: the context evaluated for the patient, nothing under way.
         let held (pat: Patient) (ctx: OrderContext) =
-            {
-                Workbench = OrderContextWorkbench.Evaluated(pat, ctx)
-                InFlight = None
-                Selected = None
-                Kept = None
-            }
+            { noPatient with Workbench = OrderContextWorkbench.Evaluated(pat, ctx) }
 
 
-        /// The context refused for the patient, as sent, with the reason.
+        /// A medication state: the context refused for the patient, as sent, with the reason.
         let refused (pat: Patient) (ctx: OrderContext) (refusal: OrderContextRefusal) =
             { held pat ctx with Workbench = OrderContextWorkbench.Refused(pat, ctx, refusal) }
 
 
-        /// A command under way over the context sent; a failure goes back to the context held.
+        /// A medication state: a command under way over the context sent; a failure goes back to the context
+        /// held.
         let changing
             (pat: Patient)
             (cmd: OrderViewCommand)
@@ -207,11 +219,9 @@ module OrderContextMachine =
             (held: OrderContext)
             (request: string)
             =
-            {
+            { noPatient with
                 Workbench = OrderContextWorkbench.Evaluated(pat, held)
                 InFlight = Some(OrderContextCommand.Command(cmd, { sent with Patient = pat }), request)
-                Selected = None
-                Kept = None
             }
 
 
@@ -339,9 +349,9 @@ module OrderContextMachine =
                     Kept = None
                 }
 
-            // the empty workbench for the patient, shown while the command evaluates it
+            // the empty workbench of its category for the patient, shown while the command evaluates it
             let fromEmpty cmd pat request =
-                let empty = emptyFor pat
+                let empty = OrderContextWorkbench.emptyOf state.Category pat
                 call cmd empty request (renewed (OrderContextWorkbench.Evaluated(pat, empty)))
 
             match msg, OrderContextWorkbench.held state.Workbench, state.InFlight with
@@ -425,7 +435,7 @@ module OrderContextMachine =
                     OrderViewCommand.ClearAllFilterProperty
                     ctx
                     request
-                    (renewed (OrderContextWorkbench.Evaluated(pat, emptyFor pat)))
+                    (renewed (OrderContextWorkbench.Evaluated(pat, OrderContextWorkbench.emptyOf state.Category pat)))
 
             // the closing arm: nothing else comes, since the pages that send it are disabled, and
             // there is nothing to command or reset without a patient

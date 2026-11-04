@@ -157,6 +157,7 @@ module Client =
             state.Shell.Counting
             state.Lanes.Patient
             state.Lanes.OrderContext
+            state.Lanes.Slots
             state.Lanes.OrderPlan
             state.Lanes.Session
             state.Lanes.Signing
@@ -522,9 +523,13 @@ module Client =
             alert (Alert.Alert.PatientChangeFailed(first errs))
         | ClientEffect.Lanes(LanesEffect.Workbench(OrderContextEffect.SyncPages filter)) ->
             [ ClientMsg.Loader(LoaderMsg.FilterAnswered filter) ]
-        | ClientEffect.Lanes(LanesEffect.Workbench(OrderContextEffect.TellError errs)) ->
+        // a slot tells what went wrong as the workbench does; its SyncPages is not routed, since the
+        // formulary and parenteralia pages follow the workbench only
+        | ClientEffect.Lanes(LanesEffect.Workbench(OrderContextEffect.TellError errs))
+        | ClientEffect.Lanes(LanesEffect.Slot(_, OrderContextEffect.TellError errs)) ->
             alert (Alert.Alert.WorkbenchFailed(first errs))
-        | ClientEffect.Lanes(LanesEffect.Workbench(OrderContextEffect.TellNotApplied refusal)) ->
+        | ClientEffect.Lanes(LanesEffect.Workbench(OrderContextEffect.TellNotApplied refusal))
+        | ClientEffect.Lanes(LanesEffect.Slot(_, OrderContextEffect.TellNotApplied refusal)) ->
             alert (Alert.Alert.ChangeNotApplied refusal)
         | ClientEffect.Lanes(LanesEffect.Plan(OrderPlanEffect.CheckInteractions drugs)) ->
             [ ClientMsg.Loader(LoaderMsg.CheckInteractions drugs) ]

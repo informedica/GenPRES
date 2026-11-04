@@ -40,7 +40,7 @@ let measured =
 
 /// The requests out over the lanes alone, no loads.
 let out (lanes: LanesState) =
-    OutPolicy.out false lanes.Patient lanes.OrderContext lanes.OrderPlan lanes.Session lanes.Signing []
+    OutPolicy.out false lanes.Patient lanes.OrderContext lanes.Slots lanes.OrderPlan lanes.Session lanes.Signing []
 
 
 /// Messages played one after another; the lanes, effects and steps after each.
@@ -112,6 +112,7 @@ let tests =
                     function
                     | LanesStep.Patient _ -> "Patient"
                     | LanesStep.Workbench _ -> "OrderContext"
+                    | LanesStep.Slot _ -> "Slot"
                     | LanesStep.Plan _ -> "OrderPlan"
                     | LanesStep.Session _ -> "Session"
                     | LanesStep.Signing _ -> "Signing"
@@ -141,7 +142,7 @@ let tests =
                     LanesMsg.Workbench(
                         OrderContextMsg.Answered(
                             workbench,
-                            Ok(OrderContextResponse.Evaluated(OrderContextState.emptyFor measured))
+                            Ok(OrderContextResponse.Evaluated(OrderContextState.emptyMedication measured))
                         )
                     )
 
@@ -197,7 +198,7 @@ let tests =
                         LanesMsg.Workbench(
                             OrderContextMsg.Answered(
                                 workbench,
-                                Ok(OrderContextResponse.Evaluated(OrderContextState.emptyFor measured))
+                                Ok(OrderContextResponse.Evaluated(OrderContextState.emptyMedication measured))
                             )
                         )
                     ]
@@ -611,7 +612,7 @@ let tests =
             }
 
             test "reading the EHR again goes to the Session at once" {
-                route (fun () -> "r-1") (LanesEffect.Signing SigningEffect.ReadEhrAgain)
+                route (fun () -> "r-1") (Lanes.initial None) (LanesEffect.Signing SigningEffect.ReadEhrAgain)
                 |> Expect.equal "the Session alone" [ LanesMsg.Session SessionMsg.RefreshPatient ]
             }
 
@@ -1169,5 +1170,214 @@ let tests =
                     |> Lanes.transition (counter ()) (LanesMsg.Workbench(OrderContextMsg.SelectScenario None))
 
                 steps |> List.length |> Expect.equal "one step" 1
+            }
+        ]
+
+
+/// The nutrition slots on the lanes: each the order context machine with a nutrition category.
+module SlotLaneFixtures =
+
+    let pat: Patient = { Informedica.GenPRES.Shared.Models.Patient.empty with Department = Some "NEO" }
+
+    let tpn = OrderCategory.Nutrition NutritionCategory.TPN
+
+    let empty = Lanes.initial None
+
+
+    /// The lanes after a message, with its effects.
+    let after msg lanes =
+        let lanes, effects, _ = Lanes.step msg lanes
+        lanes, effects
+
+
+    /// The lanes with the workbench evaluated for the patient, the answer landed.
+    let withPatient =
+        let lanes, _ =
+            empty
+            |> after (LanesMsg.Workbench(OrderContextMsg.PatientDataChanged(Some pat, "w-1")))
+
+        lanes
+        |> after (
+            LanesMsg.Workbench(
+                OrderContextMsg.Answered(
+                    "w-1",
+                    Ok(OrderContextResponse.Evaluated(OrderContextState.emptyMedication pat))
+                )
+            )
+        )
+        |> fst
+
+
+    /// The order context commands sent for the slot with the id: the command, the category and patient of
+    /// its context, and the request id.
+    let slotCalls id effects =
+        effects
+        |> List.choose (
+            function
+            | LanesEffect.Slot(slot, OrderContextEffect.CallContext(OrderContextCommand.Command(cmd, ctx), request)) when
+                slot = id
+                ->
+                Some(cmd, ctx.Category, ctx.Patient, request)
+            | _ -> None
+        )
+
+
+    let slotOf id (lanes: LanesState) = lanes.Slots |> Map.find id
+
+
+open SlotLaneFixtures
+
+
+[<Tests>]
+let slotLaneTests =
+    testList
+        "the slot lane"
+        [
+            test "a slot starts with the clear of all filters over the empty context of its category" {
+                withPatient
+                |> after (LanesMsg.StartSlot("s-1", NutritionCategory.TPN, "r-1"))
+                |> snd
+                |> slotCalls "s-1"
+                |> Expect.equal "one clear, a TPN context" [ OrderViewCommand.ClearAllFilterProperty, tpn, pat, "r-1" ]
+            }
+
+            test "no slot starts while the workbench has no patient" {
+                let lanes, effects = empty |> after (LanesMsg.StartSlot("s-1", NutritionCategory.TPN, "r-1"))
+
+                effects |> Expect.isEmpty "nothing sent"
+                lanes.Slots |> Expect.isEmpty "no slot"
+            }
+
+            test "new patient data starts every slot again" {
+                let lanes =
+                    withPatient
+                    |> after (LanesMsg.StartSlot("s-1", NutritionCategory.TPN, "r-1"))
+                    |> fst
+                    |> after (LanesMsg.StartSlot("s-2", NutritionCategory.Lipid, "r-2"))
+                    |> fst
+
+                LanesEffect.Patient(PatientEffect.SetPatientData(Some pat))
+                |> Lanes.route (fun () -> "r-3") lanes
+                |> List.choose (
+                    function
+                    | LanesMsg.Slot(id, OrderContextMsg.PatientDataChanged _) -> Some id
+                    | _ -> None
+                )
+                |> Expect.equal "both slots" [ "s-1"; "s-2" ]
+            }
+
+            test "another patient removes the slots, a data update starts them again" {
+                let lanes =
+                    withPatient
+                    |> after (LanesMsg.StartSlot("s-1", NutritionCategory.TPN, "r-1"))
+                    |> fst
+                    |> after (LanesMsg.StartSlot("s-2", NutritionCategory.Lipid, "r-2"))
+                    |> fst
+
+                // another patient arrives as the patient cleared, then the new patient
+                let cleared =
+                    LanesEffect.Patient(PatientEffect.SetPatientData None)
+                    |> Lanes.route (fun () -> "r-3") lanes
+                    |> List.fold (fun lanes msg -> lanes |> after msg |> fst) lanes
+
+                cleared.Slots |> Expect.isEmpty "the slots are gone"
+
+                // the same patient with other data, once the first answer landed
+                let updated = { pat with Department = Some "ICK" }
+                let answered = OrderContextResponse.Evaluated(OrderContextState.emptyMedication pat)
+
+                lanes
+                |> after (LanesMsg.Slot("s-1", OrderContextMsg.Answered("r-1", Ok answered)))
+                |> fst
+                |> after (LanesMsg.Slot("s-1", OrderContextMsg.PatientDataChanged(Some updated, "r-4")))
+                |> snd
+                |> slotCalls "s-1"
+                |> Expect.equal
+                    "the data update restarts the slot"
+                    [ OrderViewCommand.ClearAllFilterProperty, tpn, updated, "r-4" ]
+            }
+
+            test "an answer lands on its own slot, not on the workbench" {
+                let evaluated =
+                    { OrderContextState.emptyMedication pat with
+                        Category = tpn
+                        Id = "s-1"
+                    }
+
+                let lanes =
+                    withPatient
+                    |> after (LanesMsg.StartSlot("s-1", NutritionCategory.TPN, "r-1"))
+                    |> fst
+                    |> after (
+                        LanesMsg.Slot(
+                            "s-1",
+                            OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated evaluated))
+                        )
+                    )
+                    |> fst
+
+                lanes
+                |> slotOf "s-1"
+                |> OrderContextState.view
+                |> Expect.equal "settled" (OrderContextView.Settled evaluated)
+
+                lanes.OrderContext
+                |> OrderContextState.view
+                |> Expect.equal
+                    "the workbench as it was"
+                    (OrderContextView.Settled(OrderContextState.emptyMedication pat))
+            }
+
+            test "a slot request out disables the nutrition page only" {
+                let busy =
+                    withPatient
+                    |> after (LanesMsg.StartSlot("s-1", NutritionCategory.TPN, "r-1"))
+                    |> fst
+                    |> out
+
+                busy |> Expect.equal "a slot request" [ Loads.Request.Slots ]
+                busy
+                |> BusyPolicy.page Page.Page.Nutrition
+                |> Expect.isTrue "the nutrition page waits"
+                busy
+                |> BusyPolicy.page Page.Page.Prescribe
+                |> Expect.isFalse "the workbench does not"
+            }
+
+            test "an answer for a slot a start-over removed is dropped" {
+                let lanes =
+                    withPatient
+                    |> after (LanesMsg.StartSlot("s-1", NutritionCategory.TPN, "r-1"))
+                    |> fst
+                    |> after (LanesMsg.StartOver None)
+                    |> fst
+
+                lanes.Slots |> Expect.isEmpty "no slots"
+
+                lanes
+                |> after (
+                    LanesMsg.Slot(
+                        "s-1",
+                        OrderContextMsg.Answered(
+                            "r-1",
+                            Ok(OrderContextResponse.Evaluated(OrderContextState.emptyMedication pat))
+                        )
+                    )
+                )
+                |> snd
+                |> Expect.isEmpty "nothing happens"
+            }
+
+            test "the workbench stays a medication context" {
+                empty
+                |> after (LanesMsg.Workbench(OrderContextMsg.PatientDataChanged(Some pat, "w-1")))
+                |> snd
+                |> List.choose (
+                    function
+                    | LanesEffect.Workbench(OrderContextEffect.CallContext(OrderContextCommand.Command(_, ctx), _)) ->
+                        Some ctx.Category
+                    | _ -> None
+                )
+                |> Expect.equal "medication" [ OrderCategory.Medication ]
             }
         ]

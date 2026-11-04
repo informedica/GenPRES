@@ -293,8 +293,9 @@ offered nothing.
 - The words of the new `OrderPlanError` cases in `ServerApi.Mappers.OrderPlan.fs`, and of the new
   `DtoError.BrokenLink` in `ServerApi.Mappers.OrderContext.fs`, come with step 2: a match without them
   is incomplete.
-- `OrderContextCommand` gains a case that starts a slot: the category and the patient, answered with
-  the context discovered from the rule set. This is the new case the single-case union was kept for.
+- `OrderContextCommand` gains no case to start a slot: a slot starts with the clear of all filters over
+  the empty context of its category, which the order context port narrows and settles to the rule set
+  (step 7).
 - The order context port narrows and settles a nutrition context to its rule set on every evaluation.
   It finds the rule set from the `Category` field of the wire `OrderContext`; the plan port finds it
   from the plan, which a slot is no longer in.
@@ -318,7 +319,7 @@ offered nothing.
 ### Client.Core
 
 - `OrderContextState` keeps the category of its context. On new patient data and on a reset it sends
-  the clear of all filters for a medication workbench and the start case for a nutrition category.
+  the clear of all filters over the empty context of its category, a medication or a nutrition category.
 - `Lanes` gains the slots: an `OrderContextState` per slot id on a new request lane, with its case in
   `Helpers/Loads.fs`, a line in `BusyPolicy.changes` for every page, and the lane in `OutPolicy`. The
   nutrition page is busy on a slot request; `Page.Nutrition` leaves the plan request line of
@@ -524,9 +525,16 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
      totals data of the provider, and `OrderPlan.totalsOver`, which the plan's own recalculation uses too.
      Script `src/Informedica.GenPRES.Server/Scripts/TotalsQuery.fsx`. Seen: nothing.
 7. **The slot lane in Client.Core.** The category in `OrderContextState`, the slot states in `Lanes`,
-   the start case of `OrderContextCommand` on the wire with the port's start and its server handler, the
-   request case, `BusyPolicy` and `OutPolicy`, the start and restart from the rule set. Script
-   `src/Informedica.GenPRES.Client.Core/Scripts/SlotLane.fsx`. Seen: nothing; the views still use the
+   the request case, `BusyPolicy` and `OutPolicy`, the start and restart from the rule set. No start case
+   on the wire: a slot starts and starts again with the clear of all filters over the empty context of its
+   category, as the workbench does over a medication context, since the order context port narrows and
+   settles a nutrition context to its rule set from step 5a. That also offers every generic under a rule
+   set without generics, which the discovery of the plan port does not. Decision, 2026-11-04, halcwb.
+   Script `src/Informedica.GenPRES.Client.Core/Scripts/SlotLane.fsx`, with modified copies of the five
+   files it changes, deleted in this step. A slot tells its errors with the alerts of the workbench.
+   Another patient arrives as the patient cleared, then the new patient, so a slot is removed when the
+   patient is cleared (rule 5), and a data update starts it again from its rule set; while the workbench
+   has no patient, no slot starts. Decision, 2026-11-04, halcwb. Seen: nothing; the views still use the
    plan slots.
 8. **Prescribe with linked orders in Client.Core.** The linked orders offered in the workbench and the
    slots, `LanesMsg.Prescribe` with the slot id and the linked orders turned on, `OrderAdded` with the
@@ -540,8 +548,10 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
    `src/Informedica.GenPRES.Client.Core/Scripts/LinkedOrders.fsx`, the group lock and the row check.
    A linked order context taken from an offer is evaluated over every dose rule, as its offer was: the
    order context port leaves the dose rules of a Required link rule out of the pick lists from step 5c.
-   Two pull requests if it does not fit. Seen: nutrition is composed in slots and enters the plan on
-   prescribe; ataluren is prescribed with its evening dose linked.
+   The nutrition page removes a slot the prescriber closes, with a message to the lanes that takes the
+   slot out; until then only another patient removes a slot, so the slots started only grow. Decision,
+   2026-11-04, halcwb. Two pull requests if it does not fit. Seen: nutrition is composed in slots and
+   enters the plan on prescribe; ataluren is prescribed with its evening dose linked.
 10. **The plan slots go.** The plan refuses a filter command on a context it holds, which only a slot
    in the plan sends until then, so that a prescribed order never loses its single scenario. What is left
    under "What this replaces": `NewOrderContext` and its client and Trail lines, the slot discovery,
@@ -563,6 +573,8 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
 - Whether Required yes on the hydrocortison and ataluren rows means "cannot stand without the main
   order", as for a supplement, or "always comes with the main order", a dose of the schedule that is
   not optional. The second needs a value of its own.
+- `OutPolicy.out` takes eight positional arguments, seven of them fields of `LanesState`, so each new lane
+  changes every call. Issue #1671 proposes that it take the lanes; outside this plan.
 
 ## Verification
 
