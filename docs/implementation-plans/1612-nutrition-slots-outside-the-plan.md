@@ -611,6 +611,9 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
      - The extra filter over every dose rule costs about 0.1 ms a lookup, measured over the 5166 rows
        of the DoseRules sheet, next to a lookup that filters every dose rule already; no derived
        resource in GenFORM.
+     - The form is left out of the filter that selects those dose rules, so that a clear of the form on
+       an offer lists every form again: the oral hydrocortison dose of 13:00 comes as a tablet, a
+       capsule, a solution and three more forms. Found by the review of pull request #1679.
    - Found in the script of 9a: an offer whose generic has the dose types of both sides, such as the
      ataluren evening dose and the hydrocortison doses of 13:00 and 18:00, came without scenarios, since
      it was evaluated before its dose types were narrowed to the side. When the narrowing leaves one

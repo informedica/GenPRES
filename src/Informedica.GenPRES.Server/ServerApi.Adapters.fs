@@ -217,8 +217,15 @@ module Adapters =
             | Some _, Some _, [| doseType |] ->
                 let routes = provider.GetRouteMappings()
 
+                // every form of the dose, so that a clear of the form lists the other forms again; the lookup
+                // after the command applies the form picked
                 provider.GetDoseRules()
-                |> DoseRule.filter routes { picks with DoseType = Some doseType }
+                |> DoseRule.filter
+                    routes
+                    { picks with
+                        Form = None
+                        DoseType = Some doseType
+                    }
                 |> Array.filter (LinkRule.needsMainOrder routes (provider.Get Resources.Keys.linkRules))
                 |> Array.append standAlone
             | _ -> standAlone
