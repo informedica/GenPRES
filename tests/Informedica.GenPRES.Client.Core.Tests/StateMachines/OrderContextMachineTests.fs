@@ -1340,6 +1340,9 @@ module OfferCommandFixtures =
     let orderIds (contexts: OrderContext[]) = contexts |> Array.collect (_.Scenarios >> Array.map _.Order.Id)
 
 
+    let reCalc = OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Time
+
+
     /// The evening dose after a dose step on it went out as r-2.
     let eveningStepped = eveningOn |> step (OrderContextMsg.OfferCommand(0, doseStep, "r-2"))
 
@@ -1497,5 +1500,59 @@ let offerCommandTests =
                 |> next (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated atalurenMain)))
                 |> switches
                 |> Expect.equal "still on" [| (Some "ataluren", OfferSwitch.On) |]
+            }
+
+            test "a refused reset of an offer keeps the explanation the offer holds" {
+                let argued = { atalurenEvening with Argumentation = Some "a higher evening dose, as agreed" }
+
+                let offered =
+                    answered selectScenario atalurenMain [| argued |]
+                    |> next (OrderContextMsg.TurnOfferOn 0)
+                    |> next (OrderContextMsg.OfferCommand(0, OrderViewCommand.ResetOrderScenario, "r-2"))
+
+                offered
+                |> next (
+                    OrderContextMsg.Answered(
+                        "r-2",
+                        Ok(
+                            OrderContextResponse.Refused(
+                                { argued with Argumentation = None },
+                                OrderContextRefusal.NotSolved
+                            )
+                        )
+                    )
+                )
+                |> OrderContextState.linkedOffers
+                |> Array.map _.Context.Argumentation
+                |> Expect.equal "kept" [| Some "a higher evening dose, as agreed" |]
+            }
+
+            test "a recalculation on an offer closed without a pick puts the offer back" {
+                let recalculated =
+                    { atalurenEvening with Scenarios = [| OrderFixtures.scenario "o-avond" "recalculated" |] }
+
+                eveningOn
+                |> next (OrderContextMsg.OfferCommand(0, reCalc, "r-2"))
+                |> next (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated recalculated)))
+                |> next OrderContextMsg.RestoreField
+                |> OrderContextState.linkedOffers
+                |> Array.map _.Context
+                |> Expect.equal "as before" [| atalurenEvening |]
+            }
+
+            test "a command on an offer closes a recalculation list of the main order" {
+                let mainReCalc =
+                    eveningOn
+                    |> next (OrderContextMsg.Command(reCalc, "r-2"))
+                    |> next (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated atalurenMain)))
+
+                mainReCalc
+                |> OrderContextState.isKept
+                |> Expect.isTrue "the main order's state kept"
+
+                mainReCalc
+                |> next (OrderContextMsg.OfferCommand(0, doseStep, "r-3"))
+                |> OrderContextState.isKept
+                |> Expect.isFalse "closed"
             }
         ]

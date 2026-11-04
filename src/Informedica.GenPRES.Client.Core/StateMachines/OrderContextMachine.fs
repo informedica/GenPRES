@@ -499,8 +499,12 @@ module OrderContextMachine =
                 match result with
                 | Ok(OrderContextResponse.Evaluated ctx) ->
                     answered |> withOffer index (fun o -> { o with Context = ctx }), []
+                // a reset is sent without the argumentation, so the one held is kept
                 | Ok(OrderContextResponse.Refused(back, refusal)) ->
-                    answered |> withOffer index (fun o -> { o with Context = back }),
+                    answered
+                    |> withOffer
+                        index
+                        (fun o -> { o with Context = { back with Argumentation = o.Context.Argumentation } }),
                     [ OrderContextEffect.TellNotApplied refusal ]
                 | Error errs -> answered, [ OrderContextEffect.TellError errs ]
             | OrderContextMsg.Answered(request, result), Some(pat, held), Some({ For = RequestFor.Context } as r) when
@@ -596,11 +600,18 @@ module OrderContextMachine =
 
                 command cmd pat ctx request kept
 
-            // a command over the offer with the index, for the patient held, on the request of the context
+            // a command over the offer with the index, for the patient held, on the request of the context; a
+            // recalculation keeps the state before it, as a command over the context does
             | OrderContextMsg.OfferCommand(index, cmd, request), Some(pat, _), None ->
                 match state.LinkedOffers |> Array.tryItem index with
                 | Some offer ->
-                    state
+                    let kept =
+                        if IntentPolicy.isReCalc cmd then
+                            Some { state with Kept = None }
+                        else
+                            None
+
+                    { state with Kept = kept }
                     |> send
                         (OrderContextCommand.Command(cmd, { offer.Context with Patient = pat }))
                         request
