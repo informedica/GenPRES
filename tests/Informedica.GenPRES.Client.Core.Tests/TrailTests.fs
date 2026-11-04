@@ -159,16 +159,18 @@ let tests =
                 |> Expect.equal "the count" "SeedFilter list 1 choices r-4"
             }
 
-            test "a linked order offer turned on names its index and the order of the scenario, turned off its index" {
-                let orderId = "o-avond-1234"
-
-                OrderContextMsg.TurnOfferOn(0, OrderFixtures.scenario orderId "ataluren")
+            test "a linked order offer turned on or off names its index, a command on it the command too" {
+                OrderContextMsg.TurnOfferOn 0
                 |> Trail.OrderContext.msg
-                |> Expect.equal "on" $"TurnOfferOn 0 %s{Trail.Part.shortId orderId}"
+                |> Expect.equal "on" "TurnOfferOn 0"
 
                 OrderContextMsg.TurnOfferOff 1
                 |> Trail.OrderContext.msg
                 |> Expect.equal "off" "TurnOfferOff 1"
+
+                OrderContextMsg.OfferCommand(1, OrderViewCommand.SetMedianOrderableDoseQuantityProperty, "request-1")
+                |> Trail.OrderContext.msg
+                |> Expect.stringStarts "the command" "OfferCommand 1 "
             }
 
             test "a line never breaks, whatever text a step carries" {

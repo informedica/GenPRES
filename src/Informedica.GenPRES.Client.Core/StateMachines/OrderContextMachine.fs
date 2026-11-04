@@ -84,15 +84,23 @@ module OrderContextMachine =
             | OrderContextWorkbench.Refused(pat, ctx, _) -> Some(pat, ctx)
 
 
-    /// An order the link rules offer to link to the order of the context, turned on with one of its scenarios
-    /// or off.
+    /// Whether a linked offer goes into the plan with the main order.
+    [<RequireQualifiedAccess>]
+    type OfferSwitch =
+        /// The offer goes into the plan with the main order, once it is narrowed to one scenario.
+        | On
+        /// The offer stays out of the plan.
+        | Off
+
+
+    /// An order the link rules offer to link to the order of the context, composed like any order context
+    /// and turned on or off.
     type LinkedOffer =
         {
-            /// The context the server offered, evaluated for the same patient.
+            /// The context the server offered, evaluated for the same patient, as its last answer left it.
             Context: OrderContext
-            /// The scenario turned on, which goes into the plan with the main order; none while the offer is
-            /// off.
-            TurnedOn: OrderScenario option
+            /// Whether the offer goes into the plan with the main order.
+            Switch: OfferSwitch
         }
 
 
@@ -103,7 +111,53 @@ module OrderContextMachine =
         let off (ctx: OrderContext) =
             {
                 Context = ctx
-                TurnedOn = None
+                Switch = OfferSwitch.Off
+            }
+
+
+        /// The offers with the offer at the index changed.
+        let changedAt index change (offers: LinkedOffer[]) =
+            offers |> Array.mapi (fun i o -> if i = index then change o else o)
+
+
+        /// The offer's context narrowed to its one scenario, as it goes into the plan; None while the
+        /// context holds several scenarios or none.
+        let narrowed (offer: LinkedOffer) =
+            offer.Context
+            |> Informedica.GenPRES.Shared.Models.OrderContext.contribution
+            |> Option.map (fun sc -> offer.Context |> OrderContextWorkbench.narrowedToScenario sc)
+
+
+    /// What a request of the order context machine is sent for: its own context, or a linked offer.
+    [<RequireQualifiedAccess>]
+    type RequestFor =
+        /// The context of the machine: the workbench or the slot.
+        | Context
+        /// The linked offer with this index in the list.
+        | Offer of index: int
+
+
+    /// A request of the order context machine under way.
+    type RequestUnderWay =
+        {
+            /// The command sent, which the page shows meanwhile.
+            Sent: OrderContextCommand
+            /// The request id the answer must name.
+            Request: string
+            /// What the request was sent for.
+            For: RequestFor
+        }
+
+
+    /// Functions over RequestUnderWay.
+    module RequestUnderWay =
+
+        /// The command sent under the request id for what it was sent for.
+        let create sent request target =
+            {
+                Sent = sent
+                Request = request
+                For = target
             }
 
 
@@ -118,9 +172,8 @@ module OrderContextMachine =
                 Category: OrderCategory
                 /// The workbench itself.
                 Workbench: OrderContextWorkbench
-                /// The request sent, which the page shows meanwhile, and the request id its answer
-                /// must name.
-                InFlight: (OrderContextCommand * string) option
+                /// The request under way. The context and its offers share it, so one request is out at a time.
+                InFlight: RequestUnderWay option
                 /// The scenario the order dialog shows, by its order's id; None while the dialog is
                 /// closed.
                 Selected: string option
@@ -153,11 +206,12 @@ module OrderContextMachine =
         /// The list of a recalculation closed without a pick: the context kept is put back, and the
         /// answer to the recalculation is dropped.
         | RestoreField
-        /// The linked order offer with this index in the list turned on, with the scenario that goes into
-        /// the plan.
-        | TurnOfferOn of index: int * OrderScenario
+        /// The linked order offer with this index in the list turned on.
+        | TurnOfferOn of index: int
         /// The linked order offer with this index in the list turned off.
         | TurnOfferOff of index: int
+        /// A command from the page over the linked order offer with this index in the list.
+        | OfferCommand of index: int * OrderViewCommand * request: string
 
 
     /// What the App carries out for the order context machine.
@@ -233,10 +287,11 @@ module OrderContextMachine =
             { noPatient with
                 Workbench = OrderContextWorkbench.Evaluated(pat, emptyMedication pat)
                 InFlight =
-                    Some(
-                        OrderContextCommand.Command(OrderViewCommand.ClearAllFilterProperty, emptyMedication pat),
+                    RequestUnderWay.create
+                        (OrderContextCommand.Command(OrderViewCommand.ClearAllFilterProperty, emptyMedication pat))
                         request
-                    )
+                        RequestFor.Context
+                    |> Some
             }
 
 
@@ -261,7 +316,12 @@ module OrderContextMachine =
             =
             { noPatient with
                 Workbench = OrderContextWorkbench.Evaluated(pat, held)
-                InFlight = Some(OrderContextCommand.Command(cmd, { sent with Patient = pat }), request)
+                InFlight =
+                    RequestUnderWay.create
+                        (OrderContextCommand.Command(cmd, { sent with Patient = pat }))
+                        request
+                        RequestFor.Context
+                    |> Some
             }
 
 
@@ -275,14 +335,15 @@ module OrderContextMachine =
         let answered (state: OrderContextState) = state.Workbench |> OrderContextWorkbench.held |> Option.map snd
 
 
-        /// What the page reads: while a request is under way the context sent, as its command changes
-        /// it; otherwise the context held, settled or refused.
+        /// What the page reads: while a request for the context is under way the context sent, as its command
+        /// changes it; otherwise the context held, settled or refused.
         let view (state: OrderContextState) : OrderContextView =
             match state.Workbench, state.InFlight with
             | OrderContextWorkbench.NoPatient _, _ -> OrderContextView.NoPatient
-            | _, Some(sent, _) -> OrderContextView.Changing(OrderContextWorkbench.shown sent)
-            | OrderContextWorkbench.Evaluated(_, ctx), None -> OrderContextView.Settled ctx
-            | OrderContextWorkbench.Refused(_, ctx, refusal), None -> OrderContextView.Refused(ctx, refusal)
+            | _, Some({ For = RequestFor.Context } as r) ->
+                OrderContextView.Changing(OrderContextWorkbench.shown r.Sent)
+            | OrderContextWorkbench.Evaluated(_, ctx), _ -> OrderContextView.Settled ctx
+            | OrderContextWorkbench.Refused(_, ctx, refusal), _ -> OrderContextView.Refused(ctx, refusal)
 
 
         /// The context shown, the one the view holds.
@@ -295,7 +356,7 @@ module OrderContextMachine =
 
 
         /// The request id the state waits on; None while no request is under way.
-        let inFlightRequest (state: OrderContextState) = state.InFlight |> Option.map snd
+        let inFlightRequest (state: OrderContextState) = state.InFlight |> Option.map _.Request
 
 
         /// The workbench narrowed to the scenario with the order with this id and its form, as it
@@ -311,18 +372,33 @@ module OrderContextMachine =
             | OrderContextView.Changing _ -> None
 
 
-        /// The orders the link rules offer to link to the order of the context, each turned on or off.
-        let linkedOffers (state: OrderContextState) = state.LinkedOffers
+        /// The orders the link rules offer to link to the order of the context, each turned on or off; while a
+        /// request for an offer is under way, that offer with the context sent, as its command changes it.
+        let linkedOffers (state: OrderContextState) =
+            match state.InFlight with
+            | Some({ For = RequestFor.Offer index } as r) ->
+                state.LinkedOffers
+                |> LinkedOffer.changedAt index (fun o -> { o with Context = OrderContextWorkbench.shown r.Sent })
+            | Some { For = RequestFor.Context }
+            | None -> state.LinkedOffers
 
 
-        /// The linked offers turned on, each narrowed to the scenario turned on, as they go into the plan with
-        /// the main order.
-        let linkedTurnedOn (state: OrderContextState) =
-            state.LinkedOffers
-            |> Array.choose (fun offer ->
-                offer.TurnedOn
-                |> Option.map (fun sc -> offer.Context |> OrderContextWorkbench.narrowedToScenario sc)
-            )
+        /// The linked offers turned on.
+        let turnedOn (state: OrderContextState) =
+            state.LinkedOffers |> Array.filter (fun o -> o.Switch = OfferSwitch.On)
+
+
+        /// The linked offers turned on and narrowed to one scenario, as the totals count them; an offer turned
+        /// on with several scenarios or none is left out.
+        let linkedTurnedOn (state: OrderContextState) = state |> turnedOn |> Array.choose LinkedOffer.narrowed
+
+
+        /// The linked offers turned on, each narrowed to its one scenario, as they go into the plan with the
+        /// main order; None while an offer turned on is not narrowed to one scenario, which refuses the
+        /// prescribe.
+        let linkedToPrescribe (state: OrderContextState) =
+            Some(state |> linkedTurnedOn)
+            |> Option.filter (fun narrowed -> narrowed.Length = (state |> turnedOn).Length)
 
 
         /// Whether the state before a recalculation is kept, to be put back when its list closes without a pick.
@@ -373,10 +449,12 @@ module OrderContextMachine =
         /// on after a restore.
         let transition (msg: OrderContextMsg) (state: OrderContextState) : OrderContextState * OrderContextEffect list =
             // the one place a request goes out
-            let send sent request (state: OrderContextState) =
-                { state with InFlight = Some(sent, request) }, [ OrderContextEffect.CallContext(sent, request) ]
+            let send sent request target (state: OrderContextState) =
+                { state with InFlight = Some(RequestUnderWay.create sent request target) },
+                [ OrderContextEffect.CallContext(sent, request) ]
 
-            let call cmd ctx request state = send (OrderContextCommand.Command(cmd, ctx)) request state
+            let call cmd ctx request state =
+                send (OrderContextCommand.Command(cmd, ctx)) request RequestFor.Context state
 
             // a command from the page over the context held, for the patient held; a refusal goes,
             // so the workbench is refused only with nothing under way
@@ -390,13 +468,9 @@ module OrderContextMachine =
                         Kept = kept
                     }
 
-            // the offer with the index turned on with the scenario, or off with none
-            let turned index turnedOn =
-                { state with
-                    LinkedOffers =
-                        state.LinkedOffers
-                        |> Array.mapi (fun i o -> if i = index then { o with TurnedOn = turnedOn } else o)
-                }
+            // the offer with the index changed
+            let withOffer index change state =
+                { state with LinkedOffers = state.LinkedOffers |> LinkedOffer.changedAt index change }
 
             // a new workbench, the dialog and the recalculation list closed, and the linked offers gone with the
             // order
@@ -414,9 +488,26 @@ module OrderContextMachine =
                 call cmd empty request (renewed (OrderContextWorkbench.Evaluated(pat, empty)))
 
             match msg, OrderContextWorkbench.held state.Workbench, state.InFlight with
-            // only an answer to the request under way lands; the formulary and parenteralia pages
-            // follow the answer, not the request
-            | OrderContextMsg.Answered(request, result), Some(pat, held), Some(sent, underWay) when underWay = request ->
+            // only an answer to the request under way lands. An answer for an offer changes that offer only: a
+            // refusal keeps the offer as the server sent it back, a failure leaves it as it was. The formulary and
+            // parenteralia pages follow the answer for the context, not the request, and not an answer for an offer
+            | OrderContextMsg.Answered(request, result), Some _, Some({ For = RequestFor.Offer index } as r) when
+                r.Request = request
+                ->
+                let answered = { state with InFlight = None }
+
+                match result with
+                | Ok(OrderContextResponse.Evaluated ctx) ->
+                    answered |> withOffer index (fun o -> { o with Context = ctx }), []
+                | Ok(OrderContextResponse.Refused(back, refusal)) ->
+                    answered |> withOffer index (fun o -> { o with Context = back }),
+                    [ OrderContextEffect.TellNotApplied refusal ]
+                | Error errs -> answered, [ OrderContextEffect.TellError errs ]
+            | OrderContextMsg.Answered(request, result), Some(pat, held), Some({ For = RequestFor.Context } as r) when
+                r.Request = request
+                ->
+                let sent = r.Sent
+
                 let workbench, told =
                     match result with
                     | Ok(OrderContextResponse.Evaluated ctx) -> OrderContextWorkbench.Evaluated(pat, ctx), []
@@ -466,8 +557,10 @@ module OrderContextMachine =
                 | Some kept -> kept, []
                 | None -> state, []
             // turning a linked offer on or off needs no request
-            | OrderContextMsg.TurnOfferOn(index, sc), _, _ -> turned index (Some sc), []
-            | OrderContextMsg.TurnOfferOff index, _, _ -> turned index None, []
+            | OrderContextMsg.TurnOfferOn index, _, _ ->
+                state |> withOffer index (fun o -> { o with Switch = OfferSwitch.On }), []
+            | OrderContextMsg.TurnOfferOff index, _, _ ->
+                state |> withOffer index (fun o -> { o with Switch = OfferSwitch.Off }), []
 
             // the patient cleared reaches every state: no workbench, and the request out is dropped
             | OrderContextMsg.PatientDataChanged(None, _), _, _ -> noPatient, []
@@ -502,6 +595,17 @@ module OrderContextMachine =
                         None
 
                 command cmd pat ctx request kept
+
+            // a command over the offer with the index, for the patient held, on the request of the context
+            | OrderContextMsg.OfferCommand(index, cmd, request), Some(pat, _), None ->
+                match state.LinkedOffers |> Array.tryItem index with
+                | Some offer ->
+                    state
+                    |> send
+                        (OrderContextCommand.Command(cmd, { offer.Context with Patient = pat }))
+                        request
+                        (RequestFor.Offer index)
+                | None -> state, []
 
             // a reset clears the filter of the context held; a failure goes back to the empty workbench
             | OrderContextMsg.Reset request, Some(pat, ctx), None ->

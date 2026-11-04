@@ -641,8 +641,10 @@ module Trail =
             | OrderContextMsg.Reset request -> $"Reset %s{Part.shortId request}"
             | OrderContextMsg.SelectScenario id -> $"SelectScenario %s{id |> Part.orNone Part.shortId}"
             | OrderContextMsg.RestoreField -> "RestoreField"
-            | OrderContextMsg.TurnOfferOn(index, sc) -> $"TurnOfferOn %i{index} %s{Part.shortId sc.Order.Id}"
+            | OrderContextMsg.TurnOfferOn index -> $"TurnOfferOn %i{index}"
             | OrderContextMsg.TurnOfferOff index -> $"TurnOfferOff %i{index}"
+            | OrderContextMsg.OfferCommand(index, cmd, request) ->
+                $"OfferCommand %i{index} %s{commandAlone cmd} %s{Part.shortId request}"
 
 
         /// An order context effect; a context by its id, never the filter or the error texts.

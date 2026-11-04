@@ -1581,8 +1581,22 @@ let prescribeLinkedTests =
                 |> Expect.equal "o-main alone" [ ("", [| "o-main" |], [||]) ]
             }
 
+            test "the prescribe adds nothing while the evening dose is on with two scenarios" {
+                let lanes =
+                    { Lanes.initial (Some draft) with
+                        OrderPlan = shown
+                        OrderContext = OrderContextMachineTests.OfferCommandFixtures.eveningOfTwoOn
+                    }
+
+                let _, _, steps =
+                    lanes
+                    |> Lanes.transition (counter ()) (LanesMsg.Prescribe(None, "o-main", "r-3"))
+
+                steps |> addedWithLinked |> Expect.isEmpty "refused"
+            }
+
             test "a feeding slot is prescribed with BMF turned on" {
-                let slot = answered selectScenario feeding [| bmf |] |> turnOn 0 bmf.Scenarios[0]
+                let slot = answered selectScenario feeding [| bmf |] |> turnOn 0
 
                 let lanes =
                     { Lanes.initial (Some draft) with
@@ -1610,9 +1624,7 @@ let prescribeLinkedTests =
 
                 let lanes, _, _ =
                     lanes
-                    |> Lanes.transition
-                        (counter ())
-                        (LanesMsg.Slot("s-1", OrderContextMsg.TurnOfferOn(0, atalurenEvening.Scenarios[0])))
+                    |> Lanes.transition (counter ()) (LanesMsg.Slot("s-1", OrderContextMsg.TurnOfferOn 0))
 
                 lanes.Slots["s-1"]
                 |> turnedOn
