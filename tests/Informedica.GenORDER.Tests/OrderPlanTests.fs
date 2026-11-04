@@ -3262,3 +3262,94 @@ let groupAddTests =
                     (Error(OrderPlanError.OrderRefused("paracetamol", OrderPlanError.OrderHeld "o-p")))
             }
         ]
+
+
+/// The totals over a set of plan contexts, for the totals query.
+module TotalsOverFixtures =
+
+    open Fixtures
+
+
+    // a continuous infusion solved to its bounds: an order with a volume
+    let infusion =
+        match
+            Scenarios.morfCont
+            |> Medication.toOrderDto Scenarios.testStart
+            |> Order.Dto.fromDto
+            |> Result.mapError string
+            |> Result.bind (fun o ->
+                OrderProcessor.processPipeline OrderLogging.noOp (CalcMinMax o)
+                |> Result.mapError (fun (_, e) -> $"%A{e}")
+            )
+        with
+        | Ok o -> { scenario "o-inf" with Order = { o with Id = Id "o-inf" } }
+        | Error e -> failtest $"fixture order could not be solved: %s{e}"
+
+
+    let volume: Informedica.GenForm.Lib.Types.Data.TotalsData =
+        {
+            Name = "volume"
+            MinAge = None
+            MaxAge = None
+            MinWeight = None
+            MaxWeight = None
+            Unit = Some Units.Volume.milliLiter
+            Adj = None
+            TimeUnit = Some Units.Time.day
+            MinPerTime = None
+            MaxPerTime = None
+            MinPerTimeAdj = None
+            MaxPerTimeAdj = None
+        }
+
+
+    let child = { Patient.patient with Weight = Some(ValueUnit.singleWithUnit Units.Weight.kiloGram 32N) }
+
+    let suppository = PlanContext.create "c-supp" OrderCategory.Medication (context [| scenario "o-supp" |])
+
+    let infusionContext = PlanContext.create "c-inf" OrderCategory.Medication (context [| infusion |])
+
+    // the infusion as a slot that offers two orders and has none picked
+    let wide = PlanContext.create "c-wide" OrderCategory.Medication (context [| infusion; scenario "o-2" |])
+
+
+open TotalsOverFixtures
+
+
+let totalsOverTests =
+    testList
+        "the totals query"
+        [
+            test "the totals over the contexts count every order narrowed to one" {
+                [| suppository; infusionContext |]
+                |> OrderPlan.totalsOver [| volume |] child
+                |> _.Volume
+                |> Expect.isSome "the infusion has a volume"
+            }
+
+            test "a context that is not narrowed adds nothing" {
+                [| suppository; wide |]
+                |> OrderPlan.totalsOver [| volume |] child
+                |> Expect.equal "the suppository has no volume" Totals.empty
+            }
+
+            test "no contexts, no totals" {
+                [||]
+                |> OrderPlan.totalsOver [| volume |] child
+                |> Expect.equal "empty" Totals.empty
+            }
+
+            test "the totals of the plan are the totals over the contexts its filter keeps" {
+                let p = OrderPlan.create child [| suppository; infusionContext |]
+
+                p
+                |> OrderPlan.recalculate [| volume |]
+                |> _.Totals
+                |> Expect.equal "the same" (OrderPlan.totalsOver [| volume |] child p.Contexts)
+
+                { p with Filtered = [| "c-supp" |] }
+                |> OrderPlan.recalculate [| volume |]
+                |> _.Totals
+                |> Expect.equal "the suppository alone" Totals.empty
+            }
+        ]

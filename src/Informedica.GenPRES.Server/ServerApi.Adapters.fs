@@ -379,6 +379,8 @@ module Adapters =
             removeOrderContexts =
                 fun plan ids -> async { return plan |> OrderPlan.removeOrderContexts ids |> recalc |> Ok }
             openWith = fun pat contexts -> async { return OrderPlan.create pat contexts |> recalc |> Ok }
+            totals =
+                fun pat contexts -> async { return contexts |> OrderPlan.totalsOver (provider.GetTotals()) pat |> Ok }
         }
 
 

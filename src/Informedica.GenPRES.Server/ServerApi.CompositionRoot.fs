@@ -55,6 +55,15 @@ module CompositionRoot =
                     (fun _ -> Gate.RequiresLoaded)
                     (OrderPlanCommand.processCmd env)
 
+            // the totals over the orders asked for, the plan left as it is
+            processTotals =
+                Compute.bound
+                    env
+                    cookie
+                    TotalsQuery.toString
+                    (fun _ -> Gate.RequiresLoaded)
+                    (OrderPlanCommand.processTotals env)
+
             // the one member whose gate differs per command: the drug names run open
             processInteraction =
                 Compute.bound

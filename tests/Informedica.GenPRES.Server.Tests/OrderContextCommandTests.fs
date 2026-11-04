@@ -755,6 +755,7 @@ let tests =
                                 openWith =
                                     fun pat cs ->
                                         answering "openWith" (Informedica.GenOrder.Lib.OrderPlan.create pat cs)
+                                totals = fun _ _ -> async { return Ok Informedica.GenOrder.Lib.Totals.empty }
                             }
 
                         let env =

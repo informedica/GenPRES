@@ -115,6 +115,7 @@ module StubAdapters =
             newOrderContext = fun _ _ -> async { return Ok answer }
             removeOrderContexts = fun _ _ -> async { return Ok answer }
             openWith = fun _ _ -> async { return Ok answer }
+            totals = fun _ _ -> async { return Ok Informedica.GenOrder.Lib.Totals.empty }
         }
 
 
@@ -197,6 +198,7 @@ module StubAdapters =
                     newOrderContext = fun _ _ -> async { return Error [| "not loaded" |] }
                     removeOrderContexts = fun _ _ -> async { return Error [| "not loaded" |] }
                     openWith = fun _ _ -> async { return Error [| "not loaded" |] }
+                    totals = fun _ _ -> async { return Error [| "not loaded" |] }
                 }
             interaction =
                 {
@@ -5468,6 +5470,7 @@ module PlanTests =
                             removeOrderContexts = fun p _ -> answering "removeOrderContexts" p
                             openWith =
                                 fun pat cs -> answering "openWith" (Informedica.GenOrder.Lib.OrderPlan.create pat cs)
+                            totals = fun _ _ -> async { return Ok Informedica.GenOrder.Lib.Totals.empty }
                         }
 
                     let env =
