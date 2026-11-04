@@ -120,14 +120,14 @@ module OrderPlanCommand =
                                     pc
                             )
                     )
-        | OrderPlanCommand.AddOrderContext(plan, ctx) ->
+        | OrderPlanCommand.AddOrderContext(plan, ctx, linked) ->
             Patient.overAll
-                (Patient.ofPlan plan @ [ ctx.Patient ])
+                (Patient.ofPlan plan @ ((ctx :: Array.toList linked) |> List.map _.Patient))
                 (fun () ->
                     answer
                         env
-                        (both (parsePlan plan) (OrderContextService.parse ctx))
-                        (fun (p, pc) -> env.orderPlan.addOrderContext p pc)
+                        (both (parsePlan plan) (both (OrderContextService.parse ctx) (parseContexts linked)))
+                        (fun (p, (pc, pcs)) -> env.orderPlan.addOrderContexts p pc pcs)
                 )
         | OrderPlanCommand.NewOrderContext(plan, category) ->
             Patient.overAll

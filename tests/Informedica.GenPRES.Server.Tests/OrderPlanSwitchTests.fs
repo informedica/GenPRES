@@ -62,7 +62,7 @@ let echoPort seen : OrderPlanPort =
         recalculate = answering seen "recalculate"
         followPatientData = answering seen "followPatientData"
         evaluateContext = fun p _ _ _ -> answering seen "evaluateContext" p
-        addOrderContext = fun p _ -> answering seen "addOrderContext" p
+        addOrderContexts = fun p _ _ -> answering seen "addOrderContexts" p
         newOrderContext = fun p _ -> answering seen "newOrderContext" p
         removeOrderContexts = fun p _ -> answering seen "removeOrderContexts" p
         openWith = fun pat cs -> answering seen "openWith" (Informedica.GenOrder.Lib.OrderPlan.create pat cs)
@@ -108,7 +108,7 @@ let tests =
                         )
                     )
 
-                let! _ = run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.AddOrderContext(plan, ctx))
+                let! _ = run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.AddOrderContext(plan, ctx, [||]))
                 let! _ =
                     run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.NewOrderContext(plan, NutritionCategory.TPN))
                 let! _ = run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.RemoveOrderContexts(plan, [| "c-1" |]))
@@ -121,7 +121,7 @@ let tests =
                     [
                         "recalculate"
                         "evaluateContext"
-                        "addOrderContext"
+                        "addOrderContexts"
                         "newOrderContext"
                         "removeOrderContexts"
                         "openWith"
@@ -153,6 +153,63 @@ let tests =
                 |> Expect.equal
                     "the plan's patient updated, the context's kept"
                     (Ok(Some "NEO", [| patient.Department |]))
+            }
+
+            testAsync "the linked orders reach the port with the main order" {
+                let received = ref None
+
+                let port =
+                    { echoPort (ref []) with
+                        addOrderContexts =
+                            fun p main linked ->
+                                received.Value <- Some(main.Id, linked |> Array.map _.Id)
+                                async { return Ok p }
+                    }
+
+                let! _ =
+                    OrderPlanCommand.processCmd
+                        (envOver true port)
+                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.AddOrderContext(
+                            plan,
+                            ctx,
+                            [| { ctx with Id = "l-1" }; { ctx with Id = "l-2" } |]
+                        ))
+
+                received.Value
+                |> Expect.equal "the main order and both linked orders" (Some("c-1", [| "l-1"; "l-2" |]))
+            }
+
+            testAsync "a linked order that is no patient is refused before the port" {
+                let seen = ref []
+
+                let! answer =
+                    OrderPlanCommand.processCmd
+                        (envOver true (echoPort seen))
+                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.AddOrderContext(
+                            plan,
+                            ctx,
+                            [| { ctx with Patient = Informedica.GenPRES.Shared.Models.Patient.empty } |]
+                        ))
+
+                answer |> Expect.equal "no patient" (Error [| Patient.noPatient |])
+                seen.Value |> Expect.isEmpty "the port never asked"
+            }
+
+            testAsync "a linked order whose argumentation is too long is refused before the port" {
+                let seen = ref []
+                let tooLong = String.replicate (OrderContextService.Argumentation.maxLength + 1) "a"
+
+                let! answer =
+                    OrderPlanCommand.processCmd
+                        (envOver true (echoPort seen))
+                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.AddOrderContext(
+                            plan,
+                            ctx,
+                            [| { ctx with Argumentation = Some tooLong } |]
+                        ))
+
+                answer |> Expect.isError "too long"
+                seen.Value |> Expect.isEmpty "the port never asked"
             }
 
             testAsync "a row filter recalculates the plan over the rows chosen" {
@@ -290,9 +347,13 @@ let tests =
                 |> words
                 |> Expect.equal "no main order" "The main order c-9 is not in the plan"
 
-                OrderPlanError.BrokenLink(LinkError.NotAllowed "c-1")
+                OrderPlanError.BrokenLink(LinkError.NotAllowed "paracetamol")
                 |> words
-                |> Expect.equal "not allowed" "No link rule links this order to the main order c-1"
+                |> Expect.equal "not allowed" "No link rule links this order to the main order paracetamol"
+
+                OrderPlanError.OrderRefused("ataluren", OrderPlanError.BrokenLink LinkError.MainOrderRequired)
+                |> words
+                |> Expect.equal "an order of a group" "ataluren: This order is only prescribed with its main order"
 
                 OrderPlanError.BrokenLink LinkError.MainOrderRequired
                 |> words

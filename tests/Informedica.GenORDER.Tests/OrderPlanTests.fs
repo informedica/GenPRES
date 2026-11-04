@@ -2461,26 +2461,12 @@ let linkTests =
                         p.Contexts[0].LinkedTo |> Expect.isNone "not linked"
                     }
 
-                    test "a broken link is refused" {
-                        plan [| medication "c-m" "o-m" |]
-                        |> OrderPlan.addOrderContext newId (medication "" "o-p" |> linked "c-gone")
-                        |> Expect.equal
-                            "no main order"
-                            (Error(OrderPlanError.BrokenLink(LinkError.NoSuchMainOrder "c-gone")))
-
-                        plan [| medication "c-m" "o-m"; medication "c-l" "o-l" |> linked "c-m" |]
-                        |> OrderPlan.addOrderContext newId (medication "" "o-p" |> linked "c-l")
-                        |> Expect.equal
-                            "the main order is linked"
-                            (Error(OrderPlanError.BrokenLink(LinkError.MainOrderLinked "c-l")))
-                    }
-
-                    test "the refusals of today come first" {
+                    test "the same order twice and a context not narrowed are refused" {
                         plan [| medication "c-m" "o-p" |]
-                        |> OrderPlan.addOrderContext newId (medication "" "o-p" |> linked "c-gone")
+                        |> OrderPlan.addOrderContext newId (medication "" "o-p")
                         |> Expect.equal "the same order twice" (Error(OrderPlanError.OrderHeld "o-p"))
 
-                        let wide = { medication "" "o-p" with Context = twoOrders } |> linked "c-gone"
+                        let wide = { medication "" "o-p" with Context = twoOrders }
 
                         plan [||]
                         |> OrderPlan.addOrderContext newId wide
@@ -2920,11 +2906,11 @@ let linkRuleTests =
                     test "a linked order with a main order no rule links it to is refused" {
                         fantomalt
                         |> refusal rules (Some("c-p", paracetamol))
-                        |> Expect.equal "under paracetamol" (Some(LinkError.NotAllowed "c-p"))
+                        |> Expect.equal "under paracetamol" (Some(LinkError.NotAllowed "paracetamol"))
 
                         paracetamol
                         |> refusal rules (Some("c-f", feeding))
-                        |> Expect.equal "no rule for paracetamol" (Some(LinkError.NotAllowed "c-f"))
+                        |> Expect.equal "no rule for paracetamol" (Some(LinkError.NotAllowed "Nutrini (Nutricia)"))
                     }
 
                     test "an order a required rule matches is refused without a main order" {
@@ -2954,7 +2940,7 @@ let linkRuleTests =
                         |> refusal
                             rules
                             (Some("c-m", { morning with Scenarios = Array.append morning.Scenarios [| sc |] }))
-                        |> Expect.equal "two candidates" (Some(LinkError.NotAllowed "c-m"))
+                        |> Expect.equal "two candidates, named by the pick" (Some(LinkError.NotAllowed "ataluren"))
                     }
 
                     test "a main order not in the plan is left to the link error" {
@@ -3103,5 +3089,176 @@ let linkOfferTests =
             test "an indication no rule set holds is a medication" {
                 NutritionRuleSet.orderCategory sets (Some "Duchenne") (Some "ataluren")
                 |> Expect.equal "medication" OrderCategory.Medication
+            }
+        ]
+
+
+/// A main order and its linked orders added to a plan together, over the link rule fixtures.
+module GroupAddFixtures =
+
+    open LinkRuleFixtures
+
+
+    /// A new id function counting from c-1, one per test, since the tests run in parallel.
+    let newIds () =
+        let n = ref 0
+
+        fun () ->
+            n.Value <- n.Value + 1
+            $"c-%i{n.Value}"
+
+
+    /// An order context narrowed to the order with the id, made from a dose rule with the generic label,
+    /// indication, route and dose type.
+    let narrowedAs orderId ind gen rte dt =
+        let ctx = narrowed ind gen rte dt
+
+        { ctx with
+            Scenarios =
+                ctx.Scenarios
+                |> Array.map (fun sc ->
+                    { Fixtures.scenario orderId with
+                        Name = sc.Name
+                        Indication = sc.Indication
+                        Route = sc.Route
+                        DoseType = sc.DoseType
+                    }
+                )
+        }
+
+
+    let medication ctx = PlanContext.create "" OrderCategory.Medication ctx
+
+    let nutrition category ctx = PlanContext.create "" (OrderCategory.Nutrition category) ctx
+
+
+    let morning =
+        narrowedAs "o-m" "Duchenne" "ataluren" "ORAAL" (DoseType.Discontinuous "ochtend middag")
+        |> medication
+    let evening =
+        narrowedAs "o-e" "Duchenne" "ataluren" "ORAAL" (DoseType.Discontinuous "avond")
+        |> medication
+    let paracetamol =
+        narrowedAs "o-p" "Pijn" "paracetamol" "ORAAL" (DoseType.Discontinuous "")
+        |> medication
+
+    let feeding =
+        narrowedAs "o-f" "Enterale voeding" "Nutrini (Nutricia)" "ORAAL" (DoseType.Discontinuous "")
+        |> nutrition NutritionCategory.EnteralFeeding
+
+    let fantomalt =
+        narrowedAs "o-s" "Enterale toevoeging" "Fantomalt pdr" "ORAAL" (DoseType.Discontinuous "")
+        |> nutrition NutritionCategory.EnteralSupplement
+
+
+    let empty = Fixtures.plan [||]
+
+
+    let addAll main linked plan =
+        plan |> OrderPlan.addOrderContexts (newIds ()) routes rules main linked
+
+
+    /// The id and the link of every context of the plan added to.
+    let links = Result.map (fun (p: OrderPlan) -> p.Contexts |> Array.map (fun c -> c.Id, c.LinkedTo))
+
+
+open GroupAddFixtures
+
+
+let groupAddTests =
+    testList
+        "the group add"
+        [
+            test "the morning dose of ataluren enters with its evening dose linked to it" {
+                empty
+                |> addAll morning [| evening |]
+                |> links
+                |> Expect.equal "c-2 under c-1" (Ok [| "c-1", None; "c-2", Some "c-1" |])
+            }
+
+            test "a feeding enters with its supplement linked to it" {
+                empty
+                |> addAll feeding [| fantomalt |]
+                |> links
+                |> Expect.equal "c-2 under c-1" (Ok [| "c-1", None; "c-2", Some "c-1" |])
+            }
+
+            test "a main order without linked orders enters alone" {
+                empty
+                |> addAll paracetamol [||]
+                |> links
+                |> Expect.equal "c-1" (Ok [| "c-1", None |])
+            }
+
+            test "the links come from the add, not from the contexts as sent" {
+                empty
+                |> addAll { morning with LinkedTo = Some "c-x" } [| { evening with LinkedTo = Some "c-y" } |]
+                |> links
+                |> Expect.equal "c-2 under c-1" (Ok [| "c-1", None; "c-2", Some "c-1" |])
+            }
+
+            test "an order that needs its main order is refused alone, named" {
+                empty
+                |> addAll evening [||]
+                |> Expect.equal
+                    "ataluren needs its main order"
+                    (Error(
+                        OrderPlanError.OrderRefused("ataluren", OrderPlanError.BrokenLink LinkError.MainOrderRequired)
+                    ))
+            }
+
+            test "a linked order no link rule allows under the main order is refused, both named" {
+                empty
+                |> addAll paracetamol [| evening |]
+                |> Expect.equal
+                    "not under paracetamol"
+                    (Error(
+                        OrderPlanError.OrderRefused(
+                            "ataluren",
+                            OrderPlanError.BrokenLink(LinkError.NotAllowed "paracetamol")
+                        )
+                    ))
+            }
+
+            test "a linked order not narrowed to one order refuses the whole group" {
+                let wide =
+                    { evening with
+                        Context =
+                            { evening.Context with
+                                Scenarios = Array.append evening.Context.Scenarios evening.Context.Scenarios
+                            }
+                    }
+
+                empty
+                |> addAll morning [| wide |]
+                |> Expect.equal
+                    "two candidates"
+                    (Error(OrderPlanError.OrderRefused("ataluren", OrderPlanError.NotNarrowed 2)))
+            }
+
+            test "a single add is refused named by its generic" {
+                let plan =
+                    empty
+                    |> addAll paracetamol [||]
+                    |> Result.defaultWith (fun e -> failtest $"%A{e}")
+
+                plan
+                |> addAll paracetamol [||]
+                |> Expect.equal
+                    "paracetamol is held"
+                    (Error(OrderPlanError.OrderRefused("paracetamol", OrderPlanError.OrderHeld "o-p")))
+            }
+
+            test "an order of the group the plan already holds refuses the group" {
+                let plan =
+                    empty
+                    |> addAll paracetamol [||]
+                    |> Result.defaultWith (fun e -> failtest $"%A{e}")
+
+                plan
+                |> addAll morning [| paracetamol |]
+                |> Expect.equal
+                    "paracetamol is held"
+                    (Error(OrderPlanError.OrderRefused("paracetamol", OrderPlanError.OrderHeld "o-p")))
             }
         ]

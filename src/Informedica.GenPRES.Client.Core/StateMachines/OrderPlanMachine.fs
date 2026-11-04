@@ -54,7 +54,7 @@ module OrderPlanMachine =
         /// longer holds, and for a locked one, whatever page the command comes from.
         let command (tp: OrderPlan) (change: OrderPlanChange) =
             match change with
-            | OrderPlanChange.Add ctx -> Some(OrderPlanCommand.AddOrderContext(tp, ctx))
+            | OrderPlanChange.Add ctx -> Some(OrderPlanCommand.AddOrderContext(tp, ctx, [||]))
             | OrderPlanChange.NewNutrition category -> Some(OrderPlanCommand.NewOrderContext(tp, category))
             | OrderPlanChange.Remove ids -> Some(OrderPlanCommand.RemoveOrderContexts(tp, ids))
             | OrderPlanChange.FilterRows ids -> Some(OrderPlanCommand.FilterRows(ids, tp))

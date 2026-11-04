@@ -111,7 +111,7 @@ module StubAdapters =
             recalculate = fun _ -> async { return Ok answer }
             followPatientData = fun _ -> async { return Ok answer }
             evaluateContext = fun _ _ _ _ -> async { return Ok answer }
-            addOrderContext = fun _ _ -> async { return Ok answer }
+            addOrderContexts = fun _ _ _ -> async { return Ok answer }
             newOrderContext = fun _ _ -> async { return Ok answer }
             removeOrderContexts = fun _ _ -> async { return Ok answer }
             openWith = fun _ _ -> async { return Ok answer }
@@ -193,7 +193,7 @@ module StubAdapters =
                     recalculate = fun _ -> async { return Error [| "not loaded" |] }
                     followPatientData = fun _ -> async { return Error [| "not loaded" |] }
                     evaluateContext = fun _ _ _ _ -> async { return Error [| "not loaded" |] }
-                    addOrderContext = fun _ _ -> async { return Error [| "not loaded" |] }
+                    addOrderContexts = fun _ _ _ -> async { return Error [| "not loaded" |] }
                     newOrderContext = fun _ _ -> async { return Error [| "not loaded" |] }
                     removeOrderContexts = fun _ _ -> async { return Error [| "not loaded" |] }
                     openWith = fun _ _ -> async { return Error [| "not loaded" |] }
@@ -5463,7 +5463,7 @@ module PlanTests =
                             recalculate = answering "recalculate"
                             followPatientData = answering "followPatientData"
                             evaluateContext = fun p _ _ _ -> answering "evaluateContext" p
-                            addOrderContext = fun p _ -> answering "addOrderContext" p
+                            addOrderContexts = fun p _ _ -> answering "addOrderContexts" p
                             newOrderContext = fun p _ -> answering "newOrderContext" p
                             removeOrderContexts = fun p _ -> answering "removeOrderContexts" p
                             openWith =
@@ -5495,7 +5495,7 @@ module PlanTests =
                                 emptyCtx
                             ))
 
-                    let! _ = OrderPlanCommand.processCmd env (OrderPlanCommand.AddOrderContext(p, emptyCtx))
+                    let! _ = OrderPlanCommand.processCmd env (OrderPlanCommand.AddOrderContext(p, emptyCtx, [||]))
 
                     let! _ =
                         OrderPlanCommand.processCmd env (OrderPlanCommand.NewOrderContext(p, NutritionCategory.TPN))
@@ -5510,7 +5510,7 @@ module PlanTests =
                         [
                             "recalculate"
                             "evaluateContext"
-                            "addOrderContext"
+                            "addOrderContexts"
                             "newOrderContext"
                             "removeOrderContexts"
                             "openWith"
@@ -5533,7 +5533,7 @@ module PlanTests =
                     OrderPlanCommand.toString (OrderPlanCommand.NewOrderContext(p, NutritionCategory.TPN))
                     |> Expect.equal "category" "NewOrderContext TPN"
 
-                    OrderPlanCommand.toString (OrderPlanCommand.AddOrderContext(p, OrderContext.empty))
+                    OrderPlanCommand.toString (OrderPlanCommand.AddOrderContext(p, OrderContext.empty, [||]))
                     |> Expect.equal "never the workbench" "AddOrderContext"
 
                     OrderPlanCommand.toString (OrderPlanCommand.RemoveOrderContexts(p, [| "c-1"; "c-2" |]))
@@ -5639,7 +5639,8 @@ let ingressTests =
 
                 evaluated |> refusedAs Patient.noPatient
 
-                let! added = OrderPlanCommand.processCmd env (Api.OrderPlanCommand.AddOrderContext(draft, emptyCtx))
+                let! added =
+                    OrderPlanCommand.processCmd env (Api.OrderPlanCommand.AddOrderContext(draft, emptyCtx, [||]))
 
                 added |> refusedAs Patient.noPatient
 

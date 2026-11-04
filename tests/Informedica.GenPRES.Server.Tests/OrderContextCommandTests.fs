@@ -749,7 +749,7 @@ let tests =
                                     fun p _ _ pc ->
                                         evaluated.Value <- Some(p, pc)
                                         answering "evaluateContext" p
-                                addOrderContext = fun p _ -> answering "addOrderContext" p
+                                addOrderContexts = fun p _ _ -> answering "addOrderContexts" p
                                 newOrderContext = fun p _ -> answering "newOrderContext" p
                                 removeOrderContexts = fun p _ -> answering "removeOrderContexts" p
                                 openWith =

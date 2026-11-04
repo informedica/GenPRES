@@ -333,12 +333,17 @@ module Adapters =
                             )
                             |> Result.map recalc
                     }
-            addOrderContext =
-                fun plan pc ->
+            addOrderContexts =
+                fun plan pc linked ->
                     async {
                         return
                             plan
-                            |> OrderPlan.addOrderContext newId pc
+                            |> OrderPlan.addOrderContexts
+                                newId
+                                (provider.GetRouteMappings())
+                                (provider.Get Resources.Keys.linkRules)
+                                pc
+                                linked
                             |> NutritionRuleSets.refused (labels ())
                             |> Result.map recalc
                     }

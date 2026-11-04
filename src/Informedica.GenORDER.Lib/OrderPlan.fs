@@ -38,6 +38,17 @@ module PlanContext =
     let contribution (pc: PlanContext) = pc.Context |> OrderContext.contribution
 
 
+    /// The generic of the order of the context by its label, else the generic its filter picks, else the
+    /// empty text: only a context that is not narrowed and picks no generic has neither, which the client
+    /// never prescribes.
+    let generic (pc: PlanContext) =
+        pc
+        |> contribution
+        |> Option.map _.Name
+        |> Option.orElse pc.Context.Filter.Generic
+        |> Option.defaultValue ""
+
+
     /// A filter or scenario pick reads its index in the lists the user saw, and a seed is checked
     /// against the rules as an update of the context is, so each is applied to the context as sent,
     /// before the context is reconciled with the rules: the existing command
@@ -500,7 +511,7 @@ module OrderPlan =
             plan.Contexts
             |> Array.tryFind (fun c -> c.Id = id)
             |> Option.filter (allowedUnder >> not)
-            |> Option.map (fun _ -> LinkError.NotAllowed id)
+            |> Option.map (PlanContext.generic >> LinkError.NotAllowed)
         | None when
             rulesForLinkedOrder
             |> Array.exists (fun r -> r.Requirement = LinkRequirement.Required)
@@ -546,8 +557,8 @@ module OrderPlan =
     /// An order context into the plan with a new id, its category and its link as sent, its
     /// one scenario the order it contributes and its totals as evaluated. Refused when the
     /// context is not narrowed to one scenario, when the plan already holds that order (the
-    /// signing challenge would refuse the plan later, so it is said now), when the plan does
-    /// not admit its nutrition category, and when the plan refuses its link.
+    /// signing challenge would refuse the plan later, so it is said now), and when the plan does
+    /// not admit its nutrition category. The shape of the link is checked wherever a plan is read.
     let addOrderContext (newId: unit -> string) (context: PlanContext) (plan: OrderPlan) =
         let admitted () =
             match context |> PlanContext.nutritionCategory with
@@ -561,13 +572,35 @@ module OrderPlan =
             Error(OrderPlanError.OrderHeld id)
         | Some _ ->
             admitted ()
-            |> Result.bind (fun () ->
-                match context |> linkError plan with
-                | Some e -> Error(OrderPlanError.BrokenLink e)
-                | None ->
-                    let added = { context with Id = newId () }
-                    { plan with Contexts = Array.append plan.Contexts [| added |] } |> Ok
+            |> Result.map (fun () ->
+                let added = { context with Id = newId () }
+                { plan with Contexts = Array.append plan.Contexts [| added |] }
             )
+
+
+    /// The main order and its linked orders into the plan, each with a new id; when one of them is refused,
+    /// none of them enters the plan. The main order is not linked, and each linked order is linked to the
+    /// main order, whatever links the contexts were sent with. An order is refused for the reasons a single
+    /// add refuses it, and when the link rules refuse its link; the refusal names the order by its generic.
+    let addOrderContexts newId routeMapping rules (main: PlanContext) linked plan =
+        // the link rules read the link and the order of a context, not its id, so the context is checked
+        // as sent, in the plan it entered
+        let add id (pc: PlanContext) plan =
+            plan
+            |> addOrderContext id pc
+            |> Result.bind (fun added ->
+                match pc |> linkRuleError routeMapping rules added with
+                | Some e -> Error(OrderPlanError.BrokenLink e)
+                | None -> Ok added
+            )
+            |> Result.mapError (fun e -> OrderPlanError.OrderRefused(PlanContext.generic pc, e))
+
+        let mainId = newId ()
+
+        linked
+        |> Array.fold
+            (fun acc pc -> acc |> Result.bind (add newId { pc with LinkedTo = Some mainId }))
+            (plan |> add (fun () -> mainId) { main with LinkedTo = None })
 
 
     /// The serializable shape of an OrderPlan: the patient, the filtered ids, every
