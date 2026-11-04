@@ -489,7 +489,7 @@ let tests =
                 |> Trail.OrderPlan.effect
                 |> Expect.equal "the plan's answer" "TellAnswered"
 
-                OrderPlanEffect.OrderAdded
+                OrderPlanEffect.OrderAdded None
                 |> Trail.OrderPlan.effect
                 |> Expect.equal "the order prescribed landed" "OrderAdded"
 

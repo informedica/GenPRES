@@ -14,11 +14,11 @@ module NewPatientPolicy =
 
 
     /// Whether the panel asks before an edit: the edit is taken as a new patient and there is
-    /// something to lose, an order in the plan or a medication picked on the workbench.
-    let asks session (plan: OrderPlan option) (workbench: OrderContext option) =
+    /// something to lose, an order in the plan or the work on the workbench and the nutrition slots.
+    let asks session (plan: OrderPlan option) workbench slots =
         let orders =
             plan
             |> Option.exists (Informedica.GenPRES.Shared.Models.OrderPlan.orders >> Array.isEmpty >> not)
 
         startsNewPatient session
-        && (orders || UnsignedWorkPolicy.medicationPicked workbench)
+        && (orders || UnsignedWorkPolicy.unsignedOrderWork workbench slots)

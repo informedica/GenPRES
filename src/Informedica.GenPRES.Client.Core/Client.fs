@@ -121,10 +121,19 @@ module Client =
         | _ -> false
 
 
+    /// The contexts the nutrition slots show.
+    let slotContexts (state: ClientState) =
+        state.Lanes.Slots
+        |> Map.values
+        |> Seq.choose OrderContextState.context
+        |> Seq.toList
+
+
     /// Whether leaving the page would lose work.
     let unsignedWork (state: ClientState) =
         UnsignedWorkPolicy.hasUnsignedWork
             (state.Lanes.OrderContext |> OrderContextState.context)
+            (slotContexts state)
             (state.Lanes.Signing |> SigningState.view)
             (state.Lanes.OrderPlan |> OrderPlanState.work)
 
@@ -144,6 +153,7 @@ module Client =
             (SessionState.view state.Lanes.Session)
             (state.Lanes.OrderPlan |> OrderPlanState.plan)
             (state.Lanes.OrderContext |> OrderContextState.context)
+            (slotContexts state)
 
 
     /// Every data load with its reading, the server check excepted.

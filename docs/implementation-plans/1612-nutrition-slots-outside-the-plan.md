@@ -536,11 +536,20 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
    patient is cleared (rule 5), and a data update starts it again from its rule set; while the workbench
    has no patient, no slot starts. Decision, 2026-11-04, halcwb. Seen: nothing; the views still use the
    plan slots.
-8. **Prescribe with linked orders in Client.Core.** The linked orders offered in the workbench and the
-   slots, `LanesMsg.Prescribe` with the slot id and the linked orders turned on, `OrderAdded` with the
-   context id, the prescribed slot and the prescribe buttons waiting, the totals query in the loader
-   with its clear, the unsigned work policies. Script
-   `src/Informedica.GenPRES.Client.Core/Scripts/SlotPrescribe.fsx`. Seen: nothing yet.
+8. **Prescribe with linked orders in Client.Core**, in three pull requests, since together they go over
+   200 lines of `src/`. Decision, 2026-11-04, halcwb.
+   - **8a. The slot prescribe.** `LanesMsg.Prescribe` with the slot id, the slot's context sent with its
+     slot id, `OrderAdded` with the slot id, or none for the workbench, which empties the workbench or that
+     slot, a prescribed slot that stays on the nutrition page, and the unsigned work policies counting a
+     slot narrowed to one order, also when its rule set narrowed it without a pick (rule 6), through one
+     function both policies call. A prescribed slot taking no pick while the add is out comes with step 9:
+     until the views use the slots, a plan request disables the whole nutrition page, so no pick reaches a
+     slot then. Script `src/Informedica.GenPRES.Client.Core/Scripts/SlotPrescribe.fsx`, with modified copies of
+     the four files it changes, deleted in this step. Seen: nothing yet.
+   - **8b. The linked orders.** The linked orders offered in the workbench and the slots, each turned on
+     or off with its own order context, and `LanesMsg.Prescribe` with the linked orders turned on. Seen:
+     nothing yet.
+   - **8c. The totals query in the loader**, with its clear. Seen: nothing yet.
 9. **The views.** On the nutrition page a prescribe button on every slot, the supplements offered in the
    feeding slot, staying on the page, the combined totals; on the workbench the linked orders offered;
    on the order plan page a linked order under its main order, the row check and the group lock text
