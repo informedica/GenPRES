@@ -495,6 +495,8 @@ module OrderContextMapper =
         function
         | LinkError.NoSuchMainOrder main -> $"The main order %s{main} is not in the plan"
         | LinkError.MainOrderLinked main -> $"The main order %s{main} is itself linked to another order"
+        | LinkError.NotAllowed main -> $"No link rule links this order to the main order %s{main}"
+        | LinkError.MainOrderRequired -> "This order is only prescribed with its main order"
 
 
     /// The server's words for a reason the contract model is no plan context. Only the

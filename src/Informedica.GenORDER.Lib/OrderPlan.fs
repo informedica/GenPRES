@@ -462,6 +462,35 @@ module OrderPlan =
         )
 
 
+    /// Why the link rules refuse the link of the plan context, none when they allow it. A linked
+    /// context needs a rule that links it to its main order, and the main order counts only when it is
+    /// narrowed to one order, as for the offer. A context that is not linked is refused when a rule that
+    /// matches it requires a main order. A main order that is not in the plan is left to linkError, and
+    /// the add refuses a context that is not narrowed before it checks a link.
+    let linkRuleError routeMapping (rules: LinkRule[]) (plan: OrderPlan) (pc: PlanContext) =
+        let matches = OrderContext.matchesLinkSide routeMapping
+
+        let rulesForLinkedOrder = rules |> Array.filter (fun r -> pc.Context |> matches r.Linked)
+
+        let allowedUnder (main: PlanContext) =
+            main.Context
+            |> OrderContext.rulesForMainOrder routeMapping rules
+            |> Array.exists (fun r -> pc.Context |> matches r.Linked)
+
+        match pc.LinkedTo with
+        | Some id ->
+            plan.Contexts
+            |> Array.tryFind (fun c -> c.Id = id)
+            |> Option.filter (allowedUnder >> not)
+            |> Option.map (fun _ -> LinkError.NotAllowed id)
+        | None when
+            rulesForLinkedOrder
+            |> Array.exists (fun r -> r.Requirement = LinkRequirement.Required)
+            ->
+            Some LinkError.MainOrderRequired
+        | None -> None
+
+
     /// The context removed with every context linked to it, each with its order, and gone from
     /// the filter. A feeding that goes, named or linked to the context named, also takes every
     /// supplement without a link: a supplement added without a main order belongs to the feeding of

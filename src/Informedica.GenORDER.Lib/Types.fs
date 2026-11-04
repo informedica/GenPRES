@@ -796,7 +796,7 @@ module Types =
         {
             /// The scenario number
             No: int
-            /// The name of the order
+            /// The generic of the order by its label, as the dose rules offer it
             Name: string
             /// The indication for the order
             Indication: string
@@ -1096,6 +1096,10 @@ module Types =
         | NoSuchMainOrder of id: string
         /// The main order with the id is itself linked to another order
         | MainOrderLinked of id: string
+        /// No link rule links the order to the main order with the id
+        | NotAllowed of id: string
+        /// A link rule requires a main order for the order, and the order is not linked
+        | MainOrderRequired
 
 
     /// Why an order plan refuses a change. The words shown for each are the server's, so

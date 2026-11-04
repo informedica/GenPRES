@@ -1916,7 +1916,7 @@ let refusalTests =
                 "the picks"
                 [
                     test "the field's own choice is the pick, over no patient" {
-                        let picks = EvaluateFixtures.pcmContext |> OrderContext.picks
+                        let picks = EvaluateFixtures.pcmContext |> OrderContext.filterPicks
 
                         picks.Generic |> Expect.equal "chosen" (Some "Paracetamol")
                         picks.Indication |> Expect.equal "chosen" (Some "koorts")
@@ -1925,11 +1925,11 @@ let refusalTests =
 
                     test "one option offered is the pick, more are none" {
                         let fresh = { EvaluateFixtures.pcmContext with Filter = EvaluateFixtures.fresh }
-                        (OrderContext.picks fresh).Route |> Expect.isNone "two routes, no pick"
+                        (OrderContext.filterPicks fresh).Route |> Expect.isNone "two routes, no pick"
 
                         let one = { fresh with Filter = { fresh.Filter with Routes = [| "or" |] } }
 
-                        (OrderContext.picks one).Route |> Expect.equal "the one route" (Some "or")
+                        (OrderContext.filterPicks one).Route |> Expect.equal "the one route" (Some "or")
                     }
 
                     test "a list of one without its choice leaves a choice open; chosen, or two, it does not" {
@@ -2671,6 +2671,347 @@ let linkTests =
                         |> OrderPlan.Dto.fromDto
                         |> Result.map ids
                         |> Expect.equal "read" (Ok [| "c-a"; "c-m" |])
+                    }
+                ]
+        ]
+
+
+/// The link rules from the LinkRules sheet over the order contexts and the links of a plan.
+module LinkRuleFixtures =
+
+    let row: LinkRuleData =
+        {
+            LinkRuleData.Generic = "Fantomalt pdr"
+            LinkRuleData.Route = ""
+            LinkRuleData.Indication = "Enterale toevoeging"
+            LinkRuleData.DoseType = "discontinuous"
+            LinkRuleData.DoseText = ""
+            LinkRuleData.MainGeneric = ""
+            LinkRuleData.MainRoute = ""
+            LinkRuleData.MainIndication = "Enterale voeding"
+            LinkRuleData.MainDoseType = "discontinuous"
+            LinkRuleData.MainDoseText = ""
+            LinkRuleData.Required = "yes"
+        }
+
+
+    let ataluren: LinkRuleData =
+        {
+            LinkRuleData.Generic = "ataluren"
+            LinkRuleData.Route = "ORAAL"
+            LinkRuleData.Indication = "Duchenne"
+            LinkRuleData.DoseType = "discontinuous"
+            LinkRuleData.DoseText = "avond"
+            LinkRuleData.MainGeneric = "ataluren"
+            LinkRuleData.MainRoute = "ORAAL"
+            LinkRuleData.MainIndication = "Duchenne"
+            LinkRuleData.MainDoseType = "discontinuous"
+            LinkRuleData.MainDoseText = "ochtend middag"
+            LinkRuleData.Required = "yes"
+        }
+
+
+    let rulesOf rows =
+        rows |> LinkRule.ofRows |> Result.defaultWith (fun e -> failtest $"%A{e}")
+
+
+    let rules = rulesOf [| row; ataluren |]
+
+
+    let routes: RouteMapping[] =
+        [|
+            {
+                Long = "ORAAL"
+                Short = "or"
+            }
+        |]
+
+
+    // DoseType.Discontinuous is written qualified: GenORDER's own Discontinuous case shadows GenFORM's
+
+    /// An order context narrowed to one order with the picks, its order made from a dose rule with the
+    /// same generic label, indication, route and dose type.
+    let narrowed ind gen rte dt =
+        let sc =
+            { Fixtures.scenario "o-1" with
+                Name = gen
+                Indication = ind
+                Route = rte
+                DoseType = dt
+            }
+
+        let ctx = Fixtures.context [| sc |]
+
+        { ctx with
+            Filter =
+                { ctx.Filter with
+                    Indication = Some ind
+                    Generic = Some gen
+                    Route = Some rte
+                    DoseType = Some dt
+                }
+        }
+
+
+    let feeding = narrowed "Enterale voeding" "Nutrini (Nutricia)" "ORAAL" (DoseType.Discontinuous "")
+    let fantomalt = narrowed "Enterale toevoeging" "Fantomalt pdr" "ORAAL" (DoseType.Discontinuous "")
+    let morning = narrowed "Duchenne" "ataluren" "ORAAL" (DoseType.Discontinuous "ochtend middag")
+    let evening = narrowed "Duchenne" "ataluren" "ORAAL" (DoseType.Discontinuous "avond")
+    let paracetamol = narrowed "Pijn" "paracetamol" "ORAAL" (DoseType.Discontinuous "")
+
+
+    /// The hydrocortison taper of week 0 at the dose type, as "poeder voor injectievloeistof" with
+    /// INTRAMUSCULAIR and INTRAVENEUS offered: a scenario for each route, the route not chosen.
+    let taper doseType =
+        let scenario no route =
+            { Fixtures.scenario $"o-%i{no}" with
+                No = no
+                Name = "hydrocortison"
+                Indication = "Afbouwschema week 0"
+                Form = "poeder voor injectievloeistof"
+                Route = route
+                DoseType = doseType
+            }
+
+        let ctx = Fixtures.context [| scenario 1 "INTRAMUSCULAIR"; scenario 2 "INTRAVENEUS" |]
+
+        { ctx with
+            Filter =
+                { ctx.Filter with
+                    Indication = Some "Afbouwschema week 0"
+                    Generic = Some "hydrocortison"
+                    Route = None
+                    Routes = [| "INTRAMUSCULAIR"; "INTRAVENEUS" |]
+                    Form = Some "poeder voor injectievloeistof"
+                    DoseType = Some doseType
+                }
+        }
+
+
+    let taperMorning = DoseType.Discontinuous "week 0 7:00 uur"
+    let taperLater = DoseType.Discontinuous "week 0 13:00 en 18:00 uur"
+
+
+    /// The taper at the dose type with the nth scenario selected; the selection writes the form, not
+    /// the route.
+    let selected n doseType =
+        taper doseType
+        |> OrderContext.selectNthScenario n
+        |> Result.defaultWith (fun e -> failtest e)
+
+
+    /// The row of the LinkRules sheet for the taper of week 0, intravenous.
+    let taperRules =
+        rulesOf
+            [|
+                {
+                    LinkRuleData.Generic = "hydrocortison"
+                    LinkRuleData.Route = "INTRAVENEUS"
+                    LinkRuleData.Indication = "Afbouwschema week 0"
+                    LinkRuleData.DoseType = "discontinuous"
+                    LinkRuleData.DoseText = "week 0 13:00 en 18:00 uur"
+                    LinkRuleData.MainGeneric = "hydrocortison"
+                    LinkRuleData.MainRoute = "INTRAVENEUS"
+                    LinkRuleData.MainIndication = "Afbouwschema week 0"
+                    LinkRuleData.MainDoseType = "discontinuous"
+                    LinkRuleData.MainDoseText = "week 0 7:00 uur"
+                    LinkRuleData.Required = "yes"
+                }
+            |]
+
+
+    let taperRoutes: RouteMapping[] =
+        [|
+            {
+                Long = "INTRAMUSCULAIR"
+                Short = "im"
+            }
+            {
+                Long = "INTRAVENEUS"
+                Short = "iv"
+            }
+        |]
+
+
+    /// A plan context with the id, linked to the main order with the id, if any.
+    let planContext id linkedTo ctx =
+        { PlanContext.create id OrderCategory.Medication ctx with LinkedTo = linkedTo }
+
+
+    let planOf = Fixtures.plan
+
+
+    /// Why the link rules refuse the linked context in a plan that holds it and its main order.
+    let refusal rules (main: (string * OrderContext) option) linked =
+        let pc = linked |> planContext "c-l" (main |> Option.map fst)
+
+        let mains = main |> Option.map (fun (id, ctx) -> planContext id None ctx) |> Option.toArray
+
+        pc
+        |> OrderPlan.linkRuleError routes rules (planOf (Array.append mains [| pc |]))
+
+
+open LinkRuleFixtures
+
+
+let linkRuleTests =
+    testList
+        "LinkRules"
+        [
+            testList
+                "the link rules of an order context"
+                [
+                    test "a feeding offers the supplements" {
+                        feeding
+                        |> OrderContext.rulesForMainOrder routes rules
+                        |> Array.map _.Linked.Generic
+                        |> Expect.equal "Fantomalt" [| "Fantomalt pdr" |]
+                    }
+
+                    test "the morning dose of ataluren offers the evening dose" {
+                        morning
+                        |> OrderContext.rulesForMainOrder routes rules
+                        |> Array.map _.Linked.DoseType
+                        |> Expect.equal "the evening" [| DoseType.Discontinuous "avond" |]
+                    }
+
+                    test "an order no main side matches offers nothing" {
+                        paracetamol
+                        |> OrderContext.rulesForMainOrder routes rules
+                        |> Expect.isEmpty "nothing"
+                        evening
+                        |> OrderContext.rulesForMainOrder routes rules
+                        |> Expect.isEmpty "the evening is no main order"
+                    }
+
+                    test "a context not narrowed to one order offers nothing" {
+                        { feeding with Scenarios = [||] }
+                        |> OrderContext.rulesForMainOrder routes rules
+                        |> Expect.isEmpty "nothing"
+                    }
+
+                    test "a narrowed context matches by its order, not by its filter" {
+                        { morning with
+                            Filter =
+                                { morning.Filter with
+                                    Indication = None
+                                    Route = None
+                                    DoseType = None
+                                }
+                        }
+                        |> OrderContext.rulesForMainOrder routes rules
+                        |> Array.map _.Linked.DoseType
+                        |> Expect.equal "the evening" [| DoseType.Discontinuous "avond" |]
+                    }
+                ]
+
+            testList
+                "the link rule error of a plan context"
+                [
+                    test "a linked order with a main order a rule links it to" {
+                        fantomalt
+                        |> refusal rules (Some("c-f", feeding))
+                        |> Expect.isNone "under the feeding"
+                        evening
+                        |> refusal rules (Some("c-m", morning))
+                        |> Expect.isNone "the evening under the morning"
+                    }
+
+                    test "a linked order with a main order no rule links it to is refused" {
+                        fantomalt
+                        |> refusal rules (Some("c-p", paracetamol))
+                        |> Expect.equal "under paracetamol" (Some(LinkError.NotAllowed "c-p"))
+
+                        paracetamol
+                        |> refusal rules (Some("c-f", feeding))
+                        |> Expect.equal "no rule for paracetamol" (Some(LinkError.NotAllowed "c-f"))
+                    }
+
+                    test "an order a required rule matches is refused without a main order" {
+                        evening
+                        |> refusal rules None
+                        |> Expect.equal "alone" (Some LinkError.MainOrderRequired)
+                    }
+
+                    test "an order without a required rule is allowed alone" {
+                        paracetamol |> refusal rules None |> Expect.isNone "paracetamol"
+                        morning |> refusal rules None |> Expect.isNone "the morning dose"
+
+                        let optional = rulesOf [| { ataluren with Required = "no" } |]
+                        evening |> refusal optional None |> Expect.isNone "an optional link"
+                    }
+
+                    test "a context that is not narrowed matches no side" {
+                        { evening with Scenarios = [||] }
+                        |> OrderContext.matchesLinkSide routes rules[1].Linked
+                        |> Expect.isFalse "no order to match"
+                    }
+
+                    test "a main order that is not narrowed to one order links nothing" {
+                        let sc = Fixtures.scenario "o-2"
+
+                        evening
+                        |> refusal
+                            rules
+                            (Some("c-m", { morning with Scenarios = Array.append morning.Scenarios [| sc |] }))
+                        |> Expect.equal "two candidates" (Some(LinkError.NotAllowed "c-m"))
+                    }
+
+                    test "a main order not in the plan is left to the link error" {
+                        let pc = fantomalt |> planContext "c-l" (Some "c-9")
+
+                        pc
+                        |> OrderPlan.linkRuleError routes rules (planOf [| pc |])
+                        |> Expect.isNone "not this check's"
+                    }
+
+                    test "a route on a side matches by its short name" {
+                        let short =
+                            rulesOf
+                                [|
+                                    { ataluren with
+                                        Route = "or"
+                                        MainRoute = "or"
+                                    }
+                                |]
+
+                        evening |> refusal short (Some("c-m", morning)) |> Expect.isNone "or is ORAAL"
+                    }
+                ]
+
+            testList
+                "a selected scenario of the hydrocortison taper"
+                [
+                    let alone ctx =
+                        let pc = ctx |> planContext "c-l" None
+                        pc |> OrderPlan.linkRuleError taperRoutes taperRules (planOf [| pc |])
+
+                    test "the selection leaves the route of the filter empty" {
+                        (selected 1 taperMorning).Filter.Route
+                        |> Expect.isNone "the filter as the clinician left it"
+                    }
+
+                    test "the IV 7:00 dose offers the 13:00 and 18:00 dose" {
+                        selected 1 taperMorning
+                        |> OrderContext.rulesForMainOrder taperRoutes taperRules
+                        |> Array.map _.Linked.DoseType
+                        |> Expect.equal "the later dose" [| taperLater |]
+                    }
+
+                    test "the IM 7:00 dose offers nothing from the IV row" {
+                        selected 0 taperMorning
+                        |> OrderContext.rulesForMainOrder taperRoutes taperRules
+                        |> Expect.isEmpty "another route"
+                    }
+
+                    test "the IV 13:00 and 18:00 dose alone is refused" {
+                        selected 1 taperLater
+                        |> alone
+                        |> Expect.equal "a main order required" (Some LinkError.MainOrderRequired)
+                    }
+
+                    test "the IM 13:00 and 18:00 dose alone is not refused by the IV row" {
+                        selected 0 taperLater |> alone |> Expect.isNone "another route"
                     }
                 ]
         ]

@@ -290,6 +290,14 @@ let tests =
                 |> words
                 |> Expect.equal "no main order" "The main order c-9 is not in the plan"
 
+                OrderPlanError.BrokenLink(LinkError.NotAllowed "c-1")
+                |> words
+                |> Expect.equal "not allowed" "No link rule links this order to the main order c-1"
+
+                OrderPlanError.BrokenLink LinkError.MainOrderRequired
+                |> words
+                |> Expect.equal "main order required" "This order is only prescribed with its main order"
+
                 DtoError.BrokenLink("c-2", LinkError.MainOrderLinked "c-1")
                 |> OrderContextMapper.words
                 |> Expect.equal "a stored link" "Context c-2: The main order c-1 is itself linked to another order"

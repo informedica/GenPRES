@@ -803,7 +803,7 @@ module OrderContext =
     /// The five picks of the filter as the rule lookup reads them: the field's own choice,
     /// else the one option the field offers. Over no patient, so the dose rule filter leaves
     /// the patient out.
-    let picks (ctx: OrderContext) : DoseFilter =
+    let filterPicks (ctx: OrderContext) : DoseFilter =
         let pick chosen offered =
             if chosen |> Option.isSome then
                 chosen
@@ -822,7 +822,7 @@ module OrderContext =
     /// Whether the rule lookup would read a choice the filter does not hold: a list of one
     /// without its choice, which one more evaluation picks.
     let choicesOpen (ctx: OrderContext) =
-        let read = ctx |> picks
+        let read = ctx |> filterPicks
 
         read.Indication <> ctx.Filter.Indication
         || read.Generic <> ctx.Filter.Generic
@@ -837,7 +837,7 @@ module OrderContext =
 
     /// The dose filter of the context for the patient.
     let doseFilterFor pat ctx =
-        { picks ctx with
+        { filterPicks ctx with
             Diluent = ctx.Filter.Diluent
             Components = ctx.Filter.SelectedComponents |> Array.toList //TODO probably go for lists
             Patient = { ctx with Patient = pat } |> matchedPatient
@@ -1569,10 +1569,10 @@ Scenarios: {scenarios}
             Api.getDoseRules provider
             |> Api.filterDoseRules
                 provider
-                { picks ctx with Patient = { Patient.patient with Department = ctx.Patient.Department } }
+                { filterPicks ctx with Patient = { Patient.patient with Department = ctx.Patient.Department } }
 
         if ctx.Patient |> selectsRules then
-            let filter = { picks ctx with Patient = ctx |> matchedPatient }
+            let filter = { filterPicks ctx with Patient = ctx |> matchedPatient }
             let forPatient = forPicks |> Api.filterDoseRules provider filter
 
             filter
@@ -1957,6 +1957,21 @@ Scenarios: {scenarios}
     /// The order a context contributes to the plan: its scenario, once the context is
     /// narrowed to exactly one; nothing while it holds several candidates or none.
     let contribution (ctx: OrderContext) = ctx.Scenarios |> Array.tryExactlyOne
+
+
+    /// Whether the order context matches a side of a link rule, by the order it is narrowed to: the
+    /// generic label, the indication, the route and the dose type of its scenario. A context that is
+    /// not narrowed to one order matches no side.
+    let matchesLinkSide routeMapping (side: LinkSide) (ctx: OrderContext) =
+        match ctx |> contribution with
+        | Some sc -> LinkRule.matches routeMapping side sc.Indication sc.Name sc.Route sc.DoseType
+        | None -> false
+
+
+    /// The link rules for which the order context is the main order, when the context is narrowed to
+    /// one order; none otherwise. Their linked sides are the orders that can be linked to it.
+    let rulesForMainOrder routeMapping (rules: LinkRule[]) (ctx: OrderContext) =
+        rules |> Array.filter (fun r -> ctx |> matchesLinkSide routeMapping r.Main)
 
 
     /// The serializable shape of an OrderContext: its filter, its patient and its scenarios,
