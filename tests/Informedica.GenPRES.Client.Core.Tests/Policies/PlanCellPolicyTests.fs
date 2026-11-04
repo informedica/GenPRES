@@ -151,6 +151,33 @@ module PlanCellPolicyTests =
                             |> Expect.isNone "the dose quantity waits for the components"
                         }
 
+                        test "a cell of an order locked, by itself or by its group, steps nothing" {
+                            let notCalculated (ctx: OrderContext) =
+                                { ctx with
+                                    Scenarios =
+                                        ctx.Scenarios |> Array.map (fun sc -> { sc with NotRecalculated = true })
+                                }
+
+                            let main = contextOf discontinuous
+                            let linked =
+                                { contextOf discontinuous with
+                                    Id = "c-2"
+                                    LinkedTo = Some "c-1"
+                                }
+
+                            let planOf contexts =
+                                Informedica.GenPRES.Shared.Models.OrderPlan.create patient contexts
+
+                            stepable (planOf [| main; linked |]) main Column.Frequency
+                            |> Expect.equal "steps on a calculated plan" steppingFrequency
+
+                            stepable (planOf [| notCalculated main; linked |]) (notCalculated main) Column.Frequency
+                            |> Expect.isNone "locked by itself"
+
+                            stepable (planOf [| main; notCalculated linked |]) main Column.Frequency
+                            |> Expect.isNone "locked by its group"
+                        }
+
                         test "a nutrition order steps as a drug order does" {
                             let ctx =
                                 { contextOf discontinuous with

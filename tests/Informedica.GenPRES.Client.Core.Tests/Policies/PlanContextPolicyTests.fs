@@ -110,8 +110,6 @@ module PlanContextPolicyTests =
                             |> Expect.equal "read-only" PlanContextPolicy.Editing.Locked
 
                             PlanContextPolicy.changed order marked |> Expect.isTrue "the mark is a change"
-                            PlanCellPolicy.stepable (plan [| marked |]) marked PlanCellPolicy.Column.Frequency
-                            |> Expect.isNone "no step"
                             PlanContextPolicy.canEdit PlanContextPolicy.Editing.Locked "x"
                             |> Expect.isFalse "no field"
                             PlanContextPolicy.argues PlanContextPolicy.Editing.Locked
@@ -401,15 +399,14 @@ module PlanContextPolicyTests =
                     |> Expect.isFalse "nothing locked"
                 }
 
-                test "an order locked by its group opens the order dialog locked, steps no cell and sends no command" {
+                test "an order locked by its group opens the order dialog locked and sends no command" {
                     let tp = withNotCalculated "c-2"
-                    let feeding = find "c-1" tp
+
+                    PlanContextPolicy.editingOf (plan calculated) "c-1"
+                    |> Expect.equal "the dialog open on a calculated plan" PlanContextPolicy.Editing.PlanContext
 
                     PlanContextPolicy.editingOf tp "c-1"
                     |> Expect.equal "the dialog locked" PlanContextPolicy.Editing.Locked
-
-                    PlanCellPolicy.stepable tp feeding PlanCellPolicy.Column.Frequency
-                    |> Expect.isNone "no cell steps"
 
                     OrderPlanChange.command
                         tp
@@ -421,11 +418,5 @@ module PlanContextPolicyTests =
 
                     OrderPlanChange.command tp (OrderPlanChange.Remove [| "c-1" |])
                     |> Expect.isSome "the removal goes"
-                }
-
-                test "the intake slider of an order locked by its group cannot set the dose" {
-                    let tp = withNotCalculated "c-2"
-
-                    PlanContextPolicy.canSetIntake tp (find "c-1" tp) |> Expect.isFalse "locked"
                 }
             ]

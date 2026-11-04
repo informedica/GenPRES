@@ -78,28 +78,39 @@ module IntakePolicyTests =
                             |> Expect.isFalse "should be false"
                         }
 
-                        test "the slider of a locked order cannot set the dose" {
+                        test "the slider of a locked order cannot set the dose, by itself or by its group" {
                             let scenario =
                                 { Informedica.GenPRES.Client.Core.Tests.OrderFixtures.scenario "o-1" "tpn" with
                                     Order = started
                                 }
 
-                            let ctx marked =
+                            // a TPN with an electrolyte line linked to it, each calculated or not
+                            let ctx id linkedTo marked =
                                 { Informedica.GenPRES.Shared.Models.OrderContext.empty with
+                                    Id = id
+                                    LinkedTo = linkedTo
                                     Scenarios = [| { scenario with NotRecalculated = marked } |]
                                 }
 
-                            let planOf marked =
+                            let main = ctx "c-1" None
+                            let linked = ctx "c-2" (Some "c-1")
+
+                            let planOf contexts =
                                 Informedica.GenPRES.Shared.Models.OrderPlan.create
                                     Informedica.GenPRES.Shared.Models.Patient.empty
-                                    [| ctx marked |]
+                                    contexts
 
-                            ctx false
-                            |> PlanContextPolicy.canSetIntake (planOf false)
+                            main false
+                            |> PlanContextPolicy.canSetIntake (planOf [| main false; linked false |])
                             |> Expect.isTrue "not locked"
-                            ctx true
-                            |> PlanContextPolicy.canSetIntake (planOf true)
-                            |> Expect.isFalse "locked"
+
+                            main true
+                            |> PlanContextPolicy.canSetIntake (planOf [| main true; linked false |])
+                            |> Expect.isFalse "locked by itself"
+
+                            main false
+                            |> PlanContextPolicy.canSetIntake (planOf [| main false; linked true |])
+                            |> Expect.isFalse "locked by its group"
                         }
 
                         test "a TPN that is not composed cannot" {
