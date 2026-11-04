@@ -217,9 +217,14 @@ let tests =
                         | other -> failtest $"expected an evaluated context, got %A{other}"
                     }
 
-                    test "rules that did not load leave no dose rules, and the resources are not read" {
-                        // the provider without rules raises on every read of a resource
-                        (OrderPlanTests.NoRules() :> Resources.IResourceProvider)
+                    test "rules that did not load leave no dose rules" {
+                        // the empty resources a failed load or reload leaves in the cache
+                        (Resources.CachedResourceProvider(
+                            OrderLogging.noOp,
+                            (fun () -> Error [ Message.Warning "LinkRules: Required: ja is not yes or no" ]),
+                            None
+                        )
+                        :> Resources.IResourceProvider)
                         |> ServerApi.Adapters.forPickLists
                         |> _.GetDoseRules()
                         |> Expect.isEmpty "none"

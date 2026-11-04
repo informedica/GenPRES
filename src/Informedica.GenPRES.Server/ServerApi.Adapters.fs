@@ -192,8 +192,8 @@ module Adapters =
 
 
     /// The provider without the dose rules that a link rule with Required yes matches on its linked side;
-    /// such an order is only offered by its main order. Without dose rules, when the rules did not load,
-    /// there are none to leave out, and the resources are not read.
+    /// such an order is only offered by its main order. When the rules did not load, the resources hold no
+    /// dose rules to leave out, and there are none.
     let forPickLists (provider: Resources.IResourceProvider) =
         { new Resources.IResourceProvider with
             member _.Get key = provider.Get key
@@ -209,9 +209,11 @@ module Adapters =
             member _.GetProducts() = provider.GetProducts()
 
             member _.GetDoseRules() =
-                match provider.GetDoseRules() with
-                | [||] -> [||]
-                | _ -> provider.Get Resources.Keys.standAloneDoseRules
+                // one read of the resources, so that a reload between two reads cannot fail it
+                try
+                    provider.Get Resources.Keys.standAloneDoseRules
+                with :? System.Collections.Generic.KeyNotFoundException ->
+                    [||]
 
             member _.GetSolutionRules() = provider.GetSolutionRules()
             member _.GetRenalRules() = provider.GetRenalRules()

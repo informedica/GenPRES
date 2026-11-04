@@ -496,8 +496,9 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
 
      A refused LinkRules row fails the whole load, which leaves no dose rules, so nothing is prescribed,
      medication included. That is the safe answer for rule 20: without the link rules an order that needs
-     its main order would be offered alone. The provider of the pick lists then reads no resource and
-     answers with no dose rules, so an evaluation answers with empty pick lists and raises nothing.
+     its main order would be offered alone. The provider of the pick lists then finds no dose rules in
+     the resources and answers with none, in one read, so an evaluation answers with empty pick lists and
+     raises nothing, also when a reload fails during the evaluation.
      Decision, 2026-11-04, halcwb.
 
      The tests use week 1 of the oral hydrocortison taper as the sheet has it. A variant makes the 18:00
