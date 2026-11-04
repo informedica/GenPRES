@@ -148,8 +148,10 @@ module Adapters =
         /// one order. There is one offer per rule, and for a rule without a generic one per generic that
         /// the dose rules offer. Each offer is evaluated for the main context's patient, with its dose
         /// types narrowed to the side, its category from the rule sets and, for a nutrition category,
-        /// its lists narrowed to that rule set. An offer the rules refuse, whose evaluation fails, or
-        /// whose evaluation finds no dose type of the side, is left out.
+        /// its lists narrowed to that rule set. When the narrowing leaves one dose type of several, the
+        /// offer is evaluated once more, so that it comes with the scenarios of that dose type. An offer is
+        /// left out when the rules refuse it, when its evaluation fails, or when its evaluation finds no dose
+        /// type of the side.
         let linkedOffers routeMapping rules sets evaluate (main: PlanContext) =
             let offer side (ctx: OrderContext) =
                 let category = NutritionRuleSet.orderCategory sets ctx.Filter.Indication ctx.Filter.Generic
@@ -165,10 +167,16 @@ module Adapters =
                     // dose type of the side is left out rather than offered with another dose
                     let narrowed = pc.Context |> OrderContext.narrowToLinkSide side
 
-                    if narrowed.Filter.DoseTypes |> Array.isEmpty then
-                        None
-                    else
-                        Some { pc with Context = narrowed }
+                    match narrowed.Filter.DoseTypes with
+                    | [||] -> None
+                    | [| _ |] when pc.Context.Filter.DoseTypes.Length > 1 ->
+                        // without a picked dose type the evaluation finds no scenarios; evaluated once more,
+                        // the one dose type of the side left in the list is read as the pick, and the lookup
+                        // filters on it, so the answer lists that dose type only and needs no narrowing
+                        match { pc with Context = narrowed } |> evaluate set with
+                        | Ok(Evaluated pc) -> Some pc
+                        | _ -> None
+                    | _ -> Some { pc with Context = narrowed }
                 | _ -> None
 
             let offers (rule: LinkRule) =
@@ -191,11 +199,37 @@ module Adapters =
             |> Array.collect offers
 
 
-    /// The provider whose dose rules are the stand-alone dose rules: every dose rule but those that a link
-    /// rule with Required yes matches on its linked side, since such an order is only offered by its main
-    /// order. Every dose rule lookup reads them, for the pick lists, the scenarios and the refusal alike.
-    /// When the dose rules did not load, the provider has no dose rules, so this provider has none either.
-    let withStandAloneDoseRules (provider: Resources.IResourceProvider) =
+    /// The dose rules of the context as sent, before a command changes it: the stand-alone dose rules, and
+    /// the dose rules that need a main order when the context selects them. The context selects them with
+    /// its picked indication and generic, a list of one option counting as its pick, and with a dose type
+    /// list of one dose type. The lists are the server's answer, which a pick or a seed does not change,
+    /// so only a linked offer, whose dose types the server narrowed to its link side, selects such a dose
+    /// rule. The prescribe still refuses an order that needs a main order and comes without one. When
+    /// the dose rules did not load there are none.
+    let doseRulesOf (provider: Resources.IResourceProvider) (ctx: OrderContext) =
+        let picks = ctx |> OrderContext.filterPicks
+
+        // a reload between two reads can leave a resource out of the cache; then there are no dose rules
+        try
+            let standAlone = provider.Get Resources.Keys.standAloneDoseRules
+
+            match picks.Indication, picks.Generic, ctx.Filter.DoseTypes with
+            | Some _, Some _, [| doseType |] ->
+                let routes = provider.GetRouteMappings()
+
+                provider.GetDoseRules()
+                |> DoseRule.filter routes { picks with DoseType = Some doseType }
+                |> Array.filter (LinkRule.needsMainOrder routes (provider.Get Resources.Keys.linkRules))
+                |> Array.append standAlone
+            | _ -> standAlone
+        with :? System.Collections.Generic.KeyNotFoundException ->
+            [||]
+
+
+    /// The provider whose dose rules are the dose rules of the context, as doseRulesOf gives them.
+    /// Every dose rule lookup of the order context port reads them, for the pick lists, the scenarios and
+    /// the refusal alike.
+    let withDoseRulesOf (ctx: OrderContext) (provider: Resources.IResourceProvider) =
         { new Resources.IResourceProvider with
             member _.Get key = provider.Get key
             member _.GetData() = provider.GetData()
@@ -209,12 +243,7 @@ module Adapters =
             member _.GetEnteralFeeding() = provider.GetEnteralFeeding()
             member _.GetProducts() = provider.GetProducts()
 
-            member _.GetDoseRules() =
-                // one read of the resources, so that a reload between two reads cannot fail it
-                try
-                    provider.Get Resources.Keys.standAloneDoseRules
-                with :? System.Collections.Generic.KeyNotFoundException ->
-                    [||]
+            member _.GetDoseRules() = ctx |> doseRulesOf provider
 
             member _.GetSolutionRules() = provider.GetSolutionRules()
             member _.GetRenalRules() = provider.GetRenalRules()
@@ -227,7 +256,8 @@ module Adapters =
 
     /// The order context port over the domain's rules: an evaluated nutrition context narrowed and
     /// settled to the rule set of the category it carries, a refused context unchanged. The evaluation leaves
-    /// out the orders that need a main order; the linked offers are evaluated over every dose rule.
+    /// out the orders that need a main order unless the context as sent selects them, as a linked offer
+    /// does; the linked offers are evaluated over every dose rule.
     let private makeOrderContextPort
         logger
         (provider: Resources.IResourceProvider)
@@ -245,7 +275,7 @@ module Adapters =
                                 |> NutritionRuleSets.evaluateSettled
                                     (now ())
                                     logger
-                                    (withStandAloneDoseRules provider)
+                                    (provider |> withDoseRulesOf pc.Context)
                                     set
                                     cmd
                             )
