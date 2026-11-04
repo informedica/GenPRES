@@ -45,3 +45,7 @@ module GenericLabel =
         | false, _ -> fromGenericBrand g b
         | _, false -> fromGenericForm g f
         | _ -> fromShorthand g
+
+
+    /// The label of the generic of a dose rule row, as the dose rule offers it.
+    let ofGenericData (g: GenericData) = toLabel g.Name g.Form g.Brand

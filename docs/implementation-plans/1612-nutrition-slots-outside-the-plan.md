@@ -138,8 +138,10 @@ offered nothing.
 
 17. **The rule sets decide what a slot offers.** The RuleSets sheet holds one row per category,
     indication and generic: Category, Label, Indication and Generic. A slot offers the dose rules under
-    the indications of its category, and of those only the generics its rows name; a category whose
-    rows leave Generic empty offers every generic under its indications. Label is the category's name
+    the indications of its category, and of those only the generics its rows name; a row names a
+    generic by its label, as the dose rules offer it, with the brand or the form in brackets when the
+    dose rule is restricted to one. A category whose rows leave Generic empty offers every generic
+    under its indications. Label is the category's name
     in the server's words.
 18. **The categories and what each does stay in code.** Category names one of the five categories the
     code knows: EnteralFeeding, EnteralSupplement, TPN, Lipid and ElectrolyteGlucose. Each has its page,
@@ -229,7 +231,7 @@ offered nothing.
   row whose Category names no category with `OrderPlanError.UnknownCategory`, since the categories are
   GenORDER's. `NutritionRuleSet.sheetName` gives the name of every category in the sheet.
 - A row with an empty Generic is expanded at load into one row per generic the dose rules have under
-  its indication, so every rule set lists its generics and `NutritionRuleSet.discover` stays as it is.
+  its indication, by its label, as the evaluation offers it, so every rule set lists its generics and `NutritionRuleSet.discover` stays as it is.
   An evaluation replaces an indication list in which nothing is chosen by every indication the rules
   have for the patient, so the rule lookup does not filter on the indications of a rule set; the
   generic list is what keeps a medication out of a nutrition slot. A category without a rule set is refused with
@@ -410,7 +412,7 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
    `NutritionRuleSet.ofData` and the two new `OrderPlanError` cases in GenORDER; the server takes the rule sets
    from the provider. Script `src/Informedica.GenFORM.Lib/Scripts/RuleSets.fsx`. Every spreadsheet a
    server runs on needs the RuleSets tab before the merge, the demo spreadsheet included. The step
-   takes 305 lines of `src/`, over the limit of 200, as one pull request. Decision, 2026-11-04,
+   takes 335 lines of `src/`, over the limit of 200, as one pull request. Decision, 2026-11-04,
    halcwb. Seen: the
    nutrition slots offer every nutrition dose rule, breast milk and the electrolyte and glucose mixture
    included.

@@ -8,24 +8,31 @@ module RuleSet =
 
 
     /// The names a dose rule is matched on by the check and the expansion of the rows: its
-    /// indication, its generic and its component.
+    /// indication, its generic, its label and its component.
     type DoseRuleNames =
         {
+            /// The indication of the dose rule
             Indication: string
+            /// The name of the generic, as the Formulary sheet names it; the products are looked up by it
             Generic: string
+            /// The generic as the dose rules offer it: the name, followed by the brand or the form in
+            /// brackets when the dose rule is restricted to one
+            Label: string
+            /// The component of the dose rule
             Component: string
         }
 
 
     module DoseRuleNames =
 
-        /// The indication, generic and component of every dose rule.
+        /// The indication, generic, label and component of every dose rule.
         let ofData (doseRules: DoseRuleData[]) =
             doseRules
             |> Array.map (fun d ->
                 {
                     Indication = d.Indication
                     Generic = d.Generic.Name
+                    Label = d.Generic |> GenericLabel.ofGenericData |> GenericLabel.toString
                     Component = d.ScheduleData.DoseLimitData.Component
                 }
             )
@@ -33,11 +40,19 @@ module RuleSet =
 
     /// The warnings of the rows against the dose rules and the generics of the Formulary sheet: a
     /// category with more than one label, an indication that no dose rule has, a generic that no
-    /// dose rule has under its indication, and a generic or a component of a dose rule under the
-    /// indication of a row that has no product.
+    /// dose rule has under its indication by its label, with the label to write when a dose rule has
+    /// it by its name, and a generic or a component of a dose rule under the indication of a row that
+    /// has no product.
     let check (doseRules: DoseRuleNames[]) (products: Set<string>) (rows: RuleSetData[]) =
-        let pairs = doseRules |> Array.map (fun d -> d.Indication, d.Generic) |> Set.ofArray
+        let pairs = doseRules |> Array.map (fun d -> d.Indication, d.Label) |> Set.ofArray
         let indications = pairs |> Set.map fst
+
+        // the labels of the dose rules under an indication that have the generic by its name
+        let labelsOf indication generic =
+            doseRules
+            |> Array.filter (fun d -> d.Indication = indication && d.Generic = generic)
+            |> Array.map _.Label
+            |> Array.distinct
 
         [
             for category, rs in rows |> Array.groupBy _.Category do
@@ -53,7 +68,12 @@ module RuleSet =
                     r.Generic |> String.notEmpty
                     && pairs |> Set.contains (r.Indication, r.Generic) |> not
                 then
-                    Warning $"RuleSets: %s{r.Category}, no dose rule has %s{r.Generic} under %s{r.Indication}"
+                    match labelsOf r.Indication r.Generic with
+                    | [||] -> Warning $"RuleSets: %s{r.Category}, no dose rule has %s{r.Generic} under %s{r.Indication}"
+                    | labels ->
+                        let labels = labels |> String.concat ", "
+                        Warning
+                            $"RuleSets: %s{r.Category}, %s{r.Generic} under %s{r.Indication} is offered as %s{labels}"
 
             for category, indication in rows |> Array.map (fun r -> r.Category, r.Indication) |> Array.distinct do
                 yield!
@@ -77,7 +97,8 @@ module RuleSet =
 
 
     /// The rows with every empty generic filled in: a row without a generic becomes one row per
-    /// generic the dose rules have under its indication, in the order of the dose rules. The
+    /// generic the dose rules have under its indication, by its label: the name, with the brand or
+    /// the form when the dose rule is restricted to one, in the order of the dose rules. The
     /// evaluation does not filter on the indications of a rule set, so only its generics keep a
     /// medication out of a nutrition category. A row whose indication no dose rule has stays as it is.
     let expand (doseRules: DoseRuleNames[]) (rows: RuleSetData[]) =
@@ -89,9 +110,9 @@ module RuleSet =
                 match
                     doseRules
                     |> Array.filter (fun d -> d.Indication = r.Indication)
-                    |> Array.map _.Generic
+                    |> Array.map _.Label
                     |> Array.distinct
                 with
                 | [||] -> [| r |]
-                | generics -> generics |> Array.map (fun g -> { r with Generic = g })
+                | labels -> labels |> Array.map (fun l -> { r with Generic = l })
         )

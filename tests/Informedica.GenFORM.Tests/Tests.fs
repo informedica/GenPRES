@@ -7987,9 +7987,30 @@ module Tests =
                 {
                     RuleSet.DoseRuleNames.Indication = i
                     RuleSet.DoseRuleNames.Generic = g
+                    // a dose rule without a form or a brand offers the generic by its name
+                    RuleSet.DoseRuleNames.Label = g
                     RuleSet.DoseRuleNames.Component = c
                 }
             )
+
+
+        /// A dose rule under "Enterale voeding", its label as the dose rules build it from the form
+        /// and the brand.
+        let namesOf generic form brand : RuleSet.DoseRuleNames =
+            {
+                Indication = "Enterale voeding"
+                Generic = generic
+                Label = GenericLabel.toLabel generic form brand |> GenericLabel.toString
+                Component = generic
+            }
+
+
+        let restricted =
+            [|
+                namesOf "MM" "" ""
+                namesOf "Nutrini" "" "Nutricia"
+                namesOf "Infatrini" "poeder" ""
+            |]
 
 
         let products = set [ "MM"; "Nutrilon Pepti 1"; "Primene"; "paracetamol" ]
@@ -8092,6 +8113,62 @@ module Tests =
                         |> RuleSet.expand doseRules
                         |> Array.map _.Generic
                         |> Expect.equal "the generics, once each" [| "MM"; "Nutrilon Pepti 1" |]
+                    }
+
+                    test "a row without a generic is filled in with the generics as the dose rules offer them" {
+                        [| row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "" |]
+                        |> RuleSet.expand restricted
+                        |> Array.map _.Generic
+                        |> Expect.equal "the labels" [| "MM"; "Nutrini (Nutricia)"; "Infatrini (poeder)" |]
+                    }
+
+                    test "a generic in the sheet written as its label gives no warning" {
+                        [|
+                            row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "Nutrini (Nutricia)"
+                        |]
+                        |> RuleSet.check restricted (set [ "MM"; "Nutrini"; "Infatrini" ])
+                        |> Expect.isEmpty "known"
+                    }
+
+                    test "a generic in the sheet written by its name where a dose rule has a label warns with the label" {
+                        [| row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "Nutrini" |]
+                        |> RuleSet.check restricted (set [ "MM"; "Nutrini"; "Infatrini" ])
+                        |> Expect.equal
+                            "the label to write"
+                            [
+                                Warning
+                                    "RuleSets: EnteralFeeding, Nutrini under Enterale voeding is offered as Nutrini (Nutricia)"
+                            ]
+                    }
+
+                    test "the products are looked up by the name of the generic, not its label" {
+                        [| row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "" |]
+                        |> RuleSet.check restricted (set [ "MM"; "Infatrini" ])
+                        |> Expect.equal
+                            "only Nutrini"
+                            [
+                                Warning
+                                    "RuleSets: EnteralFeeding, Nutrini under Enterale voeding has no product in the Formulary sheet"
+                            ]
+                    }
+
+                    test "the label of a dose rule is built from its brand or its form as the dose rules build it" {
+                        let rowOf name brand form =
+                            let r = DoseRuleProductTests.mkRow name name None
+
+                            { r with
+                                Indication = "Enterale voeding"
+                                Generic =
+                                    { r.Generic with
+                                        Brand = brand
+                                        Form = form
+                                    }
+                            }
+
+                        [| rowOf "Nutrini" "Nutricia" ""; rowOf "Infatrini" "" "poeder" |]
+                        |> RuleSet.DoseRuleNames.ofData
+                        |> Array.map _.Label
+                        |> Expect.equal "with the brand and the form" [| "Nutrini (Nutricia)"; "Infatrini (poeder)" |]
                     }
 
                     test "a row with a generic stays as it is" {

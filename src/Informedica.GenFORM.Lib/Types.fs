@@ -865,8 +865,9 @@ module Types =
                 Label: string
                 /// sheet column "Indication": an indication the dose rules of the category are filtered on
                 Indication: string
-                /// sheet column "Generic": a generic the dose rules of the category are filtered on;
-                /// empty for every generic under the indication
+                /// sheet column "Generic": a generic the dose rules of the category are filtered on, as
+                /// the dose rules offer it, with the brand or the form in brackets when the dose rule is
+                /// restricted to one; empty for every generic under the indication
                 Generic: string
             }
 
