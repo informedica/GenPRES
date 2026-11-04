@@ -159,6 +159,18 @@ let tests =
                 |> Expect.equal "the count" "SeedFilter list 1 choices r-4"
             }
 
+            test "a linked offer turned on names its place and the order of the scenario" {
+                let orderId = "o-avond-1234"
+
+                OrderContextMsg.TurnLinked(0, Some(OrderFixtures.scenario orderId "ataluren"))
+                |> Trail.OrderContext.msg
+                |> Expect.equal "on" $"TurnLinked 0 %s{Trail.Part.shortId orderId}"
+
+                OrderContextMsg.TurnLinked(1, None)
+                |> Trail.OrderContext.msg
+                |> Expect.equal "off" "TurnLinked 1 none"
+            }
+
             test "a line never breaks, whatever text a step carries" {
                 Trail.format
                     {
@@ -224,14 +236,14 @@ let tests =
 
             test "a page's change to the plan reads by what it wants" {
                 [
-                    Trail.OrderPlan.msg (OrderPlanMsg.Change(OrderPlanChange.Add ctxPicked, "r-1"))
+                    Trail.OrderPlan.msg (OrderPlanMsg.Change(OrderPlanChange.Add(ctxPicked, [||]), "r-1"))
                     Trail.OrderPlan.msg (OrderPlanMsg.Change(OrderPlanChange.NewNutrition NutritionCategory.TPN, "r-2"))
                     Trail.OrderPlan.msg (OrderPlanMsg.Change(OrderPlanChange.Remove [| "c-1"; "c-2" |], "r-3"))
                 ]
                 |> Expect.equal
                     "the lines"
                     [
-                        "Change Add ctx-1 pain/paracetamol/oral 0 scenarios r-1"
+                        "Change Add ctx-1 pain/paracetamol/oral 0 scenarios 0 linked r-1"
                         "Change NewNutrition TPN r-2"
                         "Change Remove 2 r-3"
                     ]

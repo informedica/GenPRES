@@ -49,6 +49,14 @@ module OrderContextMachine =
         let emptyMedication (pat: Patient) = emptyOf OrderCategory.Medication pat
 
 
+        /// The context narrowed to the scenario and its form, as it goes into the plan.
+        let narrowedToScenario (sc: OrderScenario) (ctx: OrderContext) =
+            { ctx with
+                OrderContext.Filter.Form = Some sc.Form
+                Scenarios = [| sc |]
+            }
+
+
         /// Whether the command changes the filter, so that the formulary and parenteralia pages follow
         /// its answer: a pick or a clear of the filter, the diluent or the components, or a seed.
         let changesFilter (cmd: OrderViewCommand) =
@@ -76,6 +84,29 @@ module OrderContextMachine =
             | OrderContextWorkbench.Refused(pat, ctx, _) -> Some(pat, ctx)
 
 
+    /// An order the link rules offer to link to the order of the context, turned on with one of its scenarios
+    /// or off.
+    type LinkedOffer =
+        {
+            /// The context the server offered, evaluated for the same patient.
+            Context: OrderContext
+            /// The scenario turned on, which goes into the plan with the main order; none while the offer is
+            /// off.
+            TurnedOn: OrderScenario option
+        }
+
+
+    /// Functions over LinkedOffer.
+    module LinkedOffer =
+
+        /// The offer of the context, turned off.
+        let off (ctx: OrderContext) =
+            {
+                Context = ctx
+                TurnedOn = None
+            }
+
+
     /// Everything the order context machine holds, hidden from the page, which reads an
     /// OrderContextView of it instead.
     type OrderContextState =
@@ -94,8 +125,11 @@ module OrderContextMachine =
                 /// closed.
                 Selected: string option
                 /// The state before a recalculation from the dialog, put back when its list closes
-                /// without a pick; None when no recalculation is looked at.
+                /// without a pick; None while the recalculation list is closed.
                 Kept: OrderContextState option
+                /// The orders the link rules offer to link to the order of the context: the offers that came
+                /// with the last answer to a change of the choices or the scenario.
+                LinkedOffers: LinkedOffer[]
             }
 
 
@@ -119,6 +153,8 @@ module OrderContextMachine =
         /// The list of a recalculation closed without a pick: the context kept is put back, and the
         /// answer to the recalculation is dropped.
         | RestoreField
+        /// The linked offer with this index in the list turned on with the scenario, or off with none.
+        | TurnLinked of index: int * OrderScenario option
 
 
     /// What the App carries out for the order context machine.
@@ -177,6 +213,7 @@ module OrderContextMachine =
                 InFlight = None
                 Selected = None
                 Kept = None
+                LinkedOffers = [||]
             }
 
 
@@ -265,15 +302,24 @@ module OrderContextMachine =
             | OrderContextView.Settled ctx ->
                 ctx.Scenarios
                 |> Array.tryFind (fun sc -> sc.Order.Id = orderId)
-                |> Option.map (fun sc ->
-                    { ctx with
-                        OrderContext.Filter.Form = Some sc.Form
-                        Scenarios = [| sc |]
-                    }
-                )
+                |> Option.map (fun sc -> ctx |> OrderContextWorkbench.narrowedToScenario sc)
             | OrderContextView.NoPatient
             | OrderContextView.Refused _
             | OrderContextView.Changing _ -> None
+
+
+        /// The orders the link rules offer to link to the order of the context, each turned on or off.
+        let linkedOffers (state: OrderContextState) = state.LinkedOffers
+
+
+        /// The linked offers turned on, each narrowed to the scenario turned on, as they go into the plan with
+        /// the main order.
+        let linkedTurnedOn (state: OrderContextState) =
+            state.LinkedOffers
+            |> Array.choose (fun offer ->
+                offer.TurnedOn
+                |> Option.map (fun sc -> offer.Context |> OrderContextWorkbench.narrowedToScenario sc)
+            )
 
 
         /// Whether the state before a recalculation is kept, to be put back when its list closes without a pick.
@@ -319,7 +365,7 @@ module OrderContextMachine =
         ///
         /// The dialog closes on a patient change, a seed and a reset, and after an answer keeps its
         /// selection only while the context answered holds it. A recalculation keeps the state before it,
-        /// which an answer carries along and a restore puts back; any other message ends the look.
+        /// which an answer carries along and a restore puts back; any other message closes the recalculation list.
         /// The state kept has nothing under way, so the answer to the clear finds no request to land
         /// on after a restore.
         let transition (msg: OrderContextMsg) (state: OrderContextState) : OrderContextState * OrderContextEffect list =
@@ -341,12 +387,14 @@ module OrderContextMachine =
                         Kept = kept
                     }
 
-            // a new workbench, the dialog closed and the look ended
+            // a new workbench, the dialog and the recalculation list closed, and the linked offers gone with the
+            // order
             let renewed workbench =
                 { state with
                     Workbench = workbench
                     Selected = None
                     Kept = None
+                    LinkedOffers = [||]
                 }
 
             // the empty workbench of its category for the patient, shown while the command evaluates it
@@ -379,21 +427,41 @@ module OrderContextMachine =
                     |> OrderContextWorkbench.held
                     |> Option.bind (fun (_, ctx) -> state.Selected |> Option.filter (fun id -> ctx |> holds id))
 
+                // a change of the choices or the scenario takes the offers the answer carries, none for a
+                // refusal; any other command leaves the scenario, and so the offers, as they were
+                let linked =
+                    let (OrderContextCommand.Command(cmd, _)) = sent
+
+                    match result with
+                    | Ok(OrderContextResponse.Evaluated ctx) when OrderViewCommand.offersLinked cmd ->
+                        ctx.LinkedOrders |> Array.map LinkedOffer.off
+                    | Ok(OrderContextResponse.Refused _) when OrderViewCommand.offersLinked cmd -> [||]
+                    | _ -> state.LinkedOffers
+
                 { state with
                     Workbench = workbench
                     InFlight = None
                     Selected = selected
+                    LinkedOffers = linked
                 },
                 told
                 @ (synced sent result |> Option.map OrderContextEffect.SyncPages |> Option.toList)
             | OrderContextMsg.Answered _, _, _ -> state, []
 
-            // the selection needs no request, and ends a look
+            // the selection needs no request, and closes the recalculation list
             | OrderContextMsg.SelectScenario id, _, _ -> select id { state with Kept = None }, []
             | OrderContextMsg.RestoreField, _, _ ->
                 match state.Kept with
                 | Some kept -> kept, []
                 | None -> state, []
+            // turning a linked offer on or off needs no request
+            | OrderContextMsg.TurnLinked(index, turnedOn), _, _ ->
+                { state with
+                    LinkedOffers =
+                        state.LinkedOffers
+                        |> Array.mapi (fun i o -> if i = index then { o with TurnedOn = turnedOn } else o)
+                },
+                []
 
             // the patient cleared reaches every state: no workbench, and the request out is dropped
             | OrderContextMsg.PatientDataChanged(None, _), _, _ -> noPatient, []
