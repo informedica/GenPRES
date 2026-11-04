@@ -443,28 +443,40 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
    `OrderContext.Intake` to `Totals`. Script
    `src/Informedica.GenPRES.Server/Scripts/LinkedOrders.fsx`. Seen: nothing.
 4. **The link rules**, in two pull requests, the first for GenFORM alone.
-   4a. **The LinkRules sheet in GenFORM.** The `LinkSide`, `LinkRequirement` and `LinkRule` records,
-   the `Data` record, the mapper, the column-contract test, the resources for the rows, the rules and
-   the check, the refusal of a dose type that parses to `NoDoseType` and of once and onceTimed, and
-   `LinkRule.matches`. A refused row fails the load. Every spreadsheet a server runs on needs the
-   LinkRules tab before the merge, the demo spreadsheet included. The step takes 299 lines of `src/`,
-   over the limit of 200, as one pull request. Decision, 2026-11-04, halcwb. Seen: nothing.
-   4b. **The link rules over the order contexts in GenORDER.** `OrderContext.matchesLinkSide` and
-   `OrderContext.rulesForMainOrder`, the link rules a narrowed context offers. A context matches by the
-   order it is narrowed to: the generic label, indication, route and dose type of its scenario. The
-   filter is not read, since selecting a scenario writes only its form there, so the filter can hold no
-   route while the order has one (found in the review of #1653). A context that is not narrowed matches
-   no side. `OrderPlan.linkRuleError`, beside `linkError`, gives why the link rules refuse the link of a
-   plan context, read from its `LinkedTo`, a main order counting only when it is narrowed to one order.
-   The `LinkError` cases `NotAllowed` and `MainOrderRequired` come with their words in the server. No
-   module of its own: each function goes with the type it handles. Decision, 2026-11-04, halcwb. Script
-   `src/Informedica.GenORDER.Lib/Scripts/LinkRules.fsx`. Seen: nothing.
-5. **The server starts and narrows a slot on the order context path, and offers linked orders.** The new
-   `OrderContextCommand` case, the narrowing by `Category`, the linked orders in the answer with their
-   category (rule 19), the dose rules of a Required link rule left out of the pick lists (rule 20), the
-   `NotNarrowed` refusal in `evaluateContext` for a context that held an order. Script
-   `src/Informedica.GenPRES.Server/Scripts/SlotStart.fsx`. Seen: nothing; the client does not use them
-   yet.
+   - **4a. The LinkRules sheet in GenFORM.** The `LinkSide`, `LinkRequirement` and `LinkRule` records,
+     the `Data` record, the mapper, the column-contract test, the resources for the rows, the rules and
+     the check, the refusal of a dose type that parses to `NoDoseType` and of once and onceTimed, and
+     `LinkRule.matches`. A refused row fails the load. Every spreadsheet a server runs on needs the
+     LinkRules tab before the merge, the demo spreadsheet included. The step takes 299 lines of `src/`,
+     over the limit of 200, as one pull request. Decision, 2026-11-04, halcwb. Seen: nothing.
+   - **4b. The link rules over the order contexts in GenORDER.** `OrderContext.matchesLinkSide` and
+     `OrderContext.rulesForMainOrder`, the link rules a narrowed context offers. A context matches by
+     the order it is narrowed to: the generic label, indication, route and dose type of its scenario.
+     The filter is not read, since selecting a scenario writes only its form there, so the filter can
+     hold no route while the order has one (found in the review of #1653). A context that is not
+     narrowed matches no side. `OrderPlan.linkRuleError`, beside `linkError`, gives why the link rules
+     refuse the link of a plan context, read from its `LinkedTo`, a main order counting only when it is
+     narrowed to one order. The `LinkError` cases `NotAllowed` and `MainOrderRequired` come with their
+     words in the server. No module of its own: each function goes with the type it handles. Decision,
+     2026-11-04, halcwb. Script `src/Informedica.GenORDER.Lib/Scripts/LinkRules.fsx`. Seen: nothing.
+5. **The server narrows a slot on the order context path, and offers linked orders**, in three pull
+   requests.
+   - **5a. The slot on the order context path.** The order context port narrows and settles a nutrition
+     context to the rule set of the category it carries, as the plan port does. A refusal while
+     settling is answered as the refused context. The rule sets, the discovery of a slot and the
+     evaluation settled to a rule set move into `Adapters.NutritionRuleSets`, which both ports use. The
+     words of `NotNarrowed` lose the word workbench. Script
+     `src/Informedica.GenPRES.Server/Scripts/SlotStart.fsx`. Seen: nothing. Two parts of the first plan
+     moved, decisions 2026-11-04, halcwb. The start case of `OrderContextCommand` goes to step 7, with
+     the Client.Core code that sends it, since Client.Core takes the command apart with single-case
+     patterns. The `NotNarrowed` refusal in `evaluateContext` goes to step 10. The reason for the
+     second: the order dialog's commands keep the single scenario of an order, and the only path that
+     leaves several is a nutrition slot picked again while it is still in the plan, which is not to be
+     refused.
+   - **5b. The linked orders in the order context answer,** each an order context evaluated on the same
+     patient, with the category of rule 19.
+   - **5c. Rule 20:** the dose rules of a Required link rule left out of the pick lists. The gap between
+     step 5 and step 9 opens here.
 6. **The group add and the totals query** on the server and their wire: `AddOrderContext` with linked
    contexts, `addOrderContexts` with the check of rule 15, and the totals query. The words of
    `LinkError.NotAllowed` name the main order by its generic, not by its context id, which a clinician
@@ -474,7 +486,8 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
    Script
    `src/Informedica.GenPRES.Server/Scripts/GroupAdd.fsx`. Seen: nothing.
 7. **The slot lane in Client.Core.** The category in `OrderContextState`, the slot states in `Lanes`,
-   the request case, `BusyPolicy` and `OutPolicy`, the start and restart from the rule set. Script
+   the start case of `OrderContextCommand` on the wire with the port's start and its server handler, the
+   request case, `BusyPolicy` and `OutPolicy`, the start and restart from the rule set. Script
    `src/Informedica.GenPRES.Client.Core/Scripts/SlotLane.fsx`. Seen: nothing; the views still use the
    plan slots.
 8. **Prescribe with linked orders in Client.Core.** The linked orders offered in the workbench and the
@@ -489,8 +502,10 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
    `src/Informedica.GenPRES.Client.Core/Scripts/LinkedOrders.fsx`, the group lock and the row check.
    Two pull requests if it does not fit. Seen: nutrition is composed in slots and enters the plan on
    prescribe; ataluren is prescribed with its evening dose linked.
-10. **The plan slots go.** What is left under "What this replaces": `NewOrderContext` and its client and
-   Trail lines, the slot discovery, the supplement slot, `holds`, `CategoryHeld`,
+10. **The plan slots go.** The plan refuses a filter command on a context it holds, which only a slot
+   in the plan sends until then, so that a prescribed order never loses its single scenario. What is left
+   under "What this replaces": `NewOrderContext` and its client and Trail lines, the slot discovery,
+   the supplement slot, `holds`, `CategoryHeld`,
    `SupplementNeedsFeeding`, `mayAdd`, the restart in `followPatientData`, the removal fallback for a
    supplement without a link. Seen: no change; the old path is gone.
 11. **Documents.** Notes in plans 667 and 654. In plan 1430, step 5's sentence "the nutrition page keeps

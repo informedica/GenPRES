@@ -50,6 +50,23 @@ type TotalsSpy() =
         member _.GetUnitMappings() = raise (NotImplementedException())
         member _.GetValidForms() = raise (NotImplementedException())
 
+/// A provider holding no rules that counts every read of the totals data, so that an evaluation gets as
+/// far as the totals of its context.
+type EvaluatingTotalsSpy() =
+    inherit OrderPlanTests.RulesOf([||])
+
+    let mutable callCount = 0
+    member this.CallCount = callCount
+
+    interface Resources.IResourceProvider with
+        member _.GetDoseRules() = [||]
+        member _.GetRouteMappings() = [||]
+
+        member _.GetTotals() =
+            callCount <- callCount + 1
+            [||]
+
+
 /// The stub platform's patient in the domain: the port is typed on domain values.
 let patient () =
     ServerApi.Patient.parse ServerApi.StubPatientData.patient
@@ -79,8 +96,10 @@ let tests =
                 countBefore <! countAfter
             }
 
+            // the totals data is read only when an evaluation records totals, so the spy's evaluation must
+            // get that far
             testAsync "evaluateContext does not cache totals" {
-                let spy = TotalsSpy()
+                let spy = EvaluatingTotalsSpy()
                 let sut = ServerApi.Adapters.makeAppEnv spy
                 let countBefore = spy.CallCount
 

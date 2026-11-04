@@ -280,7 +280,7 @@ let tests =
 
                 OrderPlanError.NotNarrowed 2
                 |> words
-                |> Expect.equal "not narrowed" "The workbench holds 2 candidates, not one order"
+                |> Expect.equal "not narrowed" "Choose one order first: 2 candidates remain"
 
                 OrderPlanError.OrderHeld "o"
                 |> words
