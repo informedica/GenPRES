@@ -1144,7 +1144,7 @@ let changeTests =
                 let ctx = context "" "ibuprofen"
 
                 [
-                    OrderPlanChange.Add ctx, OrderPlanCommand.AddOrderContext(two, ctx, [||])
+                    OrderPlanChange.Add(ctx, [||]), OrderPlanCommand.AddOrderContext(two, ctx, [||])
                     OrderPlanChange.NewNutrition NutritionCategory.TPN,
                     OrderPlanCommand.NewOrderContext(two, NutritionCategory.TPN)
                     OrderPlanChange.Remove [| "c-2" |], OrderPlanCommand.RemoveOrderContexts(two, [| "c-2" |])
@@ -1172,7 +1172,7 @@ let changeTests =
                 let ctx = context "" "ibuprofen"
 
                 [
-                    OrderPlanMsg.Change(OrderPlanChange.Add ctx, "r-1"),
+                    OrderPlanMsg.Change(OrderPlanChange.Add(ctx, [||]), "r-1"),
                     OrderPlanCommand.AddOrderContext(one, ctx, [||])
                     OrderPlanMsg.Change(OrderPlanChange.NewNutrition NutritionCategory.TPN, "r-1"),
                     OrderPlanCommand.NewOrderContext(one, NutritionCategory.TPN)

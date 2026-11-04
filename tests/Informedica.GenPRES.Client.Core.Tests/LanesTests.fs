@@ -1050,7 +1050,7 @@ let tests =
                 steps
                 |> List.choose (
                     function
-                    | LanesStep.Plan(OrderPlanMsg.Change(OrderPlanChange.Add ctx, "r-1"), _, _) ->
+                    | LanesStep.Plan(OrderPlanMsg.Change(OrderPlanChange.Add(ctx, _), "r-1"), _, _) ->
                         Some(ctx.Scenarios |> Array.map _.Order.Id |> String.concat ",")
                     | LanesStep.Workbench _ -> Some "workbench"
                     | _ -> None
@@ -1406,7 +1406,7 @@ module SlotPrescribeFixtures =
         steps
         |> List.choose (
             function
-            | LanesStep.Plan(OrderPlanMsg.Change(OrderPlanChange.Add ctx, _), _, _) ->
+            | LanesStep.Plan(OrderPlanMsg.Change(OrderPlanChange.Add(ctx, _), _), _, _) ->
                 Some(ctx.Id, ctx.Scenarios |> Array.map _.Order.Id)
             | _ -> None
         )
@@ -1505,5 +1505,118 @@ let slotPrescribeTests =
 
                 NewPatientPolicy.asks SessionMachine.SessionView.Anonymous None None []
                 |> Expect.isFalse "nothing to lose"
+            }
+        ]
+
+
+/// The prescribe with the linked offers of OrderContextMachineTests turned on.
+module PrescribeLinkedFixtures =
+
+    /// The contexts added to the plan by the steps taken: the main context id and order id, and the order ids
+    /// of the linked orders.
+    let addedWithLinked steps =
+        steps
+        |> List.choose (
+            function
+            | LanesStep.Plan(OrderPlanMsg.Change(OrderPlanChange.Add(ctx, linked), _), _, _) ->
+                Some(
+                    ctx.Id,
+                    ctx.Scenarios |> Array.map _.Order.Id,
+                    linked |> Array.collect (_.Scenarios >> Array.map _.Order.Id)
+                )
+            | _ -> None
+        )
+
+
+open PrescribeLinkedFixtures
+open OrderContextMachineTests.LinkedOfferFixtures
+
+
+[<Tests>]
+let prescribeLinkedTests =
+    testList
+        "the prescribe with linked orders"
+        [
+            test "the prescribe adds ataluren with its evening dose turned on" {
+                let lanes =
+                    { Lanes.initial (Some draft) with
+                        OrderPlan = shown
+                        OrderContext = eveningOn
+                    }
+
+                let _, _, steps =
+                    lanes
+                    |> Lanes.transition (counter ()) (LanesMsg.Prescribe(None, "o-main", "r-3"))
+
+                steps
+                |> addedWithLinked
+                |> Expect.equal "o-main with o-avond" [ ("", [| "o-main" |], [| "o-avond" |]) ]
+            }
+
+            test "the prescribe sends the linked orders in the add" {
+                OrderPlanChange.Add(atalurenMain, eveningOn |> OrderContextState.linkedTurnedOn)
+                |> OrderPlanChange.command one
+                |> Option.map (
+                    function
+                    | OrderPlanCommand.AddOrderContext(_, _, linked) ->
+                        linked |> Array.map (fun c -> c.Scenarios[0].Order.Id)
+                    | _ -> [||]
+                )
+                |> Expect.equal "o-avond in the add" (Some [| "o-avond" |])
+            }
+
+            test "the prescribe adds ataluren alone while the evening dose is off" {
+                let lanes =
+                    { Lanes.initial (Some draft) with
+                        OrderPlan = shown
+                        OrderContext = atalurenOffered
+                    }
+
+                let _, _, steps =
+                    lanes
+                    |> Lanes.transition (counter ()) (LanesMsg.Prescribe(None, "o-main", "r-3"))
+
+                steps
+                |> addedWithLinked
+                |> Expect.equal "o-main alone" [ ("", [| "o-main" |], [||]) ]
+            }
+
+            test "a feeding slot is prescribed with BMF turned on" {
+                let slot = answered selectScenario feeding [| bmf |] |> turnOn 0 bmf.Scenarios[0]
+
+                let lanes =
+                    { Lanes.initial (Some draft) with
+                        OrderPlan = shown
+                        Slots = Map [ ("s-1", slot) ]
+                    }
+
+                let feedingOrder = "o-feeding"
+
+                let _, _, steps =
+                    lanes
+                    |> Lanes.transition (counter ()) (LanesMsg.Prescribe(Some "s-1", feedingOrder, "r-3"))
+
+                steps
+                |> addedWithLinked
+                |> Expect.equal "the feeding of s-1 with BMF" [ ("s-1", [| feedingOrder |], [| "o-bmf" |]) ]
+            }
+
+            test "the evening dose turned on in a slot reaches that slot" {
+                let lanes =
+                    { Lanes.initial (Some draft) with
+                        OrderPlan = shown
+                        Slots = Map [ ("s-1", atalurenOffered) ]
+                    }
+
+                let lanes, _, _ =
+                    lanes
+                    |> Lanes.transition
+                        (counter ())
+                        (LanesMsg.Slot("s-1", OrderContextMsg.TurnLinked(0, Some atalurenEvening.Scenarios[0])))
+
+                lanes.Slots["s-1"]
+                |> turnedOn
+                |> Expect.equal "on in s-1" [| (Some "ataluren", Some "o-avond") |]
+                lanes.OrderContext |> turnedOn |> Expect.isEmpty "the workbench has none"
             }
         ]

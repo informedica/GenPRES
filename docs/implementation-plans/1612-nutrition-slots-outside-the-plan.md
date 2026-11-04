@@ -569,7 +569,7 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
      over every dose rule.
 
      Script `src/Informedica.GenPRES.Client.Core/Scripts/PrescribeLinked.fsx`, with modified copies of the
-     three files it changes. Seen: nothing yet.
+     three files it changes, deleted in this step. Seen: nothing yet.
    - **8c. The totals query in the loader**, with its clear. Seen: nothing yet.
 9. **The views.** On the nutrition page a prescribe button on every slot, the supplements offered in the
    feeding slot, staying on the page, the combined totals; on the workbench the linked orders offered;

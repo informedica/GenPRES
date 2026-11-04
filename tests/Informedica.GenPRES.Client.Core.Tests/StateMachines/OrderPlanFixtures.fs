@@ -42,7 +42,7 @@ let transition = OrderPlanState.transition
 let pageMsg (cmd: OrderPlanCommand, request) =
     let change =
         match cmd with
-        | OrderPlanCommand.AddOrderContext(_, ctx, _) -> OrderPlanChange.Add ctx
+        | OrderPlanCommand.AddOrderContext(_, ctx, linked) -> OrderPlanChange.Add(ctx, linked)
         | OrderPlanCommand.NewOrderContext(_, category) -> OrderPlanChange.NewNutrition category
         | OrderPlanCommand.RemoveOrderContexts(_, ids) -> OrderPlanChange.Remove ids
         | OrderPlanCommand.FilterRows(ids, _) -> OrderPlanChange.FilterRows ids

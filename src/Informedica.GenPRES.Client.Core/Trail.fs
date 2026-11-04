@@ -323,7 +323,7 @@ module Trail =
         /// A page's change to the plan by what it wants; never the plan.
         let change (c: OrderPlanMachine.OrderPlanChange) =
             match c with
-            | OrderPlanMachine.OrderPlanChange.Add ctx -> $"Add %s{context ctx}"
+            | OrderPlanMachine.OrderPlanChange.Add(ctx, linked) -> $"Add %s{context ctx} %i{linked.Length} linked"
             | OrderPlanMachine.OrderPlanChange.NewNutrition category -> $"NewNutrition %s{nutrition category}"
             | OrderPlanMachine.OrderPlanChange.Remove ids -> $"Remove %i{ids.Length}"
             | OrderPlanMachine.OrderPlanChange.FilterRows ids -> $"FilterRows %i{ids.Length}"
@@ -641,6 +641,8 @@ module Trail =
             | OrderContextMsg.Reset request -> $"Reset %s{Part.shortId request}"
             | OrderContextMsg.SelectScenario id -> $"SelectScenario %s{id |> Part.orNone Part.shortId}"
             | OrderContextMsg.RestoreField -> "RestoreField"
+            | OrderContextMsg.TurnLinked(offer, sc) ->
+                $"TurnLinked %i{offer} %s{sc |> Part.orNone (fun sc -> Part.shortId sc.Order.Id)}"
 
 
         /// An order context effect; a context by its id, never the filter or the error texts.

@@ -53,7 +53,8 @@ module Lanes =
         /// machine and the notice the Session.
         | Answer of LanesMsg * from: OpenedToken option * RecordNotice option
         /// The prescribe click: the workbench, or the nutrition slot with the id, narrowed to the order with
-        /// this id goes into the plan; the workbench or the slot is emptied once the order has landed.
+        /// this id goes into the plan with the linked orders turned on in it; the workbench or the slot is emptied
+        /// once the orders have landed.
         | Prescribe of slotId: string option * orderId: string * request: string
         /// The url brought a patient, a medication or a launch. The patient, the workbench, the plan
         /// and the signing are emptied, as when the page loads with this patient, and the Session is
@@ -216,20 +217,25 @@ module Lanes =
         // add leaves the order on it. Nothing reaches it meanwhile, since a plan request disables the
         // pages and locks the menu.
         | LanesMsg.Prescribe(slotId, orderId, request) ->
-            let narrowed =
+            let lane =
                 match slotId with
-                | None -> lanes.OrderContext |> OrderContextState.narrowedTo orderId
-                // the context goes with its slot id, so that the answer empties that slot
-                | Some id ->
-                    lanes.Slots
-                    |> Map.tryFind id
-                    |> Option.bind (OrderContextState.narrowedTo orderId)
-                    |> Option.map (fun ctx -> { ctx with Id = id })
+                | None -> Some lanes.OrderContext
+                | Some id -> lanes.Slots |> Map.tryFind id
+
+            let narrowed =
+                lane
+                |> Option.bind (fun lane ->
+                    lane
+                    |> OrderContextState.narrowedTo orderId
+                    |> Option.map (fun ctx -> lane, ctx)
+                )
 
             match narrowed with
-            | Some ctx ->
-                let lanes, effects, taken =
-                    step (LanesMsg.Plan(OrderPlanMsg.Change(OrderPlanChange.Add ctx, request))) lanes
+            | Some(lane, ctx) ->
+                // the context goes with its slot id, so that the answer empties that slot
+                let ctx = { ctx with Id = slotId |> Option.defaultValue ctx.Id }
+                let add = OrderPlanChange.Add(ctx, lane |> OrderContextState.linkedTurnedOn)
+                let lanes, effects, taken = step (LanesMsg.Plan(OrderPlanMsg.Change(add, request))) lanes
 
                 if slotId.IsNone && lanes.OrderPlan |> OrderPlanState.awaits request then
                     lanes, effects @ [ LanesEffect.GoToPlanPage ], taken

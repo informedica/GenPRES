@@ -1114,3 +1114,191 @@ let requestOutTests =
                 |> Expect.equal "no patient" (noPatient, [])
             }
         ]
+
+
+/// Two real link rules of the LinkRules sheet: the evening dose of ataluren linked to its morning and midday
+/// dose, and the supplement Nutrilon Nenatal BMF pdr linked to an enteral feeding.
+module LinkedOfferFixtures =
+
+    open Informedica.GenPRES.Client.Core.Tests.OrderFixtures
+
+
+    /// The patient the offers are evaluated for.
+    let patient = Informedica.GenPRES.Client.Core.Tests.OrderFixtures.patient
+
+    /// Other patient data.
+    let other = Informedica.GenPRES.Client.Core.Tests.OrderFixtures.other
+
+
+    let duchenne = "Spierdystrofie van Duchenne bij ambulante patienten"
+
+
+    let ataluren doseText orderId =
+        let ctx = context "" "ataluren"
+
+        { ctx with
+            Filter =
+                { ctx.Filter with
+                    Generic = Some "ataluren"
+                    Indication = Some duchenne
+                    Route = Some "ORAAL"
+                    DoseType = Some(DoseType.Discontinuous doseText)
+                }
+            Scenarios = [| scenario orderId "ataluren" |]
+        }
+
+
+    /// The morning and midday dose of ataluren on the workbench, the order o-main.
+    let atalurenMain = ataluren "ochtend middag" "o-main"
+
+    /// The evening dose of ataluren the link rule offers, the order o-avond.
+    let atalurenEvening = ataluren "avond" "o-avond"
+
+
+    let feeding =
+        { context "" "Nutrilon Nenatal 1" with
+            Category = OrderCategory.Nutrition NutritionCategory.EnteralFeeding
+            Scenarios = [| scenario "o-feeding" "Nutrilon Nenatal 1" |]
+        }
+
+
+    let bmf =
+        let ctx = context "" "Nutrilon Nenatal BMF pdr"
+
+        { ctx with
+            Category = OrderCategory.Nutrition NutritionCategory.EnteralSupplement
+            Filter =
+                { ctx.Filter with
+                    Generic = Some "Nutrilon Nenatal BMF pdr"
+                    Indication = Some "Enterale toevoeging"
+                }
+            Scenarios = [| scenario "o-bmf" "Nutrilon Nenatal BMF pdr" |]
+        }
+
+
+    /// The state after the command was answered with the context and its offers.
+    let answered cmd (main: OrderContext) offers =
+        OrderContextState.changing patient cmd main main "r-1"
+        |> OrderContextState.transition (
+            OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated { main with LinkedOrders = offers }))
+        )
+        |> fst
+
+
+    let selectScenario = OrderViewCommand.SelectNthOrderScenario 0
+    let doseStep = OrderViewCommand.SetMedianOrderableDoseQuantityProperty
+
+
+    /// The workbench with ataluren narrowed to its morning and midday dose, the evening dose offered.
+    let atalurenOffered = answered selectScenario atalurenMain [| atalurenEvening |]
+
+    let turnOn offer (sc: OrderScenario) state =
+        state
+        |> OrderContextState.transition (OrderContextMsg.TurnLinked(offer, Some sc))
+        |> fst
+
+    /// The evening dose turned on.
+    let eveningOn = atalurenOffered |> turnOn 0 atalurenEvening.Scenarios[0]
+
+
+    let turnedOn state =
+        state
+        |> OrderContextState.linkedOffers
+        |> Array.map (fun offer -> offer.Context.Filter.Generic, offer.TurnedOn |> Option.map _.Order.Id)
+
+
+open LinkedOfferFixtures
+
+
+[<Tests>]
+let linkedOfferTests =
+    testList
+        "the linked offers"
+        [
+            test "a scenario selected offers the evening dose of ataluren, turned off" {
+                atalurenOffered
+                |> turnedOn
+                |> Expect.equal "the evening dose, off" [| (Some "ataluren", None) |]
+            }
+
+            test "the evening dose is turned on with its scenario, and off again" {
+                eveningOn
+                |> turnedOn
+                |> Expect.equal "on, with o-avond" [| (Some "ataluren", Some "o-avond") |]
+
+                eveningOn
+                |> OrderContextState.transition (OrderContextMsg.TurnLinked(0, None))
+                |> fst
+                |> turnedOn
+                |> Expect.equal "off" [| (Some "ataluren", None) |]
+            }
+
+            test "a dose step of the feeding leaves BMF offered and turned on" {
+                let bmfOn = answered selectScenario feeding [| bmf |] |> turnOn 0 bmf.Scenarios[0]
+
+                bmfOn
+                |> OrderContextState.transition (OrderContextMsg.Command(doseStep, "r-2"))
+                |> fst
+                |> OrderContextState.transition (
+                    OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated feeding))
+                )
+                |> fst
+                |> turnedOn
+                |> Expect.equal "BMF still on" [| (Some "Nutrilon Nenatal BMF pdr", Some "o-bmf") |]
+            }
+
+            test "a pick that answers no offers drops the offers" {
+                let pick =
+                    OrderViewCommand.SetNthFilterProperty(Informedica.GenPRES.Shared.Models.OrderContext.Generic, 0)
+
+                eveningOn
+                |> OrderContextState.transition (OrderContextMsg.Command(pick, "r-2"))
+                |> fst
+                |> OrderContextState.transition (
+                    OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated atalurenMain))
+                )
+                |> fst
+                |> turnedOn
+                |> Expect.isEmpty "no offers"
+            }
+
+            test "a refused pick drops the offers, a failed one leaves them" {
+                let pick =
+                    OrderViewCommand.SetNthFilterProperty(Informedica.GenPRES.Shared.Models.OrderContext.Generic, 0)
+                let sent =
+                    eveningOn
+                    |> OrderContextState.transition (OrderContextMsg.Command(pick, "r-2"))
+                    |> fst
+
+                sent
+                |> OrderContextState.transition (
+                    OrderContextMsg.Answered(
+                        "r-2",
+                        Ok(OrderContextResponse.Refused(atalurenMain, OrderContextRefusal.NoDoseRules))
+                    )
+                )
+                |> fst
+                |> turnedOn
+                |> Expect.isEmpty "refused: no offers"
+
+                sent
+                |> OrderContextState.transition (OrderContextMsg.Answered("r-2", Error [| "down" |]))
+                |> fst
+                |> turnedOn
+                |> Expect.equal "failed: as they were" [| (Some "ataluren", Some "o-avond") |]
+            }
+
+            test "a reset and new patient data drop the offers" {
+                eveningOn
+                |> OrderContextState.transition (OrderContextMsg.Reset "r-2")
+                |> fst
+                |> turnedOn
+                |> Expect.isEmpty "reset"
+
+                eveningOn
+                |> OrderContextState.transition (OrderContextMsg.PatientDataChanged(Some other, "r-2"))
+                |> fst
+                |> turnedOn
+                |> Expect.isEmpty "new patient data"
+            }
+        ]

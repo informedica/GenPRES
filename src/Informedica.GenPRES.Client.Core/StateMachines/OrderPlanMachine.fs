@@ -35,8 +35,9 @@ module OrderPlanMachine =
     /// command over the plan it holds.
     [<RequireQualifiedAccess>]
     type OrderPlanChange =
-        /// A workbench narrowed to one scenario, into the plan as a medication context.
-        | Add of OrderContext
+        /// The workbench or a nutrition slot narrowed to one scenario, into the plan with the linked orders
+        /// turned on, each narrowed to the scenario turned on.
+        | Add of OrderContext * linked: OrderContext[]
         /// A new nutrition context for the category.
         | NewNutrition of NutritionCategory
         /// The contexts with these ids removed.
@@ -54,7 +55,7 @@ module OrderPlanMachine =
         /// longer holds, and for a locked one, whatever page the command comes from.
         let command (tp: OrderPlan) (change: OrderPlanChange) =
             match change with
-            | OrderPlanChange.Add ctx -> Some(OrderPlanCommand.AddOrderContext(tp, ctx, [||]))
+            | OrderPlanChange.Add(ctx, linked) -> Some(OrderPlanCommand.AddOrderContext(tp, ctx, linked))
             | OrderPlanChange.NewNutrition category -> Some(OrderPlanCommand.NewOrderContext(tp, category))
             | OrderPlanChange.Remove ids -> Some(OrderPlanCommand.RemoveOrderContexts(tp, ids))
             | OrderPlanChange.FilterRows ids -> Some(OrderPlanCommand.FilterRows(ids, tp))
