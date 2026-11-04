@@ -565,9 +565,10 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
        `withStandAloneDoseRules`, since every dose rule lookup of the evaluation reads it, not only the
        pick lists.
 
-     **Open:** how the server tells an offer apart from another context, so that it evaluates an offer
-     over every dose rule. When commands on an offer come, an offer can change while it is on: the
-     scenario turned on then follows the offer's answer, or turning on takes the order id and looks it up.
+     How the server tells an offer apart from another context was open here; step 9a decides it: the
+     server does not tell them apart, the picks of an offer select the dose rules it needs. When commands
+     on an offer come, in step 9b, an offer can change while it is on: the scenario turned on then
+     follows the offer's answer.
 
      Script `src/Informedica.GenPRES.Client.Core/Scripts/PrescribeLinked.fsx`, with modified copies of the
      three files it changes, deleted in this step. Seen: nothing yet.
@@ -591,17 +592,65 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
 9. **The views.** On the nutrition page a prescribe button on every slot, the supplements offered in the
    feeding slot, staying on the page, the combined totals; on the workbench the linked orders offered;
    on the order plan page a linked order under its main order, the row check and the group lock text
-   of rule 13; the intake slider in the order dialog. In Client.Core, by script
-   `src/Informedica.GenPRES.Client.Core/Scripts/LinkedOrders.fsx`, the group lock and the row check.
-   A linked order context taken from an offer is evaluated over every dose rule, as its offer was: the
-   order context port leaves the dose rules of a Required link rule out of the pick lists from step 5c.
-   The nutrition page removes a slot the prescriber closes, with a message to the lanes that takes the
-   slot out; until then only another patient removes a slot, so the slots started only grow. Decision,
-   2026-11-04, halcwb. Measure the totals query once the views use the slots: the client builds and
-   compares it after every lanes step, which walks the full contexts while a slot is narrowed. If it
-   shows, compare only what the query depends on, or build it only after a step on the plan or a slot.
-   Two pull requests if it does not fit. Seen: nutrition is composed in slots and
-   enters the plan on prescribe; ataluren is prescribed with its evening dose linked.
+   of rule 13; the intake slider in the order dialog. An offer takes every command the supplement slot
+   takes today: the picks, the dose steps and the percentage. Decisions, 2026-11-04, halcwb:
+   - An offer is composed like any order context before the prescribe, as a supplement in a plan slot
+     is today; turning an offer on with a scenario alone, to dose it on the order plan page, is not
+     enough.
+   - The server does not tell an offer apart from another context. A dose rule that a Required link
+     rule matches on its linked side is left out of every lookup of the order context port unless the
+     context as sent, before the command changes it, selects it: a picked indication and generic, a
+     list of one option counting as its pick, and a dose type list of exactly that dose type. The lists
+     are the server's answer, which a pick or a seed does not change, so only an offer selects such a
+     dose rule: the ataluren evening offer lists only the evening dose. The prescribe check of rule 15
+     stays the guard. Decisions of the review, 2026-11-04, halcwb:
+     - The context as sent, not the context after the command: a formulary seed of the hydrocortison
+       dose of 13:00 on the workbench finds no dose rule, while the picks after the seed would select it.
+     - The dose type list, not the dose type pick: a refused seed answers the context with the seeded
+       pick, and the next command on it, or a reload, would otherwise select the dose rule of 13:00.
+     - The extra filter over every dose rule costs about 0.1 ms a lookup, measured over the 5166 rows
+       of the DoseRules sheet, next to a lookup that filters every dose rule already; no derived
+       resource in GenFORM.
+     - The form is left out of the filter that selects those dose rules, so that a clear of the form on
+       an offer lists every form again: the oral hydrocortison dose of 13:00 comes as a tablet, a
+       capsule, a solution and three more forms. Found by the review of pull request #1679.
+   - Found in the script of 9a: an offer whose generic has the dose types of both sides, such as the
+     ataluren evening dose and the hydrocortison doses of 13:00 and 18:00, came without scenarios, since
+     it was evaluated before its dose types were narrowed to the side. When the narrowing leaves one
+     dose type of several, the offer is evaluated once more. A supplement has one dose type, so its
+     offer had its scenarios already.
+   - The nutrition page removes a slot the prescriber closes, with a message to the lanes that takes
+     the slot out; until then only another patient removes a slot, so the slots started only grow.
+   - Five pull requests, in this order:
+     - **9a. Offers by their picks**, in the server, by script
+       `src/Informedica.GenPRES.Server/Scripts/OffersByPicks.fsx`. Tests, over the hydrocortison doses
+       of week 1 of the taper: the offer of 13:00 comes with its scenario, a command and a dose step on
+       it keep its dose and its scenario, and the medication workbench still offers only the dose of
+       7:00; a formulary seed of 13:00 on the workbench is refused, and so is the next command on the
+       refused context. A link side whose dose type matches more than one dose of its generic has no test
+       and no code, since no row of the sheet has one; such an offer stays without scenarios, as before.
+       Issue #1678 proposes a warning for such a row when the sheet is read. The scripts are deleted in
+       this step.
+     - **9b. Commands on an offer**, in Client.Core, by script: an offer takes a command on its index,
+       on the lane of its slot or of the workbench, the lane waits while it is out, and the answer
+       replaces the offer; an offer turned on follows its answer. An offer takes no pick and no clear on
+       the fields its link side decides, the generic, the indication, the route and the dose type: a
+       clear of the dose type would widen the lists of the evening offer of ataluren to the dose of the
+       main order. Decision of the 9a review, 2026-11-04, halcwb.
+     - **9c. The slot removal, the group lock and the row check**, in Client.Core, by script:
+       `PlanContextPolicy.locked` takes the plan, and the row check of rule 13 as a policy over the
+       plan's links. Two pull requests if it does not fit.
+     - **9d. The nutrition page**: the prescribe button on every slot, the supplements offered in a
+       feeding slot with the controls of a slot, the prescribed slot waiting, the combined totals and
+       closing a slot. Measure the totals query here: the client builds and compares it after every
+       lanes step, which walks the full contexts while a slot is narrowed. If it shows, compare only
+       what the query depends on, or build it only after a step on the plan or a slot.
+     - **9e. The workbench, the order plan page and the order dialog**: the linked orders offered on
+       the workbench, a linked order under its main order with the group lock text and the row check,
+       and the intake slider. Two pull requests if it does not fit.
+
+   Seen: nutrition is composed in slots and enters the plan on prescribe; ataluren is prescribed with
+   its evening dose linked.
 10. **The plan slots go.** The plan refuses a filter command on a context it holds, which only a slot
    in the plan sends until then, so that a prescribed order never loses its single scenario. What is left
    under "What this replaces": `NewOrderContext` and its client and Trail lines, the slot discovery,

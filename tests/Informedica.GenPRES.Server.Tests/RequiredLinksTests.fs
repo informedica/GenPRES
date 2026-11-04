@@ -1,5 +1,6 @@
 /// The orders a link rule with Required yes matches on its linked side: they need a main order, so the
-/// pick lists of the order context port leave them out, over the doses of week 1 of the hydrocortison taper.
+/// order context port leaves them out unless the picks of the context select them, as the picks of a linked
+/// offer do, over the doses of week 1 of the hydrocortison taper.
 module Informedica.GenPRES.Server.Tests.RequiredLinksTests
 
 open Expecto
@@ -11,6 +12,7 @@ open Informedica.GenOrder.Lib
 module Fixtures =
 
     open Informedica.Utils.Lib.BCL
+    open Informedica.GenUnits.Lib
     open OrderPlanTests
 
 
@@ -49,7 +51,19 @@ module Fixtures =
         }
 
 
-    let tablet = Product.create "hydrocortison" "tablet" "ORAAL" [| "hydrocortison" |]
+    /// A tablet of 10 mg hydrocortison, so that a dose step can be solved.
+    let tablet =
+        let stuk = Units.General.general "stuk"
+        let perStuk = Units.Mass.milliGram |> ValueUnit.per stuk
+        let p = Product.create "hydrocortison" "tablet" "ORAAL" [| "hydrocortison" |]
+
+        { p with
+            FormQuantities = 1N |> ValueUnit.singleWithUnit stuk
+            Divisible = Some 1N
+            Substances =
+                p.Substances
+                |> Array.map (fun s -> { s with Concentration = 10N |> ValueUnit.singleWithUnit perStuk |> Some })
+        }
 
 
     /// The three doses of week 1 of the taper, as the dose rules of the sheet give them.
@@ -146,7 +160,192 @@ module Fixtures =
         |> texts
 
 
+    /// The provider of the order context port over the dose rules of the hydrocortison context.
+    let ofHydrocortison provider =
+        provider |> ServerApi.Adapters.withDoseRulesOf (hydrocortison provider)
+
+
+    let sut = ServerApi.Adapters.makeAppEnv (provider sheetRows)
+
+
+    let evaluated cmd pc =
+        async {
+            match! pc |> sut.orderContext.evaluate cmd with
+            | Ok(Evaluated pc) -> return pc
+            | other -> return failtest $"expected an evaluated context, got %A{other}"
+        }
+
+
+    /// The hydrocortison context narrowed to the dose of 7:00, through the port.
+    let morning =
+        async {
+            let! pc =
+                hydrocortison (provider sheetRows)
+                |> PlanContext.create "" OrderCategory.Medication
+                |> evaluated OrderContext.UpdateOrderContext
+
+            let ctx =
+                { pc.Context with OrderContext.Filter.DoseType = Some(DoseType.Discontinuous "week 1 7:00 uur") }
+
+            return! { pc with Context = ctx } |> evaluated OrderContext.UpdateOrderContext
+        }
+
+
+    /// A seed from the formulary page of the dose of 13:00, which the formulary lists over every dose rule.
+    let formularySeed ctx =
+        OrderContext.SeedFilter(
+            ctx,
+            SeedSource.Formulary,
+            Some indication,
+            Some "hydrocortison",
+            Some "ORAAL",
+            None,
+            Some(DoseType.Discontinuous "week 1 13:00 uur")
+        )
+
+
+    let answered cmd pc =
+        async {
+            match! pc |> sut.orderContext.evaluate cmd with
+            | Ok(Evaluated pc)
+            | Ok(Refused(pc, _)) -> return pc
+            | Error errs -> return failtest $"expected an answer, got %A{errs}"
+        }
+
+
+    let isRefused cmd pc =
+        async {
+            match! pc |> sut.orderContext.evaluate cmd with
+            | Ok(Refused _) -> return true
+            | _ -> return false
+        }
+
+
+    /// The hydrocortison context on the medication workbench, as the port answers it.
+    let workbench =
+        hydrocortison (provider sheetRows)
+        |> PlanContext.create "" OrderCategory.Medication
+        |> answered OrderContext.UpdateOrderContext
+
+
+    /// The offer of the dose of 7:00 with the dose text.
+    let offerOf doseText =
+        async {
+            let! main = morning
+
+            match! sut.orderContext.linkedOrders main with
+            | Ok offers ->
+                return
+                    offers
+                    |> Array.tryFind (fun pc -> pc.Context.Filter.DoseTypes |> texts = [| doseText |])
+                    |> Option.defaultWith (fun () -> failtest $"no offer of %s{doseText}")
+            | Error errs -> return failtest $"expected offers, got %A{errs}"
+        }
+
+
+/// The doses of week 1 of the oral hydrocortison taper over two forms, a tablet and a capsule, as the oral
+/// doses of the taper come in several forms.
+module TwoForms =
+
+    open Informedica.Utils.Lib.BCL
+    open Informedica.GenUnits.Lib
+    open Fixtures
+
+
+    /// A capsule of 10 mg hydrocortison.
+    let capsule =
+        let stuk = Units.General.general "stuk"
+        let perStuk = Units.Mass.milliGram |> ValueUnit.per stuk
+        let p = Product.create "hydrocortison" "capsule" "ORAAL" [| "hydrocortison" |]
+
+        { p with
+            FormQuantities = 1N |> ValueUnit.singleWithUnit stuk
+            Divisible = Some 1N
+            Substances =
+                p.Substances
+                |> Array.map (fun s -> { s with Concentration = 10N |> ValueUnit.singleWithUnit perStuk |> Some })
+        }
+
+
+    /// The three doses of week 1 of the taper over the tablet and the capsule.
+    let twoFormRules =
+        [|
+            rowOf "week 1 7:00 uur"
+            rowOf "week 1 13:00 uur"
+            rowOf "week 1 18:00 uur"
+        |]
+        |> DoseRuleLoader.fromData routes [||] [| tablet; capsule |]
+        |> fst
+
+
+    /// The dose rules over both forms with the link rules of the sheet; no rule sets and no totals data.
+    type TwoForms() =
+        inherit OrderPlanTests.RulesOf(twoFormRules)
+
+        interface Resources.IResourceProvider with
+            member _.Get(key: Resources.ResourceKey<'T>) : 'T =
+                if key.Name = Resources.Keys.linkRules.Name then
+                    unbox<'T>(box (linkRules sheetRows))
+                elif key.Name = Resources.Keys.standAloneDoseRules.Name then
+                    unbox<'T>(box (twoFormRules |> LinkRule.standAlone routes (linkRules sheetRows)))
+                elif key.Name = Resources.Keys.ruleSetData.Name then
+                    unbox<'T>(box Array.empty<RuleSetData>)
+                else
+                    raise (System.NotImplementedException())
+
+            member _.GetDoseRules() = twoFormRules
+            member _.GetRouteMappings() = routes
+            member _.GetTotals() = [||]
+
+
+    let twoForms = TwoForms() :> Resources.IResourceProvider
+
+
+    let twoFormsPort = ServerApi.Adapters.makeAppEnv twoForms
+
+
+    let evaluatedOver cmd pc =
+        async {
+            match! pc |> twoFormsPort.orderContext.evaluate cmd with
+            | Ok(Evaluated pc) -> return pc
+            | other -> return failtest $"expected an evaluated context, got %A{other}"
+        }
+
+
+    /// The offer of 13:00 of the oral dose of 7:00 as a tablet; the offer has both forms.
+    let offerOf13 =
+        async {
+            let! pc =
+                hydrocortison twoForms
+                |> PlanContext.create "" OrderCategory.Medication
+                |> evaluatedOver OrderContext.UpdateOrderContext
+
+            let! main =
+                { pc with
+                    Context =
+                        { pc.Context with
+                            OrderContext.Filter.Form = Some "tablet"
+                            OrderContext.Filter.DoseType = Some(DoseType.Discontinuous "week 1 7:00 uur")
+                        }
+                }
+                |> evaluatedOver OrderContext.UpdateOrderContext
+
+            match! twoFormsPort.orderContext.linkedOrders main with
+            | Ok offers ->
+                return
+                    offers
+                    |> Array.tryFind (fun pc -> pc.Context.Filter.DoseTypes |> texts = [| "week 1 13:00 uur" |])
+                    |> Option.defaultWith (fun () -> failtest "no offer of 13:00")
+            | Error errs -> return failtest $"expected offers, got %A{errs}"
+        }
+
+
+    let formCommand n ctx =
+        OrderContext.ChangeFilter(ctx, OrderCategory.Medication, FilterField.Form, n)
+
+
 open Fixtures
+open TwoForms
 
 
 [<Tests>]
@@ -183,14 +382,14 @@ let tests =
                 [
                     test "a linked order that needs its main order is not offered: only 7:00" {
                         provider sheetRows
-                        |> ServerApi.Adapters.withStandAloneDoseRules
+                        |> ofHydrocortison
                         |> offeredDoseTypes
                         |> Expect.equal "7:00" [| "week 1 7:00 uur" |]
                     }
 
                     test "a linked order that can also be ordered on its own is offered: 7:00 and 18:00" {
                         provider standAloneRows
-                        |> ServerApi.Adapters.withStandAloneDoseRules
+                        |> ofHydrocortison
                         |> offeredDoseTypes
                         |> Expect.equal "7:00 and 18:00" [| "week 1 7:00 uur"; "week 1 18:00 uur" |]
                     }
@@ -225,7 +424,7 @@ let tests =
                             None
                         )
                         :> Resources.IResourceProvider)
-                        |> ServerApi.Adapters.withStandAloneDoseRules
+                        |> ServerApi.Adapters.withDoseRulesOf (hydrocortison (provider sheetRows))
                         |> _.GetDoseRules()
                         |> Expect.isEmpty "none"
                     }
@@ -234,6 +433,114 @@ let tests =
                         provider sheetRows
                         |> offeredDoseTypes
                         |> Expect.equal "all three" [| "week 1 7:00 uur"; "week 1 13:00 uur"; "week 1 18:00 uur" |]
+                    }
+                ]
+
+            testList
+                "Adapters.doseRulesOf"
+                [
+                    test "the context with the generic picked has the stand-alone dose rules: only 7:00" {
+                        hydrocortison (provider sheetRows)
+                        |> ServerApi.Adapters.doseRulesOf (provider sheetRows)
+                        |> doseTexts
+                        |> Expect.equal "7:00" [| "week 1 7:00 uur" |]
+                    }
+
+                    test "an offer of 13:00 has the stand-alone dose rules and the dose rule of 13:00" {
+                        { hydrocortison (provider sheetRows) with
+                            OrderContext.Filter.DoseTypes = [| DoseType.Discontinuous "week 1 13:00 uur" |]
+                        }
+                        |> ServerApi.Adapters.doseRulesOf (provider sheetRows)
+                        |> doseTexts
+                        |> Expect.equal "7:00 and 13:00" [| "week 1 7:00 uur"; "week 1 13:00 uur" |]
+                    }
+                ]
+
+            testList
+                "a dose that needs a main order, seeded on the medication workbench"
+                [
+                    test "a pick of 13:00 over the list of 7:00 has the stand-alone dose rules: only 7:00" {
+                        { hydrocortison (provider sheetRows) with
+                            OrderContext.Filter.DoseTypes = [| DoseType.Discontinuous "week 1 7:00 uur" |]
+                            OrderContext.Filter.DoseType = Some(DoseType.Discontinuous "week 1 13:00 uur")
+                        }
+                        |> ServerApi.Adapters.doseRulesOf (provider sheetRows)
+                        |> doseTexts
+                        |> Expect.equal "7:00" [| "week 1 7:00 uur" |]
+                    }
+
+                    testAsync "a formulary seed of 13:00 is refused" {
+                        let! wb = workbench
+                        let! refused = wb |> isRefused formularySeed
+
+                        refused |> Expect.isTrue "refused"
+                    }
+
+                    testAsync "the next command on the refused context is refused as well" {
+                        let! wb = workbench
+                        let! seeded = wb |> answered formularySeed
+                        let! refused = seeded |> isRefused OrderContext.UpdateOrderContext
+
+                        refused |> Expect.isTrue "refused"
+                    }
+                ]
+
+            testList
+                "a linked offer through the order context port"
+                [
+                    testAsync "the offer of 13:00 comes with its scenario" {
+                        let! offer = offerOf "week 1 13:00 uur"
+
+                        offer.Context.Scenarios |> Array.length |> Expect.equal "one scenario" 1
+                    }
+
+                    testAsync "a command on the offer of 13:00 keeps its dose and its scenarios" {
+                        let! offer = offerOf "week 1 13:00 uur"
+                        let! pc = offer |> evaluated OrderContext.UpdateOrderContext
+
+                        pc.Context.Filter.DoseType
+                        |> Option.map DoseType.getText
+                        |> Expect.equal "13:00" (Some "week 1 13:00 uur")
+
+                        pc.Context.Scenarios
+                        |> Array.length
+                        |> Expect.equal "its scenarios" offer.Context.Scenarios.Length
+                    }
+
+                    testAsync "a dose step on the offer of 13:00 keeps its dose and its one scenario" {
+                        let! offer = offerOf "week 1 13:00 uur"
+                        let! pc = offer |> evaluated OrderContext.SetMaxOrderableDoseQuantityProperty
+
+                        pc.Context.Filter.DoseType
+                        |> Option.map DoseType.getText
+                        |> Expect.equal "13:00" (Some "week 1 13:00 uur")
+
+                        pc.Context.Scenarios |> Array.length |> Expect.equal "one scenario" 1
+                    }
+                ]
+
+            testList
+                "the form of an offer whose dose has two forms"
+                [
+                    testAsync "the offer of 13:00 lists both forms" {
+                        let! offer = offerOf13
+
+                        offer.Context.Filter.Forms |> Expect.equal "both" [| "capsule"; "tablet" |]
+                    }
+
+                    testAsync "a pick of the form lists that form only" {
+                        let! offer = offerOf13
+                        let! picked = offer |> evaluatedOver (formCommand (Some 0))
+
+                        picked.Context.Filter.Forms |> Expect.equal "capsule" [| "capsule" |]
+                    }
+
+                    testAsync "a clear of the picked form lists both forms again" {
+                        let! offer = offerOf13
+                        let! picked = offer |> evaluatedOver (formCommand (Some 0))
+                        let! cleared = picked |> evaluatedOver (formCommand None)
+
+                        cleared.Context.Filter.Forms |> Expect.equal "both" [| "capsule"; "tablet" |]
                     }
                 ]
         ]

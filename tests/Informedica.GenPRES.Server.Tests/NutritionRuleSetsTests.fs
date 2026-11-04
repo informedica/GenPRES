@@ -260,7 +260,8 @@ module LinkedOffers =
 
     /// An evaluation that offers the generics given when none is picked and every dose type above, and
     /// writes the label of the rule set it was given into the argumentation, so that a test can read it.
-    /// A context whose generic is "refused" is refused.
+    /// A list of one dose type is kept, as the rule lookup reads it as the pick. A context whose generic
+    /// is "refused" is refused.
     let evaluateWith generics (set: NutritionRuleSet option) (pc: PlanContext) =
         let f = pc.Context.Filter
 
@@ -271,7 +272,7 @@ module LinkedOffers =
                         Filter =
                             { f with
                                 Generics = f.Generic |> Option.map Array.singleton |> Option.defaultValue generics
-                                DoseTypes = doseTypes
+                                DoseTypes = if f.DoseTypes.Length = 1 then f.DoseTypes else doseTypes
                             }
                         Argumentation = set |> Option.map _.Label
                     }
