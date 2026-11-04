@@ -1271,8 +1271,9 @@ module Models =
                 Filter = filter
                 Patient = Patient.empty
                 Scenarios = [||]
-                Intake = Totals.empty
+                Totals = Totals.empty
                 Argumentation = None
+                LinkedTo = None
             }
 
         let setPatient pat ctx : OrderContext = { ctx with Patient = pat }

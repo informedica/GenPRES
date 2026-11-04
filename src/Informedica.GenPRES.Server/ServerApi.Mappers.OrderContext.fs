@@ -285,7 +285,7 @@ module OrderContextMapper =
 
 
     /// Total: the contract model's order context as the plan context's Dto, nothing dropped,
-    /// the argumentation as written.
+    /// the argumentation and the link as written.
     let ofModel (ctx: OrderContext) : PlanContextDto.Dto =
         {
             Id = ctx.Id
@@ -297,15 +297,14 @@ module OrderContextMapper =
                     Scenarios = ctx.Scenarios |> Array.mapi scenario
                     Argumentation = ctx.Argumentation
                 }
-            Totals = ctx.Intake |> totals
-            // the wire carries no link yet
-            LinkedTo = None
+            Totals = ctx.Totals |> totals
+            LinkedTo = ctx.LinkedTo
         }
 
 
     /// The plan context's Dto as the contract model's order context, built from the Dto alone;
     /// the demo flag is the server's. A category string the Dto does not write shows as a medication;
-    /// the argumentation is the Dto's, none when it has none.
+    /// the argumentation and the link are the Dto's, each none when the Dto has none.
     let toModel (demo: bool) (dto: PlanContextDto.Dto) : OrderContext =
         {
             Id = dto.Id
@@ -318,8 +317,9 @@ module OrderContextMapper =
             Filter = dto.Context.Filter |> filterBack
             Patient = dto.Context.Patient |> Patient.toModel
             Scenarios = dto.Context.Scenarios |> Array.map scenarioBack
-            Intake = dto.Totals |> totalsBack
+            Totals = dto.Totals |> totalsBack
             Argumentation = dto.Context.Argumentation
+            LinkedTo = dto.LinkedTo
         }
 
 

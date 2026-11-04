@@ -69,12 +69,40 @@ let context: OrderContext =
             }
         Patient = StubPatientData.patient
         Scenarios = [| scenario |]
-        Intake =
+        Totals =
             { Informedica.GenPRES.Shared.Models.Totals.empty with
                 Volume = [| Normal "100 ml" |]
                 Energy = [| Bold "50 kcal"; Normal "/dag" |]
             }
     }
+
+
+/// A main order and a supplement linked to it, as the contract model carries them, and a plan Dto
+/// built from contexts by the mapper.
+module LinkFixtures =
+
+    let main =
+        { context with
+            Id = "c-1"
+            Category = OrderCategory.Medication
+        }
+
+
+    let linked =
+        { context with
+            Id = "c-2"
+            Category = OrderCategory.Nutrition NutritionCategory.EnteralSupplement
+            LinkedTo = Some "c-1"
+        }
+
+
+    let planDto (contexts: OrderContext[]) : OrderPlan.Dto.Dto =
+        {
+            Patient = context.Patient |> ServerApi.Patient.ofModel
+            Filtered = [||]
+            Contexts = contexts |> Array.map OrderContextMapper.ofModel
+            Totals = Totals.empty |> Totals.Dto.toDto
+        }
 
 
 [<Tests>]
@@ -90,6 +118,43 @@ let tests =
 
                 (context |> OrderContextMapper.ofModel |> OrderContextMapper.toModel true).DemoVersion
                 |> Expect.isTrue "demo as the server says"
+            }
+
+            for link in [ Some "c-0"; None ] do
+                test $"the link %A{link} goes to the Dto and back" {
+                    let linked = { context with LinkedTo = link }
+                    let dto = linked |> OrderContextMapper.ofModel
+
+                    dto.LinkedTo |> Expect.equal "the Dto carries the link" link
+
+                    dto
+                    |> OrderContextMapper.toModel false
+                    |> Expect.equal "the same context" linked
+                }
+
+            test "the domain reads the link the mapper writes in a context" {
+                LinkFixtures.linked
+                |> OrderContextMapper.ofModel
+                |> PlanContext.Dto.fromDto
+                |> Result.map _.LinkedTo
+                |> Expect.equal "the main order's id" (Ok(Some "c-1"))
+            }
+
+            test "the domain reads the links the mapper writes in a plan" {
+                [| LinkFixtures.main; LinkFixtures.linked |]
+                |> LinkFixtures.planDto
+                |> OrderPlan.Dto.fromDto
+                |> Result.map (_.Contexts >> Array.map (fun c -> c.Id, c.LinkedTo))
+                |> Expect.equal "the links" (Ok [| "c-1", None; "c-2", Some "c-1" |])
+            }
+
+            test "a plan from the wire with a link to a context not in it is refused" {
+                [| LinkFixtures.main; { LinkFixtures.linked with LinkedTo = Some "c-gone" } |]
+                |> LinkFixtures.planDto
+                |> OrderPlan.Dto.fromDto
+                |> Expect.equal
+                    "the broken link"
+                    (Error [ DtoError.BrokenLink("c-2", LinkError.NoSuchMainOrder "c-gone") ])
             }
 
             for access in [ Some CVL; Some PVL; Some EnteralTube; None ] do
