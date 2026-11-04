@@ -463,20 +463,21 @@ module OrderPlan =
 
 
     /// The context removed with every context linked to it, each with its order, and gone from
-    /// the filter. A feeding also takes every supplement without a link: a supplement added
-    /// without a main order belongs to the feeding of the plan, until step 10 of plan 1612 links
-    /// every supplement.
+    /// the filter. A feeding that goes, named or linked to the context named, also takes every
+    /// supplement without a link: a supplement added without a main order belongs to the feeding of
+    /// the plan, until step 10 of plan 1612 links every supplement.
     let removeOrderContext id (plan: OrderPlan) =
+        let direct (c: PlanContext) = c.Id = id || c.LinkedTo = Some id
+
         let feeding =
             plan.Contexts
             |> Array.exists (fun c ->
-                c.Id = id
+                direct c
                 && c.Category = OrderCategory.Nutrition NutritionCategory.EnteralFeeding
             )
 
         let goes (c: PlanContext) =
-            c.Id = id
-            || c.LinkedTo = Some id
+            direct c
             || (feeding
                 && c.LinkedTo.IsNone
                 && c.Category = OrderCategory.Nutrition NutritionCategory.EnteralSupplement)

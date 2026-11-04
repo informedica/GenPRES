@@ -429,7 +429,7 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
    nutrition category with `admits`, the link reasons are a `LinkError` of their own,
    `OrderContext.intake` and `intakeFor` are renamed `contextTotals` and `contextTotalsFor`, and
    `OrderCategory.Drug` is renamed `Medication` in the domain and on the wire, its string
-   "medication" in the stored JSON of version 13. The step takes 244 lines of `src/`, over the
+   "medication" in the stored JSON of version 13. The step takes 249 lines of `src/`, over the
    limit of 200, as one pull request. Decision, 2026-11-04, halcwb. Script
    `src/Informedica.GenORDER.Lib/Scripts/LinkedOrders.fsx`. Seen: nothing new; a plan signed before
    the step shows as unreadable.

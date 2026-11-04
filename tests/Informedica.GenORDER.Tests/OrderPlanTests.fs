@@ -2542,6 +2542,34 @@ let linkTests =
                         |> Expect.equal "the medication and the tpn stay" [| "c-d"; "c-t" |]
                     }
 
+                    test "a feeding that goes through its link takes every supplement without a link" {
+                        { plan
+                              [|
+                                  medication "c-m" "o-m"
+                                  feeding "c-f" |> linked "c-m"
+                                  supplement "c-s"
+                                  medication "c-x" "o-x"
+                              |] with
+                            Filtered = [| "c-m"; "c-f"; "c-s"; "c-x" |]
+                        }
+                        |> OrderPlan.removeOrderContext "c-m"
+                        |> fun p -> ids p, p.Filtered
+                        |> Expect.equal "the other medication alone" ([| "c-x" |], [| "c-x" |])
+                    }
+
+                    test "a medication without a linked feeding leaves the supplements alone" {
+                        plan
+                            [|
+                                medication "c-m" "o-m"
+                                medication "c-a" "o-a" |> linked "c-m"
+                                feeding "c-f"
+                                supplement "c-s"
+                            |]
+                        |> OrderPlan.removeOrderContext "c-m"
+                        |> ids
+                        |> Expect.equal "the feeding and its supplement stay" [| "c-f"; "c-s" |]
+                    }
+
                     test "the orders gone leave the filter" {
                         { plan
                               [|
