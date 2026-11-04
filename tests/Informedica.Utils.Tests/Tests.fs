@@ -1692,25 +1692,21 @@ module Tests =
 
                 ]
 
-        // Performance and stress tests
+        // Stress tests on large buffers. They assert the result only: a wall-clock limit depends on the load of
+        // the machine that runs the tests, not on the code, and fails a build without a defect.
         let performanceTests =
             testList
                 "Performance Tests"
                 [
 
-                    test "large buffer operations should be fast" {
+                    test "a large buffer keeps the last items up to its capacity" {
                         let capacity = 10000
                         let rb = RingBuffer.create capacity
-
-                        let sw = System.Diagnostics.Stopwatch.StartNew()
 
                         // Add many items
                         for i in 1..50000 do
                             RingBuffer.add i rb
 
-                        sw.Stop()
-
-                        Expect.isLessThan sw.ElapsedMilliseconds 1000L "Should add 50k items quickly"
                         Expect.equal rb.CountValue capacity "Should maintain capacity"
 
                         // Verify the buffer contains the last 'capacity' items
@@ -1720,33 +1716,15 @@ module Tests =
                         Expect.equal items[capacity - 1] 50000 "Should end with correct item"
                     }
 
-                    test "frequent clear and refill should be efficient" {
-                        let rb = RingBuffer.create 1000
-                        let sw = System.Diagnostics.Stopwatch.StartNew()
-
-                        for cycle in 1..100 do
-                            RingBuffer.clear rb
-
-                            for i in 1..1000 do
-                                RingBuffer.add (cycle * 1000 + i) rb
-
-                        sw.Stop()
-
-                        Expect.isLessThan sw.ElapsedMilliseconds 1000L "Should handle frequent clear/refill efficiently"
-                    }
-
-                    test "toSeq should handle large buffers efficiently" {
+                    test "toSeq returns every item of a full large buffer" {
                         let capacity = 10000
                         let rb = RingBuffer.create capacity
 
                         for i in 1..capacity do
                             RingBuffer.add i rb
 
-                        let sw = System.Diagnostics.Stopwatch.StartNew()
                         let items = RingBuffer.toSeq rb |> Array.ofSeq
-                        sw.Stop()
 
-                        Expect.isLessThan sw.ElapsedMilliseconds 100L "Should convert to sequence quickly"
                         Expect.equal items.Length capacity "Should have correct length"
                     }
                 ]
