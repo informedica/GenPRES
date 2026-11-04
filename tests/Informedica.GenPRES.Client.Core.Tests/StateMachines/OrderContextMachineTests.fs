@@ -27,7 +27,7 @@ module Fixtures =
     let otherDraft = { draft with Department = Some "other" }
     let other = otherDraft |> asPatient
 
-    let empty = OrderContextState.emptyFor patient
+    let empty = OrderContextState.emptyMedication patient
 
     let paracetamol = { empty with OrderContext.Filter.Generic = Some "paracetamol" }
 
@@ -66,7 +66,7 @@ module Fixtures =
     /// answer.
     let patientChanged pat request =
         [
-            callContext (OrderViewCommand.ClearAllFilterProperty, OrderContextState.emptyFor pat, request)
+            callContext (OrderViewCommand.ClearAllFilterProperty, OrderContextState.emptyMedication pat, request)
         ]
 
     /// A command over a context: the call; the pages follow its answer.
@@ -121,7 +121,7 @@ let tests =
                         "a patient changed clears the selection and evaluates the empty workbench; a failure stays empty, for the new patient" {
                         let state, effects = transition (OrderContextMsg.PatientDataChanged(Some other, "r-2")) shown
 
-                        let cleared = OrderContextState.emptyFor other
+                        let cleared = OrderContextState.emptyMedication other
 
                         OrderContextState.view state
                         |> Expect.equal "nothing of the selection shows" (OrderContextView.Changing cleared)
@@ -160,7 +160,7 @@ let tests =
                         (OrderContextState.view waiting, effects)
                         |> Expect.equal "no workbench, nothing sent" (OrderContextView.NoPatient, [])
 
-                        let emptyForOther = OrderContextState.emptyFor other
+                        let emptyForOther = OrderContextState.emptyMedication other
                         let cmd = FilterSeed.command urlSeed
 
                         transition (OrderContextMsg.PatientDataChanged(Some other, "r-2")) waiting
@@ -583,7 +583,7 @@ let refusalTests =
                 |> view
                 |> Expect.equal
                     "changing for the other patient"
-                    (OrderContextView.Changing(OrderContextState.emptyFor other))
+                    (OrderContextView.Changing(OrderContextState.emptyMedication other))
 
                 transition (OrderContextMsg.SeedFilter(urlSeed, "r-2")) shown
                 |> fst

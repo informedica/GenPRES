@@ -404,19 +404,16 @@ module private Effects =
         | _ -> Cmd.none
 
 
-    /// What an order-context effect sends out of the client. A workbench call
-    /// answers under the request it was sent for; the notice rides on the reply to the Session; a
-    /// transport failure is an Error answer.
-    let workbench (effect: OrderContextEffect) opened : Cmd<Msg> =
+    /// What an effect of an order context, the workbench or a nutrition slot, sends out of the client. A
+    /// call answers to the lane it came from, under the request it was sent for; the notice rides on the
+    /// reply to the Session; a transport failure is an Error answer.
+    let orderContext toLane name (effect: OrderContextEffect) opened : Cmd<Msg> =
         match effect with
         | OrderContextEffect.CallContext(cmd, request) ->
             opened
-            |> underSession
-                serverApi.processOrderContext
-                cmd
-                (fun r -> LanesMsg.Workbench(OrderContextMsg.Answered(request, r)))
+            |> underSession serverApi.processOrderContext cmd (fun r -> toLane (OrderContextMsg.Answered(request, r)))
         | OrderContextEffect.TellError errs ->
-            Logging.warning "order context error" errs
+            Logging.warning $"%s{name} error" errs
             Cmd.none
         | _ -> Cmd.none
 
@@ -444,7 +441,10 @@ module private Effects =
         match effect with
         | Client.ClientEffect.Lanes(LanesEffect.Signing e) -> opened |> signing e
         | Client.ClientEffect.Lanes(LanesEffect.Patient e) -> opened |> patient e
-        | Client.ClientEffect.Lanes(LanesEffect.Workbench e) -> opened |> workbench e
+        | Client.ClientEffect.Lanes(LanesEffect.Workbench e) ->
+            opened |> orderContext LanesMsg.Workbench "order context" e
+        | Client.ClientEffect.Lanes(LanesEffect.Slot(id, e)) ->
+            opened |> orderContext (fun m -> LanesMsg.Slot(id, m)) "nutrition slot" e
         | Client.ClientEffect.Lanes(LanesEffect.Plan e) -> opened |> plan e
         | Client.ClientEffect.Lanes(LanesEffect.Session e) -> session e
         | Client.ClientEffect.Loader e -> opened |> loader e

@@ -1148,6 +1148,10 @@ module Trail =
     /// A step of the order context machine.
     let orderContext = step "OrderContext" OrderContext.msg OrderContext.effect OrderContext.state
 
+    /// A step of the order context machine of the nutrition slot with the id.
+    let slot id =
+        step $"Slot %s{id}" OrderContext.msg OrderContext.effect OrderContext.state
+
     /// A step of the patient machine.
     let patient = step "Patient" Patient.msg Patient.effect Patient.state
 
@@ -1169,6 +1173,7 @@ module Trail =
         | Lanes.LanesStep.Patient(msg, state, effects) -> patient no at msg (state, effects)
         | Lanes.LanesStep.Plan(msg, state, effects) -> orderPlan no at msg (state, effects)
         | Lanes.LanesStep.Workbench(msg, state, effects) -> orderContext no at msg (state, effects)
+        | Lanes.LanesStep.Slot(id, msg, state, effects) -> slot id no at msg (state, effects)
         | Lanes.LanesStep.StartedOver state -> startedOver no at "the url moved on" state
 
 

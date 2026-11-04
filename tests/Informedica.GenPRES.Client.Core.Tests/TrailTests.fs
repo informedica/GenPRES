@@ -98,7 +98,7 @@ let tests =
                         DoseType = None
                     }
 
-                let held = OrderContextState.held pat (OrderContextState.emptyFor pat)
+                let held = OrderContextState.held pat (OrderContextState.emptyMedication pat)
                 let msg = OrderContextMsg.SeedFilter(seed, "r-1")
 
                 Trail.orderContext 3 at msg (held |> OrderContextState.transition msg)

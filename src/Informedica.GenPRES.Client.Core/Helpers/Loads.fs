@@ -34,6 +34,8 @@ module Loads =
         | Patient
         /// A workbench request.
         | Workbench
+        /// A request of any nutrition slot.
+        | Slots
         /// A plan request.
         | Plan
         /// No request but a plan that has to follow the patient data: everything waits for the

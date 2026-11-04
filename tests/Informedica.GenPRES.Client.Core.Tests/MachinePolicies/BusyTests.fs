@@ -60,7 +60,8 @@ let idle loads =
     OutPolicy.out
         false
         noPatientChange
-        (OrderContextState.held patient (OrderContextState.emptyFor patient))
+        (OrderContextState.held patient (OrderContextState.emptyMedication patient))
+        Map.empty
         shown
         SessionState.anonymous
         SigningState.idle
@@ -91,19 +92,29 @@ let tests =
                     false
                     patientChanging
                     OrderContextState.noPatient
+                    Map.empty
                     shown
                     SessionState.anonymous
                     SigningState.idle
                     []
                 |> Expect.equal "the patient" [ Request.Patient ]
 
-                OutPolicy.out false noPatientChange workbench shown SessionState.anonymous SigningState.idle []
+                OutPolicy.out
+                    false
+                    noPatientChange
+                    workbench
+                    Map.empty
+                    shown
+                    SessionState.anonymous
+                    SigningState.idle
+                    []
                 |> Expect.equal "the workbench" [ Request.Workbench ]
 
                 OutPolicy.out
                     false
                     noPatientChange
                     OrderContextState.noPatient
+                    Map.empty
                     plan
                     SessionState.anonymous
                     SigningState.idle
@@ -114,13 +125,22 @@ let tests =
                     false
                     noPatientChange
                     OrderContextState.noPatient
+                    Map.empty
                     shown
                     SessionState.resuming
                     SigningState.idle
                     []
                 |> Expect.equal "the Session" [ Request.Session ]
 
-                OutPolicy.out false noPatientChange OrderContextState.noPatient shown SessionState.anonymous signing []
+                OutPolicy.out
+                    false
+                    noPatientChange
+                    OrderContextState.noPatient
+                    Map.empty
+                    shown
+                    SessionState.anonymous
+                    signing
+                    []
                 |> Expect.equal "the signature" [ Request.Signature ]
 
                 let refreshing =
@@ -128,7 +148,15 @@ let tests =
                     |> SessionState.transition SessionMsg.RefreshPatient
                     |> fst
 
-                OutPolicy.out false noPatientChange OrderContextState.noPatient shown refreshing SigningState.idle []
+                OutPolicy.out
+                    false
+                    noPatientChange
+                    OrderContextState.noPatient
+                    Map.empty
+                    shown
+                    refreshing
+                    SigningState.idle
+                    []
                 |> Expect.equal "a refresh" [ Request.Session ]
             }
 
@@ -153,6 +181,7 @@ let tests =
                             false
                             noPatientChange
                             OrderContextState.noPatient
+                            Map.empty
                             shown
                             SessionState.anonymous
                             signing
@@ -171,6 +200,7 @@ let tests =
                         false
                         noPatientChange
                         (OrderContextState.opening patient "w-1")
+                        Map.empty
                         shown
                         SessionState.anonymous
                         SigningState.idle
@@ -185,6 +215,7 @@ let tests =
                         false
                         noPatientChange
                         OrderContextState.noPatient
+                        Map.empty
                         (recalculating one None "p-1" (OrderPlanCommand.FilterRows([||], one)))
                         SessionState.anonymous
                         SigningState.idle
@@ -204,6 +235,7 @@ let tests =
                         false
                         patientChanging
                         OrderContextState.noPatient
+                        Map.empty
                         shown
                         SessionState.anonymous
                         SigningState.idle
@@ -219,6 +251,7 @@ let tests =
                         true
                         noPatientChange
                         OrderContextState.noPatient
+                        Map.empty
                         shown
                         SessionState.anonymous
                         SigningState.idle

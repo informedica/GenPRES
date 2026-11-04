@@ -188,7 +188,7 @@ let tests =
                                 Lanes =
                                     { Lanes.initial (Some draft) with
                                         OrderContext =
-                                            OrderContextState.held patient (OrderContextState.emptyFor patient)
+                                            OrderContextState.held patient (OrderContextState.emptyMedication patient)
                                     }
                             }
                             |> play
@@ -219,7 +219,7 @@ let tests =
                                 )
 
                             let ctx =
-                                { OrderContextState.emptyFor patient with
+                                { OrderContextState.emptyMedication patient with
                                     Filter =
                                         { OrderContext.empty.Filter with
                                             Generic = Some "paracetamol"
