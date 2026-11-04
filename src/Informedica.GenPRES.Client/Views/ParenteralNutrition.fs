@@ -385,7 +385,12 @@ module ParenteralNutrition =
             |> List.choose (fun slot -> contextOf slot |> Option.map (fun ctx -> slot, ctx))
             |> List.filter (snd >> isOneOf parenteral)
 
-        let contexts = slotsShown |> List.map snd |> List.toArray
+        // the print shows the parenteral orders of the plan, then the slots on the page, with the totals the
+        // page shows, which count the slots narrowed to one order
+        let printed =
+            Array.append
+                (plan.OrderContexts |> Array.filter (isOneOf parenteral))
+                (slotsShown |> List.map snd |> List.toArray)
 
         // a slot whose prescribe is under way takes nothing, its bin included
         let slotOf (slot: Informedica.GenPRES.Client.Core.Client.SlotView, nc: OrderContext) =
@@ -419,14 +424,19 @@ module ParenteralNutrition =
                     |}
             )
 
-        let printDisabled = contexts |> Array.isEmpty
+        let printDisabled = printed |> Array.isEmpty
 
         let printDialog =
             if printOpen then
-                // the print shows the slots on the page
+                let totals = props.nutrition.Totals |> Option.defaultValue plan.Totals
+
                 ParenteralPrint.View
                     {|
-                        plan = { plan with OrderContexts = contexts }
+                        plan =
+                            { plan with
+                                OrderContexts = printed
+                                Totals = totals
+                            }
                         onClose = fun () -> setPrintOpen false
                     |}
             else
