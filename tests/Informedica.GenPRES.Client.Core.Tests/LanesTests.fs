@@ -1044,7 +1044,8 @@ let tests =
             test "the prescribe click: the order into the plan and the plan page opened, the workbench untouched" {
                 let lanes = twoOrdersOnWorkbench ()
 
-                let after, effects, steps = lanes |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-2", "r-1"))
+                let after, effects, steps =
+                    lanes |> Lanes.transition (counter ()) (LanesMsg.Prescribe(None, "o-2", "r-1"))
 
                 steps
                 |> List.choose (
@@ -1065,7 +1066,7 @@ let tests =
                 |> Expect.isSome "the order is still on the workbench"
 
                 lanes
-                |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-9", "r-1"))
+                |> Lanes.transition (counter ()) (LanesMsg.Prescribe(None, "o-9", "r-1"))
                 |> fun (_, effects, steps) -> effects, steps
                 |> Expect.equal "nothing for an order the workbench does not show" ([], [])
             }
@@ -1079,7 +1080,8 @@ let tests =
                         OrderContext = OrderContextState.held patient workbench
                     }
 
-                let after, effects, steps = lanes |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-1", "r-1"))
+                let after, effects, steps =
+                    lanes |> Lanes.transition (counter ()) (LanesMsg.Prescribe(None, "o-1", "r-1"))
 
                 steps
                 |> List.exists (
@@ -1101,7 +1103,7 @@ let tests =
             test "a prescription that fails: the plan as before, the workbench narrowed to the order, no reset" {
                 let clicked, _, _ =
                     twoOrdersOnWorkbench ()
-                    |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-2", "r-1"))
+                    |> Lanes.transition (counter ()) (LanesMsg.Prescribe(None, "o-2", "r-1"))
 
                 let after, effects, steps =
                     clicked
@@ -1128,7 +1130,7 @@ let tests =
                 |> Expect.isSome "the order is still on the workbench"
 
                 after
-                |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-2", "r-2"))
+                |> Lanes.transition (counter ()) (LanesMsg.Prescribe(None, "o-2", "r-2"))
                 |> fun (_, effects, _) -> planRequest effects
                 |> Expect.equal "the retry is the same click" (Some "r-2")
             }
@@ -1136,7 +1138,7 @@ let tests =
             test "a prescription that lands: the plan, then the workbench reset, in the transition of the answer" {
                 let clicked, _, _ =
                     twoOrdersOnWorkbench ()
-                    |> Lanes.transition (counter ()) (LanesMsg.Prescribe("o-2", "r-1"))
+                    |> Lanes.transition (counter ()) (LanesMsg.Prescribe(None, "o-2", "r-1"))
 
                 let after, effects, steps =
                     clicked
@@ -1379,5 +1381,129 @@ let slotLaneTests =
                     | _ -> None
                 )
                 |> Expect.equal "medication" [ OrderCategory.Medication ]
+            }
+        ]
+
+
+/// The workbench and a nutrition slot prescribed into the plan.
+module SlotPrescribeFixtures =
+
+    let twoOrders name =
+        { context "" name with Scenarios = [| scenario "o-1" name; scenario "o-2" name |] }
+
+
+    /// The plan shown, the workbench with two paracetamol orders and the slot s-1 with two TPN orders.
+    let prescribing =
+        { Lanes.initial (Some draft) with
+            OrderPlan = shown
+            OrderContext = OrderContextState.held patient (twoOrders "paracetamol")
+            Slots = Map [ "s-1", OrderContextState.held patient (twoOrders "TPN") ]
+        }
+
+
+    /// The contexts added to the plan by the steps taken: the context id and the order ids.
+    let added steps =
+        steps
+        |> List.choose (
+            function
+            | LanesStep.Plan(OrderPlanMsg.Change(OrderPlanChange.Add ctx, _), _, _) ->
+                Some(ctx.Id, ctx.Scenarios |> Array.map _.Order.Id)
+            | _ -> None
+        )
+
+
+open SlotPrescribeFixtures
+
+
+[<Tests>]
+let slotPrescribeTests =
+    testList
+        "the slot prescribe"
+        [
+            test "a slot is prescribed with its slot id, and the nutrition page stays" {
+                let _, effects, steps =
+                    prescribing
+                    |> Lanes.transition (counter ()) (LanesMsg.Prescribe(Some "s-1", "o-2", "r-1"))
+
+                steps |> added |> Expect.equal "the TPN order o-2 of s-1" [ "s-1", [| "o-2" |] ]
+                effects
+                |> List.contains LanesEffect.GoToPlanPage
+                |> Expect.isFalse "no page switch"
+            }
+
+            test "the workbench is prescribed with an empty id, and the plan page opens" {
+                let _, effects, steps =
+                    prescribing
+                    |> Lanes.transition (counter ()) (LanesMsg.Prescribe(None, "o-2", "r-1"))
+
+                steps |> added |> Expect.equal "the paracetamol order o-2" [ "", [| "o-2" |] ]
+                effects
+                |> List.last
+                |> Expect.equal "the plan page opened" LanesEffect.GoToPlanPage
+            }
+
+            test "nothing is added for an order the slot does not show, or a slot that is gone" {
+                prescribing
+                |> Lanes.transition (counter ()) (LanesMsg.Prescribe(Some "s-1", "o-9", "r-1"))
+                |> fun (_, effects, steps) -> effects, steps
+                |> Expect.equal "not shown" ([], [])
+
+                prescribing
+                |> Lanes.transition (counter ()) (LanesMsg.Prescribe(Some "s-9", "o-2", "r-1"))
+                |> fun (_, effects, steps) -> effects, steps
+                |> Expect.equal "no slot" ([], [])
+            }
+
+            test "the answer to an add names the context sent" {
+                let slot = { context "s-1" "TPN" with Category = OrderCategory.Nutrition NutritionCategory.TPN }
+                let busy = recalculating one None "r-1" (OrderPlanCommand.AddOrderContext(one, slot, [||]))
+
+                transition (OrderPlanMsg.Answered("r-1", Ok two)) busy
+                |> snd
+                |> List.contains (OrderPlanEffect.OrderAdded(Some "s-1"))
+                |> Expect.isTrue "the slot s-1"
+            }
+
+            test "the order added empties the context it came from" {
+                LanesEffect.Plan(OrderPlanEffect.OrderAdded(Some "s-1"))
+                |> Lanes.route (fun () -> "r-2") prescribing
+                |> Expect.equal "the slot" [ LanesMsg.Slot("s-1", OrderContextMsg.Reset "r-2") ]
+
+                LanesEffect.Plan(OrderPlanEffect.OrderAdded None)
+                |> Lanes.route (fun () -> "r-2") prescribing
+                |> Expect.equal "the workbench" [ LanesMsg.Workbench(OrderContextMsg.Reset "r-2") ]
+            }
+
+            test "a slot narrowed to one order is work that leaving the page would lose" {
+                let narrowed = context "s-1" "TPN"
+
+                UnsignedWorkPolicy.hasUnsignedWork
+                    None
+                    [ narrowed ]
+                    SigningMachine.SigningView.Idle
+                    PlanWorkPolicy.PlanWork.AsSigned
+                |> Expect.isTrue "a narrowed slot"
+
+                UnsignedWorkPolicy.hasUnsignedWork
+                    None
+                    [ twoOrders "TPN" ]
+                    SigningMachine.SigningView.Idle
+                    PlanWorkPolicy.PlanWork.AsSigned
+                |> Expect.isFalse "a slot with two orders"
+
+                UnsignedWorkPolicy.hasUnsignedWork
+                    None
+                    []
+                    SigningMachine.SigningView.Idle
+                    PlanWorkPolicy.PlanWork.AsSigned
+                |> Expect.isFalse "no slots"
+            }
+
+            test "another patient asks first when a slot is narrowed to one order" {
+                NewPatientPolicy.asks SessionMachine.SessionView.Anonymous None None [ context "s-1" "TPN" ]
+                |> Expect.isTrue "a narrowed slot"
+
+                NewPatientPolicy.asks SessionMachine.SessionView.Anonymous None None []
+                |> Expect.isFalse "nothing to lose"
             }
         ]

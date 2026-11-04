@@ -128,8 +128,9 @@ module OrderPlanMachine =
         | TellPatientDataChanged of Alert.PatientDataSummary
         /// The plan could not follow the patient data, so the same data can be given again.
         | PatientDataNotFollowed
-        /// An order prescribed landed in the plan, so the workbench can be emptied.
-        | OrderAdded
+        /// An order prescribed landed in the plan, so the context it came from can be emptied: the
+        /// nutrition slot with the id, or the workbench without one.
+        | OrderAdded of slotId: string option
 
 
     /// What the pages read of the OrderPlanState. Pages render Settled and Changing alike, so the
@@ -410,7 +411,9 @@ module OrderPlanMachine =
                                 interactions tp
                             OrderPlanEffect.TellAnswered
                             match sent with
-                            | OrderPlanCommand.AddOrderContext _ -> OrderPlanEffect.OrderAdded
+                            // the workbench's context always goes with the empty id, a slot's with its slot id
+                            | OrderPlanCommand.AddOrderContext(_, ctx, _) ->
+                                OrderPlanEffect.OrderAdded(if ctx.Id = "" then None else Some ctx.Id)
                             | _ -> ()
                             yield!
                                 PatientDataSummaryPolicy.summaryOf sent tp

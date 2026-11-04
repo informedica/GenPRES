@@ -52,9 +52,9 @@ module Lanes =
         /// A server answer with the notice its reply carried, if any: the answer reaches its
         /// machine and the notice the Session.
         | Answer of LanesMsg * from: OpenedToken option * RecordNotice option
-        /// The prescribe click: the workbench narrowed to the order with this id goes into the plan;
-        /// the workbench is emptied once the order has landed.
-        | Prescribe of orderId: string * request: string
+        /// The prescribe click: the workbench, or the nutrition slot with the id, narrowed to the order with
+        /// this id goes into the plan; the workbench or the slot is emptied once the order has landed.
+        | Prescribe of slotId: string option * orderId: string * request: string
         /// The url brought a patient, a medication or a launch. The patient, the workbench, the plan
         /// and the signing are emptied, as when the page loads with this patient, and the Session is
         /// closed. A launch is not part of this message: the App presents it to the Session once its
@@ -210,17 +210,28 @@ module Lanes =
                 let lanes, told, toldTaken = step (LanesMsg.Session(SessionMsg.NoticeReceived(from, notice))) lanes
                 lanes, effects @ told, taken @ toldTaken
             | None -> lanes, effects, taken
-        // nothing to add when the workbench no longer shows the order. The plan page opens at the
-        // click, but only when the order went out: a plan that takes no change now drops it. The
-        // workbench is emptied at the answer, so a failed add leaves the order on it; nothing reaches
-        // the workbench meanwhile, since the plan page is disabled and the menu locked
-        | LanesMsg.Prescribe(orderId, request) ->
-            match lanes.OrderContext |> OrderContextState.narrowedTo orderId with
+        // Nothing is added when the workbench or the slot no longer shows the order. For the workbench the
+        // plan page opens at the click, but only when the order went out. A slot stays on the nutrition
+        // page, so that the next slot can be composed. The context is emptied at the answer, so a failed
+        // add leaves the order on it. Nothing reaches it meanwhile, since a plan request disables the
+        // pages and locks the menu.
+        | LanesMsg.Prescribe(slotId, orderId, request) ->
+            let narrowed =
+                match slotId with
+                | None -> lanes.OrderContext |> OrderContextState.narrowedTo orderId
+                // the context goes with its slot id, so that the answer empties that slot
+                | Some id ->
+                    lanes.Slots
+                    |> Map.tryFind id
+                    |> Option.bind (OrderContextState.narrowedTo orderId)
+                    |> Option.map (fun ctx -> { ctx with Id = id })
+
+            match narrowed with
             | Some ctx ->
                 let lanes, effects, taken =
                     step (LanesMsg.Plan(OrderPlanMsg.Change(OrderPlanChange.Add ctx, request))) lanes
 
-                if lanes.OrderPlan |> OrderPlanState.awaits request then
+                if slotId.IsNone && lanes.OrderPlan |> OrderPlanState.awaits request then
                     lanes, effects @ [ LanesEffect.GoToPlanPage ], taken
                 else
                     lanes, effects, taken
@@ -247,8 +258,10 @@ module Lanes =
         | LanesEffect.Patient(PatientEffect.GivePlan pat) ->
             [ LanesMsg.Plan(OrderPlanMsg.PatientDataChanged(Some pat, newId ())) ]
         | LanesEffect.Plan OrderPlanEffect.PatientDataNotFollowed -> [ LanesMsg.Patient PatientMsg.PlanNotFollowed ]
-        // an order prescribed that landed empties the workbench
-        | LanesEffect.Plan OrderPlanEffect.OrderAdded -> [ LanesMsg.Workbench(OrderContextMsg.Reset(newId ())) ]
+        // an order prescribed that landed empties the context it came from: the workbench, or its slot
+        | LanesEffect.Plan(OrderPlanEffect.OrderAdded None) -> [ LanesMsg.Workbench(OrderContextMsg.Reset(newId ())) ]
+        | LanesEffect.Plan(OrderPlanEffect.OrderAdded(Some slotId)) ->
+            [ LanesMsg.Slot(slotId, OrderContextMsg.Reset(newId ())) ]
         | LanesEffect.Signing(SigningEffect.TellRefused(SigningRefusal.Blocked head)) ->
             [ LanesMsg.Session(SessionMsg.SignatureBlocked head) ]
         // the Session's patient data goes to the patient machine, with the estimates renewed as for

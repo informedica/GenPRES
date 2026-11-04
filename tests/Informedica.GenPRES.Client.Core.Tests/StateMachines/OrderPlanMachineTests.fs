@@ -302,7 +302,7 @@ let tests =
                              [
                                  OrderPlanEffect.CheckInteractions [ "paracetamol"; "ibuprofen" ]
                                  OrderPlanEffect.TellAnswered
-                                 OrderPlanEffect.OrderAdded
+                                 OrderPlanEffect.OrderAdded None
                              ])
                     }
 
@@ -343,7 +343,11 @@ let tests =
                             recalculating one None "r-1" sent
                             |> transition (OrderPlanMsg.Answered("r-1", Ok one))
                             |> snd
-                            |> List.contains OrderPlanEffect.OrderAdded
+                            |> List.exists (
+                                function
+                                | OrderPlanEffect.OrderAdded _ -> true
+                                | _ -> false
+                            )
                             |> Expect.isFalse "no add"
                         }
 
@@ -351,7 +355,11 @@ let tests =
                         loading patient one.OrderContexts "r-1"
                         |> transition (OrderPlanMsg.Answered("r-1", Ok one))
                         |> snd
-                        |> List.contains OrderPlanEffect.OrderAdded
+                        |> List.exists (
+                            function
+                            | OrderPlanEffect.OrderAdded _ -> true
+                            | _ -> false
+                        )
                         |> Expect.isFalse "no add"
                     }
                 ]

@@ -27,22 +27,27 @@ module NewPatientPolicyTests =
             "NewPatientPolicy"
             [
                 test "without an identified patient an order asks" {
-                    NewPatientPolicy.asks SessionView.Anonymous (Some one) None
+                    NewPatientPolicy.asks SessionView.Anonymous (Some one) None []
                     |> Expect.isTrue "the orders are lost"
                 }
 
                 test "without an identified patient a selection asks" {
-                    NewPatientPolicy.asks SessionView.Anonymous None (Some picked)
+                    NewPatientPolicy.asks SessionView.Anonymous None (Some picked) []
                     |> Expect.isTrue "the selection is lost"
                 }
 
+                test "without an identified patient a nutrition slot narrowed to one order asks" {
+                    NewPatientPolicy.asks SessionView.Anonymous None None [ UnsignedWorkPolicyTests.tpnNarrowed ]
+                    |> Expect.isTrue "the slot's order is lost"
+                }
+
                 test "with nothing to lose the edit does not ask" {
-                    NewPatientPolicy.asks SessionView.Anonymous (Some(plan [||])) (Some notPicked)
+                    NewPatientPolicy.asks SessionView.Anonymous (Some(plan [||])) (Some notPicked) []
                     |> Expect.isFalse "entering a patient stays smooth"
                 }
 
                 test "an identified patient never asks" {
-                    NewPatientPolicy.asks identified (Some one) (Some picked)
+                    NewPatientPolicy.asks identified (Some one) (Some picked) []
                     |> Expect.isFalse "a patient data update, not a new patient"
                 }
             ]
