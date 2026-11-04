@@ -928,12 +928,12 @@ module OrderContext =
 
 
     /// The order the choices are made in, as steps: a change lets go of the choices in the steps
-    /// after its own and leaves the ones beside it alone. For a drug the indication and the
+    /// after its own and leaves the ones beside it alone. For a medication the indication and the
     /// medication stand in one step, each narrowing the other; for a nutrition order the
     /// composition comes first and the indication follows from it.
     let chain category =
         match category with
-        | OrderCategory.Drug ->
+        | OrderCategory.Medication ->
             [
                 [ FilterField.Indication; FilterField.Generic ]
                 [ FilterField.Route ]
@@ -1900,13 +1900,13 @@ Scenarios: {scenarios}
 
 
     /// The totals over the orders of the context's scenarios, for the age and weight of the patient.
-    let intakeFor (totalsData: TotalsData[]) (pat: Patient) (ctx: OrderContext) : Totals =
+    let contextTotalsFor (totalsData: TotalsData[]) (pat: Patient) (ctx: OrderContext) : Totals =
         ctx.Scenarios |> Array.map _.Order |> totalsFor totalsData pat
 
 
     /// The totals over the orders of the context's scenarios, for its patient's age and
     /// weight.
-    let intake totalsData (ctx: OrderContext) = ctx |> intakeFor totalsData ctx.Patient
+    let contextTotals totalsData (ctx: OrderContext) = ctx |> contextTotalsFor totalsData ctx.Patient
 
 
     let logOrderContext (logger: Logger) msg cmd =

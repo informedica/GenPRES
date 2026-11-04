@@ -48,7 +48,7 @@ module Contract =
 
     let category (c: OrderCategory) =
         match c with
-        | OrderCategory.Drug -> S.OrderCategory.Drug
+        | OrderCategory.Medication -> S.OrderCategory.Medication
         | OrderCategory.Nutrition _ -> S.OrderCategory.Nutrition S.NutritionCategory.TPN
 
 
@@ -111,18 +111,19 @@ let tests =
                 [
                     for fname, filter in filters do
                         let ctx = { context filter with Scenarios = [||] }
-                        let shared = ctx |> Contract.context OrderCategory.Drug
+                        let shared = ctx |> Contract.context OrderCategory.Medication
 
                         for n in [ None; Some 0; Some 1; Some 2 ] do
                             test $"%s{fname}, diluent %A{n}" {
                                 sameFilter
-                                    (ctx |> OrderContext.changeFilter OrderCategory.Drug FilterField.Diluent n)
+                                    (ctx |> OrderContext.changeFilter OrderCategory.Medication FilterField.Diluent n)
                                     (shared |> SCtx.changeDiluent n)
                             }
 
                             test $"%s{fname}, one component %A{n}" {
                                 sameFilter
-                                    (ctx |> OrderContext.changeFilter OrderCategory.Drug FilterField.Components n)
+                                    (ctx
+                                     |> OrderContext.changeFilter OrderCategory.Medication FilterField.Components n)
                                     (shared |> SCtx.setNthComponents (n |> Option.toArray))
                             }
 
@@ -164,7 +165,7 @@ let seedTests =
         [
             for fname, filter in filters do
                 let ctx = { context filter with Scenarios = [||] }
-                let shared = ctx |> Contract.context OrderCategory.Drug
+                let shared = ctx |> Contract.context OrderCategory.Medication
 
                 for source, sharedSource in sources do
                     for cname, (ind, gen, rte, frm, dt) in choices filter do

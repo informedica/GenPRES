@@ -35,7 +35,7 @@ module OrderPlanMachine =
     /// command over the plan it holds.
     [<RequireQualifiedAccess>]
     type OrderPlanChange =
-        /// A workbench narrowed to one scenario, into the plan as a drug context.
+        /// A workbench narrowed to one scenario, into the plan as a medication context.
         | Add of OrderContext
         /// A new nutrition context for the category.
         | NewNutrition of NutritionCategory

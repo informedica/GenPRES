@@ -232,7 +232,7 @@ let tests =
                         "marked-up text"
                         [| [| Informedica.GenOrder.Lib.Types.Valid "paracetamol #240 mg# 3 x/dag" |] |]
 
-                    pc.Intake.Energy |> Expect.equal "the intake" (Some "#50 kcal#/dag")
+                    pc.Totals.Energy |> Expect.equal "the totals" (Some "#50 kcal#/dag")
                 | Error e -> failtest $"no plan context: %A{e}"
             }
 
@@ -345,16 +345,16 @@ let tests =
                             Informedica.GenPRES.Shared.Models.OrderContext.Route,
                             1
                         ),
-                        Domain.ChangeFilter(ctx, Types.OrderCategory.Drug, FilterField.Route, Some 1)
+                        Domain.ChangeFilter(ctx, Types.OrderCategory.Medication, FilterField.Route, Some 1)
                         Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearFilterProperty
                             Informedica.GenPRES.Shared.Models.OrderContext.Generic,
-                        Domain.ChangeFilter(ctx, Types.OrderCategory.Drug, FilterField.Generic, None)
+                        Domain.ChangeFilter(ctx, Types.OrderCategory.Medication, FilterField.Generic, None)
                         Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearAllFilterProperty,
                         Domain.ClearAllFilter ctx
                         Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthDiluentProperty 0,
-                        Domain.ChangeFilter(ctx, Types.OrderCategory.Drug, FilterField.Diluent, Some 0)
+                        Domain.ChangeFilter(ctx, Types.OrderCategory.Medication, FilterField.Diluent, Some 0)
                         Informedica.GenPRES.Shared.Api.OrderViewCommand.ClearDiluentProperty,
-                        Domain.ChangeFilter(ctx, Types.OrderCategory.Drug, FilterField.Diluent, None)
+                        Domain.ChangeFilter(ctx, Types.OrderCategory.Medication, FilterField.Diluent, None)
                         Informedica.GenPRES.Shared.Api.OrderViewCommand.SetNthComponentsProperty [| 0; 2 |],
                         Domain.SetNthComponents(ctx, [| 0; 2 |])
                         Informedica.GenPRES.Shared.Api.OrderViewCommand.SelectNthOrderScenario 1,
@@ -423,14 +423,14 @@ let tests =
                 |> Expect.equal "every case of the wire's union but the argumentation" 38
 
                 for verb, expected in verbs do
-                    OrderContextMapper.Command.toDomain OrderCategory.Drug verb ctx
+                    OrderContextMapper.Command.toDomain OrderCategory.Medication verb ctx
                     |> Expect.equal $"{verb}" expected
             }
 
             test "the argumentation is no domain command" {
                 (fun () ->
                     OrderContextMapper.Command.toDomain
-                        OrderCategory.Drug
+                        OrderCategory.Medication
                         (Informedica.GenPRES.Shared.Api.OrderViewCommand.SetArgumentationProperty "text")
                     |> ignore
                 )

@@ -838,7 +838,9 @@ let tests =
                         | Some [| pc |] ->
                             pc.Id |> Expect.equal "the plan's id" "c-1"
                             pc.Category
-                            |> Expect.equal "the plan's category" Informedica.GenOrder.Lib.Types.OrderCategory.Drug
+                            |> Expect.equal
+                                "the plan's category"
+                                Informedica.GenOrder.Lib.Types.OrderCategory.Medication
                             pc.Context.Argumentation |> Expect.equal "the text written" (Some "bewust")
                         | other -> failtest $"expected the one context recalculated, got %A{other}"
                     }

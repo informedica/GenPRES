@@ -15,7 +15,8 @@ let tests =
         [
             test "a workbench not in the plan has the empty id and is a drug" {
                 OrderContext.empty.Id |> Expect.equal "no id" ""
-                OrderContext.empty.Category |> Expect.equal "a drug" OrderCategory.Drug
+                OrderContext.empty.Category
+                |> Expect.equal "a medication" OrderCategory.Medication
             }
 
         ]

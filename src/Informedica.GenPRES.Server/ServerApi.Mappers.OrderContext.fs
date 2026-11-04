@@ -36,7 +36,7 @@ module OrderContextMapper =
 
         let toDomain =
             function
-            | OrderCategory.Drug -> Informedica.GenOrder.Lib.Types.OrderCategory.Drug
+            | OrderCategory.Medication -> Informedica.GenOrder.Lib.Types.OrderCategory.Medication
             | OrderCategory.Nutrition c ->
                 match c with
                 | NutritionCategory.EnteralFeeding -> Informedica.GenOrder.Lib.Types.NutritionCategory.EnteralFeeding
@@ -51,7 +51,7 @@ module OrderContextMapper =
 
         let ofDomain =
             function
-            | Informedica.GenOrder.Lib.Types.OrderCategory.Drug -> OrderCategory.Drug
+            | Informedica.GenOrder.Lib.Types.OrderCategory.Medication -> OrderCategory.Medication
             | Informedica.GenOrder.Lib.Types.OrderCategory.Nutrition c ->
                 match c with
                 | Informedica.GenOrder.Lib.Types.NutritionCategory.EnteralFeeding -> NutritionCategory.EnteralFeeding
@@ -297,12 +297,14 @@ module OrderContextMapper =
                     Scenarios = ctx.Scenarios |> Array.mapi scenario
                     Argumentation = ctx.Argumentation
                 }
-            Intake = ctx.Intake |> totals
+            Totals = ctx.Intake |> totals
+            // the wire carries no link yet
+            LinkedTo = None
         }
 
 
     /// The plan context's Dto as the contract model's order context, built from the Dto alone;
-    /// the demo flag is the server's. A category string the Dto does not write shows as a drug;
+    /// the demo flag is the server's. A category string the Dto does not write shows as a medication;
     /// the argumentation is the Dto's, none when it has none.
     let toModel (demo: bool) (dto: PlanContextDto.Dto) : OrderContext =
         {
@@ -310,13 +312,13 @@ module OrderContextMapper =
             Category =
                 dto.Category
                 |> OrderCategoryDto.fromString
-                |> Result.defaultValue Informedica.GenOrder.Lib.Types.OrderCategory.Drug
+                |> Result.defaultValue Informedica.GenOrder.Lib.Types.OrderCategory.Medication
                 |> Category.ofDomain
             DemoVersion = demo
             Filter = dto.Context.Filter |> filterBack
             Patient = dto.Context.Patient |> Patient.toModel
             Scenarios = dto.Context.Scenarios |> Array.map scenarioBack
-            Intake = dto.Intake |> totalsBack
+            Intake = dto.Totals |> totalsBack
             Argumentation = dto.Context.Argumentation
         }
 
@@ -488,6 +490,13 @@ module OrderContextMapper =
                 invalidArg (nameof cmd) "the argumentation is written by the server, without the domain"
 
 
+    /// The server's words for a link the plan refuses, naming the main order.
+    let linkWords =
+        function
+        | LinkError.NoSuchMainOrder main -> $"The main order %s{main} is not in the plan"
+        | LinkError.MainOrderLinked main -> $"The main order %s{main} is itself linked to another order"
+
+
     /// The server's words for a reason the contract model is no plan context. Only the
     /// patient's can come from the client's panel; the rest name a Dto from elsewhere.
     let words =
@@ -505,3 +514,4 @@ module OrderContextMapper =
         | DtoError.WrongUnit(p, r) -> $"Verkeerde eenheid in %s{p}: %s{r}"
         | DtoError.UnknownOrderType(p, s) -> $"Onbekend ordertype in %s{p}: %s{s}"
         | DtoError.NotMadeOf(p, id) -> $"Product %s{id} in %s{p} past niet bij de stoffen"
+        | DtoError.BrokenLink(id, e) -> $"Context %s{id}: %s{linkWords e}"

@@ -125,7 +125,7 @@ module Adapters =
                 |> NutritionRuleSet.discover evaluate
             )
 
-        // a nutrition slot starts again on new patient data; a drug context without an order only
+        // a nutrition slot starts again on new patient data; a medication context without an order only
         // takes the patient
         let restart pat (pc: PlanContext) =
             match pc |> PlanContext.nutritionCategory with
@@ -214,8 +214,9 @@ module Adapters =
                                                 plan.Contexts
                                                 [|
                                                     { pc with
-                                                        Intake =
-                                                            discovered |> OrderContext.intake (provider.GetTotals())
+                                                        Totals =
+                                                            discovered
+                                                            |> OrderContext.contextTotals (provider.GetTotals())
                                                     }
                                                 |]
                                     }

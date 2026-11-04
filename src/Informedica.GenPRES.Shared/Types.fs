@@ -548,13 +548,13 @@ module Types =
         | ElectrolyteGlucose
 
 
-    /// What kind of order a context holds: a drug, or a nutrition order of one of the
+    /// What kind of order a context holds: a medication, or a nutrition order of one of the
     /// categories. Recorded on the context and kept with it, so that a reopened plan knows
     /// each order's kind without guessing from the generic (KCl, NaCl and glucose are
     /// nutrition generics and drugs both).
     [<RequireQualifiedAccess>]
     type OrderCategory =
-        | Drug
+        | Medication
         | Nutrition of NutritionCategory
 
 

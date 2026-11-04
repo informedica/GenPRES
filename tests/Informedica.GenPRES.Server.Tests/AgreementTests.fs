@@ -47,7 +47,7 @@ type Generators =
                     n
                     (gen {
                         let! category =
-                            Gen.elements (OrderCategory.Drug :: (categories |> List.map OrderCategory.Nutrition))
+                            Gen.elements (OrderCategory.Medication :: (categories |> List.map OrderCategory.Nutrition))
 
                         let! scenarios = Gen.choose (0, 2)
                         let! kept = Arb.generate<bool>

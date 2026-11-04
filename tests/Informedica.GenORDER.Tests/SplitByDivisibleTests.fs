@@ -277,7 +277,7 @@ let tests =
                                     let ctx = p.Value |> picked
 
                                     ctx
-                                    |> OrderContext.changeFilter OrderCategory.Drug field None
+                                    |> OrderContext.changeFilter OrderCategory.Medication field None
                                     |> Result.map _.Filter.PickedProducts
                                     |> Expect.equal "no pick" (Ok [||])
                                 }

@@ -9,8 +9,8 @@ module OrderContextText =
 
 
     /// What a page calls the context: the category's name for a nutrition order, the
-    /// generic for a drug, nothing before a generic is chosen.
+    /// generic for a medication, nothing before a generic is chosen.
     let label (ctx: OrderContext) =
         match ctx.Category with
         | OrderCategory.Nutrition category -> NutritionCategory.label category
-        | OrderCategory.Drug -> ctx.Filter.Generic |> Option.defaultValue ""
+        | OrderCategory.Medication -> ctx.Filter.Generic |> Option.defaultValue ""

@@ -274,17 +274,20 @@ offered nothing.
 - `OrderPlan.followPatientData` loses its restart: every context has an order.
 - `PlanContext.Intake` is renamed `Totals`, as the plan's own field is named, in the record and the DTO.
 - The stored plan is the JSON of these DTOs, so the link and the rename change its shape: the JSON
-  structure version of a stored plan goes from 12 to 13, with the line "added the link on every plan
-  context, none when absent, and renamed its intake to totals" in `SqlDatabase.upgrade`, in the same
-  pull request.
+  structure version of a stored plan goes from 12 to 13, in the same pull request.
 - Stored versions are not converted and the DTO reads no old field names. User decision, 2026-11-03,
-  halcwb: no stored version matters yet.
+  halcwb: no stored version matters yet. `SqlDatabase.jsonVersionOldest` is 13, so a row of version 1
+  to 12 loads as an unreadable entry with its reason; the fixtures of versions 1 to 11 and their tests
+  go, and the version 12 fixture stays to show that such a row is unreadable. Decision, 2026-11-04,
+  halcwb.
 
 ### Server
 
 - The wire `OrderContext` (`Shared/Types.fs`) gains `LinkedTo`, and `OrderContextMapper` maps it both
   ways, so that the link survives every round trip, the add and a reopen.
-- The words of the new `OrderPlanError` cases in `ServerApi.Mappers.OrderPlan.fs`.
+- The words of the new `OrderPlanError` cases in `ServerApi.Mappers.OrderPlan.fs`, and of the new
+  `DtoError.BrokenLink` in `ServerApi.Mappers.OrderContext.fs`, come with step 2: a match without them
+  is incomplete.
 - `OrderContextCommand` gains a case that starts a slot: the category and the patient, answered with
   the context discovered from the rule set. This is the new case the single-case union was kept for.
 - The order context port narrows and settles a nutrition context to its rule set on every evaluation.
@@ -421,11 +424,17 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
    sets made in the test. A pull request of its own, for the 200-line limit. Seen: nothing.
 2. **The link in the plan.** `PlanContext.LinkedTo`, the rename of `PlanContext.Intake` to `Totals`, the
    DTO, the shape check in `fromDto` and `linkError`, removal by link with the fallback for a supplement
-   without a link, `addOrderContext` keeping the category, and the JSON structure version 13 with its
-   line. Script `src/Informedica.GenORDER.Lib/Scripts/LinkedOrders.fsx`; it still holds the check by
-   nutrition category of the first draft, which goes. Seen: nothing new.
+   without a link, `addOrderContext` keeping the category, the words of the new refusals, and the JSON
+   structure version 13, older versions unreadable. With it, from the review: the add checks the
+   nutrition category with `admits`, the link reasons are a `LinkError` of their own,
+   `OrderContext.intake` and `intakeFor` are renamed `contextTotals` and `contextTotalsFor`, and
+   `OrderCategory.Drug` is renamed `Medication` in the domain and on the wire, its string
+   "medication" in the stored JSON of version 13. The step takes 249 lines of `src/`, over the
+   limit of 200, as one pull request. Decision, 2026-11-04, halcwb. Script
+   `src/Informedica.GenORDER.Lib/Scripts/LinkedOrders.fsx`. Seen: nothing new; a plan signed before
+   the step shows as unreadable.
 3. **The link on the wire.** The wire field, both mapper directions, the rename of the wire
-   `OrderContext.Intake` to `Totals`, the words of the new refusals. Script
+   `OrderContext.Intake` to `Totals`. Script
    `src/Informedica.GenPRES.Server/Scripts/LinkedOrders.fsx`. Seen: nothing.
 4. **The link rules.** The LinkedRules sheet in GenFORM: the record, the `Data` record, the mapper, the
    column-contract test, the resource, the refusal of a dose type that parses to `NoDoseType` and of

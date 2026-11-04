@@ -264,7 +264,7 @@ let tests =
                     let n = ctx.Filter.Forms |> Array.findIndex ((=) "drank")
 
                     match
-                        OrderContext.ChangeFilter(ctx, OrderCategory.Drug, FilterField.Form, Some n)
+                        OrderContext.ChangeFilter(ctx, OrderCategory.Medication, FilterField.Form, Some n)
                         |> evaluate
                     with
                     | Ok(Evaluated cmd) ->
@@ -335,7 +335,7 @@ let tests =
                     }
 
                     test "the mark stays in the plan and in the Dto a signed version stores" {
-                        let workbench = markedContext |> PlanContext.create "" OrderCategory.Drug
+                        let workbench = markedContext |> PlanContext.create "" OrderCategory.Medication
 
                         let added =
                             OrderPlan.create child [||]

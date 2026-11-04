@@ -494,9 +494,9 @@ let tests =
                         let v1 = Store.versionOf 1 Store.prescriber Store.t0 plan.Value
                         SqlDatabase.persist cs [ Session.WriteVersion(v1, None) ] |> ignore
 
-                        let fixture = Informedica.GenPRES.Server.Tests.SqlRecordTests.fixtureText ()
+                        let fixture = Informedica.GenPRES.Server.Tests.SqlRecordTests.currentFixtureText ()
 
-                        Informedica.GenPRES.Server.Tests.SqlRecordTests.insertRow cs "plan-2" 2 10 fixture
+                        Informedica.GenPRES.Server.Tests.SqlRecordTests.insertRow cs "plan-2" 2 13 fixture
 
                         // a Session over that patient: loading it brings the record with it
                         let port, directory, _ = portOn cs

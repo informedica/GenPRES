@@ -159,34 +159,26 @@ module SqlDatabase =
 
 
     /// The highest JSON structure version this release reads.
-    let jsonVersionRead = 12
+    let jsonVersionRead = 13
 
     /// The JSON structure version this release writes.
-    let jsonVersionWritten = 12
+    let jsonVersionWritten = 13
+
+
+    /// The oldest JSON structure version this release reads.
+    let jsonVersionOldest = 13
 
 
     /// Brings plan JSON written under a structure version to the structure this release
-    /// reads, one pure step per version on raw JSON. Each step leaves the JSON as it is, and no
-    /// read path recomputes a digest of a stored version:
-    /// - 1 to 2 added the argumentation on every order context, none when absent
-    /// - 2 to 3 added the picks on every order scenario, none when absent
-    /// - 3 to 4 removed the picks: a field the read does not know is ignored
-    /// - 4 to 5 added the access on every order scenario, any access when absent
-    /// - 5 to 6 added the products on every component, none when absent
-    /// - 6 to 7 added the mark as an adult on every patient, not marked when absent
-    /// - 7 to 8 added on every order scenario whether the order fits its rule only without the
-    ///   Divisible of its products, false when absent
-    /// - 8 to 9 added the picked products on every filter, none when absent
-    /// - 9 to 10 added the EHR data of the challenge on every version, none when absent
-    /// - 10 to 11 added on every order scenario whether the rules no longer apply, false when absent
-    /// - 11 to 12 added on every order scenario whether the order could not be calculated, false when
-    ///   absent
+    /// reads. There are no steps yet: version 13 added the link on every plan context and renamed
+    /// its intake to totals, and a version before 13 is not converted, so its row loads as
+    /// unreadable. No read path recomputes a digest of a stored version.
     ///
     /// The JSON of a version carries EHR data, so a change to the shape of the EHR data needs a step
     /// here as well as in upgradeEhr.
     let upgrade (version: int) (json: string) : Result<string, string> =
-        if version < 1 then
-            Error $"JSON structure version %i{version} does not exist"
+        if version < jsonVersionOldest then
+            Error $"JSON structure version %i{version} is older than this release reads"
         elif version > jsonVersionRead then
             Error $"JSON structure version %i{version} is newer than this release knows"
         else

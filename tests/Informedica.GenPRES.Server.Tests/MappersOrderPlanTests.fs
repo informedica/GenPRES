@@ -63,7 +63,7 @@ let plan: OrderPlan =
         Filtered = [| "c-1" |]
         OrderContexts =
             [|
-                context "c-1" OrderCategory.Drug "paracetamol"
+                context "c-1" OrderCategory.Medication "paracetamol"
                 context "c-2" (OrderCategory.Nutrition NutritionCategory.TPN) "glucose"
             |]
         Totals = { Informedica.GenPRES.Shared.Models.Totals.empty with Energy = [| Bold "50 kcal" |] }
@@ -117,7 +117,7 @@ let tests =
 
                 dto.Contexts
                 |> Array.map _.Category
-                |> Expect.equal "category strings" [| "drug"; "nutrition:tpn" |]
+                |> Expect.equal "category strings" [| "medication"; "nutrition:tpn" |]
 
                 match dto |> OrderPlan.Dto.fromDto with
                 | Ok p ->

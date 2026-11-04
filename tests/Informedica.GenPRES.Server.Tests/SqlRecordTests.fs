@@ -1,6 +1,6 @@
 /// The record on SQLite: order plan versions persisted and loaded on a real file, the rows a
-/// release cannot read kept as unreadable entries, and the stored fixture of JSON structure
-/// version 1 read and written as this release reads and writes.
+/// release cannot read kept as unreadable entries, and the stored fixture of the current JSON
+/// structure version read and written as this release reads and writes.
 module Informedica.GenPRES.Server.Tests.SqlRecordTests
 
 open System
@@ -55,75 +55,16 @@ let insertRow cs =
     insertRowAt cs (DateTimeOffset(t0, TimeSpan.Zero).ToUnixTimeMilliseconds())
 
 
-/// The stored fixture of structure version 1, copied to the test output.
-let fixtureText () =
-    File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v1.json"))
-
-
-/// The stored fixture of structure version 2: the version 1 fixture upgraded, parsed and written,
-/// with the argumentation on every context, none.
-let v2FixtureText () =
-    File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v2.json"))
-
-
-/// The stored fixture of structure version 3: the version 2 fixture upgraded, parsed and written,
-/// with the picks on every scenario unknown.
-let v3FixtureText () =
-    File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v3.json"))
-
-
-/// The stored fixture of structure version 4: the version 3 fixture upgraded, parsed and
-/// written, without the picks.
-let v4FixtureText () =
-    File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v4.json"))
-
-
-/// The stored fixture of structure version 5: the version 4 fixture upgraded, parsed and
-/// written, with the access on every scenario, any.
-let v5FixtureText () =
-    File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v5.json"))
-
-
-/// The stored fixture of structure version 6: the version 5 fixture upgraded, parsed and
-/// written, with the products on every component, none.
-let v6FixtureText () =
-    File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v6.json"))
-
-
-/// The stored fixture of structure version 7: the version 6 fixture upgraded, parsed and
-/// written, with the mark as an adult on every patient, not marked.
-let v7FixtureText () =
-    File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v7.json"))
-
-
-/// The stored fixture of structure version 8: the version 7 fixture upgraded, parsed and
-/// written, with on every scenario that the order fits its rule with the Divisible of its products.
-let v8FixtureText () =
-    File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v8.json"))
-
-
-/// The stored fixture of structure version 9: the version 8 fixture upgraded, parsed and written,
-/// with the picked products on every filter, none.
-let v9FixtureText () =
-    File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v9.json"))
-
-
-/// The stored fixture of structure version 10: the version 9 fixture upgraded, parsed and written,
-/// with no EHR data on the version.
-let v10FixtureText () =
-    File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v10.json"))
-
-
-/// The stored fixture of structure version 11: the version 10 fixture upgraded, parsed and written,
-/// with on every scenario that the rules still apply.
-let v11FixtureText () =
-    File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v11.json"))
-
-
-/// The same version as this release writes it, structure version 12: the version 11 fixture
-/// upgraded, parsed and written, with on every scenario that the order was calculated.
-let currentFixtureText () =
+/// The stored fixture of structure version 12, the last version before the link on every plan
+/// context and the rename of its intake to totals, copied to the test output.
+let v12FixtureText () =
     File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v12.json"))
+
+
+/// The same version as this release writes it, structure version 13: the version 12 fixture with
+/// the intake of every plan context renamed to totals and no link on any of them.
+let currentFixtureText () =
+    File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v13.json"))
 
 
 let parse (text: string) =
@@ -173,7 +114,7 @@ let tests =
 
                     // the same row under a structure version this release does not know keeps
                     // naming its patient
-                    run "update order_plan set json_version = 13"
+                    run "update order_plan set json_version = 14"
 
                     (SqlDatabase.loadRecords cs "stub-patient"
                      |> List.map reasonOf
@@ -183,7 +124,7 @@ let tests =
 
                     // a row from before the columns: none
                     run
-                        "update order_plan set json_version = 1, patient_name = null, birth_year = null, birth_month = null, birth_day = null"
+                        "update order_plan set json_version = 13, patient_name = null, birth_year = null, birth_month = null, birth_day = null"
                     identityOf () |> Expect.equal "none" [ None ]
 
                     // the columns half present, and a date the calendar does not have: a reason
@@ -223,7 +164,7 @@ let tests =
                     |> SqlSchema.applyAll cs
                     |> Expect.equal "the file at the version before the columns" [ 1; 2; 3; 4; 5; 6; 7 ]
 
-                    insertRow cs "plan-1" 1 1 (fixtureText ())
+                    insertRow cs "plan-1" 1 13 (currentFixtureText ())
 
                     SqlSchema.apply cs |> Expect.equal "migration 9" [ 9 ]
 
@@ -298,12 +239,12 @@ let tests =
 
             test "rows this release cannot read load as unreadable, and the newest is the head" {
                 withRecord (fun cs ->
-                    let text = fixtureText ()
-                    insertRow cs "plan-1" 1 1 text
+                    let text = currentFixtureText ()
+                    insertRow cs "plan-1" 1 13 text
                     // a structure version newer than the release knows
-                    insertRow cs "plan-2" 2 13 text
+                    insertRow cs "plan-2" 2 14 text
                     // the identity in the JSON (plan-1, number 1) disagrees with the columns
-                    insertRow cs "plan-3" 3 1 text
+                    insertRow cs "plan-3" 3 13 text
 
                     // a Dto the domain refuses: the plan is missing
                     let noPlan =
@@ -314,7 +255,7 @@ let tests =
                         }
                         |> Canonical.serialize
 
-                    insertRow cs "plan-4" 4 1 noPlan
+                    insertRow cs "plan-4" 4 13 noPlan
 
                     let loaded = SqlDatabase.loadRecords cs "stub-patient"
 
@@ -353,8 +294,8 @@ let tests =
             test "a malformed value in the JSON leaves the row unreadable" {
                 withRecord (fun cs ->
                     // a BigRational that is no number: the converter throws, not the JSON reader
-                    fixtureText().Replace("\"WeightKg\":\"32/1\"", "\"WeightKg\":\"x/y\"")
-                    |> insertRow cs "plan-1" 1 1
+                    currentFixtureText().Replace("\"WeightKg\":\"32/1\"", "\"WeightKg\":\"x/y\"")
+                    |> insertRow cs "plan-1" 1 13
 
                     match SqlDatabase.loadRecords cs "stub-patient" with
                     | [ StoredVersion.Unreadable u ] ->
@@ -365,7 +306,7 @@ let tests =
 
             test "a signed_at out of range leaves the row unreadable at the earliest time" {
                 withRecord (fun cs ->
-                    insertRowAt cs Int64.MaxValue "plan-1" 1 13 (fixtureText ())
+                    insertRowAt cs Int64.MaxValue "plan-1" 1 14 (currentFixtureText ())
 
                     match SqlDatabase.loadRecords cs "stub-patient" with
                     | [ StoredVersion.Unreadable u ] ->
@@ -375,93 +316,37 @@ let tests =
                 )
             }
 
-            test "L5: the stored fixture of structure version 1 upgrades and parses" {
-                match fixtureText () |> SqlDatabase.upgrade 1 |> Result.map parse with
-                | Ok(Ok v) -> (v.Id, v.No) |> Expect.equal "its identity" ("plan-1", 1)
-                | other -> failtest $"expected a parsed version, got %A{other}"
-            }
-
-            test "this release reads and writes structure version 12; 1 to 11 are left as is, 0 and 13 are reasons" {
+            test "this release reads and writes structure version 13; 0 to 12 and 14 are reasons" {
                 let json = currentFixtureText ()
 
-                (SqlDatabase.jsonVersionRead, SqlDatabase.jsonVersionWritten)
-                |> Expect.equal "read and written" (12, 12)
+                (SqlDatabase.jsonVersionOldest, SqlDatabase.jsonVersionRead, SqlDatabase.jsonVersionWritten)
+                |> Expect.equal "oldest, read and written" (13, 13, 13)
 
-                SqlDatabase.upgrade 1 json |> Expect.equal "1 leaves the JSON" (Ok json)
-                SqlDatabase.upgrade 2 json |> Expect.equal "2 leaves the JSON" (Ok json)
-                SqlDatabase.upgrade 3 json |> Expect.equal "3 to 4 leaves the JSON" (Ok json)
-                SqlDatabase.upgrade 4 json |> Expect.equal "4 to 5 leaves the JSON" (Ok json)
-                SqlDatabase.upgrade 5 json |> Expect.equal "5 to 6 leaves the JSON" (Ok json)
-                SqlDatabase.upgrade 6 json |> Expect.equal "6 to 7 leaves the JSON" (Ok json)
-                SqlDatabase.upgrade 7 json |> Expect.equal "7 to 8 leaves the JSON" (Ok json)
-                SqlDatabase.upgrade 8 json |> Expect.equal "8 to 9 leaves the JSON" (Ok json)
-                SqlDatabase.upgrade 9 json |> Expect.equal "9 to 10 leaves the JSON" (Ok json)
-                SqlDatabase.upgrade 10 json |> Expect.equal "10 to 11 leaves the JSON" (Ok json)
-                SqlDatabase.upgrade 11 json |> Expect.equal "11 to 12 leaves the JSON" (Ok json)
-                SqlDatabase.upgrade 12 json |> Expect.equal "12 is current" (Ok json)
+                SqlDatabase.upgrade 13 json |> Expect.equal "13 is current" (Ok json)
 
-                SqlDatabase.upgrade 0 json
-                |> Expect.equal "0" (Error "JSON structure version 0 does not exist")
+                for version in 0..12 do
+                    SqlDatabase.upgrade version json
+                    |> Expect.equal
+                        $"%i{version}"
+                        (Error $"JSON structure version %i{version} is older than this release reads")
 
-                SqlDatabase.upgrade 13 json
-                |> Expect.equal "13" (Error "JSON structure version 13 is newer than this release knows")
+                SqlDatabase.upgrade 14 json
+                |> Expect.equal "14" (Error "JSON structure version 14 is newer than this release knows")
             }
 
-            test "a stored version 9 row, without the EHR data, reads with none and is written with it" {
-                let text = v9FixtureText ()
-                text.Contains "\"EhrData\"" |> Expect.isFalse "no EHR data in the row"
+            test "a stored version 12 row, with an intake and without links, loads as unreadable" {
+                let text = v12FixtureText ()
+                text.Contains "\"Intake\"" |> Expect.isTrue "the intake in the row"
 
-                match text |> SqlDatabase.upgrade 9 |> Result.map parse with
-                | Ok(Ok v) ->
-                    v.EhrData |> Expect.isNone "none"
-                    v
-                    |> SqlDatabase.toJson
-                    |> Expect.equal "the current fixture" (currentFixtureText ())
-                | other -> failtest $"expected a parsed version, got %A{other}"
-            }
+                withRecord (fun cs ->
+                    insertRow cs "plan-1" 1 12 text
 
-            test "a stored version 8 row, without the picked products, reads with none and is written with them" {
-                let text = v8FixtureText ()
-                text.Contains "\"PickedProducts\"" |> Expect.isFalse "no pick in the row"
-
-                match text |> SqlDatabase.upgrade 8 |> Result.map parse with
-                | Ok(Ok v) ->
-                    v
-                    |> SqlDatabase.toJson
-                    |> Expect.equal "the current fixture" (currentFixtureText ())
-                | other -> failtest $"expected a parsed version, got %A{other}"
-            }
-
-            test "a stored version 10 row, without the rules notice, reads as false and is written with it" {
-                let text = v10FixtureText ()
-                text.Contains "\"RulesNoLongerApply\"" |> Expect.isFalse "no notice in the row"
-
-                match text |> SqlDatabase.upgrade 10 |> Result.map parse with
-                | Ok(Ok v) ->
-                    v.Plan.Contexts
-                    |> Array.collect _.Context.Scenarios
-                    |> Expect.all "no notice" (_.RulesNoLongerApply >> not)
-
-                    v
-                    |> SqlDatabase.toJson
-                    |> Expect.equal "the current fixture" (currentFixtureText ())
-                | other -> failtest $"expected a parsed version, got %A{other}"
-            }
-
-            test "a stored version 11 row, without the mark of a calculation, reads as false and is written with it" {
-                let text = v11FixtureText ()
-                text.Contains "\"NotRecalculated\"" |> Expect.isFalse "no mark in the row"
-
-                match text |> SqlDatabase.upgrade 11 |> Result.map parse with
-                | Ok(Ok v) ->
-                    v.Plan.Contexts
-                    |> Array.collect _.Context.Scenarios
-                    |> Expect.all "no mark" (_.NotRecalculated >> not)
-
-                    v
-                    |> SqlDatabase.toJson
-                    |> Expect.equal "the current fixture" (currentFixtureText ())
-                | other -> failtest $"expected a parsed version, got %A{other}"
+                    match SqlDatabase.loadRecords cs "stub-patient" with
+                    | [ StoredVersion.Unreadable u ] ->
+                        u.Reason.Contains "older than this release reads"
+                        |> Expect.isTrue $"the reason: %s{u.Reason}"
+                    | other -> failtest $"expected one unreadable row, got %A{other}"
+                )
             }
 
             test "a signed version keeps the mark of an order that could not be calculated" {
@@ -477,97 +362,7 @@ let tests =
                 | other -> failtest $"expected a parsed version, got %A{other}"
             }
 
-            test "a stored version 7 row, without the Divisible mark, reads as false and is written with it" {
-                let text = v7FixtureText ()
-                text.Contains "\"FitsOnlyWithoutDivisible\""
-                |> Expect.isFalse "no mark in the row"
-
-                match text |> SqlDatabase.upgrade 7 |> Result.map parse with
-                | Ok(Ok v) ->
-                    v.Plan.Contexts
-                    |> Array.collect _.Context.Scenarios
-                    |> Expect.all "not marked" (_.FitsOnlyWithoutDivisible >> not)
-
-                    v
-                    |> SqlDatabase.toJson
-                    |> Expect.equal "the current fixture" (currentFixtureText ())
-                | other -> failtest $"expected a parsed version, got %A{other}"
-            }
-
-            test "a stored version 6 row, without the mark, reads as not marked and is written with it" {
-                let text = v6FixtureText ()
-                text.Contains "\"MarkedAdult\"" |> Expect.isFalse "no mark in the row"
-
-                match text |> SqlDatabase.upgrade 6 |> Result.map parse with
-                | Ok(Ok v) ->
-                    v.Plan.Patient.MarkedAdult |> Expect.isFalse "the plan's patient is not marked"
-
-                    v
-                    |> SqlDatabase.toJson
-                    |> Expect.equal "the current fixture" (currentFixtureText ())
-                | other -> failtest $"expected a parsed version, got %A{other}"
-            }
-
-            test "a stored version 5 row, without the products, reads with none and is written with them" {
-                let text = v5FixtureText ()
-                text.Contains "\"Products\"" |> Expect.isFalse "no products in the row"
-
-                match text |> SqlDatabase.upgrade 5 |> Result.map parse with
-                | Ok(Ok v) ->
-                    v.Plan.Contexts
-                    |> Array.collect _.Context.Scenarios
-                    |> Array.collect (_.Order.Orderable.Components >> List.toArray)
-                    |> Array.collect (_.Products >> List.toArray)
-                    |> Expect.isEmpty "no products on any component"
-
-                    v
-                    |> SqlDatabase.toJson
-                    |> Expect.equal "the current fixture" (currentFixtureText ())
-                | other -> failtest $"expected a parsed version, got %A{other}"
-            }
-
-            test "a stored version 4 row, without the access, reads with any access and is written with it" {
-                let text = v4FixtureText ()
-                text.Contains "\"Access\":\"any\""
-                |> Expect.isFalse "no scenario access in the row"
-
-                match text |> SqlDatabase.upgrade 4 |> Result.map parse with
-                | Ok(Ok v) ->
-                    v.Plan.Contexts
-                    |> Array.collect _.Context.Scenarios
-                    |> Array.map _.Access
-                    |> Array.distinct
-                    |> Expect.equal "any access on every scenario" [| Informedica.GenForm.Lib.Types.AnyAccess |]
-
-                    v
-                    |> SqlDatabase.toJson
-                    |> Expect.equal "the current fixture" (currentFixtureText ())
-                | other -> failtest $"expected a parsed version, got %A{other}"
-            }
-
-            test "L5: the stored fixture of structure version 2 upgrades and parses" {
-                match v2FixtureText () |> SqlDatabase.upgrade 2 |> Result.map parse with
-                | Ok(Ok v) -> v.Plan.Contexts |> Expect.isNonEmpty "the fixture has contexts"
-                | other -> failtest $"expected a parsed version, got %A{other}"
-            }
-
-            test "a stored version 3 row reads and is written without its picks, unknown or listed" {
-                // the fixture's picks are unknown; a row the workbench wrote can list them
-                let listed = """["[paracetamol]_pres_freq","[paracetamol.paracetamol.paracetamol]_dos_qty"]"""
-
-                for picks in [ "null"; listed ] do
-                    let text = v3FixtureText().Replace("\"Picks\":null", $"\"Picks\":%s{picks}")
-                    text.Contains $"\"Picks\":%s{picks}" |> Expect.isTrue "the row holds the picks"
-
-                    match text |> SqlDatabase.upgrade 3 |> Result.map parse with
-                    | Ok(Ok v) ->
-                        v
-                        |> SqlDatabase.toJson
-                        |> Expect.equal $"picks %s{picks}: the current fixture" (currentFixtureText ())
-                    | other -> failtest $"expected a parsed version, got %A{other}"
-            }
-
-            test "a version 2 row with an argumentation loads back with it; the version 1 fixture with none" {
+            test "a row with an argumentation loads back with it; the current fixture with none" {
                 let text = "Sepsis, hogere dosis in overleg met de apotheek"
 
                 let argued =
@@ -596,8 +391,8 @@ let tests =
                 |> Expect.isFalse "the fixture has contexts"
 
                 withRecord (fun cs ->
-                    insertRow cs "plan-1" 1 1 (fixtureText ())
-                    insertRow cs "plan-2" 2 2 (argued |> SqlDatabase.toJson)
+                    insertRow cs "plan-1" 1 13 (currentFixtureText ())
+                    insertRow cs "plan-2" 2 13 (argued |> SqlDatabase.toJson)
 
                     let texts (v: OrderPlanVersion) =
                         v.Plan.Contexts |> Array.map _.Context.Argumentation |> Array.choose id
@@ -610,7 +405,7 @@ let tests =
                     )
                     |> List.sortBy fst
                     |> Expect.equal
-                        "the version 1 row with none, the version 2 row with the text"
+                        "the current fixture with none, the argued row with the text"
                         [ "plan-1", [||]; "plan-2", [| text |] ]
                 )
             }

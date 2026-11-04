@@ -401,7 +401,7 @@ module OrderCategoryDto =
     /// Every category matched, so that a category without a string form fails to compile.
     let toString =
         function
-        | OrderCategory.Drug -> "drug"
+        | OrderCategory.Medication -> "medication"
         | OrderCategory.Nutrition NutritionCategory.EnteralFeeding -> "nutrition:enteral-feeding"
         | OrderCategory.Nutrition NutritionCategory.EnteralSupplement -> "nutrition:enteral-supplement"
         | OrderCategory.Nutrition NutritionCategory.TPN -> "nutrition:tpn"
@@ -411,7 +411,7 @@ module OrderCategoryDto =
 
     let fromString (s: string) : Result<OrderCategory, DtoError> =
         match s |> DtoResult.orBlank |> String.toLower |> String.trim with
-        | "drug" -> Ok OrderCategory.Drug
+        | "medication" -> Ok OrderCategory.Medication
         | "nutrition:enteral-feeding" -> Ok(OrderCategory.Nutrition NutritionCategory.EnteralFeeding)
         | "nutrition:enteral-supplement" -> Ok(OrderCategory.Nutrition NutritionCategory.EnteralSupplement)
         | "nutrition:tpn" -> Ok(OrderCategory.Nutrition NutritionCategory.TPN)

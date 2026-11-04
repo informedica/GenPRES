@@ -89,7 +89,7 @@ let context filter : OrderContext =
 
 let categories =
     [
-        "drug", OrderCategory.Drug
+        "medication", OrderCategory.Medication
         "nutrition", OrderCategory.Nutrition NutritionCategory.TPN
     ]
 
