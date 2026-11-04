@@ -853,6 +853,25 @@ module Types =
             }
 
 
+        // qualified, so that the field names do not take over the type inference of the records before it
+        /// One row of the "RuleSets" sheet: a nutrition category, its label, and an indication and a
+        /// generic the category offers. Several rows make up the rule set of one category.
+        [<RequireQualifiedAccess>]
+        type RuleSetData =
+            {
+                /// sheet column "Category": EnteralFeeding, EnteralSupplement, TPN, Lipid or ElectrolyteGlucose
+                Category: string
+                /// sheet column "Label": the name shown for the category; the first row of the category counts
+                Label: string
+                /// sheet column "Indication": an indication the dose rules of the category are filtered on
+                Indication: string
+                /// sheet column "Generic": a generic the dose rules of the category are filtered on, as
+                /// the dose rules offer it, with the brand or the form in brackets when the dose rule is
+                /// restricted to one; empty for every generic under the indication
+                Generic: string
+            }
+
+
         type HashId = string
 
 

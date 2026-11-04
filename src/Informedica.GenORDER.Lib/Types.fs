@@ -1099,6 +1099,10 @@ module Types =
         | SupplementNeedsFeeding
         /// The plan already holds a context of the category
         | CategoryHeld of NutritionCategory
+        /// The rule sets name a category the code does not know
+        | UnknownCategory of name: string
+        /// The rule sets have no rule set for the category
+        | NoRuleSet of NutritionCategory
 
 
     /// Why a Dto does not parse to its domain value.

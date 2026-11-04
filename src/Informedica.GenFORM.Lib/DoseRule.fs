@@ -556,8 +556,6 @@ module DoseRule =
             | _ when s = "NKF" -> s |> Source.identified
             | _ -> s |> Source.other
 
-        let toLabel = GenericLabel.toLabel
-
         let toForm = PharmaceuticalForm.fromString
 
         let r = grp.DoseRuleData[0]
@@ -596,7 +594,7 @@ module DoseRule =
                     Indication = r.Indication
                     Generic =
                         // Label reflects the ORIGINAL source restriction (form/brand/none).
-                        let lbl = toLabel r.Generic.Name r.Generic.Form r.Generic.Brand
+                        let lbl = r.Generic |> GenericLabel.ofGenericData
 
                         let frm = frm |> toForm
 

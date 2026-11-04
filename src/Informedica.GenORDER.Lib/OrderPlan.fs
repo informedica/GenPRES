@@ -169,8 +169,71 @@ module PlanContext =
 
 module NutritionRuleSet =
 
-    /// The set serving a category, if the composition root supplied one.
+    open Informedica.Utils.Lib.BCL
+
+
+    /// The set serving a category, if the rule sets have one.
     let tryFind category (sets: NutritionRuleSet[]) = sets |> Array.tryFind (fun s -> s.Category = category)
+
+
+    /// The rule set of a category, refused when the rule sets have none for it.
+    let find category sets =
+        sets
+        |> tryFind category
+        |> Result.requireSome (OrderPlanError.NoRuleSet category)
+
+
+    /// Every nutrition category.
+    let categories =
+        [|
+            NutritionCategory.EnteralFeeding
+            NutritionCategory.EnteralSupplement
+            NutritionCategory.TPN
+            NutritionCategory.Lipid
+            NutritionCategory.ElectrolyteGlucose
+        |]
+
+
+    /// The name of a category in the "RuleSets" sheet.
+    let sheetName =
+        function
+        | NutritionCategory.EnteralFeeding -> "EnteralFeeding"
+        | NutritionCategory.EnteralSupplement -> "EnteralSupplement"
+        | NutritionCategory.TPN -> "TPN"
+        | NutritionCategory.Lipid -> "Lipid"
+        | NutritionCategory.ElectrolyteGlucose -> "ElectrolyteGlucose"
+
+
+    /// The nutrition category a name in the "RuleSets" sheet gives, refused for a name the code
+    /// does not know.
+    let categoryOf name =
+        categories
+        |> Array.tryFind (sheetName >> (=) name)
+        |> Result.requireSome (OrderPlanError.UnknownCategory name)
+
+
+    /// The rule set of every category the rows name: the label from the first row of the category,
+    /// and its indications and generics, each once, in the order of the rows. Refused, naming each
+    /// one once, when a row names a category the code does not know.
+    let ofData (rows: Types.Data.RuleSetData[]) =
+        rows
+        |> Array.groupBy _.Category
+        |> Array.toList
+        |> List.traverseResultA (fun (name, rs) ->
+            let distinct f =
+                rs |> Array.map f |> Array.filter String.notEmpty |> Array.distinct
+
+            categoryOf name
+            |> Result.map (fun category ->
+                {
+                    Category = category
+                    Label = rs[0].Label
+                    Indications = distinct _.Indication
+                    Generics = distinct _.Generic
+                }
+            )
+        )
+        |> Result.map List.toArray
 
 
     /// The context's pick lists narrowed to the set: when the set names indications or

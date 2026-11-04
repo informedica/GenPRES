@@ -1039,6 +1039,12 @@ module DoseRuleToDataTests =
                 [],
                 (Mapping.parseSheet Mapping.totalsRow >> Result.isOk)
 
+                "RuleSets",
+                [ "Category"; "Label"; "Indication"; "Generic" ],
+                [],
+                [],
+                (Mapping.parseSheet Mapping.ruleSetRow >> Result.isOk)
+
                 "Reconstitution",
                 [ "GPK"; "Route"; "Loc"; "Dep"; "DiluentVol"; "ExpansionVol"; "Diluents" ],
                 [],
@@ -7952,6 +7958,274 @@ module Tests =
                 ]
 
 
+    module RuleSetTests =
+
+        open Informedica.GenForm.Lib.Resources
+
+
+        let row category label indication generic : RuleSetData =
+            {
+                RuleSetData.Category = category
+                RuleSetData.Label = label
+                RuleSetData.Indication = indication
+                RuleSetData.Generic = generic
+            }
+
+
+        let sheet (rows: string list list) = rows |> List.map List.toArray |> List.toArray
+
+
+        let doseRules =
+            [|
+                "Enterale voeding", "MM", "MM"
+                "Enterale voeding", "Nutrilon Pepti 1", "Nutrilon Pepti 1"
+                "Neonatale Parenterale Voeding", "Primene", "Primene"
+                "Neonatale Parenterale Voeding", "Primene", "CaCl2 10%"
+                "Pijn", "paracetamol", "paracetamol"
+            |]
+            |> Array.map (fun (i, g, c) ->
+                {
+                    RuleSet.DoseRuleNames.Indication = i
+                    RuleSet.DoseRuleNames.Generic = g
+                    // a dose rule without a form or a brand offers the generic by its name
+                    RuleSet.DoseRuleNames.Label = g
+                    RuleSet.DoseRuleNames.Component = c
+                }
+            )
+
+
+        /// A dose rule under "Enterale voeding", its label as the dose rules build it from the form
+        /// and the brand.
+        let namesOf generic form brand : RuleSet.DoseRuleNames =
+            {
+                Indication = "Enterale voeding"
+                Generic = generic
+                Label = GenericLabel.toLabel generic form brand |> GenericLabel.toString
+                Component = generic
+            }
+
+
+        let restricted =
+            [|
+                namesOf "MM" "" ""
+                namesOf "Nutrini" "" "Nutricia"
+                namesOf "Infatrini" "poeder" ""
+            |]
+
+
+        let products = set [ "MM"; "Nutrilon Pepti 1"; "Primene"; "paracetamol" ]
+
+
+        let tests =
+            testList
+                "Rule sets"
+                [
+                    test "a row maps by column name, whatever the order of the columns" {
+                        sheet
+                            [
+                                [ "Generic"; "Indication"; "Label"; "Category" ]
+                                [ "MM"; "Enterale voeding"; "Enterale Voeding"; "EnteralFeeding" ]
+                            ]
+                        |> Mapping.parseSheet Mapping.ruleSetRow
+                        |> Expect.equal
+                            "the row"
+                            (Ok [| row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "MM" |])
+                    }
+
+                    test "the cells are trimmed and an empty generic stays empty" {
+                        sheet
+                            [
+                                [ "Category"; "Label"; "Indication"; "Generic" ]
+                                [ " TPN "; "Totale Parenterale Voeding"; " Neonatale Parenterale Voeding "; "" ]
+                            ]
+                        |> Mapping.parseSheet Mapping.ruleSetRow
+                        |> Expect.equal
+                            "trimmed"
+                            (Ok [| row "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "" |])
+                    }
+
+                    test "a sheet without its columns is refused" {
+                        sheet [ [ "Category"; "Label" ]; [ "TPN"; "TPN" ] ]
+                        |> Mapping.parseSheet Mapping.ruleSetRow
+                        |> Result.isError
+                        |> Expect.isTrue "no Indication column"
+                    }
+
+                    test "rows that match the dose rules give no warning" {
+                        [| row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "MM" |]
+                        |> RuleSet.check doseRules products
+                        |> Expect.isEmpty "nothing to warn"
+                    }
+
+                    test "an indication no dose rule has is a warning" {
+                        [| row "ElectrolyteGlucose" "Elektrolyten/Glucose" "Parenterale suppletie" "" |]
+                        |> RuleSet.check doseRules products
+                        |> Expect.equal
+                            "the indication"
+                            [
+                                Warning
+                                    "RuleSets: ElectrolyteGlucose, no dose rule has the indication Parenterale suppletie"
+                            ]
+                    }
+
+                    test "a generic no dose rule has under its indication is a warning" {
+                        [| row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "Moedermelk" |]
+                        |> RuleSet.check doseRules products
+                        |> Expect.equal
+                            "the generic"
+                            [
+                                Warning "RuleSets: EnteralFeeding, no dose rule has Moedermelk under Enterale voeding"
+                            ]
+                    }
+
+                    test "a generic or component under the indications without a product is a warning" {
+                        [| row "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "" |]
+                        |> RuleSet.check doseRules products
+                        |> Expect.equal
+                            "the component"
+                            [
+                                Warning
+                                    "RuleSets: TPN, CaCl2 10% under Neonatale Parenterale Voeding has no product in the Formulary sheet"
+                            ]
+                    }
+
+                    test "a category with more than one label is a warning" {
+                        [|
+                            row "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "Primene"
+                            row "TPN" "TPN" "Neonatale Parenterale Voeding" "Primene"
+                        |]
+                        |> RuleSet.check doseRules (set [ "Primene"; "CaCl2 10%" ])
+                        |> Expect.equal
+                            "the labels"
+                            [
+                                Warning "RuleSets: TPN has more than one label: Totale Parenterale Voeding, TPN"
+                            ]
+                    }
+
+                    test "a dose rule under another indication is not checked" {
+                        [| row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "" |]
+                        |> RuleSet.check doseRules (set [ "MM"; "Nutrilon Pepti 1" ])
+                        |> Expect.isEmpty "paracetamol and Primene are not looked at"
+                    }
+
+                    test "a row without a generic becomes a row per generic under its indication" {
+                        [| row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "" |]
+                        |> RuleSet.expand doseRules
+                        |> Array.map _.Generic
+                        |> Expect.equal "the generics, once each" [| "MM"; "Nutrilon Pepti 1" |]
+                    }
+
+                    test "a row without a generic is filled in with the generics as the dose rules offer them" {
+                        [| row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "" |]
+                        |> RuleSet.expand restricted
+                        |> Array.map _.Generic
+                        |> Expect.equal "the labels" [| "MM"; "Nutrini (Nutricia)"; "Infatrini (poeder)" |]
+                    }
+
+                    test "a generic in the sheet written as its label gives no warning" {
+                        [|
+                            row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "Nutrini (Nutricia)"
+                        |]
+                        |> RuleSet.check restricted (set [ "MM"; "Nutrini"; "Infatrini" ])
+                        |> Expect.isEmpty "known"
+                    }
+
+                    test "a generic in the sheet written by its name where a dose rule has a label warns with the label" {
+                        [| row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "Nutrini" |]
+                        |> RuleSet.check restricted (set [ "MM"; "Nutrini"; "Infatrini" ])
+                        |> Expect.equal
+                            "the label to write"
+                            [
+                                Warning
+                                    "RuleSets: EnteralFeeding, Nutrini under Enterale voeding is offered as Nutrini (Nutricia)"
+                            ]
+                    }
+
+                    test "the products are looked up by the name of the generic, not its label" {
+                        [| row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "" |]
+                        |> RuleSet.check restricted (set [ "MM"; "Infatrini" ])
+                        |> Expect.equal
+                            "only Nutrini"
+                            [
+                                Warning
+                                    "RuleSets: EnteralFeeding, Nutrini under Enterale voeding has no product in the Formulary sheet"
+                            ]
+                    }
+
+                    test "the label of a dose rule is built from its brand or its form as the dose rules build it" {
+                        let rowOf name brand form =
+                            let r = DoseRuleProductTests.mkRow name name None
+
+                            { r with
+                                Indication = "Enterale voeding"
+                                Generic =
+                                    { r.Generic with
+                                        Brand = brand
+                                        Form = form
+                                    }
+                            }
+
+                        [| rowOf "Nutrini" "Nutricia" ""; rowOf "Infatrini" "" "poeder" |]
+                        |> RuleSet.DoseRuleNames.ofData
+                        |> Array.map _.Label
+                        |> Expect.equal "with the brand and the form" [| "Nutrini (Nutricia)"; "Infatrini (poeder)" |]
+                    }
+
+                    test "a row with a generic stays as it is" {
+                        let rows = [| row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "MM" |]
+                        rows |> RuleSet.expand doseRules |> Expect.equal "unchanged" rows
+                    }
+
+                    test "a row whose indication no dose rule has stays as it is, so the check still warns" {
+                        let rows = [| row "Lipid" "Vetten" "Parenterale vetten" "" |]
+                        let expanded = rows |> RuleSet.expand doseRules
+
+                        expanded |> Expect.equal "unchanged" rows
+
+                        expanded
+                        |> RuleSet.check doseRules products
+                        |> Expect.equal
+                            "the warning"
+                            [
+                                Warning "RuleSets: Lipid, no dose rule has the indication Parenterale vetten"
+                            ]
+                    }
+
+                    test "the rule set rows, their expansion and their check are registered resources" {
+                        let registry = defaultRegistry FormLogging.noOp ""
+                        registry |> Map.containsKey Keys.ruleSetRows.Name |> Expect.isTrue "the rows"
+                        registry
+                        |> Map.containsKey Keys.ruleSetData.Name
+                        |> Expect.isTrue "the rows expanded"
+                        registry |> Map.containsKey Keys.ruleSetChecks.Name |> Expect.isTrue "the check"
+                    }
+
+                    test "the check of the registry gives the warnings over the rows" {
+                        let rows = [| row "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "" |]
+
+                        let eng =
+                            Map
+                                [
+                                    Keys.doseRuleData.Name, ofResult (fun () -> Ok([||]: DoseRuleData[]))
+                                    Keys.formularyProducts.Name, ofResult (fun () -> Ok([||]: FormularyProduct[]))
+                                    Keys.ruleSetRows.Name, ofResult (fun () -> Ok rows)
+                                    Keys.ruleSetChecks.Name,
+                                    (defaultRegistry FormLogging.noOp "")[Keys.ruleSetChecks.Name]
+                                ]
+                            |> LoadEngine
+
+                        eng.Resolve Keys.ruleSetChecks
+
+                        eng.Warnings
+                        |> Expect.equal
+                            "the indication"
+                            [
+                                Warning "RuleSets: TPN, no dose rule has the indication Neonatale Parenterale Voeding"
+                            ]
+                    }
+                ]
+
+
     [<Tests>]
     let tests =
         testList
@@ -7984,4 +8258,5 @@ module Tests =
                 RuleUnitTests.tests
                 RenalUnitTests.tests
                 PrescribableTests.tests
+                RuleSetTests.tests
             ]

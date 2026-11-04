@@ -509,6 +509,16 @@ module EvaluateFixtures =
         }
 
 
+    /// One row of the "RuleSets" sheet.
+    let ruleSetRow category label indication generic : Informedica.GenForm.Lib.Types.Data.RuleSetData =
+        {
+            Category = category
+            Label = label
+            Indication = indication
+            Generic = generic
+        }
+
+
 open EvaluateFixtures
 
 
@@ -614,6 +624,83 @@ let evaluateTests =
                 workbench
                 |> NutritionRuleSet.discover (fun _ -> Error "no")
                 |> Expect.equal "an evaluation that fails is the answer" (Error "no")
+            }
+
+            test "the rows of a category are one rule set, each value once, in the order of the rows" {
+                [|
+                    ruleSetRow "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "Primene"
+                    ruleSetRow "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "NICU mix"
+                    ruleSetRow "TPN" "Totale Parenterale Voeding" "Totale Parenterale Voeding" "Primene"
+                    ruleSetRow "Lipid" "Vetten" "Parenterale vetten" ""
+                |]
+                |> NutritionRuleSet.ofData
+                |> Expect.equal
+                    "two sets, the lipids without generics"
+                    (Ok
+                        [|
+                            {
+                                Category = NutritionCategory.TPN
+                                Label = "Totale Parenterale Voeding"
+                                Indications = [| "Neonatale Parenterale Voeding"; "Totale Parenterale Voeding" |]
+                                Generics = [| "Primene"; "NICU mix" |]
+                            }
+                            {
+                                Category = NutritionCategory.Lipid
+                                Label = "Vetten"
+                                Indications = [| "Parenterale vetten" |]
+                                Generics = [||]
+                            }
+                        |])
+            }
+
+            test "every nutrition category is read back from its sheet name" {
+                let cases =
+                    Microsoft.FSharp.Reflection.FSharpType.GetUnionCases typeof<NutritionCategory>
+                    |> Array.length
+
+                NutritionRuleSet.categories
+                |> Array.length
+                |> Expect.equal "every case is listed" cases
+
+                NutritionRuleSet.categories
+                |> Array.map (NutritionRuleSet.sheetName >> NutritionRuleSet.categoryOf)
+                |> Expect.equal "every case round-trips" (NutritionRuleSet.categories |> Array.map Ok)
+            }
+
+            test "a category the code does not know refuses the rule sets, named once" {
+                [|
+                    ruleSetRow "Enteral" "x" "Enterale voeding" "MM"
+                    ruleSetRow "Enteral" "x" "Enterale voeding" "Infatrini"
+                    ruleSetRow "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "Primene"
+                |]
+                |> NutritionRuleSet.ofData
+                |> Expect.equal "refused" (Error [ OrderPlanError.UnknownCategory "Enteral" ])
+            }
+
+            test "a category without a rule set is refused" {
+                [||]
+                |> NutritionRuleSet.find NutritionCategory.Lipid
+                |> Expect.equal "refused" (Error(OrderPlanError.NoRuleSet NutritionCategory.Lipid))
+            }
+
+            test "discovery over a nutrition context without indications offers no indication" {
+                let workbench =
+                    { pcmContext with
+                        Filter =
+                            { fresh with
+                                Indications = [||]
+                                Generics = [||]
+                                DoseTypes = [| disc |]
+                            }
+                    }
+
+                let evaluate (ctx: OrderContext) =
+                    Ok { ctx with Filter = { ctx.Filter with Indications = [| "voeding"; "pijn" |] } }
+
+                workbench
+                |> NutritionRuleSet.discover evaluate
+                |> Result.map _.Filter.Indications
+                |> Expect.equal "no indication" (Ok [||])
             }
 
             test "a narrowing that leaves one generic without its choice is evaluated again, which picks it" {
@@ -1135,6 +1222,71 @@ type UndilutedVancomycin() =
             DoseRuleLoader.fromData routeMapping [||] [| vial |] [| row |] |> fst
         member _.GetSolutionRules() = [| solutionRule |]
         member _.GetRouteMappings() = routeMapping
+
+
+/// A nutrition context discovered as the server discovers it: the rule set from the rows of the
+/// "RuleSets" sheet expanded over the dose rule data, and the context evaluated through the plan context.
+let ruleSetDiscoveryTests =
+    testList
+        "the discovery of a rule set over the rules"
+        [
+            test "a row without a generic offers the generics under its indication, not a medication" {
+                let rowOf generic indication =
+                    let r = RuleFixtures.row Resources.Departments.defaultDepartment
+
+                    { r with
+                        Generic = { r.Generic with Name = generic }
+                        Indication = indication
+                        ScheduleData =
+                            { r.ScheduleData with
+                                DoseLimitData =
+                                    { r.ScheduleData.DoseLimitData with
+                                        Component = generic
+                                        Substance = generic
+                                    }
+                            }
+                    }
+
+                // a nutrition rule for "voeding" beside a medication rule for "koorts"
+                let data = [| rowOf "voedsel" "voeding"; rowOf "paracetamol" "koorts" |]
+                let product g = Product.create g "zetpil" "RECTAAL" [| g |]
+
+                let provider =
+                    DoseRuleLoader.fromData
+                        RuleFixtures.routeMapping
+                        [||]
+                        [| product "voedsel"; product "paracetamol" |]
+                        data
+                    |> fst
+                    |> RulesOf
+                    :> Resources.IResourceProvider
+
+                let evaluate ctx =
+                    ctx
+                    |> PlanContext.create "ctx" (OrderCategory.Nutrition NutritionCategory.EnteralFeeding)
+                    |> PlanContext.evaluate
+                        Scenarios.testStart
+                        OrderLogging.noOp
+                        provider
+                        [||]
+                        OrderContext.UpdateOrderContext
+                    |> Result.map _.Context
+
+                let set =
+                    [|
+                        EvaluateFixtures.ruleSetRow "EnteralFeeding" "Enterale Voeding" "voeding" ""
+                    |]
+                    |> RuleSet.expand (RuleSet.DoseRuleNames.ofData data)
+                    |> NutritionRuleSet.ofData
+                    |> Result.map Array.head
+                    |> Result.defaultWith (fun e -> failtest $"%A{e}")
+
+                NutritionRuleSet.emptyContext (Some set) (RuleFixtures.patient (Some 5N) false (Some 20N) None)
+                |> NutritionRuleSet.discover evaluate
+                |> Result.map _.Filter.Generics
+                |> Expect.equal "voedsel, not paracetamol" (Ok [| "voedsel" |])
+            }
+        ]
 
 
 /// The rules for a patient without a department: the lookup runs on the context as held,
