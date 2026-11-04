@@ -277,6 +277,12 @@ module Resources =
         let ruleSetData = ResourceKey.create<RuleSetData[]> "ruleSetData"
         // The rule set rows checked against the dose rules and the formulary; only gives messages.
         let ruleSetChecks = ResourceKey.create<unit> "ruleSetChecks"
+        // The rows of the LinkRules sheet as written, blank rows included.
+        let linkRuleRows = ResourceKey.create<LinkRuleData[]> "linkRuleRows"
+        // The link rules read; a refused row fails the whole load.
+        let linkRules = ResourceKey.create<LinkRule[]> "linkRules"
+        // The link rules checked against the dose rules; only gives messages.
+        let linkRuleChecks = ResourceKey.create<unit> "linkRuleChecks"
         let products = ResourceKey.create<ProductComponent[]> "products"
         let doseRules = ResourceKey.create<DoseRule[]> "doseRules"
         let solutionRules = ResourceKey.create<SolutionRule[]> "solutionRules"
@@ -392,6 +398,20 @@ module Resources =
                     (),
                     r.Get Keys.ruleSetRows
                     |> RuleSet.checkData (r.Get Keys.doseRuleData) (r.Get Keys.formularyProducts)
+                )
+
+                Keys.linkRuleRows.Name, ofResult (fun () -> Mapping.getLinkRules dataUrlId)
+
+                // a refused row fails the whole load: a required link that is left out would let its
+                // order be prescribed alone
+                Keys.linkRules.Name,
+                (fun r -> r.Get Keys.linkRuleRows |> LinkRule.ofRows |> Result.map (fun v -> box v, []))
+
+                Keys.linkRuleChecks.Name,
+                deriveWith (fun r ->
+                    (),
+                    r.Get Keys.linkRuleRows
+                    |> LinkRule.checkData (r.Get Keys.routeMappings) (r.Get Keys.doseRuleData)
                 )
 
                 // Narrow the raw ZIndex products to those referenced by dose rules

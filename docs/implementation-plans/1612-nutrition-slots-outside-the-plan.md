@@ -3,7 +3,7 @@
 2026-11-03. Draft for review. Closes #1612 and #1632. Unblocks rule 10 of
 [plan 1430](1430-patient-data-changes.md) for nutrition, and the gap its step 5 names: a pick in a
 slot with an order calculates the order on the patient data the slot was made on. Revised the same day:
-which orders are linked is decided by link rules, data in the LinkedRules sheet, and what a nutrition
+which orders are linked is decided by link rules, data in the LinkRules sheet, and what a nutrition
 slot offers by rule sets, data in the RuleSets sheet, not by code.
 
 <!-- markdownlint-disable-file MD029 -->
@@ -74,7 +74,7 @@ offered nothing.
 
 ### Link rules
 
-8. **The link rules decide which orders are linked.** The LinkedRules sheet holds one row per link: the
+8. **The link rules decide which orders are linked.** The LinkRules sheet holds one row per link: the
    dose rule of the linked order (Generic, Route, Indication, DoseType, DoseText), the dose rule of its
    main order (MainGeneric, MainRoute, MainIndication, MainDoseType, MainDoseText), and Required. An
    empty field matches any value, except DoseType and MainDoseType, which every row fills in (rule 10).
@@ -118,7 +118,7 @@ offered nothing.
 14. **The shape of a link is checked wherever the server reads a plan:** a main order that is not in the
     plan, or a main order that is itself linked, refuses the plan. The link rules are not checked there:
     the sheet is live configuration, and a signed version must stay readable after an edit of the
-    LinkedRules sheet. A link that held when it was prescribed holds in that version. A supplement
+    LinkRules sheet. A link that held when it was prescribed holds in that version. A supplement
     without a link, from a plan signed before this change, is read as it is; once the plan slots go
     (step 10) it stays in the plan when its feeding is removed. The decision that no stored version
     matters yet covers it (2026-11-03, halcwb).
@@ -129,7 +129,7 @@ offered nothing.
 
 ### The supplement
 
-16. **A supplement is a linked order of a feeding.** The LinkedRules rows of the supplements say so, with
+16. **A supplement is a linked order of a feeding.** The LinkRules rows of the supplements say so, with
     Required yes, so a supplement is only offered in a feeding slot, as an optional linked order of the
     feeding composed there. The separate supplement slot goes. A breast milk fortifier has MainGeneric
     MM, the breast milk generic of the DoseRules sheet, so it is offered only under breast milk.
@@ -167,7 +167,7 @@ offered nothing.
 - `OrderPlan.holds`, the category rule of `OrderPlan.admits`, `OrderPlanError.CategoryHeld` with its
   words in `ServerApi.Mappers.OrderPlan.fs`, and the client copy `OrderPlan.mayAdd`.
 - `OrderPlanError.SupplementNeedsFeeding` and every rule in code that names a nutrition category for a
-  link: the link rules of the LinkedRules sheet replace them.
+  link: the link rules of the LinkRules sheet replace them.
 - The supplement slot and the supplement category button on the nutrition page.
 - `ServerApi.NutritionRuleSets.fs`, the rule sets as code: the RuleSets sheet replaces it.
   `NutritionCategory.label` in `Shared/Models.fs` stays: the client names a category with its
@@ -245,7 +245,7 @@ offered nothing.
 
 ### Link rules (GenFORM)
 
-- A `LinkRule` record and its `Data` record for the LinkedRules sheet, one field per column with its
+- A `LinkRule` record and its `Data` record for the LinkRules sheet, one field per column with its
   `///` comment, read by a mapper with `get` by column name, and a column-contract test.
 - A resource in `Resources.defaultRegistry`, reached through `IResourceProvider` as the dose rules are.
 - The read refuses a row with an empty DoseType or MainDoseType, and a row with once or onceTimed on
@@ -254,6 +254,10 @@ offered nothing.
   gives `NoDoseType`, with a warning for an unknown one. So the read refuses a row whose DoseType or
   MainDoseType parses to `NoDoseType`, which covers the empty dose type, and reports the warning with
   it.
+- A row with both dose types empty is blank and skipped, as the RuleSets sheet skips a row without a
+  category; the row numbers in the messages count the blank rows. A route on a side compares by the
+  route mapping, as the dose rule filter does. The check reuses `RuleSet.DoseRuleNames`, with the route
+  and the dose type added. Decisions from the review of step 4a, 2026-11-04, halcwb.
 
 ### Domain (GenORDER)
 
@@ -360,8 +364,9 @@ Open in the data:
 - Nutrilon Pepti 1, Pepti 2, Standaard 1 and Standaard 2 have dose rules from the age of one year only,
   which needs a medical check for infant formulas.
 
-### LinkedRules
+### LinkRules
 
+The tab was named LinkedRules when it was checked, and renamed LinkRules on 2026-11-04 to match the code.
 The sheet was added to the rules spreadsheet on 2026-11-03 and checked against its DoseRules sheet. It
 holds 50 rows, every one with the dose type discontinuous on both sides.
 
@@ -436,11 +441,16 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
 3. **The link on the wire.** The wire field, both mapper directions, the rename of the wire
    `OrderContext.Intake` to `Totals`. Script
    `src/Informedica.GenPRES.Server/Scripts/LinkedOrders.fsx`. Seen: nothing.
-4. **The link rules.** The LinkedRules sheet in GenFORM: the record, the `Data` record, the mapper, the
-   column-contract test, the resource, the refusal of a dose type that parses to `NoDoseType` and of
-   once and onceTimed;
-   `LinkRule.linkedTo` and `LinkRule.allows` in GenORDER. Script
-   `src/Informedica.GenFORM.Lib/Scripts/LinkRules.fsx`. Seen: nothing.
+4. **The link rules**, in two pull requests, the first for GenFORM alone.
+   4a. **The LinkRules sheet in GenFORM.** The `LinkSide`, `LinkRequirement` and `LinkRule` records,
+   the `Data` record, the mapper, the column-contract test, the resources for the rows, the rules and
+   the check, the refusal of a dose type that parses to `NoDoseType` and of once and onceTimed, and
+   `LinkRule.matches`. A refused row fails the load. Every spreadsheet a server runs on needs the
+   LinkRules tab before the merge, the demo spreadsheet included. The step takes 299 lines of `src/`,
+   over the limit of 200, as one pull request. Decision, 2026-11-04, halcwb. Seen: nothing.
+   4b. **The link rules over the order contexts in GenORDER.** `LinkRule.linkedTo` and
+   `LinkRule.allows`, and the `LinkError` cases `NotAllowed` and `MainOrderRequired` with their words in
+   the server. Script `src/Informedica.GenORDER.Lib/Scripts/LinkRules.fsx`. Seen: nothing.
 5. **The server starts and narrows a slot on the order context path, and offers linked orders.** The new
    `OrderContextCommand` case, the narrowing by `Category`, the linked orders in the answer with their
    category (rule 19), the dose rules of a Required link rule left out of the pick lists (rule 20), the
@@ -498,6 +508,6 @@ and see the combined totals follow each time; change the weight with a slot open
 from its rule set; start a new patient while a totals query is out and see no totals of the previous
 patient; prescribe ataluren with its evening dose linked, check the main order and see both checked and
 the evening dose not uncheckable, remove it and see both go; a linked order locked by its main order
-shows the group text; edit the LinkedRules sheet and see a signed version with a link the sheet no
+shows the group text; edit the LinkRules sheet and see a signed version with a link the sheet no
 longer has still open. A medical check of the combined totals, of two TPN orders in one plan, of the
 link rules, and of a TPN prescribed after a change of weight.

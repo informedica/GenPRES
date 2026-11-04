@@ -7,8 +7,8 @@ module RuleSet =
     open Informedica.Utils.Lib.BCL
 
 
-    /// The names a dose rule is matched on by the check and the expansion of the rows: its
-    /// indication, its generic, its label and its component.
+    /// The names a dose rule is matched on by the checks and the expansion of the rows: its
+    /// indication, its generic, its label, its component, its route and its dose type.
     type DoseRuleNames =
         {
             /// The indication of the dose rule
@@ -20,12 +20,16 @@ module RuleSet =
             Label: string
             /// The component of the dose rule
             Component: string
+            /// The route of the dose rule
+            Route: string
+            /// The dose type of the dose rule with its text
+            DoseType: DoseType
         }
 
 
     module DoseRuleNames =
 
-        /// The indication, generic, label and component of every dose rule.
+        /// The names of every dose rule.
         let ofData (doseRules: DoseRuleData[]) =
             doseRules
             |> Array.map (fun d ->
@@ -34,6 +38,8 @@ module RuleSet =
                     Generic = d.Generic.Name
                     Label = d.Generic |> GenericLabel.ofGenericData |> GenericLabel.toString
                     Component = d.ScheduleData.DoseLimitData.Component
+                    Route = d.Route
+                    DoseType = DoseType.fromString d.ScheduleData.DoseType d.ScheduleData.DoseText
                 }
             )
 
