@@ -485,10 +485,24 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
      the reason is logged, since the category of an offer would be unknown. Decisions, 2026-11-04,
      halcwb. The step takes 244 lines of `src/`, over the limit of 200, as one pull request: the review
      added the full case list of `offersLinked` and the shared reading of a rule set, and a later fix
-     leaves out an offer whose evaluation finds only another dose type. Decision, 2026-11-04, halcwb. Script `src/Informedica.GenPRES.Server/Scripts/LinkedOffers.fsx`, deleted in
-     this step. Seen: nothing.
+     leaves out an offer whose evaluation finds only another dose type. Decision, 2026-11-04, halcwb.
+     Script `src/Informedica.GenPRES.Server/Scripts/LinkedOffers.fsx`, deleted in this step. Seen: nothing.
    - **5c. Rule 20:** the dose rules of a Required link rule left out of the pick lists. The gap between
-     step 5 and step 9 opens here.
+     step 5 and step 9 opens here. GenFORM derives the dose rules that need no main order once per load,
+     `Keys.standAloneDoseRules` over `LinkRule.needsMainOrder`. The order context port evaluates a command
+     over a provider whose dose rules are those, `Adapters.forPickLists`, which every dose rule lookup
+     passes through. The linked offers are evaluated over every dose rule. The plan port is unchanged, so
+     the plan slots still offer the supplements until step 10.
+
+     A refused LinkRules row fails the whole load, which leaves no dose rules, so nothing is prescribed,
+     medication included. That is the safe answer for rule 20: without the link rules an order that needs
+     its main order would be offered alone. The provider of the pick lists then reads no resource and
+     answers with no dose rules, so an evaluation answers with empty pick lists and raises nothing.
+     Decision, 2026-11-04, halcwb.
+
+     The tests use week 1 of the oral hydrocortison taper as the sheet has it. A variant makes the 18:00
+     dose Required no, a dose that can also be ordered on its own. Script
+     `src/Informedica.GenPRES.Server/Scripts/RequiredLinks.fsx`, deleted in this step. Seen: nothing.
 6. **The group add and the totals query** on the server and their wire: `AddOrderContext` with linked
    contexts, `addOrderContexts` with the check of rule 15, and the totals query. The words of
    `LinkError.NotAllowed` name the main order by its generic, not by its context id, which a clinician
@@ -512,6 +526,8 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
    on the order plan page a linked order under its main order, the row check and the group lock text
    of rule 13; the intake slider in the order dialog. In Client.Core, by script
    `src/Informedica.GenPRES.Client.Core/Scripts/LinkedOrders.fsx`, the group lock and the row check.
+   A linked order context taken from an offer is evaluated over every dose rule, as its offer was: the
+   order context port leaves the dose rules of a Required link rule out of the pick lists from step 5c.
    Two pull requests if it does not fit. Seen: nutrition is composed in slots and enters the plan on
    prescribe; ataluren is prescribed with its evening dose linked.
 10. **The plan slots go.** The plan refuses a filter command on a context it holds, which only a slot
