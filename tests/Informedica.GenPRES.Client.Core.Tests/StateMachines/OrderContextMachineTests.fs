@@ -1695,3 +1695,16 @@ let offerAnswerTests =
                 |> Expect.equal "the drops" (Some "o-drops")
             }
         ]
+
+
+[<Tests>]
+let offerSwitchTests =
+    testList
+        "OfferSwitch"
+        [
+            test "the switch of an offer flips both ways" {
+                [ OfferSwitch.On; OfferSwitch.Off ]
+                |> List.map OfferSwitch.flip
+                |> Expect.equal "the other way" [ OfferSwitch.Off; OfferSwitch.On ]
+            }
+        ]

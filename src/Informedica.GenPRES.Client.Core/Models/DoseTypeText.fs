@@ -7,26 +7,35 @@ module DoseTypeText =
     open Informedica.GenPRES.Shared.Types
 
 
-    /// The description a page shows: the dose type's text, or the Dutch name of its kind.
-    let doseTypeToDescription doseType =
+    /// The text of a dose type, such as avond for the evening dose of ataluren; none for a dose type without
+    /// a text.
+    let text doseType =
         match doseType with
         | OnceTimed s
         | Once s
         | Timed s
         | Discontinuous s
-        | Continuous s ->
-            if s |> String.notEmpty then
-                s
-            else
-                match doseType with
-                | OnceTimed _
-                | Once _ -> "eenmalig"
-                | Timed _
-                | Discontinuous _ -> "onderhoud"
-                | Continuous _ -> "continu"
-                | NoDoseType -> ""
+        | Continuous s when s |> String.notEmpty -> Some s
+        | OnceTimed _
+        | Once _
+        | Timed _
+        | Discontinuous _
+        | Continuous _
+        | NoDoseType -> None
 
-        | NoDoseType -> ""
+
+    /// The description a page shows: the dose type's text, or the Dutch name of its kind.
+    let doseTypeToDescription doseType =
+        match text doseType with
+        | Some s -> s
+        | None ->
+            match doseType with
+            | OnceTimed _
+            | Once _ -> "eenmalig"
+            | Timed _
+            | Discontinuous _ -> "onderhoud"
+            | Continuous _ -> "continu"
+            | NoDoseType -> ""
 
 
     /// The dose type as a url or a list carries it: its kind, then its text when it has one.

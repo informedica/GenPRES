@@ -30,28 +30,6 @@ module ParenteralNutrition =
     let private autoMarginSx = {| marginLeft = "auto" |}
 
 
-    // the steps of the intake slider, in percent of the full intake; only a few carry a label, so
-    // the slider stays readable on a narrow screen
-    let private intakeMarks =
-        [|
-            for v in 10..10..100 ->
-                if v = 10 || v = 50 || v = 100 then
-                    createObj [ "value" ==> v; "label" ==> $"%i{v}%%" ]
-                else
-                    createObj [ "value" ==> v ]
-        |]
-
-
-    // on the right the room of the severity mark of a field, so the slider is as wide as the
-    // fields of its column; no room above it, so the total row is no higher than the others and
-    // the value that pops up while it moves lies over the caption
-    let private sliderBoxSx = {| paddingRight = $"%i{Components.QuantityField.markWidth}px" |}
-
-
-    // a dose that is no step of the slider has no handle on it
-    let private noHandleSx = {| ``& .MuiSlider-thumb`` = {| display = "none" |} |}
-
-
     /// One parenteral order: in a fold with its values in the summary and a bin beside them,
     /// the composition with the dose type, the components, and the administration.
     [<JSX.Component>]
@@ -90,12 +68,6 @@ module ParenteralNutrition =
         let counting = React.useContext Global.counting
         let held = props.busy || counting.Counting
 
-        // the position while the user drags; otherwise the slider reads it from the order, and a
-        // new order drops it
-        let dragged, setDragged = React.useState (None: int option)
-
-        React.useEffect ((fun () -> setDragged None), [| box slot.Order |])
-
         let genericFilter = slot.GenericFilter
         let doseTypeFilter = slot.DoseTypeFilter
 
@@ -124,52 +96,14 @@ module ParenteralNutrition =
         // the TPN is composed and its dose count holds one value
         let intakeSlider =
             if props.nutritionContext |> isOneOf [ NutritionCategory.TPN ] then
-                let position =
-                    dragged
-                    |> Option.orElse (slot.DoseQuantityShare |> Option.bind IntakePolicy.sliderStep)
-                let value = position |> Option.defaultValue 100
-                let sliderSx = if position.IsSome then null else box noHandleSx
-                let track: obj = if position.IsSome then box "normal" else box false
-                let disabled = not slot.CanSetDoseQuantityPerc || held
-
-                // a dose set otherwise shows its exact share instead of a handle
-                let shareText =
-                    match position, slot.DoseQuantityShare with
-                    | None, Some share ->
-                        let pct = share |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3
-                        $": %s{pct}%% van totaal"
-                    | _ -> ""
-
-                let onIntakeChange = System.Func<obj, int, unit>(fun _ v -> setDragged (Some v))
-                let onIntakeCommitted = System.Func<obj, int, unit>(fun _ v -> slot.SetDoseQuantityPerc v)
-                let intakeLabel = fun (v: int) -> $"%i{v}%% van totaal"
-
-                JSX.jsx
-                    $"""
-                import Box from '@mui/material/Box';
-                import Slider from '@mui/material/Slider';
-                import Typography from '@mui/material/Typography';
-                <Box sx={sliderBoxSx}>
-                    <Typography id="tpn-intake-label" variant="caption" color="text.secondary">
-                        toedien hoeveelheid als percentage van totaal{shareText}
-                    </Typography>
-                    <Slider
-                        aria-labelledby="tpn-intake-label"
-                        value={value}
-                        onChange={onIntakeChange}
-                        onChangeCommitted={onIntakeCommitted}
-                        step={10}
-                        min={10}
-                        max={100}
-                        marks={intakeMarks}
-                        track={track}
-                        sx={sliderSx}
-                        valueLabelDisplay="auto"
-                        valueLabelFormat={intakeLabel}
-                        disabled={disabled}
-                    />
-                </Box>
-                """
+                Components.IntakeSlider.View
+                    {|
+                        labelId = $"intake-label-%s{props.nutritionContext.Id}"
+                        share = slot.DoseQuantityShare
+                        disabled = not slot.CanSetDoseShare || held
+                        onCommit = slot.SetDoseQuantityPerc
+                        order = box slot.Order
+                    |}
             else
                 null
 

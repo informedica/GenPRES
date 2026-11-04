@@ -577,7 +577,7 @@ module NutritionSlot =
             SetDoseQuantityPerc: int -> unit
             /// Whether the intake slider can set the dose: the TPN is composed and its dose count
             /// holds one value.
-            CanSetDoseQuantityPerc: bool
+            CanSetDoseShare: bool
             /// The share of the total the dose is, in percent, when both hold one value.
             DoseQuantityShare: decimal option
             /// Why the components are locked, while the dose of the TPN is a part of the total.
@@ -635,10 +635,8 @@ module NutritionSlot =
         // a filter pick goes as its position in the options the field offers, an emptied field as
         // a clear; a value the field does not offer is a bug, written to the console and not sent
         let pickFilter field (options: 'a[]) (picked: 'a option) =
-            match picked |> Option.map (fun x -> options |> Array.tryFindIndex ((=) x)) with
-            | None -> evaluate (Api.OrderViewCommand.ClearFilterProperty field)
-            | Some(Some n) -> evaluate (Api.OrderViewCommand.SetNthFilterProperty(field, n))
-            | Some None -> Logging.warning "a pick the field does not offer is not sent" picked
+            PickPolicy.filterCommand field options picked
+            |> ViewHelpers.sendPick evaluate picked
 
         let genericChange s = pickFilter OrderContext.Generic ctx.Filter.Generics s
 
@@ -1166,7 +1164,7 @@ module NutritionSlot =
             else
                 null
 
-        let canSetDoseQuantityPerc = PlanContextPolicy.canSetIntake props.plan ctx
+        let canSetDoseShare = PlanContextPolicy.canSetDoseShare props.plan ctx
 
         let indicationFilter =
             if ctx.Filter.Generic.IsNone || ctx.Filter.Indications |> Array.length <= 1 then
@@ -1225,7 +1223,7 @@ module NutritionSlot =
             ResetAction = resetAction
             ResetBar = resetBar
             SetDoseQuantityPerc = SetDoseQuantityPercProperty >> dispatch
-            CanSetDoseQuantityPerc = canSetDoseQuantityPerc
+            CanSetDoseShare = canSetDoseShare
             DoseQuantityShare = shownOrder |> Option.bind IntakePolicy.doseShare
             CompositionHint = compositionHint
             ScenarioNotice = scenarioNotice

@@ -970,3 +970,49 @@ let slotViewTests =
                 |> Expect.equal "kept while asked again" (Some combined)
             }
         ]
+
+
+/// The real link rule of ataluren on the workbench: the morning and midday dose offers the evening dose.
+module WorkbenchOfferFixtures =
+
+    open OrderContextMachineTests.LinkedOfferFixtures
+    open OrderContextMachineTests.OfferCommandFixtures
+
+
+    /// The client with the workbench given.
+    let withWorkbench workbench =
+        let state = initial Url.none
+        { state with Lanes = { state.Lanes with OrderContext = workbench } }
+
+
+    let offered = withWorkbench atalurenOffered
+    let eveningTurnedOn = withWorkbench eveningOn
+    let eveningOfTwoTurnedOn = withWorkbench eveningOfTwoOn
+
+
+open WorkbenchOfferFixtures
+
+
+[<Tests>]
+let workbenchOfferTests =
+    testList
+        "the offers on the workbench"
+        [
+            test "ataluren narrowed to its morning and midday dose offers the evening dose, off" {
+                offered
+                |> Client.workbenchOffers
+                |> Array.map (fun o -> o.Context.Scenarios |> Array.map _.Order.Id, o.Switch)
+                |> Expect.equal "the evening dose" [| [| "o-avond" |], OfferSwitch.Off |]
+            }
+
+            test "ataluren with the evening dose off or on, narrowed, can be prescribed" {
+                offered |> Client.workbenchPrescribable |> Expect.isTrue "off"
+                eveningTurnedOn |> Client.workbenchPrescribable |> Expect.isTrue "on"
+            }
+
+            test "the evening dose turned on with two sachets keeps ataluren from being prescribed" {
+                eveningOfTwoTurnedOn
+                |> Client.workbenchPrescribable
+                |> Expect.isFalse "not narrowed"
+            }
+        ]

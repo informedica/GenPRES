@@ -4,7 +4,17 @@ namespace Informedica.GenPRES.Client.Core.Policies
 /// dose quantity and the orderable dose rate, with or without a change of the patient data.
 module PlanContextPolicy =
 
+    open Informedica.GenPRES.Client.Core.Models
     open Informedica.GenPRES.Shared.Types
+
+
+    /// Whether the intake slider of an order in the plan can set its dose as a share of the full intake.
+    [<RequireQualifiedAccess>]
+    type DoseShare =
+        /// The order is a TPN, composed, its dose count holds one value, and it is not locked.
+        | Settable
+        /// The slider shows the share and takes no change; so for every order in the plan that is not a TPN.
+        | Fixed
 
 
     /// What the order dialog lets the user change.
@@ -12,9 +22,10 @@ module PlanContextPolicy =
     type Editing =
         /// The prescribing workbench: every field, the argumentation and Reset.
         | Workbench
-        /// An order context in the plan: the fields the plan context rule allows and the
-        /// argumentation; no Reset, which re-solves from the rules and can change the rest.
-        | PlanContext
+        /// An order context in the plan: the fields the plan context rule allows, the argumentation and,
+        /// when it is settable, the dose share; no Reset, which re-solves from the rules and can change the
+        /// rest.
+        | PlanContext of DoseShare
         /// An order the current patient data could not be calculated on: nothing; the dialog sends
         /// no command.
         | Locked
@@ -61,16 +72,25 @@ module PlanContextPolicy =
             Lock.Unlocked
 
 
+    /// The text of a lock: why an order is locked, by itself or by its group; none for an order not locked.
+    let lockTerm lock =
+        match lock with
+        | Lock.Unlocked -> None
+        | Lock.NotCalculated -> Some Terms.``Plan Context Locked``
+        | Lock.Group -> Some Terms.``Plan Context Group Locked``
+
+
     /// Whether the order a context contributes is locked over the plan given: the order or another order
     /// of its group could not be calculated on the current patient data.
     let locked plan ctx = lock plan ctx <> Lock.Unlocked
 
 
-    /// Whether the intake slider can set the dose of the order of a context: not when the order is
-    /// locked, since the plan would not take the change and the slider would show a value the order
+    /// Whether the intake slider can set the dose of the order of a context: only for a TPN, and not when the
+    /// order is locked, since the plan would not take the change and the slider would show a value the order
     /// does not hold.
-    let canSetIntake plan (ctx: OrderContext) =
-        not (locked plan ctx)
+    let canSetDoseShare plan (ctx: OrderContext) =
+        ctx.Category = OrderCategory.Nutrition NutritionCategory.TPN
+        && not (locked plan ctx)
         && Informedica.GenPRES.Shared.Models.OrderContext.contribution ctx
            |> Option.exists (_.Order >> IntakePolicy.canSetDoseQuantityPerc)
 
@@ -183,7 +203,7 @@ module PlanContextPolicy =
     let canEdit (editing: Editing) (key: string) =
         match editing with
         | Editing.Workbench -> true
-        | Editing.PlanContext -> key |> fieldKind |> editable
+        | Editing.PlanContext _ -> key |> fieldKind |> editable
         | Editing.Locked -> false
 
 
@@ -191,7 +211,7 @@ module PlanContextPolicy =
     let resets (editing: Editing) =
         match editing with
         | Editing.Workbench -> true
-        | Editing.PlanContext
+        | Editing.PlanContext _
         | Editing.Locked -> false
 
 
@@ -200,15 +220,26 @@ module PlanContextPolicy =
     let argues (editing: Editing) =
         match editing with
         | Editing.Workbench
-        | Editing.PlanContext -> true
+        | Editing.PlanContext _ -> true
         | Editing.Locked -> false
 
 
     /// The editing of the order dialog for the context of the plan with this id: locked when it or another
     /// order of its group could not be calculated on the current patient data, the plan context rule
-    /// otherwise.
+    /// otherwise, with the dose share settable when the intake slider can set the dose.
     let editingOf (plan: OrderPlan) (contextId: string) =
         match plan.OrderContexts |> Array.tryFind (fun c -> c.Id = contextId) with
         | Some ctx when locked plan ctx -> Editing.Locked
+        | Some ctx when canSetDoseShare plan ctx -> Editing.PlanContext DoseShare.Settable
         | Some _
-        | None -> Editing.PlanContext
+        | None -> Editing.PlanContext DoseShare.Fixed
+
+
+    /// Whether the dose share can be set under the editing given: only for an order in the plan whose
+    /// intake slider can set its dose.
+    let setsDoseShare (editing: Editing) =
+        match editing with
+        | Editing.PlanContext DoseShare.Settable -> true
+        | Editing.PlanContext DoseShare.Fixed
+        | Editing.Workbench
+        | Editing.Locked -> false

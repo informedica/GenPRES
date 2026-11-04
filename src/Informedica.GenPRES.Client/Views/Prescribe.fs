@@ -16,6 +16,128 @@ module Prescribe =
     open OrderContextMachine
 
 
+    let private textCellSx =
+        {|
+            paddingTop = 1
+            paddingRight = 2
+        |}
+
+
+    let private textTableContainerSx = {| overflowX = "auto" |}
+
+
+    let private textTableSx =
+        {|
+            tableLayout = "auto"
+            width = "auto"
+        |}
+
+
+    /// The rows of an order text, such as the prescription of a scenario, one table row per line and one
+    /// cell per block; on a phone the blocks of a line run on as one.
+    let textRows isMobile (text: TextBlock[][]) =
+        let cells row =
+            row
+            |> Array.mapi (fun i cell ->
+                JSX.jsx
+                    $"""
+                    import TableCell from '@mui/material/TableCell';
+                    <TableCell key={i} sx={textCellSx}>
+                        {cell |> Mui.TypoGraphy.fromTextBlock}
+                    </TableCell>
+                    """
+            )
+
+        let text = if isMobile then text |> TextBlockDisplay.flatten else text
+
+        text
+        |> Array.mapi (fun i row ->
+            JSX.jsx
+                $"""
+                import TableRow from '@mui/material/TableRow';
+                <TableRow key={i} sx={ {| border = 0 |} } >
+                    {cells row}
+                </TableRow>
+            """
+        )
+
+
+    /// An order text as a table of its own, as an offer shows its prescription.
+    let textTable isMobile (text: TextBlock[][]) =
+        let rows = textRows isMobile text
+
+        JSX.jsx
+            $"""
+        import Table from '@mui/material/Table';
+        import TableBody from '@mui/material/TableBody';
+        import TableContainer from '@mui/material/TableContainer';
+        <TableContainer sx={textTableContainerSx} >
+            <Table padding="none" size="small" sx={textTableSx} >
+                <TableBody>
+                    {rows}
+                </TableBody>
+            </Table>
+        </TableContainer>
+        """
+
+
+    /// One order the link rules offer with the order of the workbench: its name and dose type with the switch
+    /// that turns it on, and while it is on the form, the one filter open on an offer, and its prescription
+    /// once it is narrowed to one scenario. A dose changes after the prescribe, in the order dialog of the plan.
+    [<JSX.Component>]
+    let private OfferView
+        (props:
+            {|
+                offer: LinkedOffer
+                index: int
+                envOrderContext: AppEnv.IOrderContext
+                formLabel: string
+                isMobile: bool
+                busy: bool
+            |})
+        =
+        let ctx = props.offer.Context
+
+        let formChange picked =
+            PickPolicy.filterCommand OrderContext.Form ctx.Filter.Forms picked
+            |> ViewHelpers.sendPick (fun cmd -> props.envOrderContext.OfferCommand(props.index, cmd)) picked
+
+        let formFilter =
+            if
+                FieldOpenPolicy.offerFilter OrderContext.Form
+                && ctx.Filter.Forms |> Array.isEmpty |> not
+            then
+                ctx.Filter.Forms
+                |> Array.map (fun f -> f, f)
+                |> ViewHelpers.filterSelectWhen (not props.busy) props.formLabel ctx.Filter.Form formChange
+            else
+                null
+
+        let prescription =
+            match ctx.Scenarios with
+            | [| sc |] -> sc.Prescription |> textTable props.isMobile
+            | _ -> null
+
+        let controls =
+            JSX.jsx
+                $"""
+            import Stack from '@mui/material/Stack';
+            <Stack direction="column" spacing={1}>
+                {formFilter}
+                {prescription}
+            </Stack>
+            """
+
+        Components.OfferSwitch.View
+            {|
+                name = OrderContextText.offerName ctx
+                switch = props.offer.Switch
+                disabled = props.busy
+                onTurn = fun switch -> props.envOrderContext.TurnOffer(props.index, switch)
+                controls = controls
+            |}
+
+
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
         let envOrderContext = AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv
@@ -33,39 +155,38 @@ module Prescribe =
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
 
+        // a request out that changes the page: the dialog and the offers wait for it
+        let busy = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Page Global.Pages.Prescribe
+
         // a pick goes as its position in the options the field offers, an emptied field as a
         // clear; a value the field does not offer is a bug, written to the console and not sent
-        let pickFilter (options: OrderContext -> 'a[]) (picked: 'a option) toCommand =
+        let pick buildCommand (options: OrderContext -> 'a[]) (picked: 'a option) =
             match orderContext with
             | OrderContextView.Settled pr
             | OrderContextView.Refused(pr, _) ->
-                match picked |> Option.map (fun x -> pr |> options |> Array.tryFindIndex ((=) x)) with
-                | None -> orderContextMsg (toCommand None)
-                | Some(Some n) -> orderContextMsg (toCommand (Some n))
-                | Some None -> Logging.warning "a pick the field does not offer is not sent" picked
+                buildCommand (pr |> options) picked
+                |> ViewHelpers.sendPick orderContextMsg picked
             | _ -> ()
 
-        let filterCommand field n =
-            match n with
-            | Some n -> Api.OrderViewCommand.SetNthFilterProperty(field, n)
-            | None -> Api.OrderViewCommand.ClearFilterProperty field
+        let pickWith (options: OrderContext -> 'a[]) (picked: 'a option) toCommand =
+            pick (PickPolicy.command toCommand) options picked
 
-        let indicationChange s =
-            filterCommand OrderContext.Indication |> pickFilter _.Filter.Indications s
+        let filterPick field options picked = pick (PickPolicy.filterCommand field) options picked
 
-        let medicationChange s =
-            filterCommand OrderContext.Generic |> pickFilter _.Filter.Generics s
+        let indicationChange s = filterPick OrderContext.Indication _.Filter.Indications s
 
-        let routeChange s = filterCommand OrderContext.Route |> pickFilter _.Filter.Routes s
+        let medicationChange s = filterPick OrderContext.Generic _.Filter.Generics s
 
-        let formChange s = filterCommand OrderContext.Form |> pickFilter _.Filter.Forms s
+        let routeChange s = filterPick OrderContext.Route _.Filter.Routes s
+
+        let formChange s = filterPick OrderContext.Form _.Filter.Forms s
 
         let diluentCommand n =
             match n with
             | Some n -> Api.OrderViewCommand.SetNthDiluentProperty n
             | None -> Api.OrderViewCommand.ClearDiluentProperty
 
-        let diluentChange s = diluentCommand |> pickFilter _.Filter.Diluents s
+        let diluentChange s = diluentCommand |> pickWith _.Filter.Diluents s
 
         let componentsChange (cs: string[]) =
             match orderContext with
@@ -80,8 +201,7 @@ module Prescribe =
             | _ -> ()
 
         let doseTypeChange s =
-            filterCommand OrderContext.DoseType
-            |> pickFilter _.Filter.DoseTypes (s |> Option.map DoseTypeText.doseTypeFromString)
+            filterPick OrderContext.DoseType _.Filter.DoseTypes (s |> Option.map DoseTypeText.doseTypeFromString)
 
         let clear () =
             match orderContext with
@@ -208,26 +328,13 @@ module Prescribe =
                     | OrderPlanView.NoPatient
                     | OrderPlanView.Changing _ -> true
 
-                let prescribeDisabled = planBusy || inPlan
+                // an offer turned on and not narrowed to one scenario keeps the order from the plan
+                let prescribeDisabled = planBusy || inPlan || not envOrderContext.Prescribable
 
                 // the scenario selected, and the workbench narrowed to it and calculated
                 let handleEditClick () =
                     envOrderContext.SelectScenario(Some sc.Order.Id)
                     onClick sc
-
-                let cellSx =
-                    {|
-                        paddingTop = 1
-                        paddingRight = 2
-                    |}
-
-                let tableContainerSx = {| overflowX = "auto" |}
-
-                let tableSx =
-                    {|
-                        tableLayout = "auto"
-                        width = "auto"
-                    |}
 
                 let tableRowSx =
                     {|
@@ -250,33 +357,7 @@ module Prescribe =
                     |}
 
                 let item key icon prim (sec: TextBlock[][]) =
-                    let rows =
-                        let cells row =
-                            row
-                            |> Array.mapi (fun i cell ->
-                                JSX.jsx
-                                    $"""
-                                    <TableCell key={i} sx={cellSx}>
-                                        {cell |> Mui.TypoGraphy.fromTextBlock}
-                                    </TableCell>
-                                    """
-                            )
-
-                        let sec =
-                            if not isMobile then
-                                sec
-                            else
-                                sec |> TextBlockDisplay.flatten
-
-                        sec
-                        |> Array.mapi (fun i row ->
-                            JSX.jsx
-                                $"""
-                                <TableRow key={i} sx={ {| border = 0 |} } >
-                                    {cells row}
-                                </TableRow>
-                            """
-                        )
+                    let rows = textRows isMobile sec
 
                     JSX.jsx
                         $"""
@@ -290,8 +371,8 @@ module Prescribe =
                         <ListItemIcon>
                             {icon}
                         </ListItemIcon>
-                        <TableContainer sx={tableContainerSx} >
-                            <Table padding="none" size="small" sx={tableSx} >
+                        <TableContainer sx={textTableContainerSx} >
+                            <Table padding="none" size="small" sx={textTableSx} >
                                 <TableBody>
                                     <TableRow sx={tableRowSx} >
                                         <TableCell >
@@ -370,6 +451,25 @@ module Prescribe =
 
         let stackDirection = if isMobile then "column" else "row"
 
+        // the orders the link rules offer with the order the workbench is narrowed to, each with its switch
+        let offers =
+            let formLabel = Terms.Form |> getTerm "Vorm"
+
+            envOrderContext.Offers
+            |> Array.mapi (fun i offer ->
+                OfferView
+                    {|
+                        offer = offer
+                        index = i
+                        envOrderContext = envOrderContext
+                        formLabel = formLabel
+                        isMobile = isMobile
+                        busy = busy
+                    |}
+            )
+            |> unbox<seq<ReactElement>>
+            |> React.Fragment
+
         let scenarios =
             JSX.jsx
                 $"""
@@ -384,6 +484,7 @@ module Prescribe =
                      |> unbox<seq<ReactElement>>
                      |> React.Fragment
                  | OrderContextView.NoPatient -> Seq.empty<ReactElement> |> React.Fragment}
+                {offers}
             </Stack>
             """
 
@@ -524,7 +625,7 @@ module Prescribe =
                     command = orderContextMsg
                     restoreOrderScenario = envOrderContext.RestoreField
                     closeOrder = handleModalClose
-                    busy = (AppEnv.asEnv<AppEnv.IBusy> props.appEnv).Page Global.Pages.Prescribe
+                    busy = busy
                     localizationTerms = localizationTerms
                 |}
 
