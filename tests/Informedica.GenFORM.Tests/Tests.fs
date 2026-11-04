@@ -7985,9 +7985,9 @@ module Tests =
             |]
             |> Array.map (fun (i, g, c) ->
                 {
-                    RuleSet.Indication = i
-                    RuleSet.Generic = g
-                    RuleSet.Component = c
+                    RuleSet.DoseRuleNames.Indication = i
+                    RuleSet.DoseRuleNames.Generic = g
+                    RuleSet.DoseRuleNames.Component = c
                 }
             )
 
@@ -8087,9 +8087,39 @@ module Tests =
                         |> Expect.isEmpty "paracetamol and Primene are not looked at"
                     }
 
-                    test "the rule set rows and their check are registered resources" {
+                    test "a row without a generic becomes a row per generic under its indication" {
+                        [| row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "" |]
+                        |> RuleSet.expand doseRules
+                        |> Array.map _.Generic
+                        |> Expect.equal "the generics, once each" [| "MM"; "Nutrilon Pepti 1" |]
+                    }
+
+                    test "a row with a generic stays as it is" {
+                        let rows = [| row "EnteralFeeding" "Enterale Voeding" "Enterale voeding" "MM" |]
+                        rows |> RuleSet.expand doseRules |> Expect.equal "unchanged" rows
+                    }
+
+                    test "a row whose indication no dose rule has stays as it is, so the check still warns" {
+                        let rows = [| row "Lipid" "Vetten" "Parenterale vetten" "" |]
+                        let expanded = rows |> RuleSet.expand doseRules
+
+                        expanded |> Expect.equal "unchanged" rows
+
+                        expanded
+                        |> RuleSet.check doseRules products
+                        |> Expect.equal
+                            "the warning"
+                            [
+                                Warning "RuleSets: Lipid, no dose rule has the indication Parenterale vetten"
+                            ]
+                    }
+
+                    test "the rule set rows, their expansion and their check are registered resources" {
                         let registry = defaultRegistry FormLogging.noOp ""
-                        registry |> Map.containsKey Keys.ruleSetData.Name |> Expect.isTrue "the rows"
+                        registry |> Map.containsKey Keys.ruleSetRows.Name |> Expect.isTrue "the rows"
+                        registry
+                        |> Map.containsKey Keys.ruleSetData.Name
+                        |> Expect.isTrue "the rows expanded"
                         registry |> Map.containsKey Keys.ruleSetChecks.Name |> Expect.isTrue "the check"
                     }
 
@@ -8101,7 +8131,7 @@ module Tests =
                                 [
                                     Keys.doseRuleData.Name, ofResult (fun () -> Ok([||]: DoseRuleData[]))
                                     Keys.formularyProducts.Name, ofResult (fun () -> Ok([||]: FormularyProduct[]))
-                                    Keys.ruleSetData.Name, ofResult (fun () -> Ok rows)
+                                    Keys.ruleSetRows.Name, ofResult (fun () -> Ok rows)
                                     Keys.ruleSetChecks.Name,
                                     (defaultRegistry FormLogging.noOp "")[Keys.ruleSetChecks.Name]
                                 ]

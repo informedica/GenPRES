@@ -271,6 +271,9 @@ module Resources =
         let normalValueRows = ResourceKey.create<Map<string, string[][]>> "normalValueRows"
         let renalRuleData = ResourceKey.create<RenalRuleData[]> "renalRuleData"
         let totalsData = ResourceKey.create<TotalsData[]> "totalsData"
+        // The rows of the RuleSets sheet as written.
+        let ruleSetRows = ResourceKey.create<RuleSetData[]> "ruleSetRows"
+        // The rule set rows with every empty generic filled in from the dose rules.
         let ruleSetData = ResourceKey.create<RuleSetData[]> "ruleSetData"
         // The rule set rows checked against the dose rules and the formulary; only gives messages.
         let ruleSetChecks = ResourceKey.create<unit> "ruleSetChecks"
@@ -376,12 +379,18 @@ module Resources =
 
                 // a sheet that fails to load fails the whole load: a category without a rule set
                 // is refused
-                Keys.ruleSetData.Name, ofResult (fun () -> Mapping.getRuleSets dataUrlId)
+                Keys.ruleSetRows.Name, ofResult (fun () -> Mapping.getRuleSets dataUrlId)
+
+                Keys.ruleSetData.Name,
+                derive (fun r ->
+                    r.Get Keys.ruleSetRows
+                    |> RuleSet.expand (r.Get Keys.doseRuleData |> RuleSet.DoseRuleNames.ofData)
+                )
 
                 Keys.ruleSetChecks.Name,
                 deriveWith (fun r ->
                     (),
-                    r.Get Keys.ruleSetData
+                    r.Get Keys.ruleSetRows
                     |> RuleSet.checkData (r.Get Keys.doseRuleData) (r.Get Keys.formularyProducts)
                 )
 

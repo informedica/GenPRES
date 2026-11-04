@@ -7,8 +7,9 @@ module RuleSet =
     open Informedica.Utils.Lib.BCL
 
 
-    /// A dose rule as the check reads it: its indication, its generic and its component.
-    type DoseRuleKey =
+    /// The names a dose rule is matched on by the check and the expansion of the rows: its
+    /// indication, its generic and its component.
+    type DoseRuleNames =
         {
             Indication: string
             Generic: string
@@ -16,11 +17,25 @@ module RuleSet =
         }
 
 
+    module DoseRuleNames =
+
+        /// The indication, generic and component of every dose rule.
+        let ofData (doseRules: DoseRuleData[]) =
+            doseRules
+            |> Array.map (fun d ->
+                {
+                    Indication = d.Indication
+                    Generic = d.Generic.Name
+                    Component = d.ScheduleData.DoseLimitData.Component
+                }
+            )
+
+
     /// The warnings of the rows against the dose rules and the generics of the Formulary sheet: a
     /// category with more than one label, an indication that no dose rule has, a generic that no
     /// dose rule has under its indication, and a generic or a component of a dose rule under the
     /// indication of a row that has no product.
-    let check (doseRules: DoseRuleKey[]) (products: Set<string>) (rows: RuleSetData[]) =
+    let check (doseRules: DoseRuleNames[]) (products: Set<string>) (rows: RuleSetData[]) =
         let pairs = doseRules |> Array.map (fun d -> d.Indication, d.Generic) |> Set.ofArray
         let indications = pairs |> Set.map fst
 
@@ -56,15 +71,27 @@ module RuleSet =
 
 
     /// The check of the rows against the dose rule data and the formulary products.
-    let checkData (doseRules: DoseRuleData[]) (products: FormularyProduct[]) rows =
-        let doseRules =
-            doseRules
-            |> Array.map (fun d ->
-                {
-                    Indication = d.Indication
-                    Generic = d.Generic.Name
-                    Component = d.ScheduleData.DoseLimitData.Component
-                }
-            )
+    let checkData doseRules (products: FormularyProduct[]) rows =
+        rows
+        |> check (DoseRuleNames.ofData doseRules) (products |> Array.map _.Generic |> Set.ofArray)
 
-        rows |> check doseRules (products |> Array.map _.Generic |> Set.ofArray)
+
+    /// The rows with every empty generic filled in: a row without a generic becomes one row per
+    /// generic the dose rules have under its indication, in the order of the dose rules. The
+    /// evaluation does not filter on the indications of a rule set, so only its generics keep a
+    /// medication out of a nutrition category. A row whose indication no dose rule has stays as it is.
+    let expand (doseRules: DoseRuleNames[]) (rows: RuleSetData[]) =
+        rows
+        |> Array.collect (fun r ->
+            if r.Generic |> String.notEmpty then
+                [| r |]
+            else
+                match
+                    doseRules
+                    |> Array.filter (fun d -> d.Indication = r.Indication)
+                    |> Array.map _.Generic
+                    |> Array.distinct
+                with
+                | [||] -> [| r |]
+                | generics -> generics |> Array.map (fun g -> { r with Generic = g })
+        )
