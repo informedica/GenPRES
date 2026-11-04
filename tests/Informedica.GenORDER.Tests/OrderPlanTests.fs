@@ -83,7 +83,7 @@ module Fixtures =
 
 
     let drug id orderId =
-        PlanContext.create id OrderCategory.Drug (context [| scenario orderId |])
+        PlanContext.create id OrderCategory.Medication (context [| scenario orderId |])
 
 
     let nutrition id category (orderIds: string[]) =
@@ -153,7 +153,7 @@ let tests =
                 p.Filtered |> Expect.isEmpty "no filter"
                 p.Totals |> Expect.equal "no totals" Totals.empty
                 p.Contexts |> Array.map _.Id |> Expect.equal "as given" [| "c-d" |]
-                p.Contexts[0].Intake |> Expect.equal "no intake yet" Totals.empty
+                p.Contexts[0].Totals |> Expect.equal "no intake yet" Totals.empty
             }
 
             test "the totals are recomputed over the orders of the contexts the filter keeps, for the patient's weight" {
@@ -195,7 +195,7 @@ let tests =
                         Contexts =
                             [|
                                 drug "c-supp" "o-supp"
-                                PlanContext.create "c-inf" OrderCategory.Drug (context [| infusion |])
+                                PlanContext.create "c-inf" OrderCategory.Medication (context [| infusion |])
                             |]
                     }
 
@@ -203,7 +203,7 @@ let tests =
                 all.Totals.Volume |> Expect.isSome "the infusion has a volume"
                 all.Totals.Energy |> Expect.isNone "no data for energy"
                 // the context holds a patient without a weight, so a volume comes from the patient of the plan
-                all.Contexts[1].Intake.Volume
+                all.Contexts[1].Totals.Volume
                 |> Expect.isSome "the intake is on the patient of the plan"
 
                 { all with
@@ -242,8 +242,8 @@ let tests =
                 let p = plan [| drug "c-d" "o-drug"; nutrition "c-1" NutritionCategory.Lipid [||] |]
 
                 let evaluated =
-                    { PlanContext.create "" OrderCategory.Drug (context [| scenario "o-lipid" |]) with
-                        Intake = { Totals.empty with Energy = Some "10 kcal" }
+                    { PlanContext.create "" OrderCategory.Medication (context [| scenario "o-lipid" |]) with
+                        Totals = { Totals.empty with Energy = Some "10 kcal" }
                     }
 
                 match p |> OrderPlan.updateContext ruleSets "c-1" evaluated with
@@ -254,7 +254,7 @@ let tests =
                     c.Category
                     |> Expect.equal "the plan's category" (OrderCategory.Nutrition NutritionCategory.Lipid)
 
-                    c.Intake.Energy |> Expect.equal "the intake as evaluated" (Some "10 kcal")
+                    c.Totals.Energy |> Expect.equal "the intake as evaluated" (Some "10 kcal")
                     ids p |> Expect.equal "its order follows" [| "o-drug"; "o-lipid" |]
                 | Error e -> failtest $"{e}"
 
@@ -271,7 +271,7 @@ let tests =
                             nutrition "c-f" NutritionCategory.EnteralFeeding [||]
                         |]
 
-                let evaluated = PlanContext.create "" OrderCategory.Drug (context [||])
+                let evaluated = PlanContext.create "" OrderCategory.Medication (context [||])
 
                 match p |> OrderPlan.updateContext ruleSets "c-t" evaluated with
                 | Ok p ->
@@ -345,12 +345,12 @@ let tests =
                 |> Expect.equal "the tpn's order" [| "o-t" |]
             }
 
-            test "the workbench into the plan as a drug context, once, and only narrowed to one order" {
+            test "an order context into the plan as a medication context, once, and only narrowed to one order" {
                 let newId () = "c-new"
 
                 let workbench =
-                    { PlanContext.create "" OrderCategory.Drug (context [| scenario "o-p" |]) with
-                        Intake = { Totals.empty with Volume = Some "5 ml" }
+                    { PlanContext.create "" OrderCategory.Medication (context [| scenario "o-p" |]) with
+                        Totals = { Totals.empty with Volume = Some "5 ml" }
                     }
 
                 let p =
@@ -360,12 +360,12 @@ let tests =
 
                 let added = p.Contexts[1]
                 added.Id |> Expect.equal "the minted id" "c-new"
-                added.Category |> Expect.equal "a drug" OrderCategory.Drug
+                added.Category |> Expect.equal "a medication" OrderCategory.Medication
 
                 added.Context.Filter.Generic
                 |> Expect.equal "the workbench as it was" (Some "paracetamol")
 
-                added.Intake.Volume |> Expect.equal "with its intake" (Some "5 ml")
+                added.Totals.Volume |> Expect.equal "with its intake" (Some "5 ml")
                 ids p |> Expect.equal "its order after the others" [| "o-drug"; "o-p" |]
 
                 p
@@ -838,11 +838,13 @@ let evaluateTests =
                 rounds.Value |> Expect.equal "evaluated once" 1
             }
 
-            test "no totals data, or no scenario: no intake" {
-                pcmContext |> OrderContext.intake [||] |> Expect.equal "no data" Totals.empty
+            test "no totals data, or no scenario: no totals" {
+                pcmContext
+                |> OrderContext.contextTotals [||]
+                |> Expect.equal "no data" Totals.empty
 
                 { pcmContext with Scenarios = [||] }
-                |> OrderContext.intake [||]
+                |> OrderContext.contextTotals [||]
                 |> Expect.equal "no scenario" Totals.empty
             }
         ]
@@ -2145,7 +2147,7 @@ let refusalTests =
             testList
                 "the plan context as an outcome"
                 [
-                    let planContext = PlanContext.create "c-1" OrderCategory.Drug EvaluateFixtures.pcmContext
+                    let planContext = PlanContext.create "c-1" OrderCategory.Medication EvaluateFixtures.pcmContext
 
                     let evaluateOutcome cmd pc =
                         pc
@@ -2168,7 +2170,7 @@ let refusalTests =
                         match planContext |> evaluateOutcome OrderContext.UpdateOrderContext with
                         | Ok(Refused(pc, Refusal.NoDoseRules)) ->
                             pc.Id |> Expect.equal "the id" "c-1"
-                            pc.Category |> Expect.equal "the category" OrderCategory.Drug
+                            pc.Category |> Expect.equal "the category" OrderCategory.Medication
 
                             pc.Context.Filter.Generic
                             |> Expect.equal "the pick kept" EvaluateFixtures.pcmContext.Filter.Generic
@@ -2194,7 +2196,7 @@ let refusalTests =
             testList
                 "a pick the rules no longer offer in the plan"
                 [
-                    let picked = PlanContext.create "c-1" OrderCategory.Drug EvaluateFixtures.pcmContext
+                    let picked = PlanContext.create "c-1" OrderCategory.Medication EvaluateFixtures.pcmContext
 
                     let noPick = { picked with Context = { picked.Context with Filter = EvaluateFixtures.fresh } }
 
@@ -2231,16 +2233,16 @@ let refusalTests =
                         match noPick |> evaluate OrderContext.UpdateOrderContext with
                         | Ok pc ->
                             pc.Id |> Expect.equal "the id" "c-1"
-                            pc.Category |> Expect.equal "the category" OrderCategory.Drug
+                            pc.Category |> Expect.equal "the category" OrderCategory.Medication
                         | Error e -> failtest $"expected an evaluation, got %A{e}"
                     }
 
                     test "the intake of the answer takes the place of the stale one" {
                         match
-                            { noPick with Intake = { Totals.empty with Energy = Some "stale" } }
+                            { noPick with Totals = { Totals.empty with Energy = Some "stale" } }
                             |> evaluate OrderContext.UpdateOrderContext
                         with
-                        | Ok pc -> pc.Intake |> Expect.equal "the stale intake gone" Totals.empty
+                        | Ok pc -> pc.Totals |> Expect.equal "the stale intake gone" Totals.empty
                         | Error e -> failtest $"expected an evaluation, got %A{e}"
                     }
                 ]
@@ -2293,7 +2295,7 @@ let argumentationTests =
             }
 
             test "a plan context evaluated keeps its argumentation: every command copies the record" {
-                let pc = PlanContext.create "c-1" OrderCategory.Drug argued
+                let pc = PlanContext.create "c-1" OrderCategory.Medication argued
 
                 match
                     pc
@@ -2307,4 +2309,340 @@ let argumentationTests =
                 | Ok pc -> pc.Context.Argumentation |> Expect.equal "the text survives" (Some text)
                 | Error e -> failtest $"{e}"
             }
+        ]
+
+
+module LinkFixtures =
+
+    open Fixtures
+
+
+    // a patient the Dto reads: the patient of the plan and of every context
+    let child = EvaluateFixtures.child
+
+
+    let ofOrder orderId = { context [| scenario orderId |] with Patient = child }
+
+
+    // a context of two orders, not narrowed to one
+    let twoOrders = { ofOrder "o-1" with Scenarios = [| scenario "o-1"; scenario "o-2" |] }
+
+
+    let medication id orderId = PlanContext.create id OrderCategory.Medication (ofOrder orderId)
+
+
+    let nutrition id category orderId =
+        PlanContext.create id (OrderCategory.Nutrition category) (ofOrder orderId)
+
+
+    let linked mainId (pc: PlanContext) = { pc with LinkedTo = Some mainId }
+
+
+    let plan contexts = OrderPlan.create child contexts
+
+
+    let ids (p: OrderPlan) = p.Contexts |> Array.map _.Id
+
+
+    let feeding id = nutrition id NutritionCategory.EnteralFeeding $"o-%s{id}"
+
+
+    let supplement id = nutrition id NutritionCategory.EnteralSupplement $"o-%s{id}"
+
+
+open LinkFixtures
+
+
+/// The link of an order to its main order: the check of its shape, the add, the removal and the Dto.
+let linkTests =
+    testList
+        "Links"
+        [
+            testList
+                "the link check"
+                [
+                    let p =
+                        plan
+                            [|
+                                medication "c-m" "o-m"
+                                medication "c-l" "o-l" |> linked "c-m"
+                                feeding "c-f"
+                            |]
+
+                    test "an order that is not linked holds" {
+                        medication "c-x" "o-x"
+                        |> OrderPlan.linkError p
+                        |> Expect.isNone "no link, no refusal"
+                    }
+
+                    test "a link to an order of the plan that is not linked holds" {
+                        medication "c-x" "o-x"
+                        |> linked "c-m"
+                        |> OrderPlan.linkError p
+                        |> Expect.isNone "a main order"
+                    }
+
+                    test "a link to an order not in the plan is refused" {
+                        medication "c-x" "o-x"
+                        |> linked "c-gone"
+                        |> OrderPlan.linkError p
+                        |> Expect.equal "no main order" (Some(LinkError.NoSuchMainOrder "c-gone"))
+                    }
+
+                    test "a link to a linked order is refused: one level" {
+                        medication "c-x" "o-x"
+                        |> linked "c-l"
+                        |> OrderPlan.linkError p
+                        |> Expect.equal "the main order is linked" (Some(LinkError.MainOrderLinked "c-l"))
+                    }
+
+                    test "a context linked to itself is refused" {
+                        let self = medication "c-s" "o-s" |> linked "c-s"
+
+                        self
+                        |> OrderPlan.linkError (plan [| self |])
+                        |> Expect.equal "linked to itself" (Some(LinkError.MainOrderLinked "c-s"))
+                    }
+
+                    test "the category is not checked: that is for the link rules" {
+                        supplement "c-x"
+                        |> linked "c-f"
+                        |> OrderPlan.linkError p
+                        |> Expect.isNone "under a feeding"
+
+                        supplement "c-x"
+                        |> linked "c-m"
+                        |> OrderPlan.linkError p
+                        |> Expect.isNone "under a medication"
+                    }
+
+                    test "a supplement without a main order still holds, until every supplement is linked" {
+                        supplement "c-x" |> OrderPlan.linkError p |> Expect.isNone "no link"
+                    }
+                ]
+
+            testList
+                "the add"
+                [
+                    let newId () = "c-new"
+
+                    test "keeps the category and the link of the context" {
+                        let p =
+                            plan [| feeding "c-f" |]
+                            |> OrderPlan.addOrderContext newId (supplement "" |> linked "c-f")
+                            |> Result.defaultWith (fun e -> failtest $"%A{e}")
+
+                        let added = p.Contexts[1]
+                        added.Id |> Expect.equal "the minted id" "c-new"
+
+                        added.Category
+                        |> Expect.equal "a supplement" (OrderCategory.Nutrition NutritionCategory.EnteralSupplement)
+
+                        added.LinkedTo |> Expect.equal "under the feeding" (Some "c-f")
+                    }
+
+                    test "a nutrition context is refused when the plan does not admit its category" {
+                        plan [| nutrition "c-t" NutritionCategory.TPN "o-t" |]
+                        |> OrderPlan.addOrderContext newId (nutrition "" NutritionCategory.TPN "o-t2")
+                        |> Expect.equal "a second tpn" (Error(OrderPlanError.CategoryHeld NutritionCategory.TPN))
+
+                        plan [| medication "c-m" "o-m" |]
+                        |> OrderPlan.addOrderContext newId (supplement "" |> linked "c-m")
+                        |> Expect.equal "a supplement without a feeding" (Error OrderPlanError.SupplementNeedsFeeding)
+                    }
+
+                    test "a medication context stays a medication, not linked" {
+                        let p =
+                            plan [||]
+                            |> OrderPlan.addOrderContext newId (medication "" "o-p")
+                            |> Result.defaultWith (fun e -> failtest $"%A{e}")
+
+                        p.Contexts[0].Category |> Expect.equal "a medication" OrderCategory.Medication
+                        p.Contexts[0].LinkedTo |> Expect.isNone "not linked"
+                    }
+
+                    test "a broken link is refused" {
+                        plan [| medication "c-m" "o-m" |]
+                        |> OrderPlan.addOrderContext newId (medication "" "o-p" |> linked "c-gone")
+                        |> Expect.equal
+                            "no main order"
+                            (Error(OrderPlanError.BrokenLink(LinkError.NoSuchMainOrder "c-gone")))
+
+                        plan [| medication "c-m" "o-m"; medication "c-l" "o-l" |> linked "c-m" |]
+                        |> OrderPlan.addOrderContext newId (medication "" "o-p" |> linked "c-l")
+                        |> Expect.equal
+                            "the main order is linked"
+                            (Error(OrderPlanError.BrokenLink(LinkError.MainOrderLinked "c-l")))
+                    }
+
+                    test "the refusals of today come first" {
+                        plan [| medication "c-m" "o-p" |]
+                        |> OrderPlan.addOrderContext newId (medication "" "o-p" |> linked "c-gone")
+                        |> Expect.equal "the same order twice" (Error(OrderPlanError.OrderHeld "o-p"))
+
+                        let wide = { medication "" "o-p" with Context = twoOrders } |> linked "c-gone"
+
+                        plan [||]
+                        |> OrderPlan.addOrderContext newId wide
+                        |> Expect.equal "not narrowed" (Error(OrderPlanError.NotNarrowed 2))
+                    }
+                ]
+
+            testList
+                "the removal"
+                [
+                    test "a main order takes the orders linked to it" {
+                        plan
+                            [|
+                                medication "c-m" "o-m"
+                                medication "c-a" "o-a" |> linked "c-m"
+                                medication "c-b" "o-b" |> linked "c-m"
+                                medication "c-x" "o-x"
+                            |]
+                        |> OrderPlan.removeOrderContext "c-m"
+                        |> ids
+                        |> Expect.equal "the other order stays" [| "c-x" |]
+                    }
+
+                    test "a linked order goes alone" {
+                        plan
+                            [|
+                                medication "c-m" "o-m"
+                                medication "c-a" "o-a" |> linked "c-m"
+                                medication "c-b" "o-b" |> linked "c-m"
+                            |]
+                        |> OrderPlan.removeOrderContext "c-a"
+                        |> ids
+                        |> Expect.equal "the main order and the other linked order stay" [| "c-m"; "c-b" |]
+                    }
+
+                    test "a feeding takes its linked supplements, not those of another feeding" {
+                        plan
+                            [|
+                                feeding "c-f1"
+                                feeding "c-f2"
+                                supplement "c-s1" |> linked "c-f1"
+                                supplement "c-s2" |> linked "c-f2"
+                            |]
+                        |> OrderPlan.removeOrderContext "c-f1"
+                        |> ids
+                        |> Expect.equal "the other feeding and its supplement stay" [| "c-f2"; "c-s2" |]
+                    }
+
+                    test "until every supplement is linked, a feeding takes every supplement without a link" {
+                        plan
+                            [|
+                                medication "c-d" "o-d"
+                                feeding "c-f"
+                                supplement "c-s"
+                                nutrition "c-t" NutritionCategory.TPN "o-t"
+                            |]
+                        |> OrderPlan.removeOrderContext "c-f"
+                        |> ids
+                        |> Expect.equal "the medication and the tpn stay" [| "c-d"; "c-t" |]
+                    }
+
+                    test "the orders gone leave the filter" {
+                        { plan
+                              [|
+                                  medication "c-m" "o-m"
+                                  medication "c-a" "o-a" |> linked "c-m"
+                                  medication "c-x" "o-x"
+                              |] with
+                            Filtered = [| "c-m"; "c-a"; "c-x" |]
+                        }
+                        |> OrderPlan.removeOrderContext "c-m"
+                        |> _.Filtered
+                        |> Expect.equal "the other order alone" [| "c-x" |]
+                    }
+
+                    test "removing several: each takes the orders linked to it" {
+                        plan
+                            [|
+                                medication "c-m" "o-m"
+                                medication "c-a" "o-a" |> linked "c-m"
+                                medication "c-x" "o-x"
+                                medication "c-y" "o-y"
+                            |]
+                        |> OrderPlan.removeOrderContexts [| "c-m"; "c-x" |]
+                        |> ids
+                        |> Expect.equal "the last order" [| "c-y" |]
+                    }
+                ]
+
+            testList
+                "the Dto"
+                [
+                    let p =
+                        plan
+                            [|
+                                medication "c-m" "o-m"
+                                medication "c-a" "o-a" |> linked "c-m"
+                                feeding "c-f"
+                                supplement "c-s" |> linked "c-f"
+                            |]
+
+                    test "the round trip keeps every link and every none" {
+                        p
+                        |> OrderPlan.Dto.toDto
+                        |> OrderPlan.Dto.fromDto
+                        |> Result.map (_.Contexts >> Array.map (fun c -> c.Id, c.LinkedTo))
+                        |> Expect.equal
+                            "the links"
+                            (Ok [| "c-m", None; "c-a", Some "c-m"; "c-f", None; "c-s", Some "c-f" |])
+                    }
+
+                    test "the round trip keeps the totals of a context" {
+                        let withTotals =
+                            { medication "c-m" "o-m" with Totals = { Totals.empty with Volume = Some "5 ml" } }
+
+                        plan [| withTotals |]
+                        |> OrderPlan.Dto.toDto
+                        |> OrderPlan.Dto.fromDto
+                        |> Result.map (fun p -> p.Contexts[0].Totals.Volume)
+                        |> Expect.equal "the volume" (Ok(Some "5 ml"))
+                    }
+
+                    test "the canonical JSON carries the link, null when there is none, and the totals" {
+                        let json = p |> OrderPlan.Dto.toDto |> Canonical.serialize
+                        json |> Expect.stringContains "a link" "\"LinkedTo\":\"c-m\""
+                        json |> Expect.stringContains "no link" "\"LinkedTo\":null"
+                        json.Contains "\"Intake\"" |> Expect.isFalse "no intake"
+
+                        json
+                        |> Canonical.deserialize<OrderPlan.Dto.Dto>
+                        |> OrderPlan.Dto.fromDto
+                        |> Result.map (_.Contexts >> Array.map _.LinkedTo)
+                        |> Expect.equal "read back" (Ok [| None; Some "c-m"; None; Some "c-f" |])
+                    }
+
+                    test "a plan with broken links is refused with every one of them" {
+                        { p with
+                            Contexts =
+                                Array.append
+                                    p.Contexts
+                                    [|
+                                        medication "c-x" "o-x" |> linked "c-gone"
+                                        medication "c-y" "o-y" |> linked "c-a"
+                                    |]
+                        }
+                        |> OrderPlan.Dto.toDto
+                        |> OrderPlan.Dto.fromDto
+                        |> Expect.equal
+                            "each broken link"
+                            (Error
+                                [
+                                    DtoError.BrokenLink("c-x", LinkError.NoSuchMainOrder "c-gone")
+                                    DtoError.BrokenLink("c-y", LinkError.MainOrderLinked "c-a")
+                                ])
+                    }
+
+                    test "a link checked over the whole plan: a linked order before its main order holds" {
+                        plan [| medication "c-a" "o-a" |> linked "c-m"; medication "c-m" "o-m" |]
+                        |> OrderPlan.Dto.toDto
+                        |> OrderPlan.Dto.fromDto
+                        |> Result.map ids
+                        |> Expect.equal "read" (Ok [| "c-a"; "c-m" |])
+                    }
+                ]
         ]

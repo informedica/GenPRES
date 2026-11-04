@@ -286,6 +286,14 @@ let tests =
                 |> words
                 |> Expect.equal "held" "The plan already holds this order"
 
+                OrderPlanError.BrokenLink(LinkError.NoSuchMainOrder "c-9")
+                |> words
+                |> Expect.equal "no main order" "The main order c-9 is not in the plan"
+
+                DtoError.BrokenLink("c-2", LinkError.MainOrderLinked "c-1")
+                |> OrderContextMapper.words
+                |> Expect.equal "a stored link" "Context c-2: The main order c-1 is itself linked to another order"
+
                 OrderPlanError.NoSuchContext "c-9"
                 |> words
                 |> Expect.equal "no context" "The plan holds no context c-9"
@@ -294,7 +302,7 @@ let tests =
             testAsync "the port refuses a pick the rules no longer offer, in words" {
                 let picked =
                     { ctx with
-                        Category = OrderCategory.Drug
+                        Category = OrderCategory.Medication
                         Filter = { Informedica.GenPRES.Shared.Models.OrderContext.filter with Generic = Some "glucose" }
                     }
 

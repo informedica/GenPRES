@@ -16,7 +16,7 @@ module OrderPlanMapper =
     let nutritionCategory (c: NutritionCategory) =
         match c |> OrderCategory.Nutrition |> Category.toDomain with
         | Informedica.GenOrder.Lib.Types.OrderCategory.Nutrition c -> c
-        | Informedica.GenOrder.Lib.Types.OrderCategory.Drug ->
+        | Informedica.GenOrder.Lib.Types.OrderCategory.Medication ->
             invalidOp "a nutrition category maps to a nutrition category"
 
 
@@ -59,3 +59,4 @@ module OrderPlanMapper =
             $"The plan already holds a %s{label} context"
         | OrderPlanError.UnknownCategory name -> $"RuleSets: %s{name} is not a nutrition category"
         | OrderPlanError.NoRuleSet category -> $"RuleSets: no rule set for %s{category |> NutritionRuleSet.sheetName}"
+        | OrderPlanError.BrokenLink e -> e |> OrderContextMapper.linkWords

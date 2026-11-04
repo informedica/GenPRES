@@ -979,34 +979,38 @@ module Types =
         | ElectrolyteGlucose
 
 
-    /// What kind of order an order context holds: a drug, or a nutrition order of
+    /// What kind of order an order context holds: a medication, or a nutrition order of
     /// one category. Recorded on the context, never derived from the generic, since
     /// electrolytes and glucose are prescribable as drugs too.
     [<RequireQualifiedAccess>]
     type OrderCategory =
-        | Drug
+        | Medication
         | Nutrition of NutritionCategory
 
 
     /// <summary>
     /// An order context as held in an order plan: its id in the plan, its category,
-    /// the context itself, and its intake. The context is wrapped, not extended, so
-    /// evaluation and the equation system never see the plan's bookkeeping.
+    /// the context itself, its totals, and the context whose order is its main order. The
+    /// context is wrapped, not extended, so evaluation and the equation system never see the
+    /// plan's bookkeeping.
     /// </summary>
     /// <remarks>
-    /// The intake is computed when the context is evaluated and copied unchanged
-    /// everywhere else, so a signed version stores the intake the signer saw.
+    /// The totals are computed when the context is evaluated and copied unchanged
+    /// everywhere else, so a signed version stores the totals the signer saw.
     /// </remarks>
     type PlanContext =
         {
             /// The context's id in the order plan
             Id: string
-            /// A drug, or the nutrition category the context holds
+            /// A medication, or the nutrition category the context holds
             Category: OrderCategory
             /// The order context, evaluated within its own patient
             Context: OrderContext
             /// The totals over the one scenario the context is narrowed to
-            Intake: Totals
+            Totals: Totals
+            /// The id of the plan context that holds the main order of this order; none for an order
+            /// that is not linked
+            LinkedTo: string option
         }
 
 
@@ -1085,6 +1089,15 @@ module Types =
         }
 
 
+    /// Why an order plan refuses the link of a context to its main order.
+    [<RequireQualifiedAccess>]
+    type LinkError =
+        /// The plan holds no context with the id of the main order
+        | NoSuchMainOrder of id: string
+        /// The main order with the id is itself linked to another order
+        | MainOrderLinked of id: string
+
+
     /// Why an order plan refuses a change. The words shown for each are the server's, so
     /// that the label of a category stays out of the domain.
     [<RequireQualifiedAccess>]
@@ -1103,6 +1116,8 @@ module Types =
         | UnknownCategory of name: string
         /// The rule sets have no rule set for the category
         | NoRuleSet of NutritionCategory
+        /// The plan refuses the link of the context to its main order, for the reason
+        | BrokenLink of LinkError
 
 
     /// Why a Dto does not parse to its domain value.
@@ -1137,6 +1152,8 @@ module Types =
         /// A product a strength of which names no substance of its component, or a substance
         /// without concentrations in the strength's unit group, by the path of the product
         | NotMadeOf of path: string * productId: string
+        /// The plan context with the id has a link the plan refuses, for the reason
+        | BrokenLink of contextId: string * LinkError
 
 
     module Exceptions =

@@ -1266,7 +1266,7 @@ module Models =
         let empty: OrderContext =
             {
                 Id = ""
-                Category = OrderCategory.Drug
+                Category = OrderCategory.Medication
                 DemoVersion = true
                 Filter = filter
                 Patient = Patient.empty
@@ -1278,13 +1278,13 @@ module Models =
         let setPatient pat ctx : OrderContext = { ctx with Patient = pat }
 
 
-        /// The nutrition category of a context, none for a drug. A display copy of the
+        /// The nutrition category of a context, none for a medication. A display copy of the
         /// domain's `PlanContext.nutritionCategory`; the agreement test in the server tests keeps
         /// them equal.
         let nutritionCategory (ctx: OrderContext) =
             match ctx.Category with
             | OrderCategory.Nutrition category -> Some category
-            | OrderCategory.Drug -> None
+            | OrderCategory.Medication -> None
 
 
         /// The order a context contributes to the plan: its scenario, once the context is
@@ -1311,7 +1311,7 @@ module Models =
         /// to one of them reaches: a change lets go of the choices in the steps after its own,
         /// and leaves the ones beside it in its own step alone.
         ///
-        /// A drug is found by its indication and by the medication that treats it, in either
+        /// A medication order is found by its indication and by the generic that treats it, in either
         /// order and neither before the other, so the two stand in one step: each narrows what
         /// the other offers, so a pick from the list on the screen agrees with the one already
         /// made, and taking the medication away because the indication was named is a loss with
@@ -1323,7 +1323,7 @@ module Models =
         /// the two are steps of their own. A choice a page does not offer stands below nothing.
         let chain (ctx: OrderContext) =
             match ctx.Category with
-            | OrderCategory.Drug -> [ [ Indication; Generic ]; [ Route ]; [ Form ]; [ DoseType ] ]
+            | OrderCategory.Medication -> [ [ Indication; Generic ]; [ Route ]; [ Form ]; [ DoseType ] ]
             | OrderCategory.Nutrition _ -> [ [ Generic ]; [ Indication ]; [ DoseType ] ]
 
 

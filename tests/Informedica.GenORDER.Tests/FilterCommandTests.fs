@@ -17,14 +17,14 @@ let tests =
         [
             test "a choice keeps the options" {
                 context options
-                |> OrderContext.change OrderCategory.Drug FilterField.Route (Some "RECTAAL") None
+                |> OrderContext.change OrderCategory.Medication FilterField.Route (Some "RECTAAL") None
                 |> fun c -> c.Filter.Route, c.Filter.Routes
                 |> Expect.equal "rectal chosen, all routes kept" (Some "RECTAAL", options.Routes)
             }
 
             test "a filter change lets go of the scenarios" {
                 context options
-                |> OrderContext.change OrderCategory.Drug FilterField.Route (Some "ORAAL") None
+                |> OrderContext.change OrderCategory.Medication FilterField.Route (Some "ORAAL") None
                 |> _.Scenarios.Length
                 |> Expect.equal "no scenarios" 0
             }
@@ -33,7 +33,7 @@ let tests =
                 let ctx = context { options with Generic = Some "paracetamol" }
 
                 ctx
-                |> OrderContext.change OrderCategory.Drug FilterField.Generic (Some "paracetamol") None
+                |> OrderContext.change OrderCategory.Medication FilterField.Generic (Some "paracetamol") None
                 |> Expect.equal "the context as it is" ctx
             }
 
@@ -45,7 +45,7 @@ let tests =
                         Form = Some "zetpil"
                         DoseType = Some(Informedica.GenForm.Lib.Types.Discontinuous "onderhoud")
                     }
-                |> OrderContext.change OrderCategory.Drug FilterField.Route None None
+                |> OrderContext.change OrderCategory.Medication FilterField.Route None None
                 |> fun c -> c.Filter.Indication, c.Filter.Route, c.Filter.Routes, c.Filter.Form, c.Filter.DoseType
                 |> Expect.equal
                     "the indication kept, the route and its options gone, form and dose type let go"
@@ -54,21 +54,21 @@ let tests =
 
             test "nothing chosen afterwards keeps no options of the lookup fields" {
                 context { options with Route = Some "RECTAAL" }
-                |> OrderContext.change OrderCategory.Drug FilterField.Route None None
+                |> OrderContext.change OrderCategory.Medication FilterField.Route None None
                 |> fun c -> c.Filter.Indications, c.Filter.Generics, c.Filter.Routes, c.Filter.Forms, c.Filter.DoseTypes
                 |> Expect.equal "no options" ([||], [||], [||], [||], [||])
             }
 
             test "a field picked by index keeps the options" {
                 context options
-                |> OrderContext.changeFilter OrderCategory.Drug FilterField.Route (Some 2)
+                |> OrderContext.changeFilter OrderCategory.Medication FilterField.Route (Some 2)
                 |> Result.map (fun c -> c.Filter.Route, c.Filter.Routes)
                 |> Expect.equal "rectal chosen, all routes kept" (Ok(Some "RECTAAL", options.Routes))
             }
 
             test "an index past the options is refused" {
                 context options
-                |> OrderContext.changeFilter OrderCategory.Drug FilterField.Form (Some 5)
+                |> OrderContext.changeFilter OrderCategory.Medication FilterField.Form (Some 5)
                 |> Result.isError
                 |> Expect.isTrue "no sixth form"
             }

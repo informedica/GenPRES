@@ -1163,7 +1163,8 @@ module TypeTests =
                 Id = id
                 Category = category
                 Context = context
-                Intake = totals
+                Totals = totals
+                LinkedTo = None
             }
 
 
@@ -1181,14 +1182,15 @@ module TypeTests =
             "Types"
             [
                 test "a plan context wraps an order context with its id, category and intake" {
-                    let pc = OrderPlanFixtures.planContext "ctx-1" OrderCategory.Drug
+                    let pc = OrderPlanFixtures.planContext "ctx-1" OrderCategory.Medication
 
                     pc.Context
                     |> Expect.equal "the context is held as given" OrderPlanFixtures.context
 
                     pc.Id |> Expect.equal "the id is the plan's" "ctx-1"
-                    pc.Category |> Expect.equal "a drug" OrderCategory.Drug
-                    pc.Intake |> Expect.equal "the intake is held as given" OrderPlanFixtures.totals
+                    pc.Category |> Expect.equal "a medication" OrderCategory.Medication
+                    pc.Totals
+                    |> Expect.equal "the totals are held as given" OrderPlanFixtures.totals
                 }
 
                 test "a nutrition context carries its category" {
@@ -1196,13 +1198,13 @@ module TypeTests =
 
                     match pc.Category with
                     | OrderCategory.Nutrition cat -> cat |> Expect.equal "TPN" NutritionCategory.TPN
-                    | OrderCategory.Drug -> failtest "a nutrition context is not a drug"
+                    | OrderCategory.Medication -> failtest "a nutrition context is not a medication"
                 }
 
                 test "an order plan holds its contexts, its filter and its totals" {
                     let contexts =
                         [|
-                            OrderPlanFixtures.planContext "ctx-1" OrderCategory.Drug
+                            OrderPlanFixtures.planContext "ctx-1" OrderCategory.Medication
                             OrderPlanFixtures.planContext
                                 "ctx-2"
                                 (OrderCategory.Nutrition NutritionCategory.EnteralFeeding)
@@ -1219,7 +1221,8 @@ module TypeTests =
                 }
 
                 test "an order plan version stores the whole plan and its identity" {
-                    let plan = OrderPlanFixtures.plan [| OrderPlanFixtures.planContext "ctx-1" OrderCategory.Drug |]
+                    let plan =
+                        OrderPlanFixtures.plan [| OrderPlanFixtures.planContext "ctx-1" OrderCategory.Medication |]
 
                     let version =
                         {
@@ -4282,9 +4285,10 @@ module OrderPlanDtoTests =
         let planContext: PlanContext =
             {
                 Id = "ctx-1"
-                Category = OrderCategory.Drug
+                Category = OrderCategory.Medication
                 Context = context
-                Intake = totals
+                Totals = totals
+                LinkedTo = None
             }
 
         let feeding: PlanContext =
@@ -4366,7 +4370,7 @@ module OrderPlanDtoTests =
                     [
                         test "every category round-trips as a string" {
                             [
-                                OrderCategory.Drug
+                                OrderCategory.Medication
                                 OrderCategory.Nutrition NutritionCategory.EnteralFeeding
                                 OrderCategory.Nutrition NutritionCategory.EnteralSupplement
                                 OrderCategory.Nutrition NutritionCategory.TPN
@@ -5713,6 +5717,7 @@ let tests =
             OrderPlanTests.scenarioAccessTests
             OrderPlanTests.refusalTests
             OrderPlanTests.argumentationTests
+            OrderPlanTests.linkTests
             DosePrintoutTests.tests
             PatientConstructorTests.tests
             PatientAgeTests.tests

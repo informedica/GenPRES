@@ -26,7 +26,7 @@ module Fixture =
         { OrderContext.create logger provider pat with Scenarios = [| scenario order.Value |] }
 
     let plan provider pat =
-        OrderPlan.create pat [| PlanContext.create "c1" OrderCategory.Drug (context provider pat) |]
+        OrderPlan.create pat [| PlanContext.create "c1" OrderCategory.Medication (context provider pat) |]
 
     /// A context without an order starts again on the patient, with its filter cleared.
     let restart pat (pc: PlanContext) =
@@ -146,7 +146,7 @@ let tests =
 
                 let context =
                     { Fixture.context p start with Scenarios = [| sc |] }
-                    |> PlanContext.create "c1" OrderCategory.Drug
+                    |> PlanContext.create "c1" OrderCategory.Medication
 
                 let after = OrderPlan.create start [| context |] |> Fixture.followed p (patient 20N)
                 let followed = after.Contexts[0].Context
@@ -180,7 +180,7 @@ let tests =
             test "a context without an order takes the patient" {
                 let p = Fixture.provider ()
                 let start = patient 10N
-                let empty = PlanContext.create "c2" OrderCategory.Drug (OrderContext.create logger p start)
+                let empty = PlanContext.create "c2" OrderCategory.Medication (OrderContext.create logger p start)
                 let after = OrderPlan.create start [| empty |] |> Fixture.followed p (patient 20N)
 
                 after.Contexts[0].Context.Patient.Weight |> Expect.equal "new" (Some(kg 20N))
@@ -204,7 +204,7 @@ let tests =
 
                 let context =
                     { Fixture.context p start with Scenarios = [| sc |] }
-                    |> PlanContext.create "c1" OrderCategory.Drug
+                    |> PlanContext.create "c1" OrderCategory.Medication
 
                 let orderOf (plan: OrderPlan) = plan.Contexts[0].Context.Scenarios[0].Order
 
@@ -223,7 +223,7 @@ let tests =
                 let p = Fixture.provider ()
                 let start = Fixture.adult 40N
                 let ctx = Fixture.contextAt p 40N
-                let signed = OrderPlan.create start [| PlanContext.create "c1" OrderCategory.Drug ctx |]
+                let signed = OrderPlan.create start [| PlanContext.create "c1" OrderCategory.Medication ctx |]
                 let orderOf (plan: OrderPlan) = plan.Contexts[0].Context.Scenarios[0].Order
 
                 let moved = signed |> Fixture.followed p (Fixture.adult 60N)
@@ -244,8 +244,8 @@ let tests =
                     OrderPlan.create
                         start
                         [|
-                            PlanContext.create "c1" OrderCategory.Drug ctx
-                            PlanContext.create "c2" OrderCategory.Drug (Fixture.context p start)
+                            PlanContext.create "c1" OrderCategory.Medication ctx
+                            PlanContext.create "c2" OrderCategory.Medication (Fixture.context p start)
                         |]
 
                 let followed = plan |> Fixture.followed p (patient 20N)
@@ -295,7 +295,7 @@ let tests =
                 let marked =
                     { ctx with Scenarios = ctx.Scenarios |> Array.map (fun sc -> { sc with NotRecalculated = true }) }
 
-                let plan = OrderPlan.create start [| PlanContext.create "c1" OrderCategory.Drug marked |]
+                let plan = OrderPlan.create start [| PlanContext.create "c1" OrderCategory.Medication marked |]
                 let followed = plan |> Fixture.followed p { start with Weight = None }
                 let scenario = followed.Contexts[0].Context.Scenarios[0]
 
@@ -315,7 +315,7 @@ let tests =
                     | Ok(Evaluated ctx) when ctx.Scenarios.Length = 1 -> ctx
                     | other -> failtest $"no single scenario: %A{other}"
 
-                let plan = OrderPlan.create adult [| PlanContext.create "c1" OrderCategory.Drug ctx |]
+                let plan = OrderPlan.create adult [| PlanContext.create "c1" OrderCategory.Medication ctx |]
 
                 OrderContext.selectsRules { adult with Weight = None }
                 |> Expect.isTrue "the rules are looked up"
@@ -365,7 +365,7 @@ let tests =
                 let marked =
                     { ctx with Scenarios = ctx.Scenarios |> Array.map (fun sc -> { sc with NotRecalculated = true }) }
 
-                let plan = OrderPlan.create start [| PlanContext.create "c1" OrderCategory.Drug marked |]
+                let plan = OrderPlan.create start [| PlanContext.create "c1" OrderCategory.Medication marked |]
 
                 let followed = plan |> Fixture.followed p (patient 20N)
 
@@ -388,7 +388,9 @@ let tests =
             test "a context that cannot start again takes the patient and does not block the update" {
                 let p = Fixture.provider ()
                 let start = patient 10N
-                let slot = OrderContext.create logger p start |> PlanContext.create "c2" OrderCategory.Drug
+                let slot =
+                    OrderContext.create logger p start
+                    |> PlanContext.create "c2" OrderCategory.Medication
 
                 let after =
                     OrderPlan.create start [| slot |]

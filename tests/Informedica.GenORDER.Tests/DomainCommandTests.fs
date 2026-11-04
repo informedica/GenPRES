@@ -64,7 +64,7 @@ let tests =
         "the specific commands in the domain"
         [
             test "a filter pick looks the rules up for the changed context" {
-                OrderContext.ChangeFilter(pcmContext, OrderCategory.Drug, FilterField.Indication, Some 0)
+                OrderContext.ChangeFilter(pcmContext, OrderCategory.Medication, FilterField.Indication, Some 0)
                 |> evaluate
                 |> refusedFilter
                 |> Option.bind _.Indication
@@ -74,10 +74,10 @@ let tests =
             test "a filter pick answers as today's update of the changed context" {
                 let changed =
                     pcmContext
-                    |> OrderContext.changeFilter OrderCategory.Drug FilterField.Generic (Some 0)
+                    |> OrderContext.changeFilter OrderCategory.Medication FilterField.Generic (Some 0)
                     |> Result.defaultWith failtest
 
-                OrderContext.ChangeFilter(pcmContext, OrderCategory.Drug, FilterField.Generic, Some 0)
+                OrderContext.ChangeFilter(pcmContext, OrderCategory.Medication, FilterField.Generic, Some 0)
                 |> evaluate
                 |> refusedFilter
                 |> Expect.equal
@@ -95,7 +95,7 @@ let tests =
             test "a filter pick in the plan reads its index in the lists as sent, not as reconciled" {
                 // the rules offer none of the sent indications, so a reconcile first would leave
                 // nothing at index 0
-                let pc = PlanContext.create "c-1" OrderCategory.Drug pcmContext
+                let pc = PlanContext.create "c-1" OrderCategory.Medication pcmContext
 
                 pc
                 |> PlanContext.evaluateOutcome
@@ -103,7 +103,9 @@ let tests =
                     OrderLogging.noOp
                     (OrderPlanTests.NoRules())
                     (fun () -> [||])
-                    (fun ctx -> OrderContext.ChangeFilter(ctx, OrderCategory.Drug, FilterField.Indication, Some 0))
+                    (fun ctx ->
+                        OrderContext.ChangeFilter(ctx, OrderCategory.Medication, FilterField.Indication, Some 0)
+                    )
                 |> function
                     | Ok(Evaluated pc)
                     | Ok(Refused(pc, _)) ->
@@ -113,7 +115,7 @@ let tests =
             }
 
             test "a filter index past the options is an error" {
-                OrderContext.ChangeFilter(pcmContext, OrderCategory.Drug, FilterField.Route, Some 99)
+                OrderContext.ChangeFilter(pcmContext, OrderCategory.Medication, FilterField.Route, Some 99)
                 |> evaluate
                 |> Result.isError
                 |> Expect.isTrue "an error"
@@ -166,7 +168,7 @@ let tests =
 
 /// The plan's answer to a command over a plan context holding this context.
 let inPlan ctx cmd =
-    PlanContext.create "c-1" OrderCategory.Drug ctx
+    PlanContext.create "c-1" OrderCategory.Medication ctx
     |> PlanContext.evaluateOutcome start OrderLogging.noOp (OrderPlanTests.NoRules()) (fun () -> [||]) cmd
     |> Result.map (
         function
