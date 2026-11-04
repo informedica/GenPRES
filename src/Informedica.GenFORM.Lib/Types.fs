@@ -766,6 +766,47 @@ module Types =
         | Ignored
 
 
+    // qualified, so that the field names do not take over the type inference of the dose rule records
+    /// One side of a link rule: what an order must match, by the dose rule it comes from. An empty
+    /// generic, route or indication matches any value, and a dose type with an empty text matches any
+    /// text. The route compares by the route mapping, so a long and a short name of a route match.
+    [<RequireQualifiedAccess>]
+    type LinkSide =
+        {
+            /// The generic by its label, as the dose rules offer it
+            Generic: string
+            /// The route
+            Route: string
+            /// The indication
+            Indication: string
+            /// The dose type with its text; discontinuous, timed or continuous
+            DoseType: DoseType
+        }
+
+
+    /// Whether a linked order can be prescribed without its main order.
+    [<RequireQualifiedAccess>]
+    type LinkRequirement =
+        /// The linked order is only prescribed with its main order
+        | Required
+        /// The linked order can also be prescribed alone
+        | Optional
+
+
+    /// A row of the LinkRules sheet read: the order that may be linked, its main order, and
+    /// whether the link is required.
+    [<RequireQualifiedAccess>]
+    type LinkRule =
+        {
+            /// The side of the linked order
+            Linked: LinkSide
+            /// The side of the main order
+            Main: LinkSide
+            /// Whether the linked order needs its main order
+            Requirement: LinkRequirement
+        }
+
+
     type NormDose =
         | NormQuantityAdjust of LimitTarget * ValueUnit
         | NormPerTimeAdjust of LimitTarget * ValueUnit
@@ -869,6 +910,40 @@ module Types =
                 /// the dose rules offer it, with the brand or the form in brackets when the dose rule is
                 /// restricted to one; empty for every generic under the indication
                 Generic: string
+            }
+
+
+        // qualified, so that the field names do not take over the type inference of the records before it
+        /// One row of the "LinkRules" sheet: the dose rule of a linked order and the dose rule of its
+        /// main order. An empty field matches any value, except the two dose types, and Required, where
+        /// empty means no. A row with both dose types empty is blank and skipped.
+        [<RequireQualifiedAccess>]
+        type LinkRuleData =
+            {
+                /// sheet column "Generic": the generic of the linked order, by its label as the dose
+                /// rules offer it
+                Generic: string
+                /// sheet column "Route": the route of the linked order
+                Route: string
+                /// sheet column "Indication": the indication of the linked order
+                Indication: string
+                /// sheet column "DoseType": discontinuous, timed or continuous; never empty
+                DoseType: string
+                /// sheet column "DoseText": the text of the dose type; empty for any text
+                DoseText: string
+                /// sheet column "MainGeneric": the generic of the main order, by its label
+                MainGeneric: string
+                /// sheet column "MainRoute": the route of the main order
+                MainRoute: string
+                /// sheet column "MainIndication": the indication of the main order
+                MainIndication: string
+                /// sheet column "MainDoseType": discontinuous, timed or continuous; never empty
+                MainDoseType: string
+                /// sheet column "MainDoseText": the text of the main dose type; empty for any text
+                MainDoseText: string
+                /// sheet column "Required": yes when the linked order cannot be prescribed without its
+                /// main order; no or empty when it can
+                Required: string
             }
 
 

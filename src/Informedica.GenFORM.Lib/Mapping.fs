@@ -32,6 +32,9 @@ module Mapping =
         [<Literal>]
         let ruleSetsSheet = "RuleSets"
 
+        [<Literal>]
+        let linkRulesSheet = "LinkRules"
+
 
     let parseSheet apply (data: string[][]) =
         try
@@ -130,6 +133,30 @@ module Mapping =
         |> getData dataUrlId Constants.ruleSetsSheet
         |> Result.map (Array.filter (fun r -> r.Category |> String.notEmpty))
         |> Result.mapErrorSource "getRuleSets"
+
+
+    /// A row of the "LinkRules" sheet, every cell trimmed.
+    let linkRuleRow (get: string -> string) (_: string -> float option) =
+        {
+            LinkRuleData.Generic = get "Generic" |> String.trim
+            LinkRuleData.Route = get "Route" |> String.trim
+            LinkRuleData.Indication = get "Indication" |> String.trim
+            LinkRuleData.DoseType = get "DoseType" |> String.trim
+            LinkRuleData.DoseText = get "DoseText" |> String.trim
+            LinkRuleData.MainGeneric = get "MainGeneric" |> String.trim
+            LinkRuleData.MainRoute = get "MainRoute" |> String.trim
+            LinkRuleData.MainIndication = get "MainIndication" |> String.trim
+            LinkRuleData.MainDoseType = get "MainDoseType" |> String.trim
+            LinkRuleData.MainDoseText = get "MainDoseText" |> String.trim
+            LinkRuleData.Required = get "Required" |> String.trim
+        }
+
+
+    /// The rows of the "LinkRules" sheet, blank rows included, so that a row keeps its number.
+    let getLinkRules dataUrlId =
+        linkRuleRow
+        |> getData dataUrlId Constants.linkRulesSheet
+        |> Result.mapErrorSource "getLinkRules"
 
 
     /// The emergency-list workbook, where the normal values of weight and height by age and

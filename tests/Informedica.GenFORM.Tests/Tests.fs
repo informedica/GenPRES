@@ -1045,6 +1045,24 @@ module DoseRuleToDataTests =
                 [],
                 (Mapping.parseSheet Mapping.ruleSetRow >> Result.isOk)
 
+                "LinkRules",
+                [
+                    "Generic"
+                    "Route"
+                    "Indication"
+                    "DoseType"
+                    "DoseText"
+                    "MainGeneric"
+                    "MainRoute"
+                    "MainIndication"
+                    "MainDoseType"
+                    "MainDoseText"
+                    "Required"
+                ],
+                [],
+                [],
+                (Mapping.parseSheet Mapping.linkRuleRow >> Result.isOk)
+
                 "Reconstitution",
                 [ "GPK"; "Route"; "Loc"; "Dep"; "DiluentVol"; "ExpansionVol"; "Diluents" ],
                 [],
@@ -7990,6 +8008,8 @@ module Tests =
                     // a dose rule without a form or a brand offers the generic by its name
                     RuleSet.DoseRuleNames.Label = g
                     RuleSet.DoseRuleNames.Component = c
+                    RuleSet.DoseRuleNames.Route = ""
+                    RuleSet.DoseRuleNames.DoseType = NoDoseType
                 }
             )
 
@@ -8002,6 +8022,8 @@ module Tests =
                 Generic = generic
                 Label = GenericLabel.toLabel generic form brand |> GenericLabel.toString
                 Component = generic
+                Route = ""
+                DoseType = NoDoseType
             }
 
 
@@ -8226,6 +8248,380 @@ module Tests =
                 ]
 
 
+    module LinkRuleTests =
+
+        open Informedica.GenForm.Lib.Resources
+
+
+        let row: LinkRuleData =
+            {
+                LinkRuleData.Generic = "Fantomalt pdr"
+                LinkRuleData.Route = ""
+                LinkRuleData.Indication = "Enterale toevoeging"
+                LinkRuleData.DoseType = "discontinuous"
+                LinkRuleData.DoseText = ""
+                LinkRuleData.MainGeneric = ""
+                LinkRuleData.MainRoute = ""
+                LinkRuleData.MainIndication = "Enterale voeding"
+                LinkRuleData.MainDoseType = "discontinuous"
+                LinkRuleData.MainDoseText = ""
+                LinkRuleData.Required = "yes"
+            }
+
+
+        let ataluren: LinkRuleData =
+            {
+                LinkRuleData.Generic = "ataluren"
+                LinkRuleData.Route = "ORAAL"
+                LinkRuleData.Indication = "Duchenne"
+                LinkRuleData.DoseType = "discontinuous"
+                LinkRuleData.DoseText = "avond"
+                LinkRuleData.MainGeneric = "ataluren"
+                LinkRuleData.MainRoute = "ORAAL"
+                LinkRuleData.MainIndication = "Duchenne"
+                LinkRuleData.MainDoseType = "discontinuous"
+                LinkRuleData.MainDoseText = "ochtend middag"
+                LinkRuleData.Required = "yes"
+            }
+
+
+        let blank: LinkRuleData =
+            { row with
+                Generic = ""
+                Indication = ""
+                DoseType = ""
+                MainIndication = ""
+                MainDoseType = ""
+                Required = ""
+            }
+
+
+        let rules =
+            [| row; ataluren |]
+            |> LinkRule.ofRows
+            |> Result.defaultWith (fun e -> failtest $"%A{e}")
+
+
+        let routes: RouteMapping[] =
+            [|
+                {
+                    Long = "ORAAL"
+                    Short = "or"
+                }
+                {
+                    Long = "RECTAAL"
+                    Short = "rect"
+                }
+                {
+                    Long = "INTRAVENEUS"
+                    Short = "iv"
+                }
+            |]
+
+
+        let keys ind label gen rte dt : RuleSet.DoseRuleNames =
+            {
+                Indication = ind
+                Label = label
+                Generic = gen
+                Component = gen
+                Route = rte
+                DoseType = dt
+            }
+
+
+        let doseRules =
+            [|
+                keys "Enterale voeding" "Nutrini (Nutricia)" "Nutrini" "ORAAL" (Discontinuous "")
+                keys "Enterale toevoeging" "Fantomalt pdr" "Fantomalt pdr" "ORAAL" (Discontinuous "")
+                keys "Duchenne" "ataluren" "ataluren" "ORAAL" (Discontinuous "ochtend middag")
+                keys "Duchenne" "ataluren" "ataluren" "ORAAL" (Discontinuous "avond")
+            |]
+
+
+        let tests =
+            testList
+                "LinkRule"
+                [
+                    test "a row reads into its two sides and its requirement" {
+                        row
+                        |> LinkRule.ofData
+                        |> Expect.equal
+                            "the rule"
+                            (Ok
+                                {
+                                    LinkRule.Linked =
+                                        {
+                                            LinkSide.Generic = "Fantomalt pdr"
+                                            LinkSide.Route = ""
+                                            LinkSide.Indication = "Enterale toevoeging"
+                                            LinkSide.DoseType = Discontinuous ""
+                                        }
+                                    LinkRule.Main =
+                                        {
+                                            LinkSide.Generic = ""
+                                            LinkSide.Route = ""
+                                            LinkSide.Indication = "Enterale voeding"
+                                            LinkSide.DoseType = Discontinuous ""
+                                        }
+                                    LinkRule.Requirement = LinkRequirement.Required
+                                })
+                    }
+
+                    test "the dose text goes with the dose type" {
+                        ataluren
+                        |> LinkRule.ofData
+                        |> Result.map (fun r -> r.Linked.DoseType, r.Main.DoseType)
+                        |> Expect.equal "both texts" (Ok(Discontinuous "avond", Discontinuous "ochtend middag"))
+                    }
+
+                    test "an empty dose type is refused, on either side" {
+                        { row with DoseType = "" }
+                        |> LinkRule.ofData
+                        |> Expect.equal "linked" (Error [ "DoseType: the dose type is empty" ])
+
+                        { row with MainDoseType = "" }
+                        |> LinkRule.ofData
+                        |> Expect.equal "main" (Error [ "MainDoseType: the dose type is empty" ])
+                    }
+
+                    test "an unknown dose type is refused with the warning of the parse" {
+                        { row with DoseType = "daily" }
+                        |> LinkRule.ofData
+                        |> Expect.equal "unknown" (Error [ "DoseType: daily is not a valid dose type!" ])
+                    }
+
+                    for dt in [ "once"; "oncetimed" ] do
+                        test $"a %s{dt} dose is refused, on either side" {
+                            { row with
+                                DoseType = dt
+                                MainDoseType = dt
+                            }
+                            |> LinkRule.ofData
+                            |> Expect.equal
+                                "both sides"
+                                (Error
+                                    [
+                                        "DoseType: a once dose is never linked"
+                                        "MainDoseType: a once dose is never linked"
+                                    ])
+                        }
+
+                    for dt in [ "timed"; "continuous"; "Discontinuous" ] do
+                        test $"a %s{dt} dose is read" {
+                            { row with
+                                DoseType = dt
+                                MainDoseType = dt
+                            }
+                            |> LinkRule.ofData
+                            |> Expect.isOk "read"
+                        }
+
+                    for s, expected in
+                        [
+                            "yes", LinkRequirement.Required
+                            "Yes", LinkRequirement.Required
+                            "no", LinkRequirement.Optional
+                            "", LinkRequirement.Optional
+                        ] do
+                        test $"Required %s{s} reads as %A{expected}" {
+                            { row with Required = s }
+                            |> LinkRule.ofData
+                            |> Result.map _.Requirement
+                            |> Expect.equal "the requirement" (Ok expected)
+                        }
+
+                    test "any other Required is refused" {
+                        { row with Required = "maybe" }
+                        |> LinkRule.ofData
+                        |> Expect.equal "refused" (Error [ "Required: maybe is not yes or no" ])
+                    }
+
+                    test "one refused row refuses the sheet, naming every refused row by its number" {
+                        [|
+                            row
+                            { row with DoseType = "" }
+                            blank
+                            ataluren
+                            { row with MainDoseType = "once" }
+                        |]
+                        |> LinkRule.ofRows
+                        |> Expect.equal
+                            "rows 3 and 6, the blank row counted"
+                            (Error
+                                [
+                                    ErrorMsg("LinkRules row 3: DoseType: the dose type is empty", None)
+                                    ErrorMsg("LinkRules row 6: MainDoseType: a once dose is never linked", None)
+                                ])
+                    }
+
+                    test "a row without dose types is blank, whatever its other cells hold" {
+                        [|
+                            row
+                            { blank with
+                                Generic = "Fantomalt pdr"
+                                Required = "yes"
+                            }
+                            ataluren
+                        |]
+                        |> LinkRule.ofRows
+                        |> Result.map Array.length
+                        |> Expect.equal "two rules" (Ok 2)
+                    }
+
+                    test "the blank rows are left out of the rules" {
+                        [| row; blank; ataluren |]
+                        |> LinkRule.ofRows
+                        |> Result.map Array.length
+                        |> Expect.equal "two rules" (Ok 2)
+                    }
+
+                    test "the sheet is read by column name with every cell trimmed" {
+                        [|
+                            [|
+                                "Required"
+                                "Generic"
+                                "Route"
+                                "Indication"
+                                "DoseType"
+                                "DoseText"
+                                "MainGeneric"
+                                "MainRoute"
+                                "MainIndication"
+                                "MainDoseType"
+                                "MainDoseText"
+                            |]
+                            [|
+                                "yes"
+                                " Fantomalt pdr "
+                                ""
+                                "Enterale toevoeging"
+                                "discontinuous"
+                                ""
+                                ""
+                                ""
+                                "Enterale voeding"
+                                "discontinuous"
+                                ""
+                            |]
+                        |]
+                        |> Mapping.parseSheet Mapping.linkRuleRow
+                        |> Expect.equal "the row" (Ok [| row |])
+                    }
+
+                    test "rules whose sides match dose rules give no warning" {
+                        [| row; ataluren |]
+                        |> LinkRule.check routes doseRules
+                        |> Expect.isEmpty "no warnings"
+                    }
+
+                    test "a side that matches no dose rule is reported with its row" {
+                        [| row; { row with MainIndication = "Parenterale voeding" } |]
+                        |> LinkRule.check routes doseRules
+                        |> Expect.equal
+                            "the main side"
+                            [ Warning "LinkRules: the main side of row 3 matches no dose rule" ]
+                    }
+
+                    test "a generic written by its name where the dose rule offers a label is told the label" {
+                        [| { row with MainGeneric = "Nutrini" } |]
+                        |> LinkRule.check routes doseRules
+                        |> Expect.equal
+                            "the label"
+                            [
+                                Warning "LinkRules: the main side of row 2 names Nutrini, offered as Nutrini (Nutricia)"
+                            ]
+                    }
+
+                    test "a dose text the dose rules do not have is reported" {
+                        [| { ataluren with DoseText = "nacht" } |]
+                        |> LinkRule.check routes doseRules
+                        |> Expect.equal
+                            "the linked side"
+                            [ Warning "LinkRules: the linked side of row 2 matches no dose rule" ]
+                    }
+
+                    test "a refused row is left to the read" {
+                        [| { row with DoseType = "" } |]
+                        |> LinkRule.check routes doseRules
+                        |> Expect.isEmpty "no warning"
+                    }
+
+                    test "empty fields match any value, names without regard to case" {
+                        LinkRule.matches
+                            routes
+                            rules[0].Main
+                            "enterale VOEDING"
+                            "anything"
+                            "RECTAAL"
+                            (Discontinuous "x")
+                        |> Expect.isTrue "matches"
+                    }
+
+                    test "a side with a dose text matches that text only" {
+                        LinkRule.matches
+                            routes
+                            rules[1].Main
+                            "Duchenne"
+                            "ataluren"
+                            "oraal"
+                            (Discontinuous "ochtend middag")
+                        |> Expect.isTrue "the morning"
+
+                        LinkRule.matches routes rules[1].Main "Duchenne" "ataluren" "oraal" (Discontinuous "avond")
+                        |> Expect.isFalse "not the evening"
+                    }
+
+                    test "a route matches by its long and its short name" {
+                        let side = { rules[1].Main with LinkSide.Route = "or" }
+
+                        LinkRule.matches routes side "Duchenne" "ataluren" "ORAAL" (Discontinuous "ochtend middag")
+                        |> Expect.isTrue "the short name"
+
+                        LinkRule.matches routes side "Duchenne" "ataluren" "iv" (Discontinuous "ochtend middag")
+                        |> Expect.isFalse "another route"
+                    }
+
+                    test "another dose type never matches" {
+                        LinkRule.matches routes rules[0].Main "Enterale voeding" "Nutrini" "ORAAL" (Continuous "")
+                        |> Expect.isFalse "continuous"
+                    }
+
+                    test "the link rule rows, the rules and their check are registered resources" {
+                        let registry = defaultRegistry FormLogging.noOp ""
+                        registry |> Map.containsKey Keys.linkRuleRows.Name |> Expect.isTrue "the rows"
+                        registry |> Map.containsKey Keys.linkRules.Name |> Expect.isTrue "the rules"
+                        registry
+                        |> Map.containsKey Keys.linkRuleChecks.Name
+                        |> Expect.isTrue "the check"
+                    }
+
+                    test "a refused row fails the load of the link rules" {
+                        let eng =
+                            Map
+                                [
+                                    Keys.linkRuleRows.Name, ofResult (fun () -> Ok [| { row with DoseType = "" } |])
+                                    Keys.linkRules.Name, (defaultRegistry FormLogging.noOp "")[Keys.linkRules.Name]
+                                ]
+                            |> LoadEngine
+
+                        Expect.throws "the load fails" (fun () -> eng.Resolve Keys.linkRules |> ignore)
+                    }
+
+                    test "the link rules resolve from the rows" {
+                        let eng =
+                            Map
+                                [
+                                    Keys.linkRuleRows.Name, ofResult (fun () -> Ok [| row; blank; ataluren |])
+                                    Keys.linkRules.Name, (defaultRegistry FormLogging.noOp "")[Keys.linkRules.Name]
+                                ]
+                            |> LoadEngine
+
+                        eng.Resolve Keys.linkRules |> Expect.equal "the rules" rules
+                    }
+                ]
+
+
     [<Tests>]
     let tests =
         testList
@@ -8259,4 +8655,5 @@ module Tests =
                 RenalUnitTests.tests
                 PrescribableTests.tests
                 RuleSetTests.tests
+                LinkRuleTests.tests
             ]

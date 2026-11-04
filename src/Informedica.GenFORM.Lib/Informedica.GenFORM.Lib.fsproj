@@ -29,6 +29,7 @@
     <Compile Include="SolutionRule.fs" />
     <Compile Include="RenalRule.fs" />
     <Compile Include="RuleSet.fs" />
+    <Compile Include="LinkRule.fs" />
     <Compile Include="PrescriptionRule.fs" />
     <Compile Include="FormLogging.fs" />
     <Compile Include="Resources.fs" />
