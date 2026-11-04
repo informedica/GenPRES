@@ -6,6 +6,15 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  # Issue #1539: the macOS leg loses about one job in 27 to a dotnet CLI process killed with
+  # exit code 137 within seconds of starting (dotnet paket restore, dotnet fsi, dotnet husky install,
+  # setup-dotnet's dotnet nuget locals). A probe on macos-15 runners (embedio-neo PR #518) traced the
+  # same signature to a fork-handler crash in the CLI's child process while the telemetry threads
+  # run, and measured 71 kills in 4,956 invocations with telemetry on against none in 5,382 with it
+  # off. Remove this only with a macOS run history that shows the kills gone without it.
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
 jobs:
   build:
     strategy:
