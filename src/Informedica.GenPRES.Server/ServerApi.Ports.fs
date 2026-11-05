@@ -57,9 +57,7 @@ type OrderPlanPort =
                 -> GenOrder.PlanContext
                 -> GenOrder.PlanContext[]
                 -> Async<Result<GenOrder.OrderPlan, string[]>>
-        // a fresh workbench for a nutrition category, its filter discovered
-        newOrderContext: GenOrder.OrderPlan -> GenOrder.NutritionCategory -> Async<Result<GenOrder.OrderPlan, string[]>>
-        // the contexts named, every kind; a feeding takes its supplements with it
+        // the contexts named, every kind, each with the contexts linked to it
         removeOrderContexts: GenOrder.OrderPlan -> string[] -> Async<Result<GenOrder.OrderPlan, string[]>>
         // a signed version's patient and contexts as they were, nothing evaluated
         openWith: GenForm.Patient -> GenOrder.PlanContext[] -> Async<Result<GenOrder.OrderPlan, string[]>>

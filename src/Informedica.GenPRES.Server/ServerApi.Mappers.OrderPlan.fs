@@ -9,17 +9,6 @@ open Informedica.GenPRES.Shared.Types
 /// contexts through the order context mapper.
 module OrderPlanMapper =
 
-    module Category = OrderContextMapper.Category
-
-
-    /// A nutrition category from the wire, for a context the plan is asked to make.
-    let nutritionCategory (c: NutritionCategory) =
-        match c |> OrderCategory.Nutrition |> Category.toDomain with
-        | Informedica.GenOrder.Lib.Types.OrderCategory.Nutrition c -> c
-        | Informedica.GenOrder.Lib.Types.OrderCategory.Medication ->
-            invalidOp "a nutrition category maps to a nutrition category"
-
-
     /// Total: the contract model's order plan as the domain's Dto, nothing dropped.
     let ofModel (plan: OrderPlan) : OrderPlan.Dto.Dto =
         {
@@ -41,23 +30,13 @@ module OrderPlanMapper =
         }
 
 
-    /// The server's words for a change the plan refuses; the category's label from the rule
-    /// sets.
-    let rec words (ruleSets: NutritionRuleSet[]) =
+    /// The server's words for a change the plan refuses.
+    let rec words =
         function
         | OrderPlanError.NoSuchContext id -> $"The plan holds no context %s{id}"
         | OrderPlanError.NotNarrowed n -> $"Choose one order first: %i{n} candidates remain"
         | OrderPlanError.OrderHeld _ -> "The plan already holds this order"
-        | OrderPlanError.SupplementNeedsFeeding -> "A supplement needs a feeding in the plan"
-        | OrderPlanError.CategoryHeld category ->
-            let label =
-                ruleSets
-                |> NutritionRuleSet.tryFind category
-                |> Option.map _.Label
-                |> Option.defaultValue $"%A{category}"
-
-            $"The plan already holds a %s{label} context"
         | OrderPlanError.UnknownCategory name -> $"RuleSets: %s{name} is not a nutrition category"
         | OrderPlanError.NoRuleSet category -> $"RuleSets: no rule set for %s{category |> NutritionRuleSet.sheetName}"
         | OrderPlanError.BrokenLink e -> e |> OrderContextMapper.linkWords
-        | OrderPlanError.OrderRefused(generic, e) -> $"%s{generic}: %s{words ruleSets e}"
+        | OrderPlanError.OrderRefused(generic, e) -> $"%s{generic}: %s{words e}"

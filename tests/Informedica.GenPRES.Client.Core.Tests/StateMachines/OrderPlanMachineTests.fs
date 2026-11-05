@@ -327,7 +327,6 @@ let tests =
 
                     for name, sent in
                         [
-                            "a new nutrition context", OrderPlanCommand.NewOrderContext(one, NutritionCategory.TPN)
                             "a removal", OrderPlanCommand.RemoveOrderContexts(one, [| "c-1" |])
                             "a row filter", OrderPlanCommand.FilterRows([| "c-1" |], one)
                             "a patient update", OrderPlanCommand.UpdatePatient(patient, one)
@@ -1145,8 +1144,6 @@ let changeTests =
 
                 [
                     OrderPlanChange.Add(ctx, [||]), OrderPlanCommand.AddOrderContext(two, ctx, [||])
-                    OrderPlanChange.NewNutrition NutritionCategory.TPN,
-                    OrderPlanCommand.NewOrderContext(two, NutritionCategory.TPN)
                     OrderPlanChange.Remove [| "c-2" |], OrderPlanCommand.RemoveOrderContexts(two, [| "c-2" |])
                     OrderPlanChange.FilterRows [| "c-1" |], OrderPlanCommand.FilterRows([| "c-1" |], two)
                     OrderPlanChange.OrderDialogCommand("c-1", step),
@@ -1168,14 +1165,12 @@ let changeTests =
                 |> Expect.equal "nothing sent" (shown, [])
             }
 
-            test "a prescription, a new nutrition context and a removal go out over the plan held" {
+            test "a prescription and a removal go out over the plan held" {
                 let ctx = context "" "ibuprofen"
 
                 [
                     OrderPlanMsg.Change(OrderPlanChange.Add(ctx, [||]), "r-1"),
                     OrderPlanCommand.AddOrderContext(one, ctx, [||])
-                    OrderPlanMsg.Change(OrderPlanChange.NewNutrition NutritionCategory.TPN, "r-1"),
-                    OrderPlanCommand.NewOrderContext(one, NutritionCategory.TPN)
                     OrderPlanMsg.Change(OrderPlanChange.Remove [| "c-1" |], "r-1"),
                     OrderPlanCommand.RemoveOrderContexts(one, [| "c-1" |])
                 ]

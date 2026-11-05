@@ -375,7 +375,6 @@ let tests =
                                 context
                             )
                             OrderPlanCommand.AddOrderContext(plan, context, [||])
-                            OrderPlanCommand.NewOrderContext(plan, NutritionCategory.TPN)
                             OrderPlanCommand.RemoveOrderContexts(plan, [| "1" |])
                             OrderPlanCommand.Open(sent, [| context |])
                         ]

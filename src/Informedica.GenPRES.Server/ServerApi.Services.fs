@@ -344,19 +344,12 @@ module OrderContextService =
     let toModel demo (pc: PlanContext) = pc |> PlanContext.Dto.toDto |> OrderContextMapper.toModel demo
 
 
-    /// The outcome mapped out as the contract's response, with the environment's demo flag.
-    let toResponse (demo: bool) (outcome: Outcome<PlanContext>) : OrderContextResponse =
+    /// The outcome mapped out as the contract's response, with the environment's demo flag: an evaluated
+    /// context with the offers given, a refused one without offers.
+    let toResponse (demo: bool) (offers: PlanContext[]) (outcome: Outcome<PlanContext>) : OrderContextResponse =
         match outcome with
-        | Evaluated pc -> OrderContextResponse.Evaluated(toModel demo pc)
+        | Evaluated pc -> OrderContextResponse.Evaluated(toModel demo pc, offers |> Array.map (toModel demo))
         | Refused(pc, refusal) -> OrderContextResponse.Refused(toModel demo pc, refusalToModel refusal)
-
-
-    /// The response with the linked orders offered on its evaluated context; a refusal carries none.
-    let withLinkedOrders demo (offers: PlanContext[]) (response: OrderContextResponse) =
-        match response with
-        | OrderContextResponse.Evaluated ctx ->
-            OrderContextResponse.Evaluated { ctx with LinkedOrders = offers |> Array.map (toModel demo) }
-        | refused -> refused
 
 
     /// The argumentation as the server takes it in: at most maxLength characters. The client

@@ -28,7 +28,6 @@ module PlanWorkPolicy =
             | OrderPlanCommand.Open _ -> false
             | OrderPlanCommand.EvaluateContext _
             | OrderPlanCommand.AddOrderContext _
-            | OrderPlanCommand.NewOrderContext _
             | OrderPlanCommand.RemoveOrderContexts _ -> true
 
 

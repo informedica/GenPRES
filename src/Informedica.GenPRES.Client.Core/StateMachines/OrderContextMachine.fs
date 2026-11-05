@@ -49,11 +49,6 @@ module OrderContextMachine =
         let emptyMedication (pat: Patient) = emptyOf OrderCategory.Medication pat
 
 
-        /// The context of an answer without the offers the answer carried: the machine takes them as its own
-        /// offers, and the server does not read them, so every request about the context would send them back.
-        let withoutOffers (ctx: OrderContext) = { ctx with LinkedOrders = [||] }
-
-
         /// The context narrowed to the scenario and its form, as it goes into the plan.
         let narrowedToScenario (sc: OrderScenario) (ctx: OrderContext) =
             { ctx with
@@ -451,7 +446,7 @@ module OrderContextMachine =
             let follows = OrderContextWorkbench.changesFilter cmd
 
             match result with
-            | Ok(OrderContextResponse.Evaluated ctx)
+            | Ok(OrderContextResponse.Evaluated(ctx, _))
             | Ok(OrderContextResponse.Refused(ctx, _)) when follows -> Some ctx.Filter
             | _ -> None
 
@@ -517,10 +512,8 @@ module OrderContextMachine =
 
                 match result with
                 // an offer takes no offers of its own: a link is one level
-                | Ok(OrderContextResponse.Evaluated ctx) ->
-                    answered
-                    |> withOffer index (fun o -> { o with Context = OrderContextWorkbench.withoutOffers ctx }),
-                    []
+                | Ok(OrderContextResponse.Evaluated(ctx, _)) ->
+                    answered |> withOffer index (fun o -> { o with Context = ctx }), []
                 // a reset is sent without the argumentation, so the one held is kept
                 | Ok(OrderContextResponse.Refused(back, refusal)) ->
                     answered
@@ -537,8 +530,7 @@ module OrderContextMachine =
                 let workbench, told =
                     match result with
                     // the offers the answer carries are taken below
-                    | Ok(OrderContextResponse.Evaluated ctx) ->
-                        OrderContextWorkbench.Evaluated(pat, OrderContextWorkbench.withoutOffers ctx), []
+                    | Ok(OrderContextResponse.Evaluated(ctx, _)) -> OrderContextWorkbench.Evaluated(pat, ctx), []
                     // a change that cannot be applied, or that sets a dose per kg the order does not
                     // have, answers the context as it was sent; a reset is sent without the
                     // argumentation, so the one held is kept; the dialog stays open
@@ -563,8 +555,8 @@ module OrderContextMachine =
                     let (OrderContextCommand.Command(cmd, _)) = sent
 
                     match result with
-                    | Ok(OrderContextResponse.Evaluated ctx) when OrderViewCommand.offersLinked cmd ->
-                        ctx.LinkedOrders |> Array.map LinkedOffer.off
+                    | Ok(OrderContextResponse.Evaluated(_, linked)) when OrderViewCommand.offersLinked cmd ->
+                        linked |> Array.map LinkedOffer.off
                     | Ok(OrderContextResponse.Refused _) when OrderViewCommand.offersLinked cmd -> [||]
                     | _ -> state.LinkedOffers
 

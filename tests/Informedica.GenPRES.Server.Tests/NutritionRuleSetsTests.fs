@@ -1,5 +1,5 @@
-/// The nutrition slot on the order context path: a slot discovered from the rule set of its
-/// category, and an evaluated nutrition context narrowed to that rule set, as the plan port does.
+/// An evaluated nutrition context narrowed and settled to the rule set of its category, as the order
+/// context port and the plan port do.
 module Informedica.GenPRES.Server.Tests.NutritionRuleSetsTests
 
 open Expecto
@@ -78,7 +78,13 @@ module Fixtures =
 
     /// An empty context of the category for the patient.
     let empty category =
-        NutritionRuleSet.emptyContext None patient |> PlanContext.create "" category
+        {
+            Filter = OrderContext.emptyFilter
+            Patient = patient
+            Scenarios = [||]
+            Argumentation = None
+        }
+        |> PlanContext.create "" category
 
 
     /// The generics an evaluation offers, evaluated or refused.
@@ -144,18 +150,6 @@ let tests =
                 match answer with
                 | Ok(Refused(pc, _)) -> pc.Context.Filter.Generic |> Expect.equal "the pick" (Some "onbekend")
                 | other -> failtest $"expected a refusal, got %A{other}"
-            }
-
-            test "a slot is discovered with only the generics of its rule set" {
-                ServerApi.Adapters.NutritionRuleSets.discover
-                    Scenarios.testStart
-                    OrderLogging.noOp
-                    provider
-                    "s-1"
-                    NutritionCategory.EnteralFeeding
-                    patient
-                |> Result.map _.Filter.Generics
-                |> Expect.equal "voedsel" (Ok [| "voedsel" |])
             }
         ]
 
@@ -400,8 +394,8 @@ let linkedOfferTests =
                     let offered =
                         Result.map (
                             function
-                            | Informedica.GenPRES.Shared.Types.OrderContextResponse.Evaluated ctx ->
-                                ctx.LinkedOrders |> Array.map _.Id
+                            | Informedica.GenPRES.Shared.Types.OrderContextResponse.Evaluated(_, linked) ->
+                                linked |> Array.map _.Id
                             | _ -> [||]
                         )
 

@@ -1274,7 +1274,6 @@ module Models =
                 Totals = Totals.empty
                 Argumentation = None
                 LinkedTo = None
-                LinkedOrders = [||]
             }
 
         let setPatient pat ctx : OrderContext = { ctx with Patient = pat }
@@ -1823,13 +1822,6 @@ module Models =
         let empty = create Patient.empty [||]
 
 
-        /// The nutrition workbenches of the plan. A display copy of the domain's
-        /// `OrderPlan.nutritionContexts`; the agreement test in the server tests keeps them equal.
-        let nutritionContexts (plan: OrderPlan) =
-            plan.OrderContexts
-            |> Array.filter (OrderContext.nutritionCategory >> Option.isSome)
-
-
         /// The orders the plan's contexts contribute: the one scenario of every context narrowed
         /// to one, in context order. A display copy of the domain's `OrderPlan.orders`; the
         /// agreement test in the server tests keeps them equal.
@@ -1845,22 +1837,6 @@ module Models =
             else
                 plan.OrderContexts
                 |> Array.filter (fun c -> plan.Filtered |> Array.contains c.Id)
-
-
-        /// Whether the plan may take a context of the nutrition category, which decides the
-        /// buttons the nutrition page offers: one context per category, except supplements
-        /// (any number, each under a feeding) and electrolyte and glucose lines (any number).
-        /// A display copy of the domain's `OrderPlan.admits`, which refuses what this hides; the
-        /// agreement test in the server tests keeps them equal.
-        let mayAdd (category: NutritionCategory) (plan: OrderPlan) =
-            let holds c =
-                plan.OrderContexts
-                |> Array.exists (fun ctx -> ctx.Category = OrderCategory.Nutrition c)
-
-            match category with
-            | NutritionCategory.EnteralSupplement -> holds NutritionCategory.EnteralFeeding
-            | NutritionCategory.ElectrolyteGlucose -> true
-            | _ -> not (holds category)
 
 
     module Formulary =

@@ -63,7 +63,6 @@ let echoPort seen : OrderPlanPort =
         followPatientData = answering seen "followPatientData"
         evaluateContext = fun p _ _ _ -> answering seen "evaluateContext" p
         addOrderContexts = fun p _ _ -> answering seen "addOrderContexts" p
-        newOrderContext = fun p _ -> answering seen "newOrderContext" p
         removeOrderContexts = fun p _ -> answering seen "removeOrderContexts" p
         openWith = fun pat cs -> answering seen "openWith" (Informedica.GenOrder.Lib.OrderPlan.create pat cs)
         totals =
@@ -113,8 +112,6 @@ let tests =
                     )
 
                 let! _ = run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.AddOrderContext(plan, ctx, [||]))
-                let! _ =
-                    run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.NewOrderContext(plan, NutritionCategory.TPN))
                 let! _ = run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.RemoveOrderContexts(plan, [| "c-1" |]))
                 let! opened = run (Informedica.GenPRES.Shared.Api.OrderPlanCommand.Open(patient, [| ctx |]))
 
@@ -126,7 +123,6 @@ let tests =
                         "recalculate"
                         "evaluateContext"
                         "addOrderContexts"
-                        "newOrderContext"
                         "removeOrderContexts"
                         "openWith"
                     ]
@@ -327,31 +323,6 @@ let tests =
                 | other -> failtest $"the port saw %A{other}"
             }
 
-            testAsync "the new context's category is the domain's" {
-                let seen = ref None
-
-                let port =
-                    { echoPort (ref []) with
-                        newOrderContext =
-                            fun p category ->
-                                seen.Value <- Some category
-                                async { return Ok p }
-                    }
-
-                let! _ =
-                    OrderPlanCommand.processCmd
-                        (envOver false port)
-                        (Informedica.GenPRES.Shared.Api.OrderPlanCommand.NewOrderContext(
-                            plan,
-                            NutritionCategory.EnteralSupplement
-                        ))
-
-                seen.Value
-                |> Expect.equal
-                    "the category mapped"
-                    (Some Informedica.GenOrder.Lib.Types.NutritionCategory.EnteralSupplement)
-            }
-
             testAsync "a draft plan is refused before the port with the server's words" {
                 let seen = ref []
 
@@ -367,24 +338,8 @@ let tests =
                 seen.Value |> Expect.isEmpty "the port never asked"
             }
 
-            test "the refusals in the server's words, the category labelled from the rule sets" {
-                let feeding: NutritionRuleSet =
-                    {
-                        Category = Informedica.GenOrder.Lib.Types.NutritionCategory.EnteralFeeding
-                        Label = "Enterale Voeding"
-                        Indications = [| "Enterale voeding" |]
-                        Generics = [| "Nutrini" |]
-                    }
-
-                let words = OrderPlanMapper.words [| feeding |]
-
-                OrderPlanError.SupplementNeedsFeeding
-                |> words
-                |> Expect.equal "supplement" "A supplement needs a feeding in the plan"
-
-                OrderPlanError.CategoryHeld Informedica.GenOrder.Lib.Types.NutritionCategory.EnteralFeeding
-                |> words
-                |> Expect.equal "category" "The plan already holds a Enterale Voeding context"
+            test "the refusals in the server's words" {
+                let words = OrderPlanMapper.words
 
                 OrderPlanError.NotNarrowed 2
                 |> words

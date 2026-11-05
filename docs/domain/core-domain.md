@@ -168,10 +168,10 @@ frequency, dose quantity, dose rate and component quantity), and any list in pro
 the first time one is added. `Api.fs` is the contract; read it there. `OrderPlanCommand` is small
 enough to name: every case acts on the plan's Order Contexts and says so. `Open` hands a signed
 version back with nothing evaluated; `AddOrderContext` moves an Order Context, narrowed
-to one scenario, into the plan; `NewOrderContext` makes a fresh nutrition Order Context for a
-category; `EvaluateContext` evaluates an order-context command over the context named, in that
-context's own patient; `RemoveOrderContexts` removes contexts of every kind, a feeding taking
-its supplements with it; `Recalculate` recomputes the totals over the filtered contexts.
+to one scenario, into the plan, with the linked orders turned on in it; `EvaluateContext`
+evaluates an order-context command over the context named, in that context's own patient;
+`RemoveOrderContexts` removes contexts of every kind, each with the contexts linked to it;
+`Recalculate` recomputes the totals over the filtered contexts.
 
 **OrderPlan contract model**
 

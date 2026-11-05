@@ -581,9 +581,6 @@ module Types =
             /// The id of the plan context that holds the main order of this order; none for an order
             /// that is not linked
             LinkedTo: string option
-            /// The orders the link rules offer to link to this order, filled by the server in an order
-            /// context answer; empty otherwise. Not stored
-            LinkedOrders: OrderContext[]
         }
 
 
@@ -919,8 +916,10 @@ module Types =
     /// channel stays for failures.
     [<RequireQualifiedAccess>]
     type OrderContextResponse =
-        /// The context evaluated.
-        | Evaluated of OrderContext
+        /// The context evaluated, with the orders the link rules offer to link to its order: filled for a
+        /// context narrowed to one order, empty otherwise. They come only in the answer, so a request about the
+        /// context cannot carry them back.
+        | Evaluated of OrderContext * linked: OrderContext[]
         /// The context as it was sent, and why it could not be evaluated.
         | Refused of OrderContext * OrderContextRefusal
 

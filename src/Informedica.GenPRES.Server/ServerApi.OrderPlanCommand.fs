@@ -87,7 +87,7 @@ module OrderPlanCommand =
                         c
                 recalculate env { plan with OrderContexts = Array.map written plan.OrderContexts }
             | OrderViewCommand.SetArgumentationProperty _ ->
-                async { return Error [| OrderPlanMapper.words [||] (OrderPlanError.NoSuchContext contextId) |] }
+                async { return Error [| OrderPlanMapper.words (OrderPlanError.NoSuchContext contextId) |] }
             | ctxCmd ->
                 // a reset clears the argumentation, on the context and on the plan's copy of it, since
                 // it puts the order back within the rules
@@ -126,15 +126,6 @@ module OrderPlanCommand =
                         env
                         (both (parsePlan plan) (both (OrderContextService.parse ctx) (parseContexts linked)))
                         (fun (p, (pc, pcs)) -> env.orderPlan.addOrderContexts p pc pcs)
-                )
-        | OrderPlanCommand.NewOrderContext(plan, category) ->
-            Patient.overAll
-                (Patient.ofPlan plan)
-                (fun () ->
-                    answer
-                        env
-                        (parsePlan plan)
-                        (fun p -> env.orderPlan.newOrderContext p (OrderPlanMapper.nutritionCategory category))
                 )
         | OrderPlanCommand.RemoveOrderContexts(plan, ids) ->
             Patient.overAll

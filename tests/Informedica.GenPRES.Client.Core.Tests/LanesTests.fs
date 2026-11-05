@@ -143,7 +143,7 @@ let tests =
                     LanesMsg.Workbench(
                         OrderContextMsg.Answered(
                             workbench,
-                            Ok(OrderContextResponse.Evaluated(OrderContextState.emptyMedication measured))
+                            Ok(OrderContextResponse.Evaluated(OrderContextState.emptyMedication measured, [||]))
                         )
                     )
 
@@ -199,7 +199,7 @@ let tests =
                         LanesMsg.Workbench(
                             OrderContextMsg.Answered(
                                 workbench,
-                                Ok(OrderContextResponse.Evaluated(OrderContextState.emptyMedication measured))
+                                Ok(OrderContextResponse.Evaluated(OrderContextState.emptyMedication measured, [||]))
                             )
                         )
                     ]
@@ -839,7 +839,9 @@ let tests =
                                 PatientMsg.Changed(Some measured, PatientDraftPolicy.Estimates.Renewed, "p-0")
                             )
                             LanesMsg.Patient(PatientMsg.Answered("p-0", Ok pat))
-                            LanesMsg.Workbench(OrderContextMsg.Answered("id-1", Ok(OrderContextResponse.Evaluated ctx)))
+                            LanesMsg.Workbench(
+                                OrderContextMsg.Answered("id-1", Ok(OrderContextResponse.Evaluated(ctx, [||])))
+                            )
                             LanesMsg.Plan(OrderPlanMsg.Answered("id-2", Ok one))
                         ]
                     |> List.last
@@ -1204,7 +1206,7 @@ module SlotLaneFixtures =
             LanesMsg.Workbench(
                 OrderContextMsg.Answered(
                     "w-1",
-                    Ok(OrderContextResponse.Evaluated(OrderContextState.emptyMedication pat))
+                    Ok(OrderContextResponse.Evaluated(OrderContextState.emptyMedication pat, [||]))
                 )
             )
         )
@@ -1287,7 +1289,7 @@ let slotLaneTests =
 
                 // the same patient with other data, once the first answer landed
                 let updated = { pat with Department = Some "ICK" }
-                let answered = OrderContextResponse.Evaluated(OrderContextState.emptyMedication pat)
+                let answered = OrderContextResponse.Evaluated(OrderContextState.emptyMedication pat, [||])
 
                 lanes
                 |> after (LanesMsg.Slot("s-1", OrderContextMsg.Answered("r-1", Ok answered)))
@@ -1314,7 +1316,7 @@ let slotLaneTests =
                     |> after (
                         LanesMsg.Slot(
                             "s-1",
-                            OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated evaluated))
+                            OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated(evaluated, [||])))
                         )
                     )
                     |> fst
@@ -1363,7 +1365,7 @@ let slotLaneTests =
                         "s-1",
                         OrderContextMsg.Answered(
                             "r-1",
-                            Ok(OrderContextResponse.Evaluated(OrderContextState.emptyMedication pat))
+                            Ok(OrderContextResponse.Evaluated(OrderContextState.emptyMedication pat, [||]))
                         )
                     )
                 )
@@ -1406,7 +1408,7 @@ let slotLaneTests =
                     |> after (LanesMsg.RemoveSlot "s-1")
                     |> fst
 
-                let answered = OrderContextResponse.Evaluated(OrderContextState.emptyMedication pat)
+                let answered = OrderContextResponse.Evaluated(OrderContextState.emptyMedication pat, [||])
 
                 removed
                 |> Lanes.step (LanesMsg.Slot("s-1", OrderContextMsg.Answered("r-1", Ok answered)))
@@ -1433,7 +1435,7 @@ let slotLaneTests =
                     }
 
                     test "an answer to a slot keeps the slot in its place" {
-                        let answered = OrderContextResponse.Evaluated(OrderContextState.emptyMedication pat)
+                        let answered = OrderContextResponse.Evaluated(OrderContextState.emptyMedication pat, [||])
 
                         started
                         |> after (LanesMsg.Slot("s-a", OrderContextMsg.Answered("r-2", Ok answered)))

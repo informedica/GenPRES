@@ -429,9 +429,7 @@ module Api =
         // the linked orders to add with it, each linked to it by the server; when one of them is refused,
         // none of them enters the plan
         | AddOrderContext of OrderPlan * OrderContext * linked: OrderContext[]
-        // a fresh workbench for a nutrition category, its filter discovered
-        | NewOrderContext of OrderPlan * NutritionCategory
-        // the contexts named removed, every kind; a feeding takes its supplements with it
+        // the contexts named removed, every kind, each with the contexts linked to it
         | RemoveOrderContexts of OrderPlan * ids: string[]
         // the signed version as it was, nothing evaluated: the contexts as given, their orders
         // derived; the patient with no contexts is the empty plan
@@ -447,7 +445,6 @@ module Api =
             | OrderPlanCommand.FilterRows(ids, _) -> $"FilterRows %i{ids.Length}"
             | OrderPlanCommand.EvaluateContext(_, _, ctxCmd, _) -> $"EvaluateContext {ctxCmd}"
             | OrderPlanCommand.AddOrderContext _ -> "AddOrderContext"
-            | OrderPlanCommand.NewOrderContext(_, category) -> $"NewOrderContext {category}"
             | OrderPlanCommand.RemoveOrderContexts(_, ids) -> $"RemoveOrderContexts %i{ids.Length}"
             | OrderPlanCommand.Open(_, contexts) -> $"Open %i{contexts.Length}"
 
