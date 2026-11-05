@@ -307,10 +307,20 @@ dotnet fsi scripts/ReleaseNotes.fsx 0.1.2-alpha.2 --out notes.md   # any shipped
 
 #### Publishing the Docker image
 
-A `publish-docker-image` job in `tag-release.yml` runs after tagging succeeded. It builds the
-`Dockerfile` for `linux/amd64` with `APP_VERSION=<version>`, smoke-tests the image with the demo
-sheet ID and a random password (`/` must return 200 within 60 seconds), and pushes
-`docker.io/informedica/genpres:<version>`, plus `:latest` for a stable release.
+The image is published for `linux/amd64` and `linux/arm64`. Two jobs in `tag-release.yml` run
+after tagging succeeded:
+
+1. `build-docker-image` builds the `Dockerfile` with `APP_VERSION=<version>` once for each
+   architecture, on a GitHub-hosted runner of that architecture (`ubuntu-latest`,
+   `ubuntu-24.04-arm`). Each build is smoke-tested with the demo sheet ID and a random password
+   (`/` must return 200 within 60 seconds) and checked to exit with code 1 when the server refuses
+   to start. The tested image is handed on as a workflow artifact; this job pushes nothing.
+2. `publish-docker-image` starts only when both architectures passed. It pushes each tested image
+   as `docker.io/informedica/genpres:<version>-amd64` and `:<version>-arm64`, then joins them in
+   one manifest list under `:<version>`, plus `:latest` for a stable release. A `docker pull` of
+   `:<version>` gets the image for the host's architecture; the `-<arch>` tags pin one.
+
+A failed check on either architecture publishes no tag at all.
 
 Authentication is Docker Hub OIDC; there is no stored registry credential. One-time setup:
 

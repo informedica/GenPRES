@@ -189,6 +189,29 @@ is the single `IMAGE_NAME` env-var change the 2026-08-25 amendment expected, plu
 | Repository visibility | Still a manual step, same shape as GHCR's was: the first push creates `informedica/genpres` as a **private** Docker Hub repo. A Docker Hub org admin must set it public afterwards; the OIDC token cannot change repo visibility. |
 | Local `DockerBuild` default | `Build.fs`'s `DOCKER_IMAGE` default moves from `ghcr.io/informedica/genpres` to `informedica/genpres` in the same PR, so a local `dotnet run DockerBuild` tags the image with the name releases actually publish. `DockerBuild`/`DockerRun` only build and run locally — they never push — so this is a label change, not a new push target. Agent-facing docs (`AGENTS.md`, `DEVELOPMENT.md`, `.github/copilot-instructions.md`, the `Dockerfile` run example) are updated to match. |
 
+### Docker image for linux/arm64 — amended 2026-11-05
+
+Issue [#1686](https://github.com/informedica/GenPRES/issues/1686) asks for a native image for ARM hosts
+(Apple Silicon, ARM cloud machines) next to the `linux/amd64` one. The 2026-08-25 amendment left
+multi-arch for later because a multi-platform build cannot be loaded into the local daemon, and the
+smoke test has to `docker run` the image.
+
+**Decision**: `publish-docker-image` is split in two jobs. `build-docker-image` is a matrix with one
+leg per architecture, each on a GitHub-hosted runner of that architecture. A leg builds a
+single-platform image, runs the smoke test and the refused-start-up check against it, and uploads
+the tested image as a workflow artifact. `publish-docker-image` needs every leg, loads both images,
+pushes them as `:<version>-amd64` and `:<version>-arm64`, and joins them with
+`docker buildx imagetools create` in one manifest list under `:<version>` (and `:latest` for a
+stable release).
+
+| Question | Decision |
+|---|---|
+| Native runners over QEMU | `ubuntu-24.04-arm` is free for public repositories. Under QEMU the arm64 build, the npm bundle step most of all, would be slow, and the checks would test the emulated runtime instead of ARM hardware. |
+| Artifacts over push by digest | Handing the tested image to the publish job as an artifact keeps the registry login and the `docker-publish` environment in one job, so the OIDC ruleset subject is unchanged, and nothing reaches Docker Hub until both architectures passed. Push by digest from each leg would need a login in every leg and would put images in the registry before the other leg finished. |
+| Architecture tags | A manifest list can only reference images already in the registry, so each image is pushed under `:<version>-<arch>` first. Those tags stay and let a user pin one architecture. |
+| Docker tooling | Still plain CLI: `docker build`, `docker save`, `docker load`, `docker push` and `docker buildx imagetools`. The artifact steps use GitHub's own `actions/upload-artifact` and `actions/download-artifact`, as `build.yml` already does; `docker/login-action` stays the one marketplace action. |
+| Local `DockerBuild` | Unchanged: with no `DOCKER_PLATFORM` it builds for the host's architecture, so it already builds arm64 on Apple Silicon. |
+
 ## Consequences
 
 **Positive**:
@@ -255,7 +278,8 @@ is the single `IMAGE_NAME` env-var change the 2026-08-25 amendment expected, plu
 - [Issue #234 — Improve build system](https://github.com/informedica/GenPRES/issues/234)
 - [Issue #470 — Tag and publish a GitHub Release when the ShipIt release PR merges](https://github.com/informedica/GenPRES/issues/470) (follow-up, item 2, second half)
 - [Issue #459 — Publish the Docker image automatically on release](https://github.com/informedica/GenPRES/issues/459) (follow-up, item 3, closed by the Docker image publishing amendment above)
-- [`.github/workflows/tag-release.yml`](../../.github/workflows/tag-release.yml) — implements both the tag/Release job and the `publish-docker-image` job
+- [Issue #1686 — Publish a linux/arm64 Docker image next to linux/amd64](https://github.com/informedica/GenPRES/issues/1686) (the linux/arm64 amendment above)
+- [`.github/workflows/tag-release.yml`](../../.github/workflows/tag-release.yml) — implements the tag/Release job and the `build-docker-image` and `publish-docker-image` jobs
 - [Issue #460 — Auto-generate and publish API documentation](https://github.com/informedica/GenPRES/issues/460) (follow-up, item 4)
 - [Implementation plan for issue #234](../implementation-plans/234-improve-build-system.md)
 - [EasyBuild.ShipIt](https://github.com/easybuild-org/EasyBuild.ShipIt)
