@@ -136,7 +136,7 @@ means the assertion reads the trail.
 | 2a | A second filter pick while the first page load runs: the first lands, then one load of each page, never two at once | Pages follow | Hold the formulary load; pick again; count concurrent loads |
 | 2b | A filter whose answer narrows route and form to one option each shows both picked, no further command | Pages follow | Trail: one command |
 | 2b | A department list of one shows that department picked | Pages follow | Patient with one department |
-| 3 | A prescription, a new nutrition context, a removal and a row filter each send one plan call over the plan held | Plan | Trail: one `CallPlan` each |
+| 3 | A prescription, a removal and a row filter each send one plan call over the plan held | Plan | Trail: one `CallPlan` each |
 | 3 | A dialog command into a removed context sends nothing | Plan | Trail |
 | 4a | A filter pick, then the menu at once: the menu waits for the filter and its two page loads | Busy | Hold the second page load |
 | 4a | The held dialog's refresh, the sign click, the challenge and the submission disable every page | Busy, Signing | Hold each request |
@@ -244,6 +244,26 @@ messages as they are after its step 7a: `SetPatientData` and `PatientDataChanged
 | 9b | An emergency list item the list does not hold shows in the trail as dropped, and the console logs no warning | Lists | Choose an item after a hospital change removed it; trail; console |
 | 10 | The disclaimer shows for anonymous use, and once accepted not again on a page change; a launched, resuming or refused Session never shows it | Shell | Open `#/` with `dsc=y`; accept; change the page; launch; reload with the Session; open `#/session?refused=no-role` |
 | 10 | The patient panel shows the estimated weight and height from the normal values once they have loaded; before that it shows the draft as entered | Patient | Hold the normal values load; enter an age; assert no estimate; release; assert the estimates |
+
+### Nutrition slots and linked orders
+
+Every check from the Verification of [plan 1612](1612-nutrition-slots-outside-the-plan.md), with the
+suite that covers it. The checks run on the demo data, which holds the LinkRules and RuleSets sheets.
+
+| Plan 1612 step | Check | Suite | How |
+| -------------- | ----- | ----- | --- |
+| 9d | A feeding slot for an infant offers breast milk and the hypoallergenic feedings; an electrolyte and glucose slot offers its mixture | Nutrition | Patient of 3 months; start each slot |
+| 9d | A TPN and an electrolyte line prescribed: both slots empty, the orders are on the order plan page, the combined totals stay | Nutrition | Compose both; prescribe each |
+| 9d | While a prescribe is out, the prescribed slot takes no pick and no other slot can be prescribed | Nutrition | Hold `processOrderPlan`; pick and press another prescribe |
+| 9d | The fortifier is offered only under breast milk; breast milk with the fortifier and a formula feeding prescribed; removing breast milk removes the fortifier | Nutrition, Plan | Compose both feedings; remove breast milk on the order plan page |
+| 9d | A fortifier turned off and on: the combined totals follow each time, and no request carries the offers | Nutrition | Count `processTotals`; inspect its body |
+| 9d | A weight change with a slot open starts the slot again from its rule set | Nutrition | Panel edit |
+| 9d | A new patient while a totals query is out shows no totals of the previous patient | Nutrition | Hold `processTotals`; start a new patient |
+| 9e | Ataluren narrowed to its morning and midday dose offers the evening dose; with two sachets turned on the prescribe waits until the form is picked | Plan | Prescribe page; turn the evening dose on |
+| 9e | The evening dose stands under its main order with an arrow; checking the main order checks both, and the evening dose stays checked while the main order is; removing the main order removes both | Plan | Order plan page |
+| 9e | An order locked by its main order shows the group lock text | Plan | Change the weight so that the main order cannot be calculated |
+| 9e | The intake slider of a TPN in the plan sets its dose, and is disabled while the TPN or its group is locked | Dialog | Open the TPN in its order dialog |
+| 2 | A signed version with a link the LinkRules sheet no longer has still opens | Refresh | Sign; edit the sheet; reload resources; open the version |
 
 ## Steps
 

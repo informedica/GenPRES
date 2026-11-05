@@ -764,6 +764,9 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
     composition until its order is prescribed; then the slot empties", and rule 11's "The lock holds on
     the order plan page and the nutrition page" becomes "The lock holds on the order plan page and in
     the order dialog". The browser tests in document 598.
+    Done, 2026-11-05: the notes in plans 667 and 654, the two sentences of plan 1430, and the checks of
+    the Verification below as a section of plan 598, beside its row of the plan commands, which no
+    longer names a new nutrition context. The domain documents were corrected with step 10.
 
 ## To decide
 
