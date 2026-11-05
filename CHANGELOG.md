@@ -1,5 +1,5 @@
 ---
-last_commit_released: 3a5b4f823d1ddc483706d704faff8cb9c07ed276
+last_commit_released: 1b28bc391abe4fa9d32568c1b7b731e4bd688637
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,47 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.48 - 2026-11-05
+
+### 🚀 Features
+
+* *(api)* Carry the link of an order on the wire ([e12dfb53](https://github.com/informedica/GenPRES/commit/e12dfb53350937f451d1810f0c27e75381a4071b))
+* *(client)* Add the nutrition slot lane to the client core ([64848408](https://github.com/informedica/GenPRES/commit/64848408e9696ec37cf161ef9a6011942934222a))
+* *(client)* Prescribe a nutrition slot into the plan ([9f611abd](https://github.com/informedica/GenPRES/commit/9f611abd3303b20714dea1c3dc6bc206bf468098))
+* *(client)* Prescribe a main order with its linked orders ([1df0c23f](https://github.com/informedica/GenPRES/commit/1df0c23fec9daef995f4101043b4be00fe37583b))
+* *(client)* Query the combined nutrition totals ([9cfc2c95](https://github.com/informedica/GenPRES/commit/9cfc2c9561005ea02d56ebca639ded63822291e1))
+* *(client)* Take commands on a linked offer ([6461e029](https://github.com/informedica/GenPRES/commit/6461e02986dbbbe60f946e904fb727f4fe4abbce))
+* *(client)* Lock a linked group and check its rows ([d5afd184](https://github.com/informedica/GenPRES/commit/d5afd1842be5211495d646f1ff755630fb0865f4))
+* *(client)* Compose nutrition in slots outside the plan ([2e37b9e9](https://github.com/informedica/GenPRES/commit/2e37b9e97f91c812b4cb39bc96a03baaf58c5bd4))
+* *(client)* Offer linked orders on the workbench and plan ([4442e8aa](https://github.com/informedica/GenPRES/commit/4442e8aa342ee9db4d425e375aaf865a53824b5b))
+* *(client)* Remove the plan slots, offers in the answer ([6a84a3c1](https://github.com/informedica/GenPRES/commit/6a84a3c1c9dcc5a2377668440deb87a89c89d242))
+* *(genform)* Read the nutrition rule sets from a sheet ([b5c20457](https://github.com/informedica/GenPRES/commit/b5c20457e4fee7940dbe1069bf212f2e7370bde1))
+* *(genform)* Read the link rules from the LinkRules sheet ([a56e7f29](https://github.com/informedica/GenPRES/commit/a56e7f29151ce4ad3547ffceefe5d1010466b42a))
+* *(genorder)* Link an order to its main order in the plan ([fb359ffd](https://github.com/informedica/GenPRES/commit/fb359ffd6b4b9e9d7983c67d6f8831da85288770))
+* *(genorder)* Check order links against the link rules ([ea8b6f71](https://github.com/informedica/GenPRES/commit/ea8b6f71a80fe595c470f7be0634dae3c331ffd1))
+* *(server)* Narrow a nutrition context on the order context path ([b5acda19](https://github.com/informedica/GenPRES/commit/b5acda19e183867da4e701a2cab8d3f7e9b7bcd3))
+* *(server)* Offer linked orders in the order context answer ([832e27fb](https://github.com/informedica/GenPRES/commit/832e27fb098818f72dfa18278afe290afcebc0c5))
+* *(server)* Leave orders that need a main order out of pick lists ([bd51404c](https://github.com/informedica/GenPRES/commit/bd51404c864bf2eb748954bea37029fff8573804))
+* *(server)* Add a main order with its linked orders ([fc66f434](https://github.com/informedica/GenPRES/commit/fc66f4341c5aa169231f5df76ac91f42ecabeabd))
+* *(server)* Add a totals query over the orders asked for ([9eac0c5e](https://github.com/informedica/GenPRES/commit/9eac0c5e91279cc161a6cdf698f816236353e8f8))
+* *(server)* Evaluate a linked offer over its own dose rules ([e0a7c098](https://github.com/informedica/GenPRES/commit/e0a7c098b29a647f8b36f44bc25122a9cab74b28))
+
+### 🐞 Bug Fixes
+
+* *(client)* Report a failed totals request ([c45b4c32](https://github.com/informedica/GenPRES/commit/c45b4c32bb4cafe7c035e527b1ccb4764a3a03de))
+* *(client)* Keep an offer's argumentation and recalculation ([3b4722f0](https://github.com/informedica/GenPRES/commit/3b4722f06011ec54f5fcadf073fd812ecf901499))
+* *(client)* Print plan and slot orders with combined totals ([3003d358](https://github.com/informedica/GenPRES/commit/3003d3585ddac5d799ea9af31a35396baa7fadb0))
+* *(client)* Reset the intake slider after a failed dose ([882f3cb8](https://github.com/informedica/GenPRES/commit/882f3cb8c7023941f7115685814be87fdccf4c6f))
+* *(genform)* Fill empty rule set generics from dose rules ([1da40473](https://github.com/informedica/GenPRES/commit/1da40473f2b7e2204bd6996505637a11e2f32c94))
+* *(genform)* Match rule set generics by their label ([1fde167d](https://github.com/informedica/GenPRES/commit/1fde167d9d1c3a82b061f78890f5aee32901d9a7))
+* *(genorder)* Remove supplements with a feeding removed by link ([c47d1e4d](https://github.com/informedica/GenPRES/commit/c47d1e4dd355770772aab623f9cdfa15958a797c))
+* *(genorder)* Match link rules by the order of a context ([782d386b](https://github.com/informedica/GenPRES/commit/782d386b09abe20f098d3e35823ba4ac9c76592b))
+* *(server)* Leave out a linked offer with another dose type ([d80470fb](https://github.com/informedica/GenPRES/commit/d80470fb9b6d2899c9810d1f1d096e2ecfb6ff09))
+* *(server)* Read the stand-alone dose rules in one read ([86c64473](https://github.com/informedica/GenPRES/commit/86c6447317a151a394ce8a1cb17975435ba00ffb))
+* *(server)* List every form again after a clear on an offer ([3d32dc7b](https://github.com/informedica/GenPRES/commit/3d32dc7b697898eed1f5b84b6500a28cc5384338))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/3a5b4f823d1ddc483706d704faff8cb9c07ed276..1b28bc391abe4fa9d32568c1b7b731e4bd688637)</small></strong>
 
 ## 0.1.2-alpha.47 - 2026-11-03
 
