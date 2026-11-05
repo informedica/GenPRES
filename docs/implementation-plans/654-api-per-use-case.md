@@ -131,6 +131,11 @@ candidates contributes nothing yet; `RemoveContext` removes the context's scenar
 shape: `RequestSignChallenge` takes the plan and hashes `Scenarios`, which now hold the
 nutrition orders.
 
+> Note (2026-11-05): plan [1612](1612-nutrition-slots-outside-the-plan.md) replaces this rule. A
+> nutrition context is no longer in the plan while it is composed: it is a slot on the nutrition page,
+> outside the plan, and only a nutrition order that is prescribed is in the plan and signed. A slot
+> narrowed to one scenario is not signed and is not in the totals of the plan.
+
 Generic records on the wire are new to this repo but supported: both sides serialize JSON,
 Fable.SimpleJson reflects a closed generic record with the argument substituted into its
 fields, and Fable.Remoting's own integration tests echo a `GenericRecord<'t>` as argument and

@@ -119,7 +119,7 @@ estimate.
     of the version. The next update of the patient data tries the order again. The lock goes when the
     order stands on the current patient: a calculation on another value that succeeds, or the value
     of the order with the current rule known. In any other case the lock stays: a weight cleared, or
-    a rule lookup that fails with nothing calculated. The lock holds on the order plan page and the nutrition page, and the plan machine sends no
+    a rule lookup that fails with nothing calculated. The lock holds on the order plan page and in the order dialog, and the plan machine sends no
     change for a locked order. The lock is in the client: a page opened before it can still send a step.
 
 ### Signing
@@ -247,8 +247,8 @@ The order comes from the logic: the domain first, then what uses it.
    Rule 10 waits for nutrition because the nutrition page is the only place where a TPN is composed.
    An order exists as soon as a slot holds one scenario, so the component steps are the composing.
    Rule 10 applies to nutrition once an order can really be prescribed, which #1612 builds: prescribed
-   means that the order appears on the overall order plan, and the nutrition page keeps its slots
-   until a new order is prescribed.
+   means that the order appears on the overall order plan, and a slot on the nutrition page keeps its
+   composition until its order is prescribed; then the slot empties.
 
    Three things stay open after this step. Until step 7 an order on changed data cannot be signed.
    Until step 8 an order of a version opened on other data can be stepped while it is on that other
