@@ -19,7 +19,7 @@ module OrderContextCommand =
                 match ctx |> OrderContextService.parse, domainCmd with
                 | Error errs, _ -> async { return Error errs }
                 | Ok pc, None ->
-                    async { return Ok(Evaluated pc) |> Result.map (OrderContextService.toResponse env.demo) }
+                    async { return Ok(Evaluated pc) |> Result.map (OrderContextService.toResponse env.demo [||]) }
                 | Ok pc, Some cmd ->
                     async {
                         let! answer = env.orderContext.evaluate cmd pc
@@ -31,10 +31,9 @@ module OrderContextCommand =
                             // the offers never fail the evaluation: without them the answer offers none
                             return
                                 Evaluated e
-                                |> OrderContextService.toResponse env.demo
-                                |> OrderContextService.withLinkedOrders env.demo (offers |> Result.defaultValue [||])
+                                |> OrderContextService.toResponse env.demo (offers |> Result.defaultValue [||])
                                 |> Ok
-                        | _ -> return answer |> Result.map (OrderContextService.toResponse env.demo)
+                        | _ -> return answer |> Result.map (OrderContextService.toResponse env.demo [||])
                     }
             )
 

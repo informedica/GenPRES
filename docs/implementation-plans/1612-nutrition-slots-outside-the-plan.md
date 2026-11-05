@@ -742,6 +742,23 @@ cut from step 5 until step 9 is merged. Decision, 2026-11-03, halcwb.
    `OrderContextResponse.Evaluated of OrderContext * linked: OrderContext[]`, so that a request cannot
    carry them; the client then no longer empties LinkedOrders of an answer. Decision of the 9d review,
    2026-11-04, halcwb. Seen: no change; the old path is gone.
+    Decisions, 2026-11-05, halcwb:
+    - One pull request for the whole step.
+    - The refusal stays, as a guard at the boundary of the API: no client path sends a command that
+      leaves an order of the plan without its one scenario, since the order dialog steps only the
+      frequency, the dose quantity and the dose rate. `OrderPlan.updateContext` refuses an evaluated
+      context that is not narrowed to one scenario with `NotNarrowed`: every context of the plan holds an
+      order. A TPN cleared to two scenarios is refused.
+    - The slot discovery goes with the domain's `NutritionRuleSet.discover` and `emptyContext`, which
+      only the plan slots used; the narrowing and settling to a rule set stay, for the order context
+      port and a nutrition order stepped in the order dialog. The words of a plan refusal no longer read
+      the rule sets, since only the category held named a category.
+    - A supplement without a link, from a plan signed before the links, stays when its feeding is
+      removed.
+    - The trail line of an answer counts the offers it carries.
+    Scripts `src/Informedica.GenORDER.Lib/Scripts/PlanSlotsGo.fsx` and
+    `src/Informedica.GenPRES.Client.Core/Scripts/OffersInAnswer.fsx`, the second with modified copies of
+    the Shared Types.fs and Models.fs loaded from source, deleted in this step.
 11. **Documents.** Notes in plans 667 and 654. In plan 1430, step 5's sentence "the nutrition page keeps
     its slots until a new order is prescribed" becomes "a slot on the nutrition page keeps its
     composition until its order is prescribed; then the slot empties", and rule 11's "The lock holds on

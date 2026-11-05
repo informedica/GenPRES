@@ -28,22 +28,8 @@ module Fixture =
     let plan provider pat =
         OrderPlan.create pat [| PlanContext.create "c1" OrderCategory.Medication (context provider pat) |]
 
-    /// A context without an order starts again on the patient, with its filter cleared.
-    let restart pat (pc: PlanContext) =
-        Ok
-            { pc with
-                Context =
-                    { pc.Context with
-                        Patient = pat
-                        Filter = OrderContext.emptyFilter
-                    }
-            }
-
-    let followWith restart provider pat (plan: OrderPlan) =
-        { plan with Patient = pat }
-        |> OrderPlan.followPatientData logger provider restart
-
-    let follow provider pat plan = plan |> followWith restart provider pat
+    let follow provider pat (plan: OrderPlan) =
+        { plan with Patient = pat } |> OrderPlan.followPatientData logger provider
 
     let followed provider pat plan = plan |> follow provider pat
 
@@ -371,32 +357,6 @@ let tests =
 
                 followed.Contexts[0].Context.Scenarios[0].NotRecalculated
                 |> Expect.isFalse "calculated again"
-            }
-
-            test "a nutrition slot goes through restart" {
-                let p = Fixture.provider ()
-                let start = patient 10N
-                let slot =
-                    OrderContext.create logger p start
-                    |> PlanContext.create "c2" (OrderCategory.Nutrition NutritionCategory.TPN)
-                let after = OrderPlan.create start [| slot |] |> Fixture.followed p (patient 20N)
-
-                after.Contexts[0].Context.Filter
-                |> Expect.equal "filtered again" OrderContext.emptyFilter
-            }
-
-            test "a context that cannot start again takes the patient and does not block the update" {
-                let p = Fixture.provider ()
-                let start = patient 10N
-                let slot =
-                    OrderContext.create logger p start
-                    |> PlanContext.create "c2" OrderCategory.Medication
-
-                let after =
-                    OrderPlan.create start [| slot |]
-                    |> Fixture.followWith (fun _ _ -> Error "failed") p (patient 20N)
-
-                after.Contexts[0].Context.Patient.Weight |> Expect.equal "new" (Some(kg 20N))
             }
 
             testList

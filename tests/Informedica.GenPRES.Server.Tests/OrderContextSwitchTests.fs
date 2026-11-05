@@ -54,7 +54,7 @@ let tests =
                          ctx)
 
                 match answer with
-                | Ok(OrderContextResponse.Evaluated a) ->
+                | Ok(OrderContextResponse.Evaluated(a, _)) ->
                     a
                     |> Expect.equal "the context as sent, but for the demo flag" { ctx with DemoVersion = false }
                 | other -> failtest $"expected the context evaluated, got: %A{other}"
@@ -73,7 +73,8 @@ let tests =
                          ctx)
 
                 match demo with
-                | Ok(OrderContextResponse.Evaluated a) -> a.DemoVersion |> Expect.isTrue "demo as the environment says"
+                | Ok(OrderContextResponse.Evaluated(a, _)) ->
+                    a.DemoVersion |> Expect.isTrue "demo as the environment says"
                 | other -> failtest $"expected the context evaluated, got: %A{other}"
             }
 

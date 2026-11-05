@@ -33,7 +33,7 @@ let planTests =
     let drug = { OrderContext.empty with Id = "c-d" }
 
     testList
-        "OrderPlan.nutritionContexts"
+        "OrderContext.nutritionCategory"
         [
             test "a drug has no nutrition category, a nutrition context its own" {
                 drug |> OrderContext.nutritionCategory |> Expect.equal "a drug" None
@@ -41,69 +41,6 @@ let planTests =
                 tpn
                 |> OrderContext.nutritionCategory
                 |> Expect.equal "tpn" (Some NutritionCategory.TPN)
-            }
-
-            test "the nutrition contexts are the ones with a nutrition category" {
-                { OrderPlan.empty with OrderContexts = [| drug; tpn |] }
-                |> OrderPlan.nutritionContexts
-                |> Array.map _.Id
-                |> Expect.equal "the tpn" [| "c-t" |]
-            }
-        ]
-
-
-[<Tests>]
-let mayAddTests =
-    let context id category =
-        { OrderContext.empty with
-            Id = id
-            Category = OrderCategory.Nutrition category
-        }
-
-    let plan contexts = { OrderPlan.empty with OrderContexts = contexts }
-
-    let all =
-        [
-            NutritionCategory.EnteralFeeding
-            NutritionCategory.EnteralSupplement
-            NutritionCategory.TPN
-            NutritionCategory.Lipid
-            NutritionCategory.ElectrolyteGlucose
-        ]
-
-    testList
-        "OrderPlan.mayAdd"
-        [
-            test "an empty plan takes every category but a supplement, which needs a feeding" {
-                all
-                |> List.map (fun c -> plan [||] |> OrderPlan.mayAdd c)
-                |> Expect.equal "feeding, tpn, lipid, electrolyte; no supplement" [ true; false; true; true; true ]
-            }
-
-            test
-                "a feeding, a tpn and a lipid are taken once; a supplement under a feeding and an electrolyte line any number of times" {
-                let full =
-                    plan
-                        [|
-                            context "c-f" NutritionCategory.EnteralFeeding
-                            context "c-s" NutritionCategory.EnteralSupplement
-                            context "c-t" NutritionCategory.TPN
-                            context "c-l" NutritionCategory.Lipid
-                            context "c-e" NutritionCategory.ElectrolyteGlucose
-                        |]
-
-                all
-                |> List.map (fun c -> full |> OrderPlan.mayAdd c)
-                |> Expect.equal "supplement and electrolyte still" [ false; true; false; false; true ]
-            }
-
-            test "a drug context holds no category: the plan takes any nutrition context" {
-                let drugs = plan [| { OrderContext.empty with Id = "c-d" } |]
-
-                all
-                |> List.filter (fun c -> c <> NutritionCategory.EnteralSupplement)
-                |> List.forall (fun c -> drugs |> OrderPlan.mayAdd c)
-                |> Expect.isTrue "every category but the supplement"
             }
         ]
 

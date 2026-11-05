@@ -112,7 +112,6 @@ module StubAdapters =
             followPatientData = fun _ -> async { return Ok answer }
             evaluateContext = fun _ _ _ _ -> async { return Ok answer }
             addOrderContexts = fun _ _ _ -> async { return Ok answer }
-            newOrderContext = fun _ _ -> async { return Ok answer }
             removeOrderContexts = fun _ _ -> async { return Ok answer }
             openWith = fun _ _ -> async { return Ok answer }
             totals = fun _ _ -> async { return Ok Informedica.GenOrder.Lib.Totals.empty }
@@ -195,7 +194,6 @@ module StubAdapters =
                     followPatientData = fun _ -> async { return Error [| "not loaded" |] }
                     evaluateContext = fun _ _ _ _ -> async { return Error [| "not loaded" |] }
                     addOrderContexts = fun _ _ _ -> async { return Error [| "not loaded" |] }
-                    newOrderContext = fun _ _ -> async { return Error [| "not loaded" |] }
                     removeOrderContexts = fun _ _ -> async { return Error [| "not loaded" |] }
                     openWith = fun _ _ -> async { return Error [| "not loaded" |] }
                     totals = fun _ _ -> async { return Error [| "not loaded" |] }
@@ -5290,7 +5288,7 @@ module BoundTests =
                         reply.Response
                         |> Expect.equal
                             "computed"
-                            (Informedica.GenPRES.Shared.Types.OrderContextResponse.Evaluated emptyCtx)
+                            (Informedica.GenPRES.Shared.Types.OrderContextResponse.Evaluated(emptyCtx, [||]))
                     | Error errs -> failtest $"expected Ok, got {errs}"
                 }
 
@@ -5305,7 +5303,7 @@ module BoundTests =
                         reply.Response
                         |> Expect.equal
                             "computed"
-                            (Informedica.GenPRES.Shared.Types.OrderContextResponse.Evaluated emptyCtx)
+                            (Informedica.GenPRES.Shared.Types.OrderContextResponse.Evaluated(emptyCtx, [||]))
                     | Error errs -> failtest $"expected Ok, got {errs}"
                 }
 
@@ -5466,7 +5464,6 @@ module PlanTests =
                             followPatientData = answering "followPatientData"
                             evaluateContext = fun p _ _ _ -> answering "evaluateContext" p
                             addOrderContexts = fun p _ _ -> answering "addOrderContexts" p
-                            newOrderContext = fun p _ -> answering "newOrderContext" p
                             removeOrderContexts = fun p _ -> answering "removeOrderContexts" p
                             openWith =
                                 fun pat cs -> answering "openWith" (Informedica.GenOrder.Lib.OrderPlan.create pat cs)
@@ -5500,9 +5497,6 @@ module PlanTests =
 
                     let! _ = OrderPlanCommand.processCmd env (OrderPlanCommand.AddOrderContext(p, emptyCtx, [||]))
 
-                    let! _ =
-                        OrderPlanCommand.processCmd env (OrderPlanCommand.NewOrderContext(p, NutritionCategory.TPN))
-
                     let! _ = OrderPlanCommand.processCmd env (OrderPlanCommand.RemoveOrderContexts(p, [| "c-1" |]))
                     let! _ = OrderPlanCommand.processCmd env (OrderPlanCommand.Open(patient, [||]))
 
@@ -5514,7 +5508,6 @@ module PlanTests =
                             "recalculate"
                             "evaluateContext"
                             "addOrderContexts"
-                            "newOrderContext"
                             "removeOrderContexts"
                             "openWith"
                         ]
@@ -5532,9 +5525,6 @@ module PlanTests =
                         )
                     )
                     |> Expect.equal "the command, not the context" "EvaluateContext ResetOrderScenario"
-
-                    OrderPlanCommand.toString (OrderPlanCommand.NewOrderContext(p, NutritionCategory.TPN))
-                    |> Expect.equal "category" "NewOrderContext TPN"
 
                     OrderPlanCommand.toString (OrderPlanCommand.AddOrderContext(p, OrderContext.empty, [||]))
                     |> Expect.equal "never the workbench" "AddOrderContext"
@@ -5646,11 +5636,6 @@ let ingressTests =
                     OrderPlanCommand.processCmd env (Api.OrderPlanCommand.AddOrderContext(draft, emptyCtx, [||]))
 
                 added |> refusedAs Patient.noPatient
-
-                let! created =
-                    OrderPlanCommand.processCmd env (Api.OrderPlanCommand.NewOrderContext(draft, NutritionCategory.TPN))
-
-                created |> refusedAs Patient.noPatient
 
                 let! removed =
                     OrderPlanCommand.processCmd env (Api.OrderPlanCommand.RemoveOrderContexts(draft, [| "c-1" |]))

@@ -233,7 +233,10 @@ let tests =
                                     landed (Landing.Formulary(None, answered Formulary.empty))
                                     ClientMsg.Lanes(
                                         LanesMsg.Workbench(
-                                            OrderContextMsg.Answered(request, Ok(OrderContextResponse.Evaluated ctx))
+                                            OrderContextMsg.Answered(
+                                                request,
+                                                Ok(OrderContextResponse.Evaluated(ctx, [||]))
+                                            )
                                         )
                                     )
                                 ]
@@ -714,7 +717,7 @@ module TotalsQueryFixtures =
     let answeredWith cmd (main: OrderContext) offers =
         OrderContextState.changing patient cmd main main "r-0"
         |> OrderContextState.transition (
-            OrderContextMsg.Answered("r-0", Ok(OrderContextResponse.Evaluated { main with LinkedOrders = offers }))
+            OrderContextMsg.Answered("r-0", Ok(OrderContextResponse.Evaluated(main, offers)))
         )
         |> fst
 
@@ -786,7 +789,7 @@ let totalsQueryTests =
                     ClientMsg.Lanes(
                         LanesMsg.Slot(
                             "s-1",
-                            OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated feeding))
+                            OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated(feeding, [||])))
                         )
                     )
                 )
@@ -921,17 +924,12 @@ let slotViewTests =
                 |> Expect.isTrue "the page waits"
             }
 
-            test "the totals query sends the feeding and BMF turned on, without the offers of the feeding" {
+            test "the totals query sends the plan, the feeding and BMF turned on" {
                 withSlots [ "s-1", narrowed feeding [| bmf |] ]
                 |> after (ClientMsg.Lanes(LanesMsg.Slot("s-1", OrderContextMsg.TurnOfferOn 0)))
                 |> Client.totalsQuery
-                |> Option.map (fun q ->
-                    q.OrderContexts
-                    |> Array.map (fun c -> c.Scenarios[0].Order.Id, c.LinkedOrders.Length)
-                )
-                |> Expect.equal
-                    "paracetamol, the feeding, BMF, none with offers"
-                    (Some [| "o-c-1", 0; "o-feeding", 0; "o-bmf", 0 |])
+                |> Option.map (fun q -> q.OrderContexts |> Array.map _.Scenarios[0].Order.Id)
+                |> Expect.equal "paracetamol, the feeding, BMF" (Some [| "o-c-1"; "o-feeding"; "o-bmf" |])
             }
 
             test "without a narrowed slot the nutrition page shows the plan's own totals" {

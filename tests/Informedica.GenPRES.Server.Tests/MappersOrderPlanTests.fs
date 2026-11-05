@@ -136,9 +136,8 @@ let tests =
                         NutritionCategory.Lipid
                         NutritionCategory.ElectrolyteGlucose
                     ] do
-                    c
-                    |> OrderPlanMapper.nutritionCategory
-                    |> Informedica.GenOrder.Lib.Types.OrderCategory.Nutrition
+                    OrderCategory.Nutrition c
+                    |> OrderContextMapper.Category.toDomain
                     |> OrderContextMapper.Category.ofDomain
                     |> Expect.equal $"{c}" (OrderCategory.Nutrition c)
             }

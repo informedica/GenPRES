@@ -118,10 +118,10 @@ Three domain types sit next to OrderContext in `Informedica.GenORDER.Lib`, as
   plan, its Order Category, and its intake, the totals over the one Order Scenario the context is
   narrowed to. Wrapping leaves the OrderContext, its evaluation and the equation system untouched.
 * An **Order Plan** holds the Patient as shown, its Plan Contexts, the ids the row filter keeps,
-  and the totals over the orders of the filtered contexts. Its rules live here: which contexts an
-  Order Plan admits (one context per nutrition category, except supplements, each under a
-  feeding, and the electrolyte and glucose lines), the cascade by which removing a feeding
-  removes its supplements, and the totals. The intake and the totals are computed when a context
+  and the totals over the orders of the filtered contexts. Its rules live here: an Order Plan
+  takes any number of orders of every category, each narrowed to one scenario; the shape and the
+  link rules of a linked order; the cascade by which removing an order removes the orders linked
+  to it; and the totals. The intake and the totals are computed when a context
   or the plan is evaluated and copied unchanged everywhere else.
 * An **Order Plan Version** is the Order Plan as a prescriber signed it, with its number, the
   Order Plan Version it was built on, the signer and the time. It is what the record stores and

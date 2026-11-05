@@ -1112,10 +1112,6 @@ module Types =
         | NotNarrowed of candidates: int
         /// The plan already holds the order
         | OrderHeld of orderId: string
-        /// A supplement needs a feeding in the plan
-        | SupplementNeedsFeeding
-        /// The plan already holds a context of the category
-        | CategoryHeld of NutritionCategory
         /// The rule sets name a category the code does not know
         | UnknownCategory of name: string
         /// The rule sets have no rule set for the category

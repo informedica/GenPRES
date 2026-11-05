@@ -686,7 +686,7 @@ let tests =
                         seen.Value |> Expect.isNone "the port not asked"
 
                         match answer with
-                        | Ok(Informedica.GenPRES.Shared.Types.OrderContextResponse.Evaluated c) ->
+                        | Ok(Informedica.GenPRES.Shared.Types.OrderContextResponse.Evaluated(c, _)) ->
                             c.Argumentation |> Expect.equal "the text written" (Some "bewust")
                         | other -> failtest $"expected the context, got %A{other}"
                     }
@@ -700,7 +700,7 @@ let tests =
                                 (Api.ResetOrderScenario, ctx |> Ctx.Argumentation.write "bewust")
 
                         match answer with
-                        | Ok(Informedica.GenPRES.Shared.Types.OrderContextResponse.Evaluated c) ->
+                        | Ok(Informedica.GenPRES.Shared.Types.OrderContextResponse.Evaluated(c, _)) ->
                             c.Argumentation |> Expect.isNone "the text cleared"
                         | other -> failtest $"expected the context, got %A{other}"
                     }
@@ -750,7 +750,6 @@ let tests =
                                         evaluated.Value <- Some(p, pc)
                                         answering "evaluateContext" p
                                 addOrderContexts = fun p _ _ -> answering "addOrderContexts" p
-                                newOrderContext = fun p _ -> answering "newOrderContext" p
                                 removeOrderContexts = fun p _ -> answering "removeOrderContexts" p
                                 openWith =
                                     fun pat cs ->

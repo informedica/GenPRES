@@ -239,14 +239,12 @@ let tests =
             test "a page's change to the plan reads by what it wants" {
                 [
                     Trail.OrderPlan.msg (OrderPlanMsg.Change(OrderPlanChange.Add(ctxPicked, [||]), "r-1"))
-                    Trail.OrderPlan.msg (OrderPlanMsg.Change(OrderPlanChange.NewNutrition NutritionCategory.TPN, "r-2"))
                     Trail.OrderPlan.msg (OrderPlanMsg.Change(OrderPlanChange.Remove [| "c-1"; "c-2" |], "r-3"))
                 ]
                 |> Expect.equal
                     "the lines"
                     [
                         "Change Add ctx-1 pain/paracetamol/oral 0 scenarios 0 linked r-1"
-                        "Change NewNutrition TPN r-2"
                         "Change Remove 2 r-3"
                     ]
             }
@@ -620,11 +618,21 @@ let tests =
 
 
 [<Tests>]
+let offerCountTests =
+    test "an answer reads with the number of offers it carries" {
+        OrderContextResponse.Evaluated(ctx, [| ctxPicked |])
+        |> Trail.OrderContext.response
+        |> fun line -> line.EndsWith " 1 offers"
+        |> Expect.isTrue "one offer"
+    }
+
+
+[<Tests>]
 let exampleTests =
     test "a patient, an answer, a pick and a refusal read as four lines" {
         [
             OrderContextMsg.PatientDataChanged(Some pat, "r-1")
-            OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated ctx))
+            OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated(ctx, [||])))
             OrderContextMsg.Command(OrderViewCommand.SetNthFilterProperty(OrderContext.Generic, 0), "r-2")
             OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Refused(ctxPicked, OrderContextRefusal.NoProducts)))
         ]
@@ -642,7 +650,7 @@ let exampleTests =
             "the lines"
             [
                 "#1 10:41:08.311 OrderContext PatientDataChanged patient 3.0 y 14.0 kg no height gender unknown r-1 -> CallContext ClearAllFilterProperty workbench r-1 | Changing workbench awaits r-1"
-                "#2 10:41:09.311 OrderContext Answered r-1 Ok Evaluated workbench no picks 0 scenarios -> SyncPages | Settled workbench"
+                "#2 10:41:09.311 OrderContext Answered r-1 Ok Evaluated workbench no picks 0 scenarios 0 offers -> SyncPages | Settled workbench"
                 "#3 10:41:10.311 OrderContext Command SetNthFilterProperty Generic nth=0 r-2 -> CallContext SetNthFilterProperty Generic nth=0 workbench r-2 | Changing workbench awaits r-2"
                 "#4 10:41:11.311 OrderContext Answered r-2 Ok Refused ctx-1 pain/paracetamol/oral 0 scenarios NoProducts -> SyncPages | Refused ctx-1 NoProducts"
             ]

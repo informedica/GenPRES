@@ -311,42 +311,6 @@ module NutritionRuleSet =
         go 5 answer
 
 
-    /// An order context of the rule set before anything is chosen: the patient, the indications and
-    /// generics of the rule set, nothing else offered and nothing selected.
-    let emptyContext (set: NutritionRuleSet option) pat : OrderContext =
-        {
-            Filter =
-                { OrderContext.emptyFilter with
-                    Indications = set |> Option.map _.Indications |> Option.defaultValue [||]
-                    Generics = set |> Option.map _.Generics |> Option.defaultValue [||]
-                }
-            Patient = pat
-            Scenarios = [||]
-            Argumentation = None
-        }
-
-
-    /// The pick lists of a nutrition context discovered: the context evaluated as it is, and
-    /// of the indications, generics and dose types the evaluation offers, only those the
-    /// context already carried, so a category's rule set bounds what is offered; settled, so
-    /// a list that leaves one option has it chosen. The evaluation is passed in, so the
-    /// discovery is what it does with the answer.
-    let discover (evaluate: OrderContext -> Result<OrderContext, 'e>) (ctx: OrderContext) =
-        let offered (xs: 'a[]) (ys: 'a[]) = ys |> Array.filter (fun y -> xs |> Array.contains y)
-
-        let narrowed (resolved: OrderContext) =
-            { resolved with
-                Filter =
-                    { resolved.Filter with
-                        Indications = resolved.Filter.Indications |> offered ctx.Filter.Indications
-                        Generics = resolved.Filter.Generics |> offered ctx.Filter.Generics
-                        DoseTypes = resolved.Filter.DoseTypes |> offered ctx.Filter.DoseTypes
-                    }
-            }
-
-        ctx |> evaluate |> Result.bind (settle id narrowed evaluate)
-
-
 module OrderPlan =
 
     /// The plan for a patient with the contexts given, nothing filtered and no totals: what
@@ -358,11 +322,6 @@ module OrderPlan =
             Contexts = contexts
             Totals = Totals.empty
         }
-
-
-    /// The nutrition contexts of the plan.
-    let nutritionContexts (plan: OrderPlan) =
-        plan.Contexts |> Array.filter (PlanContext.nutritionCategory >> Option.isSome)
 
 
     /// The orders the plan's contexts contribute: the one scenario of every context narrowed
@@ -401,25 +360,14 @@ module OrderPlan =
         }
 
 
-    /// Every order of the plan calculated on the patient of the plan. A context with an order keeps
-    /// its patient. A context without an order goes through restart, which evaluates a nutrition
-    /// context that is not narrowed again; when that fails it takes the patient and keeps its lists, so
-    /// that it cannot block a change of data. An order that cannot be calculated refuses the update, so that a
-    /// plan is never partly on new data. This guards a case not seen: the amounts stay, and only the
-    /// values per kg are solved.
-    let followPatientData logger provider restart (plan: OrderPlan) =
+    /// Every order of the plan calculated on the patient of the plan. An order that cannot be calculated
+    /// stands, marked, so that a plan is never partly on new data. An order keeps its amounts on new
+    /// patient data; only its values per kg are solved again. A context without an order, from a plan
+    /// signed before every context held one, only takes the patient.
+    let followPatientData logger provider (plan: OrderPlan) =
         let follow (pc: PlanContext) =
             match pc |> PlanContext.contribution with
-            | None ->
-                pc
-                |> restart plan.Patient
-                |> Result.defaultWith (fun e ->
-                    $"context %s{pc.Id} keeps its lists, it could not start again: %A{e}"
-                    |> Events.OrderScenario
-                    |> Informedica.GenOrder.Lib.Logging.logWarning logger
-
-                    pc |> PlanContext.withPatient plan.Patient
-                )
+            | None -> pc |> PlanContext.withPatient plan.Patient
             | Some sc ->
                 match pc.Context |> OrderContext.orderOnPatientData logger provider plan.Patient sc with
                 // a refused order stands, marked, and the rest of the plan follows: the prescriber decides
@@ -429,29 +377,11 @@ module OrderPlan =
         { plan with Contexts = plan.Contexts |> Array.map follow }
 
 
-    /// Whether the plan holds a context of the nutrition category.
-    let holds category (plan: OrderPlan) =
-        plan.Contexts
-        |> Array.exists (fun c -> c.Category = OrderCategory.Nutrition category)
-
-
-    /// Whether the plan may take a context of the category: one context per nutrition
-    /// category, except supplements (any number, each under a feeding) and electrolyte and
-    /// glucose lines (any number). A line's generic is chosen after the line is admitted, so
-    /// nothing here compares generics; two lines on one generic are the prescriber's to avoid.
-    let admits category (plan: OrderPlan) : Result<unit, OrderPlanError> =
-        match category with
-        | NutritionCategory.EnteralSupplement when plan |> holds NutritionCategory.EnteralFeeding |> not ->
-            Error OrderPlanError.SupplementNeedsFeeding
-        | NutritionCategory.EnteralSupplement
-        | NutritionCategory.ElectrolyteGlucose -> Ok()
-        | _ when plan |> holds category -> Error(OrderPlanError.CategoryHeld category)
-        | _ -> Ok()
-
-
     /// The evaluated context into the context named, keeping the id and the category the
     /// plan gave it and, for a nutrition context, its pick lists narrowed to its category's
-    /// rule set. The plan's orders follow, since they are what its contexts contribute.
+    /// rule set. Refused when the context is not narrowed to one scenario, since a context of the
+    /// plan holds an order and a prescribed order never loses it. The plan's orders follow, since
+    /// they are what its contexts contribute.
     let updateContext
         (ruleSets: NutritionRuleSet[])
         id
@@ -459,9 +389,10 @@ module OrderPlan =
         (plan: OrderPlan)
         : Result<OrderPlan, OrderPlanError>
         =
-        match plan.Contexts |> Array.tryFind (fun c -> c.Id = id) with
-        | None -> Error(OrderPlanError.NoSuchContext id)
-        | Some held ->
+        match plan.Contexts |> Array.tryFind (fun c -> c.Id = id), evaluated |> PlanContext.contribution with
+        | None, _ -> Error(OrderPlanError.NoSuchContext id)
+        | Some _, None -> Error(OrderPlanError.NotNarrowed evaluated.Context.Scenarios.Length)
+        | Some held, Some _ ->
             let ctx =
                 match
                     held
@@ -525,24 +456,9 @@ module OrderPlan =
 
 
     /// The context removed with every context linked to it, each with its order, and gone from
-    /// the filter. A feeding that goes, named or linked to the context named, also takes every
-    /// supplement without a link: a supplement added without a main order belongs to the feeding of
-    /// the plan, until step 10 of plan 1612 links every supplement.
+    /// the filter.
     let removeOrderContext id (plan: OrderPlan) =
-        let direct (c: PlanContext) = c.Id = id || c.LinkedTo = Some id
-
-        let feeding =
-            plan.Contexts
-            |> Array.exists (fun c ->
-                direct c
-                && c.Category = OrderCategory.Nutrition NutritionCategory.EnteralFeeding
-            )
-
-        let goes (c: PlanContext) =
-            direct c
-            || (feeding
-                && c.LinkedTo.IsNone
-                && c.Category = OrderCategory.Nutrition NutritionCategory.EnteralSupplement)
+        let goes (c: PlanContext) = c.Id = id || c.LinkedTo = Some id
 
         let gone, kept = plan.Contexts |> Array.partition goes
         let goneIds = gone |> Array.map _.Id
@@ -561,25 +477,17 @@ module OrderPlan =
     /// An order context into the plan with a new id, its category and its link as sent, its
     /// one scenario the order it contributes and its totals as evaluated. Refused when the
     /// context is not narrowed to one scenario, when the plan already holds that order (the
-    /// signing challenge would refuse the plan later, so it is said now), and when the plan does
-    /// not admit its nutrition category. The shape of the link is checked wherever a plan is read.
+    /// signing challenge would refuse the plan later, so it is said now). The plan takes any number
+    /// of orders of every category. The shape of the link is checked wherever a plan is read.
     let addOrderContext (newId: unit -> string) (context: PlanContext) (plan: OrderPlan) =
-        let admitted () =
-            match context |> PlanContext.nutritionCategory with
-            | Some category -> plan |> admits category
-            | None -> Ok()
-
         match context |> PlanContext.contribution with
         | None -> Error(OrderPlanError.NotNarrowed context.Context.Scenarios.Length)
         | Some sc when orders plan |> Array.exists (fun s -> s.Order.Id = sc.Order.Id) ->
             let (Id id) = sc.Order.Id
             Error(OrderPlanError.OrderHeld id)
         | Some _ ->
-            admitted ()
-            |> Result.map (fun () ->
-                let added = { context with Id = newId () }
-                { plan with Contexts = Array.append plan.Contexts [| added |] }
-            )
+            let added = { context with Id = newId () }
+            Ok { plan with Contexts = Array.append plan.Contexts [| added |] }
 
 
     /// The main order and its linked orders into the plan, each with a new id; when one of them is refused,

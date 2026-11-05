@@ -75,13 +75,11 @@ module Adapters =
 
 
     /// Used by the order context port and the order plan port: the nutrition rule sets from the
-    /// provider, the discovery of a nutrition slot, and the evaluation of a context settled to the rule
-    /// set of its category.
+    /// provider, and the evaluation of a context settled to the rule set of its category.
     module NutritionRuleSets =
 
-        /// Maps an order plan error to its words, with a nutrition category named by its rule set label.
-        let refused sets r =
-            r |> Result.mapError (OrderPlanMapper.words sets >> Array.singleton)
+        /// Maps an order plan error to its words.
+        let refused r = r |> Result.mapError (OrderPlanMapper.words >> Array.singleton)
 
 
         /// The rule sets from the rule set rows of the provider, read on every use so that a reload of
@@ -89,7 +87,7 @@ module Adapters =
         let ruleSets (provider: Resources.IResourceProvider) =
             provider.Get Resources.Keys.ruleSetData
             |> NutritionRuleSet.ofData
-            |> Result.mapError (List.map (OrderPlanMapper.words [||]) >> List.toArray)
+            |> Result.mapError (List.map OrderPlanMapper.words >> List.toArray)
 
 
         /// The rule sets and the rule set of a nutrition category, refused when the rule sets have
@@ -99,25 +97,9 @@ module Adapters =
             | Some c ->
                 ruleSets provider
                 |> Result.bind (fun sets ->
-                    sets
-                    |> NutritionRuleSet.find c
-                    |> refused sets
-                    |> Result.map (fun s -> sets, Some s)
+                    sets |> NutritionRuleSet.find c |> refused |> Result.map (fun s -> sets, Some s)
                 )
             | None -> Ok([||], None)
-
-
-        /// The slot of the category discovered for the patient: of what the evaluation offers, only
-        /// its rule set.
-        let discover start logger provider contextId category pat =
-            let evaluate ctx =
-                ctx
-                |> PlanContext.create contextId (OrderCategory.Nutrition category)
-                |> OrderContextService.evaluate start logger provider OrderContext.UpdateOrderContext
-                |> Result.map _.Context
-
-            ruleSetOf provider (Some category)
-            |> Result.bind (fun (_, set) -> NutritionRuleSet.emptyContext set pat |> NutritionRuleSet.discover evaluate)
 
 
         /// The context evaluated with the command, as an outcome. An evaluated nutrition context is
@@ -334,25 +316,10 @@ module Adapters =
         =
         let recalc plan = plan |> OrderPlan.recalculate (provider.GetTotals())
 
-        // the rule sets for the labels of a refusal; without them a category is worded by its name
-        let labels () = NutritionRuleSets.ruleSets provider |> Result.defaultValue [||]
-
-        let discoverSlot contextId category pat =
-            NutritionRuleSets.discover (now ()) logger provider contextId category pat
-
-        // a nutrition slot starts again on new patient data; a medication context without an order only
-        // takes the patient
-        let restart pat (pc: PlanContext) =
-            match pc |> PlanContext.nutritionCategory with
-            | Some category ->
-                discoverSlot pc.Id category pat
-                |> Result.map (fun ctx -> { pc with Context = ctx })
-            | None -> pc |> PlanContext.withPatient pat |> Ok
-
         {
             recalculate = fun plan -> async { return plan |> recalc |> Ok }
             followPatientData =
-                fun plan -> async { return plan |> OrderPlan.followPatientData logger provider restart |> recalc |> Ok }
+                fun plan -> async { return plan |> OrderPlan.followPatientData logger provider |> recalc |> Ok }
             evaluateContext =
                 fun plan contextId cmd pc ->
                     async {
@@ -371,7 +338,7 @@ module Adapters =
                                 |> Result.bind (fun evaluated ->
                                     plan
                                     |> OrderPlan.updateContext sets contextId evaluated
-                                    |> NutritionRuleSets.refused sets
+                                    |> NutritionRuleSets.refused
                                 )
                             )
                             |> Result.map recalc
@@ -387,37 +354,8 @@ module Adapters =
                                 (provider.Get Resources.Keys.linkRules)
                                 pc
                                 linked
-                            |> NutritionRuleSets.refused (labels ())
+                            |> NutritionRuleSets.refused
                             |> Result.map recalc
-                    }
-            newOrderContext =
-                fun plan category ->
-                    async {
-                        return
-                            match plan |> OrderPlan.admits category |> NutritionRuleSets.refused (labels ()) with
-                            | Error e -> Error e
-                            | Ok() ->
-                                let id = newId ()
-                                let planContext = PlanContext.create id (OrderCategory.Nutrition category)
-
-                                discoverSlot id category plan.Patient
-                                |> Result.map (fun discovered ->
-                                    let pc = discovered |> planContext
-
-                                    { plan with
-                                        Contexts =
-                                            Array.append
-                                                plan.Contexts
-                                                [|
-                                                    { pc with
-                                                        Totals =
-                                                            discovered
-                                                            |> OrderContext.contextTotals (provider.GetTotals())
-                                                    }
-                                                |]
-                                    }
-                                    |> recalc
-                                )
                     }
             removeOrderContexts =
                 fun plan ids -> async { return plan |> OrderPlan.removeOrderContexts ids |> recalc |> Ok }

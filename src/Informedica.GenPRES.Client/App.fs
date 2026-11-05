@@ -616,10 +616,6 @@ type private Projection(state: State, dispatch: Msg -> unit) =
         member _.Add orderId =
             Msg.Lanes(LanesMsg.Prescribe(None, orderId, Elmish.newRequest ())) |> dispatch
 
-        member _.NewNutrition category =
-            Messages.plan (OrderPlanMsg.Change(OrderPlanChange.NewNutrition category, Elmish.newRequest ()))
-            |> dispatch
-
         member _.Remove ids =
             Messages.plan (OrderPlanMsg.Change(OrderPlanChange.Remove ids, Elmish.newRequest ()))
             |> dispatch

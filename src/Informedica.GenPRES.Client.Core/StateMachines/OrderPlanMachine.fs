@@ -38,8 +38,6 @@ module OrderPlanMachine =
         /// The workbench or a nutrition slot narrowed to one scenario, into the plan with the linked orders
         /// turned on, each narrowed to the scenario turned on.
         | Add of OrderContext * linked: OrderContext[]
-        /// A new nutrition context for the category.
-        | NewNutrition of NutritionCategory
         /// The contexts with these ids removed.
         | Remove of ids: string[]
         /// The contexts the rows keep, by id; the totals follow.
@@ -56,7 +54,6 @@ module OrderPlanMachine =
         let command (tp: OrderPlan) (change: OrderPlanChange) =
             match change with
             | OrderPlanChange.Add(ctx, linked) -> Some(OrderPlanCommand.AddOrderContext(tp, ctx, linked))
-            | OrderPlanChange.NewNutrition category -> Some(OrderPlanCommand.NewOrderContext(tp, category))
             | OrderPlanChange.Remove ids -> Some(OrderPlanCommand.RemoveOrderContexts(tp, ids))
             | OrderPlanChange.FilterRows ids -> Some(OrderPlanCommand.FilterRows(ids, tp))
             | OrderPlanChange.OrderDialogCommand(id, cmd) ->

@@ -71,8 +71,6 @@ type IOrderPlan =
     abstract OrderPlan: OrderPlanMachine.OrderPlanView
     /// the order with this id prescribed, from the workbench narrowed to its scenario
     abstract Add: orderId: string -> unit
-    /// a new nutrition context for the category
-    abstract NewNutrition: NutritionCategory -> unit
     /// the contexts with these ids removed
     abstract Remove: ids: string[] -> unit
     /// a command from the order dialog into the plan's context with this id, sent with the current plan

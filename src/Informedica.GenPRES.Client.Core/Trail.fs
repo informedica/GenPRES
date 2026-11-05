@@ -239,16 +239,6 @@ module Trail =
             | None -> "no token"
 
 
-        /// The nutrition category.
-        let nutrition (c: NutritionCategory) =
-            match c with
-            | NutritionCategory.EnteralFeeding -> "enteral feeding"
-            | NutritionCategory.EnteralSupplement -> "enteral supplement"
-            | NutritionCategory.TPN -> "TPN"
-            | NutritionCategory.Lipid -> "lipid"
-            | NutritionCategory.ElectrolyteGlucose -> "electrolyte glucose"
-
-
         /// A session by who opened it and on which version; never the user or the patient id.
         let opened (so: SessionOpened) =
             let who =
@@ -324,7 +314,6 @@ module Trail =
         let change (c: OrderPlanMachine.OrderPlanChange) =
             match c with
             | OrderPlanMachine.OrderPlanChange.Add(ctx, linked) -> $"Add %s{context ctx} %i{linked.Length} linked"
-            | OrderPlanMachine.OrderPlanChange.NewNutrition category -> $"NewNutrition %s{nutrition category}"
             | OrderPlanMachine.OrderPlanChange.Remove ids -> $"Remove %i{ids.Length}"
             | OrderPlanMachine.OrderPlanChange.FilterRows ids -> $"FilterRows %i{ids.Length}"
             | OrderPlanMachine.OrderPlanChange.OrderDialogCommand(id, cmd) ->
@@ -342,7 +331,6 @@ module Trail =
                 let context = if described = shortId id then "" else $" %s{described}"
                 $"EvaluateContext %s{shortId id} %s{OrderViewCommand.toString (ctxCmd, ctx)}%s{context}"
             | OrderPlanCommand.AddOrderContext(_, ctx, _) -> $"AddOrderContext %s{describeContext ctx}"
-            | OrderPlanCommand.NewOrderContext(_, category) -> $"NewOrderContext %s{nutrition category}"
             | OrderPlanCommand.RemoveOrderContexts(_, ids) -> $"RemoveOrderContexts %i{ids.Length}"
             | OrderPlanCommand.Open(_, contexts) -> $"Open %i{contexts.Length} contexts"
 
@@ -584,7 +572,7 @@ module Trail =
         /// The server's answer to an order context command.
         let response (r: OrderContextResponse) =
             match r with
-            | OrderContextResponse.Evaluated ctx -> $"Evaluated %s{Part.context ctx}"
+            | OrderContextResponse.Evaluated(ctx, linked) -> $"Evaluated %s{Part.context ctx} %i{linked.Length} offers"
             | OrderContextResponse.Refused(ctx, r) -> $"Refused %s{Part.context ctx} %s{Part.contextRefusal r}"
 
 

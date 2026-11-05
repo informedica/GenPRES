@@ -141,13 +141,6 @@ let tests =
                 |> Expect.equal "tpn" (Some NutritionCategory.TPN)
             }
 
-            test "the nutrition contexts are the ones with a nutrition category" {
-                plan [| drug "c-d" "o-d"; nutrition "c-t" NutritionCategory.TPN [||] |]
-                |> OrderPlan.nutritionContexts
-                |> Array.map _.Id
-                |> Expect.equal "the tpn" [| "c-t" |]
-            }
-
             test "a plan created on a version has its contexts, nothing filtered and no totals" {
                 let p = plan [| drug "c-d" "o-d" |]
                 p.Filtered |> Expect.isEmpty "no filter"
@@ -239,7 +232,12 @@ let tests =
             }
 
             test "an evaluated context takes its place, with the id and category the plan gave it" {
-                let p = plan [| drug "c-d" "o-drug"; nutrition "c-1" NutritionCategory.Lipid [||] |]
+                let p =
+                    plan
+                        [|
+                            drug "c-d" "o-drug"
+                            nutrition "c-1" NutritionCategory.Lipid [| "o-lipid-0" |]
+                        |]
 
                 let evaluated =
                     { PlanContext.create "" OrderCategory.Medication (context [| scenario "o-lipid" |]) with
@@ -263,15 +261,29 @@ let tests =
                 |> Expect.equal "no such context" (Error(OrderPlanError.NoSuchContext "c-9"))
             }
 
+            test "a TPN cleared to several scenarios is refused: a prescribed order keeps its one scenario" {
+                let p = plan [| drug "c-d" "o-drug"; nutrition "c-t" NutritionCategory.TPN [| "o-tpn" |] |]
+
+                let evaluated =
+                    PlanContext.create
+                        ""
+                        OrderCategory.Medication
+                        (context [| scenario "o-tpn-1"; scenario "o-tpn-2" |])
+
+                p
+                |> OrderPlan.updateContext ruleSets "c-t" evaluated
+                |> Expect.equal "not narrowed" (Error(OrderPlanError.NotNarrowed 2))
+            }
+
             test "a nutrition context's pick lists are narrowed to its category's rule set" {
                 let p =
                     plan
                         [|
-                            nutrition "c-t" NutritionCategory.TPN [||]
-                            nutrition "c-f" NutritionCategory.EnteralFeeding [||]
+                            nutrition "c-t" NutritionCategory.TPN [| "o-t" |]
+                            nutrition "c-f" NutritionCategory.EnteralFeeding [| "o-f" |]
                         |]
 
-                let evaluated = PlanContext.create "" OrderCategory.Medication (context [||])
+                let evaluated = PlanContext.create "" OrderCategory.Medication (context [| scenario "o-stepped" |])
 
                 match p |> OrderPlan.updateContext ruleSets "c-t" evaluated with
                 | Ok p ->
@@ -295,13 +307,16 @@ let tests =
                 | Error e -> failtest $"{e}"
             }
 
-            test "a removed context takes its order; a feeding takes its supplements and theirs" {
+            test "a removed context takes its order; a feeding takes the supplements linked to it" {
                 let p =
                     plan
                         [|
                             drug "c-d" "o-drug"
                             nutrition "c-f" NutritionCategory.EnteralFeeding [| "o-f" |]
-                            nutrition "c-s" NutritionCategory.EnteralSupplement [| "o-s" |]
+                            { nutrition "c-s" NutritionCategory.EnteralSupplement [| "o-s" |] with
+                                LinkedTo = Some "c-f"
+                            }
+                            nutrition "c-u" NutritionCategory.EnteralSupplement [| "o-u" |]
                             nutrition "c-t" NutritionCategory.TPN [| "o-t" |]
                         |]
 
@@ -309,12 +324,12 @@ let tests =
 
                 p.Contexts
                 |> Array.map _.Id
-                |> Expect.equal "the drug and the tpn stay" [| "c-d"; "c-t" |]
+                |> Expect.equal "the drug, the supplement without a link and the tpn stay" [| "c-d"; "c-u"; "c-t" |]
 
-                ids p |> Expect.equal "with their orders" [| "o-drug"; "o-t" |]
+                ids p |> Expect.equal "with their orders" [| "o-drug"; "o-u"; "o-t" |]
 
                 let p = p |> OrderPlan.removeOrderContext "c-t"
-                ids p |> Expect.equal "the drug only" [| "o-drug" |]
+                ids p |> Expect.equal "the drug and the supplement" [| "o-drug"; "o-u" |]
             }
 
             test "a removed supplement leaves its feeding; a removed context leaves the filter" {
@@ -337,7 +352,7 @@ let tests =
                     [|
                         drug "c-d" "o-d"
                         nutrition "c-f" NutritionCategory.EnteralFeeding [| "o-f" |]
-                        nutrition "c-s" NutritionCategory.EnteralSupplement [| "o-s" |]
+                        { nutrition "c-s" NutritionCategory.EnteralSupplement [| "o-s" |] with LinkedTo = Some "c-f" }
                         nutrition "c-t" NutritionCategory.TPN [| "o-t" |]
                     |]
                 |> OrderPlan.removeOrderContexts [| "c-d"; "c-f" |]
@@ -379,42 +394,19 @@ let tests =
                 |> Expect.equal "a workbench not narrowed refused" (Error(OrderPlanError.NotNarrowed 2))
             }
 
-            test "one context per nutrition category, and a supplement only under a feeding" {
-                let feeding = nutrition "c-f" NutritionCategory.EnteralFeeding [||]
+            test "the plan takes any number of orders of every category" {
+                let newId () = "c-new"
+                let second = nutrition "" NutritionCategory.EnteralFeeding [| "o-f-2" |]
 
-                plan [| feeding |]
-                |> OrderPlan.admits NutritionCategory.EnteralFeeding
-                |> Expect.equal
-                    "a second feeding refused"
-                    (Error(OrderPlanError.CategoryHeld NutritionCategory.EnteralFeeding))
+                plan [| nutrition "c-f" NutritionCategory.EnteralFeeding [| "o-f" |] |]
+                |> OrderPlan.addOrderContext newId second
+                |> Result.map ids
+                |> Expect.equal "a second feeding" (Ok [| "o-f"; "o-f-2" |])
 
                 plan [||]
-                |> OrderPlan.admits NutritionCategory.EnteralSupplement
-                |> Expect.equal "a supplement without a feeding refused" (Error OrderPlanError.SupplementNeedsFeeding)
-
-                plan [| feeding |]
-                |> OrderPlan.admits NutritionCategory.EnteralSupplement
-                |> Expect.equal "a supplement under a feeding admitted" (Ok())
-
-                plan [| feeding; nutrition "c-s" NutritionCategory.EnteralSupplement [||] |]
-                |> OrderPlan.admits NutritionCategory.EnteralSupplement
-                |> Expect.equal "a second supplement admitted" (Ok())
-
-                plan [| feeding |]
-                |> OrderPlan.admits NutritionCategory.TPN
-                |> Expect.equal "another category admitted" (Ok())
-
-                plan [| nutrition "c-e" NutritionCategory.ElectrolyteGlucose [||] |]
-                |> OrderPlan.admits NutritionCategory.ElectrolyteGlucose
-                |> Expect.equal "a second electrolyte line admitted" (Ok())
-
-                plan [| feeding |]
-                |> OrderPlan.holds NutritionCategory.EnteralFeeding
-                |> Expect.isTrue "held"
-
-                plan [| feeding |]
-                |> OrderPlan.holds NutritionCategory.TPN
-                |> Expect.isFalse "not held"
+                |> OrderPlan.addOrderContext newId (nutrition "" NutritionCategory.EnteralSupplement [| "o-s" |])
+                |> Result.map ids
+                |> Expect.equal "a supplement on its own, which the link rules decide on" (Ok [| "o-s" |])
             }
         ]
 
@@ -587,45 +579,6 @@ let evaluateTests =
                 |> Expect.equal "the fresh filter, no dose types yet" { fresh with DoseTypes = [||] }
             }
 
-            test "discovery keeps of what the evaluation offers only what the workbench carried" {
-                let workbench =
-                    { pcmContext with
-                        Filter =
-                            { fresh with
-                                Indications = [| "voeding"; "koorts" |]
-                                Generics = [| "glucose"; "paracetamol" |]
-                                DoseTypes = [| disc |]
-                            }
-                    }
-
-                let evaluate (ctx: OrderContext) =
-                    Ok
-                        { ctx with
-                            Filter =
-                                { ctx.Filter with
-                                    Indications = [| "koorts"; "pijn" |]
-                                    Generics = [| "paracetamol"; "ibuprofen"; "glucose" |]
-                                    DoseTypes = [| disc; once |]
-                                    Routes = [| "or" |]
-                                }
-                        }
-
-                match workbench |> NutritionRuleSet.discover evaluate with
-                | Ok r ->
-                    r.Filter.Indications |> Expect.equal "indications" [| "koorts" |]
-
-                    r.Filter.Generics
-                    |> Expect.equal "generics, in the evaluation's order" [| "paracetamol"; "glucose" |]
-
-                    r.Filter.DoseTypes |> Expect.equal "dose types" [| disc |]
-                    r.Filter.Routes |> Expect.equal "the rest as evaluated" [| "or" |]
-                | Error e -> failtest $"{e}"
-
-                workbench
-                |> NutritionRuleSet.discover (fun _ -> Error "no")
-                |> Expect.equal "an evaluation that fails is the answer" (Error "no")
-            }
-
             test "the rows of a category are one rule set, each value once, in the order of the rows" {
                 [|
                     ruleSetRow "TPN" "Totale Parenterale Voeding" "Neonatale Parenterale Voeding" "Primene"
@@ -683,26 +636,6 @@ let evaluateTests =
                 |> Expect.equal "refused" (Error(OrderPlanError.NoRuleSet NutritionCategory.Lipid))
             }
 
-            test "discovery over a nutrition context without indications offers no indication" {
-                let workbench =
-                    { pcmContext with
-                        Filter =
-                            { fresh with
-                                Indications = [||]
-                                Generics = [||]
-                                DoseTypes = [| disc |]
-                            }
-                    }
-
-                let evaluate (ctx: OrderContext) =
-                    Ok { ctx with Filter = { ctx.Filter with Indications = [| "voeding"; "pijn" |] } }
-
-                workbench
-                |> NutritionRuleSet.discover evaluate
-                |> Result.map _.Filter.Indications
-                |> Expect.equal "no indication" (Ok [||])
-            }
-
             test "a narrowing that leaves one generic without its choice is evaluated again, which picks it" {
                 let workbench =
                     { pcmContext with
@@ -741,7 +674,11 @@ let evaluateTests =
                                 }
                         }
 
-                match workbench |> NutritionRuleSet.discover evaluate with
+                match
+                    workbench
+                    |> evaluate
+                    |> Result.bind (NutritionRuleSet.settle id (NutritionRuleSet.narrow Fixtures.ruleSets[0]) evaluate)
+                with
                 | Ok r ->
                     r.Filter.Generic |> Expect.equal "the one generic picked" (Some "glucose")
                     rounds.Value |> Expect.equal "evaluated twice" 2
@@ -831,8 +768,11 @@ let evaluateTests =
                                 }
                         }
 
+                let set = { Fixtures.ruleSets[0] with Generics = [| "glucose"; "paracetamol" |] }
+
                 workbench
-                |> NutritionRuleSet.discover evaluate
+                |> evaluate
+                |> Result.bind (NutritionRuleSet.settle id (NutritionRuleSet.narrow set) evaluate)
                 |> Result.isOk
                 |> Expect.isTrue "evaluated"
                 rounds.Value |> Expect.equal "evaluated once" 1
@@ -1226,11 +1166,11 @@ type UndilutedVancomycin() =
         member _.GetRouteMappings() = routeMapping
 
 
-/// A nutrition context discovered as the server discovers it: the rule set from the rows of the
+/// A nutrition context narrowed to its rule set as the server narrows it: the rule set from the rows of the
 /// "RuleSets" sheet expanded over the dose rule data, and the context evaluated through the plan context.
 let ruleSetDiscoveryTests =
     testList
-        "the discovery of a rule set over the rules"
+        "a rule set over the rules"
         [
             test "a row without a generic offers the generics under its indication, not a medication" {
                 let rowOf generic indication =
@@ -1283,9 +1223,21 @@ let ruleSetDiscoveryTests =
                     |> Result.map Array.head
                     |> Result.defaultWith (fun e -> failtest $"%A{e}")
 
-                NutritionRuleSet.emptyContext (Some set) (RuleFixtures.patient (Some 5N) false (Some 20N) None)
-                |> NutritionRuleSet.discover evaluate
-                |> Result.map _.Filter.Generics
+                let start: OrderContext =
+                    {
+                        Filter =
+                            { OrderContext.emptyFilter with
+                                Indications = set.Indications
+                                Generics = set.Generics
+                            }
+                        Patient = RuleFixtures.patient (Some 5N) false (Some 20N) None
+                        Scenarios = [||]
+                        Argumentation = None
+                    }
+
+                start
+                |> evaluate
+                |> Result.map (NutritionRuleSet.narrow set >> _.Filter.Generics)
                 |> Expect.equal "voedsel, not paracetamol" (Ok [| "voedsel" |])
             }
         ]
@@ -2441,16 +2393,6 @@ let linkTests =
                         added.LinkedTo |> Expect.equal "under the feeding" (Some "c-f")
                     }
 
-                    test "a nutrition context is refused when the plan does not admit its category" {
-                        plan [| nutrition "c-t" NutritionCategory.TPN "o-t" |]
-                        |> OrderPlan.addOrderContext newId (nutrition "" NutritionCategory.TPN "o-t2")
-                        |> Expect.equal "a second tpn" (Error(OrderPlanError.CategoryHeld NutritionCategory.TPN))
-
-                        plan [| medication "c-m" "o-m" |]
-                        |> OrderPlan.addOrderContext newId (supplement "" |> linked "c-m")
-                        |> Expect.equal "a supplement without a feeding" (Error OrderPlanError.SupplementNeedsFeeding)
-                    }
-
                     test "a medication context stays a medication, not linked" {
                         let p =
                             plan [||]
@@ -2515,7 +2457,7 @@ let linkTests =
                         |> Expect.equal "the other feeding and its supplement stay" [| "c-f2"; "c-s2" |]
                     }
 
-                    test "until every supplement is linked, a feeding takes every supplement without a link" {
+                    test "a feeding leaves a supplement without a link, as from a plan signed before the links" {
                         plan
                             [|
                                 medication "c-d" "o-d"
@@ -2525,22 +2467,7 @@ let linkTests =
                             |]
                         |> OrderPlan.removeOrderContext "c-f"
                         |> ids
-                        |> Expect.equal "the medication and the tpn stay" [| "c-d"; "c-t" |]
-                    }
-
-                    test "a feeding that goes through its link takes every supplement without a link" {
-                        { plan
-                              [|
-                                  medication "c-m" "o-m"
-                                  feeding "c-f" |> linked "c-m"
-                                  supplement "c-s"
-                                  medication "c-x" "o-x"
-                              |] with
-                            Filtered = [| "c-m"; "c-f"; "c-s"; "c-x" |]
-                        }
-                        |> OrderPlan.removeOrderContext "c-m"
-                        |> fun p -> ids p, p.Filtered
-                        |> Expect.equal "the other medication alone" ([| "c-x" |], [| "c-x" |])
+                        |> Expect.equal "the medication, the supplement and the tpn stay" [| "c-d"; "c-s"; "c-t" |]
                     }
 
                     test "a medication without a linked feeding leaves the supplements alone" {

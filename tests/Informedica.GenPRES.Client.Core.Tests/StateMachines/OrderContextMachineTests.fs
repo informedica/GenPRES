@@ -112,7 +112,7 @@ let tests =
                             [ callContext (OrderViewCommand.ClearAllFilterProperty, empty, "r-1") ]
 
                         transition
-                            (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol)))
+                            (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated(paracetamol, [||]))))
                             loading
                         |> Expect.equal "shown, the pages on its filter" (held paracetamol, synced paracetamol)
                     }
@@ -145,7 +145,7 @@ let tests =
                         (state, effects) |> Expect.equal "no patient during a request" (noPatient, [])
 
                         transition
-                            (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol)))
+                            (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated(paracetamol, [||]))))
                             state
                         |> Expect.equal "the answer dropped" (noPatient, [])
                     }
@@ -241,10 +241,14 @@ let tests =
                         let answer =
                             { paracetamol with OrderContext.Filter.Generics = [| "paracetamol"; "ibuprofen" |] }
 
-                        transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated answer))) busy
+                        transition
+                            (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated(answer, [||]))))
+                            busy
                         |> Expect.equal "shown, the pages on its filter" (held answer, synced answer)
 
-                        transition (OrderContextMsg.Answered("r-9", Ok(OrderContextResponse.Evaluated answer))) busy
+                        transition
+                            (OrderContextMsg.Answered("r-9", Ok(OrderContextResponse.Evaluated(answer, [||]))))
+                            busy
                         |> Expect.equal "stale" (busy, [])
                     }
 
@@ -374,7 +378,9 @@ let workbenchTests =
             }
 
             test "nothing lands where nothing was asked: no patient" {
-                transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol))) noPatient
+                transition
+                    (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated(paracetamol, [||]))))
+                    noPatient
                 |> Expect.equal "no request under way to land on" (noPatient, [])
             }
 
@@ -469,13 +475,15 @@ let selectionTests =
             }
 
             test "an answer keeps it while the context answered holds the order, and drops it otherwise" {
-                transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated withOrder))) busySelected
+                transition
+                    (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated(withOrder, [||]))))
+                    busySelected
                 |> fst
                 |> dialog
                 |> Expect.equal "the order answered" (Some(OrderContextView.Settled withOrder))
 
                 transition
-                    (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol)))
+                    (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated(paracetamol, [||]))))
                     busySelected
                 |> fst
                 |> dialog
@@ -499,7 +507,7 @@ let refusalTests =
     let refused = OrderContextState.refused patient
     let view = OrderContextState.view
     let dialog = OrderContextState.dialog
-    let evaluatedAnswer ctx = Ok(OrderContextResponse.Evaluated ctx)
+    let evaluatedAnswer ctx = Ok(OrderContextResponse.Evaluated(ctx, [||]))
     let refusedAnswer ctx r = Ok(OrderContextResponse.Refused(ctx, r))
 
     testList
@@ -720,7 +728,7 @@ let argueTests =
                 |> Expect.equal "changing, with the text" (OrderContextView.Changing argued)
 
                 state
-                |> transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated argued)))
+                |> transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated(argued, [||]))))
                 |> Expect.equal "the answer as the server wrote it" (held argued, [])
             }
 
@@ -732,7 +740,7 @@ let argueTests =
                 |> Expect.equal "the context held sent" [ callContext (reset, argued, "r-1") ]
 
                 state
-                |> transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol)))
+                |> transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated(paracetamol, [||]))))
                 |> Expect.equal "the answer without the text" (held paracetamol, [])
             }
         ]
@@ -759,7 +767,7 @@ let reCalcTests =
     let reCalc =
         OrderContextMsg.Command(OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Time, "r-1")
 
-    let answered ctx = Ok(OrderContextResponse.Evaluated ctx)
+    let answered ctx = Ok(OrderContextResponse.Evaluated(ctx, [||]))
 
     testList
         "OrderContextState.transition, a recalculation and a restore"
@@ -952,7 +960,7 @@ let specificCommandTests =
 /// The formulary and parenteralia pages follow the answer, never the request.
 [<Tests>]
 let syncTests =
-    let answered ctx = Ok(OrderContextResponse.Evaluated ctx)
+    let answered ctx = Ok(OrderContextResponse.Evaluated(ctx, [||]))
 
     testList
         "the pages follow the answer"
@@ -1180,7 +1188,7 @@ module LinkedOfferFixtures =
     let answered cmd (main: OrderContext) offers =
         OrderContextState.changing patient cmd main main "r-1"
         |> OrderContextState.transition (
-            OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated { main with LinkedOrders = offers }))
+            OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated(main, offers)))
         )
         |> fst
 
@@ -1243,7 +1251,7 @@ let linkedOfferTests =
                 |> OrderContextState.transition (OrderContextMsg.Command(doseStep, "r-2"))
                 |> fst
                 |> OrderContextState.transition (
-                    OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated feeding))
+                    OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated(feeding, [||])))
                 )
                 |> fst
                 |> turnedOn
@@ -1258,7 +1266,7 @@ let linkedOfferTests =
                 |> OrderContextState.transition (OrderContextMsg.Command(pick, "r-2"))
                 |> fst
                 |> OrderContextState.transition (
-                    OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated atalurenMain))
+                    OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated(atalurenMain, [||])))
                 )
                 |> fst
                 |> turnedOn
@@ -1425,7 +1433,7 @@ let offerCommandTests =
                 let state =
                     eveningStepped
                     |> fst
-                    |> next (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated stepped)))
+                    |> next (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated(stepped, [||]))))
 
                 state |> OrderContextState.inFlightRequest |> Expect.isNone "nothing out"
 
@@ -1439,7 +1447,7 @@ let offerCommandTests =
                 let state =
                     eveningStepped
                     |> fst
-                    |> next (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated eveningOfTwo)))
+                    |> next (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated(eveningOfTwo, [||]))))
 
                 state |> switches |> Expect.equal "on" [| (Some "ataluren", OfferSwitch.On) |]
                 state
@@ -1487,7 +1495,7 @@ let offerCommandTests =
             test "the main order's pages do not follow an offer's answer" {
                 eveningStepped
                 |> fst
-                |> step (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated atalurenEvening)))
+                |> step (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated(atalurenEvening, [||]))))
                 |> snd
                 |> Expect.isEmpty "no page synced"
             }
@@ -1495,7 +1503,7 @@ let offerCommandTests =
             test "the main order's answer to a command of its own keeps the offers" {
                 eveningOn
                 |> next (OrderContextMsg.Command(doseStep, "r-2"))
-                |> next (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated atalurenMain)))
+                |> next (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated(atalurenMain, [||]))))
                 |> switches
                 |> Expect.equal "still on" [| (Some "ataluren", OfferSwitch.On) |]
             }
@@ -1531,7 +1539,7 @@ let offerCommandTests =
 
                 eveningOn
                 |> next (OrderContextMsg.OfferCommand(0, reCalc, "r-2"))
-                |> next (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated recalculated)))
+                |> next (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated(recalculated, [||]))))
                 |> next OrderContextMsg.RestoreField
                 |> OrderContextState.linkedOffers
                 |> Array.map _.Context
@@ -1542,7 +1550,7 @@ let offerCommandTests =
                 let mainReCalc =
                     eveningOn
                     |> next (OrderContextMsg.Command(reCalc, "r-2"))
-                    |> next (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated atalurenMain)))
+                    |> next (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated(atalurenMain, [||]))))
 
                 mainReCalc
                 |> OrderContextState.isKept
@@ -1558,7 +1566,7 @@ let offerCommandTests =
 
 /// MM narrowed in a feeding slot, offering Nutrilon Nenatal BMF pdr and Fantomalt pdr, as the LinkRules sheet
 /// links them to MM.
-module OffersNotSentFixtures =
+module OffersOfAnswerFixtures =
 
     open Informedica.GenPRES.Client.Core.Tests.OrderFixtures
 
@@ -1580,47 +1588,30 @@ module OffersNotSentFixtures =
     let answered =
         OrderContextState.changing patient (OrderViewCommand.SelectNthOrderScenario 0) mm mm "r-0"
         |> OrderContextState.transition (
-            OrderContextMsg.Answered("r-0", Ok(OrderContextResponse.Evaluated { mm with LinkedOrders = offers }))
+            OrderContextMsg.Answered("r-0", Ok(OrderContextResponse.Evaluated(mm, offers)))
         )
         |> fst
 
 
-open OffersNotSentFixtures
+open OffersOfAnswerFixtures
 
 
 [<Tests>]
-let offersNotSentTests =
+let offersOfAnswerTests =
     testList
-        "the offers of an answer are not sent back"
+        "the offers come in the answer"
         [
-            test "the slot holds the two offers, and its context holds none" {
+            test "the slot takes the two offers of the answer to MM, and keeps them after a command on MM" {
                 answered
                 |> OrderContextState.linkedOffers
-                |> Array.length
-                |> Expect.equal "two offers" 2
+                |> Array.map _.Context
+                |> Expect.equal "the two offers" offers
 
                 answered
-                |> OrderContextState.context
-                |> Option.map _.LinkedOrders
-                |> Expect.equal "no offers in the context" (Some [||])
-            }
-
-            test "a command on MM sends the context without the offers, and keeps them" {
-                let next, effects =
-                    answered
-                    |> OrderContextState.transition (
-                        OrderContextMsg.Command(OrderViewCommand.ClearAllFilterProperty, "r-1")
-                    )
-
-                effects
-                |> List.choose (
-                    function
-                    | OrderContextEffect.CallContext(OrderContextCommand.Command(_, ctx), _) -> Some ctx.LinkedOrders
-                    | _ -> None
+                |> OrderContextState.transition (
+                    OrderContextMsg.Command(OrderViewCommand.ClearAllFilterProperty, "r-1")
                 )
-                |> Expect.equal "sent without them" [ [||] ]
-
-                next
+                |> fst
                 |> OrderContextState.linkedOffers
                 |> Array.length
                 |> Expect.equal "still two" 2
@@ -1654,10 +1645,7 @@ module OfferAnswerFixtures =
     let offered =
         OrderContextState.changing patient (OrderViewCommand.SelectNthOrderScenario 0) drops drops "r-0"
         |> OrderContextState.transition (
-            OrderContextMsg.Answered(
-                "r-0",
-                Ok(OrderContextResponse.Evaluated { drops with LinkedOrders = [| ointment |] })
-            )
+            OrderContextMsg.Answered("r-0", Ok(OrderContextResponse.Evaluated(drops, [| ointment |])))
         )
         |> fst
 
@@ -1670,21 +1658,19 @@ let offerAnswerTests =
     testList
         "the answer to a command on an offer"
         [
-            test "a pick on the ointment offer is held without the offer its answer carries" {
-                let answer = { ointment with LinkedOrders = [| ointment |] }
-
+            test "a pick on the ointment offer takes the ointment, not the offer its answer carries" {
                 offered
                 |> OrderContextState.transition (
                     OrderContextMsg.OfferCommand(0, OrderViewCommand.SelectNthOrderScenario 0, "r-1")
                 )
                 |> fst
                 |> OrderContextState.transition (
-                    OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated answer))
+                    OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated(ointment, [| ointment |])))
                 )
                 |> fst
                 |> OrderContextState.linkedOffers
-                |> Array.map (fun o -> o.Context.Scenarios[0].Order.Id, o.Context.LinkedOrders.Length)
-                |> Expect.equal "the ointment, without an offer" [| "o-ointment", 0 |]
+                |> Array.map _.Context
+                |> Expect.equal "the ointment alone" [| ointment |]
             }
 
             test "the view gives the context it shows" {

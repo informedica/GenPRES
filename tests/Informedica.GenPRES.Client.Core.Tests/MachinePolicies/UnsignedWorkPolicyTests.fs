@@ -58,7 +58,6 @@ module UnsignedWorkPolicyTests =
             ),
             true
             "AddOrderContext", add, true
-            "NewOrderContext", OrderPlanCommand.NewOrderContext(plan, NutritionCategory.TPN), true
             "RemoveOrderContexts", remove, true
         ]
 
