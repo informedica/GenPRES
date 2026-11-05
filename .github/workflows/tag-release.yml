@@ -267,8 +267,10 @@ jobs:
         path: ${{ runner.temp }}/image.tar.gz
         # Already gzipped; a second compression pass only costs time.
         compression-level: 0
-        # publish-docker-image reads it within the same run; nothing needs it after that.
-        retention-days: 1
+        # publish-docker-image waits for a required reviewer on the docker-publish environment.
+        # GitHub cancels a job after 30 days of waiting for approval, so the image is kept that
+        # long: a late approval, or a re-run of a failed publish, still finds it.
+        retention-days: 30
         # A re-run of a job is the same run: without this, "Re-run jobs" fails at this step with a
         # name conflict. The re-run's image replaces the earlier attempt's.
         overwrite: true
