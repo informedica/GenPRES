@@ -140,42 +140,46 @@ jobs:
           ${flags[@]+"${flags[@]}"}
         echo "Published [$TAG](${{ github.server_url }}/${{ github.repository }}/releases/tag/$TAG)" >> "$GITHUB_STEP_SUMMARY"
 
-  publish-docker-image:
-    name: Build, smoke test, and publish Docker image
+  build-docker-image:
+    name: Build and smoke test Docker image (${{ matrix.arch }})
     # Runs after tag-and-release so it only fires for a real, verified release, and so it can reuse
     # that job's version/tag/prerelease facts instead of re-deriving them from CHANGELOG.md a second
-    # time. The image is published to Docker Hub as `docker.io/informedica/genpres` (issue #459);
-    # this started on GHCR as an interim registry and moved once the `informedica` Docker Hub org
-    # (Docker Team plan) existed. IMAGE_NAME is the one place the registry/namespace is named.
+    # time. The image is published to Docker Hub as `docker.io/informedica/genpres` (issue #459) for
+    # linux/amd64 and linux/arm64 (issue #1686).
     #
-    # Auth is Docker Hub OIDC, so there is no stored registry credential: docker/login-action
-    # exchanges the job's GitHub OIDC token for a short-lived Docker Hub token, gated by a ruleset on
-    # the `DOCKERHUB_OIDC_CONNECTIONID` connection in Docker Home. The ruleset is scoped to the
-    # `docker-publish` GitHub environment below, so the OIDC subject is
-    # `repo:informedica/GenPRES:environment:docker-publish` — a plain `pull_request` subject would
-    # let any PR's workflow mint a push token. Setup: DEVELOPMENT.md § Publishing the Docker image.
+    # One leg per architecture, each on a runner of that architecture, so both images are built and
+    # tested natively, with no QEMU emulation. A multi-platform build cannot be loaded into the local
+    # daemon, and both checks below need a loaded image to `docker run`. Each leg therefore builds a
+    # single-platform image, runs the checks, and hands the image to publish-docker-image as an
+    # artifact. This job pushes nothing and needs no registry login: only publish-docker-image
+    # pushes, and it starts only when every leg passed, so a failed check on either architecture
+    # publishes no tag at all.
     #
-    # docker/login-action is the one marketplace action here — the OIDC token exchange lives in it
-    # and cannot be done with plain `docker login`. `docker build` / `docker push` stay CLI, matching
-    # how Build.fs's DockerBuild/DockerRun drive Docker everywhere else. `--platform` needs no buildx
-    # setup action — ubuntu-latest ships Docker Buildx preinstalled.
+    # `docker build` stays CLI, matching how Build.fs's DockerBuild/DockerRun drive Docker everywhere
+    # else. `--platform` needs no buildx setup action, both runner images ship Docker Buildx.
     needs: tag-and-release
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
 
-    # A GitHub Actions environment, so the OIDC subject claim carries `environment:docker-publish`
-    # for the Docker Hub ruleset to match. Add required reviewers to this environment in repo
-    # settings if a manual gate before each Docker Hub push is wanted.
-    environment: docker-publish
-
-    # id-token: write lets the job request a GitHub OIDC token for the Docker Hub exchange.
-    # contents: read is for checking out the tagged commit. No packages/write scope: the push goes
-    # to Docker Hub, not GHCR.
     permissions:
       contents: read
-      id-token: write
+
+    strategy:
+      # Both architectures are published together or not at all, so there is no point finishing one
+      # leg once the other failed.
+      fail-fast: true
+      matrix:
+        include:
+        - arch: amd64
+          platform: linux/amd64
+          runner: ubuntu-latest
+        - arch: arm64
+          platform: linux/arm64
+          # GitHub-hosted arm64 runner, free for public repositories.
+          runner: ubuntu-24.04-arm
 
     env:
-      IMAGE_NAME: docker.io/informedica/genpres
+      # A local name only; publish-docker-image gives the image its Docker Hub tags.
+      IMAGE: genpres-release:${{ matrix.arch }}
 
     steps:
     - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -183,69 +187,17 @@ jobs:
         # Same merge commit tag-and-release tagged, so the image matches the tagged source exactly.
         ref: ${{ github.event.pull_request.merge_commit_sha }}
 
-    - name: Log in to Docker Hub via OIDC
-      # No password: docker/login-action reads DOCKERHUB_OIDC_CONNECTIONID, requests a GitHub OIDC
-      # token, and exchanges it for a short-lived Docker Hub token. `username` is the Docker Hub org
-      # name. DOCKERHUB_OIDC_CONNECTIONID is a repo *variable* (not a secret — it is an identifier,
-      # useless without a matching ruleset), set from the connection created in Docker Home.
-      uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-      with:
-        username: informedica
-      env:
-        DOCKERHUB_OIDC_CONNECTIONID: ${{ vars.DOCKERHUB_OIDC_CONNECTIONID }}
-
-    - name: Determine image tags
-      id: tags
-      env:
-        VERSION: ${{ needs.tag-and-release.outputs.version }}
-        # String "true"/"false" from ReleaseNotes.fsx's %b formatter, not a YAML/shell boolean;
-        # compare it explicitly, same rule as the Create GitHub Release step above.
-        PRERELEASE: ${{ needs.tag-and-release.outputs.prerelease }}
-      # :latest only moves on a stable release. Every release shipped so far is a pre-release
-      # (0.1.2-alpha.N), so :latest stays unset until the first stable version ships.
-      run: |
-        set -euo pipefail
-        # scripts/Versioning.fsx's isPreRelease explicitly allows SemVer build metadata
-        # (a "+..." suffix) in <Version>, even though no release has used one yet. Docker tags
-        # can't contain "+" (grammar is [a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}), so a version like
-        # 1.0.0+build.7 would otherwise build a tag docker build rejects, after the Git tag and
-        # GitHub Release for that version already exist. Fold "+" to "-" so the image tag always
-        # stays valid.
-        docker_version="${VERSION//+/-}"
-        version_tag="$IMAGE_NAME:$docker_version"
-        echo "version_tag=$version_tag" >> "$GITHUB_OUTPUT"
-        {
-          echo "tags<<EOF"
-          echo "$version_tag"
-          if [ "$PRERELEASE" = "false" ]; then
-            echo "$IMAGE_NAME:latest"
-          fi
-          echo "EOF"
-        } >> "$GITHUB_OUTPUT"
-
     - name: Build image
-      # Same shape as buildDockerImage in Build.fs (the local `DockerBuild` target), just with
-      # multiple -t flags for the tags this release needs instead of one.
+      # Same shape as buildDockerImage in Build.fs (the local `DockerBuild` target). The platform is
+      # named explicitly even though it matches the runner, so a runner label that resolves to
+      # another architecture fails here instead of publishing a mislabelled image.
       env:
-        TAGS: ${{ steps.tags.outputs.tags }}
+        PLATFORM: ${{ matrix.platform }}
         VERSION: ${{ needs.tag-and-release.outputs.version }}
-      run: |
-        set -euo pipefail
-        tag_args=()
-        while IFS= read -r tag; do
-          [ -z "$tag" ] && continue
-          tag_args+=(-t "$tag")
-        done <<< "$TAGS"
-        # linux/amd64 only to start, matching DockerBuild's current default. Multi-arch is future
-        # scope, and a multi-platform image can't be loaded into the local daemon for the smoke
-        # test below the way a single-platform one can.
-        docker build --platform linux/amd64 --build-arg "APP_VERSION=$VERSION" "${tag_args[@]}" .
+      run: docker build --platform "$PLATFORM" --build-arg "APP_VERSION=$VERSION" -t "$IMAGE" .
 
     - name: Smoke test the built image
       env:
-        # steps.tags already folded any "+" build-metadata to "-"; reuse it rather than
-        # rebuilding the tag from the raw version here and risking the two drifting apart.
-        IMAGE: ${{ steps.tags.outputs.version_tag }}
         # Public demo spreadsheet ID from .env.example. The image now defaults to demo mode with this
         # same ID baked in (#541), so neither -e is strictly required any more; both are still passed
         # so the test also proves that runtime injection of the two variables keeps working.
@@ -277,8 +229,6 @@ jobs:
         exit 1
 
     - name: Check that a refused start-up exits the container
-      env:
-        IMAGE: ${{ steps.tags.outputs.version_tag }}
       # The smoke test above cannot see issue #572: a container that never exits after the server
       # refuses to start looks exactly like one that is still starting. This starts the image with a
       # configuration the server refuses (production mode with a password shorter than 16
@@ -305,15 +255,141 @@ jobs:
         fi
         echo "Refusal check passed: container exited $code"
 
-    - name: Push image
-      # The image already built and passed its smoke test above, tagged locally under every tag
-      # from steps.tags. Pushing each tag directly here avoids building the image a second time.
+    - name: Save image
+      # The tested image itself is handed on, so publish-docker-image pushes exactly what passed the
+      # checks above and nothing is built twice.
+      run: docker save "$IMAGE" | gzip > "$RUNNER_TEMP/image.tar.gz"
+
+    - name: Upload image
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: docker-image-${{ matrix.arch }}
+        path: ${{ runner.temp }}/image.tar.gz
+        # Already gzipped; a second compression pass only costs time.
+        compression-level: 0
+        # publish-docker-image waits for a required reviewer on the docker-publish environment.
+        # GitHub cancels a job after 30 days of waiting for approval, so the image is kept that
+        # long: a late approval, or a re-run of a failed publish, still finds it.
+        retention-days: 30
+        # A re-run of a job is the same run: without this, "Re-run jobs" fails at this step with a
+        # name conflict. The re-run's image replaces the earlier attempt's.
+        overwrite: true
+
+  publish-docker-image:
+    name: Publish multi-arch Docker image
+    # Starts only when tag-and-release and every build-docker-image leg passed. It loads the tested
+    # images, pushes each under an architecture tag, and then joins them in one manifest list under
+    # the release tags, so `docker pull informedica/genpres:<version>` picks the host's architecture.
+    #
+    # Auth is Docker Hub OIDC, so there is no stored registry credential: docker/login-action
+    # exchanges the job's GitHub OIDC token for a short-lived Docker Hub token, gated by a ruleset on
+    # the `DOCKERHUB_OIDC_CONNECTIONID` connection in Docker Home. The ruleset is scoped to the
+    # `docker-publish` GitHub environment below, so the OIDC subject is
+    # `repo:informedica/GenPRES:environment:docker-publish` — a plain `pull_request` subject would
+    # let any PR's workflow mint a push token. This is the only job that pushes, so it is the only
+    # job that needs the environment. Setup: DEVELOPMENT.md § Publishing the Docker image.
+    #
+    # docker/login-action is the one marketplace action here — the OIDC token exchange lives in it
+    # and cannot be done with plain `docker login`. `docker push` and `docker buildx imagetools`
+    # stay CLI; the actions/*-artifact steps are GitHub's own, as in build.yml.
+    needs: [ tag-and-release, build-docker-image ]
+    runs-on: ubuntu-latest
+
+    # A GitHub Actions environment, so the OIDC subject claim carries `environment:docker-publish`
+    # for the Docker Hub ruleset to match. Add required reviewers to this environment in repo
+    # settings if a manual gate before each Docker Hub push is wanted.
+    environment: docker-publish
+
+    # id-token: write lets the job request a GitHub OIDC token for the Docker Hub exchange. No
+    # contents scope: the job does not check out the repository, and downloading an artifact of the
+    # same run needs no token permission. No packages/write scope: the push goes to Docker Hub, not
+    # GHCR.
+    permissions:
+      id-token: write
+
+    env:
+      IMAGE_NAME: docker.io/informedica/genpres
+
+    steps:
+    - name: Download images
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      with:
+        pattern: docker-image-*
+        path: ${{ runner.temp }}/images
+
+    - name: Log in to Docker Hub via OIDC
+      # No password: docker/login-action reads DOCKERHUB_OIDC_CONNECTIONID, requests a GitHub OIDC
+      # token, and exchanges it for a short-lived Docker Hub token. `username` is the Docker Hub org
+      # name. DOCKERHUB_OIDC_CONNECTIONID is a repo *variable* (not a secret — it is an identifier,
+      # useless without a matching ruleset), set from the connection created in Docker Home.
+      uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      with:
+        username: informedica
       env:
+        DOCKERHUB_OIDC_CONNECTIONID: ${{ vars.DOCKERHUB_OIDC_CONNECTIONID }}
+
+    - name: Determine image tags
+      id: tags
+      env:
+        VERSION: ${{ needs.tag-and-release.outputs.version }}
+        # String "true"/"false" from ReleaseNotes.fsx's %b formatter, not a YAML/shell boolean;
+        # compare it explicitly, same rule as the Create GitHub Release step above.
+        PRERELEASE: ${{ needs.tag-and-release.outputs.prerelease }}
+      # :latest only moves on a stable release. Every release shipped so far is a pre-release
+      # (0.1.2-alpha.N), so :latest stays unset until the first stable version ships.
+      run: |
+        set -euo pipefail
+        # scripts/Versioning.fsx's isPreRelease explicitly allows SemVer build metadata
+        # (a "+..." suffix) in <Version>, even though no release has used one yet. Docker tags
+        # can't contain "+" (grammar is [a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}), so a version like
+        # 1.0.0+build.7 would otherwise produce a tag Docker rejects, after the Git tag and
+        # GitHub Release for that version already exist. Fold "+" to "-" so the image tag always
+        # stays valid.
+        docker_version="${VERSION//+/-}"
+        echo "docker_version=$docker_version" >> "$GITHUB_OUTPUT"
+        {
+          echo "tags<<EOF"
+          echo "$IMAGE_NAME:$docker_version"
+          if [ "$PRERELEASE" = "false" ]; then
+            echo "$IMAGE_NAME:latest"
+          fi
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Push architecture images
+      # A manifest list can only reference images that are already in the registry, so each tested
+      # image is pushed first under its own tag, <version>-<arch>. Those tags stay on Docker Hub
+      # and let a user pin one architecture.
+      env:
+        DOCKER_VERSION: ${{ steps.tags.outputs.docker_version }}
+      run: |
+        set -euo pipefail
+        for arch in amd64 arm64; do
+          gunzip -c "$RUNNER_TEMP/images/docker-image-$arch/image.tar.gz" | docker load
+          arch_tag="$IMAGE_NAME:$DOCKER_VERSION-$arch"
+          docker tag "genpres-release:$arch" "$arch_tag"
+          docker push "$arch_tag"
+          echo "Published \`$arch_tag\`" >> "$GITHUB_STEP_SUMMARY"
+        done
+
+    - name: Publish multi-arch manifest
+      # One manifest list over both architecture images, under every release tag. imagetools
+      # works in the registry only, so the images are not pulled or rebuilt.
+      env:
+        DOCKER_VERSION: ${{ steps.tags.outputs.docker_version }}
         TAGS: ${{ steps.tags.outputs.tags }}
       run: |
         set -euo pipefail
+        tag_args=()
         while IFS= read -r tag; do
           [ -z "$tag" ] && continue
-          docker push "$tag"
-          echo "Published \`$tag\`" >> "$GITHUB_STEP_SUMMARY"
+          tag_args+=(-t "$tag")
+        done <<< "$TAGS"
+        docker buildx imagetools create "${tag_args[@]}" \
+          "$IMAGE_NAME:$DOCKER_VERSION-amd64" \
+          "$IMAGE_NAME:$DOCKER_VERSION-arm64"
+        while IFS= read -r tag; do
+          [ -z "$tag" ] && continue
+          docker buildx imagetools inspect "$tag"
+          echo "Published \`$tag\` (linux/amd64, linux/arm64)" >> "$GITHUB_STEP_SUMMARY"
         done <<< "$TAGS"
