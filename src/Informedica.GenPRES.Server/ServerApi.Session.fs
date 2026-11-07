@@ -697,14 +697,14 @@ module Session =
 
 
     /// The patient of a version at the age its birthdate gives at a date, with the
-    /// post-menstrual age that follows from that age. Without an identity there is no birthdate,
-    /// and the patient stays as signed.
+    /// post-menstrual age from the days lived. Without an identity there is no birthdate, and the
+    /// patient stays as signed.
     let atBirthDate now (whom: Informedica.GenCore.Lib.Patients.PatientIdentity option) (pat: GenForm.Patient) =
         match whom with
         | None -> pat
         | Some identity ->
-            { pat with Age = identity.BirthDate |> CorePatientAge.birthDate |> CorePatientAge.ageInDays now }
-            |> Informedica.GenForm.Lib.Patient.calcPMAge
+            pat
+            |> Informedica.GenForm.Lib.Patient.withAgeAt now (identity.BirthDate |> CorePatientAge.birthDate)
 
 
     /// The patient of a version as a later Session shows it: at the age at the date, and without

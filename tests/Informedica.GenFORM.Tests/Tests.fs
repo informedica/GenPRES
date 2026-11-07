@@ -2436,13 +2436,32 @@ module Tests =
                          pat.RenalFunction,
                          pat.Access)
                         |> Expect.equal
-                            "254 days, 3904 days, ICK, female, the eGFR, the two devices"
+                            "254 days, 254 plus 3652 days lived, ICK, female, the eGFR, the two devices"
                             (Some 254N,
-                             Some 3904N,
+                             Some 3906N,
                              Some "ICK",
                              FormTypes.Female,
                              Some(FormTypes.RenalFunction.EGFR(Some 30, Some 60)),
                              [ FormTypes.CVL; FormTypes.EnteralTube ])
+                    }
+
+                    test "withAgeAt: the age in days and the post-menstrual age of the days lived" {
+                        let born = BirthDate.create 2026<year> 1<month> 31<day> |> PatientAge.birthDate
+                        let gest = 182N |> ValueUnit.singleWithUnit Units.Time.day
+
+                        { FormPatient.patient with GestAge = Some gest }
+                        |> FormPatient.withAgeAt (DateTime(2026, 3, 30)) born
+                        |> fun pat -> pat.Age |> days, pat.PMAge |> days
+                        |> Expect.equal "59 days, 182 plus 58 days lived" (Some 59N, Some 240N)
+                    }
+
+                    test "withAgeAt: no gestational age, no post-menstrual age" {
+                        let born = BirthDate.create 2026<year> 1<month> 31<day> |> PatientAge.birthDate
+
+                        FormPatient.patient
+                        |> FormPatient.withAgeAt (DateTime(2026, 3, 30)) born
+                        |> _.PMAge
+                        |> Expect.isNone "none"
                     }
 
                     test "the EHR data goes there and back through its Dto, nothing dropped" {

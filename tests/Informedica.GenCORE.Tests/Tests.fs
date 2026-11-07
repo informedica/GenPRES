@@ -1341,6 +1341,46 @@ module Tests =
                                     |> PatientAge.daysLived (date 2028 3 1)
                                     |> Expect.isNone "no birth date"
                                 }
+
+                                test "the post-menstrual age of a birth date is the gestational age plus the days lived" {
+                                    bd 2026 1 31
+                                    |> PatientAge.birthDate
+                                    |> PatientAge.postMenstrualAgeInDays (date 2026 3 30) 182<day>
+                                    |> Expect.equal "182 plus 58 days" (Some 240<day>)
+                                }
+
+                                test
+                                    "the post-menstrual age of an age value is the gestational age plus the age in days" {
+                                    AgeValue.create (Some 0<year>) (Some 1<month>) (Some 4<week>) (Some 1<day>)
+                                    |> PatientAge.ageValue
+                                    |> PatientAge.postMenstrualAgeInDays (date 2026 3 30) 182<day>
+                                    |> Expect.equal "182 plus 59 days" (Some 241<day>)
+                                }
+
+                                test "the post-menstrual age of a patient in weeks and days, from the days lived" {
+                                    Patient.create
+                                        "p1"
+                                        "Test"
+                                        Department.unknown
+                                        [||]
+                                        UnknownGender
+                                        (bd 2016 3 15 |> PatientAge.birthDate)
+                                        (Weight.create [] None [] None)
+                                        (Height.create [] None None)
+                                        (Some(AgeWeeksDays.create 26<week> 0<day>))
+                                        UnknownEnteral
+                                        UnknownVenous
+                                    |> Patient.calcPostMenstrualAge (date 2016 5 10)
+                                    |> Expect.equal
+                                        "26 weeks plus 56 days lived is 34 weeks"
+                                        (Some(AgeWeeksDays.create 34<week> 0<day>))
+                                }
+
+                                test "an unknown age has no post-menstrual age" {
+                                    PatientAge.unknown
+                                    |> PatientAge.postMenstrualAgeInDays (date 2026 3 30) 182<day>
+                                    |> Expect.isNone "none"
+                                }
                             ]
                     ]
 
