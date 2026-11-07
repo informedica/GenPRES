@@ -298,46 +298,13 @@ module StubPatientData =
         ]
 
 
-    /// The birth date that gives an age on a day: the date the years, months, weeks and days of the
-    /// age before that day, moved by up to three days when GenPRES would count the age in days
-    /// otherwise. GenPRES counts a year as 365 days and a month as 30, so the calendar date alone is
-    /// a few days off at the end of a month and on 29 February. On a day that no birth date fits,
-    /// the calendar date.
-    let birthDateAt (day: DateTime) age =
-        let inDays birth =
-            birth
-            |> BirthDate.fromDate
-            |> PatientAge.birthDate
-            |> PatientAge.getAgeValue day
-            |> Option.map (AgeValue.getAgeInDays >> int)
-
-        let target = age |> AgeValue.getAgeInDays |> int |> Some
-
-        age
-        |> PatientAge.ageValue
-        |> PatientAge.getBirthDate day
-        |> Option.map (fun bd ->
-            let calendar = bd |> BirthDate.toDate
-
-            [ 0; 1; -1; 2; -2; 3; -3 ]
-            |> List.map (float >> calendar.AddDays)
-            |> List.tryFind (fun birth -> inDays birth = target)
-            |> Option.defaultValue calendar
-            |> BirthDate.fromDate
-        )
-
-
     /// The EHR data of a test patient read at a moment: born the age before that day, measured that day.
     let testPatientData (now: DateTime) tp =
         let measuredOn = now.Date
         let weight = WeightAtDate.create measuredOn tp.Weight
         let height = HeightAtDate.create measuredOn tp.Height
 
-        let age =
-            tp.Age
-            |> birthDateAt measuredOn
-            |> Option.map PatientAge.birthDate
-            |> Option.defaultValue PatientAge.unknown
+        let age = tp.Age |> PatientAge.birthDateAt measuredOn |> PatientAge.birthDate
 
         Patient.create
             tp.Id
