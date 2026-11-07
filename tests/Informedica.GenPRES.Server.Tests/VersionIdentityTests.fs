@@ -40,12 +40,15 @@ let identity = ehr |> EhrPatientData.identity
 let heavier =
     let w = CoreWeightAtDate.create tomorrow (CoreWeightValue.weightInKg 34m)
 
-    { ehr with Patient = { ehr.Patient with Weight = CoreWeight.create [ w ] None [] (Some w) } }
+    { ehr with Patient.Data.Weight = CoreWeight.create [ w ] None [] (Some w) }
 
 
-/// EHR data with an age value in place of a birthdate: no identity.
+/// The EHR data of an anonymous patient: an age value, no identity.
 let unidentified =
-    { ehr with Patient = { ehr.Patient with Age = CoreAgeValue.ten |> CorePatientAge.ageValue } }
+    { ehr with
+        Patient.Identity = None
+        Patient.Data.Age = Some CoreAgeValue.ten
+    }
 
 
 /// The plan as signed: the projection at the open, the age the Session held.
@@ -353,15 +356,19 @@ let tests =
                         |> Expect.equal "the signed data" (Some(version.Plan.Patient |> withoutAges))
                     }
 
-                    test "has the post-menstrual age of the days lived at the new date" {
+                    test "has the post-menstrual age of the age in days at the new date" {
                         let pat =
                             openedLater (Some(StoredVersion.Readable(premature, identity)))
                             |> Option.defaultWith (fun () -> failtest "no patient")
 
-                        let lived = (later.Date - DateTime(2016, 3, 15)).Days
+                        let ageInDays =
+                            StubPatientData.birthDate
+                            |> CoreAgeValue.fromBirthDate later
+                            |> CoreAgeValue.getAgeInDays
+                            |> int
 
                         pat.PMAge
-                        |> Expect.equal "the gestational age plus the days lived" (Some(days (lived + 210)))
+                        |> Expect.equal "the gestational age plus the age in days" (Some(days (ageInDays + 210)))
                     }
 
                     test "has no post-menstrual age without a gestational age" {
@@ -527,7 +534,11 @@ let tests =
                     }
 
                     test "the version names the patient of the read signed on: a notice accepted over another name" {
-                        let renamed = { ehr with Patient = { ehr.Patient with Name = "Renamed" } }
+                        let renamed =
+                            { ehr with
+                                Patient.Identity =
+                                    ehr.Patient.Identity |> Option.map (fun idn -> { idn with Name = "Renamed" })
+                            }
 
                         let record, _, whom, _, _ =
                             signedAt (opened "s-1" (Some ehr) None) (challengeOver (Some renamed))

@@ -1328,25 +1328,28 @@ module Tests =
                         testList
                             "PatientAge"
                             [
-                                test "the days lived of a birth date are the date difference" {
-                                    bd 2018 3 1
-                                    |> PatientAge.birthDate
-                                    |> PatientAge.daysLived (date 2028 3 1)
-                                    |> Expect.equal "3653 days" (Some 3653<day>)
-                                }
-
-                                test "an age value has no days lived" {
-                                    AgeValue.ten
-                                    |> PatientAge.ageValue
-                                    |> PatientAge.daysLived (date 2028 3 1)
-                                    |> Expect.isNone "no birth date"
-                                }
-
-                                test "the post-menstrual age of a birth date is the gestational age plus the days lived" {
+                                test
+                                    "the post-menstrual age of a birth date is the gestational age plus the age in days" {
                                     bd 2026 1 31
                                     |> PatientAge.birthDate
                                     |> PatientAge.postMenstrualAgeInDays (date 2026 3 30) 182<day>
-                                    |> Expect.equal "182 plus 58 days" (Some 240<day>)
+                                    |> Expect.equal "182 plus 59 days" (Some 241<day>)
+                                }
+
+                                test "the post-menstrual age is the gestational age plus the age in days the rules see" {
+                                    let birth = bd 2016 2 29 |> PatientAge.birthDate
+
+                                    [ 0..1500 ]
+                                    |> List.map (float >> (date 2016 2 29).AddDays)
+                                    |> List.filter (fun dt ->
+                                        (birth |> PatientAge.postMenstrualAgeInDays dt 182<day>)
+                                        <> (birth
+                                            |> PatientAge.ageInDays dt
+                                            |> Option.map (
+                                                ValueUnits.ValueUnit.Measures.toSingleIntDay >> (+) 182<day>
+                                            ))
+                                    )
+                                    |> Expect.isEmpty "no day differs"
                                 }
 
                                 test
@@ -1357,23 +1360,15 @@ module Tests =
                                     |> Expect.equal "182 plus 59 days" (Some 241<day>)
                                 }
 
-                                test "the post-menstrual age of a patient in weeks and days, from the days lived" {
-                                    Patient.create
-                                        "p1"
-                                        "Test"
-                                        Department.unknown
-                                        [||]
-                                        UnknownGender
-                                        (bd 2016 3 15 |> PatientAge.birthDate)
-                                        (Weight.create [] None [] None)
-                                        (Height.create [] None None)
-                                        (Some(AgeWeeksDays.create 26<week> 0<day>))
-                                        UnknownEnteral
-                                        UnknownVenous
+                                test "the post-menstrual age of a patient in weeks and days, from the age in days" {
+                                    { PatientData.unknown with
+                                        GestationalAge = Some(AgeWeeksDays.create 26<week> 0<day>)
+                                    }
+                                    |> Patient.create (PatientIdentity.create "p1" "Test" (bd 2016 3 15) |> Some)
                                     |> Patient.calcPostMenstrualAge (date 2016 5 10)
                                     |> Expect.equal
-                                        "26 weeks plus 56 days lived is 34 weeks"
-                                        (Some(AgeWeeksDays.create 34<week> 0<day>))
+                                        "26 weeks plus 55 days is 33 weeks and 6 days"
+                                        (Some(AgeWeeksDays.create 33<week> 6<day>))
                                 }
 
                                 test "an unknown age has no post-menstrual age" {
@@ -1433,6 +1428,20 @@ module Tests =
                                 | Ok _ -> false
                                 | Error _ -> true
                             |> Expect.isTrue "doesn't exceed 6"
+                        }
+
+                        test "a post-menstrual age is read from 20 weeks to 52 weeks plus the maximum age" {
+                            let read weeks =
+                                let dto = AgeWeeksDays.Dto.dto ()
+                                dto.Weeks <- weeks
+                                dto |> AgeWeeksDays.Dto.fromPostMenstrualDto |> Result.isOk
+
+                            let max = AgeWeeksDays.Validation.maxPostMenstrualWeeks
+
+                            (max, [ 20; 53; max ] |> List.map read, [ 19; max + 1 ] |> List.map read)
+                            |> Expect.equal
+                                "52 plus 6257 weeks; within read, outside not"
+                                (52 + 6257, [ true; true; true ], [ false; false ])
                         }
 
                         test "preterm < full-term" {
@@ -1525,83 +1534,155 @@ module Tests =
                     ]
 
         let tests =
+            let date (y: int) (m: int) (d: int) = DateTime(y, m, d)
+
+            let bd y m d =
+                BirthDate.create (Conversions.yearFromInt y) (Conversions.monthFromInt m) (Conversions.dayFromInt d)
+
+            let stub = PatientIdentity.create "p1" "Stub Testpatiënt" (bd 2016 3 15)
+
+            let thereAndBack pat =
+                pat |> Patient.Dto.toDto |> Patient.Dto.fromDto |> Result.mapError string
+
             testList
                 "Patient tests"
                 [
-
-                    test "unknown patient" {
-                        Patient.unknown
-                        |> Patient.Dto.toDto
-                        |> Patient.Dto.fromDto
-                        |> function
-                            | Ok pat -> pat = Patient.unknown
-                            | Error errs ->
-                                printfn $"{errs}"
-                                false
-                        |> Expect.isTrue "there and back again"
+                    test "the unknown patient is anonymous, of unknown age" {
+                        Patient.unknown.Identity |> Expect.isNone "no identity"
+                        Patient.unknown |> Patient.age |> Expect.equal "unknown age" PatientAge.unknown
                     }
 
-                    test "the id, the name and the department go there and back" {
+                    test "the unknown patient goes there and back" {
+                        Patient.unknown |> thereAndBack |> Expect.equal "the same" (Ok Patient.unknown)
+                    }
+
+                    test "an identified patient goes there and back" {
                         let pat =
-                            { Patient.unknown with
-                                Id = "p1"
-                                Name = "Stub Testpatiënt"
-                                Department = Department.pediatricICU "ICK"
-                            }
+                            { PatientData.unknown with Department = Department.pediatricICU "ICK" }
+                            |> Patient.create (Some stub)
 
-                        pat
-                        |> Patient.Dto.toDto
-                        |> Patient.Dto.fromDto
-                        |> Expect.equal "there and back again" (Ok pat)
+                        pat |> thereAndBack |> Expect.equal "the same" (Ok pat)
                     }
 
-                    test "the identity is the id, the name and the birthdate" {
-                        let bd = BirthDate.create 2016<year> 3<month> 15<day>
+                    test "the newborn patient goes there and back" {
+                        let newBorn = NewBorn |> Patient.fromAgeType UnknownGender DateTime.Now
 
-                        let pat =
-                            { Patient.unknown with
-                                Id = "p1"
-                                Name = "Stub Testpatiënt"
-                                Age = PatientAge.birthDate bd
-                            }
-
-                        pat
-                        |> Patient.identity
-                        |> Expect.equal
-                            "the identity"
-                            (Some
-                                {
-                                    Id = "p1"
-                                    Name = "Stub Testpatiënt"
-                                    BirthDate = bd
-                                })
+                        newBorn |> thereAndBack |> Expect.equal "the same" (Ok newBorn)
                     }
 
-                    test "no id, no name, or an age value in place of a birthdate, is no identity" {
-                        let bd = BirthDate.create 2016<year> 3<month> 15<day>
+                    test "the age of an identified patient is the birthdate of the identity" {
+                        PatientData.unknown
+                        |> Patient.create (Some stub)
+                        |> Patient.age
+                        |> Expect.equal "the birthdate" (bd 2016 3 15 |> PatientAge.birthDate)
+                    }
+
+                    test "the age of an anonymous patient is the age value of the data" {
+                        { PatientData.unknown with Age = Some AgeValue.ten }
+                        |> Patient.create None
+                        |> Patient.age
+                        |> Expect.equal "the age value" (AgeValue.ten |> PatientAge.ageValue)
+                    }
+
+                    test "a part of an identity in a Dto is an error" {
+                        let withIdentity id name birth =
+                            let dto = Patient.unknown |> Patient.Dto.toDto
+                            dto.Id <- id
+                            dto.Name <- name
+                            dto.BirthDate <- birth |> Option.map BirthDate.Dto.toDto
+                            dto
 
                         [
                             // entered by hand: a name and a birthdate, no id
-                            { Patient.unknown with
-                                Name = "Stub Testpatiënt"
-                                Age = PatientAge.birthDate bd
-                            }
-                            { Patient.unknown with
-                                Id = "p1"
-                                Age = PatientAge.birthDate bd
-                            }
-                            { Patient.unknown with
-                                Id = "p1"
-                                Name = "Stub Testpatiënt"
-                                Age = PatientAge.ageValue AgeValue.ten
-                            }
-                            { Patient.unknown with
-                                Id = "p1"
-                                Name = "Stub Testpatiënt"
-                            }
+                            withIdentity "" "Stub Testpatiënt" (Some(bd 2016 3 15))
+                            withIdentity "p1" "" (Some(bd 2016 3 15))
+                            withIdentity "p1" "Stub Testpatiënt" None
+                            withIdentity "" "" (Some(bd 2016 3 15))
                         ]
-                        |> List.map Patient.identity
-                        |> Expect.allEqual "none" None
+                        |> List.map (Patient.Dto.fromDto >> Result.isError)
+                        |> Expect.allEqual "an error" true
+                    }
+
+                    test "an age value beside a birthdate in a Dto is an error" {
+                        let dto = PatientData.unknown |> Patient.create (Some stub) |> Patient.Dto.toDto
+
+                        dto.Age <- AgeValue.ten |> AgeValue.Dto.toDto |> Some
+
+                        dto |> Patient.Dto.fromDto |> Result.isError |> Expect.isTrue "an error"
+                    }
+
+                    test "the post-menstrual age of an anonymous patient counts the age value" {
+                        { PatientData.unknown with
+                            Age = AgeValue.create None None (Some 8<week>) None |> Some
+                            GestationalAge = Some(AgeWeeksDays.create 26<week> 0<day>)
+                        }
+                        |> Patient.create None
+                        |> Patient.calcPostMenstrualAge (date 2016 5 10)
+                        |> Expect.equal "26 weeks plus 8 weeks is 34 weeks" (Some(AgeWeeksDays.create 34<week> 0<day>))
+                    }
+
+                    test "identified and anonymous give the same post-menstrual age over every day of two years" {
+                        let birth = bd 2026 1 31
+                        let gest = Some(AgeWeeksDays.create 26<week> 0<day>)
+
+                        let identified dt =
+                            { PatientData.unknown with GestationalAge = gest }
+                            |> Patient.create (PatientIdentity.create "p1" "Test" birth |> Some)
+                            |> Patient.atDate dt
+
+                        let anonymous dt =
+                            { PatientData.unknown with
+                                GestationalAge = gest
+                                Age = birth |> AgeValue.fromBirthDate dt |> Some
+                            }
+                            |> Patient.create None
+                            |> Patient.atDate dt
+
+                        [ 0..730 ]
+                        |> List.map (float >> (date 2026 1 31).AddDays)
+                        |> List.filter (fun dt ->
+                            (identified dt).Data.PostMenstrualAge <> (anonymous dt).Data.PostMenstrualAge
+                        )
+                        |> Expect.isEmpty "no day differs"
+                    }
+
+                    test "a patient is made without a post-menstrual age; at a date it is calculated" {
+                        let pat =
+                            { PatientData.unknown with GestationalAge = Some(AgeWeeksDays.create 26<week> 0<day>) }
+                            |> Patient.create (Some stub)
+
+                        (pat.Data.PostMenstrualAge, (pat |> Patient.atDate (date 2016 5 10)).Data.PostMenstrualAge)
+                        |> Expect.equal
+                            "none, then 33 weeks and 6 days"
+                            (None, Some(AgeWeeksDays.create 33<week> 6<day>))
+                    }
+
+                    test "no gestational age, no post-menstrual age at a date" {
+                        { PatientData.unknown with Age = Some AgeValue.ten }
+                        |> Patient.create None
+                        |> Patient.atDate (date 2016 5 10)
+                        |> _.Data.PostMenstrualAge
+                        |> Expect.isNone "none"
+                    }
+
+                    test "the calculated post-menstrual age goes there and back, also above 52 weeks" {
+                        let pat =
+                            { PatientData.unknown with GestationalAge = Some(AgeWeeksDays.create 26<week> 0<day>) }
+                            |> Patient.create (Some stub)
+                            |> Patient.atDate (date 2017 3 15)
+
+                        pat.Data.PostMenstrualAge
+                        |> Expect.equal "26 weeks plus a year" (Some(AgeWeeksDays.create 78<week> 1<day>))
+
+                        pat |> thereAndBack |> Expect.equal "the same" (Ok pat)
+                    }
+
+                    test "the patient as strings has no name and no id" {
+                        PatientData.unknown
+                        |> Patient.create (Some stub)
+                        |> Patient.toString (date 2026 3 15)
+                        |> List.exists (fun s -> s.Contains "Stub" || s.Contains "p1")
+                        |> Expect.isFalse "no identity"
                     }
 
                     test "the department's name is the ward's own; any, unknown or nameless is none" {
@@ -1616,22 +1697,6 @@ module Tests =
                         |> List.map (fun (dep, exp) -> dep |> Department.name, exp)
                         |> List.iter (fun (act, exp) -> act |> Expect.equal "the name" exp)
                     }
-
-                    test "newborn patient" {
-                        let newBorn = NewBorn |> Patient.fromAgeType UnknownGender DateTime.Now
-
-                        newBorn
-                        |> Patient.Dto.toDto
-                        |> Patient.Dto.fromDto
-                        |> function
-                            | Ok pat -> pat = newBorn
-                            | Error errs ->
-                                printfn $"{errs}"
-                                false
-                        |> Expect.isTrue "there and back again"
-                    }
-
-
                 ]
 
 

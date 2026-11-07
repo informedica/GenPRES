@@ -345,13 +345,10 @@ let estimateTests =
 
                 let premature =
                     { ehr with
-                        Patient =
-                            { ehr.Patient with
-                                GestationalAge =
-                                    Informedica.GenCore.Lib.Patients.AgeWeeksDays.create 26<week> 0<day> |> Some
-                                Weight = Informedica.GenCore.Lib.Patients.Weight.unknown
-                                Height = Informedica.GenCore.Lib.Patients.Height.unknown
-                            }
+                        Patient.Data.GestationalAge =
+                            Informedica.GenCore.Lib.Patients.AgeWeeksDays.create 26<week> 0<day> |> Some
+                        Patient.Data.Weight = Informedica.GenCore.Lib.Patients.Weight.unknown
+                        Patient.Data.Height = Informedica.GenCore.Lib.Patients.Height.unknown
                     }
 
                 let port = ServerApi.StubPatientData.port
@@ -371,11 +368,8 @@ let estimateTests =
 
                 let bare =
                     { ehr with
-                        Patient =
-                            { ehr.Patient with
-                                Weight = Informedica.GenCore.Lib.Patients.Weight.unknown
-                                Height = Informedica.GenCore.Lib.Patients.Height.unknown
-                            }
+                        Patient.Data.Weight = Informedica.GenCore.Lib.Patients.Weight.unknown
+                        Patient.Data.Height = Informedica.GenCore.Lib.Patients.Height.unknown
                     }
 
                 let port = ServerApi.StubPatientData.port

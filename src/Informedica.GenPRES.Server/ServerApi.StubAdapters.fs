@@ -197,18 +197,17 @@ module StubPatientData =
         let weight = WeightAtDate.create measuredOn (WeightValue.weightInKg 32m)
         let height = HeightAtDate.create measuredOn (HeightValue.heightInCm 140m)
 
-        Patient.create
-            pid
-            name
+        PatientData.create
             Department.unknown
             [||]
             UnknownGender
-            (PatientAge.birthDate birthDate)
+            None
             (Weight.create [ weight ] None [] (Some weight))
             (Height.create [ height ] None (Some height))
             None
             UnknownEnteral
             UnknownVenous
+        |> Patient.create (PatientIdentity.create pid name birthDate |> Some)
         |> fun pat -> Informedica.GenForm.Lib.EhrPatientData.create pat None []
 
 
@@ -304,25 +303,23 @@ module StubPatientData =
         let weight = WeightAtDate.create measuredOn tp.Weight
         let height = HeightAtDate.create measuredOn tp.Height
 
-        let age =
+        let identity =
             tp.Age
             |> PatientAge.ageValue
             |> PatientAge.getBirthDate measuredOn
-            |> Option.map PatientAge.birthDate
-            |> Option.defaultValue PatientAge.unknown
+            |> Option.map (PatientIdentity.create tp.Id tp.Name)
 
-        Patient.create
-            tp.Id
-            tp.Name
+        PatientData.create
             tp.Department
             [||]
             tp.Gender
-            age
+            None
             (Weight.create [ weight ] None [] (Some weight))
             (Height.create [ height ] None (Some height))
             tp.GestationalAge
             UnknownEnteral
             UnknownVenous
+        |> Patient.create identity
         |> fun pat -> Informedica.GenForm.Lib.EhrPatientData.create pat None []
 
 
