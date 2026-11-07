@@ -289,6 +289,7 @@ let machineTests =
 
                 let state, challenge, _ =
                     Session.challenge
+                        TimeZoneInfo.Utc
                         t0
                         newId
                         StubDatabase.digest
@@ -313,7 +314,16 @@ let machineTests =
                     }
 
                 let _, answer, writes =
-                    Session.commit t0 newId StubDatabase.digest Store.registry ignore sid (signature "1234" "k-1") state
+                    Session.commit
+                        TimeZoneInfo.Utc
+                        t0
+                        newId
+                        StubDatabase.digest
+                        Store.registry
+                        ignore
+                        sid
+                        (signature "1234" "k-1")
+                        state
 
                 match answer with
                 | SigningOutcome.Submitted _ ->
@@ -334,7 +344,16 @@ let machineTests =
 
                 // three wrong PINs: the last ends the Session
                 let wrong (state, _, _) key =
-                    Session.commit t0 newId StubDatabase.digest Store.registry ignore sid (signature "9999" key) state
+                    Session.commit
+                        TimeZoneInfo.Utc
+                        t0
+                        newId
+                        StubDatabase.digest
+                        Store.registry
+                        ignore
+                        sid
+                        (signature "9999" key)
+                        state
 
                 let _, last, writes = [ "w-2"; "w-3" ] |> List.fold wrong (wrong (state, (), []) "w-1")
 
@@ -370,6 +389,7 @@ let portOver (store: StubDatabase.SessionStore) =
     let port =
         StubDatabase.makeSessionPortWith
             store
+            TimeZoneInfo.Utc
             Session.defaultIdleLifetime
             (fun () -> t0)
             (ids ())
@@ -655,6 +675,7 @@ let flightWrites =
 
                         match
                             Session.challenge
+                                TimeZoneInfo.Utc
                                 t0
                                 newId
                                 StubDatabase.digest
@@ -697,6 +718,7 @@ let flightWrites =
 
                 let issue state =
                     Session.challenge
+                        TimeZoneInfo.Utc
                         t0
                         newId
                         StubDatabase.digest
@@ -730,6 +752,7 @@ let flightWrites =
                 // a challenge first, then data the Session did not open on
                 let state, _, _ =
                     Session.challenge
+                        TimeZoneInfo.Utc
                         t0
                         newId
                         StubDatabase.digest
@@ -742,6 +765,7 @@ let flightWrites =
                 // the EHR now says another ward
                 let _, answer, writes =
                     Session.challenge
+                        TimeZoneInfo.Utc
                         t0
                         newId
                         StubDatabase.digest
@@ -768,6 +792,7 @@ let flightWrites =
                     let token = state.Sessions[sid].Opened.OpenedToken.Value
 
                     Session.challenge
+                        TimeZoneInfo.Utc
                         t0
                         newId
                         StubDatabase.digest
@@ -802,7 +827,16 @@ let flightWrites =
                     }
 
                 let state, answer, _ =
-                    Session.commit t0 newId StubDatabase.digest Store.registry ignore sid signature state
+                    Session.commit
+                        TimeZoneInfo.Utc
+                        t0
+                        newId
+                        StubDatabase.digest
+                        Store.registry
+                        ignore
+                        sid
+                        signature
+                        state
 
                 match answer with
                 | SigningOutcome.Submitted _ -> ()
@@ -828,6 +862,7 @@ let flightWrites =
 
                 let state, challenge, _ =
                     Session.challenge
+                        TimeZoneInfo.Utc
                         t0
                         newId
                         StubDatabase.digest
@@ -852,7 +887,16 @@ let flightWrites =
                     }
 
                 let state, answer, writes =
-                    Session.commit t0 newId StubDatabase.digest Store.registry ignore sid signature state
+                    Session.commit
+                        TimeZoneInfo.Utc
+                        t0
+                        newId
+                        StubDatabase.digest
+                        Store.registry
+                        ignore
+                        sid
+                        signature
+                        state
 
                 writes
                 |> List.exists (
@@ -864,7 +908,16 @@ let flightWrites =
 
                 // the same Submission again: the answer it already has, and only the heartbeat
                 let _, again, writes =
-                    Session.commit t0 newId StubDatabase.digest Store.registry ignore sid signature state
+                    Session.commit
+                        TimeZoneInfo.Utc
+                        t0
+                        newId
+                        StubDatabase.digest
+                        Store.registry
+                        ignore
+                        sid
+                        signature
+                        state
 
                 again |> Expect.equal "answered as the first time" answer
 

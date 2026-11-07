@@ -10,6 +10,8 @@ open Informedica.Utils.Lib.BCL
 open Informedica.GenUnits.Lib
 open ServerApi
 
+module CoreBirthDate = Informedica.GenCore.Lib.Patients.BirthDate
+
 module Store = Informedica.GenPRES.Server.Tests.SessionStoreTests
 module GenFormPatient = Informedica.GenForm.Lib.Patient
 module EhrPatientData = Informedica.GenForm.Lib.EhrPatientData
@@ -106,16 +108,16 @@ let challengeOver (read: Informedica.GenForm.Lib.Types.EhrPatientData option) : 
     }
 
 
-/// The commit at tomorrow, over the Session and the challenge given, through the port whose
-/// projection moves with the clock.
-let signedAt (record: string * Session.SessionRecord) (challenge: Session.Challenge) =
+/// The commit in a time zone at a moment, over the Session and the challenge given.
+let signedIn zone at (record: string * Session.SessionRecord) (challenge: Session.Challenge) =
     let sid, _ = record
 
     let state = { Store.stateOf [ record ] [] with Challenges = Map.ofList [ sid, challenge ] }
 
     let state, answer, _ =
         Session.commit
-            tomorrow
+            zone
+            at
             (Store.counter "id")
             StubDatabase.digest
             Store.registry
@@ -129,6 +131,11 @@ let signedAt (record: string * Session.SessionRecord) (challenge: Session.Challe
     | other -> failtest $"expected Submitted, got %A{other}"
 
 
+/// The commit at tomorrow, over the Session and the challenge given, through the port whose
+/// projection moves with the clock.
+let signedAt record challenge = signedIn TimeZoneInfo.Utc tomorrow record challenge
+
+
 let ageInDays (pat: Informedica.GenForm.Lib.Types.Patient) =
     pat.Age
     |> Option.map (ValueUnit.convertTo Units.Time.day >> ValueUnit.getValue >> Array.head)
@@ -139,11 +146,139 @@ let weightInKg (pat: Informedica.GenForm.Lib.Types.Patient) =
     |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram >> ValueUnit.getValue >> Array.head)
 
 
+/// The default time zone, looked up when a test asks for it.
+let amsterdam () = LocalDate.defaultZone ()
+
+
+let utc (y, mo, d, h, mi) = DateTime(y, mo, d, h, mi, 0, DateTimeKind.Utc)
+
+
+let localDateTests =
+    testList
+        "the age on the local date"
+        [
+            testList
+                "LocalDate.ofUtc"
+                [
+                    test "a winter moment after local midnight is the next local day" {
+                        utc (2026, 11, 7, 23, 30)
+                        |> LocalDate.ofUtc (amsterdam ())
+                        |> Expect.equal "8 November" (DateTime(2026, 11, 8))
+                    }
+
+                    test "a summer moment after local midnight is the next local day" {
+                        utc (2026, 7, 7, 22, 30)
+                        |> LocalDate.ofUtc (amsterdam ())
+                        |> Expect.equal "8 July" (DateTime(2026, 7, 8))
+                    }
+
+                    test "a summer moment before local midnight stays on the day" {
+                        utc (2026, 7, 7, 21, 59)
+                        |> LocalDate.ofUtc (amsterdam ())
+                        |> Expect.equal "7 July" (DateTime(2026, 7, 7))
+                    }
+
+                    test "the UTC zone gives the UTC date" {
+                        utc (2026, 11, 7, 23, 30)
+                        |> LocalDate.ofUtc TimeZoneInfo.Utc
+                        |> Expect.equal "7 November" (DateTime(2026, 11, 7))
+                    }
+
+                    test "a moment without a kind is taken as UTC" {
+                        DateTime(2026, 11, 7, 23, 30, 0)
+                        |> LocalDate.ofUtc (amsterdam ())
+                        |> Expect.equal "8 November" (DateTime(2026, 11, 8))
+                    }
+                ]
+
+            testList
+                "the 18th birthday just after local midnight"
+                [
+                    // born 8 November 2008; at 00:30 Dutch time on 8 November 2026 the patient is 18
+                    let whom: Informedica.GenCore.Lib.Patients.PatientIdentity option =
+                        Some
+                            {
+                                Id = "p-18"
+                                Name = "Eighteen"
+                                BirthDate = DateTime(2008, 11, 8) |> CoreBirthDate.fromDate
+                            }
+
+                    let moment = utc (2026, 11, 7, 23, 30)
+                    let pat = Informedica.GenForm.Lib.Patient.patient
+
+                    test "on the local date the patient is 18 years, 6570 days" {
+                        pat
+                        |> Session.atBirthDate (moment |> LocalDate.ofUtc (amsterdam ())) whom
+                        |> ageInDays
+                        |> Expect.equal "18 x 365" (Some 6570N)
+                    }
+
+                    test "on the UTC date the patient is still 17" {
+                        pat
+                        |> Session.atBirthDate (moment |> LocalDate.ofUtc TimeZoneInfo.Utc) whom
+                        |> ageInDays
+                        |> Option.map (fun d -> d < 6570N)
+                        |> Expect.equal "under 18" (Some true)
+                    }
+                ]
+
+            testList
+                "commit and challenge just after local midnight"
+                [
+                    // 23:30 UTC on 26 September is 01:30 on 27 September in Amsterdam (CEST)
+                    let lateEvening = today.AddHours 23.5
+
+                    test "a sign at 23:30 UTC answers the patient a day older in Amsterdam than in UTC" {
+                        let inZone zone =
+                            let _, _, _, _, patient =
+                                signedIn zone lateEvening (opened "s-1" (Some ehr) None) (challengeOver (Some ehr))
+
+                            patient |> ageInDays
+
+                        (inZone (amsterdam ()), inZone TimeZoneInfo.Utc)
+                        |> Expect.equal "3842 in Amsterdam, 3841 in UTC" (Some 3842N, Some 3841N)
+                    }
+
+                    test "a data notice over a Session opened at 23:30 UTC has the age of the local date of the open" {
+                        let inZone zone =
+                            let sid, record = opened "s-1" (Some heavier) None
+                            let record =
+                                { record with
+                                    OpenedAt = lateEvening
+                                    Seen = lateEvening
+                                }
+                            let state = Store.stateOf [ sid, record ] []
+
+                            let _, outcome, _ =
+                                Session.challenge
+                                    zone
+                                    lateEvening
+                                    (Store.counter "id")
+                                    StubDatabase.digest
+                                    port
+                                    Store.registry
+                                    sid
+                                    (plan, Store.token sid, None)
+                                    state
+
+                            match outcome with
+                            | SigningOutcome.DataNotice(_, data) -> data |> Option.bind ageInDays
+                            | other -> failtest $"expected DataNotice, got %A{other}"
+
+                        (inZone (amsterdam ()), inZone TimeZoneInfo.Utc)
+                        |> Expect.equal "3842 in Amsterdam, 3841 in UTC" (Some 3842N, Some 3841N)
+                    }
+                ]
+        ]
+
+
 [<Tests>]
 let tests =
     testList
         "the version's identity and the age after the sign"
         [
+            localDateTests
+
             testList
                 "whom a Session is for"
                 [

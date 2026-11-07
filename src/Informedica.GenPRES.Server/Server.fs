@@ -54,6 +54,8 @@ module Config =
             /// GENPRES_SESSION_IDLE_MINUTES, raw; None when unset or blank. Parsed by
             /// parseSessionIdle.
             SessionIdle: string option
+            /// GENPRES_TIME_ZONE, raw; None when unset or blank. Parsed by parseTimeZone.
+            TimeZone: string option
         }
 
 
@@ -255,16 +257,34 @@ module Config =
                       Leave it unset for the default of %i{int ServerApi.Session.defaultIdleLifetime.TotalMinutes} minutes."
 
 
+    /// GENPRES_TIME_ZONE as the time zone an age is taken in: unset or blank is the default of
+    /// Europe/Amsterdam, a time zone id the system knows is that zone, and anything else is the
+    /// message the server refuses to start with, so that a mistyped zone does not shift every age.
+    let parseTimeZone (raw: string option) : Result<System.TimeZoneInfo, string> =
+        let id =
+            raw
+            |> Option.map _.Trim()
+            |> nonBlank
+            |> Option.defaultValue ServerApi.LocalDate.defaultZoneId
+
+        ServerApi.LocalDate.zoneOf id
+        |> Result.mapError (fun _ ->
+            $"GENPRES_TIME_ZONE is '%s{id}', not a time zone this system knows. \
+              Use an IANA id such as Europe/Amsterdam, or leave it unset for %s{ServerApi.LocalDate.defaultZoneId}."
+        )
+
+
     /// <summary>
     /// Every start-up guard in one place: the session store, debugging in production, the idle
-    /// lifetime, the production password policy, the language, then the presence of <c>GENPRES_URL_ID</c>. <c>Ok</c> carries
-    /// the URL ID the host needs and the warnings to print; <c>Error</c> is the
-    /// message the server exits with.
+    /// lifetime, the time zone, the production password policy, the language, then the presence
+    /// of <c>GENPRES_URL_ID</c>. <c>Ok</c> carries the URL ID the host needs and the warnings to
+    /// print; <c>Error</c> is the message the server exits with.
     /// </summary>
     let validateStartup (settings: Settings) : Result<Startup, string> =
         validateStore settings.IsProd settings.DbConnection
         |> Result.bind (fun () -> validateProductionDebug settings.IsProd settings.Log settings.Debug)
         |> Result.bind (fun () -> parseSessionIdle settings.SessionIdle)
+        |> Result.bind (fun _ -> parseTimeZone settings.TimeZone)
         |> Result.bind (fun _ -> validateProductionPassword settings.IsProd settings.Password)
         |> Result.bind (fun warning ->
             language settings
@@ -317,6 +337,7 @@ module Config =
             Lang = getEnv "GENPRES_LANG" |> nonBlank
             DbConnection = getEnv "GENPRES_DB_CONNECTION" |> nonBlank
             SessionIdle = getEnv "GENPRES_SESSION_IDLE_MINUTES" |> nonBlank
+            TimeZone = getEnv "GENPRES_TIME_ZONE" |> nonBlank
         }
 
 
@@ -337,6 +358,8 @@ GENPRES_DB_CONNECTION = {if settings.DbConnection.IsSome then
                          else
                              "unset (in-memory session store)"}
 GENPRES_SESSION_IDLE_MINUTES = {settings.SessionIdle |> Option.defaultValue "unset (an hour)"}
+GENPRES_TIME_ZONE = {settings.TimeZone
+                     |> Option.defaultValue $"unset ({ServerApi.LocalDate.defaultZoneId})"}
 
 === System Info ===
 
@@ -696,9 +719,10 @@ module Host =
                 Adapters.makeAppEnvWith
                     (not settings.IsProd)
                     settings.DbConnection
-                    // validated at the start, so the fallback is dead
-                    (Config.parseSessionIdle settings.SessionIdle
-                     |> Result.defaultValue Session.defaultIdleLifetime)
+                    // validated at the start, so the error cannot happen
+                    (Config.parseTimeZone settings.TimeZone |> Result.defaultWith invalidOp)
+                    // validated at the start, so the error cannot happen
+                    (Config.parseSessionIdle settings.SessionIdle |> Result.defaultWith invalidOp)
                     launchKey
                     directory
                     mail.port

@@ -532,6 +532,7 @@ GENPRES_PASSWORD=<password>    # Admin password, see policy below
 GENPRES_ROOT=<path>            # Directory holding data/; unset resolves from .env, then data/zindex, then cwd
 GENPRES_DB_CONNECTION=<conn>   # SQLite session store; unset = in-memory
 GENPRES_SESSION_IDLE_MINUTES=60 # A Session with no request this long ends; unset = 60, not a positive whole number refuses the start
+GENPRES_TIME_ZONE=Europe/Amsterdam # Time zone a patient's age is taken in; unset = Europe/Amsterdam, an unknown id refuses the start
 GENPRES_TRUSTED_PROXIES=<ips>  # Comma-separated IPs whose X-Forwarded-For is believed; unset = loopback only
 SERVER_PORT=8085               # Kestrel's listen port (no GENPRES_ prefix); the Vite dev proxy targets it
 ```
@@ -542,6 +543,15 @@ SERVER_PORT=8085               # Kestrel's listen port (no GENPRES_ prefix); the
 and falls back to Dutch until then. Accepted values are the ISO 639-1 codes `en`, `nl`, `fr`, `de`,
 `es`, `it` in any case; a display name such as `Nederlands` is not. Unset means `nl`; any other value
 makes the server refuse to start. An `lan=` URL parameter and a language the user picks both override it.
+
+#### Time zone
+
+`GENPRES_TIME_ZONE` is the time zone whose calendar date a patient's age is taken on, an IANA id
+such as `Europe/Amsterdam`. A patient is a day older at local midnight, so on the 18th birthday the
+patient is 18 from 00:00 local time, not from 01:00 (CET) or 02:00 (CEST) when the UTC date turns.
+Unset means `Europe/Amsterdam`; an id the system does not know makes the server refuse to start.
+Session lifetimes and the stored timestamps stay in UTC. The server reads the zone from the
+system's time zone database, which the Debian-based `aspnet` runtime image ships.
 
 #### Password policy
 

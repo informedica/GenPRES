@@ -429,6 +429,48 @@ let sessionIdleTests =
         ]
 
 
+let timeZoneTests =
+    let settings (m: Map<string, string>) = Config.fromEnv (fun key -> m |> Map.tryFind key)
+
+    testList
+        "GENPRES_TIME_ZONE"
+        [
+            for raw in [ None; Some ""; Some "   " ] do
+                test $"%A{raw} is Europe/Amsterdam" {
+                    raw
+                    |> Config.parseTimeZone
+                    |> Result.map _.Id
+                    |> Expect.equal "the default" (Ok "Europe/Amsterdam")
+                }
+
+            test "a known id is taken, trimmed" {
+                Some " UTC "
+                |> Config.parseTimeZone
+                |> Result.map _.Id
+                |> Expect.equal "UTC" (Ok "UTC")
+            }
+
+            test "fromEnv reads it, blank as unset" {
+                (Map [ "GENPRES_TIME_ZONE", "Europe/London" ] |> settings).TimeZone
+                |> Expect.equal "raw" (Some "Europe/London")
+
+                (Map [ "GENPRES_TIME_ZONE", " " ] |> settings).TimeZone |> Expect.isNone "blank"
+            }
+
+            test "a zone the system does not know refuses the start, naming the setting and the value" {
+                match
+                    Map [ "GENPRES_URL_ID", "sheet-id"; "GENPRES_TIME_ZONE", "Mars/Olympus" ]
+                    |> settings
+                    |> Config.validateStartup
+                with
+                | Error msg ->
+                    msg |> Expect.stringContains "names the setting" "GENPRES_TIME_ZONE"
+                    msg |> Expect.stringContains "names the value" "Mars/Olympus"
+                | Ok _ -> failtest "expected a refused start"
+            }
+        ]
+
+
 let productionDebugTests =
     let settings (m: Map<string, string>) = Config.fromEnv (fun key -> m |> Map.tryFind key)
 
@@ -517,5 +559,6 @@ let tests =
             fromEnvTests
             languageTests
             sessionIdleTests
+            timeZoneTests
             productionDebugTests
         ]

@@ -61,6 +61,7 @@ let portAt (clock: DateTime ref) (initial: Session.State) =
 
     StubDatabase.makeSessionPortWith
         StubDatabase.inMemory
+        TimeZoneInfo.Utc
         hour
         (fun () -> clock.Value)
         (fun () -> $"id-{Guid.NewGuid()}")
