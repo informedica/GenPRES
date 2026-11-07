@@ -49,19 +49,6 @@ module DateTime =
 
 
     //----------------------------------------------------------------------------
-    // Conversions functions
-    //----------------------------------------------------------------------------
-
-
-    /// Get the days of the current year
-    let daysInYear () = ((now ()).AddYears(1) - now ()).Days
-
-
-    /// Estimate the days in a month using days in current year
-    let daysInMonth () = daysInYear () / 12
-
-
-    //----------------------------------------------------------------------------
     // Calculation functions
     //----------------------------------------------------------------------------
 
@@ -92,22 +79,6 @@ module DateTime =
     /// where the first is subtracted with the second, i.e.
     /// dt1 - dt2
     let dateDiffDays dt1 dt2 = (dateDiff dt1 dt2).Days
-
-
-    /// Calculate the difference between two DateTimes in months
-    /// where the first is subtracted with the second, i.e.
-    /// dt1 - dt2
-    let dateDiffMonths dt1 dt2 =
-        (dateDiffDays dt1 dt2) |> float |> (fun x -> x / 365.) |> ((*) 12.)
-
-
-    /// Calculate the difference between two DateTimes in years and months
-    /// where the first is subtracted with the second, i.e.
-    /// dt1 - dt2.
-    /// Returns a tuple of years and months
-    let dateDiffYearsMonths dt1 dt2 =
-        let mos = (dateDiffMonths dt1 dt2) |> int
-        (mos / 12), (mos % 12)
 
 
     //----------------------------------------------------------------------------
@@ -161,49 +132,3 @@ module DateTime =
         let d, w = d % 7, d / 7
 
         y, m, w, correct y m w d dtFirst dtLast
-
-
-    /// Calculate the first (birth) date from an age
-    /// in years, months, weeks and days such using an
-    /// end date dt.
-    let ageToDate yr mo wk ds dt =
-        (dt |> get)
-        |> addYears (-1 * yr)
-        |> addMonths (-1 * mo)
-        |> addWeeks (-1 * wk)
-        |> addDays (-1 * ds)
-
-
-    /// Calculate the age using the current date as end date
-    let ageNow = age DateTime.Now
-
-
-    /// Print the age in years, months, weeks and days, parameterized by
-    /// singular and plural forms of the words for years, months, weeks and days.
-    let ageToString years months weeks days age =
-        let pluralize n s =
-            match n with
-            | 0 -> ""
-            | 1 -> n.ToString() + " " + (s |> fst)
-            | _ -> n.ToString() + " " + (s |> snd)
-
-        let yr, mo, wk, d = age
-
-        let s =
-            match yr, mo with
-            | _ when yr > 10 -> pluralize yr years
-            | _ when yr > 0 -> pluralize yr years + " " + pluralize mo months
-            | _ when mo > 0 -> pluralize mo months + " " + pluralize wk weeks
-            | _ -> pluralize wk weeks + " " + pluralize d days
-
-        s.Trim()
-
-
-    /// Print the age in years, months, weeks and days
-    /// in Dutch.
-    let ageToStringDutch =
-        ageToString ("jaar", "jaar") ("maand", "maanden") ("week", "weken") ("dag", "dagen")
-
-
-    /// Print the age in years, months, weeks and days using the current date
-    let getAgeFromDate = ageNow >> ageToStringDutch
