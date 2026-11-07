@@ -88,6 +88,8 @@ module Models =
                 }
 
 
+            /// The age of an age in days: a year 365 days, a month 30 days, at most 11 months. A copy
+            /// for the client of GenCORE's AgeValue.fromDays, which the server tests hold it equal to.
             let fromDays days =
                 let yrs = days / 365
                 // at most 11 months: 360 to 364 days after the years are 11 months and some
@@ -152,6 +154,8 @@ module Models =
             | true, v -> v |> Some
 
 
+        /// The age in days of the patient's age: a year 365 days, a month 30 days. A copy for the
+        /// client of GenCORE's AgeValue.getAgeInDays, which the server tests hold it equal to.
         let getAgeInDays p =
             [
                 p |> getAgeYears |> Option.map (fun ys -> (ys |> float) * 365.)

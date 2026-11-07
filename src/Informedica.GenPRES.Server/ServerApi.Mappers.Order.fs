@@ -16,7 +16,6 @@ module Mappers =
     open Informedica.GenPRES.Shared.Types
     open Informedica.GenPRES.Shared
 
-
     module Order =
 
 
@@ -382,10 +381,8 @@ module Mappers =
         { Patient.patient with
             Department = pat.Department
             Age =
-                pat
-                |> Models.Patient.getAgeInDays
-                |> Option.bind BigRational.fromFloat
-                |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
+                pat.Age
+                |> Option.map (Age.inDays >> BigRational.fromInt >> ValueUnit.singleWithUnit Units.Time.day)
             GestAge =
                 pat
                 |> Models.Patient.getGestAgeInDays

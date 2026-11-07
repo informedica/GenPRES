@@ -48,76 +48,52 @@ module Patient =
             | Days of int
 
 
-        /// <summary>
-        /// Converts a list of Age values to a decimal representing the number of days
-        /// </summary>
-        /// <param name="ags">The Age values</param>
+        module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
+
+
+        /// The age value of one age part.
+        let ageValueOf =
+            function
+            | Years x -> CoreAgeValue.zero |> CoreAgeValue.SetGet.setIntYears x
+            | Months x -> CoreAgeValue.zero |> CoreAgeValue.SetGet.setIntMonths x
+            | Weeks x -> CoreAgeValue.zero |> CoreAgeValue.SetGet.setIntWeeks x
+            | Days x -> CoreAgeValue.zero |> CoreAgeValue.SetGet.setIntDays x
+
+
+        /// The age in days of a list of age parts, as GenCORE counts it.
         let ageToValueUnit ags =
             ags
-            |> List.fold
-                (fun acc a ->
-                    match a with
-                    | Years x -> (x |> decimal) * 365m
-                    | Months x -> x |> Conversions.monthFromInt |> Calculations.Age.monthsToDays |> int |> decimal
-                    | Weeks x -> (x |> decimal) * 7m
-                    | Days x -> (x |> decimal)
-                    |> fun x -> acc + x
-                )
-                0m
-            |> BigRational.fromDecimal
+            |> List.sumBy (ageValueOf >> CoreAgeValue.getAgeInDays >> int)
+            |> BigRational.fromInt
             |> ValueUnit.singleWithUnit Units.Time.day
 
 
-        /// <summary>
-        /// Converts a decimal representing the number of days to a list of Age values
-        /// </summary>
-        /// <param name="vu">The age ValueUnit</param>
-        let ageFromValueUnit (vu: ValueUnit) =
-            let vu =
+        /// The age parts of an age, as GenCORE splits the whole days; the parts that are zero are
+        /// left out.
+        let ageFromValueUnit vu =
+            let ys, ms, ws, ds =
                 vu
                 |> ValueUnit.convertTo Units.Time.day
                 |> ValueUnit.getValue
                 |> Array.head
                 |> BigRational.toDecimal
-
-            let yrs = (vu / 365m) |> int
-            // at most 11 months: 360 to 364 days after the years are 11 months and some weeks,
-            // never 12 months, which would count as a year
-            let mos = ((vu - (365 * yrs |> decimal)) / 30m) |> int |> min 11
-            let wks = (vu - (365 * yrs |> decimal) - (30 * mos |> decimal)) / 7m |> int
-
-            let dys =
-                (vu - (365 * yrs |> decimal) - (30 * mos |> decimal) - (7 * wks |> decimal))
                 |> int
+                |> Conversions.dayFromInt
+                |> CoreAgeValue.fromDays
+                |> CoreAgeValue.getDef0
+                |> fun (y, m, w, d) -> int y, int m, int w, int d
 
-            [
-                if yrs > 0 then
-                    yrs |> Years
-                if mos > 0 then
-                    mos |> Months
-                if wks > 0 then
-                    wks |> Weeks
-                if dys > 0 then
-                    dys |> Days
-            ]
+            [ Years ys; Months ms; Weeks ws; Days ds ]
+            |> List.filter (
+                function
+                | Years n
+                | Months n
+                | Weeks n
+                | Days n -> n > 0
+            )
 
         // Helper pair (to list of Age / from list of Age) for the get/set below
         let ageAgeList = Option.map ageFromValueUnit >> (Option.defaultValue []), (ageToValueUnit >> Some)
-
-
-        /// Helper pair for the get/set below
-        let gestPMAgeList =
-            let ageFromDec d =
-                d
-                |> ageFromValueUnit
-                |> List.filter (fun a ->
-                    match a with
-                    | Years _
-                    | Months _ -> false
-                    | _ -> true
-                )
-
-            Option.map ageFromDec >> (Option.defaultValue []), (ageToValueUnit >> Some)
 
 
         type Weight =
@@ -194,16 +170,7 @@ module Patient =
     let setHeight h (p: Patient) = { p with Height = h |> snd vuHeight }
 
 
-    let getGestAge (p: Patient) = p.GestAge |> fst gestPMAgeList
-
-
-    let setGestAge ags (p: Patient) = { p with GestAge = ags |> snd gestPMAgeList }
-
-
-    let getPMAge (p: Patient) = p.PMAge |> fst gestPMAgeList
-
-
-    let setPMAge ags (p: Patient) = { p with PMAge = ags |> snd gestPMAgeList }
+    let setGestAge ags (p: Patient) = { p with GestAge = ags |> ageToValueUnit |> Some }
 
 
     let getDepartment (p: Patient) = p.Department
