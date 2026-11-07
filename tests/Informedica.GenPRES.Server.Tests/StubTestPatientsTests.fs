@@ -84,8 +84,11 @@ let noExactAge target (day: DateTime) =
     let calendar = day.Date.AddYears(-years).AddDays(float -rest)
 
     [ -40 .. 40 ]
-    |> List.forall (fun o ->
-        calendar.AddDays(float o)
+    |> List.map (fun o -> calendar.AddDays(float o))
+    // a birth date after the day is no birth date
+    |> List.filter (fun birth -> birth <= day.Date)
+    |> List.forall (fun birth ->
+        birth
         |> CoreBirthDate.fromDate
         |> CorePatientAge.birthDate
         |> CorePatientAge.getAgeValue day.Date

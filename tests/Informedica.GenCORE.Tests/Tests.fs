@@ -1125,10 +1125,97 @@ module Tests =
                 [ 0 .. (last - first).Days ] |> List.map (fun n -> first.AddDays(float n))
 
 
+            /// The age as it was counted before the months counted from the birth date: the calendar
+            /// age from the anniversary in the last year, with at most 29 days after the month-day.
+            let previous (bd: DateTime) (dt: DateTime) =
+                let y, m, w, d = DateTime.age bd.Date dt.Date
+                let rest = w * 7 + d |> Operators.min 29
+
+                Conversions.yearFromInt y,
+                Conversions.monthFromInt m,
+                Conversions.weekFromInt (rest / 7),
+                Conversions.dayFromInt (rest % 7)
+
+
+            let toInts (y: int<year>, m: int<month>, w: int<week>, d: int<day>) = int y, int m, int w, int d
+
+
+            let inDays (y, m, w, d) = Calculations.Age.yearsMonthsWeeksDaysToDays y m w d |> int
+
+
             let tests =
                 testList
                     "Calendar age"
                     [
+                        testList
+                            "a birthday on 29 February"
+                            [
+                                test "born 29 Feb 2024, 4 years on 29 Feb 2028, not on 28 Feb" {
+                                    [ date 2028 2 27; date 2028 2 28; date 2028 2 29 ]
+                                    |> List.map (Calculations.Age.fromBirthDate (date 2024 2 29) >> toInts)
+                                    |> Expect.equal
+                                        "3 years 11 months 29 days, twice, then 4 years"
+                                        [ 3, 11, 4, 1; 3, 11, 4, 1; 4, 0, 0, 0 ]
+                                }
+
+                                test "born 29 Feb 2024, one year on 28 Feb of a year without 29 Feb" {
+                                    [ date 2025 2 27; date 2025 2 28; date 2029 2 28 ]
+                                    |> List.map (Calculations.Age.fromBirthDate (date 2024 2 29) >> toInts)
+                                    |> Expect.equal
+                                        "0 years 11 months 29 days, then 1 year, 5 years"
+                                        [ 0, 11, 4, 1; 1, 0, 0, 0; 5, 0, 0, 0 ]
+                                }
+
+                                test "born 29 Feb 2024, the age never decreases and never steps more than a day" {
+                                    datesOf (date 2024 2 29) (date 2032 12 31)
+                                    |> List.map (Calculations.Age.fromBirthDate (date 2024 2 29) >> inDays)
+                                    |> List.pairwise
+                                    |> List.filter (fun (d1, d2) -> d2 < d1 || d2 - d1 > 6)
+                                    |> Expect.isEmpty "no step back, no jump over a week"
+                                }
+
+                                test "every other birth date gives the age it gave before" {
+                                    let dates =
+                                        datesOf (date 2024 1 1) (date 2028 12 31)
+                                        |> List.filter (fun d -> d.Day % 3 = 0 || d.Day >= 27)
+
+                                    [
+                                        for bd in datesOf (date 2010 1 1) (date 2024 1 1) do
+                                            if not (bd.Month = 2 && bd.Day = 29) then
+                                                for dt in dates do
+                                                    if previous bd dt <> Calculations.Age.fromBirthDate bd dt then
+                                                        bd, dt
+                                    ]
+                                    |> Expect.isEmpty "the same age"
+                                }
+
+                                test "born 29 Feb 2000, in 2025 a month older on the 29th, not the 28th" {
+                                    [ date 2025 3 28; date 2025 3 29 ]
+                                    |> List.map (Calculations.Age.fromBirthDate (date 2000 2 29) >> toInts)
+                                    |> Expect.equal
+                                        "25 years 4 weeks, then 25 years 1 month"
+                                        [ 25, 0, 4, 0; 25, 1, 0, 0 ]
+                                }
+
+                                test "a 29 February birth date is never older than before and has no negative days" {
+                                    [
+                                        for bd in [ date 2000 2 29; date 2012 2 29; date 2020 2 29; date 2024 2 29 ] do
+                                            for dt in datesOf bd (date 2036 12 31) do
+                                                let age = Calculations.Age.fromBirthDate bd dt
+                                                let _, _, _, d = age |> toInts
+
+                                                if inDays age > inDays (previous bd dt) || d < 0 then
+                                                    bd, dt
+                                    ]
+                                    |> Expect.isEmpty "never older, no negative days"
+                                }
+
+                                test "a birth date after the date is refused" {
+                                    (fun () -> Calculations.Age.fromBirthDate (date 2026 3 2) (date 2026 3 1) |> ignore)
+                                    |> Expect.throwsT<ArgumentException> "refused"
+                                }
+                            ]
+
                         testList
                             "end of month and leap day ages"
                             [
