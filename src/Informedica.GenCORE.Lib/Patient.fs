@@ -1629,6 +1629,21 @@ module AgeWeeksDays =
         let validateDays = Check.Int.between 0 maxDays *|* Conversions.dayFromInt
 
 
+        /// The weeks of the oldest post-menstrual age: the maximum gestational age plus the maximum
+        /// age in weeks.
+        let maxPostMenstrualWeeks =
+            AgeValue.Validation.maxYear
+            |> Conversions.intYearsToDays
+            |> Conversions.daysToWeeks
+            |> fst
+            |> int
+            |> (+) maxWeeks
+
+
+        let validatePostMenstrualWeeks =
+            Check.Int.between minWeeks maxPostMenstrualWeeks *|* Conversions.weekFromInt
+
+
     let toString awd =
         let s = awd |> toGestation |> GestationType.toString
 
@@ -1660,6 +1675,15 @@ module AgeWeeksDays =
         let fromDto (dto: Dto) =
             validate {
                 let! ws = dto.Weeks |> Validation.validateWeeks "Weeks"
+                let! ds = dto.Days |> Validation.validateDays "Days"
+                return create ws ds
+            }
+
+
+        /// The post-menstrual age of a Dto, with the bounds of a post-menstrual age.
+        let fromPostMenstrualDto (dto: Dto) =
+            validate {
+                let! ws = dto.Weeks |> Validation.validatePostMenstrualWeeks "Weeks"
                 let! ds = dto.Days |> Validation.validateDays "Days"
                 return create ws ds
             }
@@ -1867,18 +1891,18 @@ module Patient =
 
         /// The patient of a Dto: identified with an id, a name and a birthdate, anonymous with none
         /// of the three; a part of an identity, or an age value beside a birthdate, is an error. The
-        /// post-menstrual age is read back as it was calculated.
+        /// post-menstrual age is read back as it was calculated, with the bounds of a post-menstrual age.
         let fromDto (dto: Dto) =
-            let weeksDays (awd: AgeWeeksDays.Dto.Dto option) =
+            let weeksDays fromDto (awd: AgeWeeksDays.Dto.Dto option) =
                 match awd with
-                | Some awd -> awd |> AgeWeeksDays.Dto.fromDto |> Result.map Some
+                | Some awd -> awd |> fromDto |> Result.map Some
                 | None -> Result.Ok None
 
             validate {
                 let! dep = dto.Department |> Department.fromString
                 let! gend = dto.Gender |> Gender.Validation.validate "Gender"
-                let! gest = dto.GestationalAge |> weeksDays
-                and! pma = dto.PostMenstrualAge |> weeksDays
+                let! gest = dto.GestationalAge |> weeksDays AgeWeeksDays.Dto.fromDto
+                and! pma = dto.PostMenstrualAge |> weeksDays AgeWeeksDays.Dto.fromPostMenstrualDto
                 let! ent = dto.EnteralAccess |> EnteralAccess.fromString
                 let! ven = dto.VenousAccess |> VenousAccess.fromString
                 let! _ = (dto.Age, dto.BirthDate) |> Validators.onlyOneOfTwoOpt "Patient Age"

@@ -1430,6 +1430,20 @@ module Tests =
                             |> Expect.isTrue "doesn't exceed 6"
                         }
 
+                        test "a post-menstrual age is read from 20 weeks to 52 weeks plus the maximum age" {
+                            let read weeks =
+                                let dto = AgeWeeksDays.Dto.dto ()
+                                dto.Weeks <- weeks
+                                dto |> AgeWeeksDays.Dto.fromPostMenstrualDto |> Result.isOk
+
+                            let max = AgeWeeksDays.Validation.maxPostMenstrualWeeks
+
+                            (max, [ 20; 53; max ] |> List.map read, [ 19; max + 1 ] |> List.map read)
+                            |> Expect.equal
+                                "52 plus 6257 weeks; within read, outside not"
+                                (52 + 6257, [ true; true; true ], [ false; false ])
+                        }
+
                         test "preterm < full-term" {
                             AgeWeeksDays.preterm <? AgeWeeksDays.fullTerm
                             |> Expect.isTrue "preterm should be < full-term"
@@ -1651,11 +1665,14 @@ module Tests =
                         |> Expect.isNone "none"
                     }
 
-                    test "the calculated post-menstrual age goes there and back" {
+                    test "the calculated post-menstrual age goes there and back, also above 52 weeks" {
                         let pat =
                             { PatientData.unknown with GestationalAge = Some(AgeWeeksDays.create 26<week> 0<day>) }
                             |> Patient.create (Some stub)
-                            |> Patient.atDate (date 2016 5 10)
+                            |> Patient.atDate (date 2017 3 15)
+
+                        pat.Data.PostMenstrualAge
+                        |> Expect.equal "26 weeks plus a year" (Some(AgeWeeksDays.create 78<week> 1<day>))
 
                         pat |> thereAndBack |> Expect.equal "the same" (Ok pat)
                     }
