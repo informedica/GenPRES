@@ -377,6 +377,34 @@ module Mails =
         $"Hello {displayName},\n\nThe PIN was entered wrong three times at a signature just now. Your session was ended and signing is locked for a while. If that was not you, tell your administrator."
 
 
+/// The calendar date a patient's age is taken on: the date in the hospital's time zone, so that a
+/// patient is a day older at local midnight and not an hour or two later, when the UTC date turns.
+module LocalDate =
+
+    /// The id of the time zone an age is taken in when the site sets none: the Netherlands.
+    let defaultZoneId = "Europe/Amsterdam"
+
+
+    /// The time zone of an id the system knows, else the message that names the id.
+    let zoneOf (id: string) : Result<TimeZoneInfo, string> =
+        try
+            Ok(TimeZoneInfo.FindSystemTimeZoneById id)
+        with
+        | :? TimeZoneNotFoundException
+        | :? InvalidTimeZoneException -> Error $"'%s{id}' is not a time zone this system knows"
+
+
+    /// The time zone of the default id. Raises when the system does not know it, which a server
+    /// start refuses before this is reached.
+    let defaultZone () = zoneOf defaultZoneId |> Result.defaultWith invalidOp
+
+
+    /// The calendar date in a time zone of a moment in UTC. The moment is taken as UTC whatever
+    /// its Kind, since a value read back from the session store has no Kind.
+    let ofUtc (zone: TimeZoneInfo) (utc: DateTime) =
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), zone).Date
+
+
 /// The session lifecycle, from the presented Launch to the signed version: the LaunchRecord
 /// keyed by the nonce, the redirect to the IdentityProvider, the callback with its ladder of
 /// checks (identity, Role, active Patient, PIN), a reloaded callback answered as the first
@@ -696,22 +724,22 @@ module Session =
                 [ RecordLaunch record ]
 
 
-    /// The patient of a version at the age its birthdate gives at a date, with the
+    /// The patient of a version at the age its birthdate gives at the local date, with the
     /// post-menstrual age from the days lived. Without an identity there is no birthdate, and the
     /// patient stays as signed.
-    let atBirthDate now (whom: Informedica.GenCore.Lib.Patients.PatientIdentity option) (pat: GenForm.Patient) =
+    let atBirthDate date (whom: Informedica.GenCore.Lib.Patients.PatientIdentity option) (pat: GenForm.Patient) =
         match whom with
         | None -> pat
         | Some identity ->
             pat
-            |> Informedica.GenForm.Lib.Patient.withAgeAt now (identity.BirthDate |> CorePatientAge.birthDate)
+            |> Informedica.GenForm.Lib.Patient.withAgeAt date (identity.BirthDate |> CorePatientAge.birthDate)
 
 
-    /// The patient of a version as a later Session shows it: at the age at the date, and without
+    /// The patient of a version as a later Session shows it: at the age at the local date, and without
     /// the estimates when that age is not the one signed, since an estimate belongs to its age and
     /// the patient machine has no draft to tell that from. A measured value stays.
-    let signedPatientAt now whom (pat: GenForm.Patient) =
-        let aged = pat |> atBirthDate now whom
+    let signedPatientAt date whom (pat: GenForm.Patient) =
+        let aged = pat |> atBirthDate date whom
 
         if aged.Age = pat.Age then
             aged
@@ -722,17 +750,17 @@ module Session =
             }
 
 
-    /// The patient a Session shows at a date. When the latest act is a sign, the patient of the
+    /// The patient a Session shows at the local date. When the latest act is a sign, the patient of the
     /// version signed; after any other act, the EHR's data, the source of truth. Each falls back
     /// on the other, so that a head that cannot be read or a data outage still shows what there
-    /// is. The age is the one at the date in every case. From nothing, none, so that the User
+    /// is. The age is the one at the local date in every case. From nothing, none, so that the User
     /// enters the data and a data outage does not block prescribing.
-    let sessionPatient now (patientData: PatientDataPort) (opened: OpenedSession) =
-        let ofEhr = opened.EhrData |> Option.map (patientData.patient now)
+    let sessionPatient date (patientData: PatientDataPort) (opened: OpenedSession) =
+        let ofEhr = opened.EhrData |> Option.map (patientData.patient date)
 
         let ofHead =
             match opened.Head with
-            | Some(StoredVersion.Readable(v, whom)) -> Some(v.Plan.Patient |> signedPatientAt now whom)
+            | Some(StoredVersion.Readable(v, whom)) -> Some(v.Plan.Patient |> signedPatientAt date whom)
             | _ -> None
 
         match opened.Act with
@@ -1452,6 +1480,7 @@ module Session =
     /// the Patient is the Session's, never the request's. The PIN is not involved: a refusal
     /// here costs no attempt.
     let challenge
+        (zone: TimeZoneInfo)
         (now: DateTime)
         (newId: unit -> string)
         (digest: GenOrder.OrderPlan -> string)
@@ -1486,9 +1515,11 @@ module Session =
                     if Reads.changed record.Opened.EhrData currentEhr && accepted.IsNone then
                         let nonce = newId ()
 
-                        // projected at the date of the open, so that the age the Session opened
-                        // on holds; the adapter answers none for a reading that is no patient
-                        let current = currentEhr |> Option.map (patientData.patient record.OpenedAt)
+                        // projected at the local date of the open, so that the age the Session
+                        // opened on holds; the adapter answers none for a reading that is no patient
+                        let current =
+                            currentEhr
+                            |> Option.map (patientData.patient (record.OpenedAt |> LocalDate.ofUtc zone))
 
                         let notice =
                             {
@@ -1546,13 +1577,14 @@ module Session =
     /// Submission that was never going to land costs no attempt. A pure function: on an
     /// accepted sign the returned state already holds the new head, which carries the
     /// Session's identity, with the challenge spent and the OpenedToken re-minted over it, the
-    /// answer carries the patient signed at the age of the sign, and the third value is the write
-    /// for the adapter to run; on a refusal it is none. The answer is remembered under the key,
-    /// refusals too.
+    /// answer carries the patient signed at the age on the local date of the sign, and the third
+    /// value is the write for the adapter to run; on a refusal it is none. The answer is
+    /// remembered under the key, refusals too.
     /// Three wrong PINs end the Session (WrongPinLimit), lock signing and mail the User; a
     /// wrong PIN while locked pushes the lock out; a right PIN while locked is refused and
     /// counts nothing.
     let commit
+        (zone: TimeZoneInfo)
         (now: DateTime)
         (newId: unit -> string)
         (digest: GenOrder.OrderPlan -> string)
@@ -1656,7 +1688,8 @@ module Session =
                                         let ehr = Reads.afterCommit challenge record.Opened.EhrData
                                         let whom = OpenedSession.identity { record.Opened with EhrData = ehr }
 
-                                        let patient = version.Plan.Patient |> atBirthDate now whom
+                                        let patient =
+                                            version.Plan.Patient |> atBirthDate (LocalDate.ofUtc zone now) whom
 
                                         let opened =
                                             { record with

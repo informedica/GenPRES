@@ -39,7 +39,7 @@ module Machine =
     let openVersion now newId sid id state = ServerApi.Session.openVersion now newId sid id state |> answered
 
     let challenge now newId digest patientData sid request state =
-        ServerApi.Session.challenge now newId digest patientData (fun _ -> None) sid request state
+        ServerApi.Session.challenge TimeZoneInfo.Utc now newId digest patientData (fun _ -> None) sid request state
         |> answered
 
 
@@ -656,6 +656,7 @@ module SessionStubTests =
         let port =
             StubDatabase.makeSessionPortWith
                 (newStore ())
+                TimeZoneInfo.Utc
                 Session.defaultIdleLifetime
                 (fun () -> clock.Value)
                 (fun () ->
@@ -1302,6 +1303,7 @@ module SessionStubTests =
 
                         let port =
                             StubDatabase.makeSessionPort
+                                TimeZoneInfo.Utc
                                 Session.defaultIdleLifetime
                                 (fun () -> t0)
                                 ids
@@ -3104,7 +3106,7 @@ module SessionStubTests =
             let submitAt now ids send state sid (s: Signature) =
                 StubDatabase.submitWith
                     StubDatabase.persistNothing
-                    (fun st -> Session.commit now ids StubDatabase.digest registry send sid s st)
+                    (fun st -> Session.commit TimeZoneInfo.Utc now ids StubDatabase.digest registry send sid s st)
                     state
 
             let submit state sid s = submitAt t0 (counter "id") ignore state sid s

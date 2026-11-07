@@ -1632,6 +1632,7 @@ module SqlSessions =
     /// release cannot rebuild — an answer word it does not know, or a version that is gone —
     /// is no answer, and the Submission is run again, which a signature may do.
     let loadAnswer
+        (zone: TimeZoneInfo)
         (conn: SqliteConnection)
         (headOf: string -> StoredVersion option)
         (sid: string)
@@ -1658,7 +1659,8 @@ module SqlSessions =
                         // the patient the commit answered: the plan signed, at the age of the sign
                         match versionId |> Option.bind headOf, token with
                         | Some(StoredVersion.Readable(v, whom)), Some t ->
-                            let patient = v.Plan.Patient |> Session.atBirthDate v.SignedAt whom
+                            let patient =
+                                v.Plan.Patient |> Session.atBirthDate (v.SignedAt |> LocalDate.ofUtc zone) whom
                             Some(SigningOutcome.Submitted(v, whom, OpenedToken t, patient))
                         // the version it names cannot be read: there is no answer to repeat
                         | _ -> None
@@ -1925,7 +1927,14 @@ module SqlSessions =
     /// connection: the rows a request works on are the rows as they stand when it starts, and
     /// the transaction it writes in is its own.
     /// </summary>
-    let load (warn: string -> unit) (cs: string) (now: unit -> DateTime) (slice: StubDatabase.Slice) state =
+    let load
+        (warn: string -> unit)
+        (cs: string)
+        (zone: TimeZoneInfo)
+        (now: unit -> DateTime)
+        (slice: StubDatabase.Slice)
+        state
+        =
         // a request with no rows to read never opens the file: a Launch whose seal does not
         // verify is refused as invalid whatever the database is doing
         let withConnection f =
@@ -1952,7 +1961,7 @@ module SqlSessions =
                     |> Seq.tryFind (fun v -> StoredVersion.id v = id)
 
                 // the answer this key was already given, when it was given one at all
-                match loadAnswer conn headOf sid key with
+                match loadAnswer zone conn headOf sid key with
                 | Some answer -> { state with Answered = state.Answered |> Map.add (sid, key) answer }
                 | None -> { state with Answered = state.Answered |> Map.remove (sid, key) }
             )
@@ -1974,12 +1983,18 @@ module SqlSessions =
     /// what a request did, in one transaction. <c>warn</c> hears of every row the release cannot
     /// read; a load that throws is rethrown, which the port answers as the store failing.
     /// </summary>
-    let store (warn: string -> unit) (cs: string) (now: unit -> DateTime) : StubDatabase.SessionStore =
+    let store
+        (warn: string -> unit)
+        (cs: string)
+        (zone: TimeZoneInfo)
+        (now: unit -> DateTime)
+        : StubDatabase.SessionStore
+        =
         {
             load =
                 fun slice s ->
                     try
-                        load warn cs now slice s
+                        load warn cs zone now slice s
                     with e ->
                         warn $"the session store could not be read: %s{e.Message}"
                         reraise ()
@@ -2030,4 +2045,4 @@ module SqlSessions =
 
 
     /// The session port over the state in the database.
-    let makeSessionPort warn cs now = StubDatabase.makeSessionPortWith (store warn cs now)
+    let makeSessionPort warn cs zone now = StubDatabase.makeSessionPortWith (store warn cs zone now) zone

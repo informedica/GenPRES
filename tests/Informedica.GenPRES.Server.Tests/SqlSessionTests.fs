@@ -1712,7 +1712,12 @@ let flightWriteTests =
 
                     use conn = connect cs
 
-                    SqlSessions.loadAnswer conn (fun _ -> Some(StoredVersion.Readable(v1, whom))) "s-1" "k-1"
+                    SqlSessions.loadAnswer
+                        TimeZoneInfo.Utc
+                        conn
+                        (fun _ -> Some(StoredVersion.Readable(v1, whom)))
+                        "s-1"
+                        "k-1"
                     |> Option.map fst
                     |> Expect.equal "the same answer" (Some answer)
                 )

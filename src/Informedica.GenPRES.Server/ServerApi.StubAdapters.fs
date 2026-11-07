@@ -344,8 +344,9 @@ module StubPatientData =
         }
 
 
-    /// The EHR stub over the system clock, which only the test patients read.
-    let port = portAt (fun () -> DateTime.UtcNow)
+    /// The EHR stub over the system clock on the local date of the default time zone, which only
+    /// the test patients read.
+    let port = portAt (fun () -> DateTime.UtcNow |> LocalDate.ofUtc (LocalDate.defaultZone ()))
 
 
 /// The credential half of the Database, seeded for the stub logins: the Prescribers that sign
@@ -866,6 +867,7 @@ module StubDatabase =
     /// </summary>
     let makeSessionPortWith
         (store: SessionStore)
+        (zone: TimeZoneInfo)
         (idle: TimeSpan)
         (now: unit -> DateTime)
         (newId: unit -> string)
@@ -988,7 +990,7 @@ module StubDatabase =
                     }
             callback = fun cb -> async { return update (Slice.LaunchState cb.State) (callbackStep cb) }
             find = fun id -> async { return overSession id (fun at -> Session.find at id) }
-            patient = fun opened -> Session.sessionPatient (now ()) patientData opened
+            patient = fun opened -> Session.sessionPatient (now () |> LocalDate.ofUtc zone) patientData opened
             close = fun id -> async { return update (Slice.Session id) (Session.close (now ()) id >> asUnit) }
             closeTab =
                 fun id opened ->
@@ -1040,7 +1042,15 @@ module StubDatabase =
                                         now
                                         sid
                                         (fun at ->
-                                            Session.challenge at newId digest patientData registry.standing sid request
+                                            Session.challenge
+                                                zone
+                                                at
+                                                newId
+                                                digest
+                                                patientData
+                                                registry.standing
+                                                sid
+                                                request
                                         )))
                     }
             submit =
@@ -1056,7 +1066,15 @@ module StubDatabase =
                                         now
                                         sid
                                         (fun at ->
-                                            Session.commit at newId digest registry.standing mail.send sid signature
+                                            Session.commit
+                                                zone
+                                                at
+                                                newId
+                                                digest
+                                                registry.standing
+                                                mail.send
+                                                sid
+                                                signature
                                         )))
                     }
             seen = fun sid opened -> async { return overSession sid (fun at -> Session.seen at sid opened) }

@@ -457,6 +457,7 @@ module Adapters =
     let makeAppEnvWith
         (demo: bool)
         (store: string option)
+        (zone: TimeZoneInfo)
         (sessionIdle: TimeSpan)
         (launchKey: LaunchSeal.Key)
         (directory: StubDirectory.Directory)
@@ -533,7 +534,7 @@ module Adapters =
             session =
                 let makeSessionPort =
                     match store with
-                    | None -> StubDatabase.makeSessionPort
+                    | None -> StubDatabase.makeSessionPort zone
                     | Some value ->
                         let cs = SqlDatabase.connectionString (Informedica.Utils.Lib.AppPath.rootPath ()) value
 
@@ -543,6 +544,7 @@ module Adapters =
                                     $"session store: %s{msg}"
                             )
                             cs
+                            zone
                             (fun () -> DateTime.UtcNow)
 
                 makeSessionPort
@@ -557,8 +559,9 @@ module Adapters =
                     (fun launch -> LaunchSeal.verify DateTime.UtcNow launchKey launch)
                     directory.idp
                     directory.registry
-                    // the platform's reading estimated at the boundary, from the tables as loaded
-                    (StubPatientData.portAt (fun () -> DateTime.UtcNow)
+                    // the platform's reading estimated at the boundary, from the tables as loaded;
+                    // the test patients measured on the local date
+                    (StubPatientData.portAt (fun () -> DateTime.UtcNow |> LocalDate.ofUtc zone)
                      |> Patient.estimating (normalValuesOf provider))
                     mail
                     // the credential store, seeded per stub login
@@ -581,6 +584,7 @@ module Adapters =
         makeAppEnvWith
             demo
             None
+            (LocalDate.defaultZone ())
             Session.defaultIdleLifetime
             (LaunchSeal.newKey System.Security.Cryptography.RandomNumberGenerator.GetBytes)
             (StubDirectory.make (fun () -> DateTime.UtcNow) PublicKey.randomId)

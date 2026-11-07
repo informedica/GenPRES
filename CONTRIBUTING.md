@@ -137,6 +137,9 @@ A new package is noted here with the library that takes it and what for.
   YAML document, through the medication's Dto.
 - **FsToolkit.ErrorHandling**, already in the Main group, now also referenced by GenORDER: it
   collects every error of a medication text that does not read.
+- **The system time zone database** (tzdata), in the server: `GENPRES_TIME_ZONE`, default
+  `Europe/Amsterdam`, is looked up in it at the start, and a host without the zone refuses to
+  start. The Debian-based `aspnet` runtime image ships it; an Alpine or chiseled image may not.
 
 ## Code Formatting (Pre-Commit Hook)
 

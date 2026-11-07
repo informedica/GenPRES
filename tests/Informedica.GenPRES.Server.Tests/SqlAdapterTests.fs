@@ -30,6 +30,7 @@ let portOver (store: StubDatabase.SessionStore) =
     let port =
         StubDatabase.makeSessionPortWith
             store
+            TimeZoneInfo.Utc
             Session.defaultIdleLifetime
             (fun () -> t0)
             (fun () -> $"id-{Guid.NewGuid()}")
@@ -58,7 +59,7 @@ let versionOf writes =
 
 /// A store over the file that fails its loads while `failing` is set.
 let failingOver (cs: string) (failing: bool ref) : StubDatabase.SessionStore =
-    let inner = SqlSessions.store ignore cs (fun () -> t0)
+    let inner = SqlSessions.store ignore cs TimeZoneInfo.Utc (fun () -> t0)
 
     { inner with
         load =
@@ -73,7 +74,8 @@ let failingOver (cs: string) (failing: bool ref) : StubDatabase.SessionStore =
 /// A port over the database of a connection string, seeded as the composition root seeds it:
 /// the machine reads a credential from the rows now, so a stub Prescriber without one in the
 /// file could not sign.
-let portOn (cs: string) = portOver (SqlSessions.store ignore cs (fun () -> t0))
+let portOn (cs: string) =
+    portOver (SqlSessions.store ignore cs TimeZoneInfo.Utc (fun () -> t0))
 
 
 /// Presents a Launch for the stub patient and returns the callback for a login.
@@ -260,7 +262,7 @@ let tests =
                 "after a crash between the insert and the reply, the retry is refused and nothing more is written"
                 (fun cs ->
                     async {
-                        let inner = SqlSessions.store ignore cs (fun () -> t0)
+                        let inner = SqlSessions.store ignore cs TimeZoneInfo.Utc (fun () -> t0)
                         let written = ref None
 
                         // the insert lands, the reply is lost: the port keeps its old state
@@ -316,7 +318,7 @@ let tests =
 
                         // everything lands but the signature, whose writes go to a database
                         // that refuses them
-                        let inner = SqlSessions.store ignore cs (fun () -> t0)
+                        let inner = SqlSessions.store ignore cs TimeZoneInfo.Utc (fun () -> t0)
 
                         let store =
                             { inner with
@@ -502,7 +504,7 @@ let tests =
                         let port, directory, _ = portOn cs
                         let! sid, _ = openAs port directory "n-1" "prescriber"
 
-                        let store = SqlSessions.store warnings.Add cs (fun () -> t0)
+                        let store = SqlSessions.store warnings.Add cs TimeZoneInfo.Utc (fun () -> t0)
                         let loaded = store.load (StubDatabase.Slice.Session sid) seeded
                         loaded.Records["stub-patient"] |> List.length |> Expect.equal "both versions" 2
                         warnings.Count |> Expect.equal "one unreadable version" 1
@@ -517,7 +519,7 @@ let tests =
                         Expect.throws
                             "the load throws"
                             (fun () ->
-                                (SqlSessions.store warnings.Add missing (fun () -> t0)).load
+                                (SqlSessions.store warnings.Add missing TimeZoneInfo.Utc (fun () -> t0)).load
                                     (StubDatabase.Slice.Session "s-1")
                                     seeded
                                 |> ignore
@@ -558,6 +560,7 @@ let tests =
                             Adapters.makeAppEnvWith
                                 true
                                 (Some cs)
+                                TimeZoneInfo.Utc
                                 Session.defaultIdleLifetime
                                 key
                                 directory
@@ -615,6 +618,7 @@ let tests =
                     Adapters.makeAppEnvWith
                         true
                         None
+                        TimeZoneInfo.Utc
                         Session.defaultIdleLifetime
                         key
                         directory
@@ -638,7 +642,7 @@ let tests =
                         let barrier = new Barrier(2)
 
                         let meeting () =
-                            let inner = SqlSessions.store ignore cs (fun () -> t0)
+                            let inner = SqlSessions.store ignore cs TimeZoneInfo.Utc (fun () -> t0)
 
                             { inner with
                                 persist =
@@ -785,7 +789,7 @@ let tests =
 
                         // the launch lands, so the hop reaches the PIN question; the writes of
                         // the callback that suspends into enrolment do not
-                        let inner = SqlSessions.store ignore cs (fun () -> t0)
+                        let inner = SqlSessions.store ignore cs TimeZoneInfo.Utc (fun () -> t0)
                         let refusing = ref false
 
                         let store =
@@ -870,7 +874,7 @@ let newSqliteStore () =
     SqlSchema.apply cs |> ignore
     // the credentials the suites sign with, in the file the port reads them from
     SqlSessions.seed cs t0 (StubCredentials.seed salts) |> ignore
-    SqlSessions.store ignore cs (fun () -> t0)
+    SqlSessions.store ignore cs TimeZoneInfo.Utc (fun () -> t0)
 
 
 /// The composition suites of the in-memory port, run again over SQLite, so that the two stores
