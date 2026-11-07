@@ -84,6 +84,9 @@ module Types =
         {
             Age: Age option
             GestationalAge: AgeWeeksDays option
+            /// The post-menstrual age the server calculated from the age and the gestational age; the
+            /// client holds it and never calculates it.
+            PostMenstrualAge: AgeWeeksDays option
             Weight: Weight
             Height: Height
             Gender: Gender

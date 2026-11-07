@@ -24,11 +24,16 @@ module PatientCommand =
                 Gate.Open
 
 
-    /// The patient made complete at the inbound boundary: a weight or a height that is neither
-    /// measured nor estimated is estimated from the age the patient comes with. The normal values
-    /// are asked only when a measure is missing.
+    /// The patient made complete at the inbound boundary: the post-menstrual age calculated from the
+    /// age and the gestational age, then a weight or a height that is neither measured nor estimated
+    /// estimated from them. The normal values are asked only when a measure is missing.
     let processCmd (env: AppEnv) (cmd: PatientCommand) =
         async {
             match cmd with
-            | PatientCommand.ChangePatient pat -> return Ok(pat |> Patient.estimate env.normalValues)
+            | PatientCommand.ChangePatient pat ->
+                return
+                    Ok(
+                        { pat with PostMenstrualAge = pat |> Age.postMenstrualAge }
+                        |> Patient.estimate env.normalValues
+                    )
         }

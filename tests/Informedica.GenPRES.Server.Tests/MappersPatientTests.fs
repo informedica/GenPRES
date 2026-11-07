@@ -38,6 +38,7 @@ let full: Informedica.GenPRES.Shared.Types.Patient =
         Location = Some "UMCU"
         Department = Some "ICK"
     }
+    |> fun pat -> { pat with PostMenstrualAge = pat |> ServerApi.Age.postMenstrualAge }
 
 
 /// The patient the Formulary filter is made for.
@@ -148,7 +149,7 @@ let tests =
 
                 pat.PMAge
                 |> Expect.equal
-                    "post-menstrual age, once computed by the old mapper"
+                    "the post-menstrual age the server put on the wire"
                     (Some(ValueUnit.singleWithUnit Units.Time.day (BigRational.fromInt 3905)))
             }
 
@@ -158,7 +159,12 @@ let tests =
             }
 
             test "the Formulary patient has no post-menstrual age without a gestational age" {
-                (Some { full with GestationalAge = None } |> formularyPatient).PMAge
+                // as the server answers the patient change that removed the gestational age
+                let withoutGest = { full with GestationalAge = None }
+
+                (Some { withoutGest with PostMenstrualAge = withoutGest |> ServerApi.Age.postMenstrualAge }
+                 |> formularyPatient)
+                    .PMAge
                 |> Expect.isNone "none"
             }
 
@@ -175,7 +181,7 @@ let tests =
                 None |> formularyPatient |> Expect.equal "empty" LibPatient.patient
             }
 
-            test "the client's post-menstrual age, which picks the neonatal table, is GenCORE's" {
+            test "the server's post-menstrual age is the age in days plus the gestational age" {
                 let gestOf w : AgeWeeksDays =
                     {
                         Weeks = Informedica.GenPRES.Shared.Measures.toWeek w
@@ -191,10 +197,59 @@ let tests =
                             }
                 ]
                 |> List.filter (fun pat ->
-                    Informedica.GenPRES.Shared.Models.Patient.getPostConceptionalAgeInDays pat
-                    <> ServerApi.Age.postMenstrualAgeInDays pat
+                    (pat
+                     |> ServerApi.Age.postMenstrualAge
+                     |> Option.map (ServerApi.Age.weeksDaysInDays >> int))
+                    <> (pat.Age
+                        |> Option.map ServerApi.Age.inDays
+                        |> Option.map2
+                            (fun ga age -> age + (ServerApi.Age.weeksDaysInDays ga |> int))
+                            pat.GestationalAge)
                 )
                 |> Expect.isEmpty "the same days"
+            }
+
+            test "no gestational age, or no age: no post-menstrual age" {
+                ({ stub with GestationalAge = None } |> ServerApi.Age.postMenstrualAge,
+                 { stub with Age = None } |> ServerApi.Age.postMenstrualAge)
+                |> Expect.equal "none, none" (None, None)
+            }
+
+            test "ofModel reads the post-menstrual age from the wire, not from the age parts" {
+                let pma: AgeWeeksDays =
+                    {
+                        Weeks = Informedica.GenPRES.Shared.Measures.toWeek 30
+                        Days = Informedica.GenPRES.Shared.Measures.toDay 0
+                    }
+
+                { stub with PostMenstrualAge = Some pma }
+                |> ServerApi.Patient.ofModel
+                |> _.PMAgeDays
+                |> Expect.equal "210 days" (Some 210N)
+            }
+
+            test "toModel puts the post-menstrual age on the wire, and ofModel reads it back" {
+                let gest: AgeWeeksDays =
+                    {
+                        Weeks = Informedica.GenPRES.Shared.Measures.toWeek 26
+                        Days = Informedica.GenPRES.Shared.Measures.toDay 0
+                    }
+
+                let model =
+                    { stub with
+                        Age = Some(ServerApi.Age.ofDays 59)
+                        GestationalAge = Some gest
+                    }
+
+                let dto =
+                    { model with PostMenstrualAge = model |> ServerApi.Age.postMenstrualAge }
+                    |> ServerApi.Patient.ofModel
+
+                let back = dto |> ServerApi.Patient.toModel
+
+                (back.PostMenstrualAge |> Option.map (ServerApi.Age.weeksDaysInDays >> int),
+                 (back |> ServerApi.Patient.ofModel).PMAgeDays)
+                |> Expect.equal "241 days, 241 days" (Some 241, Some 241N)
             }
 
             test "the gestational age in days and back, as GenCORE counts and splits them" {
@@ -209,7 +264,7 @@ let tests =
                 |> Expect.equal "199 days" (Some 199<Informedica.GenCore.Lib.Measures.day>)
 
                 [ 0; 6; 199; 259 ]
-                |> List.map ServerApi.Age.gestAgeOfDays
+                |> List.map ServerApi.Age.weeksDaysOfDays
                 |> Expect.equal "weeks and days" [ gestOf 0 0; gestOf 0 6; gestOf 28 3; gestOf 37 0 ]
             }
 

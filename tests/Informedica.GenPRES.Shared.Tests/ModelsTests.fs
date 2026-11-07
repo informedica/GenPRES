@@ -519,6 +519,21 @@ module NeonatalEstimateFixtures =
             Days = 0<day>
         }
 
+    /// The post-menstrual age the server sends for a term newborn of one week: 41 weeks.
+    let termOneWeek: AgeWeeksDays =
+        {
+            Weeks = 41<week>
+            Days = 0<day>
+        }
+
+    /// The post-menstrual age the server sends for an infant of six months born at 30 weeks: 210
+    /// plus 180 days, 55 weeks and 5 days.
+    let prematureSixMonths: AgeWeeksDays =
+        {
+            Weeks = 55<week>
+            Days = 5<day>
+        }
+
 
 [<Tests>]
 let neonatalEstimateTests =
@@ -529,6 +544,7 @@ let neonatalEstimateTests =
                 { Patient.empty with
                     Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
                     GestationalAge = Some NeonatalEstimateFixtures.term
+                    PostMenstrualAge = Some NeonatalEstimateFixtures.termOneWeek
                     Gender = Male
                 }
                 |> NeonatalEstimateFixtures.estimated
@@ -540,6 +556,7 @@ let neonatalEstimateTests =
                 { Patient.empty with
                     Age = Some { Patient.Age.ageZero with Months = 6<month> }
                     GestationalAge = Some NeonatalEstimateFixtures.premature
+                    PostMenstrualAge = Some NeonatalEstimateFixtures.prematureSixMonths
                     Gender = Male
                 }
                 |> NeonatalEstimateFixtures.estimated
@@ -553,6 +570,7 @@ let neonatalEstimateTests =
                 { Patient.empty with
                     Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
                     GestationalAge = Some NeonatalEstimateFixtures.term
+                    PostMenstrualAge = Some NeonatalEstimateFixtures.termOneWeek
                     Gender = Male
                 }
                 |> Patient.applyNormalValues weights heights NeonatalEstimateFixtures.neoWeights None
@@ -564,6 +582,7 @@ let neonatalEstimateTests =
                 { Patient.empty with
                     Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
                     GestationalAge = Some NeonatalEstimateFixtures.term
+                    PostMenstrualAge = Some NeonatalEstimateFixtures.termOneWeek
                     Gender = Female
                 }
                 |> Patient.applyNormalValues
@@ -581,6 +600,7 @@ let neonatalEstimateTests =
                 { Patient.empty with
                     Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
                     GestationalAge = Some NeonatalEstimateFixtures.term
+                    PostMenstrualAge = Some NeonatalEstimateFixtures.termOneWeek
                     Gender = Male
                 }
                 |> estimated
