@@ -3233,6 +3233,29 @@ module Tests =
                         |> Expect.equal "no gestational age out, 38 weeks in" [ false; true ]
                     }
 
+                    test "a patient without an age matches no gestational or post-menstrual age rule, in both filters" {
+                        let gestRule = { patCat with GestAge = { MinMax.empty with Min = Some(Inclusive(inDays 259)) } }
+
+                        let noAge = neonate None None None
+
+                        [
+                            noAge |> matches gestRule
+                            noAge |> matches pmaRule
+                            PatientCategory.filterPatient noAge gestRule
+                            PatientCategory.filterPatient noAge pmaRule
+                        ]
+                        |> Expect.allEqual "no match" false
+                    }
+
+                    test "a patient without an age but with a preterm gestational age matches no rule without one" {
+                        // a rule that names a location is not one for all patients
+                        let locationRule = { patCat with Location = Some "UMCU" }
+                        let pat = neonate None (Some 210) None
+
+                        [ pat |> matches locationRule; PatientCategory.filterPatient pat locationRule ]
+                        |> Expect.allEqual "left out, as a patient with an age is" false
+                    }
+
                     test "a patient without a post-menstrual age matches a rule without a post-menstrual age range" {
                         let neonatal =
                             { patCat with Age = { MinMax.empty with Max = Some(Inclusive(inDays 28)) } |> AbsoluteAge }

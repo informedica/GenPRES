@@ -266,37 +266,33 @@ module PatientCategory =
              fun (p: PatientCategory) ->
                  Option.map2 Calculations.calcDuBois filter.Patient.Weight filter.Patient.Height
                  |> MinMax.inRange p.BSA
-             if filter.Patient.Age |> Option.isSome then
-                 yield!
-                     [|
-                         // gestational age check: if patient category is empty (all patients), pass;
-                         // if filter has a preterm gestational age and patient category has no gest/pm age, filter out;
-                         // otherwise the gestational age is in the patient category range, so a patient without one
-                         // matches no rule with a gestational age range
-                         fun (p: PatientCategory) ->
-                             // all patients rule
-                             if p |> isEmpty then
-                                 true
-                             // if the gestational age is set and preterm, filter out all
-                             // dose rules with no gestational age or pm age
-                             else if
-                                 filter.Patient.GestAge.IsSome
-                                 && p.GestAge = MinMax.empty
-                                 && p.PMAge = MinMax.empty
-                             then
-                                 filter.Patient.GestAge.Value |> CoreAgeWeeksDays.isPretermValue |> not
-                             else
-                                 filter.Patient.GestAge |> MinMax.inRange p.GestAge
-                         // post-menstrual age check: if patient category is empty (all patients), pass;
-                         // otherwise the patient's post-menstrual age is in the patient category range, so a
-                         // patient without one matches no rule with a post-menstrual age range
-                         fun (p: PatientCategory) ->
-                             // all patients rule
-                             if p |> isEmpty then
-                                 true
-                             else
-                                 filter.Patient.PMAge |> MinMax.inRange p.PMAge
-                     |]
+             // gestational age check: if patient category is empty (all patients), pass;
+             // if filter has a preterm gestational age and patient category has no gest/pm age, filter out;
+             // otherwise the gestational age is in the patient category range, so a patient without one
+             // matches no rule with a gestational age range
+             fun (p: PatientCategory) ->
+                 // all patients rule
+                 if p |> isEmpty then
+                     true
+                 // if the gestational age is set and preterm, filter out all
+                 // dose rules with no gestational age or pm age
+                 else if
+                     filter.Patient.GestAge.IsSome
+                     && p.GestAge = MinMax.empty
+                     && p.PMAge = MinMax.empty
+                 then
+                     filter.Patient.GestAge.Value |> CoreAgeWeeksDays.isPretermValue |> not
+                 else
+                     filter.Patient.GestAge |> MinMax.inRange p.GestAge
+             // post-menstrual age check: if patient category is empty (all patients), pass;
+             // otherwise the patient's post-menstrual age is in the patient category range, so a
+             // patient without one matches no rule with a post-menstrual age range
+             fun (p: PatientCategory) ->
+                 // all patients rule
+                 if p |> isEmpty then
+                     true
+                 else
+                     filter.Patient.PMAge |> MinMax.inRange p.PMAge
              // patient gender must match patient category gender (or category allows any gender)
              fun (p: PatientCategory) -> filter |> Gender.filter p.Gender
              // patient venous access must be compatible with patient category access requirements
@@ -319,30 +315,26 @@ module PatientCategory =
              fun (p: PatientCategory) ->
                  Option.map2 Calculations.calcDuBois pat.Weight pat.Height
                  |> MinMax.inRange p.BSA
-             if pat.Age |> Option.isSome then
-                 yield!
-                     [|
-                         // check gestational age
-                         fun (p: PatientCategory) ->
-                             // all patients rule
-                             if p |> isEmpty then
-                                 true
-                             // if the gestational age is set and preterm, filter out all
-                             // dose rules with no gestational age or pm age
-                             else if pat.GestAge.IsSome && p.GestAge = MinMax.empty && p.PMAge = MinMax.empty then
-                                 pat.GestAge.Value |> CoreAgeWeeksDays.isPretermValue |> not
-                             else
-                                 // a patient without a gestational age matches no rule with a gestational age range
-                                 pat.GestAge |> MinMax.inRange p.GestAge
-                         // check the post-menstrual age: a patient without one matches no rule with a
-                         // post-menstrual age range
-                         fun (p: PatientCategory) ->
-                             // all patients rule
-                             if p |> isEmpty then
-                                 true
-                             else
-                                 pat.PMAge |> MinMax.inRange p.PMAge
-                     |]
+             // check gestational age
+             fun (p: PatientCategory) ->
+                 // all patients rule
+                 if p |> isEmpty then
+                     true
+                 // if the gestational age is set and preterm, filter out all
+                 // dose rules with no gestational age or pm age
+                 else if pat.GestAge.IsSome && p.GestAge = MinMax.empty && p.PMAge = MinMax.empty then
+                     pat.GestAge.Value |> CoreAgeWeeksDays.isPretermValue |> not
+                 else
+                     // a patient without a gestational age matches no rule with a gestational age range
+                     pat.GestAge |> MinMax.inRange p.GestAge
+             // check the post-menstrual age: a patient without one matches no rule with a
+             // post-menstrual age range
+             fun (p: PatientCategory) ->
+                 // all patients rule
+                 if p |> isEmpty then
+                     true
+                 else
+                     pat.PMAge |> MinMax.inRange p.PMAge
              //            fun (p: PatientCategory) -> filter |> Gender.filter p.Gender
              fun (p: PatientCategory) -> VenousAccess.check p.Access pat.Access
          |])

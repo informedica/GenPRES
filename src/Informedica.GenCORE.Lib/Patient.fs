@@ -1563,8 +1563,7 @@ module AgeWeeksDays =
 
 
     /// The gestational age from which a neonate is born at term: 37 weeks, where the full term
-    /// gestation type starts. A gestational age that is not known counts as this one. Not to be
-    /// confused with fullTerm, the due date at 40 weeks.
+    /// gestation type starts. Not to be confused with fullTerm, the due date at 40 weeks.
     let term = fromWeeks GestationType.moderate
 
 
