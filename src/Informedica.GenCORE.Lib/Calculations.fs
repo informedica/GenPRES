@@ -15,7 +15,9 @@ module Calculations =
             (int m / Constants.monthsInYear
              |> Conversions.yearFromInt
              |> Conversions.intYearsToDays)
-            + (int m % Constants.monthsInYear |> (*) 30 |> Conversions.dayFromInt)
+            + (int m % Constants.monthsInYear
+               |> (*) Constants.daysInMonth
+               |> Conversions.dayFromInt)
 
 
         /// The days of an age in months that may hold a fraction of a month: each 12 months a year of
@@ -25,7 +27,7 @@ module Calculations =
             let years = m / months |> BigRational.ToBigInt |> BigRational.FromBigInt
 
             years * (Constants.daysInYear |> BigRational.fromInt)
-            + (m - years * months) * 30N
+            + (m - years * months) * (Constants.daysInMonth |> BigRational.fromInt)
 
 
         /// The months of an age in days: each year of 365 days 12 months, the rest 30 days to the month.
@@ -40,7 +42,9 @@ module Calculations =
 
             // a plain min names the unit of measure for minutes here
             years * (Constants.monthsInYear |> BigRational.fromInt)
-            + Operators.min ((d - years * days) / 30N) highestMonthsBelowAYear
+            + Operators.min
+                ((d - years * days) / (Constants.daysInMonth |> BigRational.fromInt))
+                highestMonthsBelowAYear
 
 
         let yearsMonthsWeeksDaysToDays y (m: int<month>) w d =
@@ -59,13 +63,21 @@ module Calculations =
             yearsMonthsWeeksDaysToDays y m w d
 
 
-        let fromBirthDate bd dt =
-            let y, m, w, d = DateTime.age bd dt
+        /// The calendar age at a date of a birth date, in years, months, weeks and days, taken on the
+        /// date alone. The years count to the last birthday and the months to the last month-day; a
+        /// birthday that a year or a month does not have falls on the last day of that month. The days
+        /// after the last month-day count at most 29, so that the age in days, a year 365 days and a
+        /// month 30 days, reaches a year or a month limit on the birthday or the month-day itself.
+        let fromBirthDate (bd: System.DateTime) (dt: System.DateTime) =
+            let y, m, w, d = DateTime.age bd.Date dt.Date
+            // at most 29 days after the month-day: 30 days would count as the next month. A plain
+            // min names the unit of measure for minutes here
+            let rest = w * 7 + d |> Operators.min (Constants.daysInMonth - 1)
 
             y |> Conversions.yearFromInt,
             m |> Conversions.monthFromInt,
-            w |> Conversions.weekFromInt,
-            d |> Conversions.dayFromInt
+            rest / 7 |> Conversions.weekFromInt,
+            rest % 7 |> Conversions.dayFromInt
 
 
         let toBirthDate dt (ys: int<year>) (ms: int<month>) (ws: int<week>) (ds: int<day>) =

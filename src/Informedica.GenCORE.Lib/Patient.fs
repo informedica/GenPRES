@@ -336,6 +336,24 @@ module AgeValue =
         Calculations.Age.yearsMonthsWeeksDaysToDays ys ms ws ds
 
 
+    /// The age value of a number of days: a year 365 days, a month 30 days, at most 11 months. The
+    /// inverse of getAgeInDays for every age a birth date gives.
+    let fromDays (days: int<day>) =
+        let days = int days
+        let ys = days / Constants.daysInYear
+        let afterYears = days - ys * Constants.daysInYear
+        // a plain min names the unit of measure for minutes here
+        let ms = afterYears / Constants.daysInMonth |> Operators.min (Constants.monthsInYear - 1)
+
+        let rest = afterYears - ms * Constants.daysInMonth
+
+        create
+            (ys |> Conversions.yearFromInt |> Some)
+            (ms |> Conversions.monthFromInt |> Some)
+            (rest / 7 |> Conversions.weekFromInt |> Some)
+            (rest % 7 |> Conversions.dayFromInt |> Some)
+
+
     let comp op a1 a2 =
         let a1 = a1 |> getAgeInDays
         let a2 = a2 |> getAgeInDays
@@ -602,21 +620,17 @@ module PatientAge =
         | AgeValue av -> av |> fAv
 
 
+    /// The date the years, months, weeks and days of an age value before a date.
+    let calendarBirthDate dt av =
+        let ys, ms, ws, ds = av |> AgeValue.getDef0
+        Calculations.Age.toBirthDate dt ys ms ws ds
+
+
     let getBirthDate dt =
-        let get av =
-            let ys, ms, ws, ds = av |> AgeValue.getDef0
-            Calculations.Age.toBirthDate dt ys ms ws ds |> BirthDate.fromDate |> Some
-
-        map None Some get
+        map None Some (calendarBirthDate dt >> BirthDate.fromDate >> Some)
 
 
-    let getAgeValue dt =
-        let get bd =
-            dt
-            |> Calculations.Age.fromBirthDate (bd |> BirthDate.toDate)
-            |> fun (ys, ms, ws, ds) -> AgeValue.create (Some ys) (Some ms) (Some ws) (Some ds) |> Some
-
-        map None get Some
+    let getAgeValue dt = map None (AgeValue.fromBirthDate dt >> Some) Some
 
 
     /// The age at a date in days, with the unit day; none for an unknown age.
@@ -629,6 +643,33 @@ module PatientAge =
             >> BigRational.fromInt
             >> ValueUnit.singleWithUnit Units.Time.day
         )
+
+
+    /// The days lived at a date of a birth date, the difference between the two dates, exact in days
+    /// with no 30-day months; the post-menstrual age of a patient with a birth date is the gestational
+    /// age plus these days. None for an age value or an unknown age, which hold no birth date.
+    let daysLived (dt: DateTime) =
+        map None (fun bd -> (dt.Date - BirthDate.toDate bd).Days |> Conversions.dayFromInt |> Some) (fun _ -> None)
+
+
+    /// The latest birth date that is at least the age value old at the date. That is the birth date
+    /// of exactly this age, except on the few dates no birth date gives that age, such as one month
+    /// on the 31st of March; the patient is then the next age in days that a birth date gives, at
+    /// most 3 days older.
+    let birthDateAt (dt: DateTime) av =
+        let target = av |> AgeValue.getAgeInDays
+        // the search starts 3 days after the birth date that subtracting the age gives, and never
+        // after the date itself. A later birth date never gives an older age, so the first birth
+        // date old enough is the latest one; it lies within 3 days either way of the subtraction
+        let latest = Operators.min ((calendarBirthDate dt.Date av).AddDays 3.) dt.Date
+
+        [ 0..6 ]
+        |> List.map (fun n -> latest.AddDays(float -n))
+        |> List.find (fun bd ->
+            bd |> BirthDate.fromDate |> AgeValue.fromBirthDate dt |> AgeValue.getAgeInDays
+            >= target
+        )
+        |> BirthDate.fromDate
 
 
     let fromAgeType = AgeValue.fromAgeType >> ageValue
