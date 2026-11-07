@@ -20,9 +20,16 @@ module FormularyService =
             Route = form.Route
             Form = form.Form
             DoseType = form.DoseType |> Option.map Mappers.mapFromSharedDoseTypeToOrderDoseType
+            // the patient through the mapping every request uses; the Formulary command refuses a
+            // draft that is no patient before it gets here. No patient is the empty patient
             Patient =
                 form.Patient
-                |> Option.map Mappers.mapFromSharedPatient
+                |> Option.map (
+                    ServerApi.Patient.toDomain
+                    >> Result.defaultWith (fun errs ->
+                        invalidOp $"The Formulary command let through a draft that is no patient: %A{errs}"
+                    )
+                )
                 |> Option.defaultValue Patient.patient
         }
 

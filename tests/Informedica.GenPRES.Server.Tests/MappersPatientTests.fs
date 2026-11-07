@@ -40,6 +40,13 @@ let full: Informedica.GenPRES.Shared.Types.Patient =
     }
 
 
+/// The patient the Formulary filter is made for.
+let formularyPatient model =
+    (ServerApi.FormularyService.mapFormularyToFilter
+        { Informedica.GenPRES.Shared.Models.Formulary.empty with Patient = model })
+        .Patient
+
+
 let domain model =
     model
     |> ServerApi.Patient.parse
@@ -145,21 +152,71 @@ let tests =
                     (Some(ValueUnit.singleWithUnit Units.Time.day (BigRational.fromInt 3905)))
             }
 
-            test "the Formulary mapper gives the post-menstrual age the patient mapper gives" {
-                (ServerApi.Mappers.mapFromSharedPatient full).PMAge
+            test "the Formulary patient has the post-menstrual age the patient mapper gives" {
+                (Some full |> formularyPatient).PMAge
                 |> Expect.equal "the same days" (domain full).PMAge
             }
 
-            test "the Formulary mapper gives no post-menstrual age without a gestational age" {
-                (ServerApi.Mappers.mapFromSharedPatient { full with GestationalAge = None }).PMAge
+            test "the Formulary patient has no post-menstrual age without a gestational age" {
+                (Some { full with GestationalAge = None } |> formularyPatient).PMAge
                 |> Expect.isNone "none"
+            }
+
+            test "the Formulary patient is the patient every request uses, with the enteral tube and the location" {
+                let pat = Some full |> formularyPatient
+
+                pat |> Expect.equal "the same patient" (domain full)
+
+                (pat.Access, pat.Location)
+                |> Expect.equal "the PVL and the enteral tube, and UMCU" ([ Lib.PVL; Lib.EnteralTube ], Some "UMCU")
+            }
+
+            test "no patient is the empty Formulary patient" {
+                None |> formularyPatient |> Expect.equal "empty" LibPatient.patient
+            }
+
+            test "the client's post-menstrual age, which picks the neonatal table, is GenCORE's" {
+                let gestOf w : GestAge =
+                    {
+                        Weeks = Informedica.GenPRES.Shared.Measures.toWeek w
+                        Days = Informedica.GenPRES.Shared.Measures.toDay 3
+                    }
+
+                [
+                    for days in 0..200 do
+                        for weeks in 24..42 do
+                            { stub with
+                                Age = Some(ServerApi.Age.ofDays days)
+                                GestationalAge = Some(gestOf weeks)
+                            }
+                ]
+                |> List.filter (fun pat ->
+                    Informedica.GenPRES.Shared.Models.Patient.getPostConceptionalAgeInDays pat
+                    <> ServerApi.Age.postMenstrualAgeInDays pat
+                )
+                |> Expect.isEmpty "the same days"
+            }
+
+            test "the gestational age in days and back, as GenCORE counts and splits them" {
+                let gestOf w d : GestAge =
+                    {
+                        Weeks = Informedica.GenPRES.Shared.Measures.toWeek w
+                        Days = Informedica.GenPRES.Shared.Measures.toDay d
+                    }
+
+                { full with GestationalAge = Some(gestOf 28 3) }
+                |> ServerApi.Age.gestAgeInDays
+                |> Expect.equal "199 days" (Some 199<Informedica.GenCore.Lib.Measures.day>)
+
+                [ 0; 6; 199; 259 ]
+                |> List.map ServerApi.Age.gestAgeOfDays
+                |> Expect.equal "weeks and days" [ gestOf 0 0; gestOf 0 6; gestOf 28 3; gestOf 37 0 ]
             }
 
             test "an empty department stays empty, in the Formulary mapper too: the lookup applies the default" {
                 (domain stub).Department |> Expect.equal "new" None
 
-                (ServerApi.Mappers.mapFromSharedPatient stub).Department
-                |> Expect.equal "Formulary" None
+                (Some stub |> formularyPatient).Department |> Expect.equal "Formulary" None
             }
 
             test "golden: which categories a patient without a department matches, before and after" {
@@ -172,8 +229,8 @@ let tests =
 
                 let rows pat = categories |> List.map (PatientCategory.filterPatient pat)
 
-                stub
-                |> ServerApi.Mappers.mapFromSharedPatient
+                Some stub
+                |> formularyPatient
                 |> rows
                 |> Expect.equal "the Formulary mapper: the same" [ false; false; true ]
 

@@ -23,10 +23,12 @@ module Models =
     /// readers, the estimates and the minimum check.
     ///
     /// Architecture:
-    /// - This module is the single source of truth for patient logic that runs on BOTH sides
+    /// - This module holds the patient logic the client runs, and the server runs too for
+    ///   validate and the estimates. Its age counts are the client's copies of GenCORE's, held
+    ///   equal by the server tests, until the server sends the results it calculates
     /// - The Client UI uses these functions directly for the patient input form
-    /// - The Server uses helper functions (getAgeInDays, getWeight, etc.) in
-    ///   ServerApi.mapFromSharedPatient to convert to GenForm.Lib.Types.Patient
+    /// - The Server reads this record in ServerApi.Patient.ofModel, which maps it to the domain
+    ///   patient with the ages counted by GenCORE
     /// - Server-only logic (dose rules, eGFR formulas) lives in GenFORM/GenCORE
     /// - Any new patient logic must decide: needed on client? → put here.
     ///   Server-only? → put in GenFORM.Patient or GenCORE.Calculations
@@ -167,11 +169,6 @@ module Models =
             |> function
                 | [] -> None
                 | xs -> xs |> List.sum |> Some
-
-
-        let getGestAgeInDays (p: Patient) =
-            p.GestationalAge
-            |> Option.map (fun ga -> (Calculations.Age.weeksToDays ga.Weeks + ga.Days) |> int)
 
 
         let getPostConceptionalAgeInDays (p: Patient) =

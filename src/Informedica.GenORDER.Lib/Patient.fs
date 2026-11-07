@@ -63,8 +63,8 @@ module Patient =
         let ageToValueUnit ags =
             ags
             |> List.sumBy (ageValueOf >> CoreAgeValue.getAgeInDays >> int)
-            |> BigRational.fromInt
-            |> ValueUnit.singleWithUnit Units.Time.day
+            |> Conversions.dayFromInt
+            |> Measures.fromIntDay
 
 
         /// The age parts of an age, as GenCORE splits the whole days; the parts that are zero are
@@ -72,12 +72,7 @@ module Patient =
         let ageFromValueUnit vu =
             let ys, ms, ws, ds =
                 vu
-                |> ValueUnit.convertTo Units.Time.day
-                |> ValueUnit.getValue
-                |> Array.head
-                |> BigRational.toDecimal
-                |> int
-                |> Conversions.dayFromInt
+                |> Measures.toSingleIntDay
                 |> CoreAgeValue.fromDays
                 |> CoreAgeValue.getDef0
                 |> fun (y, m, w, d) -> int y, int m, int w, int d

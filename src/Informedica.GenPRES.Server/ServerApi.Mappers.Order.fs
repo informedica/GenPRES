@@ -1,10 +1,10 @@
 namespace ServerApi
 
 
-/// The order mapper, and what the services still map by hand: the patient, the order context
-/// and the totals, each now with a mapper of its own next to this file. Those parts go once
-/// the services take the domain-typed ports; the order mapping, the dose type both ways and
-/// the text markup parser stay.
+/// The order mapper, and what the services still map by hand: the order context and the totals,
+/// each now with a mapper of its own next to this file. Those parts go once the services take
+/// the domain-typed ports; the order mapping, the dose type both ways and the text markup parser
+/// stay.
 module Mappers =
 
     open Informedica.Utils.Lib.BCL
@@ -375,61 +375,6 @@ module Mappers =
         | Informedica.GenForm.Lib.Types.Discontinuous s -> s |> Discontinuous
         | Informedica.GenForm.Lib.Types.Continuous s -> s |> Continuous
         | Informedica.GenForm.Lib.Types.NoDoseType -> NoDoseType
-
-
-    let mapFromSharedPatient (pat: Patient) =
-        { Patient.patient with
-            Department = pat.Department
-            Age =
-                pat.Age
-                |> Option.map (Age.inDays >> BigRational.fromInt >> ValueUnit.singleWithUnit Units.Time.day)
-            GestAge =
-                pat
-                |> Models.Patient.getGestAgeInDays
-                |> Option.map BigRational.fromInt
-                |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
-            Weight =
-                pat
-                |> Models.Patient.getWeight
-                |> Option.map (int >> BigRational.fromInt)
-                |> Option.map (ValueUnit.singleWithUnit Units.Weight.gram)
-                |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
-            Height =
-                pat
-                |> Models.Patient.getHeight
-                |> Option.map (int >> BigRational.fromInt)
-                |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
-            Gender =
-                match pat.Gender with
-                | Male -> Informedica.GenForm.Lib.Types.Male
-                | Female -> Informedica.GenForm.Lib.Types.Female
-                | UnknownGender -> AnyGender
-            Access =
-                pat.Access
-                // TODO make proper mapping
-                |> List.choose (fun a ->
-                    match a with
-                    | CVL -> Informedica.GenForm.Lib.Types.CVL |> Some
-                    | PVL -> Informedica.GenForm.Lib.Types.PVL |> Some
-                    | _ -> None
-                )
-            RenalFunction =
-                pat.RenalFunction
-                |> Option.map (fun rf ->
-                    match rf with
-                    | EGFR(min, max) -> Informedica.GenForm.Lib.Types.RenalFunction.EGFR(min, max)
-                    | IntermittentHemodialysis -> Informedica.GenForm.Lib.Types.RenalFunction.IntermittentHemodialysis
-                    | ContinuousHemodialysis -> Informedica.GenForm.Lib.Types.RenalFunction.ContinuousHemodialysis
-                    | PeritonealDialysis -> Informedica.GenForm.Lib.Types.RenalFunction.PeritonealDialysis
-                )
-            PMAge =
-                pat
-                |> Age.postMenstrualAgeInDays
-                |> Option.map (
-                    Informedica.GenCore.Lib.Conversions.dayFromInt
-                    >> Informedica.GenCore.Lib.ValueUnits.ValueUnit.Measures.fromIntDay
-                )
-        }
 
 
     /// Configuration for text item delimiters
