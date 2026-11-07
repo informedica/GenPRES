@@ -11,6 +11,8 @@ open Informedica.GenOrder.Lib
 open Informedica.GenOrder.Lib.Patient.Optics
 // after GenForm, so that the contract model's cases win unqualified
 open Informedica.GenPRES.Shared.Types
+// the units of an age in GenCORE's measures, after the contract model's
+open Informedica.GenCore.Lib
 
 
 module Lib = Informedica.GenForm.Lib.Types
@@ -250,24 +252,50 @@ let estimateTests =
                 |> Expect.equal "twenty kilograms measured, the height estimated" (Some 20N, true, Some 87N, false)
             }
 
-            test "the department, the gender and the access devices survive the round trip" {
+            test "the department, the gender, the access devices and the diagnoses survive the round trip" {
                 let pat =
                     { Patient.patient with
                         Department = Some "NEO"
                         Access = [ Lib.CVL ]
+                        Diagnoses = [| "sepsis" |]
                     }
                     |> Patient.setAge [ Years 2 ]
                     |> Patient.setGender Lib.Female
                     |> ServerApi.Patient.estimated tables
 
-                (pat.Department, pat.Gender, pat.Access)
-                |> Expect.equal "kept" (Some "NEO", Lib.Female, [ Lib.CVL ])
+                (pat.Department, pat.Gender, pat.Access, pat.Diagnoses)
+                |> Expect.equal "kept" (Some "NEO", Lib.Female, [ Lib.CVL ], [| "sepsis" |])
             }
 
             test "a reading that is no patient stays as it was" {
                 Patient.patient
                 |> ServerApi.Patient.estimated tables
                 |> Expect.equal "unchanged" Patient.patient
+            }
+
+            test "an identified patient keeps the age, gestational age and post-menstrual age the projection gives" {
+                let ehr = ServerApi.StubPatientData.data "any"
+
+                let premature =
+                    { ehr with
+                        Patient =
+                            { ehr.Patient with
+                                GestationalAge =
+                                    Informedica.GenCore.Lib.Patients.AgeWeeksDays.create 26<week> 0<day> |> Some
+                                Weight = Informedica.GenCore.Lib.Patients.Weight.unknown
+                                Height = Informedica.GenCore.Lib.Patients.Height.unknown
+                            }
+                    }
+
+                let port = ServerApi.StubPatientData.port
+                let at = ServerApi.StubPatientData.measuredOn
+                let projected = port.patient at premature
+                let estimated = (port |> ServerApi.Patient.estimating (fun () -> Some tables)).patient at premature
+
+                (estimated.Age, estimated.GestAge, estimated.PMAge, estimated.Weight.IsSome)
+                |> Expect.equal
+                    "as projected, the weight estimated"
+                    (projected.Age, projected.GestAge, projected.PMAge, true)
             }
 
             test "the port wrapped: a projection arrives estimated, and unestimated while the tables are not loaded" {

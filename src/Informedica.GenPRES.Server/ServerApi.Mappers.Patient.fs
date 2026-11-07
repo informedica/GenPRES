@@ -267,17 +267,29 @@ module Patient =
         )
 
 
-    /// The domain patient with the estimates the contract model computes for its age,
-    /// gestational age and sex: the one estimate, on both sides, so the server's answer and
-    /// the panel's display cannot drift. A measured value is untouched, and a patient the
-    /// contract model cannot read back stays as it was.
+    /// The domain patient with the weight and height estimates the contract model computes for
+    /// its age, gestational age and sex, the same estimate the client shows; everything else as
+    /// given. A measured value is untouched, and a patient the contract model cannot read back
+    /// stays as it was.
     let estimated (nv: NormalValues) (pat: Lib.Patient) : Lib.Patient =
+        let withEstimates (est: Lib.Patient) =
+            { pat with
+                Weight = est.Weight
+                Height = est.Height
+                WeightMeasured = est.WeightMeasured
+                HeightMeasured = est.HeightMeasured
+            }
+
         pat
         |> LibPatient.Dto.toDto
         |> toModel
         |> NormalValues.apply nv
         |> ofModel
         |> LibPatient.Dto.fromDto
+        // only the weight and the height: the contract model has no post-menstrual age and no
+        // diagnoses, so the way back would count the post-menstrual age again from the calendar
+        // age and drop the diagnoses
+        |> Result.map withEstimates
         |> Result.defaultValue pat
 
 
