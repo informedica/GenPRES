@@ -21,7 +21,7 @@ module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
 let today = DateTime(2026, 9, 26)
 
 
-let ehr = StubPatientData.data "p1"
+let ehr = StubPatientData.data StubPatientData.measuredOn "p1"
 
 
 /// The EHR data of an anonymous patient: an age value, no identity.

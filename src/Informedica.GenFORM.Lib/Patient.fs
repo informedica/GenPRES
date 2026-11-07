@@ -650,7 +650,6 @@ module Patient =
     module BSA = Informedica.GenCore.Lib.Calculations.BSA
     module Conversions = Informedica.GenCore.Lib.Conversions
     module Limit = Informedica.GenCore.Lib.Ranges.Limit
-    module CorePatient = Informedica.GenCore.Lib.Patients.Patient
     module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
     module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
     module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
@@ -715,11 +714,11 @@ module Patient =
         }
 
 
-    /// The patient the EHR data is at a date: from withAgesOf, the age, the gestational age and the
-    /// post-menstrual age of the core patient created at that date; weight and height from the
-    /// calculation values, measured when there are any; the department's name; renal function and
-    /// access as given; the BSA left to the calculation over weight and height.
-    let ofEhr (now: System.DateTime) (ehr: EhrPatientData) : Patient =
+    /// The patient the EHR data is: from withAgesOf, the age, the gestational age and the
+    /// post-menstrual age the read created; weight and height from the calculation values, measured
+    /// when there are any; the department's name; renal function and access as given; the BSA left
+    /// to the calculation over weight and height.
+    let ofEhr (ehr: EhrPatientData) : Patient =
         let gender =
             function
             | CoreGender.Male -> Male
@@ -760,7 +759,7 @@ module Patient =
             Access = ehr.Access
             RenalFunction = ehr.RenalFunction
         }
-        |> withAgesOf (ehr.Patient |> CorePatient.atDate now)
+        |> withAgesOf ehr.Patient
 
 
     /// Get the string representation of a Patient.

@@ -1,4 +1,4 @@
-/// The refresh: the EHR read again for the Session and projected at the time of the refresh
+/// The refresh: the EHR read again for the Session, its ages created at the time of the refresh,
 /// under a fresh OpenedToken, the standing challenge spent and the notice dropped; the order plan version the Session opened with stays. No reading
 /// leaves the patient as it was.
 module Informedica.GenPRES.Server.Tests.RefreshTests
@@ -22,20 +22,23 @@ module Fixtures =
             Role = UserRole.Prescriber
         }
 
-    /// The stub EHR, counting its reads.
+    /// The stub EHR read at the time of the refresh.
+    let atRefresh = StubPatientData.portAt (fun () -> later)
+
+    /// The stub EHR read at the time of the refresh, counting its reads.
     let counting () =
         let reads = ref 0
 
         reads,
-        { StubPatientData.port with
+        { atRefresh with
             read =
                 fun pid ->
                     reads.Value <- reads.Value + 1
-                    StubPatientData.port.read pid
+                    atRefresh.read pid
         }
 
     let opened: OpenedSession =
-        let ehr = StubPatientData.data "p1"
+        let ehr = StubPatientData.data StubPatientData.measuredOn "p1"
 
         {
             User = Some prescriber
@@ -76,7 +79,7 @@ let tests =
     testList
         "Refresh"
         [
-            test "a refresh reads the EHR once and projects at the date of the refresh" {
+            test "a refresh reads the EHR once, with the ages of the time of the refresh" {
                 let reads, port = counting ()
                 let _, opened, _ = stateWith (record opened) |> refreshed port
 
@@ -86,12 +89,12 @@ let tests =
                 |> Option.bind (Session.sessionPatient later port)
                 |> Expect.equal
                     "the projection at the refresh"
-                    (Some(StubPatientData.port.patient later (StubPatientData.data "p1")))
+                    (Some(atRefresh.patient (StubPatientData.data later "p1")))
             }
 
             test "the age is the one at the refresh" {
                 let before = stateWith (record opened)
-                let after, _, _ = before |> refreshed StubPatientData.port
+                let after, _, _ = before |> refreshed atRefresh
 
                 let months date (state: Session.State) =
                     state.Sessions["s1"].Opened

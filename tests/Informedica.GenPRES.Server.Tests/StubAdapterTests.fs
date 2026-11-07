@@ -39,7 +39,7 @@ module Machine =
     let openVersion now newId sid id state = ServerApi.Session.openVersion now newId sid id state |> answered
 
     let challenge now newId digest patientData sid request state =
-        ServerApi.Session.challenge TimeZoneInfo.Utc now newId digest patientData (fun _ -> None) sid request state
+        ServerApi.Session.challenge now newId digest patientData (fun _ -> None) sid request state
         |> answered
 
 
@@ -48,11 +48,9 @@ module StubAdapters =
     let private notStubbed _ = raise (System.NotImplementedException "not stubbed")
 
 
-    /// The stub EHR with its projection at the stub patient's tenth birthday whatever the
-    /// clock, so that the ten-year reading the fixtures state is the reading at every date the
-    /// suites run at. The real port projects at the date it is given.
-    let patientData: PatientDataPort =
-        { StubPatientData.port with patient = fun _ ehr -> StubPatientData.port.patient StubPatientData.measuredOn ehr }
+    /// The stub EHR read at the stub patient's tenth birthday whatever the clock, so that the
+    /// ten-year reading the fixtures state is the reading at every date the suites run at.
+    let patientData: PatientDataPort = StubPatientData.portAt (fun () -> StubPatientData.measuredOn)
 
 
     /// An EHR that has nothing for any id.
@@ -537,7 +535,7 @@ module SessionStubTests =
     /// The EHR data the stub would have read for the id, with the ward the contract model names,
     /// so that a fixture stated as a contract patient has the EHR data its projection came from.
     let ehrOf (pid: string) (p: Patient) : Informedica.GenForm.Lib.Types.EhrPatientData =
-        let ehr = StubPatientData.data pid
+        let ehr = StubPatientData.data StubPatientData.measuredOn pid
 
         { ehr with
             Patient.Data.Department =
@@ -2710,11 +2708,11 @@ module SessionStubTests =
                     }
 
                     test
-                        "a challenge on a later day than the open, the EHR unchanged: issued over the age the open held" {
-                        // the real port projects at the date it is given; the Session opened at t0
+                        "a challenge on a later day than the open, the EHR unchanged: issued, only the calculated ages differ" {
+                        // the Session opened at t0; the challenge reads the EHR again, with the ages of that read
                         let sid, record = session "s-1" (Some prescriber) (Some("stub-patient", stubPatient)) None
 
-                        let ehr = StubPatientData.data "stub-patient"
+                        let ehr = StubPatientData.data StubPatientData.measuredOn "stub-patient"
 
                         let record = { record with Opened = { record.Opened with EhrData = Some ehr } }
 
@@ -2731,7 +2729,8 @@ module SessionStubTests =
                         answer
                         |> Expect.equal "issued, not a notice" (SigningOutcome.ChallengeIssued("n-1", false))
 
-                        state.Challenges[sid].Ehr |> Expect.equal "the EHR data as read" (Some ehr)
+                        Session.Reads.sameDataApartFromAges state.Challenges[sid].Ehr (Some ehr)
+                        |> Expect.isTrue "the same EHR data apart from the calculated ages"
                     }
 
                     test "refuses a Reader (Rule 26) before the token is looked at, and a stale token (Rule 34)" {
@@ -2767,7 +2766,7 @@ module SessionStubTests =
                             "stored"
                             {
                                 Nonce = "n-1"
-                                Ehr = Some(StubPatientData.data "stub-patient")
+                                Ehr = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient")
                                 Data = Some(parsePatient stubPatient)
                                 Expiry = t0 + minutes 2.0
                             }
@@ -2837,7 +2836,9 @@ module SessionStubTests =
                         answer |> Expect.equal "issued" (SigningOutcome.ChallengeIssued("n-2", false))
 
                         state.Challenges["s-1"].Ehr
-                        |> Expect.equal "the platform's reading" (Some(StubPatientData.data "stub-patient"))
+                        |> Expect.equal
+                            "the platform's reading"
+                            (Some(StubPatientData.data StubPatientData.measuredOn "stub-patient"))
 
                         state.Challenges["s-1"].Digest
                         |> Expect.equal "over the data told" (StubDatabase.digest (parsed plan))
@@ -2998,7 +2999,7 @@ module SessionStubTests =
                             {
                                 Nonce = "n-1"
                                 Digest = StubDatabase.digest (parsed plan)
-                                Ehr = Some(StubPatientData.data "stub-patient")
+                                Ehr = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient")
                                 Expiry = t0 + minutes 2.0
                             }
                     }
@@ -3143,7 +3144,7 @@ module SessionStubTests =
                                 (Some(
                                     StoredVersion.Readable(
                                         version,
-                                        StubPatientData.data "stub-patient"
+                                        StubPatientData.data StubPatientData.measuredOn "stub-patient"
                                         |> Informedica.GenForm.Lib.EhrPatientData.identity
                                     )
                                 ))
@@ -3156,7 +3157,7 @@ module SessionStubTests =
                                     version.Plan.Patient
                                     |> Session.atBirthDate
                                         t0
-                                        (StubPatientData.data "stub-patient"
+                                        (StubPatientData.data StubPatientData.measuredOn "stub-patient"
                                          |> Informedica.GenForm.Lib.EhrPatientData.identity)
                                 ))
 

@@ -1666,6 +1666,17 @@ module Tests =
                         |> Expect.isNone "none"
                     }
 
+                    test "createAt creates the patient with its ages" {
+                        let data =
+                            { PatientData.unknown with GestationalAge = Some(AgeWeeksDays.create 26<week> 0<day>) }
+
+                        data
+                        |> Patient.createAt (date 2016 5 10) (Some stub)
+                        |> Expect.equal
+                            "created, then its ages"
+                            (data |> Patient.create (Some stub) |> Patient.atDate (date 2016 5 10))
+                    }
+
                     test "the calculated post-menstrual age goes there and back, also above 52 weeks" {
                         let pat =
                             { PatientData.unknown with GestationalAge = Some(AgeWeeksDays.create 26<week> 0<day>) }

@@ -227,7 +227,7 @@ let tests =
                         })
 
                 let identified =
-                    { stored with EhrData = Some(StubPatientData.data "stub-patient") }
+                    { stored with EhrData = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient") }
                     |> SessionMapper.toOpened false shown
 
                 identified.PatientContext

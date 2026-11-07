@@ -94,7 +94,7 @@ let tests =
             test "whom a version names is in its columns, both cases; a row from before names none; half is a reason" {
                 withRecord (fun cs ->
                     let whom =
-                        StubPatientData.data "stub-patient"
+                        StubPatientData.data StubPatientData.measuredOn "stub-patient"
                         |> Informedica.GenForm.Lib.EhrPatientData.identity
 
                     SqlDatabase.persist cs [ Session.WriteVersion(v1.Value, whom) ]

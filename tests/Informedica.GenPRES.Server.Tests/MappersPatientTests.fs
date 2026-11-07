@@ -396,20 +396,24 @@ let estimateTests =
             }
 
             test "an identified patient keeps the age, gestational age and post-menstrual age the projection gives" {
-                let ehr = ServerApi.StubPatientData.data "any"
+                let ehr = ServerApi.StubPatientData.data ServerApi.StubPatientData.measuredOn "any"
 
+                // the gestational age known, so its post-menstrual age calculated, and no measurement
                 let premature =
                     { ehr with
-                        Patient.Data.GestationalAge =
-                            Informedica.GenCore.Lib.Patients.AgeWeeksDays.create 26<week> 0<day> |> Some
-                        Patient.Data.Weight = Informedica.GenCore.Lib.Patients.Weight.unknown
-                        Patient.Data.Height = Informedica.GenCore.Lib.Patients.Height.unknown
+                        Patient =
+                            { (ehr.Patient
+                               |> Informedica.GenCore.Lib.Patients.Patient.withGestationalAge (
+                                   Informedica.GenCore.Lib.Patients.AgeWeeksDays.create 26<week> 0<day> |> Some
+                               )) with
+                                Data.Weight = Informedica.GenCore.Lib.Patients.Weight.unknown
+                                Data.Height = Informedica.GenCore.Lib.Patients.Height.unknown
+                            }
                     }
 
                 let port = ServerApi.StubPatientData.port
-                let at = ServerApi.StubPatientData.measuredOn
-                let projected = port.patient at premature
-                let estimated = (port |> ServerApi.Patient.estimating (fun () -> Some tables)).patient at premature
+                let projected = port.patient premature
+                let estimated = (port |> ServerApi.Patient.estimating (fun () -> Some tables)).patient premature
 
                 (estimated.Age, estimated.GestAge, estimated.PMAge, estimated.Weight.IsSome)
                 |> Expect.equal
@@ -419,7 +423,7 @@ let estimateTests =
 
             test "the port wrapped: a projection arrives estimated, and unestimated while the tables are not loaded" {
                 // the stub patient with its birthdate and no measurement at all
-                let ehr = ServerApi.StubPatientData.data "any"
+                let ehr = ServerApi.StubPatientData.data ServerApi.StubPatientData.measuredOn "any"
 
                 let bare =
                     { ehr with
@@ -428,14 +432,13 @@ let estimateTests =
                     }
 
                 let port = ServerApi.StubPatientData.port
-                let at = ServerApi.StubPatientData.measuredOn
 
-                (port |> ServerApi.Patient.estimating (fun () -> Some tables)).patient at bare
+                (port |> ServerApi.Patient.estimating (fun () -> Some tables)).patient bare
                 |> _.Weight.IsSome
                 |> Expect.isTrue "estimated"
 
-                (port |> ServerApi.Patient.estimating (fun () -> None)).patient at bare
-                |> Expect.equal "as projected" (port.patient at bare)
+                (port |> ServerApi.Patient.estimating (fun () -> None)).patient bare
+                |> Expect.equal "as projected" (port.patient bare)
             }
         ]
 

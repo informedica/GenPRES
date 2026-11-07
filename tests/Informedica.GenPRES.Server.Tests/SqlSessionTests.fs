@@ -160,7 +160,7 @@ let insertRow (cs: string) (sql: string) (parameters: (string * obj) list) =
 
 let loadedSession (cs: string) (sid: string) =
     use conn = connect cs
-    SqlSessions.loadSession conn (fun _ -> None) sid
+    SqlSessions.loadSession conn TimeZoneInfo.Utc (fun _ -> None) sid
 
 
 [<Tests>]
@@ -525,7 +525,13 @@ let sessionTests =
 
                     use conn = connect cs
 
-                    match SqlSessions.loadSession conn (fun id -> if id = "plan-1" then Some head else None) "s-1" with
+                    match
+                        SqlSessions.loadSession
+                            conn
+                            TimeZoneInfo.Utc
+                            (fun id -> if id = "plan-1" then Some head else None)
+                            "s-1"
+                    with
                     | Some(Choice1Of2(Ok session)) ->
                         session.Opened.Head |> Expect.equal "the head of its own id" (Some head)
                     | other -> failtest $"expected the Session, got %A{other}"
@@ -751,7 +757,7 @@ let writerTests =
 
             test "the EHR data a Session opened on is written under its version and loads back as read" {
                 withSessions (fun cs ->
-                    let ehr = StubPatientData.data "stub-patient"
+                    let ehr = StubPatientData.data StubPatientData.measuredOn "stub-patient"
 
                     let session =
                         { sessionOf "s-1" "prescriber" None None with
@@ -810,7 +816,12 @@ let writerTests =
                             null
                             "update session_opened_with set ehr_data = $ehr where session_id = $sid"
                             [
-                                "$ehr", box (SqlSessions.ehrJson (StubPatientData.data "stub-patient"))
+                                "$ehr",
+                                box (
+                                    SqlSessions.ehrJson (
+                                        StubPatientData.data StubPatientData.measuredOn "stub-patient"
+                                    )
+                                )
                                 "$sid", box "s-1"
                             ]
 
@@ -888,7 +899,7 @@ let sliceTests =
 
                     use conn = connect cs
                     let _, warn = warnings ()
-                    let loaded = SqlSessions.withSession warn cs conn t0 "s-1" emptyState
+                    let loaded = SqlSessions.withSession warn cs conn TimeZoneInfo.Utc t0 "s-1" emptyState
 
                     loaded.Sessions
                     |> Map.containsKey "s-1"
@@ -928,7 +939,7 @@ let sliceTests =
 
                     use conn = connect cs
                     let _, warn = warnings ()
-                    let loaded = SqlSessions.withLogin warn cs conn t0 "prescriber" held
+                    let loaded = SqlSessions.withLogin warn cs conn TimeZoneInfo.Utc t0 "prescriber" held
 
                     loaded.Sessions |> Map.containsKey "s-2" |> Expect.isTrue "the newest stands"
 
@@ -951,14 +962,14 @@ let sliceTests =
 
                     // past its lifetime the loader calls it absent, and so must the state, or
                     // a callback would still find the patient it was launched on
-                    SqlSessions.withLaunch warn cs conn (t0.AddMinutes 3.0) "state" "state-n-1" held
+                    SqlSessions.withLaunch warn cs conn TimeZoneInfo.Utc (t0.AddMinutes 3.0) "state" "state-n-1" held
                     |> fun s -> s.Launches |> Expect.isEmpty "no Launch at all"
 
-                    SqlSessions.withLaunch warn cs conn (t0.AddMinutes 3.0) "nonce" "n-1" held
+                    SqlSessions.withLaunch warn cs conn TimeZoneInfo.Utc (t0.AddMinutes 3.0) "nonce" "n-1" held
                     |> fun s -> s.Launches |> Expect.isEmpty "found by its nonce either way"
 
                     // within it, the row is what the state holds
-                    SqlSessions.withLaunch warn cs conn t0 "nonce" "n-1" held
+                    SqlSessions.withLaunch warn cs conn TimeZoneInfo.Utc t0 "nonce" "n-1" held
                     |> fun s -> s.Launches |> Map.containsKey "n-1" |> Expect.isTrue "the Launch stands"
                 )
             }
@@ -988,7 +999,7 @@ let sliceTests =
 
                     use conn = connect cs
                     let _, warn = warnings ()
-                    let loaded = SqlSessions.withSession warn cs conn t0 "s-1" held
+                    let loaded = SqlSessions.withSession warn cs conn TimeZoneInfo.Utc t0 "s-1" held
 
                     loaded.Sessions
                     |> Map.containsKey "s-1"
@@ -1008,7 +1019,7 @@ let sliceTests =
 
                     use conn = connect cs
                     let said, warn = warnings ()
-                    let loaded = SqlSessions.withSession warn cs conn t0 "s-1" emptyState
+                    let loaded = SqlSessions.withSession warn cs conn TimeZoneInfo.Utc t0 "s-1" emptyState
 
                     loaded.Endings
                     |> Map.tryFind "s-1"
@@ -1043,7 +1054,7 @@ let sliceTests =
                     |> Expect.isNone "a login with no Session"
 
                     let _, warn = warnings ()
-                    let loaded = SqlSessions.withLogin warn cs conn t0 "prescriber" emptyState
+                    let loaded = SqlSessions.withLogin warn cs conn TimeZoneInfo.Utc t0 "prescriber" emptyState
 
                     loaded.Sessions
                     |> Map.containsKey "s-2"
@@ -1071,7 +1082,7 @@ let sliceTests =
 
                     use conn = connect cs
                     let _, warn = warnings ()
-                    let loaded = SqlSessions.withLaunch warn cs conn t0 "state" "state-n-1" emptyState
+                    let loaded = SqlSessions.withLaunch warn cs conn TimeZoneInfo.Utc t0 "state" "state-n-1" emptyState
 
                     match loaded.Launches |> Map.tryFind "n-1" with
                     | Some record ->
@@ -1109,7 +1120,7 @@ let sliceTests =
 
                     use conn = connect cs
                     let _, warn = warnings ()
-                    let loaded = SqlSessions.withLaunch warn cs conn t0 "nonce" "n-1" emptyState
+                    let loaded = SqlSessions.withLaunch warn cs conn TimeZoneInfo.Utc t0 "nonce" "n-1" emptyState
 
                     // the browser presenting it again goes to the app, not through the hop
                     match loaded.Launches |> Map.tryFind "n-1" |> Option.bind _.Outcome with
@@ -1139,7 +1150,7 @@ let sliceTests =
                     let _, warn = warnings ()
 
                     let outcomeOf nonce state =
-                        SqlSessions.withLaunch warn cs conn t0 "nonce" nonce state
+                        SqlSessions.withLaunch warn cs conn TimeZoneInfo.Utc t0 "nonce" nonce state
                         |> fun s -> s.Launches |> Map.tryFind nonce |> Option.bind _.Outcome
 
                     outcomeOf "n-1" emptyState
@@ -1149,7 +1160,7 @@ let sliceTests =
                     |> Expect.equal "the attempt it suspended into" (Some(LaunchResult.Enrolling "attempt-1"))
 
                     // past the lifetime the record is absent, as the dropped row will be
-                    SqlSessions.withLaunch warn cs conn (t0.AddMinutes 3.0) "nonce" "n-1" emptyState
+                    SqlSessions.withLaunch warn cs conn TimeZoneInfo.Utc (t0.AddMinutes 3.0) "nonce" "n-1" emptyState
                     |> fun s -> s.Launches |> Expect.isEmpty "no Launch at all"
                 )
             }
@@ -1166,8 +1177,8 @@ let raceTests =
                     // both servers load before either writes, so neither sees the other's open
                     use conn = connect cs
                     let _, warn = warnings ()
-                    let a = SqlSessions.withLogin warn cs conn t0 "prescriber" emptyState
-                    let b = SqlSessions.withLogin warn cs conn t0 "prescriber" emptyState
+                    let a = SqlSessions.withLogin warn cs conn TimeZoneInfo.Utc t0 "prescriber" emptyState
+                    let b = SqlSessions.withLogin warn cs conn TimeZoneInfo.Utc t0 "prescriber" emptyState
 
                     a.Sessions |> Expect.isEmpty "nothing for the login yet"
                     b.Sessions |> Expect.isEmpty "for either of them"
@@ -1485,7 +1496,7 @@ let credentialLoadTests =
 
                     use conn = connect cs
                     let _, warn = warnings ()
-                    let state = SqlSessions.withSession warn cs conn t0 "s-1" emptyState
+                    let state = SqlSessions.withSession warn cs conn TimeZoneInfo.Utc t0 "s-1" emptyState
 
                     match state.Credentials |> Map.tryFind "user-1" with
                     | Some c -> PinHash.verify "1234" c.PinHash.Value |> Expect.isTrue "the PIN it signs with"
@@ -1546,7 +1557,9 @@ let withOpenSession (cs: string) =
 let noticeOf nonce data : Session.Notice =
     {
         Nonce = nonce
-        Ehr = data |> Option.map (fun _ -> StubPatientData.data "stub-patient")
+        Ehr =
+            data
+            |> Option.map (fun _ -> StubPatientData.data StubPatientData.measuredOn "stub-patient")
         Data = data
         Expiry = t0.AddMinutes 2.0
     }
@@ -1603,11 +1616,40 @@ let flightWriteTests =
                 )
             }
 
+            test "a stored read from before its ages were created gets the ages of the moment of that read" {
+                withSessions (fun cs ->
+                    withOpenSession cs
+                    let created = StubPatientData.data t0 "stub-patient"
+
+                    // as stored before the read created the ages
+                    let old =
+                        { created with
+                            Patient =
+                                { created.Patient with
+                                    Data =
+                                        { created.Patient.Data with
+                                            Age = None
+                                            PostMenstrualAge = None
+                                        }
+                                }
+                        }
+
+                    runWrites cs [ Session.WriteChallenge("s-1", { challengeOf "c-1" with Ehr = Some old }, t0) ]
+                    |> Expect.equal "written" Session.StoreOutcome.Written
+
+                    use conn = connect cs
+
+                    SqlSessions.loadChallenge conn TimeZoneInfo.Utc t0 "s-1"
+                    |> Option.map (Result.map _.Ehr)
+                    |> Expect.equal "as the read made it" (Some(Ok(Some created)))
+                )
+            }
+
             test
                 "the notice and the challenge keep the EHR data they were told or issued over, and a row from before has none" {
                 withSessions (fun cs ->
                     withOpenSession cs
-                    let ehr = StubPatientData.data "stub-patient"
+                    let ehr = StubPatientData.data StubPatientData.measuredOn "stub-patient"
 
                     runWrites
                         cs
@@ -1619,11 +1661,11 @@ let flightWriteTests =
 
                     use conn = connect cs
 
-                    SqlSessions.loadNotice conn t0 "s-1"
+                    SqlSessions.loadNotice conn TimeZoneInfo.Utc t0 "s-1"
                     |> Option.map (Result.map _.Ehr)
                     |> Expect.equal "the notice's read" (Some(Ok(Some ehr)))
 
-                    SqlSessions.loadChallenge conn t0 "s-1"
+                    SqlSessions.loadChallenge conn TimeZoneInfo.Utc t0 "s-1"
                     |> Option.map (Result.map _.Ehr)
                     |> Expect.equal "the challenge's read" (Some(Ok(Some ehr)))
 
@@ -1643,7 +1685,7 @@ let flightWriteTests =
 
                     cmd.ExecuteNonQuery() |> ignore
 
-                    SqlSessions.loadChallenge conn t0 "s-1"
+                    SqlSessions.loadChallenge conn TimeZoneInfo.Utc t0 "s-1"
                     |> Option.map (Result.map (fun c -> c.Nonce, c.Ehr))
                     |> Expect.equal "the newest, with no read" (Some(Ok("c-0", None)))
 
@@ -1659,7 +1701,7 @@ let flightWriteTests =
 
                     cmd.ExecuteNonQuery() |> ignore
 
-                    SqlSessions.loadNotice conn t0 "s-1"
+                    SqlSessions.loadNotice conn TimeZoneInfo.Utc t0 "s-1"
                     |> Expect.isNone "a notice told before the store kept the read is not held"
                 )
             }
@@ -1697,7 +1739,7 @@ let flightWriteTests =
                     withOpenSession cs
                     let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber Store.t0
                     let whom =
-                        StubPatientData.data "stub-patient"
+                        StubPatientData.data StubPatientData.measuredOn "stub-patient"
                         |> Informedica.GenForm.Lib.EhrPatientData.identity
                     let patient = v1.Plan.Patient |> Session.atBirthDate v1.SignedAt whom
                     let answer = SigningOutcome.Submitted(v1, whom, OpenedToken "opened-again", patient)
@@ -1731,7 +1773,7 @@ let flightWriteTests =
                     let amsterdam = LocalDate.defaultZone ()
                     let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber signedAt
                     let whom =
-                        StubPatientData.data "stub-patient"
+                        StubPatientData.data StubPatientData.measuredOn "stub-patient"
                         |> Informedica.GenForm.Lib.EhrPatientData.identity
                     let patientOn zone =
                         v1.Plan.Patient |> Session.atBirthDate (signedAt |> LocalDate.ofUtc zone) whom
@@ -1869,7 +1911,7 @@ let newestOnlyTests =
 
                     use conn = connect cs
 
-                    match SqlSessions.loadChallenge conn t0 "s-1" with
+                    match SqlSessions.loadChallenge conn TimeZoneInfo.Utc t0 "s-1" with
                     | Some(Ok c) -> c.Nonce |> Expect.equal "the newer one" "c-2"
                     | other -> failtest $"expected the newer challenge, got %A{other}"
 
@@ -1877,7 +1919,7 @@ let newestOnlyTests =
                     // challenge at all, and not the one that was replaced before it
                     runWrites cs [ Session.SpendChallenge("s-1", "c-2", t0) ] |> ignore
 
-                    SqlSessions.loadChallenge conn t0 "s-1"
+                    SqlSessions.loadChallenge conn TimeZoneInfo.Utc t0 "s-1"
                     |> Expect.isNone "no challenge, and never the replaced one"
                 )
             }
@@ -1922,7 +1964,7 @@ let newestOnlyTests =
 
                     use conn = connect cs
 
-                    SqlSessions.loadChallenge conn (t0.AddMinutes 3.0) "s-1"
+                    SqlSessions.loadChallenge conn TimeZoneInfo.Utc (t0.AddMinutes 3.0) "s-1"
                     |> Expect.isNone "both are past it, and the older is no fallback"
                 )
             }
