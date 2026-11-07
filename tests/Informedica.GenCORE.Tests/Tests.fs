@@ -1103,6 +1103,248 @@ module Tests =
                     ]
 
 
+        module CalendarAgeTests =
+
+            let date (y: int) (m: int) (d: int) = DateTime(y, m, d)
+
+
+            let bd y m d = date y m d |> BirthDate.fromDate
+
+
+            let daysAt dt b = b |> AgeValue.fromBirthDate dt |> AgeValue.getAgeInDays |> int
+
+
+            let ageAt dt b =
+                b
+                |> AgeValue.fromBirthDate dt
+                |> AgeValue.getDef0
+                |> fun (y, m, w, d) -> int y, int m, int w, int d
+
+
+            let datesOf (first: DateTime) (last: DateTime) =
+                [ 0 .. (last - first).Days ] |> List.map (fun n -> first.AddDays(float n))
+
+
+            /// The age as it was counted before the months counted from the birth date: the calendar
+            /// age from the anniversary in the last year, with at most 29 days after the month-day.
+            let previous (bd: DateTime) (dt: DateTime) =
+                let y, m, w, d = DateTime.age bd.Date dt.Date
+                let rest = w * 7 + d |> Operators.min 29
+
+                Conversions.yearFromInt y,
+                Conversions.monthFromInt m,
+                Conversions.weekFromInt (rest / 7),
+                Conversions.dayFromInt (rest % 7)
+
+
+            let toInts (y: int<year>, m: int<month>, w: int<week>, d: int<day>) = int y, int m, int w, int d
+
+
+            let inDays (y, m, w, d) = Calculations.Age.yearsMonthsWeeksDaysToDays y m w d |> int
+
+
+            let tests =
+                testList
+                    "Calendar age"
+                    [
+                        testList
+                            "a birthday on 29 February"
+                            [
+                                test "born 29 Feb 2024, 4 years on 29 Feb 2028, not on 28 Feb" {
+                                    [ date 2028 2 27; date 2028 2 28; date 2028 2 29 ]
+                                    |> List.map (Calculations.Age.fromBirthDate (date 2024 2 29) >> toInts)
+                                    |> Expect.equal
+                                        "3 years 11 months 29 days, twice, then 4 years"
+                                        [ 3, 11, 4, 1; 3, 11, 4, 1; 4, 0, 0, 0 ]
+                                }
+
+                                test "born 29 Feb 2024, one year on 28 Feb of a year without 29 Feb" {
+                                    [ date 2025 2 27; date 2025 2 28; date 2029 2 28 ]
+                                    |> List.map (Calculations.Age.fromBirthDate (date 2024 2 29) >> toInts)
+                                    |> Expect.equal
+                                        "0 years 11 months 29 days, then 1 year, 5 years"
+                                        [ 0, 11, 4, 1; 1, 0, 0, 0; 5, 0, 0, 0 ]
+                                }
+
+                                test "born 29 Feb 2024, the age never decreases and never steps more than a day" {
+                                    datesOf (date 2024 2 29) (date 2032 12 31)
+                                    |> List.map (Calculations.Age.fromBirthDate (date 2024 2 29) >> inDays)
+                                    |> List.pairwise
+                                    |> List.filter (fun (d1, d2) -> d2 < d1 || d2 - d1 > 6)
+                                    |> Expect.isEmpty "no step back, no jump over a week"
+                                }
+
+                                test "every other birth date gives the age it gave before" {
+                                    let dates =
+                                        datesOf (date 2024 1 1) (date 2028 12 31)
+                                        |> List.filter (fun d -> d.Day % 3 = 0 || d.Day >= 27)
+
+                                    [
+                                        for bd in datesOf (date 2010 1 1) (date 2024 1 1) do
+                                            if not (bd.Month = 2 && bd.Day = 29) then
+                                                for dt in dates do
+                                                    if previous bd dt <> Calculations.Age.fromBirthDate bd dt then
+                                                        bd, dt
+                                    ]
+                                    |> Expect.isEmpty "the same age"
+                                }
+
+                                test "born 29 Feb 2000, in 2025 a month older on the 29th, not the 28th" {
+                                    [ date 2025 3 28; date 2025 3 29 ]
+                                    |> List.map (Calculations.Age.fromBirthDate (date 2000 2 29) >> toInts)
+                                    |> Expect.equal
+                                        "25 years 4 weeks, then 25 years 1 month"
+                                        [ 25, 0, 4, 0; 25, 1, 0, 0 ]
+                                }
+
+                                test "a 29 February birth date is never older than before and has no negative days" {
+                                    [
+                                        for bd in [ date 2000 2 29; date 2012 2 29; date 2020 2 29; date 2024 2 29 ] do
+                                            for dt in datesOf bd (date 2036 12 31) do
+                                                let age = Calculations.Age.fromBirthDate bd dt
+                                                let _, _, _, d = age |> toInts
+
+                                                if inDays age > inDays (previous bd dt) || d < 0 then
+                                                    bd, dt
+                                    ]
+                                    |> Expect.isEmpty "never older, no negative days"
+                                }
+
+                                test "a birth date after the date is refused" {
+                                    (fun () -> Calculations.Age.fromBirthDate (date 2026 3 2) (date 2026 3 1) |> ignore)
+                                    |> Expect.throwsT<ArgumentException> "refused"
+                                }
+                            ]
+
+                        testList
+                            "end of month and leap day ages"
+                            [
+                                test "born 28 Feb 2026, on 31 Mar 2026: one month and 3 days, 33" {
+                                    bd 2026 2 28 |> daysAt (date 2026 3 31) |> Expect.equal "33 days" 33
+                                }
+
+                                test "born 1 Mar 2018, on 1 Mar 2028: ten years, 3650" {
+                                    bd 2018 3 1 |> daysAt (date 2028 3 1) |> Expect.equal "3650 days" 3650
+                                }
+
+                                test "on 29 Mar 2026 no birth date gives 29 or 30 days" {
+                                    datesOf (date 2026 1 1) (date 2026 3 29)
+                                    |> List.map (BirthDate.fromDate >> daysAt (date 2026 3 29))
+                                    |> List.filter (fun d -> d = 29 || d = 30)
+                                    |> Expect.isEmpty "no 29 or 30 days"
+                                }
+                            ]
+
+                        testList
+                            "years and months on the calendar"
+                            [
+                                test "18 years on the 18th birthday, not the day before" {
+                                    [ date 2026 2 28; date 2026 3 1 ]
+                                    |> List.map (fun dt -> bd 2008 3 1 |> ageAt dt)
+                                    |> Expect.equal
+                                        "17 years 11 months 3 weeks 6 days, then 18 years"
+                                        [ 17, 11, 3, 6; 18, 0, 0, 0 ]
+                                    bd 2008 3 1 |> daysAt (date 2026 3 1) |> Expect.equal "6570 days" 6570
+                                }
+
+                                test "one month on the same day next month, not the day before" {
+                                    [ date 2026 5 14; date 2026 5 15 ]
+                                    |> List.map (fun dt -> bd 2026 4 15 |> ageAt dt)
+                                    |> Expect.equal "29 days then one month" [ 0, 0, 4, 1; 0, 1, 0, 0 ]
+                                }
+
+                                test "born 29 Feb, one year on 28 Feb of a year without 29 Feb" {
+                                    [ date 2025 2 27; date 2025 2 28 ]
+                                    |> List.map (fun dt -> bd 2024 2 29 |> ageAt dt |> fun (y, _, _, _) -> y)
+                                    |> Expect.equal "0 then 1 year" [ 0; 1 ]
+                                }
+
+                                test "born 31 Jan, one month on the last day of February" {
+                                    [ date 2026 2 27; date 2026 2 28 ]
+                                    |> List.map (fun dt -> bd 2026 1 31 |> ageAt dt |> fun (_, m, _, _) -> m)
+                                    |> Expect.equal "0 then 1 month" [ 0; 1 ]
+                                }
+
+                                test "born 31 Jan, a rest of 30 days counts 29, below two months" {
+                                    [ date 2026 3 30; date 2026 3 31 ]
+                                    |> List.map (fun dt -> bd 2026 1 31 |> daysAt dt)
+                                    |> Expect.equal "59 then 60" [ 59; 60 ]
+                                }
+
+                                test "born 1 Jan, on 31 Jan 29 days, one month on 1 Feb" {
+                                    [ date 2026 1 31; date 2026 2 1 ]
+                                    |> List.map (fun dt -> bd 2026 1 1 |> daysAt dt)
+                                    |> Expect.equal "29 then 30" [ 29; 30 ]
+                                }
+
+                                test "below a month the age is the days lived, up to 29" {
+                                    [ 0..29 ]
+                                    |> List.map (fun n ->
+                                        bd 2026 3 1 |> daysAt (date 2026 3 1 |> fun d -> d.AddDays(float n))
+                                    )
+                                    |> Expect.equal "the days lived" [ 0..29 ]
+                                }
+
+                                test "the time of day does not count" {
+                                    [ DateTime(2026, 3, 1, 0, 1, 0); DateTime(2026, 3, 1, 23, 59, 0) ]
+                                    |> List.map (fun dt -> bd 2008 3 1 |> daysAt dt)
+                                    |> Expect.allEqual "6570 days" 6570
+                                }
+
+                                test "the age never decreases from one day to the next" {
+                                    [ bd 2024 2 29; bd 2026 1 31; bd 2025 8 31; bd 2008 3 1 ]
+                                    |> List.forall (fun b ->
+                                        datesOf (date 2026 1 31) (date 2028 12 31)
+                                        |> List.map (fun dt -> b |> daysAt dt)
+                                        |> List.pairwise
+                                        |> List.forall (fun (d1, d2) -> d2 >= d1)
+                                    )
+                                    |> Expect.isTrue "non-decreasing"
+                                }
+                            ]
+
+                        testList
+                            "fromDays"
+                            [
+                                test "the inverse of the age in days of every birth date" {
+                                    datesOf (date 2006 1 1) (date 2026 3 31)
+                                    |> List.map BirthDate.fromDate
+                                    |> List.filter (fun b ->
+                                        let av = b |> AgeValue.fromBirthDate (date 2026 3 31)
+                                        av |> AgeValue.getAgeInDays |> AgeValue.fromDays <> av
+                                    )
+                                    |> Expect.isEmpty "every age round trips"
+                                }
+
+                                test "365 days is one year, 60 days two months" {
+                                    [ 365; 60 ]
+                                    |> List.map (fun d -> d * 1<day> |> AgeValue.fromDays |> AgeValue.getDef0)
+                                    |> Expect.equal
+                                        "1 year, 2 months"
+                                        [ 1<year>, 0<month>, 0<week>, 0<day>; 0<year>, 2<month>, 0<week>, 0<day> ]
+                                }
+                            ]
+
+                        testList
+                            "PatientAge"
+                            [
+                                test "the days lived of a birth date are the date difference" {
+                                    bd 2018 3 1
+                                    |> PatientAge.birthDate
+                                    |> PatientAge.daysLived (date 2028 3 1)
+                                    |> Expect.equal "3653 days" (Some 3653<day>)
+                                }
+
+                                test "an age value has no days lived" {
+                                    AgeValue.ten
+                                    |> PatientAge.ageValue
+                                    |> PatientAge.daysLived (date 2028 3 1)
+                                    |> Expect.isNone "no birth date"
+                                }
+                            ]
+                    ]
+
+
         module AgeWeekDaysTests =
 
             open AgeWeeksDays.Operators
@@ -1294,6 +1536,7 @@ module Tests =
             PatientTests.WeightTests.tests
             PatientTests.HeightTests.tests
             PatientTests.PatientAgeTests.tests
+            PatientTests.CalendarAgeTests.tests
             PatientTests.AgeWeekDaysTests.tests
             PatientTests.EnteralAccessTests.tests
             PatientTests.VenousAccessTests.tests

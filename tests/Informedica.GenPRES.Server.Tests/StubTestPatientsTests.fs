@@ -84,8 +84,11 @@ let noExactAge target (day: DateTime) =
     let calendar = day.Date.AddYears(-years).AddDays(float -rest)
 
     [ -40 .. 40 ]
-    |> List.forall (fun o ->
-        calendar.AddDays(float o)
+    |> List.map (fun o -> calendar.AddDays(float o))
+    // a birth date after the day is no birth date
+    |> List.filter (fun birth -> birth <= day.Date)
+    |> List.forall (fun birth ->
+        birth
         |> CoreBirthDate.fromDate
         |> CorePatientAge.birthDate
         |> CorePatientAge.getAgeValue day.Date
@@ -269,8 +272,8 @@ let tests =
             testList
                 "the age of an ICK patient on any day"
                 [
-                    test "on 31 March 2026 the ICK infant is 30 days old, not 33" {
-                        coreAgeInDays (DateTime(2026, 3, 31)) "ick-infant" |> Expect.equal "30 days" 30
+                    test "on 31 March 2026 no birth date gives one month, so the ICK infant is one month and 3 days" {
+                        coreAgeInDays (DateTime(2026, 3, 31)) "ick-infant" |> Expect.equal "33 days" 33
                     }
 
                     test "an ICK patient has the exact age on every day of three years that a birth date fits" {
