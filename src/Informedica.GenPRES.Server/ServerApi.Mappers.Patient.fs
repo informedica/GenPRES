@@ -48,7 +48,7 @@ module Age =
 
 
     /// The contract model's gestational age as a GenCORE gestational age.
-    let gestAge (ga: GestAge) =
+    let gestAge (ga: AgeWeeksDays) =
         CoreAgeWeeksDays.create
             (int ga.Weeks |> CoreConversions.weekFromInt)
             (int ga.Days |> CoreConversions.dayFromInt)
@@ -60,7 +60,7 @@ module Age =
 
 
     /// The contract model's gestational age of a number of days, as GenCORE splits them.
-    let gestAgeOfDays days : GestAge =
+    let gestAgeOfDays days : AgeWeeksDays =
         let awd = days |> CoreConversions.dayFromInt |> CoreAgeWeeksDays.fromDays
 
         {

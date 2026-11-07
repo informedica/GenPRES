@@ -162,7 +162,7 @@ module SigningPolicy =
             else
                 $"%s{show value} (%s{tr Terms.``Patient Estimated``})"
 
-        let gestAge (g: GestAge) =
+        let gestAge (g: AgeWeeksDays) =
             $"%i{int g.Weeks} %s{tr Terms.``Patient Age weeks``} %i{int g.Days} %s{tr Terms.``Patient Age days``}"
 
         let gender =

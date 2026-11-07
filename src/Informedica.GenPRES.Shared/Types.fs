@@ -67,7 +67,8 @@ module Types =
                 Days: int<day>
             }
 
-        type GestationalAge =
+        /// An age in weeks and days, such as a gestational age.
+        type AgeWeeksDays =
             {
                 Weeks: int<week>
                 Days: int<day>
@@ -75,14 +76,14 @@ module Types =
 
 
     type Age = Patient.Age
-    type GestAge = Patient.GestationalAge
+    type AgeWeeksDays = Patient.AgeWeeksDays
 
     /// The patient as the wire carries it and the panel edits it: every field optional, so a
     /// value of this type is a draft or a reading, not yet a patient.
     type Patient =
         {
             Age: Age option
-            GestationalAge: GestAge option
+            GestationalAge: AgeWeeksDays option
             Weight: Weight
             Height: Height
             Gender: Gender

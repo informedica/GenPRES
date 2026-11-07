@@ -259,8 +259,8 @@ module Models =
                     None
                 else
                     {
-                        Patient.GestationalAge.Weeks = gw |> Option.defaultValue 37<week>
-                        Patient.GestationalAge.Days = gd |> Option.defaultValue 0<day>
+                        Patient.AgeWeeksDays.Weeks = gw |> Option.defaultValue 37<week>
+                        Patient.AgeWeeksDays.Days = gd |> Option.defaultValue 0<day>
                     }
                     |> Some
 
