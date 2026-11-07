@@ -33,7 +33,7 @@ let full: Informedica.GenPRES.Shared.Types.Patient =
                     Weeks = Informedica.GenPRES.Shared.Measures.toWeek 36
                     Days = Informedica.GenPRES.Shared.Measures.toDay 3
                 }
-                : GestAge
+                : AgeWeeksDays
             )
         Location = Some "UMCU"
         Department = Some "ICK"
@@ -176,7 +176,7 @@ let tests =
             }
 
             test "the client's post-menstrual age, which picks the neonatal table, is GenCORE's" {
-                let gestOf w : GestAge =
+                let gestOf w : AgeWeeksDays =
                     {
                         Weeks = Informedica.GenPRES.Shared.Measures.toWeek w
                         Days = Informedica.GenPRES.Shared.Measures.toDay 3
@@ -198,7 +198,7 @@ let tests =
             }
 
             test "the gestational age in days and back, as GenCORE counts and splits them" {
-                let gestOf w d : GestAge =
+                let gestOf w d : AgeWeeksDays =
                     {
                         Weeks = Informedica.GenPRES.Shared.Measures.toWeek w
                         Days = Informedica.GenPRES.Shared.Measures.toDay d

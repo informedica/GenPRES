@@ -47,13 +47,13 @@ module NeonatalEstimateFixtures =
         dto |> Patient.applyNormalValues weights heights neoWeights neoHeights
 
 
-    let term: GestAge =
+    let term: AgeWeeksDays =
         {
             Weeks = 40<week>
             Days = 0<day>
         }
 
-    let premature: GestAge =
+    let premature: AgeWeeksDays =
         {
             Weeks = 30<week>
             Days = 0<day>

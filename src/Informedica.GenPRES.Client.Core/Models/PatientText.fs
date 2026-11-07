@@ -12,7 +12,7 @@ module PatientText =
 
     module Age =
 
-        let gestAgeToString terms lang (age: GestationalAge) =
+        let gestAgeToString terms lang (age: AgeWeeksDays) =
             let getTerm = LocalizationText.getTerm terms
 
             $"""

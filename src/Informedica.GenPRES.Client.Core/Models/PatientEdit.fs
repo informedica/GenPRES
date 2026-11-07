@@ -124,11 +124,11 @@ module PatientEdit =
 
     /// One part of the gestational age written from the field, as the age parts are, with
     /// the term values, 37 weeks and 0 days, for a part that was never given.
-    let editGestAgePart (write: int option -> GestAge -> GestAge) (s: string option) (p: Patient) =
+    let editGestAgePart (write: int option -> AgeWeeksDays -> AgeWeeksDays) (s: string option) (p: Patient) =
         match p.GestationalAge, s |> Option.bind tryParse with
         | None, None -> p
         | ga, v ->
-            let term: GestAge =
+            let term: AgeWeeksDays =
                 {
                     Weeks = 37<week>
                     Days = 0<day>
