@@ -80,12 +80,6 @@ type BirthDate =
     }
 
 
-type PatientAge =
-    | AgeValue of AgeValue
-    | BirthDate of BirthDate
-    | UnknownAge
-
-
 type WeightValue =
     | Kilogram of decimal<kg>
     | Gram of int<gram>
@@ -169,9 +163,9 @@ type PatientData =
         Diagnoses: string[]
         /// The gender.
         Gender: Gender
-        /// The age in years, months, weeks and days of an anonymous patient. None for an identified
-        /// patient, whose age is counted from the birthdate of the identity, and for an anonymous
-        /// patient of unknown age.
+        /// The age in years, months, weeks and days: entered for an anonymous patient; for an
+        /// identified patient calculated by Patient.atDate from the birthdate when the patient is
+        /// created. None when not known.
         Age: AgeValue option
         /// The dated weights.
         Weight: Weight
@@ -179,9 +173,9 @@ type PatientData =
         Height: Height
         /// The gestational age at birth; absent when not known.
         GestationalAge: AgeWeeksDays option
-        /// The post-menstrual age, the age corrected for the gestational age, calculated by Patient.atDate
-        /// from the gestational age and the age; stored and read back like the age. None without a
-        /// gestational age or an age.
+        /// The post-menstrual age, the age corrected for the gestational age, calculated from the age
+        /// and the gestational age when the age is calculated, when the gestational age becomes known,
+        /// and for an anonymous patient when the age changes. None without a gestational age or an age.
         PostMenstrualAge: AgeWeeksDays option
         /// The enteral access.
         EnteralAccess: EnteralAccess
@@ -359,6 +353,10 @@ module AgeValue =
     let getAgeInDays av =
         let ys, ms, ws, ds = av |> getDef0
         Calculations.Age.yearsMonthsWeeksDaysToDays ys ms ws ds
+
+
+    /// The age in days as a time value in days.
+    let toValueUnit av = av |> getAgeInDays |> ValueUnits.ValueUnit.Measures.fromIntDay
 
 
     /// The age value of a number of days: a year 365 days, a month 30 days, at most 11 months. The
@@ -563,6 +561,12 @@ module BirthDate =
         create y m d
 
 
+    /// The birthdate an age value gives at a date.
+    let fromAgeValue dt av =
+        let ys, ms, ws, ds = av |> AgeValue.getDef0
+        Calculations.Age.toBirthDate dt ys ms ws ds |> fromDate
+
+
     module Validation =
 
         open Validus
@@ -627,78 +631,6 @@ module BirthDate =
             dto.Day <- ymd.Day |> int
 
             dto
-
-
-module PatientAge =
-
-    open Informedica.GenUnits.Lib
-
-
-    let birthDate bd = bd |> BirthDate
-
-
-    let ageValue av = av |> AgeValue
-
-
-    let unknown = UnknownAge
-
-
-    let map def fBd fAv =
-        function
-        | UnknownAge -> def
-        | BirthDate bd -> bd |> fBd
-        | AgeValue av -> av |> fAv
-
-
-    let getBirthDate dt =
-        let get av =
-            let ys, ms, ws, ds = av |> AgeValue.getDef0
-            Calculations.Age.toBirthDate dt ys ms ws ds |> BirthDate.fromDate |> Some
-
-        map None Some get
-
-
-    let getAgeValue dt = map None (AgeValue.fromBirthDate dt >> Some) Some
-
-
-    /// The age at a date in days, with the unit day; none for an unknown age.
-    let ageInDays dt age =
-        age
-        |> getAgeValue dt
-        |> Option.map (AgeValue.getAgeInDays >> ValueUnits.ValueUnit.Measures.fromIntDay)
-
-
-    /// The post-menstrual age in days at a date: the gestational age plus the age in days at that
-    /// date, the same for a birth date and an age value. None for an unknown age.
-    let postMenstrualAgeInDays dt gestDays age =
-        age |> getAgeValue dt |> Option.map (AgeValue.postMenstrualAgeInDays gestDays)
-
-
-    let fromAgeType = AgeValue.fromAgeType >> ageValue
-
-
-    let toAgeType dt = (getAgeValue dt) >> (Option.map AgeValue.toAgeType)
-
-
-    let newBorn = NewBorn |> fromAgeType
-
-    let infant = Infant |> fromAgeType
-
-    let toddler = Toddler |> fromAgeType
-
-    let child = Child |> fromAgeType
-
-    let adolescent = Adolescent |> fromAgeType
-
-    let adult = Adult |> fromAgeType
-
-
-    module Optics =
-
-        let ageValue dt = (fun pa -> pa |> getAgeValue dt), (fun av _ -> av |> AgeValue)
-
-
-    let toString = map "" ((AgeValue.fromBirthDate DateTime.Now) >> AgeValue.toString) AgeValue.toString
 
 
 module WeightValue =
@@ -1775,17 +1707,6 @@ module Patient =
     let fromAgeType gend dt at = PatientData.fromAgeType gend dt at |> create None
 
 
-    /// The age of the patient: the birthdate of an identified patient, the age value of an anonymous
-    /// patient, and unknown for an anonymous patient without an age value.
-    let age pat =
-        match pat.Identity with
-        | Some idn -> idn.BirthDate |> PatientAge.birthDate
-        | None ->
-            pat.Data.Age
-            |> Option.map PatientAge.ageValue
-            |> Option.defaultValue PatientAge.unknown
-
-
     module BSA =
 
         open Calculations
@@ -1827,40 +1748,65 @@ module Patient =
             Validator.create msg rule field value
 
 
-    /// The post-menstrual age at a date, in weeks and days, of a patient with a gestational age.
-    let calcPostMenstrualAge dt pat =
-        pat.Data.GestationalAge
-        |> Option.bind (fun ga -> pat |> age |> PatientAge.postMenstrualAgeInDays dt (AgeWeeksDays.toDays ga))
-        |> Option.map Conversions.daysToWeeks
-        |> Option.map ((<||) AgeWeeksDays.create)
+    /// The patient with its post-menstrual age calculated: the gestational age plus the age in days.
+    /// None without either.
+    let calculatePostMenstrualAge pat =
+        { pat with
+            Patient.Data.PostMenstrualAge =
+                Option.map2
+                    (fun av ga ->
+                        av
+                        |> AgeValue.postMenstrualAgeInDays (AgeWeeksDays.toDays ga)
+                        |> AgeWeeksDays.fromDays
+                    )
+                    pat.Data.Age
+                    pat.Data.GestationalAge
+        }
 
 
-    /// The patient at a date: the post-menstrual age calculated at that date.
+    /// The patient as created at a date: for an identified patient the age value its birthdate
+    /// gives at that date, for an anonymous patient the age as entered; then the post-menstrual age.
     let atDate dt pat =
-        { pat with Patient.Data.PostMenstrualAge = pat |> calcPostMenstrualAge dt }
+        match pat.Identity with
+        | Some idn -> { pat with Patient.Data.Age = idn.BirthDate |> AgeValue.fromBirthDate dt |> Some }
+        | None -> pat
+        |> calculatePostMenstrualAge
 
 
-    /// The patient data as strings at a date; the identity is never printed.
+    /// The patient with a gestational age that became known, entered or from the EHR, and the
+    /// post-menstrual age of its age.
+    let withGestationalAge ga pat =
+        { pat with Patient.Data.GestationalAge = ga } |> calculatePostMenstrualAge
+
+
+    /// The anonymous patient with an entered age, and the post-menstrual age of it. An identified
+    /// patient gets its age from atDate.
+    let withAge av pat = { pat with Patient.Data.Age = av } |> calculatePostMenstrualAge
+
+
+    /// The patient data as strings, with the ages as created at a date; the identity is never
+    /// printed.
     let toString dt pat =
+        let created = pat |> atDate dt
+
         [
-            pat.Data.Department |> Department.toString
-            pat.Data.Gender |> Gender.toString
-            pat |> age |> PatientAge.toString
+            created.Data.Department |> Department.toString
+            created.Data.Gender |> Gender.toString
+            created.Data.Age |> Option.map AgeValue.toString |> Option.defaultValue ""
 
-            pat.Data.GestationalAge
+            created.Data.GestationalAge
             |> Option.map AgeWeeksDays.toString
             |> Option.defaultValue ""
 
-            pat
-            |> calcPostMenstrualAge dt
+            created.Data.PostMenstrualAge
             |> Option.map AgeWeeksDays.toString
             |> Option.defaultValue ""
 
-            pat.Data.Weight |> Weight.calculationToString 2 |> Option.defaultValue ""
+            created.Data.Weight |> Weight.calculationToString 2 |> Option.defaultValue ""
 
-            pat.Data.Height |> Height.calculationToString 2 |> Option.defaultValue ""
+            created.Data.Height |> Height.calculationToString 2 |> Option.defaultValue ""
 
-            pat
+            created
             |> BSA.calcDuBois
             |> Option.map (fun v -> $"{v |> decimal |> Decimal.fixPrecision 2} m2")
             |> Option.defaultValue ""
@@ -1893,9 +1839,9 @@ module Patient =
         let dto () = Dto()
 
 
-        /// The patient of a Dto: identified with an id, a name and a birthdate, anonymous with none
-        /// of the three; a part of an identity, or an age value beside a birthdate, is an error. The
-        /// post-menstrual age is read back as it was calculated, with the bounds of a post-menstrual age.
+        /// The patient of a Dto: identified with an id, a name and a birthdate, anonymous with none of
+        /// the three; a part of an identity is an error. The post-menstrual age is read back as it was
+        /// calculated, with the bounds of a post-menstrual age.
         let fromDto (dto: Dto) =
             let weeksDays fromDto (awd: AgeWeeksDays.Dto.Dto option) =
                 match awd with
@@ -1909,9 +1855,7 @@ module Patient =
                 and! pma = dto.PostMenstrualAge |> weeksDays AgeWeeksDays.Dto.fromPostMenstrualDto
                 let! ent = dto.EnteralAccess |> EnteralAccess.fromString
                 let! ven = dto.VenousAccess |> VenousAccess.fromString
-                let! _ = (dto.Age, dto.BirthDate) |> Validators.onlyOneOfTwoOpt "Patient Age"
-
-                and! _ =
+                let! _ =
                     (dto.Id, dto.Name, dto.BirthDate)
                     |> Validation.identityValidator "Patient Identity"
 

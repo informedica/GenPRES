@@ -128,11 +128,12 @@ module PatientScripts =
     NewBorn
     |> fromAgeType
 
-    |> Patient.calcPostMenstrualAge DateTime.Now
+    |> Patient.atDate DateTime.Now
+    |> _.Data.PostMenstrualAge
     //|> Patient.toString DateTime.Now
 
 
-    NewBorn |> fromAgeType |> Patient.age |> PatientAge.toString
+    NewBorn |> fromAgeType |> _.Data.Age |> Option.map AgeValue.toString
 
 
     AgeValue.create (Some 0<year>) None None None |> AgeValue.toString
@@ -157,9 +158,7 @@ module PatientScripts =
     |> Patient.Dto.fromDto
     |> function
         | Ok p ->
-            p
-            |> Patient.age
-            |> PatientAge.getAgeValue DateTime.Now
+            p.Data.Age
             |> Option.map AgeValue.getAgeInDays
             |> printfn "%A"
 

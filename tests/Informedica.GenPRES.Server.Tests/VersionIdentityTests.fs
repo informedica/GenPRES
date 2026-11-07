@@ -20,7 +20,6 @@ module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
 module CoreWeightAtDate = Informedica.GenCore.Lib.Patients.WeightAtDate
 module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
 module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
-module CorePatientAge = Informedica.GenCore.Lib.Patients.PatientAge
 
 
 /// The date of the open, and the sign a day later. The port here projects at the date given,

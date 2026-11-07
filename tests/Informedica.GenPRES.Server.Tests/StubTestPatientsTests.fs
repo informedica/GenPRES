@@ -12,7 +12,6 @@ open ServerApi
 
 module CoreAgeType = Informedica.GenCore.Lib.Patients.AgeType
 module CorePatient = Informedica.GenCore.Lib.Patients.Patient
-module CorePatientAge = Informedica.GenCore.Lib.Patients.PatientAge
 module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
 module CoreBirthDate = Informedica.GenCore.Lib.Patients.BirthDate
 
@@ -56,7 +55,7 @@ let ick =
 /// The age in days of a test patient read on a day, as GenPRES counts it.
 let coreAgeInDays (day: DateTime) pid =
     StubPatientData.read (fun () -> day) pid
-    |> Option.bind (fun ehr -> ehr.Patient |> CorePatient.age |> CorePatientAge.getAgeValue day)
+    |> Option.bind (fun ehr -> (ehr.Patient |> CorePatient.atDate day).Data.Age)
     |> Option.map (CoreAgeValue.getAgeInDays >> int)
     |> Option.get
 
@@ -91,10 +90,10 @@ let noExactAge target (day: DateTime) =
     |> List.forall (fun birth ->
         birth
         |> CoreBirthDate.fromDate
-        |> CorePatientAge.birthDate
-        |> CorePatientAge.getAgeValue day.Date
-        |> Option.map (CoreAgeValue.getAgeInDays >> int)
-        <> Some target
+        |> CoreAgeValue.fromBirthDate day.Date
+        |> CoreAgeValue.getAgeInDays
+        |> int
+        <> target
     )
 
 
@@ -139,7 +138,10 @@ let tests =
 
                             $"%A{pat.Gender}" |> Expect.equal "gender" gender
                             StubPatientData.read (fun () -> now) pid
-                            |> Option.bind (fun ehr -> ehr.Patient |> CorePatient.age |> CorePatientAge.toAgeType now)
+                            |> Option.bind (fun ehr ->
+                                (ehr.Patient |> CorePatient.atDate now).Data.Age
+                                |> Option.map CoreAgeValue.toAgeType
+                            )
                             |> Expect.equal "the age category" (Some ageType)
 
                             pat.Department |> Expect.equal "department" (Some "ICK")

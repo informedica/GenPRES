@@ -739,7 +739,8 @@ module Session =
                 }
                 |> CorePatient.create (Some identity)
 
-            pat |> Informedica.GenForm.Lib.Patient.withAgeOf date core
+            pat
+            |> Informedica.GenForm.Lib.Patient.withAgesOf (core |> CorePatient.atDate date)
 
 
     /// The patient of a version as a later Session shows it: at the age at the local date, and without

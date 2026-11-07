@@ -15,7 +15,6 @@ open Informedica.GenPRES.Server.Tests.StubAdapterTests
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
 
 module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
-module CorePatientAge = Informedica.GenCore.Lib.Patients.PatientAge
 
 
 /// The date of the open: a September day, half a year past the stub patient's tenth birthday.
