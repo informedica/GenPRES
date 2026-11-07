@@ -638,10 +638,7 @@ let moved =
                 StubAdapterTests.StubAdapters.patientData.read pid
                 |> Option.map (fun ehr ->
                     { ehr with
-                        Patient =
-                            { ehr.Patient with
-                                Department = Informedica.GenCore.Lib.Patients.Department.pediatricICU "ICU"
-                            }
+                        Patient.Data.Department = Informedica.GenCore.Lib.Patients.Department.pediatricICU "ICU"
                     }
                 )
     }

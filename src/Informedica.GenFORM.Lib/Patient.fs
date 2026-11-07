@@ -572,8 +572,8 @@ module EhrPatientData =
         }
 
 
-    /// Who the patient is: the core patient's identity, none without a name or a birthdate.
-    let identity (ehr: EhrPatientData) = ehr.Patient |> CorePatient.identity
+    /// Who the patient is: the identity of the core patient, none for an anonymous patient.
+    let identity (ehr: EhrPatientData) = ehr.Patient.Identity
 
 
     /// The serializable shape of the EHR data: the core patient's Dto, the renal function and
@@ -707,8 +707,8 @@ module Patient =
 
 
     /// The patient at the age a core age gives at a date: the age in days, and the post-menstrual age
-    /// when the patient has a gestational age, both calculated by GenCORE. For a birth date the
-    /// post-menstrual age is the gestational age plus the days lived, exact in days.
+    /// when the patient has a gestational age, the gestational age plus the age in days, both calculated
+    /// by GenCORE.
     let withAgeAt now age (pat: Patient) =
         { pat with
             Age = age |> CorePatientAge.ageInDays now
@@ -723,8 +723,8 @@ module Patient =
     /// The patient the EHR data is at a date: the age at that date in days, from the birthdate
     /// or the age value the EHR gave; weight and height from the calculation values, measured
     /// when there are any; the gestational age in days and, from withAgeAt, the post-menstrual
-    /// age of the days lived for a birthdate; the department's name; renal function and access as given; the BSA left to
-    /// the calculation over weight and height.
+    /// age; the department's name; renal function and access as given; the BSA left to the
+    /// calculation over weight and height.
     let ofEhr (now: System.DateTime) (ehr: EhrPatientData) : Patient =
         let gender =
             function
@@ -733,7 +733,7 @@ module Patient =
             | CoreGender.AnyGender
             | CoreGender.UnknownGender -> AnyGender
 
-        let core = ehr.Patient
+        let core = ehr.Patient.Data
 
         let weight =
             core.Weight.Calculation
@@ -769,7 +769,7 @@ module Patient =
             Access = ehr.Access
             RenalFunction = ehr.RenalFunction
         }
-        |> withAgeAt now core.Age
+        |> withAgeAt now (ehr.Patient |> CorePatient.age)
 
 
     /// Get the string representation of a Patient.

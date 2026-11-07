@@ -25,9 +25,12 @@ let today = DateTime(2026, 9, 26)
 let ehr = StubPatientData.data "p1"
 
 
-/// EHR data with an age value in place of a birthdate: no identity.
+/// The EHR data of an anonymous patient: an age value, no identity.
 let unidentified =
-    { ehr with Patient = { ehr.Patient with Age = CoreAgeValue.ten |> CorePatientAge.ageValue } }
+    { ehr with
+        Patient.Identity = None
+        Patient.Data.Age = Some CoreAgeValue.ten
+    }
 
 
 let prescriber: UserContext =

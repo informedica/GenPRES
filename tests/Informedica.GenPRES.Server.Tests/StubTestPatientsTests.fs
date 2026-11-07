@@ -11,6 +11,7 @@ open Informedica.GenUnits.Lib
 open ServerApi
 
 module CoreAgeType = Informedica.GenCore.Lib.Patients.AgeType
+module CorePatient = Informedica.GenCore.Lib.Patients.Patient
 module CorePatientAge = Informedica.GenCore.Lib.Patients.PatientAge
 module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
 module CoreBirthDate = Informedica.GenCore.Lib.Patients.BirthDate
@@ -55,7 +56,7 @@ let ick =
 /// The age in days of a test patient read on a day, as GenPRES counts it.
 let coreAgeInDays (day: DateTime) pid =
     StubPatientData.read (fun () -> day) pid
-    |> Option.bind (fun ehr -> ehr.Patient.Age |> CorePatientAge.getAgeValue day)
+    |> Option.bind (fun ehr -> ehr.Patient |> CorePatient.age |> CorePatientAge.getAgeValue day)
     |> Option.map (CoreAgeValue.getAgeInDays >> int)
     |> Option.get
 
@@ -138,7 +139,7 @@ let tests =
 
                             $"%A{pat.Gender}" |> Expect.equal "gender" gender
                             StubPatientData.read (fun () -> now) pid
-                            |> Option.bind (fun ehr -> ehr.Patient.Age |> CorePatientAge.toAgeType now)
+                            |> Option.bind (fun ehr -> ehr.Patient |> CorePatient.age |> CorePatientAge.toAgeType now)
                             |> Expect.equal "the age category" (Some ageType)
 
                             pat.Department |> Expect.equal "department" (Some "ICK")

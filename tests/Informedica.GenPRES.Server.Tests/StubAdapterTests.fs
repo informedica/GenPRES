@@ -540,13 +540,10 @@ module SessionStubTests =
         let ehr = StubPatientData.data pid
 
         { ehr with
-            Patient =
-                { ehr.Patient with
-                    Department =
-                        p.Department
-                        |> Option.map Informedica.GenCore.Lib.Patients.Department.pediatricICU
-                        |> Option.defaultValue Informedica.GenCore.Lib.Patients.Department.unknown
-                }
+            Patient.Data.Department =
+                p.Department
+                |> Option.map Informedica.GenCore.Lib.Patients.Department.pediatricICU
+                |> Option.defaultValue Informedica.GenCore.Lib.Patients.Department.unknown
         }
 
 

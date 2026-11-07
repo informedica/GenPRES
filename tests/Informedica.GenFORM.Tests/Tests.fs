@@ -2338,18 +2338,20 @@ module Tests =
             let weight = WeightAtDate.create tenthBirthday (WeightValue.weightInKg 32m)
             let height = HeightAtDate.create tenthBirthday (HeightValue.heightInCm 140m)
 
-            Patient.create
-                "p1"
-                "Stub Testpatiënt"
+            PatientData.create
                 Department.unknown
                 [||]
                 UnknownGender
-                (BirthDate.create 2016<year> 3<month> 15<day> |> PatientAge.birthDate)
+                None
                 (Weight.create [ weight ] None [] (Some weight))
                 (Height.create [ height ] None (Some height))
                 None
                 UnknownEnteral
                 UnknownVenous
+            |> Patient.create (
+                PatientIdentity.create "p1" "Stub Testpatiënt" (BirthDate.create 2016<year> 3<month> 15<day>)
+                |> Some
+            )
             |> fun pat -> Informedica.GenForm.Lib.EhrPatientData.create pat None []
 
         let days (vu: ValueUnit option) =
@@ -2383,16 +2385,15 @@ module Tests =
                         |> Expect.equal "3650, 3651, 4015 days" (Some 3650N, Some 3651N, Some 4015N)
                     }
 
-                    test "an age value the EHR gave is projected as its days" {
+                    test "the age value of an anonymous patient is projected as its days" {
                         let ehr = ehr ()
 
                         { ehr with
                             Patient =
-                                { ehr.Patient with
-                                    Age =
-                                        AgeValue.create (Some 2<year>) (Some 3<month>) None (Some 4<day>)
-                                        |> PatientAge.ageValue
+                                { ehr.Patient.Data with
+                                    Age = AgeValue.create (Some 2<year>) (Some 3<month>) None (Some 4<day>) |> Some
                                 }
+                                |> Patient.create None
                         }
                         |> FormPatient.ofEhr tenthBirthday
                         |> _.Age
@@ -2405,7 +2406,10 @@ module Tests =
 
                         let pat =
                             { ehr with
-                                Patient = { ehr.Patient with Weight = { ehr.Patient.Weight with Calculation = None } }
+                                Patient =
+                                    { ehr.Patient with
+                                        Data.Weight = { ehr.Patient.Data.Weight with Calculation = None }
+                                    }
                             }
                             |> FormPatient.ofEhr tenthBirthday
 
@@ -2420,9 +2424,12 @@ module Tests =
                             { ehr with
                                 Patient =
                                     { ehr.Patient with
-                                        Department = Department.pediatricICU "ICK"
-                                        Gender = Female
-                                        GestationalAge = Some(AgeWeeksDays.create 36<week> 2<day>)
+                                        Data =
+                                            { ehr.Patient.Data with
+                                                Department = Department.pediatricICU "ICK"
+                                                Gender = Female
+                                                GestationalAge = Some(AgeWeeksDays.create 36<week> 2<day>)
+                                            }
                                     }
                                 RenalFunction = Some(FormTypes.RenalFunction.EGFR(Some 30, Some 60))
                                 Access = [ FormTypes.CVL; FormTypes.EnteralTube ]
@@ -2436,23 +2443,23 @@ module Tests =
                          pat.RenalFunction,
                          pat.Access)
                         |> Expect.equal
-                            "254 days, 254 plus 3652 days lived, ICK, female, the eGFR, the two devices"
+                            "254 days, 254 plus the age of 3650 days, ICK, female, the eGFR, the two devices"
                             (Some 254N,
-                             Some 3906N,
+                             Some 3904N,
                              Some "ICK",
                              FormTypes.Female,
                              Some(FormTypes.RenalFunction.EGFR(Some 30, Some 60)),
                              [ FormTypes.CVL; FormTypes.EnteralTube ])
                     }
 
-                    test "withAgeAt: the age in days and the post-menstrual age of the days lived" {
+                    test "withAgeAt: the age in days and the post-menstrual age of the age in days" {
                         let born = BirthDate.create 2026<year> 1<month> 31<day> |> PatientAge.birthDate
                         let gest = 182N |> ValueUnit.singleWithUnit Units.Time.day
 
                         { FormPatient.patient with GestAge = Some gest }
                         |> FormPatient.withAgeAt (DateTime(2026, 3, 30)) born
                         |> fun pat -> pat.Age |> days, pat.PMAge |> days
-                        |> Expect.equal "59 days, 182 plus 58 days lived" (Some 59N, Some 240N)
+                        |> Expect.equal "59 days, 182 plus 59 days" (Some 59N, Some 241N)
                     }
 
                     test "withAgeAt: no gestational age, no post-menstrual age" {
@@ -2471,9 +2478,12 @@ module Tests =
                             { ehr with
                                 Patient =
                                     { ehr.Patient with
-                                        Department = Department.pediatricICU "ICK"
-                                        Gender = Female
-                                        GestationalAge = Some(AgeWeeksDays.create 36<week> 2<day>)
+                                        Data =
+                                            { ehr.Patient.Data with
+                                                Department = Department.pediatricICU "ICK"
+                                                Gender = Female
+                                                GestationalAge = Some(AgeWeeksDays.create 36<week> 2<day>)
+                                            }
                                     }
                                 RenalFunction = Some(FormTypes.RenalFunction.EGFR(Some 30, Some 60))
                                 Access = [ FormTypes.CVL; FormTypes.EnteralTube ]

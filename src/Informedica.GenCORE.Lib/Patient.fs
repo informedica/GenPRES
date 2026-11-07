@@ -139,26 +139,7 @@ type EstimatedHeight =
     }
 
 
-/// The patient with the identity on it: the id the EHR knows the patient by and the name,
-/// beside the data.
-type Patient =
-    {
-        /// The id the EHR knows the patient by; empty for a patient entered by hand.
-        Id: string
-        /// The patient's full name as the EHR gives it; empty when unknown.
-        Name: string
-        Department: Department
-        Diagnoses: string[]
-        Gender: Gender
-        Age: PatientAge
-        Weight: Weight
-        Height: Height
-        GestationalAge: AgeWeeksDays option
-        EnteralAccess: EnteralAccess
-        VenousAccess: VenousAccess
-    }
-
-and AgeWeeksDays =
+type AgeWeeksDays =
     {
         Weeks: int<week>
         Days: int<day>
@@ -170,9 +151,53 @@ and AgeWeeksDays =
 /// printer or a log line.
 type PatientIdentity =
     {
+        /// The id the EHR knows the patient by.
         Id: string
+        /// The full name of the patient as the EHR gives it.
         Name: string
+        /// The birthdate the age of an identified patient is counted from.
         BirthDate: BirthDate
+    }
+
+
+/// Every patient characteristic except the identity.
+type PatientData =
+    {
+        /// The ward the patient is admitted to.
+        Department: Department
+        /// The diagnoses of the patient.
+        Diagnoses: string[]
+        /// The gender.
+        Gender: Gender
+        /// The age in years, months, weeks and days of an anonymous patient. None for an identified
+        /// patient, whose age is counted from the birthdate of the identity, and for an anonymous
+        /// patient of unknown age.
+        Age: AgeValue option
+        /// The dated weights.
+        Weight: Weight
+        /// The dated heights.
+        Height: Height
+        /// The gestational age at birth; absent when not known.
+        GestationalAge: AgeWeeksDays option
+        /// The post-menstrual age, the age corrected for the gestational age, calculated by Patient.atDate
+        /// from the gestational age and the age; stored and read back like the age. None without a
+        /// gestational age or an age.
+        PostMenstrualAge: AgeWeeksDays option
+        /// The enteral access.
+        EnteralAccess: EnteralAccess
+        /// The venous access.
+        VenousAccess: VenousAccess
+    }
+
+
+/// The patient: the identity of an identified patient and the patient data. An anonymous patient
+/// has no identity.
+type Patient =
+    {
+        /// The id, the name and the birthdate the EHR gives; none for an anonymous patient.
+        Identity: PatientIdentity option
+        /// Every other patient characteristic.
+        Data: PatientData
     }
 
 
@@ -643,19 +668,10 @@ module PatientAge =
         |> Option.map (AgeValue.getAgeInDays >> ValueUnits.ValueUnit.Measures.fromIntDay)
 
 
-    /// The days lived at a date of a birth date, the difference between the two dates, exact in days
-    /// with no 30-day months. None for an age value or an unknown age, which hold no birth date.
-    let daysLived (dt: DateTime) =
-        map None (fun bd -> (dt.Date - BirthDate.toDate bd).Days |> Conversions.dayFromInt |> Some) (fun _ -> None)
-
-
-    /// The post-menstrual age in days at a date: the gestational age plus the days lived for a birth
-    /// date, exact in days; the gestational age plus the age in days for an age value. None for an
-    /// unknown age.
+    /// The post-menstrual age in days at a date: the gestational age plus the age in days at that
+    /// date, the same for a birth date and an age value. None for an unknown age.
     let postMenstrualAgeInDays dt gestDays age =
-        match age |> daysLived dt with
-        | Some lived -> lived + gestDays |> Some
-        | None -> age |> getAgeValue dt |> Option.map (AgeValue.postMenstrualAgeInDays gestDays)
+        age |> getAgeValue dt |> Option.map (AgeValue.postMenstrualAgeInDays gestDays)
 
 
     let fromAgeType = AgeValue.fromAgeType >> ageValue
@@ -1658,13 +1674,23 @@ module AgeWeeksDays =
             dto
 
 
-module Patient =
+module PatientIdentity =
 
-
-    let create id name dep diagn gend age wght hght gest ent ven =
+    /// The identity of an id, a name and a birthdate.
+    let create id name bd : PatientIdentity =
         {
             Id = id
             Name = name
+            BirthDate = bd
+        }
+
+
+module PatientData =
+
+    /// The patient data of its characteristics, without a post-menstrual age until Patient.atDate
+    /// calculates it.
+    let create dep diagn gend age wght hght gest ent ven =
+        {
             Department = dep
             Diagnoses = diagn
             Gender = gend
@@ -1672,18 +1698,19 @@ module Patient =
             Weight = wght
             Height = hght
             GestationalAge = gest
+            PostMenstrualAge = None
             EnteralAccess = ent
             VenousAccess = ven
         }
 
+
+    /// The patient data with nothing known.
     let unknown =
         create
-            ""
-            ""
             Department.unknown
             [||]
             UnknownGender
-            PatientAge.unknown
+            None
             Weight.unknown
             Height.unknown
             None
@@ -1691,82 +1718,44 @@ module Patient =
             UnknownVenous
 
 
+    /// The data at the start of an age category: the age of the category, and the normal weight and
+    /// height of the category for a gender at a date.
     let fromAgeType gend dt at =
-        create
-            ""
-            ""
-            Department.unknown
-            [||]
-            UnknownGender
-            (PatientAge.fromAgeType at)
-            (Weight.fromAgeType gend dt at)
-            (Height.fromAgeType gend dt at)
-            None
-            UnknownEnteral
-            UnknownVenous
+        { unknown with
+            Age = at |> AgeValue.fromAgeType |> Some
+            Weight = Weight.fromAgeType gend dt at
+            Height = Height.fromAgeType gend dt at
+        }
 
 
-    module Optics =
-
-        let id = (fun (pat: Patient) -> pat.Id), (fun id pat -> { pat with Patient.Id = id })
-
-        let name = (fun (pat: Patient) -> pat.Name), (fun name pat -> { pat with Patient.Name = name })
-
-        let department =
-            (fun (pat: Patient) -> pat.Department), (fun dep pat -> { pat with Patient.Department = dep })
-
-        let diagnoses =
-            (fun (pat: Patient) -> pat.Diagnoses), (fun diagn pat -> { pat with Patient.Diagnoses = diagn })
-
-        let Gender = (fun (pat: Patient) -> pat.Gender), (fun gend pat -> { pat with Patient.Gender = gend })
-
-        let age = (fun (pat: Patient) -> pat.Age), (fun age pat -> { pat with Patient.Age = age })
-
-        let weight = (fun (pat: Patient) -> pat.Weight), (fun w pat -> { pat with Patient.Weight = w })
-
-        let height = (fun (pat: Patient) -> pat.Height), (fun h pat -> { pat with Patient.Height = h })
-
-        let gestationalAge =
-            (fun (pat: Patient) -> pat.GestationalAge), (fun gest pat -> { pat with Patient.GestationalAge = gest })
-
-        let enteralAccess =
-            (fun (pat: Patient) -> pat.EnteralAccess), (fun ent pat -> { pat with Patient.EnteralAccess = ent })
-
-        let venousAccess =
-            (fun (pat: Patient) -> pat.VenousAccess), (fun ven pat -> { pat with Patient.VenousAccess = ven })
+module Patient =
 
 
-    module SetGet =
-
-        let getAge (pat: Patient) = pat.Age
-
-        let getWeight (pat: Patient) = pat.Weight
-
-        let getHeight (pat: Patient) = pat.Height
-
-        let getWeightActual (pat: Patient) = pat.Weight.Actual
-
-        let getWeightCalc (pat: Patient) = pat.Weight.Calculation
-
-        let getHeightCalc (pat: Patient) = pat.Height.Calculation
-
-        let getGestationalAge (pat: Patient) = pat.GestationalAge
-
-        let getAgeValue dt (pat: Patient) = pat.Age |> PatientAge.getAgeValue dt
+    /// The patient of an identity, none for an anonymous patient, and the patient data.
+    let create idn dat =
+        {
+            Identity = idn
+            Data = dat
+        }
 
 
-    /// The patient's identity: none without an id, a name or a birthdate. A patient entered
-    /// by hand has no id, so a name and a birthdate alone identify nobody.
-    let identity (pat: Patient) : PatientIdentity option =
-        match pat.Age with
-        | BirthDate bd when pat.Id |> String.notEmpty && pat.Name |> String.notEmpty ->
-            Some
-                {
-                    Id = pat.Id
-                    Name = pat.Name
-                    BirthDate = bd
-                }
-        | _ -> None
+    /// The anonymous patient with nothing known.
+    let unknown = create None PatientData.unknown
+
+
+    /// The anonymous patient at the start of an age category, see PatientData.fromAgeType.
+    let fromAgeType gend dt at = PatientData.fromAgeType gend dt at |> create None
+
+
+    /// The age of the patient: the birthdate of an identified patient, the age value of an anonymous
+    /// patient, and unknown for an anonymous patient without an age value.
+    let age pat =
+        match pat.Identity with
+        | Some idn -> idn.BirthDate |> PatientAge.birthDate
+        | None ->
+            pat.Data.Age
+            |> Option.map PatientAge.ageValue
+            |> Option.defaultValue PatientAge.unknown
 
 
     module BSA =
@@ -1775,13 +1764,11 @@ module Patient =
 
         let calcBsa formula pat =
             let w =
-                pat
-                |> SetGet.getWeightCalc
+                pat.Data.Weight.Calculation
                 |> Option.map (fun w -> w.Weight |> WeightValue.getWeightInKg)
 
             let h =
-                pat
-                |> SetGet.getHeightCalc
+                pat.Data.Height.Calculation
                 |> Option.map (fun h -> h.Height |> HeightValue.getHeightCm)
 
             match w, h with
@@ -1799,38 +1786,51 @@ module Patient =
         open Validus
 
 
-        let validateDepartment = Check.optional Check.String.notEmpty
+        /// An identity is an id, a name and a birthdate together, or none of the three.
+        let identityValidator field value =
+            let msg = sprintf "%s needs an id, a name and a birthdate, or none of the three"
+
+            let rule (id, name, bd) =
+                match id |> String.notEmpty, name |> String.notEmpty, bd with
+                | true, true, Some _
+                | false, false, None -> true
+                | _ -> false
+
+            Validator.create msg rule field value
 
 
     /// The post-menstrual age at a date, in weeks and days, of a patient with a gestational age.
     let calcPostMenstrualAge dt pat =
-        pat
-        |> SetGet.getGestationalAge
-        |> Option.bind (fun ga ->
-            pat
-            |> SetGet.getAge
-            |> PatientAge.postMenstrualAgeInDays dt (AgeWeeksDays.toDays ga)
-        )
+        pat.Data.GestationalAge
+        |> Option.bind (fun ga -> pat |> age |> PatientAge.postMenstrualAgeInDays dt (AgeWeeksDays.toDays ga))
         |> Option.map Conversions.daysToWeeks
         |> Option.map ((<||) AgeWeeksDays.create)
 
 
-    let toString dt (pat: Patient) =
-        [
-            pat.Department |> Department.toString
-            pat.Gender |> Gender.toString
-            pat.Age |> PatientAge.toString
+    /// The patient at a date: the post-menstrual age calculated at that date.
+    let atDate dt pat =
+        { pat with Patient.Data.PostMenstrualAge = pat |> calcPostMenstrualAge dt }
 
-            pat.GestationalAge |> Option.map AgeWeeksDays.toString |> Option.defaultValue ""
+
+    /// The patient data as strings at a date; the identity is never printed.
+    let toString dt pat =
+        [
+            pat.Data.Department |> Department.toString
+            pat.Data.Gender |> Gender.toString
+            pat |> age |> PatientAge.toString
+
+            pat.Data.GestationalAge
+            |> Option.map AgeWeeksDays.toString
+            |> Option.defaultValue ""
 
             pat
             |> calcPostMenstrualAge dt
             |> Option.map AgeWeeksDays.toString
             |> Option.defaultValue ""
 
-            pat.Weight |> Weight.calculationToString 2 |> Option.defaultValue ""
+            pat.Data.Weight |> Weight.calculationToString 2 |> Option.defaultValue ""
 
-            pat.Height |> Height.calculationToString 2 |> Option.defaultValue ""
+            pat.Data.Height |> Height.calculationToString 2 |> Option.defaultValue ""
 
             pat
             |> BSA.calcDuBois
@@ -1839,6 +1839,8 @@ module Patient =
         ]
 
 
+    /// The serializable patient, flat as stored: the id, the name and the birthdate of the identity
+    /// beside the patient data.
     module Dto =
 
         open Validus
@@ -1855,6 +1857,7 @@ module Patient =
             member val Weight = Weight.Dto.dto () with get, set
             member val Height = Height.Dto.dto () with get, set
             member val GestationalAge: AgeWeeksDays.Dto.Dto option = None with get, set
+            member val PostMenstrualAge: AgeWeeksDays.Dto.Dto option = None with get, set
             member val EnteralAccess = "" with get, set
             member val VenousAccess = "" with get, set
 
@@ -1862,63 +1865,69 @@ module Patient =
         let dto () = Dto()
 
 
+        /// The patient of a Dto: identified with an id, a name and a birthdate, anonymous with none
+        /// of the three; a part of an identity, or an age value beside a birthdate, is an error. The
+        /// post-menstrual age is read back as it was calculated.
         let fromDto (dto: Dto) =
+            let weeksDays (awd: AgeWeeksDays.Dto.Dto option) =
+                match awd with
+                | Some awd -> awd |> AgeWeeksDays.Dto.fromDto |> Result.map Some
+                | None -> Result.Ok None
+
             validate {
                 let! dep = dto.Department |> Department.fromString
                 let! gend = dto.Gender |> Gender.Validation.validate "Gender"
-
-                let! gest =
-                    match dto.GestationalAge with
-                    | Some ga -> ga |> AgeWeeksDays.Dto.fromDto |> Result.map Some
-                    | None -> Result.Ok None
-
+                let! gest = dto.GestationalAge |> weeksDays
+                and! pma = dto.PostMenstrualAge |> weeksDays
                 let! ent = dto.EnteralAccess |> EnteralAccess.fromString
                 let! ven = dto.VenousAccess |> VenousAccess.fromString
                 let! _ = (dto.Age, dto.BirthDate) |> Validators.onlyOneOfTwoOpt "Patient Age"
 
+                and! _ =
+                    (dto.Id, dto.Name, dto.BirthDate)
+                    |> Validation.identityValidator "Patient Identity"
+
+                and! idn =
+                    match dto.BirthDate with
+                    | Some bd ->
+                        bd
+                        |> BirthDate.Dto.fromDto
+                        |> Result.map (PatientIdentity.create dto.Id dto.Name >> Some)
+                    | None -> Result.Ok None
+
                 and! age =
-                    match dto.Age, dto.BirthDate with
-                    | Some a, None -> a |> AgeValue.Dto.fromDto |> Result.map PatientAge.ageValue
-                    | None, Some b -> b |> BirthDate.Dto.fromDto |> Result.map PatientAge.birthDate
-                    | _ -> PatientAge.unknown |> Result.Ok
+                    match dto.Age with
+                    | Some a -> a |> AgeValue.Dto.fromDto |> Result.map Some
+                    | None -> Result.Ok None
 
                 let wght = dto.Weight |> Weight.Dto.fromDto
                 let hght = dto.Height |> Height.Dto.fromDto
 
-                return create dto.Id dto.Name dep dto.Diagnoses gend age wght hght gest ent ven
+                return
+                    { PatientData.create dep dto.Diagnoses gend age wght hght gest ent ven with PostMenstrualAge = pma }
+                    |> create idn
             }
 
 
-        let toDto (pat: Patient) =
+        let toDto pat =
             let dto = dto ()
 
-            dto.Id <- pat.Id
-            dto.Name <- pat.Name
-            dto.Department <- pat.Department |> Department.toString //pat.Department
-            dto.Diagnoses <- pat.Diagnoses
-            dto.Gender <- pat.Gender |> Gender.toString
+            match pat.Identity with
+            | Some idn ->
+                dto.Id <- idn.Id
+                dto.Name <- idn.Name
+                dto.BirthDate <- idn.BirthDate |> BirthDate.Dto.toDto |> Some
+            | None -> ()
 
-            dto.Age <-
-                match pat.Age with
-                | AgeValue av -> av |> AgeValue.Dto.toDto |> Some
-                | BirthDate _
-                | UnknownAge -> None
-
-            dto.BirthDate <-
-                match pat.Age with
-                | BirthDate bd -> bd |> BirthDate.Dto.toDto |> Some
-                | AgeValue _
-                | UnknownAge -> None
-
-            dto.Weight <- pat.Weight |> Weight.Dto.toDto
-            dto.Height <- pat.Height |> Height.Dto.toDto
-
-            dto.GestationalAge <-
-                match pat.GestationalAge with
-                | None -> None
-                | Some ga -> ga |> AgeWeeksDays.Dto.toDto |> Some
-
-            dto.EnteralAccess <- pat.EnteralAccess |> EnteralAccess.toString
-            dto.VenousAccess <- pat.VenousAccess |> VenousAccess.toString
+            dto.Department <- pat.Data.Department |> Department.toString
+            dto.Diagnoses <- pat.Data.Diagnoses
+            dto.Gender <- pat.Data.Gender |> Gender.toString
+            dto.Age <- pat.Data.Age |> Option.map AgeValue.Dto.toDto
+            dto.Weight <- pat.Data.Weight |> Weight.Dto.toDto
+            dto.Height <- pat.Data.Height |> Height.Dto.toDto
+            dto.GestationalAge <- pat.Data.GestationalAge |> Option.map AgeWeeksDays.Dto.toDto
+            dto.PostMenstrualAge <- pat.Data.PostMenstrualAge |> Option.map AgeWeeksDays.Dto.toDto
+            dto.EnteralAccess <- pat.Data.EnteralAccess |> EnteralAccess.toString
+            dto.VenousAccess <- pat.Data.VenousAccess |> VenousAccess.toString
 
             dto
