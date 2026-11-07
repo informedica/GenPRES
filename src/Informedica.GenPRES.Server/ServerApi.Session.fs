@@ -506,14 +506,33 @@ module Session =
         }
 
 
-    /// What a challenge compares: the EHR data as read, never its projection, whose age moves
-    /// with the clock.
+    /// What a challenge compares: the EHR data as read, never its projection, and without the age
+    /// and the post-menstrual age the read calculated, so that a read on another day than the open is
+    /// no change by that alone.
     module Reads =
+
+        /// Whether two EHR reads hold the same data, leaving out the age and the post-menstrual age
+        /// each read calculated; the birthdate and the gestational age they come from are compared.
+        let sameDataApartFromAges (read: GenForm.EhrPatientData option) (other: GenForm.EhrPatientData option) =
+            let withoutAges (ehr: GenForm.EhrPatientData) =
+                { ehr with
+                    Patient =
+                        { ehr.Patient with
+                            Data =
+                                { ehr.Patient.Data with
+                                    Age = None
+                                    PostMenstrualAge = None
+                                }
+                        }
+                }
+
+            (read |> Option.map withoutAges) = (other |> Option.map withoutAges)
+
 
         /// Whether a fresh read tells a change: none, or other than the EHR data the Session
         /// opened on. A Session that opened on none is told on every read that answers.
         let changed (opened: GenForm.EhrPatientData option) (current: GenForm.EhrPatientData option) =
-            current.IsNone || current <> opened
+            current.IsNone || not (sameDataApartFromAges current opened)
 
 
         /// The notice the token names, when the Session has one and it was told over exactly
@@ -528,7 +547,7 @@ module Session =
             |> Option.bind (fun token ->
                 notices
                 |> Map.tryFind sid
-                |> Option.filter (fun n -> n.Nonce = token && n.Ehr = current)
+                |> Option.filter (fun n -> n.Nonce = token && sameDataApartFromAges n.Ehr current)
             )
 
 
@@ -761,10 +780,11 @@ module Session =
     /// The patient a Session shows at the local date. When the latest act is a sign, the patient of the
     /// version signed; after any other act, the EHR's data, the source of truth. Each falls back
     /// on the other, so that a head that cannot be read or a data outage still shows what there
-    /// is. The age is the one at the local date in every case. From nothing, none, so that the User
-    /// enters the data and a data outage does not block prescribing.
+    /// is. The EHR's data has the ages its read created; the version signed is aged at the local
+    /// date. From nothing, none, so that the User enters the data and a data outage does not block
+    /// prescribing.
     let sessionPatient date (patientData: PatientDataPort) (opened: OpenedSession) =
-        let ofEhr = opened.EhrData |> Option.map (patientData.patient date)
+        let ofEhr = opened.EhrData |> Option.map patientData.patient
 
         let ofHead =
             match opened.Head with
@@ -1488,7 +1508,6 @@ module Session =
     /// the Patient is the Session's, never the request's. The PIN is not involved: a refusal
     /// here costs no attempt.
     let challenge
-        (zone: TimeZoneInfo)
         (now: DateTime)
         (newId: unit -> string)
         (digest: GenOrder.OrderPlan -> string)
@@ -1523,11 +1542,8 @@ module Session =
                     if Reads.changed record.Opened.EhrData currentEhr && accepted.IsNone then
                         let nonce = newId ()
 
-                        // projected at the local date of the open, so that the age the Session
-                        // opened on holds; the adapter answers none for a reading that is no patient
-                        let current =
-                            currentEhr
-                            |> Option.map (patientData.patient (record.OpenedAt |> LocalDate.ofUtc zone))
+                        // the adapter answers none for a reading that is no patient
+                        let current = currentEhr |> Option.map patientData.patient
 
                         let notice =
                             {

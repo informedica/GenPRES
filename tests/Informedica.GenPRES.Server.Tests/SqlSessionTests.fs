@@ -751,7 +751,7 @@ let writerTests =
 
             test "the EHR data a Session opened on is written under its version and loads back as read" {
                 withSessions (fun cs ->
-                    let ehr = StubPatientData.data "stub-patient"
+                    let ehr = StubPatientData.data StubPatientData.measuredOn "stub-patient"
 
                     let session =
                         { sessionOf "s-1" "prescriber" None None with
@@ -810,7 +810,12 @@ let writerTests =
                             null
                             "update session_opened_with set ehr_data = $ehr where session_id = $sid"
                             [
-                                "$ehr", box (SqlSessions.ehrJson (StubPatientData.data "stub-patient"))
+                                "$ehr",
+                                box (
+                                    SqlSessions.ehrJson (
+                                        StubPatientData.data StubPatientData.measuredOn "stub-patient"
+                                    )
+                                )
                                 "$sid", box "s-1"
                             ]
 
@@ -1546,7 +1551,9 @@ let withOpenSession (cs: string) =
 let noticeOf nonce data : Session.Notice =
     {
         Nonce = nonce
-        Ehr = data |> Option.map (fun _ -> StubPatientData.data "stub-patient")
+        Ehr =
+            data
+            |> Option.map (fun _ -> StubPatientData.data StubPatientData.measuredOn "stub-patient")
         Data = data
         Expiry = t0.AddMinutes 2.0
     }
@@ -1607,7 +1614,7 @@ let flightWriteTests =
                 "the notice and the challenge keep the EHR data they were told or issued over, and a row from before has none" {
                 withSessions (fun cs ->
                     withOpenSession cs
-                    let ehr = StubPatientData.data "stub-patient"
+                    let ehr = StubPatientData.data StubPatientData.measuredOn "stub-patient"
 
                     runWrites
                         cs
@@ -1697,7 +1704,7 @@ let flightWriteTests =
                     withOpenSession cs
                     let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber Store.t0
                     let whom =
-                        StubPatientData.data "stub-patient"
+                        StubPatientData.data StubPatientData.measuredOn "stub-patient"
                         |> Informedica.GenForm.Lib.EhrPatientData.identity
                     let patient = v1.Plan.Patient |> Session.atBirthDate v1.SignedAt whom
                     let answer = SigningOutcome.Submitted(v1, whom, OpenedToken "opened-again", patient)
@@ -1731,7 +1738,7 @@ let flightWriteTests =
                     let amsterdam = LocalDate.defaultZone ()
                     let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber signedAt
                     let whom =
-                        StubPatientData.data "stub-patient"
+                        StubPatientData.data StubPatientData.measuredOn "stub-patient"
                         |> Informedica.GenForm.Lib.EhrPatientData.identity
                     let patientOn zone =
                         v1.Plan.Patient |> Session.atBirthDate (signedAt |> LocalDate.ofUtc zone) whom

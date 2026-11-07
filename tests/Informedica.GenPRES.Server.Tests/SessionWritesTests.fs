@@ -289,7 +289,6 @@ let machineTests =
 
                 let state, challenge, _ =
                     Session.challenge
-                        TimeZoneInfo.Utc
                         t0
                         newId
                         StubDatabase.digest
@@ -672,7 +671,6 @@ let flightWrites =
 
                         match
                             Session.challenge
-                                TimeZoneInfo.Utc
                                 t0
                                 newId
                                 StubDatabase.digest
@@ -715,7 +713,6 @@ let flightWrites =
 
                 let issue state =
                     Session.challenge
-                        TimeZoneInfo.Utc
                         t0
                         newId
                         StubDatabase.digest
@@ -749,7 +746,6 @@ let flightWrites =
                 // a challenge first, then data the Session did not open on
                 let state, _, _ =
                     Session.challenge
-                        TimeZoneInfo.Utc
                         t0
                         newId
                         StubDatabase.digest
@@ -762,7 +758,6 @@ let flightWrites =
                 // the EHR now says another ward
                 let _, answer, writes =
                     Session.challenge
-                        TimeZoneInfo.Utc
                         t0
                         newId
                         StubDatabase.digest
@@ -789,7 +784,6 @@ let flightWrites =
                     let token = state.Sessions[sid].Opened.OpenedToken.Value
 
                     Session.challenge
-                        TimeZoneInfo.Utc
                         t0
                         newId
                         StubDatabase.digest
@@ -859,7 +853,6 @@ let flightWrites =
 
                 let state, challenge, _ =
                     Session.challenge
-                        TimeZoneInfo.Utc
                         t0
                         newId
                         StubDatabase.digest

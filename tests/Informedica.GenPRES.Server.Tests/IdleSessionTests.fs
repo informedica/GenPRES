@@ -213,16 +213,16 @@ let portTests =
                 | other -> failtest $"expected still ended idle, got %A{other}"
             }
 
-            test "the patient an open Session shows has the age at the port's clock" {
+            test "the patient an open Session shows has the ages of its read, whatever the port's clock" {
                 let clock = ref (openedAt + TimeSpan.FromDays 60.0)
                 let port = portAt clock (stateSeenAt openedAt)
-                let ehr = StubPatientData.data "p1"
+                let ehr = StubPatientData.data StubPatientData.measuredOn "p1"
                 let opened = { (record sid openedAt).Opened with EhrData = Some ehr }
                 let data = Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters.patientData
 
                 opened
                 |> port.patient
-                |> Expect.equal "the projection at the clock" (Some(data.patient clock.Value ehr))
+                |> Expect.equal "the projection of the read" (Some(data.patient ehr))
             }
 
             testAsync "a computing request in an idle Session is told the ending" {

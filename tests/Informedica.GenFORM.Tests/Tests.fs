@@ -2332,9 +2332,9 @@ module Tests =
         /// The fifteenth of March, 2016, the tenth birthday of a patient born on it.
         let tenthBirthday = DateTime(2026, 3, 15)
 
-        /// The stub's kind of patient: born 2016-03-15, 32 kg and 140 cm measured on the tenth
-        /// birthday, nothing else known.
-        let ehr () : FormTypes.EhrPatientData =
+        /// The stub's kind of patient read at a moment: born 2016-03-15, 32 kg and 140 cm measured on
+        /// the tenth birthday, nothing else known, its ages created at the read.
+        let ehrAt readAt : FormTypes.EhrPatientData =
             let weight = WeightAtDate.create tenthBirthday (WeightValue.weightInKg 32m)
             let height = HeightAtDate.create tenthBirthday (HeightValue.heightInCm 140m)
 
@@ -2348,11 +2348,14 @@ module Tests =
                 None
                 UnknownEnteral
                 UnknownVenous
-            |> Patient.create (
-                PatientIdentity.create "p1" "Stub Testpatiënt" (BirthDate.create 2016<year> 3<month> 15<day>)
-                |> Some
-            )
+            |> Patient.createAt
+                readAt
+                (PatientIdentity.create "p1" "Stub Testpatiënt" (BirthDate.create 2016<year> 3<month> 15<day>)
+                 |> Some)
             |> fun pat -> Informedica.GenForm.Lib.EhrPatientData.create pat None []
+
+        /// The stub's kind of patient read on its tenth birthday.
+        let ehr () = ehrAt tenthBirthday
 
         let days (vu: ValueUnit option) =
             vu
@@ -2363,7 +2366,7 @@ module Tests =
                 "EhrPatientData"
                 [
                     test "the projection at the tenth birthday is ten years, the measures, nothing else" {
-                        let pat = ehr () |> FormPatient.ofEhr tenthBirthday
+                        let pat = ehr () |> FormPatient.ofEhr
 
                         let expected: FormTypes.Patient =
                             { FormPatient.patient with
@@ -2378,8 +2381,8 @@ module Tests =
                         pat |> Expect.equal "field for field" expected
                     }
 
-                    test "the age is the birthdate's at the date, in days" {
-                        let at dt = ehr () |> FormPatient.ofEhr dt |> _.Age |> days
+                    test "the age is the birthdate's at the read, in days" {
+                        let at dt = ehrAt dt |> FormPatient.ofEhr |> _.Age |> days
 
                         (at tenthBirthday, at (tenthBirthday.AddDays 1.0), at (tenthBirthday.AddYears 1))
                         |> Expect.equal "3650, 3651, 4015 days" (Some 3650N, Some 3651N, Some 4015N)
@@ -2395,7 +2398,7 @@ module Tests =
                                 }
                                 |> Patient.create None
                         }
-                        |> FormPatient.ofEhr tenthBirthday
+                        |> FormPatient.ofEhr
                         |> _.Age
                         |> days
                         |> Expect.equal "2 years, 3 months and 4 days" (Some 824N)
@@ -2411,7 +2414,7 @@ module Tests =
                                         Data.Weight = { ehr.Patient.Data.Weight with Calculation = None }
                                     }
                             }
-                            |> FormPatient.ofEhr tenthBirthday
+                            |> FormPatient.ofEhr
 
                         (pat.Weight, pat.WeightMeasured, pat.Height.IsSome, pat.HeightMeasured)
                         |> Expect.equal "no weight, not measured; the height as before" (None, false, true, true)
@@ -2428,13 +2431,13 @@ module Tests =
                                             { ehr.Patient.Data with
                                                 Department = Department.pediatricICU "ICK"
                                                 Gender = Female
-                                                GestationalAge = Some(AgeWeeksDays.create 36<week> 2<day>)
                                             }
                                     }
+                                    |> Patient.withGestationalAge (Some(AgeWeeksDays.create 36<week> 2<day>))
                                 RenalFunction = Some(FormTypes.RenalFunction.EGFR(Some 30, Some 60))
                                 Access = [ FormTypes.CVL; FormTypes.EnteralTube ]
                             }
-                            |> FormPatient.ofEhr tenthBirthday
+                            |> FormPatient.ofEhr
 
                         (pat.GestAge |> days,
                          pat.PMAge |> days,
@@ -2486,9 +2489,9 @@ module Tests =
                                             { ehr.Patient.Data with
                                                 Department = Department.pediatricICU "ICK"
                                                 Gender = Female
-                                                GestationalAge = Some(AgeWeeksDays.create 36<week> 2<day>)
                                             }
                                     }
+                                    |> Patient.withGestationalAge (Some(AgeWeeksDays.create 36<week> 2<day>))
                                 RenalFunction = Some(FormTypes.RenalFunction.EGFR(Some 30, Some 60))
                                 Access = [ FormTypes.CVL; FormTypes.EnteralTube ]
                             }
@@ -2521,7 +2524,7 @@ module Tests =
                     }
 
                     test "the printer writes neither the name nor the birthdate" {
-                        let printed = ehr () |> FormPatient.ofEhr tenthBirthday |> FormPatient.toString
+                        let printed = ehr () |> FormPatient.ofEhr |> FormPatient.toString
 
                         [ "Stub"; "Testpatiënt"; "2016"; "15-03"; "03-15" ]
                         |> List.map (fun s -> printed.Contains s)

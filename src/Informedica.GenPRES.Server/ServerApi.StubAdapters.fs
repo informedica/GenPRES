@@ -192,8 +192,9 @@ module StubPatientData =
     let measuredOn = DateTime(2026, 3, 15)
 
 
-    /// The stub's EHR data for an id: the fixed patient under that id, nothing else known.
-    let data (pid: string) : Informedica.GenForm.Lib.Types.EhrPatientData =
+    /// The stub's EHR data for an id read at a moment: the fixed patient under that id, nothing else
+    /// known, with its ages created at the read.
+    let data (now: DateTime) (pid: string) : Informedica.GenForm.Lib.Types.EhrPatientData =
         let weight = WeightAtDate.create measuredOn (WeightValue.weightInKg 32m)
         let height = HeightAtDate.create measuredOn (HeightValue.heightInCm 140m)
 
@@ -207,7 +208,7 @@ module StubPatientData =
             None
             UnknownEnteral
             UnknownVenous
-        |> Patient.create (PatientIdentity.create pid name birthDate |> Some)
+        |> Patient.createAt now (PatientIdentity.create pid name birthDate |> Some)
         |> fun pat -> Informedica.GenForm.Lib.EhrPatientData.create pat None []
 
 
@@ -319,7 +320,7 @@ module StubPatientData =
             tp.GestationalAge
             UnknownEnteral
             UnknownVenous
-        |> Patient.create identity
+        |> Patient.createAt measuredOn identity
         |> fun pat -> Informedica.GenForm.Lib.EhrPatientData.create pat None []
 
 
@@ -329,10 +330,10 @@ module StubPatientData =
         match testPatients |> List.tryFind (fun tp -> tp.Id = pid) with
         | Some tp -> tp |> testPatientData (now ()) |> Some
         | None when pid = "no-data" -> None
-        | None -> Some(data pid)
+        | None -> Some(data (now ()) pid)
 
 
-    /// The EHR stub over a clock; the patient the rules see is the projection at the date,
+    /// The EHR stub over a clock; the patient the rules see is the projection of the read,
     /// unestimated here.
     let portAt now : PatientDataPort =
         {
@@ -1039,15 +1040,7 @@ module StubDatabase =
                                         now
                                         sid
                                         (fun at ->
-                                            Session.challenge
-                                                zone
-                                                at
-                                                newId
-                                                digest
-                                                patientData
-                                                registry.standing
-                                                sid
-                                                request
+                                            Session.challenge at newId digest patientData registry.standing sid request
                                         )))
                     }
             submit =

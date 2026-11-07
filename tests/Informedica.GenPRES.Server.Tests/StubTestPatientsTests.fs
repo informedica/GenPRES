@@ -22,7 +22,7 @@ let now = DateTime(2026, 11, 3, 14, 30, 0)
 /// The GenFORM patient of a PatientId, read and projected at a moment.
 let projectedAt at pid =
     StubPatientData.read (fun () -> at) pid
-    |> Option.map (Informedica.GenForm.Lib.Patient.ofEhr at)
+    |> Option.map Informedica.GenForm.Lib.Patient.ofEhr
 
 
 let value (vu: ValueUnit option) = vu |> Option.map (ValueUnit.getValue >> Array.head)
@@ -161,7 +161,7 @@ let tests =
 
             test "another PatientId gives the fixed patient" {
                 StubPatientData.read (fun () -> now) "p1"
-                |> Expect.equal "the fixed patient" (Some(StubPatientData.data "p1"))
+                |> Expect.equal "the fixed patient, read now" (Some(StubPatientData.data now "p1"))
             }
 
             test "no-data gives no data" { StubPatientData.read (fun () -> now) "no-data" |> Expect.isNone "no data" }

@@ -22,15 +22,15 @@ module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
 module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
 
 
-/// The date of the open, and the sign a day later. The port here projects at the date given,
-/// so that the age moves with the clock.
+/// The date of the open, and the sign a day later. The EHR data is read at the open, so it has the
+/// ages of that day.
 let today = DateTime(2026, 9, 26)
 
 let tomorrow = today.AddDays 1.0
 
 let port = StubPatientData.port
 
-let ehr = StubPatientData.data "stub-patient"
+let ehr = StubPatientData.data today "stub-patient"
 
 let identity = ehr |> EhrPatientData.identity
 
@@ -53,7 +53,7 @@ let unidentified =
 /// The plan as signed: the projection at the open, the age the Session held.
 let plan =
     Informedica.GenPRES.Shared.Models.OrderPlan.create
-        (port.patient today ehr |> GenFormPatient.Dto.toDto |> Patient.toModel)
+        (port.patient ehr |> GenFormPatient.Dto.toDto |> Patient.toModel)
         [||]
     |> OrderPlanCommand.parsePlan
     |> Result.defaultWith (fun e -> failtest $"no plan: %A{e}")
@@ -241,34 +241,34 @@ let localDateTests =
                         |> Expect.equal "3842 in Amsterdam, 3841 in UTC" (Some 3842N, Some 3841N)
                     }
 
-                    test "a data notice over a Session opened at 23:30 UTC has the age of the local date of the open" {
-                        let inZone zone =
-                            let sid, record = opened "s-1" (Some heavier) None
-                            let record =
-                                { record with
-                                    OpenedAt = lateEvening
-                                    Seen = lateEvening
-                                }
-                            let state = Store.stateOf [ sid, record ] []
+                    test "a data notice shows the ages of the challenge's read" {
+                        // the EHR read at the challenge, on the day the stub's clock gives
+                        let reading = StubPatientData.portAt (fun () -> today)
+                        let sid, record = opened "s-1" (Some heavier) None
+                        let record =
+                            { record with
+                                OpenedAt = lateEvening
+                                Seen = lateEvening
+                            }
+                        let state = Store.stateOf [ sid, record ] []
 
-                            let _, outcome, _ =
-                                Session.challenge
-                                    zone
-                                    lateEvening
-                                    (Store.counter "id")
-                                    StubDatabase.digest
-                                    port
-                                    Store.registry
-                                    sid
-                                    (plan, Store.token sid, None)
-                                    state
+                        let _, outcome, _ =
+                            Session.challenge
+                                lateEvening
+                                (Store.counter "id")
+                                StubDatabase.digest
+                                reading
+                                Store.registry
+                                sid
+                                (plan, Store.token sid, None)
+                                state
 
-                            match outcome with
-                            | SigningOutcome.DataNotice(_, data) -> data |> Option.bind ageInDays
-                            | other -> failtest $"expected DataNotice, got %A{other}"
-
-                        (inZone (amsterdam ()), inZone TimeZoneInfo.Utc)
-                        |> Expect.equal "3842 in Amsterdam, 3841 in UTC" (Some 3842N, Some 3841N)
+                        match outcome with
+                        | SigningOutcome.DataNotice(_, data) -> data |> Option.bind ageInDays
+                        | other -> failtest $"expected DataNotice, got %A{other}"
+                        |> Expect.equal
+                            "the read's age"
+                            (reading.patient (StubPatientData.data today "stub-patient") |> ageInDays)
                     }
                 ]
         ]
@@ -343,7 +343,9 @@ let tests =
                         let age = openedLater (Some readable) |> Option.bind _.Age
 
                         age
-                        |> Expect.equal "the age the EHR's projection gives at that date" (port.patient later ehr).Age
+                        |> Expect.equal
+                            "the age an EHR read at that date gives"
+                            (port.patient (StubPatientData.data later "stub-patient")).Age
 
                         age
                         |> Expect.notEqual "another age than the one signed" version.Plan.Patient.Age
@@ -382,7 +384,7 @@ let tests =
                     test "gives way to EHR data, whatever the head" {
                         opened "s-1" (Some ehr) (Some readable)
                         |> shownAt later
-                        |> Expect.equal "the projection" (Some(port.patient later ehr))
+                        |> Expect.equal "the projection of the read" (Some(port.patient ehr))
                     }
 
                     test "is none from nothing, and from a head that cannot be read" {
@@ -396,7 +398,7 @@ let tests =
                 [
                     let resume = today.AddMonths 2
                     let readable = Some(StoredVersion.Readable(version, identity))
-                    let shownEhr = Some(port.patient resume heavier)
+                    let shownEhr = Some(port.patient heavier)
                     let shownSigned = Some(version.Plan.Patient |> Session.atBirthDate resume identity)
 
                     let afterAct act head =

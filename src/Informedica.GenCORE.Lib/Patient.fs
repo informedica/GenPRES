@@ -1784,6 +1784,10 @@ module Patient =
     let withAge av pat = { pat with Patient.Data.Age = av } |> calculatePostMenstrualAge
 
 
+    /// The patient of an identity and the patient data, created at a date: with its ages.
+    let createAt dt idn dat = create idn dat |> atDate dt
+
+
     /// The patient data as strings, with the ages as created at a date; the identity is never
     /// printed.
     let toString dt pat =

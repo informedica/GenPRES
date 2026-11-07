@@ -328,8 +328,8 @@ module Patient =
     let estimating (nv: unit -> NormalValues option) (port: PatientDataPort) : PatientDataPort =
         { port with
             patient =
-                fun now ehr ->
-                    let pat = port.patient now ehr
+                fun ehr ->
+                    let pat = port.patient ehr
 
                     match nv () with
                     | Some nv -> pat |> estimated nv

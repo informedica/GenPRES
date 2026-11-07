@@ -140,7 +140,7 @@ let challenged sid (at: DateTime) (p: Types.OrderPlan) : string * Session.Challe
     {
         Nonce = $"c-{sid}"
         Digest = StubDatabase.digest p
-        Ehr = Some(StubPatientData.data "stub-patient")
+        Ehr = Some(StubPatientData.data StubPatientData.measuredOn "stub-patient")
         Expiry = at + Session.challengeLifetime
     }
 
@@ -198,7 +198,7 @@ let tests =
 
                     // the version names the patient the Session is for
                     let whom =
-                        StubPatientData.data "stub-patient"
+                        StubPatientData.data StubPatientData.measuredOn "stub-patient"
                         |> Informedica.GenForm.Lib.EhrPatientData.identity
 
                     Session.headOf "stub-patient" state
