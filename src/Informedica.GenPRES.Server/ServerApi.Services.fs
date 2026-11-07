@@ -25,7 +25,6 @@ module FormularyService =
                 |> Option.map Mappers.mapFromSharedPatient
                 |> Option.defaultValue Patient.patient
         }
-        |> Informedica.GenForm.Lib.Filter.calcPMAge
 
 
     let selectIfOne sel xs =

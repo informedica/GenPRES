@@ -1303,6 +1303,31 @@ module PatientConstructorTests =
                     |> Expect.isSome "premature should have gestational age"
                 }
 
+                test "premature has the post-menstrual age of 1 week plus 32 weeks" {
+                    Patient.premature.PMAge
+                    |> Expect.equal "231 days" (Some(ValueUnit.singleWithUnit Units.Time.day 231N))
+                }
+
+                test "the post-menstrual age does not depend on the order the ages are set in" {
+                    let gestFirst =
+                        Patient.patient
+                        |> Patient.setGestAge [ Patient.Optics.Weeks 32 ]
+                        |> Patient.setAge [ Patient.Optics.Weeks 1 ]
+
+                    let reset =
+                        Patient.patient
+                        |> Patient.setAge [ Patient.Optics.Weeks 3 ]
+                        |> Patient.setGestAge [ Patient.Optics.Weeks 32 ]
+                        |> Patient.setAge [ Patient.Optics.Weeks 1 ]
+
+                    [ gestFirst.PMAge; reset.PMAge ]
+                    |> Expect.equal "231 days both" [ Patient.premature.PMAge; Patient.premature.PMAge ]
+                }
+
+                test "a patient without a gestational age has no post-menstrual age" {
+                    Patient.newBorn.PMAge |> Expect.isNone "none"
+                }
+
                 test "premature has department NEO" {
                     Patient.premature.Department |> Expect.equal "should be NEO" (Some "NEO")
                 }
