@@ -12,8 +12,6 @@ module Patient =
     module Measures = Informedica.GenCore.Lib.ValueUnits.ValueUnit.Measures
     module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
     module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
-    module CorePatient = Informedica.GenCore.Lib.Patients.Patient
-    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 
     type Patient = Types.Patient
     type Access = AccessDevice
@@ -155,14 +153,18 @@ module Patient =
     /// age; none without either. The setters of the age and of the gestational age both call it, so
     /// the order they are called in does not matter.
     let withPMAge (p: Patient) =
-        { CorePatientData.unknown with
-            Age = p.Age |> Option.map (Measures.toSingleIntDay >> CoreAgeValue.fromDays)
-            GestationalAge = p.GestAge |> Option.map CoreAgeWeeksDays.fromValueUnit
+        { p with
+            PMAge =
+                Option.map2
+                    (fun age ga ->
+                        CoreAgeWeeksDays.postMenstrualAge
+                            (age |> Measures.toSingleIntDay |> CoreAgeValue.fromDays)
+                            (ga |> CoreAgeWeeksDays.fromValueUnit)
+                        |> CoreAgeWeeksDays.toValueUnit
+                    )
+                    p.Age
+                    p.GestAge
         }
-        |> CorePatient.create None
-        |> CorePatient.calculatePostMenstrualAge
-        |> _.Data.PostMenstrualAge
-        |> fun pma -> { p with PMAge = pma |> Option.map CoreAgeWeeksDays.toValueUnit }
 
 
     let setAge ags (p: Patient) = { p with Age = ags |> snd ageAgeList } |> withPMAge

@@ -14,8 +14,6 @@ module Age =
     module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
     module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
     module CoreConversions = Informedica.GenCore.Lib.Conversions
-    module CorePatient = Informedica.GenCore.Lib.Patients.Patient
-    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 
 
     /// The contract model's age as a GenCORE age value.
@@ -79,13 +77,10 @@ module Age =
     /// The post-menstrual age of the contract model's patient, as GenCORE calculates it from the age
     /// and the gestational age: what the server puts on the patient it answers. None without either.
     let postMenstrualAge (model: Informedica.GenPRES.Shared.Types.Patient) =
-        { CorePatientData.unknown with
-            Age = model.Age |> Option.map ageValue
-            GestationalAge = model.GestationalAge |> Option.map weeksDays
-        }
-        |> CorePatient.create None
-        |> CorePatient.calculatePostMenstrualAge
-        |> _.Data.PostMenstrualAge
+        Option.map2
+            (fun age ga -> CoreAgeWeeksDays.postMenstrualAge (ageValue age) (weeksDays ga))
+            model.Age
+            model.GestationalAge
         |> Option.map (CoreAgeWeeksDays.toDays >> int >> weeksDaysOfDays)
 
 
