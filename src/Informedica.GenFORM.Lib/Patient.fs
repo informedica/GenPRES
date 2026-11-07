@@ -656,7 +656,6 @@ module Patient =
     module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
     module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
     module CoreDepartment = Informedica.GenCore.Lib.Patients.Department
-    module Measures = Informedica.GenCore.Lib.ValueUnits.ValueUnit.Measures
 
     type CoreGender = Informedica.GenCore.Lib.Patients.Gender
 
@@ -706,24 +705,22 @@ module Patient =
         )
 
 
-    /// The patient at the age a core age gives at a date: the age in days, and the post-menstrual age
-    /// when the patient has a gestational age, the gestational age plus the age in days, both calculated
-    /// by GenCORE.
-    let withAgeAt now age (pat: Patient) =
+    /// The patient at the ages of a core patient at a date: the age in days, the gestational age
+    /// and the post-menstrual age that GenCORE calculates at that date.
+    let withAgeOf now patient (pat: Patient) =
+        let atNow = patient |> CorePatient.atDate now
+
         { pat with
-            Age = age |> CorePatientAge.ageInDays now
-            PMAge =
-                pat.GestAge
-                |> Option.map Measures.toSingleIntDay
-                |> Option.bind (fun ga -> age |> CorePatientAge.postMenstrualAgeInDays now ga)
-                |> Option.map Measures.fromIntDay
+            Age = atNow |> CorePatient.age |> CorePatientAge.ageInDays now
+            GestAge = atNow.Data.GestationalAge |> Option.map CoreAgeWeeksDays.toValueUnit
+            PMAge = atNow.Data.PostMenstrualAge |> Option.map CoreAgeWeeksDays.toValueUnit
         }
 
 
     /// The patient the EHR data is at a date: the age at that date in days, from the birthdate
     /// or the age value the EHR gave; weight and height from the calculation values, measured
-    /// when there are any; the gestational age in days and, from withAgeAt, the post-menstrual
-    /// age; the department's name; renal function and access as given; the BSA left to the
+    /// when there are any; from withAgeOf, the gestational age and the post-menstrual age in
+    /// days; the department's name; renal function and access as given; the BSA left to the
     /// calculation over weight and height.
     let ofEhr (now: System.DateTime) (ehr: EhrPatientData) : Patient =
         let gender =
@@ -763,13 +760,10 @@ module Patient =
             Height = height
             WeightMeasured = weight.IsSome
             HeightMeasured = height.IsSome
-            GestAge =
-                core.GestationalAge
-                |> Option.map (CoreAgeWeeksDays.toDays >> Measures.fromIntDay)
             Access = ehr.Access
             RenalFunction = ehr.RenalFunction
         }
-        |> withAgeAt now (ehr.Patient |> CorePatient.age)
+        |> withAgeOf now ehr.Patient
 
 
     /// Get the string representation of a Patient.

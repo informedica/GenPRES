@@ -415,7 +415,9 @@ module LocalDate =
 /// are parameters. StubDatabase.makeSessionPort runs it over an in-memory store.
 module Session =
 
-    module CorePatientAge = Informedica.GenCore.Lib.Patients.PatientAge
+    module CorePatient = Informedica.GenCore.Lib.Patients.Patient
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
+    module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
 
 
     /// The refusal words of #/session?refused=<word>; the client's parseRefusal reads them.
@@ -731,8 +733,13 @@ module Session =
         match whom with
         | None -> pat
         | Some identity ->
-            pat
-            |> Informedica.GenForm.Lib.Patient.withAgeAt date (identity.BirthDate |> CorePatientAge.birthDate)
+            let core =
+                { CorePatientData.unknown with
+                    GestationalAge = pat.GestAge |> Option.map CoreAgeWeeksDays.fromValueUnit
+                }
+                |> CorePatient.create (Some identity)
+
+            pat |> Informedica.GenForm.Lib.Patient.withAgeOf date core
 
 
     /// The patient of a version as a later Session shows it: at the age at the local date, and without
