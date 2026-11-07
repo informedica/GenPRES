@@ -1723,6 +1723,39 @@ let flightWriteTests =
                 )
             }
 
+            test "a remembered answer signed just after local midnight repeats the age on the local date" {
+                withSessions (fun cs ->
+                    withOpenSession cs
+                    // 23:30 UTC on 26 September is 01:30 on 27 September in Amsterdam
+                    let signedAt = DateTime(2026, 9, 26, 23, 30, 0, DateTimeKind.Utc)
+                    let amsterdam = LocalDate.defaultZone ()
+                    let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber signedAt
+                    let whom =
+                        StubPatientData.data "stub-patient"
+                        |> Informedica.GenForm.Lib.EhrPatientData.identity
+                    let patientOn zone =
+                        v1.Plan.Patient |> Session.atBirthDate (signedAt |> LocalDate.ofUtc zone) whom
+                    let answer = SigningOutcome.Submitted(v1, whom, OpenedToken "opened-again", patientOn amsterdam)
+
+                    patientOn amsterdam
+                    |> Expect.notEqual "the UTC date gives another age" (patientOn TimeZoneInfo.Utc)
+
+                    runWrites
+                        cs
+                        [
+                            Session.WriteVersion(v1, whom)
+                            Session.RememberAnswer("s-1", "k-1", answer, t0)
+                        ]
+                    |> ignore
+
+                    use conn = connect cs
+
+                    SqlSessions.loadAnswer amsterdam conn (fun _ -> Some(StoredVersion.Readable(v1, whom))) "s-1" "k-1"
+                    |> Option.map fst
+                    |> Expect.equal "the same answer, at the age on the Amsterdam date" (Some answer)
+                )
+            }
+
             test "an answer names the version it signed and is not written over" {
                 withSessions (fun cs ->
                     withOpenSession cs
