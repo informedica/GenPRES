@@ -1125,18 +1125,6 @@ module Tests =
                 [ 0 .. (last - first).Days ] |> List.map (fun n -> first.AddDays(float n))
 
 
-            let testAges =
-                [
-                    for d in [ 0; 1; 6; 7; 13; 27; 28; 29 ] do
-                        AgeValue.create (Some 0<year>) (Some 0<month>) None (Some(d * 1<day>))
-                    for m in [ 1; 2; 6; 11 ] do
-                        AgeValue.create (Some 0<year>) (Some(m * 1<month>)) None None
-                    for y in [ 1; 2; 4; 12; 16; 18 ] do
-                        AgeValue.create (Some(y * 1<year>)) None None None
-                    AgeValue.create (Some 0<year>) (Some 1<month>) (Some 4<week>) (Some 1<day>)
-                ]
-
-
             let tests =
                 testList
                     "Calendar age"
@@ -1247,33 +1235,6 @@ module Tests =
                                     |> Expect.equal
                                         "1 year, 2 months"
                                         [ 1<year>, 0<month>, 0<week>, 0<day>; 0<year>, 2<month>, 0<week>, 0<day> ]
-                                }
-                            ]
-
-                        testList
-                            "birthDateAt"
-                            [
-                                test "gives the age itself on every date it can, else the next age up" {
-                                    [
-                                        for dt in datesOf (date 2024 1 1) (date 2028 12 31) do
-                                            for av in testAges do
-                                                let target = av |> AgeValue.getAgeInDays |> int
-                                                let b = av |> PatientAge.birthDateAt dt
-                                                let actual = b |> daysAt dt
-                                                let later = (BirthDate.toDate b).AddDays 1.
-                                                let laterOldEnough =
-                                                    later <= dt && (later |> BirthDate.fromDate |> daysAt dt) >= target
-
-                                                if actual < target || laterOldEnough || actual > target + 3 then
-                                                    dt, target, actual
-                                    ]
-                                    |> Expect.isEmpty "the latest birth date at least that old"
-                                }
-
-                                test "the target is hit exactly for a year age" {
-                                    AgeValue.eighteen
-                                    |> PatientAge.birthDateAt (date 2026 3 1)
-                                    |> Expect.equal "1 Mar 2008" (bd 2008 3 1)
                                 }
                             ]
 

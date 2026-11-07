@@ -304,7 +304,12 @@ module StubPatientData =
         let weight = WeightAtDate.create measuredOn tp.Weight
         let height = HeightAtDate.create measuredOn tp.Height
 
-        let age = tp.Age |> PatientAge.birthDateAt measuredOn |> PatientAge.birthDate
+        let age =
+            tp.Age
+            |> PatientAge.ageValue
+            |> PatientAge.getBirthDate measuredOn
+            |> Option.map PatientAge.birthDate
+            |> Option.defaultValue PatientAge.unknown
 
         Patient.create
             tp.Id
