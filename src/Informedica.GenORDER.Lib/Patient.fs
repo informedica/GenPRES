@@ -8,10 +8,12 @@ module Patient =
     open Informedica.GenForm.Lib
     open Informedica.GenUnits.Lib
 
-    module Calculations = Informedica.GenCore.Lib.Calculations
     module Conversions = Informedica.GenCore.Lib.Conversions
     module Measures = Informedica.GenCore.Lib.ValueUnits.ValueUnit.Measures
     module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
+    module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
+    module CorePatient = Informedica.GenCore.Lib.Patients.Patient
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 
     type Patient = Types.Patient
     type Access = AccessDevice
@@ -149,23 +151,18 @@ module Patient =
     let getAge (p: Patient) = p.Age |> fst ageAgeList
 
 
-    /// The patient with the post-menstrual age of its age and its gestational age, as GenCORE counts
-    /// it; none without either. The setters of the age and of the gestational age both call it, so
+    /// The patient with the post-menstrual age GenCORE calculates from its age and its gestational
+    /// age; none without either. The setters of the age and of the gestational age both call it, so
     /// the order they are called in does not matter.
     let withPMAge (p: Patient) =
-        { p with
-            PMAge =
-                Option.map2
-                    (fun age gestAge ->
-                        age
-                        |> Measures.toSingleIntDay
-                        |> CoreAgeValue.fromDays
-                        |> CoreAgeValue.postMenstrualAgeInDays (gestAge |> Measures.toSingleIntDay)
-                        |> Measures.fromIntDay
-                    )
-                    p.Age
-                    p.GestAge
+        { CorePatientData.unknown with
+            Age = p.Age |> Option.map (Measures.toSingleIntDay >> CoreAgeValue.fromDays)
+            GestationalAge = p.GestAge |> Option.map CoreAgeWeeksDays.fromValueUnit
         }
+        |> CorePatient.create None
+        |> CorePatient.calculatePostMenstrualAge
+        |> _.Data.PostMenstrualAge
+        |> fun pma -> { p with PMAge = pma |> Option.map CoreAgeWeeksDays.toValueUnit }
 
 
     let setAge ags (p: Patient) = { p with Age = ags |> snd ageAgeList } |> withPMAge

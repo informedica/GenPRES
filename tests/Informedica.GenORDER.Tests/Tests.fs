@@ -1328,6 +1328,24 @@ module PatientConstructorTests =
                     Patient.newBorn.PMAge |> Expect.isNone "none"
                 }
 
+                test "the post-menstrual age is the gestational age plus the age in days" {
+                    [
+                        for d in 0..400 do
+                            for w in 24..42 do
+                                d, w
+                    ]
+                    |> List.filter (fun (d, w) ->
+                        let p =
+                            Patient.patient
+                            |> Patient.setAge [ Patient.Optics.Days d ]
+                            |> Patient.setGestAge [ Patient.Optics.Weeks w ]
+
+                        p.PMAge
+                        <> Some(ValueUnit.singleWithUnit Units.Time.day (BigRational.fromInt (d + w * 7)))
+                    )
+                    |> Expect.isEmpty "no difference"
+                }
+
                 test "premature has department NEO" {
                     Patient.premature.Department |> Expect.equal "should be NEO" (Some "NEO")
                 }
