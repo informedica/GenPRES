@@ -1555,6 +1555,13 @@ module Tests =
                             |> Expect.isEmpty "every day back"
                         }
 
+                        test "the post-menstrual age of 59 days at 26 weeks is 34 weeks and 3 days" {
+                            AgeWeeksDays.postMenstrualAge
+                                (AgeValue.create None (Some 1<month>) (Some 4<week>) (Some 1<day>))
+                                (AgeWeeksDays.create 26<week> 0<day>)
+                            |> Expect.equal "241 days" (AgeWeeksDays.create 34<week> 3<day>)
+                        }
+
                         test "fromValueUnit undoes toValueUnit for 0 to 400 days" {
                             [ 0..400 ]
                             |> List.map (Conversions.dayFromInt >> AgeWeeksDays.fromDays)

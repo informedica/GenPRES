@@ -377,11 +377,6 @@ module AgeValue =
             (rest % 7 |> Conversions.dayFromInt |> Some)
 
 
-    /// The post-menstrual age in days of an age value, for a patient without a birth date: the
-    /// gestational age plus the age in days.
-    let postMenstrualAgeInDays gestDays av = getAgeInDays av + gestDays
-
-
     let comp op a1 a2 =
         let a1 = a1 |> getAgeInDays
         let a2 = a2 |> getAgeInDays
@@ -1514,6 +1509,11 @@ module AgeWeeksDays =
     let toValueUnit awd = awd |> toDays |> ValueUnits.ValueUnit.Measures.fromIntDay
 
 
+    /// The post-menstrual age of an age and a gestational age: the gestational age plus the age in
+    /// days, in weeks and days.
+    let postMenstrualAge av ga = (av |> AgeValue.getAgeInDays) + (ga |> toDays) |> fromDays
+
+
     /// The gestational age from which a neonate is born at term: 37 weeks, where the full term
     /// gestation type starts. Not to be confused with fullTerm, the due date at 40 weeks.
     let term = fromWeeks GestationType.moderate
@@ -1753,14 +1753,7 @@ module Patient =
     let calculatePostMenstrualAge pat =
         { pat with
             Patient.Data.PostMenstrualAge =
-                Option.map2
-                    (fun av ga ->
-                        av
-                        |> AgeValue.postMenstrualAgeInDays (AgeWeeksDays.toDays ga)
-                        |> AgeWeeksDays.fromDays
-                    )
-                    pat.Data.Age
-                    pat.Data.GestationalAge
+                Option.map2 AgeWeeksDays.postMenstrualAge pat.Data.Age pat.Data.GestationalAge
         }
 
 
