@@ -1068,37 +1068,44 @@ module Tests =
 
                     ]
 
-        module PatientAgeTests =
+        module AgeAtCreationTests =
 
             let days n =
                 n |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Time.day |> Some
 
             let birthDate =
                 BirthDate.create (Conversions.yearFromInt 2016) (Conversions.monthFromInt 3) (Conversions.dayFromInt 15)
-                |> PatientAge.birthDate
 
             let tenthBirthday = DateTime(2026, 3, 15)
 
+            /// The age in days a patient is created with at a date.
+            let createdAt at pat =
+                (pat |> Patient.atDate at).Data.Age |> Option.map AgeValue.toValueUnit
+
             let tests =
                 testList
-                    "PatientAge.ageInDays"
+                    "The age a patient is created with"
                     [
-                        test "a birthdate gives the days at the date" {
+                        test "an identified patient gets the days of its birthdate at the date" {
+                            let pat =
+                                PatientData.unknown
+                                |> Patient.create (PatientIdentity.create "p1" "Test" birthDate |> Some)
+
                             [ tenthBirthday; tenthBirthday.AddDays 1.0; tenthBirthday.AddYears 1 ]
-                            |> List.map (fun at -> birthDate |> PatientAge.ageInDays at)
+                            |> List.map (fun at -> pat |> createdAt at)
                             |> Expect.equal "3650, 3651, 4015 days" [ days 3650; days 3651; days 4015 ]
                         }
 
-                        test "an age value gives its own days, at any date" {
+                        test "an anonymous patient keeps its entered age, at any date" {
+                            let pat = { PatientData.unknown with Age = Some AgeValue.ten } |> Patient.create None
+
                             [ tenthBirthday; tenthBirthday.AddYears 2 ]
-                            |> List.map (fun at -> AgeValue.ten |> PatientAge.ageValue |> PatientAge.ageInDays at)
+                            |> List.map (fun at -> pat |> createdAt at)
                             |> Expect.allEqual "ten years" (days (AgeValue.ten |> AgeValue.getAgeInDays |> int))
                         }
 
-                        test "an unknown age is none" {
-                            PatientAge.unknown
-                            |> PatientAge.ageInDays tenthBirthday
-                            |> Expect.isNone "no days"
+                        test "an anonymous patient without an age has none" {
+                            Patient.unknown |> createdAt tenthBirthday |> Expect.isNone "no days"
                         }
                     ]
 
@@ -1326,54 +1333,71 @@ module Tests =
                             ]
 
                         testList
-                            "PatientAge"
+                            "The post-menstrual age of a patient"
                             [
-                                test
-                                    "the post-menstrual age of a birth date is the gestational age plus the age in days" {
-                                    bd 2026 1 31
-                                    |> PatientAge.birthDate
-                                    |> PatientAge.postMenstrualAgeInDays (date 2026 3 30) 182<day>
-                                    |> Expect.equal "182 plus 59 days" (Some 241<day>)
+                                let gest = Some(AgeWeeksDays.create 26<week> 0<day>)
+
+                                let created =
+                                    { PatientData.unknown with GestationalAge = gest }
+                                    |> Patient.create (PatientIdentity.create "p1" "Test" (bd 2026 1 31) |> Some)
+                                    |> Patient.atDate (date 2026 3 30)
+
+                                let pmaDays (pat: Patient) = pat.Data.PostMenstrualAge |> Option.map AgeWeeksDays.toDays
+
+                                test "identified, created: the gestational age plus the age in days" {
+                                    created |> pmaDays |> Expect.equal "182 plus 59 days" (Some 241<day>)
                                 }
 
                                 test "the post-menstrual age is the gestational age plus the age in days the rules see" {
-                                    let birth = bd 2016 2 29 |> PatientAge.birthDate
+                                    let pat =
+                                        { PatientData.unknown with GestationalAge = gest }
+                                        |> Patient.create (PatientIdentity.create "p1" "Test" (bd 2016 2 29) |> Some)
 
                                     [ 0..1500 ]
                                     |> List.map (float >> (date 2016 2 29).AddDays)
                                     |> List.filter (fun dt ->
-                                        (birth |> PatientAge.postMenstrualAgeInDays dt 182<day>)
-                                        <> (birth
-                                            |> PatientAge.ageInDays dt
-                                            |> Option.map (
-                                                ValueUnits.ValueUnit.Measures.toSingleIntDay >> (+) 182<day>
-                                            ))
+                                        let created = pat |> Patient.atDate dt
+
+                                        (created |> pmaDays)
+                                        <> (created.Data.Age |> Option.map (AgeValue.getAgeInDays >> (+) 182<day>))
                                     )
                                     |> Expect.isEmpty "no day differs"
                                 }
 
-                                test
-                                    "the post-menstrual age of an age value is the gestational age plus the age in days" {
-                                    AgeValue.create (Some 0<year>) (Some 1<month>) (Some 4<week>) (Some 1<day>)
-                                    |> PatientAge.ageValue
-                                    |> PatientAge.postMenstrualAgeInDays (date 2026 3 30) 182<day>
-                                    |> Expect.equal "182 plus 59 days" (Some 241<day>)
-                                }
-
-                                test "the post-menstrual age of a patient in weeks and days, from the age in days" {
-                                    { PatientData.unknown with
-                                        GestationalAge = Some(AgeWeeksDays.create 26<week> 0<day>)
-                                    }
+                                test "in weeks and days" {
+                                    { PatientData.unknown with GestationalAge = gest }
                                     |> Patient.create (PatientIdentity.create "p1" "Test" (bd 2016 3 15) |> Some)
-                                    |> Patient.calcPostMenstrualAge (date 2016 5 10)
+                                    |> Patient.atDate (date 2016 5 10)
+                                    |> _.Data.PostMenstrualAge
                                     |> Expect.equal
                                         "26 weeks plus 55 days is 33 weeks and 6 days"
                                         (Some(AgeWeeksDays.create 33<week> 6<day>))
                                 }
 
-                                test "an unknown age has no post-menstrual age" {
-                                    PatientAge.unknown
-                                    |> PatientAge.postMenstrualAgeInDays (date 2026 3 30) 182<day>
+                                test "identified, a gestational age entered after the creation: the age as created" {
+                                    { created with Patient.Data.GestationalAge = None }
+                                    |> Patient.withGestationalAge gest
+                                    |> fun pat -> pat.Data.Age |> Option.map AgeValue.getAgeInDays, pmaDays pat
+                                    |> Expect.equal "59 days, 182 plus 59 days" (Some 59<day>, Some 241<day>)
+                                }
+
+                                test "anonymous, the entered age changes: the post-menstrual age follows" {
+                                    { PatientData.unknown with GestationalAge = gest }
+                                    |> Patient.create None
+                                    |> Patient.withAge (AgeValue.create None None (Some 8<week>) None |> Some)
+                                    |> pmaDays
+                                    |> Expect.equal "182 plus 56 days" (Some 238<day>)
+                                }
+
+                                test "the gestational age removed: no post-menstrual age" {
+                                    created |> Patient.withGestationalAge None |> pmaDays |> Expect.isNone "none"
+                                }
+
+                                test "no age: no post-menstrual age" {
+                                    { PatientData.unknown with GestationalAge = gest }
+                                    |> Patient.create None
+                                    |> Patient.atDate (date 2026 3 30)
+                                    |> pmaDays
                                     |> Expect.isNone "none"
                                 }
                             ]
@@ -1558,7 +1582,7 @@ module Tests =
                 [
                     test "the unknown patient is anonymous, of unknown age" {
                         Patient.unknown.Identity |> Expect.isNone "no identity"
-                        Patient.unknown |> Patient.age |> Expect.equal "unknown age" PatientAge.unknown
+                        Patient.unknown.Data.Age |> Expect.isNone "unknown age"
                     }
 
                     test "the unknown patient goes there and back" {
@@ -1579,20 +1603,6 @@ module Tests =
                         newBorn |> thereAndBack |> Expect.equal "the same" (Ok newBorn)
                     }
 
-                    test "the age of an identified patient is the birthdate of the identity" {
-                        PatientData.unknown
-                        |> Patient.create (Some stub)
-                        |> Patient.age
-                        |> Expect.equal "the birthdate" (bd 2016 3 15 |> PatientAge.birthDate)
-                    }
-
-                    test "the age of an anonymous patient is the age value of the data" {
-                        { PatientData.unknown with Age = Some AgeValue.ten }
-                        |> Patient.create None
-                        |> Patient.age
-                        |> Expect.equal "the age value" (AgeValue.ten |> PatientAge.ageValue)
-                    }
-
                     test "a part of an identity in a Dto is an error" {
                         let withIdentity id name birth =
                             let dto = Patient.unknown |> Patient.Dto.toDto
@@ -1610,24 +1620,6 @@ module Tests =
                         ]
                         |> List.map (Patient.Dto.fromDto >> Result.isError)
                         |> Expect.allEqual "an error" true
-                    }
-
-                    test "an age value beside a birthdate in a Dto is an error" {
-                        let dto = PatientData.unknown |> Patient.create (Some stub) |> Patient.Dto.toDto
-
-                        dto.Age <- AgeValue.ten |> AgeValue.Dto.toDto |> Some
-
-                        dto |> Patient.Dto.fromDto |> Result.isError |> Expect.isTrue "an error"
-                    }
-
-                    test "the post-menstrual age of an anonymous patient counts the age value" {
-                        { PatientData.unknown with
-                            Age = AgeValue.create None None (Some 8<week>) None |> Some
-                            GestationalAge = Some(AgeWeeksDays.create 26<week> 0<day>)
-                        }
-                        |> Patient.create None
-                        |> Patient.calcPostMenstrualAge (date 2016 5 10)
-                        |> Expect.equal "26 weeks plus 8 weeks is 34 weeks" (Some(AgeWeeksDays.create 34<week> 0<day>))
                     }
 
                     test "identified and anonymous give the same post-menstrual age over every day of two years" {
@@ -1721,7 +1713,7 @@ module Tests =
             PatientTests.BirthDateTests.tests
             PatientTests.WeightTests.tests
             PatientTests.HeightTests.tests
-            PatientTests.PatientAgeTests.tests
+            PatientTests.AgeAtCreationTests.tests
             PatientTests.CalendarAgeTests.tests
             PatientTests.AgeWeekDaysTests.tests
             PatientTests.EnteralAccessTests.tests

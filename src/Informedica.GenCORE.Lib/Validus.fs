@@ -32,14 +32,3 @@ module Validus =
                     false
 
             Validator.create msg rule
-
-
-        let onlyOneOfTwoOpt field value =
-            let msg = sprintf "can only be one of two %s"
-
-            let rule (opt1, opt2) =
-                match opt1, opt2 with
-                | Some _, Some _ -> false
-                | _ -> true
-
-            Validator.create msg rule field value

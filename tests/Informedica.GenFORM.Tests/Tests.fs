@@ -2452,22 +2452,25 @@ module Tests =
                              [ FormTypes.CVL; FormTypes.EnteralTube ])
                     }
 
-                    test "withAgeOf: the age in days, the gestational age and the post-menstrual age GenCORE calculates" {
+                    test
+                        "withAgesOf: the age in days, the gestational age and the post-menstrual age GenCORE calculated" {
                         let identity = PatientIdentity.create "p1" "Test" (BirthDate.create 2026<year> 1<month> 31<day>)
 
                         { PatientData.unknown with GestationalAge = Some(AgeWeeksDays.create 26<week> 0<day>) }
                         |> Patient.create (Some identity)
-                        |> fun core -> FormPatient.patient |> FormPatient.withAgeOf (DateTime(2026, 3, 30)) core
+                        |> Patient.atDate (DateTime(2026, 3, 30))
+                        |> fun core -> FormPatient.patient |> FormPatient.withAgesOf core
                         |> fun pat -> pat.Age |> days, pat.GestAge |> days, pat.PMAge |> days
                         |> Expect.equal "59 days, 182 days, 182 plus 59 days" (Some 59N, Some 182N, Some 241N)
                     }
 
-                    test "withAgeOf: no gestational age, no post-menstrual age" {
+                    test "withAgesOf: no gestational age, no post-menstrual age" {
                         let identity = PatientIdentity.create "p1" "Test" (BirthDate.create 2026<year> 1<month> 31<day>)
 
                         PatientData.unknown
                         |> Patient.create (Some identity)
-                        |> fun core -> FormPatient.patient |> FormPatient.withAgeOf (DateTime(2026, 3, 30)) core
+                        |> Patient.atDate (DateTime(2026, 3, 30))
+                        |> fun core -> FormPatient.patient |> FormPatient.withAgesOf core
                         |> _.PMAge
                         |> Expect.isNone "none"
                     }

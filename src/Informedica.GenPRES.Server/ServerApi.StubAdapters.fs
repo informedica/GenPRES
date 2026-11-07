@@ -305,9 +305,9 @@ module StubPatientData =
 
         let identity =
             tp.Age
-            |> PatientAge.ageValue
-            |> PatientAge.getBirthDate measuredOn
-            |> Option.map (PatientIdentity.create tp.Id tp.Name)
+            |> BirthDate.fromAgeValue measuredOn
+            |> PatientIdentity.create tp.Id tp.Name
+            |> Some
 
         PatientData.create
             tp.Department
