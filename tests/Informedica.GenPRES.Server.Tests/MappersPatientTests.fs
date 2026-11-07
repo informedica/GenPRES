@@ -145,6 +145,16 @@ let tests =
                     (Some(ValueUnit.singleWithUnit Units.Time.day (BigRational.fromInt 3905)))
             }
 
+            test "the Formulary mapper gives the post-menstrual age the patient mapper gives" {
+                (ServerApi.Mappers.mapFromSharedPatient full).PMAge
+                |> Expect.equal "the same days" (domain full).PMAge
+            }
+
+            test "the Formulary mapper gives no post-menstrual age without a gestational age" {
+                (ServerApi.Mappers.mapFromSharedPatient { full with GestationalAge = None }).PMAge
+                |> Expect.isNone "none"
+            }
+
             test "an empty department stays empty, in the Formulary mapper too: the lookup applies the default" {
                 (domain stub).Department |> Expect.equal "new" None
 

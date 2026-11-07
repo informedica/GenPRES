@@ -3182,6 +3182,106 @@ module Tests =
                         |> Expect.equal "eighteen times 365" [| 6570N |]
                     }
 
+                    test "the markable age is the domain's sixteen years, in days as a patient's age is written" {
+                        Utils.ValueUnit.ageMarkable
+                        |> ValueUnit.convertTo Units.Time.day
+                        |> ValueUnit.getValue
+                        |> Expect.equal "sixteen times 365" [| 5840N |]
+                    }
+
+                    let inDays n =
+                        n |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Time.day
+
+                    let neonate age gestAge pmAge =
+                        { Patient.patient with
+                            Age = age |> Option.map inDays
+                            GestAge = gestAge |> Option.map inDays
+                            PMAge = pmAge |> Option.map inDays
+                        }
+
+                    let pmaRule =
+                        { patCat with
+                            PMAge =
+                                { MinMax.empty with
+                                    Min = Some(Inclusive(inDays 214))
+                                    Max = Some(Exclusive(inDays 220))
+                                }
+                        }
+
+                    let matches rule pat = rule |> PatientCategory.filter { filter with Patient = pat }
+
+                    test "a post-menstrual age rule matches the patient's exact post-menstrual age" {
+                        [
+                            neonate (Some 14) (Some 199) (Some 215)
+                            neonate (Some 14) (Some 199) (Some 213)
+                        ]
+                        |> List.map (matches pmaRule)
+                        |> Expect.equal "215 days in, 213 days out" [ true; false ]
+                    }
+
+                    test "a patient without a post-menstrual age matches no post-menstrual age rule" {
+                        [ neonate (Some 14) None None; neonate (Some 14) (Some 199) None ]
+                        |> List.map (matches pmaRule)
+                        |> Expect.equal "no post-menstrual age, no match" [ false; false ]
+                    }
+
+                    test "a patient without a gestational age matches no gestational age rule" {
+                        let gestRule = { patCat with GestAge = { MinMax.empty with Min = Some(Inclusive(inDays 259)) } }
+
+                        [ neonate (Some 14) None None; neonate (Some 14) (Some 266) None ]
+                        |> List.map (matches gestRule)
+                        |> Expect.equal "no gestational age out, 38 weeks in" [ false; true ]
+                    }
+
+                    test "a patient without an age matches no gestational or post-menstrual age rule, in both filters" {
+                        let gestRule = { patCat with GestAge = { MinMax.empty with Min = Some(Inclusive(inDays 259)) } }
+
+                        let noAge = neonate None None None
+
+                        [
+                            noAge |> matches gestRule
+                            noAge |> matches pmaRule
+                            PatientCategory.filterPatient noAge gestRule
+                            PatientCategory.filterPatient noAge pmaRule
+                        ]
+                        |> Expect.allEqual "no match" false
+                    }
+
+                    test "a patient without an age but with a preterm gestational age matches no rule without one" {
+                        // a rule that names a location is not one for all patients
+                        let locationRule = { patCat with Location = Some "UMCU" }
+                        let pat = neonate None (Some 210) None
+
+                        [ pat |> matches locationRule; PatientCategory.filterPatient pat locationRule ]
+                        |> Expect.allEqual "left out, as a patient with an age is" false
+                    }
+
+                    test "a patient without a post-menstrual age matches a rule without a post-menstrual age range" {
+                        let neonatal =
+                            { patCat with Age = { MinMax.empty with Max = Some(Inclusive(inDays 28)) } |> AbsoluteAge }
+
+                        neonate (Some 14) None None |> matches neonatal |> Expect.isTrue "matches"
+                    }
+
+                    test "setting a patient on a filter keeps the patient's post-menstrual age" {
+                        Filter.doseFilter
+                        |> Filter.setPatient (neonate (Some 45) (Some 196) (Some 242))
+                        |> _.Patient.PMAge
+                        |> Expect.equal "242 days, not recalculated" (Some(inDays 242))
+                    }
+
+                    test "printAge prints an age in days in its largest unit" {
+                        [ 1; 13; 60; 400 ]
+                        |> List.map (inDays >> PatientCategory.printAge)
+                        |> Expect.equal "day, weeks, months, year" [ "1 dag"; "1 week"; "2 maanden"; "1 jaar" ]
+                    }
+
+                    test "printDaysToWeeks prints whole weeks" {
+                        inDays 265
+                        |> PatientCategory.printDaysToWeeks
+                        |> Expect.equal "37 weeks" "37 weken"
+                    }
+
                     test
                         "a patient entered as eighteen, 6570 days by the contract model, is an adult; a day less is not" {
                         let days n = n |> ValueUnit.singleWithUnit Units.Time.day
@@ -3481,7 +3581,6 @@ module Tests =
                                         Age = 8N |> ValueUnit.singleWithUnit Units.Time.day |> Some
                                         GestAge = 27N |> ValueUnit.singleWithUnit Units.Time.week |> Some
                                     }
-                                    |> Patient.calcPMAge
                             }
                         |> Expect.isFalse "should return false"
                     }
@@ -3507,8 +3606,8 @@ module Tests =
                                     { filter.Patient with
                                         Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
                                         GestAge = 30N |> ValueUnit.singleWithUnit Units.Time.week |> Some
+                                        PMAge = 210N |> ValueUnit.singleWithUnit Units.Time.day |> Some
                                     }
-                                    |> Patient.calcPMAge
                             }
 
                         |> Expect.isTrue "should return true"
@@ -3535,8 +3634,8 @@ module Tests =
                                     { filter.Patient with
                                         Age = 0N |> ValueUnit.singleWithUnit Units.Time.day |> Some
                                         GestAge = 37N |> ValueUnit.singleWithUnit Units.Time.week |> Some
+                                        PMAge = 259N |> ValueUnit.singleWithUnit Units.Time.day |> Some
                                     }
-                                    |> Patient.calcPMAge
                             }
 
                         |> Expect.isFalse "should return false"
@@ -3563,8 +3662,8 @@ module Tests =
                                     { filter.Patient with
                                         Age = 8N |> ValueUnit.singleWithUnit Units.Time.day |> Some
                                         GestAge = 27N |> ValueUnit.singleWithUnit Units.Time.week |> Some
+                                        PMAge = 197N |> ValueUnit.singleWithUnit Units.Time.day |> Some
                                     }
-                                    |> Patient.calcPMAge
                             }
                         |> Expect.isTrue "should return true"
                     }

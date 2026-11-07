@@ -1450,6 +1450,78 @@ module Tests =
                             |> Expect.isTrue "preterm should be <= preterm"
                         }
 
+                        test "term is 37 weeks" {
+                            AgeWeeksDays.term
+                            |> Expect.equal "37 weeks" (AgeWeeksDays.create 37<week> 0<day>)
+                        }
+
+                        test "a gestational age below term is preterm, term is not" {
+                            [ AgeWeeksDays.create 36<week> 6<day>; AgeWeeksDays.term ]
+                            |> List.map AgeWeeksDays.isPreterm
+                            |> Expect.equal "36 weeks 6 days preterm, 37 weeks not" [ true; false ]
+                        }
+
+                        test "fromValueUnit reads a time value as weeks and days, rounded down to whole days" {
+                            [
+                                ValueUnit.singleWithUnit Units.Time.day 199N
+                                ValueUnit.singleWithUnit Units.Time.week 32N
+                                ValueUnit.singleWithUnit Units.Time.day (399N / 2N)
+                            ]
+                            |> List.map AgeWeeksDays.fromValueUnit
+                            |> Expect.equal
+                                "28 weeks 3 days, 32 weeks, 28 weeks 3 days"
+                                [
+                                    AgeWeeksDays.create 28<week> 3<day>
+                                    AgeWeeksDays.create 32<week> 0<day>
+                                    AgeWeeksDays.create 28<week> 3<day>
+                                ]
+                        }
+
+                        test "fromValueUnit refuses a value that is not a time" {
+                            (fun () ->
+                                ValueUnit.singleWithUnit Units.Weight.kiloGram 3N
+                                |> AgeWeeksDays.fromValueUnit
+                                |> ignore
+                            )
+                            |> Expect.throwsT<ArgumentException> "not a time"
+                        }
+
+                        test "isPretermValue reads a time value and is true below term" {
+                            [
+                                ValueUnit.singleWithUnit Units.Time.day 258N
+                                ValueUnit.singleWithUnit Units.Time.week 37N
+                            ]
+                            |> List.map AgeWeeksDays.isPretermValue
+                            |> Expect.equal "258 days preterm, 37 weeks not" [ true; false ]
+                        }
+
+                        test "fromDays splits days into weeks and days" {
+                            [ 0; 6; 7; 13; 259 ]
+                            |> List.map (Conversions.dayFromInt >> AgeWeeksDays.fromDays)
+                            |> Expect.equal
+                                "weeks and days"
+                                [
+                                    AgeWeeksDays.create 0<week> 0<day>
+                                    AgeWeeksDays.create 0<week> 6<day>
+                                    AgeWeeksDays.create 1<week> 0<day>
+                                    AgeWeeksDays.create 1<week> 6<day>
+                                    AgeWeeksDays.create 37<week> 0<day>
+                                ]
+                        }
+
+                        test "toDays undoes fromDays for 0 to 400 days" {
+                            [ 0..400 ]
+                            |> List.filter (fun d ->
+                                d
+                                |> Conversions.dayFromInt
+                                |> AgeWeeksDays.fromDays
+                                |> AgeWeeksDays.toDays
+                                |> int
+                                <> d
+                            )
+                            |> Expect.isEmpty "every day back"
+                        }
+
                     ]
 
         let tests =

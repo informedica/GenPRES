@@ -107,6 +107,9 @@ module PatientCategory =
     module Limit = Informedica.GenCore.Lib.Ranges.Limit
     module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
     module Conversions = Informedica.GenCore.Lib.Conversions
+    module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
+    module Measures = Informedica.GenCore.Lib.ValueUnits.ValueUnit.Measures
+    module Constants = Informedica.GenCore.Lib.Constants
 
 
     open Utils
@@ -188,9 +191,12 @@ module PatientCategory =
                     | Some x -> x |> BigRational.ToInt32
             | None -> def
 
+        // a rule without a minimum gestational or post-menstrual age sorts as term
+        let term = CoreAgeWeeksDays.term |> CoreAgeWeeksDays.toDays |> int
+
         ((pat |> getAge).Min |> toInt 0 |> (fun i -> if i > 0 then i + 300 else i))
-        + (pat.GestAge.Min |> toInt (7 * 39))
-        + (pat.PMAge.Min |> toInt (7 * 39))
+        + (pat.GestAge.Min |> toInt term)
+        + (pat.PMAge.Min |> toInt term)
         + (pat.Weight.Min |> toInt 0 |> (fun w -> w / 1000))
 
 
@@ -260,44 +266,33 @@ module PatientCategory =
              fun (p: PatientCategory) ->
                  Option.map2 Calculations.calcDuBois filter.Patient.Weight filter.Patient.Height
                  |> MinMax.inRange p.BSA
-             if filter.Patient.Age |> Option.isSome then
-                 yield!
-                     [|
-                         // gestational age check: if patient category is empty (all patients), pass;
-                         // if filter has gestational age < full term and patient category has no gest/pm age, filter out;
-                         // otherwise check if gestational age (defaulting to full term) is in patient category range
-                         fun (p: PatientCategory) ->
-                             // all patients rule
-                             if p |> isEmpty then
-                                 true
-                             // if gestational is set and < full term filter out all
-                             // dose rules with no gestational age or pm age
-                             else if
-                                 filter.Patient.GestAge.IsSome
-                                 && p.GestAge = MinMax.empty
-                                 && p.PMAge = MinMax.empty
-                             then
-                                 filter.Patient.GestAge.Value >=? ValueUnit.ageFullTerm
-                             else
-                                 filter.Patient.GestAge
-                                 // if no gest age assume full term
-                                 |> Option.defaultValue Utils.ValueUnit.ageFullTerm
-                                 |> Some
-                                 |> MinMax.inRange p.GestAge
-                         // post-menstrual age check: if patient category is empty (all patients), pass;
-                         // otherwise calculate PM age (age + gestational age, defaulting gestational to full term)
-                         // and check if within patient category PM age range
-                         fun (p: PatientCategory) ->
-                             // alle patients rule
-                             if p |> isEmpty then
-                                 true
-                             else
-                                 filter.Patient.PMAge
-                                 // if no gest age assume full term
-                                 |> Option.defaultValue (filter.Patient.Age.Value + Utils.ValueUnit.ageFullTerm)
-                                 |> Some
-                                 |> MinMax.inRange p.PMAge
-                     |]
+             // gestational age check: if patient category is empty (all patients), pass;
+             // if filter has a preterm gestational age and patient category has no gest/pm age, filter out;
+             // otherwise the gestational age is in the patient category range, so a patient without one
+             // matches no rule with a gestational age range
+             fun (p: PatientCategory) ->
+                 // all patients rule
+                 if p |> isEmpty then
+                     true
+                 // if the gestational age is set and preterm, filter out all
+                 // dose rules with no gestational age or pm age
+                 else if
+                     filter.Patient.GestAge.IsSome
+                     && p.GestAge = MinMax.empty
+                     && p.PMAge = MinMax.empty
+                 then
+                     filter.Patient.GestAge.Value |> CoreAgeWeeksDays.isPretermValue |> not
+                 else
+                     filter.Patient.GestAge |> MinMax.inRange p.GestAge
+             // post-menstrual age check: if patient category is empty (all patients), pass;
+             // otherwise the patient's post-menstrual age is in the patient category range, so a
+             // patient without one matches no rule with a post-menstrual age range
+             fun (p: PatientCategory) ->
+                 // all patients rule
+                 if p |> isEmpty then
+                     true
+                 else
+                     filter.Patient.PMAge |> MinMax.inRange p.PMAge
              // patient gender must match patient category gender (or category allows any gender)
              fun (p: PatientCategory) -> filter |> Gender.filter p.Gender
              // patient venous access must be compatible with patient category access requirements
@@ -320,36 +315,26 @@ module PatientCategory =
              fun (p: PatientCategory) ->
                  Option.map2 Calculations.calcDuBois pat.Weight pat.Height
                  |> MinMax.inRange p.BSA
-             if pat.Age |> Option.isSome then
-                 yield!
-                     [|
-                         // check gestational age
-                         fun (p: PatientCategory) ->
-                             // all patients rule
-                             if p |> isEmpty then
-                                 true
-                             // if gestational is set and < full term filter out all
-                             // dose rules with no gestational age or pm age
-                             else if pat.GestAge.IsSome && p.GestAge = MinMax.empty && p.PMAge = MinMax.empty then
-                                 pat.GestAge.Value >=? Utils.ValueUnit.ageFullTerm
-                             else
-                                 pat.GestAge
-                                 // if no gest age assume full term
-                                 |> Option.defaultValue Utils.ValueUnit.ageFullTerm
-                                 |> Some
-                                 |> MinMax.inRange p.GestAge
-                         // check pm age
-                         fun (p: PatientCategory) ->
-                             // alle patients rule
-                             if p |> isEmpty then
-                                 true
-                             else
-                                 pat.PMAge
-                                 // if no gest age assume full term
-                                 |> Option.defaultValue (pat.Age.Value + Utils.ValueUnit.ageFullTerm)
-                                 |> Some
-                                 |> MinMax.inRange p.PMAge
-                     |]
+             // check gestational age
+             fun (p: PatientCategory) ->
+                 // all patients rule
+                 if p |> isEmpty then
+                     true
+                 // if the gestational age is set and preterm, filter out all
+                 // dose rules with no gestational age or pm age
+                 else if pat.GestAge.IsSome && p.GestAge = MinMax.empty && p.PMAge = MinMax.empty then
+                     pat.GestAge.Value |> CoreAgeWeeksDays.isPretermValue |> not
+                 else
+                     // a patient without a gestational age matches no rule with a gestational age range
+                     pat.GestAge |> MinMax.inRange p.GestAge
+             // check the post-menstrual age: a patient without one matches no rule with a
+             // post-menstrual age range
+             fun (p: PatientCategory) ->
+                 // all patients rule
+                 if p |> isEmpty then
+                     true
+                 else
+                     pat.PMAge |> MinMax.inRange p.PMAge
              //            fun (p: PatientCategory) -> filter |> Gender.filter p.Gender
              fun (p: PatientCategory) -> VenousAccess.check p.Access pat.Access
          |])
@@ -384,41 +369,26 @@ module PatientCategory =
         |> fun xs -> xs |> Array.length > 0
 
 
-    /// Prints an age in days as a string.
+    /// Prints an age in days as a string, in its largest unit: days below one week, weeks up to 30
+    /// days, months below one year, years from 365 days, each count rounded down.
     let printAge age =
-        let age =
-            age
-            |> ValueUnit.convertTo Units.Time.day
-            |> ValueUnit.getValue
-            |> Array.tryHead
-            |> Option.defaultValue 0N
-
-        let a = age |> BigRational.ToInt32
+        let a = age |> Measures.toSingleIntDay |> int
 
         match a with
-        | _ when a < 7 -> if a = 1 then $"%i{a} dag" else $"%i{a} dagen"
-        | _ when a <= 30 ->
-            let a = a / 7
+        | _ when a < Constants.daysInWeek -> if a = 1 then $"%i{a} dag" else $"%i{a} dagen"
+        | _ when a <= Constants.daysInMonth ->
+            let a = a / Constants.daysInWeek
             if a = 1 then $"%i{a} week" else $"%i{a} weken"
-        | _ when a < 365 ->
-            let a = a / 30
+        | _ when a < Constants.daysInYear ->
+            let a = a / Constants.daysInMonth
             if a = 1 then $"%i{a} maand" else $"%i{a} maanden"
-        | _ ->
-            let a = a / 365
-            if a = 1 then $"%A{a} jaar" else $"%A{a} jaar"
+        | _ -> $"%i{a / Constants.daysInYear} jaar"
 
 
     /// Print days as weeks.
     let printDaysToWeeks d =
-        let d =
-            d
-            |> ValueUnit.convertTo Units.Time.day
-            |> ValueUnit.getValue
-            |> Array.tryHead
-            |> Option.defaultValue 0N
-
-        let d = d |> BigRational.ToInt32
-        (d / 7) |> sprintf "%i weken"
+        let weeks = (d |> Measures.toSingleIntDay |> int) / Constants.daysInWeek
+        $"%i{weeks} weken"
 
 
     /// Print an MinMax age as a string.
@@ -458,7 +428,7 @@ module PatientCategory =
             let s =
                 if
                     pat.GestAge.Max.IsSome
-                    && pat.GestAge.Max.Value |> Limit.getValueUnit <? Utils.ValueUnit.ageFullTerm
+                    && pat.GestAge.Max.Value |> Limit.getValueUnit |> CoreAgeWeeksDays.isPretermValue
                 then
                     "prematuren"
                 else
@@ -686,6 +656,7 @@ module Patient =
     module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
     module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
     module CoreDepartment = Informedica.GenCore.Lib.Patients.Department
+    module Measures = Informedica.GenCore.Lib.ValueUnits.ValueUnit.Measures
 
     type CoreGender = Informedica.GenCore.Lib.Patients.Gender
 
@@ -716,17 +687,6 @@ module Patient =
         { pat with Weight = pat.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram) }
 
 
-    /// The post-menstrual age of a patient without a birth date: the age in days plus the gestational
-    /// age. A patient with a birth date gets the post-menstrual age of the days lived from withAgeAt.
-    let calcPMAge (pat: Patient) =
-        { pat with
-            PMAge =
-                match pat.Age, pat.GestAge with
-                | Some ad, Some ga -> ad + ga |> Some
-                | _ -> None
-        }
-
-
     /// Calculate the BSA of a Patient.
     let calcBSA (pat: Patient) =
         match pat.Weight, pat.Height with
@@ -746,31 +706,17 @@ module Patient =
         )
 
 
-    /// A number of days of GenCORE as a value with the unit day.
-    let ofCoreDays (d: int<Informedica.GenCore.Lib.Measures.day>) =
-        d |> int |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Time.day
-
-
     /// The patient at the age a core age gives at a date: the age in days, and the post-menstrual age
     /// when the patient has a gestational age, both calculated by GenCORE. For a birth date the
     /// post-menstrual age is the gestational age plus the days lived, exact in days.
     let withAgeAt now age (pat: Patient) =
-        let gestDays =
-            pat.GestAge
-            |> Option.map (
-                ValueUnit.convertTo Units.Time.day
-                >> ValueUnit.getValue
-                >> Array.head
-                >> BigRational.ToInt32
-                >> Conversions.dayFromInt
-            )
-
         { pat with
             Age = age |> CorePatientAge.ageInDays now
             PMAge =
-                gestDays
+                pat.GestAge
+                |> Option.map Measures.toSingleIntDay
                 |> Option.bind (fun ga -> age |> CorePatientAge.postMenstrualAgeInDays now ga)
-                |> Option.map ofCoreDays
+                |> Option.map Measures.fromIntDay
         }
 
 
@@ -817,7 +763,9 @@ module Patient =
             Height = height
             WeightMeasured = weight.IsSome
             HeightMeasured = height.IsSome
-            GestAge = core.GestationalAge |> Option.map (CoreAgeWeeksDays.toDays >> ofCoreDays)
+            GestAge =
+                core.GestationalAge
+                |> Option.map (CoreAgeWeeksDays.toDays >> Measures.fromIntDay)
             Access = ehr.Access
             RenalFunction = ehr.RenalFunction
         }
@@ -834,7 +782,7 @@ module Patient =
             let printDaysToWeeks = PatientCategory.printDaysToWeeks
 
             let s =
-                if pat.GestAge.IsSome && pat.GestAge.Value < Utils.ValueUnit.ageFullTerm then
+                if pat.GestAge.IsSome && pat.GestAge.Value |> CoreAgeWeeksDays.isPretermValue then
                     "prematuren"
                 else
                     "neonaten"

@@ -46,12 +46,18 @@ module Age =
             (ds |> nonZero |> Option.map Informedica.GenPRES.Shared.Measures.toDay)
 
 
-    /// The post-menstrual age in days of the contract model's age and a gestational age in days.
-    let postMenstrualAgeInDays age gestDays =
-        age
-        |> ageValue
-        |> CoreAgeValue.postMenstrualAgeInDays (CoreConversions.dayFromInt gestDays)
-        |> int
+    /// The post-menstrual age in days of the contract model's patient: the age plus the gestational
+    /// age, as GenCORE counts it. None without an age or without a gestational age.
+    let postMenstrualAgeInDays (model: Informedica.GenPRES.Shared.Types.Patient) =
+        Option.map2
+            (fun age gestDays ->
+                age
+                |> ageValue
+                |> CoreAgeValue.postMenstrualAgeInDays (CoreConversions.dayFromInt gestDays)
+                |> int
+            )
+            model.Age
+            (model |> Patient.getGestAgeInDays)
 
 
 /// Where patient data enters from the client. The wire carries a draft, every field optional;
@@ -171,9 +177,7 @@ module Patient =
             HeightMeasured = model.Height.Measured.IsSome
             MarkedAdult = model.MarkedAdult
             GestAgeDays = model |> Patient.getGestAgeInDays |> Option.map BigRational.fromInt
-            PMAgeDays =
-                Option.map2 Age.postMenstrualAgeInDays model.Age (model |> Patient.getGestAgeInDays)
-                |> Option.map BigRational.fromInt
+            PMAgeDays = model |> Age.postMenstrualAgeInDays |> Option.map BigRational.fromInt
             Access = model.Access |> List.map (access >> LibAccess.toString) |> List.toArray
             RenalFunction = model.RenalFunction |> Option.map (renal >> LibRenal.toString)
         }

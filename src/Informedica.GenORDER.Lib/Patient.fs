@@ -10,6 +10,8 @@ module Patient =
 
     module Calculations = Informedica.GenCore.Lib.Calculations
     module Conversions = Informedica.GenCore.Lib.Conversions
+    module Measures = Informedica.GenCore.Lib.ValueUnits.ValueUnit.Measures
+    module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
 
     type Patient = Types.Patient
     type Access = AccessDevice
@@ -46,9 +48,6 @@ module Patient =
             | Months of int
             | Weeks of int
             | Days of int
-
-
-        module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
 
 
         /// The age value of one age part.
@@ -155,7 +154,26 @@ module Patient =
     let getAge (p: Patient) = p.Age |> fst ageAgeList
 
 
-    let setAge ags (p: Patient) = { p with Age = ags |> snd ageAgeList }
+    /// The patient with the post-menstrual age of its age and its gestational age, as GenCORE counts
+    /// it; none without either. The setters of the age and of the gestational age both call it, so
+    /// the order they are called in does not matter.
+    let withPMAge (p: Patient) =
+        { p with
+            PMAge =
+                Option.map2
+                    (fun age gestAge ->
+                        age
+                        |> Measures.toSingleIntDay
+                        |> CoreAgeValue.fromDays
+                        |> CoreAgeValue.postMenstrualAgeInDays (gestAge |> Measures.toSingleIntDay)
+                        |> Measures.fromIntDay
+                    )
+                    p.Age
+                    p.GestAge
+        }
+
+
+    let setAge ags (p: Patient) = { p with Age = ags |> snd ageAgeList } |> withPMAge
 
 
     let getWeight (p: Patient) = p.Weight |> fst vuWeight
@@ -170,7 +188,7 @@ module Patient =
     let setHeight h (p: Patient) = { p with Height = h |> snd vuHeight }
 
 
-    let setGestAge ags (p: Patient) = { p with GestAge = ags |> ageToValueUnit |> Some }
+    let setGestAge ags (p: Patient) = { p with GestAge = ags |> ageToValueUnit |> Some } |> withPMAge
 
 
     let getDepartment (p: Patient) = p.Department

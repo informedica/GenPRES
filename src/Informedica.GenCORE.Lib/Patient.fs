@@ -640,12 +640,7 @@ module PatientAge =
     let ageInDays dt age =
         age
         |> getAgeValue dt
-        |> Option.map (
-            AgeValue.getAgeInDays
-            >> int
-            >> BigRational.fromInt
-            >> ValueUnit.singleWithUnit Units.Time.day
-        )
+        |> Option.map (AgeValue.getAgeInDays >> ValueUnits.ValueUnit.Measures.fromIntDay)
 
 
     /// The days lived at a date of a birth date, the difference between the two dates, exact in days
@@ -1559,6 +1554,19 @@ module AgeWeeksDays =
     let toDays (awd: AgeWeeksDays) = (awd.Weeks |> Conversions.weeksToDays) + awd.Days
 
 
+    /// A number of days as weeks and days.
+    let fromDays days = days |> Conversions.daysToWeeks ||> create
+
+
+    /// A time value as weeks and days, rounded down to whole days.
+    let fromValueUnit vu = vu |> ValueUnits.ValueUnit.Measures.toSingleIntDay |> fromDays
+
+
+    /// The gestational age from which a neonate is born at term: 37 weeks, where the full term
+    /// gestation type starts. Not to be confused with fullTerm, the due date at 40 weeks.
+    let term = fromWeeks GestationType.moderate
+
+
     let comp op awd1 awd2 = awd1 |> op <| awd2
 
 
@@ -1579,7 +1587,12 @@ module AgeWeeksDays =
     let isfullTerm awd = awd >=? fullTerm
 
 
-    let isPreterm awd = awd <=? preterm
+    /// Whether a gestational age is below term.
+    let isPreterm awd = awd <? term
+
+
+    /// Whether a gestational age value, a time value, is below term.
+    let isPretermValue vu = vu |> fromValueUnit |> isPreterm
 
 
     module Validation =

@@ -422,8 +422,14 @@ module Mappers =
                     | ContinuousHemodialysis -> Informedica.GenForm.Lib.Types.RenalFunction.ContinuousHemodialysis
                     | PeritonealDialysis -> Informedica.GenForm.Lib.Types.RenalFunction.PeritonealDialysis
                 )
+            PMAge =
+                pat
+                |> Age.postMenstrualAgeInDays
+                |> Option.map (
+                    Informedica.GenCore.Lib.Conversions.dayFromInt
+                    >> Informedica.GenCore.Lib.ValueUnits.ValueUnit.Measures.fromIntDay
+                )
         }
-        |> Patient.calcPMAge
 
 
     /// Configuration for text item delimiters
