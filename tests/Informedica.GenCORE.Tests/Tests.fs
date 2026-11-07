@@ -1531,6 +1531,15 @@ module Tests =
                             |> Expect.isEmpty "every day back"
                         }
 
+                        test "fromValueUnit undoes toValueUnit for 0 to 400 days" {
+                            [ 0..400 ]
+                            |> List.map (Conversions.dayFromInt >> AgeWeeksDays.fromDays)
+                            |> List.filter (fun awd ->
+                                awd |> AgeWeeksDays.toValueUnit |> AgeWeeksDays.fromValueUnit <> awd
+                            )
+                            |> Expect.isEmpty "every value back"
+                        }
+
                     ]
 
         let tests =

@@ -2452,21 +2452,22 @@ module Tests =
                              [ FormTypes.CVL; FormTypes.EnteralTube ])
                     }
 
-                    test "withAgeAt: the age in days and the post-menstrual age of the age in days" {
-                        let born = BirthDate.create 2026<year> 1<month> 31<day> |> PatientAge.birthDate
-                        let gest = 182N |> ValueUnit.singleWithUnit Units.Time.day
+                    test "withAgeOf: the age in days, the gestational age and the post-menstrual age GenCORE calculates" {
+                        let identity = PatientIdentity.create "p1" "Test" (BirthDate.create 2026<year> 1<month> 31<day>)
 
-                        { FormPatient.patient with GestAge = Some gest }
-                        |> FormPatient.withAgeAt (DateTime(2026, 3, 30)) born
-                        |> fun pat -> pat.Age |> days, pat.PMAge |> days
-                        |> Expect.equal "59 days, 182 plus 59 days" (Some 59N, Some 241N)
+                        { PatientData.unknown with GestationalAge = Some(AgeWeeksDays.create 26<week> 0<day>) }
+                        |> Patient.create (Some identity)
+                        |> fun core -> FormPatient.patient |> FormPatient.withAgeOf (DateTime(2026, 3, 30)) core
+                        |> fun pat -> pat.Age |> days, pat.GestAge |> days, pat.PMAge |> days
+                        |> Expect.equal "59 days, 182 days, 182 plus 59 days" (Some 59N, Some 182N, Some 241N)
                     }
 
-                    test "withAgeAt: no gestational age, no post-menstrual age" {
-                        let born = BirthDate.create 2026<year> 1<month> 31<day> |> PatientAge.birthDate
+                    test "withAgeOf: no gestational age, no post-menstrual age" {
+                        let identity = PatientIdentity.create "p1" "Test" (BirthDate.create 2026<year> 1<month> 31<day>)
 
-                        FormPatient.patient
-                        |> FormPatient.withAgeAt (DateTime(2026, 3, 30)) born
+                        PatientData.unknown
+                        |> Patient.create (Some identity)
+                        |> fun core -> FormPatient.patient |> FormPatient.withAgeOf (DateTime(2026, 3, 30)) core
                         |> _.PMAge
                         |> Expect.isNone "none"
                     }

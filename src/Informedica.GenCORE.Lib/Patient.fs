@@ -1578,6 +1578,10 @@ module AgeWeeksDays =
     let fromValueUnit vu = vu |> ValueUnits.ValueUnit.Measures.toSingleIntDay |> fromDays
 
 
+    /// Weeks and days as a time value in days, the inverse of fromValueUnit.
+    let toValueUnit awd = awd |> toDays |> ValueUnits.ValueUnit.Measures.fromIntDay
+
+
     /// The gestational age from which a neonate is born at term: 37 weeks, where the full term
     /// gestation type starts. Not to be confused with fullTerm, the due date at 40 weeks.
     let term = fromWeeks GestationType.moderate
