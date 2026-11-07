@@ -78,6 +78,12 @@ let fullPatient: Patient =
                     Weeks = 32<week>
                     Days = 5<day>
                 }
+        PostMenstrualAge =
+            Some
+                {
+                    Weeks = 150<week>
+                    Days = 1<day>
+                }
         Weight =
             {
                 EstimatedP3 = Some 10000<gram>

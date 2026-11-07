@@ -24,8 +24,8 @@ module Models =
     ///
     /// Architecture:
     /// - This module holds the patient logic the client runs, and the server runs too for
-    ///   validate and the estimates. Its age counts are the client's copies of GenCORE's, held
-    ///   equal by the server tests, until the server sends the results it calculates
+    ///   validate and the estimates. Its age in days is the client's copy of GenCORE's, held
+    ///   equal by the server tests; the post-menstrual age is the server's, carried on the record
     /// - The Client UI uses these functions directly for the patient input form
     /// - The Server reads this record in ServerApi.Patient.ofModel, which maps it to the domain
     ///   patient with the ages counted by GenCORE
@@ -42,6 +42,7 @@ module Models =
             {
                 Age = None
                 GestationalAge = None
+                PostMenstrualAge = None
                 Weight =
                     {
                         EstimatedP3 = None
@@ -171,14 +172,6 @@ module Models =
                 | xs -> xs |> List.sum |> Some
 
 
-        let getPostConceptionalAgeInDays (p: Patient) =
-            match p.GestationalAge, p |> getAgeInDays with
-            | Some ga, Some age ->
-                let gaDays = (Calculations.Age.weeksToDays ga.Weeks + ga.Days) |> int
-                int age + gaDays |> Some
-            | _ -> None
-
-
         /// The age in days from which a patient is an adult: 18 years of 365 days, as GenFORM counts
         /// the adult age.
         let adultAgeInDays = float (18 * 365)
@@ -267,6 +260,7 @@ module Models =
             {
                 Age = a
                 GestationalAge = ga
+                PostMenstrualAge = None
                 Weight =
                     {
                         EstimatedP3 = None
@@ -369,9 +363,8 @@ module Models =
                     // infant with a gestational age takes the age table, or the nearest row would
                     // give a newborn's value. Each table is judged by its own reach
                     let neonatal (nvs: NormalValue list option) =
-                        pat
-                        |> getPostConceptionalAgeInDays
-                        |> Option.map (fun days -> (days |> float) / 7.)
+                        pat.PostMenstrualAge
+                        |> Option.map (fun pma -> float (Calculations.Age.weeksToDays pma.Weeks + pma.Days) / 7.)
                         |> Option.filter (fun weeks -> nvs |> Option.exists (List.exists (fun nv -> nv.Age >= weeks)))
                         |> Option.bind (fun weeks -> nvs |> nearest weeks)
 

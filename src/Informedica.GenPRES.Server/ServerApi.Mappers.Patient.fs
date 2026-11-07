@@ -14,6 +14,8 @@ module Age =
     module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
     module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
     module CoreConversions = Informedica.GenCore.Lib.Conversions
+    module CorePatient = Informedica.GenCore.Lib.Patients.Patient
+    module CorePatientData = Informedica.GenCore.Lib.Patients.PatientData
 
 
     /// The contract model's age as a GenCORE age value.
@@ -47,20 +49,25 @@ module Age =
             (ds |> nonZero |> Option.map Informedica.GenPRES.Shared.Measures.toDay)
 
 
-    /// The contract model's gestational age as a GenCORE gestational age.
-    let gestAge (ga: AgeWeeksDays) =
+    /// A weeks-and-days age of the contract model, a gestational or a post-menstrual age, as
+    /// GenCORE's.
+    let weeksDays (awd: AgeWeeksDays) =
         CoreAgeWeeksDays.create
-            (int ga.Weeks |> CoreConversions.weekFromInt)
-            (int ga.Days |> CoreConversions.dayFromInt)
+            (int awd.Weeks |> CoreConversions.weekFromInt)
+            (int awd.Days |> CoreConversions.dayFromInt)
+
+
+    /// The days of a weeks-and-days age of the contract model, as GenCORE counts them.
+    let weeksDaysInDays awd = awd |> weeksDays |> CoreAgeWeeksDays.toDays
 
 
     /// The gestational age in days of the contract model's patient, as GenCORE counts it.
     let gestAgeInDays (model: Informedica.GenPRES.Shared.Types.Patient) =
-        model.GestationalAge |> Option.map (gestAge >> CoreAgeWeeksDays.toDays)
+        model.GestationalAge |> Option.map weeksDaysInDays
 
 
-    /// The contract model's gestational age of a number of days, as GenCORE splits them.
-    let gestAgeOfDays days : AgeWeeksDays =
+    /// The contract model's weeks-and-days age of a number of days, as GenCORE splits them.
+    let weeksDaysOfDays days : AgeWeeksDays =
         let awd = days |> CoreConversions.dayFromInt |> CoreAgeWeeksDays.fromDays
 
         {
@@ -69,13 +76,17 @@ module Age =
         }
 
 
-    /// The post-menstrual age in days of the contract model's patient: the age plus the gestational
-    /// age, as GenCORE counts it. None without an age or without a gestational age.
-    let postMenstrualAgeInDays (model: Informedica.GenPRES.Shared.Types.Patient) =
-        Option.map2
-            (fun age gestDays -> age |> ageValue |> CoreAgeValue.postMenstrualAgeInDays gestDays |> int)
-            model.Age
-            (model |> gestAgeInDays)
+    /// The post-menstrual age of the contract model's patient, as GenCORE calculates it from the age
+    /// and the gestational age: what the server puts on the patient it answers. None without either.
+    let postMenstrualAge (model: Informedica.GenPRES.Shared.Types.Patient) =
+        { CorePatientData.unknown with
+            Age = model.Age |> Option.map ageValue
+            GestationalAge = model.GestationalAge |> Option.map weeksDays
+        }
+        |> CorePatient.create None
+        |> CorePatient.calculatePostMenstrualAge
+        |> _.Data.PostMenstrualAge
+        |> Option.map (CoreAgeWeeksDays.toDays >> int >> weeksDaysOfDays)
 
 
 /// Where patient data enters from the client. The wire carries a draft, every field optional;
@@ -175,8 +186,8 @@ module Patient =
 
 
     /// Total: the contract model's patient as the domain's Dto, nothing dropped. The age in
-    /// days and the post-menstrual age, the age in days plus the gestational age, as GenCORE counts
-    /// them, the weight and height the measured ones when
+    /// days as GenCORE counts it, the post-menstrual age as the server calculated it and the
+    /// contract model carries it, the weight and height the measured ones when
     /// there are any and the estimates otherwise, with the flags saying which; the department
     /// as given, an empty one staying empty; the mark as an adult as given.
     let ofModel (model: Informedica.GenPRES.Shared.Types.Patient) : LibPatient.Dto.Dto =
@@ -195,7 +206,9 @@ module Patient =
             HeightMeasured = model.Height.Measured.IsSome
             MarkedAdult = model.MarkedAdult
             GestAgeDays = model |> Age.gestAgeInDays |> Option.map (int >> BigRational.fromInt)
-            PMAgeDays = model |> Age.postMenstrualAgeInDays |> Option.map BigRational.fromInt
+            PMAgeDays =
+                model.PostMenstrualAge
+                |> Option.map (Age.weeksDaysInDays >> int >> BigRational.fromInt)
             Access = model.Access |> List.map (access >> LibAccess.toString) |> List.toArray
             RenalFunction = model.RenalFunction |> Option.map (renal >> LibRenal.toString)
         }
@@ -205,9 +218,10 @@ module Patient =
 
 
     /// The Dto as the contract model's patient: the age in years, months, weeks and days as
-    /// GenCORE splits a number of days, the weight and height as measured or as
-    /// an estimate by the flag, the strings read back. What the contract model holds beside
-    /// this, the other estimates, is not on the Dto and comes back empty.
+    /// GenCORE splits a number of days, the gestational and the post-menstrual age, the weight
+    /// and height as measured or as an estimate by the flag, the strings read back. What the
+    /// contract model holds beside this, the other estimates, is not on the Dto and comes back
+    /// empty.
     let toModel (dto: LibPatient.Dto.Dto) : Informedica.GenPRES.Shared.Types.Patient =
         let measured (flag: bool) v = if flag then v else None
         let estimated (flag: bool) v = if flag then None else v
@@ -220,7 +234,8 @@ module Patient =
 
         {
             Age = dto.AgeDays |> Option.map (toInt >> Age.ofDays)
-            GestationalAge = dto.GestAgeDays |> Option.map (toInt >> Age.gestAgeOfDays)
+            GestationalAge = dto.GestAgeDays |> Option.map (toInt >> Age.weeksDaysOfDays)
+            PostMenstrualAge = dto.PMAgeDays |> Option.map (toInt >> Age.weeksDaysOfDays)
             Weight =
                 {
                     EstimatedP3 = None
