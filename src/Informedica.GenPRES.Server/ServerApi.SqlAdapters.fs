@@ -638,25 +638,13 @@ module SqlSessions =
         )
 
 
-    /// EHR data read back from the store, with the ages created at the local date of that read
-    /// when the row is from before the read created them. Stop-gap until #1698 removes the stored
-    /// EHR data.
-    let withAgesOfRead (readOn: DateTime) (ehr: GenForm.EhrPatientData) =
-        match ehr.Patient.Identity, ehr.Patient.Data.Age with
-        | Some _, None -> { ehr with Patient = ehr.Patient |> Informedica.GenCore.Lib.Patients.Patient.atDate readOn }
-        | _ -> ehr
-
-
     /// The EHR data of a row, from the two columns that hold its structure version and its JSON:
     /// both present reads it, both null is none (the read was none, or the row is from before
     /// the columns), one of them null is a reason. The columns were added later and cannot
-    /// carry the check the patient's have, so the loader holds them to it. readOn is the local
-    /// date of the read the row holds.
-    let readEhrColumns (r: SqliteDataReader) (version: int) (json: int) (readOn: DateTime) =
+    /// carry the check the patient's have, so the loader holds them to it.
+    let readEhrColumns (r: SqliteDataReader) (version: int) (json: int) =
         match r.IsDBNull version, r.IsDBNull json with
-        | false, false ->
-            readEhr (r.GetInt32 version) (r.GetString json)
-            |> Result.map (withAgesOfRead readOn >> Some)
+        | false, false -> readEhr (r.GetInt32 version) (r.GetString json) |> Result.map Some
         | true, true -> Ok None
         | _ -> Error "the EHR data and its JSON structure version are not both present"
 
@@ -683,11 +671,11 @@ module SqlSessions =
     /// What a Session opened with, the newest row: the act that wrote it, the token, the id of the
     /// version it opened with, the head it saw and the EHR data it opened on, whose reasons for not
     /// reading make the Session unreadable.
-    let loadOpenedWith (conn: SqliteConnection) (zone: TimeZoneInfo) (sid: string) =
+    let loadOpenedWith (conn: SqliteConnection) (sid: string) =
         rows
             conn
             """
-            select version_id, head_id, opened_token, act, ehr_json_version, ehr_data, at
+            select version_id, head_id, opened_token, act, ehr_json_version, ehr_data
             from session_opened_with where session_id = $sid order by id desc limit 1
             """
             [ "$sid", box sid ]
@@ -697,7 +685,7 @@ module SqlSessions =
                     HeadId = textOrNull r 1
                     OpenedToken = textOrNull r 2 |> Option.map OpenedToken
                     Act = r.GetString 3 |> actOf
-                    EhrData = readEhrColumns r 4 5 (at (r.GetInt64 6) |> LocalDate.ofUtc zone)
+                    EhrData = readEhrColumns r 4 5
                 |}
             )
         |> List.tryHead
@@ -780,12 +768,7 @@ module SqlSessions =
     /// and the head it opened on, through the headOf its caller loads the record with. One
     /// this release cannot read is answered with the reason, and ends as unreadable; an ended
     /// Session is answered with its ending, a closed one with none at all.
-    let loadSession
-        (conn: SqliteConnection)
-        (zone: TimeZoneInfo)
-        (headOf: string -> StoredVersion option)
-        (sid: string)
-        =
+    let loadSession (conn: SqliteConnection) (headOf: string -> StoredVersion option) (sid: string) =
         rows
             conn
             """
@@ -811,7 +794,7 @@ module SqlSessions =
             | Some ending, _ -> Choice2Of2(Some ending)
             | None, true -> Choice2Of2 None
             | None, false ->
-                let opened = loadOpenedWith conn zone sid
+                let opened = loadOpenedWith conn sid
 
                 let read =
                     userOf row.UserId row.UserDisplay row.UserRole
@@ -1547,11 +1530,11 @@ module SqlSessions =
     /// release cannot read makes the Session unreadable, as an opened-with does. A notice told
     /// over patient data before the store kept the read is no live notice: it cannot be matched
     /// to any read, so the Session tells a fresh one.
-    let loadNotice (conn: SqliteConnection) (zone: TimeZoneInfo) (now: DateTime) (sid: string) =
+    let loadNotice (conn: SqliteConnection) (now: DateTime) (sid: string) =
         rows
             conn
             """
-            select nonce, json_version, data, expiry, ehr_json_version, ehr_data, at
+            select nonce, json_version, data, expiry, ehr_json_version, ehr_data
             from data_notice where session_id = $sid order by id desc limit 1
             """
             [ ("$sid", box sid) ]
@@ -1562,10 +1545,7 @@ module SqlSessions =
                     | _ -> Ok None
 
                 data
-                |> Result.bind (fun data ->
-                    readEhrColumns r 4 5 (at (r.GetInt64 6) |> LocalDate.ofUtc zone)
-                    |> Result.map (fun ehr -> data, ehr)
-                )
+                |> Result.bind (fun data -> readEhrColumns r 4 5 |> Result.map (fun ehr -> data, ehr))
                 |> Result.map (fun (data, ehr) ->
                     {
                         Nonce = r.GetString 0
@@ -1590,13 +1570,13 @@ module SqlSessions =
 
     /// The live challenge of a Session: the newest row that is neither spent nor past its
     /// lifetime.
-    let loadChallenge (conn: SqliteConnection) (zone: TimeZoneInfo) (now: DateTime) (sid: string) =
+    let loadChallenge (conn: SqliteConnection) (now: DateTime) (sid: string) =
         rows
             conn
             """
             select c.nonce, c.digest, c.expiry,
                    exists (select 1 from challenge_spent s where s.challenge_id = c.id),
-                   c.ehr_json_version, c.ehr_data, c.at
+                   c.ehr_json_version, c.ehr_data
             from challenge c
             where c.session_id = $sid
             order by c.id desc limit 1
@@ -1605,7 +1585,7 @@ module SqlSessions =
             (fun r ->
                 let spent = r.GetInt64 3 = 1L
 
-                readEhrColumns r 4 5 (at (r.GetInt64 6) |> LocalDate.ofUtc zone)
+                readEhrColumns r 4 5
                 |> Result.map (fun ehr ->
                     spent,
                     ({
@@ -1744,7 +1724,6 @@ module SqlSessions =
         (warn: string -> unit)
         (cs: string)
         (conn: SqliteConnection)
-        (zone: TimeZoneInfo)
         (now: DateTime)
         (sid: string)
         (state: Session.State)
@@ -1761,7 +1740,7 @@ module SqlSessions =
             // id is only a version once the patient's rows are there to find it among
             |> withRecord warn cs (patientOfSession conn sid)
 
-        match loadSession conn zone (headIn state) sid with
+        match loadSession conn (headIn state) sid with
         | None
         | Some(Choice2Of2 None) -> state
         | Some(Choice2Of2(Some ending)) -> { state with Endings = state.Endings |> Map.add sid ending }
@@ -1773,7 +1752,7 @@ module SqlSessions =
             // what it holds in flight, read the same way: a notice or a challenge this
             // release cannot read ends the Session, as an opened-with does
             let inFlight (state: Session.State) =
-                match loadNotice conn zone now sid, loadChallenge conn zone now sid with
+                match loadNotice conn now sid, loadChallenge conn now sid with
                 | Some(Error reason), _
                 | _, Some(Error reason) ->
                     warn $"the Session %s{sid} cannot be read and ends: %s{reason}"
@@ -1823,7 +1802,7 @@ module SqlSessions =
     /// Session it lands on. <c>loadSession</c> answers an ended Session with its ending and no
     /// <c>OpenedSession</c> at all, so the launch's outcome is rebuilt from the rows directly.
     /// </summary>
-    let openedOf (conn: SqliteConnection) (zone: TimeZoneInfo) (headOf: string -> StoredVersion option) (sid: string) =
+    let openedOf (conn: SqliteConnection) (headOf: string -> StoredVersion option) (sid: string) =
         rows
             conn
             "select user_id, user_display, user_role, patient_id, key_thumbprint from session where session_id = $sid"
@@ -1839,7 +1818,7 @@ module SqlSessions =
             )
         |> List.tryHead
         |> Option.map (fun row ->
-            let opened = loadOpenedWith conn zone sid
+            let opened = loadOpenedWith conn sid
 
             {
                 User =
@@ -1861,15 +1840,7 @@ module SqlSessions =
 
     /// The newest Session of a login, so that an open sees the one it supersedes, and the
     /// ending of that Session when it has one.
-    let withLogin
-        warn
-        (cs: string)
-        (conn: SqliteConnection)
-        (zone: TimeZoneInfo)
-        (now: DateTime)
-        (login: string)
-        (state: Session.State)
-        =
+    let withLogin warn (cs: string) (conn: SqliteConnection) (now: DateTime) (login: string) (state: Session.State) =
         // the login's rows are what stands: every Session this server still held for it goes
         // first, so that one superseded or ended elsewhere cannot be found by its own id
         let held =
@@ -1886,7 +1857,7 @@ module SqlSessions =
             }
 
         newestOfLogin conn login
-        |> Option.map (fun sid -> withSession warn cs conn zone now sid state)
+        |> Option.map (fun sid -> withSession warn cs conn now sid state)
         |> Option.defaultValue state
 
 
@@ -1896,7 +1867,6 @@ module SqlSessions =
         warn
         (cs: string)
         (conn: SqliteConnection)
-        (zone: TimeZoneInfo)
         (now: DateTime)
         (by: string)
         (value: string)
@@ -1926,7 +1896,7 @@ module SqlSessions =
             let outcome =
                 match row.Outcome, row.SessionId, row.Attempt with
                 | Some "opened", Some sid, _ ->
-                    openedOf conn zone headOf sid
+                    openedOf conn headOf sid
                     |> Option.map (fun opened -> LaunchResult.Opened(sid, opened))
                 | Some "enrolling", _, Some attempt -> Some(LaunchResult.Enrolling attempt)
                 | Some word, _, _ when word.StartsWith "refused:" ->
@@ -1948,7 +1918,7 @@ module SqlSessions =
             // the Session it opened, so that a callback reloaded against it, and a request that
             // follows, see it as the state holds it
             match row.SessionId with
-            | Some sid -> withSession warn cs conn zone now sid state
+            | Some sid -> withSession warn cs conn now sid state
             | None -> state
 
 
@@ -1975,16 +1945,14 @@ module SqlSessions =
         match slice with
         | StubDatabase.Slice.Nothing -> state
         | StubDatabase.Slice.LaunchNonce nonce ->
-            withConnection (fun conn -> withLaunch warn cs conn zone (now ()) "nonce" nonce state)
+            withConnection (fun conn -> withLaunch warn cs conn (now ()) "nonce" nonce state)
         | StubDatabase.Slice.LaunchState value ->
-            withConnection (fun conn -> withLaunch warn cs conn zone (now ()) "state" value state)
-        | StubDatabase.Slice.Login login ->
-            withConnection (fun conn -> withLogin warn cs conn zone (now ()) login state)
-        | StubDatabase.Slice.Session sid ->
-            withConnection (fun conn -> withSession warn cs conn zone (now ()) sid state)
+            withConnection (fun conn -> withLaunch warn cs conn (now ()) "state" value state)
+        | StubDatabase.Slice.Login login -> withConnection (fun conn -> withLogin warn cs conn (now ()) login state)
+        | StubDatabase.Slice.Session sid -> withConnection (fun conn -> withSession warn cs conn (now ()) sid state)
         | StubDatabase.Slice.Submission(sid, key) ->
             withConnection (fun conn ->
-                let state = withSession warn cs conn zone (now ()) sid state
+                let state = withSession warn cs conn (now ()) sid state
 
                 let headOf id =
                     state.Records
