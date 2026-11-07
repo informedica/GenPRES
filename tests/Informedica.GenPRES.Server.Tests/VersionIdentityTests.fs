@@ -218,15 +218,15 @@ let tests =
                         |> Expect.equal "the signed data" (Some(version.Plan.Patient |> withoutAges))
                     }
 
-                    test "has the post-menstrual age that follows the new age" {
+                    test "has the post-menstrual age of the days lived at the new date" {
                         let pat =
                             openedLater (Some(StoredVersion.Readable(premature, identity)))
                             |> Option.defaultWith (fun () -> failtest "no patient")
 
+                        let lived = (later.Date - DateTime(2016, 3, 15)).Days
+
                         pat.PMAge
-                        |> Expect.equal
-                            "the age plus the gestational age"
-                            (pat.Age |> Option.map (fun a -> a + days 210))
+                        |> Expect.equal "the gestational age plus the days lived" (Some(days (lived + 210)))
                     }
 
                     test "has no post-menstrual age without a gestational age" {

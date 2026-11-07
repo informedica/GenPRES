@@ -354,6 +354,11 @@ module AgeValue =
             (rest % 7 |> Conversions.dayFromInt |> Some)
 
 
+    /// The post-menstrual age in days of an age value, for a patient without a birth date: the
+    /// gestational age plus the age in days.
+    let postMenstrualAgeInDays gestDays av = getAgeInDays av + gestDays
+
+
     let comp op a1 a2 =
         let a1 = a1 |> getAgeInDays
         let a2 = a2 |> getAgeInDays
@@ -644,10 +649,18 @@ module PatientAge =
 
 
     /// The days lived at a date of a birth date, the difference between the two dates, exact in days
-    /// with no 30-day months; the post-menstrual age of a patient with a birth date is the gestational
-    /// age plus these days. None for an age value or an unknown age, which hold no birth date.
+    /// with no 30-day months. None for an age value or an unknown age, which hold no birth date.
     let daysLived (dt: DateTime) =
         map None (fun bd -> (dt.Date - BirthDate.toDate bd).Days |> Conversions.dayFromInt |> Some) (fun _ -> None)
+
+
+    /// The post-menstrual age in days at a date: the gestational age plus the days lived for a birth
+    /// date, exact in days; the gestational age plus the age in days for an age value. None for an
+    /// unknown age.
+    let postMenstrualAgeInDays dt gestDays age =
+        match age |> daysLived dt with
+        | Some lived -> lived + gestDays |> Some
+        | None -> age |> getAgeValue dt |> Option.map (AgeValue.postMenstrualAgeInDays gestDays)
 
 
     let fromAgeType = AgeValue.fromAgeType >> ageValue
@@ -1776,15 +1789,17 @@ module Patient =
         let validateDepartment = Check.optional Check.String.notEmpty
 
 
+    /// The post-menstrual age at a date, in weeks and days, of a patient with a gestational age.
     let calcPostMenstrualAge dt pat =
-        match pat |> SetGet.getGestationalAge, pat |> SetGet.getAgeValue dt with
-        | Some ga, Some av ->
-            let ad = av |> AgeValue.getAgeInDays
-            let ws, ds = ga.Weeks, ga.Days
-
-            let ws, ds = Calculations.Age.postMenstrualAge ds ws ad
-            AgeWeeksDays.create ws ds |> Some
-        | _ -> None
+        pat
+        |> SetGet.getGestationalAge
+        |> Option.bind (fun ga ->
+            pat
+            |> SetGet.getAge
+            |> PatientAge.postMenstrualAgeInDays dt (AgeWeeksDays.toDays ga)
+        )
+        |> Option.map Conversions.daysToWeeks
+        |> Option.map ((<||) AgeWeeksDays.create)
 
 
     let toString dt (pat: Patient) =
