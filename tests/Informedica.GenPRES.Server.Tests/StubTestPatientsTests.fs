@@ -13,7 +13,6 @@ open ServerApi
 module CoreAgeType = Informedica.GenCore.Lib.Patients.AgeType
 module CorePatient = Informedica.GenCore.Lib.Patients.Patient
 module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
-module CoreBirthDate = Informedica.GenCore.Lib.Patients.BirthDate
 
 
 let now = DateTime(2026, 11, 3, 14, 30, 0)
@@ -74,27 +73,6 @@ let ickTargets =
 
 /// Every day from 2026 to 2028, at nine in the morning.
 let threeYears = [ for d in 0 .. 365 * 3 -> DateTime(2026, 1, 1, 9, 0, 0).AddDays(float d) ]
-
-
-/// Whether no birth date, searched 40 days around the calendar date, gives an age in days on a
-/// day: GenPRES counts a year as 365 days and a month as 30, so at the end of March and on
-/// 29 February some ages cannot be made exact.
-let noExactAge target (day: DateTime) =
-    let years, rest = Math.DivRem(target, 365)
-    let calendar = day.Date.AddYears(-years).AddDays(float -rest)
-
-    [ -40 .. 40 ]
-    |> List.map (fun o -> calendar.AddDays(float o))
-    // a birth date after the day is no birth date
-    |> List.filter (fun birth -> birth <= day.Date)
-    |> List.forall (fun birth ->
-        birth
-        |> CoreBirthDate.fromDate
-        |> CoreAgeValue.fromBirthDate day.Date
-        |> CoreAgeValue.getAgeInDays
-        |> int
-        <> target
-    )
 
 
 [<Tests>]
@@ -275,32 +253,16 @@ let tests =
             testList
                 "the age of an ICK patient on any day"
                 [
-                    test "on 31 March 2026 no birth date gives one month, so the ICK infant is one month and 3 days" {
-                        coreAgeInDays (DateTime(2026, 3, 31)) "ick-infant" |> Expect.equal "33 days" 33
-                    }
-
-                    test "an ICK patient has the exact age on every day of three years that a birth date fits" {
+                    test "an ICK patient has the exact age on every day of three years" {
                         [
                             for pid, target in ickTargets do
                                 for day in threeYears do
                                     let age = coreAgeInDays day pid
 
-                                    if age <> target && not (noExactAge target day) then
+                                    if age <> target then
                                         pid, day.ToShortDateString(), age
                         ]
                         |> Expect.isEmpty "exact"
-                    }
-
-                    test "on a day no birth date fits, an ICK patient is within 3 days of the age" {
-                        [
-                            for pid, target in ickTargets do
-                                for day in threeYears |> List.filter (noExactAge target) do
-                                    let age = coreAgeInDays day pid
-
-                                    if abs (age - target) > 3 then
-                                        pid, day.ToShortDateString(), age
-                        ]
-                        |> Expect.isEmpty "close"
                     }
                 ]
         ]
