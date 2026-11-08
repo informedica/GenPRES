@@ -46,9 +46,6 @@ module PatientReadinessPolicy =
         /// The page calculates for the patient: the emergency list, the continuous list, prescribe,
         /// nutrition and the order plan. It says what is missing while it calculates.
         | Calculation
-        /// The page browses without a patient, and the dose check needs one: the formulary and the
-        /// parenteralia.
-        | DoseCheck
         /// The page checks manual drugs without a patient, and the plan's drugs need one: the
         /// interactions.
         | PlanMedication
@@ -104,7 +101,6 @@ module PatientReadinessPolicy =
         | Terms.``Prescribe Height unknown`` -> "Height unknown: enter it, no estimate is used"
         | Terms.``Patient Gestational age unknown`` ->
             "Gestational age unknown: enter it, the patient is younger than 28 weeks"
-        | Terms.``Patient Needed Dose Check`` -> "The dose check needs a patient"
         | Terms.``Patient Needed Plan Medication`` -> "The medication of the order plan needs a patient"
         | term -> $"{term}"
 
@@ -143,7 +139,6 @@ module PatientReadinessPolicy =
             readiness |> missing |> Option.map (fun term -> [ term; needed ])
 
         match needs with
-        | Needs.DoseCheck -> browsing Terms.``Patient Needed Dose Check``
         | Needs.PlanMedication -> browsing Terms.``Patient Needed Plan Medication``
         | Needs.Calculation ->
             match readiness with

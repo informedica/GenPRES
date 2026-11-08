@@ -52,7 +52,7 @@ let estimated (p: Patient option) =
     )
 
 
-let needs = [ Needs.Calculation; Needs.DoseCheck; Needs.PlanMedication ]
+let needs = [ Needs.Calculation; Needs.PlanMedication ]
 
 
 [<Tests>]
@@ -227,10 +227,14 @@ let tests =
 
                     test "a page that browses names what needs the patient" {
                         Readiness.NoData
-                        |> notice Needs.DoseCheck
+                        |> notice Needs.PlanMedication
                         |> Expect.equal
-                            "the dose check"
-                            (Some [ Terms.``Patient enter patient data``; Terms.``Patient Needed Dose Check`` ])
+                            "the plan's medication"
+                            (Some
+                                [
+                                    Terms.``Patient enter patient data``
+                                    Terms.``Patient Needed Plan Medication``
+                                ])
 
                         Readiness.NoPatient
                         |> notice Needs.PlanMedication
@@ -244,9 +248,8 @@ let tests =
                     }
 
                     test "a page that browses says nothing once there is a patient, whatever it misses" {
-                        for n in [ Needs.DoseCheck; Needs.PlanMedication ] do
-                            for m in [ []; [ Missing.Age ]; [ Missing.Weight; Missing.Height ] ] do
-                                Readiness.Patient m |> notice n |> Expect.isNone $"%A{n} %A{m}"
+                        for m in [ []; [ Missing.Age ]; [ Missing.Weight; Missing.Height ] ] do
+                            Readiness.Patient m |> notice Needs.PlanMedication |> Expect.isNone $"%A{m}"
                     }
 
                     test "a page that calculates names every missing dimension, weight and height as one" {
@@ -299,9 +302,12 @@ let tests =
                     }
 
                     test "the message joins the translated sentences" {
-                        [ Terms.``Patient enter patient data``; Terms.``Patient Needed Dose Check`` ]
+                        [
+                            Terms.``Patient enter patient data``
+                            Terms.``Patient Needed Plan Medication``
+                        ]
                         |> message named
-                        |> Expect.equal "two sentences" "<Patient enter patient data> <Patient Needed Dose Check>"
+                        |> Expect.equal "two sentences" "<Patient enter patient data> <Patient Needed Plan Medication>"
                     }
                 ]
         ]
