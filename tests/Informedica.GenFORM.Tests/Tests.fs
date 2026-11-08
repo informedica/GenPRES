@@ -2551,6 +2551,20 @@ module Tests =
             testList
                 "Patient"
                 [
+                    test "a patient has data besides the department only when more than the department is set" {
+                        [
+                            Patient.patient
+                            { Patient.patient with Department = Some "ICK" }
+                            { Patient.patient with Weight = Some(ValueUnit.singleWithUnit kg 5N) }
+                            { Patient.patient with
+                                Department = Some "ICK"
+                                Gender = Male
+                            }
+                        ]
+                        |> List.map Patient.hasDataBesidesDepartment
+                        |> Expect.equal "none, none, a weight, a gender" [ false; false; true; true ]
+                    }
+
                     test "the empty patient has both measured flags set" {
                         Patient.patient.WeightMeasured |> Expect.isTrue "weight counts as measured"
                         Patient.patient.HeightMeasured |> Expect.isTrue "height counts as measured"
@@ -5605,6 +5619,117 @@ module Tests =
 
                         deps.Names |> Expect.equal "ICC, ICK, NEO" [| "ICC"; "ICK"; "NEO" |]
                         loads |> Expect.equal "the reconstitutions loaded once" 1
+                    }
+                ]
+
+
+    module SolutionRuleFilterTests =
+
+        open Informedica.GenForm.Lib.Types
+
+
+        let day = Units.Time.day
+        let kg = Units.Weight.kiloGram
+
+
+        let range u min max =
+            MinMax.createInclIncl (min |> ValueUnit.singleWithUnit u) (max |> ValueUnit.singleWithUnit u)
+
+
+        /// A paracetamol iv solution rule for a patient category, named by its indication.
+        let rule name patCat : SolutionRule =
+            {
+                Generic = "paracetamol"
+                Form = None
+                Route = "iv"
+                Indication = Some name
+                DoseType = NoDoseType
+                PatientCategory = patCat
+                Dose = MinMax.empty
+                Diluents = [||]
+                Div = None
+                Volumes = None
+                Volume = MinMax.empty
+                VolumeAdjust = MinMax.empty
+                DripRate = MinMax.empty
+                DoseFraction = MinMax.empty
+                SolutionLimits = [||]
+            }
+
+
+        let rules =
+            [|
+                rule "any" PatientCategory.empty
+                rule "neonate" { PatientCategory.empty with Age = range day 0N 28N |> AbsoluteAge }
+                rule "under 10 kg" { PatientCategory.empty with Weight = range kg 0N 10N }
+                rule "ICK" { PatientCategory.empty with Department = Some "ICK" }
+                rule
+                    "NEO neonate"
+                    { PatientCategory.empty with
+                        Department = Some "NEO"
+                        Age = range day 0N 28N |> AbsoluteAge
+                    }
+            |]
+
+
+        /// A child of 10 years, 32 kg and 140 cm, on the ICK.
+        let child =
+            { Patient.patient with
+                Department = Some "ICK"
+                Gender = Male
+                Age = Some(ValueUnit.singleWithUnit day 3650N)
+                Weight = Some(ValueUnit.singleWithUnit kg 32N)
+                Height = Some(ValueUnit.singleWithUnit Units.Height.centiMeter 140N)
+                Access = [ PVL ]
+            }
+
+
+        /// The indications of the rules a lookup for the patient finds.
+        let matched pat =
+            { Filter.solutionFilter "paracetamol" with Patient = pat }
+            |> fun filter -> rules |> SolutionRule.filter [||] filter
+            |> Array.choose (fun (sr: SolutionRule) -> sr.Indication)
+
+
+        let tests =
+            testList
+                "SolutionRule.filter"
+                [
+                    test
+                        "a lookup without a patient returns every solution rule, also those with an age or weight range" {
+                        Patient.patient
+                        |> matched
+                        |> Expect.equal "all five" [| "any"; "neonate"; "under 10 kg"; "ICK"; "NEO neonate" |]
+                    }
+
+                    test "a department alone selects the rules for that department and the rules for any" {
+                        { Patient.patient with Department = Some "NEO" }
+                        |> matched
+                        |> Expect.equal "any, the ranges and NEO" [| "any"; "neonate"; "under 10 kg"; "NEO neonate" |]
+                    }
+
+                    test "the child gets the rule for any and the rule for its department" {
+                        child |> matched |> Expect.equal "any and ICK" [| "any"; "ICK" |]
+                    }
+
+                    test "a child without a department gets only the rule for any" {
+                        { child with Department = None } |> matched |> Expect.equal "any" [| "any" |]
+                    }
+
+                    test "a neonate on the NEO gets the rule for any, the ranges and the NEO rule" {
+                        { child with
+                            Department = Some "NEO"
+                            Age = Some(ValueUnit.singleWithUnit day 10N)
+                            Weight = Some(ValueUnit.singleWithUnit kg 3N)
+                        }
+                        |> matched
+                        |> Expect.equal "any, the ranges and NEO" [| "any"; "neonate"; "under 10 kg"; "NEO neonate" |]
+                    }
+
+                    test "a patient with only a weight gets the rule for any and the weight range" {
+                        { Patient.patient with Weight = Some(ValueUnit.singleWithUnit kg 5N) }
+                        |> matched
+                        |> Expect.equal "any and under 10 kg" [| "any"; "under 10 kg" |]
                     }
                 ]
 
@@ -8781,6 +8906,7 @@ module Tests =
                 DoseRuleRoundtripTests.tests
                 CheckTests.tests
                 SourceLinkTests.tests
+                SolutionRuleFilterTests.tests
                 ResourceRegistryTests.tests
                 DepartmentsTests.tests
                 RuleCheckTests.tests

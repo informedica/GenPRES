@@ -685,6 +685,11 @@ module Patient =
         }
 
 
+    /// Whether the patient has data besides the department: a patient with a department alone, or
+    /// without any data, has none.
+    let hasDataBesidesDepartment (pat: Patient) = { pat with Department = None } <> patient
+
+
     let correctAdjustUnit (pat: Patient) =
         { pat with Weight = pat.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram) }
 
