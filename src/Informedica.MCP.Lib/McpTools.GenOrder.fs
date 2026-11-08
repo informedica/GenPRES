@@ -102,50 +102,36 @@ module GenOrderTools =
         | _ -> None
 
 
-    /// The measure a caller left out, estimated from the age and the sex it gave through the
-    /// contract model, the one estimate the web client shows; a measure given stays measured.
-    /// Without an age there is nothing to estimate from, and the patient stays as built.
-    let estimated
-        (nv: Informedica.GenPRES.Shared.Types.NormalValues)
-        (input: CreateOrderContextInput)
-        (pat: Patient.Patient)
-        =
-        match input.AgeMonths, input.WeightKg, input.HeightCm with
-        | _, Some _, Some _
-        | None, _, _ -> pat
-        | Some months, _, _ ->
+    /// The measure a caller left out, estimated by GenCORE from the age and the sex it gave, the
+    /// estimate the server gives; a measure given stays measured. Without an age there is nothing
+    /// to estimate from, and without the tables nothing to estimate with: the patient stays as
+    /// built.
+    let estimated normalValues (input: CreateOrderContextInput) (pat: Patient.Patient) =
+        match normalValues, input.AgeMonths, input.WeightKg, input.HeightCm with
+        | _, _, Some _, Some _
+        | None, _, _, _
+        | _, None, _, _ -> pat
+        | Some tables, Some months, _, _ ->
             let gender =
                 match input.Sex |> Option.map _.ToLowerInvariant() with
-                | Some "male" -> Informedica.GenPRES.Shared.Types.Male
-                | Some "female" -> Informedica.GenPRES.Shared.Types.Female
-                | _ -> Informedica.GenPRES.Shared.Types.UnknownGender
+                | Some "male" -> Informedica.GenCore.Lib.Patients.Male
+                | Some "female" -> Informedica.GenCore.Lib.Patients.Female
+                | _ -> Informedica.GenCore.Lib.Patients.UnknownGender
 
-            let draft =
-                Informedica.GenPRES.Shared.Models.Patient.create
+            let age =
+                Informedica.GenCore.Lib.Patients.AgeValue.create
                     None
                     (months
                      |> Math.Round
                      |> int
-                     |> Informedica.GenPRES.Shared.Measures.toMonth
+                     |> Informedica.GenCore.Lib.Conversions.monthFromInt
                      |> Some)
                     None
                     None
-                    None
-                    None
-                    None
-                    None
-                    gender
-                    []
-                    None
-                    None
-                |> Option.map (Informedica.GenPRES.Shared.Models.NormalValues.apply nv)
 
-            let weight =
-                draft
-                |> Option.bind _.Weight.Estimated
-                |> Option.map (fun g -> decimal g / 1000m |> Kilogram)
-
-            let height = draft |> Option.bind _.Height.Estimated |> Option.map (int >> Centimeter)
+            let est = Informedica.GenCore.Lib.Patients.Estimates.ofAge tables gender (Some age) None
+            let weight = est.Weight |> Option.map (fun e -> decimal e.Mean / 1000m |> Kilogram)
+            let height = est.Height |> Option.map (fun e -> int e.Mean |> Centimeter)
 
             let pat =
                 match input.WeightKg, weight with
@@ -186,7 +172,8 @@ module GenOrderTools =
         |> Patient.setDepartment input.Department
         |> estimated
             (provider.Get Informedica.GenForm.Lib.Resources.Keys.normalValueRows
-             |> Informedica.GenPRES.Shared.Models.NormalValues.ofRows)
+             |> Informedica.GenCore.Lib.Patients.NormalValueTables.ofRows
+             |> Result.toOption)
             input
 
 

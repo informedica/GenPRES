@@ -591,24 +591,19 @@ let normalValuesOfRowsTests =
     testList
         "the tables from the rows"
         [
-            test "each sheet parses to its table, a sheet absent giving an empty one" {
-                let nv = rows |> NormalValues.ofRows
-
-                (nv.Weights |> List.length, nv.Heights |> List.length, nv.NeoWeights, nv.NeoHeights)
-                |> Expect.equal "two rows each, no neonatal tables" (2, 2, [], [])
-
-                nv.Weights
-                |> List.find (fun r -> r.Sex = "M")
-                |> Expect.equal "the boy's row" (NormalValues.create "M" 2. 10. 12. 14.)
-            }
-
             test "the tables applied are the estimate the panel shows" {
                 let pat =
                     { Patient.empty with
                         Age = years 2
                         Gender = Male
                     }
-                    |> NormalValues.apply (rows |> NormalValues.ofRows)
+                    |> NormalValues.apply
+                        {
+                            Weights = rows["weight"] |> NormalValues.parse
+                            Heights = rows["height"] |> NormalValues.parse
+                            NeoWeights = []
+                            NeoHeights = []
+                        }
 
                 (pat.Weight.Estimated, pat.Height.Estimated, pat.Weight.Measured)
                 |> Expect.equal

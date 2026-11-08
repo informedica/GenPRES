@@ -456,6 +456,6 @@ type AppEnv =
         departments: unit -> Informedica.GenForm.Lib.Types.Departments
         // the normal values of weight and height the server estimates from; none until the
         // resources are loaded. Asking may load
-        normalValues: unit -> NormalValues option
+        normalValues: unit -> Informedica.GenCore.Lib.Patients.NormalValueTables option
         logger: Informedica.Logging.Lib.Logger
     }

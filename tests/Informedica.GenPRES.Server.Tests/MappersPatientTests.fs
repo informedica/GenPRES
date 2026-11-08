@@ -331,10 +331,15 @@ module EstimateFixtures =
                     [| "M"; "2"; "80"; "87"; "94" |]
                     [| "F"; "2"; "79"; "86"; "93" |]
                 |]
+                "weight neo", [| [| "sex"; "age"; "p3"; "mean"; "p97" |] |]
+                "height neo", [| [| "sex"; "age"; "p3"; "mean"; "p97" |] |]
             ]
 
 
-    let tables = rows |> Informedica.GenPRES.Shared.Models.NormalValues.ofRows
+    let tables =
+        rows
+        |> Informedica.GenCore.Lib.Patients.NormalValueTables.ofRows
+        |> Result.defaultWith (fun errs -> failtest $"%A{errs}")
 
 
 open EstimateFixtures
@@ -735,5 +740,50 @@ let gestationalAgeTests =
                 |> Expect.equal
                     "needed under 28 weeks, none from 1 year"
                     [ full.GestationalAge; GestationalAge.NoGestationalAge ]
+            }
+        ]
+
+
+[<Tests>]
+let withEstimatesTests =
+    testList
+        "the estimates GenCORE gives"
+        [
+            test "a weight estimate replaced where GenCORE gives one, a height estimate kept where it gives none" {
+                let tables: Informedica.GenCore.Lib.Patients.NormalValueTables =
+                    {
+                        Weights =
+                            [
+                                {
+                                    Gender = Informedica.GenCore.Lib.Patients.Male
+                                    Age = 10.<Informedica.GenCore.Lib.Measures.year>
+                                    P3 = 25.<Informedica.GenCore.Lib.Measures.kg>
+                                    Mean = 32.<Informedica.GenCore.Lib.Measures.kg>
+                                    P97 = 40.<Informedica.GenCore.Lib.Measures.kg>
+                                }
+                            ]
+                        Heights = []
+                        NeoWeights = []
+                        NeoHeights = []
+                    }
+
+                let model =
+                    { Informedica.GenPRES.Shared.Models.Patient.empty with
+                        Age = Some(ServerApi.Age.ofDays (10 * 365))
+                        Gender = Male
+                        Height =
+                            { Informedica.GenPRES.Shared.Models.Patient.empty.Height with
+                                Estimated = Some(Informedica.GenPRES.Shared.Measures.toCm 140)
+                            }
+                    }
+                    |> ServerApi.Patient.withEstimates tables
+
+                (model.Weight.EstimatedP3, model.Weight.Estimated, model.Weight.EstimatedP97, model.Height.Estimated)
+                |> Expect.equal
+                    "25 to 40 kg, 32 kg; 140 cm kept"
+                    (Some(Informedica.GenPRES.Shared.Measures.toGram 25000),
+                     Some(Informedica.GenPRES.Shared.Measures.toGram 32000),
+                     Some(Informedica.GenPRES.Shared.Measures.toGram 40000),
+                     Some(Informedica.GenPRES.Shared.Measures.toCm 140))
             }
         ]

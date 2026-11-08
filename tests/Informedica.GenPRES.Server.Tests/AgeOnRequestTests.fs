@@ -182,22 +182,54 @@ let signedOver (sid: string option) (cmd: SigningCommand) =
 
 
 /// Normal values of both sexes at five and at ten years: 18 kg and 110 cm, 32 kg and 140 cm.
-let tables: NormalValues =
-    let row sex age p3 mean p97 =
-        Informedica.GenPRES.Shared.Models.NormalValues.create sex age p3 mean p97
+let tables: Informedica.GenCore.Lib.Patients.NormalValueTables =
+    let row gender age p3 mean p97 : Informedica.GenCore.Lib.Patients.NormalValue<_, _> =
+        {
+            Gender = gender
+            Age = age
+            P3 = p3
+            Mean = mean
+            P97 = p97
+        }
+
+    let genders =
+        [
+            Informedica.GenCore.Lib.Patients.Male
+            Informedica.GenCore.Lib.Patients.Female
+        ]
 
     {
         Weights =
             [
-                for sex in [ "M"; "F" ] do
-                    row sex 5. 15. 18. 22.
-                    row sex 10. 25. 32. 45.
+                for g in genders do
+                    row
+                        g
+                        5.<Informedica.GenCore.Lib.Measures.year>
+                        15.<Informedica.GenCore.Lib.Measures.kg>
+                        18.<Informedica.GenCore.Lib.Measures.kg>
+                        22.<Informedica.GenCore.Lib.Measures.kg>
+                    row
+                        g
+                        10.<Informedica.GenCore.Lib.Measures.year>
+                        25.<Informedica.GenCore.Lib.Measures.kg>
+                        32.<Informedica.GenCore.Lib.Measures.kg>
+                        45.<Informedica.GenCore.Lib.Measures.kg>
             ]
         Heights =
             [
-                for sex in [ "M"; "F" ] do
-                    row sex 5. 100. 110. 120.
-                    row sex 10. 130. 140. 150.
+                for g in genders do
+                    row
+                        g
+                        5.<Informedica.GenCore.Lib.Measures.year>
+                        100.<Informedica.GenCore.Lib.Measures.cm>
+                        110.<Informedica.GenCore.Lib.Measures.cm>
+                        120.<Informedica.GenCore.Lib.Measures.cm>
+                    row
+                        g
+                        10.<Informedica.GenCore.Lib.Measures.year>
+                        130.<Informedica.GenCore.Lib.Measures.cm>
+                        140.<Informedica.GenCore.Lib.Measures.cm>
+                        150.<Informedica.GenCore.Lib.Measures.cm>
             ]
         NeoWeights = []
         NeoHeights = []
@@ -208,7 +240,7 @@ let loaded () = Some tables
 
 
 /// The normal values, counting how often they are asked.
-let counting (nv: NormalValues option) =
+let counting (nv: Informedica.GenCore.Lib.Patients.NormalValueTables option) =
     let count = ref 0
 
     let ask () =
@@ -461,7 +493,7 @@ let tests =
                     }
 
                     test "empty tables leave the estimate out and the gate refuses" {
-                        let empty =
+                        let empty: Informedica.GenCore.Lib.Patients.NormalValueTables =
                             {
                                 Weights = []
                                 Heights = []
@@ -478,8 +510,12 @@ let tests =
                     test "an unknown gender over tables with rows for one sex only is refused" {
                         let oneSex =
                             { tables with
-                                Weights = tables.Weights |> List.filter (fun r -> r.Sex = "M")
-                                Heights = tables.Heights |> List.filter (fun r -> r.Sex = "M")
+                                Weights =
+                                    tables.Weights
+                                    |> List.filter (fun r -> r.Gender = Informedica.GenCore.Lib.Patients.Male)
+                                Heights =
+                                    tables.Heights
+                                    |> List.filter (fun r -> r.Gender = Informedica.GenCore.Lib.Patients.Male)
                             }
 
                         ageOnly 10

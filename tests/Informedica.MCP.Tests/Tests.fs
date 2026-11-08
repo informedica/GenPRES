@@ -207,7 +207,8 @@ module Tests =
     module EstimateFixtures =
 
         /// Two tables, one row per sex at two years: a boy of two is twelve kilograms and 87
-        /// centimetres, a girl eleven and 86.
+        /// centimetres, a girl eleven and 86. The neonatal sheets hold only their header, since
+        /// every sheet must be there.
         let rows: Map<string, string[][]> =
             Map
                 [
@@ -223,6 +224,8 @@ module Tests =
                         [| "M"; "2"; "80"; "87"; "94" |]
                         [| "F"; "2"; "79"; "86"; "93" |]
                     |]
+                    "weight neo", [| [| "sex"; "age"; "p3"; "mean"; "p97" |] |]
+                    "height neo", [| [| "sex"; "age"; "p3"; "mean"; "p97" |] |]
                 ]
 
 
