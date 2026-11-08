@@ -322,14 +322,14 @@ let tests =
                                     }
                             }
 
-                        let url = Url.parse (System.DateTime(2026, 1, 1)) [ "patient"; "?agd=10" ]
+                        let url = Url.parse [ "patient"; "?wks=1&dys=3" ]
                         let asked =
                             launched
-                            |> play [ ClientMsg.UrlChanged([ "patient"; "?agd=10" ], url) ]
+                            |> play [ ClientMsg.UrlChanged([ "patient"; "?wks=1&dys=3" ], url) ]
                             |> stateOf
 
                         UrlPolicy.UrlState.asked asked.Shell.Url
-                        |> Expect.equal "asked" (Some [ "patient"; "?agd=10" ])
+                        |> Expect.equal "asked" (Some [ "patient"; "?wks=1&dys=3" ])
 
                         let result = asked |> play [ ClientMsg.Shell ShellMsg.LeftForUrl ]
 
@@ -342,7 +342,7 @@ let tests =
                         |> Expect.isTrue "started over"
 
                         (stateOf result).Shell.Url
-                        |> Expect.equal "shown" (UrlPolicy.UrlState.Shown [ "patient"; "?agd=10" ])
+                        |> Expect.equal "shown" (UrlPolicy.UrlState.Shown [ "patient"; "?wks=1&dys=3" ])
                     }
 
                     test "yes without a question changes nothing" {
@@ -464,7 +464,7 @@ let tests =
                             for name, url, expected in
                                 [
                                     "a launch", Some [ "session"; "?launch=abc" ], true
-                                    "a patient", Some [ "patient"; "?agd=10" ], false
+                                    "a patient", Some [ "patient"; "?wks=1&dys=3" ], false
                                     "no question", None, false
                                 ] do
                                 test name {
@@ -474,9 +474,7 @@ let tests =
 
                                     let asked =
                                         match url with
-                                        | Some sl ->
-                                            shown
-                                            |> UrlPolicy.UrlState.ask sl (Url.parse (System.DateTime(2026, 1, 1)) sl)
+                                        | Some sl -> shown |> UrlPolicy.UrlState.ask sl (Url.parse sl)
                                         | None -> shown
 
                                     { state with Shell = { state.Shell with Url = asked } }

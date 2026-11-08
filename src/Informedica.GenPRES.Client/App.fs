@@ -472,10 +472,10 @@ module private Elmish =
     let newRequest () = Guid.NewGuid().ToString()
 
 
-    /// What the url of these segments carries, at this moment; the parts that did not parse are
+    /// What the url of these segments carries; the parts that did not parse are
     /// logged by name, never by value, since the values are patient data.
     let parseUrl sl =
-        let url = sl |> Url.parse DateTime.Now
+        let url = sl |> Url.parse
 
         for part in url.NotParsed do
             match part with

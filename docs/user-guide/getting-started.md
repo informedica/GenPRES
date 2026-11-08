@@ -73,10 +73,10 @@ http://localhost:5173/#patient?<param1>=<value1>&<param2>=<value2>
 
 | Parameter | Description | Example | Notes |
 |-----------|-------------|---------|-------|
-| `byr` | Birth year | `2010` | Required (or use `agd`) |
-| `bmo` | Birth month | `6` | Optional; 1–12, default: `1` |
-| `bdy` | Birth day | `15` | Optional; 1–31, default: `1` |
-| `agd` | Age in days | `365` | Alternative to `byr`/`bmo`/`bdy` |
+| `yrs` | Age years | `10` | At least one age part is required |
+| `mos` | Age months | `6` | Optional; default: `0` |
+| `wks` | Age weeks | `2` | Optional; default: `0` |
+| `dys` | Age days | `3` | Optional; default: `0` |
 | `wgt` | Weight in grams | `25000` | Optional; 25000 = 25 kg |
 | `hgt` | Height in cm | `130` | Optional |
 | `gaw` | Gestational age (weeks) | `40` | Optional; for neonates |
@@ -121,19 +121,19 @@ Settings, the admin page behind the password, has no code, so no link opens it.
 **Child patient, prescribing view:**
 
 ```url
-http://localhost:5173/#patient?byr=2015&bmo=3&bdy=10&wgt=20000&hgt=115&pag=pr
+http://localhost:5173/#patient?yrs=10&wgt=20000&hgt=115&pag=pr
 ```
 
-**Neonate by age in days, emergency list:**
+**Neonate, emergency list:**
 
 ```url
-http://localhost:5173/#patient?agd=7&wgt=3200&gaw=39&gad=2&pag=el
+http://localhost:5173/#patient?dys=7&wgt=3200&gaw=39&gad=2&pag=el
 ```
 
 **Adult patient, continuous medications, English UI:**
 
 ```url
-http://localhost:5173/#patient?byr=1990&bmo=1&bdy=1&wgt=70000&hgt=175&pag=cm&lan=en&dsc=n
+http://localhost:5173/#patient?yrs=36&wgt=70000&hgt=175&pag=cm&lan=en&dsc=n
 ```
 
 ---

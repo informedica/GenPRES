@@ -1,7 +1,6 @@
 module Informedica.GenPRES.Client.Core.Tests.Helpers.UrlTests
 
 open Informedica.GenPRES.Client.Core.Helpers
-open System
 open Expecto
 open Expecto.Flip
 open Informedica.GenPRES.Shared
@@ -9,9 +8,7 @@ open Informedica.GenPRES.Shared.Types
 open Url
 
 
-let now = DateTime(2026, 10, 9)
-
-let parse = Url.parse now
+let parse = Url.parse
 
 let patient query = parse [ "patient"; query ]
 
@@ -38,39 +35,39 @@ let tests =
 
             test "a url without segments carries nothing" { parse [] |> Expect.equal "none" Url.none }
 
-            test "an age in days gives the patient's age" {
-                patient "?agd=400"
+            test "the age parts give the patient's age as given" {
+                patient "?yrs=6&mos=3&wks=2&dys=4"
                 |> age
-                |> Expect.equal "1 year, 1 month, 5 days" (Some(1, 1, 0, 5))
-                patient "?agd=400" |> _.NotParsed |> Expect.isEmpty "parsed"
+                |> Expect.equal "6 years, 3 months, 2 weeks, 4 days" (Some(6, 3, 2, 4))
+
+                patient "?yrs=6&mos=3&wks=2&dys=4" |> _.NotParsed |> Expect.isEmpty "parsed"
             }
 
-            test "a birth date gives the age at now, january and the first day by default" {
-                patient "?byr=2020&bmo=4&bdy=15"
-                |> age
-                |> Option.map (fun (y, m, _, _) -> y, m)
-                |> Expect.equal "6 years, 5 months" (Some(6, 5))
-
-                patient "?byr=2025"
-                |> age
-                |> Option.map (fun (y, m, _, _) -> y, m)
-                |> Expect.equal "born on 1 january: 1 year, 9 months" (Some(1, 9))
+            test "an age part not given counts as zero" {
+                patient "?yrs=6" |> age |> Expect.equal "6 years" (Some(6, 0, 0, 0))
+                patient "?wks=3" |> age |> Expect.equal "3 weeks" (Some(0, 0, 3, 0))
+                patient "?dys=0" |> age |> Expect.equal "a newborn" (Some(0, 0, 0, 0))
             }
 
-            test "the birth year goes before the age in days; a year that is no number does not" {
-                patient "?byr=2025&agd=10"
-                |> age
-                |> Option.map (fun (y, _, _, _) -> y)
-                |> Expect.equal "the birth year" (Some 1)
+            test "the age parts are not counted over: 14 months stays 14 months" {
+                patient "?mos=14&dys=40" |> age |> Expect.equal "as given" (Some(0, 14, 0, 40))
+            }
 
-                patient "?byr=x&agd=10"
-                |> age
-                |> Expect.equal "the age in days" (Some(0, 0, 1, 3))
+            test "the birth date and the age in days give no age" {
+                [ "?byr=2020&bmo=4&bdy=15"; "?byr=2025"; "?agd=400" ]
+                |> List.map (patient >> age)
+                |> Expect.equal "no age" [ None; None; None ]
+            }
+
+            test "an age part that is no whole number of zero or more gives no age" {
+                [ "?yrs=x"; "?yrs=6&mos=-1"; "?dys=1.5"; "?yrs=" ]
+                |> List.map (patient >> age)
+                |> Expect.equal "no age" [ None; None; None; None ]
             }
 
             test "weight, height, gestational age, department and central line are read" {
                 let p =
-                    (patient "?agd=10&wgt=3500&hgt=50&gaw=30&gad=3&dep=NEO&cvl=y").Patient
+                    (patient "?wks=1&dys=3&wgt=3500&hgt=50&gaw=30&gad=3&dep=NEO&cvl=y").Patient
                     |> Option.get
 
                 p.Weight.Measured |> Option.map int |> Expect.equal "weight in gram" (Some 3500)
@@ -86,7 +83,7 @@ let tests =
             }
 
             test "the central line only for y; weeks without days give 0 days" {
-                let p = (patient "?agd=10&cvl=n&gaw=30").Patient |> Option.get
+                let p = (patient "?wks=1&dys=3&cvl=n&gaw=30").Patient |> Option.get
 
                 p.Access |> Expect.isEmpty "no central line"
 
@@ -95,7 +92,7 @@ let tests =
                 |> Expect.equal "30 weeks 0 days" (Some(30, 0))
             }
 
-            test "a patient url without a birth year or an age names its parameters, not their values" {
+            test "a patient url without an age part names its parameters, not their values" {
                 let url = patient "?pag=pr&wgt=3500"
 
                 url.Patient |> Expect.isNone "no patient"
@@ -119,30 +116,30 @@ let tests =
                             "ia", Some Page.Page.Interactions
                             "xx", None
                         ] do
-                        test $"pag=%s{code}" { (patient $"?agd=10&pag=%s{code}").Page |> Expect.equal code page }
+                        test $"pag=%s{code}" { (patient $"?wks=1&dys=3&pag=%s{code}").Page |> Expect.equal code page }
                 ]
 
             test "the language codes" {
-                (patient "?agd=10&lan=en").Language
+                (patient "?wks=1&dys=3&lan=en").Language
                 |> Expect.equal "en" (Some Localization.English)
 
-                (patient "?agd=10&lan=nl").Language
+                (patient "?wks=1&dys=3&lan=nl").Language
                 |> Expect.equal "nl" (Some Localization.Dutch)
 
-                (patient "?agd=10&lan=du").Language |> Expect.isNone "the earlier du"
+                (patient "?wks=1&dys=3&lan=du").Language |> Expect.isNone "the earlier du"
 
-                (patient "?agd=10&lan=xx").Language |> Expect.isNone "unknown"
-                (patient "?agd=10").Language |> Expect.isNone "not given"
+                (patient "?wks=1&dys=3&lan=xx").Language |> Expect.isNone "unknown"
+                (patient "?wks=1&dys=3").Language |> Expect.isNone "not given"
             }
 
             test "the disclaimer is shown unless dsc=n" {
-                (patient "?agd=10").Disclaimer |> Expect.isTrue "not given"
-                (patient "?agd=10&dsc=n").Disclaimer |> Expect.isFalse "n"
-                (patient "?agd=10&dsc=y").Disclaimer |> Expect.isTrue "y"
+                (patient "?wks=1&dys=3").Disclaimer |> Expect.isTrue "not given"
+                (patient "?wks=1&dys=3&dsc=n").Disclaimer |> Expect.isFalse "n"
+                (patient "?wks=1&dys=3&dsc=y").Disclaimer |> Expect.isTrue "y"
             }
 
             test "a medication of one part, and none when no part is given" {
-                let med = (patient "?agd=10&med=paracetamol").Medication |> Option.get
+                let med = (patient "?wks=1&dys=3&med=paracetamol").Medication |> Option.get
 
                 med.medication |> Expect.equal "the medication" (Some "paracetamol")
                 med.indication |> Expect.isNone "no indication"
@@ -150,12 +147,12 @@ let tests =
                 med.form |> Expect.isNone "no form"
                 med.dosetype |> Expect.isNone "no dose type"
 
-                (patient "?agd=10").Medication |> Expect.isNone "no part given"
+                (patient "?wks=1&dys=3").Medication |> Expect.isNone "no part given"
             }
 
             test "every part of a medication" {
                 let med =
-                    (patient "?agd=10&ind=pijn&med=paracetamol&rte=oraal&frm=tablet&dst=timed").Medication
+                    (patient "?wks=1&dys=3&ind=pijn&med=paracetamol&rte=oraal&frm=tablet&dst=timed").Medication
                     |> Option.get
 
                 med.indication |> Expect.equal "indication" (Some "pijn")
@@ -210,7 +207,7 @@ let tests =
             }
 
             test "a url that is neither names its first segment" {
-                parse [ "other"; "?agd=10" ]
+                parse [ "other"; "?wks=1&dys=3" ]
                 |> Expect.equal "the route" { Url.none with NotParsed = [ UrlPart.Route "other" ] }
 
                 parse [ "patient" ]
