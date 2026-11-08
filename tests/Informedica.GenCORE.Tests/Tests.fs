@@ -1841,6 +1841,112 @@ module Tests =
                 ]
 
 
+    module EstimatesTests =
+
+        let row gender age p3 mean p97 =
+            {
+                Gender = gender
+                Age = age
+                P3 = p3
+                Mean = mean
+                P97 = p97
+            }
+
+        let tables =
+            {
+                Weights =
+                    [
+                        row Male 1.<year> 8.<kg> 10.2<kg> 12.<kg>
+                        row Female 1.<year> 7.<kg> 9.6<kg> 11.<kg>
+                        row Male 10.<year> 25.<kg> 32.<kg> 40.<kg>
+                    ]
+                Heights =
+                    [
+                        row Male 1.<year> 70.<cm> 76.<cm> 82.<cm>
+                        row Female 1.<year> 68.<cm> 74.<cm> 80.<cm>
+                        row Male 10.<year> 130.<cm> 140.<cm> 150.<cm>
+                    ]
+                NeoWeights =
+                    [
+                        row Male 40.<week> 2900.<gram> 3480.<gram> 4100.<gram>
+                        row Female 40.<week> 2800.<gram> 3390.<gram> 4000.<gram>
+                    ]
+                NeoHeights =
+                    [
+                        row Male 40.<week> 48.<cm> 51.<cm> 54.<cm>
+                        row Female 40.<week> 47.<cm> 50.<cm> 53.<cm>
+                    ]
+            }
+
+        let years n = AgeValue.create (Some(n * 1<year>)) None None None
+
+        let days n = n |> Conversions.dayFromInt |> AgeValue.fromDays
+
+        let awd w d = AgeWeeksDays.create (w * 1<week>) (d * 1<day>)
+
+        let estimateOf p3 mean p97 =
+            Some
+                {
+                    P3 = p3
+                    Mean = mean
+                    P97 = p97
+                }
+
+
+        let tests =
+            testList
+                "Estimates"
+                [
+                    test "a boy of 10 years takes the row of 10 years: the percentiles in whole kg, the mean on a step" {
+                        Estimates.ofAge tables Male (Some(years 10)) None
+                        |> Expect.equal
+                            "25 to 40 kg, 32 kg; 130 to 150 cm, 140 cm"
+                            {
+                                Weight = estimateOf 25000<gram> 32000<gram> 40000<gram>
+                                Height = estimateOf 130<cm> 140<cm> 150<cm>
+                            }
+                    }
+
+                    test "a child without a known gender takes the average of the male and the female row" {
+                        (Estimates.ofAge tables UnknownGender (Some(years 1)) None).Weight
+                        |> Expect.equal
+                            "7.5 to 11.5 kg in whole kg, 9.9 kg"
+                            (estimateOf 7000<gram> 9900<gram> 11000<gram>)
+                    }
+
+                    test "a newborn with a post-menstrual age the neonatal table reaches takes the neonatal row" {
+                        Estimates.ofAge tables Female (Some(days 0)) (Some(awd 40 0))
+                        |> Expect.equal
+                            "2800 to 4000 g, 3400 g; 47 to 53 cm, 50 cm"
+                            {
+                                Weight = estimateOf 2800<gram> 3400<gram> 4000<gram>
+                                Height = estimateOf 47<cm> 50<cm> 53<cm>
+                            }
+                    }
+
+                    test "past the last week of the neonatal table the age table answers" {
+                        (Estimates.ofAge tables Male (Some(years 1)) (Some(awd 92 0))).Weight
+                        |> Expect.equal "the row of 1 year" (estimateOf 8000<gram> 10000<gram> 12000<gram>)
+                    }
+
+                    test "no estimate without an age, from 18 years, or without a row for the gender" {
+                        [
+                            Estimates.ofAge tables Male None None
+                            Estimates.ofAge tables Male (Some(years 18)) None
+                            Estimates.ofAge
+                                { tables with
+                                    Weights = []
+                                    Heights = []
+                                }
+                                Male
+                                (Some(years 10))
+                                None
+                        ]
+                        |> Expect.equal "none" [ Estimates.none; Estimates.none; Estimates.none ]
+                    }
+                ]
+
+
     [<Tests>]
     let tests =
 
@@ -1862,6 +1968,7 @@ module Tests =
             PatientTests.tests
             AdultMarkTests.tests
             GestationalAgeNeedTests.tests
+            EstimatesTests.tests
         ]
         //|> List.skip 4
         //|> List.take 1

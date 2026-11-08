@@ -127,13 +127,6 @@ and WeightAtDate =
     }
 
 
-type EstimatedWeight =
-    {
-        Weight: WeightValue
-        SD: WeightValue
-    }
-
-
 type Height =
     {
         Actual: HeightAtDate list
@@ -148,17 +141,65 @@ and HeightAtDate =
     }
 
 
-type EstimatedHeight =
-    {
-        Height: HeightValue
-        SD: HeightValue
-    }
-
-
 type AgeWeeksDays =
     {
         Weeks: int<week>
         Days: int<day>
+    }
+
+
+/// A row of a normal-value table: for a gender and an age, the 3rd percentile, the mean and the
+/// 97th percentile, with the unit of the age and the unit of the values.
+type NormalValue<[<Measure>] 'age, [<Measure>] 'u> =
+    {
+        /// Male or Female.
+        Gender: Gender
+        /// The age of the row.
+        Age: float<'age>
+        /// The 3rd percentile.
+        P3: float<'u>
+        /// The mean.
+        Mean: float<'u>
+        /// The 97th percentile.
+        P97: float<'u>
+    }
+
+
+/// The normal-value tables of weight and height: by age in years, and for newborns by
+/// post-menstrual age in weeks. An empty table gives no estimate.
+type NormalValueTables =
+    {
+        /// The weights by age in years, in kg.
+        Weights: NormalValue<year, kg> list
+        /// The heights by age in years, in cm.
+        Heights: NormalValue<year, cm> list
+        /// The weights by post-menstrual age in weeks, in gram.
+        NeoWeights: NormalValue<week, gram> list
+        /// The heights by post-menstrual age in weeks, in cm.
+        NeoHeights: NormalValue<week, cm> list
+    }
+
+
+/// The 3rd percentile, the mean and the 97th percentile of a weight or a height: as a table gives
+/// them, or as an estimate.
+type Percentiles<'v> =
+    {
+        /// The 3rd percentile.
+        P3: 'v
+        /// The mean; in an estimate rounded to the nearest weight or height a user can pick.
+        Mean: 'v
+        /// The 97th percentile.
+        P97: 'v
+    }
+
+
+/// The estimates of the weight and the height of a patient; none where a table gives none.
+type Estimates =
+    {
+        /// The weight in gram.
+        Weight: Percentiles<int<gram>> option
+        /// The height in cm.
+        Height: Percentiles<int<cm>> option
     }
 
 
@@ -1654,6 +1695,150 @@ module AgeWeeksDays =
             dto.Days <- awd.Days |> int
 
             dto
+
+
+[<RequireQualifiedAccess>]
+module Estimates =
+
+    open AgeValue.Operators
+
+
+    /// No estimate of either.
+    let none =
+        {
+            Weight = None
+            Height = None
+        }
+
+
+    /// The weight steps a mean is rounded to: by 50 gram up to 2 kg, by 100 gram up to 10 kg, by
+    /// 500 gram up to 20 kg and by 1 kg up to 100 kg.
+    let weightSteps =
+        [|
+            [| 400..50..1950 |]
+            [| 2000..100..10000 |]
+            [| 10500..500..20000 |]
+            [| 21000..1000..100000 |]
+        |]
+        |> Array.concat
+        |> Array.map Conversions.gramFromInt
+
+
+    /// The height steps a mean is rounded to: from 40 to 220 cm.
+    let heightSteps = [| 40..220 |] |> Array.map Conversions.cmFromInt
+
+
+    /// The value to a whole number in its unit, cut, not rounded.
+    let toWhole (v: float<'u>) : int<'u> = v |> float |> int |> LanguagePrimitives.Int32WithMeasure
+
+
+    /// The step nearest to a value.
+    let nearestStep (steps: int<'u>[]) (v: int<'u>) = steps[steps |> Informedica.Utils.Lib.Array.nearestIndex v]
+
+
+    /// The percentiles of a gender at an age: the 3rd percentile, the mean and the 97th percentile of
+    /// the row nearest to the age; none when the table has no row for the gender.
+    let percentilesOfGender (rows: NormalValue<'age, 'u> list) (age: float<'age>) gender =
+        match rows |> List.filter (fun nv -> nv.Gender = gender) |> List.toArray with
+        | [||] -> None
+        | rows ->
+            let nv = rows[rows |> Array.map _.Age |> Informedica.Utils.Lib.Array.nearestIndex age]
+
+            Some
+                {
+                    P3 = nv.P3
+                    Mean = nv.Mean
+                    P97 = nv.P97
+                }
+
+
+    /// The nearest percentiles at an age for the gender of a patient; for a patient without a known
+    /// gender the average of the male and the female percentiles.
+    let nearestPercentiles gender (age: float<'age>) (rows: NormalValue<'age, 'u> list) =
+        match gender with
+        | Male
+        | Female -> gender |> percentilesOfGender rows age
+        | AnyGender
+        | UnknownGender ->
+            Option.map2
+                (fun m f ->
+                    {
+                        P3 = (m.P3 + f.P3) / 2.
+                        Mean = (m.Mean + f.Mean) / 2.
+                        P97 = (m.P97 + f.P97) / 2.
+                    }
+                )
+                (Male |> percentilesOfGender rows age)
+                (Female |> percentilesOfGender rows age)
+
+
+    /// The age in years the age tables are read at: the years and the months.
+    let tableYears age =
+        let y, m, _, _ = age |> AgeValue.getDef0
+        (float (int y) + float (int m) / 12.) * 1.<year>
+
+
+    /// The post-menstrual age in weeks, when a neonatal table reaches it: past its last week an
+    /// older infant takes the age table, or the nearest row would give a newborn's value.
+    let neonatalWeeks pma (rows: NormalValue<week, 'u> list) =
+        pma
+        |> Option.map (fun pma -> float (int (pma |> AgeWeeksDays.toDays)) / 7. * 1.<week>)
+        |> Option.filter (fun weeks -> rows |> List.exists (fun nv -> nv.Age >= weeks))
+
+
+    /// The estimate of the percentiles of a table: cut to whole numbers, the mean on the nearest
+    /// step.
+    let estimate steps (pct: Percentiles<float<'u>>) =
+        {
+            P3 = pct.P3 |> toWhole
+            Mean = pct.Mean |> toWhole |> nearestStep steps
+            P97 = pct.P97 |> toWhole
+        }
+
+
+    /// The estimates of a patient of a gender, an age and a post-menstrual age from the tables:
+    /// none without an age or from 18 years. Each measure takes the neonatal table while it reaches
+    /// the post-menstrual age, otherwise the age table. An age-table weight in kg has its
+    /// percentiles cut to whole kg.
+    let ofAge tables gender age pma =
+        match age with
+        | None -> none
+        | Some age when age >=? AgeValue.eighteen -> none
+        | Some age ->
+            let neonatal (rows: NormalValue<week, 'u> list) =
+                rows
+                |> neonatalWeeks pma
+                |> Option.bind (fun weeks -> rows |> nearestPercentiles gender weeks)
+
+            let years = age |> tableYears
+            let toGram (kg: int<kg>) = kg * 1000<gram / kg>
+
+            let weight =
+                match tables.NeoWeights |> neonatal with
+                | Some pct -> pct |> estimate weightSteps |> Some
+                | None ->
+                    tables.Weights
+                    |> nearestPercentiles gender years
+                    |> Option.map (fun pct ->
+                        {
+                            P3 = pct.P3 |> toWhole |> toGram
+                            Mean = pct.Mean * 1000.<gram / kg> |> toWhole |> nearestStep weightSteps
+                            P97 = pct.P97 |> toWhole |> toGram
+                        }
+                    )
+
+            let height =
+                match tables.NeoHeights |> neonatal with
+                | Some pct -> pct |> estimate heightSteps |> Some
+                | None ->
+                    tables.Heights
+                    |> nearestPercentiles gender years
+                    |> Option.map (estimate heightSteps)
+
+            {
+                Weight = weight
+                Height = height
+            }
 
 
 module PatientIdentity =
