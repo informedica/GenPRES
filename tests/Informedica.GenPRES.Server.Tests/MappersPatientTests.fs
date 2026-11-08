@@ -402,13 +402,13 @@ let estimateTests =
                 let premature =
                     { ehr with
                         Patient =
-                            { (ehr.Patient
-                               |> Informedica.GenCore.Lib.Patients.Patient.withGestationalAge (
-                                   Informedica.GenCore.Lib.Patients.AgeWeeksDays.create 26<week> 0<day> |> Some
-                               )) with
+                            { ehr.Patient with
+                                Data.GestationalAge =
+                                    Informedica.GenCore.Lib.Patients.AgeWeeksDays.create 26<week> 0<day> |> Some
                                 Data.Weight = Informedica.GenCore.Lib.Patients.Weight.unknown
                                 Data.Height = Informedica.GenCore.Lib.Patients.Height.unknown
                             }
+                            |> Informedica.GenCore.Lib.Patients.Patient.calculatePostMenstrualAge
                     }
 
                 let port = ServerApi.StubPatientData.port

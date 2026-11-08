@@ -173,9 +173,9 @@ type PatientData =
         Height: Height
         /// The gestational age at birth; absent when not known.
         GestationalAge: AgeWeeksDays option
-        /// The post-menstrual age, the age corrected for the gestational age, calculated from the age
-        /// and the gestational age when the age is calculated, when the gestational age becomes known,
-        /// and for an anonymous patient when the age changes. None without a gestational age or an age.
+        /// The post-menstrual age, the age corrected for the gestational age: the age plus the
+        /// gestational age, set by calculatePostMenstrualAge, which atDate calls when the patient is
+        /// created. None without a gestational age or an age.
         PostMenstrualAge: AgeWeeksDays option
         /// The enteral access.
         EnteralAccess: EnteralAccess
@@ -382,14 +382,6 @@ module AgeValue =
         let a2 = a2 |> getAgeInDays
         a1 |> op <| a2
 
-
-    let addDays n av =
-        let d = av |> SetGet.getDaysDef0
-        let d = if d + n > 6<day> then d else d + n
-
-        av |> SetGet.setDays (Some d)
-
-
     module Operators =
 
         let (<?) a1 a2 = comp (<) a1 a2
@@ -490,9 +482,6 @@ module BirthDate =
             Month = m
             Day = d
         }
-
-
-    let zero = create 1900<year> 1<month> 1<day>
 
 
     let get
@@ -1423,29 +1412,10 @@ module GestationType =
         | _ -> UnknownGestation
 
 
-    let toWeeks =
-        function
-        | ExtremePreterm -> min |> Some
-        | VeryPreterm -> extreme |> Some
-        | ModeratePreterm -> very |> Some
-        | FullTerm -> moderate |> Some
-        | UnknownGestation -> None
-
-
     let toString (gt: GestationType) =
         match gt with
         | UnknownGestation -> ""
         | _ -> $"{gt}"
-
-
-    let fromString s =
-        match s with
-        | _ when ExtremePreterm |> toString = s -> UnknownGestation
-        | _ when VeryPreterm |> toString = s -> VeryPreterm
-        | _ when ModeratePreterm |> toString = s -> ModeratePreterm
-        | _ when FullTerm |> toString = s -> FullTerm
-        | _ -> UnknownGestation
-
 
 module AgeWeeksDays =
 
@@ -1456,16 +1426,6 @@ module AgeWeeksDays =
         }
 
     let fromWeeks w = create w 0<day>
-
-    let zero = create 0<week> 0<day>
-
-    let oneDay = create 0<week> 1<day>
-
-    let oneWeek = create 1<week> 0<day>
-
-    let fullTerm = create 40<week> 0<day>
-
-    let preterm = create 36<week> 6<day>
 
 
     module Optics =
@@ -1486,9 +1446,6 @@ module AgeWeeksDays =
         let setWeeks = Optic.set Optics.weeks
 
         let setDays = Optic.set Optics.days
-
-
-    let fromGestation = GestationType.toWeeks >> (Option.map fromWeeks)
 
 
     let toGestation = SetGet.getWeeks >> GestationType.fromWeeks
@@ -1515,7 +1472,7 @@ module AgeWeeksDays =
 
 
     /// The gestational age from which a neonate is born at term: 37 weeks, where the full term
-    /// gestation type starts. Not to be confused with fullTerm, the due date at 40 weeks.
+    /// gestation type starts.
     let term = fromWeeks GestationType.moderate
 
 
@@ -1534,9 +1491,6 @@ module AgeWeeksDays =
 
 
     open Operators
-
-
-    let isfullTerm awd = awd >=? fullTerm
 
 
     /// Whether a gestational age is below term.
@@ -1764,17 +1718,6 @@ module Patient =
         | Some idn -> { pat with Patient.Data.Age = idn.BirthDate |> AgeValue.fromBirthDate dt |> Some }
         | None -> pat
         |> calculatePostMenstrualAge
-
-
-    /// The patient with a gestational age that became known, entered or from the EHR, and the
-    /// post-menstrual age of its age.
-    let withGestationalAge ga pat =
-        { pat with Patient.Data.GestationalAge = ga } |> calculatePostMenstrualAge
-
-
-    /// The anonymous patient with an entered age, and the post-menstrual age of it. An identified
-    /// patient gets its age from atDate.
-    let withAge av pat = { pat with Patient.Data.Age = av } |> calculatePostMenstrualAge
 
 
     /// The patient of an identity and the patient data, created at a date: with its ages.

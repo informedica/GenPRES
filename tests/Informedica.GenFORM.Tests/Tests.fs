@@ -2431,9 +2431,10 @@ module Tests =
                                             { ehr.Patient.Data with
                                                 Department = Department.pediatricICU "ICK"
                                                 Gender = Female
+                                                GestationalAge = Some(AgeWeeksDays.create 36<week> 2<day>)
                                             }
                                     }
-                                    |> Patient.withGestationalAge (Some(AgeWeeksDays.create 36<week> 2<day>))
+                                    |> Patient.calculatePostMenstrualAge
                                 RenalFunction = Some(FormTypes.RenalFunction.EGFR(Some 30, Some 60))
                                 Access = [ FormTypes.CVL; FormTypes.EnteralTube ]
                             }
@@ -2489,9 +2490,10 @@ module Tests =
                                             { ehr.Patient.Data with
                                                 Department = Department.pediatricICU "ICK"
                                                 Gender = Female
+                                                GestationalAge = Some(AgeWeeksDays.create 36<week> 2<day>)
                                             }
                                     }
-                                    |> Patient.withGestationalAge (Some(AgeWeeksDays.create 36<week> 2<day>))
+                                    |> Patient.calculatePostMenstrualAge
                                 RenalFunction = Some(FormTypes.RenalFunction.EGFR(Some 30, Some 60))
                                 Access = [ FormTypes.CVL; FormTypes.EnteralTube ]
                             }

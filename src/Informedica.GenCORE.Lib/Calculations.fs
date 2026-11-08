@@ -53,16 +53,6 @@ module Calculations =
             d + dy + dm + dw
 
 
-        let yearsMonthsWeeksToDaysOpt y m w d =
-            let y, m, w, d =
-                y |> Option.defaultValue 0<year>,
-                m |> Option.defaultValue 0<month>,
-                w |> Option.defaultValue 0<week>,
-                d |> Option.defaultValue 0<day>
-
-            yearsMonthsWeeksDaysToDays y m w d
-
-
         /// The calendar age at a date of a birth date, in years, months, weeks and days, taken on the
         /// date alone. The months count from the birth date to the last month-day, the latest date the
         /// birth date plus a whole number of months gives that is not after the date; a month-day that a
@@ -105,33 +95,6 @@ module Calculations =
             |> DateTime.addMonths ms
             |> DateTime.addWeeks ws
             |> DateTime.addDays ds
-
-
-        let adjustedAge (gestDays: int<day>) (gestWeeks: int<week>) dtBirth dtNow =
-            let fullTerm = Constants.fullTerm |> Conversions.weeksToDays
-            let chronological = DateTime.dateDiffDays dtNow dtBirth |> Conversions.dayFromInt
-            let ageDiff = (fullTerm - (gestDays + (gestWeeks |> Conversions.weeksToDays)))
-            chronological - ageDiff
-
-
-        let postMenstrualAge (actAge: int<day>) (gestWeeks: int<week>) (gestDays: int<day>) =
-            (gestWeeks |> Conversions.weeksToDays) + gestDays + actAge
-            |> Conversions.daysToWeeks
-
-
-        let ageToString yrs mos wks dys =
-            let yToStr = Conversions.yearToString "year" "years"
-            let mToStr = Conversions.monthToString "month" "months"
-            let wToStr = Conversions.weekToString "week" "weeks"
-            let dToStr = Conversions.dayToString "day" "days"
-
-            [
-                yrs |> Option.map yToStr
-                mos |> Option.map mToStr
-                wks |> Option.map wToStr
-                dys |> Option.map dToStr
-            ]
-            |> List.map (Option.defaultValue "")
 
 
         let ageToStringNL yrs mos wks dys =

@@ -61,9 +61,6 @@ module Constants =
 
 
     [<Literal>]
-    let fullTerm = 40<week>
-
-    [<Literal>]
     let premature = 37<week>
 
     [<Literal>]
