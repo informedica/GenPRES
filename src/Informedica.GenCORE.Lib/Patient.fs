@@ -203,6 +203,20 @@ type Estimates =
     }
 
 
+/// Why the rows of a normal-value sheet do not make a table. A row is counted as in the sheet: the
+/// header is row 1.
+[<RequireQualifiedAccess>]
+type NormalValueError =
+    /// The rows hold no sheet of this name.
+    | MissingSheet of sheet: string
+    /// The sheet lacks these columns.
+    | MissingColumns of sheet: string * columns: string list
+    /// The row holds no number in the column.
+    | NotANumber of sheet: string * row: int * column: string
+    /// The row holds a sex that is not M or F.
+    | UnknownSex of sheet: string * row: int * sex: string
+
+
 /// Who the patient is, when the EHR gave enough to say: the id, the name and the birthdate.
 /// Shown in full to the user, kept by the Session and its store, never printed by a patient
 /// printer or a log line.
@@ -1839,6 +1853,102 @@ module Estimates =
                 Weight = weight
                 Height = height
             }
+
+
+[<RequireQualifiedAccess>]
+module NormalValueTables =
+
+    open FsToolkit.ErrorHandling
+
+
+    /// The columns a normal-value sheet must have: the sex, then the numeric ones.
+    let requiredColumns = [ "sex"; "age"; "p3"; "mean"; "p97" ]
+
+
+    /// The rows of a normal-value sheet, the header first, as a table with the unit of the age and
+    /// the unit of the values the caller gives it; every error the rows hold otherwise. Without
+    /// rows below the header the table is empty.
+    let parseSheet sheet (rows: string[][]) : Validation<NormalValue<'age, 'u> list, NormalValueError> =
+        match rows |> Array.tryHead with
+        | None -> Validation.error (NormalValueError.MissingColumns(sheet, requiredColumns))
+        | Some header ->
+            let header = header |> Array.map _.Trim()
+
+            match requiredColumns |> List.filter (fun c -> header |> Array.contains c |> not) with
+            | _ :: _ as missing -> Validation.error (NormalValueError.MissingColumns(sheet, missing))
+            | [] ->
+                let cell (row: string[]) column =
+                    let i = header |> Array.findIndex ((=) column)
+                    if i < row.Length then row[i] else ""
+
+                let parseRow n (row: string[]) =
+                    let number column =
+                        cell row column
+                        |> Double.tryParseFinite
+                        |> Result.requireSome (NormalValueError.NotANumber(sheet, n, column))
+
+                    let gender =
+                        match (cell row "sex").Trim() with
+                        | "M" -> Ok Male
+                        | "F" -> Ok Female
+                        | s -> Error(NormalValueError.UnknownSex(sheet, n, s))
+
+                    validation {
+                        let! g = gender
+                        and! age = number "age"
+                        and! p3 = number "p3"
+                        and! mean = number "mean"
+                        and! p97 = number "p97"
+
+                        return
+                            {
+                                Gender = g
+                                Age = LanguagePrimitives.FloatWithMeasure age
+                                P3 = LanguagePrimitives.FloatWithMeasure p3
+                                Mean = LanguagePrimitives.FloatWithMeasure mean
+                                P97 = LanguagePrimitives.FloatWithMeasure p97
+                            }
+                    }
+
+                // a fold with and! keeps the errors of a row in the column order, which
+                // List.sequenceValidationA reverses
+                rows[1..]
+                |> Array.toList
+                |> List.mapi (fun i row -> parseRow (i + 2) row)
+                |> List.fold
+                    (fun acc row ->
+                        validation {
+                            let! xs = acc
+                            and! x = row
+                            return x :: xs
+                        }
+                    )
+                    (Ok [])
+                |> Validation.map List.rev
+
+
+    /// The tables from the rows of the four sheets, by sheet name: weight, height, weight neo and
+    /// height neo; every error of every sheet otherwise, a sheet absent from the rows among them.
+    let ofRows (rows: Map<string, string[][]>) =
+        let table sheet : Validation<NormalValue<'age, 'u> list, NormalValueError> =
+            match rows |> Map.tryFind sheet with
+            | None -> Validation.error (NormalValueError.MissingSheet sheet)
+            | Some sheetRows -> sheetRows |> parseSheet sheet
+
+        validation {
+            let! w = table "weight"
+            and! h = table "height"
+            and! nw = table "weight neo"
+            and! nh = table "height neo"
+
+            return
+                {
+                    Weights = w
+                    Heights = h
+                    NeoWeights = nw
+                    NeoHeights = nh
+                }
+        }
 
 
 module PatientIdentity =
