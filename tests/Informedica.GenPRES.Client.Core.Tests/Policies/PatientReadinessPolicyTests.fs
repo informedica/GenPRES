@@ -21,8 +21,14 @@ let empty = Models.Patient.empty
 let aged = PatientEdit.setYear (Some "5") None
 
 
-/// An age of ten weeks, nothing else: younger than 28 weeks, so the gestational age matters.
-let infant = PatientEdit.setWeek (Some "10") None
+/// The draft with the gestational age the server answers for its age.
+let answered ga (p: Patient option) = p |> Option.map (fun p -> { p with GestationalAge = ga })
+
+
+/// An age of ten weeks, nothing else: younger than 28 weeks, so the server needs the gestational age.
+let infant =
+    PatientEdit.setWeek (Some "10") None
+    |> answered (GestationalAge.RequiredGestationalAge None)
 
 
 let withWeight (p: Patient option) = p |> PatientEdit.setWeight (Some "18000")
@@ -150,7 +156,12 @@ let tests =
                     }
 
                     test "a patient of 28 weeks or older needs no gestational age" {
-                        for draft in [ PatientEdit.setWeek (Some "28") None; aged ] do
+                        for draft in
+                            [
+                                PatientEdit.setWeek (Some "28") None
+                                |> answered (GestationalAge.OptionalGestationalAge None)
+                                aged
+                            ] do
                             draft
                             |> estimated
                             |> readiness

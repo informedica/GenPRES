@@ -65,6 +65,39 @@ let tests =
                     (Some 28000<gram>, None, Some 140<cm>)
             }
 
+            test "the gestational age with the need the age gives, and the post-menstrual age of it" {
+                let ga30: AgeWeeksDays =
+                    {
+                        Weeks = 30<week>
+                        Days = 0<day>
+                    }
+
+                let answer days =
+                    let pat =
+                        { Informedica.GenPRES.Shared.Models.Patient.empty with
+                            Age = days |> Option.map ServerApi.Age.ofDays
+                            GestationalAge = GestationalAge.OptionalGestationalAge(Some ga30)
+                        }
+
+                    let answered = changed loaded None pat
+                    answered.GestationalAge, answered.PostMenstrualAge
+
+                [ Some 70; Some 365; None ]
+                |> List.map answer
+                |> Expect.equal
+                    "needed at 10 weeks with 40 weeks, none from 1 year and none without an age"
+                    [
+                        GestationalAge.RequiredGestationalAge(Some ga30),
+                        Some
+                            {
+                                Weeks = 40<week>
+                                Days = 0<day>
+                            }
+                        GestationalAge.NoGestationalAge, None
+                        GestationalAge.NoGestationalAge, None
+                    ]
+            }
+
             test "a patient that lacks a weight or a height waits for the normal values" {
                 [ ageOnly 10; ageOnly 10 |> withWeight 28000<gram>; sent ]
                 |> List.map (PatientCommand.ChangePatient >> PatientCommand.gate)

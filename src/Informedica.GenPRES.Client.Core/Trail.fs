@@ -132,6 +132,7 @@ module Trail =
 
             let gestationalAge =
                 p.GestationalAge
+                |> GestationalAge.value
                 |> Option.map (fun ga -> $" GA %i{int ga.Weeks}+%i{int ga.Days}")
                 |> Option.defaultValue ""
 

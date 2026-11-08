@@ -15,8 +15,10 @@ module Age =
     module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
     module CoreConversions = Informedica.GenCore.Lib.Conversions
     module CoreAdultMark = Informedica.GenCore.Lib.Patients.AdultMark
+    module CoreGestationalAgeNeed = Informedica.GenCore.Lib.Patients.GestationalAgeNeed
 
     type CoreMark = Informedica.GenCore.Lib.Patients.AdultMark
+    type CoreNeed = Informedica.GenCore.Lib.Patients.GestationalAgeNeed
 
 
     /// The contract model's age as a GenCORE age value.
@@ -64,7 +66,7 @@ module Age =
 
     /// The gestational age in days of the contract model's patient, as GenCORE counts it.
     let gestAgeInDays (model: Informedica.GenPRES.Shared.Types.Patient) =
-        model.GestationalAge |> Option.map weeksDaysInDays
+        model.GestationalAge |> GestationalAge.value |> Option.map weeksDaysInDays
 
 
     /// The contract model's weeks-and-days age of a number of days, as GenCORE splits them.
@@ -77,14 +79,23 @@ module Age =
         }
 
 
-    /// The post-menstrual age of the contract model's patient, as GenCORE calculates it from the age
-    /// and the gestational age: what the server puts on the patient it answers. None without either.
-    let postMenstrualAge (model: Informedica.GenPRES.Shared.Types.Patient) =
+    /// The post-menstrual age, as GenCORE calculates it from the age and the gestational age given:
+    /// what the server puts on the patient it answers. None without either.
+    let postMenstrualAge age ga =
         Option.map2
             (fun age ga -> CoreAgeWeeksDays.postMenstrualAge (ageValue age) (weeksDays ga))
-            model.Age
-            model.GestationalAge
+            age
+            (ga |> GestationalAge.value)
         |> Option.map (CoreAgeWeeksDays.toDays >> int >> weeksDaysOfDays)
+
+
+    /// The gestational age given, with the need GenCORE sets from the age: kept when the
+    /// gestational age may be given, dropped from 1 year or without an age.
+    let gestationalAge age ga =
+        match age |> Option.map ageValue |> CoreGestationalAgeNeed.ofAge with
+        | CoreNeed.NoGestationalAge -> GestationalAge.NoGestationalAge
+        | CoreNeed.OptionalGestationalAge -> GestationalAge.OptionalGestationalAge ga
+        | CoreNeed.RequiredGestationalAge -> GestationalAge.RequiredGestationalAge ga
 
 
     /// The adult mark of an age, as GenCORE sets it, with the choice of the user the mark holds. A
@@ -244,7 +255,10 @@ module Patient =
 
         {
             Age = age
-            GestationalAge = dto.GestAgeDays |> Option.map (toInt >> Age.weeksDaysOfDays)
+            GestationalAge =
+                dto.GestAgeDays
+                |> Option.map (toInt >> Age.weeksDaysOfDays)
+                |> Age.gestationalAge age
             PostMenstrualAge = dto.PMAgeDays |> Option.map (toInt >> Age.weeksDaysOfDays)
             Weight =
                 {

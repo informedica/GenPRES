@@ -193,7 +193,11 @@ module SigningPolicy =
                     (measure patient.Height.Measured patient.Height.Estimated)
                     (measure ehr.Height.Measured ehr.Height.Estimated)
                     (labelled height)
-                row Terms.``Patient GA Age`` patient.GestationalAge ehr.GestationalAge gestAge
+                row
+                    Terms.``Patient GA Age``
+                    (patient.GestationalAge |> Models.GestationalAge.value)
+                    (ehr.GestationalAge |> Models.GestationalAge.value)
+                    gestAge
                 row Terms.``Patient Gender`` (Some patient.Gender) (Some ehr.Gender) gender
                 row Terms.``Patient Access`` (Some(List.sort patient.Access)) (Some(List.sort ehr.Access)) access
                 row

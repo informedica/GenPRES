@@ -85,17 +85,30 @@ module Types =
             /// From 18 years: an adult without a mark.
             | Adult
 
+        /// The gestational age of a patient with the need for it, set by the server from the age.
+        [<RequireQualifiedAccess>]
+        type GestationalAge =
+            /// From 1 year, or without an age: the gestational age says nothing and is not given.
+            | NoGestationalAge
+            /// From 28 weeks and under 1 year: the gestational age may be given.
+            | OptionalGestationalAge of AgeWeeksDays option
+            /// Under 28 weeks: the gestational age is needed.
+            | RequiredGestationalAge of AgeWeeksDays option
+
 
     type Age = Patient.Age
     type AgeWeeksDays = Patient.AgeWeeksDays
     type AdultMark = Patient.AdultMark
+    type GestationalAge = Patient.GestationalAge
 
     /// The patient as the wire carries it and the panel edits it: every field optional, so a
     /// value of this type is a draft or a reading, not yet a patient.
     type Patient =
         {
             Age: Age option
-            GestationalAge: AgeWeeksDays option
+            /// The gestational age with the need for it the server set from the age; the client asks
+            /// for the gestational age only when the server says it may be given.
+            GestationalAge: GestationalAge
             /// The post-menstrual age the server calculated from the age and the gestational age; the
             /// client holds it and never calculates it.
             PostMenstrualAge: AgeWeeksDays option

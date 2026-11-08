@@ -10,10 +10,10 @@ module PatientRead =
     open Informedica.GenPRES.Shared.Models.Patient
 
 
-    let getGAWeeks (p: Patient) = p.GestationalAge |> Option.map _.Weeks
+    let getGAWeeks (p: Patient) = p.GestationalAge |> GestationalAge.value |> Option.map _.Weeks
 
 
-    let getGADays (p: Patient) = p.GestationalAge |> Option.map _.Days
+    let getGADays (p: Patient) = p.GestationalAge |> GestationalAge.value |> Option.map _.Days
 
 
     let getRenalFunction (p: Patient) = p.RenalFunction |> Option.map RenalFunctionText.renalToOption

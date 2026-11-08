@@ -494,7 +494,7 @@ let neonatalEstimateTests =
             test "a term newborn one week old is estimated from the neonatal tables" {
                 { Patient.empty with
                     Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
-                    GestationalAge = Some NeonatalEstimateFixtures.term
+                    GestationalAge = GestationalAge.RequiredGestationalAge(Some NeonatalEstimateFixtures.term)
                     PostMenstrualAge = Some NeonatalEstimateFixtures.termOneWeek
                     Gender = Male
                 }
@@ -506,7 +506,7 @@ let neonatalEstimateTests =
             test "an infant of six months with a gestational age is estimated from the age tables" {
                 { Patient.empty with
                     Age = Some { Patient.Age.ageZero with Months = 6<month> }
-                    GestationalAge = Some NeonatalEstimateFixtures.premature
+                    GestationalAge = GestationalAge.RequiredGestationalAge(Some NeonatalEstimateFixtures.premature)
                     PostMenstrualAge = Some NeonatalEstimateFixtures.prematureSixMonths
                     Gender = Male
                 }
@@ -520,7 +520,7 @@ let neonatalEstimateTests =
             test "each table is judged by its own reach: a neonatal weight is kept when the height table is missing" {
                 { Patient.empty with
                     Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
-                    GestationalAge = Some NeonatalEstimateFixtures.term
+                    GestationalAge = GestationalAge.RequiredGestationalAge(Some NeonatalEstimateFixtures.term)
                     PostMenstrualAge = Some NeonatalEstimateFixtures.termOneWeek
                     Gender = Male
                 }
@@ -532,7 +532,7 @@ let neonatalEstimateTests =
             test "a neonatal table with no row for the sex answers nothing, and the age table does" {
                 { Patient.empty with
                     Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
-                    GestationalAge = Some NeonatalEstimateFixtures.term
+                    GestationalAge = GestationalAge.RequiredGestationalAge(Some NeonatalEstimateFixtures.term)
                     PostMenstrualAge = Some NeonatalEstimateFixtures.termOneWeek
                     Gender = Female
                 }
@@ -550,7 +550,7 @@ let neonatalEstimateTests =
             test "without the neonatal tables a newborn is estimated from the age tables" {
                 { Patient.empty with
                     Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
-                    GestationalAge = Some NeonatalEstimateFixtures.term
+                    GestationalAge = GestationalAge.RequiredGestationalAge(Some NeonatalEstimateFixtures.term)
                     PostMenstrualAge = Some NeonatalEstimateFixtures.termOneWeek
                     Gender = Male
                 }
@@ -614,5 +614,60 @@ let normalValuesOfRowsTests =
                 |> Expect.equal
                     "twelve kilograms, 87 centimetres, nothing measured"
                     (Some 12000<gram>, Some 87<cm>, None)
+            }
+        ]
+
+
+[<Tests>]
+let gestationalAgeTests =
+    let awd w d : AgeWeeksDays =
+        {
+            Weeks = w * 1<week>
+            Days = d * 1<day>
+        }
+    let ga30 = awd 30 0
+
+    let all =
+        [
+            GestationalAge.NoGestationalAge
+            GestationalAge.OptionalGestationalAge None
+            GestationalAge.OptionalGestationalAge(Some ga30)
+            GestationalAge.RequiredGestationalAge None
+            GestationalAge.RequiredGestationalAge(Some ga30)
+        ]
+
+    testList
+        "the gestational age"
+        [
+            test "the value, given or not" {
+                all
+                |> List.map GestationalAge.value
+                |> Expect.equal "the values" [ None; None; Some ga30; None; Some ga30 ]
+            }
+
+            test "map changes the value when it may be given, and leaves no gestational age unchanged" {
+                all
+                |> List.map (GestationalAge.map (fun _ -> Some(awd 26 2)))
+                |> Expect.equal
+                    "the gestational ages"
+                    [
+                        GestationalAge.NoGestationalAge
+                        GestationalAge.OptionalGestationalAge(Some(awd 26 2))
+                        GestationalAge.OptionalGestationalAge(Some(awd 26 2))
+                        GestationalAge.RequiredGestationalAge(Some(awd 26 2))
+                        GestationalAge.RequiredGestationalAge(Some(awd 26 2))
+                    ]
+            }
+
+            test "the gestational age may be given, except when there is none to give" {
+                all
+                |> List.map GestationalAge.mayBeGiven
+                |> Expect.equal "may be given" [ false; true; true; true; true ]
+            }
+
+            test "the gestational age is missing only when it is needed and not given" {
+                all
+                |> List.map GestationalAge.isMissing
+                |> Expect.equal "missing" [ false; false; false; true; false ]
             }
         ]

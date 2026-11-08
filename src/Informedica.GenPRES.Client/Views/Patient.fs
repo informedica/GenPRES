@@ -573,12 +573,8 @@ module Patient =
                         s |> Msg.UpdateHeight |> dispatch
                     )
 
-                if
-                    pat |> Option.isSome
-                    && pat
-                       |> Option.map (fun p -> p |> PatientRead.getAgeInYears |> Option.defaultValue 0. < 1)
-                       |> Option.defaultValue false
-                then
+                // the server says from the age whether the gestational age may be given
+                if pat |> Option.exists (fun p -> p.GestationalAge |> GestationalAge.mayBeGiven) then
                     [| 24..42 |]
                     |> Array.map (fun k -> $"{k}", $"{k}")
                     |> createMeasureSelect

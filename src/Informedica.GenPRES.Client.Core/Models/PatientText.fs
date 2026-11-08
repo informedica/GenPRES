@@ -165,15 +165,11 @@ module PatientText =
             )
             |> bold
 
-            if
-                pat
-                |> getAgeInDays
-                |> Option.map (fun ds -> ds < 365.)
-                |> Option.defaultValue false
-            then
+            if pat.GestationalAge |> GestationalAge.mayBeGiven then
                 (Some $", {Terms.``Patient GA Age`` |> getTerm}:") |> italic
 
                 pat.GestationalAge
+                |> GestationalAge.value
                 |> Option.map (Age.gestAgeToString terms lang)
                 |> Option.orElse ("" |> Some)
 

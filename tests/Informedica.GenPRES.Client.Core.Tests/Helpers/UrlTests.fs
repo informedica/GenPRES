@@ -73,9 +73,17 @@ let tests =
                 p.Weight.Measured |> Option.map int |> Expect.equal "weight in gram" (Some 3500)
                 p.Height.Measured |> Option.map int |> Expect.equal "height in cm" (Some 50)
 
+                // held as optional until the server answers with the need
                 p.GestationalAge
-                |> Option.map (fun ga -> int ga.Weeks, int ga.Days)
-                |> Expect.equal "30 weeks 3 days" (Some(30, 3))
+                |> Expect.equal
+                    "30 weeks 3 days"
+                    (GestationalAge.OptionalGestationalAge(
+                        Some
+                            {
+                                Weeks = 30<week>
+                                Days = 3<day>
+                            }
+                    ))
 
                 p.Department |> Expect.equal "department" (Some "NEO")
                 p.Access |> Expect.equal "central line" [ CVL ]
@@ -88,8 +96,15 @@ let tests =
                 p.Access |> Expect.isEmpty "no central line"
 
                 p.GestationalAge
-                |> Option.map (fun ga -> int ga.Weeks, int ga.Days)
-                |> Expect.equal "30 weeks 0 days" (Some(30, 0))
+                |> Expect.equal
+                    "30 weeks 0 days"
+                    (GestationalAge.OptionalGestationalAge(
+                        Some
+                            {
+                                Weeks = 30<week>
+                                Days = 0<day>
+                            }
+                    ))
             }
 
             test "a patient url without an age part names its parameters, not their values" {
