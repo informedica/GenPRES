@@ -1904,7 +1904,7 @@ module NormalValueTables =
                 let parseRow n (row: string[]) =
                     let number column =
                         cell row column
-                        |> Double.tryParseFinite
+                        |> Double.tryParse
                         |> Result.requireSome (NormalValueError.NotANumber(sheet, n, column))
 
                     let gender =

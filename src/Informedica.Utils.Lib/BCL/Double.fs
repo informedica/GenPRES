@@ -49,21 +49,10 @@ module Double =
     let parse (s: string) = Double.Parse(s, CultureInfo.InvariantCulture)
 
 
-    /// Get a float Option from a string
+    /// Get the finite float a string holds, read with the float number style and the invariant culture:
+    /// none for a decimal comma, a thousands separator, a currency sign, parentheses, not a number, an
+    /// infinity or an overflow. Spaces around the number are allowed.
     let tryParse (s: string) =
-        let style = NumberStyles.Any
-        let cult = CultureInfo.InvariantCulture
-
-        match Double.TryParse(s, style, cult) with
-        | true, v -> Some v
-        | false, _ -> None
-
-
-    /// Get the finite float a string holds, read with the float number style and the invariant
-    /// culture: none for a decimal comma, a thousands separator, not a number, an infinity or an
-    /// overflow. Spaces around the number are allowed. Unlike tryParse, which allows every number
-    /// style and reads "3,5" as 35, it suits a validation.
-    let tryParseFinite (s: string) =
         match Double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture) with
         | true, v when Double.IsFinite v -> Some v
         | _ -> None
