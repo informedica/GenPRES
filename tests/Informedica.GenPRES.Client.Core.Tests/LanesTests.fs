@@ -80,7 +80,7 @@ let twoOrdersOnWorkbench () =
 
     { Lanes.initial (Some draft) with
         OrderPlan = shown
-        OrderContext = OrderContextState.held patient workbench
+        OrderContext = OrderContextState.evaluated patient workbench
     }
 
 
@@ -273,7 +273,7 @@ let tests =
                 let lanes =
                     { Lanes.initial (Some young) with
                         Session = SessionState.opened session None
-                        OrderPlan = held two None
+                        OrderPlan = settled two None
                     }
 
                 let lanes, _, _ =
@@ -286,10 +286,10 @@ let tests =
                     lanes
                     |> Lanes.transition newId (LanesMsg.Patient(PatientMsg.Answered("p-0", Ok young)))
 
-                let settled = { lanes with OrderPlan = held two None }
+                let lanesSettled = { lanes with OrderPlan = settled two None }
 
                 let lanes, effects, _ =
-                    settled
+                    lanesSettled
                     |> Lanes.transition
                         newId
                         (LanesMsg.Session(
@@ -360,7 +360,7 @@ let tests =
                     let opened newId =
                         { Lanes.initial (Some measured) with
                             Session = SessionState.opened session None
-                            OrderPlan = held two None
+                            OrderPlan = settled two None
                         }
                         |> Lanes.transition
                             newId
@@ -414,13 +414,13 @@ let tests =
                     }
                 ]
 
-            test "a Session that opens over a page holding a plan: the plan waits for the new patient" {
+            test "a Session that opens over a page withChanges a plan: the plan waits for the new patient" {
                 let session = { SessionMachineTests.full with Head = Some head }
 
                 let lanes, effects, _ =
                     { Lanes.initial (Some draft) with
                         Session = SessionState.resuming
-                        OrderPlan = held two None
+                        OrderPlan = settled two None
                     }
                     |> Lanes.transition
                         (counter ())
@@ -436,7 +436,7 @@ let tests =
 
                 lanes.OrderPlan
                 |> OrderPlanState.view
-                |> Expect.equal "the version waits" OrderPlanView.NoPatient
+                |> Expect.equal "the version waits" OrderPlanView.NoPatientData
 
                 effects
                 |> List.tryHead
@@ -483,7 +483,7 @@ let tests =
 
                 lanes.OrderPlan
                 |> OrderPlanState.view
-                |> Expect.equal "the version waits for the answer" OrderPlanView.NoPatient
+                |> Expect.equal "the version waits for the answer" OrderPlanView.NoPatientData
 
                 let _, effects, _ =
                     lanes
@@ -498,7 +498,7 @@ let tests =
                 |> Expect.equal "the plan opens the signed orders" (Some head.OrderContexts)
             }
 
-            test "a Session without a patient over a page holding one: the pages clear as usual" {
+            test "a Session without a patient over a page withChanges one: the pages clear as usual" {
                 let session = { SessionMachineTests.full with PatientContext = None }
 
                 let _, effects, _ =
@@ -647,7 +647,7 @@ let tests =
 
                          lanes.OrderPlan
                          |> OrderPlanState.view
-                         |> Expect.equal "the orders are gone" OrderPlanView.NoPatient
+                         |> Expect.equal "the orders are gone" OrderPlanView.NoPatientData
 
                          effects
                          |> List.contains (LanesEffect.Patient(PatientEffect.CallPatient(another, "p-2")))
@@ -678,7 +678,7 @@ let tests =
 
                          lanes.OrderPlan
                          |> OrderPlanState.view
-                         |> Expect.equal "the plan too" OrderPlanView.NoPatient
+                         |> Expect.equal "the plan too" OrderPlanView.NoPatientData
 
                          let _, effects, _ = lanes |> Lanes.transition newId (changed another "p-3")
 
@@ -693,7 +693,7 @@ let tests =
 
                 let heavier = { measured with Weight = { measured.Weight with Measured = Some 40000<gram> } }
 
-                let start = { Lanes.initial (Some measured) with OrderPlan = OrderPlanState.held measured two None }
+                let start = { Lanes.initial (Some measured) with OrderPlan = OrderPlanState.settled measured two None }
 
                 start |> behind |> Expect.isFalse "plan and panel agree"
 
@@ -978,7 +978,7 @@ let tests =
                 |> Expect.equal "still open" (SessionView.Open session)
             }
 
-            test "a notice that comes in by itself, as the drug names' does, is held off during a signature too" {
+            test "a notice that comes in by itself, as the drug names' does, waits during a signature too" {
                 let session = SessionMachineTests.full
 
                 let lanes =
@@ -1080,7 +1080,7 @@ let tests =
                 let lanes =
                     { Lanes.initial (Some draft) with
                         OrderPlan = recalculating one None "r-0" (OrderPlanCommand.UpdatePatient(patient, one))
-                        OrderContext = OrderContextState.held patient workbench
+                        OrderContext = OrderContextState.evaluated patient workbench
                     }
 
                 let after, effects, steps =
@@ -1468,8 +1468,8 @@ module SlotPrescribeFixtures =
     let prescribing =
         { Lanes.initial (Some draft) with
             OrderPlan = shown
-            OrderContext = OrderContextState.held patient (twoOrders "paracetamol")
-            Slots = [ "s-1", OrderContextState.held patient (twoOrders "TPN") ]
+            OrderContext = OrderContextState.evaluated patient (twoOrders "paracetamol")
+            Slots = [ "s-1", OrderContextState.evaluated patient (twoOrders "TPN") ]
         }
 
 

@@ -77,7 +77,7 @@ let tests =
         [
             test "a step is one line with its number, time, machine, message, effects and state" {
                 let state, effects =
-                    OrderContextState.noPatient
+                    OrderContextState.noPatientData
                     |> OrderContextState.transition (OrderContextMsg.PatientDataChanged(Some pat, "r-1"))
 
                 Trail.orderContext 12 at (OrderContextMsg.PatientDataChanged(Some pat, "r-1")) (state, effects)
@@ -98,10 +98,10 @@ let tests =
                         DoseType = None
                     }
 
-                let held = OrderContextState.held pat (OrderContextState.emptyMedication pat)
+                let settled = OrderContextState.evaluated pat (OrderContextState.emptyMedication pat)
                 let msg = OrderContextMsg.SeedFilter(seed, "r-1")
 
-                Trail.orderContext 3 at msg (held |> OrderContextState.transition msg)
+                Trail.orderContext 3 at msg (settled |> OrderContextState.transition msg)
                 |> Trail.format
                 |> Expect.equal
                     "the line"
@@ -201,13 +201,13 @@ let tests =
             }
 
             test "a recalculation shows the request it awaits and the state it keeps" {
-                OrderContextState.held pat ctxPicked
+                OrderContextState.evaluated pat ctxPicked
                 |> OrderContextState.transition (
                     OrderContextMsg.Command(OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Time, "r-9")
                 )
                 |> fst
                 |> Trail.OrderContext.state
-                |> Expect.equal "awaits and kept" "Changing ctx-1 awaits r-9 kept"
+                |> Expect.equal "awaits and recalculating" "Changing ctx-1 awaits r-9 recalculating"
             }
 
             test "a plan evaluation shows the context in a message, and its id once in an effect" {
@@ -525,7 +525,7 @@ let tests =
             }
 
             test "the patient data given again shows the change and nothing out" {
-                let held =
+                let landed =
                     PatientMachineTests.Fixtures.changing PatientDraftPolicy.Estimates.Kept "r-1"
                     |> PatientMachine.PatientState.transition (
                         PatientMachine.PatientMsg.Answered("r-1", Ok PatientMachineTests.Fixtures.answered)
@@ -539,7 +539,7 @@ let tests =
                         "r-2"
                     )
 
-                Trail.patient 1 at again (held |> PatientMachine.PatientState.transition again)
+                Trail.patient 1 at again (landed |> PatientMachine.PatientState.transition again)
                 |> Trail.format
                 |> Expect.equal
                     "the line"
@@ -603,7 +603,7 @@ let tests =
             }
 
             test "every machine names itself" {
-                let plan = OrderPlanState.noPatient
+                let plan = OrderPlanState.noPatientData
                 let signing = SigningState.idle
                 let session = SessionState.anonymous
 
@@ -644,7 +644,7 @@ let exampleTests =
                     |> Trail.format
                 line, (no + 1, state')
             )
-            (1, OrderContextState.noPatient)
+            (1, OrderContextState.noPatientData)
         |> fst
         |> Expect.equal
             "the lines"

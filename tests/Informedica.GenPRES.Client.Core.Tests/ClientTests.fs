@@ -97,7 +97,7 @@ let unsignedState =
         Lanes =
             { Lanes.initial (Some draft) with
                 Session = SessionState.opened SessionPatientPolicyTests.identified None
-                OrderPlan = OrderPlanState.held patient one None |> OrderPlanState.withOpened [||]
+                OrderPlan = OrderPlanState.settled patient one None |> OrderPlanState.withOpened [||]
             }
     }
 
@@ -216,7 +216,9 @@ let tests =
                                 Lanes =
                                     { Lanes.initial (Some draft) with
                                         OrderContext =
-                                            OrderContextState.held patient (OrderContextState.emptyMedication patient)
+                                            OrderContextState.evaluated
+                                                patient
+                                                (OrderContextState.emptyMedication patient)
                                     }
                             }
                             |> play
@@ -757,7 +759,7 @@ module TotalsQueryFixtures =
         { initial Url.none with
             Lanes =
                 { Lanes.initial (Some draft) with
-                    OrderPlan = OrderPlanState.held patient one None
+                    OrderPlan = OrderPlanState.settled patient one None
                     Slots = [ "s-1", slot ]
                 }
         }
@@ -966,7 +968,7 @@ let slotViewTests =
                 |> Expect.equal "the plan's" (state.Lanes.OrderPlan |> OrderPlanState.plan |> Option.map _.Totals)
             }
 
-            test "the combined totals once the server answered them, kept while they are asked again" {
+            test "the combined totals once the server answered them, still shown while they are asked again" {
                 let combined = { Totals.empty with Energy = [| TextItem.Normal "120 kcal" |] }
                 let reply: Reply<Totals> =
                     {
@@ -991,7 +993,7 @@ let slotViewTests =
                 landed
                 |> after (ClientMsg.Loader(LoaderMsg.QueryTotals(Client.totalsQuery landed)))
                 |> Client.nutritionTotals
-                |> Expect.equal "kept while asked again" (Some combined)
+                |> Expect.equal "still shown while asked again" (Some combined)
             }
         ]
 

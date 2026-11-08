@@ -29,7 +29,7 @@ module Interactions =
                 |> Array.map _.Name
                 |> Array.distinct
                 |> Array.toList
-            | OrderPlanView.NoPatient
+            | OrderPlanView.NoPatientData
             | OrderPlanView.Changing _ -> []
 
 

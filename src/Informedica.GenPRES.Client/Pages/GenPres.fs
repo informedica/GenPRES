@@ -296,7 +296,7 @@ module GenPres =
                             totals = pr.Totals
                         |}
                     |> Some
-                | OrderContextView.NoPatient -> None
+                | OrderContextView.NoPatientData -> None
             // the nutrition page shows the plan's totals with the slots narrowed to one order, so that the
             // combined intake is seen before a prescribe
             | Global.Pages.Nutrition ->
@@ -318,7 +318,7 @@ module GenPres =
                             totals = tp.Totals
                         |}
                     |> Some
-                | OrderPlanView.NoPatient -> None
+                | OrderPlanView.NoPatientData -> None
             | _ -> None
 
         let disclaimerView =
