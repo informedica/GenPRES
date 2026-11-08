@@ -119,9 +119,20 @@ module private Effects =
 
 
     /// What a loader effect sends out of the client: a call, whose answer comes back as the loader
-    /// machine's message, or a wait; a failure is logged.
+    /// machine's message, also when the call fails, such as on a dropped connection or an HTTP error;
+    /// or a wait; or the log of a failure the machine reports.
     let loader effect opened =
         let landed landing result = Msg.Loader(LoaderMachine.LoaderMsg.Landed(landing result))
+
+        let call api command landing =
+            Cmd.OfAsync.either
+                api
+                {
+                    Api.Request.Opened = opened
+                    Api.Request.Command = command
+                }
+                (landed landing)
+                (fun ex -> Error [| ex.Message |] |> landed landing)
 
         let later seconds msg =
             async {
@@ -149,48 +160,21 @@ module private Effects =
         | LoaderMachine.LoaderEffect.FetchProducts ->
             Cmd.OfAsync.perform GoogleDocs.loadProducts () (landed LoaderMachine.Landing.Products)
         | LoaderMachine.LoaderEffect.FetchFormulary form ->
-            Cmd.OfAsync.perform
-                serverApi.processFormulary
-                {
-                    Opened = opened
-                    Command = form
-                }
-                (landed (fun result -> LoaderMachine.Landing.Formulary(opened, result)))
+            call serverApi.processFormulary form (fun result -> LoaderMachine.Landing.Formulary(opened, result))
         | LoaderMachine.LoaderEffect.FetchParenteralia par ->
-            Cmd.OfAsync.perform
-                serverApi.processParenteralia
-                {
-                    Opened = opened
-                    Command = par
-                }
-                (landed (fun result -> LoaderMachine.Landing.Parenteralia(opened, result)))
+            call serverApi.processParenteralia par (fun result -> LoaderMachine.Landing.Parenteralia(opened, result))
         | LoaderMachine.LoaderEffect.FetchInteractions(check, drugs) ->
-            Cmd.OfAsync.perform
+            call
                 serverApi.processInteraction
-                {
-                    Opened = opened
-                    Command = Api.InteractionCommand.CheckInteractions drugs
-                }
-                (landed (fun result -> LoaderMachine.Landing.Interactions(check, opened, result)))
+                (Api.InteractionCommand.CheckInteractions drugs)
+                (fun result -> LoaderMachine.Landing.Interactions(check, opened, result))
         | LoaderMachine.LoaderEffect.FetchTotals(number, query) ->
-            let totals result = LoaderMachine.Landing.Totals(number, opened, result)
-
-            Cmd.OfAsync.either
-                serverApi.processTotals
-                {
-                    Opened = opened
-                    Command = query
-                }
-                (landed totals)
-                (fun ex -> Error [| ex.Message |] |> landed totals)
+            call serverApi.processTotals query (fun result -> LoaderMachine.Landing.Totals(number, opened, result))
         | LoaderMachine.LoaderEffect.FetchDrugNames ->
-            Cmd.OfAsync.perform
+            call
                 serverApi.processInteraction
-                {
-                    Opened = opened
-                    Command = Api.InteractionCommand.GetDrugNames
-                }
-                (landed (fun result -> LoaderMachine.Landing.DrugNames(opened, result)))
+                Api.InteractionCommand.GetDrugNames
+                (fun result -> LoaderMachine.Landing.DrugNames(opened, result))
         | LoaderMachine.LoaderEffect.CheckServer ->
             Cmd.OfAsync.either
                 serverApi.testApi
@@ -209,10 +193,13 @@ module private Effects =
 
 
     /// What an admin effect sends out of the client: a call under the admin token, whose answer comes back
-    /// as the admin machine's message; a failure is logged.
+    /// as the admin machine's message, also when the call fails, such as on a dropped connection or an
+    /// HTTP error; or the log of a failure the machine reports.
     let admin effect =
         let call cmd landing =
-            Cmd.OfAsync.perform serverApi.processAdmin cmd (landing >> AdminMachine.AdminMsg.Landed >> Msg.Admin)
+            let landed = landing >> AdminMachine.AdminMsg.Landed >> Msg.Admin
+
+            Cmd.OfAsync.either serverApi.processAdmin cmd landed (fun ex -> Error [| ex.Message |] |> landed)
 
         match effect with
         | AdminMachine.AdminEffect.ValidatePassword(attempt, password) ->
