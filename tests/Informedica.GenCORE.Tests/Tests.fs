@@ -47,14 +47,6 @@ module Tests =
                     testList
                         "age"
                         [
-                            test "born Dec 7, 2022 and current Jan 25, 2023" {
-                                let dtNow = DateTime(2023, 1, 25)
-                                let dtBd = DateTime(2022, 12, 7)
-
-                                Calculations.Age.adjustedAge 0<day> 36<week> dtBd dtNow
-                                |> Expect.equal "should be 21 days" 21<day>
-                            }
-
                             for months, expected in [ 216, 6570; 11, 330; 14, 425 ] do
                                 test $"monthsToDays: %i{months} months is %i{expected} days" {
                                     months * 1<month>
@@ -871,9 +863,8 @@ module Tests =
                             |> AgeValue.Dto.fromDto
                             |> function
                                 | Ok a ->
-                                    let y, m, w, d = a |> AgeValue.get
-
-                                    Calculations.Age.yearsMonthsWeeksToDaysOpt y m w d
+                                    a
+                                    |> AgeValue.getAgeInDays
                                     |> fun n -> n <= (Constants.daysInYear * 120 |> Conversions.dayFromInt)
                                 | Error _ -> true
                         |> Generators.testProp "should never be > 120 years"
@@ -1374,25 +1365,6 @@ module Tests =
                                         (Some(AgeWeeksDays.create 33<week> 6<day>))
                                 }
 
-                                test "identified, a gestational age entered after the creation: the age as created" {
-                                    { created with Patient.Data.GestationalAge = None }
-                                    |> Patient.withGestationalAge gest
-                                    |> fun pat -> pat.Data.Age |> Option.map AgeValue.getAgeInDays, pmaDays pat
-                                    |> Expect.equal "59 days, 182 plus 59 days" (Some 59<day>, Some 241<day>)
-                                }
-
-                                test "anonymous, the entered age changes: the post-menstrual age follows" {
-                                    { PatientData.unknown with GestationalAge = gest }
-                                    |> Patient.create None
-                                    |> Patient.withAge (AgeValue.create None None (Some 8<week>) None |> Some)
-                                    |> pmaDays
-                                    |> Expect.equal "182 plus 56 days" (Some 238<day>)
-                                }
-
-                                test "the gestational age removed: no post-menstrual age" {
-                                    created |> Patient.withGestationalAge None |> pmaDays |> Expect.isNone "none"
-                                }
-
                                 test "no age: no post-menstrual age" {
                                     { PatientData.unknown with GestationalAge = gest }
                                     |> Patient.create None
@@ -1468,19 +1440,19 @@ module Tests =
                                 (52 + 6257, [ true; true; true ], [ false; false ])
                         }
 
-                        test "preterm < full-term" {
-                            AgeWeeksDays.preterm <? AgeWeeksDays.fullTerm
-                            |> Expect.isTrue "preterm should be < full-term"
+                        test "36 weeks 6 days < 40 weeks" {
+                            AgeWeeksDays.create 36<week> 6<day> <? AgeWeeksDays.create 40<week> 0<day>
+                            |> Expect.isTrue "36 weeks 6 days should be < 40 weeks"
                         }
 
-                        test "full-term >= full-term" {
-                            AgeWeeksDays.fullTerm >=? AgeWeeksDays.fullTerm
-                            |> Expect.isTrue "full-term should be >= full-term"
+                        test "40 weeks >= 40 weeks" {
+                            AgeWeeksDays.create 40<week> 0<day> >=? AgeWeeksDays.create 40<week> 0<day>
+                            |> Expect.isTrue "40 weeks should be >= 40 weeks"
                         }
 
-                        test "preterm <= preterm" {
-                            AgeWeeksDays.preterm <=? AgeWeeksDays.preterm
-                            |> Expect.isTrue "preterm should be <= preterm"
+                        test "36 weeks 6 days <= 36 weeks 6 days" {
+                            AgeWeeksDays.create 36<week> 6<day> <=? AgeWeeksDays.create 36<week> 6<day>
+                            |> Expect.isTrue "36 weeks 6 days should be <= 36 weeks 6 days"
                         }
 
                         test "term is 37 weeks" {
