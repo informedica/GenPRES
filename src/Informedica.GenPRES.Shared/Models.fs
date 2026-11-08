@@ -795,12 +795,6 @@ module Models =
             | _ -> []
 
 
-    /// <summary>
-    /// Reference ranges for weight and height estimation: <c>parse</c> reads the
-    /// "weight", "height", "weight neo" and "height neo" sheets of the
-    /// emergency-list spreadsheet, all four sharing the columns sex ("M"/"F"), age
-    /// (years), p3, mean, p97.
-    /// </summary>
     module Order =
 
 
