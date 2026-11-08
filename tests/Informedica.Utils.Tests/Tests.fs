@@ -567,28 +567,46 @@ module Tests =
                     testPropertyWithConfig config "any string can be used to try parse"
                     <| fun s -> s |> Double.tryParse |> (fun _ -> true)
 
-                    test "tryParseFinite reads a finite number with a decimal point, spaces around it allowed" {
-                        [ "3.5"; " 3.5 "; "-2"; "1e3"; "0" ]
-                        |> List.map Double.tryParseFinite
-                        |> equals [ Some 3.5; Some 3.5; Some -2.; Some 1000.; Some 0. ] "the numbers"
-                    }
+                    testList
+                        "tryParse reads a number in the float style"
+                        [
+                            for s, exp in
+                                [
+                                    "3.5", 3.5
+                                    " 3.5 ", 3.5
+                                    "-2", -2.
+                                    "+2", 2.
+                                    "0", 0.
+                                    ".5", 0.5
+                                    "3.", 3.
+                                    "1e3", 1000.
+                                    "1.5E-2", 0.015
+                                ] do
+                                test $"%s{s} is %g{exp}" { s |> Double.tryParse |> equals (Some exp) "the number" }
+                        ]
 
-                    test
-                        "tryParseFinite gives no number for a decimal comma, a thousands separator, an empty string or a word" {
-                        [ "3,5"; "1,000"; ""; " "; "abc" ]
-                        |> List.map Double.tryParseFinite
-                        |> equals [ None; None; None; None; None ] "none"
-                    }
-
-                    test "tryParseFinite gives no number for not a number, an infinity or an overflow" {
-                        [ "NaN"; "Infinity"; "-Infinity"; "1e400" ]
-                        |> List.map Double.tryParseFinite
-                        |> equals [ None; None; None; None ] "none"
-                    }
-
-                    test "tryParse, by contrast, reads a decimal comma as a thousands separator" {
-                        "3,5" |> Double.tryParse |> equals (Some 35.) "35"
-                    }
+                    testList
+                        "tryParse gives no number"
+                        [
+                            for s in
+                                [
+                                    "3,5"
+                                    "1,000"
+                                    "1.000,5"
+                                    "NaN"
+                                    "Infinity"
+                                    "-Infinity"
+                                    "1e400"
+                                    ""
+                                    " "
+                                    "€3"
+                                    "(3)"
+                                    "0x10"
+                                    "3 5"
+                                    "3.5 mg"
+                                ] do
+                                test $"\"%s{s}\" is none" { s |> Double.tryParse |> equals None "none" }
+                        ]
 
                     testPropertyWithConfig config "getPrecision can be calculated for any valid double"
                     <| fun (a: Double) n ->
