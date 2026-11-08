@@ -472,13 +472,6 @@ module SolutionRule =
             Result.createError "Error in SolutionRule.getResult: " exn
 
 
-    /// <summary>
-    /// Get all the SolutionRules that match the given Filter.
-    /// </summary>
-    /// <param name="mapping"></param>
-    /// <param name="filter">The Filter</param>
-    /// <param name="solutionRules">The SolutionRules</param>
-    /// <returns>The matching SolutionRules</returns>
     /// The solution rule without the amounts the rule lookup works out from a per kg limit with the
     /// weight of the patient, so that one rule compares as equal at every weight.
     let withoutPatientAmounts (sr: SolutionRule) =
@@ -499,13 +492,22 @@ module SolutionRule =
         }
 
 
+    /// The solution rules that match the filter. A patient with no data besides the department is checked on
+    /// the department alone, so that a lookup without a patient returns every rule.
     let filter mapping (filter: SolutionFilter) (solutionRules: SolutionRule[]) =
         let eqs a (b: string) =
             a |> Option.map (String.equalsCapInsens b) |> Option.defaultValue true
 
         [|
             fun (sr: SolutionRule) -> sr.Generic |> String.equalsCapInsens filter.Generic
-            fun (sr: SolutionRule) -> sr.PatientCategory |> PatientCategory.filterPatient filter.Patient
+            // a rule that names a department is for the patients of that department only
+            if filter.Patient.Department |> Option.isSome then
+                fun (sr: SolutionRule) ->
+                    filter.Patient.Department
+                    |> PatientCategory.departmentMatches sr.PatientCategory.Department
+            // don't filter on the rest of the patient if it is not set; a department alone does not set it
+            if filter.Patient |> Patient.hasDataBesidesDepartment then
+                fun (sr: SolutionRule) -> sr.PatientCategory |> PatientCategory.filterPatient filter.Patient
             fun (sr: SolutionRule) -> sr.Form |> Option.map (eqs filter.Form) |> Option.defaultValue true
             fun (sr: SolutionRule) -> sr.Indication |> Option.map (eqs filter.Indication) |> Option.defaultValue true
             fun (sr: SolutionRule) ->

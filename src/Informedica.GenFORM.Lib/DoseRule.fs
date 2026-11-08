@@ -991,7 +991,7 @@ module DoseRule =
                         filter.Patient.Department
                         |> PatientCategory.departmentMatches dr.PatientCategory.Department
                 // don't filter on the rest of the patient if it is not set; a department alone does not set it
-                if { filter.Patient with Department = None } = Patient.patient |> not then
+                if filter.Patient |> Patient.hasDataBesidesDepartment then
                     fun (dr: DoseRule) -> dr.PatientCategory |> PatientCategory.filter filter
                 fun (dr: DoseRule) -> filter.DoseType |> Option.map ((=) dr.DoseType) |> Option.defaultValue true
             |]
