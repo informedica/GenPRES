@@ -1947,6 +1947,179 @@ module Tests =
                 ]
 
 
+    module NormalValueTablesTests =
+
+        open System.Globalization
+        open FsToolkit.ErrorHandling
+
+        /// Runs f with the given culture on the current thread, and restores the culture afterwards.
+        let underCulture (name: string) f =
+            let saved = CultureInfo.CurrentCulture
+            CultureInfo.CurrentCulture <-
+                (if name = "" then
+                     CultureInfo.InvariantCulture
+                 else
+                     CultureInfo name)
+
+            try
+                f ()
+            finally
+                CultureInfo.CurrentCulture <- saved
+
+        let cultures = [ ""; "nl-NL"; "en-NL"; "de-DE"; "en-US" ]
+
+        let header = [| "sex"; "age"; "p3"; "mean"; "p97" |]
+
+        let rows =
+            let weight =
+                [|
+                    header
+                    [| "M"; "0.0192"; "3.1"; "3.955666803"; "4.7" |]
+                    [| "M"; "10"; "26.4"; "38.2"; "56.1" |]
+                    [| "F"; "0.0192"; "3.0"; "3.8"; "4.5" |]
+                    [| "F"; "10"; "25.3"; "37.1"; "55.2" |]
+                |]
+
+            let height =
+                [|
+                    header
+                    [| "M"; "0.0192"; "50"; "54"; "58" |]
+                    [| "M"; "10"; "130.5"; "150.3"; "160.2" |]
+                    [| "F"; "0.0192"; "49"; "53"; "57" |]
+                    [| "F"; "10"; "129.4"; "149.1"; "159.3" |]
+                |]
+
+            Map.ofList
+                [
+                    "weight", weight
+                    "height", height
+                    "weight neo", [| header |]
+                    "height neo", [| header |]
+                ]
+
+        let means (est: Estimates) = est.Weight |> Option.map _.Mean, est.Height |> Option.map _.Mean
+
+        let boy age tables = Estimates.ofAge tables Male (Some age) None
+
+        let sixDays = AgeValue.create None None None (Some 6<day>)
+        let tenYears = AgeValue.create (Some 10<year>) None None None
+
+
+        let tests =
+            testList
+                "NormalValueTables"
+                [
+                    testList
+                        "the estimate is the same under every culture"
+                        [
+                            for culture in cultures do
+                                test $"[%s{culture}] six days: 4.0 kg and 54 cm; ten years: 38 kg and 150 cm" {
+                                    let tables =
+                                        underCulture culture (fun () -> NormalValueTables.ofRows rows)
+                                        |> Result.defaultWith (fun e -> failtest $"%A{e}")
+
+                                    (tables |> boy sixDays |> means, tables |> boy tenYears |> means)
+                                    |> Expect.equal
+                                        "the estimates of the issue"
+                                        ((Some 4000<gram>, Some 54<cm>), (Some 38000<gram>, Some 150<cm>))
+                                }
+                        ]
+
+                    test "a row is read with its sex and its numbers" {
+                        [| header; [| " F "; "1"; "7"; "9.6"; "11" |] |]
+                        |> NormalValueTables.parseSheet "weight"
+                        |> Expect.equal
+                            "a female row of 1 year"
+                            (Ok
+                                [
+                                    {
+                                        Gender = Female
+                                        Age = 1.<year>
+                                        P3 = 7.<kg>
+                                        Mean = 9.6<kg>
+                                        P97 = 11.<kg>
+                                    }
+                                ])
+                    }
+
+                    test "a sheet with only its header is an empty table" {
+                        [ "weight"; "height"; "weight neo"; "height neo" ]
+                        |> List.map (fun sheet -> sheet, [| header |])
+                        |> Map.ofList
+                        |> NormalValueTables.ofRows
+                        |> Expect.equal
+                            "empty"
+                            (Ok
+                                {
+                                    Weights = []
+                                    Heights = []
+                                    NeoWeights = []
+                                    NeoHeights = []
+                                })
+                    }
+
+                    test "a sheet absent from the rows is an error" {
+                        rows
+                        |> Map.remove "weight neo"
+                        |> NormalValueTables.ofRows
+                        |> Expect.equal "weight neo missing" (Error [ NormalValueError.MissingSheet "weight neo" ])
+                    }
+
+                    test "a number with a decimal comma is not a number" {
+                        [ "3,5"; "3.5"; " 3.5 "; "" ]
+                        |> List.map NormalValueTables.tryParseNumber
+                        |> Expect.equal "only the decimal point" [ None; Some 3.5; Some 3.5; None ]
+                    }
+
+                    test "a sheet without the columns names the missing ones" {
+                        [| [| "sex"; "age"; "mean" |] |]
+                        |> NormalValueTables.parseSheet "height"
+                        |> Expect.equal
+                            "p3 and p97"
+                            (Error [ NormalValueError.MissingColumns("height", [ "p3"; "p97" ]) ]
+                            : Validation<NormalValue<year, cm> list, _>)
+                    }
+
+                    test "a sheet without a header lacks every column" {
+                        [||]
+                        |> NormalValueTables.parseSheet "height"
+                        |> Expect.equal
+                            "all"
+                            (Error [ NormalValueError.MissingColumns("height", NormalValueTables.requiredColumns) ]
+                            : Validation<NormalValue<year, cm> list, _>)
+                    }
+
+                    test "every error is named by its sheet, row and column, of every sheet" {
+                        rows
+                        |> Map.add "weight" [| header; [| "M"; "1"; "x"; "9"; "" |]; [| "B"; "1"; "7"; "9"; "11" |] |]
+                        |> Map.add "height neo" [| [| "sex"; "age" |] |]
+                        |> NormalValueTables.ofRows
+                        |> Expect.equal
+                            "the errors"
+                            (Error
+                                [
+                                    NormalValueError.NotANumber("weight", 2, "p3")
+                                    NormalValueError.NotANumber("weight", 2, "p97")
+                                    NormalValueError.UnknownSex("weight", 3, "B")
+                                    NormalValueError.MissingColumns("height neo", [ "p3"; "mean"; "p97" ])
+                                ])
+                    }
+
+                    test "a row shorter than the header misses the numbers at its end" {
+                        [| header; [| "M"; "1"; "7" |] |]
+                        |> NormalValueTables.parseSheet "weight"
+                        |> Expect.equal
+                            "mean and p97"
+                            (Error
+                                [
+                                    NormalValueError.NotANumber("weight", 2, "mean")
+                                    NormalValueError.NotANumber("weight", 2, "p97")
+                                ]
+                            : Validation<NormalValue<year, kg> list, _>)
+                    }
+                ]
+
+
     [<Tests>]
     let tests =
 
@@ -1969,6 +2142,7 @@ module Tests =
             AdultMarkTests.tests
             GestationalAgeNeedTests.tests
             EstimatesTests.tests
+            NormalValueTablesTests.tests
         ]
         //|> List.skip 4
         //|> List.take 1
