@@ -126,7 +126,7 @@ let cookieOf (sid: string option) : SessionCookie =
 /// The stub's patient as a client would send it at another age than the Session's, with a weight it measured.
 let sent: Patient =
     { StubPatientData.patient with
-        Age = Some(Informedica.GenPRES.Shared.Models.Patient.Age.fromDays (5 * 365))
+        Age = Some(Informedica.GenPRES.Shared.Models.Patient.Age.create 5<year> None None None)
         Weight = { StubPatientData.patient.Weight with Measured = Some 12000<gram> }
     }
 
@@ -221,7 +221,7 @@ let counting (nv: NormalValues option) =
 /// A patient with an age in years and nothing else.
 let ageOnly years : Patient =
     { Informedica.GenPRES.Shared.Models.Patient.empty with
-        Age = Some(Informedica.GenPRES.Shared.Models.Patient.Age.fromDays (years * 365))
+        Age = Some(Informedica.GenPRES.Shared.Models.Patient.Age.create (years * 1<year>) None None None)
     }
 
 

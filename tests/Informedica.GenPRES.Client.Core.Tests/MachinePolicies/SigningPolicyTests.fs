@@ -298,7 +298,14 @@ let tests =
                             (notice (
                                 Some
                                     { patient with
-                                        Age = Some(Informedica.GenPRES.Shared.Models.Patient.Age.fromDays 9000)
+                                        Age =
+                                            Some(
+                                                Informedica.GenPRES.Shared.Models.Patient.Age.create
+                                                    24<year>
+                                                    (Some 8<month>)
+                                                    None
+                                                    None
+                                            )
                                         MarkedAdult = not patient.MarkedAdult
                                     }
                             ))

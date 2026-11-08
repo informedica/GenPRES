@@ -59,18 +59,9 @@ let tests =
     testList
         "the patient mapper"
         [
-            test "GenCORE splits every day count from 0 to 20 years as the contract model does" {
-                [ 0 .. 20 * 365 ]
-                |> List.filter (fun d ->
-                    ServerApi.Age.ofDays d
-                    <> Informedica.GenPRES.Shared.Models.Patient.Age.fromDays d
-                )
-                |> Expect.isEmpty "the same age"
-            }
-
             test "GenCORE counts every age from 0 to 20 years as the contract model does" {
                 [ 0 .. 20 * 365 ]
-                |> List.map Informedica.GenPRES.Shared.Models.Patient.Age.fromDays
+                |> List.map ServerApi.Age.ofDays
                 |> List.filter (fun age ->
                     { Informedica.GenPRES.Shared.Models.Patient.empty with Age = Some age }
                     |> Informedica.GenPRES.Shared.Models.Patient.getAgeInDays
@@ -448,7 +439,7 @@ let draft days marked weight height : Informedica.GenPRES.Shared.Types.Patient =
     let empty = Informedica.GenPRES.Shared.Models.Patient.empty
 
     { empty with
-        Age = days |> Option.map Informedica.GenPRES.Shared.Models.Patient.Age.fromDays
+        Age = days |> Option.map ServerApi.Age.ofDays
         MarkedAdult = marked
         Weight =
             { empty.Weight with

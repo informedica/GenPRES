@@ -91,28 +91,6 @@ module Models =
                 }
 
 
-            /// The age of an age in days: a year 365 days, a month 30 days, at most 11 months. A copy
-            /// for the client of GenCORE's AgeValue.fromDays, which the server tests hold it equal to.
-            let fromDays days =
-                let yrs = days / 365
-                // at most 11 months: 360 to 364 days after the years are 11 months and some
-                // weeks, never 12 months, which would count as a year
-                let mos = (days - yrs * 365) / 30 |> min 11
-                let wks = (days - yrs * 365 - mos * 30) / 7
-
-                let dys =
-                    if days - yrs * 365 - mos * 30 - wks * 7 > 0 then
-                        days - yrs * 365 - mos * 30 - wks * 7
-                    else
-                        0
-
-                create
-                    (yrs * 1<year>)
-                    (if mos > 0 then Some(mos * 1<month>) else None)
-                    (if wks > 0 then Some(wks * 1<week>) else None)
-                    (if dys > 0 then Some(dys * 1<day>) else None)
-
-
             let getYears { Age.Years = yrs } = yrs
 
 

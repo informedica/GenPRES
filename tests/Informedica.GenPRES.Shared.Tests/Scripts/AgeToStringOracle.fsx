@@ -5,6 +5,7 @@
 
 open System
 open Informedica.GenPRES.Shared
+open Informedica.GenPRES.Shared.Types
 open Informedica.GenPRES.Shared.Models
 open Informedica.GenPRES.Client.Core.Models
 open FsCheck
@@ -32,11 +33,17 @@ let oracleGen =
                 |> Gen.map ((fun l -> (string t) :: l) >> List.toArray))
             |> Gen.map List.toArray
         let! lang = Gen.elements Localization.languages
-        let! days = Gen.choose (0, 100 * 365)
+        let! years = Gen.choose (0, 100)
+        let! months = Gen.choose (0, 11)
+        let! weeks = Gen.choose (0, 4)
+        let! days = Gen.choose (0, 6)
 
-        let expected = PatientText.Age.toString terms lang (Patient.Age.fromDays days)
+        let age =
+            Patient.Age.create (years * 1<year>) (Some(months * 1<month>)) (Some(weeks * 1<week>)) (Some(days * 1<day>))
 
-        return terms, lang, days, expected
+        let expected = PatientText.Age.toString terms lang age
+
+        return terms, lang, (years, months, weeks, days), expected
     }
 
 let testCases = Gen.sample 10 100 oracleGen
