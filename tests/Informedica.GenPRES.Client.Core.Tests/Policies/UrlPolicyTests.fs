@@ -10,7 +10,7 @@ open UrlPolicy
 
 let page = [ "patient"; "?pag=pr" ]
 let shown = UrlState.Shown page
-let seed = [ "patient"; "?agd=100&med=paracetamol" ]
+let seed = [ "patient"; "?mos=3&wks=1&dys=3&med=paracetamol" ]
 
 
 [<Tests>]
@@ -27,8 +27,10 @@ let tests =
                 asked |> UrlState.close |> Expect.equal "closed" (UrlState.Shown page)
 
                 asked
-                |> UrlState.ask [ "patient"; "?agd=10" ] Url.none
-                |> Expect.equal "a newer url replaces it" (UrlState.Asked(page, [ "patient"; "?agd=10" ], Url.none))
+                |> UrlState.ask [ "patient"; "?wks=1&dys=3" ] Url.none
+                |> Expect.equal
+                    "a newer url replaces it"
+                    (UrlState.Asked(page, [ "patient"; "?wks=1&dys=3" ], Url.none))
 
                 UrlState.Shown page |> UrlState.asked |> Expect.isNone "no question"
             }
@@ -39,7 +41,7 @@ let tests =
                 |> Expect.isTrue "a patient"
 
                 // the medication is an anonymous record of the core, so it is read from a url
-                Url.parse (System.DateTime(2026, 1, 1)) [ "patient"; "?med=paracetamol" ]
+                Url.parse [ "patient"; "?med=paracetamol" ]
                 |> fun url -> { url with Patient = None }
                 |> seeds
                 |> Expect.isTrue "a medication"

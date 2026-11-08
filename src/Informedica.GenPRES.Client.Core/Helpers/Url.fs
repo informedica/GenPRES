@@ -143,18 +143,27 @@ module Url =
         | _ -> None
 
 
-    /// The age a "#/patient?..." url gives, from a birth year or else an age in days; now is the
-    /// moment the age of a birth date is taken at.
-    let parseAge now parameters =
-        match parameters |> tryInt "byr", parameters |> tryInt "agd" with
-        | Some year, _ ->
-            // january and the first day of the month when not given
-            let month = parameters |> tryInt "bmo" |> Option.defaultValue 1
-            let day = parameters |> tryInt "bdy" |> Option.defaultValue 1
+    /// The age a "#/patient?..." url gives in parts: yrs years, mos months, wks weeks and dys days,
+    /// a part not given counted as zero. None when the url gives no part, or when a given part is
+    /// not a whole number of zero or more.
+    let parseAge parameters =
+        let part key =
+            match parameters |> Map.tryFind key with
+            | Some _ -> parameters |> tryInt key |> Option.filter (fun n -> n >= 0) |> Some
+            | None -> None
 
-            PatientRead.Age.fromBirthDate now (DateTime(year, month, day)) |> Some
-        | _, Some days -> Patient.Age.fromDays days |> Some
-        | _ -> None
+        match part "yrs", part "mos", part "wks", part "dys" with
+        | None, None, None, None -> None
+        | yrs, mos, wks, dys when [ yrs; mos; wks; dys ] |> List.contains (Some None) -> None
+        | yrs, mos, wks, dys ->
+            let value p = p |> Option.flatten |> Option.defaultValue 0
+
+            Patient.Age.create
+                (value yrs * 1<year>)
+                (Some(value mos * 1<month>))
+                (Some(value wks * 1<week>))
+                (Some(value dys * 1<day>))
+            |> Some
 
 
     /// The anonymous patient of a "#/patient?..." url of this age.
@@ -194,16 +203,16 @@ module Url =
         | _ -> None
 
 
-    /// What the url of these segments carries; now is the moment the age of a birth date is taken
-    /// at. A "#/session..." url carries none of the patient's parts: the session supplies the
-    /// patient. A patient url, as in http://localhost:5173/#/patient?byr=2020&bmo=3&bdy=1, takes:
+    /// What the url of these segments carries. A "#/session..." url carries none of the patient's
+    /// parts: the session supplies the patient. A patient url, as in
+    /// http://localhost:5173/#/patient?yrs=6&mos=3&wgt=20000, takes:
     ///
     /// - pag: the page, el (emergency list), cm (continuous medication), pr (prescribe),
     ///   fm (formulary), pe (parenteralia), nu (nutrition), op (order plan) or ia (interactions)
-    /// - agd: age in days
-    /// - byr: birth year
-    /// - bmo: birth month, january when not given
-    /// - bdy: birth day, the first when not given
+    /// - yrs: age years
+    /// - mos: age months
+    /// - wks: age weeks
+    /// - dys: age days
     /// - wgt: weight (gram)
     /// - hgt: height (cm)
     /// - gaw: gestational age weeks
@@ -217,14 +226,14 @@ module Url =
     /// - frm: form
     /// - ind: indication
     /// - dst: dosetype
-    let parse now segments =
+    let parse segments =
         match segments with
         | [] -> none
         | "session" :: _ -> { none with Launch = parseLaunch segments }
         | [ "patient"; segment ] ->
             let parameters = segment |> query |> Map.ofList
 
-            let age = parameters |> parseAge now
+            let age = parameters |> parseAge
 
             let medication =
                 {|

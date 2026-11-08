@@ -176,10 +176,7 @@ let tests =
                     }
 
                     test "a medication in the url seeds the workbench with its parts" {
-                        let url =
-                            Url.parse
-                                (System.DateTime(2026, 1, 1))
-                                [ "patient"; "?agd=10&ind=pijn&med=paracetamol&rte=or" ]
+                        let url = Url.parse [ "patient"; "?wks=1&dys=3&ind=pijn&med=paracetamol&rte=or" ]
 
                         initial
                         |> transition (ShellMsg.PageLoaded([ "m" ], url))

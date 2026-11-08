@@ -192,8 +192,8 @@ Ten new issues: 2.1.3, 2.1.4, 2.1.5, 2.1.6, 2.1.7, 2.1.10, 2.2.4, 2.2.5, 2.2.6, 
 - [#409](https://github.com/informedica/GenPRES/issues/409) is closed. Its remaining code
   half is #516.
 - [#408](https://github.com/informedica/GenPRES/issues/408) is closed. The sealed launch is
-  what is built, so the URL-parameter model of
-  [feature-ehr-url-parameters.md](feature-ehr-url-parameters.md) is superseded.
+  what is built, so the URL-parameter model for an EHR launch is superseded and no longer on
+  the roadmap.
 - [#481](https://github.com/informedica/GenPRES/issues/481) is closed: the persistence
   prototype of #480 was moved to source by #409, #605, #615, #622, #635 and #640, and what
   remains of it is #516.
@@ -490,8 +490,6 @@ gh issue list --state open --limit 200 --json number,title,milestone \
   use cases behind pillar 2
 - [Feature: patient persistence](feature-patient-persistence.md) — persistence API and
   constraints (D2)
-- [Feature: EHR URL parameters](feature-ehr-url-parameters.md) — the launch model the sealed
-  launch superseded (D1)
 - [Backlog](backlog.md) — items 3-5 (rule-set versioning), 8 (AuthN/AuthZ)
 - [GenSOLVER: from Order Scenarios to Computed Quantitative Solutions](../domain/gensolver-from-orders-to-quantitative-solutions.md),
   [GenSOLVER Stability Analysis](../domain/gensolver-stability-analysis.md) and
