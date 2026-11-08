@@ -1861,6 +1861,26 @@ module NormalValueTables =
     open FsToolkit.ErrorHandling
 
 
+    /// The sheet of the weights by age in years.
+    let weightSheet = "weight"
+
+
+    /// The sheet of the heights by age in years.
+    let heightSheet = "height"
+
+
+    /// The sheet of the weights of the newborn by post-menstrual age in weeks.
+    let neoWeightSheet = "weight neo"
+
+
+    /// The sheet of the heights of the newborn by post-menstrual age in weeks.
+    let neoHeightSheet = "height neo"
+
+
+    /// The four normal-value sheets, the names a source fetches them by.
+    let sheets = [ weightSheet; heightSheet; neoWeightSheet; neoHeightSheet ]
+
+
     /// The columns a normal-value sheet must have: the sex, then the numeric ones.
     let requiredColumns = [ "sex"; "age"; "p3"; "mean"; "p97" ]
 
@@ -1927,8 +1947,8 @@ module NormalValueTables =
                 |> Validation.map List.rev
 
 
-    /// The tables from the rows of the four sheets, by sheet name: weight, height, weight neo and
-    /// height neo; every error of every sheet otherwise, a sheet absent from the rows among them.
+    /// The tables from the rows of the four sheets, by sheet name; every error of every sheet
+    /// otherwise, a sheet absent from the rows among them.
     let ofRows (rows: Map<string, string[][]>) =
         let table sheet : Validation<NormalValue<'age, 'u> list, NormalValueError> =
             match rows |> Map.tryFind sheet with
@@ -1936,10 +1956,10 @@ module NormalValueTables =
             | Some sheetRows -> sheetRows |> parseSheet sheet
 
         validation {
-            let! w = table "weight"
-            and! h = table "height"
-            and! nw = table "weight neo"
-            and! nh = table "height neo"
+            let! w = table weightSheet
+            and! h = table heightSheet
+            and! nw = table neoWeightSheet
+            and! nh = table neoHeightSheet
 
             return
                 {

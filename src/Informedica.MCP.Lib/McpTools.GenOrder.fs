@@ -170,11 +170,7 @@ module GenOrderTools =
 
         pat
         |> Patient.setDepartment input.Department
-        |> estimated
-            (provider.Get Informedica.GenForm.Lib.Resources.Keys.normalValueRows
-             |> Informedica.GenCore.Lib.Patients.NormalValueTables.ofRows
-             |> Result.toOption)
-            input
+        |> estimated (provider.Get Informedica.GenForm.Lib.Resources.Keys.normalValueTables) input
 
 
     // ── Tool handler functions ──────────────────────────────────────────────

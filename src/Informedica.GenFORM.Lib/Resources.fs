@@ -6,6 +6,11 @@ module Resources =
     open System
     open Informedica.Logging.Lib
 
+    module CoreNormalValueTables = Informedica.GenCore.Lib.Patients.NormalValueTables
+
+    type CoreNormalValueError = Informedica.GenCore.Lib.Patients.NormalValueError
+    type CoreNormalValueTables = Informedica.GenCore.Lib.Patients.NormalValueTables
+
     type Data =
         {
             UnitMappings: UnitMapping[]
@@ -181,6 +186,31 @@ module Resources =
         | ErrorMsg(s, _) -> s
 
 
+    /// The words of an error in the normal-value rows.
+    let normalValueErrorText err =
+        match err with
+        | CoreNormalValueError.MissingSheet sheet -> $"normal values, sheet %s{sheet}: missing"
+        | CoreNormalValueError.MissingColumns(sheet, columns) ->
+            let names = columns |> String.concat ", "
+            $"normal values, sheet %s{sheet}: columns missing: %s{names}"
+        | CoreNormalValueError.NotANumber(sheet, row, column) ->
+            $"normal values, sheet %s{sheet}, row %i{row}: no number in %s{column}"
+        | CoreNormalValueError.UnknownSex(sheet, row, sex) ->
+            $"normal values, sheet %s{sheet}, row %i{row}: the sex '%s{sex}' is not M or F"
+
+
+    /// The tables GenCORE parses from the rows, with a warning for every error; none when the rows
+    /// do not parse. No rows at all, because the sheets could not be read and the load warned
+    /// already, give no tables and no warning.
+    let normalValueTablesOf (rows: Map<string, string[][]>) =
+        if rows.IsEmpty then
+            None, []
+        else
+            match rows |> CoreNormalValueTables.ofRows with
+            | Ok tables -> Some tables, []
+            | Error errs -> None, errs |> List.map (normalValueErrorText >> Warning)
+
+
     /// <summary>
     /// An <b>optional</b> IO leaf resource: one whose failure must not fail the whole
     /// load, and so empty every other resource with it.
@@ -269,6 +299,8 @@ module Resources =
         let solutionRuleData = ResourceKey.create<SolutionRuleData[]> "solutionRuleData"
         let departments = ResourceKey.create<Departments> "departments"
         let normalValueRows = ResourceKey.create<Map<string, string[][]>> "normalValueRows"
+        // The normal-value tables GenCORE parses from the rows; none when they do not parse.
+        let normalValueTables = ResourceKey.create<CoreNormalValueTables option> "normalValueTables"
         let renalRuleData = ResourceKey.create<RenalRuleData[]> "renalRuleData"
         let totalsData = ResourceKey.create<TotalsData[]> "totalsData"
         // The rows of the RuleSets sheet as written.
@@ -376,6 +408,10 @@ module Resources =
                     "Normal values not loaded"
                     Map.empty
                     (fun () -> Mapping.getNormalValueRows Mapping.normalValuesUrlId)
+
+                // the normal-value tables parsed once from the rows; rows that do not parse give
+                // no tables and a warning for every error, and must not empty the rules either
+                Keys.normalValueTables.Name, deriveWith (fun r -> r.Get Keys.normalValueRows |> normalValueTablesOf)
 
                 // Totals is an optional intake-reference resource: a load failure must
                 // not empty the others, so swallow to [||] and surface a Warning.
