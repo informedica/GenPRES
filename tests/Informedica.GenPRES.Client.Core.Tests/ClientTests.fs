@@ -118,6 +118,45 @@ let tests =
     testList
         "Client"
         [
+            test "a draft with only a weight is the current patient, so the summary shows it" {
+                let weightOnly =
+                    { Patient.empty with Weight = { Patient.empty.Weight with Measured = Some 12000<gram> } }
+
+                let state, _, _ = loaded { Url.none with Patient = Some weightOnly }
+
+                state |> Client.currentPatient |> Expect.equal "the draft" (Some weightOnly)
+            }
+
+            test "the current patient is the draft until the server answers, then the patient it answered" {
+                let state, effects, _ = loaded { Url.none with Patient = Some draft }
+
+                let request =
+                    effects
+                    |> List.pick (
+                        function
+                        | ClientEffect.Lanes(LanesEffect.Patient(PatientEffect.CallPatient(_, r))) -> Some r
+                        | _ -> None
+                    )
+
+                let answer =
+                    { draft with
+                        Weight =
+                            { draft.Weight with
+                                EstimatedP3 = Some 25000<gram>
+                                Estimated = Some 32000<gram>
+                                EstimatedP97 = Some 45000<gram>
+                            }
+                    }
+
+                let answeredState =
+                    state
+                    |> play [ ClientMsg.Lanes(LanesMsg.Patient(PatientMsg.Answered(request, Ok answer))) ]
+                    |> stateOf
+
+                (state |> Client.currentPatient, answeredState |> Client.currentPatient)
+                |> Expect.equal "the draft, then the answer with its estimate" (Some draft, Some answer)
+            }
+
             testList
                 "the page load"
                 [

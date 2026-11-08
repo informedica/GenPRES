@@ -10,27 +10,18 @@ module PatientCommand =
     module GestationalAge = Informedica.GenPRES.Shared.Models.GestationalAge
 
 
-    /// A patient that lacks a weight or a height is refused while the server loads, since its
-    /// estimate needs the normal values; any other patient is answered.
+    /// Every patient change is refused while the server loads, since its estimate needs the normal
+    /// values, also next to a measured weight and height.
     let gate (cmd: PatientCommand) =
         match cmd with
-        | PatientCommand.ChangePatient pat ->
-            let lacks (measured: 'a option) (estimated: 'a option) = measured.IsNone && estimated.IsNone
-
-            if
-                lacks pat.Weight.Measured pat.Weight.Estimated
-                || lacks pat.Height.Measured pat.Height.Estimated
-            then
-                Gate.RequiresLoaded
-            else
-                Gate.Open
+        | PatientCommand.ChangePatient _ -> Gate.RequiresLoaded
 
 
     /// The patient made complete at the inbound boundary: the need for the gestational age set from
     /// the age, the gestational age dropped when none is needed, the post-menstrual age calculated
     /// from the age and the gestational age, the adult mark set from the age and the choice of the
-    /// user, then a weight or a height that is neither measured nor estimated estimated from them.
-    /// The normal values are asked only when a measure is missing.
+    /// user, then the full estimate of the weight and the height from them, next to a measured
+    /// value too.
     let processCmd (env: AppEnv) (cmd: PatientCommand) =
         async {
             match cmd with

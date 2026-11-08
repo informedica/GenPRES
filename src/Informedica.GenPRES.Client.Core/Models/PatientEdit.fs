@@ -74,7 +74,7 @@ module PatientEdit =
     /// blanked and one change applied. Nothing else on the patient is touched, so a value
     /// that was measured is never lost to an edit of another field, and an estimate is never
     /// written back as a measured value; the estimates follow the age and the gender, and the
-    /// next applyNormalValues fills them again.
+    /// server fills them again in its answer.
     let edit (change: Patient -> Patient) (p: Patient option) : Patient option =
         p |> Option.defaultValue empty |> withEstimates None None |> change |> Some
 

@@ -56,13 +56,13 @@ let tests =
                     |> Expect.equal $"18 kg and 110 cm, %A{sid}" (Some 18000<gram>, Some 110<cm>)
             }
 
-            test "a measured weight is kept, the missing height estimated" {
+            test "a measured weight is kept, with the weight estimate next to it, and the height estimated" {
                 let pat = changed loaded None (ageOnly 10 |> withWeight 28000<gram>)
 
                 (pat.Weight.Measured, pat.Weight.Estimated, pat.Height.Estimated)
                 |> Expect.equal
-                    "the measured weight, no weight estimate, the height estimated"
-                    (Some 28000<gram>, None, Some 140<cm>)
+                    "the measured weight, the weight estimate, the height estimate"
+                    (Some 28000<gram>, Some 32000<gram>, Some 140<cm>)
             }
 
             test "the gestational age with the need the age gives, and the post-menstrual age of it" {
@@ -98,11 +98,9 @@ let tests =
                     ]
             }
 
-            test "a patient that lacks a weight or a height waits for the normal values" {
+            test "every patient change waits for the normal values, a measured one too" {
                 [ ageOnly 10; ageOnly 10 |> withWeight 28000<gram>; sent ]
                 |> List.map (PatientCommand.ChangePatient >> PatientCommand.gate)
-                |> Expect.equal
-                    "loaded for the two that lack a measure, open for the measured one"
-                    [ Gate.RequiresLoaded; Gate.RequiresLoaded; Gate.Open ]
+                |> Expect.equal "loaded for all three" [ Gate.RequiresLoaded; Gate.RequiresLoaded; Gate.RequiresLoaded ]
             }
         ]

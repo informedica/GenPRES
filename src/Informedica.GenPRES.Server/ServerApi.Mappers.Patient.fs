@@ -441,43 +441,11 @@ module Patient =
     let reading (dto: Patient option) = dto |> Option.filter (Patient.validate >> Result.isOk)
 
 
-    /// The draft with the estimates it lacks filled in from the normal values, per measure: a
-    /// weight or a height that is neither measured nor estimated gets the estimate; a measured
-    /// value and an estimate already there are kept, so that the calculation uses the estimate
-    /// the panel shows. A patient older than 18 years gets no estimate. The normal values are
-    /// asked only when a measure is missing; without them the draft stays as it is, and the gate
-    /// refuses a child without a weight.
+    /// The draft with the full estimate from the normal values: the 3rd percentile, the mean and
+    /// the 97th percentile of the weight and the height, next to a measured value too, which stays
+    /// and is what the calculation reads. A patient of 18 years or older keeps what it has. Without
+    /// the normal values the draft stays as it is, and the gate refuses a child without a weight.
     let estimate normalValues (draft: Patient) : Patient =
-        let lacks (measured: 'a option) (estimated: 'a option) = measured.IsNone && estimated.IsNone
-        let lacksWeight = lacks draft.Weight.Measured draft.Weight.Estimated
-        let lacksHeight = lacks draft.Height.Measured draft.Height.Estimated
-
-        if not (lacksWeight || lacksHeight) then
-            draft
-        else
-            match normalValues () with
-            | None -> draft
-            | Some tables ->
-                // withEstimates writes both estimates; only the missing measure is taken from it
-                let estimated = draft |> withEstimates tables
-
-                { draft with
-                    Weight =
-                        if lacksWeight then
-                            { draft.Weight with
-                                EstimatedP3 = estimated.Weight.EstimatedP3
-                                Estimated = estimated.Weight.Estimated
-                                EstimatedP97 = estimated.Weight.EstimatedP97
-                            }
-                        else
-                            draft.Weight
-                    Height =
-                        if lacksHeight then
-                            { draft.Height with
-                                EstimatedP3 = estimated.Height.EstimatedP3
-                                Estimated = estimated.Height.Estimated
-                                EstimatedP97 = estimated.Height.EstimatedP97
-                            }
-                        else
-                            draft.Height
-                }
+        match normalValues () with
+        | Some tables -> draft |> withEstimates tables
+        | None -> draft
