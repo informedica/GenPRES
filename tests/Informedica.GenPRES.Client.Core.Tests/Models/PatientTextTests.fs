@@ -47,7 +47,7 @@ let toStringTests =
             [| "Patient Age years"; "wQo"; "jRb52A"; "kE"; "7FZTQ"; "8"; "VtNk" |]
          |],
          Spanish,
-         25497,
+         (69, 10, 1, 5),
          "69 Some(8), 10 Some(2m), 1 Some(NlEcw4n), 5 Some(RbI2)")
         ([|
             [| "Patient Age day"; "XhO8G0xRpJ"; "Ki"; "L5CWuOlFd"; "y"; "ztqKiC9t"; "" |]
@@ -92,7 +92,7 @@ let toStringTests =
             [| "Patient Age years"; "aICz"; ""; "YwP"; "ZjQaI2WTrL"; "Mk"; "N7EYwQnHf" |]
          |],
          English,
-         12760,
+         (34, 11, 2, 6),
          "34 Some(aICz), 11 , 2 Some(Y), 6 Some(TN)")
         ([|
             [| "Patient Age day"; "b8s0kR"; "YV"; "ZWgO8"; "p"; "cK4C"; "" |]
@@ -113,7 +113,7 @@ let toStringTests =
             [| "Patient Age years"; "2lTd"; "PmGey5p"; "Q9H"; "Dau2mT"; "EX"; "1YiQa" |]
          |],
          Spanish,
-         195,
+         (0, 6, 2, 1),
          "6 Some(ySp), 2 Some(sMkDbv) en 1 Some(cK4C)")
         ([|
             [|
@@ -174,7 +174,7 @@ let toStringTests =
             |]
          |],
          Italian,
-         23959,
+         (65, 7, 3, 3),
          "65 Some(iCau1), 7 Some(zw4oWf), 3 Some(71YiQaH), 3 Some(1lTcK4CV)")
         ([|
             [| "Patient Age day"; "6EXvPnH"; "7rY"; "UsLjDb"; "Vf"; "Igz7r"; "J" |]
@@ -195,7 +195,7 @@ let toStringTests =
             |]
          |],
          German,
-         31460,
+         (86, 2, 1, 3),
          "86 Some(8GAxRpJ), 2 Some(2AU), 1 Some(1), 3 Some(RLIgA)")
         ([|
             [|
@@ -256,7 +256,7 @@ let toStringTests =
             |]
          |],
          Italian,
-         18723,
+         (51, 3, 2, 4),
          "51 Some(O7FZxQ), 3 Some(I2zTrLF), 2 Some(CWu), 4 Some(wQoI)")
         ([|
             [| "Patient Age day"; "B9t"; "CWuOlFdx4o"; "pX"; "qKiC9t1lS"; "d"; "ey60XhP9" |]
@@ -269,7 +269,7 @@ let toStringTests =
             [| "Patient Age years"; "2"; "PnHf"; ""; "Dbv"; "EYwQnHfztq"; "rZ" |]
          |],
          German,
-         6158,
+         (16, 10, 2, 4),
          "16 Some(Dbv), 10 Some(y5pX), 2 Some(s0jRb), 4 Some(m)")
         ([|
             [|
@@ -346,7 +346,7 @@ let toStringTests =
             |]
          |],
          English,
-         29922,
+         (81, 11, 3, 6),
          "81 Some(Gey5pXhb), 11 Some(A8s0jRbJ3), 3 Some(v2mUe85DXv), 6 ")
         ([|
             [| "Patient Age day"; "71Yw"; ""; "VsM"; "WfN7FzwQoI"; "Jg"; "K3BVtMkEc" |]
@@ -367,7 +367,7 @@ let toStringTests =
             [| "Patient Age years"; "yS"; "lTcK4"; "m"; "930y"; ""; "XRO" |]
          |],
          French,
-         17022,
+         (46, 7, 3, 1),
          "46 Some(m), 7 Some(gA8r), 3 Some(au2mTdL5C), 1 Some(VsM)")
         ([|
             [| "Patient Age day"; "YiQa"; "LjDbu2m"; "M6E"; "z7rZiQ"; "AU"; "nVfN6" |]
@@ -420,7 +420,7 @@ let toStringTests =
             |]
          |],
          Spanish,
-         24686,
+         (67, 7, 3, 0),
          "67 Some(NlFd74o), 7 Some(Ifz7rliQ), 3 Some(Ca41lTdK4)")
         ([|
             [|
@@ -457,7 +457,7 @@ let toStringTests =
             |]
          |],
          French,
-         12121,
+         (33, 2, 2, 2),
          "33 Some(RbJ2AUsM), 2 Some(L5DXROmGe), 2 Some(GZxRpjgA8s), 2 ")
         ([|
             [| "Patient Age day"; "uOlFd"; "hP8G0yRp"; "ic9t"; "5ZWuOmF"; "60X"; "TqKiCa" |]
@@ -486,7 +486,7 @@ let toStringTests =
             |]
          |],
          Spanish,
-         35885,
+         (98, 3, 3, 4),
          "98 Some(jRaI2ATr), 3 Some(dL5C), 3 Some(7FZxQ), 4 Some(2zTrLi)")
         ([|
             [| "Patient Age day"; "I"; "8s0kSbJ3"; ""; "WgO82Zx"; "JhB930kScJ"; "K4CWtN" |]
@@ -523,7 +523,7 @@ let toStringTests =
             [| "Patient Age years"; "zSqKiB9t1V"; "mT"; "nGey6pXhP"; "K"; "xu2mUdL5"; "" |]
          |],
          Dutch,
-         23320,
+         (63, 10, 3, 4),
          "63 Some(mT), 10 Some(gO7), 3 Some(aI2zTrLFCa), 4 ")
         ([|
             [| "Patient Age day"; "Z"; "MkEy"; ""; "A8s"; "BVtMkEc63n"; "oW" |]
@@ -544,7 +544,7 @@ let toStringTests =
             [| "Patient Age years"; "cK4CVt"; "dx"; "0ySqJ"; "1"; "OmGA"; "" |]
          |],
          German,
-         30649,
+         (83, 11, 3, 3),
          "83 Some(1), 11 Some(if), 3 Some(QKH), 3 Some(K4CV)")
         ([|
             [| "Patient Age day"; "Db"; "EYvPnHBy6"; "r"; "sMjDbv2m"; ""; "gA7rZjQ" |]
@@ -597,7 +597,7 @@ let toStringTests =
             [| "Patient Age years"; ""; "Rpj"; "Sc63BVtMkE"; "Fd"; "G0xRpJDA8"; "t" |]
          |],
          Dutch,
-         18084,
+         (49, 6, 2, 5),
          "49 Some(Rpj), 6 Some(LjDxu2mUdL), 2 , 5 Some(A)")
         ([|
             [| "Patient Age day"; "vO"; "iP9H1"; "j"; "GDXv"; ""; "urL" |]
@@ -618,7 +618,7 @@ let toStringTests =
             [| "Patient Age years"; "Ifz7rZi"; "J2A"; "w3nVf9"; "xQ"; "kRbJ3"; "l" |]
          |],
          German,
-         5347,
+         (14, 7, 3, 6),
          "14 Some(xQ), 7 Some(rLi), 3 Some(lFdw4oWQN7), 6 ")
         ([|
             [|
@@ -695,7 +695,7 @@ let toStringTests =
             |]
          |],
          English,
-         29283,
+         (80, 2, 3, 2),
          "80 Some(zTrLiCa), 2 Some(uNlFd74o), 3 Some(oIfz7rliQ), 2 Some(iCat1)")
         ([|
             [| "Patient Age day"; "0ke"; "Nlfcw4"; "O8"; "B9s0k"; "C"; "pXgO" |]
@@ -708,7 +708,7 @@ let toStringTests =
             [| "Patient Age years"; "dL5"; "ey6pXh"; "1z"; "2mU"; "Pnhey6"; "Qa" |]
          |],
          French,
-         111,
+         (0, 3, 3, 0),
          "3 Some(VtN), 3 Some(QnHf)")
         ([|
             [|
@@ -769,7 +769,7 @@ let toStringTests =
             |]
          |],
          English,
-         24047,
+         (65, 10, 3, 1),
          "65 Some(5pWgO8FZ), 10 , 3 Some(TdL5C), 1 Some(Ebv3nheM6E)")
         ([|
             [| "Patient Age day"; "vPnHey6qkh"; "iQ"; "jDbv2mUe8"; "6"; "7rZjQaI2"; "" |]
@@ -783,7 +783,7 @@ let toStringTests =
             [| "Patient Age years"; "IgA8"; ""; "w4o"; "xRpJDA8s0j"; "kS"; "lFdx4oWga" |]
          |],
          French,
-         11310,
+         (30, 11, 4, 2),
          "30 Some(w4o), 11 Some(rYiQ), 4 Some(lTNK4), 2 Some(f)")
         ([|
             [|
@@ -844,7 +844,7 @@ let toStringTests =
             [| "Patient Age years"; "AUsL"; "nVfM6EY"; "oIg"; "bJ3AUs"; "cw"; "ZxRoI" |]
          |],
          Italian,
-         35246,
+         (96, 6, 3, 5),
          "96 Some(ZxRoI), 6 Some(TrLjCa), 3 Some(OlFdx4o), 5 Some(Igz7rZiQ)")
         ([|
             [| "Patient Age day"; ""; "OIF"; "PJG0ySpJhB"; "C9"; "DWuOmgdx5"; "q" |]
@@ -873,7 +873,7 @@ let toStringTests =
             [| "Patient Age years"; "eM5DX"; "f"; "2ATr"; ""; "QoH"; "RLI2AUrLjD" |]
          |],
          Dutch,
-         22346,
+         (61, 2, 3, 0),
          "61 Some(f), 2 Some(9t1kScKE), 3 Some(3nVfM6EYS)")
         ([|
             [| "Patient Age day"; "Ecw4YVf"; "FZx"; "s0kSMJ"; "tN"; "gO8GZ"; "h" |]
@@ -926,7 +926,7 @@ let toStringTests =
             |]
          |],
          Italian,
-         30010,
+         (82, 2, 2, 6),
          "82 Some(u2mUOL), 2 Some(pjgO8GZ), 2 Some(jRLI2AUr), 6 Some(dL5Z)")
         ([|
             [|
@@ -979,7 +979,7 @@ let toStringTests =
             |]
          |],
          Dutch,
-         17273,
+         (47, 3, 4, 0),
          "47 Some(K4CWtNlF), 3 Some(1YwQoHfz7), 4 Some(ztqKiC9t1l)")
         ([|
             [| "Patient Age day"; "aI1zTrKi"; "bv2m"; "YwPnHfy"; "ZjQ"; "MGDbv3"; "NH" |]
@@ -1008,7 +1008,7 @@ let toStringTests =
             |]
          |],
          Italian,
-         4708,
+         (12, 10, 4, 0),
          "12 Some(0yRpJhA), 10 Some(UsM), 4 Some(OmGe)")
         ([|
             [|
@@ -1061,7 +1061,7 @@ let toStringTests =
             [| "Patient Age years"; "fM"; "gz7rZTQaI"; "3"; "4nVfN6EY"; ""; "SbJ3BUs" |]
          |],
          English,
-         28472,
+         (78, 0, 0, 2),
          "78 Some(fM), 2 ")
         ([|
             [| "Patient Age day"; "Fdx5"; ""; "t1l"; "uOmgdx5pWg"; "hP"; "iCat1lTNK" |]
@@ -1074,7 +1074,7 @@ let toStringTests =
             [| "Patient Age years"; "6q"; "TrLjC"; "U"; "Hfz7"; ""; "v3n" |]
          |],
          Spanish,
-         35973,
+         (98, 6, 3, 2),
          "98 , 6 Some(Z), 3 Some(xR), 2 Some(rLjCa)")
         ([|
             [|
@@ -1144,7 +1144,7 @@ let toStringTests =
             |]
          |],
          English,
-         23236,
+         (63, 8, 0, 1),
          "63 Some(KiC9t1lSc), 8 Some(Ecw4nVfN6E), 1 Some(xRoIgA8rZ)")
         ([|
             [| "Patient Age day"; "bI2AU"; "c"; "ZwQo"; ""; "NkE"; "a7FZxQoIgz" |]
@@ -1157,7 +1157,7 @@ let toStringTests =
             [| "Patient Age years"; "Cwt"; "pjgO8G"; "qJ"; "dK4CW"; "e"; "1ySq" |]
          |],
          Spanish,
-         10671,
+         (29, 2, 3, 5),
          "29 Some(e), 2 Some(8s), 3 Some(2mUdL5DXu), 5 Some(WgO82ZxRpI)")
         ([|
             [| "Patient Age day"; "2mUeL"; "PnHfy6qY"; "QaI2"; "Dbv3mUe"; "EYw"; "rZjdaI" |]
@@ -1218,7 +1218,7 @@ let toStringTests =
             |]
          |],
          Italian,
-         34435,
+         (94, 4, 0, 5),
          "94 Some(ScK4), 4 Some(N6EYw), 5 Some(BV)")
         ([|
             [| "Patient Age day"; "G"; "H1"; "u2WTd"; "v"; "iQKH"; "" |]
@@ -1239,7 +1239,7 @@ let toStringTests =
             [| "Patient Age years"; "7rZiQaICzT"; "Us"; "VfN6EYwqn"; "I"; "J3BU"; "" |]
          |],
          German,
-         5435,
+         (14, 10, 3, 4),
          "14 Some(I), 10 Some(Ca), 3 Some(x4o), 4 Some(rZiQ)")
         ([|
             [|
@@ -1300,7 +1300,7 @@ let toStringTests =
             |]
          |],
          Italian,
-         29199,
+         (79, 11, 4, 6),
          "79 Some(oifz7), 11 Some(iCwt1l), 4 Some(cw), 6 Some(tqY)")
         ([|
             [| "Patient Age day"; "bJ"; "cw4oVfN7F"; "Z"; "0kScJ3BV"; ""; "O8G0xRp" |]
@@ -1321,7 +1321,7 @@ let toStringTests =
             [| "Patient Age years"; ""; "0Xh"; "qKiCat1lTc"; "dL"; "ey6qkhP9H"; "1" |]
          |],
          German,
-         16634,
+         (45, 6, 4, 1),
          "45 Some(dL), 6 Some(82Z), 4 Some(2Aur), 1 Some(0kScJ3BV)")
         ([|
             [|
@@ -1374,7 +1374,7 @@ let toStringTests =
             [| "Patient Age years"; "gO82ZxR"; "hB9"; "4CWQNl"; "5p"; "SqKhB"; "T" |]
          |],
          English,
-         3897,
+         (10, 8, 1, 0),
          "10 Some(gO82ZxR), 8 Some(aI2AUrLj), 1 Some(9t0kSc)")
         ([|
             [| "Patient Age day"; "Hfy"; "I2zTrLiCau"; "vp"; "wqnHfz6qY"; "j"; "kDbv3nUe" |]
@@ -1411,7 +1411,7 @@ let toStringTests =
             [| "Patient Age years"; "8"; "VtMk"; ""; "JhA"; "K4BVtNkEcw"; "x5" |]
          |],
          French,
-         27498,
+         (75, 4, 0, 3),
          "75 , 4 Some(QaI1zTr), 3 Some(FYwQoifz7)")
         ([|
             [| "Patient Age day"; "VSq"; "WTdL5C"; "mG"; "9H1zt"; "a"; "XvPn" |]
@@ -1448,7 +1448,7 @@ let toStringTests =
             [| "Patient Age years"; "MjDbv2mU"; "N6EY"; "A7rZjQa"; "BUs"; "YVfN7E"; "LI" |]
          |],
          Spanish,
-         35162,
+         (96, 4, 0, 2),
          "96 Some(YVfN7E), 4 Some(iQ9H1zS), 2 Some(6EYw)")
         ([|
             [|
@@ -1494,7 +1494,7 @@ let toStringTests =
             |]
          |],
          French,
-         22597,
+         (61, 11, 0, 2),
          "61 Some(rLjDau2), 11 Some(IFdx5oWg), 2 Some(a)")
         ([|
             [| "Patient Age day"; "4oVf"; "RpIgA82"; "ScJ"; "Fdw4oW"; "G0"; "t1kSc" |]
@@ -1515,7 +1515,7 @@ let toStringTests =
             |]
          |],
          Spanish,
-         9860,
+         (27, 0, 0, 5),
          "27 Some(TrKiCau), 5 Some(C9t1l)")
         ([|
             [|
@@ -1576,7 +1576,7 @@ let toStringTests =
             |]
          |],
          Dutch,
-         33796,
+         (92, 7, 0, 6),
          "92 Some(W), 7 Some(Qo), 6 Some(Ecw4YVfN7E)")
         ([|
             [| "Patient Age day"; ""; "mUe"; "nHfz6qYiP9"; "aI"; "bv3XUeM6D"; "Y" |]
@@ -1589,7 +1589,7 @@ let toStringTests =
             [| "Patient Age years"; "MkEcv"; "N"; "A8s0"; ""; "oWg"; "pJhB8s0kRb" |]
          |],
          German,
-         4624,
+         (12, 8, 0, 4),
          "12 , 8 Some(w), 4 Some(kEcv3nVPM)")
         ([|
             [| "Patient Age day"; "d"; "eyspXhP8"; ""; "2mTdL5D"; "PnGey60XhP"; "QaH1zT" |]
@@ -1650,7 +1650,7 @@ let toStringTests =
             [| "Patient Age years"; "EYwPn"; "rZjQaI2z"; ""; "fN7EYwQ"; "gA8rZjRa"; "" |]
          |],
          Dutch,
-         28560,
+         (78, 3, 0, 0),
          "78 Some(rZjQaI2z), 3 Some(lTdL4CWuo)")
         ([|
             [| "Patient Age day"; "5"; "SpJh"; ""; "Gdx"; "H0ySqJhB93"; "u1" |]
@@ -1671,7 +1671,7 @@ let toStringTests =
             [| "Patient Age years"; "iQ9H1z"; "jd"; "60XvP"; "7"; "UrLj"; "" |]
          |],
          German,
-         15823,
+         (43, 4, 1, 1),
          "43 Some(7), 4 Some(1l), 1 Some(Lj), 1 Some(Gdx)")
         ([|
             [| "Patient Age day"; "IgA8rZjR"; "J3BV"; "w4oWfN7"; "xRp"; "kScK3B"; "lF" |]
@@ -1733,7 +1733,7 @@ let toStringTests =
             |]
          |],
          English,
-         3258,
+         (8, 11, 1, 1),
          "8 Some(9t1lTc), 11 Some(4YVfN7E), 1 Some(OmGdx5p), 1 Some(IgA8rZjR)")
         ([|
             [| "Patient Age day"; "AUsL"; ""; "oIg"; "bJ3A"; ""; "Zxr" |]
@@ -1755,7 +1755,7 @@ let toStringTests =
             [| "Patient Age years"; "Nl"; "O8GZxRpJg"; "B"; "CWuNlFd7"; ""; "qKi" |]
          |],
          French,
-         26859,
+         (73, 7, 0, 4),
          "73 Some(B), 7 Some(v3), 4 Some(kSbJ)")
         ([|
             [|
@@ -1800,7 +1800,7 @@ let toStringTests =
             |]
          |],
          English,
-         34523,
+         (94, 7, 0, 3),
          "94 Some(FZwQoIC), 7 Some(zTr), 3 Some(oHfz7)")
         ([|
             [|
@@ -1837,7 +1837,7 @@ let toStringTests =
             |]
          |],
          French,
-         21786,
+         (59, 8, 1, 4),
          "59 Some(HE), 8 Some(1zS), 1 Some(ZjRaI2A), 4 ")
         ([|
             [| "Patient Age day"; "JhB8s"; "K"; "x5pW"; ""; "lTd"; "mGex5p" |]
@@ -1874,7 +1874,7 @@ let toStringTests =
             [| "Patient Age years"; "au2"; "XvPnGe"; "Yi"; "LjDxu"; "M"; "z7rY" |]
          |],
          English,
-         9221,
+         (25, 3, 0, 6),
          "25 Some(au2), 3 Some(roWg), 6 Some(TdL4CWuN)")
         ([|
             [| "Patient Age day"; "BVsMkEyv3n"; "oW"; "pJgA8sZjR"; "c"; "dx4oWgN7"; "" |]
@@ -1927,7 +1927,7 @@ let toStringTests =
             [| "Patient Age years"; "Omgd"; ""; "Cat"; "DXuOmGAx5p"; "qY"; "rLiCauolT" |]
          |],
          Dutch,
-         32985,
+         (90, 4, 2, 1),
          "90 , 4 Some(J3BvsMk), 2 Some(DXvPJGey), 1 Some(oW)")
         ([|
             [| "Patient Age day"; "fM6EYv"; "Cz"; "DAUsM"; "q"; "QoIg"; "" |]
@@ -1948,7 +1948,7 @@ let toStringTests =
             [| "Patient Age years"; "GZxR"; "t0kSc63"; "uNl"; "hO8G0x"; "iB"; "5CWuO" |]
          |],
          Italian,
-         3985,
+         (10, 11, 0, 5),
          "10 Some(5CWuO), 11 Some(ZxQoIg), 5 Some(NlF)")
         ([|
             [|
@@ -2009,7 +2009,7 @@ let toStringTests =
             |]
          |],
          Dutch,
-         27749,
+         (76, 0, 1, 2),
          "76 Some(kEcw3nV), 1 Some(Zx), 2 Some(3nVeM)")
         ([|
             [| "Patient Age day"; "Kic9t1l"; "L5C"; "y6pXhP"; "zT"; "mUdL5"; "n" |]
@@ -2022,7 +2022,7 @@ let toStringTests =
             [| "Patient Age years"; "bv3mUeM"; "YwQ"; "ZjRa"; "Mkebv3n"; "N71"; "A82ZjR" |]
          |],
          Italian,
-         15184,
+         (41, 7, 1, 2),
          "41 Some(A82ZjR), 7 Some(u2), 1 , 2 Some(jdaI)")
         ([|
             [|
@@ -2091,7 +2091,7 @@ let toStringTests =
             |]
          |],
          English,
-         2447,
+         (6, 8, 2, 3),
          "6 Some(P), 8 Some(Jh), 2 Some(Dbv3mUeM5), 3 Some(85pXhO8G0x)")
         ([|
             [| "Patient Age day"; "fN7"; "gA8sZjRb52"; "3B"; "4oWgN7FZw"; "R"; "ScK4BVtN" |]
@@ -2104,7 +2104,7 @@ let toStringTests =
             [| "Patient Age years"; "G"; "t1lT"; ""; "hP9"; "iCau1lTd74"; "5D" |]
          |],
          Spanish,
-         9948,
+         (27, 3, 0, 3),
          "27 Some(iCau1lTd74), 3 , 3 Some(1lTcK4Cw)")
         ([|
             [|
@@ -2181,7 +2181,7 @@ let toStringTests =
             |]
          |],
          English,
-         33712,
+         (92, 4, 1, 5),
          "92 Some(kScJ3BVP), 4 Some(eM6EXvPnH), 1 Some(dx4oWgN), 5 ")
         ([|
             [| "Patient Age day"; "LFCa"; ""; "z6q"; "ATrLjdau2m"; "nU"; "oHfz7qYiQ" |]
@@ -2202,7 +2202,7 @@ let toStringTests =
             [| "Patient Age years"; "cw"; "ZxQoI"; "0"; "NHEc"; ""; "Bvs" |]
          |],
          Spanish,
-         21147,
+         (57, 11, 1, 5),
          "57 , 11 Some(I), 1 Some(s), 5 Some(TQoIgz7rZ)")
         ([|
             [| "Patient Age day"; "CWuO"; "pXhPJG0"; "qKi"; "dL5DWu"; "ey"; "1zTrK" |]
@@ -2255,7 +2255,7 @@ let toStringTests =
             |]
          |],
          Dutch,
-         8410,
+         (23, 0, 2, 1),
          "23 Some(daI2A), 2 Some(FZxQoIg), 1 Some(pXhPJG0)")
         ([|
             [|
@@ -2292,7 +2292,7 @@ let toStringTests =
             |]
          |],
          German,
-         32011,
+         (87, 8, 2, 2),
          "87 , 8 Some(c), 2 Some(7E), 2 Some(1zS)")
         ([|
             [| "Patient Age day"; "8sZjR"; "VtMkEcv3"; "WgN7"; "JDA8s0j"; "KEB"; "xroWgO" |]
@@ -2321,7 +2321,7 @@ let toStringTests =
             |]
          |],
          Italian,
-         3174,
+         (8, 8, 2, 0),
          "8 Some(YiP9), 8 Some(ScK3BVt), 2 Some(M)")
         ([|
             [| "Patient Age day"; "m"; "96EYwPnH"; ""; "AUsMGDb"; "nVfNHEYwQn"; "oIgAur" |]
@@ -2366,7 +2366,7 @@ let toStringTests =
             [| "Patient Age years"; "dw4oWfN7FZ"; "0x"; "1kScK3BVt"; "O"; "b8G0yRpJ"; "" |]
          |],
          German,
-         27110,
+         (74, 3, 1, 3),
          "74 Some(O), 3 Some(Ig), 1 Some(G0yspJ), 3 Some(w4oWfN7Fzw)")
         ([|
             [| "Patient Age day"; "D"; "qYic"; ""; "eM6"; "fz7qYiQKH1"; "2A" |]
@@ -2387,7 +2387,7 @@ let toStringTests =
             [| "Patient Age years"; "QoIgz7"; "Rb"; "Ecw4n"; "F"; "s0ke"; "" |]
          |],
          Italian,
-         14373,
+         (39, 4, 2, 4),
          "39 , 4 Some(n), 2 Some(ic), 4 Some(cwq)")
         ([|
             [| "Patient Age day"; "hP"; "iC9t1lfcK"; "5"; "6qXhP9G0"; ""; "UeL5DXu" |]
@@ -2440,7 +2440,7 @@ let toStringTests =
             [| "Patient Age years"; ""; "v3X"; "wQKHfz7qYi"; "jR"; "kEbv3nVeM"; "7" |]
          |],
          French,
-         1808,
+         (4, 11, 2, 4),
          "4 Some(wQKHfz7qYi), 11 Some(qKic9t), 2 Some(kEcw4nV), 4 Some(f96qYiP9)")
         ([|
             [| "Patient Age day"; "9s"; "WtNlF"; "X"; "khB9"; ""; "85p" |]
@@ -2453,7 +2453,7 @@ let toStringTests =
             [| "Patient Age years"; "mTdL5DW"; "nGe"; "aH1zTN"; "bu"; "YvPnH"; "Z" |]
          |],
          Spanish,
-         9137,
+         (25, 0, 1, 5),
          "25 Some(YvPnH), 1 Some(QaI2zTrLiC), 5 Some(Gey)")
         ([|
             [|
@@ -2530,7 +2530,7 @@ let toStringTests =
             |]
          |],
          French,
-         33073,
+         (90, 7, 1, 6),
          "90 Some(1lTdK4), 7 Some(WfN7FYw), 1 Some(G), 6 Some(K4CV)")
         ([|
             [| "Patient Age day"; "EYS"; "rZTQaI"; "sM"; "fN6EY"; "g"; "3BUs" |]
@@ -2543,7 +2543,7 @@ let toStringTests =
             [| "Patient Age years"; "RpJ"; "ScK3BV"; "Fd"; "G0yRp"; "t1lScK"; "uO" |]
          |],
          Spanish,
-         20336,
+         (55, 8, 3, 0),
          "55 Some(t1lScK), 8 Some(nV), 3 Some(SP9)")
         ([|
             [|
@@ -2612,7 +2612,7 @@ let toStringTests =
             |]
          |],
          Dutch,
-         7771,
+         (21, 3, 2, 2),
          "21 , 3 Some(qYiP9H1), 2 Some(kScK3BVt), 2 Some(PM6EYvPnH)")
         ([|
             [| "Patient Age day"; "9t1lScK4CV"; "Wu"; "XhP9G0ySM"; "K"; "L5DXuOmG"; "" |]
@@ -2625,7 +2625,7 @@ let toStringTests =
             [| "Patient Age years"; "XUeM"; ""; "aI2"; "bv3nheM6EX"; "Yw"; "ZjRbI2AUs" |]
          |],
          German,
-         15100,
+         (41, 4, 2, 1),
          "41 Some(bv3nheM6EX), 4 , 2 Some(0), 1 Some(K)")
         ([|
             [|
@@ -2686,7 +2686,7 @@ let toStringTests =
             [| "Patient Age years"; "ey60"; "1zTqKiC"; "2mU"; "PnHey6"; "Qa"; "Dbv2m" |]
          |],
          Dutch,
-         2535,
+         (6, 11, 2, 1),
          "6 Some(1zTqKiC), 11 Some(VtNlfcw4), 2 Some(QnHfztqYi), 1 Some(O8GZxRpIg)")
         ([|
             [| "Patient Age day"; ""; "smj"; "tnkEcw3nVf"; "ga"; "hA8s0kRbJ"; "4" |]
@@ -2715,7 +2715,7 @@ let toStringTests =
             [| "Patient Age years"; "SqJhB"; "T"; "Gex5"; ""; "u2l"; "vPmGey5pXh" |]
          |],
          German,
-         26299,
+         (72, 0, 2, 5),
          "72 , 2 Some(vPnHey6q), 5 Some(qJhB9s0kS)")
         ([|
             [| "Patient Age day"; "iQaI2zT"; "jDb"; "6EYwqn"; "7r"; "UsMkD"; "V" |]
@@ -2769,7 +2769,7 @@ let toStringTests =
             |]
          |],
          English,
-         13734,
+         (37, 7, 2, 5),
          "37 Some(K3BVt), 7 Some(EYvPnH), 2 Some(yS), 5 Some(sMk)")
         ([|
             [|
@@ -2822,7 +2822,7 @@ let toStringTests =
             |]
          |],
          French,
-         834,
+         (2, 3, 2, 0),
          "2 , 3 Some(G), 2 Some(0U)")
         ([|
             [| "Patient Age day"; "OmFdx5ZW"; "P9G0"; "Cat1lTc"; "DXu"; "qYhP9H"; "rl" |]
@@ -2851,7 +2851,7 @@ let toStringTests =
             |]
          |],
          English,
-         8498,
+         (23, 3, 1, 6),
          "23 Some(fztqYi), 3 Some(9t), 1 Some(UrLjDau), 6 Some(YSP9)")
         ([|
             [|
@@ -2912,7 +2912,7 @@ let toStringTests =
             [| "Patient Age years"; "Tq"; "UdL5DxuOm"; "H"; "I1zTrKiC"; ""; "wPnHfy6" |]
          |],
          French,
-         32262,
+         (88, 4, 3, 1),
          "88 Some(H), 4 Some(B9), 3 Some(v3nUeM60X), 1 Some(QNlFdw4)")
         ([|
             [| "Patient Age day"; "jRbJ"; ""; "7FZ"; "8s0URbJ3AU"; "Vt"; "WgO7FZxRo" |]
@@ -2925,7 +2925,7 @@ let toStringTests =
             [| "Patient Age years"; "K4"; "x5pXg"; "y"; "lTdL"; ""; "9H1" |]
          |],
          English,
-         19697,
+         (53, 11, 3, 1),
          "53 Some(K4), 11 Some(FYw), 3 Some(zTqK), 1 Some(jRbJ)")
         ([|
             [|
@@ -2986,7 +2986,7 @@ let toStringTests =
             [| "Patient Age years"; "oWgN7FZwQ"; "p"; "cK"; "dxroWgO7F"; "0"; "1lfcK4CV" |]
          |],
          Dutch,
-         6960,
+         (19, 0, 3, 4),
          "19 Some(p), 3 Some(ex5pXgO), 4 Some(8sZjRbI2)")
         ([|
             [| "Patient Age day"; "PmGey"; "Q"; "Dau2"; ""; "rYi"; "sLjDbu2mUO" |]
@@ -2999,7 +2999,7 @@ let toStringTests =
             [| "Patient Age years"; "ga7"; "3XUsMk"; "4n"; "RoIgA"; "S"; "Fcw4" |]
          |],
          Italian,
-         14461,
+         (39, 7, 2, 2),
          "39 Some(Fcw4), 7 Some(z7qYi), 2 Some(t), 2 Some(nV)")
         ([|
             [| "Patient Age day"; "G0ySp"; "t1lTcK4C"; "uOmG"; "hP9H0yS"; "iCa"; "5DXvOm" |]
@@ -3060,7 +3060,7 @@ let toStringTests =
             |]
          |],
          Dutch,
-         1724,
+         (4, 8, 3, 3),
          "4 Some(UeM60X), 8 Some(P8G0ysp), 3 Some(J3AUsMkD), 3 Some(DXvp)")
         ([|
             [| "Patient Age day"; "k"; "lF"; "8GAxR"; "9"; "Wuol"; "" |]
@@ -3081,7 +3081,7 @@ let toStringTests =
             [| "Patient Age years"; "L5DWuOmgdx"; "y6"; "zTrKiCa41"; "m"; "nHfy"; "" |]
          |],
          Italian,
-         25660,
+         (70, 3, 2, 6),
          "70 , 3 Some(4), 2 Some(Zw), 6 Some(TrK)")
         ([|
             [|
@@ -3142,7 +3142,7 @@ let toStringTests =
             |]
          |],
          English,
-         12923,
+         (35, 4, 4, 0),
          "35 , 4 Some(jRbI2AU), 4 Some(dL5DWuOm)")
         ([|
             [| "Patient Age day"; "Pn"; "QaI2WTrLj"; "D"; "EYwQnHfz"; ""; "sMkEbv3" |]
@@ -3163,7 +3163,7 @@ let toStringTests =
             [| "Patient Age years"; ""; "EBV"; "roWgO7FZxQ"; "Rp"; "ScK4YVtNl"; "F" |]
          |],
          Spanish,
-         20424,
+         (55, 11, 2, 5),
          "55 Some(ScK4YVtNl), 11 Some(N6EYwQnHfz), 2 , 5 Some(BVtnkEc)")
         ([|
             [| "Patient Age day"; "H1"; "u2mTd"; "v"; "iQaH"; "jDbu2mU"; "6EY" |]
@@ -3208,7 +3208,7 @@ let toStringTests =
             [| "Patient Age years"; "UsMGDbv"; "VfN"; "IgAurZ"; "J3"; "w4oVf"; "x" |]
          |],
          English,
-         7687,
+         (21, 0, 3, 1),
          "21 Some(UsMGDbv), 3 Some(JDA8s0jRb), 1 Some(H1)")
         ([|
             [| "Patient Age day"; "lTc"; "mGdx5pWgO8"; "9H"; "a41lTdK4C"; "X"; "YSP9H1yS" |]
@@ -3245,7 +3245,7 @@ let toStringTests =
             [| "Patient Age years"; "M"; "z7qY"; ""; "nVe"; "oIfz7rYiQa"; "bJ" |]
          |],
          Spanish,
-         31623,
+         (86, 7, 3, 2),
          "86 Some(oIfz7rYiQa), 7 Some(iCat1l), 3 Some(cw4oVfN), 2 Some(7qYiQ9H1)")
         ([|
             [| "Patient Age day"; "zw4"; "AxRpJg"; "0k"; "NlFd7"; "O"; "B9t1" |]
@@ -3282,7 +3282,7 @@ let toStringTests =
             [| "Patient Age years"; "qXhP9G0y"; "rKiC"; "eL5DXuO"; "fy6"; "CzTrLi"; "pm" |]
          |],
          English,
-         18886,
+         (51, 9, 0, 1),
          "51 Some(qXhP9G0y), 9 Some(kSbJ3BvsM), 1 Some(zw4)")
         ([|
             [|
@@ -3335,7 +3335,7 @@ let toStringTests =
             |]
          |],
          German,
-         6321,
+         (17, 3, 3, 5),
          "17 Some(SqKiB9t1kS), 3 , 3 Some(H), 5 Some(B9t0kScJ)")
         ([|
             [| "Patient Age day"; "I2zT"; "v3mUeMG"; "wQn"; "jRaI2A"; "kE"; "7FYwQ" |]
@@ -3356,7 +3356,7 @@ let toStringTests =
             |]
          |],
          Italian,
-         13650,
+         (37, 4, 3, 4),
          "37 Some(ySp), 4 Some(sMkDbv3nUe), 3 , 4 Some(h)")
         ([|
             [|
@@ -3409,7 +3409,7 @@ let toStringTests =
             |]
          |],
          German,
-         1085,
+         (2, 11, 3, 4),
          "2 , 11 Some(i), 3 Some(cK4BVtNl), 4 Some(6EYwqnHfz)")
         ([|
             [| "Patient Age day"; ""; "0yS"; "1lTdK4CWtN"; "Om"; "P9HBySqKh"; "C" |]
@@ -3422,7 +3422,7 @@ let toStringTests =
             [| "Patient Age years"; "qYiQK"; "r"; "eM6E"; ""; "2AU"; "3nVfM6EYvP" |]
          |],
          Italian,
-         24849,
+         (68, 0, 4, 1),
          "68 Some(3nVfM6EYvP), 4 Some(S), 1 Some(C)")
         ([|
             [| "Patient Age day"; "R"; "Sc63BVtM"; ""; "G0xRpJh"; "t1kScK4BVt"; "uOlFdx" |]
@@ -3483,7 +3483,7 @@ let toStringTests =
             [| "Patient Age years"; "iCat1"; "5DXuOmGd"; ""; "TrLiCau"; "UeM5DXvO"; "" |]
          |],
          French,
-         12284,
+         (33, 7, 4, 1),
          "33 , 7 Some(0kScJ), 4 Some(VeM6EX), 1 ")
         ([|
             [| "Patient Age day"; "J"; "w3nV"; ""; "kRb"; "lEcw4nVfN7"; "8F" |]
@@ -3504,7 +3504,7 @@ let toStringTests =
             [| "Patient Age years"; "WuNlFd"; "Xh"; "KEB9t"; "L"; "yspX"; "" |]
          |],
          Spanish,
-         19613,
+         (53, 8, 4, 0),
          "53 Some(yspX), 8 Some(s0URb), 4 Some(m)")
         ([|
             [| "Patient Age day"; "mUeM5DXv"; "nHfz"; "aI2ATrL"; "bv3"; "YwQoHf"; "Zj" |]
@@ -3565,7 +3565,7 @@ let toStringTests =
             |]
          |],
          French,
-         7048,
+         (19, 3, 3, 2),
          "19 Some(BVtNH), 3 Some(wPnHfz), 3 Some(qKEB9t1), 2 Some(kEc)")
         ([|
             [| "Patient Age day"; "ey6pXhPJ"; ""; "2mU"; "PnHey6qXhP"; ""; "Db5" |]
@@ -3586,7 +3586,7 @@ let toStringTests =
             [| "Patient Age years"; "rZ"; "sMkebv3nU"; "f"; "gA8rZjRL"; ""; "4oWfN7F" |]
          |],
          Spanish,
-         30812,
+         (84, 5, 0, 2),
          "84 , 5 Some(X), 2 Some(MkD)")
         ([|
             [|
@@ -3631,7 +3631,7 @@ let toStringTests =
             |]
          |],
          Dutch,
-         18247,
+         (49, 11, 4, 4),
          "49 Some(6EXvPnhey6), 11 Some(0ySpJh), 4 Some(UsMkDbv), 4 Some(PmGeyspX)")
         ([|
             [|
@@ -3668,7 +3668,7 @@ let toStringTests =
             |]
          |],
          German,
-         5347,
+         (14, 7, 3, 6),
          "14 Some(85DXvOmGe), 7 Some(G0xRpJgA8s), 3 Some(AU), 6 Some(uOmGdx5)")
         ([|
             [| "Patient Age day"; "nVf96"; "o"; "bJ3A"; ""; "ZxR"; "0kSbJ3" |]
@@ -3705,7 +3705,7 @@ let toStringTests =
             [| "Patient Age years"; "O8G"; "B9t1kS"; "CW"; "pXhb8"; "q"; "dL5Z" |]
          |],
          Dutch,
-         13011,
+         (35, 7, 3, 5),
          "35 Some(B9t1kS), 7 Some(63nVfM6), 3 Some(qkhP9H0y), 5 Some(kScJ)")
         ([|
             [| "Patient Age day"; "fz6qYic9H1"; "2A"; "3nUeM6DXv"; "Q"; "RbI2AUrL"; "" |]
@@ -3758,7 +3758,7 @@ let toStringTests =
             [| "Patient Age years"; "s0UR"; ""; "gO7"; "hB8s0kebJ3"; "4C"; "5pWgO82Zx" |]
          |],
          German,
-         274,
+         (0, 9, 0, 4),
          "9 Some(bv3mUe), 4 Some(0jRbJDAU)")
         ([|
             [| "Patient Age day"; "TqKiC9"; "Ud"; "hey6q"; "4"; "52mU"; "" |]
@@ -3787,7 +3787,7 @@ let toStringTests =
             [| "Patient Age years"; "kDbv"; "7EYwQKH"; "8rZ"; "VsMkEb"; "Wf"; "JgA8s" |]
          |],
          Dutch,
-         24210,
+         (66, 4, 0, 0),
          "66 Some(7EYwQKH), 4 Some(1zSqKic9)")
         ([|
             [|
@@ -3848,7 +3848,7 @@ let toStringTests =
             |]
          |],
          French,
-         11473,
+         (31, 5, 1, 1),
          "31 Some(LjDbu2mUOL), 5 , 1 Some(EYSPnHfy6), 1 Some(ySqkh)")
         ([|
             [| "Patient Age day"; "oWQN7FZ"; "pJg"; "cK3BVt"; "dx"; "0yRpJ"; "1" |]
@@ -3861,7 +3861,7 @@ let toStringTests =
             [| "Patient Age years"; "P9H0ySq"; "Cau"; "DXvO"; "qYSP9H1"; "rLF"; "eMGDXv" |]
          |],
          English,
-         18974,
+         (51, 11, 4, 1),
          "51 Some(P9H0ySq), 11 Some(J), 4 Some(EX), 1 Some(oWQN7FZ)")
         ([|
             [|
@@ -3930,7 +3930,7 @@ let toStringTests =
             |]
          |],
          French,
-         6237,
+         (17, 1, 0, 2),
          "17 , 1 Some(fz7q), 2 Some(AxRpJgA8s)")
         ([|
             [| "Patient Age day"; "TrL"; "UeM6DXvPJG"; "Hf"; "I2AUrLjDa"; "v"; "wQoIfz7r" |]
@@ -3943,7 +3943,7 @@ let toStringTests =
             [| "Patient Age years"; "k"; "7FZx"; ""; "VtN"; "WgO8FZxRLI"; "Jh" |]
          |],
          English,
-         30173,
+         (82, 8, 0, 3),
          "82 Some(k), 8 Some(fy), 3 Some(3nVPM6EYvP)")
         ([|
             [| "Patient Age day"; "fz74YiQN"; "oy"; "c6xI4Ah"; "K"; "mhBys"; "KWCW" |]
@@ -3964,17 +3964,21 @@ let toStringTests =
             [| "Patient Age years"; "FZTQo"; "s"; "tNHD"; ""; "hAR"; "3KEB9t1kSc" |]
          |],
          Dutch,
-         17436,
+         (47, 9, 1, 4),
          "47 Some(s), 9 Some(IbLNyXR), 1 , 4 Some(4Yko0hBy60)")
     ]
-    |> List.map (fun (terms, lang, days, expected) ->
+    |> List.map (fun (terms, lang, (years, months, weeks, days), expected) ->
         test $"Age.toString returns {expected}" {
-            let actual = PatientText.Age.toString terms lang (Patient.Age.fromDays days)
+            let age =
+                Patient.Age.create
+                    (years * 1<year>)
+                    (Some(months * 1<month>))
+                    (Some(weeks * 1<week>))
+                    (Some(days * 1<day>))
 
-            Expect.equal
-                actual
-                expected
-                $"Age.toString %A{terms} {lang} (Patient.Age.fromDays {days}) should return {expected}."
+            let actual = PatientText.Age.toString terms lang age
+
+            Expect.equal actual expected $"Age.toString %A{terms} {lang} (%A{age}) should return {expected}."
         }
     )
 
@@ -3986,7 +3990,7 @@ let tests = testList "PatientText.Age.toString" toStringTests
 /// A patient of an age in years, marked as an adult or not, of a gender.
 let patientOf (years: int option) marked gender : Patient =
     { Patient.empty with
-        Age = years |> Option.map (fun y -> Patient.Age.fromDays (y * 365))
+        Age = years |> Option.map (fun y -> Patient.Age.create (y * 1<year>) None None None)
         MarkedAdult = marked
         Gender = gender
     }
