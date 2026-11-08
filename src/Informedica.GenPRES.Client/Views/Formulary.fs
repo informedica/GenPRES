@@ -5,7 +5,6 @@ module Formulary =
 
     open Informedica.GenPRES.Client.Core.Models
     open Informedica.GenPRES.Client.Core.Helpers
-    open Informedica.GenPRES.Client.Core.Policies
     open Informedica.GenPRES.Client.Core.StateMachines
 
     open Fable.Core
@@ -140,13 +139,6 @@ module Formulary =
         let select = ViewHelpers.filterSelect
         let autoComplete = ViewHelpers.autoComplete
 
-
-        let patientNotice =
-            Components.PatientNotice.View
-                {|
-                    appEnv = props.appEnv
-                    needs = PatientReadinessPolicy.Needs.DoseCheck
-                |}
 
         let stackDirection = if Mui.Hooks.useIsNarrow () then "column" else "row"
 
@@ -374,7 +366,6 @@ module Formulary =
         import Typography from '@mui/material/Typography';
 
         <Box>
-                {patientNotice}
                 {content}
         </Box>
         """

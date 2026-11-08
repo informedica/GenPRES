@@ -5,7 +5,6 @@ module Parenteralia =
 
     open Informedica.GenPRES.Client.Core.Models
     open Informedica.GenPRES.Client.Core.Helpers
-    open Informedica.GenPRES.Client.Core.Policies
     open Informedica.GenPRES.Client.Core.StateMachines
 
 
@@ -89,13 +88,6 @@ module Parenteralia =
 
         let responsiveFilter = ViewHelpers.responsiveFilter isMobile
 
-        let patientNotice =
-            Components.PatientNotice.View
-                {|
-                    appEnv = props.appEnv
-                    needs = PatientReadinessPolicy.Needs.DoseCheck
-                |}
-
         let stackDirection = if isMobile then "column" else "row"
 
         let content =
@@ -178,7 +170,6 @@ module Parenteralia =
         import Typography from '@mui/material/Typography';
 
         <Box sx={ {| height = "100%" |} }>
-                {patientNotice}
                 {content}
         </Box>
         """

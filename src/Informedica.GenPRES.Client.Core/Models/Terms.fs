@@ -183,7 +183,6 @@ type Terms =
     // the panel's button that reads the patient from the EHR again
     | ``Patient Refresh``
     // what needs a patient on a page that works without one, said with what is missing
-    | ``Patient Needed Dose Check``
     | ``Patient Needed Plan Medication``
     // what a patient's calculations go on without, said on every page that calculates: the
     // age, and the gestational age of a patient younger than 28 weeks
