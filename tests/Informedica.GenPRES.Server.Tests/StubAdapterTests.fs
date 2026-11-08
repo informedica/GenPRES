@@ -48,7 +48,7 @@ module StubAdapters =
     let private notStubbed _ = raise (System.NotImplementedException "not stubbed")
 
 
-    /// The stub EHR read at the stub patient's tenth birthday whatever the clock, so that the
+    /// The stub EHR read on the day the stub patient is 3650 days old whatever the clock, so that the
     /// ten-year reading the fixtures state is the reading at every date the suites run at.
     let patientData: PatientDataPort = StubPatientData.portAt (fun () -> StubPatientData.measuredOn)
 

@@ -155,7 +155,7 @@ module StubDirectory =
 /// has no record at all, so the Session opens on what was signed last, or on nothing.
 module StubPatientData =
 
-    /// The stub's reading projected at its patient's tenth birthday, as the contract model:
+    /// The stub's reading projected on the day its patient is 3650 days old, as the contract model:
     /// ten years, 32 kg and 140 cm measured, nothing else known.
     let patient: Patient =
         Informedica.GenPRES.Shared.Models.Patient.create
@@ -189,9 +189,9 @@ module StubPatientData =
         BirthDate.create (Conversions.yearFromInt 2016) (Conversions.monthFromInt 3) (Conversions.dayFromInt 15)
 
 
-    /// The date the stub's measurements carry: the patient's tenth birthday, so that the
-    /// projection at that date is the reading above.
-    let measuredOn = DateTime(2026, 3, 15)
+    /// The date the stub's measurements carry: the day the patient is 3650 days old, 13 March 2026,
+    /// so that the projection at that date is the reading above.
+    let measuredOn = (birthDate |> BirthDate.toDate).AddDays(AgeValue.ten |> AgeValue.getAgeInDays |> float)
 
 
     /// The stub's EHR data for an id read at a moment: the fixed patient under that id, nothing else
@@ -300,15 +300,16 @@ module StubPatientData =
         ]
 
 
-    /// The EHR data of a test patient read at a moment: born the age before that day, measured that day.
+    /// The EHR data of a test patient read at a moment: born the age in days of the test patient
+    /// before that day, so that the patient has that age in days on whatever day it is read, and measured that day.
     let testPatientData (now: DateTime) tp =
         let measuredOn = now.Date
         let weight = WeightAtDate.create measuredOn tp.Weight
         let height = HeightAtDate.create measuredOn tp.Height
 
         let identity =
-            tp.Age
-            |> BirthDate.fromAgeValue measuredOn
+            measuredOn.AddDays(-(tp.Age |> AgeValue.getAgeInDays |> float))
+            |> BirthDate.fromDate
             |> PatientIdentity.create tp.Id tp.Name
             |> Some
 

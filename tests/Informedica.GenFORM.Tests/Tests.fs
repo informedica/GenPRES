@@ -2329,14 +2329,15 @@ module Tests =
         module FormPatient = Informedica.GenForm.Lib.Patient
         module FormTypes = Informedica.GenForm.Lib.Types
 
-        /// The fifteenth of March, 2016, the tenth birthday of a patient born on it.
-        let tenthBirthday = DateTime(2026, 3, 15)
+        /// The thirteenth of March, 2026, the day a patient born on the fifteenth of March, 2016, is
+        /// 3650 days old.
+        let measuredOn = DateTime(2016, 3, 15).AddDays 3650.
 
         /// The stub's kind of patient read at a moment: born 2016-03-15, 32 kg and 140 cm measured on
-        /// the tenth birthday, nothing else known, its ages created at the read.
+        /// the day the patient is 3650 days old, nothing else known, its ages created at the read.
         let ehrAt readAt : FormTypes.EhrPatientData =
-            let weight = WeightAtDate.create tenthBirthday (WeightValue.weightInKg 32m)
-            let height = HeightAtDate.create tenthBirthday (HeightValue.heightInCm 140m)
+            let weight = WeightAtDate.create measuredOn (WeightValue.weightInKg 32m)
+            let height = HeightAtDate.create measuredOn (HeightValue.heightInCm 140m)
 
             PatientData.create
                 Department.unknown
@@ -2354,8 +2355,8 @@ module Tests =
                  |> Some)
             |> fun pat -> Informedica.GenForm.Lib.EhrPatientData.create pat None []
 
-        /// The stub's kind of patient read on its tenth birthday.
-        let ehr () = ehrAt tenthBirthday
+        /// The stub's kind of patient read on the day it is 3650 days old.
+        let ehr () = ehrAt measuredOn
 
         let days (vu: ValueUnit option) =
             vu
@@ -2365,7 +2366,7 @@ module Tests =
             testList
                 "EhrPatientData"
                 [
-                    test "the projection at the tenth birthday is ten years, the measures, nothing else" {
+                    test "the projection at 3650 days is ten years, the measures, nothing else" {
                         let pat = ehr () |> FormPatient.ofEhr
 
                         let expected: FormTypes.Patient =
@@ -2384,7 +2385,7 @@ module Tests =
                     test "the age is the birthdate's at the read, in days" {
                         let at dt = ehrAt dt |> FormPatient.ofEhr |> _.Age |> days
 
-                        (at tenthBirthday, at (tenthBirthday.AddDays 1.0), at (tenthBirthday.AddYears 1))
+                        (at measuredOn, at (measuredOn.AddDays 1.0), at (measuredOn.AddYears 1))
                         |> Expect.equal "3650, 3651, 4015 days" (Some 3650N, Some 3651N, Some 4015N)
                     }
 
@@ -2465,7 +2466,7 @@ module Tests =
                         |> Patient.atDate (DateTime(2026, 3, 30))
                         |> fun core -> FormPatient.patient |> FormPatient.withAgesOf core
                         |> fun pat -> pat.Age |> days, pat.GestAge |> days, pat.PMAge |> days
-                        |> Expect.equal "59 days, 182 days, 182 plus 59 days" (Some 59N, Some 182N, Some 241N)
+                        |> Expect.equal "58 days, 182 days, 182 plus 58 days" (Some 58N, Some 182N, Some 240N)
                     }
 
                     test "withAgesOf: no gestational age, no post-menstrual age" {

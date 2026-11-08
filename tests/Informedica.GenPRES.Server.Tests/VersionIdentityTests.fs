@@ -194,15 +194,16 @@ let localDateTests =
                 ]
 
             testList
-                "the 18th birthday just after local midnight"
+                "18 years just after local midnight"
                 [
-                    // born 8 November 2008; at 00:30 Dutch time on 8 November 2026 the patient is 18
+                    // born 12 November 2008, 6570 days before 8 November 2026; at 00:30 Dutch time on
+                    // 8 November 2026 the patient is 18 years
                     let whom: Informedica.GenCore.Lib.Patients.PatientIdentity option =
                         Some
                             {
                                 Id = "p-18"
                                 Name = "Eighteen"
-                                BirthDate = DateTime(2008, 11, 8) |> CoreBirthDate.fromDate
+                                BirthDate = DateTime(2008, 11, 12) |> CoreBirthDate.fromDate
                             }
 
                     let moment = utc (2026, 11, 7, 23, 30)
@@ -238,7 +239,7 @@ let localDateTests =
                             patient |> ageInDays
 
                         (inZone (amsterdam ()), inZone TimeZoneInfo.Utc)
-                        |> Expect.equal "3842 in Amsterdam, 3841 in UTC" (Some 3842N, Some 3841N)
+                        |> Expect.equal "3848 in Amsterdam, 3847 in UTC" (Some 3848N, Some 3847N)
                     }
 
                     test "a data notice shows the ages of the challenge's read" {
@@ -481,7 +482,7 @@ let tests =
 
                     test "the patient after the sign is at the age of the sign, the version keeps its own" {
                         (signed |> Session.atBirthDate tomorrow identity |> ageInDays, signed |> ageInDays)
-                        |> Expect.equal "a day more" (Some 3842N, Some 3841N)
+                        |> Expect.equal "a day more" (Some 3848N, Some 3847N)
                     }
 
                     test "the EHR data of the challenge go with the version and come back as read" {
@@ -554,7 +555,7 @@ let tests =
 
                         (record.Opened |> Session.sessionPatient tomorrow port |> Option.bind ageInDays,
                          version.Plan.Patient |> ageInDays)
-                        |> Expect.equal "3842 on the Session, 3841 on the version" (Some 3842N, Some 3841N)
+                        |> Expect.equal "3848 on the Session, 3847 on the version" (Some 3848N, Some 3847N)
                     }
 
                     test "the version keeps the EHR data of its challenge, and the Session the patient signed" {

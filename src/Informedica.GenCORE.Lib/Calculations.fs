@@ -53,50 +53,6 @@ module Calculations =
             d + dy + dm + dw
 
 
-        /// The calendar age at a date of a birth date, in years, months, weeks and days, taken on the
-        /// date alone. The months count from the birth date to the last month-day, the latest date the
-        /// birth date plus a whole number of months gives that is not after the date; a month-day that a
-        /// month does not have falls on the last day of that month. The days after the last month-day
-        /// count at most 29, so that the age in days, a year 365 days and a month 30 days, reaches a
-        /// year or a month limit on the birthday or the month-day itself. A birth date after the date
-        /// is refused.
-        let fromBirthDate (bd: System.DateTime) (dt: System.DateTime) =
-            let bd, dt = bd.Date, dt.Date
-
-            if bd > dt then
-                invalidArg
-                    (nameof bd)
-                    $"the birth date %s{bd.ToShortDateString()} is after the date %s{dt.ToShortDateString()}"
-
-            // counted from the birth date itself, so that a birthday on 29 February stays on the 29th
-            // and is not reached a day early on 28 February of a leap year
-            let months =
-                let n = (dt.Year - bd.Year) * Constants.monthsInYear + dt.Month - bd.Month
-                if bd.AddMonths n > dt then n - 1 else n
-
-            // at most 29 days after the month-day: 30 days would count as the next month. A plain
-            // min names the unit of measure for minutes here
-            let rest = (dt - bd.AddMonths months).Days |> Operators.min (Constants.daysInMonth - 1)
-
-            months / Constants.monthsInYear |> Conversions.yearFromInt,
-            months % Constants.monthsInYear |> Conversions.monthFromInt,
-            rest / 7 |> Conversions.weekFromInt,
-            rest % 7 |> Conversions.dayFromInt
-
-
-        let toBirthDate dt (ys: int<year>) (ms: int<month>) (ws: int<week>) (ds: int<day>) =
-            let ys = int ys * -1
-            let ms = int ms * -1
-            let ws = int ws * -1
-            let ds = int ds * -1
-
-            dt
-            |> DateTime.addYears ys
-            |> DateTime.addMonths ms
-            |> DateTime.addWeeks ws
-            |> DateTime.addDays ds
-
-
         let ageToStringNL yrs mos wks dys =
             let yToStr = Conversions.yearToString "jaar" "jaar"
             let mToStr = Conversions.monthToString "maand" "maanden"

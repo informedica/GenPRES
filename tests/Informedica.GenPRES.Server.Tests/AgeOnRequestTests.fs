@@ -17,7 +17,7 @@ open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
 module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
 
 
-/// The date of the open: a September day, half a year past the stub patient's tenth birthday.
+/// The date of the open: a September day, half a year past the day the stub patient is 3650 days old.
 let today = DateTime(2026, 9, 26)
 
 

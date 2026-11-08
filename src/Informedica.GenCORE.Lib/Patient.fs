@@ -356,15 +356,6 @@ module AgeValue =
     let eighteen = create (Some 18<year>) None None None
 
 
-    let fromBirthDate now (bd: BirthDate) =
-        // the birthdate module comes later in the file, so the date is built here
-        let y, m, w, d =
-            now
-            |> Calculations.Age.fromBirthDate (DateTime(int bd.Year, int bd.Month, int bd.Day))
-
-        create (Some y) (Some m) (Some w) (Some d)
-
-
     let toString (av: AgeValue) =
         Calculations.Age.ageToStringNlShort av.Years av.Months av.Weeks av.Days
 
@@ -453,6 +444,21 @@ module AgeValue =
             (ms |> Conversions.monthFromInt |> Some)
             (rest / 7 |> Conversions.weekFromInt |> Some)
             (rest % 7 |> Conversions.dayFromInt |> Some)
+
+
+    /// The age value at a date of a birth date: the days from the birth date to the date, taken on
+    /// the date alone, split by fromDays into years of 365 days, months of 30 days, weeks and days. A
+    /// birth date after the date is refused.
+    let fromBirthDate (now: DateTime) (bd: BirthDate) =
+        // the birthdate module comes later in the file, so the date is built here
+        let birth = DateTime(int bd.Year, int bd.Month, int bd.Day)
+
+        if birth > now.Date then
+            invalidArg
+                (nameof bd)
+                $"the birth date %s{birth.ToShortDateString()} is after the date %s{now.Date.ToShortDateString()}"
+
+        (now.Date - birth).Days |> Conversions.dayFromInt |> fromDays
 
 
     let comp op a1 a2 =
@@ -666,12 +672,6 @@ module BirthDate =
             dt.Year |> Conversions.yearFromInt, dt.Month |> Conversions.monthFromInt, dt.Day |> Conversions.dayFromInt
 
         create y m d
-
-
-    /// The birthdate an age value gives at a date.
-    let fromAgeValue dt av =
-        let ys, ms, ws, ds = av |> AgeValue.getDef0
-        Calculations.Age.toBirthDate dt ys ms ws ds |> fromDate
 
 
     module Validation =
