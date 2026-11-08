@@ -751,7 +751,6 @@ module Client =
                 for load in
                     [
                         Load.Settings
-                        Load.NormalValues
                         Load.BolusMedication
                         Load.ContinuousMedication
                         Load.Products

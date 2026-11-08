@@ -64,18 +64,6 @@ let tests =
     testList
         "the patient mapper"
         [
-            test "GenCORE counts every age from 0 to 20 years as the contract model does" {
-                [ 0 .. 20 * 365 ]
-                |> List.map ServerApi.Age.ofDays
-                |> List.filter (fun age ->
-                    { Informedica.GenPRES.Shared.Models.Patient.empty with Age = Some age }
-                    |> Informedica.GenPRES.Shared.Models.Patient.getAgeInDays
-                    |> Option.map int
-                    <> Some(ServerApi.Age.inDays age)
-                )
-                |> Expect.isEmpty "the same days"
-            }
-
             test "the stub patient parses and comes back as it was" {
                 let pat = domain stub
                 pat.Age |> Option.isSome |> Expect.isTrue "an age"

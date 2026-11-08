@@ -59,17 +59,6 @@ let everyLoad =
     [
         landed (Landing.Settings(Ok(ShellMachineTests.settings Informedica.GenPRES.Shared.Localization.Dutch)))
         landed (Landing.Localization(Ok [||]))
-        landed (
-            Landing.NormalValues(
-                Ok
-                    {
-                        Weights = []
-                        Heights = []
-                        NeoWeights = []
-                        NeoHeights = []
-                    }
-            )
-        )
         landed (Landing.BolusMedication(Ok [ LoaderMachineTests.bolus "UMCU" ]))
         landed (Landing.ContinuousMedication(Ok []))
         landed (Landing.Products(Ok []))

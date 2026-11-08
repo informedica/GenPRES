@@ -50,10 +50,10 @@ let tests =
             }
 
             test "a failed required load is named, also while other requests are out" {
-                status [ Request.Session ] [ Load.Localization ] [ Load.Products; Load.NormalValues ]
+                status [ Request.Session ] [ Load.Localization ] [ Load.Products; Load.ContinuousMedication ]
                 |> Expect.equal
                     "the two, in the order of the required loads"
-                    (Startup.Failed [ Load.NormalValues; Load.Products ])
+                    (Startup.Failed [ Load.ContinuousMedication; Load.Products ])
             }
 
             test "the gate while starting, after a failure, and none once started" {
@@ -113,7 +113,6 @@ let tests =
                         Terms.``Startup Gate Failed``
                         Terms.``Startup Gate Failed Text``
                         Terms.``Startup Load Localization``
-                        Terms.``Startup Load Normal Values``
                         Terms.``Startup Load Bolus Medication``
                         Terms.``Startup Load Continuous Medication``
                         Terms.``Startup Load Products``

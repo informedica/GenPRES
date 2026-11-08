@@ -173,18 +173,6 @@ module List =
             |> List.fold (fun x a -> if (a - x) < (n - x) then x else a) n
 
 
-    /// Get the nearest index in a list to a target value.
-    /// Returns the index of the element that has the smallest absolute difference from the target.
-    /// Throws an exception if the list is empty.
-    let inline nearestIndex x xs =
-        match xs with
-        | [] -> invalidArg "xs" "Array cannot be empty to calculate nearest value."
-        | _ ->
-            let deltas = xs |> List.map ((-) x) |> List.map abs
-            let minDelta = deltas |> List.min
-            deltas |> List.findIndex ((=) minDelta)
-
-
 [<RequireQualifiedAccess>]
 module Decimal =
 

@@ -36,7 +36,6 @@ let allLoads =
         Load.Settings
         Load.Localization
         Load.Hospitals
-        Load.NormalValues
         Load.BolusMedication
         Load.ContinuousMedication
         Load.Products
@@ -321,7 +320,6 @@ let tests =
                     Load.LogAnalysis, [ Page.Page.Settings ]
                     Load.Reload, [ Page.Page.Settings ]
                     Load.Hospitals, []
-                    Load.NormalValues, []
                 ]
                 |> List.iter (fun (load, pages) -> Request.Load load |> disabled |> Expect.equal $"%A{load}" pages)
             }

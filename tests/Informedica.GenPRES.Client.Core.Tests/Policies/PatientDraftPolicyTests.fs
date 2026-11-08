@@ -18,24 +18,20 @@ module PatientDraftPolicyTests =
         open Informedica.GenPRES.Shared.Models
 
 
-        let row sex age p3 mean p97 : NormalValue =
-            {
-                Sex = sex
-                Age = age
-                P3 = p3
-                Mean = mean
-                P97 = p97
-            }
-
-
-        // the same rows for both sexes, so that a change of gender keeps the estimates
-        let weights = Some [ row "M" 10. 25. 32. 40.; row "F" 10. 25. 32. 40. ]
-        let heights = Some [ row "M" 10. 130. 140. 150.; row "F" 10. 130. 140. 150. ]
-
-
-        /// What the App does with every draft it receives: the estimates filled again.
+        /// What the server answers for every draft the App sends: the estimates filled again,
+        /// the same for every age and both sexes, so that a change of gender keeps them; none
+        /// without an age.
         let appStep (draft: Patient option) =
-            draft |> Option.map (Patient.applyNormalValues weights heights None None)
+            draft
+            |> Option.map (fun p ->
+                match p.Age with
+                | None -> p |> Patient.withEstimates None None
+                | Some _ ->
+                    p
+                    |> Patient.withEstimates
+                        (Some(25000<gram>, 32000<gram>, 40000<gram>))
+                        (Some(130<cm>, 140<cm>, 150<cm>))
+            )
 
 
         /// What the App holds after the panel's edit: estimated again after an edit of the age,

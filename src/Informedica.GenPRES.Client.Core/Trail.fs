@@ -729,7 +729,6 @@ module Trail =
             | Load.Settings -> "Settings"
             | Load.Localization -> "Localization"
             | Load.Hospitals -> "Hospitals"
-            | Load.NormalValues -> "NormalValues"
             | Load.BolusMedication -> "BolusMedication"
             | Load.ContinuousMedication -> "ContinuousMedication"
             | Load.Products -> "Products"
@@ -802,7 +801,6 @@ module Trail =
                 match landing with
                 | Landing.Settings r -> "Settings", r |> Part.result (named "settings")
                 | Landing.Localization r -> "Localization", r |> Part.result rows
-                | Landing.NormalValues r -> "NormalValues", r |> Part.result (named "normal values")
                 | Landing.BolusMedication r -> "BolusMedication", r |> Part.result count
                 | Landing.ContinuousMedication r -> "ContinuousMedication", r |> Part.result count
                 | Landing.Products r -> "Products", r |> Part.result count
@@ -843,7 +841,6 @@ module Trail =
             match effect with
             | LoaderEffect.FetchSettings -> "FetchSettings"
             | LoaderEffect.FetchLocalization -> "FetchLocalization"
-            | LoaderEffect.FetchNormalValues -> "FetchNormalValues"
             | LoaderEffect.FetchBolusMedication -> "FetchBolusMedication"
             | LoaderEffect.FetchContinuousMedication -> "FetchContinuousMedication"
             | LoaderEffect.FetchProducts -> "FetchProducts"

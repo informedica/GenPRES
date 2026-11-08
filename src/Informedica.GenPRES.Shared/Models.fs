@@ -47,12 +47,13 @@ module Models =
     /// The patient record in Types is the shape the wire carries and the panel edits: every
     /// field optional, so a value is a draft or a reading until `validate` says it meets the
     /// minimum. This is the one module for that record: the blank draft, the editors, the
-    /// readers, the estimates and the minimum check.
+    /// readers and the minimum check. It holds no age rule: the ages, the adult mark, the
+    /// gestational age and the estimates are the server's, set with GenCORE and carried on the
+    /// record.
     ///
     /// Architecture:
     /// - This module holds the patient logic the client runs, and the server runs too for
-    ///   validate and the estimates. Its age in days is the client's copy of GenCORE's, held
-    ///   equal by the server tests; the post-menstrual age is the server's, carried on the record
+    ///   validate
     /// - The Client UI uses these functions directly for the patient input form
     /// - The Server reads this record in ServerApi.Patient.ofModel, which maps it to the domain
     ///   patient with the ages counted by GenCORE
@@ -130,11 +131,6 @@ module Models =
             let getDays { Age.Days = ds } = ds
 
 
-            let calcYears a = (a |> getYears |> float) + ((a |> getMonths |> float) / 12.)
-
-
-            let calcMonths a = (a |> getYears |> int) * 12 + (a |> getMonths |> int)
-
         let apply f (p: Patient) = f p
 
 
@@ -160,26 +156,6 @@ module Models =
             match Int32.TryParse(s) with
             | false, _ -> None
             | true, v -> v |> Some
-
-
-        /// The age in days of the patient's age: a year 365 days, a month 30 days. A copy for the
-        /// client of GenCORE's AgeValue.getAgeInDays, which the server tests hold it equal to.
-        let getAgeInDays p =
-            [
-                p |> getAgeYears |> Option.map (fun ys -> (ys |> float) * 365.)
-                p |> getAgeMonths |> Option.map (Calculations.Age.monthsToDays >> float)
-                p |> getAgeWeeks |> Option.map (fun ws -> (ws |> float) * 7.)
-                p |> getAgeDays |> Option.map (fun ds -> (ds |> float) / 1.)
-            ]
-            |> List.choose id
-            |> function
-                | [] -> None
-                | xs -> xs |> List.sum |> Some
-
-
-        /// The age in days from which a patient is an adult: 18 years of 365 days, as GenFORM counts
-        /// the adult age.
-        let adultAgeInDays = float (18 * 365)
 
 
         /// Whether the patient is an adult by the mark the server set: from 18 years, or marked as an
@@ -307,114 +283,6 @@ module Models =
                         EstimatedP97 = eh |> Option.map (fun (_, _, p97) -> p97)
                     }
             }
-
-
-        let applyNormalValues
-            (normalWeights: NormalValue list option)
-            (normalHeights: NormalValue list option)
-            (normalNeoWeights: NormalValue list option)
-            (normalNeoHeights: NormalValue list option)
-            (pat: Patient)
-            =
-
-            let wghts =
-                [ 21000..1000..100000 ]
-                |> List.append [ 10500..500..20000 ]
-                |> List.append [ 2000..100..10000 ]
-                |> List.append [ 400..50..1950 ]
-
-            let hghts = [ 40..220 ]
-
-            let forGender age nvs gend =
-                let nvs = nvs |> List.filter (fun nv -> nv.Sex = gend)
-
-                nvs
-                |> List.map _.Age
-                |> fun ages -> if ages.IsEmpty then -1 else ages |> List.nearestIndex age // no row for the sex
-                |> fun idx ->
-                    if idx < 0 || idx >= nvs.Length then
-                        None
-                    else
-                        (nvs[idx].P3, nvs[idx].Mean, nvs[idx].P97) |> Some
-
-            let nearest age (nvs: NormalValue list option) =
-                match nvs with
-                | None -> None
-                | Some nvs ->
-                    let forGender = forGender age nvs
-
-                    match pat.Gender with
-                    | UnknownGender ->
-                        let mw = "M" |> forGender
-                        let fw = "F" |> forGender
-                        // take the average of two genders
-                        mw
-                        |> Option.bind (fun (mp3, mm, mp97) ->
-                            fw
-                            |> Option.map (fun (fp3, fm, fp97) -> (fp3 + mp3) / 2., (fm + mm) / 2., (fp97 + mp97) / 2.)
-                        )
-                    | _ ->
-                        if pat.Gender = Female then "F" else "M"
-                        |> forGender
-
-            let ew, eh =
-                match pat.Age with
-                | None -> None, None
-                | Some age ->
-                    // a neonatal table answers while it reaches: past its last week an older
-                    // infant with a gestational age takes the age table, or the nearest row would
-                    // give a newborn's value. Each table is judged by its own reach
-                    let neonatal (nvs: NormalValue list option) =
-                        pat.PostMenstrualAge
-                        |> Option.map (fun pma -> float (Calculations.Age.weeksToDays pma.Weeks + pma.Days) / 7.)
-                        |> Option.filter (fun weeks -> nvs |> Option.exists (List.exists (fun nv -> nv.Age >= weeks)))
-                        |> Option.bind (fun weeks -> nvs |> nearest weeks)
-
-                    let ageInYears = age |> Age.calcYears
-
-                    let weight =
-                        match normalNeoWeights |> neonatal with
-                        | Some(p3, m, p97) ->
-                            (int p3 * 1<gram>,
-                             wghts[wghts |> List.nearestIndex (int m)] |> Measures.toGram,
-                             int p97 * 1<gram>)
-                            |> Some
-                        | None ->
-                            normalWeights
-                            |> nearest ageInYears
-                            |> Option.map (fun (p3, m, p97) ->
-                                let m =
-                                    wghts
-                                    |> List.nearestIndex (int (m * 1000.))
-                                    |> fun idx -> wghts[idx]
-                                    |> Measures.toGram
-
-                                int p3 * 1000<gram>, m, int p97 * 1000<gram>
-                            )
-
-                    let height =
-                        match normalNeoHeights |> neonatal with
-                        | Some(p3, m, p97) ->
-                            (int p3 * 1<cm>, hghts[hghts |> List.nearestIndex (int m)] |> Measures.toCm, int p97 * 1<cm>)
-                            |> Some
-                        | None ->
-                            normalHeights
-                            |> nearest ageInYears
-                            |> Option.map (fun (p3, m, p97) ->
-                                let m = hghts |> List.nearestIndex (int m) |> (fun idx -> hghts[idx]) |> Measures.toCm
-
-                                int p3 * 1<cm>, m, int p97 * 1<cm>
-                            )
-
-                    weight, height
-
-            // the estimate stays an estimate: the measured values hold what was entered or read.
-            // A patient older than 18 years is left as it is: no estimate is added, and an
-            // estimate the patient already has is kept
-            if pat |> getAgeInDays |> Option.exists (fun d -> d > adultAgeInDays) then
-                pat
-            else
-                pat |> withEstimates ew eh
 
 
     module Intervention =
@@ -933,45 +801,6 @@ module Models =
     /// emergency-list spreadsheet, all four sharing the columns sex ("M"/"F"), age
     /// (years), p3, mean, p97.
     /// </summary>
-    module NormalValues =
-
-        open Informedica.GenPRES.Shared
-
-
-        let create sex age p3 mean p97 =
-            {
-                Sex = sex
-                Age = age
-                P3 = p3
-                Mean = mean
-                P97 = p97
-            }
-
-
-        let parse (data: string[][]) =
-            match data with
-            | data when data |> Array.length > 1 ->
-                let cms = data |> Array.head
-
-                data
-                |> Array.skip 1
-                |> Array.map (fun sl ->
-                    let getString n = Csv.getStringColumn cms sl n |> String.trim
-
-                    let getFloat = Csv.getFloatColumn cms sl
-
-                    create (getString "sex") (getFloat "age") (getFloat "p3") (getFloat "mean") (getFloat "p97")
-                )
-                |> Array.toList
-            | _ -> []
-
-
-        /// The estimate applied from the tables.
-        let apply (nv: NormalValues) (pat: Patient) : Patient =
-            pat
-            |> Patient.applyNormalValues (Some nv.Weights) (Some nv.Heights) (Some nv.NeoWeights) (Some nv.NeoHeights)
-
-
     module Order =
 
 

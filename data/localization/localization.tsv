@@ -237,7 +237,6 @@ Startup Gate Starting Text	Loading what GenPRES needs to start.	Wat GenPRES nodi
 Startup Gate Failed	GenPRES could not start	GenPRES kon niet starten	GenPRES n'a pas pu démarrer	GenPRES konnte nicht starten	GenPRES no pudo iniciarse	GenPRES non è riuscito ad avviarsi
 Startup Gate Failed Text	Not loaded: {0}. Reload the page to try again.	Niet geladen: {0}. Herlaad de pagina om het opnieuw te proberen.	Non chargé : {0}. Rechargez la page pour réessayer.	Nicht geladen: {0}. Laden Sie die Seite neu, um es erneut zu versuchen.	No se cargó: {0}. Recargue la página para intentarlo de nuevo.	Non caricato: {0}. Ricarica la pagina per riprovare.
 Startup Load Localization	the translations	de vertalingen	les traductions	die Übersetzungen	las traducciones	le traduzioni
-Startup Load Normal Values	the normal values	de normaalwaarden	les valeurs normales	die Normalwerte	los valores normales	i valori normali
 Startup Load Bolus Medication	the emergency list	de noodlijst	la liste d'urgence	die Notfallliste	la lista de emergencia	la lista d'emergenza
 Startup Load Continuous Medication	the continuous medication list	de infuuspomplijst	la liste de médication continue	die Dauermedikationsliste	la lista de medicación continua	l'elenco della terapia continua
 Startup Load Products	the products	de producten	les produits	die Produkte	los productos	i prodotti

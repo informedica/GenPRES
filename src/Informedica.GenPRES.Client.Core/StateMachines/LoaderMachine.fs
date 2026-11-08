@@ -1,8 +1,8 @@
 namespace Informedica.GenPRES.Client.Core.StateMachines
 
-/// The data the client loads: the server settings, the localization, the normal values, the
-/// emergency and continuous medication lists, the products, the formulary and parenteralia pages
-/// and the drug names and interactions of the interactions page, each a reading. A start while the
+/// The data the client loads: the server settings, the localization, the emergency and
+/// continuous medication lists, the products, the formulary and parenteralia pages and the drug
+/// names and interactions of the interactions page, each a reading. A start while the
 /// same load runs changes nothing; a failed load goes back to not started and, when the application
 /// cannot be used without it, is named for the gate. The hospitals are not loaded but read from the emergency
 /// medication when it lands. The server is checked until it answers, and the drug names are asked
@@ -30,8 +30,6 @@ module LoaderMachine =
             Settings: Deferred<ServerSettings>
             /// The terms of every language, as the sheet's rows.
             Localization: Deferred<string[][]>
-            /// The normal weights and heights by age.
-            NormalValues: Deferred<NormalValues>
             /// The emergency medication list.
             BolusMedication: Deferred<BolusMedication list>
             /// The continuous medication list.
@@ -80,7 +78,6 @@ module LoaderMachine =
     type Landing =
         | Settings of Result<ServerSettings, string>
         | Localization of Result<string[][], string>
-        | NormalValues of Result<NormalValues, string>
         | BolusMedication of Result<BolusMedication list, string>
         | ContinuousMedication of Result<ContinuousMedication list, string>
         | Products of Result<Product list, string>
@@ -133,7 +130,6 @@ module LoaderMachine =
     type LoaderEffect =
         | FetchSettings
         | FetchLocalization
-        | FetchNormalValues
         | FetchBolusMedication
         | FetchContinuousMedication
         | FetchProducts
@@ -174,7 +170,6 @@ module LoaderMachine =
             {
                 Settings = HasNotStartedYet
                 Localization = HasNotStartedYet
-                NormalValues = HasNotStartedYet
                 BolusMedication = HasNotStartedYet
                 ContinuousMedication = HasNotStartedYet
                 Products = HasNotStartedYet
@@ -204,7 +199,6 @@ module LoaderMachine =
                 Load.Settings, reading state.Settings
                 Load.Localization, reading state.Localization
                 Load.Hospitals, reading state.Hospitals
-                Load.NormalValues, reading state.NormalValues
                 Load.BolusMedication, reading state.BolusMedication
                 Load.ContinuousMedication, reading state.ContinuousMedication
                 Load.Products, reading state.Products
@@ -352,9 +346,6 @@ module LoaderMachine =
         | LoaderMsg.Start Load.Localization ->
             let reading, effects = state.Localization |> start LoaderEffect.FetchLocalization
             { state with Localization = reading }, effects
-        | LoaderMsg.Start Load.NormalValues ->
-            let reading, effects = state.NormalValues |> start LoaderEffect.FetchNormalValues
-            { state with NormalValues = reading }, effects
         | LoaderMsg.Start Load.BolusMedication ->
             let reading, effects = state.BolusMedication |> start LoaderEffect.FetchBolusMedication
             { state with BolusMedication = reading }, effects
@@ -382,9 +373,6 @@ module LoaderMachine =
         | LoaderMsg.Landed(Landing.Localization result) ->
             let reading, state = state |> settle Load.Localization result
             { state with Localization = reading }, []
-        | LoaderMsg.Landed(Landing.NormalValues result) ->
-            let reading, state = state |> settle Load.NormalValues result
-            { state with NormalValues = reading }, []
         | LoaderMsg.Landed(Landing.BolusMedication result) ->
             let reading, state = state |> settle Load.BolusMedication result
 

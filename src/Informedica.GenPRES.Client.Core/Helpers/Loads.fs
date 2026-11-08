@@ -11,7 +11,6 @@ module Loads =
         | Settings
         | Localization
         | Hospitals
-        | NormalValues
         | BolusMedication
         | ContinuousMedication
         | Products
@@ -94,7 +93,6 @@ module Loads =
     let required =
         [
             Load.Localization
-            Load.NormalValues
             Load.BolusMedication
             Load.ContinuousMedication
             Load.Products
