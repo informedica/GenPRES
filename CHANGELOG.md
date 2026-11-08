@@ -1,5 +1,5 @@
 ---
-last_commit_released: 1b28bc391abe4fa9d32568c1b7b731e4bd688637
+last_commit_released: 992df049e9e54e53505df995ca5232e6164311ae
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,35 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.49 - 2026-11-08
+
+### 🚀 Features
+
+* *(api)* Carry the server's post-menstrual age on the wire ([e56c2853](https://github.com/informedica/GenPRES/commit/e56c2853cad5d309db855c7e75cb05dbfb3faf33))
+* *(utils)* Add Double.tryParseFinite ([4da3e981](https://github.com/informedica/GenPRES/commit/4da3e98101006dd3439372d99421dd617ecdf411))
+
+### 🐞 Bug Fixes
+
+* *(client)* Report a failed loader or admin request ([cc1e3472](https://github.com/informedica/GenPRES/commit/cc1e34722578ecfae8ab08b954fdb8910d383493))
+* *(client)* Drop the patient notice on the formulary ([903cdc85](https://github.com/informedica/GenPRES/commit/903cdc85a488d2e7e4a0e509e1f4a35351c2a046))
+* *(gencore)* Reach age limits on the calendar day ([7fcdc041](https://github.com/informedica/GenPRES/commit/7fcdc041af1635cd87dc5c26f056598ec0b9e6eb))
+* *(gencore)* Count age months from the birth date ([9c8e58f8](https://github.com/informedica/GenPRES/commit/9c8e58f86b36ce4a5c68438247ce4b6a3f33fb46))
+* *(gencore)* Count identified PMA from days lived ([41dac90e](https://github.com/informedica/GenPRES/commit/41dac90ef15787d16faddeedf735ec5ed0c9c229))
+* *(gencore)* Count the post-menstrual age from the age in days ([bce21a18](https://github.com/informedica/GenPRES/commit/bce21a1878c5529843026a1554780f2738c98fd0))
+* *(gencore)* Read a stored post-menstrual age above 52 weeks ([020f8168](https://github.com/informedica/GenPRES/commit/020f816854a492782655bdd53e013885ffa69fd7))
+* *(gencore)* Refuse a normal value that is not finite ([a9af3609](https://github.com/informedica/GenPRES/commit/a9af3609e98d1751c9a27721ca2e5d0e947e9021))
+* *(gencore)* Count an identified age as days lived ([b174cfb3](https://github.com/informedica/GenPRES/commit/b174cfb31fb9cc2defcbff8757239d63be0f2ccb))
+* *(genform)* Take patient age rules from GenCORE ([975407b0](https://github.com/informedica/GenPRES/commit/975407b0bbc20370777d5ab4607c828babeacabc))
+* *(genform)* Check gestational ages without an age ([b1999104](https://github.com/informedica/GenPRES/commit/b19991041485a643a9df3f7c51f826a0b7e5e9c6))
+* *(genform)* Find every solution rule without a patient ([1577ab82](https://github.com/informedica/GenPRES/commit/1577ab82c7e82d41de183425278d2d5fecab8bc5))
+* *(server)* Keep the exact PMA through the estimate ([144a45b0](https://github.com/informedica/GenPRES/commit/144a45b0686c5694ac846a62ea3b4013d3892639))
+* *(server)* Take the patient age on the local date ([02276581](https://github.com/informedica/GenPRES/commit/02276581e864ade7a15fadecb5c6ea9953942a83))
+* *(server)* Count patient ages with GenCORE ([ae9f5be9](https://github.com/informedica/GenPRES/commit/ae9f5be9c31d7405aafabf60cef377b6d3a19e48))
+* *(server)* Create the patient ages when the EHR data is read ([c342af76](https://github.com/informedica/GenPRES/commit/c342af76ce0410444c105f79909e506a8c37c708))
+* *(utils)* Read a float strictly in Double.tryParse ([f0000b56](https://github.com/informedica/GenPRES/commit/f0000b56190fe6963fcfd51000bab087e10a3cea))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/1b28bc391abe4fa9d32568c1b7b731e4bd688637..992df049e9e54e53505df995ca5232e6164311ae)</small></strong>
 
 ## 0.1.2-alpha.48 - 2026-11-05
 
