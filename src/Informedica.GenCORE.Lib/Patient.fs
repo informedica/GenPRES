@@ -1865,21 +1865,6 @@ module NormalValueTables =
     let requiredColumns = [ "sex"; "age"; "p3"; "mean"; "p97" ]
 
 
-    /// Reads the number a cell holds, the same under every culture. Not the Utils parser, which
-    /// allows every number style: under the invariant culture it reads "3,5" as 35, where a
-    /// validation must refuse it.
-    let tryParseNumber (s: string) =
-        match
-            System.Double.TryParse(
-                s.Trim(),
-                System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture
-            )
-        with
-        | true, v -> Some v
-        | false, _ -> None
-
-
     /// The rows of a normal-value sheet, the header first, as a table with the unit of the age and
     /// the unit of the values the caller gives it; every error the rows hold otherwise. Without
     /// rows below the header the table is empty.
@@ -1899,7 +1884,7 @@ module NormalValueTables =
                 let parseRow n (row: string[]) =
                     let number column =
                         cell row column
-                        |> tryParseNumber
+                        |> Double.tryParseFinite
                         |> Result.requireSome (NormalValueError.NotANumber(sheet, n, column))
 
                     let gender =

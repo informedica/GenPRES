@@ -2065,10 +2065,17 @@ module Tests =
                         |> Expect.equal "weight neo missing" (Error [ NormalValueError.MissingSheet "weight neo" ])
                     }
 
-                    test "a number with a decimal comma is not a number" {
-                        [ "3,5"; "3.5"; " 3.5 "; "" ]
-                        |> List.map NormalValueTables.tryParseNumber
-                        |> Expect.equal "only the decimal point" [ None; Some 3.5; Some 3.5; None ]
+                    test "a row with an age that is not a number is refused, not given to the estimate" {
+                        [| header; [| "M"; "NaN"; "7"; "9"; "Infinity" |] |]
+                        |> NormalValueTables.parseSheet "weight"
+                        |> Expect.equal
+                            "age and p97"
+                            (Error
+                                [
+                                    NormalValueError.NotANumber("weight", 2, "age")
+                                    NormalValueError.NotANumber("weight", 2, "p97")
+                                ]
+                            : Validation<NormalValue<year, kg> list, _>)
                     }
 
                     test "a sheet without the columns names the missing ones" {
