@@ -3987,11 +3987,11 @@ let toStringTests =
 let tests = testList "PatientText.Age.toString" toStringTests
 
 
-/// A patient of an age in years, marked as an adult or not, of a gender.
-let patientOf (years: int option) marked gender : Patient =
+/// A patient of an age in years, with the mark as an adult the server set, of a gender.
+let patientOf (years: int option) mark gender : Patient =
     { Patient.empty with
         Age = years |> Option.map (fun y -> Patient.Age.create (y * 1<year>) None None None)
-        MarkedAdult = marked
+        AdultMark = mark
         Gender = gender
     }
 
@@ -4002,28 +4002,28 @@ let genderWordTests =
         "PatientText.genderWord"
         [
             test "a marked patient of 17 is written as Man or Vrouw" {
-                patientOf (Some 17) true Male
+                patientOf (Some 17) (AdultMark.MarkableAdult true) Male
                 |> PatientText.genderWord
                 |> Flip.Expect.equal "a man" "Man"
-                patientOf (Some 17) true Female
+                patientOf (Some 17) (AdultMark.MarkableAdult true) Female
                 |> PatientText.genderWord
                 |> Flip.Expect.equal "a woman" "Vrouw"
             }
 
             test "a patient of 17 not marked is written as Jongen or Meisje" {
-                patientOf (Some 17) false Male
+                patientOf (Some 17) (AdultMark.MarkableAdult false) Male
                 |> PatientText.genderWord
                 |> Flip.Expect.equal "a boy" "Jongen"
-                patientOf (Some 17) false Female
+                patientOf (Some 17) (AdultMark.MarkableAdult false) Female
                 |> PatientText.genderWord
                 |> Flip.Expect.equal "a girl" "Meisje"
             }
 
             test "a patient of 18 is an adult, and a marked patient without an age too" {
-                patientOf (Some 18) false Male
+                patientOf (Some 18) AdultMark.Adult Male
                 |> PatientText.genderWord
                 |> Flip.Expect.equal "18" "Man"
-                patientOf None true Female
+                patientOf None (AdultMark.MarkableAdult true) Female
                 |> PatientText.genderWord
                 |> Flip.Expect.equal "no age" "Vrouw"
             }

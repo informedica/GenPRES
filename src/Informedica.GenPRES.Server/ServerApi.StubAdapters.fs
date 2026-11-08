@@ -172,6 +172,8 @@ module StubPatientData =
             None
             None
         |> Option.defaultValue Informedica.GenPRES.Shared.Models.Patient.empty
+        // the mark as an adult as the server sets it for the age
+        |> fun pat -> { pat with AdultMark = pat.AdultMark |> Age.adultMark pat.Age }
 
 
     open Informedica.GenCore.Lib

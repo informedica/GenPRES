@@ -25,15 +25,19 @@ module PatientCommand =
 
 
     /// The patient made complete at the inbound boundary: the post-menstrual age calculated from the
-    /// age and the gestational age, then a weight or a height that is neither measured nor estimated
-    /// estimated from them. The normal values are asked only when a measure is missing.
+    /// age and the gestational age, the adult mark set from the age and the choice of the user, then
+    /// a weight or a height that is neither measured nor estimated estimated from them. The normal
+    /// values are asked only when a measure is missing.
     let processCmd (env: AppEnv) (cmd: PatientCommand) =
         async {
             match cmd with
             | PatientCommand.ChangePatient pat ->
                 return
                     Ok(
-                        { pat with PostMenstrualAge = pat |> Age.postMenstrualAge }
+                        { pat with
+                            PostMenstrualAge = pat |> Age.postMenstrualAge
+                            AdultMark = pat.AdultMark |> Age.adultMark pat.Age
+                        }
                         |> Patient.estimate env.normalValues
                     )
         }

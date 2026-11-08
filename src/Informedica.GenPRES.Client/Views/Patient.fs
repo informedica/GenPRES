@@ -472,22 +472,18 @@ module Patient =
             </FormControl>
             """
 
-        // the mark as an adult is offered from 16 years and for a patient without an age; below 16
-        // years a patient cannot be an adult, so the switch is not shown
-        let adultOffered =
+        // the mark as an adult the server set: no switch below 16 years, the user's choice from 16 to
+        // 18 years and for a patient without an age, checked and fixed from 18 years
+        let adultMark =
             pat
-            |> Option.bind Patient.getAgeInDays
-            |> Option.forall (fun d -> d >= Patient.markableAgeInDays)
+            |> Option.map _.AdultMark
+            |> Option.defaultValue (AdultMark.MarkableAdult false)
 
-        // the mark as an adult: checked and fixed from 18 years, the user's choice from 16 to 18
-        // years and for a patient without an age
+        let adultOffered = adultMark <> AdultMark.NotAdult
+
         let adultSwitch =
             let adultChecked = pat |> Option.exists Patient.isAdult
-
-            let adultDisabled =
-                pat
-                |> Option.bind Patient.getAgeInDays
-                |> Option.exists (fun d -> d >= Patient.adultAgeInDays)
+            let adultDisabled = adultMark = AdultMark.Adult
 
             let changeMarkedAdult =
                 fun ev ->

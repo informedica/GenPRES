@@ -14,6 +14,9 @@ module Age =
     module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
     module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
     module CoreConversions = Informedica.GenCore.Lib.Conversions
+    module CoreAdultMark = Informedica.GenCore.Lib.Patients.AdultMark
+
+    type CoreMark = Informedica.GenCore.Lib.Patients.AdultMark
 
 
     /// The contract model's age as a GenCORE age value.
@@ -84,6 +87,17 @@ module Age =
         |> Option.map (CoreAgeWeeksDays.toDays >> int >> weeksDaysOfDays)
 
 
+    /// The adult mark of an age, as GenCORE sets it, with the choice of the user the mark holds. A
+    /// patient of 18 years or older holds no choice, so a lower age then starts unmarked.
+    let adultMark age mark =
+        let marked = mark = AdultMark.MarkableAdult true
+
+        match CoreAdultMark.ofAge (age |> Option.map ageValue) marked with
+        | CoreMark.NotAdult -> AdultMark.NotAdult
+        | CoreMark.MarkableAdult m -> AdultMark.MarkableAdult m
+        | CoreMark.Adult -> AdultMark.Adult
+
+
 /// Where patient data enters from the client. The wire carries a draft, every field optional;
 /// a draft becomes a patient here, or the request is refused, so that no draft reaches the
 /// services and the rules below them. Every member that receives patient data runs this
@@ -116,7 +130,6 @@ module Patient =
     let patient (dto: Patient) : Result<Patient, string[]> =
         match dto |> Patient.validate with
         | Error PatientError.NoAgeOrMeasuredWeightAndHeight -> Error [| noPatient |]
-        | Error PatientError.MarkedAdultBelowSixteen -> Error [| markedBelowSixteen |]
         | Ok pat ->
             if pat |> Patient.selectsRules then
                 Ok pat
@@ -199,7 +212,7 @@ module Patient =
             HeightCm = model |> Patient.getHeight |> Option.map (int >> BigRational.fromInt)
             WeightMeasured = model.Weight.Measured.IsSome
             HeightMeasured = model.Height.Measured.IsSome
-            MarkedAdult = model.MarkedAdult
+            MarkedAdult = model.AdultMark = AdultMark.MarkableAdult true
             GestAgeDays = model |> Age.gestAgeInDays |> Option.map (int >> BigRational.fromInt)
             PMAgeDays =
                 model.PostMenstrualAge
@@ -227,8 +240,10 @@ module Patient =
 
         let cms = dto.HeightCm |> Option.map (toInt >> Informedica.GenPRES.Shared.Measures.toCm)
 
+        let age = dto.AgeDays |> Option.map (toInt >> Age.ofDays)
+
         {
-            Age = dto.AgeDays |> Option.map (toInt >> Age.ofDays)
+            Age = age
             GestationalAge = dto.GestAgeDays |> Option.map (toInt >> Age.weeksDaysOfDays)
             PostMenstrualAge = dto.PMAgeDays |> Option.map (toInt >> Age.weeksDaysOfDays)
             Weight =
@@ -257,7 +272,7 @@ module Patient =
             RenalFunction = dto.RenalFunction |> Option.bind LibRenal.tryFromString |> Option.map renalBack
             Location = dto.Location
             Department = dto.Department
-            MarkedAdult = dto.MarkedAdult
+            AdultMark = AdultMark.MarkableAdult dto.MarkedAdult |> Age.adultMark age
         }
 
 

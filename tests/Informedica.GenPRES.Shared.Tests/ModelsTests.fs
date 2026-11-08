@@ -52,10 +52,6 @@ module PatientFixtures =
     /// An age of whole years.
     let years n = Patient.Age.create (n * 1<year>) None None None |> Some
 
-    /// An age one day less than whole years: the years before, 11 months, 4 weeks and 6 days.
-    let yearsLessOneDay n =
-        Patient.Age.create ((n - 1) * 1<year>) (Some 11<month>) (Some 4<week>) (Some 6<day>)
-        |> Some
 
     let measured (w: int<gram>) (h: int<cm>) (dto: Patient) =
         { dto with
@@ -120,27 +116,10 @@ let patientTests =
             }
 
             test "a patient marked as an adult without an age is a patient" {
-                { Patient.empty with MarkedAdult = true }
+                { Patient.empty with AdultMark = AdultMark.MarkableAdult true }
                 |> Patient.validate
                 |> Result.isOk
                 |> Expect.isTrue "a patient"
-            }
-
-            test "the mark at 16 years less one day is refused, at exactly 16 years accepted" {
-                { Patient.empty with
-                    Age = yearsLessOneDay 16
-                    MarkedAdult = true
-                }
-                |> Patient.validate
-                |> Expect.equal "refused" (Error PatientError.MarkedAdultBelowSixteen)
-
-                { Patient.empty with
-                    Age = years 16
-                    MarkedAdult = true
-                }
-                |> Patient.validate
-                |> Result.isOk
-                |> Expect.isTrue "accepted"
             }
         ]
 
@@ -152,12 +131,15 @@ let selectsRulesTests =
         [
             test "the rules are selected for an adult, and for a child with a weight" {
                 [
-                    { Patient.empty with Age = years 40 }
+                    { Patient.empty with
+                        Age = years 40
+                        AdultMark = AdultMark.Adult
+                    }
                     { Patient.empty with
                         Age = years 17
-                        MarkedAdult = true
+                        AdultMark = AdultMark.MarkableAdult true
                     }
-                    { Patient.empty with MarkedAdult = true }
+                    { Patient.empty with AdultMark = AdultMark.MarkableAdult true }
                     { Patient.empty with
                         Age = years 5
                         Patient.Weight.Estimated = Some 18000<gram>
@@ -176,34 +158,23 @@ let isAdultTests =
     testList
         "Patient.isAdult"
         [
-            test "an adult from 18 years, a marked patient from 16 years, and a marked patient without an age" {
+            test "an adult by the mark: from 18 years, or marked by the user" {
                 [
-                    yearsLessOneDay 18, false
-                    years 18, false
-                    yearsLessOneDay 16, true
-                    years 16, true
-                    None, true
-                    None, false
+                    AdultMark.NotAdult
+                    AdultMark.MarkableAdult false
+                    AdultMark.MarkableAdult true
+                    AdultMark.Adult
                 ]
-                |> List.map (fun (age, marked) ->
-                    { Patient.empty with
-                        Age = age
-                        MarkedAdult = marked
-                    }
-                    |> Patient.isAdult
-                )
-                |> Expect.equal "the adults" [ false; true; false; true; true; false ]
+                |> List.map (fun mark -> { Patient.empty with AdultMark = mark } |> Patient.isAdult)
+                |> Expect.equal "the adults" [ false; false; true; true ]
             }
         ]
 
 
 [<Tests>]
 let ageInMonthsTests =
-    let inMonths months marked =
-        { Patient.empty with
-            Age = Patient.Age.create 0<year> (Some(months * 1<month>)) None None |> Some
-            MarkedAdult = marked
-        }
+    let inMonths months =
+        { Patient.empty with Age = Patient.Age.create 0<year> (Some(months * 1<month>)) None None |> Some }
 
     testList
         "Patient age in months"
@@ -216,26 +187,7 @@ let ageInMonthsTests =
                 }
 
             test "0 years and 216 months is 6,570 days" {
-                inMonths 216 false
-                |> Patient.getAgeInDays
-                |> Expect.equal "6,570 days" (Some 6570.)
-            }
-
-            test "0 years and 216 months is an adult" { inMonths 216 false |> Patient.isAdult |> Expect.isTrue "adult" }
-
-            test "0 years and 215 months is a child" { inMonths 215 false |> Patient.isAdult |> Expect.isFalse "child" }
-
-            test "0 years and 192 months may be marked as an adult" {
-                inMonths 192 true
-                |> Patient.validate
-                |> Result.isOk
-                |> Expect.isTrue "the mark is valid"
-            }
-
-            test "0 years and 191 months may not be marked as an adult" {
-                inMonths 191 true
-                |> Patient.validate
-                |> Expect.equal "the mark is refused" (Error PatientError.MarkedAdultBelowSixteen)
+                inMonths 216 |> Patient.getAgeInDays |> Expect.equal "6,570 days" (Some 6570.)
             }
         ]
 
@@ -326,7 +278,7 @@ let estimateTests =
                 { Patient.empty with
                     Age = years 17
                     Gender = Male
-                    MarkedAdult = true
+                    AdultMark = AdultMark.MarkableAdult true
                 }
                 |> estimated
                 |> _.Weight.Estimated

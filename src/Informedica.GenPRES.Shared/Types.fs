@@ -74,9 +74,21 @@ module Types =
                 Days: int<day>
             }
 
+        /// The mark of a patient as an adult, set by the server from the age and the choice of the
+        /// user.
+        [<RequireQualifiedAccess>]
+        type AdultMark =
+            /// Younger than 16 years: the patient cannot be marked as an adult.
+            | NotAdult
+            /// From 16 to 18 years, or without an age: an adult when the user marks the patient as one.
+            | MarkableAdult of marked: bool
+            /// From 18 years: an adult without a mark.
+            | Adult
+
 
     type Age = Patient.Age
     type AgeWeeksDays = Patient.AgeWeeksDays
+    type AdultMark = Patient.AdultMark
 
     /// The patient as the wire carries it and the panel edits it: every field optional, so a
     /// value of this type is a draft or a reading, not yet a patient.
@@ -94,9 +106,9 @@ module Types =
             RenalFunction: RenalFunction option
             Location: string option
             Department: string option
-            /// Whether the clinician marks the patient as an adult: from 16 years, or without an
-            /// age, the patient is then matched to the rules for adults.
-            MarkedAdult: bool
+            /// The mark as an adult the server set from the age and the choice of the user; a patient
+            /// who is an adult by the mark is matched to the rules for adults.
+            AdultMark: AdultMark
         }
 
 

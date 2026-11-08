@@ -306,7 +306,10 @@ let tests =
                                                     None
                                                     None
                                             )
-                                        MarkedAdult = not patient.MarkedAdult
+                                        AdultMark =
+                                            AdultMark.MarkableAdult(
+                                                patient |> Informedica.GenPRES.Shared.Models.Patient.isAdult |> not
+                                            )
                                     }
                             ))
                         |> Expect.isEmpty "no lines"

@@ -223,18 +223,21 @@ module PatientDraftPolicyTests =
                 test "the mark set on a patient without an age: only the mark changes" {
                     let edited = None |> update (Msg.UpdateMarkedAdult true)
 
-                    edited |> Option.map _.MarkedAdult |> Expect.equal "marked" (Some true)
+                    edited
+                    |> Option.map _.AdultMark
+                    |> Expect.equal "marked" (Some(AdultMark.MarkableAdult true))
 
                     edited
                     |> update (Msg.UpdateMarkedAdult false)
                     |> Expect.equal "otherwise the blank patient" (Some Patient.empty)
                 }
 
-                test "the mark set on the ten-year-old boy is refused" {
+                test "the mark set on the ten-year-old boy the server set as not an adult is not set" {
                     estimatedBoy
+                    |> Option.map (fun p -> { p with AdultMark = AdultMark.NotAdult })
                     |> update (Msg.UpdateMarkedAdult true)
-                    |> Option.map _.MarkedAdult
-                    |> Expect.equal "not marked" (Some false)
+                    |> Option.map _.AdultMark
+                    |> Expect.equal "not marked" (Some AdultMark.NotAdult)
                 }
 
                 test "the draft cleared: no draft" { weighedBoy |> update Msg.Clear |> Expect.isNone "no draft" }
@@ -302,7 +305,9 @@ module PatientDraftPolicyTests =
 
                     let marked = seventeen |> afterEdit (Msg.UpdateMarkedAdult true)
 
-                    marked |> Option.map _.MarkedAdult |> Expect.equal "marked" (Some true)
+                    marked
+                    |> Option.map _.AdultMark
+                    |> Expect.equal "marked" (Some(AdultMark.MarkableAdult true))
 
                     estimatedWeight marked
                     |> Expect.equal "the weight estimate stays" (estimatedWeight seventeen)

@@ -145,14 +145,14 @@ let tests =
                 let marked =
                     { Fixtures.draft with
                         Age = Some sixteen
-                        MarkedAdult = true
+                        AdultMark = AdultMark.MarkableAdult true
                     }
 
                 let read =
                     { Fixtures.answered with
                         Age = Some sixteen
                         Department = Some "ICK"
-                        MarkedAdult = false
+                        AdultMark = AdultMark.MarkableAdult false
                     }
 
                 PatientState.init (Some marked)
@@ -160,7 +160,9 @@ let tests =
                 |> snd
                 |> Expect.equal
                     "the EHR's data with the mark"
-                    [ PatientEffect.CallPatient({ read with MarkedAdult = true }, "r-1") ]
+                    [
+                        PatientEffect.CallPatient({ read with AdultMark = AdultMark.MarkableAdult true }, "r-1")
+                    ]
             }
 
             test "a refresh of an unmarked patient stays unmarked, and none read clears" {
@@ -169,13 +171,7 @@ let tests =
                 |> snd
                 |> Expect.equal "unmarked" [ PatientEffect.CallPatient(Fixtures.answered, "r-1") ]
 
-                // the EHR corrected the age: a mark below sixteen would make the read no patient
-                PatientState.init (Some { Fixtures.draft with MarkedAdult = true })
-                |> PatientState.transition (PatientMsg.Refreshed(Some Fixtures.answered, "r-1"))
-                |> snd
-                |> Expect.equal "the mark goes" [ PatientEffect.CallPatient(Fixtures.answered, "r-1") ]
-
-                PatientState.init (Some { Fixtures.draft with MarkedAdult = true })
+                PatientState.init (Some { Fixtures.draft with AdultMark = AdultMark.MarkableAdult true })
                 |> PatientState.transition (PatientMsg.Refreshed(None, "r-1"))
                 |> snd
                 |> Expect.equal "cleared" [ PatientEffect.SetPatientData None ]
@@ -233,9 +229,11 @@ let tests =
             }
 
             test "an answered adult without a weight or a height is set on the pages" {
+                // an adult as the server answers it, with the mark set from the age
                 let adult =
                     { below with
                         Age = Some { Informedica.GenPRES.Shared.Models.Patient.Age.ageZero with Age.Years = 40<year> }
+                        AdultMark = AdultMark.Adult
                     }
 
                 let state, effects =
