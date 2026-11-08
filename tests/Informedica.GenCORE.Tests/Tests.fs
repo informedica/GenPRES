@@ -1691,6 +1691,59 @@ module Tests =
                 ]
 
 
+    module AdultMarkTests =
+
+        let years n =
+            AgeValue.create (Some(n |> Conversions.yearFromInt)) None None None
+
+        let ofDays n = n |> Conversions.dayFromInt |> AgeValue.fromDays
+
+
+        let tests =
+            testList
+                "AdultMark"
+                [
+                    test "no age: the choice of the user" {
+                        [ true; false ]
+                        |> List.map (AdultMark.ofAge None)
+                        |> Expect.equal "markable" [ AdultMark.MarkableAdult true; AdultMark.MarkableAdult false ]
+                    }
+
+                    test "below 16 years not an adult, from 16 years the choice, from 18 years an adult" {
+                        [ 16 * 365 - 1; 16 * 365; 18 * 365 - 1; 18 * 365; 40 * 365 ]
+                        |> List.map (fun d -> AdultMark.ofAge (Some(ofDays d)) true)
+                        |> Expect.equal
+                            "the marks"
+                            [
+                                AdultMark.NotAdult
+                                AdultMark.MarkableAdult true
+                                AdultMark.MarkableAdult true
+                                AdultMark.Adult
+                                AdultMark.Adult
+                            ]
+                    }
+
+                    test "the choice counts only when markable" {
+                        [ years 10; years 17; years 30 ]
+                        |> List.map (fun a -> AdultMark.ofAge (Some a) false)
+                        |> Expect.equal
+                            "the marks"
+                            [ AdultMark.NotAdult; AdultMark.MarkableAdult false; AdultMark.Adult ]
+                    }
+
+                    test "an adult from 18 years or when marked" {
+                        [
+                            AdultMark.NotAdult
+                            AdultMark.MarkableAdult false
+                            AdultMark.MarkableAdult true
+                            AdultMark.Adult
+                        ]
+                        |> List.map AdultMark.isAdult
+                        |> Expect.equal "adult" [ false; false; true; true ]
+                    }
+                ]
+
+
     [<Tests>]
     let tests =
 
@@ -1710,6 +1763,7 @@ module Tests =
             PatientTests.VenousAccessTests.tests
             PatientTests.DepartmentTests.tests
             PatientTests.tests
+            AdultMarkTests.tests
         ]
         //|> List.skip 4
         //|> List.take 1

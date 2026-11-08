@@ -70,6 +70,17 @@ type AgeValue =
     }
 
 
+/// The mark of a patient as an adult, set from the age of the patient and the choice of the user.
+[<RequireQualifiedAccess>]
+type AdultMark =
+    /// Younger than 16 years: the patient cannot be marked as an adult.
+    | NotAdult
+    /// From 16 to 18 years, or without an age: an adult when the user marks the patient as one.
+    | MarkableAdult of marked: bool
+    /// From 18 years: an adult without a mark.
+    | Adult
+
+
 /// A birthdate, fully specified: a year, a month and a day. A year alone, or a year and a
 /// month, is no birthdate.
 type BirthDate =
@@ -472,6 +483,31 @@ module AgeValue =
             dto.Days <- a.Days |> Option.map int
 
             dto
+
+
+[<RequireQualifiedAccess>]
+module AdultMark =
+
+    open AgeValue.Operators
+
+
+    /// The adult mark of an age and the choice of the user: without an age the choice of the user,
+    /// below 16 years not an adult, below 18 years the choice of the user, from 18 years an adult.
+    let ofAge age marked =
+        match age with
+        | None -> AdultMark.MarkableAdult marked
+        | Some age when age <? AgeValue.sixteen -> AdultMark.NotAdult
+        | Some age when age <? AgeValue.eighteen -> AdultMark.MarkableAdult marked
+        | Some _ -> AdultMark.Adult
+
+
+    /// Whether the mark makes an adult: from 18 years, or marked by the user.
+    let isAdult mark =
+        match mark with
+        | AdultMark.Adult
+        | AdultMark.MarkableAdult true -> true
+        | AdultMark.NotAdult
+        | AdultMark.MarkableAdult false -> false
 
 
 module BirthDate =

@@ -198,11 +198,6 @@ module Utils =
         let ageAdult = AgeValue.eighteen |> AgeValue.getAgeInDays |> Measures.fromIntDay
 
 
-        /// The youngest age at which a patient may be marked as an adult: the domain's sixteen
-        /// years, in days as GenCORE counts them.
-        let ageMarkable = AgeValue.sixteen |> AgeValue.getAgeInDays |> Measures.fromIntDay
-
-
         let withOptSingleAndOptUnit u v =
             match v, u with
             | Some v, Some u -> v |> ValueUnit.singleWithUnit u |> Some

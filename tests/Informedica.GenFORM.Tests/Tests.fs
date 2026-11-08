@@ -3201,13 +3201,6 @@ module Tests =
                         |> Expect.equal "eighteen times 365" [| 6570N |]
                     }
 
-                    test "the markable age is the domain's sixteen years, in days as a patient's age is written" {
-                        Utils.ValueUnit.ageMarkable
-                        |> ValueUnit.convertTo Units.Time.day
-                        |> ValueUnit.getValue
-                        |> Expect.equal "sixteen times 365" [| 5840N |]
-                    }
-
                     let inDays n =
                         n |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Time.day
 
