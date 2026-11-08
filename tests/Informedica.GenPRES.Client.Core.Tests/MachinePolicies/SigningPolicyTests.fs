@@ -346,11 +346,13 @@ let tests =
                                 Some
                                     { patient with
                                         GestationalAge =
-                                            Some
-                                                {
-                                                    Weeks = 30<week>
-                                                    Days = 2<day>
-                                                }
+                                            GestationalAge.OptionalGestationalAge(
+                                                Some
+                                                    {
+                                                        Weeks = 30<week>
+                                                        Days = 2<day>
+                                                    }
+                                            )
                                     }
                             ))
                         |> List.map _.Ehr

@@ -13,6 +13,35 @@ module Models =
         | NoAgeOrMeasuredWeightAndHeight
 
 
+    /// The gestational age entered and the need for it, as the server set them.
+    [<RequireQualifiedAccess>]
+    module GestationalAge =
+
+        /// The gestational age given, if any.
+        let value ga =
+            match ga with
+            | GestationalAge.NoGestationalAge -> None
+            | GestationalAge.OptionalGestationalAge v
+            | GestationalAge.RequiredGestationalAge v -> v
+
+
+        /// The gestational age given changed by a function, when it may be given; otherwise no
+        /// gestational age, unchanged.
+        let map f ga =
+            match ga with
+            | GestationalAge.NoGestationalAge -> GestationalAge.NoGestationalAge
+            | GestationalAge.OptionalGestationalAge v -> v |> f |> GestationalAge.OptionalGestationalAge
+            | GestationalAge.RequiredGestationalAge v -> v |> f |> GestationalAge.RequiredGestationalAge
+
+
+        /// Whether the gestational age may be given.
+        let mayBeGiven ga = ga <> GestationalAge.NoGestationalAge
+
+
+        /// Whether the gestational age is needed and not given.
+        let isMissing ga = ga = GestationalAge.RequiredGestationalAge None
+
+
     /// Canonical patient business logic shared between Client (Fable/JS) and Server (.NET).
     ///
     /// The patient record in Types is the shape the wire carries and the panel edits: every
@@ -39,7 +68,7 @@ module Models =
         let empty: Patient =
             {
                 Age = None
-                GestationalAge = None
+                GestationalAge = GestationalAge.NoGestationalAge
                 PostMenstrualAge = None
                 Weight =
                     {
@@ -218,15 +247,17 @@ module Models =
                     }
                     |> Some
 
+            // a gestational age given is held as optional until the server answers with the need
             let ga =
                 if Option.isNone gw && Option.isNone gd then
-                    None
+                    GestationalAge.NoGestationalAge
                 else
                     {
                         Patient.AgeWeeksDays.Weeks = gw |> Option.defaultValue 37<week>
                         Patient.AgeWeeksDays.Days = gd |> Option.defaultValue 0<day>
                     }
                     |> Some
+                    |> GestationalAge.OptionalGestationalAge
 
             {
                 Age = a

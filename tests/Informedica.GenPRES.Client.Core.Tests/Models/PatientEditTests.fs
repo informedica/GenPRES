@@ -73,11 +73,13 @@ let fullPatient: Patient =
                     Days = 4<day>
                 }
         GestationalAge =
-            Some
-                {
-                    Weeks = 32<week>
-                    Days = 5<day>
-                }
+            GestationalAge.OptionalGestationalAge(
+                Some
+                    {
+                        Weeks = 32<week>
+                        Days = 5<day>
+                    }
+            )
         PostMenstrualAge =
             Some
                 {
@@ -351,7 +353,15 @@ let measureSetterTests =
                         |> PatientEdit.setGAWeek (Some "36")
                         |> patient
                         |> _.GestationalAge
-                        |> Expect.equal "weeks" (Some { fullPatient.GestationalAge.Value with Weeks = 36<week> })
+                        |> Expect.equal
+                            "weeks"
+                            (GestationalAge.OptionalGestationalAge(
+                                Some
+                                    {
+                                        Weeks = 36<week>
+                                        Days = 5<day>
+                                    }
+                            ))
                     }
 
                     test "setGADay" {
@@ -359,7 +369,15 @@ let measureSetterTests =
                         |> PatientEdit.setGADay (Some "2")
                         |> patient
                         |> _.GestationalAge
-                        |> Expect.equal "days" (Some { fullPatient.GestationalAge.Value with Days = 2<day> })
+                        |> Expect.equal
+                            "days"
+                            (GestationalAge.OptionalGestationalAge(
+                                Some
+                                    {
+                                        Weeks = 32<week>
+                                        Days = 2<day>
+                                    }
+                            ))
                     }
 
                     test "setWeight" {
@@ -383,17 +401,25 @@ let measureSetterTests =
                 "a draft's gestational age and measures"
                 [
                     test "a gestational age started from its days alone is a term one" {
-                        None
+                        Some { Patient.empty with GestationalAge = GestationalAge.RequiredGestationalAge None }
                         |> PatientEdit.setGADay (Some "2")
                         |> patient
                         |> _.GestationalAge
                         |> Expect.equal
                             "37 weeks 2 days"
-                            (Some
-                                {
-                                    Weeks = 37<week>
-                                    Days = 2<day>
-                                })
+                            (GestationalAge.RequiredGestationalAge(
+                                Some
+                                    {
+                                        Weeks = 37<week>
+                                        Days = 2<day>
+                                    }
+                            ))
+                    }
+
+                    test "a gestational age the server does not ask for is not written" {
+                        None
+                        |> PatientEdit.setGAWeek (Some "30")
+                        |> Expect.equal "the blank draft" (Some Patient.empty)
                     }
 
                     test "clearing the gestational weeks reads as term" {
@@ -403,11 +429,13 @@ let measureSetterTests =
                         |> _.GestationalAge
                         |> Expect.equal
                             "term"
-                            (Some
-                                {
-                                    Weeks = 37<week>
-                                    Days = 5<day>
-                                })
+                            (GestationalAge.OptionalGestationalAge(
+                                Some
+                                    {
+                                        Weeks = 37<week>
+                                        Days = 5<day>
+                                    }
+                            ))
                     }
 
                     test "a blank draft with the gestational days cleared is the blank draft" {
@@ -470,7 +498,7 @@ let estimateTests =
                 Some
                     { Patient.empty with
                         Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
-                        GestationalAge = Some NeonatalEstimateFixtures.premature
+                        GestationalAge = GestationalAge.RequiredGestationalAge(Some NeonatalEstimateFixtures.premature)
                         Gender = Male
                     }
                 |> PatientEdit.setYear (Some "2")
@@ -479,7 +507,7 @@ let estimateTests =
                 |> fun dto -> dto.GestationalAge, dto.Weight.Estimated
                 |> Expect.equal
                     "kept, and the age tables answer"
-                    (Some NeonatalEstimateFixtures.premature, Some 32000<gram>)
+                    (GestationalAge.RequiredGestationalAge(Some NeonatalEstimateFixtures.premature), Some 32000<gram>)
             }
         ]
 

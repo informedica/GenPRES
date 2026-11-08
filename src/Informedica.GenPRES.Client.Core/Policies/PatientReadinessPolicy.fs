@@ -24,7 +24,8 @@ module PatientReadinessPolicy =
         | Weight
         /// No height, measured or estimated.
         | Height
-        /// No gestational age for a patient younger than 28 weeks, whose calculations follow it.
+        /// No gestational age where the server needs one: for a patient younger than 28 weeks,
+        /// whose calculations follow it.
         | GestationalAge
 
 
@@ -53,33 +54,12 @@ module PatientReadinessPolicy =
         | PlanMedication
 
 
-    /// The age a patient has to be under for the gestational age to matter, in days: 28 weeks.
-    let gestationalAgeMattersUnderDays = 28 * 7
-
-
-    /// The age in days, counted as the age helpers count it: a year 365 days, each 12 months a
-    /// year, the other months 30 days.
-    let ageInDays (age: Age) =
-        int age.Years * 365
-        + int (Calculations.Age.monthsToDays age.Months)
-        + int (Calculations.Age.weeksToDays age.Weeks)
-        + int age.Days
-
-
     /// Whether a draft holds nothing at all: no age, no measurement, and none of the other data the
     /// panel edits, such as the gender, the renal function, the department or an access. A cleared
     /// field leaves a draft; this reads it as nothing entered. A draft with any of the other data
     /// is not blank, so the notice then says what makes it a patient: an age, or a weight and a
     /// height.
     let isBlank (p: Patient) = p = Patient.empty
-
-
-    /// Whether the patient is younger than 28 weeks, so that the gestational age matters. Without
-    /// an age it does not: the patient is one by its measurements then.
-    let needsGestationalAge (p: Patient) =
-        match p.Age with
-        | Some age -> ageInDays age < gestationalAgeMattersUnderDays
-        | None -> false
 
 
     /// What the calculations of a patient still miss, in the order the notice says it. A weight or
@@ -95,7 +75,7 @@ module PatientReadinessPolicy =
                 Missing.Weight
             if (p |> Patient.getHeight).IsNone then
                 Missing.Height
-            if p |> needsGestationalAge && p.GestationalAge.IsNone then
+            if p.GestationalAge |> GestationalAge.isMissing then
                 Missing.GestationalAge
         ]
 
