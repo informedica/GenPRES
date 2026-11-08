@@ -5524,52 +5524,54 @@ module Tests =
                         matched (Some "NICU") |> Expect.equal "NICU and any" [| Some "NICU"; None |]
                     }
 
-                    test "a normal-value sheet is checked at load: the header and the numbers" {
-                        let good = [| [| "sex"; "age"; "p3"; "mean"; "p97" |]; [| "M"; "2"; "10"; "12"; "14" |] |]
+                    test "the normal-value rows and tables are registered resources over the four sheets" {
+                        let registry = defaultRegistry Informedica.Logging.Lib.Logging.noOp ""
 
-                        good
-                        |> Mapping.checkNormalValueRows "weight"
-                        |> Expect.equal "as given" (Ok good)
-
-                        [| [| "sex"; "age"; "mean" |]; [| "M"; "2"; "12" |] |]
-                        |> Mapping.checkNormalValueRows "weight"
-                        |> Result.mapError (
-                            List.map (
-                                function
-                                | ErrorMsg(m, _) -> m
-                                | _ -> ""
-                            )
-                        )
-                        |> Expect.equal
-                            "the columns named"
-                            (Error [ "normal values, sheet weight: columns missing: p3, p97" ])
-
-                        [| good[0]; good[1]; [| "F"; "2"; "9"; "-"; "13" |] |]
-                        |> Mapping.checkNormalValueRows "weight"
-                        |> Result.mapError (
-                            List.map (
-                                function
-                                | ErrorMsg(m, _) -> m
-                                | _ -> ""
-                            )
-                        )
-                        |> Expect.equal
-                            "the row named"
-                            (Error
-                                [
-                                    "normal values, sheet weight: 1 rows hold a value that is not a number, the first at row 3"
-                                ])
-
-                        [||] |> Mapping.checkNormalValueRows "weight" |> Expect.isError "no header"
-                    }
-
-                    test "the normal-value rows are a registered resource over the four sheets" {
-                        (defaultRegistry Informedica.Logging.Lib.Logging.noOp "")
-                        |> Map.containsKey Keys.normalValueRows.Name
+                        [ Keys.normalValueRows.Name; Keys.normalValueTables.Name ]
+                        |> List.forall (fun name -> registry |> Map.containsKey name)
                         |> Expect.isTrue "registered"
 
-                        Mapping.normalValueSheets
-                        |> Expect.equal "the four sheets" [| "weight"; "height"; "weight neo"; "height neo" |]
+                        Informedica.GenCore.Lib.Patients.NormalValueTables.sheets
+                        |> Expect.equal "the four sheets" [ "weight"; "height"; "weight neo"; "height neo" ]
+                    }
+
+                    test "normal-value rows that parse give the tables, without a warning" {
+                        let header = [| "sex"; "age"; "p3"; "mean"; "p97" |]
+
+                        Map.ofList
+                            [
+                                "weight", [| header; [| "M"; "2"; "10"; "12"; "14" |] |]
+                                "height", [| header; [| "M"; "2"; "80"; "87"; "94" |] |]
+                                "weight neo", [| header |]
+                                "height neo", [| header |]
+                            ]
+                        |> normalValueTablesOf
+                        |> fun (tables, msgs) -> tables |> Option.map _.Weights.Length, msgs
+                        |> Expect.equal "one weight row, no warning" (Some 1, [])
+                    }
+
+                    test "normal-value rows that do not parse give no tables, and a warning for every error" {
+                        let header = [| "sex"; "age"; "p3"; "mean"; "p97" |]
+
+                        Map.ofList
+                            [
+                                "weight", [| header; [| "B"; "2"; "x"; "12"; "14" |] |]
+                                "height", [| header |]
+                                "weight neo", [| header |]
+                            ]
+                        |> normalValueTablesOf
+                        |> Expect.equal
+                            "none, three warnings"
+                            (None,
+                             [
+                                 Warning "normal values, sheet weight, row 2: the sex 'B' is not M or F"
+                                 Warning "normal values, sheet weight, row 2: no number in p3"
+                                 Warning "normal values, sheet height neo: missing"
+                             ])
+                    }
+
+                    test "no normal-value rows give no tables and no second warning" {
+                        Map.empty |> normalValueTablesOf |> Expect.equal "none, no warning" (None, [])
                     }
 
                     test

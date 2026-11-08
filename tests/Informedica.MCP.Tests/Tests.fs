@@ -229,6 +229,14 @@ module Tests =
                 ]
 
 
+        /// The tables GenCORE parses from rows, as the registry holds them: none when they do
+        /// not parse.
+        let tablesOf rows =
+            rows
+            |> Informedica.GenCore.Lib.Patients.NormalValueTables.ofRows
+            |> Result.toOption
+
+
     module CheckDepartmentTests =
 
         open Informedica.GenForm.Lib.Resources
@@ -243,8 +251,8 @@ module Tests =
         let private departmentsOnly: IResourceProvider =
             { new IResourceProvider with
                 member _.Get(key: ResourceKey<'T>) : 'T =
-                    if key.Name = Keys.normalValueRows.Name then
-                        box EstimateFixtures.rows :?> 'T
+                    if key.Name = Keys.normalValueTables.Name then
+                        box (EstimateFixtures.rows |> EstimateFixtures.tablesOf) :?> 'T
                     else
                         raise (NotImplementedException key.Name)
 
@@ -272,8 +280,8 @@ module Tests =
         let emptyRules: IResourceProvider =
             { new IResourceProvider with
                 member _.Get(key: ResourceKey<'T>) : 'T =
-                    if key.Name = Keys.normalValueRows.Name then
-                        box EstimateFixtures.rows :?> 'T
+                    if key.Name = Keys.normalValueTables.Name then
+                        box (EstimateFixtures.rows |> EstimateFixtures.tablesOf) :?> 'T
                     else
                         raise (NotImplementedException key.Name)
 
@@ -496,8 +504,8 @@ module Tests =
 
             { new IResourceProvider with
                 member _.Get(key: ResourceKey<'T>) : 'T =
-                    if key.Name = Keys.normalValueRows.Name then
-                        box rows :?> 'T
+                    if key.Name = Keys.normalValueTables.Name then
+                        box (rows |> EstimateFixtures.tablesOf) :?> 'T
                     else
                         raise (NotImplementedException key.Name)
 
@@ -638,8 +646,8 @@ module Tests =
 
             interface IResourceProvider with
                 member _.Get(key: ResourceKey<'T>) : 'T =
-                    if key.Name = Keys.normalValueRows.Name then
-                        box Map.empty<string, string[][]> :?> 'T
+                    if key.Name = Keys.normalValueTables.Name then
+                        box (None: Informedica.GenCore.Lib.Patients.NormalValueTables option) :?> 'T
                     else
                         raise (NotImplementedException key.Name)
 
