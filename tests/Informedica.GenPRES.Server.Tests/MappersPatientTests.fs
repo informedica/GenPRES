@@ -434,13 +434,15 @@ let estimateTests =
         ]
 
 
-/// The draft with an age in days, the mark as an adult, and the measured weight in kg and height in cm.
+/// The draft with an age in days, the mark as an adult as the server sets it for the choice of the
+/// user, and the measured weight in kg and height in cm.
 let draft days marked weight height : Informedica.GenPRES.Shared.Types.Patient =
     let empty = Informedica.GenPRES.Shared.Models.Patient.empty
+    let age = days |> Option.map ServerApi.Age.ofDays
 
     { empty with
-        Age = days |> Option.map ServerApi.Age.ofDays
-        MarkedAdult = marked
+        Age = age
+        AdultMark = AdultMark.MarkableAdult marked |> ServerApi.Age.adultMark age
         Weight =
             { empty.Weight with
                 Measured = weight |> Option.map ((*) 1000 >> Informedica.GenPRES.Shared.Measures.toGram)
@@ -468,12 +470,7 @@ let adultTests =
                                     shared
                                     |> Informedica.GenPRES.Shared.Models.Patient.isAdult
                                     |> Expect.equal $"%i{days} days, marked %b{marked}" (lib |> Adult.isAdult)
-                                | Error _ ->
-                                    shared
-                                    |> Informedica.GenPRES.Shared.Models.Patient.validate
-                                    |> Expect.equal
-                                        $"%i{days} days refused"
-                                        (Error Informedica.GenPRES.Shared.Models.PatientError.MarkedAdultBelowSixteen)
+                                | Error errs -> failtest $"%i{days} days, marked %b{marked}: %A{errs}"
 
                 for marked in [ false; true ] do
                     draft None marked None None
@@ -486,8 +483,6 @@ let adultTests =
                     function
                     | Informedica.GenPRES.Shared.Models.PatientError.NoAgeOrMeasuredWeightAndHeight ->
                         Lib.PatientError.NoAgeOrMeasuredWeightAndHeight
-                    | Informedica.GenPRES.Shared.Models.PatientError.MarkedAdultBelowSixteen ->
-                        Lib.PatientError.MarkedAdultBelowSixteen
 
                 for age in [ None; Some(16 * 365 - 1); Some(16 * 365); Some(18 * 365); Some(40 * 365) ] do
                     for marked in [ false; true ] do
@@ -569,25 +564,106 @@ let adultTests =
                 marked
                 |> ServerApi.Patient.ofModel
                 |> ServerApi.Patient.toModel
-                |> _.MarkedAdult
-                |> Expect.isTrue "back"
+                |> _.AdultMark
+                |> Expect.equal "back" (AdultMark.MarkableAdult true)
             }
 
-            test "the mark at 16 years less one day is refused by the server, at exactly 16 years accepted" {
-                let young = draft (Some 5839) true None None
+            test "the server sets the mark from the age and the choice of the user" {
+                [
+                    None, true
+                    Some(10 * 365), true
+                    Some(17 * 365), true
+                    Some(17 * 365), false
+                    Some(30 * 365), false
+                ]
+                |> List.map (fun (d, m) -> (draft d m None None).AdultMark)
+                |> Expect.equal
+                    "the marks"
+                    [
+                        AdultMark.MarkableAdult true
+                        AdultMark.NotAdult
+                        AdultMark.MarkableAdult true
+                        AdultMark.MarkableAdult false
+                        AdultMark.Adult
+                    ]
+            }
 
-                young
-                |> ServerApi.Patient.patient
-                |> Expect.equal "refused at the gate" (Error [| ServerApi.Patient.markedBelowSixteen |])
+            test "the mark is set by the calendar: 16 years less one day, 16 years, 18 years less one day" {
+                [ 5839; 16 * 365; 18 * 365 - 1; 18 * 365 ]
+                |> List.map (fun d -> (draft (Some d) true None None).AdultMark)
+                |> Expect.equal
+                    "the marks"
+                    [
+                        AdultMark.NotAdult
+                        AdultMark.MarkableAdult true
+                        AdultMark.MarkableAdult true
+                        AdultMark.Adult
+                    ]
+            }
 
-                young
-                |> ServerApi.Patient.parse
-                |> Expect.equal "refused" (Error [| ServerApi.Patient.markedBelowSixteen |])
+            test "an age in months: 191 months not markable, 192 markable, 215 markable, 216 an adult" {
+                [ 191; 192; 215; 216 ]
+                |> List.map (fun months ->
+                    let age =
+                        Informedica.GenPRES.Shared.Models.Patient.Age.create
+                            (Informedica.GenPRES.Shared.Measures.toYear 0)
+                            (Some(Informedica.GenPRES.Shared.Measures.toMonth months))
+                            None
+                            None
 
-                draft (Some(16 * 365)) true None None
-                |> ServerApi.Patient.parse
-                |> Result.isOk
-                |> Expect.isTrue "accepted"
+                    AdultMark.MarkableAdult true |> ServerApi.Age.adultMark (Some age)
+                )
+                |> Expect.equal
+                    "the marks"
+                    [
+                        AdultMark.NotAdult
+                        AdultMark.MarkableAdult true
+                        AdultMark.MarkableAdult true
+                        AdultMark.Adult
+                    ]
+            }
+
+            test "the server keeps the choice when the age stays markable, and sets it again on a new age" {
+                let marked17 = (draft (Some(17 * 365)) true None None).AdultMark
+                let mark days = ServerApi.Age.adultMark (Some(ServerApi.Age.ofDays days))
+
+                [
+                    marked17 |> mark (16 * 365)
+                    marked17 |> mark (10 * 365)
+                    AdultMark.Adult |> mark (17 * 365)
+                ]
+                |> Expect.equal
+                    "kept from 16 to 18, gone below 16, none after 18"
+                    [
+                        AdultMark.MarkableAdult true
+                        AdultMark.NotAdult
+                        AdultMark.MarkableAdult false
+                    ]
+            }
+
+            test "the GenFORM patient keeps the choice of the user as a bool" {
+                [
+                    draft (Some(10 * 365)) true None None
+                    draft (Some(17 * 365)) false None None
+                    draft (Some(17 * 365)) true None None
+                    draft (Some(40 * 365)) true None None
+                ]
+                |> List.map (ServerApi.Patient.ofModel >> _.MarkedAdult)
+                |> Expect.equal "only a marked patient" [ false; false; true; false ]
+            }
+
+            test "the reading of the server carries the mark it sets for the age" {
+                [ Some(10 * 365), true; Some(17 * 365), true; Some(40 * 365), false ]
+                |> List.map (fun (d, m) ->
+                    { Informedica.GenForm.Lib.Patient.patient with
+                        Age = d |> Option.map (BigRational.fromInt >> ValueUnit.singleWithUnit Units.Time.day)
+                        MarkedAdult = m
+                    }
+                    |> Informedica.GenForm.Lib.Patient.Dto.toDto
+                    |> ServerApi.Patient.toModel
+                    |> _.AdultMark
+                )
+                |> Expect.equal "the marks" [ AdultMark.NotAdult; AdultMark.MarkableAdult true; AdultMark.Adult ]
             }
 
             test "the EHR reading of an adult keeps the weight it has and is never marked" {

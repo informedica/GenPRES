@@ -11,8 +11,6 @@ module Models =
     type PatientError =
         /// Neither an age, nor a measured weight and a measured height, nor the mark as an adult.
         | NoAgeOrMeasuredWeightAndHeight
-        /// The mark as an adult on a patient younger than 16 years.
-        | MarkedAdultBelowSixteen
 
 
     /// Canonical patient business logic shared between Client (Fable/JS) and Server (.NET).
@@ -62,7 +60,7 @@ module Models =
                 RenalFunction = None
                 Location = None
                 Department = None
-                MarkedAdult = false
+                AdultMark = AdultMark.MarkableAdult false
             }
 
 
@@ -155,33 +153,28 @@ module Models =
         let adultAgeInDays = float (18 * 365)
 
 
-        /// The youngest age in days at which a patient may be marked as an adult: 16 years of 365
-        /// days.
-        let markableAgeInDays = float (16 * 365)
-
-
-        /// Whether the patient is an adult: from 18 years, from 16 years when marked as an adult,
-        /// and without an age when marked as an adult. The same rule as GenFORM's adult test.
+        /// Whether the patient is an adult by the mark the server set: from 18 years, or marked as an
+        /// adult by the user.
         let isAdult (pat: Patient) =
-            match pat |> getAgeInDays with
-            | Some days when days >= adultAgeInDays -> true
-            | Some days -> pat.MarkedAdult && days >= markableAgeInDays
-            | None -> pat.MarkedAdult
+            match pat.AdultMark with
+            | AdultMark.Adult
+            | AdultMark.MarkableAdult true -> true
+            | AdultMark.NotAdult
+            | AdultMark.MarkableAdult false -> false
 
 
-        /// Whether a draft is a patient. The mark as an adult is refused below 16 years. With an
-        /// age or the mark the rest can be estimated or left out; without either, a measured
-        /// weight and a measured height are needed. Below that there is no patient.
+        /// Whether a draft is a patient. With an age or the mark as an adult the rest can be
+        /// estimated or left out; without either, a measured weight and a measured height are
+        /// needed. Below that there is no patient.
         let validate (pat: Patient) =
-            match pat |> getAgeInDays with
-            | Some days when pat.MarkedAdult && days < markableAgeInDays -> Error PatientError.MarkedAdultBelowSixteen
-            | _ when
-                pat.MarkedAdult
+            if
+                pat |> isAdult
                 || pat.Age.IsSome
                 || (pat.Weight.Measured.IsSome && pat.Height.Measured.IsSome)
-                ->
+            then
                 Ok pat
-            | _ -> Error PatientError.NoAgeOrMeasuredWeightAndHeight
+            else
+                Error PatientError.NoAgeOrMeasuredWeightAndHeight
 
 
         /// Get either the measured weight or the
@@ -258,7 +251,7 @@ module Models =
                 RenalFunction = gfr
                 Location = None
                 Department = dep
-                MarkedAdult = false
+                AdultMark = AdultMark.MarkableAdult false
             }
             |> Some
 

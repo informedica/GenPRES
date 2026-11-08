@@ -103,7 +103,7 @@ let fullPatient: Patient =
         RenalFunction = Some(EGFR(Some 30, Some 50))
         Location = Some "bed 4"
         Department = Some "ICK"
-        MarkedAdult = true
+        AdultMark = AdultMark.MarkableAdult true
     }
 
 
@@ -489,38 +489,43 @@ let markTests =
     testList
         "the mark as an adult"
         [
-            test "the mark is set, and goes when the age drops below 16 years" {
-                let marked = PatientEdit.setYear (Some "17") None |> PatientEdit.setMarkedAdult true
-
-                marked |> Option.map _.MarkedAdult |> Expect.equal "marked" (Some true)
+            test "the mark is set and cleared on a markable patient" {
+                let marked = PatientEdit.setMarkedAdult true None
 
                 marked
-                |> PatientEdit.setYear (Some "15")
-                |> Option.map _.MarkedAdult
-                |> Expect.equal "cleared below 16" (Some false)
+                |> Option.map _.AdultMark
+                |> Expect.equal "marked" (Some(AdultMark.MarkableAdult true))
 
                 marked
-                |> PatientEdit.setYear (Some "16")
-                |> Option.map _.MarkedAdult
-                |> Expect.equal "kept at 16" (Some true)
+                |> PatientEdit.setMarkedAdult false
+                |> Option.map _.AdultMark
+                |> Expect.equal "cleared" (Some(AdultMark.MarkableAdult false))
             }
 
-            test "the mark is not set below 16 years, and is set without an age" {
-                PatientEdit.setYear (Some "15") None
-                |> PatientEdit.setMarkedAdult true
-                |> Option.map _.MarkedAdult
-                |> Expect.equal "not set" (Some false)
+            test "the mark is not changed when the server set the patient as not an adult or an adult" {
+                [ AdultMark.NotAdult; AdultMark.Adult ]
+                |> List.map (fun mark ->
+                    Some { Patient.empty with AdultMark = mark }
+                    |> PatientEdit.setMarkedAdult true
+                    |> Option.map _.AdultMark
+                )
+                |> Expect.equal "as set" [ Some AdultMark.NotAdult; Some AdultMark.Adult ]
+            }
 
-                PatientEdit.setMarkedAdult true None
-                |> Option.map _.MarkedAdult
-                |> Expect.equal "set" (Some true)
+            test "an age edit leaves the mark to the server" {
+                Some { Patient.empty with AdultMark = AdultMark.MarkableAdult true }
+                |> PatientEdit.setYear (Some "15")
+                |> Option.map _.AdultMark
+                |> Expect.equal "unchanged" (Some(AdultMark.MarkableAdult true))
             }
 
             test "setting the mark keeps what was measured and blanks the estimates, as every setter does" {
                 fullPatient
                 |> Some
                 |> PatientEdit.setMarkedAdult false
-                |> Option.map (fun p -> p.Weight.Measured, p.Weight.Estimated, p.MarkedAdult)
-                |> Expect.equal "measured kept, estimate blanked" (Some(fullPatient.Weight.Measured, None, false))
+                |> Option.map (fun p -> p.Weight.Measured, p.Weight.Estimated, p.AdultMark)
+                |> Expect.equal
+                    "measured kept, estimate blanked"
+                    (Some(fullPatient.Weight.Measured, None, AdultMark.MarkableAdult false))
             }
         ]

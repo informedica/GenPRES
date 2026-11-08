@@ -145,11 +145,12 @@ module PatientMachine =
                     [ PatientEffect.SetPatientData None ]
 
             | PatientMsg.Refreshed(pat, request) ->
-                let marked = state.Draft |> Option.exists _.MarkedAdult
-
+                // the mark of the draft goes with the reading; the server sets it again for the age
                 let read =
                     pat
-                    |> Option.map (fun p -> { p with MarkedAdult = marked } |> PatientEdit.clearMarkBelowSixteen)
+                    |> Option.map (fun p ->
+                        { p with AdultMark = state.Draft |> Option.map _.AdultMark |> Option.defaultValue p.AdultMark }
+                    )
 
                 transition (PatientMsg.Changed(read, PatientDraftPolicy.Estimates.Renewed, request)) state
 
