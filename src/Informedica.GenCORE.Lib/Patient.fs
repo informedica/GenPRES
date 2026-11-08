@@ -81,6 +81,17 @@ type AdultMark =
     | Adult
 
 
+/// Whether the gestational age of a patient is needed, set from the age of the patient.
+[<RequireQualifiedAccess>]
+type GestationalAgeNeed =
+    /// From 1 year, or without an age: the gestational age says nothing and is ignored.
+    | NoGestationalAge
+    /// From 28 weeks and under 1 year: the gestational age may be given.
+    | OptionalGestationalAge
+    /// Under 28 weeks: the gestational age is needed.
+    | RequiredGestationalAge
+
+
 /// A birthdate, fully specified: a year, a month and a day. A year alone, or a year and a
 /// month, is no birthdate.
 type BirthDate =
@@ -182,11 +193,12 @@ type PatientData =
         Weight: Weight
         /// The dated heights.
         Height: Height
-        /// The gestational age at birth; absent when not known.
+        /// The gestational age at birth; absent when not known, and left out by atDate from 1 year or
+        /// without an age.
         GestationalAge: AgeWeeksDays option
         /// The post-menstrual age, the age corrected for the gestational age: the age plus the
         /// gestational age, set by calculatePostMenstrualAge, which atDate calls when the patient is
-        /// created. None without a gestational age or an age.
+        /// created. None without a gestational age or an age, and from 1 year.
         PostMenstrualAge: AgeWeeksDays option
         /// The enteral access.
         EnteralAccess: EnteralAccess
@@ -508,6 +520,26 @@ module AdultMark =
         | AdultMark.MarkableAdult true -> true
         | AdultMark.NotAdult
         | AdultMark.MarkableAdult false -> false
+
+
+[<RequireQualifiedAccess>]
+module GestationalAgeNeed =
+
+    open AgeValue.Operators
+
+
+    /// The age under which the gestational age is needed: 28 weeks.
+    let requiredUnder = AgeValue.create None None (Some 28<week>) None
+
+
+    /// The need for the gestational age at an age: without an age none, under 28 weeks required,
+    /// under 1 year optional, from 1 year none.
+    let ofAge age =
+        match age with
+        | None -> GestationalAgeNeed.NoGestationalAge
+        | Some age when age <? requiredUnder -> GestationalAgeNeed.RequiredGestationalAge
+        | Some age when age <? AgeValue.one -> GestationalAgeNeed.OptionalGestationalAge
+        | Some _ -> GestationalAgeNeed.NoGestationalAge
 
 
 module BirthDate =
@@ -1747,12 +1779,23 @@ module Patient =
         }
 
 
+    /// The patient without a gestational age when its age needs none: from 1 year, or without an
+    /// age.
+    let ignoreGestationalAge pat =
+        match pat.Data.Age |> GestationalAgeNeed.ofAge with
+        | GestationalAgeNeed.NoGestationalAge -> { pat with Patient.Data.GestationalAge = None }
+        | GestationalAgeNeed.OptionalGestationalAge
+        | GestationalAgeNeed.RequiredGestationalAge -> pat
+
+
     /// The patient as created at a date: for an identified patient the age value its birthdate
-    /// gives at that date, for an anonymous patient the age as entered; then the post-menstrual age.
+    /// gives at that date, for an anonymous patient the age as entered; from 1 year or without an
+    /// age without the gestational age; then the post-menstrual age.
     let atDate dt pat =
         match pat.Identity with
         | Some idn -> { pat with Patient.Data.Age = idn.BirthDate |> AgeValue.fromBirthDate dt |> Some }
         | None -> pat
+        |> ignoreGestationalAge
         |> calculatePostMenstrualAge
 
 

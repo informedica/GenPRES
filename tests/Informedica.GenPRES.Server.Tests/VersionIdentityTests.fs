@@ -357,19 +357,10 @@ let tests =
                         |> Expect.equal "the signed data" (Some(version.Plan.Patient |> withoutAges))
                     }
 
-                    test "has the post-menstrual age of the age in days at the new date" {
-                        let pat =
-                            openedLater (Some(StoredVersion.Readable(premature, identity)))
-                            |> Option.defaultWith (fun () -> failtest "no patient")
-
-                        let ageInDays =
-                            StubPatientData.birthDate
-                            |> CoreAgeValue.fromBirthDate later
-                            |> CoreAgeValue.getAgeInDays
-                            |> int
-
-                        pat.PMAge
-                        |> Expect.equal "the gestational age plus the age in days" (Some(days (ageInDays + 210)))
+                    test "has no post-menstrual age from 1 year, also with a gestational age" {
+                        openedLater (Some(StoredVersion.Readable(premature, identity)))
+                        |> Option.bind _.PMAge
+                        |> Expect.isNone "the gestational age is ignored from 1 year"
                     }
 
                     test "has no post-menstrual age without a gestational age" {
