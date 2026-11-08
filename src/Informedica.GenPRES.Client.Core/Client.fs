@@ -368,14 +368,11 @@ module Client =
     let planBehind (state: ClientState) = OutPolicy.planBehind state.Lanes.Patient state.Lanes.OrderPlan
 
 
-    /// The draft with the estimates from the normal values, once they have loaded.
-    let estimated (state: ClientState) =
-        match state.Loader.NormalValues with
-        | Resolved nv ->
-            state
-            |> draft
-            |> Option.map (Informedica.GenPRES.Shared.Models.NormalValues.apply nv)
-        | _ -> draft state
+    /// The patient the server answered, the one the orders are calculated on, with its estimates;
+    /// the draft while there is no answer, also a draft that is no patient yet, so that the summary
+    /// shows what was entered and what is missing.
+    let currentPatient (state: ClientState) =
+        state.Lanes.Patient |> PatientState.answered |> Option.orElse (draft state)
 
 
     /// The Session as the page shows it.

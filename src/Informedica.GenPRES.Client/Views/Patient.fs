@@ -66,9 +66,9 @@ module Patient =
     let View (props: {| appEnv: obj |}) =
         let envPatient = AppEnv.asEnv<AppEnv.IPatient> props.appEnv
         let patient = envPatient.Draft
-        // the summary shows the full estimates of the age, also for a weight or height that was
-        // entered or cleared; the fields show the draft
-        let estimated = envPatient.Estimated
+        // the summary shows the patient the server answered, with the estimates next to a weight
+        // or height that was entered or cleared; the fields show the draft
+        let current = envPatient.Current
         let updatePatient = envPatient.UpdatePatient
         let editPatient = envPatient.EditPatient
 
@@ -131,7 +131,7 @@ module Patient =
         // the summary: the data, and above it, identified, the id the data is held under; the
         // name and the birthdate are the title bar's alone
         let summary =
-            let data = estimated |> show lang localizationTerms |> toJsx
+            let data = current |> show lang localizationTerms |> toJsx
 
             match identity, patientContext with
             | Some _, Some context ->

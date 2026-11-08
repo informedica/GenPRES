@@ -461,28 +461,39 @@ let tests =
                         |> Expect.equal "32 kg and 140 cm" (Some 32000<gram>, Some 140<cm>)
                     }
 
-                    test "a measured weight is kept, the height estimated" {
+                    test "a measured weight is kept, with the estimate next to it, and the height estimated" {
                         { ageOnly 10 with Weight = { (ageOnly 10).Weight with Measured = Some 28000<gram> } }
                         |> Patient.estimate loaded
                         |> fun pat -> pat.Weight.Measured, pat.Weight.Estimated, pat.Height.Estimated
                         |> Expect.equal
-                            "the measured weight, no weight estimate, the height estimated"
-                            (Some 28000<gram>, None, Some 140<cm>)
+                            "the measured weight, the weight estimate, the height estimate"
+                            (Some 28000<gram>, Some 32000<gram>, Some 140<cm>)
                     }
 
-                    test "a client estimate of the weight is kept when only the height is filled in" {
+                    test "the estimate is the server's, whatever estimate the draft holds" {
                         { ageOnly 10 with Weight = { (ageOnly 10).Weight with Estimated = Some 41000<gram> } }
                         |> Patient.estimate loaded
                         |> weightAndHeight
-                        |> Expect.equal "the client's 41 kg, the server's 140 cm" (Some 41000<gram>, Some 140<cm>)
+                        |> Expect.equal "the server's 32 kg and 140 cm" (Some 32000<gram>, Some 140<cm>)
                     }
 
-                    test "a patient with a weight and a height is not changed, nor are the normal values asked" {
+                    test
+                        "a measured patient keeps the measured values, the calculation reads them, and gets the estimate range" {
                         let ask, count = counting (Some tables)
-                        let pat = StubPatientData.patient
+                        let pat = StubPatientData.patient |> Patient.estimate ask
 
-                        (pat |> Patient.estimate ask = pat, count.Value)
-                        |> Expect.equal "the same patient, asked none" (true, 0)
+                        (pat.Weight.Measured,
+                         pat.Height.Measured,
+                         weightAndHeight pat,
+                         (pat.Weight.EstimatedP3, pat.Weight.EstimatedP97),
+                         count.Value)
+                        |> Expect.equal
+                            "measured 32 kg and 140 cm read, 25 to 45 kg estimated, asked once"
+                            (StubPatientData.patient.Weight.Measured,
+                             StubPatientData.patient.Height.Measured,
+                             (StubPatientData.patient.Weight.Measured, StubPatientData.patient.Height.Measured),
+                             (Some 25000<gram>, Some 45000<gram>),
+                             1)
                     }
 
                     test "without the normal values the patient stays as it is and the gate refuses it" {

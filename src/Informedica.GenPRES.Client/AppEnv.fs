@@ -118,10 +118,10 @@ type IPatient =
     abstract Draft: Patient option
     /// a patient change is under way: the panel takes no edit until it is answered
     abstract Changing: bool
-    /// the draft with the estimates of its age, the gender and the gestational age applied to
-    /// every weight and height, cleared or entered as well: what the summary shows, not what
+    /// the patient the server answered, the one the orders are calculated on, with the estimates
+    /// of every weight and height, next to a measured one too: what the summary shows, not what
     /// the fields show
-    abstract Estimated: Patient option
+    abstract Current: Patient option
     /// the draft, with the weight and height the user did not enter estimated again by the
     /// server: after an edit of the age, the gender or the gestational age
     abstract UpdatePatient: Patient option -> unit

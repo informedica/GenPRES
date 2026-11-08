@@ -667,7 +667,7 @@ type private Projection(state: State, dispatch: Msg -> unit) =
 
         member _.Changing = Client.changing state
 
-        member _.Estimated = Client.estimated state
+        member _.Current = Client.currentPatient state
 
         member _.UpdatePatient pat =
             Msg.PanelChanged(pat, PatientDraftPolicy.Estimates.Renewed, Elmish.newRequest ())
