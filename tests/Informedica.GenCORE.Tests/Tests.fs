@@ -1339,10 +1339,13 @@ module Tests =
                                     created |> pmaDays |> Expect.equal "182 plus 59 days" (Some 241<day>)
                                 }
 
-                                test "the post-menstrual age is the gestational age plus the age in days the rules see" {
+                                test
+                                    "under 1 year the gestational age plus the age in days the rules see, from 1 year none" {
                                     let pat =
                                         { PatientData.unknown with GestationalAge = gest }
                                         |> Patient.create (PatientIdentity.create "p1" "Test" (bd 2016 2 29) |> Some)
+
+                                    let underOneYear age = AgeValue.Operators.(<?) age AgeValue.one
 
                                     [ 0..1500 ]
                                     |> List.map (float >> (date 2016 2 29).AddDays)
@@ -1350,7 +1353,9 @@ module Tests =
                                         let created = pat |> Patient.atDate dt
 
                                         (created |> pmaDays)
-                                        <> (created.Data.Age |> Option.map (AgeValue.getAgeInDays >> (+) 182<day>))
+                                        <> (created.Data.Age
+                                            |> Option.filter underOneYear
+                                            |> Option.map (AgeValue.getAgeInDays >> (+) 182<day>))
                                     )
                                     |> Expect.isEmpty "no day differs"
                                 }
@@ -1660,10 +1665,12 @@ module Tests =
                         let pat =
                             { PatientData.unknown with GestationalAge = Some(AgeWeeksDays.create 26<week> 0<day>) }
                             |> Patient.create (Some stub)
-                            |> Patient.atDate (date 2017 3 15)
+                            |> Patient.atDate (date 2017 3 14)
 
                         pat.Data.PostMenstrualAge
-                        |> Expect.equal "26 weeks plus a year" (Some(AgeWeeksDays.create 78<week> 1<day>))
+                        |> Expect.equal
+                            "26 weeks plus 11 months and 4 weeks, 51 weeks"
+                            (Some(AgeWeeksDays.create 77<week> 0<day>))
 
                         pat |> thereAndBack |> Expect.equal "the same" (Ok pat)
                     }
@@ -1744,6 +1751,96 @@ module Tests =
                 ]
 
 
+    module GestationalAgeNeedTests =
+
+        let ofDays n = n |> Conversions.dayFromInt |> AgeValue.fromDays
+
+        let ga30 = AgeWeeksDays.create 30<week> 0<day>
+
+        let date (y: int) (m: int) (d: int) = System.DateTime(y, m, d)
+
+        let birthDate y m d =
+            BirthDate.create (Conversions.yearFromInt y) (Conversions.monthFromInt m) (Conversions.dayFromInt d)
+
+        let identity bd = PatientIdentity.create "1" "Test" bd
+
+        let data age =
+            { PatientData.unknown with
+                Age = age
+                GestationalAge = Some ga30
+            }
+
+        let ages (pat: Patient) = pat.Data.GestationalAge, pat.Data.PostMenstrualAge
+
+
+        let tests =
+            testList
+                "GestationalAgeNeed"
+                [
+                    test "without an age none, under 28 weeks required, under 1 year optional, from 1 year none" {
+                        [
+                            None
+                            Some(ofDays 0)
+                            Some(ofDays (28 * 7 - 1))
+                            Some(ofDays (28 * 7))
+                            Some(ofDays 364)
+                            Some(ofDays 365)
+                            Some(ofDays (2 * 365))
+                        ]
+                        |> List.map GestationalAgeNeed.ofAge
+                        |> Expect.equal
+                            "the needs"
+                            [
+                                GestationalAgeNeed.NoGestationalAge
+                                GestationalAgeNeed.RequiredGestationalAge
+                                GestationalAgeNeed.RequiredGestationalAge
+                                GestationalAgeNeed.OptionalGestationalAge
+                                GestationalAgeNeed.OptionalGestationalAge
+                                GestationalAgeNeed.NoGestationalAge
+                                GestationalAgeNeed.NoGestationalAge
+                            ]
+                    }
+
+                    test "an anonymous patient under 1 year keeps the gestational age and gets the post-menstrual age" {
+                        Patient.createAt (date 2026 11 8) None (data (Some(ofDays 70)))
+                        |> ages
+                        |> Expect.equal "30 weeks, then 40 weeks" (Some ga30, Some(AgeWeeksDays.create 40<week> 0<day>))
+                    }
+
+                    test
+                        "an anonymous patient of 1 year or older: the gestational age is ignored, no post-menstrual age" {
+                        Patient.createAt (date 2026 11 8) None (data (Some(ofDays 365)))
+                        |> ages
+                        |> Expect.equal "none" (None, None)
+                    }
+
+                    test "an anonymous patient without an age: the gestational age is ignored, no post-menstrual age" {
+                        Patient.createAt (date 2026 11 8) None (data None)
+                        |> ages
+                        |> Expect.equal "none" (None, None)
+                    }
+
+                    test "an identified patient under 1 year keeps the gestational age the EHR gives" {
+                        // the birthdate gives 2 months, 1 week and 2 days at the date: 69 days
+                        let idn = identity (birthDate 2026 8 30)
+
+                        Patient.createAt (date 2026 11 8) (Some idn) (data None)
+                        |> ages
+                        |> Expect.equal
+                            "30 weeks, then 39 weeks 6 days"
+                            (Some ga30, Some(AgeWeeksDays.create 39<week> 6<day>))
+                    }
+
+                    test "an identified patient of 1 year or older: the gestational age the EHR gives is ignored" {
+                        let idn = identity (birthDate 2024 11 8)
+
+                        Patient.createAt (date 2026 11 8) (Some idn) (data None)
+                        |> ages
+                        |> Expect.equal "none" (None, None)
+                    }
+                ]
+
+
     [<Tests>]
     let tests =
 
@@ -1764,6 +1861,7 @@ module Tests =
             PatientTests.DepartmentTests.tests
             PatientTests.tests
             AdultMarkTests.tests
+            GestationalAgeNeedTests.tests
         ]
         //|> List.skip 4
         //|> List.take 1
