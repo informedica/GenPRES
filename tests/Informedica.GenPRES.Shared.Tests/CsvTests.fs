@@ -214,7 +214,17 @@ let tests =
                 [
                     for culture in cultures do
                         test $"[%s{culture}] six days: 4.0 kg and 54 cm; ten years: 38 kg and 150 cm" {
-                            let nv = underCulture culture (fun () -> NormalValues.ofRows rows)
+                            let nv =
+                                underCulture
+                                    culture
+                                    (fun () ->
+                                        {
+                                            Weights = rows["weight"] |> NormalValues.parse
+                                            Heights = rows["height"] |> NormalValues.parse
+                                            NeoWeights = []
+                                            NeoHeights = []
+                                        }
+                                    )
 
                             (sixDays |> boyAged |> estimates nv, tenYears |> boyAged |> estimates nv)
                             |> Expect.equal

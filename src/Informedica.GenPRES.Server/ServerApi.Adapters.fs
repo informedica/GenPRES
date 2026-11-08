@@ -405,18 +405,14 @@ module Adapters =
             info.Messages |> Array.map (fun msg -> FormLogging.formatMessage msg) |> Some
 
 
-    /// The normal values of weight and height from the provider's tables, while it is loaded;
-    /// none when it is not.
-    let normalValuesOf
-        (provider: Resources.IResourceProvider)
-        ()
-        : Informedica.GenPRES.Shared.Types.NormalValues option
-        =
+    /// The normal-value tables of weight and height parsed by GenCORE from the provider's rows,
+    /// while it is loaded; none when it is not, or when the rows do not parse.
+    let normalValuesOf (provider: Resources.IResourceProvider) () =
         match notLoaded provider with
         | None ->
             provider.Get Informedica.GenForm.Lib.Resources.Keys.normalValueRows
-            |> Informedica.GenPRES.Shared.Models.NormalValues.ofRows
-            |> Some
+            |> Informedica.GenCore.Lib.Patients.NormalValueTables.ofRows
+            |> Result.toOption
         | Some _ -> None
 
 

@@ -6,8 +6,9 @@ open Informedica.GenPRES.Shared.Types
 open Informedica.GenPRES.Shared.Models
 
 
-/// The contract model's age in GenCORE's terms: the age in days and back, the gestational age in
-/// days and back, and the post-menstrual age, each as GenCORE counts it. The client has no birth
+/// The contract model in GenCORE's terms: the age in days and back, the gestational age in days
+/// and back, and the post-menstrual age, each as GenCORE counts it; the adult mark, the need for
+/// the gestational age, the gender and the estimates as GenCORE sets them. The client has no birth
 /// date, so these are the rules for an age value.
 module Age =
 
@@ -16,9 +17,11 @@ module Age =
     module CoreConversions = Informedica.GenCore.Lib.Conversions
     module CoreAdultMark = Informedica.GenCore.Lib.Patients.AdultMark
     module CoreGestationalAgeNeed = Informedica.GenCore.Lib.Patients.GestationalAgeNeed
+    module CoreEstimates = Informedica.GenCore.Lib.Patients.Estimates
 
     type CoreMark = Informedica.GenCore.Lib.Patients.AdultMark
     type CoreNeed = Informedica.GenCore.Lib.Patients.GestationalAgeNeed
+    type CoreGender = Informedica.GenCore.Lib.Patients.Gender
 
 
     /// The contract model's age as a GenCORE age value.
@@ -107,6 +110,24 @@ module Age =
         | CoreMark.NotAdult -> AdultMark.NotAdult
         | CoreMark.MarkableAdult m -> AdultMark.MarkableAdult m
         | CoreMark.Adult -> AdultMark.Adult
+
+
+    /// The GenCORE gender of the contract model's gender.
+    let coreGender g =
+        match g with
+        | Male -> CoreGender.Male
+        | Female -> CoreGender.Female
+        | UnknownGender -> CoreGender.UnknownGender
+
+
+    /// The estimates GenCORE gives for the contract model's patient from the tables: by its age,
+    /// its post-menstrual age and its gender.
+    let estimates tables (model: Informedica.GenPRES.Shared.Types.Patient) =
+        CoreEstimates.ofAge
+            tables
+            (model.Gender |> coreGender)
+            (model.Age |> Option.map ageValue)
+            (model.PostMenstrualAge |> Option.map weeksDays)
 
 
 /// Where patient data enters from the client. The wire carries a draft, every field optional;
@@ -321,12 +342,43 @@ module Patient =
         )
 
 
-    /// The domain patient with the weight and height estimates the contract model computes for
-    /// its age, gestational age and sex, the same estimate the client shows; everything else as
-    /// given. A measured value is untouched, and a patient the contract model cannot read back
-    /// stays as it was.
-    let estimated (nv: NormalValues) (pat: Lib.Patient) : Lib.Patient =
-        let withEstimates (est: Lib.Patient) =
+    /// The contract model's patient with the estimates GenCORE gives from the tables: a weight or
+    /// a height estimate replaced where GenCORE gives one, kept where it gives none, from 18
+    /// years or without a row; the measured values untouched.
+    let withEstimates tables (model: Patient) : Patient =
+        let est = model |> Age.estimates tables
+
+        let toGram (g: int<Informedica.GenCore.Lib.Measures.gram>) = int g |> Informedica.GenPRES.Shared.Measures.toGram
+
+        let toCm (c: int<Informedica.GenCore.Lib.Measures.cm>) = int c |> Informedica.GenPRES.Shared.Measures.toCm
+
+        { model with
+            Weight =
+                match est.Weight with
+                | Some e ->
+                    { model.Weight with
+                        EstimatedP3 = Some(toGram e.P3)
+                        Estimated = Some(toGram e.Mean)
+                        EstimatedP97 = Some(toGram e.P97)
+                    }
+                | None -> model.Weight
+            Height =
+                match est.Height with
+                | Some e ->
+                    { model.Height with
+                        EstimatedP3 = Some(toCm e.P3)
+                        Estimated = Some(toCm e.Mean)
+                        EstimatedP97 = Some(toCm e.P97)
+                    }
+                | None -> model.Height
+        }
+
+
+    /// The domain patient with the weight and height estimates GenCORE gives for its age,
+    /// post-menstrual age and sex; everything else as given. A measured value is untouched, and a
+    /// patient the contract model cannot read back stays as it was.
+    let estimated tables (pat: Lib.Patient) : Lib.Patient =
+        let withMeasuresOf (est: Lib.Patient) =
             { pat with
                 Weight = est.Weight
                 Height = est.Height
@@ -337,26 +389,26 @@ module Patient =
         pat
         |> LibPatient.Dto.toDto
         |> toModel
-        |> NormalValues.apply nv
+        |> withEstimates tables
         |> toDomain
         // only the weight and the height: the contract model has no post-menstrual age and no
         // diagnoses, so the way back would count the post-menstrual age again from the calendar
         // age and drop the diagnoses
-        |> Result.map withEstimates
+        |> Result.map withMeasuresOf
         |> Result.defaultValue pat
 
 
     /// The EHR port with every projection estimated: the inbound boundary, so no child's reading
     /// with an age alone reaches the rules without a weight. A reading of a patient older than
     /// 18 years is left as read. Unestimated while the tables are not loaded.
-    let estimating (nv: unit -> NormalValues option) (port: PatientDataPort) : PatientDataPort =
+    let estimating normalValues (port: PatientDataPort) : PatientDataPort =
         { port with
             patient =
                 fun ehr ->
                     let pat = port.patient ehr
 
-                    match nv () with
-                    | Some nv -> pat |> estimated nv
+                    match normalValues () with
+                    | Some tables -> pat |> estimated tables
                     | None -> pat
         }
 
@@ -395,7 +447,7 @@ module Patient =
     /// the panel shows. A patient older than 18 years gets no estimate. The normal values are
     /// asked only when a measure is missing; without them the draft stays as it is, and the gate
     /// refuses a child without a weight.
-    let estimate (normalValues: unit -> NormalValues option) (draft: Patient) : Patient =
+    let estimate normalValues (draft: Patient) : Patient =
         let lacks (measured: 'a option) (estimated: 'a option) = measured.IsNone && estimated.IsNone
         let lacksWeight = lacks draft.Weight.Measured draft.Weight.Estimated
         let lacksHeight = lacks draft.Height.Measured draft.Height.Estimated
@@ -405,9 +457,9 @@ module Patient =
         else
             match normalValues () with
             | None -> draft
-            | Some nv ->
-                // apply writes both estimates; only the missing measure is taken from it
-                let estimated = draft |> NormalValues.apply nv
+            | Some tables ->
+                // withEstimates writes both estimates; only the missing measure is taken from it
+                let estimated = draft |> withEstimates tables
 
                 { draft with
                     Weight =
