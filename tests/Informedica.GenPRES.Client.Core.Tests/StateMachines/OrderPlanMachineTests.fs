@@ -24,12 +24,12 @@ let tests =
                 "the patient"
                 [
                     test "the same patient data given again does not touch the plan" {
-                        transition (OrderPlanMsg.PatientDataChanged(Some patient, "r-2")) (held one None)
-                        |> Expect.equal "as it was, no request" (held one None, [])
+                        transition (OrderPlanMsg.PatientDataChanged(Some patient, "r-2")) (settled one None)
+                        |> Expect.equal "as it was, no request" (settled one None, [])
                     }
 
                     test "new patient data tells the summary with the answer" {
-                        let busy, _ = transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (held one None)
+                        let busy, _ = transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (settled one None)
 
                         transition (OrderPlanMsg.Answered("r-2", Ok one)) busy
                         |> snd
@@ -44,7 +44,7 @@ let tests =
                     }
 
                     test "the same data after a failed update is sent again, and the plan stays on the old patient" {
-                        let busy, _ = transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (held one None)
+                        let busy, _ = transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (settled one None)
                         let failed, _ = transition (OrderPlanMsg.Answered("r-2", Error [| "no" |])) busy
 
                         OrderPlanState.patient failed |> Expect.equal "the old patient" (Some patient)
@@ -57,14 +57,14 @@ let tests =
                     }
 
                     test "new patient data with a request out is dropped, since the panel is disabled then" {
-                        let busy, _ = transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (held one None)
+                        let busy, _ = transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (settled one None)
 
                         transition (OrderPlanMsg.PatientDataChanged(Some patient, "r-3")) busy
                         |> Expect.equal "the state stays, no request" (busy, [])
                     }
 
                     test "a failed update tells no summary, and that the plan did not follow" {
-                        let busy, _ = transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (held one None)
+                        let busy, _ = transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (settled one None)
 
                         transition (OrderPlanMsg.Answered("r-2", Error [| "no" |])) busy
                         |> snd
@@ -74,7 +74,7 @@ let tests =
                     }
 
                     test "an update with the same drugs starts no interaction check" {
-                        let busy, _ = transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (held one None)
+                        let busy, _ = transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (settled one None)
 
                         transition (OrderPlanMsg.Answered("r-2", Ok one)) busy
                         |> snd
@@ -87,7 +87,7 @@ let tests =
                     }
 
                     test "an update that brings a new drug starts the interaction check" {
-                        let busy, _ = transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (held one None)
+                        let busy, _ = transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (settled one None)
 
                         transition (OrderPlanMsg.Answered("r-2", Ok two)) busy
                         |> snd
@@ -96,7 +96,8 @@ let tests =
                     }
 
                     test "a patient set opens the empty plan under the request; the answer shows it" {
-                        let asked, effects = transition (OrderPlanMsg.PatientDataChanged(Some patient, "r-1")) noPatient
+                        let asked, effects =
+                            transition (OrderPlanMsg.PatientDataChanged(Some patient, "r-1")) noPatientData
 
                         asked |> Expect.equal "asked" (loading patient [||] "r-1")
 
@@ -106,22 +107,22 @@ let tests =
                         transition (OrderPlanMsg.Answered("r-1", Ok one)) asked
                         |> Expect.equal
                             "shown, its one drug checked"
-                            (held one None,
+                            (settled one None,
                              [
                                  OrderPlanEffect.CheckInteractions [ "paracetamol" ]
                                  OrderPlanEffect.TellAnswered
                              ])
                     }
 
-                    test "a patient changed recalculates the plan held over the new patient, the dialog closed" {
+                    test "a patient changed recalculates the plan in the cart over the new patient, the dialog closed" {
                         let state, effects =
-                            transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (held one (Some "c-1"))
+                            transition (OrderPlanMsg.PatientDataChanged(Some other, "r-2")) (settled one (Some "c-1"))
 
                         let update = OrderPlanCommand.UpdatePatient(otherDraft, one)
 
                         state
                         |> Expect.equal
-                            "the plan held, the patient update in the command"
+                            "the plan in the cart, the patient update in the command"
                             (recalculatingFor patient one None "r-2" update)
 
                         effects
@@ -137,18 +138,18 @@ let tests =
                         let busy = recalculating one None "r-1" (OrderPlanCommand.FilterRows(one.Filtered, one))
 
                         let state, effects = transition (OrderPlanMsg.PatientDataChanged(None, "r-2")) busy
-                        state |> Expect.equal "no patient" noPatient
+                        state |> Expect.equal "no patient" noPatientData
                         effects |> Expect.isEmpty "nothing to do"
 
                         transition (OrderPlanMsg.Answered("r-1", Ok one)) state
-                        |> Expect.equal "the answer dropped" (noPatient, [])
+                        |> Expect.equal "the answer dropped" (noPatientData, [])
                     }
                 ]
 
             testList
                 "the cart"
                 [
-                    test "the signed version opens over the patient held" {
+                    test "the signed version opens over the current patient" {
                         let opening, effects =
                             transition (OrderPlanMsg.OpenSignedPlan(head, "r-0")) shown
                             |> fst
@@ -167,24 +168,24 @@ let tests =
                         transition (OrderPlanMsg.Answered("r-1", Ok two)) opening
                         |> Expect.equal
                             "the newer shown, two drugs checked"
-                            (held two None,
+                            (settled two None,
                              [
                                  OrderPlanEffect.CheckInteractions [ "paracetamol"; "ibuprofen" ]
                                  OrderPlanEffect.TellAnswered
                              ])
                     }
 
-                    test "the version arriving before its patient is kept and opened when the patient does" {
+                    test "the version arriving before its patient is stored and opened when the patient does" {
                         // a Session opens: the plan machine hears the version first, the patient it
                         // was opened with one message later
-                        let kept, effects = transition (OrderPlanMsg.OpenSignedPlan(head, "r-1")) noPatient
+                        let stored, effects = transition (OrderPlanMsg.OpenSignedPlan(head, "r-1")) noPatientData
 
-                        (kept, effects)
+                        (stored, effects)
                         |> Expect.equal
-                            "kept, nothing asked yet"
-                            (OrderPlanState.awaiting head.Patient two.OrderContexts, [])
+                            "stored, nothing asked yet"
+                            (OrderPlanState.withSignedVersion head.Patient two.OrderContexts, [])
 
-                        transition (OrderPlanMsg.PatientDataChanged(Some patient, "r-2")) kept
+                        transition (OrderPlanMsg.PatientDataChanged(Some patient, "r-2")) stored
                         |> Expect.equal
                             "the version's contexts opened for the patient"
                             (loading patient two.OrderContexts "r-2",
@@ -192,15 +193,15 @@ let tests =
                                  OrderPlanEffect.CallPlan(OrderPlanCommand.Open(draft, two.OrderContexts), "r-2")
                              ])
 
-                        transition (OrderPlanMsg.PatientDataChanged(None, "r-3")) kept
-                        |> Expect.equal "no patient after all: the version is let go" (noPatient, [])
+                        transition (OrderPlanMsg.PatientDataChanged(None, "r-3")) stored
+                        |> Expect.equal "no patient after all: the version is let go" (noPatientData, [])
                     }
                 ]
 
             testList
                 "a change"
                 [
-                    test "sent over the plan held" {
+                    test "sent over the plan in the cart" {
                         let stale = { one with Filtered = [| "c-9" |] }
                         let cmd = OrderPlanCommand.RemoveOrderContexts(stale, [| "c-1" |])
                         let busy, effects = transition (pageMsg (cmd, "r-1")) shown
@@ -208,78 +209,81 @@ let tests =
 
                         busy
                         |> Expect.equal
-                            "in flight over the plan held, one change of work"
+                            "in flight over the plan in the cart, one change of work"
                             (recalculating one None "r-1" rebased |> OrderPlanState.withWork PlanWork.Changed)
 
                         effects
                         |> Expect.equal "the rebased command" [ OrderPlanEffect.CallPlan(rebased, "r-1") ]
                     }
 
-                    test "a row filter goes over the plan held, the rows in the command; the plan held stays" {
+                    test
+                        "a row filter goes over the plan in the cart, the rows in the command; the plan in the cart stays" {
                         let filtered = { one with Filtered = [| "c-1" |] }
                         let rows = OrderPlanCommand.FilterRows([| "c-1" |], one)
 
                         let busy, _ = transition (pageMsg (OrderPlanCommand.FilterRows([| "c-1" |], two), "r-1")) shown
 
                         busy
-                        |> Expect.equal "the plan held, the rows in the command" (recalculating one None "r-1" rows)
+                        |> Expect.equal
+                            "the plan in the cart, the rows in the command"
+                            (recalculating one None "r-1" rows)
 
                         OrderPlanState.meanwhile one rows
                         |> Expect.equal "the pages show the rows chosen meanwhile" filtered
 
                         OrderPlanState.meanwhile one (OrderPlanCommand.RemoveOrderContexts(one, [| "c-1" |]))
-                        |> Expect.equal "and the plan held for any other change" one
+                        |> Expect.equal "and the plan in the cart for any other change" one
                     }
 
-                    test "the answer lands on its request: shown, the selection kept while its context is still there" {
+                    test "the answer lands on its request: shown, the selection stays while its context is still there" {
                         let cmd = OrderPlanCommand.RemoveOrderContexts(two, [| "c-2" |])
                         let busy = recalculating two (Some "c-2") "r-1" cmd
 
                         transition (OrderPlanMsg.Answered("r-1", Ok one)) busy
                         |> Expect.equal
                             "the selection's context went with the change"
-                            (held one None |> OrderPlanState.withOpened two.OrderContexts,
+                            (settled one None |> OrderPlanState.withOpened two.OrderContexts,
                              [
                                  OrderPlanEffect.CheckInteractions [ "paracetamol" ]
                                  OrderPlanEffect.TellAnswered
                              ])
 
-                        let kept = recalculating two (Some "c-1") "r-1" cmd
+                        let recalculatingTwo = recalculating two (Some "c-1") "r-1" cmd
 
-                        transition (OrderPlanMsg.Answered("r-1", Ok one)) kept
+                        transition (OrderPlanMsg.Answered("r-1", Ok one)) recalculatingTwo
                         |> Expect.equal
                             "the selection still holds"
-                            (held one (Some "c-1") |> OrderPlanState.withOpened two.OrderContexts,
+                            (settled one (Some "c-1") |> OrderPlanState.withOpened two.OrderContexts,
                              [
                                  OrderPlanEffect.CheckInteractions [ "paracetamol" ]
                                  OrderPlanEffect.TellAnswered
                              ])
 
-                        transition (OrderPlanMsg.Answered("r-9", Ok one)) kept
-                        |> Expect.equal "a stale answer dropped" (kept, [])
+                        transition (OrderPlanMsg.Answered("r-9", Ok one)) recalculatingTwo
+                        |> Expect.equal "a stale answer dropped" (recalculatingTwo, [])
                     }
 
                     test "a failed filter change goes back to the original, and says why" {
-                        // the plan sent differs from the one held, so that the test can tell which
+                        // the plan sent differs from the one in the cart, so that the test can tell which
                         // one a failed change leaves behind
                         let busy, _ =
                             transition (OrderPlanMsg.Change(OrderPlanChange.FilterRows [| "c-1" |], "r-1")) shown
 
                         transition (OrderPlanMsg.Answered("r-1", Error [| "no dose rules" |])) busy
                         |> Expect.equal
-                            "the plan held, rows and totals in step"
-                            (held one None, [ OrderPlanEffect.TellError [| "no dose rules" |] ])
+                            "the plan in the cart, rows and totals in step"
+                            (settled one None, [ OrderPlanEffect.TellError [| "no dose rules" |] ])
 
-                        // a page's change, the dialog open: back to the plan held, the dialog kept
+                        // a page's change, the dialog open: back to the plan in the cart, the dialog stays open
                         let recalculating, _ =
                             transition
                                 (OrderPlanMsg.Change(OrderPlanChange.Remove [| "c-9" |], "r-1"))
-                                (held one (Some "c-1"))
+                                (settled one (Some "c-1"))
 
                         transition (OrderPlanMsg.Answered("r-1", Error [| "no dose rules" |])) recalculating
                         |> Expect.equal
-                            "the plan held, the selection kept, the removal counted as it went out"
-                            (held one (Some "c-1") |> OrderPlanState.withWork PlanWork.Changed,
+                            "the plan in the cart, the selection stays, the removal counted as it went out"
+                            (settled one (Some "c-1") |> OrderPlanState.withWork PlanWork.Changed,
                              [ OrderPlanEffect.TellError [| "no dose rules" |] ])
 
                         let opening = loading patient [||] "r-1"
@@ -287,7 +291,7 @@ let tests =
                         transition (OrderPlanMsg.Answered("r-1", Error [| "not loaded" |])) opening
                         |> Expect.equal
                             "a refused open: the empty plan"
-                            (held (plan [||]) None, [ OrderPlanEffect.TellError [| "not loaded" |] ])
+                            (settled (plan [||]) None, [ OrderPlanEffect.TellError [| "not loaded" |] ])
                     }
 
                     test "an order prescribed: the answer is shown and checked, and the order told added" {
@@ -298,7 +302,7 @@ let tests =
                         transition (OrderPlanMsg.Answered("r-1", Ok two)) busy
                         |> Expect.equal
                             "shown, checked and added"
-                            (held two None |> OrderPlanState.withOpened one.OrderContexts,
+                            (settled two None |> OrderPlanState.withOpened one.OrderContexts,
                              [
                                  OrderPlanEffect.CheckInteractions [ "paracetamol"; "ibuprofen" ]
                                  OrderPlanEffect.TellAnswered
@@ -312,7 +316,9 @@ let tests =
                         let busy = recalculating one None "r-1" (OrderPlanCommand.AddOrderContext(one, workbench, [||]))
 
                         transition (OrderPlanMsg.Answered("r-1", Error [| "down" |])) busy
-                        |> Expect.equal "the plan as before" (held one None, [ OrderPlanEffect.TellError [| "down" |] ])
+                        |> Expect.equal
+                            "the plan as before"
+                            (settled one None, [ OrderPlanEffect.TellError [| "down" |] ])
                     }
 
                     test "an answer to an earlier prescription: no order added" {
@@ -366,9 +372,9 @@ let tests =
             testList
                 "the selection and the filter"
                 [
-                    test "the selection is the client's own, kept next to a request in flight" {
+                    test "the selection is the client's own, stored next to a request in flight" {
                         transition (OrderPlanMsg.SelectContext(Some "c-1")) shown
-                        |> Expect.equal "selected" (held one (Some "c-1"), [])
+                        |> Expect.equal "selected" (settled one (Some "c-1"), [])
 
                         let busy = recalculating one None "r-1" (OrderPlanCommand.FilterRows(one.Filtered, one))
 
@@ -377,19 +383,19 @@ let tests =
                             "selected while busy"
                             (recalculating one (Some "c-1") "r-1" (OrderPlanCommand.FilterRows(one.Filtered, one)), [])
 
-                        transition (OrderPlanMsg.SelectContext None) noPatient
-                        |> Expect.equal "nothing to select" (noPatient, [])
+                        transition (OrderPlanMsg.SelectContext None) noPatientData
+                        |> Expect.equal "nothing to select" (noPatientData, [])
                     }
 
                     test "the filter recalculates the totals over the rows chosen, the dialog closed" {
-                        let selected = held one (Some "c-1")
+                        let selected = settled one (Some "c-1")
                         let filtered = { one with Filtered = [| "c-1" |] }
                         let state, effects =
                             transition (OrderPlanMsg.Change(OrderPlanChange.FilterRows [| "c-1" |], "r-1")) selected
 
                         state
                         |> Expect.equal
-                            "recalculating over the plan held, the rows in the command, the dialog closed"
+                            "recalculating over the plan in the cart, the rows in the command, the dialog closed"
                             (recalculating one None "r-1" (OrderPlanCommand.FilterRows([| "c-1" |], one)))
 
                         effects
@@ -408,21 +414,21 @@ let viewTests =
     testList
         "OrderPlanState.view"
         [
-            test "no patient; an open under way; the plan held with its selection" {
-                noPatient
+            test "no patient; an open under way; the plan in the cart with its selection" {
+                noPatientData
                 |> OrderPlanState.view
-                |> Expect.equal "no patient" OrderPlanView.NoPatient
+                |> Expect.equal "no patient" OrderPlanView.NoPatientData
 
                 loading patient [||] "r-1"
                 |> OrderPlanState.view
                 |> Expect.equal "the empty plan shown while the open runs" (OrderPlanView.Changing(plan [||], None))
 
-                held one (Some "c-1")
+                settled one (Some "c-1")
                 |> OrderPlanState.view
-                |> Expect.equal "the plan held, the selection with it" (OrderPlanView.Settled(one, Some "c-1"))
+                |> Expect.equal "the plan in the cart, the selection with it" (OrderPlanView.Settled(one, Some "c-1"))
             }
 
-            test "a change under way: the plan the page changed for a recalculation, the plan held otherwise" {
+            test "a change under way: the plan the page changed for a recalculation, the plan in the cart otherwise" {
                 let filtered = { one with Filtered = [| "c-1" |] }
 
                 recalculating one (Some "c-1") "r-1" (OrderPlanCommand.FilterRows([| "c-1" |], one))
@@ -431,28 +437,28 @@ let viewTests =
 
                 recalculating one None "r-1" (OrderPlanCommand.RemoveOrderContexts(one, [| "c-1" |]))
                 |> OrderPlanState.view
-                |> Expect.equal "the plan held" (OrderPlanView.Changing(one, None))
+                |> Expect.equal "the plan in the cart" (OrderPlanView.Changing(one, None))
             }
 
-            test "holds: an order in the plan, by its id, settled or changing; nothing without a plan" {
-                held two None
+            test "hasOrder: an order in the plan, by its id, settled or changing; nothing without a plan" {
+                settled two None
                 |> OrderPlanState.view
-                |> OrderPlanView.holds "o-c-2"
+                |> OrderPlanView.hasOrder "o-c-2"
                 |> Expect.isTrue "in the plan"
 
                 recalculating two None "r-1" (OrderPlanCommand.RemoveOrderContexts(two, [| "c-1" |]))
                 |> OrderPlanState.view
-                |> OrderPlanView.holds "o-c-1"
+                |> OrderPlanView.hasOrder "o-c-1"
                 |> Expect.isTrue "still shown while the change is under way"
 
-                held two None
+                settled two None
                 |> OrderPlanState.view
-                |> OrderPlanView.holds "c-1"
+                |> OrderPlanView.hasOrder "c-1"
                 |> Expect.isFalse "a context id is not an order id"
 
-                noPatient
+                noPatientData
                 |> OrderPlanState.view
-                |> OrderPlanView.holds "o-c-1"
+                |> OrderPlanView.hasOrder "o-c-1"
                 |> Expect.isFalse "no plan"
             }
         ]
@@ -463,26 +469,28 @@ let planTests =
     testList
         "what the plan holds"
         [
-            test "a failed change keeps the plan held, a landed one is checked" {
+            test "a failed change keeps the plan in the cart, a landed one is checked" {
                 let filtered = { one with Filtered = [| "c-1" |] }
                 let rows = OrderPlanCommand.FilterRows([| "c-1" |], one)
 
                 transition (OrderPlanMsg.Answered("r-1", Error [| "not loaded" |])) (recalculating one None "r-1" rows)
-                |> Expect.equal "the original, told" (held one None, [ OrderPlanEffect.TellError [| "not loaded" |] ])
+                |> Expect.equal
+                    "the original, told"
+                    (settled one None, [ OrderPlanEffect.TellError [| "not loaded" |] ])
 
                 transition (OrderPlanMsg.Answered("r-1", Ok filtered)) (recalculating one None "r-1" rows)
                 |> Expect.equal
                     "the plan answered, its drugs checked"
-                    (held filtered None |> OrderPlanState.withOpened one.OrderContexts,
+                    (settled filtered None |> OrderPlanState.withOpened one.OrderContexts,
                      [
                          OrderPlanEffect.CheckInteractions [ "paracetamol" ]
                          OrderPlanEffect.TellAnswered
                      ])
             }
 
-            test "nothing lands without a patient; the dialog selects only over a plan held" {
-                transition (OrderPlanMsg.Answered("r-1", Ok one)) noPatient
-                |> Expect.equal "no patient" (noPatient, [])
+            test "nothing lands without a patient; the dialog selects only over a plan in the cart" {
+                transition (OrderPlanMsg.Answered("r-1", Ok one)) noPatientData
+                |> Expect.equal "no patient" (noPatientData, [])
 
                 transition (OrderPlanMsg.SelectContext(Some "c-1")) (loading patient [||] "r-1")
                 |> Expect.equal "nothing to select yet" (loading patient [||] "r-1", [])
@@ -522,16 +530,16 @@ let workTests =
     testList
         "the plan's work"
         [
-            test "a plan held is as signed; a command that changes it is work, a recalculation is not" {
-                held one None
+            test "a plan in the cart is as signed; a command that changes it is work, a recalculation is not" {
+                settled one None
                 |> OrderPlanState.work
                 |> Expect.equal "as signed" PlanWork.AsSigned
 
-                transition (pageMsg (remove, "r-1")) (held one None)
+                transition (pageMsg (remove, "r-1")) (settled one None)
                 |> workOf
                 |> Expect.equal "one change" PlanWork.Changed
 
-                transition (pageMsg (filterRows, "r-1")) (held one None |> OrderPlanState.withWork PlanWork.Changed)
+                transition (pageMsg (filterRows, "r-1")) (settled one None |> OrderPlanState.withWork PlanWork.Changed)
                 |> workOf
                 |> Expect.equal "still one change" PlanWork.Changed
             }
@@ -545,7 +553,7 @@ let workTests =
                         one.OrderContexts[0]
                     )
 
-                transition (pageMsg (step, "r-3")) (held one None)
+                transition (pageMsg (step, "r-3")) (settled one None)
                 |> workOf
                 |> Expect.equal "the one that goes out" PlanWork.Changed
             }
@@ -553,20 +561,20 @@ let workTests =
             test "a version opened and a patient cleared are as signed" {
                 transition
                     (OrderPlanMsg.OpenSignedPlan(version, "r-1"))
-                    (held one None |> OrderPlanState.withWork PlanWork.Changed)
+                    (settled one None |> OrderPlanState.withWork PlanWork.Changed)
                 |> workOf
                 |> Expect.equal "a version opened" PlanWork.AsSigned
 
                 transition
                     (OrderPlanMsg.PatientDataChanged(None, "r-1"))
-                    (held one None |> OrderPlanState.withWork PlanWork.Changed)
+                    (settled one None |> OrderPlanState.withWork PlanWork.Changed)
                 |> workOf
                 |> Expect.equal "no patient, nothing to sign" PlanWork.AsSigned
             }
 
             test "a signature is as signed" {
-                transition OrderPlanMsg.Signed (held one None |> OrderPlanState.withWork PlanWork.Changed)
-                |> Expect.equal "as signed, nothing else" (held one None, [])
+                transition OrderPlanMsg.Signed (settled one None |> OrderPlanState.withWork PlanWork.Changed)
+                |> Expect.equal "as signed, nothing else" (settled one None, [])
             }
         ]
 
@@ -587,7 +595,7 @@ let versionFollowTests =
     let version = { head with Patient = otherDraft }
 
     let openedOver current =
-        held one None
+        settled one None
         |> transition (OrderPlanMsg.PatientDataChanged(Some current, "r-0"))
         |> fst
         |> transition (OrderPlanMsg.Answered("r-0", Ok one))
@@ -699,9 +707,11 @@ let versionFollowTests =
             }
 
             test "the version waits for the patient, one request at a time" {
-                held one None
+                settled one None
                 |> transition (OrderPlanMsg.OpenSignedPlan(version, "r-1"))
-                |> Expect.equal "nothing goes out" (OrderPlanState.awaiting otherDraft version.OrderContexts, [])
+                |> Expect.equal
+                    "nothing goes out"
+                    (OrderPlanState.withSignedVersion otherDraft version.OrderContexts, [])
             }
         ]
 
@@ -740,15 +750,15 @@ let workAfterUpdateTests =
         "the work after a patient update"
         [
             test "orders the new data changed are unsigned work" {
-                held one None |> update followed |> Expect.equal "changed" PlanWork.Changed
+                settled one None |> update followed |> Expect.equal "changed" PlanWork.Changed
             }
 
             test "an order without a dose per kg, without a notification, stays as signed" {
-                held one None |> update one |> Expect.equal "as signed" PlanWork.AsSigned
+                settled one None |> update one |> Expect.equal "as signed" PlanWork.AsSigned
             }
 
             test "a plan equal to the version has nothing to sign, also after a change" {
-                held one None
+                settled one None
                 |> OrderPlanState.withWork PlanWork.Changed
                 |> update one
                 |> Expect.equal "as signed" PlanWork.AsSigned
@@ -757,34 +767,34 @@ let workAfterUpdateTests =
 
 
 [<Tests>]
-let heldTests =
+let unsignedChangesTests =
     let changedOf (state: OrderPlanState, _: OrderPlanEffect list) = changedIds state
-    let heldOf result = changedOf result |> Array.isEmpty |> not
+    let hasChanges result = changedOf result |> Array.isEmpty |> not
 
-    /// The answer to a command sent over the plan held, landed.
+    /// The answer to a command sent over the plan in the cart, landed.
     let landed cmd answer state =
         transition (pageMsg (cmd, "r-1")) state
         |> fst
         |> transition (OrderPlanMsg.Answered("r-1", answer))
 
     testList
-        "the patient context held"
+        "unsigned changes"
         [
             test "a version opened lands released" {
                 transition (OrderPlanMsg.Answered("r-1", Ok two)) (loading patient head.OrderContexts "r-1")
-                |> heldOf
+                |> hasChanges
                 |> Expect.isFalse "the version opened holds nothing"
             }
 
             test "an order added holds once it lands" {
-                held one None
+                settled one None
                 |> landed (OrderPlanCommand.AddOrderContext(one, context "c-2" "ibuprofen", [||])) (Ok two)
                 |> changedOf
                 |> Expect.equal "the order added is new" [| "c-2" |]
             }
 
             test "the differences list the order added as new" {
-                held one None
+                settled one None
                 |> landed (OrderPlanCommand.AddOrderContext(one, context "c-2" "ibuprofen", [||])) (Ok two)
                 |> fun (state, _) -> state |> OrderPlanState.differences two
                 |> Array.map (fun (c, d) -> c.Id, d)
@@ -792,7 +802,7 @@ let heldTests =
             }
 
             test "the differences list an order of the version removed" {
-                held two None
+                settled two None
                 |> landed (OrderPlanCommand.RemoveOrderContexts(two, [| "c-2" |])) (Ok one)
                 |> fun (state, _) -> state |> OrderPlanState.differences one
                 |> Array.map (fun (c, d) -> c.Id, d)
@@ -800,14 +810,14 @@ let heldTests =
             }
 
             test "an order of the version removed does not hold" {
-                held two None
+                settled two None
                 |> landed (OrderPlanCommand.RemoveOrderContexts(two, [| "c-2" |])) (Ok one)
-                |> heldOf
+                |> hasChanges
                 |> Expect.isFalse "a removal is no new or changed order"
             }
 
             test "a failed change leaves the hold as it was" {
-                held two None
+                settled two None
                 |> OrderPlanState.withOpened one.OrderContexts
                 |> landed (OrderPlanCommand.RemoveOrderContexts(two, [| "c-2" |])) (Error [| "down" |])
                 |> changedOf
@@ -817,33 +827,33 @@ let heldTests =
             test "the rows chosen do not hold" {
                 let filtered = { one with Filtered = [| "c-1" |] }
 
-                transition (OrderPlanMsg.Change(OrderPlanChange.FilterRows [| "c-1" |], "r-1")) (held one None)
+                transition (OrderPlanMsg.Change(OrderPlanChange.FilterRows [| "c-1" |], "r-1")) (settled one None)
                 |> fst
                 |> transition (OrderPlanMsg.Answered("r-1", Ok filtered))
-                |> heldOf
+                |> hasChanges
                 |> Expect.isFalse "the filter is no order"
             }
 
             test "a signature releases" {
                 transition
                     OrderPlanMsg.Signed
-                    (held two None
+                    (settled two None
                      |> OrderPlanState.withOpened one.OrderContexts
                      |> OrderPlanState.withWork PlanWork.Changed)
-                |> heldOf
+                |> hasChanges
                 |> Expect.isFalse "the plan is the version signed"
             }
 
             test "a version opened and a patient cleared release" {
-                let holding = held two None |> OrderPlanState.withOpened [||]
+                let withChanges = settled two None |> OrderPlanState.withOpened [||]
 
-                transition (OrderPlanMsg.OpenSignedPlan(head, "r-1")) holding
-                |> heldOf
+                transition (OrderPlanMsg.OpenSignedPlan(head, "r-1")) withChanges
+                |> hasChanges
                 |> Expect.isFalse "the version is being opened"
 
-                transition (OrderPlanMsg.PatientDataChanged(None, "r-1")) holding
-                |> heldOf
-                |> Expect.isFalse "no patient, nothing held"
+                transition (OrderPlanMsg.PatientDataChanged(None, "r-1")) withChanges
+                |> hasChanges
+                |> Expect.isFalse "no patient, nothing unsigned"
             }
         ]
 
@@ -858,7 +868,7 @@ let signingTests =
         [
             test "an order added before the sign is released by the signature" {
                 let added =
-                    held one None
+                    settled one None
                     |> transition (pageMsg (add, "r-1"))
                     |> fst
                     |> transition (OrderPlanMsg.Answered("r-1", Ok two))
@@ -888,13 +898,13 @@ let argueTests =
         [
             test "goes as a command into the context named, and the plan's work is changed" {
                 let state, effects =
-                    held two None
+                    settled two None
                     |> OrderPlanState.withOpened two.OrderContexts
                     |> transition (OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand("c-2", argue), "r-1"))
 
                 effects
                 |> Expect.equal
-                    "the text into c-2, over the plan held"
+                    "the text into c-2, over the plan in the cart"
                     [
                         OrderPlanEffect.CallPlan(
                             OrderPlanCommand.EvaluateContext(two, "c-2", argue, two.OrderContexts[1]),
@@ -918,7 +928,7 @@ let argueTests =
                             )
                     }
 
-                held two None
+                settled two None
                 |> transition (OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand("c-2", argue), "r-1"))
                 |> fst
                 |> transition (OrderPlanMsg.Answered("r-1", Ok argued))
@@ -955,12 +965,12 @@ let awaitsTests =
 [<Tests>]
 let evaluateContextTests =
     let step = OrderViewCommand.IncreaseScheduleFrequencyProperty
-    let open' = held two (Some "c-1")
+    let open' = settled two (Some "c-1")
 
     testList
         "a command from the order dialog"
         [
-            test "goes over the plan held and that context as answered" {
+            test "goes over the plan in the cart and that context as answered" {
                 let sent = OrderPlanCommand.EvaluateContext(two, "c-1", step, two.OrderContexts[0])
 
                 open'
@@ -968,7 +978,7 @@ let evaluateContextTests =
                     OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand("c-1", step), "r-1")
                 )
                 |> snd
-                |> Expect.equal "the step over the context held" [ OrderPlanEffect.CallPlan(sent, "r-1") ]
+                |> Expect.equal "the step over the context in the plan" [ OrderPlanEffect.CallPlan(sent, "r-1") ]
             }
 
             test "goes nowhere for a context the plan does not hold" {
@@ -983,7 +993,7 @@ let evaluateContextTests =
                 let mark (c: OrderContext) =
                     { c with Scenarios = c.Scenarios |> Array.map (fun sc -> { sc with NotRecalculated = true }) }
 
-                let locked = held { two with OrderContexts = two.OrderContexts |> Array.map mark } None
+                let locked = settled { two with OrderContexts = two.OrderContexts |> Array.map mark } None
 
                 locked
                 |> OrderPlanState.transition (
@@ -1004,13 +1014,13 @@ let reCalcTests =
     // the context as the server answers a clear
     let recalculated = context "c-1" "paracetamol-recalculated"
     let answer = plan [| recalculated; context "c-2" "ibuprofen" |]
-    let open' = held two (Some "c-1")
+    let open' = settled two (Some "c-1")
     let reCalc request =
         OrderPlanMsg.Change(
             OrderPlanChange.OrderDialogCommand("c-1", OrderViewCommand.ReCalcScheduleProperty ScheduleProperty.Time),
             request
         )
-    // the clear as the machine sends it, over the plan and the context held
+    // the clear as the machine sends it, over the plan and the context in the plan
     let clear =
         OrderPlanCommand.EvaluateContext(
             two,
@@ -1024,7 +1034,7 @@ let reCalcTests =
     testList
         "OrderPlanState.transition, a recalculation and a restore"
         [
-            test "a recalculation goes out over the context held and counts as a change" {
+            test "a recalculation goes out over the context in the plan and counts as a change" {
                 let state, effects = open' |> move (reCalc "r-1")
 
                 effects
@@ -1041,7 +1051,10 @@ let reCalcTests =
                 let change = OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand("c-1", cmd), "r-1")
                 let viaChange = open' |> move change
 
-                viaChange |> fst |> OrderPlanState.isKept |> Expect.isTrue "kept"
+                viaChange
+                |> fst
+                |> OrderPlanState.isRecalculating
+                |> Expect.isTrue "recalculating"
 
                 open'
                 |> run [ change; OrderPlanMsg.Answered("r-1", Ok answer) ]
@@ -1049,14 +1062,14 @@ let reCalcTests =
                 |> Expect.equal "a restore puts the state before it back" (open', [])
             }
 
-            test "a pick from the order dialog is no recalculation: nothing is kept" {
+            test "a pick from the order dialog is no recalculation: the recalculation list stays closed" {
                 let pick = OrderViewCommand.SetNthItemProperty("cmp", "itm", ItemProperty.DoseQuantity, 0)
 
                 open'
                 |> move (OrderPlanMsg.Change(OrderPlanChange.OrderDialogCommand("c-1", pick), "r-1"))
                 |> fst
-                |> OrderPlanState.isKept
-                |> Expect.isFalse "nothing kept"
+                |> OrderPlanState.isRecalculating
+                |> Expect.isFalse "not recalculating"
             }
 
             test "a restore before the answer puts the plan back as signed, and the late answer is dropped" {
@@ -1126,7 +1139,7 @@ let reCalcTests =
                 let state, effects = open' |> move gone
 
                 (state, effects) |> Expect.equal "nothing sent" (open', [])
-                state |> OrderPlanState.isKept |> Expect.isFalse "nothing kept"
+                state |> OrderPlanState.isRecalculating |> Expect.isFalse "not recalculating"
             }
         ]
 
@@ -1165,7 +1178,7 @@ let changeTests =
                 |> Expect.equal "nothing sent" (shown, [])
             }
 
-            test "a prescription and a removal go out over the plan held" {
+            test "a prescription and a removal go out over the plan in the cart" {
                 let ctx = context "" "ibuprofen"
 
                 [
@@ -1205,6 +1218,6 @@ let requestOutTests =
 
             test "the patient cleared still resets it" {
                 transition (OrderPlanMsg.PatientDataChanged(None, "r-2")) busy
-                |> Expect.equal "no patient" (noPatient, [])
+                |> Expect.equal "no patient" (noPatientData, [])
             }
         ]

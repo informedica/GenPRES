@@ -164,7 +164,7 @@ module OrderPlan =
             | OrderPlanView.Changing(_, Some id) -> envOrderPlan.OrderDialogCommand(id, cmd)
             | OrderPlanView.Settled(_, None)
             | OrderPlanView.Changing(_, None)
-            | OrderPlanView.NoPatient -> ()
+            | OrderPlanView.NoPatientData -> ()
 
         let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
@@ -189,7 +189,7 @@ module OrderPlan =
             match orderPlan with
             | OrderPlanView.Settled(tp, _)
             | OrderPlanView.Changing(tp, _) -> contextOf tp id |> Option.map (fun ctx -> tp, ctx)
-            | OrderPlanView.NoPatient -> None
+            | OrderPlanView.NoPatientData -> None
 
         let lockSx =
             {|
@@ -255,7 +255,7 @@ module OrderPlan =
             match orderPlan with
             | OrderPlanView.Settled _ -> SigningPolicy.underWay signing.Signing
             | OrderPlanView.Changing _
-            | OrderPlanView.NoPatient -> true
+            | OrderPlanView.NoPatientData -> true
 
         let fieldTexts = ViewHelpers.quantityFieldTexts getTerm
 
@@ -331,7 +331,7 @@ module OrderPlan =
                             |> Option.map (fun sc -> cellField tp ctx sc.Order fieldOf)
                         )
                     )
-                | OrderPlanView.NoPatient -> None
+                | OrderPlanView.NoPatientData -> None
 
             let key = $"%s{id}/%A{column}"
 
@@ -541,7 +541,7 @@ module OrderPlan =
                         actions = None
                     |}
                 )
-            | OrderPlanView.NoPatient -> [||]
+            | OrderPlanView.NoPatientData -> [||]
 
         let rowCreate (cells: string[]) =
             {|
@@ -563,7 +563,7 @@ module OrderPlan =
                 match contextOf tp id with
                 | None -> Logging.error "Order not found" id
                 | Some c -> envOrderPlan.SelectContext(Some c.Id)
-            | OrderPlanView.NoPatient -> ()
+            | OrderPlanView.NoPatientData -> ()
 
         // the rows checked, by order id, become the filter, by context id, with a main order and the
         // orders linked to it checked together; only over a settled plan, since the filter is sent to the server
@@ -574,7 +574,7 @@ module OrderPlan =
                 |> Array.choose (fun id -> contextOf tp id |> Option.map _.Id)
                 |> PlanRowPolicy.checkedRows tp
                 |> envOrderPlan.FilterRows
-            | OrderPlanView.NoPatient
+            | OrderPlanView.NoPatientData
             | OrderPlanView.Changing _ -> ()
 
         // the orders of the contexts the filter keeps, for the table's checked rows
@@ -597,7 +597,7 @@ module OrderPlan =
             fun () ->
                 match orderPlan with
                 | OrderPlanView.Settled(tp, _) -> envOrderPlan.Remove tp.Filtered
-                | OrderPlanView.NoPatient
+                | OrderPlanView.NoPatientData
                 | OrderPlanView.Changing _ -> ()
 
                 setConfirmDeleteOpen false
@@ -614,13 +614,13 @@ module OrderPlan =
                     onCancel = fun () -> setConfirmDeleteOpen false
                 |}
 
-        let orderContext = dialog |> Option.defaultValue OrderContextView.NoPatient
+        let orderContext = dialog |> Option.defaultValue OrderContextView.NoPatientData
 
         let nothingSelected =
             match orderPlan with
             | OrderPlanView.Settled(tp, _)
             | OrderPlanView.Changing(tp, _) -> tp.Filtered |> Array.isEmpty
-            | OrderPlanView.NoPatient -> true
+            | OrderPlanView.NoPatientData -> true
 
         // always there with a plan, disabled without a selection, so the row above the table
         // keeps its height and the table does not move when a row is checked
@@ -638,7 +638,7 @@ module OrderPlan =
             fun _ ->
                 match orderPlan with
                 | OrderPlanView.Settled(tp, _) -> signing.Sign tp
-                | OrderPlanView.NoPatient
+                | OrderPlanView.NoPatientData
                 | OrderPlanView.Changing _ -> ()
 
         // the button stays while the plan changes, disabled, so the table below does not move up
@@ -682,7 +682,7 @@ module OrderPlan =
                                     signAction
                             |]
                     |}
-            | OrderPlanView.NoPatient -> null
+            | OrderPlanView.NoPatientData -> null
 
         // the record moved on while this Session is on an older version; the bar says whose
         // and when, and offers the newest version. Nothing is blocked here: the guard is the
@@ -723,7 +723,7 @@ module OrderPlan =
             | OrderPlanView.Changing(tp, Some id) -> PlanContextPolicy.editingOf tp id
             | OrderPlanView.Settled(_, None)
             | OrderPlanView.Changing(_, None)
-            | OrderPlanView.NoPatient -> PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed
+            | OrderPlanView.NoPatientData -> PlanContextPolicy.Editing.PlanContext PlanContextPolicy.DoseShare.Fixed
 
         let signDialog = SignDialog.View {| appEnv = props.appEnv |}
 

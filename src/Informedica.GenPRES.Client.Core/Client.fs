@@ -132,16 +132,16 @@ module Client =
     let patient (state: ClientState) = state.Lanes.Patient |> PatientState.patient
 
 
-    /// The query of the combined totals of the nutrition page: the patient, the orders of the plan that its
-    /// filter keeps, every nutrition slot narrowed to one order and the linked orders turned on in it. None
-    /// while no slot is narrowed to one order, since the plan's own totals then hold. A slot counts as it was
-    /// last answered, not as a request under way shows it.
+    /// The query of the combined totals of the nutrition page: the patient, the orders of the plan that pass
+    /// its row filter, every nutrition slot narrowed to a single order and the linked orders turned on in it.
+    /// None while no slot is narrowed to a single order, since the totals of the plan itself then apply. A slot
+    /// counts with the context of its last response, not with the context a request under way shows.
     let totalsQuery (state: ClientState) =
         let slotOrders =
             state.Lanes.Slots
             |> Seq.map snd
             |> Seq.collect (fun slot ->
-                match slot |> OrderContextState.answered with
+                match slot |> OrderContextState.workbenchContext with
                 | Some ctx when ctx |> Models.OrderContext.contribution |> Option.isSome ->
                     Array.append [| ctx |] (slot |> OrderContextState.linkedTurnedOn)
                 | _ -> [||]
@@ -202,7 +202,8 @@ module Client =
 
 
     /// The totals the nutrition page shows: the combined totals of the plan and the slots once the server
-    /// answered them, the plan's own otherwise, which hold while no slot is narrowed to one order.
+    /// has responded with them, otherwise the totals of the plan itself, which apply while no slot is narrowed
+    /// to a single order.
     let nutritionTotals (state: ClientState) =
         match state.Loader.Totals with
         | Resolved totals
@@ -483,9 +484,9 @@ module Client =
         | _ -> None
 
 
-    /// A medication seeded over the workbench for the patient there is; without one it is dropped and
-    /// said, since the patient is part of the filter.
-    let seeded newId seed (state: ClientState) =
+    /// A medication seeded over the workbench for the patient data there is; without patient data the
+    /// seed is dropped and the user is told, since the patient is part of the filter.
+    let seedOrAlert newId seed state =
         match patient state with
         | Some _ ->
             [
@@ -494,15 +495,19 @@ module Client =
         | None -> [ ClientMsg.Shell(ShellMsg.AlertRaised Alert.Alert.NoPatientForMedication) ]
 
 
-    /// A list item chosen: the Prescribe page and the seed, for the patient there is.
-    let chosen newId seed (state: ClientState) =
-        match seed, patient state with
-        | Some seed, Some _ ->
-            ClientMsg.Shell(ShellMsg.MovedToPage Page.Page.Prescribe)
-            :: seeded newId seed state
-        | Some seed, None -> seeded newId seed state
+    /// A list item chosen: the seed over the workbench, with the Prescribe page for the patient data there is;
+    /// without patient data the user is told.
+    let chosen newId seed state =
+        match seed with
+        | Some seed ->
+            let page =
+                patient state
+                |> Option.map (fun _ -> ClientMsg.Shell(ShellMsg.MovedToPage Page.Page.Prescribe))
+                |> Option.toList
+
+            page @ seedOrAlert newId seed state
         // an item the list does not hold
-        | None, _ -> []
+        | None -> []
 
 
     /// One message: a part's step, or the messages for the parts it becomes. A client message that
@@ -690,7 +695,7 @@ module Client =
                     LanesMsg.Patient(PatientMsg.Changed(pat, PatientDraftPolicy.Estimates.Renewed, newId ()))
                 )
             ]
-        | ClientEffect.Shell(ShellEffect.SeedWorkbench seed) -> state |> seeded newId seed
+        | ClientEffect.Shell(ShellEffect.SeedWorkbench seed) -> state |> seedOrAlert newId seed
         | ClientEffect.Shell(ShellEffect.LaunchRefused refusal) ->
             [ ClientMsg.Lanes(LanesMsg.Session(SessionMsg.LaunchRefused refusal)) ]
         | ClientEffect.Shell ShellEffect.ResumeSession -> [ ClientMsg.Lanes(LanesMsg.Session SessionMsg.Resume) ]

@@ -82,7 +82,7 @@ module Nutrition =
                     {parenteral}
                 </Stack>
                 """
-            | OrderPlanView.NoPatient -> null
+            | OrderPlanView.NoPatientData -> null
 
         JSX.jsx
             $"""

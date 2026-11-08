@@ -60,7 +60,7 @@ let idle loads =
     OutPolicy.out
         false
         noPatientChange
-        (OrderContextState.held patient (OrderContextState.emptyMedication patient))
+        (OrderContextState.evaluated patient (OrderContextState.emptyMedication patient))
         []
         shown
         SessionState.anonymous
@@ -91,7 +91,7 @@ let tests =
                 OutPolicy.out
                     false
                     patientChanging
-                    OrderContextState.noPatient
+                    OrderContextState.noPatientData
                     []
                     shown
                     SessionState.anonymous
@@ -105,7 +105,7 @@ let tests =
                 OutPolicy.out
                     false
                     noPatientChange
-                    OrderContextState.noPatient
+                    OrderContextState.noPatientData
                     []
                     plan
                     SessionState.anonymous
@@ -116,7 +116,7 @@ let tests =
                 OutPolicy.out
                     false
                     noPatientChange
-                    OrderContextState.noPatient
+                    OrderContextState.noPatientData
                     []
                     shown
                     SessionState.resuming
@@ -127,7 +127,7 @@ let tests =
                 OutPolicy.out
                     false
                     noPatientChange
-                    OrderContextState.noPatient
+                    OrderContextState.noPatientData
                     []
                     shown
                     SessionState.anonymous
@@ -140,7 +140,15 @@ let tests =
                     |> SessionState.transition SessionMsg.RefreshPatient
                     |> fst
 
-                OutPolicy.out false noPatientChange OrderContextState.noPatient [] shown refreshing SigningState.idle []
+                OutPolicy.out
+                    false
+                    noPatientChange
+                    OrderContextState.noPatientData
+                    []
+                    shown
+                    refreshing
+                    SigningState.idle
+                    []
                 |> Expect.equal "a refresh" [ Request.Session ]
             }
 
@@ -164,7 +172,7 @@ let tests =
                         OutPolicy.out
                             false
                             noPatientChange
-                            OrderContextState.noPatient
+                            OrderContextState.noPatientData
                             []
                             shown
                             SessionState.anonymous
@@ -198,7 +206,7 @@ let tests =
                     OutPolicy.out
                         false
                         noPatientChange
-                        OrderContextState.noPatient
+                        OrderContextState.noPatientData
                         []
                         (recalculating one None "p-1" (OrderPlanCommand.FilterRows([||], one)))
                         SessionState.anonymous
@@ -218,7 +226,7 @@ let tests =
                     OutPolicy.out
                         false
                         patientChanging
-                        OrderContextState.noPatient
+                        OrderContextState.noPatientData
                         []
                         shown
                         SessionState.anonymous
@@ -234,7 +242,7 @@ let tests =
                     OutPolicy.out
                         true
                         noPatientChange
-                        OrderContextState.noPatient
+                        OrderContextState.noPatientData
                         []
                         shown
                         SessionState.anonymous

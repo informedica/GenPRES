@@ -319,13 +319,13 @@ module Prescribe =
                     | _ -> ()
 
                 // the plan holds this order already: the server would refuse it
-                let inPlan = orderPlan |> OrderPlanView.holds sc.Order.Id
+                let inPlan = orderPlan |> OrderPlanView.hasOrder sc.Order.Id
 
                 // one change to the plan at a time: while it is busy a click would be dropped
                 let planBusy =
                     match orderPlan with
                     | OrderPlanView.Settled _ -> false
-                    | OrderPlanView.NoPatient
+                    | OrderPlanView.NoPatientData
                     | OrderPlanView.Changing _ -> true
 
                 // an offer turned on and not narrowed to one scenario keeps the order from the plan
@@ -483,7 +483,7 @@ module Prescribe =
                      |> Array.map (displayScenario pr pr.Filter.Generic)
                      |> unbox<seq<ReactElement>>
                      |> React.Fragment
-                 | OrderContextView.NoPatient -> Seq.empty<ReactElement> |> React.Fragment}
+                 | OrderContextView.NoPatientData -> Seq.empty<ReactElement> |> React.Fragment}
                 {offers}
             </Stack>
             """
@@ -504,7 +504,7 @@ module Prescribe =
                      | OrderContextView.Settled pr
                      | OrderContextView.Refused(pr, _)
                      | OrderContextView.Changing pr -> pr.Filter.Indication, pr.Filter.Indications
-                     | OrderContextView.NoPatient -> None, [||]
+                     | OrderContextView.NoPatientData -> None, [||]
                      |> fun (sel, items) ->
                          let lbl = Terms.``Prescribe Indications`` |> getTerm "Indicaties"
 
@@ -514,7 +514,7 @@ module Prescribe =
                          | OrderContextView.Settled pr
                          | OrderContextView.Refused(pr, _)
                          | OrderContextView.Changing pr -> pr.Filter.Generic, pr.Filter.Generics
-                         | OrderContextView.NoPatient -> None, [||]
+                         | OrderContextView.NoPatientData -> None, [||]
                          |> fun (sel, items) ->
                              let lbl = Terms.``Prescribe Medications`` |> getTerm "Medicatie"
 
@@ -525,7 +525,7 @@ module Prescribe =
                          | OrderContextView.Settled pr
                          | OrderContextView.Refused(pr, _)
                          | OrderContextView.Changing pr -> pr.Filter.Route, pr.Filter.Routes
-                         | OrderContextView.NoPatient -> None, [||]
+                         | OrderContextView.NoPatientData -> None, [||]
                          |> fun (sel, items) ->
                              let lbl = Terms.``Prescribe Routes`` |> getTerm "Routes"
 
@@ -621,7 +621,7 @@ module Prescribe =
             Order.View
                 {|
                     editing = PlanContextPolicy.Editing.Workbench
-                    orderContext = dialog |> Option.defaultValue OrderContextView.NoPatient
+                    orderContext = dialog |> Option.defaultValue OrderContextView.NoPatientData
                     command = orderContextMsg
                     restoreOrderScenario = envOrderContext.RestoreField
                     closeOrder = handleModalClose

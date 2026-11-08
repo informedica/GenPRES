@@ -72,6 +72,10 @@ module Trail =
         let shortId (id: string) = if id.Length > 8 then id.Substring(0, 8) else id
 
 
+        /// The word when the condition is true, None otherwise.
+        let flag word condition = if condition then Some word else None
+
+
         /// Why the server refused the order context.
         let contextRefusal (r: OrderContextRefusal) =
             match r with
@@ -541,22 +545,22 @@ module Trail =
         /// The order plan state as the pages read it.
         let view (view: OrderPlanView) =
             match view with
-            | OrderPlanView.NoPatient -> "NoPatient"
+            | OrderPlanView.NoPatientData -> "NoPatientData"
             | OrderPlanView.Settled(p, selected) ->
                 $"Settled %s{Part.plan p} selected %s{selected |> Part.orNone Part.shortId}"
             | OrderPlanView.Changing(p, selected) ->
                 $"Changing %s{Part.plan p} selected %s{selected |> Part.orNone Part.shortId}"
 
 
-        /// The order plan state, through the view the pages read, with the request it awaits and whether a
-        /// plan is kept for a recalculation.
+        /// The order plan state, through the view the pages read, with the request it awaits and whether the
+        /// recalculation list is open.
         let state (state: OrderPlanState) =
             [
                 state |> OrderPlanState.view |> view |> Some
                 state
                 |> OrderPlanState.inFlightRequest
                 |> Option.map (fun r -> $"awaits %s{Part.shortId r}")
-                if OrderPlanState.isKept state then Some "kept" else None
+                state |> OrderPlanState.isRecalculating |> Part.flag "recalculating"
             ]
             |> List.choose id
             |> String.concat " "
@@ -649,21 +653,21 @@ module Trail =
         /// The order context state as the page reads it; a context by its id.
         let view (view: OrderContextView) =
             match view with
-            | OrderContextView.NoPatient -> "NoPatient"
+            | OrderContextView.NoPatientData -> "NoPatientData"
             | OrderContextView.Settled ctx -> $"Settled %s{Part.contextId ctx}"
             | OrderContextView.Refused(ctx, r) -> $"Refused %s{Part.contextId ctx} %s{Part.contextRefusal r}"
             | OrderContextView.Changing ctx -> $"Changing %s{Part.contextId ctx}"
 
 
         /// The order context state, through the view the page reads, with the request it awaits and whether
-        /// a state is kept for a recalculation.
+        /// the recalculation list is open.
         let state (state: OrderContextState) =
             [
                 state |> OrderContextState.view |> view |> Some
                 state
                 |> OrderContextState.inFlightRequest
                 |> Option.map (fun r -> $"awaits %s{Part.shortId r}")
-                if OrderContextState.isKept state then Some "kept" else None
+                state |> OrderContextState.isRecalculating |> Part.flag "recalculating"
             ]
             |> List.choose id
             |> String.concat " "

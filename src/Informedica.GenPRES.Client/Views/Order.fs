@@ -92,7 +92,7 @@ module Order =
                 | OrderContextView.Refused(ctx, _)
                 | OrderContextView.Changing ctx ->
                     ctx.Scenarios |> Array.tryExactlyOne |> Option.map (DialogTabPolicy.tab kept)
-                | OrderContextView.NoPatient -> None
+                | OrderContextView.NoPatientData -> None
 
             {
                 SelectedComponent = tab |> Option.bind _.Component
@@ -472,7 +472,7 @@ module Order =
             | OrderContextView.Settled ctx
             | OrderContextView.Refused(ctx, _)
             | OrderContextView.Changing ctx -> Some ctx
-            | OrderContextView.NoPatient -> None
+            | OrderContextView.NoPatientData -> None
 
         // the order shown, the one sent while a change is under way, so that the dialog stays
         // populated while the server answers
@@ -511,13 +511,13 @@ module Order =
             | OrderContextView.Settled _
             | OrderContextView.Refused _
             | OrderContextView.Changing _ -> props.command Api.OrderViewCommand.ResetOrderScenario
-            | OrderContextView.NoPatient -> ()
+            | OrderContextView.NoPatientData -> ()
 
         let stepper =
             // a step goes out as its command, while the dialog shows a context
             let send cmd =
                 match props.orderContext with
-                | OrderContextView.NoPatient -> ()
+                | OrderContextView.NoPatientData -> ()
                 | _ -> props.command cmd
 
             let create cmd = fun (_: OrderLoader) -> send cmd
@@ -604,7 +604,7 @@ module Order =
         let isOrderLoading =
             match props.orderContext with
             | OrderContextView.Changing _ -> true
-            | OrderContextView.NoPatient
+            | OrderContextView.NoPatientData
             | OrderContextView.Refused _
             | OrderContextView.Settled _ -> false
 

@@ -118,9 +118,9 @@ module Lanes =
     let initial draft =
         {
             Patient = PatientState.init draft
-            OrderContext = OrderContextState.noPatient
+            OrderContext = OrderContextState.noPatientData
             Slots = []
-            OrderPlan = OrderPlanState.noPatient
+            OrderPlan = OrderPlanState.noPatientData
             Session = SessionState.anonymous
             Signing = SigningState.idle
         }

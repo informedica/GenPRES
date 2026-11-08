@@ -11,9 +11,9 @@ open OrderPlanMachine
 open Informedica.GenPRES.Client.Core.Tests.OrderFixtures
 
 
-let noPatient = OrderPlanState.noPatient
+let noPatientData = OrderPlanState.noPatientData
 
-let held = OrderPlanState.held patient
+let settled = OrderPlanState.settled patient
 
 /// The patient machine with no change under way, and with one under way.
 let noPatientChange = PatientMachine.PatientState.init (Some draft)
@@ -25,7 +25,7 @@ let patientChanging =
     )
     |> fst
 
-/// A change under way over the plan held for the patient, the one a failed change goes back to.
+/// A change under way over the plan in the cart for the patient, the one a failed change goes back to.
 let recalculatingFor pat (tp: OrderPlan) (selected: string option) request (sent: OrderPlanCommand) =
     OrderPlanState.changing pat tp selected sent request
 
@@ -33,7 +33,7 @@ let recalculating = recalculatingFor patient
 
 let loading = OrderPlanState.opening
 
-let shown = held one None
+let shown = settled one None
 
 let transition = OrderPlanState.transition
 
