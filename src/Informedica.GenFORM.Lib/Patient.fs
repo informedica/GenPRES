@@ -72,28 +72,32 @@ module Gender =
 /// Who is an adult: a patient of at least 18 years, or a patient the user marked as an adult.
 module Adult =
 
-    open Informedica.GenUnits.Lib
+    module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
+    module CoreAdultMark = Informedica.GenCore.Lib.Patients.AdultMark
+    module Measures = Informedica.GenCore.Lib.ValueUnits.ValueUnit.Measures
+
+    type AdultMark = Informedica.GenCore.Lib.Patients.AdultMark
+
+
+    /// The adult mark of an age in days and the mark of the user, as GenCORE sets it.
+    let mark marked age =
+        age
+        |> Option.map (Measures.toSingleIntDay >> CoreAgeValue.fromDays)
+        |> fun age -> CoreAdultMark.ofAge age marked
 
 
     /// Whether a patient is an adult: a patient of at least 18 years, or a patient marked as an
     /// adult who is at least 16 years old or has no age. Below 16 years the mark is ignored.
-    let isAdult (pat: Patient) =
-        match pat.Age with
-        | Some age when age >=? Utils.ValueUnit.ageAdult -> true
-        | Some age -> pat.MarkedAdult && age >=? Utils.ValueUnit.ageMarkable
-        | None -> pat.MarkedAdult
+    let isAdult (pat: Patient) = pat.Age |> mark pat.MarkedAdult |> CoreAdultMark.isAdult
 
 
     /// Whether the mark is refused: a patient marked as an adult who is younger than 16 years.
-    let markRefused marked age =
-        marked && age |> Option.exists (fun age -> age <? Utils.ValueUnit.ageMarkable)
+    let markRefused marked age = marked && age |> mark marked = AdultMark.NotAdult
 
 
     /// Whether a patient is matched to the rules as an adult and not by the age held: a marked
     /// patient without an age, or of 16 or 17 years. Below 18 years only the mark makes an adult.
-    let matchedAsAdult pat =
-        pat |> isAdult
-        && pat.Age |> Option.forall (fun age -> age <? Utils.ValueUnit.ageAdult)
+    let matchedAsAdult (pat: Patient) = pat.Age |> mark pat.MarkedAdult = AdultMark.MarkableAdult true
 
 
 module PatientCategory =
