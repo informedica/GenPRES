@@ -139,8 +139,6 @@ module private Effects =
                 (fun ex -> Error ex.Message |> landed LoaderMachine.Landing.Settings)
         | LoaderMachine.LoaderEffect.FetchLocalization ->
             Cmd.OfAsync.perform GoogleDocs.loadLocalization () (landed LoaderMachine.Landing.Localization)
-        | LoaderMachine.LoaderEffect.FetchNormalValues ->
-            Cmd.OfAsync.perform GoogleDocs.loadNormalValues () (landed LoaderMachine.Landing.NormalValues)
         | LoaderMachine.LoaderEffect.FetchBolusMedication ->
             Cmd.OfAsync.perform GoogleDocs.loadBolusMedication () (landed LoaderMachine.Landing.BolusMedication)
         | LoaderMachine.LoaderEffect.FetchContinuousMedication ->
@@ -495,7 +493,6 @@ module private Elmish =
             StepTrail.confirmDemo false
             Logging.error "cannot load the server settings" err
         | LoaderMachine.Landing.Localization(Error err) -> Logging.error "cannot load localization" err
-        | LoaderMachine.Landing.NormalValues(Error err) -> Logging.error "cannot load normal values" err
         | LoaderMachine.Landing.BolusMedication(Error err) -> Logging.error "cannot load emergency treatment" err
         | LoaderMachine.Landing.ContinuousMedication(Error err) -> Logging.error "cannot load continuous medication" err
         | LoaderMachine.Landing.Products(Error err) -> Logging.error "cannot load products" err

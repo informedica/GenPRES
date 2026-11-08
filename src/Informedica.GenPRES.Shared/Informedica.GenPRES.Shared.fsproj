@@ -7,7 +7,6 @@
 
   <ItemGroup>
     <Compile Include="Types.fs" />
-    <Compile Include="Calculations.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Localization.fs" />
     <Compile Include="Models.fs" />

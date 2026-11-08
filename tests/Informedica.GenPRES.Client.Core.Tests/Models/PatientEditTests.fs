@@ -13,39 +13,19 @@ open Informedica.GenPRES.Client.Core.Models
 let ten = { Patient.Age.ageZero with Age.Years = 10<year> }
 
 
-/// The estimate tables, as in the Shared patient tests.
+/// The estimates of a ten-year-old boy, as the server answers them.
 module EstimateFixtures =
 
-    let row sex age p3 mean p97 : NormalValue =
-        {
-            Sex = sex
-            Age = age
-            P3 = p3
-            Mean = mean
-            P97 = p97
-        }
-
-    let weights = Some [ row "M" 10. 25. 32. 40. ]
-    let heights = Some [ row "M" 10. 130. 140. 150. ]
-
-    let estimated (dto: Patient) = dto |> Patient.applyNormalValues weights heights None None
+    let estimated (dto: Patient) =
+        dto
+        |> Patient.withEstimates (Some(25000<gram>, 32000<gram>, 40000<gram>)) (Some(130<cm>, 140<cm>, 150<cm>))
 
 
 open EstimateFixtures
 
 
-/// The neonatal tables, as in the Shared patient tests.
+/// The gestational ages of a term and a premature newborn.
 module NeonatalEstimateFixtures =
-
-    /// The neonatal tables, in weeks of post-conceptional age, reaching to 42 weeks as the
-    /// sheet does.
-    let neoWeights = Some [ row "M" 40. 2800. 3500. 4200.; row "M" 42. 3000. 3700. 4500. ]
-
-    let neoHeights = Some [ row "M" 40. 48. 50. 53.; row "M" 42. 50. 52. 55. ]
-
-    let estimated (dto: Patient) =
-        dto |> Patient.applyNormalValues weights heights neoWeights neoHeights
-
 
     let term: AgeWeeksDays =
         {
@@ -494,20 +474,21 @@ let estimateTests =
                 |> Expect.equal "the gender alone" (Some { Patient.empty with Gender = Male })
             }
 
-            test "an age typed after the gestational age keeps it and is estimated by the age" {
-                Some
+            test "an age typed after the gestational age keeps it and drops the estimates for the server to give again" {
+                Some(
                     { Patient.empty with
                         Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
                         GestationalAge = GestationalAge.RequiredGestationalAge(Some NeonatalEstimateFixtures.premature)
                         Gender = Male
                     }
+                    |> estimated
+                )
                 |> PatientEdit.setYear (Some "2")
                 |> patient
-                |> NeonatalEstimateFixtures.estimated
                 |> fun dto -> dto.GestationalAge, dto.Weight.Estimated
                 |> Expect.equal
-                    "kept, and the age tables answer"
-                    (GestationalAge.RequiredGestationalAge(Some NeonatalEstimateFixtures.premature), Some 32000<gram>)
+                    "kept, no estimate"
+                    (GestationalAge.RequiredGestationalAge(Some NeonatalEstimateFixtures.premature), None)
             }
         ]
 

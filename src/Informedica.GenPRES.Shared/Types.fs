@@ -39,24 +39,6 @@ module Types =
         | FloatOptionData
 
 
-    type NormalValue =
-        {
-            Sex: string
-            Age: float
-            P3: float
-            Mean: float
-            P97: float
-        }
-
-    type NormalValues =
-        {
-            Weights: NormalValue list
-            Heights: NormalValue list
-            NeoWeights: NormalValue list
-            NeoHeights: NormalValue list
-        }
-
-
     module Patient =
 
         type Age =

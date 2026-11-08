@@ -147,10 +147,10 @@ module Patient =
     /// A draft that is no patient: it has no age, and no measured weight and height.
     let noPatient = "Geen patiënt: een leeftijd, of een gemeten gewicht en lengte, is nodig"
 
-    /// A child without a weight, measured or estimated. The server estimates a reading from the
-    /// platform and the MCP host's values, and the client estimates its own drafts; a child that
-    /// arrives here without a weight is refused with the weight named, since the rules are not
-    /// looked up for it. An adult needs no weight, and no patient needs a height.
+    /// A child without a weight, measured or estimated. The server estimates the drafts the client
+    /// sends, the readings from the platform and the MCP host's values; a child that arrives here
+    /// without a weight is refused with the weight named, since the rules are not looked up for
+    /// it. An adult needs no weight, and no patient needs a height.
     let noWeight = "Gewicht onbekend: voer het in"
 
 

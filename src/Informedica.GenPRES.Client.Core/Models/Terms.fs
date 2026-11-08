@@ -316,7 +316,6 @@ type Terms =
     | ``Startup Gate Failed``
     | ``Startup Gate Failed Text``
     | ``Startup Load Localization``
-    | ``Startup Load Normal Values``
     | ``Startup Load Bolus Medication``
     | ``Startup Load Continuous Medication``
     | ``Startup Load Products``

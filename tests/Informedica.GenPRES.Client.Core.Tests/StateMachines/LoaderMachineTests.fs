@@ -89,7 +89,6 @@ let tests =
                         [
                             Load.Settings, LoaderEffect.FetchSettings
                             Load.Localization, LoaderEffect.FetchLocalization
-                            Load.NormalValues, LoaderEffect.FetchNormalValues
                             Load.BolusMedication, LoaderEffect.FetchBolusMedication
                             Load.ContinuousMedication, LoaderEffect.FetchContinuousMedication
                             Load.Products, LoaderEffect.FetchProducts
