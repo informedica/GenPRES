@@ -59,6 +59,16 @@ module Double =
         | false, _ -> None
 
 
+    /// Get the finite float a string holds, read with the float number style and the invariant
+    /// culture: none for a decimal comma, a thousands separator, not a number, an infinity or an
+    /// overflow. Spaces around the number are allowed. Unlike tryParse, which allows every number
+    /// style and reads "3,5" as 35, it suits a validation.
+    let tryParseFinite (s: string) =
+        match Double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture) with
+        | true, v when Double.IsFinite v -> Some v
+        | _ -> None
+
+
     /// Get a float32 from a string
     /// returns a 0 value when the string
     /// cannot be parsed

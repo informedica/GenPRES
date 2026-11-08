@@ -567,6 +567,29 @@ module Tests =
                     testPropertyWithConfig config "any string can be used to try parse"
                     <| fun s -> s |> Double.tryParse |> (fun _ -> true)
 
+                    test "tryParseFinite reads a finite number with a decimal point, spaces around it allowed" {
+                        [ "3.5"; " 3.5 "; "-2"; "1e3"; "0" ]
+                        |> List.map Double.tryParseFinite
+                        |> equals [ Some 3.5; Some 3.5; Some -2.; Some 1000.; Some 0. ] "the numbers"
+                    }
+
+                    test
+                        "tryParseFinite gives no number for a decimal comma, a thousands separator, an empty string or a word" {
+                        [ "3,5"; "1,000"; ""; " "; "abc" ]
+                        |> List.map Double.tryParseFinite
+                        |> equals [ None; None; None; None; None ] "none"
+                    }
+
+                    test "tryParseFinite gives no number for not a number, an infinity or an overflow" {
+                        [ "NaN"; "Infinity"; "-Infinity"; "1e400" ]
+                        |> List.map Double.tryParseFinite
+                        |> equals [ None; None; None; None ] "none"
+                    }
+
+                    test "tryParse, by contrast, reads a decimal comma as a thousands separator" {
+                        "3,5" |> Double.tryParse |> equals (Some 35.) "35"
+                    }
+
                     testPropertyWithConfig config "getPrecision can be calculated for any valid double"
                     <| fun (a: Double) n ->
                         if a |> Double.isValid |> not then
