@@ -86,9 +86,9 @@ type AdultMark =
 type GestationalAgeNeed =
     /// From 1 year, or without an age: the gestational age says nothing and is ignored.
     | NoGestationalAge
-    /// From 28 weeks and under 1 year: the gestational age may be given.
+    /// From 28 days and under 1 year: the gestational age may be given.
     | OptionalGestationalAge
-    /// Under 28 weeks: the gestational age is needed.
+    /// Under 28 days: the gestational age is needed.
     | RequiredGestationalAge
 
 
@@ -589,11 +589,11 @@ module GestationalAgeNeed =
     open AgeValue.Operators
 
 
-    /// The age under which the gestational age is needed: 28 weeks.
-    let requiredUnder = AgeValue.create None None (Some 28<week>) None
+    /// The age under which the gestational age is needed: 28 days.
+    let requiredUnder = AgeValue.create None None None (Some 28<day>)
 
 
-    /// The need for the gestational age at an age: without an age none, under 28 weeks required,
+    /// The need for the gestational age at an age: without an age none, under 28 days required,
     /// under 1 year optional, from 1 year none.
     let ofAge age =
         match age with
