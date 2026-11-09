@@ -2,6 +2,7 @@ module Informedica.GenPRES.Client.Core.Tests.MachinePolicies.SigningPolicyTests
 
 open Informedica.GenPRES.Client.Core.Models
 open Informedica.GenPRES.Client.Core.Helpers
+open Informedica.GenPRES.Client.Core.Policies
 open Informedica.GenPRES.Client.Core.StateMachines
 open Informedica.GenPRES.Client.Core.MachinePolicies
 open System
@@ -372,41 +373,71 @@ let tests =
                     pinError named bad |> Expect.equal bad (Some "<Session Enrolment Pin Format>")
             }
 
-            test "canSign: an open Session as Prescriber for a patient with at least one order" {
-                let withOrders =
-                    Informedica.GenPRES.Shared.Models.OrderPlan.create
-                        patient
-                        [|
-                            { Informedica.GenPRES.Shared.Models.OrderContext.empty with
-                                Scenarios = [| Unchecked.defaultof<OrderScenario> |]
-                            }
-                        |]
+            testList
+                "canSign"
+                [
+                    let contextWithOrder id =
+                        { Informedica.GenPRES.Shared.Models.OrderContext.empty with
+                            Id = id
+                            Scenarios = [| Unchecked.defaultof<OrderScenario> |]
+                        }
 
-                let empty = Informedica.GenPRES.Shared.Models.OrderPlan.create patient [||]
+                    let withOrders =
+                        Informedica.GenPRES.Shared.Models.OrderPlan.create patient [| contextWithOrder "c-1" |]
 
-                canSign (SessionView.Open(openedAs UserRole.Prescriber true)) withOrders
-                |> Expect.isTrue "prescriber"
+                    let empty = Informedica.GenPRES.Shared.Models.OrderPlan.create patient [||]
+                    let prescriber = SessionView.Open(openedAs UserRole.Prescriber true)
 
-                canSign (SessionView.Open(openedAs UserRole.Prescriber true)) empty
-                |> Expect.isFalse "nothing to sign"
+                    test "a Prescriber can sign a plan with at least one order" {
+                        canSign prescriber (PlanDifferencePolicy.differences [||] withOrders) withOrders
+                        |> Expect.isTrue "new orders"
+                    }
 
-                canSign (SessionView.Open(openedAs UserRole.Reader true)) withOrders
-                |> Expect.isFalse "reader"
+                    test "a Prescriber can sign a plan with orders that equals the version last signed" {
+                        // no differences: the plan is the version last signed
+                        canSign prescriber [||] withOrders |> Expect.isTrue "orders as signed"
+                    }
 
-                canSign (SessionView.Open(openedAs UserRole.Prescriber false)) withOrders
-                |> Expect.isFalse "no patient"
+                    test "a Prescriber can sign a plan whose orders were all removed since the version last signed" {
+                        let differences = PlanDifferencePolicy.differences withOrders.OrderContexts empty
 
-                canSign (SessionView.Open { openedAs UserRole.Prescriber true with User = None }) withOrders
-                |> Expect.isFalse "anonymous"
+                        differences
+                        |> Array.map snd
+                        |> Expect.equal "the removal is listed" [| PlanDifferencePolicy.Difference.Removed |]
 
-                for session in
-                    [
-                        SessionView.Anonymous
-                        SessionView.Resuming
-                        SessionView.Closing(openedAs UserRole.Prescriber true)
-                    ] do
-                    canSign session withOrders |> Expect.isFalse $"{session}"
-            }
+                        canSign prescriber differences empty |> Expect.isTrue "the removals"
+                    }
+
+                    test "a plan that never had orders offers no Sign" {
+                        canSign prescriber (PlanDifferencePolicy.differences [||] empty) empty
+                        |> Expect.isFalse "nothing to sign"
+                    }
+
+                    test "a plan is signed only by a Prescriber with a patient in an open Session" {
+                        let differences = PlanDifferencePolicy.differences withOrders.OrderContexts empty
+
+                        for plan, differences in [ withOrders, [||]; empty, differences ] do
+                            canSign (SessionView.Open(openedAs UserRole.Reader true)) differences plan
+                            |> Expect.isFalse "reader"
+
+                            canSign (SessionView.Open(openedAs UserRole.Prescriber false)) differences plan
+                            |> Expect.isFalse "no patient"
+
+                            canSign
+                                (SessionView.Open { openedAs UserRole.Prescriber true with User = None })
+                                differences
+                                plan
+                            |> Expect.isFalse "anonymous"
+
+                            for session in
+                                [
+                                    SessionView.Anonymous
+                                    SessionView.Resuming
+                                    SessionView.Closing(openedAs UserRole.Prescriber true)
+                                ] do
+                                canSign session differences plan |> Expect.isFalse $"{session}"
+                    }
+                ]
 
             test "the dialog is up from the sign on: requesting, noticed, challenged or submitting" {
                 let plan = Informedica.GenPRES.Shared.Models.OrderPlan.create patient [||]

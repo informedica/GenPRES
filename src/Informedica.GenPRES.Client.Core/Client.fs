@@ -397,6 +397,11 @@ module Client =
     let differences (state: ClientState) = state.Lanes.Signing |> SigningState.differences
 
 
+    /// The order contexts of the plan new, changed or removed since the version last opened or
+    /// signed.
+    let planDifferences (state: ClientState) plan = state.Lanes.OrderPlan |> OrderPlanState.differences plan
+
+
     /// The page shown.
     let page (state: ClientState) = state.Shell.Page
 
@@ -598,7 +603,7 @@ module Client =
             |> becomes
         // the orders that differ are taken now, so what reaches the plan meanwhile leaves them as signed
         | ClientMsg.Sign(plan, request) ->
-            let differences = state.Lanes.OrderPlan |> OrderPlanState.differences plan
+            let differences = planDifferences state plan
             becomes
                 [
                     ClientMsg.Lanes(LanesMsg.Signing(SigningMsg.Sign(plan, differences, request)))

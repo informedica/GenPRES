@@ -596,6 +596,8 @@ type private Projection(state: State, dispatch: Msg -> unit) =
 
         member _.PlanBehind = Client.planBehind state
 
+        member _.PlanDifferences plan = Client.planDifferences state plan
+
 
         member _.Add orderId =
             Msg.Lanes(LanesMsg.Prescribe(None, orderId, Elmish.newRequest ())) |> dispatch

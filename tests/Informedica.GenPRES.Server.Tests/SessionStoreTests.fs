@@ -165,6 +165,11 @@ let opened = session "s-1" prescriber None
 let ready =
     lazy ({ stateOf [ opened ] [] with Challenges = Map.ofList [ challenged "s-1" t0 domainPlan.Value ] })
 
+/// The plan with every order removed.
+let emptyPlan = SessionStubTests.planOf stubPatient [||]
+
+let emptyDomainPlan = lazy (parsed emptyPlan)
+
 
 [<Tests>]
 let tests =
@@ -544,4 +549,83 @@ let tests =
 
                 seen.Value |> Expect.isNone "the port never asked"
             }
+
+            testList
+                "signing a plan without orders"
+                [
+                    test "the commit over a plan with every order removed stores a version without orders" {
+                        // the first version, with two orders
+                        let state, first, _ =
+                            commitAt t0 (counter "id") ready.Value "s-1" (signature "s-1" "1234" "k-1" domainPlan.Value)
+
+                        let first =
+                            match first with
+                            | SigningOutcome.Submitted(version, _, _, _) -> version
+                            | other -> failtest $"expected Submitted, got %A{other}"
+
+                        // the orders removed: a challenge over the plan without orders, then its commit, both
+                        // with the token the first commit minted
+                        let reopened = state.Sessions["s-1"].Opened.OpenedToken |> Option.get
+
+                        let state, issued =
+                            ask (t0 + seconds 30.0) (fun () -> "c-s-1") state "s-1" (emptyDomainPlan.Value, reopened)
+
+                        issued |> Expect.equal "issued" (SigningOutcome.ChallengeIssued("c-s-1", false))
+
+                        let _, answer, write =
+                            commitAt
+                                (t0 + seconds 40.0)
+                                (counter "v")
+                                state
+                                "s-1"
+                                { signature "s-1" "1234" "k-2" emptyDomainPlan.Value with Opened = reopened }
+
+                        match answer, versionWritten write with
+                        | SigningOutcome.Submitted(version, _, _, _), Some written ->
+                            version |> Expect.equal "the write is the version" written
+                            version.No |> Expect.equal "the second version" 2
+                            version.Base |> Expect.equal "over the first" (Some first.Id)
+                            version.Plan |> OrderPlan.orders |> Expect.isEmpty "no orders"
+                        | other -> failtest $"expected Submitted, got %A{other}"
+                    }
+
+                    testAsync "the handler parses a plan without orders and asks the port" {
+                        let seen = ref None
+
+                        let port =
+                            { sessionNone with
+                                challenge =
+                                    fun _ (p, _, _) ->
+                                        seen.Value <- Some p
+                                        async { return SigningOutcome.ChallengeIssued("n-1", false) }
+                            }
+
+                        let env =
+                            { makeEnv
+                                  (formularyAlwaysOk Informedica.GenPRES.Shared.Models.Formulary.empty)
+                                  (orderContextAlwaysOk Informedica.GenPRES.Shared.Models.OrderContext.empty) with
+                                session = port
+                            }
+
+                        let cookie: SessionCookie =
+                            {
+                                read = fun () -> Some "s-1"
+                                write = ignore
+                                delete = ignore
+                            }
+
+                        let! issued =
+                            SigningCommand.processCmd
+                                env
+                                cookie
+                                (Informedica.GenPRES.Shared.Api.SigningCommand.RequestSignChallenge(
+                                    emptyPlan,
+                                    token "s-1",
+                                    None
+                                ))
+
+                        issued |> Expect.equal "issued" (SigningResponse.ChallengeIssued("n-1", false))
+                        seen.Value |> Expect.equal "the plan parsed" (Some emptyDomainPlan.Value)
+                    }
+                ]
         ]

@@ -84,6 +84,8 @@ type IOrderPlan =
     abstract FilterRows: string[] -> unit
     /// whether the orders stand on other patient data than the panel; such a plan is not signed
     abstract PlanBehind: bool
+    /// the order contexts of this plan new, changed or removed since the version last opened or signed
+    abstract PlanDifferences: OrderPlan -> (OrderContext * PlanDifferencePolicy.Difference)[]
 
 
 /// The nutrition slots outside the plan, the combined totals, and the commands on them.
