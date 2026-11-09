@@ -358,9 +358,8 @@ module SolutionRule =
 
 
     /// The substances whose concentration limit allows no strength of the products. A strength
-    /// in a unit group the limit cannot be compared with is skipped. The limit is inclusive, and
-    /// a limit with a minimum equal to the maximum is widened to 90% and 110%, as an order does
-    /// until #1579 decides whether a concentration limit is widened.
+    /// in a unit group the limit cannot be compared with is skipped. The limit is inclusive: a limit
+    /// with a minimum equal to the maximum allows that one strength.
     let substancesWithoutAllowedStrength (products: ProductComponent[]) (sr: SolutionRule) =
         sr.SolutionLimits
         |> Array.choose (fun sl ->
@@ -373,28 +372,6 @@ module SolutionRule =
                     |> List.choose id
                     |> List.forall (Limit.getValueUnit >> ValueUnit.eqsGroup vu)
 
-                let isNorm =
-                    match conc.Min, conc.Max with
-                    | Some min, Some max -> min |> Limit.eq max
-                    | _ -> false
-
-                let bound factor =
-                    Option.map (fun lim ->
-                        let vu = lim |> Limit.getValueUnit
-
-                        if isNorm then
-                            vu * (factor |> ValueUnit.singleWithUnit Units.Count.times)
-                        else
-                            vu
-                        |> Limit.inclusive
-                    )
-
-                let allowed =
-                    {
-                        Min = conc.Min |> bound (9N / 10N)
-                        Max = conc.Max |> bound (11N / 10N)
-                    }
-
                 let strengths =
                     products
                     |> Array.collect _.Substances
@@ -404,7 +381,7 @@ module SolutionRule =
 
                 if
                     strengths |> Array.isEmpty |> not
-                    && strengths |> Array.forall (Some >> MinMax.inRange allowed >> not)
+                    && strengths |> Array.forall (Some >> MinMax.inRange conc >> not)
                 then
                     Some s
                 else

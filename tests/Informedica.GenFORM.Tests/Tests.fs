@@ -7658,15 +7658,15 @@ module Tests =
                                 |> Expect.isEmpty "none"
                             }
 
-                            test "a limit of 10 to 10 mg/mL allows 10.5 mg/mL, as an order widens it to 9 to 11" {
+                            test "a limit of 10 to 10 mg/mL allows 10 mg/mL" {
                                 solutionRule "voriconazol" (range mgPerMl 10N 10N)
-                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "voriconazol" (21N / 2N) |]
+                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "voriconazol" 10N |]
                                 |> Expect.isEmpty "none"
                             }
 
-                            test "a limit of 10 to 10 mg/mL does not allow 11.5 mg/mL" {
+                            test "a limit of 10 to 10 mg/mL does not allow 10.5 mg/mL" {
                                 solutionRule "voriconazol" (range mgPerMl 10N 10N)
-                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "voriconazol" (23N / 2N) |]
+                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "voriconazol" (21N / 2N) |]
                                 |> Expect.equal "voriconazol" [| "voriconazol" |]
                             }
 
