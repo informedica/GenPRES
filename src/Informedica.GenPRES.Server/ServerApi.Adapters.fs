@@ -103,8 +103,9 @@ module Adapters =
 
 
         /// The context evaluated with the command, as an outcome. An evaluated nutrition context is
-        /// narrowed to the rule set and evaluated again, as long as more than one option is left; a
-        /// refusal on the way is answered as the refused context. A medication context is evaluated once.
+        /// narrowed to the rule set and evaluated again, with the option of each list of one as its
+        /// choice, as long as a list of one is left without its choice; a refusal on the way is answered
+        /// as the refused context. A medication context is evaluated once.
         let evaluateSettled start logger provider set cmd pc =
             let evaluate cmd pc =
                 pc |> OrderContextService.evaluateOutcome start logger provider cmd
@@ -119,7 +120,12 @@ module Adapters =
                     (Outcome.get >> _.Context)
                     (narrow set)
                     (function
-                    | Evaluated pc -> pc |> evaluate OrderContext.UpdateOrderContext
+                    | Evaluated pc ->
+                        // the evaluation rebuilds the lists from a fresh context and keeps a narrowed
+                        // list only when its field has a choice, so each list of one is made the choice
+                        // first
+                        { pc with Context = pc.Context |> OrderContext.withFilterPicks }
+                        |> evaluate OrderContext.UpdateOrderContext
                     // a refusal ends the settling: the same filter again stops it
                     | refused -> Ok refused
                     )

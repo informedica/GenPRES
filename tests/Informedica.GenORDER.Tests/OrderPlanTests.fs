@@ -1899,6 +1899,25 @@ let refusalTests =
                         |> OrderContext.choicesOpen
                         |> Expect.isTrue "one dose type, none chosen"
                     }
+
+                    test "withFilterPicks makes a list of one the choice and leaves a longer list open" {
+                        let fresh = { EvaluateFixtures.pcmContext with Filter = EvaluateFixtures.fresh }
+                        let one = { fresh with Filter = { fresh.Filter with Generics = [| "paracetamol" |] } }
+
+                        let ctx = one |> OrderContext.withFilterPicks
+
+                        (ctx.Filter.Generic, ctx.Filter.Route)
+                        |> Expect.equal "the one generic, no route of two" (Some "paracetamol", None)
+
+                        ctx |> OrderContext.choicesOpen |> Expect.isFalse "no choice left open"
+                    }
+
+                    test "withFilterPicks keeps a choice that is made" {
+                        EvaluateFixtures.pcmContext
+                        |> OrderContext.withFilterPicks
+                        |> _.Filter.Generic
+                        |> Expect.equal "kept" (Some "Paracetamol")
+                    }
                 ]
 
             testList
