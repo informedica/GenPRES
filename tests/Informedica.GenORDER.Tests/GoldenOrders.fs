@@ -805,80 +805,80 @@ Orderable
         {
             Name = "fullMedication"
             Medication = Scenarios.fullMedication
-            Errors = [ "CalcMinMax" ]
+            Errors = []
             Order =
                 """
 Route
 INTRAVENEUS
 Schedule
-[]_sch_frq <0 x/dag..>
-[]_sch_tme <0 min..>
+[]_sch_frq [1;2 x/dag]
+[]_sch_tme [30 min..120 min]
 Orderable
-[Test Medication Complete]_ord_qty <0 mL..>
-[Test Medication Complete]_orb_qty <0 mL..>
-[Test Medication Complete]_ord_cnt <0 x..>
-[Test Medication Complete]_dos_cnt <0 x..>
-[Test Medication Complete]_dos_qty <0 mL..>
-[Test Medication Complete]_dos_ptm <0 mL/dag..>
-[Test Medication Complete]_dos_rte <0 mL/uur..>
+[Test Medication Complete]_ord_qty [50 mL..50 mL..>
+[Test Medication Complete]_orb_qty [50 mL]
+[Test Medication Complete]_ord_cnt [1 x..1 x..>
+[Test Medication Complete]_dos_cnt [5;5,56;6,25;7,14;8,33;10 x]
+[Test Medication Complete]_dos_qty [5;6;7;8;9;10 mL]
+[Test Medication Complete]_dos_ptm [8;9;10;12;14;16;18;20 mL/dag]
+[Test Medication Complete]_dos_rte [2,5 mL/uur..0,1 mL/uur..20 mL/uur]
 [Test Medication Complete]_dos_tot <0 ..>
-[Test Medication Complete]_dos_qty_adj <0 mL/kg..>
-[Test Medication Complete]_dos_ptm_adj <0 mL/kg/dag..>
-[Test Medication Complete]_dos_rte_adj <0 ..>
+[Test Medication Complete]_dos_qty_adj [0,33;0,4;0,47;0,53;0,6;0,67 mL/kg]
+[Test Medication Complete]_dos_ptm_adj [0,53;0,6;0,67;0,8;0,93;1,07;1,2;1,33 mL/kg/dag]
+[Test Medication Complete]_dos_rte_adj [0,17 mL/kg/uur..0,01 mL/kg/uur..0,02 mL/kg/min]
 [Test Medication Complete]_dos_tot_adj <0 ..>
-[Test Medication Complete.Main Component]_cmp_qty <0 mL..>
-[Test Medication Complete.Main Component]_orb_qty <0 mL..>
-[Test Medication Complete.Main Component]_orb_cnt <0 x..>
-[Test Medication Complete.Main Component]_orb_cnc <0 x..1 x>
+[Test Medication Complete.Main Component]_cmp_qty [1 mL]
+[Test Medication Complete.Main Component]_orb_qty [10 mL]
+[Test Medication Complete.Main Component]_orb_cnt [10 x]
+[Test Medication Complete.Main Component]_orb_cnc [0,2 x]
 [Test Medication Complete.Main Component]_ord_qty <0 mL..>
 [Test Medication Complete.Main Component]_ord_cnt <0 x..>
-[Test Medication Complete.Main Component]_dos_qty <0 mL..>
-[Test Medication Complete.Main Component]_dos_ptm <0 mL/dag..>
-[Test Medication Complete.Main Component]_dos_rte <0 ..>
+[Test Medication Complete.Main Component]_dos_qty [1;1,2;1,4;1,6;1,8;2 mL]
+[Test Medication Complete.Main Component]_dos_ptm [1,6;1,8;2;2,4;2,8;3,2;3,6;4 mL/dag]
+[Test Medication Complete.Main Component]_dos_rte [0,5 mL/uur..0,02 mL/uur..0,07 mL/min]
 [Test Medication Complete.Main Component]_dos_tot <0 ..>
-[Test Medication Complete.Main Component]_dos_qty_adj <0 mL/kg..>
-[Test Medication Complete.Main Component]_dos_ptm_adj <0 mL/kg/dag..>
+[Test Medication Complete.Main Component]_dos_qty_adj [0,07;0,08;0,09;0,11;0,12;0,13 mL/kg]
+[Test Medication Complete.Main Component]_dos_ptm_adj [0,11;0,12;0,13;0,16;0,19;0,21;0,24;0,27 mL/kg/dag]
 [Test Medication Complete.Main Component]_dos_rte_adj <0 ..>
 [Test Medication Complete.Main Component]_dos_tot_adj <0 ..>
-[Test Medication Complete.Main Component.Active Substance]_cmp_qty <0 mg..>
-[Test Medication Complete.Main Component.Active Substance]_orb_qty <0 mg..>
-[Test Medication Complete.Main Component.Active Substance]_cmp_cnc <0 mg/mL..>
-[Test Medication Complete.Main Component.Active Substance]_orb_cnc <0 mg/mL..>
-[Test Medication Complete.Main Component.Active Substance]_dos_qty <0 mg..>
-[Test Medication Complete.Main Component.Active Substance]_dos_ptm <0 mg/dag..>
-[Test Medication Complete.Main Component.Active Substance]_dos_rte <0 mg/uur..>
+[Test Medication Complete.Main Component.Active Substance]_cmp_qty [10 mg]
+[Test Medication Complete.Main Component.Active Substance]_orb_qty [100 mg]
+[Test Medication Complete.Main Component.Active Substance]_cmp_cnc [10 mg/mL]
+[Test Medication Complete.Main Component.Active Substance]_orb_cnc [2 mg/mL]
+[Test Medication Complete.Main Component.Active Substance]_dos_qty [10;12;14;16;18;20 mg]
+[Test Medication Complete.Main Component.Active Substance]_dos_ptm [16;18;20;24;28;32;36;40 mg/dag]
+[Test Medication Complete.Main Component.Active Substance]_dos_rte [5 mg/uur..0,2 mg/uur..0,67 mg/min]
 [Test Medication Complete.Main Component.Active Substance]_dos_tot <0 ..>
-[Test Medication Complete.Main Component.Active Substance]_dos_qty_adj <0 mg/kg..>
-[Test Medication Complete.Main Component.Active Substance]_dos_ptm_adj <0 mg/kg/dag..>
-[Test Medication Complete.Main Component.Active Substance]_dos_rte_adj <0 ..>
+[Test Medication Complete.Main Component.Active Substance]_dos_qty_adj [0,67;0,8;0,93;1,07;1,2;1,33 mg/kg]
+[Test Medication Complete.Main Component.Active Substance]_dos_ptm_adj [1,07;1,2;1,33;1,6;1,87;2,13;2,4;2,67 mg/kg/dag]
+[Test Medication Complete.Main Component.Active Substance]_dos_rte_adj [0,33 mg/kg/uur..0,01 mg/kg/uur..0,04 mg/kg/min]
 [Test Medication Complete.Main Component.Active Substance]_dos_tot_adj <0 ..>
-[Test Medication Complete.Diluent Component]_cmp_qty <0 mL..>
-[Test Medication Complete.Diluent Component]_orb_qty <0 mL..>
-[Test Medication Complete.Diluent Component]_orb_cnt <0 x..>
-[Test Medication Complete.Diluent Component]_orb_cnc <0 x..1 x>
+[Test Medication Complete.Diluent Component]_cmp_qty [1 mL]
+[Test Medication Complete.Diluent Component]_orb_qty [40 mL]
+[Test Medication Complete.Diluent Component]_orb_cnt [40 x]
+[Test Medication Complete.Diluent Component]_orb_cnc [0,8 x]
 [Test Medication Complete.Diluent Component]_ord_qty <0 mL..>
 [Test Medication Complete.Diluent Component]_ord_cnt <0 x..>
-[Test Medication Complete.Diluent Component]_dos_qty <0 mL..>
-[Test Medication Complete.Diluent Component]_dos_ptm <0 mL/dag..>
-[Test Medication Complete.Diluent Component]_dos_rte <0 ..>
+[Test Medication Complete.Diluent Component]_dos_qty [4;4,8;5,6;6,4;7,2;8 mL]
+[Test Medication Complete.Diluent Component]_dos_ptm [6,4;7,2;8;9,6;11,2;12,8;14,4;16 mL/dag]
+[Test Medication Complete.Diluent Component]_dos_rte [2 mL/uur..0,08 mL/uur..0,27 mL/min]
 [Test Medication Complete.Diluent Component]_dos_tot <0 ..>
-[Test Medication Complete.Diluent Component]_dos_qty_adj <0 mL/kg..>
-[Test Medication Complete.Diluent Component]_dos_ptm_adj <0 mL/kg/dag..>
+[Test Medication Complete.Diluent Component]_dos_qty_adj [0,27;0,32;0,37;0,43;0,48;0,53 mL/kg]
+[Test Medication Complete.Diluent Component]_dos_ptm_adj [0,43;0,48;0,53;0,64;0,75;0,85;0,96;1,07 mL/kg/dag]
 [Test Medication Complete.Diluent Component]_dos_rte_adj <0 ..>
 [Test Medication Complete.Diluent Component]_dos_tot_adj <0 ..>
-[Test Medication Complete.Diluent Component.sodium]_cmp_qty <0 mmol..>
-[Test Medication Complete.Diluent Component.sodium]_orb_qty <0 mmol..>
-[Test Medication Complete.Diluent Component.sodium]_cmp_cnc <0 mmol/mL..>
-[Test Medication Complete.Diluent Component.sodium]_orb_cnc <0 mmol/mL..>
-[Test Medication Complete.Diluent Component.sodium]_dos_qty <0 mmol..>
-[Test Medication Complete.Diluent Component.sodium]_dos_ptm <0 mmol/dag..>
-[Test Medication Complete.Diluent Component.sodium]_dos_rte <0 mmol/uur..>
-[Test Medication Complete.Diluent Component.sodium]_dos_tot <0 ..>
-[Test Medication Complete.Diluent Component.sodium]_dos_qty_adj <0 mmol/kg..>
-[Test Medication Complete.Diluent Component.sodium]_dos_ptm_adj <0 mmol/kg/dag..>
-[Test Medication Complete.Diluent Component.sodium]_dos_rte_adj <0 ..>
-[Test Medication Complete.Diluent Component.sodium]_dos_tot_adj <0 ..>
-[]_adj_qty <0 kg..>
+[Test Medication Complete.Diluent Component.natrium]_cmp_qty [0,15 mmol]
+[Test Medication Complete.Diluent Component.natrium]_orb_qty [6,16 mmol]
+[Test Medication Complete.Diluent Component.natrium]_cmp_cnc [0,15 mmol/mL]
+[Test Medication Complete.Diluent Component.natrium]_orb_cnc [0,12 mmol/mL]
+[Test Medication Complete.Diluent Component.natrium]_dos_qty [0,62;0,74;0,86;0,99;1,11;1,23 mmol]
+[Test Medication Complete.Diluent Component.natrium]_dos_ptm [0,99;1,11;1,23;1,48;1,72;1,97;2,22;2,46 mmol/dag]
+[Test Medication Complete.Diluent Component.natrium]_dos_rte [0,31 mmol/uur..0,01 mmol/uur..0,04 mmol/min]
+[Test Medication Complete.Diluent Component.natrium]_dos_tot <0 ..>
+[Test Medication Complete.Diluent Component.natrium]_dos_qty_adj [0,04;0,05;0,06;0,07;0,08 mmol/kg]
+[Test Medication Complete.Diluent Component.natrium]_dos_ptm_adj [0,07;0,08;0,1;0,12;0,13;0,15;0,16 mmol/kg/dag]
+[Test Medication Complete.Diluent Component.natrium]_dos_rte_adj [0,02 mmol/kg/uur..0 mmol/kg/uur..0 mmol/kg/min]
+[Test Medication Complete.Diluent Component.natrium]_dos_tot_adj <0 ..>
+[]_adj_qty [15 kg]
 """
         }
 

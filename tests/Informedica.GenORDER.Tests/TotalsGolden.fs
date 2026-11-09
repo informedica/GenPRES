@@ -76,9 +76,7 @@ type GoldenTotals =
     }
 
 
-/// Every scenario the totals are recorded for. fullMedication is not among them: it does not
-/// process cleanly, so its totals are unbounded and would be rewritten by the fix for that
-/// rather than by a change worth failing on.
+/// Every scenario the totals are recorded for.
 let all: GoldenTotals list =
     [
         {
@@ -145,17 +143,26 @@ let all: GoldenTotals list =
                     "Magnesium", "#0,07# - #0,18# mmol||/kg||/dag||"
                 ]
         }
+        {
+            Name = "fullMedication"
+            Medication = Scenarios.fullMedication
+            Totals =
+                [
+                    "Volume", "#0,53# - #1,33# mL||/kg||/dag||"
+                    "Sodium", "#0,07# - #0,16# mmol||/kg||/dag||"
+                ]
+        }
     ]
 
 
 /// The totals over all the recorded scenarios at once, the way an order plan takes them.
 let together =
     [
-        "Volume", "#30,8# - #141# mL||/kg||/dag||"
+        "Volume", "#31,3# - #142# mL||/kg||/dag||"
         "Energy", "#3,03# - #33,3# kCal||/kg||/dag||"
         "Protein", "#1,17# - #2,93# g||/kg||/dag||"
         "Carbohydrate", "#0,18# - #11,1# g||/kg||/dag||"
-        "Sodium", "#4,15# - #5,17# mmol||/kg||/dag||"
+        "Sodium", "#4,21# - #5,33# mmol||/kg||/dag||"
         "Potassium", "#2,96# - #3,93# mmol||/kg||/dag||"
         "Chloride", "#3,85# - #5,28# mmol||/kg||/dag||"
         "Calcium", "#0,22# - #0,55# mmol||/kg||/dag||"

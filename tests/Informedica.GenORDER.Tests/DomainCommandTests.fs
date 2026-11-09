@@ -178,10 +178,10 @@ let inPlan ctx cmd =
     |> Result.toOption
 
 
-/// An order that cannot be solved: the full medication through the stages before the solve, each
-/// carrying its order on. The creation of the full medication fails, and the order program then
-/// keeps the order before it, so the creation runs effect by effect and carries on the order where
-/// it failed.
+/// An order that cannot be solved: the over-constrained medication through the stages before the
+/// solve, each carrying its order on. The creation of that medication fails, and the order program
+/// then keeps the order before it, so the creation runs effect by effect and carries on the order
+/// where it failed.
 let unsolvable =
     lazy
         let run cmd ord =
@@ -200,7 +200,7 @@ let unsolvable =
                 | Ok o
                 | Error(o, _) -> o
 
-        match Scenarios.fullMedication |> Medication.toOrder start with
+        match Scenarios.overConstrained |> Medication.toOrder start with
         | Ok ord -> ord |> create |> run IncreaseIncrements |> run CalcValues
         | Error e -> failtest $"could not build the order: %A{e}"
 

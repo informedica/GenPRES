@@ -1730,10 +1730,11 @@ let fullMedication =
             }
             |> Some
         Div = Some 2N
+        // a 50 mL orderable in doses of 5 to 10 mL takes 5 to 10 doses
         DoseCount =
             { MinMax.empty with
-                Min = 1N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.inclusive |> Some
-                Max = 2N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.inclusive |> Some
+                Min = 5N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.inclusive |> Some
+                Max = 10N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.inclusive |> Some
             }
         Adjust = 15N |> ValueUnit.singleWithUnit weightUnit |> Some
         Components =
@@ -1748,15 +1749,18 @@ let fullMedication =
                         { DoseLimit.limit with
                             DoseLimitTarget = "Main Component" |> ComponentLimitTarget
                             AdjustUnit = weightUnit |> Some
+                            // the orderable holds 10 mL of this component in 50 mL, so a dose of 5 to
+                            // 10 mL holds 1 to 2 mL of it, 0.07 to 0.13 mL/kg for 15 kg, within the
+                            // limits of 0.05 to 0.2 mL/kg
                             QuantityAdjust =
                                 { MinMax.empty with
                                     Min =
-                                        1N
+                                        (1N / 20N)
                                         |> ValueUnit.singleWithUnit (volUnit |> ValueUnit.per weightUnit)
                                         |> Limit.inclusive
                                         |> Some
                                     Max =
-                                        5N
+                                        (1N / 5N)
                                         |> ValueUnit.singleWithUnit (volUnit |> ValueUnit.per weightUnit)
                                         |> Limit.inclusive
                                         |> Some
@@ -1781,7 +1785,7 @@ let fullMedication =
                                 Dose =
                                     { DoseLimit.limit with
                                         DoseLimitTarget = "Active Substance" |> SubstanceLimitTarget
-                                        AdjustUnit = massUnit |> Some
+                                        AdjustUnit = weightUnit |> Some
                                         PerTimeAdjust =
                                             { MinMax.empty with
                                                 Min =
@@ -1827,12 +1831,24 @@ let fullMedication =
                     Substances =
                         [
                             { Medication.substanceItem with
-                                Name = "sodium"
+                                Name = "natrium"
                                 Concentrations = (154N / 1000N) |> ValueUnit.singleWithUnit molarConcUnit |> Some
                             }
                         ]
                 }
             ]
+    }
+
+
+/// The fully populated medication with a dose count of 1 to 2, which a 50 mL orderable in doses of
+/// 5 to 10 mL cannot have: an order that cannot be solved.
+let overConstrained =
+    { fullMedication with
+        DoseCount =
+            { MinMax.empty with
+                Min = 1N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.inclusive |> Some
+                Max = 2N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.inclusive |> Some
+            }
     }
 
 
