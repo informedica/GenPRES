@@ -82,15 +82,15 @@ let tests =
                     let answered = changed loaded None pat
                     answered.GestationalAge, answered.PostMenstrualAge
 
-                [ Some 70; Some 365; None ]
+                [ Some 21; Some 365; None ]
                 |> List.map answer
                 |> Expect.equal
-                    "needed at 10 weeks with 40 weeks, none from 1 year and none without an age"
+                    "needed at 3 weeks with 33 weeks, none from 1 year and none without an age"
                     [
                         GestationalAge.RequiredGestationalAge(Some ga30),
                         Some
                             {
-                                Weeks = 40<week>
+                                Weeks = 33<week>
                                 Days = 0<day>
                             }
                         GestationalAge.NoGestationalAge, None

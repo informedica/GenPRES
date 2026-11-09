@@ -1737,12 +1737,12 @@ module Tests =
             testList
                 "GestationalAgeNeed"
                 [
-                    test "without an age none, under 28 weeks required, under 1 year optional, from 1 year none" {
+                    test "without an age none, under 28 days required, under 1 year optional, from 1 year none" {
                         [
                             None
                             Some(ofDays 0)
-                            Some(ofDays (28 * 7 - 1))
-                            Some(ofDays (28 * 7))
+                            Some(ofDays 27)
+                            Some(ofDays 28)
                             Some(ofDays 364)
                             Some(ofDays 365)
                             Some(ofDays (2 * 365))

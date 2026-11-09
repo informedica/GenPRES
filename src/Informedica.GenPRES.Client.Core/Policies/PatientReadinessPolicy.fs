@@ -24,7 +24,7 @@ module PatientReadinessPolicy =
         | Weight
         /// No height, measured or estimated.
         | Height
-        /// No gestational age where the server needs one: for a patient younger than 28 weeks,
+        /// No gestational age where the server needs one: for a patient younger than 28 days,
         /// whose calculations follow it.
         | GestationalAge
 
@@ -100,7 +100,7 @@ module PatientReadinessPolicy =
         | Terms.``Prescribe Weight unknown`` -> "Weight unknown: enter it, no estimate is used"
         | Terms.``Prescribe Height unknown`` -> "Height unknown: enter it, no estimate is used"
         | Terms.``Patient Gestational age unknown`` ->
-            "Gestational age unknown: enter it, the patient is younger than 28 weeks"
+            "Gestational age unknown: enter it, the patient is younger than 28 days"
         | Terms.``Patient Needed Plan Medication`` -> "The medication of the order plan needs a patient"
         | term -> $"{term}"
 

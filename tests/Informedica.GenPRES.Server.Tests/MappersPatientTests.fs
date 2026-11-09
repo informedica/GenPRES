@@ -22,11 +22,11 @@ module LibPatient = Informedica.GenForm.Lib.Patient
 
 let stub = ServerApi.StubPatientData.patient
 
-/// Every field the mapping carries, in the shape the contract model gives back: a patient of 59
+/// Every field the mapping carries, in the shape the contract model gives back: a patient of 20
 /// days, so that the gestational age is needed.
 let full: Informedica.GenPRES.Shared.Types.Patient =
     { stub with
-        Age = Some(ServerApi.Age.ofDays 59)
+        Age = Some(ServerApi.Age.ofDays 20)
         Gender = Female
         Access = [ PVL; EnteralTube ]
         RenalFunction = Some(EGFR(Some 30, Some 50))
@@ -134,7 +134,7 @@ let tests =
                 pat.PMAge
                 |> Expect.equal
                     "the post-menstrual age the server put on the wire"
-                    (Some(ValueUnit.singleWithUnit Units.Time.day (BigRational.fromInt 314)))
+                    (Some(ValueUnit.singleWithUnit Units.Time.day (BigRational.fromInt 275)))
             }
 
             test "the Formulary patient has the post-menstrual age the patient mapper gives" {
@@ -696,7 +696,7 @@ let gestationalAgeTests =
         "the need for the gestational age"
         [
             test "the server sets the need from the age and keeps the value given while it may be given" {
-                [ None; Some 0; Some 195; Some 196; Some 364; Some 365; Some 730 ]
+                [ None; Some 0; Some 27; Some 28; Some 364; Some 365; Some 730 ]
                 |> List.map (fun d -> Some ga30 |> ServerApi.Age.gestationalAge (ofDays d))
                 |> Expect.equal
                     "the gestational ages"
@@ -711,14 +711,14 @@ let gestationalAgeTests =
                     ]
             }
 
-            test "a patient under 28 weeks without a gestational age needs one" {
+            test "a patient under 28 days without a gestational age needs one" {
                 None
                 |> ServerApi.Age.gestationalAge (ofDays (Some 10))
                 |> Expect.equal "needed, none given" (GestationalAge.RequiredGestationalAge None)
             }
 
             test "toModel sets the need from the age" {
-                [ 59; 365 ]
+                [ 20; 365 ]
                 |> List.map (fun d ->
                     { full with Age = Some(ServerApi.Age.ofDays d) }
                     |> ServerApi.Patient.ofModel
@@ -726,7 +726,7 @@ let gestationalAgeTests =
                     |> _.GestationalAge
                 )
                 |> Expect.equal
-                    "needed under 28 weeks, none from 1 year"
+                    "needed under 28 days, none from 1 year"
                     [ full.GestationalAge; GestationalAge.NoGestationalAge ]
             }
         ]

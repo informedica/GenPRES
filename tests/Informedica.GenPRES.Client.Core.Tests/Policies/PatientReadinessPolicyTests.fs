@@ -25,9 +25,9 @@ let aged = PatientEdit.setYear (Some "5") None
 let answered ga (p: Patient option) = p |> Option.map (fun p -> { p with GestationalAge = ga })
 
 
-/// An age of ten weeks, nothing else: younger than 28 weeks, so the server needs the gestational age.
+/// An age of ten days, nothing else: younger than 28 days, so the server needs the gestational age.
 let infant =
-    PatientEdit.setWeek (Some "10") None
+    PatientEdit.setDay (Some "10") None
     |> answered (GestationalAge.RequiredGestationalAge None)
 
 
@@ -140,14 +140,14 @@ let tests =
                         |> Expect.equal "no estimate stands in" (Readiness.Patient [ Missing.Weight; Missing.Height ])
                     }
 
-                    test "a patient younger than 28 weeks misses the gestational age" {
+                    test "a patient younger than 28 days misses the gestational age" {
                         infant
                         |> estimated
                         |> readiness
-                        |> Expect.equal "ten weeks, no gestational age" (Readiness.Patient [ Missing.GestationalAge ])
+                        |> Expect.equal "ten days, no gestational age" (Readiness.Patient [ Missing.GestationalAge ])
                     }
 
-                    test "a patient younger than 28 weeks with a gestational age is complete" {
+                    test "a patient younger than 28 days with a gestational age is complete" {
                         infant
                         |> withGestationalAge
                         |> estimated
@@ -155,10 +155,12 @@ let tests =
                         |> Expect.equal "complete" (Readiness.Patient [])
                     }
 
-                    test "a patient of 28 weeks or older needs no gestational age" {
+                    test "a patient of 28 days or older needs no gestational age" {
                         for draft in
                             [
-                                PatientEdit.setWeek (Some "28") None
+                                PatientEdit.setDay (Some "28") None
+                                |> answered (GestationalAge.OptionalGestationalAge None)
+                                PatientEdit.setMonth (Some "3") None
                                 |> answered (GestationalAge.OptionalGestationalAge None)
                                 aged
                             ] do
