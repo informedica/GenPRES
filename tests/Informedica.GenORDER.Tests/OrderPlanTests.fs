@@ -2220,6 +2220,176 @@ let refusalTests =
         ]
 
 
+/// Rules for a child of the default department, every age: paracetamol rectally for a fever, with a
+/// start and a maintenance dose, and for pain with a maintenance dose; ibuprofen rectally for a
+/// headache, once without a text. Paracetamol with a dose type without text picks a dose type no
+/// paracetamol rule has, while the rule of another medication has it.
+module RefusedFixtures =
+
+    let rowOf generic indication doseText =
+        let r = RuleFixtures.row Resources.Departments.defaultDepartment
+
+        { r with
+            Generic = { r.Generic with Name = generic }
+            Indication = indication
+            ScheduleData =
+                { r.ScheduleData with
+                    DoseText = doseText
+                    DoseLimitData =
+                        { r.ScheduleData.DoseLimitData with
+                            Component = generic
+                            Substance = generic
+                        }
+                }
+        }
+
+    let provider () =
+        let product g = Product.create g "zetpil" "RECTAAL" [| g |]
+
+        DoseRuleLoader.fromData
+            RuleFixtures.routeMapping
+            [||]
+            [| product "paracetamol"; product "ibuprofen" |]
+            [|
+                rowOf "paracetamol" "koorts" "start"
+                rowOf "paracetamol" "koorts" "onderhoud"
+                rowOf "paracetamol" "pijn" "onderhoud"
+                rowOf "ibuprofen" "hoofdpijn" ""
+            |]
+        |> fst
+        |> RulesOf
+        :> Resources.IResourceProvider
+
+    let child = RuleFixtures.patient (Some 5N) false (Some 20N) None
+
+    let fresh provider = child |> OrderContext.create OrderLogging.noOp provider
+
+    /// The context with the picks, as a seed from a medication list sends it.
+    let picked provider generic route doseType =
+        let fresh = fresh provider
+
+        { fresh with
+            Filter =
+                { fresh.Filter with
+                    Generic = generic
+                    Route = route
+                    DoseType = doseType
+                }
+        }
+
+    /// The context of the refusal an update of the context answers.
+    let refused provider ctx =
+        match
+            ctx
+            |> PlanContext.create "ctx" OrderCategory.Medication
+            |> PlanContext.evaluateOutcome
+                Scenarios.testStart
+                OrderLogging.noOp
+                provider
+                (fun () -> [||])
+                OrderContext.UpdateOrderContext
+        with
+        | Ok(Refused(pc, _)) -> pc.Context
+        | other -> failtest $"expected a refusal, got %A{other}"
+
+    let once = Informedica.GenForm.Lib.Types.Once
+    let noText = once ""
+    let start = once "start"
+    let maintenance = once "onderhoud"
+
+
+/// A refused order context offers in each list what the other picks allow, so that the user can
+/// change a pick that does not fit, and no list offers an option of another medication.
+let listsOfOtherPicksTests =
+    testList
+        "a refused order context offers the lists of the other picks"
+        [
+            test "the fixture: every indication of the patient is offered before any pick" {
+                let fresh = RefusedFixtures.fresh (RefusedFixtures.provider ())
+
+                fresh.Filter.Indications
+                |> Array.sort
+                |> Expect.equal "three indications" [| "hoofdpijn"; "koorts"; "pijn" |]
+
+                fresh.Filter.DoseTypes
+                |> Array.contains RefusedFixtures.noText
+                |> Expect.isTrue "a dose type without text, from the ibuprofen rule"
+            }
+
+            test "a dose type that fits no rule of the medication: the dose type list offers the medication's" {
+                let provider = RefusedFixtures.provider ()
+
+                let refused =
+                    RefusedFixtures.picked provider (Some "paracetamol") (Some "RECTAAL") (Some RefusedFixtures.noText)
+                    |> RefusedFixtures.refused provider
+
+                refused.Filter.DoseTypes
+                |> Array.sort
+                |> Expect.equal "the paracetamol dose types" [| RefusedFixtures.maintenance; RefusedFixtures.start |]
+
+                refused.Filter.Indications
+                |> Expect.isEmpty "no indication fits paracetamol with a dose type without text"
+
+                refused.Filter.Generics
+                |> Expect.equal "the medication with that dose type" [| "ibuprofen" |]
+
+                (refused.Filter.Generic, refused.Filter.Route, refused.Filter.DoseType)
+                |> Expect.equal "the picks as sent" (Some "paracetamol", Some "RECTAAL", Some RefusedFixtures.noText)
+            }
+
+            test "a pick the patient's rules no longer offer: the refusal also offers the lists of the other picks" {
+                let provider = RefusedFixtures.provider ()
+                let eenmalig = RefusedFixtures.once "eenmalig"
+
+                let refused =
+                    RefusedFixtures.picked provider (Some "paracetamol") (Some "RECTAAL") (Some eenmalig)
+                    |> RefusedFixtures.refused provider
+
+                refused.Filter.DoseTypes
+                |> Array.sort
+                |> Expect.equal "the paracetamol dose types" [| RefusedFixtures.maintenance; RefusedFixtures.start |]
+
+                refused.Filter.DoseType |> Expect.equal "the pick as sent" (Some eenmalig)
+            }
+
+            test "each list holds what the other picks allow, its own pick left out" {
+                let provider = RefusedFixtures.provider ()
+                let fresh = RefusedFixtures.fresh provider
+
+                let ctx =
+                    { fresh with
+                        Filter =
+                            { fresh.Filter with
+                                Indication = Some "koorts"
+                                Generic = Some "paracetamol"
+                            }
+                    }
+                    |> OrderContext.withListsOfOtherPicks OrderLogging.noOp provider
+
+                ctx.Filter.Indications
+                |> Array.sort
+                |> Expect.equal "the paracetamol indications" [| "koorts"; "pijn" |]
+
+                ctx.Filter.Generics |> Expect.equal "the fever medication" [| "paracetamol" |]
+
+                ctx.Filter.DoseTypes
+                |> Array.sort
+                |> Expect.equal "paracetamol for a fever" [| RefusedFixtures.maintenance; RefusedFixtures.start |]
+            }
+
+            test "a child without a weight keeps the lists, since no rule is looked up" {
+                let provider = RefusedFixtures.provider ()
+                let fresh = RefusedFixtures.fresh provider
+                let noWeight = { fresh with Patient = RuleFixtures.patient (Some 5N) false None None }
+
+                noWeight
+                |> OrderContext.withListsOfOtherPicks OrderLogging.noOp provider
+                |> _.Filter
+                |> Expect.equal "the filter as it was" noWeight.Filter
+            }
+        ]
+
+
 /// The argumentation on the order context: kept through the Dto and through an evaluation,
 /// none where a row from before the field holds nothing.
 let argumentationTests =
