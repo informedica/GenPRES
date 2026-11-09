@@ -39,8 +39,7 @@ let measured =
 
 
 /// The requests out over the lanes alone, no loads.
-let out (lanes: LanesState) =
-    OutPolicy.out false lanes.Patient lanes.OrderContext lanes.Slots lanes.OrderPlan lanes.Session lanes.Signing []
+let out lanes = Lanes.out false lanes []
 
 
 /// Messages played one after another; the lanes, effects and steps after each.
