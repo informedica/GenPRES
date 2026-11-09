@@ -516,6 +516,7 @@ module QuantityField =
                     restore = props.restore
                     busy = props.busy
                     placeholder = Some props.texts.pickValue
+                    placeholderValue = None
                 |}
 
         // the step buttons rest while the field is disabled, as while a request runs

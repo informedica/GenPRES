@@ -238,11 +238,12 @@ module Patient =
                 | _ -> names
                 |> Array.map (fun n -> n, n)
 
-            let selected =
+            // the default is shown greyed, not chosen: picking it is the user's choice, which
+            // a select shown with that department already chosen would not pass on
+            let placeholder =
                 match own, settings with
-                | Some d, _ -> Some d
                 | None, Resolved s -> Some s.DefaultDepartment
-                | None, _ -> None
+                | _ -> None
 
             let changeDepartment =
                 fun s ->
@@ -260,12 +261,12 @@ module Patient =
             React.useEffect (
                 (fun () ->
                     match only with
-                    | Some key when selected <> Some key && enabled -> changeDepartment (Some key)
+                    | Some key when own <> Some key && enabled -> changeDepartment (Some key)
                     | _ -> ()
                 ),
                 [|
                     box (only |> Option.defaultValue "")
-                    box (selected |> Option.defaultValue "")
+                    box (own |> Option.defaultValue "")
                     box enabled
                 |]
             )
@@ -274,7 +275,7 @@ module Patient =
                 {|
                     label = Terms.``Patient Department`` |> getTerm "Afdeling"
                     options = options
-                    selected = selected
+                    selected = own
                     onChange = changeDepartment
                     // the cross returns to the default, so it is offered only while there is a
                     // choice to take back; clearing a default already shown would change nothing
@@ -282,6 +283,7 @@ module Patient =
                     isLoading = settings |> Deferred.toOption |> Option.isNone
                     enabled = enabled
                     shape = Components.PickField.Shape.Scroll
+                    placeholder = placeholder
                 |}
 
         // where the department in force came from: the launch when a session is open, the
@@ -343,8 +345,10 @@ module Patient =
                 Components.ActionBar.View {| actions = actions |}
 
         // a read-only field cannot be opened and has no cross: what it holds is not the user's;
-        // a field that is not clearable can be changed, but not emptied
-        let createField readOnly clearable label sel changeValue vs =
+        // a field that is not clearable can be changed, but not emptied; the placeholder is a
+        // value filled in for the user, as its key and its text, shown greyed while the user has
+        // given none, and the list opens on it
+        let createField readOnly clearable placeholder label sel changeValue vs =
             Components.SimpleSelect.View
                 {|
                     label = label
@@ -362,19 +366,23 @@ module Patient =
                     reCalc = None
                     restore = ignore
                     busy = false
-                    placeholder = None
+                    placeholder = placeholder |> Option.map snd
+                    placeholderValue = placeholder |> Option.map fst
                 |}
 
         // renal function has no "unknown" among its options, so the cross is the only way back
         // to none, for an identified patient too
-        let createSelect label sel changeValue vs = createField false true label sel changeValue vs
+        let createSelect label sel changeValue vs = createField false true None label sel changeValue vs
 
         // weight, height and gestational age: an identified patient's are changed, never
-        // cleared; an anonymous patient's are fictitious and may be
-        let createMeasureSelect label sel changeValue vs = createField false (not identified) label sel changeValue vs
+        // cleared; an anonymous patient's are fictitious and may be. The field holds only what
+        // was measured: an estimate is the placeholder, so that picking the value estimated
+        // records it as measured
+        let createMeasureSelect placeholder label sel changeValue vs =
+            createField false (not identified) placeholder label sel changeValue vs
 
         // the age fields: read-only for an identified patient, whose age the platform computes
-        let createAgeSelect label sel changeValue vs = createField identified true label sel changeValue vs
+        let createAgeSelect label sel changeValue vs = createField identified true None label sel changeValue vs
 
         let wghts =
             [| 21000..1000..100000 |]
@@ -398,6 +406,15 @@ module Patient =
             function
             | Some v -> hghts |> Array.tryFind ((=) (int v))
             | None -> None
+
+        // the placeholder of a field from its estimate, as its key and its text, said to be an
+        // estimate, only while nothing is measured
+        let estimatePlaceholder toKey toText measured estimated =
+            let word = Terms.``Patient Estimated`` |> getTerm "geschat"
+
+            match measured with
+            | Some _ -> None
+            | None -> estimated |> Option.map (fun v -> toKey v, $"%s{toText v} (%s{word})")
 
         let checkBox (name: string) item ev =
             let handleAccessChange _ =
@@ -556,8 +573,16 @@ module Patient =
                 wghts
                 |> Array.map (fun k -> $"{k}", $"{(k |> float) / 1000.}")
                 |> createMeasureSelect
+                    (pat
+                     |> Option.bind (fun p ->
+                         p.Weight.Estimated
+                         |> estimatePlaceholder
+                             (fun g -> $"%i{int g}")
+                             (fun g -> $"%g{float g / 1000.}")
+                             p.Weight.Measured
+                     ))
                     (Terms.``Patient Weight`` |> getTerm "gewicht" |> (fun s -> $"{s} (kg)"))
-                    (pat |> Option.bind (Patient.getWeight >> weightToNone))
+                    (pat |> Option.bind (_.Weight.Measured >> weightToNone))
                     (fun s ->
                         keepOpen ()
                         s |> Msg.UpdateWeight |> dispatch
@@ -566,8 +591,14 @@ module Patient =
                 [| 40..220 |]
                 |> Array.map (fun k -> $"{k}", $"{k}")
                 |> createMeasureSelect
+                    (pat
+                     |> Option.bind (fun p ->
+                         let cm c = $"%i{int c}"
+
+                         p.Height.Estimated |> estimatePlaceholder cm cm p.Height.Measured
+                     ))
                     (Terms.``Patient Length`` |> getTerm "lengte" |> (fun s -> $"{s} (cm)"))
-                    (pat |> Option.bind (Patient.getHeight >> heightToNone))
+                    (pat |> Option.bind (_.Height.Measured >> heightToNone))
                     (fun s ->
                         keepOpen ()
                         s |> Msg.UpdateHeight |> dispatch
@@ -578,6 +609,7 @@ module Patient =
                     [| 24..42 |]
                     |> Array.map (fun k -> $"{k}", $"{k}")
                     |> createMeasureSelect
+                        None
                         (Terms.``Patient Age weeks`` |> getTerm "weken" |> (fun s -> $"GA {s}"))
                         (pat |> Option.bind PatientRead.getGAWeeks |> zeroToNone)
                         (fun s ->
@@ -588,6 +620,7 @@ module Patient =
                     [| 1..6 |]
                     |> Array.map (fun k -> $"{k}", $"{k}")
                     |> createMeasureSelect
+                        None
                         (Terms.``Patient Age days`` |> getTerm "dagen" |> (fun s -> $"GA {s}"))
                         (pat |> Option.bind PatientRead.getGADays |> zeroToNone)
                         (fun s ->
