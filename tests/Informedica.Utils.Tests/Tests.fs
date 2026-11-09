@@ -544,6 +544,40 @@ module Tests =
                 ]
 
 
+    module Int32 =
+
+        [<Tests>]
+        let tests =
+            testList
+                "Int32.toStringNumberNL"
+                [
+                    for n, expected in
+                        [
+                            0, "0"
+                            7, "7"
+                            999, "999"
+                            1000, "1.000"
+                            12345, "12.345"
+                            1234567, "1.234.567"
+                            -1, "-1"
+                            -999, "-999"
+                            -1000, "-1.000"
+                            -1234567, "-1.234.567"
+                            Int32.MaxValue, "2.147.483.647"
+                            Int32.MinValue, "-2.147.483.648"
+                        ] do
+                        test $"%i{n} becomes %s{expected}" {
+                            Expect.equal
+                                (n |> Int32.toStringNumberNL)
+                                expected
+                                "a dot between each group of three digits"
+                        }
+
+                    testProperty "the text read back without the dots is the number"
+                    <| fun (n: int) -> (n |> Int32.toStringNumberNL).Replace(".", "") |> int = n
+                ]
+
+
     module Double =
 
         [<Tests>]
