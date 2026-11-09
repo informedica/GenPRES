@@ -8,12 +8,6 @@ links a parenteral fluid to its G-Standaard product. Drafted 2026-11-09. Line nu
 - [Problem description](#problem-description)
 - [What the code does today](#what-the-code-does-today)
 - [Decisions](#decisions)
-- [Approaches considered](#approaches-considered)
-- [Chosen approach](#chosen-approach)
-- [Confidence](#confidence)
-- [Steps](#steps)
-- [Left out](#left-out)
-- [Verification](#verification)
 
 ## Problem description
 
@@ -43,6 +37,7 @@ The other keys narrow that selection or join a product to other sheets; see
 ## What the code does today
 
 **The name of a product** (`Product.fromGenPresProducts`, `Product.fs:505`):
+
 - one product per G-Standaard generic product, with its Formulary row looked up by GPK
   (`formByGpk`, `Product.fs:520`);
 - the match key is `GStand`, else `Generic`, lowercased, else the generic product name, such as
@@ -61,6 +56,7 @@ Checked on GPK 19100 with the real data:
 The GPK alone does not select a product: `Product.filter` needs the name first.
 
 **What the user sees.**
+
 - The medication list ("Medicatie") holds the dose rule labels, from the DoseRules `Generic`
   with `Form` or `Brand` (`DoseRule.generics`, `DoseRule.fs:1014`). No product name is in it.
 - In an order a component is named by the rule's `Component`, and a diluent by the product's
@@ -73,6 +69,7 @@ The GPK alone does not select a product: `Product.filter` needs the name first.
 without a warning. Today this hits GPK 109347 (`BUPROPION (ZYBAN)` and `BUPROPION (WELLBUTRIN)`).
 
 **The name gates.** These compare the product's `Generic` with the rule's Component:
+
 - `DoseRuleLoader.candidateProducts` (`DoseRuleLoader.fs:24`);
 - `Product.filter` (`Product.fs:841`);
 - `DoseRule.mapToComponentLimits` (`DoseRule.fs:497`).
@@ -138,6 +135,7 @@ The names in the rule sheets:
 | G-Standaard dose check (`Check.matchWithZIndex`) | the base generic of the dose rule label |
 
 Two mismatches:
+
 - `RuleSet.checkData` (`RuleSet.fs:100`) checks the dose rule names against the Formulary
   `Generic` column, case sensitive, instead of the match key.
 - The G-Standaard dose check may not know `amfotericine b liposomaal`. To check once the product
@@ -166,6 +164,7 @@ Two mismatches:
 ### Optional components
 
 Optional components exist today, for any rule with more than one component:
+
 - the order's component options are the rule's component names (`OrderContext.fs:189`), offered
   as a multi-select "Componenten" (`Prescribe.fs:597`);
 - the first component is always kept, the others only when selected, all when none is selected
@@ -192,11 +191,13 @@ Optional components exist today, for any rule with more than one component:
 ### Additional ingredients of a medication product
 
 `Product.map` (`Product.fs:453`) adds to the G-Standaard substances:
+
 - the substances the G-Standaard marks as additional;
 - the nutrient columns of the Formulary row (`fpAdditional`); 24 medication rows fill them, such
   as KCl 48232.
 
 Findings:
+
 - `Carb g` gives two substances, `glucose` and `koolhydraat`. A G-Standaard glucose product would
   get two substances named `glucose`.
 - The `Mmol` column applies to the substance named like the product (`Product.fs:409`). With an
