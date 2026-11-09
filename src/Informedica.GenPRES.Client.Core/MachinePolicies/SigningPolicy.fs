@@ -226,13 +226,15 @@ module SigningPolicy =
 
 
     /// Whether the plan can be signed: an open session with a patient, a user with the Prescriber
-    /// role, and at least one order.
-    let canSign (session: SessionView) (plan: OrderPlan) =
+    /// role, and a plan with at least one order or with differences from the version last opened
+    /// or signed. The differences of a plan whose orders were all removed are those removals.
+    let canSign (session: SessionView) differences (plan: OrderPlan) =
         match session with
         | SessionView.Open opened ->
             (opened.User |> Option.map _.Role) = Some UserRole.Prescriber
             && opened.PatientContext.IsSome
-            && (Informedica.GenPRES.Shared.Models.OrderPlan.orders plan).Length > 0
+            && ((Informedica.GenPRES.Shared.Models.OrderPlan.orders plan).Length > 0
+                || differences |> Array.isEmpty |> not)
         | _ -> false
 
 

@@ -678,7 +678,10 @@ module OrderPlan =
                             [|
                                 deleteAction
                                 yield! openLastSignedAction |> Option.toArray
-                                if SigningPolicy.canSign session.Session tp && not envOrderPlan.PlanBehind then
+                                if
+                                    SigningPolicy.canSign session.Session (envOrderPlan.PlanDifferences tp) tp
+                                    && not envOrderPlan.PlanBehind
+                                then
                                     signAction
                             |]
                     |}
