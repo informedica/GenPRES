@@ -3,10 +3,12 @@
 /// change a Session refuse its token.
 module Informedica.GenPRES.Server.Tests.InactiveTabTests
 
+open System
 open Expecto
 open Expecto.Flip
 open Informedica.GenPRES.Shared.Types
 open ServerApi
+open Informedica.GenPRES.Server.Tests.StubAdapterTests.SessionStubTests
 
 module AR = Informedica.GenPRES.Server.Tests.AgeOnRequestTests
 
@@ -29,6 +31,37 @@ let closing opened state =
         state, (), writes
 
     state |> Session.whenOwnToken AR.identified opened close
+
+
+/// An in-memory session port over the Sessions of the age-on-request tests, with the clock at their day, AR.today.
+let portAtToday () =
+    let directory = StubDirectory.make (fun () -> AR.today) (fun () -> $"code-{Guid.NewGuid()}")
+
+    StubDatabase.makeSessionPortWith
+        StubDatabase.inMemory
+        TimeZoneInfo.Utc
+        Session.defaultIdleLifetime
+        (fun () -> AR.today)
+        (fun () -> $"id-{Guid.NewGuid()}")
+        (codes ())
+        salts
+        codeMac
+        (fun launch -> LaunchSeal.verify AR.today sealKey launch)
+        directory.idp
+        directory.registry
+        Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters.patientData
+        (StubMail.make ()).port
+        AR.state
+
+
+/// The token of the Session after a refresh with the token given: a refresh mints a new token when
+/// that token is the Session's own.
+let tokenAfterRefresh (port: SessionPort) opened =
+    async {
+        match! port.refresh AR.identified opened with
+        | OnOwnToken.Done(Some session) -> return session.OpenedToken
+        | _ -> return None
+    }
 
 
 [<Tests>]
@@ -93,6 +126,48 @@ let tests =
 
                         (state.Endings |> Map.isEmpty, answer)
                         |> Expect.equal "acknowledged" (true, OnOwnToken.Done())
+                    }
+                ]
+
+            testList
+                "through the session port"
+                [
+                    testAsync "a refresh with the token of an old tab is refused and leaves the Session's token" {
+                        let port = portAtToday ()
+
+                        let! answer = port.refresh AR.identified oldTab
+                        answer |> Expect.equal "refused" OnOwnToken.InactiveTab
+
+                        // the Session's own token is still accepted: the refused refresh did not replace it
+                        let! token = tokenAfterRefresh port own
+                        token |> Expect.isSome "the own token refreshes"
+                        token |> Expect.notEqual "a fresh token" own
+                    }
+
+                    testAsync "a refresh without a token is refused" {
+                        let! answer = (portAtToday ()).refresh AR.identified None
+                        answer |> Expect.equal "refused" OnOwnToken.InactiveTab
+                    }
+
+                    testAsync
+                        "an open of a version with the token of an old tab is refused and leaves the Session's token" {
+                        let port = portAtToday ()
+
+                        let! answer = port.openVersion AR.identified "plan-1" oldTab
+                        answer |> Expect.equal "refused" OnOwnToken.InactiveTab
+
+                        let! token = tokenAfterRefresh port own
+                        token |> Expect.isSome "the own token is still accepted"
+                    }
+
+                    testAsync "a close with the token of an old tab is refused and the Session stays" {
+                        let port = portAtToday ()
+
+                        let! answer = port.closeTab AR.identified oldTab
+                        answer |> Expect.equal "refused" OnOwnToken.InactiveTab
+
+                        let! token = tokenAfterRefresh port own
+                        token |> Expect.isSome "the Session is still open"
                     }
                 ]
         ]
