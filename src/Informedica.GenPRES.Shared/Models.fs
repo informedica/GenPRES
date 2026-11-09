@@ -829,13 +829,13 @@ module Models =
 
         module OrderVariable =
 
-            let create nme cst cal var outerIncr level =
+            let create nme cst cal var largeIncr level =
                 {
                     Name = nme
                     DefinedConstraints = cst
                     CalculatedConstraints = cal
                     Variable = var
-                    LargeIncr = outerIncr
+                    LargeIncr = largeIncr
                     Level = level
                 }
 

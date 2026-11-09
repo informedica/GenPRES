@@ -1215,6 +1215,33 @@ module OrderVariable =
         }
 
 
+    /// The increment a large step moves by: the calculated increment, or ten times the calculated
+    /// increment when that is 0.1 mL or 0.1 mL/hour; None when the order variable has no calculated
+    /// increment.
+    let largeIncrement (ovar: OrderVariable) =
+        let tenth u = u |> ValueUnit.singleWithValue (1N / 10N)
+
+        let tenfoldIncrements =
+            [
+                Units.Volume.milliLiter |> tenth
+                Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour |> tenth
+            ]
+
+        ovar.CalculatedConstraints.Incr
+        |> Option.map (fun incr ->
+            let vu = incr |> Increment.toValueUnit
+
+            let isTenfold =
+                tenfoldIncrements
+                |> List.exists (fun t -> ValueUnit.eqsGroup vu t && ValueUnit.eqs vu t)
+
+            if isTenfold then
+                (10N |> ValueUnit.singleWithUnit Units.Count.times) * vu |> Increment.create
+            else
+                incr
+        )
+
+
     /// <summary>
     /// Step a variable's value up or down by the increment amount.
     /// Designed for UI increment/decrement buttons with the following behavior:
@@ -1227,14 +1254,14 @@ module OrderVariable =
     /// increment-aligned value.
     /// </summary>
     /// <param name="isStepUp">Whether the operation is an increase, otherwise decrease</param>
-    /// <param name="useCalc">Whether the calculated increment should be used</param>
+    /// <param name="useLarge">Whether the large increment should be used, see largeIncrement</param>
     /// <param name="n">The number of increases or decreases</param>
     /// <param name="ovar">The OrderVariable to step</param>
     /// <returns>The OrderVariable with stepped value, unchanged if no increment constraint</returns>
-    let step isStepUp useCalc n (ovar: OrderVariable) =
+    let step isStepUp useLarge n (ovar: OrderVariable) =
         match
-            if useCalc then
-                ovar.CalculatedConstraints.Incr
+            if useLarge then
+                ovar |> largeIncrement
             else
                 ovar.DefinedConstraints.Incr
         with
@@ -1298,10 +1325,10 @@ module OrderVariable =
 
             { ovar with OrderVariable.Variable.Values = vr }
 
-    let decrease useCalc n = step false useCalc n
+    let decrease useLarge n = step false useLarge n
 
 
-    let increase useCalc n = step true useCalc n
+    let increase useLarge n = step true useLarge n
 
 
     let pickNearestHigherElseLower target candidates =
@@ -1326,6 +1353,8 @@ module OrderVariable =
             member val Constraints = Variable.Dto.dto () with get, set
             member val Calculated = Variable.Dto.dto () with get, set
             member val Variable = Variable.Dto.dto () with get, set
+            /// The increment a large step moves by, see largeIncrement.
+            member val LargeIncrOpt: ValueUnit.Dto.Dto option = None with get, set
             member val Level = IsNormal with get, set
 
         and Level =
@@ -1542,6 +1571,12 @@ module OrderVariable =
                 ovar.CalculatedConstraints.Max
                 |> Option.map Maximum.isIncl
                 |> Option.defaultValue false
+
+            dto.LargeIncrOpt <-
+                ovar
+                |> largeIncrement
+                |> Option.map Increment.toValueUnit
+                |> Option.bind vuToDto
 
             dto
 

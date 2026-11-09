@@ -62,7 +62,8 @@ let v12FixtureText () =
 
 
 /// The same version as this release writes it, structure version 13: the version 12 fixture with
-/// the intake of every plan context renamed to totals and no link on any of them.
+/// the intake of every plan context renamed to totals, no link on any of them, and the large
+/// increment of every order variable, none in this fixture.
 let currentFixtureText () =
     File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v13.json"))
 
