@@ -32,6 +32,15 @@ module FilterHelpers =
         )
 
 
+    /// The pick lists the prescribable rules for the dose filter offer; none when the rule lookup
+    /// fails, which is logged.
+    let optionsFor logger provider doseFilter =
+        doseFilter
+        |> getPrescribableRules logger provider
+        |> Result.map PrescriptionRule.filterOptions
+        |> orLogErrors logger PrescriptionRule.emptyFilterOptions
+
+
 module OrderScenario =
 
     open Informedica.Utils.Lib.BCL
@@ -866,11 +875,7 @@ module OrderContext =
 
             let doseFilter = ctx |> doseFilterFor ctx.Patient
 
-            let opts =
-                doseFilter
-                |> getPrescribableRules logger provider
-                |> Result.map PrescriptionRule.filterOptions
-                |> orLogErrors logger PrescriptionRule.emptyFilterOptions
+            let opts = doseFilter |> optionsFor logger provider
 
             let ind = opts.Indications |> Array.someIfOne
             let gen = opts.Generics |> Array.someIfOne
@@ -1593,6 +1598,39 @@ Scenarios: {scenarios}
             |> refusalOf forPicks forPatient
         else
             refusalOf forPicks [||] false
+
+
+    /// The context of a refusal with its pick lists narrowed by the other picks: each list holds what
+    /// the rules for the patient offer together with every pick but the pick of its own field, so that
+    /// a pick that does not fit can be changed from its list. The picks stay as sent. For a child
+    /// without a weight there are no rules, and the lists stay as they are.
+    let withListsOfOtherPicks logger provider (ctx: OrderContext) =
+        // the options for the picks of the context, with one pick cleared
+        let optionsWithout clear =
+            { Filter.doseFilter with
+                Indication = ctx.Filter.Indication
+                Generic = ctx.Filter.Generic
+                Route = ctx.Filter.Route
+                Form = ctx.Filter.Form
+                DoseType = ctx.Filter.DoseType
+                Patient = ctx |> matchedPatient
+            }
+            |> clear
+            |> optionsFor logger provider
+
+        if ctx.Patient |> selectsRules then
+            { ctx with
+                Filter =
+                    { ctx.Filter with
+                        Indications = (optionsWithout (fun f -> { f with Indication = None })).Indications
+                        Generics = (optionsWithout (fun f -> { f with Generic = None })).Generics
+                        Routes = (optionsWithout (fun f -> { f with Route = None })).Routes
+                        Forms = (optionsWithout (fun f -> { f with Form = None })).Forms
+                        DoseTypes = (optionsWithout (fun f -> { f with DoseType = None })).DoseTypes
+                    }
+            }
+        else
+            ctx
 
 
     /// The scenarios for the context, as an outcome: evaluated, or refused. Picks that match

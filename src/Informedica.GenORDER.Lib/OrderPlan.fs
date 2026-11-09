@@ -63,11 +63,13 @@ module PlanContext =
     /// The plan context evaluated against the rules as an outcome. For the two commands that
     /// look the rules up, a pick the rules no longer offer for the patient is a refusal with
     /// the context as it was sent, not a pick dropped in silence; a reload refreshes the rules
-    /// first, so that the pick is checked against them as they are now. Every other command
-    /// runs over the context reconciled, and one over the scenario's order is refused with the
-    /// context before the change when the order cannot be solved. The totals are recorded over the answer,
-    /// evaluated or refused, from the totals data read after any reload; the id, the category and the
-    /// link stay the plan's. An evaluation that fails is the answer.
+    /// first, so that the pick is checked against them as they are now. A refusal of the rule
+    /// lookup carries the pick lists narrowed by the other picks, so that the user can change a pick
+    /// that does not fit; a refusal for a missing diluent keeps the lists the lookup narrowed. Every
+    /// other command runs over the context reconciled, and one over the scenario's order is refused
+    /// with the context before the change when the order cannot be solved. The totals are recorded
+    /// over the answer, evaluated or refused, from the totals data read after any reload; the id, the
+    /// category and the link stay the plan's. An evaluation that fails is the answer.
     let evaluateSent
         (start: System.DateTime)
         logger
@@ -87,16 +89,29 @@ module PlanContext =
                 Totals = ctx |> OrderContext.contextTotals (totalsData ())
             }
 
+        // a refusal offers in each list what the other picks allow; a refusal for a missing diluent
+        // keeps the lists the lookup narrowed
+        let offerListsOfOtherPicks outcome =
+            match outcome with
+            | Refused(answer, refusal) when refusal <> Refusal.NoDiluent ->
+                let ctx =
+                    answer
+                    |> OrderContext.Command.get
+                    |> OrderContext.withListsOfOtherPicks logger provider
+                Refused(OrderContext.UpdateOrderContext ctx, refusal)
+            | _ -> outcome
+
         let lookUp () =
             let reconciled = sent |> OrderContext.reconcile logger provider
 
             if Filter.dropped sent.Filter reconciled.Filter then
-                Refused(pc, OrderContext.refusal provider sent) |> Ok
+                let ctx = sent |> OrderContext.withListsOfOtherPicks logger provider
+                Refused({ pc with Context = ctx }, OrderContext.refusal provider sent) |> Ok
             else
                 reconciled
                 |> OrderContext.UpdateOrderContext
                 |> OrderContext.evaluateOutcome start logger provider
-                |> Result.map (Outcome.map recorded)
+                |> Result.map (offerListsOfOtherPicks >> Outcome.map recorded)
 
         match sent |> cmd with
         | OrderContext.UpdateOrderContext _ -> lookUp ()
