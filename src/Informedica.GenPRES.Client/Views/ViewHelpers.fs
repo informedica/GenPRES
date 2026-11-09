@@ -360,7 +360,7 @@ module ViewHelpers =
 
     /// Build a per-click step function for a solved order variable. Given the net small-step
     /// click delta (single-step buttons, the DEFINED increment) and the net large-step click
-    /// delta (jump buttons, the server's CALCULATED LargeIncr) it returns the (key, label) of
+    /// delta (jump buttons, the server's large increment, LargeIncr) it returns the (key, label) of
     /// the predicted value. This mirrors the server step (Informedica.GenORDER.Lib.OrderVariable.step),
     /// which moves freely along the increment grid with NO upper bound and is then re-solved —
     /// so the optimistic value is deliberately NOT bounded to the defined range (doing so would
@@ -453,7 +453,7 @@ module ViewHelpers =
 
     /// <summary>
     /// Like <see cref="incrementStepsToCeiling"/> but counts steps of the LARGE increment
-    /// (the server's calculated LargeIncr used by the jump buttons), falling back to the
+    /// (the server's large increment, LargeIncr, used by the jump buttons), falling back to the
     /// defined increment when the server emits none. Lets a large step saturate at the
     /// feasibility ceiling exactly like a small step, so the larger increment does not
     /// overshoot the ceiling and get reverted by the solver. None when there is no ceiling

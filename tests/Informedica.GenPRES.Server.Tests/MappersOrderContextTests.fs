@@ -6,6 +6,7 @@ open Expecto
 open Expecto.Flip
 open Informedica.Utils.Lib.BCL
 open Informedica.GenForm.Lib
+open Informedica.GenUnits.Lib
 open Informedica.GenOrder.Lib
 // after Expecto, whose FocusState has a Normal case too
 open Informedica.GenPRES.Shared.Types
@@ -595,6 +596,35 @@ let variableTests =
                 )
                 |> List.map _.Name
                 |> Expect.equal "no variable differs" []
+            }
+
+            test "every variable of an order carries the large increment the domain names" {
+                orders.Value
+                |> List.collect Order.toOrdVars
+                |> List.filter (fun ovar ->
+                    let expected =
+                        ovar
+                        |> OrderVariable.largeIncrement
+                        |> Option.map Informedica.GenSolver.Lib.Variable.ValueRange.Increment.toValueUnit
+
+                    let mapped =
+                        ovar
+                        |> OrderVariable.Dto.toDto
+                        |> Mappers.Order.mapToOrderVariable
+                        |> _.LargeIncr
+                        |> Option.bind (Mappers.Order.mapFromValueUnit >> ValueUnit.Dto.fromDto)
+
+                    mapped <> expected
+                )
+                |> List.map (OrderVariable.getName >> Informedica.GenSolver.Lib.Variable.Name.toString)
+                |> Expect.equal "no variable differs" []
+            }
+
+            test "the orders have variables with a large increment" {
+                orders.Value
+                |> List.collect Order.toOrdVars
+                |> List.exists (OrderVariable.largeIncrement >> Option.isSome)
+                |> Expect.isTrue "some variable has a large increment"
             }
         ]
 

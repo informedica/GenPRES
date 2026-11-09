@@ -170,9 +170,9 @@ module SqlDatabase =
 
 
     /// Brings plan JSON written under a structure version to the structure this release
-    /// reads. There are no steps yet: version 13 added the link on every plan context and renamed
-    /// its intake to totals, and a version before 13 is not converted, so its row loads as
-    /// unreadable. No read path recomputes a digest of a stored version.
+    /// reads. There are no steps yet: version 13 added the link on every plan context, renamed
+    /// its intake to totals and added the large increment of every order variable, and a version
+    /// before 13 is not converted, so its row loads as unreadable. No read path recomputes a digest of a stored version.
     ///
     /// The JSON of a version carries EHR data, so a change to the shape of the EHR data needs a step
     /// here as well as in upgradeEhr.
