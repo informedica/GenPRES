@@ -87,6 +87,12 @@ module Fixtures =
         |> PlanContext.create "" category
 
 
+    /// A context of the category for the patient with a generic the rules do not offer.
+    let unknownGeneric category =
+        let pc = empty category
+        { pc with Context = { pc.Context with Filter = { OrderContext.emptyFilter with Generic = Some "onbekend" } } }
+
+
     /// The generics an evaluation offers, evaluated or refused.
     let generics =
         Result.map (
@@ -128,6 +134,33 @@ let tests =
                     (pc.Context.Filter.Indication, pc.Context.Filter.Generic)
                     |> Expect.equal "voeding and voedsel" (Some "voeding", Some "voedsel")
                 | other -> failtest $"expected an evaluated context, got %A{other}"
+            }
+
+            testAsync
+                "a refused feeding context with a generic its rules do not offer offers only the rule set's generics" {
+                let sut = ServerApi.Adapters.makeAppEnv provider
+
+                let! answer =
+                    unknownGeneric (OrderCategory.Nutrition NutritionCategory.EnteralFeeding)
+                    |> sut.orderContext.evaluate OrderContext.UpdateOrderContext
+
+                match answer with
+                | Ok(Refused(pc, _)) ->
+                    pc.Context.Filter.Generics
+                    |> Expect.equal "voedsel, not paracetamol" [| "voedsel" |]
+                | other -> failtest $"expected a refusal, got %A{other}"
+            }
+
+            testAsync "a refused medication context is not narrowed" {
+                let sut = ServerApi.Adapters.makeAppEnv provider
+
+                let! answer =
+                    unknownGeneric OrderCategory.Medication
+                    |> sut.orderContext.evaluate OrderContext.UpdateOrderContext
+
+                match answer with
+                | Ok(Refused(pc, _)) -> pc.Context.Filter.Generics |> Expect.equal "both" [| "paracetamol"; "voedsel" |]
+                | other -> failtest $"expected a refusal, got %A{other}"
             }
 
             testAsync "a medication context is not narrowed" {

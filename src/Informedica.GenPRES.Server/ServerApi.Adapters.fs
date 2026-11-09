@@ -105,7 +105,8 @@ module Adapters =
         /// The context evaluated with the command, as an outcome. An evaluated nutrition context is
         /// narrowed to the rule set and evaluated again, with the option of each list of one as its
         /// choice, as long as a list of one is left without its choice; a refusal on the way is answered
-        /// as the refused context. A medication context is evaluated once.
+        /// as the refused context. A refused nutrition context is narrowed to the rule set too, so that it
+        /// offers no medication of another category. A medication context is evaluated once.
         let evaluateSettled start logger provider set cmd pc =
             let evaluate cmd pc =
                 pc |> OrderContextService.evaluateOutcome start logger provider cmd
@@ -129,6 +130,7 @@ module Adapters =
                     // a refusal ends the settling: the same filter again stops it
                     | refused -> Ok refused
                     )
+            | Ok(Refused _ as refused), Some set -> refused |> narrow set |> Ok
             | answer, _ -> answer
 
 
