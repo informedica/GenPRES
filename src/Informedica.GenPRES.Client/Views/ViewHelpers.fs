@@ -396,9 +396,13 @@ module ViewHelpers =
                     max v smallIncr
 
                 (fun (smallDelta, largeDelta) ->
+                    // The server sends each value as a decimal converted from a float, so the value has about
+                    // 15 significant digits. Adding the increments to the current value can then give noise,
+                    // such as 0.2499999999999998 for 0.25. Rounding to 10 decimals removes the noise.
                     let next =
                         cur + decimal smallDelta * smallIncr + decimal largeDelta * largeIncr
                         |> applyBounds
+                        |> fun v -> Math.Round(v, 10)
 
                     string next, $"{format next} {unit}"
                 )
