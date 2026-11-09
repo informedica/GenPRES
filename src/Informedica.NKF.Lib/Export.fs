@@ -92,53 +92,22 @@ module Export =
                             |> Option.map Informedica.GenUnits.Lib.Units.toStringDutchShort
                             |> Option.defaultValue ""
 
-                        let minQty, maxQty =
-                            match
-                                doseUnit |> String.notEmpty,
-                                adjustUnit |> String.notEmpty,
-                                freqUnit |> String.notEmpty
-                            with
-                            | true, false, false -> schedule.Value |> minMaxToString
-                            | _ -> "", ""
+                        // which units are given decides which pair of columns the schedule fills
+                        let units =
+                            doseUnit |> String.notEmpty, adjustUnit |> String.notEmpty, freqUnit |> String.notEmpty
 
-                        let normQtyAdj, minQtyAdj, maxQtyAdj =
-                            match
-                                doseUnit |> String.notEmpty,
-                                adjustUnit |> String.notEmpty,
-                                freqUnit |> String.notEmpty
-                            with
-                            | true, true, false ->
-                                let minQtyAdj, maxQtyAdj = schedule.Value |> minMaxToString
+                        let minMaxFor pattern =
+                            if units = pattern then
+                                schedule.Value |> minMaxToString
+                            else
+                                "", ""
 
-                                if minQtyAdj = maxQtyAdj then
-                                    minQtyAdj, "", ""
-                                else
-                                    "", minQtyAdj, maxQtyAdj
-                            | _ -> "", "", ""
-
-                        let minPerTime, maxPerTime =
-                            match
-                                doseUnit |> String.notEmpty,
-                                adjustUnit |> String.notEmpty,
-                                freqUnit |> String.notEmpty
-                            with
-                            | true, false, true -> schedule.Value |> minMaxToString
-                            | _ -> "", ""
-
-                        let normPerTimeAdj, minPerTimeAdj, maxPerTimeAdj =
-                            match
-                                doseUnit |> String.notEmpty,
-                                adjustUnit |> String.notEmpty,
-                                freqUnit |> String.notEmpty
-                            with
-                            | true, true, true ->
-                                let minPerTimeAdj, maxPerTimeAdj = schedule.Value |> minMaxToString
-
-                                if minPerTimeAdj = maxPerTimeAdj then
-                                    minPerTimeAdj, "", ""
-                                else
-                                    "", minPerTimeAdj, maxPerTimeAdj
-                            | _ -> "", "", ""
+                        // an equal minimum and maximum is written as it is, since the sheets read that pair as a
+                        // norm dose
+                        let minQty, maxQty = minMaxFor (true, false, false)
+                        let minQtyAdj, maxQtyAdj = minMaxFor (true, true, false)
+                        let minPerTime, maxPerTime = minMaxFor (true, false, true)
+                        let minPerTimeAdj, maxPerTimeAdj = minMaxFor (true, true, true)
 
                         let route =
                             if route.ProductRoute |> String.notEmpty then
@@ -231,12 +200,10 @@ module Export =
                                     freqUnit = freqUnit
                                     minQty = minQty
                                     maxQty = maxQty
-                                    normQtyAdj = normQtyAdj
                                     minQtyAdj = minQtyAdj
                                     maxQtyAdj = maxQtyAdj
                                     minPerTime = minPerTime
                                     maxPerTime = maxPerTime
-                                    normPerTimeAdj = normPerTimeAdj
                                     minPerTimeAdj = minPerTimeAdj
                                     maxPerTimeAdj = maxPerTimeAdj
                                 |}
@@ -319,12 +286,10 @@ module Export =
                                         freqUnit = freqUnit
                                         minQty = minQty
                                         maxQty = maxQty
-                                        normQtyAdj = normQtyAdj
                                         minQtyAdj = minQtyAdj
                                         maxQtyAdj = maxQtyAdj
                                         minPerTime = minPerTime
                                         maxPerTime = maxPerTime
-                                        normPerTimeAdj = normPerTimeAdj
                                         minPerTimeAdj = minPerTimeAdj
                                         maxPerTimeAdj = maxPerTimeAdj
                                     |}
@@ -337,6 +302,10 @@ module Export =
             |> List.distinct
         )
         |> List.mapi (fun i x -> {| x with sortNo = i |})
+
+
+    /// Whether an adjusted dose is a norm dose: a minimum equal to the maximum.
+    let isNormDose min max = min |> String.notEmpty && min = max
 
 
     let addMaxDoses
@@ -368,8 +337,6 @@ module Export =
                 minQty: string
                 minQtyAdj: string
                 minWeight: string
-                normPerTimeAdj: string
-                normQtyAdj: string
                 route: string
                 scheduleText: string
                 shape: string
@@ -395,7 +362,7 @@ module Export =
         let needsMaxDose, rest =
             mapped
             |> List.partition (fun m ->
-                (m.normQtyAdj |> String.notEmpty || m.normPerTimeAdj |> String.notEmpty)
+                (isNormDose m.minQtyAdj m.maxQtyAdj || isNormDose m.minPerTimeAdj m.maxPerTimeAdj)
                 && m.scheduleText |> getDoseText |> String.contains "max"
             )
 
@@ -498,8 +465,6 @@ module Export =
                 minQty: string
                 minQtyAdj: string
                 minWeight: string
-                normPerTimeAdj: string
-                normQtyAdj: string
                 route: string
                 scheduleText: string
                 shape: string
@@ -586,8 +551,6 @@ module Export =
                 minQty: string
                 minQtyAdj: string
                 minWeight: string
-                normPerTimeAdj: string
-                normQtyAdj: string
                 route: string
                 scheduleText: string
                 shape: string
@@ -635,12 +598,10 @@ module Export =
                 "DurUnit"
                 "MinQty"
                 "MaxQty"
-                "NormQtyAdj"
                 "MinQtyAdj"
                 "MaxQtyAdj"
                 "MinPerTime"
                 "MaxPerTime"
-                "NormPerTimeAdj"
                 "MinPerTimeAdj"
                 "MaxPerTimeAdj"
                 "MinRate"
@@ -700,12 +661,10 @@ module Export =
                 "" // DurUnit
                 r.minQty
                 r.maxQty
-                r.normQtyAdj // NormQtyAdj
                 r.minQtyAdj // MinQtyAdj
                 r.maxQtyAdj // MaxQtyAdj
                 r.minPerTime // MinPerTime
                 r.maxPerTime // MaxPerTime
-                r.normPerTimeAdj // NormPerTimeAdj
                 r.minPerTimeAdj // MinPerTimeAdj
                 r.maxPerTimeAdj // MaxPerTimeAdj
                 "" // MinRate

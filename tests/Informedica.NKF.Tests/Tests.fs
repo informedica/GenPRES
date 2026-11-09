@@ -200,6 +200,33 @@ module Tests =
                 ]
 
 
+    module NormDoseTests =
+
+        open Informedica.Utils.Lib.BCL
+
+        let tests =
+            testList
+                "Export norm dose"
+                [
+                    test "the header has no norm column and keeps the adjusted minimum and maximum" {
+                        let header = [] |> Export.toDataString |> List.head |> String.split "\t"
+
+                        header
+                        |> List.filter (String.startsWith "Norm")
+                        |> Expect.isEmpty "no norm column"
+
+                        [ "MinQtyAdj"; "MaxQtyAdj"; "MinPerTimeAdj"; "MaxPerTimeAdj" ]
+                        |> List.forall (fun c -> header |> List.contains c)
+                        |> Expect.isTrue "the adjusted minimum and maximum columns"
+                    }
+
+                    for min, max, expected in [ "15", "15", true; "10", "20", false; "", "", false; "", "15", false ] do
+                        test $"an adjusted dose from '%s{min}' to '%s{max}' is a norm dose: %b{expected}" {
+                            Export.isNormDose min max |> Expect.equal "norm dose" expected
+                        }
+                ]
+
+
     [<Tests>]
     let tests =
         testList
@@ -210,4 +237,5 @@ module Tests =
                 TargetTests.tests
                 CreateDrugTests.tests
                 CleanGenericNameTests.tests
+                NormDoseTests.tests
             ]
