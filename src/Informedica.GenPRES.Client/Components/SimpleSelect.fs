@@ -54,6 +54,9 @@ module SimpleSelect =
                 busy: bool
                 // what the box asks while it has values to pick from and shows none
                 placeholder: string option
+                // the value the placeholder stands for, if it is one of the values: the list opens
+                // on it, shown selected, while the box shows the placeholder
+                placeholderValue: string option
             |})
         =
 
@@ -164,12 +167,19 @@ module SimpleSelect =
                 paddingY = if isMobile then 0.25 else 0.75
             |}
 
+        // the select marks as selected only the value it holds, so the value a placeholder stands
+        // for is given the selected look and the focus itself, which also scrolls it into view
+        let placeholderValue = props.placeholderValue |> Option.filter (fun _ -> props.selected.IsNone)
+
         let items =
             props.values
             |> Array.mapi (fun i (k, v) ->
+                let isPlaceholderValue = placeholderValue = Some k
+                let className = if isPlaceholderValue then "Mui-selected" else null
+
                 JSX.jsx
                     $"""
-                <MenuItem key={i} value={k} sx={menuItemSx} dense={isMobile} >
+                <MenuItem key={i} value={k} sx={menuItemSx} dense={isMobile} className={className} autoFocus={isPlaceholderValue} >
                     {v}
                 </MenuItem>
                 """
@@ -294,6 +304,13 @@ module SimpleSelect =
                 |> box
             | None -> null
 
+        // a label left in the box would lie over the placeholder, so it moves up while the
+        // placeholder shows; otherwise the value is left undefined, so the field decides
+        let labelShrink =
+            match placeholder with
+            | Some _ -> box true
+            | None -> JS.undefined
+
         // in a row beside a stepper the select takes the width the stepper leaves
         let formControlSx =
             {|
@@ -310,7 +327,7 @@ module SimpleSelect =
         import Select from '@mui/material/Select';
 
         <FormControl variant="standard" sx={formControlSx}>
-            <InputLabel id={props.label + "-label"}>{props.label}</InputLabel>
+            <InputLabel id={props.label + "-label"} shrink={labelShrink}>{props.label}</InputLabel>
             <Select
             labelId={props.label + "-label"}
             id={props.label}

@@ -286,6 +286,7 @@ module Interactions =
                     // the box holds no choice, but it does hold what is being typed, and the
                     // cross is how that is thrown away in one go
                     canClear = true
+                    placeholder = None
                 |}
 
         let deleteLabel = Terms.``Delete`` |> getTerm "Verwijder"

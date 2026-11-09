@@ -28,6 +28,7 @@ module ViewHelpers =
                 isLoading = false
                 enabled = enabled
                 shape = Components.PickField.Shape.Scroll
+                placeholder = None
             |}
 
 
@@ -636,6 +637,7 @@ module ViewHelpers =
                 isLoading = false
                 enabled = enabled
                 shape = Components.PickField.Shape.Type
+                placeholder = None
             |}
 
 
