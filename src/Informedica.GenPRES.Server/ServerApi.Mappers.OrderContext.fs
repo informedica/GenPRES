@@ -110,15 +110,17 @@ module OrderContextMapper =
 
 
     /// The Dto's block as the contract model's: the kind as the Dto writes it, the text parsed
-    /// into items; a kind the Dto does not write shows as valid.
+    /// into items. A kind the Dto does not write throws, since showing it as valid would hide a
+    /// signal.
     let textBlockBack (dto: TextBlockDto.Dto) : TextBlock =
         let items = dto.Text |> Mappers.parseTextItem
 
         match dto.Kind with
+        | "valid" -> Valid items
         | "caution" -> Caution items
         | "warning" -> Warning items
         | "alert" -> Alert items
-        | _ -> Valid items
+        | kind -> invalidOp $"The text block kind '%s{kind}' is unknown"
 
 
     let blocks (bs: TextBlock[][]) = bs |> Array.map (Array.map textBlock)

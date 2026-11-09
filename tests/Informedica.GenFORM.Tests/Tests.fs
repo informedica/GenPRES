@@ -4975,6 +4975,66 @@ module Tests =
                  let prods = fixture<ProductComponent[]> "products.json"
                  DoseRuleLoader.fromData rm [||] prods data |> fst |> Array.head)
 
+        module ZFT = Informedica.ZForm.Lib.Types
+
+        /// A range with an inclusive minimum and maximum, each a value with its unit.
+        let private range (min: (BigRational * Unit) option) (max: (BigRational * Unit) option) : MinMax =
+            let limit (v, u) = v |> ValueUnit.singleWithUnit u |> Limit.inclusive
+
+            {
+                Min = min |> Option.map limit
+                Max = max |> Option.map limit
+            }
+
+        /// A G-Standaard dosage of amoxicillin, the substance of the sample dose rule.
+        let private amoxDosage (single: ZFT.DoseRange) : ZFT.Dosage =
+            { ZFDR.Dosage.empty with
+                Name = "amoxicilline"
+                SingleDosage = single
+            }
+
+        /// A G-Standaard provider that gives the dosages for the route of the sample dose rule.
+        let private providerOf (dosages: ZFT.Dosage list) : Check.GStandProvider =
+            fun _ _ _ _ ->
+                let pd: ZFT.PatientDosage =
+                    { ZFDR.PatientDosage.create Informedica.ZForm.Lib.PatientCategory.empty with
+                        SubstanceDosages = dosages
+                    }
+
+                let fd: ZFT.FormDosage =
+                    {
+                        Form = [ "poeder" ]
+                        GenericProducts = []
+                        TradeProducts = []
+                        PatientDosages = [ pd ]
+                    }
+
+                let rd: ZFT.RouteDosage =
+                    {
+                        Route = sampleDoseRule.Value.Route
+                        FormDosages = [ fd ]
+                    }
+
+                let id: ZFT.IndicationDosage =
+                    {
+                        Indications = []
+                        RouteDosages = [ rd ]
+                    }
+
+                seq { { ZFDR.create "amoxicilline" [] "" "" "" "" "" [] with IndicationsDosages = [ id ] } }
+
+        /// The severities of the signals the check of the sample dose rule, amoxicillin IV at most
+        /// 50 mg/kg per dose, gives for the dosages.
+        let private severitiesOf dosages =
+            (Check.checkDoseRuleWithProvider (providerOf dosages) Patient.patient sampleDoseRule.Value).signals
+            |> Array.map fst
+            |> Array.distinct
+
+        // a norm range per kg whose minimum is in mg and maximum in IU: it passes the unit guard,
+        // which reads one unit, and the comparison with the maximum throws
+        let private normThrows =
+            range (Some(10N, Units.Mass.milliGram)) (Some(20N, Units.InterNational.iu)), Units.Weight.kiloGram
+
         let tests =
             testList
                 "Check IR-doseringscontrole fixes"
@@ -5246,6 +5306,144 @@ module Tests =
                         |> Array.isEmpty
                         |> Expect.isTrue "empty provider data yields no dose-check signals"
                     }
+
+                    testList
+                        "a dose check that cannot be done"
+                        [
+                            let mg = Units.Mass.milliGram
+                            let iu = Units.InterNational.iu
+                            let kg = Units.Weight.kiloGram
+
+                            test "ranges whose units cannot be compared cannot be checked" {
+                                Check.compareRanges "" (range None (Some(20N, iu))) (range None (Some(10N, mg)))
+                                |> Expect.equal "cannot check" Check.Comparison.CannotCheck
+                            }
+
+                            test "an empty range does not apply" {
+                                Check.compareRanges "" MinMax.empty (range None (Some(10N, mg)))
+                                |> Expect.equal "not applicable" Check.Comparison.NotApplicable
+                            }
+
+                            test "a range in units of another group cannot be checked" {
+                                Check.compareRanges
+                                    ""
+                                    (range (Some(10N, iu)) (Some(20N, iu)))
+                                    (range None (Some(10N, mg)))
+                                |> Expect.equal "cannot check" Check.Comparison.CannotCheck
+                            }
+
+                            test "a range in the reference range is in range" {
+                                match
+                                    Check.compareRanges "" (range None (Some(20N, mg))) (range None (Some(10N, mg)))
+                                with
+                                | Check.Comparison.InRange _ -> ()
+                                | c -> failtest $"10 mg is in a range up to 20 mg, not %A{c}"
+                            }
+
+                            test "a range over the reference range is out of range" {
+                                match
+                                    Check.compareRanges "" (range None (Some(20N, mg))) (range None (Some(30N, mg)))
+                                with
+                                | Check.Comparison.OutOfRange _ -> ()
+                                | c -> failtest $"30 mg is over a range up to 20 mg, not %A{c}"
+                            }
+
+                            let over = Check.Comparison.OutOfRange "over"
+                            let within = Check.Comparison.InRange "within"
+                            let cannot = Check.Comparison.CannotCheck
+                            let na = Check.Comparison.NotApplicable
+
+                            for norm, abs, expected in
+                                [
+                                    cannot, over, Some Check.OverAbsolute
+                                    over, over, Some Check.OverAbsolute
+                                    cannot, within, Some Check.IncomparableUnits
+                                    within, cannot, Some Check.IncomparableUnits
+                                    over, cannot, Some Check.IncomparableUnits
+                                    cannot, cannot, Some Check.IncomparableUnits
+                                    cannot, na, Some Check.IncomparableUnits
+                                    na, na, None
+                                    within, within, Some Check.Within
+                                    na, within, Some Check.Within
+                                    within, na, Some Check.Within
+                                    over, within, Some Check.AdvisoryOverNorm
+                                    over, na, Some Check.AdvisoryOverNorm
+                                ] do
+                                test $"norm %A{norm} and absolute %A{abs} grade as %A{expected}" {
+                                    Check.gradeComparisons "cannot check" norm abs
+                                    |> fst
+                                    |> Expect.equal "the severity" expected
+                                }
+
+                            test "a norm range that cannot be checked is blue, not green" {
+                                [
+                                    amoxDosage
+                                        { ZFDR.DoseRange.empty with
+                                            NormWeight = normThrows
+                                            AbsWeight = range None (Some(100N, mg)), kg
+                                        }
+                                ]
+                                |> severitiesOf
+                                |> Expect.equal "cannot be checked" [| Check.IncomparableUnits |]
+                            }
+
+                            test "a dose over the absolute maximum is red when the norm range cannot be checked" {
+                                [
+                                    amoxDosage
+                                        { ZFDR.DoseRange.empty with
+                                            NormWeight = normThrows
+                                            AbsWeight = range None (Some(30N, mg)), kg
+                                        }
+                                ]
+                                |> severitiesOf
+                                |> Expect.equal "over the absolute maximum" [| Check.OverAbsolute |]
+                            }
+
+                            test "a dose over the absolute maximum is red when the norm range is in other units" {
+                                [
+                                    amoxDosage
+                                        { ZFDR.DoseRange.empty with
+                                            NormWeight = range (Some(10N, iu)) (Some(20N, iu)), kg
+                                            AbsWeight = range None (Some(30N, mg)), kg
+                                        }
+                                ]
+                                |> severitiesOf
+                                |> Expect.equal "over the absolute maximum" [| Check.OverAbsolute |]
+                            }
+
+                            test "a norm range in other units is blue when the dose is within the absolute maximum" {
+                                [
+                                    amoxDosage
+                                        { ZFDR.DoseRange.empty with
+                                            NormWeight = range (Some(10N, iu)) (Some(20N, iu)), kg
+                                            AbsWeight = range None (Some(100N, mg)), kg
+                                        }
+                                ]
+                                |> severitiesOf
+                                |> Expect.equal "cannot be checked" [| Check.IncomparableUnits |]
+                            }
+
+                            test "dosages that cannot be merged are blue, not left out" {
+                                [
+                                    amoxDosage { ZFDR.DoseRange.empty with Norm = range None (Some(10N, mg)) }
+                                    amoxDosage { ZFDR.DoseRange.empty with Norm = range None (Some(10N, iu)) }
+                                ]
+                                |> severitiesOf
+                                |> Expect.equal "cannot be checked" [| Check.IncomparableUnits |]
+                            }
+
+                            test "a dose in the norm range is still green" {
+                                [
+                                    amoxDosage
+                                        { ZFDR.DoseRange.empty with
+                                            NormWeight = range None (Some(60N, mg)), kg
+                                            AbsWeight = range None (Some(100N, mg)), kg
+                                        }
+                                ]
+                                |> severitiesOf
+                                |> Expect.equal "within" [| Check.Within |]
+                            }
+                        ]
                 ]
 
 
