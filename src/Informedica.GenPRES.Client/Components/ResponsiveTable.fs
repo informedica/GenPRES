@@ -36,6 +36,8 @@ module ResponsiveTable =
                         |}[]
                     filter: ReactElement option
                     onRowClick: string -> unit
+                    // the row shown as marked; none when no row is marked
+                    markedRow: string option
                 |})
             =
 
@@ -59,6 +61,18 @@ module ResponsiveTable =
                         |> Option.defaultValue ""
 
                     let handleClick = fun _ -> props.onRowClick rowId
+
+                    // the marked card shows the light blue and the bar of a marked row in the grid
+                    let cardSx =
+                        if props.markedRow = Some rowId then
+                            {|
+                                cursor = "pointer"
+                                backgroundColor = Mui.Colors.Blue.``50``
+                                borderLeft = $"4px solid {Mui.Colors.Blue.``700``}"
+                            |}
+                            |> box
+                        else
+                            {| cursor = "pointer" |} |> box
 
                     let content =
                         row.cells
@@ -206,7 +220,7 @@ module ResponsiveTable =
                     import Stack from '@mui/material/Stack';
 
                     <Grid item sx={gridItemSx} >
-                        <Card raised={true} onClick={handleClick} sx={ {| cursor = "pointer" |} } >
+                        <Card raised={true} onClick={handleClick} sx={cardSx} >
                             <CardContent sx={contentSx} >
                                 <Stack spacing={0} divider={divider} >
                                     {content}
@@ -502,6 +516,7 @@ module ResponsiveTable =
                 rows = rows
                 filter = Some(controls |> toReact)
                 onRowClick = props.onRowClick
+                markedRow = props.markedRow
             |}
             |> CardTable
         else
