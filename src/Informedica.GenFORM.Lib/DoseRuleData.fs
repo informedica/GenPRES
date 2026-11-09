@@ -5,6 +5,7 @@ module DoseRuleData =
 
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
+    open Informedica.GenUnits.Lib
 
     open Utils
 
@@ -515,10 +516,13 @@ module DoseRuleData =
     let adjustUnitOf (d: DoseRuleData) = d.ScheduleData.AdjustUnit |> Units.adjustUnit
 
 
-    /// Whether a row has a value in a per kg or per m2 column.
-    let hasAdjustedValue (d: DoseRuleData) =
-        let l = d.ScheduleData.DoseLimitData
+    /// Whether a row has a value in one of the dose limit columns given.
+    let hasValueIn columns (d: DoseRuleData) =
+        d.ScheduleData.DoseLimitData |> columns |> List.exists Option.isSome
 
+
+    /// The per kg and per m2 columns: these are built with the adjust unit.
+    let adjustUnitColumns (l: DoseLimitData) =
         [
             l.MinQtyAdj
             l.MaxQtyAdj
@@ -527,7 +531,36 @@ module DoseRuleData =
             l.MinRateAdj
             l.MaxRateAdj
         ]
-        |> List.exists Option.isSome
+
+
+    /// The columns of every dose limit: these are built with the dose unit.
+    let doseUnitColumns (l: DoseLimitData) =
+        [
+            l.MinQty
+            l.MaxQty
+            l.MinQtyAdj
+            l.MaxQtyAdj
+            l.MinPerTime
+            l.MaxPerTime
+            l.MinPerTimeAdj
+            l.MaxPerTimeAdj
+            l.MinRate
+            l.MaxRate
+            l.MinRateAdj
+            l.MaxRateAdj
+        ]
+
+
+    /// The per time columns: these are built with the frequency unit.
+    let freqUnitColumns (l: DoseLimitData) = [ l.MinPerTime; l.MaxPerTime; l.MinPerTimeAdj; l.MaxPerTimeAdj ]
+
+
+    /// The rate columns: these are built with the rate unit.
+    let rateUnitColumns (l: DoseLimitData) = [ l.MinRate; l.MaxRate; l.MinRateAdj; l.MaxRateAdj ]
+
+
+    /// Whether a row has a value in a per kg or per m2 column.
+    let hasAdjustedValue (d: DoseRuleData) = d |> hasValueIn adjustUnitColumns
 
 
     /// The dose rule a row belongs to, as a sheet author finds it.
@@ -535,10 +568,50 @@ module DoseRuleData =
         $"the dose rule %s{d.Generic.Name} %s{d.Route} %s{d.Indication} (%s{d.Source}, %s{d.PatientText}, %s{d.ScheduleData.DoseType} %s{d.ScheduleData.DoseText})"
 
 
+    /// The name of a row as a sheet author finds it: the substance, or the component when the row
+    /// has no substance.
+    let rowName (l: DoseLimitData) =
+        if l.Substance |> String.isNullOrWhiteSpace then
+            l.Component
+        else
+            l.Substance
+
+
+    /// The reasons a dose rule is refused for a row with a value whose unit is missing: a value
+    /// without a dose unit, a per time value without a frequency unit and a rate value without a
+    /// rate unit. Such a value has no unit to be built with and would be lost. A unit text that is
+    /// not known still gives a unit, a general one, so only an empty unit loses the value.
+    let missingUnitRefusals (rows: DoseRuleData[]) =
+        [
+            for r in rows do
+                let name = r.ScheduleData.DoseLimitData |> rowName
+
+                if
+                    r |> hasValueIn doseUnitColumns
+                    && r.ScheduleData.DoseLimitData.DoseUnit |> UnitsParse.fromString |> Option.isNone
+                then
+                    $"the row for %s{name} has a value without a dose unit"
+
+                if
+                    r |> hasValueIn freqUnitColumns
+                    && r.ScheduleData.FreqUnit |> Units.timeUnit |> Option.isNone
+                then
+                    $"the row for %s{name} has a per time value without a frequency unit"
+
+                if
+                    r |> hasValueIn rateUnitColumns
+                    && r.ScheduleData.RateUnit |> UnitsParse.fromString |> Option.isNone
+                then
+                    $"the row for %s{name} has a rate value without a rate unit"
+        ]
+
+
     /// The reasons a dose rule, given as its rows, is refused at load: rows with different adjust
-    /// units, an empty one included, and a row with a per kg or per m2 value without an adjust unit.
-    /// An order has a single adjust quantity, and the rule takes its adjust unit from its first row,
-    /// so such a rule is calculated wrongly, or right only by the order of its rows.
+    /// units, an empty one included, a row with a per kg or per m2 value without an adjust unit, and
+    /// a row with a value whose dose, frequency or rate unit is missing. An order has a single adjust
+    /// quantity, and the rule takes its adjust unit from its first row, so a rule with mixed adjust
+    /// units is calculated wrongly, or right only by the order of its rows; a value without its unit
+    /// would be lost, and the rule could end up without a maximum.
     let unitRefusals (rows: DoseRuleData[]) =
         [
             let units = rows |> Array.map adjustUnitOf |> Array.distinct
@@ -554,13 +627,10 @@ module DoseRuleData =
             for r in
                 rows
                 |> Array.filter (fun r -> r |> hasAdjustedValue && r |> adjustUnitOf |> Option.isNone) do
-                let l = r.ScheduleData.DoseLimitData
-                let name =
-                    if l.Substance |> String.isNullOrWhiteSpace then
-                        l.Component
-                    else
-                        l.Substance
+                let name = r.ScheduleData.DoseLimitData |> rowName
                 $"the row for %s{name} has a per kg or per m2 value without an adjust unit"
+
+            yield! rows |> missingUnitRefusals
         ]
 
 

@@ -5903,6 +5903,8 @@ module Tests =
 
         let private withAdjust u (r: DoseRuleData) = { r with ScheduleData = { r.ScheduleData with AdjustUnit = u } }
 
+        let private withSchedule f (r: DoseRuleData) = { r with ScheduleData = r.ScheduleData |> f }
+
         let private absoluteOnly =
             withLimit (fun l ->
                 { l with
@@ -5937,6 +5939,26 @@ module Tests =
                 |> absoluteOnly
                 |> withAdjust adjOfSecond
             |]
+
+        /// The per kg row without a dose unit.
+        let private noDoseUnit = lazy (perKgRow.Value |> withLimit (fun l -> { l with DoseUnit = "" }))
+
+        /// The per kg row with a per kg per time value, with the frequency unit given.
+        let private perTime freqUnit =
+            perKgRow.Value
+            |> withLimit (fun l ->
+                { l with
+                    MinPerTimeAdj = Some 100N
+                    MaxPerTimeAdj = Some 200N
+                }
+            )
+            |> withSchedule (fun s -> { s with FreqUnit = freqUnit })
+
+        /// The per kg row with a rate value, with the rate unit given.
+        let private rate rateUnit =
+            perKgRow.Value
+            |> withLimit (fun l -> { l with MaxRate = Some 10N })
+            |> withSchedule (fun s -> { s with RateUnit = rateUnit })
 
         let private m2 n = n |> ValueUnit.singleWithUnit Units.BSA.m2
 
@@ -6027,6 +6049,61 @@ module Tests =
                         msgs
                         |> hasWarning "has the adjust unit kg but no per kg value"
                         |> Expect.isTrue "warned"
+                    }
+
+                    test "a rule with a value and no dose unit is left out, with a message naming the row" {
+                        let drs, msgs = [| noDoseUnit.Value |] |> fromData
+
+                        drs |> Expect.isEmpty "left out"
+
+                        msgs
+                        |> hasWarning "the row for amoxicilline has a value without a dose unit"
+                        |> Expect.isTrue "the row named"
+                    }
+
+                    test "a rule with a per time value and no frequency unit is left out, with a message naming the row" {
+                        let drs, msgs = [| perTime "" |] |> fromData
+
+                        drs |> Expect.isEmpty "left out"
+
+                        msgs
+                        |> hasWarning "the row for amoxicilline has a per time value without a frequency unit"
+                        |> Expect.isTrue "the row named"
+                    }
+
+                    test "a rule with a rate value and no rate unit is left out, with a message naming the row" {
+                        let drs, msgs = [| rate "" |] |> fromData
+
+                        drs |> Expect.isEmpty "left out"
+
+                        msgs
+                        |> hasWarning "the row for amoxicilline has a rate value without a rate unit"
+                        |> Expect.isTrue "the row named"
+                    }
+
+                    test "the same rows with their units are loaded" {
+                        for row in [ perTime "dag"; rate "uur" ] do
+                            let drs, msgs = [| row |] |> fromData
+
+                            drs |> Expect.isNonEmpty "loaded"
+                            msgs |> hasWarning "is left out" |> Expect.isFalse "not refused"
+                    }
+
+                    test "a row without values needs no units" {
+                        let noValues =
+                            perKgRow.Value
+                            |> withLimit (fun l ->
+                                { l with
+                                    DoseUnit = ""
+                                    MaxQty = None
+                                    MinQtyAdj = None
+                                    MaxQtyAdj = None
+                                }
+                            )
+
+                        [| noValues |]
+                        |> DoseRuleData.missingUnitRefusals
+                        |> Expect.isEmpty "nothing to refuse"
                     }
 
                     test "the demo rules load with no rule refused" {
