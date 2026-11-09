@@ -329,6 +329,52 @@ module Check =
                 |> String.replace "<TIMEUNIT>" (testRange |> getTimeUnit)
 
 
+    /// The outcome of comparing a test range with a reference range.
+    [<RequireQualifiedAccess>]
+    type Comparison =
+        /// The comparison does not apply, since one of the ranges is empty.
+        | NotApplicable
+        /// The test range is in the reference range, with the message that says so.
+        | InRange of string
+        /// The test range is not in the reference range, with the message that says so.
+        | OutOfRange of string
+        /// The units of the two ranges cannot be compared, so the test range cannot be checked.
+        | CannotCheck
+
+
+    /// Compares a test range with a reference range. Ranges whose units cannot be compared give
+    /// CannotCheck; any other exception is a defect and is not caught.
+    let compareRanges sn refRange testRange =
+        // the guard as well as the catch: ValueUnit compares a value without a unit by its number
+        // alone, and the guard does not read both limits of a range
+        if rangesComparable refRange testRange |> not then
+            Comparison.CannotCheck
+        else
+            try
+                match checkInRangeOf sn refRange testRange with
+                | None, _ -> Comparison.NotApplicable
+                | Some true, msg -> Comparison.InRange msg
+                | Some false, msg -> Comparison.OutOfRange msg
+            // ValueUnit raises an ArgumentException for values whose units cannot be compared
+            with :? System.ArgumentException ->
+                Comparison.CannotCheck
+
+
+    /// Grades a test range from its comparison with the norm range and with the absolute range. A
+    /// breach of the absolute range is OverAbsolute even when the norm range cannot be checked;
+    /// otherwise a comparison that cannot be checked gives IncomparableUnits with the message
+    /// cannotCheck, so that a check that was not done never shows as Within.
+    let gradeComparisons cannotCheck norm abs =
+        match norm, abs with
+        | _, Comparison.OutOfRange amsg -> Some OverAbsolute, amsg
+        | Comparison.CannotCheck, _
+        | _, Comparison.CannotCheck -> Some IncomparableUnits, cannotCheck
+        | Comparison.NotApplicable, Comparison.NotApplicable -> None, ""
+        | Comparison.InRange nmsg, _ -> Some Within, nmsg
+        | Comparison.NotApplicable, Comparison.InRange amsg -> Some Within, amsg
+        | Comparison.OutOfRange nmsg, _ -> Some AdvisoryOverNorm, nmsg
+
+
     let maximizeDosages (dosages: Dosage list) =
         let maximize = MinMax.foldMaximize true true
 
@@ -453,10 +499,12 @@ module Check =
                             {|
                                 target = n
                                 dosage =
-                                    // TODO: hack avoid cmp err with diff dose units (filgrastim)
+                                    // G-Standaard dosages in units that cannot be compared, such as
+                                    // filgrastim in microgram and in units, cannot be merged. A group
+                                    // is never empty, so no dosage means the limit cannot be checked.
                                     try
                                         dsgs |> maximizeDosages
-                                    with _ ->
+                                    with :? System.ArgumentException ->
                                         None
                             |}
                         )
@@ -664,21 +712,27 @@ module Check =
         m.mapping.doseLimits
         |> Array.collect (fun dl ->
             match dl.gstand with
-            | None -> [| (None: Severity option), "" |]
+            | None ->
+                let target = dl.genForm.DoseLimitTarget |> LimitTarget.toString
+
+                let notMerged =
+                    m.zindex.dosages
+                    |> List.exists (fun g -> target |> String.equalsCapInsens g.target && g.dosage |> Option.isNone)
+
+                if notMerged then
+                    [|
+                        Some IncomparableUnits,
+                        $"{target}\t{m.doseRule.Route}\t{m.doseRule.PatientCategory |> PatientCategory.toString}\tG-Standaard eenheden niet vergelijkbaar (kan niet worden gecontroleerd)"
+                    |]
+                else
+                    [| (None: Severity option), "" |]
             | Some gstand ->
                 let dt = m.doseRule.DoseType
                 let p = m.doseRule.PatientCategory |> PatientCategory.toString
                 let r = m.doseRule.Route
 
                 let inRangeOf msg refRange testRange =
-                    try
-                        checkInRangeOf $"{gstand.doseLimitTarget}\t{r}\t{p}\t{msg}: " refRange testRange
-                    with _ ->
-                        // Defensive backstop: the rangesComparable guard in `grade`
-                        // already prevents incomparable-unit cmp throws, so reaching
-                        // here is exceptional. Drop the row (never report a crash as a
-                        // PASS); kept pure — no console IO in the check pipeline.
-                        None, ""
+                    compareRanges $"{gstand.doseLimitTarget}\t{r}\t{p}\t{msg}: " refRange testRange
 
                 // HIGH-1: one-sided, risk-aware margin on the norm dose. Risk
                 // substances (GPRISC = "*") get no margin.
@@ -689,29 +743,10 @@ module Check =
                 // an absolute breach is serious, and absolute is only decisive once
                 // norm is exceeded.
                 let grade msg (normRef: MinMax) (absRef: MinMax) (test: MinMax) : Severity option * string =
-                    // IR safety guard: never feed incomparable unit groups to cmp
-                    // (e.g. Count/kg/day vs IU/kg/week, droplet vs mg) — that throws.
-                    // Emit a typed warning instead of crashing or (previously) a fake pass.
-                    let incomparable ref = ref |> MinMax.isEmpty |> not && not (rangesComparable ref test)
-
-                    if (test |> MinMax.isEmpty |> not) && (incomparable normRef || incomparable absRef) then
-                        Some IncomparableUnits,
+                    let cannotCheck =
                         $"{gstand.doseLimitTarget}\t{r}\t{p}\t{msg}: eenheden niet vergelijkbaar (kan niet worden gecontroleerd)"
-                    else
 
-                        let nb, nmsg = inRangeOf msg normRef test
-                        let ab, amsg = inRangeOf msg absRef test
-
-                        // The absolute ceiling breach is checked first so that even
-                        // inconsistent G-Standaard data (normRef.Max > absRef.Max) can
-                        // never silently downgrade an over-absolute dose to Within.
-                        // For valid data (norm ⊆ abs) this is equivalent to norm-first.
-                        match nb, ab with
-                        | None, None -> None, ""
-                        | _, Some false -> Some OverAbsolute, amsg
-                        | Some true, _ -> Some Within, nmsg
-                        | None, Some true -> Some Within, amsg
-                        | Some false, _ -> Some AdvisoryOverNorm, nmsg
+                    gradeComparisons cannotCheck (inRangeOf msg normRef test) (inRangeOf msg absRef test)
 
                 // Adjust-unit-gated grade: only compares ranges whose adjust unit
                 // matches the test's, and substitutes the unit into the message.

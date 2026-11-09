@@ -649,3 +649,32 @@ let productTests =
                     |> Expect.equal "the products" (med.Components |> List.map _.Products)
             }
         ]
+
+
+[<Tests>]
+let textBlockTests =
+    testList
+        "a text block from the Dto"
+        [
+            let items = [| Normal "paracetamol "; Bold "500 mg" |]
+
+            for block in [ Valid items; Caution items; Warning items; Alert items ] do
+                test $"%A{block} goes to the Dto and back" {
+                    block
+                    |> OrderContextMapper.textBlock
+                    |> OrderContextMapper.textBlockBack
+                    |> Expect.equal "the same block" block
+                }
+
+            for kind in [ "info"; "Valid"; "" ] do
+                test $"the unknown kind '%s{kind}' throws instead of showing as valid" {
+                    let dto: Informedica.GenOrder.Lib.TextBlock.Dto.Dto =
+                        {
+                            Kind = kind
+                            Text = "paracetamol"
+                        }
+
+                    fun () -> dto |> OrderContextMapper.textBlockBack |> ignore
+                    |> Expect.throwsT<System.InvalidOperationException> "an unknown kind"
+                }
+        ]
