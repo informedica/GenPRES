@@ -730,6 +730,13 @@ module OrderPlan =
 
         let signDialog = SignDialog.View {| appEnv = props.appEnv |}
 
+        // the order whose dialog is open, by its id as the table's rows carry it
+        let markedRow =
+            dialog
+            |> Option.bind OrderContextView.context
+            |> Option.bind OrderContext.contribution
+            |> Option.map _.Order.Id
+
         let responsiveTable =
             Components.ResponsiveTable.View
                 {|
@@ -739,6 +746,7 @@ module OrderPlan =
                     rowCreate = rowCreate
                     height = "100%"
                     onRowClick = selectOrder
+                    markedRow = markedRow
                     checkboxSelection = true
                     selectedRows = selectedRows
                     onSelectChange = filterOrders

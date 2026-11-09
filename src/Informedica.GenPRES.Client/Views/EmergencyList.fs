@@ -258,6 +258,8 @@ module EmergencyList =
                 rowCreate = rowCreate
                 height = "100%"
                 onRowClick = onSelectItem
+                // a click goes to the Prescribe page, so no row is marked
+                markedRow = None
                 checkboxSelection = false
                 selectedRows = [||]
                 onSelectChange = ignore

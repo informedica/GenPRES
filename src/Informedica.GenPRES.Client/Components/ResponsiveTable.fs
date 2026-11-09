@@ -36,6 +36,8 @@ module ResponsiveTable =
                         |}[]
                     filter: ReactElement option
                     onRowClick: string -> unit
+                    // the row shown as marked; none when no row is marked
+                    markedRow: string option
                 |})
             =
 
@@ -59,6 +61,18 @@ module ResponsiveTable =
                         |> Option.defaultValue ""
 
                     let handleClick = fun _ -> props.onRowClick rowId
+
+                    // the marked card shows the light blue and the bar of a marked row in the grid
+                    let cardSx =
+                        if props.markedRow = Some rowId then
+                            {|
+                                cursor = "pointer"
+                                backgroundColor = Mui.Colors.Blue.``50``
+                                borderLeft = $"4px solid {Mui.Colors.Blue.``700``}"
+                            |}
+                            |> box
+                        else
+                            {| cursor = "pointer" |} |> box
 
                     let content =
                         row.cells
@@ -206,7 +220,7 @@ module ResponsiveTable =
                     import Stack from '@mui/material/Stack';
 
                     <Grid item sx={gridItemSx} >
-                        <Card raised={true} onClick={handleClick} sx={ {| cursor = "pointer" |} } >
+                        <Card raised={true} onClick={handleClick} sx={cardSx} >
                             <CardContent sx={contentSx} >
                                 <Stack spacing={0} divider={divider} >
                                     {content}
@@ -260,6 +274,8 @@ module ResponsiveTable =
                 rowCreate: string[] -> obj
                 height: string
                 onRowClick: string -> unit
+                // the row shown as marked; none when no row is marked
+                markedRow: string option
                 checkboxSelection: bool
                 selectedRows: string[]
                 onSelectChange: string[] -> unit
@@ -358,15 +374,25 @@ module ResponsiveTable =
 
         let onRowClick = fun pars -> pars?id |> string |> props.onRowClick
 
-        // Return an alternating class name based on the row index within the current page
+        // Return an alternating class name based on the row index within the current page, and mark
+        // the marked row
         let getRowClassName =
             fun (pars: obj) ->
                 let idx: int = pars?indexRelativeToCurrentPage
-                if idx % 2 = 0 then "even" else "odd"
+                let stripe = if idx % 2 = 0 then "even" else "odd"
+
+                if props.markedRow = Some(pars?id |> string) then
+                    $"%s{stripe} marked"
+                else
+                    stripe
 
         // Style for striped rows: apply background to even rows. The row under the pointer shows a
         // blue bar on its left, drawn as an inset shadow: a border would take room and shift the
-        // row's cells each time the hover comes or goes, as it does when the rows are rendered anew
+        // row's cells each time the hover comes or goes, as it does when the rows are rendered anew.
+        // A click acts on the whole row, so the grid's focus outline on the clicked cell is hidden, and
+        // the marked row shows the same bar. The outline stays for focus from the keyboard
+        let rowBar = $"inset 4px 0 0 {Mui.Colors.Blue.``700``}"
+
         let stripedSx: obj =
             createObj
                 [
@@ -377,17 +403,23 @@ module ResponsiveTable =
                     ==> createObj [ "cursor" ==> "pointer"; "transition" ==> "box-shadow 0.1s ease" ]
 
                     "& .MuiDataGrid-row.even:hover"
-                    ==> createObj
-                            [
-                                "backgroundColor" ==> Mui.Colors.Grey.``100``
-                                "boxShadow" ==> $"inset 4px 0 0 {Mui.Colors.Blue.``700``}"
-                            ]
+                    ==> createObj [ "backgroundColor" ==> Mui.Colors.Grey.``100``; "boxShadow" ==> rowBar ]
 
                     "& .MuiDataGrid-row.odd:hover"
+                    ==> createObj [ "backgroundColor" ==> "white"; "boxShadow" ==> rowBar ]
+
+                    "& .MuiDataGrid-row.marked, & .MuiDataGrid-row.marked:hover"
+                    ==> createObj [ "backgroundColor" ==> Mui.Colors.Blue.``50``; "boxShadow" ==> rowBar ]
+
+                    "& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within"
+                    ==> createObj [ "outline" ==> "none" ]
+
+                    // a keyboard user still sees which cell has the focus, also when it is the checkbox inside it
+                    "& .MuiDataGrid-cell:focus-visible, & .MuiDataGrid-cell:has(:focus-visible)"
                     ==> createObj
                             [
-                                "backgroundColor" ==> "white"
-                                "boxShadow" ==> $"inset 4px 0 0 {Mui.Colors.Blue.``700``}"
+                                "outline" ==> $"2px solid {Mui.Colors.Blue.``700``}"
+                                "outlineOffset" ==> "-2px"
                             ]
 
                     "& .MuiDataGrid-cell"
@@ -484,6 +516,7 @@ module ResponsiveTable =
                 rows = rows
                 filter = Some(controls |> toReact)
                 onRowClick = props.onRowClick
+                markedRow = props.markedRow
             |}
             |> CardTable
         else
