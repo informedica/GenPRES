@@ -34,21 +34,27 @@ module Prescribe =
 
 
     /// The rows of an order text, such as the prescription of a scenario, one table row per line and one
-    /// cell per block; on a phone the blocks of a line run on as one.
+    /// cell per block; on a phone the blocks of a line run on as one. A line of a single block, such as
+    /// a notice below the prescription, spans all columns, so that its width does not set the width of
+    /// the first column of the other lines.
     let textRows isMobile (text: TextBlock[][]) =
+        let text = if isMobile then text |> TextBlockDisplay.flatten else text
+
+        let columns = text |> Array.map Array.length |> Array.fold max 1
+
         let cells row =
+            let span = if row |> Array.length = 1 then columns else 1
+
             row
             |> Array.mapi (fun i cell ->
                 JSX.jsx
                     $"""
                     import TableCell from '@mui/material/TableCell';
-                    <TableCell key={i} sx={textCellSx}>
+                    <TableCell key={i} colSpan={span} sx={textCellSx}>
                         {cell |> Mui.TypoGraphy.fromTextBlock}
                     </TableCell>
                     """
             )
-
-        let text = if isMobile then text |> TextBlockDisplay.flatten else text
 
         text
         |> Array.mapi (fun i row ->
