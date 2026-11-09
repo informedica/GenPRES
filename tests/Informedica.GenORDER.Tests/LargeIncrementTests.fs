@@ -114,6 +114,20 @@ let tests =
                         |> Expect.equal "9 mL/hour" (Some [| 9N |])
                     }
 
+                    test "a large step down from 0.5 mL/hour stops at the calculated increment, 0.1" {
+                        ovarWith mLPerHour (1N / 2N) (Some(1N / 10N)) (Some(1N / 10N))
+                        |> OrderVariable.decrease true 1
+                        |> valueOf
+                        |> Expect.equal "0.1 mL/hour" (Some [| 1N / 10N |])
+                    }
+
+                    test "a large step down from 1 mL/hour stops at the calculated increment, 0.1" {
+                        ovarWith mLPerHour 1N (Some(1N / 10N)) (Some(1N / 10N))
+                        |> OrderVariable.decrease true 1
+                        |> valueOf
+                        |> Expect.equal "0.1 mL/hour" (Some [| 1N / 10N |])
+                    }
+
                     test "a small step up on the same rate gives 10.1" {
                         ovarWith mLPerHour 10N (Some(1N / 10N)) (Some(1N / 10N))
                         |> OrderVariable.increase false 1
