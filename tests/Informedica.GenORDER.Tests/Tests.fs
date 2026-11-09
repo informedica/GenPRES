@@ -1443,6 +1443,9 @@ module PatientAgeTests =
 module OrderBuilderTests =
 
     open Informedica.GenOrder.Lib.Medication
+    module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
+    module Minimum = Informedica.GenSolver.Lib.Variable.ValueRange.Minimum
+    module Maximum = Informedica.GenSolver.Lib.Variable.ValueRange.Maximum
 
     /// The names of every order variable of an order, in order.
     let private names (ord: Order) =
@@ -1461,6 +1464,48 @@ module OrderBuilderTests =
     /// The scenarios the orders are recorded for, so that a scenario cannot be added to one
     /// list of fixtures and forgotten in the other.
     let private fixtures = GoldenOrders.all |> List.map (fun g -> g.Name, g.Medication)
+
+    let private mLPerKgPerHour =
+        Units.Volume.milliLiter
+        |> ValueUnit.per Units.Weight.kiloGram
+        |> ValueUnit.per Units.Time.hour
+
+    /// A continuous infusion of one component, the morphine of morfCont, without a dose of its
+    /// own, whose component has the rate adjust given, in mL/kg/hour.
+    let private singleComponent rateAdjust =
+        let morphine = Scenarios.morfCont.Components |> List.head
+
+        { Scenarios.morfCont with
+            Dose = None
+            Components =
+                [
+                    { morphine with
+                        Dose =
+                            { DoseLimit.limit with
+                                DoseLimitTarget = "morfine" |> ComponentLimitTarget
+                                DoseUnit = Units.Volume.milliLiter
+                                AdjustUnit = Some Units.Weight.kiloGram
+                                RateAdjust = rateAdjust
+                            }
+                            |> Some
+                    }
+                ]
+        }
+
+    /// The minimum and maximum the orderable dose rate adjust of a medication is constrained to,
+    /// as values.
+    let private orderableRateAdjust (med: Medication) =
+        let cs =
+            med
+            |> OrderBuilder.newOrder Scenarios.testStart
+            |> OrderBuilder.withComponents med
+            |> OrderBuilder.withOrderableConstraints med
+            |> _.Orderable.Dose.RateAdjust
+            |> OrderVariable.RateAdjust.toOrdVar
+            |> OrderVariable.getConstraints
+
+        cs.Min |> Option.map (Minimum.toValueUnit >> ValueUnit.getValue),
+        cs.Max |> Option.map (Maximum.toValueUnit >> ValueUnit.getValue)
 
     /// The constraints of every order variable of an order, by name, for those whose name has
     /// the given number of parts: four for an item, three for a component, two for the
@@ -1606,6 +1651,15 @@ module OrderBuilderTests =
                             |> constraintsOfDepth 3
                             |> Expect.equal "the same component constraints" (ord |> constraintsOfDepth 3)
                     }
+
+                test "a rate adjust norm of a single component without a dose is widened on the orderable" {
+                    20N
+                    |> ValueUnit.singleWithUnit mLPerKgPerHour
+                    |> MinMax.createExact
+                    |> singleComponent
+                    |> orderableRateAdjust
+                    |> Expect.equal "18 to 22 mL/kg/hour" (Some [| 18N |], Some [| 22N |])
+                }
             ]
 
 

@@ -1586,7 +1586,7 @@ module Medication =
                         | Some dl ->
                             dos.RateAdjust
                             |> OrderVariable.RateAdjust.apply (
-                                con (OrderVariable.Constraints.setMinMax false dl.RateAdjust)
+                                con (OrderVariable.Constraints.setMinMax true dl.RateAdjust)
                             )
                 }
 
