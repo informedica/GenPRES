@@ -912,6 +912,12 @@ module Host =
 
 [<EntryPoint>]
 let main _ =
+    // One culture on every host: a number parses and prints with a decimal point whatever locale the
+    // host or the container gives. This sets a default culture instead of switching on invariant
+    // globalization, because invariant globalization switches off ICU, and without ICU a Windows host
+    // cannot find a time zone by its IANA name.
+    System.Globalization.CultureInfo.DefaultThreadCurrentCulture <- System.Globalization.CultureInfo.InvariantCulture
+
     // Surfaces Serilog's own internal failures (a sink erroring on disk-full,
     // a permission error, ...) to stderr. Without this, such a failure is
     // swallowed by design and the audit trail stops with no signal at all.
