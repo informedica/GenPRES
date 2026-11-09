@@ -1,5 +1,5 @@
 ---
-last_commit_released: 992df049e9e54e53505df995ca5232e6164311ae
+last_commit_released: 4a8b3395bc4333efc9350300146e1afcb038cc87
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,31 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.50 - 2026-11-09
+
+### 🐞 Bug Fixes
+
+* *(client)* Round doses below 0.1 to the asked precision ([35d063e7](https://github.com/informedica/GenPRES/commit/35d063e732ead87f576530bd59709e211cacd165))
+* *(client)* Round the stepped quantity prediction ([075f74ab](https://github.com/informedica/GenPRES/commit/075f74ab39bd153395970315d68a3c02fba20ed9))
+* *(client)* Sign an order plan with every order removed ([a7dd5e46](https://github.com/informedica/GenPRES/commit/a7dd5e46e88996e7af7e2db93aa8fbe9800774ad))
+* *(client)* Let the user confirm a filled-in value ([1541a371](https://github.com/informedica/GenPRES/commit/1541a371dee96696568272735c5c6ed3ef7ec2d0))
+* *(gencore)* Need the gestational age under 28 days ([5207ce8f](https://github.com/informedica/GenPRES/commit/5207ce8f3bb4b4b20c9a69f888f26726ec1935ee))
+* *(genform)* Refuse a dose rule value without its unit ([fff93f47](https://github.com/informedica/GenPRES/commit/fff93f47ba3629475c43795ce42f30269e77346e))
+* *(genform)* Signal a dose check that cannot be done ([f923e4e3](https://github.com/informedica/GenPRES/commit/f923e4e3ed852e229d2cbf0a96ab9245c2200c1f))
+* *(genorder)* Take the large step the client is shown ([57435f13](https://github.com/informedica/GenPRES/commit/57435f1390c796a2822f041c9c6a89218283cfcd))
+* *(genorder)* Keep the calculated increment as the large step floor ([73e83def](https://github.com/informedica/GenPRES/commit/73e83def0f82147c955766dae89ada2f2e6e13b7))
+* *(genorder)* Widen a rate adjust norm on the orderable ([1dbdb5e8](https://github.com/informedica/GenPRES/commit/1dbdb5e8b2803f039bd3bde54e7a2e6e0a03a3f4))
+* *(genorder)* Offer the lists of the other picks on a refusal ([bfa64885](https://github.com/informedica/GenPRES/commit/bfa6488583cb8b74fd2cc75b641af7eeca8f75af))
+* *(genorder)* Take an equal min and max concentration as exact ([c01bb621](https://github.com/informedica/GenPRES/commit/c01bb621c6bd6a4c58bedf00cd420f07de49b326))
+* *(nkf)* Write a norm dose as a minimum and maximum ([0b4201a3](https://github.com/informedica/GenPRES/commit/0b4201a393015808ef49c855fd8df513c3a79aab))
+* *(server)* Pick the single composition of a nutrition slot ([cc8cdc08](https://github.com/informedica/GenPRES/commit/cc8cdc08824c04e744dc369bbfbaecf93f8dd1d2))
+* *(server)* Narrow a refused nutrition context to its rule set ([2bbe81cd](https://github.com/informedica/GenPRES/commit/2bbe81cd26a0e92cbe52334636a8f9f2b766d524))
+* *(ui)* Keep the prescription line in place under a notice ([1a951dd3](https://github.com/informedica/GenPRES/commit/1a951dd382513a2ed2541580284a6eff0c9090a9))
+* *(ui)* Mark the clicked row, not the cell, in list tables ([5e1fdf3e](https://github.com/informedica/GenPRES/commit/5e1fdf3e82d23bc602bf5ae278cebf907e0e3015))
+* *(ui)* Mark the card of the open order on small screens ([954dc237](https://github.com/informedica/GenPRES/commit/954dc2376ae9ad2116b0394e7caa541b28509033))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/992df049e9e54e53505df995ca5232e6164311ae..4a8b3395bc4333efc9350300146e1afcb038cc87)</small></strong>
 
 ## 0.1.2-alpha.49 - 2026-11-08
 
