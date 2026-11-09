@@ -15,6 +15,7 @@
     <Compile Include="ModelsTests.fs" />
     <Compile Include="ApiTests.fs" />
     <Compile Include="CsvTests.fs" />
+    <Compile Include="DecimalTests.fs" />
     <Compile Include="EmergencyBaseline.fs" />
     <Compile Include="EmergencyBaselineTests.fs" />
     <Compile Include="Main.fs" />
