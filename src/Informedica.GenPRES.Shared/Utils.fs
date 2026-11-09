@@ -243,7 +243,16 @@ module Decimal =
     /// * 6.6666 |> fixPrecision 3 = 6.67
     /// etc
     /// If n < 0 then the value is not changed.
-    let fixPrecision n (d: decimal) = if n < 0 then d else Math.Round(d, d |> getPrecision n)
+    let fixPrecision n (d: decimal) =
+        if n < 0 then
+            d
+        else
+            // A stop-gap until #1730 updates Fable: in the browser, Fable 5.0 reads a decimal from text
+            // with the zeros after the decimal point kept in its digits, and then rounds 0.041666 to 4
+            // decimals as 0.04167. Multiplying by one stores the digits without those zeros; in .NET it
+            // changes nothing.
+            let d = d * 1m
+            Math.Round(d, d |> getPrecision n)
 
 
     //----------------------------------------------------------------------------
