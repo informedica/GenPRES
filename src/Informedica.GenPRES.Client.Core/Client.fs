@@ -246,15 +246,7 @@ module Client =
 
     /// The requests out in the lanes and the loads.
     let busy (state: ClientState) =
-        OutPolicy.out
-            state.Shell.Counting
-            state.Lanes.Patient
-            state.Lanes.OrderContext
-            state.Lanes.Slots
-            state.Lanes.OrderPlan
-            state.Lanes.Session
-            state.Lanes.Signing
-            (state |> loads |> outOf)
+        Lanes.out state.Shell.Counting state.Lanes (state |> loads |> outOf)
 
 
     /// Whether any request is out.

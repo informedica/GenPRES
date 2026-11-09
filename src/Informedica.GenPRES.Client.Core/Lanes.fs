@@ -7,8 +7,10 @@ namespace Informedica.GenPRES.Client.Core
 /// the part that leaves the client.
 module Lanes =
 
+    open Informedica.GenPRES.Client.Core.Helpers
     open Informedica.GenPRES.Client.Core.Policies
     open Informedica.GenPRES.Client.Core.StateMachines
+    open Informedica.GenPRES.Client.Core.MachinePolicies
     open Informedica.GenPRES.Shared.Types
     open PatientMachine
     open SessionMachine
@@ -333,3 +335,33 @@ module Lanes =
                 run (follow @ rest) (lanes, effects @ emitted, steps @ taken)
 
         run [ msg ] (lanes, [], [])
+
+
+    /// What holds the pages: the requests out, a field counting its step clicks, the lanes, the nutrition
+    /// slots and the loads, and a plan behind the patient data, which is no request but waits as one does.
+    let out counting (lanes: LanesState) loads =
+        [
+            if counting then
+                Loads.Request.Counting
+            if PatientState.changing lanes.Patient then
+                Loads.Request.Patient
+            if (OrderContextState.inFlightRequest lanes.OrderContext).IsSome then
+                Loads.Request.Workbench
+            if
+                lanes.Slots
+                |> List.exists (fun (_, slot) -> (OrderContextState.inFlightRequest slot).IsSome)
+            then
+                Loads.Request.Slots
+            if (OrderPlanState.inFlightRequest lanes.OrderPlan).IsSome then
+                Loads.Request.Plan
+            if OutPolicy.planBehind lanes.Patient lanes.OrderPlan then
+                Loads.Request.PlanBehind
+            if
+                SessionState.changing lanes.Session
+                || (SessionState.reopening lanes.Session).IsSome
+            then
+                Loads.Request.Session
+            if lanes.Signing |> SigningState.view |> SigningPolicy.underWay then
+                Loads.Request.Signature
+            yield! loads |> List.map Loads.Request.Load
+        ]

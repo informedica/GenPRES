@@ -16,6 +16,8 @@ open OrderContextMachine
 open Informedica.GenPRES.Client.Core.Tests.OrderFixtures
 open OrderPlanFixtures
 
+module Lanes = Informedica.GenPRES.Client.Core.Lanes
+
 
 let allPages =
     [
@@ -55,17 +57,12 @@ let disabled request =
     allPages |> List.filter (fun p -> [ request ] |> BusyPolicy.page p)
 
 
-/// Nothing out in any lane.
-let idle loads =
-    OutPolicy.out
-        false
-        noPatientChange
-        (OrderContextState.evaluated patient (OrderContextState.emptyMedication patient))
-        []
-        shown
-        SessionState.anonymous
-        SigningState.idle
-        loads
+/// Nothing out in any lane: the lanes each test changes one lane of.
+let idleLanes = { Lanes.initial (Some draft) with OrderPlan = shown }
+
+
+/// Nothing out in any lane but the loads.
+let idle loads = Lanes.out false idleLanes loads
 
 
 [<Tests>]
@@ -88,51 +85,19 @@ let tests =
                 let plan = recalculating one None "p-1" (OrderPlanCommand.FilterRows([||], one))
                 let signing = SigningState.requesting one None "s-1"
 
-                OutPolicy.out
-                    false
-                    patientChanging
-                    OrderContextState.noPatientData
-                    []
-                    shown
-                    SessionState.anonymous
-                    SigningState.idle
-                    []
+                Lanes.out false { idleLanes with Patient = patientChanging } []
                 |> Expect.equal "the patient" [ Request.Patient ]
 
-                OutPolicy.out false noPatientChange workbench [] shown SessionState.anonymous SigningState.idle []
+                Lanes.out false { idleLanes with OrderContext = workbench } []
                 |> Expect.equal "the workbench" [ Request.Workbench ]
 
-                OutPolicy.out
-                    false
-                    noPatientChange
-                    OrderContextState.noPatientData
-                    []
-                    plan
-                    SessionState.anonymous
-                    SigningState.idle
-                    []
+                Lanes.out false { idleLanes with OrderPlan = plan } []
                 |> Expect.equal "the plan" [ Request.Plan ]
 
-                OutPolicy.out
-                    false
-                    noPatientChange
-                    OrderContextState.noPatientData
-                    []
-                    shown
-                    SessionState.resuming
-                    SigningState.idle
-                    []
+                Lanes.out false { idleLanes with Session = SessionState.resuming } []
                 |> Expect.equal "the Session" [ Request.Session ]
 
-                OutPolicy.out
-                    false
-                    noPatientChange
-                    OrderContextState.noPatientData
-                    []
-                    shown
-                    SessionState.anonymous
-                    signing
-                    []
+                Lanes.out false { idleLanes with Signing = signing } []
                 |> Expect.equal "the signature" [ Request.Signature ]
 
                 let refreshing =
@@ -140,15 +105,7 @@ let tests =
                     |> SessionState.transition SessionMsg.RefreshPatient
                     |> fst
 
-                OutPolicy.out
-                    false
-                    noPatientChange
-                    OrderContextState.noPatientData
-                    []
-                    shown
-                    refreshing
-                    SigningState.idle
-                    []
+                Lanes.out false { idleLanes with Session = refreshing } []
                 |> Expect.equal "a refresh" [ Request.Session ]
             }
 
@@ -168,16 +125,7 @@ let tests =
                         "challenged", SigningFixtures.challenged
                         "submitting", SigningFixtures.submitting
                     ] do
-                    let out =
-                        OutPolicy.out
-                            false
-                            noPatientChange
-                            OrderContextState.noPatientData
-                            []
-                            shown
-                            SessionState.anonymous
-                            signing
-                            []
+                    let out = Lanes.out false { idleLanes with Signing = signing } []
 
                     out |> Expect.equal name [ Request.Signature ]
                     out |> BusyPolicy.any |> Expect.isTrue $"%s{name}: the menu waits"
@@ -188,29 +136,18 @@ let tests =
 
             test "a workbench or a plan request disables the page that would send the next command or change" {
                 let workbench =
-                    OutPolicy.out
-                        false
-                        noPatientChange
-                        (OrderContextState.opening patient "w-1")
-                        []
-                        shown
-                        SessionState.anonymous
-                        SigningState.idle
-                        []
+                    Lanes.out false { idleLanes with OrderContext = OrderContextState.opening patient "w-1" } []
 
                 workbench
                 |> BusyPolicy.page Page.Page.Prescribe
                 |> Expect.isTrue "the Prescribe page"
 
                 let plan =
-                    OutPolicy.out
+                    Lanes.out
                         false
-                        noPatientChange
-                        OrderContextState.noPatientData
-                        []
-                        (recalculating one None "p-1" (OrderPlanCommand.FilterRows([||], one)))
-                        SessionState.anonymous
-                        SigningState.idle
+                        { idleLanes with
+                            OrderPlan = recalculating one None "p-1" (OrderPlanCommand.FilterRows([||], one))
+                        }
                         []
 
                 plan
@@ -222,32 +159,14 @@ let tests =
             }
 
             test "a patient change disables the pages of both order machines" {
-                let out =
-                    OutPolicy.out
-                        false
-                        patientChanging
-                        OrderContextState.noPatientData
-                        []
-                        shown
-                        SessionState.anonymous
-                        SigningState.idle
-                        []
+                let out = Lanes.out false { idleLanes with Patient = patientChanging } []
 
                 for p in [ Page.Page.Prescribe; Page.Page.OrderPlan; Page.Page.Nutrition ] do
                     out |> BusyPolicy.page p |> Expect.isTrue $"%A{p}"
             }
 
             test "a field counting step clicks disables every page but Nutrition, whose fields wait themselves" {
-                let out =
-                    OutPolicy.out
-                        true
-                        noPatientChange
-                        OrderContextState.noPatientData
-                        []
-                        shown
-                        SessionState.anonymous
-                        SigningState.idle
-                        []
+                let out = Lanes.out true idleLanes []
 
                 out |> Expect.equal "the count" [ Request.Counting ]
                 out |> BusyPolicy.any |> Expect.isTrue "the menu and the title bar wait"
