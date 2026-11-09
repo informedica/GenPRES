@@ -288,10 +288,10 @@ module NutritionRuleSet =
         }
 
 
-    /// An answer narrowed, and evaluated again while that leaves a choice open: the rule
-    /// lookup reads a list of one as its choice, so the next evaluation makes it. It stops when
-    /// an evaluation changes nothing the narrowing keeps, and after five rounds, one for each
-    /// field a choice can stay open in.
+    /// An answer narrowed, and evaluated again while that leaves a choice open, a list of one
+    /// without its choice; the evaluate given makes those choices. It stops when an evaluation
+    /// changes nothing the narrowing keeps, and after five rounds, one for each field a choice can
+    /// stay open in.
     let settle (contextOf: 'a -> OrderContext) (narrow: 'a -> 'a) (evaluate: 'a -> Result<'a, 'e>) (answer: 'a) =
         let rec go rounds a =
             let narrowed = narrow a

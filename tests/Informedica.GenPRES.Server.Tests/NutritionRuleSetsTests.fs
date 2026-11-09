@@ -116,6 +116,20 @@ let tests =
                 |> Expect.equal "voedsel, not paracetamol" (Ok [| "voedsel" |])
             }
 
+            testAsync "the one generic and indication the narrowing leaves are chosen" {
+                let sut = ServerApi.Adapters.makeAppEnv provider
+
+                let! answer =
+                    empty (OrderCategory.Nutrition NutritionCategory.EnteralFeeding)
+                    |> sut.orderContext.evaluate OrderContext.UpdateOrderContext
+
+                match answer with
+                | Ok(Evaluated pc) ->
+                    (pc.Context.Filter.Indication, pc.Context.Filter.Generic)
+                    |> Expect.equal "voeding and voedsel" (Some "voeding", Some "voedsel")
+                | other -> failtest $"expected an evaluated context, got %A{other}"
+            }
+
             testAsync "a medication context is not narrowed" {
                 let sut = ServerApi.Adapters.makeAppEnv provider
 

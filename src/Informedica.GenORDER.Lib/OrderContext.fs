@@ -819,16 +819,27 @@ module OrderContext =
         }
 
 
-    /// Whether the rule lookup would read a choice the filter does not hold: a list of one
-    /// without its choice, which one more evaluation picks.
-    let choicesOpen (ctx: OrderContext) =
-        let read = ctx |> filterPicks
+    /// The context with its filter picks as its choices: the option of each list of one is the
+    /// choice of its field, as the rule lookup reads it. A choice that is made stays, and a list of
+    /// more than one is left open.
+    let withFilterPicks (ctx: OrderContext) =
+        let picks = ctx |> filterPicks
 
-        read.Indication <> ctx.Filter.Indication
-        || read.Generic <> ctx.Filter.Generic
-        || read.Route <> ctx.Filter.Route
-        || read.Form <> ctx.Filter.Form
-        || read.DoseType <> ctx.Filter.DoseType
+        { ctx with
+            Filter =
+                { ctx.Filter with
+                    Indication = picks.Indication
+                    Generic = picks.Generic
+                    Route = picks.Route
+                    Form = picks.Form
+                    DoseType = picks.DoseType
+                }
+        }
+
+
+    /// Whether the rule lookup would read a choice the filter does not hold: a list of one
+    /// without its choice.
+    let choicesOpen ctx = (ctx |> withFilterPicks).Filter <> ctx.Filter
 
 
     /// The patient of the context as the rule lookup takes it: without its diagnoses.
