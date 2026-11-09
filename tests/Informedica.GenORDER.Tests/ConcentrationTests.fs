@@ -451,7 +451,7 @@ let tests =
                                                 |> Option.map values
                                                 |> Option.defaultValue Set.empty
 
-                                            if b |> values |> Set.isSubset offered |> not then
+                                            if Set.isSubset (b |> values) offered |> not then
                                                 $"%A{cmd}"
                                         | _ -> ()
                                 ]

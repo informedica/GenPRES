@@ -4781,14 +4781,16 @@ module ReachablePickTests =
         testList
             "the picks the dialog offers"
             [
-                test "amox/clav: the clavulaanzuur concentrations are a tenth of the amoxicilline concentrations" {
+                test "amox/clav: the clavulaanzuur concentration is a tenth of the one amoxicilline concentration" {
                     let _, ord = Scenarios.amoxClavText |> parse |> solvedWith processed
                     let cncs = ord |> itemConcentrations
 
                     cncs["clavulaanzuur"]
                     |> Expect.equal "a tenth" (cncs["amoxicilline"] |> Array.map (fun c -> c / 10N))
 
-                    cncs["amoxicilline"] |> Array.length > 1 |> Expect.isTrue "a choice remains"
+                    cncs["amoxicilline"]
+                    |> Array.length
+                    |> Expect.equal "the one concentration of the limit of 20 to 20 mg/mL" 1
                 }
 
                 test "prednisolon under the default discontinuous cap of 10 keeps the whole tablets" {
@@ -5585,11 +5587,10 @@ module UndilutedSolutionTests =
                         (1N |> ValueUnit.singleWithUnit mgPerMl |> Some)
                 }
 
-                test
-                    "a limit with an equal minimum and maximum allows the concentrations within 90 to 110 percent of the value" {
+                test "a limit with an equal minimum and maximum allows only that concentration" {
                     { Medication.SubstanceItem.item with
                         Name = "vancomycine"
-                        Concentrations = [| 9N; 21N / 2N; 12N; 50N |] |> ValueUnit.withUnit mgPerMl |> Some
+                        Concentrations = [| 9N; 10N; 21N / 2N; 12N; 50N |] |> ValueUnit.withUnit mgPerMl |> Some
                         Solution =
                             { SolutionLimit.limit with
                                 Concentration = 10N |> ValueUnit.singleWithUnit mgPerMl |> MinMax.createExact
@@ -5598,8 +5599,34 @@ module UndilutedSolutionTests =
                     }
                     |> Medication.concentrationsWithinSolution
                     |> Expect.equal
-                        "9 and 10.5 mg/mL are within 9 to 11 mg/mL"
-                        ([| 9N; 21N / 2N |] |> ValueUnit.withUnit mgPerMl |> Some)
+                        "10 mg/mL alone, not 9 or 10.5 mg/mL"
+                        (10N |> ValueUnit.singleWithUnit mgPerMl |> Some)
+                }
+
+                test "the orderable concentration of a limit with an equal minimum and maximum is that value" {
+                    let exactly10 =
+                        { SolutionLimit.limit with
+                            Concentration = 10N |> ValueUnit.singleWithUnit mgPerMl |> MinMax.createExact
+                        }
+
+                    let around10 = [| 19N / 2N; 10N; 21N / 2N |] |> ValueUnit.withUnit mgPerMl
+
+                    match Scenarios.amfo |> Medication.toOrder Scenarios.testStart with
+                    | Ok ord ->
+                        let cs =
+                            ord.Orderable.Components
+                            |> List.head
+                            |> _.Items
+                            |> List.find (fun itm -> (itm.Name |> Variable.Name.toString).Contains "amfotericine")
+                            |> Medication.OrderBuilder.withItemSolution exactly10
+                            |> _.OrderableConcentration
+                            |> OrderVariable.Concentration.toOrdVar
+                            |> _.DefinedConstraints
+
+                        around10
+                        |> ValueUnit.filter (Variable.ValueRange.isBetweenMinMax cs.Min cs.Max)
+                        |> Expect.equal "10 mg/mL alone" (10N |> ValueUnit.singleWithUnit mgPerMl)
+                    | Error e -> failtest $"the order is not built: %A{e}"
                 }
 
                 test "a concentration in a unit the limit cannot be compared with keeps every strength" {

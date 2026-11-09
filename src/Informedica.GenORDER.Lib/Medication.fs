@@ -1100,11 +1100,11 @@ module Medication =
 
 
     /// The concentrations of a substance that its solution limit allows, judged by the
-    /// bounds withItemSolution sets: inclusive, and widened to 90 and 110 percent when the
-    /// limit is one value. A substance with no concentrations or no concentration limit keeps
-    /// what it has, and so does one whose concentrations are in a unit group the limit cannot
-    /// be compared with (a molar concentration against a mass limit): the bounds are compared
-    /// on base values, so those would compare as numbers and give a wrong answer.
+    /// bounds withItemSolution sets: inclusive, and a limit of one value allows that value only.
+    /// A substance with no concentrations or no concentration limit keeps what it has, and so does
+    /// one whose concentrations are in a unit group the limit cannot be compared with (a molar
+    /// concentration against a mass limit): the bounds are compared on base values, so those would
+    /// compare as numbers and give a wrong answer.
     let concentrationsWithinSolution (si: SubstanceItem) =
         match si.Concentrations, si.Solution with
         | Some vu, Some sl when sl.Concentration <> MinMax.empty ->
@@ -1116,7 +1116,7 @@ module Medication =
             if comparable then
                 let cs =
                     OrderVariable.Constraints.create None None None None
-                    |> OrderVariable.Constraints.setMinMax true sl.Concentration
+                    |> OrderVariable.Constraints.setMinMax false sl.Concentration
 
                 vu
                 |> ValueUnit.filter (Informedica.GenSolver.Lib.Variable.ValueRange.isBetweenMinMax cs.Min cs.Max)
@@ -1226,7 +1226,7 @@ module Medication =
                 OrderableConcentration =
                     itm.OrderableConcentration
                     |> OrderVariable.Concentration.apply (
-                        OrderVariable.mapConstraints (OrderVariable.Constraints.setMinMax true sl.Concentration)
+                        OrderVariable.mapConstraints (OrderVariable.Constraints.setMinMax false sl.Concentration)
                     )
             }
 
