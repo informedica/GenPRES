@@ -1,5 +1,5 @@
 ---
-last_commit_released: 4a8b3395bc4333efc9350300146e1afcb038cc87
+last_commit_released: badc37a36fcd9e9a2fffb056ca1bfb9b3811b05a
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,20 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.51 - 2026-11-10
+
+### 🚀 Features
+
+* *(genform)* Read the new Formulary columns ([00dfdd4c](https://github.com/informedica/GenPRES/commit/00dfdd4c65be7cf685f70623374a2f57804ab77e))
+* *(genform)* Read virtual product form and routes ([6db492a3](https://github.com/informedica/GenPRES/commit/6db492a395a2c9d4bb73b9bfabf3f0675f31235b))
+
+### 🐞 Bug Fixes
+
+* *(genform)* Name a product by its Formulary AltName ([e48354bc](https://github.com/informedica/GenPRES/commit/e48354bced318ebd636d019ec70aa8c690ca984d))
+* *(genform)* Fail a virtual row without a route ([902874c2](https://github.com/informedica/GenPRES/commit/902874c20dec4dd5759cf60ccb9fc3ad825f0ff2))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/4a8b3395bc4333efc9350300146e1afcb038cc87..badc37a36fcd9e9a2fffb056ca1bfb9b3811b05a)</small></strong>
 
 ## 0.1.2-alpha.50 - 2026-11-09
 
