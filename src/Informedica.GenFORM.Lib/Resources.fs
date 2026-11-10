@@ -369,13 +369,13 @@ module Resources =
                 Keys.parenteralMeds.Name,
                 derive (fun r ->
                     r.Get Keys.formularyProducts
-                    |> Product.Parenteral.get logger (r.Get Keys.unitMappings)
+                    |> Product.Parenteral.get logger (r.Get Keys.unitMappings) (r.Get Keys.routeMappings)
                 )
 
                 Keys.enteralFeeding.Name,
                 derive (fun r ->
                     r.Get Keys.formularyProducts
-                    |> Product.Enteral.get logger (r.Get Keys.unitMappings)
+                    |> Product.Enteral.get logger (r.Get Keys.unitMappings) (r.Get Keys.routeMappings)
                 )
 
                 // IO edge: read raw source data once.

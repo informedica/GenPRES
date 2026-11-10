@@ -58,13 +58,25 @@ module Product =
                         | "parenteral" -> ProductType.ParenteralProduct
                         | _ -> ProductType.NoProduct
 
+                    let prodType = get "Type" |> getProdType
+
+                    // A virtual product, a parenteral or an enteral row, has its form and routes only from the sheet.
+                    let failOnEmptyVirtualColumn col =
+                        if prodType |> ProductType.isVirtual && get col |> String.isNullOrWhiteSpace then
+                            $"""Formulary column %s{col} is empty for the virtual product %s{get "Generic"}"""
+                            |> System.FormatException
+                            |> raise
+
+                    failOnEmptyVirtualColumn "Form"
+                    failOnEmptyVirtualColumn "Routes"
+
                     // TODO: the sheet still carries "UseForm" and "UseBrand"
                     // columns that nothing reads any more (the naming flags were
                     // dropped from FormularyProduct). Confirm with the sheet owner
                     // and remove the columns, or start honouring them again.
                     {
                         GPKODE = get "GPKODE"
-                        ProductType = get "Type" |> getProdType
+                        ProductType = prodType
                         Departments = departments
                         Generic = get "Generic"
                         TallMan = get "TallMan"
@@ -72,6 +84,11 @@ module Product =
                         UseGenName = get "UseGenName" = "x"
                         Mmol = get "Mmol" |> Double.tryParse |> Option.bind BigRational.fromFloat
                         Form = get "Form" |> Option.ofObj
+                        Routes =
+                            get "Routes"
+                            |> String.splitAt ';'
+                            |> Array.map String.trim
+                            |> Array.filter String.notEmpty
                         Brand = get "Brand" |> Option.ofObj
                         GenName = get "GenName" |> Option.ofObj
                         GStandName = get "GStand" |> Option.ofObj
@@ -245,108 +262,99 @@ module Product =
         | _ -> None
 
 
+    /// The routes of a virtual product: every route of its row through the route mapping, as the ZIndex name. A route
+    /// the mapping does not know fails, naming the route and the Generic of the row.
+    let virtualRoutes routeMapping (fp: FormularyProduct) =
+        fp.Routes
+        |> Array.map (fun r ->
+            match r |> Mapping.mapRoute routeMapping with
+            | Some route -> route
+            | None ->
+                $"Formulary route %s{r} of the virtual product %s{fp.Generic} is not in the Routes sheet"
+                |> System.FormatException
+                |> raise
+        )
+
+
+    /// A virtual product: a parenteral or enteral row of the Formulary sheet, with the nutrient columns as its
+    /// substances. The form is lowercased like the form of a G-Standaard product.
+    let createVirtualProduct logger name (form: string) routes formUnit unitMapping substs =
+        {
+            GPK = name
+            ATC = ""
+            MainGroup = ""
+            SubGroup = ""
+            Generic = name
+            TallMan = ""
+            Synonyms = [||]
+            ProductLabels = [ name ]
+            Label = name
+            Form = form |> String.toLower
+            Routes = routes
+            FormQuantities = formUnit |> ValueUnit.singleWithValue 1N
+            FormUnit = formUnit
+            RequiresReconstitution = false
+            Reconstitution = [||]
+            Divisible = Some 10N
+            Substances =
+                substs
+                |> List.choose (fun (s, q) ->
+                    let n, u =
+                        match s |> String.split " " with
+                        | [ n; u ] -> n |> String.trim, u |> String.trim
+                        | _ -> raise (System.FormatException $"cannot parse substance {s}")
+
+                    createSubstance logger n q u formUnit unitMapping
+                )
+                |> List.filter (fun s ->
+                    s.Name |> String.notEmpty
+                    && (s.Concentration |> Option.isSome || s.MolarConcentration |> Option.isSome)
+                )
+                |> List.toArray
+            TradeProducts = []
+        }
+
+
     module Enteral =
 
 
-        let createProduct logger name formUnit unitMapping substs =
-            {
-                GPK = name
-                ATC = ""
-                MainGroup = ""
-                SubGroup = ""
-                Generic = name
-                TallMan = "" //r.TallMan
-                Synonyms = [||]
-                ProductLabels = [ name ]
-                Label = name
-                Form = "voeding"
-                Routes = [| "ORAAL" |]
-                FormQuantities = formUnit |> ValueUnit.singleWithValue 1N
-                FormUnit = formUnit
-                RequiresReconstitution = false
-                Reconstitution = [||]
-                Divisible = Some 10N
-                Substances =
-                    substs
-                    |> List.choose (fun (s, q) ->
-                        let n, u =
-                            match s |> String.split " " with
-                            | [ n; u ] -> n |> String.trim, u |> String.trim
-                            | _ -> raise (System.FormatException $"cannot parse substance {s}")
-
-                        createSubstance logger n q u formUnit unitMapping
-                    )
-                    |> List.filter (fun s ->
-                        s.Name |> String.notEmpty
-                        && (s.Concentration |> Option.isSome || s.MolarConcentration |> Option.isSome)
-                    )
-                    |> List.toArray
-                TradeProducts = []
-            }
-
-
-        let get logger unitMapping (prods: FormularyProduct[]) =
+        let get logger unitMapping routeMapping (prods: FormularyProduct[]) =
             prods
             |> Array.filter _.ProductType.IsEnteralProduct
             |> Array.choose (fun fp ->
-                let formUnit = fp.Unit |> Option.bind UnitsParse.fromString
-
-                match formUnit with
-                | None -> None
-                | Some fu ->
+                fp.Unit
+                |> Option.bind UnitsParse.fromString
+                |> Option.map (fun fu ->
                     fp
                     |> getAdditionalSubstances
-                    |> createProduct logger fp.Generic fu unitMapping
-                    |> Some
+                    |> createVirtualProduct
+                        logger
+                        fp.Generic
+                        (fp.Form |> Option.defaultValue "")
+                        (fp |> virtualRoutes routeMapping)
+                        fu
+                        unitMapping
+                )
             )
 
 
     module Parenteral =
 
-        let createProduct logger name unitMapping substs =
-            {
-                GPK = name
-                ATC = ""
-                MainGroup = ""
-                SubGroup = ""
-                Generic = name
-                TallMan = "" //r.TallMan
-                Synonyms = [||]
-                ProductLabels = [ name ]
-                Label = name
-                Form = "vloeistof"
-                Routes = [| "INTRAVENEUS"; "ORAAL" |]
-                FormQuantities = Units.Volume.milliLiter |> ValueUnit.singleWithValue 1N
-                FormUnit = Units.Volume.milliLiter
-                RequiresReconstitution = false
-                Reconstitution = [||]
-                Divisible = Some 10N
-                Substances =
-                    substs
-                    |> List.choose (fun (s, q) ->
-                        let n, u =
-                            match s |> String.split " " with
-                            | [ n; u ] -> n |> String.trim, u |> String.trim
-                            | _ -> raise (System.FormatException $"cannot parse substance {s}")
 
-                        createSubstance logger n q u Units.Volume.milliLiter unitMapping
-                    )
-                    |> List.filter (fun s ->
-                        s.Name |> String.notEmpty
-                        && (s.Concentration |> Option.isSome || s.MolarConcentration |> Option.isSome)
-                    )
-                    |> List.toArray
-                    |> Array.filter (fun s ->
-                        s.Name |> String.notEmpty
-                        && (s.Concentration |> Option.isSome || s.MolarConcentration |> Option.isSome)
-                    )
-                TradeProducts = []
-            }
-
-        let get logger unitMapping (prods: FormularyProduct[]) =
+        let get logger unitMapping routeMapping (prods: FormularyProduct[]) =
             prods
             |> Array.filter _.ProductType.IsParenteralProduct
-            |> Array.map (fun fp -> fp |> getAdditionalSubstances |> createProduct logger fp.Generic unitMapping)
+            |> Array.map (fun fp ->
+                fp
+                |> getAdditionalSubstances
+                |> createVirtualProduct
+                    logger
+                    fp.Generic
+                    (fp.Form |> Option.defaultValue "")
+                    (fp |> virtualRoutes routeMapping)
+                    Units.Volume.milliLiter
+                    unitMapping
+            )
 
 
     let create gen frm rte substs =
@@ -529,7 +537,7 @@ module Product =
     /// The names of the virtual products: the Generic of every parenteral and enteral row, lowercased.
     let virtualProductNames (formularyProducts: FormularyProduct[]) =
         formularyProducts
-        |> Array.filter (fun fp -> fp.ProductType.IsParenteralProduct || fp.ProductType.IsEnteralProduct)
+        |> Array.filter (_.ProductType >> ProductType.isVirtual)
         |> Array.map (_.Generic >> String.toLower)
         |> Set.ofArray
 

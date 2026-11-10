@@ -999,6 +999,7 @@ module DoseRuleToDataTests =
                 "UseGenName"
                 "Mmol"
                 "Form"
+                "Routes"
                 "Brand"
                 "GenName"
                 "GStand"
@@ -1020,6 +1021,16 @@ module DoseRuleToDataTests =
                 "IsDiluent"
                 "IsAdditive"
             ]
+
+
+        /// Formulary products parsed from a sheet of the Formulary columns with the given rows, each row given as
+        /// column and value pairs.
+        let parseFormulary rows =
+            [|
+                yield formularyColumns |> List.toArray
+                for r in rows -> (mkSheet r formularyColumns)[1]
+            |]
+            |> Product.parseFormularyProducts
 
 
         /// name, declared columns, columns that may be absent, empty-cell
@@ -1347,8 +1358,7 @@ module FormularyProductTests =
     module CC = DoseRuleToDataTests.ColumnContract
 
 
-    let parse values =
-        CC.formularyColumns |> CC.mkSheet values |> Product.parseFormularyProducts
+    let parse values = CC.parseFormulary [ values ]
 
 
     let parseOne values =
@@ -1555,11 +1565,7 @@ module ProductNameTests =
 
     /// Formulary products parsed from rows given as column and value pairs.
     let formulary rows =
-        [|
-            yield CC.formularyColumns |> List.toArray
-            for r in rows -> (CC.mkSheet r CC.formularyColumns)[1]
-        |]
-        |> Product.parseFormularyProducts
+        CC.parseFormulary rows
         |> function
             | Ok fps -> fps
             | Error msgs -> failtest $"%A{msgs}"
@@ -1586,7 +1592,14 @@ module ProductNameTests =
         ]
 
 
-    let kclVirtualRow = [ "GPKODE", "KCl 7,4%"; "Type", "parenteral"; "Generic", "KCl 7,4%" ]
+    let kclVirtualRow =
+        [
+            "GPKODE", "KCl 7,4%"
+            "Type", "parenteral"
+            "Generic", "KCl 7,4%"
+            "Form", "INFUSIEVLOEISTOF"
+            "Routes", "INTRAVENEUS"
+        ]
 
 
     let build rows gps =
@@ -1689,7 +1702,14 @@ module ProductNameTests =
                         }
 
                         test "an AltName that names a virtual product is not used by the prefilter" {
-                            let virtualRow = [ "GPKODE", lipidComplex; "Type", "parenteral"; "Generic", lipidComplex ]
+                            let virtualRow =
+                                [
+                                    "GPKODE", lipidComplex
+                                    "Type", "parenteral"
+                                    "Generic", lipidComplex
+                                    "Form", "INFUSIEVLOEISTOF"
+                                    "Routes", "INTRAVENEUS"
+                                ]
 
                             prefilter [ abelcetRow lipidComplex; virtualRow ] lipidComplex
                             |> Expect.isEmpty "Abelcet is named by GStand"
@@ -1698,6 +1718,194 @@ module ProductNameTests =
                         test "a dose rule for plain amfotericine b no longer keeps Abelcet" {
                             prefilter [ abelcetRow lipidComplex ] "amfotericine b"
                             |> Expect.isEmpty "the AltName replaces the GStand name"
+                        }
+                    ]
+            ]
+
+
+module VirtualProductTests =
+
+
+    open Expecto
+    open Expecto.Flip
+    open Informedica.GenForm.Lib
+
+    module CC = DoseRuleToDataTests.ColumnContract
+
+
+    let logger = Informedica.Logging.Lib.Logging.noOp
+
+
+    let unitMapping: UnitMapping[] =
+        [|
+            {
+                Long = "gram"
+                Short = "g"
+                MV = "g"
+                Group = "Mass"
+            }
+        |]
+
+
+    let routeMapping: RouteMapping[] =
+        [|
+            {
+                Long = "INTRAVENEUS"
+                Short = "iv"
+            }
+            {
+                Long = "ORAAL"
+                Short = "or"
+            }
+        |]
+
+
+    let parseOk rows =
+        match CC.parseFormulary rows with
+        | Ok fps -> fps
+        | Error msgs -> failtest $"parse failed: %A{msgs}"
+
+
+    let first rows = rows |> parseOk |> Array.head
+
+
+    let water =
+        [
+            "GPKODE", "water"
+            "Type", "parenteral"
+            "Generic", "water"
+            "Form", "INFUSIEVLOEISTOF"
+            "Routes", "INTRAVENEUS;ORAAL"
+            "Unit", "mL"
+        ]
+
+
+    let glucose =
+        [
+            "GPKODE", "gluc 10%"
+            "Type", "parenteral"
+            "Generic", "gluc 10%"
+            "Form", "INFUSIEVLOEISTOF"
+            "Routes", "INTRAVENEUS"
+            "Unit", "mL"
+            "Carb g", "0.1"
+        ]
+
+
+    let feed =
+        [
+            "GPKODE", "Fantomalt pdr"
+            "Type", "enteral"
+            "Generic", "Fantomalt pdr"
+            "Form", "poeder voor drank"
+            "Routes", "ORAAL"
+            "Unit", "g"
+            "Carb g", "0.95"
+        ]
+
+
+    let medication = [ "GPKODE", "19100"; "Type", "medication"; "Generic", "NATRIUMCHLORIDE" ]
+
+
+    let without col row = row |> List.filter (fst >> (<>) col)
+
+
+    let tests =
+        testList
+            "the virtual products take their form and routes from the sheet"
+            [
+                testList
+                    "parseFormularyProducts"
+                    [
+                        test "Routes are split on ; and each route is trimmed" {
+                            (first [ water ]).Routes
+                            |> Expect.equal "two routes" [| "INTRAVENEUS"; "ORAAL" |]
+                        }
+
+                        test "spaces around a route are trimmed and an empty part is dropped" {
+                            (first [ ("Routes", " INTRAVENEUS ; ;ORAAL") :: water ]).Routes
+                            |> Expect.equal "two routes" [| "INTRAVENEUS"; "ORAAL" |]
+                        }
+
+                        test "a medication row needs no Form or Routes" {
+                            (first [ medication ]).Routes |> Expect.isEmpty "no routes"
+                        }
+
+                        for row, kind in [ water, "parenteral"; feed, "enteral" ] do
+                            for col in [ "Form"; "Routes" ] do
+                                test
+                                    $"an %s{kind} row without %s{col} fails the parse, naming the column and the Generic" {
+                                    match CC.parseFormulary [ row |> without col ] with
+                                    | Ok _ -> failtest "expected an error"
+                                    | Error msgs ->
+                                        let text = $"%A{msgs}"
+                                        let generic = row |> List.find (fst >> (=) "Generic") |> snd
+
+                                        [ col; generic ]
+                                        |> List.forall text.Contains
+                                        |> Expect.isTrue $"the message names both: %s{text}"
+                                }
+                    ]
+
+                testList
+                    "Parenteral.get"
+                    [
+                        test "the form is the Form of the row, lowercased" {
+                            (parseOk [ glucose ]
+                             |> Product.Parenteral.get logger unitMapping routeMapping
+                             |> Array.head)
+                                .Form
+                            |> Expect.equal "the sheet form" "infusievloeistof"
+                        }
+
+                        test "the routes are the Routes of the row" {
+                            parseOk [ water; glucose ]
+                            |> Product.Parenteral.get logger unitMapping routeMapping
+                            |> Array.map (fun p -> p.Generic, p.Routes)
+                            |> Expect.equal
+                                "the sheet routes"
+                                [| "water", [| "INTRAVENEUS"; "ORAAL" |]; "gluc 10%", [| "INTRAVENEUS" |] |]
+                        }
+
+                        test "a short route name maps to the ZIndex name" {
+                            (parseOk [ ("Routes", "iv;or") :: glucose ]
+                             |> Product.Parenteral.get logger unitMapping routeMapping
+                             |> Array.head)
+                                .Routes
+                            |> Expect.equal "mapped" [| "INTRAVENEUS"; "ORAAL" |]
+                        }
+
+                        test "an unknown route fails, naming the route and the Generic" {
+                            (fun () ->
+                                parseOk [ ("Routes", "INTRAVENEUS;xyz") :: glucose ]
+                                |> Product.Parenteral.get logger unitMapping routeMapping
+                                |> ignore
+                            )
+                            |> Expect.throwsC (fun exn ->
+                                [ "xyz"; "gluc 10%" ]
+                                |> List.forall exn.Message.Contains
+                                |> Expect.isTrue $"the message names both: %s{exn.Message}"
+                            )
+                        }
+                    ]
+
+                testList
+                    "Enteral.get"
+                    [
+                        test "the form and routes come from the row" {
+                            parseOk [ feed ]
+                            |> Product.Enteral.get logger unitMapping routeMapping
+                            |> Array.map (fun p -> p.Form, p.Routes)
+                            |> Expect.equal "the sheet form and routes" [| "poeder voor drank", [| "ORAAL" |] |]
+                        }
+
+                        test "an unknown route of an enteral row fails too" {
+                            (fun () ->
+                                parseOk [ ("Routes", "MOND") :: feed ]
+                                |> Product.Enteral.get logger unitMapping routeMapping
+                                |> ignore
+                            )
+                            |> Expect.throws "the enteral row fails"
                         }
                     ]
             ]
@@ -9548,6 +9756,7 @@ module Tests =
                 DoseRuleToDataTests.tests
                 FormularyProductTests.tests
                 ProductNameTests.tests
+                VirtualProductTests.tests
                 DoseRuleRoundtripTests.tests
                 CheckTests.tests
                 SourceLinkTests.tests
