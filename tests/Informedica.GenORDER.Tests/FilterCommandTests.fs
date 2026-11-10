@@ -138,3 +138,88 @@ let tests =
                 |> Expect.equal "patient kept" (Patient.patient, OrderContext.emptyFilter, 0, None)
             }
         ]
+
+
+/// A choice that decides the dose rule lets go of the components of the dose rule: the additive options,
+/// the dose rule components and the selection; the next scenario sets them again.
+[<Tests>]
+let doseRuleComponentsTests =
+    let additives = [| "NaCl 3%"; "KCl 7,4%" |]
+    let names = [| "Samenstelling C"; "NaCl 3%"; "KCl 7,4%"; "gluc 10%" |]
+    let day2 = Informedica.GenForm.Lib.Types.Once "dag 2"
+    let day3 = Informedica.GenForm.Lib.Types.Once "dag 3"
+
+    // the paracetamol context with the components of a TPN of day 2: only the filter is read
+    let first =
+        let ctx = OrderPlanTests.EvaluateFixtures.pcmContext
+
+        { ctx with
+            Filter =
+                { ctx.Filter with
+                    Components = additives
+                    DoseRuleComponents = names
+                    SelectedComponents = ComponentSelection.Selected [ "KCl 7,4%" ]
+                    DoseType = Some day2
+                }
+        }
+
+    let components (f: Filter) = f.Components, f.DoseRuleComponents, f.SelectedComponents
+
+    let none = [||], [||], ComponentSelection.AllComponents
+
+    let change field chosen dt =
+        first
+        |> OrderContext.change OrderCategory.Medication field chosen dt
+        |> _.Filter
+        |> components
+
+    testList
+        "the components of the dose rule after another dose rule is picked"
+        [
+            test "a dose type picked lets go of them" {
+                change FilterField.DoseType None (Some day3) |> Expect.equal "emptied" none
+            }
+
+            test "a dose type emptied lets go of them" {
+                change FilterField.DoseType None None |> Expect.equal "emptied" none
+            }
+
+            for field in
+                [
+                    FilterField.Indication
+                    FilterField.Generic
+                    FilterField.Route
+                    FilterField.Form
+                ] do
+                test $"%A{field} picked lets go of them" {
+                    change field (Some "another") None |> Expect.equal "emptied" none
+                }
+
+            test "a diluent picked keeps them" {
+                change FilterField.Diluent (Some "gluc 20%") None
+                |> Expect.equal "kept" (components first.Filter)
+            }
+
+            test "the same dose type keeps them" {
+                change FilterField.DoseType None (Some day2)
+                |> Expect.equal "kept" (components first.Filter)
+            }
+
+            test "a seed of another medication from the formulary lets go of them" {
+                first
+                |> OrderContext.seedFilter SeedSource.Formulary None (Some "Intralipid 20%") None None None
+                |> _.Filter
+                |> components
+                |> Expect.equal "emptied" none
+            }
+
+            test "a seed of the same medication keeps them" {
+                let f = first.Filter
+
+                first
+                |> OrderContext.seedFilter SeedSource.Formulary f.Indication f.Generic f.Route f.Form f.DoseType
+                |> _.Filter
+                |> components
+                |> Expect.equal "kept" (components f)
+            }
+        ]

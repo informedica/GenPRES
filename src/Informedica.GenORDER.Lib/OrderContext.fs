@@ -1044,7 +1044,8 @@ module OrderContext =
     /// A change to one of the choices: the change is written and the scenarios go, and with them
     /// the picked products. An emptied field lets go of the choices in the steps below it and keeps
     /// neither its choice nor its options; with nothing chosen anywhere afterwards no options are
-    /// kept either.
+    /// kept either. A choice the rule lookup reads decides the dose rule, so it also lets go of the
+    /// components of the dose rule: the additive options, the dose rule components and the selection.
     let applyChange category field clearOwn write (ctx: OrderContext) =
         let below =
             if not clearOwn then
@@ -1059,6 +1060,12 @@ module OrderContext =
             |> List.fold (fun f x -> f |> clearChoice x) ctx.Filter
             |> fun f -> if clearOwn then f |> clearField field else f
             |> write
+            // another dose rule has other components; the next scenario sets them again
+            |> fun f ->
+                if filterFields |> List.contains field then
+                    f |> clearField FilterField.Components
+                else
+                    f
 
         let filter =
             if filter |> anyChosen then
@@ -1201,24 +1208,26 @@ module OrderContext =
         let same = gen = f.Generic && rte = f.Route && frm = f.Form
 
         let write keep (ctx: OrderContext) =
-            { ctx with
-                OrderContext.Filter.Indication = ind
-                OrderContext.Filter.Generic = gen
-                OrderContext.Filter.Route = rte
-                OrderContext.Filter.Form = frm
-                OrderContext.Filter.DoseType = dt
-                OrderContext.Filter.Diluent = if keep then ctx.Filter.Diluent else None
-                OrderContext.Filter.SelectedComponents =
-                    if keep then
-                        ctx.Filter.SelectedComponents
-                    else
-                        ComponentSelection.AllComponents
-                OrderContext.Filter.PickedProducts =
-                    if same && ind = f.Indication && dt = f.DoseType then
-                        f.PickedProducts
-                    else
-                        [||]
-            }
+            let written =
+                { ctx with
+                    OrderContext.Filter.Indication = ind
+                    OrderContext.Filter.Generic = gen
+                    OrderContext.Filter.Route = rte
+                    OrderContext.Filter.Form = frm
+                    OrderContext.Filter.DoseType = dt
+                    OrderContext.Filter.Diluent = if keep then ctx.Filter.Diluent else None
+                    OrderContext.Filter.PickedProducts =
+                        if same && ind = f.Indication && dt = f.DoseType then
+                            f.PickedProducts
+                        else
+                            [||]
+                }
+
+            // picks that are not kept can name another dose rule, which has other components
+            if keep then
+                written
+            else
+                { written with Filter = written.Filter |> clearField FilterField.Components }
 
         match source with
         | SeedSource.Formulary -> { (ctx |> write (same && ind = f.Indication)) with Scenarios = [||] }
