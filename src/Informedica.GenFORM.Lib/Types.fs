@@ -1036,13 +1036,18 @@ module Types =
         and GenericData =
             {
                 /// sheet column "Generic": the BASE substance name. External lookups
-                /// (G-Standaard dose check, solution/renal rule matching) key on this,
+                /// (G-Standaard dose check, dilution/renal rule matching) key on this,
                 /// not on the display label.
                 Name: string
                 Form: string
                 Brand: string
-                /// ';'-separated in the sheet
+                /// sheet column "GPKs", ';'-separated: narrows the products of the Generic to
+                /// those with one of these GPKs. Never replaces the Generic name. Dropped at
+                /// parse time when the row has HPKs.
                 GPKs: string array
+                /// sheet column "HPKs", ';'-separated: narrows the products of the Generic to
+                /// those with a trade product that has one of these HPKs. Never replaces the
+                /// Generic name.
                 HPKs: string array
             }
 
