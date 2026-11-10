@@ -872,6 +872,9 @@ module Types =
             Diluents: string[]
             /// The components a prescriber can switch on and off, the options of the selection
             Components: string[]
+            /// Every component of the dose rule, the main component first, in the order of the rule; set
+            /// from the first scenario, before a selection can leave an additive out
+            DoseRuleComponents: string[]
             /// The selected indication
             Indication: string option
             /// The selected generic

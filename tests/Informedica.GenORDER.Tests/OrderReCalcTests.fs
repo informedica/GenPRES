@@ -611,3 +611,107 @@ let componentQuantityTests =
                 |> Expect.equal "as sent" (Ok("refused", None))
             }
         ]
+
+
+/// The filter holds every component of the dose rule in the order of the rule, set once from the first
+/// scenario, so that an additive a selection leaves out keeps its place.
+// here and not in FilterCommandTests, since they need Tests.TestOrder, which compiles after it
+[<Tests>]
+let doseRuleComponentsTests =
+    let name (cmp: Component) = cmp.Name |> WrappedString.Name.toString
+
+    let tpn () =
+        Scenarios.tpn |> Tests.TestOrder.toOrder |> Tests.TestOrder.solve CalcMinMax
+
+    // the paracetamol context with the order given: the update reads only the order and the diluent of
+    // the scenario for the field, so the rest of the context does not matter
+    let contextWith diluent (ord: Order) =
+        let ctx = OrderPlanTests.EvaluateFixtures.pcmContext
+        let sc = ctx.Scenarios |> Array.exactlyOne
+
+        { ctx with
+            Filter = { ctx.Filter with DoseRuleComponents = [||] }
+            Scenarios =
+                [|
+                    { sc with
+                        Order = ord
+                        Diluent = diluent
+                    }
+                |]
+        }
+
+    let tpnNames = [| "Samenstelling C"; "NaCl 3%"; "KCl 7,4%"; "gluc 10%" |]
+
+    let update ctx =
+        ctx |> OrderContext.updateFilterIfOneScenario |> _.Filter.DoseRuleComponents
+
+    testList
+        "the dose rule components of the filter"
+        [
+            test "the first scenario gives every component of the dose rule in the order of the rule" {
+                tpn () |> contextWith None |> update |> Expect.equal "every name" tpnNames
+            }
+
+            test "the diluent of the order is not a component of the dose rule" {
+                tpn ()
+                |> contextWith (Some "gluc 10%")
+                |> update
+                |> Expect.equal "without the diluent" (tpnNames |> Array.take 3)
+            }
+
+            test "a scenario after a selection leaves the components as they are" {
+                let first = tpn () |> contextWith None |> OrderContext.updateFilterIfOneScenario
+                let ord = tpn ()
+                let sc = first.Scenarios |> Array.exactlyOne
+
+                // the order made after a selection that left out the second component
+                let selected = { ord with Order.Orderable.Components = ord.Orderable.Components |> List.removeAt 1 }
+
+                { first with Scenarios = [| { sc with Order = selected } |] }
+                |> update
+                |> Expect.equal "the components of the first scenario" tpnNames
+            }
+
+            test "no scenario, or more than one, sets nothing" {
+                let ctx = tpn () |> contextWith None
+
+                { ctx with Scenarios = [||] } |> update |> Expect.isEmpty "no scenario"
+
+                { ctx with Scenarios = Array.append ctx.Scenarios ctx.Scenarios }
+                |> update
+                |> Expect.isEmpty "two scenarios"
+            }
+
+            test "emptying the components field empties the dose rule components" {
+                { OrderContext.emptyFilter with DoseRuleComponents = tpnNames }
+                |> OrderContext.clearField FilterField.Components
+                |> _.DoseRuleComponents
+                |> Expect.isEmpty "emptied"
+            }
+
+            test "letting go of the selection keeps the dose rule components" {
+                { OrderContext.emptyFilter with DoseRuleComponents = tpnNames }
+                |> OrderContext.clearChoice FilterField.Components
+                |> _.DoseRuleComponents
+                |> Expect.equal "kept" tpnNames
+            }
+
+            test "a filter stored before the field existed reads it as empty" {
+                match
+                    { (OrderContext.emptyFilter |> Filter.Dto.toDto) with DoseRuleComponents = null }
+                    |> Filter.Dto.fromDto
+                with
+                | Ok f -> f.DoseRuleComponents |> Expect.isEmpty "empty"
+                | Error e -> failtest $"%A{e}"
+            }
+
+            test "the dose rule components go to the Dto and back" {
+                match
+                    { OrderContext.emptyFilter with DoseRuleComponents = tpnNames }
+                    |> Filter.Dto.toDto
+                    |> Filter.Dto.fromDto
+                with
+                | Ok f -> f.DoseRuleComponents |> Expect.equal "the same" tpnNames
+                | Error e -> failtest $"%A{e}"
+            }
+        ]

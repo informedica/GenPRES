@@ -770,6 +770,7 @@ module OrderContext =
             DoseTypes = [||]
             Diluents = [||]
             Components = [||]
+            DoseRuleComponents = [||]
             Indication = None
             Generic = None
             Route = None
@@ -1026,6 +1027,7 @@ module OrderContext =
         | FilterField.Components ->
             { f with
                 Components = [||]
+                DoseRuleComponents = [||]
                 SelectedComponents = ComponentSelection.AllComponents
             }
 
@@ -1322,6 +1324,15 @@ Scenarios: {scenarios}
                                 sc.Components
                             else
                                 ctx.Filter.Components
+                        // set once from the first scenario, without its diluent, which a diluent choice changes
+                        DoseRuleComponents =
+                            if ctx.Filter.DoseRuleComponents |> Array.isEmpty then
+                                sc.Order.Orderable.Components
+                                |> List.map (_.Name >> Name.toString)
+                                |> List.filter (fun n -> Some n <> sc.Diluent)
+                                |> List.toArray
+                            else
+                                ctx.Filter.DoseRuleComponents
                     }
             }
 

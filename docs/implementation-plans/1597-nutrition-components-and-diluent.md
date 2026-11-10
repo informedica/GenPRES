@@ -204,8 +204,20 @@ One pull request at a time, each merged before the next.
    new command `OrderCommand.SetComponentQuantities`; `OrderContext` builds the list, from a solved
    previous preparation and with the diluent to diluent, and sets it only on an evaluated context:
    a refused context stays as sent. Migrated.
-5. **Client: the nutrition slot**: the rows from the main component, the optional components and
+5. **The component order on the filter** (`feat(genorder)`): a selection narrows the dose rule to the
+   main component and the selected additives, so a scenario made after it no longer holds an additive
+   left out, and the slot cannot show that additive in its place. A new field
+   `Filter.DoseRuleComponents` holds every component of the dose rule, the main component first, in the
+   order of the rule: the components of the order of the first scenario without the diluent of the
+   dilution rule, since a diluent choice can change the diluent. It is set once, inline in
+   `updateFilterIfOneScenario` beside the additive options in `Filter.Components`, and emptied where
+   they are: `create`, `clearField FilterField.Components` and the Shared `emptyFilter`. It goes
+   through the Dto (a filter stored without it reads it as empty), Shared and the server mappers; the
+   fixture `order_plan_v13.json` gets the field in place, as it got `SelectedComponents`. Migrated.
+   - Like the additive options, the field is not emptied when another dose rule is picked: #1769, to
+     land before step 6.
+6. **Client: the nutrition slot**: the rows from the main component, the optional components and
    the diluent; the checkboxes and the select through the existing commands; disabled while the
    composition is locked (`IntakePolicy.isCompositionLocked`) or the slot is busy.
-6. **Sheets** (the maintainer): Samenstelling B to E and NICU mix as decided, with the `Diluents`
+7. **Sheets** (the maintainer): Samenstelling B to E and NICU mix as decided, with the `Diluents`
    cell separated by `|` on every row; `glycine buffer` marked `IsDiluent`; the demo sheet.

@@ -35,6 +35,7 @@ module Contract =
             DoseTypes = f.DoseTypes |> Array.map doseType
             Diluents = f.Diluents
             Components = f.Components
+            DoseRuleComponents = f.DoseRuleComponents
             Indication = f.Indication
             Generic = f.Generic
             Route = f.Route

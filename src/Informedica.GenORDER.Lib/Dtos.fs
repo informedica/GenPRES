@@ -188,6 +188,7 @@ module Filter =
             DoseTypes = if dtps |> Array.length = 1 then dtps else sent.DoseTypes
             Diluents = sent.Diluents
             Components = sent.Components
+            DoseRuleComponents = sent.DoseRuleComponents
             Diluent = sent.Diluent
             SelectedComponents = sent.SelectedComponents
             PickedProducts = sent.PickedProducts
@@ -218,6 +219,7 @@ module Filter =
                 DoseTypes: string[]
                 Diluents: string[]
                 Components: string[]
+                DoseRuleComponents: string[]
                 Indication: string option
                 Generic: string option
                 Route: string option
@@ -253,6 +255,7 @@ module Filter =
                 DoseTypes = f.DoseTypes |> Array.map DoseTypeDto.toString
                 Diluents = f.Diluents
                 Components = f.Components
+                DoseRuleComponents = f.DoseRuleComponents
                 Indication = f.Indication
                 Generic = f.Generic
                 Route = f.Route
@@ -297,6 +300,8 @@ module Filter =
                                 DoseTypes = doseTypes |> List.toArray
                                 Diluents = dto.Diluents |> DtoResult.orEmpty
                                 Components = dto.Components |> DtoResult.orEmpty
+                                // a filter stored before the field existed has none
+                                DoseRuleComponents = dto.DoseRuleComponents |> DtoResult.orEmpty
                                 Indication = dto.Indication
                                 Generic = dto.Generic
                                 Route = dto.Route
