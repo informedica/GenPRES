@@ -936,7 +936,7 @@ module DoseRuleToDataTests =
     /// tolerant reader.
     ///
     /// Verified by mutation: renaming <c>get "MinQty"</c> to <c>get "MinQuantity"</c>
-    /// in SolutionRule.fs turns assertion (1) for SolutionRules red. Note it is (1)
+    /// in DilutionRule.fs turns assertion (1) for DilutionRules red. Note it is (1)
     /// that catches a rename - (2) stays green because the parse then fails for the
     /// wrong reason - so do not weaken (1) into "parses with at least these columns".
     /// </remarks>
@@ -1017,7 +1017,7 @@ module DoseRuleToDataTests =
                 "Chlor mmol"
                 "Iron mmol"
                 "VitD IE"
-                "IsReconst"
+                "IsSolvent"
                 "IsDiluent"
                 "IsAdditive"
             ]
@@ -1114,7 +1114,7 @@ module DoseRuleToDataTests =
                 (Mapping.parseSheet Mapping.linkRuleRow >> Result.isOk)
 
                 "Reconstitution",
-                [ "GPK"; "Route"; "Loc"; "Dep"; "DiluentVol"; "ExpansionVol"; "Diluents" ],
+                [ "GPK"; "Route"; "Loc"; "Dep"; "SolventVol"; "ExpansionVol"; "Solvents" ],
                 [],
                 [],
                 (Product.Reconstitution.parseReconstitution >> Result.isOk)
@@ -1140,7 +1140,7 @@ module DoseRuleToDataTests =
                 [],
                 (DoseRuleData.parseDoseRuleData >> Result.isOk)
 
-                "SolutionRules",
+                "DilutionRules",
                 [
                     "Generic"
                     "Form"
@@ -1160,7 +1160,7 @@ module DoseRuleToDataTests =
                     "MaxDose"
                     "DoseType"
                     "DoseText"
-                    "Solutions"
+                    "Diluents"
                     "Volumes"
                     "Div"
                     "MinVol"
@@ -1175,8 +1175,8 @@ module DoseRuleToDataTests =
                     "Quantities"
                     "MinQty"
                     "MaxQty"
-                    "MinQtyAdj"
-                    "MaxQtyAdj"
+                    "MinQtyPerKg"
+                    "MaxQtyPerKg"
                     "MinDrip"
                     "MaxDrip"
                     "MinConc"
@@ -1184,7 +1184,7 @@ module DoseRuleToDataTests =
                 ],
                 [],
                 [],
-                (SolutionRule.parseSolutionRuleData >> Result.isOk)
+                (DilutionRule.parseDilutionRuleData >> Result.isOk)
 
                 "RenalRules",
                 [
@@ -1369,10 +1369,10 @@ module FormularyProductTests =
 
 
     let flags (fp: FormularyProduct) =
-        [ fp.CanBeUsedAsAdditive; fp.CanBeUsedAsDiluent; fp.CanBeUsedForReconstitution ]
+        [ fp.CanBeUsedAsAdditive; fp.CanBeUsedAsDiluent; fp.CanBeUsedAsSolvent ]
 
 
-    let flagColumns = [ "IsAdditive"; "IsDiluent"; "IsReconst" ]
+    let flagColumns = [ "IsAdditive"; "IsDiluent"; "IsSolvent" ]
 
 
     let flagValues =
@@ -3501,8 +3501,8 @@ module Tests =
                         |> Expect.equal "a tube only: the any category" [ false; false; true ]
                     }
 
-                    test "a solution limit is headed by the rule's access, the tube included" {
-                        let rule access : SolutionRule =
+                    test "a dilution limit is headed by the rule's access, the tube included" {
+                        let rule access : DilutionRule =
                             {
                                 Generic = "paracetamol"
                                 Form = None
@@ -3518,12 +3518,12 @@ module Tests =
                                 VolumeAdjust = MinMax.empty
                                 DripRate = MinMax.empty
                                 DoseFraction = MinMax.empty
-                                SolutionLimits = [||]
+                                DilutionLimits = [||]
                             }
 
-                        let limit: SolutionLimit =
+                        let limit: DilutionLimit =
                             {
-                                SolutionLimitTarget = NoLimitTarget
+                                DilutionLimitTarget = NoLimitTarget
                                 Quantity = MinMax.empty
                                 QuantityAdj = MinMax.empty
                                 Quantities = None
@@ -3532,7 +3532,7 @@ module Tests =
                             }
 
                         let heading access =
-                            (SolutionRule.Print.printSolutionLimit (rule access) false limit).head
+                            (DilutionRule.Print.printDilutionLimit (rule access) false limit).head
 
                         heading EnteralTube |> Expect.stringStarts "a tube" "\n###### sonde: \n* "
                         heading CVL |> Expect.stringStarts "central" "\n###### centraal: \n* "
@@ -3597,9 +3597,9 @@ module Tests =
                 Route = "iv"
                 Location = None
                 Department = department
-                DiluentVolume = Units.Volume.milliLiter |> ValueUnit.singleWithValue 10N
+                SolventVolume = Units.Volume.milliLiter |> ValueUnit.singleWithValue 10N
                 ExpansionVolume = None
-                Diluents = [| "NaCl 0,9%" |]
+                Solvents = [| "NaCl 0,9%" |]
             }
 
 
@@ -3712,7 +3712,7 @@ module Tests =
                 {
                     Patient = PatientDtoTests.Fixtures.child
                     DoseRule = dr
-                    SolutionRules = [||]
+                    DilutionRules = [||]
                     RenalRules = [||]
                 }
             )
@@ -6179,9 +6179,9 @@ module Tests =
                 Route = "iv"
                 Location = None
                 Department = dep
-                DiluentVolume = Units.Volume.milliLiter |> ValueUnit.singleWithValue 10N
+                SolventVolume = Units.Volume.milliLiter |> ValueUnit.singleWithValue 10N
                 ExpansionVolume = None
-                Diluents = [| "NaCl 0,9%" |]
+                Solvents = [| "NaCl 0,9%" |]
             }
 
 
@@ -6196,12 +6196,12 @@ module Tests =
                         |> Expect.equal "ICC, ICK, NEO" [| "ICC"; "ICK"; "NEO" |]
                     }
 
-                    test "the names come from the dose rules, the solution rules and the reconstitutions" {
+                    test "the names come from the dose rules, the dilution rules and the reconstitutions" {
                         let doseRow =
                             let d = DoseRuleProductTests.mkData "paracetamol" "oral" "" "" [||] [||]
                             { d with Patient = { d.Patient with Dep = "PICU" } }
 
-                        let solutionRow: SolutionRuleData =
+                        let dilutionRow: DilutionRuleData =
                             {
                                 Generic = "paracetamol"
                                 Form = ""
@@ -6221,7 +6221,7 @@ module Tests =
                                 MaxDose = None
                                 DoseType = ""
                                 DoseText = ""
-                                Solutions = []
+                                Diluents = []
                                 Div = None
                                 Volumes = [||]
                                 MinVol = None
@@ -6236,15 +6236,15 @@ module Tests =
                                 Quantities = [||]
                                 MinQty = None
                                 MaxQty = None
-                                MinQtyAdj = None
-                                MaxQtyAdj = None
+                                MinQtyPerKg = None
+                                MaxQtyPerKg = None
                                 MinDrip = None
                                 MaxDrip = None
                                 MinConc = None
                                 MaxConc = None
                             }
 
-                        Departments.ofRules [| doseRow |] [| solutionRow |] [| reconstitutionOf (Some "NEO") |]
+                        Departments.ofRules [| doseRow |] [| dilutionRow |] [| reconstitutionOf (Some "NEO") |]
                         |> _.Names
                         |> Expect.equal "ICC, ICK, NEO, PICU" [| "ICC"; "ICK"; "NEO"; "PICU" |]
                     }
@@ -6291,8 +6291,8 @@ module Tests =
                     }
 
                     test
-                        "the default applied to the matching: a patient without a department takes the default's solution rules and the rules for any" {
-                        let rule dep : SolutionRule =
+                        "the default applied to the matching: a patient without a department takes the default's dilution rules and the rules for any" {
+                        let rule dep : DilutionRule =
                             {
                                 Generic = "paracetamol"
                                 Form = None
@@ -6308,7 +6308,7 @@ module Tests =
                                 VolumeAdjust = MinMax.empty
                                 DripRate = MinMax.empty
                                 DoseFraction = MinMax.empty
-                                SolutionLimits = [||]
+                                DilutionLimits = [||]
                             }
 
                         let rules = [| rule (Some "ICK"); rule (Some "NICU"); rule None |]
@@ -6316,13 +6316,13 @@ module Tests =
 
                         // what getRules does: the default on the filter's patient, never on the patient itself
                         let matched (department: string option) =
-                            { Filter.solutionFilter "paracetamol" with
+                            { Filter.dilutionFilter "paracetamol" with
                                 Patient =
                                     { PatientDtoTests.Fixtures.child with
                                         Department = department |> Departments.forPatient deps
                                     }
                             }
-                            |> fun filter -> rules |> SolutionRule.filter [||] filter
+                            |> fun filter -> rules |> DilutionRule.filter [||] filter
                             |> Array.map _.PatientCategory.Department
 
                         matched None |> Expect.equal "ICK and any" [| Some "ICK"; None |]
@@ -6380,14 +6380,14 @@ module Tests =
                     }
 
                     test
-                        "the registry derives it from the dose-rule rows, the solution-rule rows and the reconstitutions, once" {
+                        "the registry derives it from the dose-rule rows, the dilution-rule rows and the reconstitutions, once" {
                         let mutable loads = 0
 
                         let registry =
                             Map
                                 [
                                     Keys.doseRuleData.Name, ofResult (fun () -> Ok([||]: DoseRuleData[]))
-                                    Keys.solutionRuleData.Name, ofResult (fun () -> Ok([||]: SolutionRuleData[]))
+                                    Keys.dilutionRuleData.Name, ofResult (fun () -> Ok([||]: DilutionRuleData[]))
                                     Keys.reconstitution.Name,
                                     ofResult (fun () ->
                                         loads <- loads + 1
@@ -6413,7 +6413,7 @@ module Tests =
                 ]
 
 
-    module SolutionRuleFilterTests =
+    module DilutionRuleFilterTests =
 
         open Informedica.GenForm.Lib.Types
 
@@ -6426,8 +6426,8 @@ module Tests =
             MinMax.createInclIncl (min |> ValueUnit.singleWithUnit u) (max |> ValueUnit.singleWithUnit u)
 
 
-        /// A paracetamol iv solution rule for a patient category, named by its indication.
-        let rule name patCat : SolutionRule =
+        /// A paracetamol iv dilution rule for a patient category, named by its indication.
+        let rule name patCat : DilutionRule =
             {
                 Generic = "paracetamol"
                 Form = None
@@ -6443,7 +6443,7 @@ module Tests =
                 VolumeAdjust = MinMax.empty
                 DripRate = MinMax.empty
                 DoseFraction = MinMax.empty
-                SolutionLimits = [||]
+                DilutionLimits = [||]
             }
 
 
@@ -6476,17 +6476,17 @@ module Tests =
 
         /// The indications of the rules a lookup for the patient finds.
         let matched pat =
-            { Filter.solutionFilter "paracetamol" with Patient = pat }
-            |> fun filter -> rules |> SolutionRule.filter [||] filter
-            |> Array.choose (fun (sr: SolutionRule) -> sr.Indication)
+            { Filter.dilutionFilter "paracetamol" with Patient = pat }
+            |> fun filter -> rules |> DilutionRule.filter [||] filter
+            |> Array.choose (fun (sr: DilutionRule) -> sr.Indication)
 
 
         let tests =
             testList
-                "SolutionRule.filter"
+                "DilutionRule.filter"
                 [
                     test
-                        "a lookup without a patient returns every solution rule, also those with an age or weight range" {
+                        "a lookup without a patient returns every dilution rule, also those with an age or weight range" {
                         Patient.patient
                         |> matched
                         |> Expect.equal "all five" [| "any"; "neonate"; "under 10 kg"; "ICK"; "NEO neonate" |]
@@ -7410,11 +7410,11 @@ module Tests =
                                 }
                             |]
                     }
-                SolutionRules = [||]
+                DilutionRules = [||]
                 RenalRules = [||]
             }
 
-        let private solutionRule volumeAdjust : SolutionRule =
+        let private dilutionRule volumeAdjust : DilutionRule =
             {
                 Generic = "paracetamol"
                 Form = None
@@ -7430,7 +7430,7 @@ module Tests =
                 VolumeAdjust = volumeAdjust
                 DripRate = MinMax.empty
                 DoseFraction = MinMax.empty
-                SolutionLimits = [||]
+                DilutionLimits = [||]
             }
 
         let private renalLimit qty qtyAdj =
@@ -7539,9 +7539,9 @@ module Tests =
                             [ false; true; true ]
                     }
 
-                    test "a solution rule with a per kg volume makes the rule need a weight" {
+                    test "a dilution rule with a per kg volume makes the rule need a weight" {
                         let withSolution volumeAdjust =
-                            { ruleWith noWeight absoluteLimit with SolutionRules = [| solutionRule volumeAdjust |] }
+                            { ruleWith noWeight absoluteLimit with DilutionRules = [| dilutionRule volumeAdjust |] }
 
                         [
                             withSolution (RR.range (RR.perKg mL) None (Some 10N))
@@ -7725,10 +7725,10 @@ module Tests =
 
                         let generics = drs |> Array.distinctBy (fun dr -> dr.Generic |> Generic.genericName, dr.Route)
 
-                        let solutionRules =
+                        let dilutionRules =
                             generics
                             |> Array.collect (fun dr ->
-                                let sr = solutionRule (RR.range (RR.perKg mL) None (Some 10N))
+                                let sr = dilutionRule (RR.range (RR.perKg mL) None (Some 10N))
 
                                 let sr =
                                     { sr with
@@ -7781,7 +7781,7 @@ module Tests =
 
                             let prs =
                                 filterFor pat
-                                |> PrescriptionRule.filter drs solutionRules renalRules Fixtures.rm.Value
+                                |> PrescriptionRule.filter drs dilutionRules renalRules Fixtures.rm.Value
 
                             prs |> Result.map Array.isEmpty |> Expect.equal "rules are selected" (Ok false)
 
@@ -7859,7 +7859,7 @@ module Tests =
             }
 
 
-        let solutionRule generic conc =
+        let dilutionRule generic conc =
             {
                 Generic = generic
                 Form = None
@@ -7875,10 +7875,10 @@ module Tests =
                 VolumeAdjust = MinMax.empty
                 DripRate = MinMax.empty
                 DoseFraction = MinMax.empty
-                SolutionLimits =
+                DilutionLimits =
                     [|
-                        { SolutionLimit.limit with
-                            SolutionLimitTarget = SubstanceLimitTarget generic
+                        { DilutionLimit.limit with
+                            DilutionLimitTarget = SubstanceLimitTarget generic
                             Concentration = conc
                         }
                     |]
@@ -7900,13 +7900,13 @@ module Tests =
 
 
         let doseFractionRule doseFraction =
-            { solutionRule "vancomycine" MinMax.empty with
-                SolutionLimits = [||]
+            { dilutionRule "vancomycine" MinMax.empty with
+                DilutionLimits = [||]
                 DoseFraction = doseFraction
             }
 
 
-        /// A solution rule with a maximum dose fraction and nothing that bounds the preparation.
+        /// A dilution rule with a maximum dose fraction and nothing that bounds the preparation.
         let unboundedRule = bounds None (times 1N) |> doseFractionRule
 
 
@@ -7963,9 +7963,9 @@ module Tests =
                             Route = "INTRAVENEUS"
                             Location = None
                             Department = dep
-                            DiluentVolume = vol |> ValueUnit.singleWithUnit mL
+                            SolventVolume = vol |> ValueUnit.singleWithUnit mL
                             ExpansionVolume = None
-                            Diluents = [||]
+                            Solvents = [||]
                         }
                     |]
             }
@@ -8014,7 +8014,7 @@ module Tests =
             }
 
 
-        let solutionRow generic solutions : SolutionRuleData =
+        let dilutionRow generic diluents : DilutionRuleData =
             {
                 Generic = generic
                 Form = ""
@@ -8034,7 +8034,7 @@ module Tests =
                 MaxDose = None
                 DoseType = ""
                 DoseText = ""
-                Solutions = solutions
+                Diluents = diluents
                 Div = None
                 Volumes = [||]
                 MinVol = None
@@ -8049,8 +8049,8 @@ module Tests =
                 Quantities = [||]
                 MinQty = None
                 MaxQty = None
-                MinQtyAdj = None
-                MaxQtyAdj = None
+                MinQtyPerKg = None
+                MaxQtyPerKg = None
                 MinDrip = None
                 MaxDrip = None
                 MinConc = Some(1N / 10N)
@@ -8070,16 +8070,16 @@ module Tests =
             | ws -> ws |> failtestf "expected one warning, got %A"
 
 
-        // The entry of the default registry, run on hand-built dose rules and solution rules.
-        let ruleCheckWarnings (doseRules: DoseRule[]) (solutionRules: SolutionRule[]) =
+        // The entry of the default registry, run on hand-built dose rules and dilution rules.
+        let ruleCheckWarnings (doseRules: DoseRule[]) (dilutionRules: DilutionRule[]) =
             let reg =
                 Map
                     [
                         Keys.ruleChecks.Name, (Resources.defaultRegistry FormLogging.noOp "")[Keys.ruleChecks.Name]
                         Keys.parenteralMeds.Name, ofResult (fun () -> Ok(Array.empty<ProductComponent>))
-                        Keys.solutionRuleData.Name, ofResult (fun () -> Ok(Array.empty<SolutionRuleData>))
+                        Keys.dilutionRuleData.Name, ofResult (fun () -> Ok(Array.empty<DilutionRuleData>))
                         Keys.doseRules.Name, ofResult (fun () -> Ok doseRules)
-                        Keys.solutionRules.Name, ofResult (fun () -> Ok solutionRules)
+                        Keys.dilutionRules.Name, ofResult (fun () -> Ok dilutionRules)
                         Keys.routeMappings.Name, ofResult (fun () -> Ok ivRouteMapping)
                     ]
 
@@ -8331,12 +8331,12 @@ module Tests =
                         ]
 
                     testList
-                        "solution rules"
+                        "dilution rules"
                         [
                             test "the granisetron concentration of 0.5 to 0.1 mg/mL is reported" {
                                 let s =
-                                    [| solutionRule "granisetron" (range mgPerMl (1N / 2N) (1N / 10N)) |]
-                                    |> SolutionRule.invertedRanges
+                                    [| dilutionRule "granisetron" (range mgPerMl (1N / 2N) (1N / 10N)) |]
+                                    |> DilutionRule.invertedRanges
                                     |> List.map warningText
                                     |> single
 
@@ -8345,8 +8345,8 @@ module Tests =
                             }
 
                             test "a concentration of 0.1 to 0.5 mg/mL is not reported" {
-                                [| solutionRule "granisetron" (range mgPerMl (1N / 10N) (1N / 2N)) |]
-                                |> SolutionRule.invertedRanges
+                                [| dilutionRule "granisetron" (range mgPerMl (1N / 10N) (1N / 2N)) |]
+                                |> DilutionRule.invertedRanges
                                 |> Expect.isEmpty "none"
                             }
                         ]
@@ -8356,64 +8356,64 @@ module Tests =
                         [
                             let parenteral = [| parenteral "NaCl 0,9%"; parenteral "glucose 5%" |]
 
-                            test "solutions that match a parenteral product give no warning" {
-                                [| solutionRow "granisetron" [ "NaCl 0,9%" ] |]
-                                |> SolutionRule.missingDiluents parenteral
+                            test "diluents that match a parenteral product give no warning" {
+                                [| dilutionRow "granisetron" [ "NaCl 0,9%" ] |]
+                                |> DilutionRule.missingDiluents parenteral
                                 |> Expect.isEmpty "none"
                             }
 
                             test "the match ignores case" {
-                                [| solutionRow "granisetron" [ "nacl 0,9%" ] |]
-                                |> SolutionRule.missingDiluents parenteral
+                                [| dilutionRow "granisetron" [ "nacl 0,9%" ] |]
+                                |> DilutionRule.missingDiluents parenteral
                                 |> Expect.isEmpty "none"
                             }
 
-                            test "solutions that match no parenteral product give one warning naming them" {
+                            test "diluents that match no parenteral product give one warning naming them" {
                                 let s =
-                                    [| solutionRow "granisetron" [ "NaCl 0,45%"; "glucose 10%" ] |]
-                                    |> SolutionRule.missingDiluents parenteral
+                                    [| dilutionRow "granisetron" [ "NaCl 0,45%"; "glucose 10%" ] |]
+                                    |> DilutionRule.missingDiluents parenteral
                                     |> List.map warningText
                                     |> single
 
                                 s |> Expect.stringContains "names the generic" "granisetron"
-                                s |> Expect.stringContains "names the solutions" "NaCl 0,45%|glucose 10%"
+                                s |> Expect.stringContains "names the diluents" "NaCl 0,45%|glucose 10%"
                             }
 
                             test "one matching solution among several is enough" {
-                                [| solutionRow "granisetron" [ "NaCl 0,45%"; "glucose 5%" ] |]
-                                |> SolutionRule.missingDiluents parenteral
+                                [| dilutionRow "granisetron" [ "NaCl 0,45%"; "glucose 5%" ] |]
+                                |> DilutionRule.missingDiluents parenteral
                                 |> Expect.isEmpty "none"
                             }
 
-                            test "an empty Solutions column gives no warning" {
-                                [| solutionRow "granisetron" []; solutionRow "granisetron" [ "" ] |]
-                                |> SolutionRule.missingDiluents parenteral
+                            test "an empty Diluents column gives no warning" {
+                                [| dilutionRow "granisetron" []; dilutionRow "granisetron" [ "" ] |]
+                                |> DilutionRule.missingDiluents parenteral
                                 |> Expect.isEmpty "none"
                             }
 
-                            test "with no parenteral products at all, a rule asking for solutions is reported" {
-                                [| solutionRow "granisetron" [ "NaCl 0,9%" ] |]
-                                |> SolutionRule.missingDiluents [||]
+                            test "with no parenteral products at all, a rule asking for diluents is reported" {
+                                [| dilutionRow "granisetron" [ "NaCl 0,9%" ] |]
+                                |> DilutionRule.missingDiluents [||]
                                 |> List.length
                                 |> Expect.equal "one" 1
                             }
 
                             test "two rows of one rule, one per substance, give one warning" {
                                 [|
-                                    { solutionRow "a/b" [ "NaCl 0,45%" ] with Substance = "a" }
-                                    { solutionRow "a/b" [ "NaCl 0,45%" ] with Substance = "b" }
+                                    { dilutionRow "a/b" [ "NaCl 0,45%" ] with Substance = "a" }
+                                    { dilutionRow "a/b" [ "NaCl 0,45%" ] with Substance = "b" }
                                 |]
-                                |> SolutionRule.missingDiluents parenteral
+                                |> DilutionRule.missingDiluents parenteral
                                 |> List.length
                                 |> Expect.equal "one" 1
                             }
 
                             test "two rules for two departments give two warnings" {
                                 [|
-                                    { solutionRow "granisetron" [ "NaCl 0,45%" ] with Department = Some "ICK" }
-                                    { solutionRow "granisetron" [ "NaCl 0,45%" ] with Department = Some "NEO" }
+                                    { dilutionRow "granisetron" [ "NaCl 0,45%" ] with Department = Some "ICK" }
+                                    { dilutionRow "granisetron" [ "NaCl 0,45%" ] with Department = Some "NEO" }
                                 |]
-                                |> SolutionRule.missingDiluents parenteral
+                                |> DilutionRule.missingDiluents parenteral
                                 |> List.length
                                 |> Expect.equal "two" 2
                             }
@@ -8423,48 +8423,48 @@ module Tests =
                         "substances without an allowed strength"
                         [
                             test "a limit below the only strength reports the substance" {
-                                solutionRule "zidovudine" (maxConc (5N / 2N))
-                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "zidovudine" 10N |]
+                                dilutionRule "zidovudine" (maxConc (5N / 2N))
+                                |> DilutionRule.substancesWithoutAllowedStrength [| liquid "zidovudine" 10N |]
                                 |> Expect.equal "zidovudine" [| "zidovudine" |]
                             }
 
                             test "a limit that allows one of two strengths reports nothing" {
-                                solutionRule "midazolam" (maxConc 5N)
-                                |> SolutionRule.substancesWithoutAllowedStrength
+                                dilutionRule "midazolam" (maxConc 5N)
+                                |> DilutionRule.substancesWithoutAllowedStrength
                                     [| liquid "midazolam" 1N; liquid "midazolam" 5N |]
                                 |> Expect.isEmpty "none"
                             }
 
                             test "a limit below both of two strengths reports the substance" {
-                                solutionRule "teicoplanine" (maxConc 10N)
-                                |> SolutionRule.substancesWithoutAllowedStrength
+                                dilutionRule "teicoplanine" (maxConc 10N)
+                                |> DilutionRule.substancesWithoutAllowedStrength
                                     [| liquid "teicoplanine" 64N; liquid "teicoplanine" 127N |]
                                 |> Expect.equal "teicoplanine" [| "teicoplanine" |]
                             }
 
                             test "a strength equal to an inclusive maximum is allowed" {
-                                solutionRule "tigecycline" (maxConc 1N)
-                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "tigecycline" 1N |]
+                                dilutionRule "tigecycline" (maxConc 1N)
+                                |> DilutionRule.substancesWithoutAllowedStrength [| liquid "tigecycline" 1N |]
                                 |> Expect.isEmpty "none"
                             }
 
                             test "a limit of 10 to 10 mg/mL allows 10 mg/mL" {
-                                solutionRule "voriconazol" (range mgPerMl 10N 10N)
-                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "voriconazol" 10N |]
+                                dilutionRule "voriconazol" (range mgPerMl 10N 10N)
+                                |> DilutionRule.substancesWithoutAllowedStrength [| liquid "voriconazol" 10N |]
                                 |> Expect.isEmpty "none"
                             }
 
                             test "a limit of 10 to 10 mg/mL does not allow 10.5 mg/mL" {
-                                solutionRule "voriconazol" (range mgPerMl 10N 10N)
-                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "voriconazol" (21N / 2N) |]
+                                dilutionRule "voriconazol" (range mgPerMl 10N 10N)
+                                |> DilutionRule.substancesWithoutAllowedStrength [| liquid "voriconazol" (21N / 2N) |]
                                 |> Expect.equal "voriconazol" [| "voriconazol" |]
                             }
 
                             test "a strength in grams per mL is compared in the same unit group" {
                                 let gPerMl = Units.Mass.gram |> ValueUnit.per mL
 
-                                solutionRule "tigecycline" (maxConc 1N)
-                                |> SolutionRule.substancesWithoutAllowedStrength
+                                dilutionRule "tigecycline" (maxConc 1N)
+                                |> DilutionRule.substancesWithoutAllowedStrength
                                     [|
                                         product
                                             "tigecycline"
@@ -8480,8 +8480,8 @@ module Tests =
                             test "a strength per piece is not compared, so nothing is reported" {
                                 let mgPerVial = mg |> ValueUnit.per (Units.General.general "flacon")
 
-                                solutionRule "teicoplanine" (maxConc 10N)
-                                |> SolutionRule.substancesWithoutAllowedStrength
+                                dilutionRule "teicoplanine" (maxConc 10N)
+                                |> DilutionRule.substancesWithoutAllowedStrength
                                     [|
                                         product
                                             "teicoplanine"
@@ -8495,20 +8495,20 @@ module Tests =
                             }
 
                             test "a product without the substance reports nothing" {
-                                solutionRule "zidovudine" (maxConc (5N / 2N))
-                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "esmolol" 10N |]
+                                dilutionRule "zidovudine" (maxConc (5N / 2N))
+                                |> DilutionRule.substancesWithoutAllowedStrength [| liquid "esmolol" 10N |]
                                 |> Expect.isEmpty "none"
                             }
 
                             test "no products report nothing" {
-                                solutionRule "zidovudine" (maxConc (5N / 2N))
-                                |> SolutionRule.substancesWithoutAllowedStrength [||]
+                                dilutionRule "zidovudine" (maxConc (5N / 2N))
+                                |> DilutionRule.substancesWithoutAllowedStrength [||]
                                 |> Expect.isEmpty "none"
                             }
 
                             test "a rule without a concentration limit reports nothing" {
-                                solutionRule "zidovudine" MinMax.empty
-                                |> SolutionRule.substancesWithoutAllowedStrength [| liquid "zidovudine" 10N |]
+                                dilutionRule "zidovudine" MinMax.empty
+                                |> DilutionRule.substancesWithoutAllowedStrength [| liquid "zidovudine" 10N |]
                                 |> Expect.isEmpty "none"
                             }
                         ]
@@ -8518,12 +8518,12 @@ module Tests =
                         [
                             let injection = Solution "injectievloeistof"
                             let zidovudine = [| ivDoseRule "zidovudine" injection [| liquid "zidovudine" 10N |] |]
-                            let undilutable = SolutionRule.undilutableRules ivRouteMapping
+                            let undilutable = DilutionRule.undilutableRules ivRouteMapping
                             let ick = { PatientCategory.empty with Department = Some "ICK" }
 
                             test "a rule without diluents whose limit allows no strength gives one warning" {
                                 let s =
-                                    [| solutionRule "zidovudine" (maxConc (5N / 2N)) |]
+                                    [| dilutionRule "zidovudine" (maxConc (5N / 2N)) |]
                                     |> undilutable zidovudine
                                     |> List.map warningText
                                     |> single
@@ -8534,7 +8534,7 @@ module Tests =
 
                             test "a rule with a diluent gives no warning" {
                                 [|
-                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with
+                                    { dilutionRule "zidovudine" (maxConc (5N / 2N)) with
                                         Diluents = [| liquid "glucose 5%" 50N |]
                                     }
                                 |]
@@ -8543,7 +8543,7 @@ module Tests =
                             }
 
                             test "a rule whose limit allows the strength gives no warning" {
-                                [| solutionRule "zidovudine" (maxConc 10N) |]
+                                [| dilutionRule "zidovudine" (maxConc 10N) |]
                                 |> undilutable zidovudine
                                 |> Expect.isEmpty "none"
                             }
@@ -8559,20 +8559,20 @@ module Tests =
                                                 [| { dr.ComponentLimits[0] with Name = "glucose 5%" } |]
                                     }
 
-                                [| solutionRule "zidovudine" (maxConc (5N / 2N)) |]
+                                [| dilutionRule "zidovudine" (maxConc (5N / 2N)) |]
                                 |> undilutable [| dr |]
                                 |> Expect.isEmpty "none"
                             }
 
                             test "a dose rule of another generic gives no warning" {
-                                [| solutionRule "zidovudine" (maxConc (5N / 2N)) |]
+                                [| dilutionRule "zidovudine" (maxConc (5N / 2N)) |]
                                 |> undilutable [| ivDoseRule "esmolol" injection [| liquid "zidovudine" 10N |] |]
                                 |> Expect.isEmpty "none"
                             }
 
                             test "a dose rule of another indication gives no warning" {
                                 [|
-                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with
+                                    { dilutionRule "zidovudine" (maxConc (5N / 2N)) with
                                         Indication = Some "HIV profylaxe"
                                     }
                                 |]
@@ -8582,7 +8582,7 @@ module Tests =
 
                             test "a dose rule of another dose type gives no warning" {
                                 [|
-                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with DoseType = Continuous "" }
+                                    { dilutionRule "zidovudine" (maxConc (5N / 2N)) with DoseType = Continuous "" }
                                 |]
                                 |> undilutable zidovudine
                                 |> Expect.isEmpty "none"
@@ -8590,7 +8590,7 @@ module Tests =
 
                             test "a powder is compared at the strength it has once dissolved for the department" {
                                 // 400 mg in 3 mL is about 133 mg/mL
-                                [| { solutionRule "teicoplanine" (maxConc 10N) with PatientCategory = ick } |]
+                                [| { dilutionRule "teicoplanine" (maxConc 10N) with PatientCategory = ick } |]
                                 |> undilutable
                                     [|
                                         ivDoseRule
@@ -8604,7 +8604,7 @@ module Tests =
 
                             test "a powder dissolved to a strength within the limit gives no warning" {
                                 // 400 mg in 40 mL is 10 mg/mL
-                                [| { solutionRule "teicoplanine" (maxConc 10N) with PatientCategory = ick } |]
+                                [| { dilutionRule "teicoplanine" (maxConc 10N) with PatientCategory = ick } |]
                                 |> undilutable
                                     [|
                                         ivDoseRule
@@ -8616,7 +8616,7 @@ module Tests =
                             }
 
                             test "a powder dose rule that fails next to a liquid dose rule that fits gives one warning" {
-                                [| { solutionRule "teicoplanine" (maxConc 10N) with PatientCategory = ick } |]
+                                [| { dilutionRule "teicoplanine" (maxConc 10N) with PatientCategory = ick } |]
                                 |> undilutable
                                     [|
                                         ivDoseRule
@@ -8636,7 +8636,7 @@ module Tests =
                                 let dr = zidovudine[0]
 
                                 [|
-                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with PatientCategory = ick }
+                                    { dilutionRule "zidovudine" (maxConc (5N / 2N)) with PatientCategory = ick }
                                 |]
                                 |> undilutable
                                     [|
@@ -8651,7 +8651,7 @@ module Tests =
                                 let dr = zidovudine[0]
 
                                 [|
-                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with
+                                    { dilutionRule "zidovudine" (maxConc (5N / 2N)) with
                                         PatientCategory = { PatientCategory.empty with Location = Some "UMCU" }
                                     }
                                 |]
@@ -8666,7 +8666,7 @@ module Tests =
                                 let dr = zidovudine[0]
 
                                 [|
-                                    { solutionRule "zidovudine" (maxConc (5N / 2N)) with PatientCategory = ick }
+                                    { dilutionRule "zidovudine" (maxConc (5N / 2N)) with PatientCategory = ick }
                                 |]
                                 |> undilutable
                                     [|
@@ -8680,7 +8680,7 @@ module Tests =
 
                             test "a rule without a department checks a powder for the department of its reconstitution" {
                                 // 400 mg in 3 mL is about 133 mg/mL, reconstituted only for ICK
-                                [| solutionRule "teicoplanine" (maxConc 10N) |]
+                                [| dilutionRule "teicoplanine" (maxConc 10N) |]
                                 |> undilutable
                                     [|
                                         ivDoseRule
@@ -8694,7 +8694,7 @@ module Tests =
 
                             test "a rule without a department gives no warning when the powder fits in that department" {
                                 // 400 mg in 40 mL is 10 mg/mL, reconstituted only for ICK
-                                [| solutionRule "teicoplanine" (maxConc 10N) |]
+                                [| dilutionRule "teicoplanine" (maxConc 10N) |]
                                 |> undilutable
                                     [|
                                         ivDoseRule
@@ -8707,8 +8707,8 @@ module Tests =
 
                             test "two equal rules give one warning" {
                                 [|
-                                    solutionRule "zidovudine" (maxConc (5N / 2N))
-                                    solutionRule "zidovudine" (maxConc (5N / 2N))
+                                    dilutionRule "zidovudine" (maxConc (5N / 2N))
+                                    dilutionRule "zidovudine" (maxConc (5N / 2N))
                                 |]
                                 |> undilutable zidovudine
                                 |> List.length
@@ -8722,21 +8722,21 @@ module Tests =
                             }
 
                             test "the rule checks at load report the rule" {
-                                ruleCheckWarnings zidovudine [| solutionRule "zidovudine" (maxConc (5N / 2N)) |]
+                                ruleCheckWarnings zidovudine [| dilutionRule "zidovudine" (maxConc (5N / 2N)) |]
                                 |> List.exists (String.contains "no diluent")
                                 |> Expect.isTrue "reported"
                             }
                         ]
 
                     testList
-                        "competing solution rules"
+                        "competing dilution rules"
                         [
                             let day1 = Timed "dag 1"
                             let day2 = Timed "dag 2"
                             let injection = Solution "injectievloeistof"
 
                             let rule doseType =
-                                { solutionRule "samenstelling c" MinMax.empty with DoseType = doseType }
+                                { dilutionRule "samenstelling c" MinMax.empty with DoseType = doseType }
 
                             // the weights from the minimum up to, not including, the maximum, as the sheet reads them
                             let weights min max =
@@ -8745,7 +8745,7 @@ module Tests =
                                     Max = max |> ValueUnit.singleWithUnit Units.Weight.gram |> Limit.exclusive |> Some
                                 }
 
-                            let withPatient f (sr: SolutionRule) = { sr with PatientCategory = sr.PatientCategory |> f }
+                            let withPatient f (sr: DilutionRule) = { sr with PatientCategory = sr.PatientCategory |> f }
 
                             let withWeight mm = withPatient (fun pc -> { pc with Weight = mm })
                             let withAccess access = withPatient (fun pc -> { pc with Access = access })
@@ -8755,7 +8755,7 @@ module Tests =
                                 let dr = ivDoseRule "samenstelling c" injection [||]
 
                                 rules
-                                |> SolutionRule.competingRules ivRouteMapping [| { dr with DoseType = day1 } |]
+                                |> DilutionRule.competingRules ivRouteMapping [| { dr with DoseType = day1 } |]
 
                             test "a rule without a dose type competes with a rule of the dose type" {
                                 [| rule NoDoseType; rule day1 |]
@@ -8778,7 +8778,7 @@ module Tests =
                                     rule day1 |> withWeight (weights 10000N 20000N)
                                     rule day1 |> withWeight (weights 10000N 20000N)
                                 |]
-                                |> SolutionRule.competingRules ivRouteMapping [| dr |]
+                                |> DilutionRule.competingRules ivRouteMapping [| dr |]
                                 |> Expect.isEmpty "no patient of the dose rule reaches them"
                             }
 
@@ -8805,7 +8805,7 @@ module Tests =
                                         { pc with Age = AbsoluteAge { MinMax.empty with Max = days 365N } }
                                     )
                                 |]
-                                |> SolutionRule.competingRules ivRouteMapping [| anyPatient |]
+                                |> DilutionRule.competingRules ivRouteMapping [| anyPatient |]
                                 |> Expect.isEmpty "no patient is both"
                             }
 
@@ -8863,7 +8863,7 @@ module Tests =
 
                             test "rules without a shared dose rule do not compete" {
                                 [| rule NoDoseType; rule day1 |]
-                                |> SolutionRule.competingRules ivRouteMapping [||]
+                                |> DilutionRule.competingRules ivRouteMapping [||]
                                 |> Expect.isEmpty "no dose rule"
                             }
 
@@ -8895,16 +8895,16 @@ module Tests =
                         [
                             let volume n = n |> ValueUnit.singleWithUnit mL |> Limit.inclusive |> Some
 
-                            let warns sr = [| sr |] |> SolutionRule.openDoseCounts |> List.length
+                            let warns sr = [| sr |] |> DilutionRule.openDoseCounts |> List.length
 
                             test "a maximum dose fraction alone gives a warning that names the rule" {
                                 [| unboundedRule |]
-                                |> SolutionRule.openDoseCounts
+                                |> DilutionRule.openDoseCounts
                                 |> List.map warningText
                                 |> Expect.equal
                                     "one warning"
                                     [
-                                        "solution rule vancomycine, INTRAVENEUS: a maximum dose fraction without a "
+                                        "dilution rule vancomycine, INTRAVENEUS: a maximum dose fraction without a "
                                         + "minimum and no maximum volume, so the preparation cannot be set"
                                     ]
                             }
@@ -8964,7 +8964,7 @@ module Tests =
                             }
 
                             testList
-                                "a solution limit"
+                                "a dilution limit"
                                 [
                                     let mgPerKg = mg |> ValueUnit.per Units.Weight.kiloGram
                                     let limit u n = n |> ValueUnit.singleWithUnit u |> Limit.inclusive |> Some
@@ -8974,10 +8974,10 @@ module Tests =
 
                                     let withLimit qty qtyAdj cnc =
                                         { unboundedRule with
-                                            SolutionLimits =
+                                            DilutionLimits =
                                                 [|
-                                                    { SolutionLimit.limit with
-                                                        SolutionLimitTarget = SubstanceLimitTarget "vancomycine"
+                                                    { DilutionLimit.limit with
+                                                        DilutionLimitTarget = SubstanceLimitTarget "vancomycine"
                                                         Quantity = qty
                                                         QuantityAdj = qtyAdj
                                                         Concentration = cnc
@@ -9026,7 +9026,7 @@ module Tests =
 
                             test "two rules that differ only in the dose give one warning" {
                                 [| unboundedRule; { unboundedRule with Dose = range mg 1N 2N } |]
-                                |> SolutionRule.openDoseCounts
+                                |> DilutionRule.openDoseCounts
                                 |> List.length
                                 |> Expect.equal "one warning" 1
                             }
@@ -9043,7 +9043,7 @@ module Tests =
                         "the rule checks registry entry"
                         [
                             // The entry of the default registry, run on hand-built dependencies.
-                            let warnings (doseRules: DoseRule[]) (solutionRules: SolutionRule[]) rows =
+                            let warnings (doseRules: DoseRule[]) (dilutionRules: DilutionRule[]) rows =
                                 let reg =
                                     Map
                                         [
@@ -9051,9 +9051,9 @@ module Tests =
                                             (Resources.defaultRegistry FormLogging.noOp "")[Keys.ruleChecks.Name]
                                             Keys.parenteralMeds.Name,
                                             ofResult (fun () -> Ok [| parenteral "NaCl 0,9%" |])
-                                            Keys.solutionRuleData.Name, ofResult (fun () -> Ok rows)
+                                            Keys.dilutionRuleData.Name, ofResult (fun () -> Ok rows)
                                             Keys.doseRules.Name, ofResult (fun () -> Ok doseRules)
-                                            Keys.solutionRules.Name, ofResult (fun () -> Ok solutionRules)
+                                            Keys.dilutionRules.Name, ofResult (fun () -> Ok dilutionRules)
                                             Keys.routeMappings.Name, ofResult (fun () -> Ok(Array.empty<RouteMapping>))
                                         ]
 
@@ -9063,14 +9063,14 @@ module Tests =
 
                             test "gives a warning for a rule without diluents and for each inverted range" {
                                 let ws =
-                                    [| solutionRow "granisetron" [ "NaCl 0,45%" ] |]
+                                    [| dilutionRow "granisetron" [ "NaCl 0,45%" ] |]
                                     |> warnings
                                         [|
                                             doseRule
                                                 "paracetamol/coffeine"
                                                 [| substanceLimit "paracetamol" (range mg 500N 100N) |]
                                         |]
-                                        [| solutionRule "granisetron" (range mgPerMl (1N / 2N) (1N / 10N)) |]
+                                        [| dilutionRule "granisetron" (range mgPerMl (1N / 2N) (1N / 10N)) |]
 
                                 ws |> List.length |> Expect.equal "three warnings" 3
                                 ws
@@ -9082,18 +9082,18 @@ module Tests =
 
                                 ws
                                 |> List.exists (String.contains "granisetron concentration")
-                                |> Expect.isTrue "solution rule"
+                                |> Expect.isTrue "dilution rule"
                             }
 
                             test "gives a warning for a dose count without a maximum" {
-                                Array.empty<SolutionRuleData>
+                                Array.empty<DilutionRuleData>
                                 |> warnings [||] [| unboundedRule |]
                                 |> List.exists (String.contains "maximum dose fraction")
                                 |> Expect.isTrue "reported"
                             }
 
                             test "gives no warning for sound rules" {
-                                [| solutionRow "granisetron" [ "NaCl 0,9%" ] |]
+                                [| dilutionRow "granisetron" [ "NaCl 0,9%" ] |]
                                 |> warnings [||] [||]
                                 |> Expect.isEmpty "none"
                             }
@@ -9776,7 +9776,7 @@ module Tests =
                 DoseRuleRoundtripTests.tests
                 CheckTests.tests
                 SourceLinkTests.tests
-                SolutionRuleFilterTests.tests
+                DilutionRuleFilterTests.tests
                 ResourceRegistryTests.tests
                 DepartmentsTests.tests
                 RuleCheckTests.tests

@@ -1,7 +1,7 @@
 namespace Informedica.GenForm.Lib
 
 
-module SolutionRule =
+module DilutionRule =
 
     open Informedica.Utils.Lib.BCL
     open Informedica.Utils.Lib
@@ -17,7 +17,7 @@ module SolutionRule =
     let fromTupleInclIncl = MinMax.fromTuple Inclusive Inclusive
 
 
-    let parseSolutionRuleData (data: string[][]) : Result<_, Message list> =
+    let parseDilutionRuleData (data: string[][]) : Result<_, Message list> =
         try
             data
             |> fun data ->
@@ -36,7 +36,7 @@ module SolutionRule =
                     let toBrOpt = BigRational.toBrs >> Array.tryHead
 
                     {
-                        // solution rule section
+                        // dilution rule section
                         Generic = get "Generic"
                         Form = get "Form"
                         Route = get "Route"
@@ -55,7 +55,7 @@ module SolutionRule =
                         MaxDose = get "MaxDose" |> toBrOpt
                         DoseType = get "DoseType"
                         DoseText = get "DoseText"
-                        Solutions = get "Solutions" |> String.split "|" |> List.map String.trim
+                        Diluents = get "Diluents" |> String.split "|" |> List.map String.trim
                         Volumes = get "Volumes" |> BigRational.toBrs
                         Div = get "Div" |> toBrOpt
                         MinVol = get "MinVol" |> toBrOpt
@@ -64,15 +64,15 @@ module SolutionRule =
                         MaxVolAdj = get "MaxVolAdj" |> toBrOpt
                         MinPerc = get "MinPerc" |> toBrOpt
                         MaxPerc = get "MaxPerc" |> toBrOpt
-                        // solution limit section
+                        // dilution limit section
                         Component = get "Component"
                         Substance = get "Substance"
                         Unit = get "Unit"
                         Quantities = get "Quantities" |> BigRational.toBrs
                         MinQty = get "MinQty" |> toBrOpt
                         MaxQty = get "MaxQty" |> toBrOpt
-                        MinQtyAdj = get "MinQtyAdj" |> toBrOpt
-                        MaxQtyAdj = get "MaxQtyAdj" |> toBrOpt
+                        MinQtyPerKg = get "MinQtyPerKg" |> toBrOpt
+                        MaxQtyPerKg = get "MaxQtyPerKg" |> toBrOpt
                         MinDrip = get "MinDrip" |> toBrOpt
                         MaxDrip = get "MaxDrip" |> toBrOpt
                         MinConc = get "MinConc" |> toBrOpt
@@ -81,11 +81,11 @@ module SolutionRule =
                 )
             |> Ok
         with exn ->
-            Result.createError "Error in SolutionRule.getResult: " exn
+            Result.createError "Error in DilutionRule.getResult: " exn
 
 
     let getData dataUrlId =
-        Web.getDataFromSheet dataUrlId "SolutionRules" |> parseSolutionRuleData
+        Web.getDataFromSheet dataUrlId "DilutionRules" |> parseDilutionRuleData
 
 
     let map routeMapping (parenteral: ProductComponent[]) products data : Result<_, Message list> =
@@ -123,7 +123,7 @@ module SolutionRule =
                 Diluents =
                     parenteral
                     |> Array.filter (fun p ->
-                        r.Solutions |> List.exists (fun s -> p.Generic |> String.equalsCapInsens s)
+                        r.Diluents |> List.exists (fun s -> p.Generic |> String.equalsCapInsens s)
                     )
                     |> Array.distinctBy _.Generic
                 Div = r.Div
@@ -140,25 +140,25 @@ module SolutionRule =
                     (r.MinDrip, r.MaxDrip)
                     |> fromTupleInclIncl (Some(Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour))
                 DoseFraction = (r.MinPerc, r.MaxPerc) |> fromTupleInclIncl (Some Units.Count.times)
-                SolutionLimits = [||]
+                DilutionLimits = [||]
             }
         )
-        |> Array.map (fun (sr, rs) ->
-            { sr with
-                SolutionLimits =
+        |> Array.map (fun (dilRule, rs) ->
+            { dilRule with
+                DilutionLimits =
                     rs
                     |> Array.map (fun l ->
                         let u = l.Unit |> UnitsParse.fromString
                         let au = u |> Option.map (ValueUnit.per Units.Weight.kiloGram)
 
                         {
-                            SolutionLimitTarget =
+                            DilutionLimitTarget =
                                 match l.Substance, l.Component with
                                 | s, _ when s |> String.notEmpty -> s |> SubstanceLimitTarget
                                 | _, c when c |> String.notEmpty -> c |> ComponentLimitTarget
-                                | _ -> invalidOp "Solution limit should be either a substance or a component limit"
+                                | _ -> invalidOp "Dilution limit should be either a substance or a component limit"
                             Quantity = (l.MinQty, l.MaxQty) |> fromTupleInclIncl u
-                            QuantityAdj = (l.MinQtyAdj, l.MaxQtyAdj) |> fromTupleInclIncl au
+                            QuantityAdj = (l.MinQtyPerKg, l.MaxQtyPerKg) |> fromTupleInclIncl au
                             Quantities =
                                 if l.Quantities |> Array.isEmpty then
                                     None
@@ -173,19 +173,19 @@ module SolutionRule =
                                 products
                                 |> Array.filter (fun p ->
                                     p.Generic = l.Component
-                                    && sr.Form
+                                    && dilRule.Form
                                        |> Option.map (fun s -> s |> String.equalsCapInsens p.Form)
                                        |> Option.defaultValue true
-                                    && p.Routes |> Array.exists (Mapping.eqsRoute routeMapping (Some sr.Route))
+                                    && p.Routes |> Array.exists (Mapping.eqsRoute routeMapping (Some dilRule.Route))
                                 )
                         }
                     )
-                    // filter out solution limits that are empty
-                    |> Array.filter (fun sl ->
-                        (sl.Concentration |> MinMax.isEmpty
-                         && sl.Quantities |> Option.isNone
-                         && sl.QuantityAdj |> MinMax.isEmpty
-                         && sl.Quantity |> MinMax.isEmpty)
+                    // filter out dilution limits that are empty
+                    |> Array.filter (fun dilLimit ->
+                        (dilLimit.Concentration |> MinMax.isEmpty
+                         && dilLimit.Quantities |> Option.isNone
+                         && dilLimit.QuantityAdj |> MinMax.isEmpty
+                         && dilLimit.Quantity |> MinMax.isEmpty)
                         |> not
                     )
 
@@ -196,46 +196,46 @@ module SolutionRule =
 
     /// The rule as an admin finds it in the sheet: generic, form, route, indication,
     /// patient, which includes the department, and dose type.
-    let label (sr: SolutionRule) =
+    let label (dilRule: DilutionRule) =
         [
-            sr.Generic
-            sr.Form |> Option.defaultValue ""
-            sr.Route
-            sr.Indication |> Option.defaultValue ""
-            sr.PatientCategory |> PatientCategory.toString
-            sr.DoseType |> DoseType.toString
+            dilRule.Generic
+            dilRule.Form |> Option.defaultValue ""
+            dilRule.Route
+            dilRule.Indication |> Option.defaultValue ""
+            dilRule.PatientCategory |> PatientCategory.toString
+            dilRule.DoseType |> DoseType.toString
         ]
         |> List.filter String.notEmpty
         |> String.concat ", "
-        |> sprintf "solution rule %s"
+        |> sprintf "dilution rule %s"
 
 
-    /// Every range a solution rule carries, each with its name.
-    let ranges (sr: SolutionRule) =
+    /// Every range a dilution rule carries, each with its name.
+    let ranges (dilRule: DilutionRule) =
         [
-            yield! sr.PatientCategory |> PatientCategory.ranges
-            "dose", sr.Dose
-            "volume", sr.Volume
-            "volume adjust", sr.VolumeAdjust
-            "drip rate", sr.DripRate
-            "dose fraction", sr.DoseFraction
-            for sl in sr.SolutionLimits do
-                let target = sl.SolutionLimitTarget |> LimitTarget.toString
-                $"%s{target} quantity", sl.Quantity
-                $"%s{target} quantity adjust", sl.QuantityAdj
-                $"%s{target} concentration", sl.Concentration
+            yield! dilRule.PatientCategory |> PatientCategory.ranges
+            "dose", dilRule.Dose
+            "volume", dilRule.Volume
+            "volume adjust", dilRule.VolumeAdjust
+            "drip rate", dilRule.DripRate
+            "dose fraction", dilRule.DoseFraction
+            for dilLimit in dilRule.DilutionLimits do
+                let target = dilLimit.DilutionLimitTarget |> LimitTarget.toString
+                $"%s{target} quantity", dilLimit.Quantity
+                $"%s{target} quantity adjust", dilLimit.QuantityAdj
+                $"%s{target} concentration", dilLimit.Concentration
         ]
 
 
-    /// One warning per inverted range in the solution rules.
-    let invertedRanges (rules: SolutionRule[]) =
+    /// One warning per inverted range in the dilution rules.
+    let invertedRanges (rules: DilutionRule[]) =
         rules
         |> Array.toList
-        |> List.collect (fun sr ->
-            sr
+        |> List.collect (fun dilRule ->
+            dilRule
             |> ranges
             |> MinMax.invertedRanges
-            |> List.map (fun s -> $"%s{sr |> label}: minimum above maximum, %s{s}")
+            |> List.map (fun s -> $"%s{dilRule |> label}: minimum above maximum, %s{s}")
         )
         |> List.distinct
         |> List.map Warning
@@ -246,31 +246,32 @@ module SolutionRule =
         lim |> Option.filter (Limit.getValueUnit >> ValueUnit.isZero >> not)
 
 
-    /// Whether a solution limit bounds the preparation: the maximum quantity of a substance, or
+    /// Whether a dilution limit bounds the preparation: the maximum quantity of a substance, or
     /// the maximum quantity per kg once the weight is known, divided by the minimum concentration
     /// of that substance is a maximum volume.
-    let boundsPreparation (sl: SolutionLimit) =
-        (sl.Quantity.Max.IsSome || sl.QuantityAdj.Max.IsSome)
-        && sl.Concentration.Min |> Option.exists (Limit.getValueUnit >> ValueUnit.gtZero)
+    let boundsPreparation (dilLimit: DilutionLimit) =
+        (dilLimit.Quantity.Max.IsSome || dilLimit.QuantityAdj.Max.IsSome)
+        && dilLimit.Concentration.Min
+           |> Option.exists (Limit.getValueUnit >> ValueUnit.gtZero)
 
 
-    /// One warning per solution rule whose dose count has no maximum, because the rule gives a
+    /// One warning per dilution rule whose dose count has no maximum, because the rule gives a
     /// maximum dose fraction and no minimum, while the preparation has no maximum either: no
     /// maximum volume, no list of volumes, no maximum volume per kg, which bounds the preparation
-    /// once the weight is known, and no solution limit that bounds it. The user then cannot set
+    /// once the weight is known, and no dilution limit that bounds it. The user then cannot set
     /// the preparation.
-    let openDoseCounts (rules: SolutionRule[]) =
+    let openDoseCounts (rules: DilutionRule[]) =
         rules
-        |> Array.filter (fun sr ->
-            sr.DoseFraction.Max |> nonZeroLimit |> Option.isSome
-            && sr.DoseFraction.Min |> nonZeroLimit |> Option.isNone
-            && sr.Volume.Max |> Option.isNone
-            && sr.Volumes |> Option.isNone
-            && sr.VolumeAdjust.Max |> Option.isNone
-            && sr.SolutionLimits |> Array.exists boundsPreparation |> not
+        |> Array.filter (fun dilRule ->
+            dilRule.DoseFraction.Max |> nonZeroLimit |> Option.isSome
+            && dilRule.DoseFraction.Min |> nonZeroLimit |> Option.isNone
+            && dilRule.Volume.Max |> Option.isNone
+            && dilRule.Volumes |> Option.isNone
+            && dilRule.VolumeAdjust.Max |> Option.isNone
+            && dilRule.DilutionLimits |> Array.exists boundsPreparation |> not
         )
-        |> Array.map (fun sr ->
-            $"%s{sr |> label}: a maximum dose fraction without a minimum and no maximum volume, "
+        |> Array.map (fun dilRule ->
+            $"%s{dilRule |> label}: a maximum dose fraction without a minimum and no maximum volume, "
             + "so the preparation cannot be set"
         )
         |> Array.toList
@@ -278,20 +279,21 @@ module SolutionRule =
         |> List.map Warning
 
 
-    /// One warning per solution rule whose rows name solutions none of which matches a
+    /// One warning per dilution rule whose rows name solutions none of which matches a
     /// parenteral product, so the rule loads with no diluents. Each row is built into a rule
     /// on its own and the rules are grouped without their limits, which is the grouping map
     /// makes, so a rule of several rows gives a single warning.
-    let missingDiluents parenteral (data: SolutionRuleData[]) =
+    let missingDiluents parenteral (data: DilutionRuleData[]) =
         data
-        |> Array.filter (fun r -> r.Solutions |> List.exists String.notEmpty)
+        |> Array.filter (fun r -> r.Diluents |> List.exists String.notEmpty)
         |> Array.choose (fun r ->
             match [| r |] |> map [||] parenteral [||] with
-            | Ok [| sr |] when sr.Diluents |> Array.isEmpty -> Some({ sr with SolutionLimits = [||] }, r.Solutions)
+            | Ok [| dilRule |] when dilRule.Diluents |> Array.isEmpty ->
+                Some({ dilRule with DilutionLimits = [||] }, r.Diluents)
             | _ -> None
         )
         |> Array.groupBy fst
-        |> Array.map (fun (sr, xs) ->
+        |> Array.map (fun (dilRule, xs) ->
             let solutions =
                 xs
                 |> Array.collect (snd >> List.toArray)
@@ -299,43 +301,43 @@ module SolutionRule =
                 |> Array.distinct
                 |> String.concat "|"
 
-            Warning $"%s{sr |> label}: no parenteral product matches the solutions %s{solutions}"
+            Warning $"%s{dilRule |> label}: no parenteral product matches the solutions %s{solutions}"
         )
         |> Array.toList
 
 
-    /// Whether a solution rule applies to a dose rule: the generic and the route, and the form,
-    /// indication and dose type when the solution rule names them, matched as filter matches them
-    /// for an order. A solution rule and a dose rule that name different departments or different
+    /// Whether a dilution rule applies to a dose rule: the generic and the route, and the form,
+    /// indication and dose type when the dilution rule names them, matched as filter matches them
+    /// for an order. A dilution rule and a dose rule that name different departments or different
     /// locations apply to different patients, so they do not match.
-    let appliesToDoseRule routeMapping (sr: SolutionRule) (dr: DoseRule) =
-        sr.Generic |> String.equalsCapInsens (dr.Generic |> Generic.genericName)
-        && PatientCategory.canMeet sr.PatientCategory.Department dr.PatientCategory.Department
-        && PatientCategory.canMeet sr.PatientCategory.Location dr.PatientCategory.Location
-        && sr.Form
+    let appliesToDoseRule routeMapping (dilRule: DilutionRule) (dr: DoseRule) =
+        dilRule.Generic |> String.equalsCapInsens (dr.Generic |> Generic.genericName)
+        && PatientCategory.canMeet dilRule.PatientCategory.Department dr.PatientCategory.Department
+        && PatientCategory.canMeet dilRule.PatientCategory.Location dr.PatientCategory.Location
+        && dilRule.Form
            |> Option.forall (String.equalsCapInsens (dr.Generic.Form |> PharmaceuticalForm.toString))
-        && sr.Indication |> Option.forall (String.equalsCapInsens dr.Indication)
-        && sr.Route |> Mapping.eqsRoute routeMapping (Some dr.Route)
-        && (sr.DoseType = NoDoseType
-            || if sr.DoseType |> DoseType.getText |> String.isNullOrWhiteSpace then
-                   DoseType.eqsType sr.DoseType dr.DoseType
+        && dilRule.Indication |> Option.forall (String.equalsCapInsens dr.Indication)
+        && dilRule.Route |> Mapping.eqsRoute routeMapping (Some dr.Route)
+        && (dilRule.DoseType = NoDoseType
+            || if dilRule.DoseType |> DoseType.getText |> String.isNullOrWhiteSpace then
+                   DoseType.eqsType dilRule.DoseType dr.DoseType
                else
-                   DoseType.eqs sr.DoseType dr.DoseType)
+                   DoseType.eqs dilRule.DoseType dr.DoseType)
 
 
-    /// One warning per pair of solution rules that apply to the same dose rule and can meet the
+    /// One warning per pair of dilution rules that apply to the same dose rule and can meet the
     /// same patient of that dose rule. Ranges that overlap pair by pair share a value, so comparing
     /// each pair of the three rules is enough. Each rule gives its own scenario, so the user has to choose between them, and
-    /// a view that shows a single order shows none. The dose range of a solution rule does not
+    /// a view that shows a single order shows none. The dose range of a dilution rule does not
     /// take part in the matching, so rules that differ only in dose range also compete.
-    let competingRules routeMapping (doseRules: DoseRule[]) (rules: SolutionRule[]) =
-        let reaches (dr: DoseRule) (sr: SolutionRule) =
-            dr |> appliesToDoseRule routeMapping sr
-            && PatientCategory.canShare sr.PatientCategory dr.PatientCategory
+    let competingRules routeMapping (doseRules: DoseRule[]) (rules: DilutionRule[]) =
+        let reaches (dr: DoseRule) (dilRule: DilutionRule) =
+            dr |> appliesToDoseRule routeMapping dilRule
+            && PatientCategory.canShare dilRule.PatientCategory dr.PatientCategory
 
         let appliesToBoth a b dr = a |> reaches dr && b |> reaches dr
 
-        let pairs (rules: SolutionRule[]) =
+        let pairs (rules: DilutionRule[]) =
             rules
             |> Array.indexed
             |> Array.collect (fun (i, a) -> rules[i + 1 ..] |> Array.map (fun b -> a, b))
@@ -360,12 +362,12 @@ module SolutionRule =
     /// The substances whose concentration limit allows no strength of the products. A strength
     /// in a unit group the limit cannot be compared with is skipped. The limit is inclusive: a limit
     /// with a minimum equal to the maximum allows that one strength.
-    let substancesWithoutAllowedStrength (products: ProductComponent[]) (sr: SolutionRule) =
-        sr.SolutionLimits
-        |> Array.choose (fun sl ->
-            match sl.SolutionLimitTarget with
-            | SubstanceLimitTarget s when sl.Concentration |> MinMax.isEmpty |> not ->
-                let conc = sl.Concentration
+    let substancesWithoutAllowedStrength (products: ProductComponent[]) (dilRule: DilutionRule) =
+        dilRule.DilutionLimits
+        |> Array.choose (fun dilLimit ->
+            match dilLimit.DilutionLimitTarget with
+            | SubstanceLimitTarget s when dilLimit.Concentration |> MinMax.isEmpty |> not ->
+                let conc = dilLimit.Concentration
 
                 let comparable vu =
                     [ conc.Min; conc.Max ]
@@ -390,22 +392,22 @@ module SolutionRule =
         )
 
 
-    /// A warning for each solution rule without diluents whose concentration limit allows no
+    /// A warning for each dilution rule without diluents whose concentration limit allows no
     /// strength of the products of a dose rule it applies to. Only a dose rule with one component
     /// is checked, because a second component can dilute the first. The products are
-    /// reconstituted for the location and the department of the solution rule. A solution rule
+    /// reconstituted for the location and the department of the dilution rule. A dilution rule
     /// and a dose rule without a department apply to every department, so the products are then
     /// reconstituted for each department their reconstitution rules name, and for none.
-    let undilutableRules routeMapping (doseRules: DoseRule[]) (rules: SolutionRule[]) =
-        let substances (sr: SolutionRule) =
+    let undilutableRules routeMapping (doseRules: DoseRule[]) (rules: DilutionRule[]) =
+        let substances (dilRule: DilutionRule) =
             doseRules
             |> Array.filter (fun dr ->
                 dr.ComponentLimits |> Array.length = 1
-                && dr |> appliesToDoseRule routeMapping sr
+                && dr |> appliesToDoseRule routeMapping dilRule
             )
             |> Array.collect (fun dr ->
                 let departments =
-                    match sr.PatientCategory.Department, dr.PatientCategory.Department with
+                    match dilRule.PatientCategory.Department, dr.PatientCategory.Department with
                     | Some dep, _
                     | None, Some dep -> [| Some dep |]
                     | None, None ->
@@ -418,24 +420,24 @@ module SolutionRule =
 
                 departments
                 |> Array.collect (fun dep ->
-                    let dr, _ = dr |> DoseRule.reconstitute routeMapping sr.PatientCategory.Location dep
+                    let dr, _ = dr |> DoseRule.reconstitute routeMapping dilRule.PatientCategory.Location dep
 
-                    sr
+                    dilRule
                     |> substancesWithoutAllowedStrength (dr.ComponentLimits |> Array.collect _.Products)
                 )
             )
             |> Array.distinct
 
         rules
-        |> Array.filter (fun sr -> sr.Diluents |> Array.isEmpty)
-        |> Array.choose (fun sr ->
-            match sr |> substances with
+        |> Array.filter (fun dilRule -> dilRule.Diluents |> Array.isEmpty)
+        |> Array.choose (fun dilRule ->
+            match dilRule |> substances with
             | [||] -> None
             | subs ->
                 let names = subs |> String.concat ", "
 
                 Warning
-                    $"%s{sr |> label}: no diluent, and the concentration limit of %s{names} allows no strength of its products"
+                    $"%s{dilRule |> label}: no diluent, and the concentration limit of %s{names} allows no strength of its products"
                 |> Some
         )
         |> Array.distinct
@@ -446,66 +448,69 @@ module SolutionRule =
         try
             dataUrlId |> getData |> Result.bind (map routeMapping parenteral products)
         with exn ->
-            Result.createError "Error in SolutionRule.getResult: " exn
+            Result.createError "Error in DilutionRule.getResult: " exn
 
 
-    /// The solution rule without the amounts the rule lookup works out from a per kg limit with the
+    /// The dilution rule without the amounts the rule lookup works out from a per kg limit with the
     /// weight of the patient, so that one rule compares as equal at every weight.
-    let withoutPatientAmounts (sr: SolutionRule) =
-        { sr with
+    let withoutPatientAmounts (dilRule: DilutionRule) =
+        { dilRule with
             Volume =
-                if sr.VolumeAdjust |> MinMax.isEmpty then
-                    sr.Volume
+                if dilRule.VolumeAdjust |> MinMax.isEmpty then
+                    dilRule.Volume
                 else
                     MinMax.empty
-            SolutionLimits =
-                sr.SolutionLimits
-                |> Array.map (fun sl ->
-                    if sl.QuantityAdj |> MinMax.isEmpty then
-                        sl
+            DilutionLimits =
+                dilRule.DilutionLimits
+                |> Array.map (fun dilLimit ->
+                    if dilLimit.QuantityAdj |> MinMax.isEmpty then
+                        dilLimit
                     else
-                        { sl with Quantity = MinMax.empty }
+                        { dilLimit with Quantity = MinMax.empty }
                 )
         }
 
 
-    /// The solution rules that match the filter. A patient with no data besides the department is checked on
+    /// The dilution rules that match the filter. A patient with no data besides the department is checked on
     /// the department alone, so that a lookup without a patient returns every rule.
-    let filter mapping (filter: SolutionFilter) (solutionRules: SolutionRule[]) =
+    let filter mapping (filter: DilutionFilter) (dilutionRules: DilutionRule[]) =
         let eqs a (b: string) =
             a |> Option.map (String.equalsCapInsens b) |> Option.defaultValue true
 
         [|
-            fun (sr: SolutionRule) -> sr.Generic |> String.equalsCapInsens filter.Generic
+            fun (dilRule: DilutionRule) -> dilRule.Generic |> String.equalsCapInsens filter.Generic
             // a rule that names a department is for the patients of that department only
             if filter.Patient.Department |> Option.isSome then
-                fun (sr: SolutionRule) ->
+                fun (dilRule: DilutionRule) ->
                     filter.Patient.Department
-                    |> PatientCategory.departmentMatches sr.PatientCategory.Department
+                    |> PatientCategory.departmentMatches dilRule.PatientCategory.Department
             // don't filter on the rest of the patient if it is not set; a department alone does not set it
             if filter.Patient |> Patient.hasDataBesidesDepartment then
-                fun (sr: SolutionRule) -> sr.PatientCategory |> PatientCategory.filterPatient filter.Patient
-            fun (sr: SolutionRule) -> sr.Form |> Option.map (eqs filter.Form) |> Option.defaultValue true
-            fun (sr: SolutionRule) -> sr.Indication |> Option.map (eqs filter.Indication) |> Option.defaultValue true
-            fun (sr: SolutionRule) ->
+                fun (dilRule: DilutionRule) -> dilRule.PatientCategory |> PatientCategory.filterPatient filter.Patient
+            fun (dilRule: DilutionRule) -> dilRule.Form |> Option.map (eqs filter.Form) |> Option.defaultValue true
+            fun (dilRule: DilutionRule) ->
+                dilRule.Indication
+                |> Option.map (eqs filter.Indication)
+                |> Option.defaultValue true
+            fun (dilRule: DilutionRule) ->
                 filter.Route |> Option.isNone
-                || sr.Route |> Mapping.eqsRoute mapping filter.Route
-            fun (sr: SolutionRule) ->
-                sr.DoseType = NoDoseType
+                || dilRule.Route |> Mapping.eqsRoute mapping filter.Route
+            fun (dilRule: DilutionRule) ->
+                dilRule.DoseType = NoDoseType
                 || filter.DoseType
                    |> Option.map (
-                       if sr.DoseType |> DoseType.getText |> String.isNullOrWhiteSpace then
-                           DoseType.eqsType sr.DoseType
+                       if dilRule.DoseType |> DoseType.getText |> String.isNullOrWhiteSpace then
+                           DoseType.eqsType dilRule.DoseType
                        else
-                           DoseType.eqs sr.DoseType
+                           DoseType.eqs dilRule.DoseType
                    )
                    |> Option.defaultValue true
         |]
-        |> Array.fold (fun (acc: SolutionRule[]) pred -> acc |> Array.filter pred) solutionRules
-        |> Array.map (fun sr ->
-            { sr with
+        |> Array.fold (fun (acc: DilutionRule[]) pred -> acc |> Array.filter pred) dilutionRules
+        |> Array.map (fun dilRule ->
+            { dilRule with
                 Diluents =
-                    sr.Diluents
+                    dilRule.Diluents
                     |> Array.filter (fun dil ->
                         filter.Diluent |> Option.map ((=) dil.Generic) |> Option.defaultValue true
                     )
@@ -513,11 +518,11 @@ module SolutionRule =
         )
 
 
-    /// Helper function to get the distinct values of a member of SolutionRule.
-    let private getMember getter (rules: SolutionRule[]) = rules |> Array.map getter |> Array.distinct |> Array.sort
+    /// Helper function to get the distinct values of a member of DilutionRule.
+    let private getMember getter (rules: DilutionRule[]) = rules |> Array.map getter |> Array.distinct |> Array.sort
 
 
-    /// Get all the distinct Generics from the given SolutionRules.
+    /// Get all the distinct Generics from the given DilutionRules.
     let generics = getMember _.Generic
 
     let forms = getMember _.Form >> Array.choose id
@@ -557,7 +562,7 @@ module SolutionRule =
         /// Format the rule-wide "geef X% van de bereiding" line from the
         /// DoseFraction bounds on the rule. Returns an empty string when no bounds
         /// are set.
-        let printDoseFraction (sr: SolutionRule) =
+        let printDoseFraction (dilRule: DilutionRule) =
             let toPerc l =
                 l
                 |> Limit.getValueUnit
@@ -567,7 +572,7 @@ module SolutionRule =
                 |> fun x -> $"{x * 100.}"
 
             let p =
-                match sr.DoseFraction.Min, sr.DoseFraction.Max with
+                match dilRule.DoseFraction.Min, dilRule.DoseFraction.Max with
                 | None, None -> ""
                 | Some l, None -> $"min. {l |> toPerc}"
                 | None, Some l -> $"max. {l |> toPerc}"
@@ -583,15 +588,15 @@ module SolutionRule =
                 $"* geef %s{p}%% van de bereiding"
 
 
-        /// Split a SolutionLimit into its display parts so callers can de-duplicate
+        /// Split a DilutionLimit into its display parts so callers can de-duplicate
         /// trailing lines that are identical across multiple limits of the same rule.
         /// includeSubstanceName = false suppresses the inline substance prefix
         /// (used when the substance is rendered as a separate heading).
-        let printSolutionLimit (sr: SolutionRule) (includeSubstanceName: bool) (limit: SolutionLimit) =
+        let printDilutionLimit (dilRule: DilutionRule) (includeSubstanceName: bool) (limit: DilutionLimit) =
             let mmToStr = MinMax.toString "min. " "min. " "max. " "max. "
 
             let loc =
-                match sr.PatientCategory.Access with
+                match dilRule.PatientCategory.Access with
                 | CVL -> "###### centraal: \n* "
                 | PVL -> "###### perifeer: \n* "
                 | EnteralTube -> "###### sonde: \n* "
@@ -605,21 +610,21 @@ module SolutionRule =
             let q = limit.Quantity |> mmToStr
 
             let vol =
-                if sr.Volume |> mmToStr |> String.isNullOrWhiteSpace then
+                if dilRule.Volume |> mmToStr |> String.isNullOrWhiteSpace then
                     ""
                 else
-                    sr.Volume
+                    dilRule.Volume
                     |> mmToStr
-                    |> fun s -> $""" in {s} {sr.Diluents |> Array.map _.Generic |> String.concat "/"}"""
+                    |> fun s -> $""" in {s} {dilRule.Diluents |> Array.map _.Generic |> String.concat "/"}"""
                 |> fun s ->
                     if s |> String.notEmpty then
                         s
                     else
-                        sr.Volumes
+                        dilRule.Volumes
                         |> Option.map (Utils.ValueUnit.toString -1)
                         |> Option.defaultValue ""
                         |> fun s ->
-                            let sols = sr.Diluents |> Array.map _.Generic |> String.concat "/"
+                            let sols = dilRule.Diluents |> Array.map _.Generic |> String.concat "/"
 
                             if s |> String.isNullOrWhiteSpace then
                                 if sols |> String.isNullOrWhiteSpace then
@@ -631,7 +636,7 @@ module SolutionRule =
 
             let substancePrefix =
                 if includeSubstanceName then
-                    $"{limit.SolutionLimitTarget |> LimitTarget.toString}: "
+                    $"{limit.DilutionLimitTarget |> LimitTarget.toString}: "
                 else
                     ""
 
@@ -647,8 +652,8 @@ module SolutionRule =
             |}
 
 
-        /// Get the markdown representation of the given SolutionRules.
-        let toMarkdown text (rules: SolutionRule[]) =
+        /// Get the markdown representation of the given DilutionRules.
+        let toMarkdown text (rules: DilutionRule[]) =
             let generic_md generic products =
                 let text = if text |> String.isNullOrWhiteSpace then generic else text
                 $"\n# %s{text}\n---\n#### Producten\n%s{products}\n"
@@ -676,7 +681,7 @@ module SolutionRule =
             ||> Array.fold (fun acc (generic, rs) ->
                 let prods =
                     rs
-                    |> Array.collect _.SolutionLimits
+                    |> Array.collect _.DilutionLimits
                     |> Array.collect _.Products
                     |> Array.sortBy (fun p ->
                         p.Substances
@@ -696,7 +701,7 @@ module SolutionRule =
                         else
                             p.Reconstitution
                             |> Array.map (fun r ->
-                                $"{p.Label} oplossen in %s{r.DiluentVolume |> Utils.ValueUnit.toString -1} voor {r.Route}"
+                                $"{p.Label} oplossen in %s{r.SolventVolume |> Utils.ValueUnit.toString -1} voor {r.Route}"
                                 |> product_md
                             )
                     )
@@ -717,8 +722,8 @@ module SolutionRule =
 
                             let distinctSubstances =
                                 rs
-                                |> Array.collect _.SolutionLimits
-                                |> Array.map _.SolutionLimitTarget
+                                |> Array.collect _.DilutionLimits
+                                |> Array.map _.DilutionLimitTarget
                                 |> Array.distinct
 
                             let substanceHeading, includeSubstanceName =
@@ -763,13 +768,13 @@ module SolutionRule =
                                                     // Within a single-target group the concentratie is de-duplicated
                                                     // (same substance + same conc across different qty ranges).
                                                     let targetBlocks =
-                                                        r.SolutionLimits
-                                                        |> Array.groupBy _.SolutionLimitTarget
+                                                        r.DilutionLimits
+                                                        |> Array.groupBy _.DilutionLimitTarget
                                                         |> Array.collect (fun (_, limits) ->
                                                             let parts =
                                                                 limits
                                                                 |> Array.map (
-                                                                    printSolutionLimit r includeSubstanceName
+                                                                    printDilutionLimit r includeSubstanceName
                                                                 )
 
                                                             let heads =
@@ -840,13 +845,13 @@ module SolutionRule =
             |> _.md
 
 
-        /// Get the markdown representation of the given SolutionRules.
-        let printGenerics (rules: SolutionRule[]) =
+        /// Get the markdown representation of the given DilutionRules.
+        let printGenerics (rules: DilutionRule[]) =
             rules
             |> generics
             |> Array.map (fun generic ->
                 rules
-                |> Array.filter (fun sr -> sr.Generic = generic)
+                |> Array.filter (fun dilRule -> dilRule.Generic = generic)
                 |> Array.sortBy _.Generic
                 |> toMarkdown ""
             )

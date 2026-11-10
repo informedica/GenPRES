@@ -92,10 +92,10 @@ type GenFormMcpTools() =
 
         GenFormTools.filterDoseRules GenFormMcpTools.Provider input |> McpHelpers.toJson
 
-    [<McpServerTool(Name = "get_solution_rules")>]
+    [<McpServerTool(Name = "get_dilution_rules")>]
     [<Description("Return all solution (preparation) rules from the GenFORM knowledge base")>]
-    static member GetSolutionRules() =
-        GenFormTools.getSolutionRules GenFormMcpTools.Provider |> McpHelpers.toJson
+    static member GetDilutionRules() =
+        GenFormTools.getDilutionRules GenFormMcpTools.Provider |> McpHelpers.toJson
 
     [<McpServerTool(Name = "get_renal_rules")>]
     [<Description("Return all renal adjustment rules from the GenFORM knowledge base")>]
@@ -200,23 +200,23 @@ type GenOrderMcpTools() =
         GenOrderTools.getDoseRulesForContext GenOrderMcpTools.Provider input
         |> McpHelpers.toJson
 
-    [<McpServerTool(Name = "get_solution_rules_for_context")>]
+    [<McpServerTool(Name = "get_dilution_rules_for_context")>]
     [<Description("Return solution/preparation rules for a specific drug combination")>]
-    static member GetSolutionRulesForContext
+    static member GetDilutionRulesForContext
         (
             [<Description("Generic drug name"); Optional>] generic: string,
             [<Description("Drug form"); Optional>] form: string,
             [<Description("Administration route"); Optional>] route: string
         )
         =
-        let input: GenOrderTools.SolutionRulesForContextInput =
+        let input: GenOrderTools.DilutionRulesForContextInput =
             {
                 Generic = McpHelpers.optStr generic
                 Form = McpHelpers.optStr form
                 Route = McpHelpers.optStr route
             }
 
-        GenOrderTools.getSolutionRulesForContext GenOrderMcpTools.Provider input
+        GenOrderTools.getDilutionRulesForContext GenOrderMcpTools.Provider input
         |> McpHelpers.toJson
 
     [<McpServerTool(Name = "create_order_context")>]

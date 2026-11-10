@@ -43,7 +43,7 @@ Toolchain, the full targets table, Docker, release automation and the environmen
 ## Key Code Locations
 
 - F# libraries under `src/`, one test project per library under `tests/` (Expecto + FsCheck)
-- Resource loading: `src/Informedica.GenFORM.Lib/Api.fs`; parsers in `Mapping.fs`, `Product.fs`, `DoseRuleData.fs`, `SolutionRule.fs`, `RenalRule.fs`
+- Resource loading: `src/Informedica.GenFORM.Lib/Api.fs`; parsers in `Mapping.fs`, `Product.fs`, `DoseRuleData.fs`, `DilutionRule.fs`, `RenalRule.fs`
 - Unit and BigRational helpers: `src/Informedica.GenUNITS.Lib/ValueUnit.fs`
 - Client.Core: one folder per namespace `Informedica.GenPRES.Client.Core.<Folder>`, in compile order `Models` (the code from Shared only the client uses), `Helpers`, `Policies`, `StateMachines`, `MachinePolicies`; the entry files `Lanes.fs`, `Client.fs` and `Trail.fs` at the project root in the root namespace. A file declares its namespace on its own line, then its types and modules, with the opens inside each module. Code opens the folder namespaces, never the root namespace, and reaches a root file through a module alias (`module Client = Informedica.GenPRES.Client.Core.Client`) or its full name. The test project mirrors the folders
 - Sheet documentation: the `Data` records in `src/Informedica.GenFORM.Lib/Types.fs`, one per sheet, the column on each field; the `ColumnContract` tests in `tests/Informedica.GenFORM.Tests/Tests.fs` enforce the column names

@@ -4,9 +4,9 @@
 // substance of the G-Standaard. The demo files (data/cache/*.demo) hold the products,
 // ATC groups and dose rules of the generic products in the demo GPK list, and every
 // substance. The demo GPK list is the fixed list below, which the test scenarios use,
-// together with every medication that has a solution rule in the SolutionRules sheet.
+// together with every medication that has a dilution rule in the DilutionRules sheet.
 //
-// A SolutionRules row names a medication by Generic, Form and Route. The Formulary
+// A DilutionRules row names a medication by Generic, Form and Route. The Formulary
 // sheet maps a Generic to GPKs. A GPK is used when the generic product in the cache
 // has the route of the rule and, when the rule names a form, has that form as well.
 // A Formulary row with a GPKODE that is not a number, such as "NaCl 0,9%" or
@@ -43,7 +43,7 @@ open Informedica.Utils.Lib.BCL
 open Informedica.ZIndex.Lib
 
 
-/// The spreadsheet with the SolutionRules and Formulary sheets, used when GENPRES_URL_ID is not set.
+/// The spreadsheet with the DilutionRules and Formulary sheets, used when GENPRES_URL_ID is not set.
 let defaultUrlId = "1StESB1RJTOiLOglvGeziC784JQwPkc3Sm98wrjId6rI"
 
 
@@ -54,8 +54,8 @@ let dataUrlId () =
     | _ -> defaultUrlId
 
 
-/// A medication named by a row of the SolutionRules sheet.
-type SolutionMedication =
+/// A medication named by a row of the DilutionRules sheet.
+type DilutionMedication =
     {
         /// The generic name, as in the Generic column.
         Generic: string
@@ -105,8 +105,8 @@ module SheetData =
             )
 
 
-    /// The distinct medications in the SolutionRules sheet, without the rows that have no Generic.
-    let parseSolutionMedications data =
+    /// The distinct medications in the DilutionRules sheet, without the rows that have no Generic.
+    let parseDilutionMedications data =
         data
         |> mapRows (fun get ->
             {
@@ -174,9 +174,9 @@ module DemoSelection =
         |> Array.map fst
 
 
-    /// The fixed GPKs and the solution rule GPKs together, distinct and sorted.
-    let demoGpks fixedGpks solutionGpks =
-        solutionGpks
+    /// The fixed GPKs and the dilution rule GPKs together, distinct and sorted.
+    let demoGpks fixedGpks dilutionGpks =
+        dilutionGpks
         |> Array.toList
         |> List.append fixedGpks
         |> List.distinct
@@ -494,9 +494,9 @@ let scenarioGpks =
 
 
 let tests =
-    let solutionRules =
+    let dilutionRules =
         [|
-            [| "Generic"; "Form"; "Route"; "Solutions" |]
+            [| "Generic"; "Form"; "Route"; "Diluents" |]
             [| "morfine"; ""; "INTRAVENEUS"; "NaCl 0,9%|gluc 5%" |]
             [| "morfine"; ""; "INTRAVENEUS"; "NaCl 0,9%" |]
             [| "dexamethason"; "injectievloeistof"; "INTRAVENEUS"; "" |]
@@ -523,7 +523,7 @@ let tests =
         |> List.map (fun p -> p.Id, p)
         |> Map.ofList
 
-    let meds = solutionRules |> SheetData.parseSolutionMedications
+    let meds = dilutionRules |> SheetData.parseDilutionMedications
     let gpks = formulary |> SheetData.parseFormularyGpks
 
     testList "CreateCache" [
@@ -536,7 +536,7 @@ let tests =
 
             test "an empty sheet gives no rows" {
                 [||]
-                |> SheetData.parseSolutionMedications
+                |> SheetData.parseDilutionMedications
                 |> Expect.isEmpty "no medications"
             }
 
@@ -622,16 +622,16 @@ module Build =
         |> Map.ofArray
 
 
-    /// The GPKs of the medication with a solution rule, after printing the medications without a GPK.
-    let solutionRuleGpks () =
+    /// The GPKs of the medication with a dilution rule, after printing the medications without a GPK.
+    let dilutionRuleGpks () =
         let urlId = dataUrlId ()
 
         match
-            Web.GoogleSheets.getCsvDataFromSheetSync urlId "SolutionRules",
+            Web.GoogleSheets.getCsvDataFromSheetSync urlId "DilutionRules",
             Web.GoogleSheets.getCsvDataFromSheetSync urlId "Formulary"
         with
         | Ok rules, Ok formulary ->
-            let meds = rules |> SheetData.parseSolutionMedications
+            let meds = rules |> SheetData.parseDilutionMedications
             let gpks = formulary |> SheetData.parseFormularyGpks
             let products = cacheProducts ()
 
@@ -676,9 +676,9 @@ else
     if buildCache then Build.createCache ()
 
     if buildDemo then
-        let solutionGpks = Build.solutionRuleGpks ()
-        printfn $"Found %i{solutionGpks.Length} GPKs with a solution rule"
+        let dilutionGpks = Build.dilutionRuleGpks ()
+        printfn $"Found %i{dilutionGpks.Length} GPKs with a dilution rule"
 
-        solutionGpks
+        dilutionGpks
         |> DemoSelection.demoGpks scenarioGpks
         |> Build.createDemo

@@ -109,7 +109,7 @@ module Product =
                         ChlorMmol = get "Chlor mmol" |> Double.tryParse |> Option.bind BigRational.fromFloat
                         IronMmol = get "Iron mmol" |> Double.tryParse |> Option.bind BigRational.fromFloat
                         VitDIE = get "VitD IE" |> Double.tryParse |> Option.bind BigRational.fromFloat
-                        CanBeUsedForReconstitution = getFlag "IsReconst"
+                        CanBeUsedAsSolvent = getFlag "IsSolvent"
                         CanBeUsedAsDiluent = getFlag "IsDiluent"
                         CanBeUsedAsAdditive = getFlag "IsAdditive"
                     }
@@ -200,8 +200,8 @@ module Product =
                             Route = get "Route"
                             Location = get "Loc" |> fun s -> if s |> String.isNullOrWhiteSpace then None else Some s
                             Department = get "Dep" |> fun s -> if s |> String.isNullOrWhiteSpace then None else Some s
-                            DiluentVolume =
-                                get "DiluentVol"
+                            SolventVolume =
+                                get "SolventVol"
                                 |> toBrOpt
                                 |> Option.map (ValueUnit.singleWithUnit Units.Volume.milliLiter)
                                 |> Option.defaultValue (ValueUnit.singleWithUnit Units.Volume.milliLiter 1N)
@@ -209,7 +209,7 @@ module Product =
                                 get "ExpansionVol"
                                 |> toBrOpt
                                 |> Option.map (ValueUnit.singleWithUnit Units.Volume.milliLiter)
-                            Diluents = get "Diluents" |> String.splitAt ';' |> Array.map String.trim
+                            Solvents = get "Solvents" |> String.splitAt ';' |> Array.map String.trim
                         }
                     )
                 |> Ok
@@ -819,8 +819,8 @@ module Product =
                     |> Array.map (fun r ->
                         let vol =
                             r.ExpansionVolume
-                            |> Option.map (fun v -> v + r.DiluentVolume)
-                            |> Option.defaultValue r.DiluentVolume
+                            |> Option.map (fun v -> v + r.SolventVolume)
+                            |> Option.defaultValue r.SolventVolume
 
                         { prod with
                             FormUnit = Units.Volume.milliLiter

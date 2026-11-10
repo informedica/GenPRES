@@ -174,7 +174,7 @@
           "$ref": "#/definitions/DoseLimitDto"
         },
         "Solution": {
-          "$ref": "#/definitions/SolutionLimitDto"
+          "$ref": "#/definitions/DilutionLimitDto"
         },
         "Products": {
           "type": "array",
@@ -190,9 +190,9 @@
         }
       }
     },
-    "SolutionLimitDto": {
+    "DilutionLimitDto": {
       "type": "object",
-      "description": "A solution limit; its target is where it sits, its products are the solution rule's.",
+      "description": "A dilution limit; its target is where it sits, its products are the dilution rule's.",
       "additionalProperties": false,
       "properties": {
         "Quantity": {
@@ -259,7 +259,7 @@
           "$ref": "#/definitions/DoseLimitDto"
         },
         "Solution": {
-          "$ref": "#/definitions/SolutionLimitDto"
+          "$ref": "#/definitions/DilutionLimitDto"
         }
       }
     }

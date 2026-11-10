@@ -32,7 +32,7 @@ Terms used throughout:
 | **shape** | the form of a range: a list of more than one value; a min, an increment and a max; one value with a defined increment; or any other range. The shape, with the class of the variable, basic or derived, decides which operations are mathematically possible: a list can be selected from; a min, increment and max can be selected from on a basic variable only, since on a derived variable it can hold values no complete order reaches; one value with a defined increment can be stepped on a basic variable only; any other range offers nothing | Table 1b |
 | **solve** | narrows every variable by the equations and by the products until nothing changes; it never widens a range | Table 12 |
 | **DSL** | the small language in which every action is processed to a list of effects, run by one program, the order processor | section 5.3 |
-| **rules** | the dose rule and the solution rule of the medication an order is created from. The dose rule bounds the doses, the frequencies, the administration time and the treatment duration; the solution rule bounds the preparation. Where the text says "the rule", it means the one of these two that bounds the variable in question | |
+| **rules** | the dose rule and the dilution rule of the medication an order is created from. The dose rule bounds the doses, the frequencies, the administration time and the treatment duration; the dilution rule bounds the preparation. Where the text says "the rule", it means the one of these two that bounds the variable in question | |
 | **creation** | makes an order from a medication and a patient, turns the rules and the products into the defined constraints; outside the DSL | section 1.3, notes on Table 3, section 5.1 |
 | **CalcConstraints** | the first program on the created order: it solves for min and max, and records the calculated constraints | section 5.1 |
 | **defined constraints** | the first of the three parts of every variable, written once at creation from the rules and the products | section 5.1 |
@@ -61,7 +61,7 @@ A basic variable is set by the user and never derived. The rules bound it by a m
 
 | Id | Basic variable | Place in the order | Subsystem | Basic on | Bound by |
 |---|---|---|---|---|---|
-| `cmp_orb_qty` | component orderable quantity, one per component: the amount of the component in one preparation | `Component.OrderableQuantity` | Compounding | all dose types | the solution rule's min, max and values; the product's divisibility |
+| `cmp_orb_qty` | component orderable quantity, one per component: the amount of the component in one preparation | `Component.OrderableQuantity` | Compounding | all dose types | the dilution rule's min, max and values; the product's divisibility |
 | `orb_dos_qty` | orderable dose quantity: the amount of the orderable in one administration | `Orderable.Dose.Quantity` | Dosing | Once, Discontinuous, Timed, OnceTimed | the dose rule's min and max, absolute or adjusted; the product's divisibility as increment |
 | `orb_dos_rte` | orderable dose rate: the amount of the orderable per time while it runs | `Orderable.Dose.Rate` | Dosing | Continuous, Timed, OnceTimed | the dose rule's min and max, absolute or adjusted; an increment from the rate unit |
 | `ord_sch_frq` | frequency: the number of administrations per time | `Schedule.Frequency` | Scheduling | Discontinuous, Timed | the dose rule's frequencies as a value list, and a defined increment of 1 in their unit, since a frequency is a whole number of administrations; a step moves by that increment and may leave the list |
@@ -146,8 +146,8 @@ A derived variable is calculated from the basic variables and the invariants thr
 | `orb_dos_cnt` | dose count: administrations per preparation (see note) | Compounding | 43 | all; fixed at 1 on Continuous | the rule's dose count min and max; at least 1 |
 | `cmp_orb_cnt` | component orderable count: product units per preparation | Compounding | 27 | all | none |
 | `cmp_orb_cnc` | component orderable concentration: the component's share of the preparation | Compounding | 25 | all | max 1; exactly 1 with one component |
-| `itm_orb_qty` | item orderable quantity: the item in one preparation | Compounding | 3 | all | the solution rule's min and max |
-| `itm_orb_cnc` | item orderable concentration | Compounding | 2; 57 where 2 is dropped | all | the solution rule's max concentration |
+| `itm_orb_qty` | item orderable quantity: the item in one preparation | Compounding | 3 | all | the dilution rule's min and max |
+| `itm_orb_cnc` | item orderable concentration | Compounding | 2; 57 where 2 is dropped | all | the dilution rule's max concentration |
 | `ord_sch_tme` | administration time: how long one administration runs | Scheduling | 49 | Continuous, Timed, OnceTimed | the rule's time min and max |
 | `ord_sch_cnt` | schedule count: the fraction of the dosing interval the administration runs, time × frequency | Scheduling | 60 | Timed | max 1 |
 | `ord_ord_tme` | treatment duration: the span the prepared amount covers at the schedule (see note) | Ordering | 45 or 46 with 44 | Discontinuous, Continuous, Timed | the rule's duration min and max |
@@ -841,11 +841,11 @@ Each level then offers only possible values, except the first, which needs one s
 - a limit on a division by the total volume, such as an item's maximum concentration, shapes the offered values only once the total volume is decided; before that it is a check on the complete order;
 - all volumes in one sum share one increment; coarsening already gives them one;
 - a substance total across components is not written as a limit, since two such limits over volumes on an increment can leave gaps near their bounds; it stays a check;
-- a preparation made for one dose, as the parenteral monograph describes for liposomal amphotericin B, gets a dose count of exactly 1 from its solution rule, which removes the free dose count altogether.
+- a preparation made for one dose, as the parenteral monograph describes for liposomal amphotericin B, gets a dose count of exactly 1 from its dilution rule, which removes the free dose count altogether.
 
 ### Limits
 
 - **Not proven** that the equations of every dose type can be arranged in such levels. The elimination of issue 1464 can check this per dose type.
 - **An adjust quantity without a value**, an order without a weight, makes every adjusted dose a division of two undecided values again.
 - **The fallback past 500 combinations:** when two value lists would give more than 500 combinations, the solver computes only the min and max of the result, which brings back the values in between.
-- **Laws 18 and 19** check the property on the test fixtures and hold there: law 19 against every complete order on the fixtures with at most 100 000 combinations, and against a complete order for a sample of up to 20 values per variable on the parenteral nutrition fixtures. One fixture, a hydrocortisone preparation whose solution rule gives the dose count a minimum of 1 and no maximum, leaves the dose count free and shows the first cause: before the norm dose and after a recalculation, its diluent doses include values that no complete order reaches. Law 19 holds on its created order only because the norm dose fixes the dose count to one value. The other causes are not ruled out, since the fixtures may not contain them.
+- **Laws 18 and 19** check the property on the test fixtures and hold there: law 19 against every complete order on the fixtures with at most 100 000 combinations, and against a complete order for a sample of up to 20 values per variable on the parenteral nutrition fixtures. One fixture, a hydrocortisone preparation whose dilution rule gives the dose count a minimum of 1 and no maximum, leaves the dose count free and shows the first cause: before the norm dose and after a recalculation, its diluent doses include values that no complete order reaches. Law 19 holds on its created order only because the norm dose fixes the dose count to one value. The other causes are not ruled out, since the fixtures may not contain them.

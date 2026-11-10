@@ -36,7 +36,7 @@ module GenFormTools =
             MaxWeight: float option
         }
 
-    type FilterSolutionRulesInput =
+    type FilterDilutionRulesInput =
         {
             Generic: string option
             Form: string option
@@ -60,12 +60,12 @@ module GenFormTools =
             ComponentCount: int
         }
 
-    type SolutionRuleOutput =
+    type DilutionRuleOutput =
         {
             Generic: string
             Form: string option
             Route: string
-            Solutions: string[]
+            Diluents: string[]
         }
 
     type RenalRuleOutput =
@@ -116,12 +116,12 @@ module GenFormTools =
         }
 
 
-    let solutionRuleToOutput (sr: SolutionRule) : SolutionRuleOutput =
+    let dilutionRuleToOutput (dilRule: DilutionRule) : DilutionRuleOutput =
         {
-            Generic = sr.Generic
-            Form = sr.Form
-            Route = sr.Route
-            Solutions = sr.Diluents |> Array.map _.Generic
+            Generic = dilRule.Generic
+            Form = dilRule.Form
+            Route = dilRule.Route
+            Diluents = dilRule.Diluents |> Array.map _.Generic
         }
 
 
@@ -182,8 +182,8 @@ module GenFormTools =
         |> Array.map doseRuleToOutput
 
 
-    let getSolutionRules (provider: IResourceProvider) : SolutionRuleOutput[] =
-        provider |> Api.getSolutionRules |> Array.map solutionRuleToOutput
+    let getDilutionRules (provider: IResourceProvider) : DilutionRuleOutput[] =
+        provider |> Api.getDilutionRules |> Array.map dilutionRuleToOutput
 
 
     let getRenalRules (provider: IResourceProvider) : RenalRuleOutput[] =

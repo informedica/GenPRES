@@ -46,7 +46,7 @@ module Fixture =
         {
             Patient = Filter.doseFilter.Patient
             DoseRule = doseRule products
-            SolutionRules = [||]
+            DilutionRules = [||]
             RenalRules = [||]
         }
 

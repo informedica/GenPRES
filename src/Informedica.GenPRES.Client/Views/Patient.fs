@@ -220,7 +220,7 @@ module Patient =
             | _ -> false
 
         // the department chosen, or the server's default preselected while none is: the pick
-        // that filters the solution rules is on the panel, so it is never a hidden one
+        // that filters the dilution rules is on the panel, so it is never a hidden one
         let departmentField =
             let own = pat |> Option.bind _.Department
 

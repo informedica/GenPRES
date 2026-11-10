@@ -101,12 +101,12 @@ module OrderScenario =
 
 
     /// One access device per medication that Medication.fromRule makes from the rule, in the same
-    /// order: the device of each solution rule, or a single AnyAccess when the rule has none.
+    /// order: the device of each dilution rule, or a single AnyAccess when the rule has none.
     let accessOfRule pr =
-        if pr.SolutionRules |> Array.isEmpty then
+        if pr.DilutionRules |> Array.isEmpty then
             [| AnyAccess |]
         else
-            pr.SolutionRules |> Array.map _.PatientCategory.Access
+            pr.DilutionRules |> Array.map _.PatientCategory.Access
 
 
     /// The warning on an order with a Divisible but no limit, and on an order that fits its rule
@@ -203,7 +203,7 @@ module OrderScenario =
         let useAdjust = ord |> EquationMapping.usesAdjust
 
         let dils =
-            pr.SolutionRules
+            pr.DilutionRules
             |> Array.collect _.Diluents
             |> Array.map _.Generic
             |> Array.distinct
@@ -1397,9 +1397,9 @@ Scenarios: {scenarios}
         | Ok atContext, Ok current ->
             let solutions =
                 if ord |> Order.isOneDose then
-                    SolutionRuleComparison.Counted
+                    DilutionRuleComparison.Counted
                 else
-                    SolutionRuleComparison.Ignored
+                    DilutionRuleComparison.Ignored
 
             PrescriptionRule.sameRules solutions atContext current |> not |> Some
         | Error errs, _
@@ -1427,7 +1427,7 @@ Scenarios: {scenarios}
 
 
     /// The order the single rule gives, with the id given. None when there are several rule rows or
-    /// solution rules, or when the rule gives no order: the rule of an order is then not known.
+    /// dilution rules, or when the rule gives no order: the rule of an order is then not known.
     let orderOfRule start logger orderId (rules: PrescriptionRule[]) =
         rules
         |> Array.tryExactlyOne
@@ -1671,7 +1671,7 @@ Scenarios: {scenarios}
                 ctx |> updateFilterIfOneScenario |> Evaluated |> Ok
             else
                 // Note: different prescription rules can exist based on multiple pharmaceutical forms
-                // and multiple solution rules
+                // and multiple dilution rules
                 let groups = prs |> rulesByDivisible provider
                 let allGroups = groups |> Array.concat
                 let picked = groups |> Array.collect (pickedGroups ctx.Filter.PickedProducts)

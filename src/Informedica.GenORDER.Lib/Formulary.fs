@@ -10,13 +10,13 @@ module Formulary =
     let getDoseRules provider filter = Api.getDoseRules provider |> Api.filterDoseRules provider filter
 
 
-    let getSolutionRules provider generic form route =
-        Api.getSolutionRules provider
-        |> Array.filter (fun sr ->
+    let getDilutionRules provider generic form route =
+        Api.getDilutionRules provider
+        |> Array.filter (fun dilRule ->
             generic
-            |> Option.map (String.equalsCapInsens sr.Generic)
+            |> Option.map (String.equalsCapInsens dilRule.Generic)
             |> Option.defaultValue true
-            && sr.Form
+            && dilRule.Form
                |> Option.map (fun s ->
                    if form |> Option.isNone then
                        true
@@ -24,5 +24,5 @@ module Formulary =
                        form.Value |> String.equalsCapInsens s
                )
                |> Option.defaultValue true
-            && route |> Option.map ((=) sr.Route) |> Option.defaultValue true
+            && route |> Option.map ((=) dilRule.Route) |> Option.defaultValue true
         )
