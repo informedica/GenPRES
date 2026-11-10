@@ -77,11 +77,11 @@ module Fixture =
         |> Result.defaultWith (fun msgs -> failtest $"no rules: %A{msgs}")
 
     /// A dilution rule to compare with.
-    let solution () =
+    let dilutionRules () =
         (OrderPlanTests.UndilutedVancomycin() :> Resources.IResourceProvider).GetDilutionRules()
 
-    let withSolution rs =
-        rs |> Array.map (fun r -> { r with DilutionRules = solution () })
+    let withDilutionRules rs =
+        rs |> Array.map (fun r -> { r with DilutionRules = dilutionRules () })
 
     let renalRule: RenalRule =
         {
@@ -268,14 +268,14 @@ let tests =
                     test "count with one dose, as when a central line is removed and its rule goes" {
                         let rules = Fixture.rules ()
 
-                        PrescriptionRule.sameRules Fixture.counted (rules |> Fixture.withSolution) rules
+                        PrescriptionRule.sameRules Fixture.counted (rules |> Fixture.withDilutionRules) rules
                         |> Expect.isFalse "other rules"
                     }
 
                     test "are ignored with more doses" {
                         let rules = Fixture.rules ()
 
-                        PrescriptionRule.sameRules Fixture.ignored (rules |> Fixture.withSolution) rules
+                        PrescriptionRule.sameRules Fixture.ignored (rules |> Fixture.withDilutionRules) rules
                         |> Expect.isTrue "the same rules"
                     }
 
@@ -302,7 +302,7 @@ let tests =
 
                         let atWeight w =
                             Fixture.rules ()
-                            |> Fixture.withSolution
+                            |> Fixture.withDilutionRules
                             |> Array.map (fun r -> { r with DilutionRules = r.DilutionRules |> Array.map (at w) })
 
                         PrescriptionRule.sameRules Fixture.counted (atWeight 10N) (atWeight 20N)

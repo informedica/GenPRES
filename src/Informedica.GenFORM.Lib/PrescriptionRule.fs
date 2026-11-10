@@ -204,40 +204,40 @@ module PrescriptionRule =
                         |> MinMax.foldMinimize true true
                 DilutionLimits =
                     dilRule.DilutionLimits
-                    |> Array.map (fun dilLimit ->
-                        if dilLimit.QuantityAdj |> MinMax.isEmpty then
-                            dilLimit
+                    |> Array.map (fun dilutionLimit ->
+                        if dilutionLimit.QuantityAdj |> MinMax.isEmpty then
+                            dilutionLimit
                         else
-                            { dilLimit with
+                            { dilutionLimit with
                                 Quantity =
-                                    [ dilLimit.QuantityAdj |> MinMax.apply ((*) w); dilLimit.Quantity ]
+                                    [ dilutionLimit.QuantityAdj |> MinMax.apply ((*) w); dilutionLimit.Quantity ]
                                     |> MinMax.foldMinimize true true
                             }
                     )
             }
 
 
-    /// What is compared of a rule: the rule row, the renal rules and, when they count, the solution
+    /// What is compared of a rule: the rule row, the renal rules and, when they count, the dilution
     /// rules. A rule rewritten for the patient, to end a conflict between its limits, is the same
     /// rule, so the rewritten rule itself counts only when a renal rule applies: a renal band is a
     /// limit of its own. The patient of the rule differs between any two patients, so it is left out.
-    let comparedRule solutions (pr: PrescriptionRule) =
+    let comparedRule dilutionRules (pr: PrescriptionRule) =
         pr.DoseRule.Id,
         (if pr.RenalRules |> Array.isEmpty then
              None
          else
              Some pr.DoseRule),
         pr.RenalRules,
-        match solutions with
+        match dilutionRules with
         | DilutionRuleComparison.Counted -> pr.DilutionRules |> Array.map DilutionRule.withoutPatientAmounts
         | DilutionRuleComparison.Ignored -> [||]
 
 
     /// Whether the rules of the current patient are the rules of the patient at the context. No rule
     /// for the current patient means they are not.
-    let sameRules solutions atContext current =
+    let sameRules dilutionRules atContext current =
         (current |> Array.isEmpty |> not)
-        && (atContext |> Array.map (comparedRule solutions)) = (current |> Array.map (comparedRule solutions))
+        && (atContext |> Array.map (comparedRule dilutionRules)) = (current |> Array.map (comparedRule dilutionRules))
 
 
     /// Use a Filter to get matching PrescriptionRules.
@@ -296,14 +296,14 @@ module PrescriptionRule =
                         { dilRule with
                             DilutionLimits =
                                 dilRule.DilutionLimits
-                                |> Array.map (fun dilLimit ->
-                                    { dilLimit with
+                                |> Array.map (fun dilutionLimit ->
+                                    { dilutionLimit with
                                         Products =
-                                            dilLimit.Products
-                                            |> Array.filter (fun sr_p ->
+                                            dilutionLimit.Products
+                                            |> Array.filter (fun p ->
                                                 dr.ComponentLimits
                                                 |> Array.collect _.Products
-                                                |> Array.exists (fun dr_p -> sr_p.GPK = dr_p.GPK)
+                                                |> Array.exists (_.GPK >> (=) p.GPK)
                                             )
 
                                     }

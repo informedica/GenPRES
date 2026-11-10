@@ -135,17 +135,17 @@ module Medication =
                 Quantities = None
                 Concentrations = None
                 Dose = None
-                Solution = None
+                DilutionLimit = None
             }
 
 
-        let create nme qts conc dos sol =
+        let create nme qts conc dos dilutionLimit =
             {
                 Name = nme
                 Quantities = qts
                 Concentrations = conc
                 Dose = dos
-                Solution = sol
+                DilutionLimit = dilutionLimit
             }
 
 
@@ -159,20 +159,20 @@ module Medication =
                 Form = ""
                 Quantities = None
                 Divisible = None
-                Solution = None
+                DilutionLimit = None
                 Dose = None
                 Substances = []
                 Products = []
             }
 
-        let create nme frm qts div dos sol sbs : ProductComponent =
+        let create nme frm qts div dos dilutionLimit sbs : ProductComponent =
             {
                 Name = nme
                 Form = frm
                 Quantities = qts
                 Divisible = div
                 Dose = dos
-                Solution = sol
+                DilutionLimit = dilutionLimit
                 Substances = sbs
                 Products = []
             }
@@ -286,7 +286,7 @@ module Medication =
             member val Quantities: ValueDto = null with get, set
             member val Concentrations: ValueDto = null with get, set
             member val Dose: DoseLimitDto = null with get, set
-            member val Solution: DilutionLimitDto = null with get, set
+            member val DilutionLimit: DilutionLimitDto = null with get, set
 
 
         /// A component of the medication.
@@ -297,7 +297,7 @@ module Medication =
             member val Quantities: ValueDto = null with get, set
             member val Divisible: string = null with get, set
             member val Dose: DoseLimitDto = null with get, set
-            member val Solution: DilutionLimitDto = null with get, set
+            member val DilutionLimit: DilutionLimitDto = null with get, set
             member val Products: ProductDto[] = [||] with get, set
             member val Substances: SubstanceDto[] = [||] with get, set
 
@@ -390,12 +390,12 @@ module Medication =
             )
 
 
-        let dilutionLimitToDto (dilLimit: DilutionLimit) =
+        let dilutionLimitToDto (dilutionLimit: DilutionLimit) =
             DilutionLimitDto(
-                Quantity = (dilLimit.Quantity |> minMaxToDto),
-                QuantityAdj = (dilLimit.QuantityAdj |> minMaxToDto),
-                Quantities = (dilLimit.Quantities |> valueOptToDto),
-                Concentration = (dilLimit.Concentration |> minMaxToDto)
+                Quantity = (dilutionLimit.Quantity |> minMaxToDto),
+                QuantityAdj = (dilutionLimit.QuantityAdj |> minMaxToDto),
+                Quantities = (dilutionLimit.Quantities |> valueOptToDto),
+                Concentration = (dilutionLimit.Concentration |> minMaxToDto)
             )
 
 
@@ -417,7 +417,7 @@ module Medication =
                 Quantities = (si.Quantities |> valueOptToDto),
                 Concentrations = (si.Concentrations |> valueOptToDto),
                 Dose = (si.Dose |> Option.map doseLimitToDto |> Option.toObj),
-                Solution = (si.Solution |> Option.map dilutionLimitToDto |> Option.toObj)
+                DilutionLimit = (si.DilutionLimit |> Option.map dilutionLimitToDto |> Option.toObj)
             )
 
 
@@ -428,7 +428,7 @@ module Medication =
                 Quantities = (pc.Quantities |> valueOptToDto),
                 Divisible = (pc.Divisible |> numberOptToText),
                 Dose = (pc.Dose |> Option.map doseLimitToDto |> Option.toObj),
-                Solution = (pc.Solution |> Option.map dilutionLimitToDto |> Option.toObj),
+                DilutionLimit = (pc.DilutionLimit |> Option.map dilutionLimitToDto |> Option.toObj),
                 Products = (pc.Products |> List.map productToDto |> List.toArray),
                 Substances = (pc.Substances |> List.map substanceToDto |> List.toArray)
             )
@@ -645,7 +645,7 @@ module Medication =
                 let! qts = dto.Quantities |> valueOptFromDto $"%s{path}.Quantities"
                 and! concs = dto.Concentrations |> valueOptFromDto $"%s{path}.Concentrations"
                 and! dose = dto.Dose |> doseLimitFromDto target $"%s{path}.Dose"
-                and! sol = dto.Solution |> dilutionLimitFromDto target $"%s{path}.Solution"
+                and! dilutionLimit = dto.DilutionLimit |> dilutionLimitFromDto target $"%s{path}.DilutionLimit"
 
                 return
                     {
@@ -653,7 +653,7 @@ module Medication =
                         Quantities = qts
                         Concentrations = concs
                         Dose = dose
-                        Solution = sol
+                        DilutionLimit = dilutionLimit
                     }
             }
 
@@ -689,7 +689,7 @@ module Medication =
                 let! qts = dto.Quantities |> valueOptFromDto $"%s{path}.Quantities"
                 and! divisible = dto.Divisible |> numberOptFromText $"%s{path}.Divisible"
                 and! dose = dto.Dose |> doseLimitFromDto target $"%s{path}.Dose"
-                and! sol = dto.Solution |> dilutionLimitFromDto target $"%s{path}.Solution"
+                and! dilutionLimit = dto.DilutionLimit |> dilutionLimitFromDto target $"%s{path}.DilutionLimit"
                 and! substances = substances
                 and! products = products
 
@@ -700,7 +700,7 @@ module Medication =
                         Quantities = qts
                         Divisible = divisible
                         Dose = dose
-                        Solution = sol
+                        DilutionLimit = dilutionLimit
                         Substances = substances
                         Products = products
                     }
@@ -825,7 +825,7 @@ module Medication =
                 )
 
             // the strength of a substance: molar when its dose limit doses in moles
-            let strengthOf n (s: Substance) =
+            let strengthOf n s =
                 match substanceLimit n with
                 | Some dl when dl.DoseUnit |> ValueUnit.Group.eqsGroup Units.Molar.mole -> s.MolarConcentration
                 | _ -> s.Concentration
@@ -848,7 +848,7 @@ module Medication =
                 Form = shape
                 Quantities = quantities
                 Divisible = lim.Products |> Array.choose _.Divisible |> Array.tryHead
-                Solution = None
+                DilutionLimit = None
                 Dose = lim.Limit
                 Substances =
                     lim.Products
@@ -880,7 +880,7 @@ module Medication =
                                 |> filterByUnitGroup $"Component '{lim.Name}' Substance '{n}' Concentrations"
                                 |> ValueUnit.collect
                             Dose = dl
-                            Solution = None
+                            DilutionLimit = None
                         }
                     )
                     |> Array.toList
@@ -923,14 +923,14 @@ module Medication =
         |> List.map (fun item ->
             match
                 sls
-                |> Array.tryFind (fun dilLimit ->
-                    match dilLimit.DilutionLimitTarget with
+                |> Array.tryFind (fun dilutionLimit ->
+                    match dilutionLimit.DilutionLimitTarget with
                     | SubstanceLimitTarget s -> s |> String.equalsCapInsens item.Name
                     | _ -> false
                 )
             with
             | None -> item
-            | Some dilLimit -> { item with Solution = Some dilLimit }
+            | Some dilutionLimit -> { item with DilutionLimit = Some dilutionLimit }
         )
 
 
@@ -1014,27 +1014,31 @@ module Medication =
                             ps
                     |> List.map (fun pc ->
                         { pc with
-                            Solution =
+                            DilutionLimit =
                                 dilRule.DilutionLimits
-                                |> Array.tryFind (fun dilLimit ->
-                                    match dilLimit.DilutionLimitTarget with
+                                |> Array.tryFind (fun dilutionLimit ->
+                                    match dilutionLimit.DilutionLimitTarget with
                                     | ComponentLimitTarget c -> c |> String.equalsCapInsens pc.Name
                                     | _ -> false
                                 )
-                                |> Option.map (fun sol ->
-                                    { sol with
+                                |> Option.map (fun dilutionLimit ->
+                                    { dilutionLimit with
                                         Quantity =
                                             match pat.Weight with
-                                            | None -> sol.Quantity
+                                            | None -> dilutionLimit.Quantity
                                             | Some w ->
                                                 match
-                                                    sol.Quantity |> MinMax.isEmpty, sol.QuantityAdj |> MinMax.isEmpty
+                                                    dilutionLimit.Quantity |> MinMax.isEmpty,
+                                                    dilutionLimit.QuantityAdj |> MinMax.isEmpty
                                                 with
-                                                | true, false -> sol.QuantityAdj |> MinMax.apply ((*) w)
+                                                | true, false -> dilutionLimit.QuantityAdj |> MinMax.apply ((*) w)
                                                 | true, true ->
-                                                    [ sol.Quantity; sol.QuantityAdj |> MinMax.apply ((*) w) ]
+                                                    [
+                                                        dilutionLimit.Quantity
+                                                        dilutionLimit.QuantityAdj |> MinMax.apply ((*) w)
+                                                    ]
                                                     |> MinMax.foldMinimize true true
-                                                | _ -> sol.Quantity
+                                                | _ -> dilutionLimit.Quantity
                                     }
                                 )
                         }
@@ -1109,18 +1113,18 @@ module Medication =
     /// one whose concentrations are in a unit group the limit cannot be compared with (a molar
     /// concentration against a mass limit): the bounds are compared on base values, so those would
     /// compare as numbers and give a wrong answer.
-    let concentrationsWithinSolution (si: SubstanceItem) =
-        match si.Concentrations, si.Solution with
-        | Some vu, Some dilLimit when dilLimit.Concentration <> MinMax.empty ->
+    let concentrationsWithinDilutionLimit (si: SubstanceItem) =
+        match si.Concentrations, si.DilutionLimit with
+        | Some vu, Some dilutionLimit when dilutionLimit.Concentration <> MinMax.empty ->
             let comparable =
-                [ dilLimit.Concentration.Min; dilLimit.Concentration.Max ]
+                [ dilutionLimit.Concentration.Min; dilutionLimit.Concentration.Max ]
                 |> List.choose id
                 |> List.forall (Limit.getValueUnit >> ValueUnit.eqsGroup vu)
 
             if comparable then
                 let cs =
                     OrderVariable.Constraints.create None None None None
-                    |> OrderVariable.Constraints.setMinMax false dilLimit.Concentration
+                    |> OrderVariable.Constraints.setMinMax false dilutionLimit.Concentration
 
                 vu
                 |> ValueUnit.filter (Informedica.GenSolver.Lib.Variable.ValueRange.isBetweenMinMax cs.Min cs.Max)
@@ -1133,13 +1137,13 @@ module Medication =
     /// The substances of a medication given undiluted whose dilution limit allows none of
     /// the concentrations its product has. Only a medication with one component is given
     /// undiluted; with more, the orderable concentration is the solver's to find.
-    let undilutedOutsideSolution (med: Medication) =
+    let undilutedOutsideDilutionLimit (med: Medication) =
         match med.Components with
         | [ pc ] ->
             pc.Substances
             |> List.filter (fun si ->
                 si.Concentrations |> Option.exists (ValueUnit.isEmpty >> not)
-                && si |> concentrationsWithinSolution |> Option.exists ValueUnit.isEmpty
+                && si |> concentrationsWithinDilutionLimit |> Option.exists ValueUnit.isEmpty
             )
         | _ -> []
 
@@ -1147,7 +1151,7 @@ module Medication =
     /// Whether there are medications and each one needs a diluent that is not supplied.
     let allLackNeededDiluent (meds: Medication[]) =
         meds |> Array.isEmpty |> not
-        && meds |> Array.forall (undilutedOutsideSolution >> List.isEmpty >> not)
+        && meds |> Array.forall (undilutedOutsideDilutionLimit >> List.isEmpty >> not)
 
 
     /// An Order built from a Medication: the shape first, then one pass per constraint
@@ -1218,19 +1222,21 @@ module Medication =
                 br |> ValueUnit.singleWithUnit u |> Some
 
 
-        /// What a solution asks of an item: how much of it the orderable may hold, and in
+        /// What a dilution limit asks of an item: how much of it the orderable may hold, and in
         /// what concentration.
-        let withItemDilutionLimit (dilLimit: DilutionLimit) (itm: Types.Item) =
+        let withItemDilutionLimit (dilutionLimit: DilutionLimit) (itm: Types.Item) =
             { itm with
                 OrderableQuantity =
                     itm.OrderableQuantity
                     |> OrderVariable.Quantity.apply (
-                        OrderVariable.mapConstraints (OrderVariable.Constraints.setMinMax false dilLimit.Quantity)
+                        OrderVariable.mapConstraints (OrderVariable.Constraints.setMinMax false dilutionLimit.Quantity)
                     )
                 OrderableConcentration =
                     itm.OrderableConcentration
                     |> OrderVariable.Concentration.apply (
-                        OrderVariable.mapConstraints (OrderVariable.Constraints.setMinMax false dilLimit.Concentration)
+                        OrderVariable.mapConstraints (
+                            OrderVariable.Constraints.setMinMax false dilutionLimit.Concentration
+                        )
                     )
             }
 
@@ -1252,14 +1258,14 @@ module Medication =
                 OrderableConcentration =
                     if single then
                         itm.OrderableConcentration
-                        |> OrderVariable.Concentration.apply (setVals (si |> concentrationsWithinSolution))
+                        |> OrderVariable.Concentration.apply (setVals (si |> concentrationsWithinDilutionLimit))
                     else
                         itm.OrderableConcentration
             }
             |> fun itm ->
-                match si.Solution with
+                match si.DilutionLimit with
                 | None -> itm
-                | Some dilLimit -> itm |> withItemDilutionLimit dilLimit
+                | Some dilutionLimit -> itm |> withItemDilutionLimit dilutionLimit
 
 
         /// What the dose rule allows of the substance, in the terms the order type doses in.
@@ -1416,12 +1422,12 @@ module Medication =
                             cs
                             |> OrderVariable.Constraints.setIncr incr
                             |> fun cs ->
-                                match pc.Solution with
+                                match pc.DilutionLimit with
                                 | None -> cs
-                                | Some sol ->
+                                | Some dilutionLimit ->
                                     cs
-                                    |> OrderVariable.Constraints.setValues sol.Quantities
-                                    |> OrderVariable.Constraints.setMinMax false sol.Quantity
+                                    |> OrderVariable.Constraints.setValues dilutionLimit.Quantities
+                                    |> OrderVariable.Constraints.setMinMax false dilutionLimit.Quantity
                         )
                     )
                 Dose =
@@ -1867,7 +1873,7 @@ module Medication =
             |> Exceptions.OrderCouldNotBeCreated
             |> Error
 
-        match med |> undilutedOutsideSolution, med |> componentsInUnitGroups with
+        match med |> undilutedOutsideDilutionLimit, med |> componentsInUnitGroups with
         | [], [] ->
             try
                 med |> OrderBuilder.build start |> Ok

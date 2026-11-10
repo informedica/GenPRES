@@ -173,7 +173,7 @@
         "Dose": {
           "$ref": "#/definitions/DoseLimitDto"
         },
-        "Solution": {
+        "DilutionLimit": {
           "$ref": "#/definitions/DilutionLimitDto"
         },
         "Products": {
@@ -258,7 +258,7 @@
         "Dose": {
           "$ref": "#/definitions/DoseLimitDto"
         },
-        "Solution": {
+        "DilutionLimit": {
           "$ref": "#/definitions/DilutionLimitDto"
         }
       }

@@ -120,14 +120,14 @@ module Types =
         }
 
 
-    /// A Substance type.
-    type Substance =
+    /// A substance of a product.
+    type SubstanceItem =
         {
-            /// The name of the Substance
+            /// The name of the substance
             Name: string
-            /// The Quantity of the Substance
+            /// The concentration of the substance
             Concentration: ValueUnit option
-            /// The indivisible Quantity of the Substance
+            /// The molar concentration of the substance
             MolarConcentration: ValueUnit option
         }
 
@@ -138,7 +138,7 @@ module Types =
         {
             HPK: HPK
             Brand: Brand
-            Substances: Substance list
+            Substances: SubstanceItem list
         }
 
     type GPK = string
@@ -188,7 +188,7 @@ module Types =
             /// sets the size of the droplet unit. No value means the Product has no step.
             Divisible: BigRational option
             /// The Substances in the Product
-            Substances: Substance array
+            Substances: SubstanceItem array
             /// Brand products
             TradeProducts: TradeProduct list
         }

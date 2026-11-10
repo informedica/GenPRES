@@ -151,7 +151,7 @@ module ProductFilterTests =
 
 
     /// Build a Substance with only its name set.
-    let subst name : Substance =
+    let subst name : SubstanceItem =
         {
             Name = name
             Concentration = None
@@ -7951,7 +7951,7 @@ module Tests =
             { MinMax.empty with Max = n |> ValueUnit.singleWithUnit mgPerMl |> Limit.inclusive |> Some }
 
 
-        let substance name conc : Substance =
+        let substance name conc : SubstanceItem =
             {
                 Name = name
                 Concentration = conc

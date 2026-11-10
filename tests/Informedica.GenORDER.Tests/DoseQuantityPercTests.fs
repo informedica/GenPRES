@@ -47,12 +47,12 @@ module Fixture =
     // dose: a part of the orderable may be given. So each component dose limit becomes a dilution limit
     // on the component, made absolute by the weight as Medication.create does for a dilution rule.
     let withComponentDilutionLimits (med: Medication) =
-        let toSolution (pc: ProductComponent) =
+        let toDilutionLimit (pc: ProductComponent) =
             match pc.Dose, med.Adjust with
             | Some dl, Some weight ->
                 { pc with
                     Dose = None
-                    Solution =
+                    DilutionLimit =
                         { DilutionLimit.limit with
                             DilutionLimitTarget = pc.Name |> ComponentLimitTarget
                             Quantity = dl.QuantityAdjust |> MinMax.apply ((*) weight)
@@ -61,7 +61,7 @@ module Fixture =
                 }
             | _ -> pc
 
-        { med with Components = med.Components |> List.map toSolution }
+        { med with Components = med.Components |> List.map toDilutionLimit }
 
 
     // the orderable dose limited by nothing per kg: the composition and the time decide the dose
@@ -81,7 +81,7 @@ module Fixture =
             match med.Adjust with
             | Some weight when pc.Name = "gluc 10%" ->
                 { pc with
-                    Solution =
+                    DilutionLimit =
                         { DilutionLimit.limit with
                             DilutionLimitTarget = pc.Name |> ComponentLimitTarget
                             Quantity =
@@ -332,7 +332,7 @@ let tests =
 
             test "the fixture limits the component orderable quantities, not the component doses" {
                 tpn.Components
-                |> List.forall (fun pc -> pc.Dose.IsNone && pc.Solution.IsSome)
+                |> List.forall (fun pc -> pc.Dose.IsNone && pc.DilutionLimit.IsSome)
                 |> Expect.isTrue "every component should have a dilution limit and no dose limit"
             }
 
