@@ -164,16 +164,12 @@ module GenFormTools =
 
 
     let filterDoseRules (provider: IResourceProvider) (input: FilterDoseRulesInput) : DoseRuleOutput[] =
-        let filter: DoseFilter =
-            {
+        let filter =
+            { Filter.doseFilter with
                 Generic = input.Generic
                 Indication = input.Indication
                 Route = input.Route
                 Form = input.Form
-                DoseType = None
-                Diluent = None
-                Components = []
-                Patient = Patient.patient
             }
 
         let allRules = provider |> Api.getDoseRules
@@ -191,16 +187,12 @@ module GenFormTools =
 
 
     let getPrescriptionRules (provider: IResourceProvider) (input: GetPrescriptionRulesInput) : string =
-        let filter: DoseFilter =
-            {
+        let filter =
+            { Filter.doseFilter with
                 Generic = input.Generic
                 Indication = input.Indication
                 Route = input.Route
                 Form = input.Form
-                DoseType = None
-                Diluent = None
-                Components = []
-                Patient = Patient.patient
             }
 
         match provider |> Api.filterPrescriptionRules <| filter with

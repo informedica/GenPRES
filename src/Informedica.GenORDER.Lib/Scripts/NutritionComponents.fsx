@@ -1,9 +1,8 @@
 // Issue #1597, implementation plan docs/implementation-plans/1597-nutrition-components-and-diluent.md.
 //
-// Steps 1, 2a and 2b are migrated to GenFORM and GenORDER. The tests below run on the library code
+// Steps 1, 2a, 2b and 3 are migrated to GenFORM and GenORDER. The tests below run on the library code
 // on the production sheet, with the sheet edits of the plan made in memory, and check the
-// DilutionRules_Test and DoseRules_Test sheets (--test-sheet, --test-sheets). Steps 3 and 4 are
-// prototyped here once their open points are settled.
+// DilutionRules_Test and DoseRules_Test sheets (--test-sheet, --test-sheets).
 
 #I __SOURCE_DIRECTORY__
 
@@ -356,7 +355,7 @@ let tests =
                             )
 
                         dr.ComponentLimits
-                        |> PrescriptionRule.selectComponents isAdditive [ "none of them" ]
+                        |> PrescriptionRule.selectComponents isAdditive (ComponentSelection.Selected [ "none of them" ])
                         |> Array.map _.Name
                         |> Expect.equal "NICU mix and gluc 10% stay" (dr.ComponentLimits |> Array.map _.Name)
                     }

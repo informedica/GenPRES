@@ -256,13 +256,12 @@ module PrescriptionRule =
             |> List.toArray
 
 
-    /// The component limits an order keeps: all of them when none is selected; otherwise every
+    /// The component limits an order keeps: all of them when no selection is made; otherwise every
     /// component that is not optional, and the selected optional components.
-    let selectComponents isAdditive selected (cls: ComponentLimit[]) =
-        match selected with
-        // #1597: no selection keeps every component, so an order cannot leave out all additives yet
-        | [] -> cls
-        | _ ->
+    let selectComponents isAdditive selection (cls: ComponentLimit[]) =
+        match selection with
+        | ComponentSelection.AllComponents -> cls
+        | ComponentSelection.Selected selected ->
             let optional = cls |> optionalComponents isAdditive
 
             cls

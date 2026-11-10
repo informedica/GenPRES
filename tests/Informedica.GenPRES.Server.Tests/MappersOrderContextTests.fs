@@ -65,7 +65,7 @@ let context: OrderContext =
                 Generic = Some "paracetamol"
                 DoseType = Some(Discontinuous "3-4 x/dag")
                 Diluents = [| "NaCl 0.9%" |]
-                SelectedComponents = [| "paracetamol" |]
+                SelectedComponents = Informedica.GenPRES.Shared.Types.ComponentSelection.Selected [ "paracetamol" ]
                 PickedProducts = [||]
             }
         Patient = StubPatientData.patient
@@ -176,6 +176,27 @@ let tests =
                     |> OrderContextMapper.scenarioBack
                     |> _.FitsOnlyWithoutDivisible
                     |> Expect.equal "the same mark" fitsOnlyWithoutDivisible
+            }
+
+            test "the component selection goes to the Dto and back, every component apart from none" {
+                for sel in
+                    [
+                        Informedica.GenPRES.Shared.Types.ComponentSelection.AllComponents
+                        Informedica.GenPRES.Shared.Types.ComponentSelection.Selected []
+                        Informedica.GenPRES.Shared.Types.ComponentSelection.Selected [ "paracetamol" ]
+                    ] do
+                    { context.Filter with SelectedComponents = sel }
+                    |> OrderContextMapper.filter
+                    |> OrderContextMapper.filterBack
+                    |> _.SelectedComponents
+                    |> Expect.equal $"%A{sel}" sel
+            }
+
+            test "the client selects none when no component is picked" {
+                context
+                |> Informedica.GenPRES.Shared.Models.OrderContext.componentsChange [||]
+                |> _.Filter.SelectedComponents
+                |> Expect.equal "none" (Informedica.GenPRES.Shared.Types.ComponentSelection.Selected [])
             }
 
             test "the picked products go to the Dto and back, and a change of a choice clears them" {

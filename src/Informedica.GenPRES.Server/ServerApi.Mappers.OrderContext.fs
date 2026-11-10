@@ -85,6 +85,19 @@ module OrderContextMapper =
         |> Mappers.mapFromOrderDoseTypeToSharedDoseType
 
 
+    /// The component selection as the Dto stores it: none when no selection is made.
+    let componentSelection =
+        function
+        | ComponentSelection.AllComponents -> None
+        | ComponentSelection.Selected cs -> cs |> List.toArray |> Some
+
+
+    let componentSelectionBack =
+        function
+        | None -> ComponentSelection.AllComponents
+        | Some cs -> cs |> Array.toList |> ComponentSelection.Selected
+
+
     let textBlock (tb: TextBlock) : TextBlockDto.Dto =
         match tb with
         | Valid items ->
@@ -143,7 +156,7 @@ module OrderContextMapper =
             Form = f.Form
             DoseType = f.DoseType |> Option.map doseType
             Diluent = f.Diluent
-            SelectedComponents = f.SelectedComponents
+            SelectedComponents = f.SelectedComponents |> componentSelection
             PickedProducts = f.PickedProducts
         }
 
@@ -163,7 +176,7 @@ module OrderContextMapper =
             Form = dto.Form
             DoseType = dto.DoseType |> Option.map doseTypeBack
             Diluent = dto.Diluent
-            SelectedComponents = dto.SelectedComponents
+            SelectedComponents = dto.SelectedComponents |> componentSelectionBack
             PickedProducts = dto.PickedProducts
         }
 

@@ -41,7 +41,10 @@ module Contract =
             Form = f.Form
             DoseType = f.DoseType |> Option.map doseType
             Diluent = f.Diluent
-            SelectedComponents = f.SelectedComponents
+            SelectedComponents =
+                match f.SelectedComponents with
+                | ComponentSelection.AllComponents -> S.ComponentSelection.AllComponents
+                | ComponentSelection.Selected cs -> S.ComponentSelection.Selected cs
             PickedProducts = f.PickedProducts
         }
 
@@ -124,7 +127,17 @@ let tests =
                                 sameFilter
                                     (ctx
                                      |> OrderContext.changeFilter OrderCategory.Medication FilterField.Components n)
-                                    (shared |> SCtx.setNthComponents (n |> Option.toArray))
+                                    // the field emptied is every component; the client has no command for it
+                                    (match n with
+                                     | None ->
+                                         Ok
+                                             { shared with
+                                                 Filter =
+                                                     { shared.Filter with
+                                                         SelectedComponents = S.ComponentSelection.AllComponents
+                                                     }
+                                             }
+                                     | Some n -> shared |> SCtx.setNthComponents [| n |])
                             }
 
                         for ns in [ [||]; [| 0 |]; [| 1; 2 |]; [| 3 |] ] do

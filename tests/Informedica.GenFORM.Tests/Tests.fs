@@ -3575,7 +3575,7 @@ module Tests =
                 Route = None
                 DoseType = None
                 Diluent = None
-                Components = []
+                Components = ComponentSelection.AllComponents
                 Patient = { PatientDtoTests.Fixtures.child with Department = department }
             }
 
@@ -7705,21 +7705,30 @@ module Tests =
 
                             test "a selection keeps the first, the components that are not additives and the selected" {
                                 cls
-                                |> PrescriptionRule.selectComponents isAdditive [ "NaCl" ]
+                                |> PrescriptionRule.selectComponents isAdditive (ComponentSelection.Selected [ "NaCl" ])
                                 |> names
                                 |> Expect.equal "KCl left out" [| "main"; "gluc"; "NaCl" |]
                             }
 
                             test "a selection keeps the first whatever is selected" {
                                 cls
-                                |> PrescriptionRule.selectComponents isAdditive [ "none of them" ]
+                                |> PrescriptionRule.selectComponents
+                                    isAdditive
+                                    (ComponentSelection.Selected [ "none of them" ])
                                 |> names
                                 |> Expect.equal "the main one and the glucose" [| "main"; "gluc" |]
                             }
 
+                            test "an empty selection keeps only the components that are not additives" {
+                                cls
+                                |> PrescriptionRule.selectComponents isAdditive (ComponentSelection.Selected [])
+                                |> names
+                                |> Expect.equal "no additive" [| "main"; "gluc" |]
+                            }
+
                             test "no selection keeps every component" {
                                 cls
-                                |> PrescriptionRule.selectComponents isAdditive []
+                                |> PrescriptionRule.selectComponents isAdditive ComponentSelection.AllComponents
                                 |> names
                                 |> Expect.equal "all" (cls |> names)
                             }
@@ -7731,7 +7740,7 @@ module Tests =
                                 { filterFor noWeight with
                                     Generic = Some "paracetamol"
                                     Route = Some dr.Route
-                                    Components = [ "NaCl" ]
+                                    Components = ComponentSelection.Selected [ "NaCl" ]
                                 }
                                 |> PrescriptionRule.filter isAdditive [| dr |] [||] [||] Fixtures.rm.Value
                                 |> Result.defaultValue [||]
@@ -7772,13 +7781,20 @@ module Tests =
                             | [| pr |] -> pr
                             | prs -> failtest $"expected one rule, got %i{prs.Length}"
 
-                        (pr [ cl.Name ]).DoseRule.ComponentLimits
+                        (pr (ComponentSelection.Selected [ cl.Name ])).DoseRule.ComponentLimits
                         |> Array.map _.Name
                         |> Expect.equal "only the picked component" [| cl.Name |]
 
-                        [ [ cl.Name ]; [ cl.Name; "other" ]; [] ]
+                        [
+                            ComponentSelection.Selected [ cl.Name ]
+                            ComponentSelection.Selected [ cl.Name; "other" ]
+                            ComponentSelection.Selected []
+                            ComponentSelection.AllComponents
+                        ]
                         |> List.map (pr >> PrescriptionRule.isPrescribable noWeight)
-                        |> Expect.equal "picked alone, with the per kg one, nothing picked" [ true; false; false ]
+                        |> Expect.equal
+                            "picked alone, with the per kg one, no additive, no selection"
+                            [ true; false; true; false ]
                     }
 
                     test "a dilution rule whose diluent is a component of the dose rule is left out" {
