@@ -60,15 +60,22 @@ module Product =
 
                     let prodType = get "Type" |> getProdType
 
+                    let routes =
+                        get "Routes"
+                        |> String.splitAt ';'
+                        |> Array.map String.trim
+                        |> Array.filter String.notEmpty
+
                     // A virtual product, a parenteral or an enteral row, has its form and routes only from the sheet.
-                    let failOnEmptyVirtualColumn col =
-                        if prodType |> ProductType.isVirtual && get col |> String.isNullOrWhiteSpace then
+                    let failOnEmptyVirtualColumn col isEmpty =
+                        if prodType |> ProductType.isVirtual && isEmpty then
                             $"""Formulary column %s{col} is empty for the virtual product %s{get "Generic"}"""
                             |> System.FormatException
                             |> raise
 
-                    failOnEmptyVirtualColumn "Form"
-                    failOnEmptyVirtualColumn "Routes"
+                    failOnEmptyVirtualColumn "Form" (get "Form" |> String.isNullOrWhiteSpace)
+                    // a cell of only separators gives no route either
+                    failOnEmptyVirtualColumn "Routes" (routes |> Array.isEmpty)
 
                     // TODO: the sheet still carries "UseForm" and "UseBrand"
                     // columns that nothing reads any more (the naming flags were
@@ -84,11 +91,7 @@ module Product =
                         UseGenName = get "UseGenName" = "x"
                         Mmol = get "Mmol" |> Double.tryParse |> Option.bind BigRational.fromFloat
                         Form = get "Form" |> Option.ofObj
-                        Routes =
-                            get "Routes"
-                            |> String.splitAt ';'
-                            |> Array.map String.trim
-                            |> Array.filter String.notEmpty
+                        Routes = routes
                         Brand = get "Brand" |> Option.ofObj
                         GenName = get "GenName" |> Option.ofObj
                         GStandName = get "GStand" |> Option.ofObj

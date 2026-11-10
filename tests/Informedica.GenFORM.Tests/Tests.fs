@@ -1827,6 +1827,22 @@ module VirtualProductTests =
                             |> Expect.equal "two routes" [| "INTRAVENEUS"; "ORAAL" |]
                         }
 
+                        for routes in [ "; ;"; ";" ] do
+                            test $"a virtual Routes cell '%s{routes}' gives no route, so it fails the parse" {
+                                match CC.parseFormulary [ ("Routes", routes) :: water ] with
+                                | Ok _ -> failtest "expected an error"
+                                | Error msgs ->
+                                    let text = $"%A{msgs}"
+
+                                    [ "Routes"; "water" ]
+                                    |> List.forall text.Contains
+                                    |> Expect.isTrue $"the message names both: %s{text}"
+                            }
+
+                        test "a medication row with only separators in Routes parses, with no routes" {
+                            (first [ ("Routes", ";") :: medication ]).Routes |> Expect.isEmpty "no routes"
+                        }
+
                         test "a medication row needs no Form or Routes" {
                             (first [ medication ]).Routes |> Expect.isEmpty "no routes"
                         }
