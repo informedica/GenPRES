@@ -236,7 +236,8 @@ module OrderProcessor =
         | CalcMinMax _
         | CalcValues _
         | ReCalcValues _
-        | Readjust _ -> invalidArg (nameof cmd) "the order program runs this command"
+        | Readjust _
+        | SetComponentQuantities _ -> invalidArg (nameof cmd) "the order program runs this command"
         | IncreaseIncrements ord ->
             [
                 {
@@ -1264,6 +1265,22 @@ module OrderProcessor =
                 else
                     RateList.WithRate
 
+            // the value lists of an order made from its constraints: an order with more than two components
+            // keeps its ranges, and a solved order is left as it is
+            let calcValues =
+                let unsolved eff =
+                    OrderEffect.Unless([ OrderCondition.DoseSolved; OrderCondition.OrderSolved ], eff)
+
+                [
+                    if ord |> hasAtMostTwoComponents then
+                        unsolved (OrderEffect.EnumerateOrderVariableValues(ValueCap.Default, rate, None))
+
+                        if ord |> rateWaits then
+                            unsolved (
+                                OrderEffect.EnumerateRateValues(ValueCap.Default, RateSelection.SelectMedianRate, None)
+                            )
+                ]
+
             // the lists made where missing, solved with values, the component quantity picked and
             // the rate list made, as a solve with values ends
             let values selection original =
@@ -1399,25 +1416,27 @@ module OrderProcessor =
                             OrderEffect.EnumerateRateValues(cap, RateSelection.OfferRates, None)
                         OrderEffect.Unless([ OrderCondition.OrderSolved ], OrderEffect.SolveOrder SolveMode.Values)
                     ]
-            | OrderAction.CalcValues ->
-                // an order with more than two components keeps its ranges, and a solved order is left as it is
-                let unsolved eff =
-                    OrderEffect.Unless([ OrderCondition.DoseSolved; OrderCondition.OrderSolved ], eff)
-
+            | OrderAction.SetComponentQuantities qtys ->
+                // the order holds the increments of its own components, which a quantity need not lie
+                // on, so every variable goes back to its defined constraints first; a quantity the order
+                // does not allow leaves its component open
                 Ok
                     [
-                        if ord |> hasAtMostTwoComponents then
-                            unsolved (OrderEffect.EnumerateOrderVariableValues(ValueCap.Default, rate, None))
-
-                            if ord |> rateWaits then
-                                unsolved (
-                                    OrderEffect.EnumerateRateValues(
-                                        ValueCap.Default,
-                                        RateSelection.SelectMedianRate,
-                                        None
+                        OrderEffect.SetAllOrderVariableRangesBack SetBackTo.Defined
+                        OrderEffect.SolveOrder SolveMode.MinMax
+                        for cmp, qty in qtys do
+                            OrderEffect.Try
+                                [
+                                    OrderEffect.ConstrainOrderVariableRange(
+                                        OrderVariableReference.ComponentOrderableQuantity cmp,
+                                        qty
                                     )
-                                )
+                                    OrderEffect.SolveOrder SolveMode.MinMax
+                                ]
+                        // the value lists an order gets when it is made again
+                        yield! calcValues
                     ]
+            | OrderAction.CalcValues -> Ok calcValues
 
 
         /// The most combinations of concentrations an order is solved for one by one; past it the
@@ -1558,6 +1577,7 @@ module OrderProcessor =
             | ReCalcValues ord -> Some(ord, OrderAction.Reset)
             // the value is in place before the action, so the order it starts from holds it
             | Readjust(ord, adjust) -> Some(ord |> withAdjustValue adjust, OrderAction.Readjust)
+            | SetComponentQuantities(ord, qtys) -> Some(ord, OrderAction.SetComponentQuantities qtys)
             | ChangeProperty(ord, cmd) -> cmd |> ofChangeProperty |> Option.map (fun action -> ord, action)
             | IncreaseIncrements _
             | SolveOrder _ -> None
