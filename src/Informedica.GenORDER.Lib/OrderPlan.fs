@@ -69,12 +69,14 @@ module PlanContext =
     /// other command runs over the context reconciled, and one over the scenario's order is refused
     /// with the context before the change when the order cannot be solved. The totals are recorded
     /// over the answer, evaluated or refused, from the totals data read after any reload; the id, the
-    /// category and the link stay the plan's. An evaluation that fails is the answer.
+    /// category and the link stay the plan's. An evaluation that fails is the answer. On an evaluated
+    /// answer of the rule lookup, restore sets the component quantities of the context as sent again.
     let evaluateSent
         (start: System.DateTime)
         logger
         provider
         (totalsData: unit -> Types.Data.TotalsData[])
+        restore
         (cmd: OrderContext -> OrderContext.Command)
         (pc: PlanContext)
         : Result<Outcome<PlanContext>, Message list>
@@ -111,7 +113,11 @@ module PlanContext =
                 reconciled
                 |> OrderContext.UpdateOrderContext
                 |> OrderContext.evaluateOutcome start logger provider
-                |> Result.map (offerListsOfOtherPicks >> Outcome.map recorded)
+                |> Result.map (
+                    offerListsOfOtherPicks
+                    >> Outcome.mapEvaluated (OrderContext.Command.get >> restore >> OrderContext.UpdateOrderContext)
+                    >> Outcome.map recorded
+                )
 
         match sent |> cmd with
         | OrderContext.UpdateOrderContext _ -> lookUp ()
@@ -129,9 +135,11 @@ module PlanContext =
     /// The plan context evaluated against the rules as an outcome, a filter or scenario pick
     /// applied to the context as sent first.
     let evaluateOutcome start logger provider totalsData cmd pc =
+        let restore = pc.Context |> cmd |> OrderContext.restoreQuantities logger
+
         pc
         |> resolveChange cmd
-        |> Result.bind (fun (cmd, pc) -> pc |> evaluateSent start logger provider totalsData cmd)
+        |> Result.bind (fun (cmd, pc) -> pc |> evaluateSent start logger provider totalsData restore cmd)
 
 
     /// The plan context evaluated against the rules, as the message-list contract answers it:
@@ -308,6 +316,9 @@ module NutritionRuleSet =
     /// changes nothing the narrowing keeps, and after five rounds, one for each field a choice can
     /// stay open in.
     let settle (contextOf: 'a -> OrderContext) (narrow: 'a -> 'a) (evaluate: 'a -> Result<'a, 'e>) (answer: 'a) =
+        // a round evaluates the context again, which rebuilds its order and drops component quantities set
+        // again after a component selection or a diluent choice; such a change comes from a settled context,
+        // where every list of one holds its choice, so no round follows it
         let rec go rounds a =
             let narrowed = narrow a
 

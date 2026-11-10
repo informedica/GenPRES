@@ -563,4 +563,51 @@ let componentQuantityTests =
                     |> Expect.equal "the order as sent" prep
                 | other -> failtest $"expected a refusal, got %A{other}"
             }
+
+            test "a component selection restores the quantities of the context as sent" {
+                let prep = prepared ()
+                let sc = OrderPlanTests.EvaluateFixtures.pcmContext.Scenarios |> Array.exactlyOne
+
+                let sent =
+                    { OrderPlanTests.EvaluateFixtures.pcmContext with Scenarios = [| { sc with Order = prep } |] }
+
+                let rebuiltCtx =
+                    { OrderPlanTests.EvaluateFixtures.pcmContext with Scenarios = [| { sc with Order = rebuilt () } |] }
+
+                rebuiltCtx
+                |> OrderContext.restoreQuantities OrderLogging.noOp (OrderContext.SetNthComponents(sent, [| 0 |]))
+                |> _.Scenarios
+                |> Array.exactlyOne
+                |> _.Order
+                |> quantities
+                |> Expect.equal "the quantities of the context as sent" (prep |> quantities)
+            }
+
+            test "the plan route restores on an evaluated context, not on a refused one" {
+                let provider = OrderPlanTests.RefusedFixtures.provider ()
+                let restore (ctx: OrderContext) =
+                    { ctx with Filter = { ctx.Filter with Indication = Some "restored" } }
+
+                let indication doseType =
+                    OrderPlanTests.RefusedFixtures.picked provider (Some "paracetamol") (Some "RECTAAL") (Some doseType)
+                    |> PlanContext.create "ctx" OrderCategory.Medication
+                    |> PlanContext.evaluateSent
+                        Scenarios.testStart
+                        OrderLogging.noOp
+                        provider
+                        (fun () -> [||])
+                        restore
+                        OrderContext.UpdateOrderContext
+                    |> Result.map (
+                        function
+                        | Evaluated pc -> "evaluated", pc.Context.Filter.Indication
+                        | Refused(pc, _) -> "refused", pc.Context.Filter.Indication
+                    )
+
+                indication OrderPlanTests.RefusedFixtures.maintenance
+                |> Expect.equal "restored" (Ok("evaluated", Some "restored"))
+
+                indication OrderPlanTests.RefusedFixtures.noText
+                |> Expect.equal "as sent" (Ok("refused", None))
+            }
         ]

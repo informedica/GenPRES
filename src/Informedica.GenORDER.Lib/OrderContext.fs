@@ -422,6 +422,13 @@ module Outcome =
         | Refused(a, _) -> a
 
 
+    /// The outcome with an evaluated value mapped; a refused value stays as it was sent.
+    let mapEvaluated f =
+        function
+        | Evaluated a -> Evaluated(f a)
+        | refused -> refused
+
+
 module OrderContext =
 
     open ConsoleTables
@@ -1537,8 +1544,18 @@ Scenarios: {scenarios}
         | _ -> ctx
 
 
-    /// A filter or scenario pick or a seed applied to its context, read in the lists as sent: the context it changes and the existing command it is evaluated as, or why
-    /// the index is past the options. None for any other command.
+    /// The component quantities of the context as sent set again on the evaluated context, after a
+    /// component selection or a diluent choice; any other command sets nothing.
+    let restoreQuantities logger cmd =
+        match cmd with
+        | ChangeFilter(sent, _, FilterField.Diluent, _)
+        | SetNthComponents(sent, _) -> setComponentQuantities logger sent
+        | _ -> id
+
+
+    /// A filter or scenario pick or a seed applied to its context, read in the lists as sent: the context it
+    /// changes and the existing command it is evaluated as, or why the index is past the options. None for any
+    /// other command.
     let resolveChange cmd =
         let over asCommand changed = changed |> Result.map (fun ctx -> ctx, asCommand) |> Some
 
@@ -1793,11 +1810,7 @@ Scenarios: {scenarios}
         let evaluateAsWith f asCommand wrap changed =
             changed
             |> evaluateAs asCommand id
-            |> Result.map (
-                function
-                | Evaluated ctx -> Evaluated(ctx |> f |> wrap)
-                | Refused(ctx, refusal) -> Refused(wrap ctx, refusal)
-            )
+            |> Result.map (Outcome.mapEvaluated f >> Outcome.map wrap)
 
         match cmd with
         | UpdateOrderContext ctx ->
@@ -1901,24 +1914,16 @@ Scenarios: {scenarios}
                 (SetMedianComponentOrderableQuantity cmp)
                 (fun ctx -> SetMedianComponentQuantityProperty(ctx, cmp))
         | ChangeFilter(sent, category, field, n) ->
-            let keepQuantities =
-                // a diluent choice keeps the component quantities of a solved preparation
-                if field = FilterField.Diluent then
-                    setComponentQuantities logger sent
-                else
-                    id
-
             sent
             |> changeFilter category field n
-            |> evaluateAsWith keepQuantities UpdateOrderContext (fun ctx -> ChangeFilter(ctx, category, field, n))
+            |> evaluateAsWith
+                (restoreQuantities logger cmd)
+                UpdateOrderContext
+                (fun ctx -> ChangeFilter(ctx, category, field, n))
         | SetNthComponents(sent, ns) ->
-            // a component selection keeps the component quantities of a solved preparation
             sent
             |> setNthComponents ns
-            |> evaluateAsWith
-                (setComponentQuantities logger sent)
-                UpdateOrderContext
-                (fun ctx -> SetNthComponents(ctx, ns))
+            |> evaluateAsWith (restoreQuantities logger cmd) UpdateOrderContext (fun ctx -> SetNthComponents(ctx, ns))
         | ClearAllFilter ctx -> Ok(clearAll ctx) |> evaluateAs UpdateOrderContext ClearAllFilter
         | SelectNthOrderScenario(ctx, n) ->
             ctx
