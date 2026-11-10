@@ -518,6 +518,32 @@ module Product =
         }
 
 
+    /// The G-Standaard name of a generic product: the GStand column of its Formulary row, else the Generic column,
+    /// lowercased; the ZIndex name when the product has no Formulary row.
+    let gstandName (fp: FormularyProduct option) (gp: Informedica.ZIndex.Lib.Types.GenericProduct) =
+        fp
+        |> Option.map (fun fp -> fp.GStandName |> Option.defaultValue fp.Generic |> String.toLower)
+        |> Option.defaultValue gp.Name
+
+
+    /// The names of the virtual products: the Generic of every parenteral and enteral row, lowercased.
+    let virtualProductNames (formularyProducts: FormularyProduct[]) =
+        formularyProducts
+        |> Array.filter (fun fp -> fp.ProductType.IsParenteralProduct || fp.ProductType.IsEnteralProduct)
+        |> Array.map (_.Generic >> String.toLower)
+        |> Set.ofArray
+
+
+    /// The name of a generic product: the AltName of its Formulary row as written, else its G-Standaard name. An
+    /// AltName that a virtual product has is not used, so the parenteral fluids keep their virtual products until a
+    /// later step of #1444 replaces them.
+    let productName virtualNames fp gp =
+        fp
+        |> Option.bind _.AltName
+        |> Option.filter (fun n -> virtualNames |> Set.contains (n |> String.toLower) |> not)
+        |> Option.defaultValue (gstandName fp gp)
+
+
     /// <summary>
     /// Pure: build the ProductComponent array from already-loaded ZIndex
     /// GenPresProducts. Performs no IO so it is directly testable; the ZIndex
@@ -543,6 +569,8 @@ module Product =
             |> Array.choose (fun fp -> fp.GPKODE |> Int32.tryParse |> Option.map (fun gpk -> gpk, fp))
             |> Map.ofArray
 
+        let virtualNames = formularyProducts |> virtualProductNames
+
         // start from ALL GenPresProducts (not just formulary GPKs), collect the
         // GenericProducts filtered by "valid form" and at least one substance
         // quantity > 0, then match each with a formulary product by GPK (None if
@@ -560,18 +588,14 @@ module Product =
 
         // Build one Product record per (formulary, generic-product) pair.
         let buildProduct (fp: FormularyProduct option, gp: Informedica.ZIndex.Lib.Types.GenericProduct) =
-            // The Generic is the canonical match key: the official GStand generic
-            // name (falling back to the formulary Generic, then the ZIndex name).
-            // Any brand/form suffix the formulary adds is kept OUT of the match
-            // key so dose-rule selection by component name still matches, and is
-            // surfaced for display via Label instead.
-            let name =
-                fp
-                |> Option.map (fun fp -> fp.GStandName |> Option.defaultValue fp.Generic |> String.toLower)
-                |> Option.defaultValue gp.Name
+            // The G-Standaard name drives the Mmol column and the display label. The
+            // product name, the AltName when there is one, is the match key the rules
+            // select the product by; see productName. Any brand/form suffix the
+            // formulary adds is kept out of both and surfaced for display via Label.
+            let name = gstandName fp gp
 
             // Display label: when the formulary Generic carries a brand/form
-            // suffix (i.e. differs from the GStand match key) keep it as the
+            // suffix (i.e. differs from the G-Standaard name) keep it as the
             // human-facing label; otherwise fall back to the ZIndex label.
             let displayLabel =
                 match fp with
@@ -594,7 +618,11 @@ module Product =
 
             gp
             |> map logger unitMapping routeMapping formRoutes reconstitution name synonyms formQuantities fp
-            |> fun prod -> { prod with Label = displayLabel }
+            |> fun prod ->
+                { prod with
+                    Generic = productName virtualNames fp gp
+                    Label = displayLabel
+                }
 
         // Build the products in parallel: buildProduct is pure but heavy
         // (~99% of this function). Warm a single chunk single-threaded first to
@@ -672,6 +700,8 @@ module Product =
             |> Array.choose (fun fp -> fp.GPKODE |> Int32.tryParse |> Option.map (fun g -> g, fp))
             |> Map.ofArray
 
+        let virtualNames = formularyProducts |> virtualProductNames
+
         // same normalization Product.filter uses for name comparison
         let canon (s: string) =
             s
@@ -722,17 +752,7 @@ module Product =
             || (gp.PrescriptionProducts
                 |> Array.collect _.TradeProducts
                 |> Array.exists (fun tp -> hpkSet.Contains(string tp.Id)))
-            || (let name =
-                    formByGpk
-                    |> Map.tryFind gp.Id
-                    |> Option.map (fun fp ->
-                        match fp.GStandName with
-                        | Some n -> n
-                        | None -> fp.Generic
-                        |> String.toLower
-                    )
-                    |> Option.defaultValue gp.Name
-                    |> canon
+            || (let name = productName virtualNames (formByGpk |> Map.tryFind gp.Id) gp |> canon
 
                 gp.Route
                 |> Array.choose (Mapping.mapRoute routeMapping)

@@ -238,9 +238,10 @@ module Types =
             GenName: string option
             /// GStand generic name; sheet column "GStand"
             GStandName: string option
-            /// The name of the virtual product that this G-Standaard product stands
-            /// for, such as "NaCl 0,9%". Taken as written: not lowercased. Absent when
-            /// the cell is empty.
+            /// The name the product gets in place of its G-Standaard name, such as
+            /// "amfotericine b lipidencomplex". A name that a virtual product has, such
+            /// as "NaCl 0,9%", is not used yet (#1444). Taken as written: not
+            /// lowercased. Absent when the cell is empty.
             AltName: string option
             /// Unit: the form/base unit. Required for enteral and parenteral rows -
             /// a row whose Unit does not parse is skipped by those derivations.

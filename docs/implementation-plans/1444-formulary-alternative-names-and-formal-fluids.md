@@ -243,3 +243,17 @@ One pull request at a time, each merged before the next.
      58 parenteral virtual products to a GPK, with the composition columns copied from the
      virtual row. Kidtrayze got a new row for GPK 196444. The Numeta G19%E 3CZ composition is
      corrected from the G-Standaard. The flag columns hold `x`.
+2. **The AltName names the product** (`fix(genform)`).
+   - A Formulary row with an `AltName` gives its G-Standaard product that name, taken as written:
+     `fromGenPresProducts` sets the product's `Generic`, and the prefilter
+     `filterGenPresProductsByData` uses the same name. The `Mmol` column, the substance names and
+     the display label still use the G-Standaard name.
+   - An `AltName` that a virtual product (a parenteral or enteral row) also has is not used. A
+     G-Standaard fluid with the name of a virtual fluid would give its dose rules a second
+     product, and its ingredient columns would count its G-Standaard substances twice: GPK 61913
+     would get two substances named `glucose`. The fluids keep their virtual products until a
+     later step replaces them.
+   - This fixes amphotericin: the dose rules for `amfotericine b lipidencomplex` get Abelcet (GPK
+     106488) and those for `amfotericine b liposomaal` get AmBisome (GPK 92266), in place of a
+     virtual product without a GPK. On the real sheets nothing else changes: the same 3039
+     products and 7506 dose rules, and only these two products have a new name.
