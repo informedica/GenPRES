@@ -1,5 +1,5 @@
 /// The order plan on new patient data: every order on the current patient, a context without an
-/// order takes the patient, and the limits of a per kg solution rule follow the weight.
+/// order takes the patient, and the limits of a per kg dilution rule follow the weight.
 module PlanOnDataTests
 
 open Informedica.Utils.Lib.BCL

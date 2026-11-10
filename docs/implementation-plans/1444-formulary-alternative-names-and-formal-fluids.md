@@ -271,3 +271,20 @@ One pull request at a time, each merged before the next.
      `infusievloeistof`, `drank` and `poeder voor drank`. The intravenous ones now get the
      FormRoute limit of intraveneus/infusievloeistof, which the G-Standaard infusion fluids
      already have. The FormRoute limits are set in the sheet to fit parenteral nutrition.
+4. **The code follows the renamed sheets and columns** (`refactor(genform)`), a pure renaming.
+   - A product that dissolves a powder is a solvent; a product that dilutes a medication is a
+     diluent. The sheets now say so: Formulary `IsReconst` is `IsSolvent`; the Reconstitution
+     columns `Diluents` and `DiluentVol` are `Solvents` and `SolventVol`; the sheet
+     `SolutionRules` is `DilutionRules`, its column `Solutions` is `Diluents`, and its
+     `MinQtyAdj` and `MaxQtyAdj` are `MinQtyPerKg` and `MaxQtyPerKg`, which they always meant.
+   - The fields that mirror these columns follow: `CanBeUsedAsSolvent`, `Reconstitution.Solvents`
+     and `SolventVolume`, and the dilution rule data's `Diluents`, `MinQtyPerKg` and
+     `MaxQtyPerKg`. The sheet row type and its parser follow the sheet: `DilutionRuleData` and
+     `parseDilutionRuleData`.
+   - The domain follows too: `SolutionRule` is `DilutionRule` and `SolutionLimit` is
+     `DilutionLimit`, with their modules, files (`DilutionRule.fs`, `DilutionLimit.fs`), resource
+     keys, provider members and the GenORDER types that carry them.
+   - The MCP formulary tool outputs the field `Diluents` in place of `Solutions`, and the MCP tools
+     `get_solution_rules` and `get_solution_rules_for_context` are `get_dilution_rules` and
+     `get_dilution_rules_for_context`.
+   - The demo spreadsheet has the same renames.

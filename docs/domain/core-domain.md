@@ -84,7 +84,7 @@ The transformation is implemented by three core systems:
 | *Component* | A physical product unit used to realize an Orderable (e.g., vial, ampoule, bag). |
 | *Item* | The actual substance delivered to the patient (e.g., a medication substance such as amoxicillin). |
 | *Dose Rule* | An OKR that defines qualitative and quantitative constraints for dosing a specific generic in a defined clinical context. |
-| *Solution Rule* | An OKR that defines requirements for the amount and/or concentration of liquid medication. |
+| *Dilution Rule* | An OKR that defines requirements for the amount and/or concentration of liquid medication. |
 | *Reconstitution Rule* | An OKR that defines how medication must be reconstituted to enable administration (e.g., converting powder to liquid). |
 | *Renal Rule* | An OKR used to adjust the dose advice according to renal function (GFR). |
 | *Patient Category* | A categorical description of the type of patient a rule applies to, defined by ranges for age, weight, BSA, gestational age, post-menstrual age, and gender. Used by GenFORM to define which patients an OKR covers. |
@@ -300,7 +300,7 @@ The key insight is that **safety and efficiency are not trade-offs**—they are 
 Operational Knowledge Rules (OKRs) are implemented as four rule types in `Informedica.GenFORM.Lib`. For complete rule specifications including all fields, data types, and validation requirements, see [GenFORM: Free Text to Operational Rules](genform-free-text-to-operational-rules.md).
 
 1. **Dose Rule**: Defines dosing limits per indication, generic, route, patient, and dose type
-2. **Solution Rule**: Defines preparation constraints (volumes, concentrations, drip rate, administration fraction) per patient and administration access
+2. **Dilution Rule**: Defines preparation constraints (volumes, concentrations, drip rate, administration fraction) per patient and administration access
 3. **Reconstitution Rule**: Defines reconstitution steps (diluent volumes, expansion volumes) per generic product (GPK) and route
 4. **Renal Rule**: Defines dose adjustments based on renal function (GFR)
 
@@ -319,14 +319,14 @@ For detailed constraint definitions by rule type, see [GenFORM Section 6: Select
 
 - **Dose Rule**: Source, Generic, Indication, Route, Setting, Patient, Dose Type, Component, Substance
 - **Reconstitution Rule**: Generic, GPK, Form, Route, Setting
-- **Solution Rule**: Generic, Form, Route, Indication, Dose Type, Setting, Administration Access, Patient, Dose, Substance
+- **Dilution Rule**: Generic, Form, Route, Indication, Dose Type, Setting, Administration Access, Patient, Dose, Substance
 - **Renal Rule**: Source, Generic, Indication, Patient, Renal Function
 
 #### Calculation Constraints by Rule Type
 
 - **Dose Rule**: Schedule, Duration, Dose Limits
 - **Reconstitution Rule**: Diluent Volume, Expansion Volume
-- **Solution Rule**: Volume, Drip Rate, Administration Fraction, Dose, Concentration
+- **Dilution Rule**: Volume, Drip Rate, Administration Fraction, Dose, Concentration
 - **Renal Rule**: Schedule, Dose Adjustment (relative or absolute)
 
 **Example**:

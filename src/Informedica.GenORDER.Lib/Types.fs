@@ -310,8 +310,8 @@ module Types =
     type MinMax = Informedica.GenForm.Lib.Types.MinMax
     /// Type alias for DoseLimit from Informedica.GenForm.Lib.Types
     type DoseLimit = Informedica.GenForm.Lib.Types.DoseLimit
-    /// Type alias for SolutionLimit from Informedica.GenForm.Lib.Types
-    type SolutionLimit = Informedica.GenForm.Lib.Types.SolutionLimit
+    /// Type alias for DilutionLimit from Informedica.GenForm.Lib.Types
+    type DilutionLimit = Informedica.GenForm.Lib.Types.DilutionLimit
 
 
     /// Commands that can be executed on an order for calculations
@@ -673,7 +673,7 @@ module Types =
             /// The amount of orderable that will be given each time
             DoseCount: MinMax
             /// The number of equal parts one unit of the orderable can be divided into, set by a
-            /// solution rule. The step of the orderable is 1 divided by this value, in the unit of
+            /// dilution rule. The step of the orderable is 1 divided by this value, in the unit of
             /// the orderable, and it takes the place of the Divisible of the components.
             Div: BigRational option
             /// The adjust quantity for the adjusted dose calculations
@@ -703,8 +703,8 @@ module Types =
             Divisible: BigRational option
             /// The dose limits for the product
             Dose: DoseLimit option
-            /// The solution limits for a product
-            Solution: SolutionLimit option
+            /// The dilution limits for a product
+            Solution: DilutionLimit option
             /// The list of substances contained in the product
             Substances: SubstanceItem list
             /// The products the component can be made of; empty when none are known
@@ -724,8 +724,8 @@ module Types =
             Concentrations: ValueUnit option
             /// The dose limits for a substance
             Dose: DoseLimit option
-            /// The solution limits for a substance
-            Solution: SolutionLimit option
+            /// The dilution limits for a substance
+            Solution: DilutionLimit option
         }
 
 
@@ -842,8 +842,8 @@ module Types =
             NotRecalculated: bool
             /// Associated product identifiers
             ProductsIds: string[]
-            /// The access device the scenario's solution rule makes the preparation for; AnyAccess
-            /// when the rule names none or the scenario has no solution rule. Never the patient's access.
+            /// The access device the scenario's dilution rule makes the preparation for; AnyAccess
+            /// when the rule names none or the scenario has no dilution rule. Never the patient's access.
             Access: Informedica.GenForm.Lib.Types.AccessDevice
         }
 
@@ -949,7 +949,7 @@ module Types =
         /// height, the patient does not have.
         | MeasurementMissing
         /// Dose rules cover the picks and the patient, and each medication must be diluted to
-        /// meet its solution rule while the formulary has no diluent for it.
+        /// meet its dilution rule while the formulary has no diluent for it.
         | NoDiluent
         /// The order cannot be solved with the change; the order stays as it was.
         | NotSolved

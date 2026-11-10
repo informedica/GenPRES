@@ -65,7 +65,7 @@ module Api =
     let getDoseRules (provider: IResourceProvider) = provider.GetDoseRules()
 
 
-    let getSolutionRules (provider: IResourceProvider) = provider.GetSolutionRules()
+    let getDilutionRules (provider: IResourceProvider) = provider.GetDilutionRules()
 
 
     let getRenalRules (provider: IResourceProvider) = provider.GetRenalRules()
@@ -91,12 +91,12 @@ module Api =
 
     let getPrescriptionRules (provider: IResourceProvider) =
         let doseRules = getDoseRules provider
-        let solutionRules = getSolutionRules provider
+        let dilutionRules = getDilutionRules provider
         let routeMappings = getRouteMapping provider
         let renalRules = getRenalRules provider
 
         withDefaultDepartment provider
-        >> PrescriptionRule.getForPatient doseRules solutionRules renalRules routeMappings
+        >> PrescriptionRule.getForPatient doseRules dilutionRules renalRules routeMappings
 
 
     let filterPrescriptionRules
@@ -105,7 +105,7 @@ module Api =
         : Result<PrescriptionRule array, Message list>
         =
         let doseRules = getDoseRules provider
-        let solutionRules = getSolutionRules provider
+        let dilutionRules = getDilutionRules provider
         let routeMappings = getRouteMapping provider
         let renalRules = getRenalRules provider
         let filter = { filter with Patient = filter.Patient |> withDefaultDepartment provider }
@@ -117,7 +117,7 @@ module Api =
         doseRules
         |> Array.chunkBySize chunkSize
         |> Array.map (fun rules ->
-            async { return PrescriptionRule.filter rules solutionRules renalRules routeMappings filter }
+            async { return PrescriptionRule.filter rules dilutionRules renalRules routeMappings filter }
         )
         |> Async.Parallel
         |> Async.RunSynchronously

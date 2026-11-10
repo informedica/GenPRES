@@ -18,8 +18,8 @@ module Fixture =
 
     let logger = DataUpdateFixtures.logger
     let limit v = Some(BigRational.FromInt v)
-    let counted = SolutionRuleComparison.Counted
-    let ignored = SolutionRuleComparison.Ignored
+    let counted = DilutionRuleComparison.Counted
+    let ignored = DilutionRuleComparison.Ignored
 
     /// Rule A up to 10 kg and rule B from 10 kg, with another maximum dose.
     let rows maxB =
@@ -76,12 +76,12 @@ module Fixture =
         |> OrderContext.rulesFor logger p ctx.Patient
         |> Result.defaultWith (fun msgs -> failtest $"no rules: %A{msgs}")
 
-    /// A solution rule to compare with.
+    /// A dilution rule to compare with.
     let solution () =
-        (OrderPlanTests.UndilutedVancomycin() :> Resources.IResourceProvider).GetSolutionRules()
+        (OrderPlanTests.UndilutedVancomycin() :> Resources.IResourceProvider).GetDilutionRules()
 
     let withSolution rs =
-        rs |> Array.map (fun r -> { r with SolutionRules = solution () })
+        rs |> Array.map (fun r -> { r with DilutionRules = solution () })
 
     let renalRule: RenalRule =
         {
@@ -263,7 +263,7 @@ let tests =
             }
 
             testList
-                "solution rules"
+                "dilution rules"
                 [
                     test "count with one dose, as when a central line is removed and its rule goes" {
                         let rules = Fixture.rules ()
@@ -280,10 +280,10 @@ let tests =
                     }
 
                     test "the amount a per kg limit gives at a weight does not count" {
-                        let at (w: BigRational) (sr: SolutionRule) =
+                        let at (w: BigRational) (sr: DilutionRule) =
                             { sr with
-                                SolutionLimits =
-                                    sr.SolutionLimits
+                                DilutionLimits =
+                                    sr.DilutionLimits
                                     |> Array.map (fun sl ->
                                         let perKg =
                                             5N
@@ -303,7 +303,7 @@ let tests =
                         let atWeight w =
                             Fixture.rules ()
                             |> Fixture.withSolution
-                            |> Array.map (fun r -> { r with SolutionRules = r.SolutionRules |> Array.map (at w) })
+                            |> Array.map (fun r -> { r with DilutionRules = r.DilutionRules |> Array.map (at w) })
 
                         PrescriptionRule.sameRules Fixture.counted (atWeight 10N) (atWeight 20N)
                         |> Expect.isTrue "one rule"

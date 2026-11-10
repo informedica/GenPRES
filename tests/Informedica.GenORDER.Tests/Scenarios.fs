@@ -125,8 +125,8 @@ let amfo =
                                     }
                                     |> Some
                                 Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "amfotericine b liposomaal" |> SubstanceLimitTarget
+                                    { DilutionLimit.limit with
+                                        DilutionLimitTarget = "amfotericine b liposomaal" |> SubstanceLimitTarget
                                         Concentration =
                                             { MinMax.empty with
                                                 Min =
@@ -178,7 +178,7 @@ let amfo =
     }
 
 
-/// The amphotericin scenario without its diluent: a 4 mg/mL vial with a solution limit of 0.2 to 2 mg/mL.
+/// The amphotericin scenario without its diluent: a 4 mg/mL vial with a dilution limit of 0.2 to 2 mg/mL.
 let amfoUndiluted = { amfo with Components = [ amfo.Components |> List.head ] }
 
 
@@ -219,8 +219,8 @@ let morfCont =
                                     }
                                     |> Some
                                 Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "morfin" |> SubstanceLimitTarget
+                                    { DilutionLimit.limit with
+                                        DilutionLimitTarget = "morfin" |> SubstanceLimitTarget
                                         Quantity = 10N |> ValueUnit.singleWithUnit su |> MinMax.createExact
                                         Concentration =
                                             { MinMax.empty with
@@ -486,8 +486,8 @@ let tpnComplete =
                                     )
                                     |> Some
                                 Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "eiwit" |> SubstanceLimitTarget
+                                    { DilutionLimit.limit with
+                                        DilutionLimitTarget = "eiwit" |> SubstanceLimitTarget
                                         Concentration =
                                             { MinMax.empty with
                                                 Max =
@@ -510,8 +510,8 @@ let tpnComplete =
                                     )
                                     |> Some
                                 Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "natrium" |> LimitTarget.SubstanceLimitTarget
+                                    { DilutionLimit.limit with
+                                        DilutionLimitTarget = "natrium" |> LimitTarget.SubstanceLimitTarget
                                         Concentration =
                                             { MinMax.empty with
                                                 Max =
@@ -534,8 +534,8 @@ let tpnComplete =
                                     )
                                     |> Some
                                 Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "kalium" |> LimitTarget.SubstanceLimitTarget
+                                    { DilutionLimit.limit with
+                                        DilutionLimitTarget = "kalium" |> LimitTarget.SubstanceLimitTarget
                                         Concentration =
                                             { MinMax.empty with
                                                 Max =
@@ -627,8 +627,8 @@ let tpnComplete =
                                     )
                                     |> Some
                                 Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "natrium" |> LimitTarget.SubstanceLimitTarget
+                                    { DilutionLimit.limit with
+                                        DilutionLimitTarget = "natrium" |> LimitTarget.SubstanceLimitTarget
                                         Concentration =
                                             { MinMax.empty with
                                                 Max =
@@ -693,8 +693,8 @@ let tpnComplete =
                                     )
                                     |> Some
                                 Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "kalium" |> LimitTarget.SubstanceLimitTarget
+                                    { DilutionLimit.limit with
+                                        DilutionLimitTarget = "kalium" |> LimitTarget.SubstanceLimitTarget
                                         Concentration =
                                             { MinMax.empty with
                                                 Max =
@@ -828,8 +828,8 @@ let tpn =
                                     )
                                     |> Some
                                 Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "eiwit" |> LimitTarget.SubstanceLimitTarget
+                                    { DilutionLimit.limit with
+                                        DilutionLimitTarget = "eiwit" |> LimitTarget.SubstanceLimitTarget
                                         Concentration =
                                             { MinMax.empty with
                                                 Max =
@@ -852,8 +852,8 @@ let tpn =
                                     )
                                     |> Some
                                 Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "natrium" |> LimitTarget.SubstanceLimitTarget
+                                    { DilutionLimit.limit with
+                                        DilutionLimitTarget = "natrium" |> LimitTarget.SubstanceLimitTarget
                                         Concentration =
                                             { MinMax.empty with
                                                 Max =
@@ -876,8 +876,8 @@ let tpn =
                                     )
                                     |> Some
                                 Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "kalium" |> LimitTarget.SubstanceLimitTarget
+                                    { DilutionLimit.limit with
+                                        DilutionLimitTarget = "kalium" |> LimitTarget.SubstanceLimitTarget
                                         Concentration =
                                             { MinMax.empty with
                                                 Max =
@@ -933,8 +933,8 @@ let tpn =
                                     )
                                     |> Some
                                 Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "natrium" |> LimitTarget.SubstanceLimitTarget
+                                    { DilutionLimit.limit with
+                                        DilutionLimitTarget = "natrium" |> LimitTarget.SubstanceLimitTarget
                                         Concentration =
                                             { MinMax.empty with
                                                 Max =
@@ -990,8 +990,8 @@ let tpn =
                                     )
                                     |> Some
                                 Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "kalium" |> LimitTarget.SubstanceLimitTarget
+                                    { DilutionLimit.limit with
+                                        DilutionLimitTarget = "kalium" |> LimitTarget.SubstanceLimitTarget
                                         Concentration =
                                             { MinMax.empty with
                                                 Max =
@@ -1768,8 +1768,8 @@ let fullMedication =
                         }
                         |> Some
                     Solution =
-                        { SolutionLimit.limit with
-                            SolutionLimitTarget = "Main Component" |> ComponentLimitTarget
+                        { DilutionLimit.limit with
+                            DilutionLimitTarget = "Main Component" |> ComponentLimitTarget
                             Quantity =
                                 { MinMax.empty with
                                     Min = 10N |> ValueUnit.singleWithUnit volUnit |> Limit.inclusive |> Some
@@ -1806,8 +1806,8 @@ let fullMedication =
                                     }
                                     |> Some
                                 Solution =
-                                    { SolutionLimit.limit with
-                                        SolutionLimitTarget = "Active Substance" |> SubstanceLimitTarget
+                                    { DilutionLimit.limit with
+                                        DilutionLimitTarget = "Active Substance" |> SubstanceLimitTarget
                                         Concentration =
                                             { MinMax.empty with
                                                 Min =
@@ -1962,8 +1962,8 @@ let morfContWithNaCl =
         (fun sub ->
             { sub with
                 Solution =
-                    { SolutionLimit.limit with
-                        SolutionLimitTarget = "natrium" |> SubstanceLimitTarget
+                    { DilutionLimit.limit with
+                        DilutionLimitTarget = "natrium" |> SubstanceLimitTarget
                         Quantity =
                             (154N / 100N)
                             |> ValueUnit.singleWithUnit Units.Molar.milliMole
@@ -2122,7 +2122,7 @@ Components:
 
 
 /// Hydrocortison intravenous, given once to a patient of 14.5 kg, as a use case logged it: its
-/// solution rule gives the dose count a minimum of 1 and no maximum, so the dose count is free.
+/// dilution rule gives the dose count a minimum of 1 and no maximum, so the dose count is free.
 let hydrocortisonIvText =
     """
 Id: 7547eb68-ff3d-4f46-9846-672210fc429d

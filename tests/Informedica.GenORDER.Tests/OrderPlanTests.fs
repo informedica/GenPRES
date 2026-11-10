@@ -817,7 +817,7 @@ type NoRules() =
         member _.GetProducts() = raise (System.NotImplementedException())
 
         member _.GetDoseRules() = [||]
-        member _.GetSolutionRules() = [||]
+        member _.GetDilutionRules() = [||]
         member _.GetRenalRules() = [||]
 
         member _.GetTotals() = raise (System.NotImplementedException())
@@ -1086,7 +1086,7 @@ type RulesOf(rules: DoseRule[]) =
         member _.GetRouteMappings() = RuleFixtures.routeMapping
 
 
-/// A provider holding one intravenous rule for vancomycin: a vial of 50 mg/mL, a solution limit of
+/// A provider holding one intravenous rule for vancomycin: a vial of 50 mg/mL, a dilution limit of
 /// 9 to 11 mg/mL and no diluent, so the medication cannot become an order.
 type UndilutedVancomycin() =
     inherit NoRules()
@@ -1131,7 +1131,7 @@ type UndilutedVancomycin() =
                 }
         }
 
-    let solutionRule: SolutionRule =
+    let dilutionRule: DilutionRule =
         {
             Generic = "vancomycine"
             Form = None
@@ -1147,10 +1147,10 @@ type UndilutedVancomycin() =
             VolumeAdjust = Informedica.GenCore.Lib.Ranges.MinMax.empty
             DripRate = Informedica.GenCore.Lib.Ranges.MinMax.empty
             DoseFraction = Informedica.GenCore.Lib.Ranges.MinMax.empty
-            SolutionLimits =
+            DilutionLimits =
                 [|
-                    { SolutionLimit.limit with
-                        SolutionLimitTarget = SubstanceLimitTarget "vancomycine"
+                    { DilutionLimit.limit with
+                        DilutionLimitTarget = SubstanceLimitTarget "vancomycine"
                         Concentration =
                             Informedica.GenCore.Lib.Ranges.MinMax.createInclIncl
                                 (9N |> ValueUnit.singleWithUnit mgPerMl)
@@ -1162,7 +1162,7 @@ type UndilutedVancomycin() =
     interface Resources.IResourceProvider with
         member _.GetDoseRules() =
             DoseRuleLoader.fromData routeMapping [||] [| vial |] [| row |] |> fst
-        member _.GetSolutionRules() = [| solutionRule |]
+        member _.GetDilutionRules() = [| dilutionRule |]
         member _.GetRouteMappings() = routeMapping
 
 
@@ -1776,10 +1776,10 @@ let selectsRulesTests =
         ]
 
 
-/// The access device a scenario is labelled with: that of the solution rule its order was made
+/// The access device a scenario is labelled with: that of the dilution rule its order was made
 /// from, paired by place with the medications of the rule.
 let scenarioAccessTests =
-    let solutionRule access : SolutionRule =
+    let dilutionRule access : DilutionRule =
         {
             Generic = "paracetamol"
             Form = None
@@ -1795,7 +1795,7 @@ let scenarioAccessTests =
             VolumeAdjust = Informedica.GenCore.Lib.Ranges.MinMax.empty
             DripRate = Informedica.GenCore.Lib.Ranges.MinMax.empty
             DoseFraction = Informedica.GenCore.Lib.Ranges.MinMax.empty
-            SolutionLimits = [||]
+            DilutionLimits = [||]
         }
 
     // a function, so that the rule lookup runs in the test and not when the file loads
@@ -1807,25 +1807,25 @@ let scenarioAccessTests =
         |> Api.getPrescriptionRules provider
         |> Result.defaultValue [||]
         |> Array.head
-        |> fun pr -> { pr with SolutionRules = accesses |> Array.map solutionRule }
+        |> fun pr -> { pr with DilutionRules = accesses |> Array.map dilutionRule }
 
     testList
         "the access of a scenario"
         [
-            test "a rule without solution rules gives a single any access" {
+            test "a rule without dilution rules gives a single any access" {
                 rule [||]
                 |> OrderScenario.accessOfRule
                 |> Expect.equal "any access, once" [| AnyAccess |]
             }
 
-            test "each solution rule gives its access device, in the order of the rules" {
+            test "each dilution rule gives its access device, in the order of the rules" {
                 rule [| CVL; PVL; AnyAccess |]
                 |> OrderScenario.accessOfRule
                 |> Expect.equal "the devices of the rules" [| CVL; PVL; AnyAccess |]
             }
 
             for accesses in [ [||]; [| CVL |]; [| CVL; PVL; AnyAccess |] ] do
-                test $"%i{accesses.Length} solution rules give as many devices as medications" {
+                test $"%i{accesses.Length} dilution rules give as many devices as medications" {
                     let pr = rule accesses
 
                     pr
@@ -1837,7 +1837,7 @@ let scenarioAccessTests =
                 }
 
             for accesses in [ [||]; [| CVL; PVL |]; [| PVL; AnyAccess; CVL |] ] do
-                test $"evaluated, the scenarios of %i{accesses.Length} solution rules hold the access of their rule" {
+                test $"evaluated, the scenarios of %i{accesses.Length} dilution rules hold the access of their rule" {
                     let expected =
                         if accesses |> Array.isEmpty then
                             [| AnyAccess |]

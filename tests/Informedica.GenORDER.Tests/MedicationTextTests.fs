@@ -1803,7 +1803,7 @@ module MedicationTextYamlTests =
         let dose t =
             Option.map (fun (dl: DoseLimit) -> { dl with DoseLimitTarget = t })
         let sol t =
-            Option.map (fun (sl: SolutionLimit) -> { sl with SolutionLimitTarget = t })
+            Option.map (fun (sl: DilutionLimit) -> { sl with DilutionLimitTarget = t })
 
         { med with
             Dose = med.Dose |> dose OrderableLimitTarget
@@ -1839,7 +1839,7 @@ module MedicationTextYamlTests =
                 | None -> ()
 
                 match pc.Solution with
-                | Some sl -> $"%s{pc.Name}.Solution", sl.SolutionLimitTarget
+                | Some sl -> $"%s{pc.Name}.Solution", sl.DilutionLimitTarget
                 | None -> ()
 
                 for si in pc.Substances do
@@ -1848,7 +1848,7 @@ module MedicationTextYamlTests =
                     | None -> ()
 
                     match si.Solution with
-                    | Some sl -> $"%s{pc.Name}.%s{si.Name}.Solution", sl.SolutionLimitTarget
+                    | Some sl -> $"%s{pc.Name}.%s{si.Name}.Solution", sl.DilutionLimitTarget
                     | None -> ()
         ]
 

@@ -17,14 +17,15 @@ module PrescriptionRule =
 
     /// Whether a prescription rule can be prescribed for the patient: the patient has every
     /// measurement, the weight or the BSA, that the per kg and per m2 bounds of its dose limits, its
-    /// solution rules and its applied renal rule need.
+    /// dilution rules and its applied renal rule need.
     let isPrescribable pat (pr: PrescriptionRule) =
         [
             for dl in pr.DoseRule |> DoseRule.allLimits do
                 yield! dl |> doseLimitMeasures
-            for sr in pr.SolutionRules do
+            for dilRule in pr.DilutionRules do
                 yield!
-                    sr.VolumeAdjust :: (sr.SolutionLimits |> Array.toList |> List.map _.QuantityAdj)
+                    dilRule.VolumeAdjust
+                    :: (dilRule.DilutionLimits |> Array.toList |> List.map _.QuantityAdj)
                     |> List.choose RenalRule.measureOf
             for rl in pr.RenalRules |> Array.collect _.RenalLimits do
                 yield! rl |> RenalRule.limitMeasures
@@ -190,26 +191,26 @@ module PrescriptionRule =
                 | _ -> dl
 
 
-    let adjustSolutionRuleToPatient (pat: Patient) (sr: SolutionRule) =
+    let adjustDilutionRuleToPatient (pat: Patient) (dilRule: DilutionRule) =
         match pat.Weight with
-        | None -> sr
+        | None -> dilRule
         | Some w ->
-            { sr with
+            { dilRule with
                 Volume =
-                    if sr.VolumeAdjust |> MinMax.isEmpty then
-                        sr.Volume
+                    if dilRule.VolumeAdjust |> MinMax.isEmpty then
+                        dilRule.Volume
                     else
-                        [ sr.VolumeAdjust |> MinMax.apply ((*) w); sr.Volume ]
+                        [ dilRule.VolumeAdjust |> MinMax.apply ((*) w); dilRule.Volume ]
                         |> MinMax.foldMinimize true true
-                SolutionLimits =
-                    sr.SolutionLimits
-                    |> Array.map (fun sl ->
-                        if sl.QuantityAdj |> MinMax.isEmpty then
-                            sl
+                DilutionLimits =
+                    dilRule.DilutionLimits
+                    |> Array.map (fun dilLimit ->
+                        if dilLimit.QuantityAdj |> MinMax.isEmpty then
+                            dilLimit
                         else
-                            { sl with
+                            { dilLimit with
                                 Quantity =
-                                    [ sl.QuantityAdj |> MinMax.apply ((*) w); sl.Quantity ]
+                                    [ dilLimit.QuantityAdj |> MinMax.apply ((*) w); dilLimit.Quantity ]
                                     |> MinMax.foldMinimize true true
                             }
                     )
@@ -228,8 +229,8 @@ module PrescriptionRule =
              Some pr.DoseRule),
         pr.RenalRules,
         match solutions with
-        | SolutionRuleComparison.Counted -> pr.SolutionRules |> Array.map SolutionRule.withoutPatientAmounts
-        | SolutionRuleComparison.Ignored -> [||]
+        | DilutionRuleComparison.Counted -> pr.DilutionRules |> Array.map DilutionRule.withoutPatientAmounts
+        | DilutionRuleComparison.Ignored -> [||]
 
 
     /// Whether the rules of the current patient are the rules of the patient at the context. No rule
@@ -242,7 +243,7 @@ module PrescriptionRule =
     /// Use a Filter to get matching PrescriptionRules.
     let filter
         doseRules
-        solutionRules
+        dilutionRules
         renalRules
         routeMapping
         (filter: DoseFilter)
@@ -262,7 +263,7 @@ module PrescriptionRule =
             let filter =
                 { filter with
                     Indication = dr.Indication |> Some
-                    // RenalRule / SolutionRule sheets key on the base substance
+                    // RenalRule / DilutionRule sheets key on the base substance
                     // name, not the brand/form label, so match on genericName.
                     Generic = dr.Generic |> Generic.genericName |> Some
                     Form = dr.Generic.Form |> PharmaceuticalForm.toString |> Some
@@ -273,9 +274,9 @@ module PrescriptionRule =
             {
                 Patient = pat
                 DoseRule = dr
-                SolutionRules =
+                DilutionRules =
                     let solFilter =
-                        { Filter.solutionFilter (dr.Generic |> Generic.genericName) with
+                        { Filter.dilutionFilter (dr.Generic |> Generic.genericName) with
                             Patient = pat
                             Form = dr.Generic.Form |> PharmaceuticalForm.toString |> Some
                             Route = dr.Route |> Some
@@ -285,16 +286,16 @@ module PrescriptionRule =
                             Dose = None
                         }
 
-                    solutionRules
-                    |> SolutionRule.filter routeMapping solFilter
-                    |> Array.map (fun sr ->
-                        { sr with
-                            SolutionLimits =
-                                sr.SolutionLimits
-                                |> Array.map (fun sl ->
-                                    { sl with
+                    dilutionRules
+                    |> DilutionRule.filter routeMapping solFilter
+                    |> Array.map (fun dilRule ->
+                        { dilRule with
+                            DilutionLimits =
+                                dilRule.DilutionLimits
+                                |> Array.map (fun dilLimit ->
+                                    { dilLimit with
                                         Products =
-                                            sl.Products
+                                            dilLimit.Products
                                             |> Array.filter (fun sr_p ->
                                                 dr.ComponentLimits
                                                 |> Array.collect _.Products
@@ -349,7 +350,7 @@ module PrescriptionRule =
                                 }
                             )
                     }
-                SolutionRules = pr.SolutionRules |> Array.map (adjustSolutionRuleToPatient filter.Patient)
+                DilutionRules = pr.DilutionRules |> Array.map (adjustDilutionRuleToPatient filter.Patient)
             }
         )
         // Recalculate the dose rule according to a renal rules
@@ -369,10 +370,10 @@ module PrescriptionRule =
 
 
     /// Get all matching PrescriptionRules for a given Patient.
-    let getForPatient doseRules solutionRules renalRules routeMapping (pat: Patient) =
+    let getForPatient doseRules dilutionRules renalRules routeMapping (pat: Patient) =
         Filter.doseFilter
         |> Filter.setPatient pat
-        |> filter doseRules solutionRules renalRules routeMapping
+        |> filter doseRules dilutionRules renalRules routeMapping
 
 
     /// Get the string representation of an array of PrescriptionRules. getLink is
@@ -385,7 +386,7 @@ module PrescriptionRule =
                 |> Array.collect (fun x ->
                     [|
                         [| x.DoseRule |] |> DoseRule.Print.toMarkdown getLink
-                        x.SolutionRules |> SolutionRule.Print.toMarkdown "verdunnen"
+                        x.DilutionRules |> DilutionRule.Print.toMarkdown "verdunnen"
                     |]
                 )
         ]
@@ -397,14 +398,14 @@ module PrescriptionRule =
     let getDoseRule (pr: PrescriptionRule) = pr.DoseRule
 
 
-    let getSolutionRules (pr: PrescriptionRule) = pr.SolutionRules
+    let getDilutionRules (pr: PrescriptionRule) = pr.DilutionRules
 
 
     /// Get all DoseRules of an array of PrescriptionRules.
     let getDoseRules = Array.map getDoseRule
 
 
-    let collectSolutionRules = Array.collect getSolutionRules
+    let collectDilutionRules = Array.collect getDilutionRules
 
 
     /// Get all indications of an array of PrescriptionRules.
@@ -428,7 +429,7 @@ module PrescriptionRule =
 
     let diluents (prs: PrescriptionRule[]) =
         prs
-        |> Array.collect _.SolutionRules
+        |> Array.collect _.DilutionRules
         |> Array.collect _.Diluents
         |> Array.distinct
 

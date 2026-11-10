@@ -18,7 +18,7 @@ module Filter =
         }
 
 
-    let solutionFilter gen =
+    let dilutionFilter gen =
         {
             Generic = gen
             Form = None

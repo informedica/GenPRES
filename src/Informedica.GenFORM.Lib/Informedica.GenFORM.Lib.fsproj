@@ -25,8 +25,8 @@
     <Compile Include="DoseRuleLoader.fs" />
     <Compile Include="SourceLoader.fs" />
     <Compile Include="Check.fs" />
-    <Compile Include="SolutionLimit.fs" />
-    <Compile Include="SolutionRule.fs" />
+    <Compile Include="DilutionLimit.fs" />
+    <Compile Include="DilutionRule.fs" />
     <Compile Include="RenalRule.fs" />
     <Compile Include="RuleSet.fs" />
     <Compile Include="LinkRule.fs" />

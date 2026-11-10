@@ -94,7 +94,7 @@ module Types =
     /// <summary>
     /// One row of the "Reconstitution" sheet, parsed by
     /// <c>Product.Reconstitution.parseReconstitution</c>. Describes how a product
-    /// is brought into an administrable form by adding a diluent. Field names equal
+    /// is brought into an administrable form by adding a solvent. Field names equal
     /// sheet column names except where noted; every column is required.
     /// </summary>
     type Reconstitution =
@@ -107,15 +107,16 @@ module Types =
             Location: string option
             /// The department for the reconstitution; sheet column "Dep"
             Department: string option
-            /// The volume of the reconstitution, in mL; sheet column "DiluentVol".
+            /// The volume of the solvent, in mL; sheet column "SolventVol".
             /// Defaults to 1 mL when the cell is empty.
-            DiluentVolume: ValueUnit
+            SolventVolume: ValueUnit
             /// An optional expansion volume of the reconstitution, in mL - the
             /// increase in total volume caused by dissolving the product; sheet
             /// column "ExpansionVol"
             ExpansionVolume: ValueUnit option
-            /// The Diluents for the reconstitution, ';'-separated in the sheet
-            Diluents: string[]
+            /// The solvents for the reconstitution, ';'-separated in the sheet column
+            /// "Solvents"
+            Solvents: string[]
         }
 
 
@@ -284,9 +285,9 @@ module Types =
             // The three flag columns below hold x or TRUE for true, and nothing or FALSE
             // for false, in any case; any other value fails the parse.
 
-            /// The product can be used to reconstitute another product; sheet column
-            /// "IsReconst"
-            CanBeUsedForReconstitution: bool
+            /// The product can be used as a solvent to reconstitute another product;
+            /// sheet column "IsSolvent"
+            CanBeUsedAsSolvent: bool
             /// The product can be used as a diluent; sheet column "IsDiluent"
             CanBeUsedAsDiluent: bool
             /// The product can be used as an additive; sheet column "IsAdditive"
@@ -583,43 +584,43 @@ module Types =
         }
 
 
-    /// A SolutionLimit for a Substance.
-    type SolutionLimit =
+    /// A DilutionLimit for a Substance.
+    type DilutionLimit =
         {
-            /// The Substance for the SolutionLimit
-            SolutionLimitTarget: LimitTarget
-            /// The MinMax Quantity of the Substance for the SolutionLimit
+            /// The Substance for the DilutionLimit
+            DilutionLimitTarget: LimitTarget
+            /// The MinMax Quantity of the Substance for the DilutionLimit
             Quantity: MinMax
-            /// The MinMax Quantity Adjust of the Substance for the SolutionLimit
+            /// The MinMax Quantity Adjust of the Substance for the DilutionLimit
             QuantityAdj: MinMax
-            /// A list of possible Quantities of the Substance for the SolutionLimit
+            /// A list of possible Quantities of the Substance for the DilutionLimit
             Quantities: ValueUnit option
-            /// The Minmax Concentration of the Substance for the SolutionLimit
+            /// The Minmax Concentration of the Substance for the DilutionLimit
             Concentration: MinMax
-            /// The Products the SolutionRule applies to
+            /// The Products the DilutionRule applies to
             Products: ProductComponent[]
         }
 
 
-    /// A SolutionRule for a specific Generic, pharmaceutical form, Route, DoseType, Department
+    /// A DilutionRule for a specific Generic, pharmaceutical form, Route, DoseType, Department
     /// Venous Access Location, Age range, Weight range, Dose range and Generic Products.
-    type SolutionRule =
+    type DilutionRule =
         {
-            /// The Generic of the SolutionRule
+            /// The Generic of the DilutionRule
             Generic: string
-            /// The pharmaceutical form of the SolutionRule
+            /// The pharmaceutical form of the DilutionRule
             Form: string option
-            /// The Route of the SolutionRule
+            /// The Route of the DilutionRule
             Route: string
-            /// The DoseType of the SolutionRule
+            /// The DoseType of the DilutionRule
             Indication: string option
-            /// The dose type of the SolutionRule
+            /// The dose type of the DilutionRule
             DoseType: DoseType
             /// The PatientCategory of the DoseRule
             PatientCategory: PatientCategory
-            /// The MinMax Dose range of the SolutionRule
+            /// The MinMax Dose range of the DilutionRule
             Dose: MinMax
-            /// The possible Solutions to use
+            /// The diluents to use, from the column "Diluents" of the DilutionRules sheet
             Diluents: ProductComponent[]
             /// The number of equal parts one unit of the prepared solution can be divided into, so
             /// the step of the orderable is 1 divided by this value. It takes the place of the
@@ -631,13 +632,13 @@ module Types =
             Volume: MinMax
             /// A MinMax adjusted Volume range to use
             VolumeAdjust: MinMax
-            /// A MinMax Drip Rate for the SolutionRule
+            /// A MinMax Drip Rate for the DilutionRule
             DripRate: MinMax
             /// The fraction of the preparation that makes up one dose, for example 0.5 for half the preparation.
             /// The order uses 1 divided by the fraction as the number of doses in the preparation.
             DoseFraction: MinMax
-            /// The SolutionLimits for the SolutionRule
-            SolutionLimits: SolutionLimit[]
+            /// The DilutionLimits for the DilutionRule
+            DilutionLimits: DilutionLimit[]
         }
 
 
@@ -708,7 +709,7 @@ module Types =
     /// the one a patient without a department is prescribed for.
     type Departments =
         {
-            /// Every department a dose rule, a solution rule or a reconstitution names, the
+            /// Every department a dose rule, a dilution rule or a reconstitution names, the
             /// default included, distinct and sorted.
             Names: string[]
             /// The department a patient without one is prescribed for.
@@ -754,39 +755,39 @@ module Types =
         }
 
 
-    type SolutionFilter =
+    type DilutionFilter =
         {
-            /// The Generic of the SolutionRule
+            /// The Generic of the DilutionRule
             Generic: string
-            /// The pharmaceutical form of the SolutionRule
+            /// The pharmaceutical form of the DilutionRule
             Form: string option
-            /// The Route of the SolutionRule
+            /// The Route of the DilutionRule
             Route: string option
-            /// The DoseType of the SolutionRule
+            /// The DoseType of the DilutionRule
             Indication: string option
             DoseType: DoseType option
             /// the patient
             Patient: Patient
             /// the diluent to dilute the component
             Diluent: string option
-            /// The MinMax Dose range of the SolutionRule
+            /// The MinMax Dose range of the DilutionRule
             Dose: ValueUnit option
         }
 
     /// A PrescriptionRule for a specific Patient
-    /// with a DoseRule and a list of SolutionRules.
+    /// with a DoseRule and a list of DilutionRules.
     type PrescriptionRule =
         {
             Patient: Patient
             DoseRule: DoseRule
-            SolutionRules: SolutionRule[]
+            DilutionRules: DilutionRule[]
             RenalRules: RenalRule[]
         }
 
 
-    /// Whether the solution rules count when two prescription rules are compared.
+    /// Whether the dilution rules count when two prescription rules are compared.
     [<RequireQualifiedAccess>]
-    type SolutionRuleComparison =
+    type DilutionRuleComparison =
         | Counted
         | Ignored
 
@@ -1161,9 +1162,9 @@ module Types =
             }
 
         /// <summary>
-        /// One row of the "SolutionRules" sheet, parsed by
-        /// <c>SolutionRule.parseSolutionRuleData</c> and built into
-        /// <c>SolutionRule</c>s by <c>SolutionRule.map</c>. Describes how a
+        /// One row of the "DilutionRules" sheet, parsed by
+        /// <c>DilutionRule.parseDilutionRuleData</c> and built into
+        /// <c>DilutionRule</c>s by <c>DilutionRule.map</c>. Describes how a
         /// medication must be diluted and administered.
         /// </summary>
         /// <remarks>
@@ -1171,9 +1172,9 @@ module Types =
         /// and Indication must match the corresponding DoseRule. Every column is
         /// required: a missing column fails the parse.
         /// </remarks>
-        type SolutionRuleData =
+        type DilutionRuleData =
             {
-                /// solution rule section
+                /// dilution rule section
                 Generic: string
                 Form: string
                 Route: string
@@ -1194,17 +1195,17 @@ module Types =
                 /// gestational age bounds in DAYS
                 MinGestAge: BigRational option
                 MaxGestAge: BigRational option
-                /// dose range this solution rule applies to (a selection constraint,
+                /// dose range this dilution rule applies to (a selection constraint,
                 /// not a limit to compute)
                 MinDose: BigRational option
                 MaxDose: BigRational option
                 /// one of: once, onceTimed, discontinuous, timed, continuous
                 DoseType: string
                 DoseText: string
-                /// sheet column "Solutions": acceptable diluents, '|'-separated
-                Solutions: string list
+                /// sheet column "Diluents": acceptable diluents, '|'-separated
+                Diluents: string list
                 /// sheet column "Div": the number of equal parts one unit of the prepared
-                /// solution can be divided into, see the Div on the SolutionRule
+                /// solution can be divided into, see the Div on the DilutionRule
                 Div: BigRational option
                 /// standard volumes in mL, ';'-separated
                 Volumes: BigRational array
@@ -1218,7 +1219,7 @@ module Types =
                 /// for example 0.5 for half the preparation and 1 for the whole preparation
                 MinPerc: BigRational option
                 MaxPerc: BigRational option
-                /// solution limit section
+                /// dilution limit section
                 Component: string
                 Substance: string
                 /// sheet column "Unit": the substance unit the quantity and
@@ -1228,8 +1229,10 @@ module Types =
                 Quantities: BigRational array
                 MinQty: BigRational option
                 MaxQty: BigRational option
-                MinQtyAdj: BigRational option
-                MaxQtyAdj: BigRational option
+                /// the minimum quantity per kg body weight; sheet column "MinQtyPerKg"
+                MinQtyPerKg: BigRational option
+                /// the maximum quantity per kg body weight; sheet column "MaxQtyPerKg"
+                MaxQtyPerKg: BigRational option
                 /// infusion (drip) rate bounds in mL/hour
                 MinDrip: BigRational option
                 MaxDrip: BigRational option
