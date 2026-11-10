@@ -135,13 +135,9 @@ For the maintainer to decide:
 
 `src/Informedica.GenORDER.Lib/Scripts/NutritionComponents.fsx` runs on the production sheet, with
 the sheet edits of the decisions made in memory. Step 1 is migrated, and the order tests of the
-script run on the library code. Its 15 tests pass. What the script still holds:
-
-- **From the review of step 1**: `diluentRowsWithoutDiluent`, a load warning for a `diluent` row
-  in a rule without a diluent, and `unmarkedDiluents`, one `IsDiluent` warning per diluent that
-  lists the generics.
-- **Step 2**: `optionalComponents` and `selectComponents`: the additives after the first
-  component are optional; the first component and every component that is not an additive stay.
+script run on the library code. Its 9 tests pass. What the script still holds is step 2:
+`optionalComponents` and `selectComponents`. The additives after the first component are optional;
+the first component and every component that is not an additive stay.
 
 What the tests show:
 
@@ -184,9 +180,11 @@ to 4 depend on the open points.
 1. **GenFORM: the diluent of a dilution rule** (`feat(genform)`): `DilutionRule.map` with the
    cell order and the `diluent` row, the `IsDiluent` warning, the refused pair in
    `PrescriptionRule.filter` and its load warning. The tests move from the script.
-   - In the source, `DilutionRule.withDiluentRows` gives a `diluent` row once per diluent, named
+   - In the source, `DilutionRule.expandDiluentRows` gives a `diluent` row once per diluent, named
      after the diluent, before the limits are built, so the existing code of a component row builds
      its limits.
+   - Load warnings, from the review: a `diluent` row in a rule without a diluent, and one
+     `IsDiluent` warning per diluent that lists the generics.
    - The script stays until step 2 is migrated, because it also holds the prototype of step 2.
    - On deploy, without any sheet edit: the default diluent of 42 dilution rules moves from
      `gluc 5%` to `NaCl 0,9%`, the dilution rule "neonaten" of NICU mix is refused for the NICU mix
