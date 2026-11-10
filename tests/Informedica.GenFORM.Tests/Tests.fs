@@ -983,6 +983,45 @@ module DoseRuleToDataTests =
             fromHeaders @ [ "Loc" ]
 
 
+        /// The Formulary columns, the one list for the contract and for the FormularyProduct tests.
+        let formularyColumns =
+            [
+                "GPKODE"
+                "Type"
+                "UMCU"
+                "ICC"
+                "NEO"
+                "ICK"
+                "HCK"
+                "Generic"
+                "TallMan"
+                "Divisible"
+                "UseGenName"
+                "Mmol"
+                "Form"
+                "Brand"
+                "GenName"
+                "GStand"
+                "AltName"
+                "Unit"
+                "Energy kCal"
+                "Carb g"
+                "Prot g"
+                "Lip g"
+                "Sod mmol"
+                "Pot mmol"
+                "Calc mmol"
+                "Posph mmol"
+                "Magn mmol"
+                "Chlor mmol"
+                "Iron mmol"
+                "VitD IE"
+                "IsReconst"
+                "IsDiluent"
+                "IsAdditive"
+            ]
+
+
         /// name, declared columns, columns that may be absent, empty-cell
         /// overrides, and the parser under test reduced to a success flag.
         let sheets: (string * string list * string list * (string * string) list * (string[][] -> bool)) list =
@@ -1069,44 +1108,7 @@ module DoseRuleToDataTests =
                 [],
                 (Product.Reconstitution.parseReconstitution >> Result.isOk)
 
-                "Formulary",
-                [
-                    "GPKODE"
-                    "Type"
-                    "UMCU"
-                    "ICC"
-                    "NEO"
-                    "ICK"
-                    "HCK"
-                    "Generic"
-                    "TallMan"
-                    "Divisible"
-                    "UseGenName"
-                    "Mmol"
-                    "Form"
-                    "Brand"
-                    "GenName"
-                    "GStand"
-                    "Unit"
-                    "Energy kCal"
-                    "Carb g"
-                    "Prot g"
-                    "Lip g"
-                    "Sod mmol"
-                    "Pot mmol"
-                    "Calc mmol"
-                    "Posph mmol"
-                    "Magn mmol"
-                    "Chlor mmol"
-                    "Iron mmol"
-                    "VitD IE"
-                    "IsReconste"
-                    "IsDilute"
-                    "IsAdditive"
-                ],
-                [],
-                [],
-                (Product.parseFormularyProducts >> Result.isOk)
+                "Formulary", formularyColumns, [], [], (Product.parseFormularyProducts >> Result.isOk)
 
                 "DoseRules",
                 doseRuleColumns,
@@ -1335,6 +1337,100 @@ module DoseRuleToDataTests =
 /// Scripts/DownloadFixtures.fsx from the DEMO data and committed; the .fsproj
 /// copies them next to the test dll. forward = DoseRuleLoader.fromData (fr = [||],
 /// since FormLimit is not part of the reverse); reverse = DoseRule.toData.
+module FormularyProductTests =
+
+
+    open Expecto
+    open Expecto.Flip
+    open Informedica.GenForm.Lib
+
+    module CC = DoseRuleToDataTests.ColumnContract
+
+
+    let parse values =
+        CC.formularyColumns |> CC.mkSheet values |> Product.parseFormularyProducts
+
+
+    let parseOne values =
+        match parse values with
+        | Ok [| fp |] -> fp
+        | Ok fps -> failtest $"expected one product, got %i{fps.Length}"
+        | Error msgs -> failtest $"parse failed: %A{msgs}"
+
+
+    let flags (fp: FormularyProduct) =
+        [ fp.CanBeUsedAsAdditive; fp.CanBeUsedAsDiluent; fp.CanBeUsedForReconstitution ]
+
+
+    let flagColumns = [ "IsAdditive"; "IsDiluent"; "IsReconst" ]
+
+
+    let flagValues =
+        [
+            "x", true
+            "X", true
+            "TRUE", true
+            "true", true
+            "FALSE", false
+            "false", false
+            "", false
+        ]
+
+
+    let tests =
+        testList
+            "FormularyProduct"
+            [
+                testList
+                    "AltName"
+                    [
+                        test "an empty cell gives no alternative name" {
+                            (parseOne [ ("GPKODE", "19100") ]).AltName |> Expect.isNone "no AltName"
+                        }
+
+                        test "the name is taken as written, mixed case kept" {
+                            (parseOne [ "GPKODE", "19100"; "AltName", "NaCl 0,9%" ]).AltName
+                            |> Expect.equal "AltName as written" (Some "NaCl 0,9%")
+                        }
+                    ]
+
+                testList
+                    "flags"
+                    [
+                        for col in flagColumns do
+                            for value, expected in flagValues do
+                                test $"%s{col} = '%s{value}' sets only its own flag to %b{expected}" {
+                                    parseOne [ "GPKODE", "88730"; col, value ]
+                                    |> flags
+                                    |> Expect.equal
+                                        "the flag of the column"
+                                        (flagColumns |> List.map (fun c -> c = col && expected))
+                                }
+
+                            test $"%s{col} = 'yes' fails the parse" {
+                                parse [ "GPKODE", "88730"; col, "yes" ]
+                                |> Expect.isError "an unknown value is an error"
+                            }
+
+                        test "the error names the column, the value and the GPKODE" {
+                            match parse [ "GPKODE", "88730"; "IsDiluent", "yes" ] with
+                            | Error msgs ->
+                                let text = $"%A{msgs}"
+
+                                [ "IsDiluent"; "'yes'"; "88730" ]
+                                |> List.forall text.Contains
+                                |> Expect.isTrue $"the message names all three: %s{text}"
+                            | Ok _ -> failtest "expected an error"
+                        }
+                    ]
+
+                test "the dummy row with GPKODE 0 is dropped" {
+                    parse [ "GPKODE", "0"; "AltName", "DUMMY ALTNAME" ]
+                    |> Expect.equal "no products" (Ok [||])
+                }
+            ]
+
+
 module DoseRuleRoundtripTests =
 
 
@@ -9178,6 +9274,7 @@ module Tests =
                 ProductFilterTests.tests
                 DoseRuleProductTests.tests
                 DoseRuleToDataTests.tests
+                FormularyProductTests.tests
                 DoseRuleRoundtripTests.tests
                 CheckTests.tests
                 SourceLinkTests.tests
