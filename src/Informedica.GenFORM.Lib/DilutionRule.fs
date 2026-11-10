@@ -447,8 +447,10 @@ module DilutionRule =
         data
         |> Array.collect (fun r -> r.Diluents |> List.toArray |> Array.map (fun dil -> dil, r.Generic))
         |> Array.filter (fst >> unmarked)
-        |> Array.groupBy fst
-        |> Array.map (fun (dil, xs) ->
+        // the names match the Formulary in any case, so the spellings of one name give one warning
+        |> Array.groupBy (fst >> String.toLower)
+        |> Array.map (fun (_, xs) ->
+            let dil = xs |> Array.head |> fst
             let generics = xs |> Array.map snd |> Array.distinct |> String.concat ", "
             Warning $"the diluent %s{dil} is not marked IsDiluent in the Formulary, named by %s{generics}"
         )

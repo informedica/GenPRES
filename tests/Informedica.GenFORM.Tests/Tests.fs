@@ -7706,10 +7706,11 @@ module Tests =
                         let dr = paracetamol.Value
                         let cl = dr.ComponentLimits[0]
 
-                        let prs (diluents: ProductComponent[]) =
+                        let prs diluent (diluents: ProductComponent[]) =
                             { filterFor noWeight with
                                 Generic = Some "paracetamol"
                                 Route = Some dr.Route
+                                Diluent = diluent
                             }
                             |> PrescriptionRule.filter
                                 [| dr |]
@@ -7728,8 +7729,14 @@ module Tests =
                         let asComponent = { cl.Products[0] with Generic = cl.Name }
                         let other = { cl.Products[0] with Generic = "NaCl 0,9%" }
 
-                        [ prs [| other |]; prs [| asComponent |] ]
-                        |> Expect.equal "kept with another diluent, left out with the component" [ 1; 0 ]
+                        [
+                            prs None [| other |]
+                            prs None [| asComponent |]
+                            prs (Some "NaCl 0,9%") [| asComponent; other |]
+                        ]
+                        |> Expect.equal
+                            "kept with another diluent, left out with the component, also when the other is chosen"
+                            [ 1; 0; 0 ]
                     }
 
                     test "a lookup with the empty patient gets every dose rule of the generic, per kg ones included" {
@@ -9114,6 +9121,17 @@ module Tests =
                                 |> Expect.equal
                                     "the warning"
                                     "the diluent gluc 10% is not marked IsDiluent in the Formulary, named by NICU mix"
+                            }
+
+                            test "gives one warning for the spellings of one diluent" {
+                                [|
+                                    dilutionRow "NICU mix" [ "gluc 10%" ]
+                                    dilutionRow "Primene" [ "Gluc 10%" ]
+                                |]
+                                |> DilutionRule.unmarkedDiluents (formulary false)
+                                |> List.map warningText
+                                |> single
+                                |> Expect.stringContains "both generics" "named by NICU mix, Primene"
                             }
 
                             test "gives one warning per diluent, listing every generic that names it" {
