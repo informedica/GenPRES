@@ -690,13 +690,16 @@ module Product =
 
 
     /// <summary>
-    /// Pure: keep only the ZIndex GenericProducts referenced by dose-rule data,
-    /// applying "ID overrides name": if a row has GPKs match by gp.Id; else if it
-    /// has HPKs match by a TradeProduct id; else match the component name (== the
-    /// would-be ProductComponent.Generic) plus route. Returns GenPresProducts with
-    /// their GenericProducts narrowed (empties dropped). Built as a superset of the
-    /// per-group selection done later by DoseRule.addProducts, so the resulting
-    /// dose-rule output is unchanged while far fewer ProductComponents are built.
+    /// Pure: keep only the ZIndex GenericProducts that dose-rule data can select, so that far
+    /// fewer ProductComponents are built. A GenericProduct is kept when its GPK is in the GPKs
+    /// of a row, when one of its trade products is in the HPKs of a row, or, for a row with
+    /// neither, when its product name is a component name of the row on one of its routes. A
+    /// row has at most one of GPKs and HPKs after parsing. Returns the GenPresProducts with
+    /// their GenericProducts narrowed and the empty ones dropped.
+    /// The result is a superset of what DoseRuleLoader.group then selects per rule with
+    /// Product.filter, where the GPKs and HPKs of a row only narrow the products that match
+    /// the component name and never replace that name. The dose-rule output is therefore the
+    /// same as without this prefilter.
     /// </summary>
     let filterGenPresProductsByData
         routeMapping
@@ -723,7 +726,8 @@ module Product =
             |> String.trim
             |> String.toLower
 
-        // indices built once from the data (ID overrides name per row)
+        // indices built once from the data: a row with GPKs or HPKs is indexed by those ids, a row with
+        // neither by its component name and route
         let gpkSet = System.Collections.Generic.HashSet<string>()
         let hpkSet = System.Collections.Generic.HashSet<string>()
         // name rows: canonical route (via mapRoute) -> set of canonical component names

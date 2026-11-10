@@ -566,7 +566,7 @@ module DoseRule =
             grp.Forms
         // expand the DoseRuleData to all available product forms
         |> Array.collect (fun frm ->
-            if grp.Products |> Array.isEmpty then // make a virtual product component
+            if grp.Products |> Array.isEmpty then // make a placeholder product component without a GPK
                 grp.DoseRuleData
                 |> Array.map _.ScheduleData.DoseLimitData.Component
                 |> Array.distinct
