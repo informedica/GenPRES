@@ -240,8 +240,39 @@ module PrescriptionRule =
         && (atContext |> Array.map (comparedRule dilutionRules)) = (current |> Array.map (comparedRule dilutionRules))
 
 
-    /// Use a Filter to get matching PrescriptionRules.
+    /// Whether a component is an additive: a product of the component is marked IsAdditive, by the
+    /// lookup isAdditive on the GPK of the product.
+    let isAdditiveComponent isAdditive (cl: ComponentLimit) = cl.Products |> Array.exists (_.GPK >> isAdditive)
+
+
+    /// The components a prescriber can switch on and off: the additives after the first component.
+    let optionalComponents isAdditive (cls: ComponentLimit[]) =
+        match cls |> Array.toList with
+        | [] -> [||]
+        | _ :: rest ->
+            rest
+            |> List.filter (isAdditiveComponent isAdditive)
+            |> List.map _.Name
+            |> List.toArray
+
+
+    /// The component limits an order keeps: all of them when none is selected; otherwise every
+    /// component that is not optional, and the selected optional components.
+    let selectComponents isAdditive selected (cls: ComponentLimit[]) =
+        match selected with
+        // #1597: no selection keeps every component, so an order cannot leave out all additives yet
+        | [] -> cls
+        | _ ->
+            let optional = cls |> optionalComponents isAdditive
+
+            cls
+            |> Array.filter (fun cl -> optional |> Array.contains cl.Name |> not || selected |> List.contains cl.Name)
+
+
+    /// The prescription rules for the filter; isAdditive decides the components a selection can leave
+    /// out, see isAdditiveComponent.
     let filter
+        isAdditive
         doseRules
         dilutionRules
         renalRules
@@ -332,17 +363,8 @@ module PrescriptionRule =
                 DoseRule =
                     { pr.DoseRule with
                         ComponentLimits =
-                            // component selection mechanism
-                            if filter.Components |> List.isEmpty then
-                                pr.DoseRule.ComponentLimits
-                            else
-                                match pr.DoseRule.ComponentLimits |> Array.tryHead with
-                                | None -> [||]
-                                | Some dl ->
-                                    pr.DoseRule.ComponentLimits
-                                    |> Array.tail
-                                    |> Array.filter (fun dl -> filter.Components |> List.exists ((=) dl.Name))
-                                    |> Array.append [| dl |]
+                            pr.DoseRule.ComponentLimits
+                            |> selectComponents isAdditive filter.Components
 
                             // applies to all targets?
                             // |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
@@ -374,10 +396,10 @@ module PrescriptionRule =
 
 
     /// Get all matching PrescriptionRules for a given Patient.
-    let getForPatient doseRules dilutionRules renalRules routeMapping (pat: Patient) =
+    let getForPatient isAdditive doseRules dilutionRules renalRules routeMapping (pat: Patient) =
         Filter.doseFilter
         |> Filter.setPatient pat
-        |> filter doseRules dilutionRules renalRules routeMapping
+        |> filter isAdditive doseRules dilutionRules renalRules routeMapping
 
 
     /// Get the string representation of an array of PrescriptionRules. getLink is

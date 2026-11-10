@@ -794,7 +794,12 @@ let evaluateTests =
 /// raises, so a test sees which branch the lookup takes and nothing else.
 type NoRules() =
     interface Resources.IResourceProvider with
-        member _.Get(_: Resources.ResourceKey<'T>) : 'T = raise (System.NotImplementedException())
+        // the rule lookup reads the additives; there are none
+        member _.Get(key: Resources.ResourceKey<'T>) : 'T =
+            if key.Name = Resources.Keys.isAdditive.Name then
+                box (fun (_: string) -> false) :?> 'T
+            else
+                raise (System.NotImplementedException())
 
         member _.GetData() = raise (System.NotImplementedException())
 
@@ -830,13 +835,17 @@ type NoRules() =
         member _.GetResourceInfo() = raise (System.NotImplementedException())
 
 
-/// A provider whose load failed: nothing registered, so every keyed read raises, the rules
-/// read empty and the departments are the default alone.
+/// A provider whose load failed: every keyed read raises but the additives, which a failed load
+/// answers as none, the rules read empty and the departments are the default alone.
 type NotLoaded() =
     inherit NoRules()
 
     interface Resources.IResourceProvider with
-        member _.Get(_: Resources.ResourceKey<'T>) : 'T = raise (System.Collections.Generic.KeyNotFoundException())
+        member _.Get(key: Resources.ResourceKey<'T>) : 'T =
+            if key.Name = Resources.Keys.isAdditive.Name then
+                box (fun (_: string) -> false) :?> 'T
+            else
+                raise (System.Collections.Generic.KeyNotFoundException())
 
 
 /// One dose rule built from a data row as the loader builds them, for the department it names:
@@ -1591,7 +1600,7 @@ let useAdjustTests =
         |> OrderContext.Helpers.evaluateRules Scenarios.testStart OrderLogging.noOp
         |> Array.exactlyOne
         |> function
-            | Ok(ord, pr, _) -> OrderScenario.fromRule false 0 pr ord
+            | Ok(ord, pr, _) -> OrderScenario.fromRule (fun _ -> false) false 0 pr ord
             | Error _ -> failtest "not evaluated"
 
     let prescription (sc: OrderScenario) =
@@ -1629,6 +1638,80 @@ let useAdjustTests =
 /// The rules are looked up for an adult, with or without a weight or a height, and for a child
 /// with a weight; the check whether a rule can be prescribed then leaves out what a missing
 /// measurement makes unusable.
+/// The components a prescriber can switch on and off: the Components of a scenario and the options
+/// of the order context.
+let componentOptionTests =
+    let child =
+        { Patient.patient with
+            Age = Some(ValueUnit.singleWithUnit Units.Time.day 365N)
+            Weight = Some(ValueUnit.singleWithUnit Units.Weight.kiloGram 10N)
+            Height = Some(ValueUnit.singleWithUnit Units.Height.centiMeter 75N)
+            Department = Some Resources.Departments.defaultDepartment
+        }
+
+    // the order and the rule of the one scenario the row gives the child of 10 kg
+    let evaluated () =
+        let provider =
+            RulesOf(RuleFixtures.rules [| RuleFixtures.row Resources.Departments.defaultDepartment |])
+            :> Resources.IResourceProvider
+
+        { Filter.doseFilter with Patient = child }
+        |> Api.filterPrescriptionRules provider
+        |> Result.defaultWith (fun e -> failtest $"no rules: %A{e}")
+        |> OrderContext.Helpers.evaluateRules Scenarios.testStart OrderLogging.noOp
+        |> Array.exactlyOne
+        |> function
+            | Ok(ord, pr, _) -> ord, pr
+            | Error _ -> failtest "not evaluated"
+
+    // the rule with the main component, a glucose that is not an additive, and two additives
+    let withComponents (pr: PrescriptionRule) =
+        let cl = pr.DoseRule.ComponentLimits[0]
+
+        let cmp name =
+            { cl with
+                Name = name
+                Products = cl.Products |> Array.map (fun p -> { p with GPK = name })
+            }
+
+        { pr with DoseRule = { pr.DoseRule with ComponentLimits = [| cl; cmp "gluc"; cmp "NaCl"; cmp "KCl" |] } }
+
+    let isAdditive gpk = [ "NaCl"; "KCl" ] |> List.contains gpk
+
+    testList
+        "the component options"
+        [
+            test "the Components of a scenario are the additives after the first component" {
+                let ord, pr = evaluated ()
+
+                (OrderScenario.fromRule isAdditive false 0 (pr |> withComponents) ord).Components
+                |> Expect.equal "the glucose is not an option" [| "NaCl"; "KCl" |]
+            }
+
+            test "a scenario of one component keeps that component and has no options" {
+                let ord, pr = evaluated ()
+                let sc = OrderScenario.fromRule isAdditive false 0 pr ord
+
+                sc.Component
+                |> Expect.equal "the single component" (Some pr.DoseRule.ComponentLimits[0].Name)
+
+                sc.Components |> Expect.isEmpty "no options"
+            }
+
+            test "the options of the order context are the Components of its one scenario" {
+                let ord, pr = evaluated ()
+                let sc = OrderScenario.fromRule isAdditive false 0 (pr |> withComponents) ord
+
+                let ctx =
+                    OrderContext.create OrderLogging.noOp (NoRules()) child
+                    |> fun ctx -> { ctx with Scenarios = [| sc |] }
+
+                (ctx |> OrderContext.updateFilterIfOneScenario).Filter.Components
+                |> Expect.equal "the Components, the first not skipped" [| "NaCl"; "KCl" |]
+            }
+        ]
+
+
 let selectsRulesTests =
     let logger = OrderLogging.noOp
 
@@ -1846,7 +1929,7 @@ let scenarioAccessTests =
 
                     [| rule accesses |]
                     |> OrderContext.Helpers.evaluateRules (System.DateTime(2026, 1, 1)) OrderLogging.noOp
-                    |> OrderContext.Helpers.processEvaluationResults false
+                    |> OrderContext.Helpers.processEvaluationResults (fun _ -> false) false
                     |> Array.map _.Access
                     |> Expect.equal "the access of each rule, in the order of the rules" expected
                 }

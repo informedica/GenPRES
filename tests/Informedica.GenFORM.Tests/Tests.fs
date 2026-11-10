@@ -7645,7 +7645,12 @@ module Tests =
                                 Generic = Some "paracetamol"
                                 Route = Some dr.Route
                             }
-                            |> PrescriptionRule.filter demoRules.Value [||] renalRules Fixtures.rm.Value
+                            |> PrescriptionRule.filter
+                                (fun _ -> false)
+                                demoRules.Value
+                                [||]
+                                renalRules
+                                Fixtures.rm.Value
                             |> Result.defaultValue [||]
 
                         prs |> Array.isEmpty |> Expect.isFalse "paracetamol is selected"
@@ -7663,7 +7668,79 @@ module Tests =
                         |> Expect.equal "both renal rules are applied" [| "other"; "test" |]
                     }
 
-                    test "the component pick applies without a weight, and a per kg component not picked does not count" {
+                    testList
+                        "the components a selection can leave out"
+                        [
+                            let cl = (ruleWith noWeight absoluteLimit).DoseRule.ComponentLimits[0]
+
+                            let cmp name gpk =
+                                { cl with
+                                    Name = name
+                                    Products = cl.Products |> Array.map (fun p -> { p with GPK = gpk })
+                                }
+
+                            // the main component, a glucose that is not an additive, and two additives
+                            let cls = [| cmp "main" "main"; cmp "gluc" "gluc"; cmp "NaCl" "NaCl"; cmp "KCl" "KCl" |]
+
+                            let isAdditive gpk = [ "main"; "NaCl"; "KCl" ] |> List.contains gpk
+                            let names (cls: ComponentLimit[]) = cls |> Array.map _.Name
+
+                            test "a component is an additive by the GPK of its products" {
+                                [ cmp "NaCl" "NaCl"; cmp "gluc" "gluc" ]
+                                |> List.map (PrescriptionRule.isAdditiveComponent isAdditive)
+                                |> Expect.equal "NaCl is, gluc is not" [ true; false ]
+                            }
+
+                            test "the optional components are the additives after the first" {
+                                cls
+                                |> PrescriptionRule.optionalComponents isAdditive
+                                |> Expect.equal
+                                    "not the main one, also an additive, not the glucose"
+                                    [| "NaCl"; "KCl" |]
+                            }
+
+                            test "no components have no optional components" {
+                                [||] |> PrescriptionRule.optionalComponents isAdditive |> Expect.isEmpty "none"
+                            }
+
+                            test "a selection keeps the first, the components that are not additives and the selected" {
+                                cls
+                                |> PrescriptionRule.selectComponents isAdditive [ "NaCl" ]
+                                |> names
+                                |> Expect.equal "KCl left out" [| "main"; "gluc"; "NaCl" |]
+                            }
+
+                            test "a selection keeps the first whatever is selected" {
+                                cls
+                                |> PrescriptionRule.selectComponents isAdditive [ "none of them" ]
+                                |> names
+                                |> Expect.equal "the main one and the glucose" [| "main"; "gluc" |]
+                            }
+
+                            test "no selection keeps every component" {
+                                cls
+                                |> PrescriptionRule.selectComponents isAdditive []
+                                |> names
+                                |> Expect.equal "all" (cls |> names)
+                            }
+
+                            test "the filter keeps a component that is not an additive when another is picked" {
+                                let rule = ruleWith noWeight absoluteLimit
+                                let dr = { rule.DoseRule with ComponentLimits = cls }
+
+                                { filterFor noWeight with
+                                    Generic = Some "paracetamol"
+                                    Route = Some dr.Route
+                                    Components = [ "NaCl" ]
+                                }
+                                |> PrescriptionRule.filter isAdditive [| dr |] [||] [||] Fixtures.rm.Value
+                                |> Result.defaultValue [||]
+                                |> Array.map (_.DoseRule.ComponentLimits >> names)
+                                |> Expect.equal "the glucose kept" [| [| "main"; "gluc"; "NaCl" |] |]
+                            }
+                        ]
+
+                    test "the component pick applies without a weight, and a per kg additive not picked does not count" {
                         let rule = ruleWith noWeight absoluteLimit
                         let cl = rule.DoseRule.ComponentLimits[0]
 
@@ -7675,6 +7752,7 @@ module Tests =
                                         { cl with
                                             Name = "other"
                                             SubstanceLimits = [| perKgLimit |]
+                                            Products = cl.Products |> Array.map (fun p -> { p with GPK = "other" })
                                         }
                                     |]
                             }
@@ -7685,7 +7763,8 @@ module Tests =
                                 Route = Some dr.Route
                                 Components = components
                             }
-                            |> PrescriptionRule.filter [| dr |] [||] [||] Fixtures.rm.Value
+                            // the product of the component "other" is an additive, so a pick can leave it out
+                            |> PrescriptionRule.filter ((=) "other") [| dr |] [||] [||] Fixtures.rm.Value
                             |> Result.defaultValue [||]
 
                         let pr components =
@@ -7713,6 +7792,7 @@ module Tests =
                                 Diluent = diluent
                             }
                             |> PrescriptionRule.filter
+                                (fun _ -> false)
                                 [| dr |]
                                 [|
                                     { dilutionRule MinMax.empty with
@@ -7742,7 +7822,7 @@ module Tests =
                     test "a lookup with the empty patient gets every dose rule of the generic, per kg ones included" {
                         let prs =
                             { Filter.doseFilter with Generic = Some "paracetamol" }
-                            |> PrescriptionRule.filter demoRules.Value [||] [||] Fixtures.rm.Value
+                            |> PrescriptionRule.filter (fun _ -> false) demoRules.Value [||] [||] Fixtures.rm.Value
                             |> Result.defaultValue [||]
 
                         // the count of the demo fixture's paracetamol rules before the check existed
@@ -7818,7 +7898,12 @@ module Tests =
 
                             let prs =
                                 filterFor pat
-                                |> PrescriptionRule.filter drs dilutionRules renalRules Fixtures.rm.Value
+                                |> PrescriptionRule.filter
+                                    (fun _ -> false)
+                                    drs
+                                    dilutionRules
+                                    renalRules
+                                    Fixtures.rm.Value
 
                             prs |> Result.map Array.isEmpty |> Expect.equal "rules are selected" (Ok false)
 
@@ -9173,6 +9258,58 @@ module Tests =
                                 |]
                                 |> DilutionRule.unmarkedDiluents (formulary false)
                                 |> Expect.hasLength "one" 1
+                            }
+                        ]
+
+                    testList
+                        "the additive lookup"
+                        [
+                            let formulary isAdditive =
+                                [|
+                                    FormularyProductTests.parseOne
+                                        [
+                                            "GPKODE", "NaCl 3%"
+                                            "Type", "parenteral"
+                                            "Generic", "NaCl 3%"
+                                            "Form", "INFUSIEVLOEISTOF"
+                                            "Routes", "INTRAVENEUS"
+                                            "IsAdditive", (if isAdditive then "x" else "")
+                                        ]
+                                |]
+
+                            // the entry of the default registry, run on a hand-built Formulary
+                            let lookup formulary =
+                                let reg =
+                                    Map
+                                        [
+                                            Keys.isAdditive.Name,
+                                            (Resources.defaultRegistry FormLogging.noOp "")[Keys.isAdditive.Name]
+                                            Keys.formularyProducts.Name, ofResult (fun () -> Ok formulary)
+                                        ]
+
+                                (LoadEngine reg).Resolve Keys.isAdditive
+
+                            test "tells by GPK that a product marked IsAdditive is an additive" {
+                                "NaCl 3%" |> lookup (formulary true) |> Expect.isTrue "an additive"
+                            }
+
+                            test "a product not marked IsAdditive is not an additive" {
+                                "NaCl 3%" |> lookup (formulary false) |> Expect.isFalse "not an additive"
+                            }
+
+                            test "a GPK not in the Formulary is not an additive" {
+                                "KCl 7,4%" |> lookup (formulary true) |> Expect.isFalse "not an additive"
+                            }
+
+                            test "a provider whose load failed answers no additives" {
+                                let provider: IResourceProvider =
+                                    CachedResourceProvider(
+                                        Informedica.Logging.Lib.Logging.noOp,
+                                        (fun () -> Error [ ErrorMsg("no sheet", None) ]),
+                                        None
+                                    )
+
+                                "NaCl 3%" |> provider.Get Keys.isAdditive |> Expect.isFalse "no additives"
                             }
                         ]
 

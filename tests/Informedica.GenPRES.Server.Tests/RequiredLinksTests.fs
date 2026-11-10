@@ -119,6 +119,8 @@ module Fixtures =
                     unbox<'T>(box (doseRules |> LinkRule.standAlone routes (linkRules rows)))
                 elif key.Name = Resources.Keys.ruleSetData.Name then
                     unbox<'T>(box Array.empty<RuleSetData>)
+                elif key.Name = Resources.Keys.isAdditive.Name then
+                    unbox<'T>(box (fun (_: string) -> false))
                 else
                     raise (System.NotImplementedException())
 
@@ -290,6 +292,8 @@ module TwoForms =
                     unbox<'T>(box (twoFormRules |> LinkRule.standAlone routes (linkRules sheetRows)))
                 elif key.Name = Resources.Keys.ruleSetData.Name then
                     unbox<'T>(box Array.empty<RuleSetData>)
+                elif key.Name = Resources.Keys.isAdditive.Name then
+                    unbox<'T>(box (fun (_: string) -> false))
                 else
                     raise (System.NotImplementedException())
 

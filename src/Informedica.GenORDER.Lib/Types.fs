@@ -814,7 +814,8 @@ module Types =
             Item: string option
             /// The list of diluents to choose from
             Diluents: string[]
-            /// The list of components to print out
+            /// The additives after the first component that the order holds. An additive the
+            /// selection left out is not among them; Filter.Components keeps every option.
             Components: string[]
             /// The list of substances to print out
             Items: string[]
@@ -863,7 +864,7 @@ module Types =
             DoseTypes: DoseType[]
             /// The list of diluents to choose from
             Diluents: string[]
-            /// The list of components that can be used
+            /// The components a prescriber can switch on and off, the options of the selection
             Components: string[]
             /// The selected indication
             Indication: string option
