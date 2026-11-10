@@ -210,10 +210,9 @@ module Types =
     /// </remarks>
     type FormularyProduct =
         {
-            /// The GPK code; sheet column "GPKODE". A row with GPK "0" is a dummy
-            /// and is dropped.
-            GPK: string
-            /// The type of procuct; sheet column "Type", one of "medication",
+            /// The GPK code. A row with GPKODE "0" is a dummy and is dropped.
+            GPKODE: string
+            /// The type of product; sheet column "Type", one of "medication",
             /// "enteral" or "parenteral" (anything else is NoProduct)
             ProductType: ProductType
             /// The department UMCU, ICC, NEO, ICK, etc...; collected from the
@@ -239,6 +238,10 @@ module Types =
             GenName: string option
             /// GStand generic name; sheet column "GStand"
             GStandName: string option
+            /// The name of the virtual product that this G-Standaard product stands
+            /// for, such as "NaCl 0,9%". Taken as written: not lowercased. Absent when
+            /// the cell is empty.
+            AltName: string option
             /// Unit: the form/base unit. Required for enteral and parenteral rows -
             /// a row whose Unit does not parse is skipped by those derivations.
             Unit: string option
@@ -271,13 +274,16 @@ module Types =
             IronMmol: BigRational option
             /// Vitamin D in IE
             VitDIE: BigRational option
-            /// Is reconstituted; sheet column "IsReconste", "x" for true
-            /// TODO rename to IsReconst
-            IsReconste: bool
-            /// Is diluted; "x" for true
-            IsDilute: bool
-            /// Is additive; "x" for true
-            IsAdditive: bool
+            // The three flag columns below hold x or TRUE for true, and nothing or FALSE
+            // for false, in any case; any other value fails the parse.
+
+            /// The product can be used to reconstitute another product; sheet column
+            /// "IsReconst"
+            CanBeUsedForReconstitution: bool
+            /// The product can be used as a diluent; sheet column "IsDiluent"
+            CanBeUsedAsDiluent: bool
+            /// The product can be used as an additive; sheet column "IsAdditive"
+            CanBeUsedAsAdditive: bool
         }
 
     and ProductType =

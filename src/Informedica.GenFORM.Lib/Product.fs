@@ -25,6 +25,26 @@ module Product =
                 |> Array.map (fun r ->
                     let get = getColumn r
 
+                    let getOpt col =
+                        let s = get col
+                        if s |> String.isNullOrWhiteSpace then None else s |> Some
+
+                    // A flag column holds x or TRUE for true, and nothing or FALSE for false, in any case.
+                    let getFlag col =
+                        let s = get col
+
+                        match s |> String.toLower with
+                        | "x"
+                        | "true" -> true
+                        | ""
+                        | "false" -> false
+                        | _ ->
+                            let gpk = get "GPKODE"
+
+                            $"Formulary column %s{col} holds '%s{s}' for GPKODE %s{gpk}: expected x, TRUE or FALSE"
+                            |> System.FormatException
+                            |> raise
+
                     // Extract departments from the columns marked with 'x'
                     let departments =
                         [ "UMCU"; "ICC"; "NEO"; "ICK"; "HCK" ]
@@ -43,7 +63,7 @@ module Product =
                     // dropped from FormularyProduct). Confirm with the sheet owner
                     // and remove the columns, or start honouring them again.
                     {
-                        GPK = get "GPKODE"
+                        GPKODE = get "GPKODE"
                         ProductType = get "Type" |> getProdType
                         Departments = departments
                         Generic = get "Generic"
@@ -55,6 +75,7 @@ module Product =
                         Brand = get "Brand" |> Option.ofObj
                         GenName = get "GenName" |> Option.ofObj
                         GStandName = get "GStand" |> Option.ofObj
+                        AltName = getOpt "AltName"
                         Unit = get "Unit" |> Option.ofObj
                         EnergyKCal = get "Energy kCal" |> Double.tryParse |> Option.bind BigRational.fromFloat
                         CarbG = get "Carb g" |> Double.tryParse |> Option.bind BigRational.fromFloat
@@ -68,13 +89,13 @@ module Product =
                         ChlorMmol = get "Chlor mmol" |> Double.tryParse |> Option.bind BigRational.fromFloat
                         IronMmol = get "Iron mmol" |> Double.tryParse |> Option.bind BigRational.fromFloat
                         VitDIE = get "VitD IE" |> Double.tryParse |> Option.bind BigRational.fromFloat
-                        IsReconste = get "IsReconste" = "x"
-                        IsDilute = get "IsDilute" = "x"
-                        IsAdditive = get "IsAdditive" = "x"
+                        CanBeUsedForReconstitution = getFlag "IsReconst"
+                        CanBeUsedAsDiluent = getFlag "IsDiluent"
+                        CanBeUsedAsAdditive = getFlag "IsAdditive"
                     }
                 )
                 // filter out dummy
-                |> Array.filter (fun fp -> fp.GPK = "0" |> not)
+                |> Array.filter (fun fp -> fp.GPKODE <> "0")
 
             Ok products
         with exn ->
@@ -519,7 +540,7 @@ module Product =
         // O(1) per GenericProduct instead of O(formularyProducts).
         let formByGpk =
             formularyProducts
-            |> Array.choose (fun fp -> fp.GPK |> Int32.tryParse |> Option.map (fun gpk -> gpk, fp))
+            |> Array.choose (fun fp -> fp.GPKODE |> Int32.tryParse |> Option.map (fun gpk -> gpk, fp))
             |> Map.ofArray
 
         // start from ALL GenPresProducts (not just formulary GPKs), collect the
@@ -648,7 +669,7 @@ module Product =
 
         let formByGpk =
             formularyProducts
-            |> Array.choose (fun fp -> fp.GPK |> Int32.tryParse |> Option.map (fun g -> g, fp))
+            |> Array.choose (fun fp -> fp.GPKODE |> Int32.tryParse |> Option.map (fun g -> g, fp))
             |> Map.ofArray
 
         // same normalization Product.filter uses for name comparison

@@ -8,6 +8,7 @@ links a parenteral fluid to its G-Standaard product. Drafted 2026-11-09. Line nu
 - [Problem description](#problem-description)
 - [What the code does today](#what-the-code-does-today)
 - [Decisions](#decisions)
+- [Steps](#steps)
 
 ## Problem description
 
@@ -158,8 +159,9 @@ Two mismatches:
   (`Product.fs:520`, `Product.fs:649`).
 - `Form` is empty on all 109 virtual rows; the forms are fixed in the code (`Product.fs:241`,
   `Product.fs:296`).
-- `IsReconste`, `IsDilute` and `IsAdditive` are compared with `"x"` (`Product.fs:71`), but the
-  sheet holds `TRUE` and `FALSE`. They are always false, and nothing reads them.
+- `IsReconste`, `IsDilute` and `IsAdditive` are compared with `"x"` (`Product.fs:71`). When this
+  plan was drafted the sheet held `TRUE` and `FALSE`, so they were always false. Nothing reads
+  them.
 
 ### Optional components
 
@@ -215,3 +217,29 @@ stops reading it.
 
 ## Decisions
 
+## Steps
+
+One pull request at a time, each merged before the next.
+
+1. **`FormularyProduct` reads the new Formulary columns** (`feat(genform)`).
+   - The sheet has the new column `AltName`, and the columns `IsDilute` and `IsReconste` are
+     renamed to `IsDiluent` and `IsReconst`. The parser read the old names, so the Formulary
+     failed to load against the current sheet.
+   - New field `AltName: string option`: the name of the virtual product that a G-Standaard
+     product stands for, taken as written. An empty cell gives `None`. Nothing reads it yet.
+   - Fields renamed: `GPK` is `GPKODE`, and the flags say what a product can be used for:
+     `IsReconste` is `CanBeUsedForReconstitution` (column `IsReconst`), `IsDilute` is
+     `CanBeUsedAsDiluent` (column `IsDiluent`), `IsAdditive` is `CanBeUsedAsAdditive` (column
+     `IsAdditive`). `ProductType` (column `Type`) and `GStandName` (column `GStand`) keep their
+     names.
+   - A flag column holds `x` or `TRUE` for true, and an empty cell or `FALSE` for false, in any
+     case. Any other value fails the parse, with an error that names the column, the value and
+     the GPKODE. Nothing reads the flags yet; a later step selects diluents, reconstitution
+     fluids and additives with them.
+   - Tests: the column-contract test lists the new columns, and `FormularyProductTests` builds
+     its rows from the same column list. It covers `AltName`, every accepted flag value in each
+     flag column, and an unknown value.
+   - Data, done in the sheet with this step: `AltName` on 40 G-Standaard rows, linking 35 of the
+     58 parenteral virtual products to a GPK, with the composition columns copied from the
+     virtual row. Kidtrayze got a new row for GPK 196444. The Numeta G19%E 3CZ composition is
+     corrected from the G-Standaard. The flag columns hold `x`.
