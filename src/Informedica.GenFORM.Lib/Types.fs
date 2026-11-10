@@ -230,8 +230,14 @@ module Types =
             UseGenName: bool
             /// Mmol
             Mmol: BigRational option
-            /// Form
+            /// The pharmaceutical form. Required on a parenteral and an enteral row,
+            /// where it is the form of the virtual product.
             Form: string option
+            /// The routes, separated by ";" in the sheet column "Routes", each trimmed.
+            /// Required on a parenteral and an enteral row, where each route must be in
+            /// the Routes sheet; empty on a medication row, whose routes come from the
+            /// G-Standaard.
+            Routes: string[]
             /// Brand
             Brand: string option
             /// Generic name
@@ -292,6 +298,18 @@ module Types =
         | ParenteralProduct
         | EnteralProduct
         | NoProduct
+
+
+    module ProductType =
+
+        /// A parenteral or an enteral product is virtual: it is built from its Formulary row, not from the
+        /// G-Standaard.
+        let isVirtual =
+            function
+            | ParenteralProduct
+            | EnteralProduct -> true
+            | MedicationProduct
+            | NoProduct -> false
 
 
     type LimitTarget =

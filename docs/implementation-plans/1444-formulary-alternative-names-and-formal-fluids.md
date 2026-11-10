@@ -257,3 +257,17 @@ One pull request at a time, each merged before the next.
      106488) and those for `amfotericine b liposomaal` get AmBisome (GPK 92266), in place of a
      virtual product without a GPK. On the real sheets nothing else changes: the same 3039
      products and 7506 dose rules, and only these two products have a new name.
+3. **The virtual products take their form and routes from the sheet** (`feat(genform)`).
+   - `FormularyProduct` gets `Routes`, read from the new Formulary column `Routes`: the routes
+     separated by `;`, each trimmed. The routes of a virtual product go through the route mapping,
+     like the routes of a G-Standaard product; a route that the Routes sheet doesn't know fails the
+     load, with an error that names the route and the row's `Generic`.
+   - A parenteral or enteral row with an empty `Form` or `Routes` cell fails the parse, with an
+     error that names the column and the row's `Generic`.
+   - `Parenteral.get` and `Enteral.get` take the form, lowercased like a G-Standaard form, and the
+     routes from the row, in place of the fixed `vloeistof` for intravenous and oral use and
+     `voeding` for oral use. They share one `createVirtualProduct`; only the form unit differs.
+   - On the live sheets the 127 dose rules on virtual products stay; their forms become
+     `infusievloeistof`, `drank` and `poeder voor drank`. The intravenous ones now get the
+     FormRoute limit of intraveneus/infusievloeistof, which the G-Standaard infusion fluids
+     already have. The FormRoute limits are set in the sheet to fit parenteral nutrition.
