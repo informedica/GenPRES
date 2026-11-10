@@ -491,6 +491,9 @@ module Types =
             DoseTypes: DoseType[]
             Diluents: string[]
             Components: string[]
+            /// Every component of the dose rule, the main component first, in the order of the rule; set
+            /// from the first scenario, before a selection can leave an additive out
+            DoseRuleComponents: string[]
             Indication: string option
             Generic: string option
             Form: string option

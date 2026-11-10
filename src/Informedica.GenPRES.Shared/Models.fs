@@ -1057,6 +1057,7 @@ module Models =
                 DoseTypes = [||]
                 Diluents = [||]
                 Components = [||]
+                DoseRuleComponents = [||]
                 Indication = None
                 Generic = None
                 Form = None
