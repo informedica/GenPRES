@@ -112,23 +112,20 @@ DilutionRules rows for a nutrition generic.
 | Which Formulary row gives a flag | The product's own row, by GPK. A flag on a G-Standaard row counts only for that G-Standaard product. |
 | A component with several products | A component is an additive when a product of it is marked `IsAdditive`. A component that mixes additive and other products makes no sense; on the production sheet none of the 7576 component limits does, and every component with an additive product has a single product. |
 | Unchecking every additive | In scope. The selection becomes `ComponentSelection = AllComponents \| Selected of string list`, so that `Selected []` means none. It is defined in GenFORM, used by `DoseFilter.Components` and the GenORDER `Filter.SelectedComponents`, and mirrored in Shared for the wire; the server mappers map one to the other. The GenORDER Dto stores it as `string[] option`, `None` for `AllComponents`. |
-| Keeping the chosen quantities after a toggle or a diluent choice | In scope. The order is rebuilt from the rules, then the values the prescriber had chosen are set again on the components still in the order, matched by name, where the new constraints allow them. |
+| Keeping the chosen quantities after a toggle or a diluent choice | In scope. The order is rebuilt from the rules. When the previous preparation is solved, every component quantity holding a single value, those quantities are set again: a component by name, and the previous diluent's on the new diluent, where the new order allows them. Only component quantities: the rate and the doses follow, and an item is never set again, since its quantity follows from the strength of its product, which a new diluent changes. The glucose is limited in mL/kg only, so keeping the mL of a stronger glucose gives more glucose; that is accepted. |
 | The glucose maximum of Samenstelling B to E | The DilutionRules range is accepted as the limit, also where its maximum is higher than today. |
 | NICU mix | As Samenstelling B to E: `gluc 10%` leaves the dose rule components and becomes the diluent, limited by a `diluent` row. The maintainer edits the sheet. |
 | `glycine buffer` | The maintainer marks it `IsDiluent` in the Formulary. |
 
 ## Open points
 
-For the maintainer to decide:
-
-1. **Which values are set again** after a rebuild: the component quantities only, or also the
-   other values the prescriber chose, such as the rate.
+None.
 
 ## Prototype
 
-`src/Informedica.GenORDER.Lib/Scripts/NutritionComponents.fsx` runs on the production sheet, with
-the sheet edits of the decisions made in memory. Steps 1 to 3 are migrated, and the tests of
-the script run on the library code. Its 9 tests pass.
+The prototype script `src/Informedica.GenORDER.Lib/Scripts/NutritionComponents.fsx` ran on the
+production sheet, with the sheet edits of the decisions made in memory. Steps 1 to 4 are migrated,
+and the pull request of step 4 deletes the script. What it showed stays here.
 
 What the tests show:
 
@@ -140,7 +137,7 @@ What the tests show:
   `gluc 10%` stays fixed in Nutriflex 70/240. In the Intralipid 20% rule for 2-7 kg, day 3 and
   later, `Vitintra Infant` is the first component, so it is the main one.
 
-`dotnet fsi NutritionComponents.fsx --test-sheet` runs the rows of the sheet `DilutionRules_Test`
+`dotnet fsi NutritionComponents.fsx --test-sheet` ran the rows of the sheet `DilutionRules_Test`
 (Samenstelling C day 3, a `diluent` row with `gluc 20%;gluc 30%`) in place of the production rows:
 
 - As written, the cell is one name that matches no product, so the rule has no diluent; without
@@ -152,7 +149,7 @@ What the tests show:
   intended: one scenario, the options gluc 20% then gluc 30%, gluc 20% the default, and either
   glucose at 396-484 mL at 8 kg and 432-528 mL at 12 kg.
 
-`dotnet fsi NutritionComponents.fsx --test-sheets` runs the rows of `DoseRules_Test` (Samenstelling
+`dotnet fsi NutritionComponents.fsx --test-sheets` ran the rows of `DoseRules_Test` (Samenstelling
 C day 1 to 3, the glucose rows deleted) with the rows of `DilutionRules_Test` (day 3, the cell
 `gluc 20%|gluc 30%` on every row). Day 3 is as intended at 8 kg and 12 kg, with the values above
 and no refused pair. Day 1 and day 2 give an order without glucose and without a message: their
@@ -165,8 +162,7 @@ The refused-pair check only pairs a dose rule and a dilution rule that can meet 
 
 ## Steps
 
-One pull request at a time, each merged before the next. Step 4 also waits on
-the open point.
+One pull request at a time, each merged before the next.
 
 1. **GenFORM: the diluent of a dilution rule** (`feat(genform)`): `DilutionRule.map` with the
    cell order and the `diluent` row, the `IsDiluent` warning, the refused pair in
@@ -176,7 +172,6 @@ the open point.
      its limits.
    - Load warnings, from the review: a `diluent` row in a rule without a diluent, and one
      `IsDiluent` warning per diluent that lists the generics.
-   - The script stays until step 2 is migrated, because it also holds the prototype of step 2.
    - On deploy, without any sheet edit: the default diluent of 42 dilution rules moves from
      `gluc 5%` to `NaCl 0,9%`, the dilution rule "neonaten" of NICU mix is refused for the NICU mix
      dose rules with `gluc 10%`, and loading warns that `glycine buffer` is not marked
@@ -194,15 +189,21 @@ the open point.
      options are those Components, without skipping the first, and `checkComponentChange`
      compares only those. The single component of a scenario is still taken from all component
      names. No wire change.
-   - The script stays, trimmed to the order checks on the production sheet and the test sheets,
-     as the base for steps 3 and 4.
    - 2a and 2b land in one pull request: with 2a alone, the client still offers a component that
      is not an additive, which the order then keeps.
 3. **"None selected"**: `ComponentSelection` in GenFORM, GenORDER, Shared, the server mappers
    and the client. The positions the client sends select the options at them, so no position
    selects none; a reset of the field is `AllComponents`. Migrated.
-4. **Keeping the chosen quantities**: rebuild, then set the chosen values again, once open
-   point 1 is settled.
+4. **Keeping the chosen quantities**: after a toggle or a diluent choice rebuilds the order, the
+   component quantities of a solved preparation are set again. The rebuilt order holds the
+   increments of its own composition (5 mL for Samenstelling C, 12 kg, day 2 without
+   `KCl 7,4%`, 1 mL with it), which a previous value need not lie on. So every variable goes back to
+   its defined constraints first, then each component is narrowed to its previous value in a
+   `Try`, as order effects, ending with the value lists a rebuilt order gets. The effects become a
+   new case `OrderAction.SetComponentQuantities` with the names and values to set, run through the
+   new command `OrderCommand.SetComponentQuantities`; `OrderContext` builds the list, from a solved
+   previous preparation and with the diluent to diluent, and sets it only on an evaluated context:
+   a refused context stays as sent. Migrated.
 5. **Client: the nutrition slot**: the rows from the main component, the optional components and
    the diluent; the checkboxes and the select through the existing commands; disabled while the
    composition is locked (`IntakePolicy.isCompositionLocked`) or the slot is busy.

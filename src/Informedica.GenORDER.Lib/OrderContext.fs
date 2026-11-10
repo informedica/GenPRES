@@ -1493,6 +1493,50 @@ Scenarios: {scenarios}
         | evaluated -> evaluated
 
 
+    /// The quantity in the orderable of each component, when every component holds a single quantity;
+    /// None otherwise.
+    let componentQuantities (ord: Order) =
+        ord.Orderable.Components
+        |> List.foldBack (fun cmp acc ->
+            let qty = cmp.OrderableQuantity |> OrderVariable.Quantity.toOrdVar
+
+            if qty |> OrderVariable.hasOneValue then
+                qty
+                |> OrderVariable.getValSetValueUnit
+                |> Option.map2 (fun acc q -> (cmp.Name |> Name.toString, q) :: acc) acc
+            else
+                None
+        )
+        <| Some []
+
+
+    /// The context rebuilt after a component selection or a diluent choice, with the component quantities
+    /// of the previous context set again: a component by its name, the previous diluent's quantity on the
+    /// new diluent. Nothing is set when the previous preparation was not solved or the action fails.
+    let setComponentQuantities logger (previous: OrderContext) (ctx: OrderContext) =
+        match previous.Scenarios |> Array.tryExactlyOne, ctx.Scenarios |> Array.tryExactlyOne with
+        | Some prev, Some sc ->
+            match prev.Order |> componentQuantities with
+            | None -> ctx
+            | Some qtys ->
+                let cmpName name =
+                    match prev.Diluent, sc.Diluent with
+                    | Some p, Some d when name = p -> d
+                    | _ -> name
+
+                let qtys = qtys |> List.map (fun (n, q) -> cmpName n, q)
+
+                match
+                    ctx
+                    |> processScenarioOrder
+                        logger
+                        (fun ord -> SetComponentQuantities(ord, qtys) |> OrderProcessor.processPipeline logger)
+                with
+                | Evaluated changed -> changed
+                | Refused _ -> ctx
+        | _ -> ctx
+
+
     /// A filter or scenario pick or a seed applied to its context, read in the lists as sent: the context it changes and the existing command it is evaluated as, or why
     /// the index is past the options. None for any other command.
     let resolveChange cmd =
@@ -1745,6 +1789,16 @@ Scenarios: {scenarios}
             |> Result.bind (asCommand >> evaluateOutcome start logger provider)
             |> Result.map (Outcome.map (Command.get >> wrap))
 
+        // as evaluateAs, with the evaluated context changed by f; a refused context stays as it was sent
+        let evaluateAsWith f asCommand wrap changed =
+            changed
+            |> evaluateAs asCommand id
+            |> Result.map (
+                function
+                | Evaluated ctx -> Evaluated(ctx |> f |> wrap)
+                | Refused(ctx, refusal) -> Refused(wrap ctx, refusal)
+            )
+
         match cmd with
         | UpdateOrderContext ctx ->
             ctx
@@ -1846,14 +1900,25 @@ Scenarios: {scenarios}
                 ctx
                 (SetMedianComponentOrderableQuantity cmp)
                 (fun ctx -> SetMedianComponentQuantityProperty(ctx, cmp))
-        | ChangeFilter(ctx, category, field, n) ->
-            ctx
+        | ChangeFilter(sent, category, field, n) ->
+            let keepQuantities =
+                // a diluent choice keeps the component quantities of a solved preparation
+                if field = FilterField.Diluent then
+                    setComponentQuantities logger sent
+                else
+                    id
+
+            sent
             |> changeFilter category field n
-            |> evaluateAs UpdateOrderContext (fun ctx -> ChangeFilter(ctx, category, field, n))
-        | SetNthComponents(ctx, ns) ->
-            ctx
+            |> evaluateAsWith keepQuantities UpdateOrderContext (fun ctx -> ChangeFilter(ctx, category, field, n))
+        | SetNthComponents(sent, ns) ->
+            // a component selection keeps the component quantities of a solved preparation
+            sent
             |> setNthComponents ns
-            |> evaluateAs UpdateOrderContext (fun ctx -> SetNthComponents(ctx, ns))
+            |> evaluateAsWith
+                (setComponentQuantities logger sent)
+                UpdateOrderContext
+                (fun ctx -> SetNthComponents(ctx, ns))
         | ClearAllFilter ctx -> Ok(clearAll ctx) |> evaluateAs UpdateOrderContext ClearAllFilter
         | SelectNthOrderScenario(ctx, n) ->
             ctx

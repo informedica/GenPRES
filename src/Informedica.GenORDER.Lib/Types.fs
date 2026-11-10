@@ -325,6 +325,8 @@ module Types =
         /// The order on a new value of what its doses are adjusted to, such as a new weight.
         | Readjust of Order * ValueUnit
         | SolveOrder of Order
+        /// The order with each named component set to its quantity in the orderable, where the order allows it.
+        | SetComponentQuantities of Order * (string * ValueUnit) list
         | ChangeProperty of Order * ChangePropertyCommand
 
     /// Change an order property, either by
@@ -468,6 +470,8 @@ module Types =
         /// Follow the adjust value the order holds: what the patient gets stays, the calculated
         /// constraints and the per kg or per m2 values are calculated again.
         | Readjust
+        /// Set each named component to its quantity in the orderable, where the order allows it.
+        | SetComponentQuantities of (string * ValueUnit) list
 
 
     /// The range an effect sets the current range of a variable back to.
