@@ -350,7 +350,8 @@ let seedTests =
 
                 ctx.Filter.Indication |> Expect.equal "the indication written" (Some "pijn")
                 ctx.Filter.Diluent |> Expect.isNone "the diluent goes"
-                ctx.Filter.SelectedComponents |> Expect.isEmpty "the components go"
+                ctx.Filter.SelectedComponents
+                |> Expect.equal "the components go" ComponentSelection.AllComponents
             }
 
             test "a parenteralia page does not compare the indication" {
@@ -366,7 +367,8 @@ let seedTests =
                 let ctx = seed SeedSource.Parenteralia None held.Generic (Some "rect") held.Form None
 
                 ctx.Filter.Diluent |> Expect.isNone "the diluent goes"
-                ctx.Filter.SelectedComponents |> Expect.isEmpty "the components go"
+                ctx.Filter.SelectedComponents
+                |> Expect.equal "the components go" ComponentSelection.AllComponents
             }
 
             test "the url's medication is written over the filter as it is" {

@@ -18,6 +18,8 @@ module Types =
     type Patient = Informedica.GenForm.Lib.Types.Patient
     /// Type alias for PrescriptionRule from Informedica.GenForm.Lib.Types
     type PrescriptionRule = Informedica.GenForm.Lib.Types.PrescriptionRule
+    /// Type alias for ComponentSelection from Informedica.GenForm.Lib.Types
+    type ComponentSelection = Informedica.GenForm.Lib.Types.ComponentSelection
 
 
     /// <summary>
@@ -878,8 +880,8 @@ module Types =
             DoseType: DoseType option
             /// The diluent to use
             Diluent: string option
-            /// The list of components that are selected
-            SelectedComponents: string[]
+            /// Which optional components the prescriber selected, among the options in Components
+            SelectedComponents: ComponentSelection
             /// The products of the picked scenario. A rule splits per Divisible and the other fields
             /// cannot tell these rules apart, so this says which one was picked.
             PickedProducts: string[]

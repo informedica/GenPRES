@@ -179,15 +179,12 @@ module GenOrderTools =
     /// (createOrderContext) asks for the options of the same patient, without a second check. The patient
     /// fields of the input are not read.
     let filterOptionsFor provider patient (input: FilterOptionsInput) : FilterOptionsOutput =
-        let filter: DoseFilter =
-            {
+        let filter =
+            { Filter.doseFilter with
                 Generic = input.Generic
                 Indication = input.Indication
                 Route = input.Route
                 Form = input.Form
-                DoseType = None
-                Diluent = None
-                Components = []
                 Patient = patient
             }
 
@@ -207,16 +204,12 @@ module GenOrderTools =
 
 
     let getDoseRulesForContext (provider: IResourceProvider) (input: DoseRulesForContextInput) =
-        let filter: DoseFilter =
-            {
+        let filter =
+            { Filter.doseFilter with
                 Generic = input.Generic
                 Indication = input.Indication
                 Route = input.Route
                 Form = input.Form
-                DoseType = None
-                Diluent = None
-                Components = []
-                Patient = Patient.patient
             }
 
         Formulary.getDoseRules provider filter

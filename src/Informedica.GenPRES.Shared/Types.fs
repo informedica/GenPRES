@@ -473,6 +473,15 @@ module Types =
         | Reload
 
 
+    /// The components a prescriber selected.
+    [<RequireQualifiedAccess>]
+    type ComponentSelection =
+        /// No selection made: every component stays.
+        | AllComponents
+        /// The selected optional components; none when the list is empty.
+        | Selected of string list
+
+
     type Filter =
         {
             Indications: string[]
@@ -488,7 +497,8 @@ module Types =
             Route: string option
             DoseType: DoseType option
             Diluent: string option
-            SelectedComponents: string[]
+            /// Which optional components the prescriber selected, among the options in Components
+            SelectedComponents: ComponentSelection
             PickedProducts: string[]
         }
 

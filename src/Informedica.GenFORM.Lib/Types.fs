@@ -717,6 +717,15 @@ module Types =
         }
 
 
+    /// The components a prescriber selected.
+    [<RequireQualifiedAccess>]
+    type ComponentSelection =
+        /// No selection made: every component stays.
+        | AllComponents
+        /// The selected optional components; none when the list is empty.
+        | Selected of string list
+
+
     /// A Filter to get the DoseRules for a specific Patient.
     type DoseFilter =
         {
@@ -732,8 +741,9 @@ module Types =
             DoseType: DoseType option
             /// the diluent to use
             Diluent: string option
-            /// the components to use
-            Components: string list
+            /// the optional components the prescriber selected, or every component when no selection
+            /// is made
+            Components: ComponentSelection
             /// the patient to filter on
             Patient: Patient
         }

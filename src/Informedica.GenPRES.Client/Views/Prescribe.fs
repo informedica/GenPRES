@@ -588,11 +588,11 @@ module Prescribe =
                              let items = pr.Filter.Components
                              let lbl = Terms.Components |> getTerm "Componenten"
 
+                             // every option is checked only when no selection is made
                              let sel =
-                                 if pr.Filter.SelectedComponents |> Array.isEmpty then
-                                     items
-                                 else
-                                     pr.Filter.SelectedComponents
+                                 match pr.Filter.SelectedComponents with
+                                 | ComponentSelection.AllComponents -> items
+                                 | ComponentSelection.Selected cs -> cs |> List.toArray
 
                              items |> Array.map (fun s -> s, s) |> multiSelect lbl sel componentsChange
 

@@ -1122,7 +1122,7 @@ module TypeTests =
                 Form = None
                 DoseType = None
                 Diluent = None
-                SelectedComponents = [||]
+                SelectedComponents = ComponentSelection.AllComponents
                 PickedProducts = [||]
             }
 
@@ -3988,7 +3988,7 @@ module DtoTests =
                 Form = None
                 DoseType = Some(Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag")
                 Diluent = None
-                SelectedComponents = [| "paracetamol" |]
+                SelectedComponents = ComponentSelection.Selected [ "paracetamol" ]
                 PickedProducts = [||]
             }
 
@@ -4318,7 +4318,7 @@ module OrderPlanDtoTests =
                 Form = Some "zetpil"
                 DoseType = Some(Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag")
                 Diluent = None
-                SelectedComponents = [| "paracetamol" |]
+                SelectedComponents = ComponentSelection.Selected [ "paracetamol" ]
                 PickedProducts = [||]
             }
 

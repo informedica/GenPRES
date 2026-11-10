@@ -38,7 +38,7 @@ module Fixtures =
             Form = None
             DoseType = None
             Diluent = None
-            SelectedComponents = [| "paracetamol" |]
+            SelectedComponents = ComponentSelection.Selected [ "paracetamol" ]
             PickedProducts = [||]
         }
 
@@ -293,7 +293,7 @@ let tests =
                     f.Diluents |> Expect.equal "diluents pass through" [| "NaCl 0.9%" |]
 
                     f.SelectedComponents
-                    |> Expect.equal "the selection passes through" [| "paracetamol" |]
+                    |> Expect.equal "the selection passes through" (ComponentSelection.Selected [ "paracetamol" ])
                 | Error e -> failtest $"{e}"
 
                 match p |> OrderPlan.updateContext ruleSets "c-f" evaluated with
@@ -434,7 +434,7 @@ module EvaluateFixtures =
             Form = None
             DoseType = None
             Diluent = None
-            SelectedComponents = [||]
+            SelectedComponents = ComponentSelection.AllComponents
             PickedProducts = [||]
         }
 
@@ -451,7 +451,7 @@ module EvaluateFixtures =
             Diluents = [| "NaCl 0.9%" |]
             Components = [| "paracetamol" |]
             Diluent = Some "NaCl 0.9%"
-            SelectedComponents = [| "paracetamol" |]
+            SelectedComponents = ComponentSelection.Selected [ "paracetamol" ]
             PickedProducts = [||]
         }
 
@@ -563,7 +563,8 @@ let evaluateTests =
                 f.Diluents |> Expect.equal "diluents" [| "NaCl 0.9%" |]
                 f.Components |> Expect.equal "components" [| "paracetamol" |]
                 f.Diluent |> Expect.equal "diluent" (Some "NaCl 0.9%")
-                f.SelectedComponents |> Expect.equal "selected" [| "paracetamol" |]
+                f.SelectedComponents
+                |> Expect.equal "selected" (ComponentSelection.Selected [ "paracetamol" ])
             }
 
             test "nothing held: the fresh lists, nothing selected, the dose types as held" {
@@ -2493,6 +2494,23 @@ let argumentationTests =
                 match roundTrip EvaluateFixtures.pcmContext with
                 | Ok ctx -> ctx.Argumentation |> Expect.isNone "none stays none"
                 | Error e -> failtest $"the round trip failed: %A{e}"
+            }
+
+            test "to the Dto and back keeps every component apart from none" {
+                for sel in
+                    [
+                        ComponentSelection.AllComponents
+                        ComponentSelection.Selected []
+                        ComponentSelection.Selected [ "paracetamol" ]
+                    ] do
+                    let ctx =
+                        { EvaluateFixtures.pcmContext with
+                            Filter = { EvaluateFixtures.pcmContext.Filter with SelectedComponents = sel }
+                        }
+
+                    match roundTrip ctx with
+                    | Ok ctx -> ctx.Filter.SelectedComponents |> Expect.equal $"%A{sel}" sel
+                    | Error e -> failtest $"the round trip failed: %A{e}"
             }
 
             test "the JSON a version 1 row holds, without the field, reads as none" {

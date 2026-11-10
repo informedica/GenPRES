@@ -1063,7 +1063,7 @@ module Models =
                 Route = None
                 DoseType = None
                 Diluent = None
-                SelectedComponents = [||]
+                SelectedComponents = ComponentSelection.AllComponents
                 PickedProducts = [||]
             }
 
@@ -1260,8 +1260,9 @@ module Models =
         let diluentChange s (ctx: OrderContext) : OrderContext = { ctx with OrderContext.Filter.Diluent = s }
 
 
-        let componentsChange cs (ctx: OrderContext) : OrderContext =
-            { ctx with OrderContext.Filter.SelectedComponents = cs }
+        /// The components picked; no component picked selects no optional component.
+        let componentsChange (cs: string[]) (ctx: OrderContext) : OrderContext =
+            { ctx with OrderContext.Filter.SelectedComponents = cs |> Array.toList |> ComponentSelection.Selected }
 
 
         let doseTypeChange (dt: DoseType option) (ctx: OrderContext) : OrderContext =
@@ -1537,7 +1538,11 @@ module Models =
                             Form = frm
                             DoseType = dt
                             Diluent = if keep then ctx.Filter.Diluent else None
-                            SelectedComponents = if keep then ctx.Filter.SelectedComponents else [||]
+                            SelectedComponents =
+                                if keep then
+                                    ctx.Filter.SelectedComponents
+                                else
+                                    ComponentSelection.AllComponents
                             PickedProducts =
                                 if same && ind = f.Indication && dt = f.DoseType then
                                     f.PickedProducts

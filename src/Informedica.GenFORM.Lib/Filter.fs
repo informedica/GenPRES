@@ -13,7 +13,7 @@ module Filter =
             Route = None
             DoseType = None
             Diluent = None
-            Components = []
+            Components = ComponentSelection.AllComponents
             Patient = Patient.patient
         }
 

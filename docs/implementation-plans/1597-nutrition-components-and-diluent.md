@@ -111,7 +111,7 @@ DilutionRules rows for a nutrition generic.
 | How the flags reach the selection code | A lookup function built from the Formulary, passed to `PrescriptionRule.filter` and `OrderContext`, as the prototype does. No type changes. |
 | Which Formulary row gives a flag | The product's own row, by GPK. A flag on a G-Standaard row counts only for that G-Standaard product. |
 | A component with several products | A component is an additive when a product of it is marked `IsAdditive`. A component that mixes additive and other products makes no sense; on the production sheet none of the 7576 component limits does, and every component with an additive product has a single product. |
-| Unchecking every additive | In scope. The selection becomes a discriminated union that tells "all components" from a selection, so that an empty selection means none. Its cases and names are not decided yet. |
+| Unchecking every additive | In scope. The selection becomes `ComponentSelection = AllComponents \| Selected of string list`, so that `Selected []` means none. It is defined in GenFORM, used by `DoseFilter.Components` and the GenORDER `Filter.SelectedComponents`, and mirrored in Shared for the wire; the server mappers map one to the other. The GenORDER Dto stores it as `string[] option`, `None` for `AllComponents`. |
 | Keeping the chosen quantities after a toggle or a diluent choice | In scope. The order is rebuilt from the rules, then the values the prescriber had chosen are set again on the components still in the order, matched by name, where the new constraints allow them. |
 | The glucose maximum of Samenstelling B to E | The DilutionRules range is accepted as the limit, also where its maximum is higher than today. |
 | NICU mix | As Samenstelling B to E: `gluc 10%` leaves the dose rule components and becomes the diluent, limited by a `diluent` row. The maintainer edits the sheet. |
@@ -121,15 +121,13 @@ DilutionRules rows for a nutrition generic.
 
 For the maintainer to decide:
 
-1. **The selection type.** The cases and names of the discriminated union for the component
-   selection, in GenFORM `DoseFilter.Components` and the wire `SelectedComponents`.
-2. **Which values are set again** after a rebuild: the component quantities only, or also the
+1. **Which values are set again** after a rebuild: the component quantities only, or also the
    other values the prescriber chose, such as the rate.
 
 ## Prototype
 
 `src/Informedica.GenORDER.Lib/Scripts/NutritionComponents.fsx` runs on the production sheet, with
-the sheet edits of the decisions made in memory. Steps 1, 2a and 2b are migrated, and the tests of
+the sheet edits of the decisions made in memory. Steps 1 to 3 are migrated, and the tests of
 the script run on the library code. Its 9 tests pass.
 
 What the tests show:
@@ -167,8 +165,8 @@ The refused-pair check only pairs a dose rule and a dilution rule that can meet 
 
 ## Steps
 
-One pull request at a time, each merged before the next. Steps 3 and 4 also
-wait on the open points.
+One pull request at a time, each merged before the next. Step 4 also waits on
+the open point.
 
 1. **GenFORM: the diluent of a dilution rule** (`feat(genform)`): `DilutionRule.map` with the
    cell order and the `diluent` row, the `IsDiluent` warning, the refused pair in
@@ -200,9 +198,11 @@ wait on the open points.
      as the base for steps 3 and 4.
    - 2a and 2b land in one pull request: with 2a alone, the client still offers a component that
      is not an additive, which the order then keeps.
-3. **"None selected"**: the selection as a discriminated union, once open point 1 is settled.
+3. **"None selected"**: `ComponentSelection` in GenFORM, GenORDER, Shared, the server mappers
+   and the client. The positions the client sends select the options at them, so no position
+   selects none; a reset of the field is `AllComponents`. Migrated.
 4. **Keeping the chosen quantities**: rebuild, then set the chosen values again, once open
-   point 2 is settled.
+   point 1 is settled.
 5. **Client: the nutrition slot**: the rows from the main component, the optional components and
    the diluent; the checkboxes and the select through the existing commands; disabled while the
    composition is locked (`IntakePolicy.isCompositionLocked`) or the slot is busy.

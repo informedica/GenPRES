@@ -77,7 +77,44 @@ let tests =
                 context options
                 |> OrderContext.setNthComponents [| 0; 2 |]
                 |> Result.map _.Filter.SelectedComponents
-                |> Expect.equal "the first and the third" (Ok [| "paracetamol"; "water" |])
+                |> Expect.equal "the first and the third" (Ok(ComponentSelection.Selected [ "paracetamol"; "water" ]))
+            }
+
+            test "no position selects none" {
+                context options
+                |> OrderContext.setNthComponents [||]
+                |> Result.map _.Filter.SelectedComponents
+                |> Expect.equal "none" (Ok(ComponentSelection.Selected []))
+            }
+
+            test "the components field emptied is every component, a position selects that option" {
+                [ None; Some 2 ]
+                |> List.map (fun n ->
+                    context options
+                    |> OrderContext.changeFilter OrderCategory.Medication FilterField.Components n
+                    |> Result.map _.Filter.SelectedComponents
+                )
+                |> Expect.equal
+                    "all, then the third"
+                    [
+                        Ok ComponentSelection.AllComponents
+                        Ok(ComponentSelection.Selected [ "water" ])
+                    ]
+            }
+
+            test "no single pick of a component is every component, a pick selects it" {
+                [ None; Some "paracetamol" ]
+                |> List.map (fun c ->
+                    (context options
+                     |> OrderContext.change OrderCategory.Medication FilterField.Components c None)
+                        .Filter.SelectedComponents
+                )
+                |> Expect.equal
+                    "all, then the pick"
+                    [
+                        ComponentSelection.AllComponents
+                        ComponentSelection.Selected [ "paracetamol" ]
+                    ]
             }
 
             test "the second scenario selected, with its form" {

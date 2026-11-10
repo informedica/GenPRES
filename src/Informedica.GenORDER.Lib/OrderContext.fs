@@ -769,7 +769,7 @@ module OrderContext =
             Form = None
             DoseType = None
             Diluent = None
-            SelectedComponents = [||]
+            SelectedComponents = ComponentSelection.AllComponents
             PickedProducts = [||]
         }
 
@@ -862,7 +862,7 @@ module OrderContext =
     let doseFilterFor pat ctx =
         { filterPicks ctx with
             Diluent = ctx.Filter.Diluent
-            Components = ctx.Filter.SelectedComponents |> Array.toList //TODO probably go for lists
+            Components = ctx.Filter.SelectedComponents
             Patient = { ctx with Patient = pat } |> matchedPatient
         }
 
@@ -976,7 +976,7 @@ module OrderContext =
         | FilterField.Form -> { f with Form = None }
         | FilterField.DoseType -> { f with DoseType = None }
         | FilterField.Diluent -> { f with Diluent = None }
-        | FilterField.Components -> { f with SelectedComponents = [||] }
+        | FilterField.Components -> { f with SelectedComponents = ComponentSelection.AllComponents }
 
 
     /// One field emptied: the choice it holds and the options it was picked from. The options go
@@ -1019,7 +1019,7 @@ module OrderContext =
         | FilterField.Components ->
             { f with
                 Components = [||]
-                SelectedComponents = [||]
+                SelectedComponents = ComponentSelection.AllComponents
             }
 
 
@@ -1075,8 +1075,14 @@ module OrderContext =
             | FilterField.DoseType -> ctx.Filter.DoseType = dt, (fun (f: Filter) -> { f with DoseType = dt })
             | FilterField.Diluent -> ctx.Filter.Diluent = chosen, (fun (f: Filter) -> { f with Diluent = chosen })
             | FilterField.Components ->
-                ctx.Filter.SelectedComponents = (chosen |> Option.toArray),
-                (fun (f: Filter) -> { f with SelectedComponents = chosen |> Option.toArray })
+                // no pick is every component
+                let selection =
+                    match chosen with
+                    | None -> ComponentSelection.AllComponents
+                    | Some c -> ComponentSelection.Selected [ c ]
+
+                ctx.Filter.SelectedComponents = selection,
+                (fun (f: Filter) -> { f with SelectedComponents = selection })
 
         let emptied =
             match field with
@@ -1119,7 +1125,10 @@ module OrderContext =
                 | _, Error e -> Error e
             )
             (Ok [||])
-        |> Result.map (fun cs -> { ctx with OrderContext.Filter.SelectedComponents = cs })
+        // an empty list of positions selects no optional component
+        |> Result.map (fun cs ->
+            { ctx with OrderContext.Filter.SelectedComponents = cs |> Array.toList |> ComponentSelection.Selected }
+        )
 
 
     /// A field set to its nth option, counted from 0, or emptied with None. The diluent and the
@@ -1147,7 +1156,10 @@ module OrderContext =
                 |> nth "dose type" n
                 |> Result.map (fun dt -> ctx |> change category field None (Some dt))
         | FilterField.Diluent -> ctx |> changeDiluent n
-        | FilterField.Components -> ctx |> setNthComponents (n |> Option.toArray)
+        | FilterField.Components ->
+            match n with
+            | None -> Ok(ctx |> change category field None None)
+            | Some n -> ctx |> setNthComponents [| n |]
 
 
     /// The whole filter emptied, the patient kept.
@@ -1187,7 +1199,11 @@ module OrderContext =
                 OrderContext.Filter.Form = frm
                 OrderContext.Filter.DoseType = dt
                 OrderContext.Filter.Diluent = if keep then ctx.Filter.Diluent else None
-                OrderContext.Filter.SelectedComponents = if keep then ctx.Filter.SelectedComponents else [||]
+                OrderContext.Filter.SelectedComponents =
+                    if keep then
+                        ctx.Filter.SelectedComponents
+                    else
+                        ComponentSelection.AllComponents
                 OrderContext.Filter.PickedProducts =
                     if same && ind = f.Indication && dt = f.DoseType then
                         f.PickedProducts
@@ -1216,6 +1232,11 @@ module OrderContext =
 
 
     let toString stage (ctx: OrderContext) =
+        let selection =
+            match ctx.Filter.SelectedComponents with
+            | ComponentSelection.AllComponents -> "all"
+            | ComponentSelection.Selected cs -> cs |> String.concat ", "
+
         let printArray xs =
             if ctx.Filter.Generic.IsNone || ctx.Filter.Route.IsNone || xs |> Array.length > 10 then
                 $"{xs |> Array.length}"
@@ -1245,7 +1266,7 @@ Form: {ctx.Filter.Form |> Option.defaultValue ""}
 Route: {ctx.Filter.Route |> Option.defaultValue ""}
 DoseType: {ctx.Filter.DoseType}
 Diluent: {ctx.Filter.Diluent |> Option.defaultValue ""}
-SelectedComponents: {ctx.Filter.SelectedComponents |> printArray}
+SelectedComponents: {selection}
 Indications: {ctx.Filter.Indications |> printArray}
 Generics: {ctx.Filter.Generics |> printArray}
 Forms: {ctx.Filter.Forms |> printArray}

@@ -224,9 +224,24 @@ module Filter =
                 Form: string option
                 DoseType: string option
                 Diluent: string option
-                SelectedComponents: string[]
+                /// None when no selection is made, so every component stays; an empty array selects no
+                /// optional component
+                SelectedComponents: string[] option
                 PickedProducts: string[]
             }
+
+
+        /// The component selection as the Dto stores it.
+        let componentSelection =
+            function
+            | ComponentSelection.AllComponents -> None
+            | ComponentSelection.Selected cs -> cs |> List.toArray |> Some
+
+
+        let componentSelectionBack =
+            function
+            | None -> ComponentSelection.AllComponents
+            | Some cs -> cs |> Array.toList |> ComponentSelection.Selected
 
 
         let toDto (f: Filter) : Dto =
@@ -244,7 +259,7 @@ module Filter =
                 Form = f.Form
                 DoseType = f.DoseType |> Option.map DoseTypeDto.toString
                 Diluent = f.Diluent
-                SelectedComponents = f.SelectedComponents
+                SelectedComponents = f.SelectedComponents |> componentSelection
                 PickedProducts = f.PickedProducts
             }
 
@@ -288,7 +303,7 @@ module Filter =
                                 Form = dto.Form
                                 DoseType = doseType
                                 Diluent = dto.Diluent
-                                SelectedComponents = dto.SelectedComponents |> DtoResult.orEmpty
+                                SelectedComponents = dto.SelectedComponents |> componentSelectionBack
                                 // a filter stored before the field existed has none
                                 PickedProducts = dto.PickedProducts |> DtoResult.orEmpty
                             }
