@@ -1431,6 +1431,278 @@ module FormularyProductTests =
             ]
 
 
+module ProductNameTests =
+
+
+    open Expecto
+    open Expecto.Flip
+    open Informedica.GenForm.Lib
+
+    module CC = DoseRuleToDataTests.ColumnContract
+    module Z = Informedica.ZIndex.Lib.Types
+
+
+    let logger = Informedica.Logging.Lib.Logging.noOp
+
+
+    let unitMapping: UnitMapping[] =
+        [|
+            {
+                Long = "MILLIGRAM"
+                Short = "mg"
+                MV = "mg"
+                Group = "Mass"
+            }
+            {
+                Long = "MILLILITER"
+                Short = "mL"
+                MV = "mL"
+                Group = "Volume"
+            }
+            {
+                Long = "MILLIMOL"
+                Short = "mmol"
+                MV = "mmol"
+                Group = "Molar"
+            }
+        |]
+
+
+    let routeMapping: RouteMapping[] =
+        [|
+            {
+                Long = "INTRAVENEUS"
+                Short = "iv"
+            }
+        |]
+
+
+    let infusionConcentrate = "CONCENTRAAT VOOR OPLOSSING VOOR INFUSIE"
+
+
+    let substance name quantity : Z.ProductSubstance =
+        {
+            SubstanceId = 1
+            SortOrder = 1
+            SubstanceName = name
+            SubstanceQuantity = quantity
+            SubstanceUnit = "MILLIGRAM"
+            GenericId = 1
+            GenericName = name
+            GenericQuantity = quantity
+            GenericUnit = "MILLIGRAM"
+            FormUnit = "MILLILITER"
+            IsAdditional = false
+        }
+
+
+    let genericProduct id name label subst quantity : Z.GenericProduct =
+        {
+            Id = id
+            Name = name
+            Label = label
+            ATC = ""
+            ATCName = ""
+            Form = infusionConcentrate
+            Route = [| "INTRAVENEUS" |]
+            Substances = [| substance subst quantity |]
+            PrescriptionProducts =
+                [|
+                    ({
+                        Id = id
+                        Name = name
+                        Label = label
+                        Quantity = 20.
+                        Unit = "MILLILITER"
+                        Container = ""
+                        TradeProducts = [||]
+                    }
+                    : Z.PrescriptionProduct)
+                |]
+        }
+
+
+    let genPresProduct (gp: Z.GenericProduct) : Z.GenPresProduct =
+        {
+            Name = gp.Name
+            Form = gp.Form
+            Routes = gp.Route
+            PharmacologicalGroups = [||]
+            GenericProducts = [| gp |]
+            DisplayName = gp.Name
+            Unit = ""
+            Synonyms = [||]
+        }
+
+
+    let abelcet =
+        genericProduct
+            106488
+            "AMFOTERICINE B LIPIDENCOMPLEX INFOPL CONC 5MG/ML"
+            "AMFOTERICINE B 5MG/ML LIPIDENCOMPLEX"
+            "AMFOTERICINE B"
+            5.
+
+
+    let kcl =
+        genericProduct
+            48232
+            "KALIUMCHLORIDE INFCONC  74,6MG/ML (1MMOL/ML)"
+            "KCL 74,6MG/ML INFCONC"
+            "KALIUMCHLORIDE"
+            74.6
+
+
+    /// Formulary products parsed from rows given as column and value pairs.
+    let formulary rows =
+        [|
+            yield CC.formularyColumns |> List.toArray
+            for r in rows -> (CC.mkSheet r CC.formularyColumns)[1]
+        |]
+        |> Product.parseFormularyProducts
+        |> function
+            | Ok fps -> fps
+            | Error msgs -> failtest $"%A{msgs}"
+
+
+    let abelcetRow altName =
+        [
+            "GPKODE", "106488"
+            "Type", "medication"
+            "Generic", "AMFOTERICINE B LIPIDENCOMPLEX"
+            "GStand", "AMFOTERICINE B"
+            "AltName", altName
+        ]
+
+
+    let kclRow altName =
+        [
+            "GPKODE", "48232"
+            "Type", "medication"
+            "Generic", "KALIUMCHLORIDE"
+            "GStand", "KALIUMCHLORIDE"
+            "Mmol", "1"
+            "AltName", altName
+        ]
+
+
+    let kclVirtualRow = [ "GPKODE", "KCl 7,4%"; "Type", "parenteral"; "Generic", "KCl 7,4%" ]
+
+
+    let build rows gps =
+        gps
+        |> Array.map genPresProduct
+        |> Product.fromGenPresProducts
+            logger
+            unitMapping
+            routeMapping
+            [| infusionConcentrate |]
+            [||]
+            [||]
+            [||]
+            [||]
+            (formulary rows)
+
+
+    let single (ps: ProductComponent[]) =
+        match ps with
+        | [| p |] -> p
+        | _ -> failtest $"expected one product, got %i{ps.Length}"
+
+
+    /// The GPKs of the Abelcet fixture that the prefilter keeps for the given dose rule.
+    let prefilter rows rule =
+        [| abelcet |> genPresProduct |]
+        |> Product.filterGenPresProductsByData
+            routeMapping
+            (formulary rows)
+            [| DoseRuleProductTests.mkData rule "iv" "" "" [||] [||] |]
+        |> Array.collect (fun (gpp: Z.GenPresProduct) -> gpp.GenericProducts)
+        |> Array.map _.Id
+
+
+    let lipidComplex = "amfotericine b lipidencomplex"
+
+
+    let tests =
+        testList
+            "the AltName names the product"
+            [
+                testList
+                    "fromGenPresProducts"
+                    [
+                        test "a row with an AltName gives the product that name" {
+                            (build [ abelcetRow lipidComplex ] [| abelcet |] |> single).Generic
+                            |> Expect.equal "named by AltName" lipidComplex
+                        }
+
+                        test "a row without an AltName is named after GStand" {
+                            (build [ abelcetRow "" ] [| abelcet |] |> single).Generic
+                            |> Expect.equal "named by GStand" "amfotericine b"
+                        }
+
+                        test "the AltName is taken as written" {
+                            (build [ kclRow "KCl 7,4%" ] [| kcl |] |> single).Generic
+                            |> Expect.equal "mixed case kept" "KCl 7,4%"
+                        }
+
+                        for altName in [ "KCl 7,4%"; "kcl 7,4%" ] do
+                            test $"the AltName %s{altName} names the virtual product KCl 7,4%%, so it is not used" {
+                                build [ kclRow altName; kclVirtualRow ] [| kcl |]
+                                |> Array.filter (fun p -> p.GPK = "48232")
+                                |> single
+                                |> _.Generic
+                                |> Expect.equal "named by GStand" "kaliumchloride"
+                            }
+
+                        test "a product without a Formulary row keeps the name of the generic product" {
+                            (build [] [| kcl |] |> single).Generic
+                            |> Expect.equal "the ZIndex name" kcl.Name
+                        }
+
+                        test "the Mmol column still applies with an AltName" {
+                            (build [ kclRow "KCl 7,4%" ] [| kcl |] |> single).Substances
+                            |> Array.map _.MolarConcentration
+                            |> Array.exists Option.isSome
+                            |> Expect.isTrue "the substance has a molar concentration"
+                        }
+
+                        test "only the name changes: the rest is the same as without the AltName" {
+                            let withAlt = build [ kclRow "KCl 7,4%" ] [| kcl |] |> single
+                            let without = build [ kclRow "" ] [| kcl |] |> single
+
+                            { withAlt with Generic = without.Generic }
+                            |> Expect.equal "the rest of the product" without
+                        }
+                    ]
+
+                testList
+                    "filterGenPresProductsByData"
+                    [
+                        test "with the AltName, the dose rule for the lipid complex keeps Abelcet" {
+                            prefilter [ abelcetRow lipidComplex ] lipidComplex
+                            |> Expect.equal "Abelcet kept" [| 106488 |]
+                        }
+
+                        test "without the AltName, the dose rule for the lipid complex drops Abelcet" {
+                            prefilter [ abelcetRow "" ] lipidComplex |> Expect.isEmpty "Abelcet dropped"
+                        }
+
+                        test "an AltName that names a virtual product is not used by the prefilter" {
+                            let virtualRow = [ "GPKODE", lipidComplex; "Type", "parenteral"; "Generic", lipidComplex ]
+
+                            prefilter [ abelcetRow lipidComplex; virtualRow ] lipidComplex
+                            |> Expect.isEmpty "Abelcet is named by GStand"
+                        }
+
+                        test "a dose rule for plain amfotericine b no longer keeps Abelcet" {
+                            prefilter [ abelcetRow lipidComplex ] "amfotericine b"
+                            |> Expect.isEmpty "the AltName replaces the GStand name"
+                        }
+                    ]
+            ]
+
+
 module DoseRuleRoundtripTests =
 
 
@@ -9275,6 +9547,7 @@ module Tests =
                 DoseRuleProductTests.tests
                 DoseRuleToDataTests.tests
                 FormularyProductTests.tests
+                ProductNameTests.tests
                 DoseRuleRoundtripTests.tests
                 CheckTests.tests
                 SourceLinkTests.tests
