@@ -7702,6 +7702,36 @@ module Tests =
                         |> Expect.equal "picked alone, with the per kg one, nothing picked" [ true; false; false ]
                     }
 
+                    test "a dilution rule whose diluent is a component of the dose rule is left out" {
+                        let dr = paracetamol.Value
+                        let cl = dr.ComponentLimits[0]
+
+                        let prs (diluents: ProductComponent[]) =
+                            { filterFor noWeight with
+                                Generic = Some "paracetamol"
+                                Route = Some dr.Route
+                            }
+                            |> PrescriptionRule.filter
+                                [| dr |]
+                                [|
+                                    { dilutionRule MinMax.empty with
+                                        Route = dr.Route
+                                        Diluents = diluents
+                                    }
+                                |]
+                                [||]
+                                Fixtures.rm.Value
+                            |> Result.defaultValue [||]
+                            |> Array.collect _.DilutionRules
+                            |> Array.length
+
+                        let asComponent = { cl.Products[0] with Generic = cl.Name }
+                        let other = { cl.Products[0] with Generic = "NaCl 0,9%" }
+
+                        [ prs [| other |]; prs [| asComponent |] ]
+                        |> Expect.equal "kept with another diluent, left out with the component" [ 1; 0 ]
+                    }
+
                     test "a lookup with the empty patient gets every dose rule of the generic, per kg ones included" {
                         let prs =
                             { Filter.doseFilter with Generic = Some "paracetamol" }
@@ -8058,6 +8088,20 @@ module Tests =
             }
 
 
+        // the weights from the minimum up to, not including, the maximum, as the sheet reads them
+        let weights min max =
+            {
+                Min = min |> ValueUnit.singleWithUnit Units.Weight.gram |> Limit.inclusive |> Some
+                Max = max |> ValueUnit.singleWithUnit Units.Weight.gram |> Limit.exclusive |> Some
+            }
+
+
+        let withPatient f (sr: DilutionRule) = { sr with PatientCategory = sr.PatientCategory |> f }
+
+
+        let withWeight mm = withPatient (fun pc -> { pc with Weight = mm })
+
+
         let warningText =
             function
             | Warning s -> s
@@ -8078,6 +8122,7 @@ module Tests =
                         Keys.ruleChecks.Name, (Resources.defaultRegistry FormLogging.noOp "")[Keys.ruleChecks.Name]
                         Keys.parenteralMeds.Name, ofResult (fun () -> Ok(Array.empty<ProductComponent>))
                         Keys.dilutionRuleData.Name, ofResult (fun () -> Ok(Array.empty<DilutionRuleData>))
+                        Keys.formularyProducts.Name, ofResult (fun () -> Ok(Array.empty<FormularyProduct>))
                         Keys.doseRules.Name, ofResult (fun () -> Ok doseRules)
                         Keys.dilutionRules.Name, ofResult (fun () -> Ok dilutionRules)
                         Keys.routeMappings.Name, ofResult (fun () -> Ok ivRouteMapping)
@@ -8738,16 +8783,6 @@ module Tests =
                             let rule doseType =
                                 { dilutionRule "samenstelling c" MinMax.empty with DoseType = doseType }
 
-                            // the weights from the minimum up to, not including, the maximum, as the sheet reads them
-                            let weights min max =
-                                {
-                                    Min = min |> ValueUnit.singleWithUnit Units.Weight.gram |> Limit.inclusive |> Some
-                                    Max = max |> ValueUnit.singleWithUnit Units.Weight.gram |> Limit.exclusive |> Some
-                                }
-
-                            let withPatient f (sr: DilutionRule) = { sr with PatientCategory = sr.PatientCategory |> f }
-
-                            let withWeight mm = withPatient (fun pc -> { pc with Weight = mm })
                             let withAccess access = withPatient (fun pc -> { pc with Access = access })
                             let withDepartment dep = withPatient (fun pc -> { pc with Department = Some dep })
 
@@ -8887,6 +8922,239 @@ module Tests =
                                 ruleCheckWarnings [| { dr with DoseType = day1 } |] [| rule NoDoseType; rule day1 |]
                                 |> List.exists (String.contains "one dose rule and one patient")
                                 |> Expect.isTrue "reported"
+                            }
+                        ]
+
+                    testList
+                        "the diluents of a dilution rule"
+                        [
+                            let gluc = [| parenteral "gluc 20%"; parenteral "gluc 30%" |]
+
+                            let diluentRow cell =
+                                { dilutionRow "samenstelling c" cell with
+                                    Component = "diluent"
+                                    Substance = ""
+                                    Unit = "mL"
+                                    MinConc = None
+                                    MaxConc = None
+                                    MinQtyPerKg = Some 36N
+                                    MaxQtyPerKg = Some 44N
+                                }
+
+                            let mapped rows =
+                                match rows |> DilutionRule.map ivRouteMapping gluc [||] with
+                                | Ok [| dilRule |] -> dilRule
+                                | res -> failtest $"expected one dilution rule, got %A{res}"
+
+                            let targets (dilRule: DilutionRule) =
+                                dilRule.DilutionLimits
+                                |> Array.map (_.DilutionLimitTarget >> LimitTarget.toString)
+
+                            test "keep the order of the Diluents cell" {
+                                [| dilutionRow "samenstelling c" [ "gluc 30%"; "gluc 20%" ] |]
+                                |> mapped
+                                |> _.Diluents
+                                |> Array.map _.Generic
+                                |> Expect.equal "gluc 30% first, as in the cell" [| "gluc 30%"; "gluc 20%" |]
+                            }
+
+                            test "a diluent row gives one component limit per diluent, named after the diluent" {
+                                let cell = [ "gluc 20%"; "gluc 30%" ]
+                                let dilRule = [| dilutionRow "samenstelling c" cell; diluentRow cell |] |> mapped
+
+                                dilRule
+                                |> targets
+                                |> Expect.equal
+                                    "the substance, then each diluent"
+                                    [| "samenstelling c"; "gluc 20%"; "gluc 30%" |]
+
+                                dilRule.DilutionLimits[1..]
+                                |> Array.map _.QuantityAdj
+                                |> Array.distinct
+                                |> Expect.hasLength "the limit of the diluent row for both diluents" 1
+                            }
+
+                            test "a diluent row limits a diluent as a row named after the diluent does" {
+                                let cell = [ "gluc 30%" ]
+                                let byDiluent = [| diluentRow cell |] |> mapped
+                                let byName = [| { diluentRow cell with Component = "gluc 30%" } |] |> mapped
+
+                                byDiluent.DilutionLimits |> Expect.equal "the same limits" byName.DilutionLimits
+                            }
+
+                            test "the Component diluent is matched in any case" {
+                                [| { diluentRow [ "gluc 30%" ] with Component = "Diluent" } |]
+                                |> mapped
+                                |> targets
+                                |> Expect.equal "the diluent" [| "gluc 30%" |]
+                            }
+
+                            test "a diluent row of a rule without diluents gives no limit" {
+                                [| diluentRow [] |]
+                                |> DilutionRule.map ivRouteMapping gluc [||]
+                                |> Result.map (Array.collect _.DilutionLimits)
+                                |> Expect.equal "no limit" (Ok [||])
+                            }
+
+                            test "a diluent row in a rule with an empty cell gives a warning" {
+                                [| diluentRow [] |]
+                                |> DilutionRule.diluentRowsWithoutDiluent gluc
+                                |> List.map warningText
+                                |> single
+                                |> Expect.stringContains "names the cause" "a diluent row but no diluent"
+                            }
+
+                            test "a diluent row in a rule whose cell names no parenteral product gives a warning" {
+                                [| diluentRow [ "gluc 11%" ] |]
+                                |> DilutionRule.diluentRowsWithoutDiluent gluc
+                                |> Expect.hasLength "one warning" 1
+                            }
+
+                            test "a diluent row in a rule with a diluent gives no warning" {
+                                [| diluentRow [ "gluc 20%" ] |]
+                                |> DilutionRule.diluentRowsWithoutDiluent gluc
+                                |> Expect.isEmpty "no warning"
+                            }
+
+                            test "a rule without a diluent row gives no warning" {
+                                [| dilutionRow "samenstelling c" [] |]
+                                |> DilutionRule.diluentRowsWithoutDiluent gluc
+                                |> Expect.isEmpty "no warning"
+                            }
+
+                            test "a diluent row with a substance is a substance limit" {
+                                [| { diluentRow [ "gluc 30%" ] with Substance = "glucose" } |]
+                                |> mapped
+                                |> targets
+                                |> Expect.equal "the substance" [| "glucose" |]
+                            }
+                        ]
+
+                    testList
+                        "a diluent that is also a component of the dose rule"
+                        [
+                            let injection = Solution "injectievloeistof"
+
+                            let withGlucose =
+                                let dr = ivDoseRule "samenstelling c" injection [||]
+                                let cl = dr.ComponentLimits[0]
+                                { dr with ComponentLimits = [| cl; { cl with Name = "gluc 30%" } |] }
+
+                            let withDiluent dil =
+                                { dilutionRule "samenstelling c" MinMax.empty with Diluents = [| parenteral dil |] }
+
+                            test "is found" {
+                                withDiluent "gluc 30%"
+                                |> DilutionRule.componentDiluents withGlucose
+                                |> Expect.equal "gluc 30%" [| "gluc 30%" |]
+                            }
+
+                            test "matches the name in any case" {
+                                withDiluent "Gluc 30%"
+                                |> DilutionRule.componentDiluents withGlucose
+                                |> Expect.hasLength "found" 1
+                            }
+
+                            test "another diluent is not" {
+                                withDiluent "gluc 20%"
+                                |> DilutionRule.componentDiluents withGlucose
+                                |> Expect.isEmpty "not found"
+                            }
+
+                            test "gives one warning that names the diluent" {
+                                [| withDiluent "gluc 30%" |]
+                                |> DilutionRule.diluentsThatAreComponents ivRouteMapping [| withGlucose |]
+                                |> List.map warningText
+                                |> single
+                                |> Expect.stringContains "names the diluent" "the diluent gluc 30% is also a component"
+                            }
+
+                            test "gives no warning for rules that cannot meet the same patient" {
+                                let dilRule = withDiluent "gluc 30%" |> withWeight (weights 10000N 16000N)
+
+                                let dr =
+                                    { withGlucose with
+                                        PatientCategory =
+                                            { withGlucose.PatientCategory with Weight = weights 7000N 10000N }
+                                    }
+
+                                [| dilRule |]
+                                |> DilutionRule.diluentsThatAreComponents ivRouteMapping [| dr |]
+                                |> Expect.isEmpty "no patient meets both"
+                            }
+
+                            test "the rule checks at load report the pair" {
+                                ruleCheckWarnings [| withGlucose |] [| withDiluent "gluc 30%" |]
+                                |> List.exists (String.contains "is also a component")
+                                |> Expect.isTrue "reported"
+                            }
+                        ]
+
+                    testList
+                        "a diluent not marked IsDiluent"
+                        [
+                            let formulary isDiluent =
+                                [|
+                                    FormularyProductTests.parseOne
+                                        [
+                                            "GPKODE", "gluc 10%"
+                                            "Type", "parenteral"
+                                            "Generic", "gluc 10%"
+                                            "Form", "INFUSIEVLOEISTOF"
+                                            "Routes", "INTRAVENEUS"
+                                            "IsDiluent", (if isDiluent then "x" else "")
+                                        ]
+                                |]
+
+                            test "is reported with the diluent and the generic" {
+                                [| dilutionRow "NICU mix" [ "gluc 10%" ] |]
+                                |> DilutionRule.unmarkedDiluents (formulary false)
+                                |> List.map warningText
+                                |> single
+                                |> Expect.equal
+                                    "the warning"
+                                    "the diluent gluc 10% is not marked IsDiluent in the Formulary, named by NICU mix"
+                            }
+
+                            test "gives one warning per diluent, listing every generic that names it" {
+                                [|
+                                    dilutionRow "NICU mix" [ "gluc 10%" ]
+                                    dilutionRow "Primene" [ "gluc 10%" ]
+                                |]
+                                |> DilutionRule.unmarkedDiluents (formulary false)
+                                |> List.map warningText
+                                |> single
+                                |> Expect.stringContains "both generics" "named by NICU mix, Primene"
+                            }
+
+                            test "a marked diluent is not reported" {
+                                [| dilutionRow "NICU mix" [ "gluc 10%" ] |]
+                                |> DilutionRule.unmarkedDiluents (formulary true)
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "a G-Standaard row of the same name does not count" {
+                                let gStandaard =
+                                    FormularyProductTests.parseOne [ "GPKODE", "61913"; "Generic", "gluc 10%" ]
+
+                                [| dilutionRow "NICU mix" [ "gluc 10%" ] |]
+                                |> DilutionRule.unmarkedDiluents (Array.append (formulary true) [| gStandaard |])
+                                |> Expect.isEmpty "none"
+                            }
+
+                            test "a diluent without a parenteral product is not reported here" {
+                                [| dilutionRow "NICU mix" [ "gluc 11%" ] |]
+                                |> DilutionRule.unmarkedDiluents (formulary false)
+                                |> Expect.isEmpty "missingDiluents reports it"
+                            }
+
+                            test "rows of one rule give one warning" {
+                                [|
+                                    dilutionRow "NICU mix" [ "gluc 10%" ]
+                                    dilutionRow "NICU mix" [ "gluc 10%" ]
+                                |]
+                                |> DilutionRule.unmarkedDiluents (formulary false)
+                                |> Expect.hasLength "one" 1
                             }
                         ]
 
@@ -9052,6 +9320,8 @@ module Tests =
                                             Keys.parenteralMeds.Name,
                                             ofResult (fun () -> Ok [| parenteral "NaCl 0,9%" |])
                                             Keys.dilutionRuleData.Name, ofResult (fun () -> Ok rows)
+                                            Keys.formularyProducts.Name,
+                                            ofResult (fun () -> Ok(Array.empty<FormularyProduct>))
                                             Keys.doseRules.Name, ofResult (fun () -> Ok doseRules)
                                             Keys.dilutionRules.Name, ofResult (fun () -> Ok dilutionRules)
                                             Keys.routeMappings.Name, ofResult (fun () -> Ok(Array.empty<RouteMapping>))
@@ -9089,6 +9359,18 @@ module Tests =
                                 Array.empty<DilutionRuleData>
                                 |> warnings [||] [| unboundedRule |]
                                 |> List.exists (String.contains "maximum dose fraction")
+                                |> Expect.isTrue "reported"
+                            }
+
+                            test "gives a warning for a diluent row without a diluent" {
+                                [|
+                                    { dilutionRow "granisetron" [] with
+                                        Component = "diluent"
+                                        Substance = ""
+                                    }
+                                |]
+                                |> warnings [||] [||]
+                                |> List.exists (String.contains "a diluent row but no diluent")
                                 |> Expect.isTrue "reported"
                             }
 

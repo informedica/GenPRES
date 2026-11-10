@@ -1207,7 +1207,9 @@ module Types =
                 /// one of: once, onceTimed, discontinuous, timed, continuous
                 DoseType: string
                 DoseText: string
-                /// sheet column "Diluents": acceptable diluents, '|'-separated
+                /// sheet column "Diluents": the acceptable diluents, '|'-separated. An order takes the first
+                /// one when none is chosen. Rows belong to one rule only when they hold the same cell, so
+                /// every row of a rule repeats the cell, the diluent row too.
                 Diluents: string list
                 /// sheet column "Div": the number of equal parts one unit of the prepared
                 /// solution can be divided into, see the Div on the DilutionRule
@@ -1224,7 +1226,9 @@ module Types =
                 /// for example 0.5 for half the preparation and 1 for the whole preparation
                 MinPerc: BigRational option
                 MaxPerc: BigRational option
-                /// dilution limit section
+                // dilution limit section
+                /// sheet column "Component": the component the row limits, or "diluent" without a
+                /// substance to limit the diluent of the rule, whichever is chosen.
                 Component: string
                 Substance: string
                 /// sheet column "Unit": the substance unit the quantity and

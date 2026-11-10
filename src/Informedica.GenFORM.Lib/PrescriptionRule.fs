@@ -288,6 +288,8 @@ module PrescriptionRule =
 
                     dilutionRules
                     |> DilutionRule.filter routeMapping solFilter
+                    // a diluent that is also a component of the dose rule would be in the order twice
+                    |> Array.filter (DilutionRule.componentDiluents dr >> Array.isEmpty)
                     |> Array.map (fun dilRule ->
                         { dilRule with
                             DilutionLimits =
