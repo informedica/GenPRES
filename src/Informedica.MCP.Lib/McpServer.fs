@@ -93,7 +93,7 @@ type GenFormMcpTools() =
         GenFormTools.filterDoseRules GenFormMcpTools.Provider input |> McpHelpers.toJson
 
     [<McpServerTool(Name = "get_dilution_rules")>]
-    [<Description("Return all solution (preparation) rules from the GenFORM knowledge base")>]
+    [<Description("Return all dilution rules from the GenFORM knowledge base")>]
     static member GetDilutionRules() =
         GenFormTools.getDilutionRules GenFormMcpTools.Provider |> McpHelpers.toJson
 
@@ -201,7 +201,7 @@ type GenOrderMcpTools() =
         |> McpHelpers.toJson
 
     [<McpServerTool(Name = "get_dilution_rules_for_context")>]
-    [<Description("Return solution/preparation rules for a specific drug combination")>]
+    [<Description("Return the dilution rules for a medication")>]
     static member GetDilutionRulesForContext
         (
             [<Description("Generic drug name"); Optional>] generic: string,

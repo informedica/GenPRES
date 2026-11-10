@@ -703,8 +703,8 @@ module Types =
             Divisible: BigRational option
             /// The dose limits for the product
             Dose: DoseLimit option
-            /// The dilution limits for a product
-            Solution: DilutionLimit option
+            /// The dilution limit of the component, when a dilution rule limits it
+            DilutionLimit: DilutionLimit option
             /// The list of substances contained in the product
             Substances: SubstanceItem list
             /// The products the component can be made of; empty when none are known
@@ -724,8 +724,8 @@ module Types =
             Concentrations: ValueUnit option
             /// The dose limits for a substance
             Dose: DoseLimit option
-            /// The dilution limits for a substance
-            Solution: DilutionLimit option
+            /// The dilution limit of the substance, when a dilution rule limits it
+            DilutionLimit: DilutionLimit option
         }
 
 

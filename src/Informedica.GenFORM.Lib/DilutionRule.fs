@@ -206,11 +206,11 @@ module DilutionRule =
                         }
                     )
                     // filter out dilution limits that are empty
-                    |> Array.filter (fun dilLimit ->
-                        (dilLimit.Concentration |> MinMax.isEmpty
-                         && dilLimit.Quantities |> Option.isNone
-                         && dilLimit.QuantityAdj |> MinMax.isEmpty
-                         && dilLimit.Quantity |> MinMax.isEmpty)
+                    |> Array.filter (fun dilutionLimit ->
+                        (dilutionLimit.Concentration |> MinMax.isEmpty
+                         && dilutionLimit.Quantities |> Option.isNone
+                         && dilutionLimit.QuantityAdj |> MinMax.isEmpty
+                         && dilutionLimit.Quantity |> MinMax.isEmpty)
                         |> not
                     )
 
@@ -244,11 +244,11 @@ module DilutionRule =
             "volume adjust", dilRule.VolumeAdjust
             "drip rate", dilRule.DripRate
             "dose fraction", dilRule.DoseFraction
-            for dilLimit in dilRule.DilutionLimits do
-                let target = dilLimit.DilutionLimitTarget |> LimitTarget.toString
-                $"%s{target} quantity", dilLimit.Quantity
-                $"%s{target} quantity adjust", dilLimit.QuantityAdj
-                $"%s{target} concentration", dilLimit.Concentration
+            for dilutionLimit in dilRule.DilutionLimits do
+                let target = dilutionLimit.DilutionLimitTarget |> LimitTarget.toString
+                $"%s{target} quantity", dilutionLimit.Quantity
+                $"%s{target} quantity adjust", dilutionLimit.QuantityAdj
+                $"%s{target} concentration", dilutionLimit.Concentration
         ]
 
 
@@ -274,9 +274,9 @@ module DilutionRule =
     /// Whether a dilution limit bounds the preparation: the maximum quantity of a substance, or
     /// the maximum quantity per kg once the weight is known, divided by the minimum concentration
     /// of that substance is a maximum volume.
-    let boundsPreparation (dilLimit: DilutionLimit) =
-        (dilLimit.Quantity.Max.IsSome || dilLimit.QuantityAdj.Max.IsSome)
-        && dilLimit.Concentration.Min
+    let boundsPreparation (dilutionLimit: DilutionLimit) =
+        (dilutionLimit.Quantity.Max.IsSome || dilutionLimit.QuantityAdj.Max.IsSome)
+        && dilutionLimit.Concentration.Min
            |> Option.exists (Limit.getValueUnit >> ValueUnit.gtZero)
 
 
@@ -304,7 +304,7 @@ module DilutionRule =
         |> List.map Warning
 
 
-    /// One warning per dilution rule whose rows name solutions none of which matches a
+    /// One warning per dilution rule whose rows name diluents none of which matches a
     /// parenteral product, so the rule loads with no diluents. Each row is built into a rule
     /// on its own and the rules are grouped without their limits, which is the grouping map
     /// makes, so a rule of several rows gives a single warning.
@@ -319,14 +319,14 @@ module DilutionRule =
         )
         |> Array.groupBy fst
         |> Array.map (fun (dilRule, xs) ->
-            let solutions =
+            let diluents =
                 xs
                 |> Array.collect (snd >> List.toArray)
                 |> Array.filter String.notEmpty
                 |> Array.distinct
                 |> String.concat "|"
 
-            Warning $"%s{dilRule |> label}: no parenteral product matches the solutions %s{solutions}"
+            Warning $"%s{dilRule |> label}: no parenteral product matches the diluents %s{diluents}"
         )
         |> Array.toList
 
@@ -462,10 +462,10 @@ module DilutionRule =
     /// with a minimum equal to the maximum allows that one strength.
     let substancesWithoutAllowedStrength (products: ProductComponent[]) (dilRule: DilutionRule) =
         dilRule.DilutionLimits
-        |> Array.choose (fun dilLimit ->
-            match dilLimit.DilutionLimitTarget with
-            | SubstanceLimitTarget s when dilLimit.Concentration |> MinMax.isEmpty |> not ->
-                let conc = dilLimit.Concentration
+        |> Array.choose (fun dilutionLimit ->
+            match dilutionLimit.DilutionLimitTarget with
+            | SubstanceLimitTarget s when dilutionLimit.Concentration |> MinMax.isEmpty |> not ->
+                let conc = dilutionLimit.Concentration
 
                 let comparable vu =
                     [ conc.Min; conc.Max ]
@@ -560,11 +560,11 @@ module DilutionRule =
                     MinMax.empty
             DilutionLimits =
                 dilRule.DilutionLimits
-                |> Array.map (fun dilLimit ->
-                    if dilLimit.QuantityAdj |> MinMax.isEmpty then
-                        dilLimit
+                |> Array.map (fun dilutionLimit ->
+                    if dilutionLimit.QuantityAdj |> MinMax.isEmpty then
+                        dilutionLimit
                     else
-                        { dilLimit with Quantity = MinMax.empty }
+                        { dilutionLimit with Quantity = MinMax.empty }
                 )
         }
 
@@ -722,15 +722,15 @@ module DilutionRule =
                         |> Option.map (Utils.ValueUnit.toString -1)
                         |> Option.defaultValue ""
                         |> fun s ->
-                            let sols = dilRule.Diluents |> Array.map _.Generic |> String.concat "/"
+                            let diluents = dilRule.Diluents |> Array.map _.Generic |> String.concat "/"
 
                             if s |> String.isNullOrWhiteSpace then
-                                if sols |> String.isNullOrWhiteSpace then
+                                if diluents |> String.isNullOrWhiteSpace then
                                     " puur"
                                 else
-                                    $" in {sols}"
+                                    $" in {diluents}"
                             else
-                                $" in {s} {sols}"
+                                $" in {s} {diluents}"
 
             let substancePrefix =
                 if includeSubstanceName then
@@ -854,7 +854,7 @@ module DilutionRule =
                                          |}
                                      ))
                                     ||> Array.fold (fun acc (sel, rs) ->
-                                        let sol =
+                                        let rules_md =
                                             rs
                                             |> Array.groupBy _.PatientCategory.Access
                                             |> Array.collect (fun (_, rs) ->
@@ -933,7 +933,7 @@ module DilutionRule =
                                                      acc.md
                                                  else
                                                      acc.md + pat_md header)
-                                                |> fun s -> $"{s}\n{sol}"
+                                                |> fun s -> $"{s}\n{rules_md}"
                                         |}
                                     )
                         )

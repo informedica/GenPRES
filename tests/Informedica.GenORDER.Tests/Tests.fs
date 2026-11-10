@@ -5581,7 +5581,7 @@ module UndilutedSolutionTests =
                     |> withVialConcentrations [| 1N; 4N |]
                     |> _.Components.Head.Substances
                     |> List.find (fun si -> si.Name = "amfotericine b liposomaal")
-                    |> Medication.concentrationsWithinSolution
+                    |> Medication.concentrationsWithinDilutionLimit
                     |> Expect.equal
                         "1 mg/mL is within 0.2 to 2 mg/mL, 4 mg/mL is not"
                         (1N |> ValueUnit.singleWithUnit mgPerMl |> Some)
@@ -5591,13 +5591,13 @@ module UndilutedSolutionTests =
                     { Medication.SubstanceItem.item with
                         Name = "vancomycine"
                         Concentrations = [| 9N; 10N; 21N / 2N; 12N; 50N |] |> ValueUnit.withUnit mgPerMl |> Some
-                        Solution =
+                        DilutionLimit =
                             { DilutionLimit.limit with
                                 Concentration = 10N |> ValueUnit.singleWithUnit mgPerMl |> MinMax.createExact
                             }
                             |> Some
                     }
-                    |> Medication.concentrationsWithinSolution
+                    |> Medication.concentrationsWithinDilutionLimit
                     |> Expect.equal
                         "10 mg/mL alone, not 9 or 10.5 mg/mL"
                         (10N |> ValueUnit.singleWithUnit mgPerMl |> Some)
@@ -5635,7 +5635,7 @@ module UndilutedSolutionTests =
                         { Medication.SubstanceItem.item with
                             Name = "vancomycine"
                             Concentrations = [| 1N; 50N |] |> ValueUnit.withUnit mmolPerMl |> Some
-                            Solution =
+                            DilutionLimit =
                                 { DilutionLimit.limit with
                                     Concentration =
                                         { MinMax.empty with
@@ -5647,7 +5647,7 @@ module UndilutedSolutionTests =
                         }
 
                     si
-                    |> Medication.concentrationsWithinSolution
+                    |> Medication.concentrationsWithinDilutionLimit
                     |> Expect.equal "a molar concentration is not compared with a mass limit" si.Concentrations
                 }
 
@@ -5657,13 +5657,13 @@ module UndilutedSolutionTests =
                         |> List.find (fun si -> si.Name = "saccharose")
 
                     si
-                    |> Medication.concentrationsWithinSolution
+                    |> Medication.concentrationsWithinDilutionLimit
                     |> Expect.equal "saccharose has no dilution limit" si.Concentrations
                 }
 
                 test "the undiluted amphotericin order is refused" {
                     Scenarios.amfoUndiluted
-                    |> Medication.undilutedOutsideSolution
+                    |> Medication.undilutedOutsideDilutionLimit
                     |> List.map _.Name
                     |> Expect.equal "the amphotericin is outside the limit" [ "amfotericine b liposomaal" ]
 
@@ -5720,7 +5720,7 @@ module UndilutedSolutionTests =
                     let pcm = Scenarios.pcmSupp
 
                     pcm
-                    |> Medication.undilutedOutsideSolution
+                    |> Medication.undilutedOutsideDilutionLimit
                     |> Expect.isEmpty "paracetamol suppository has no dilution limit"
 
                     pcm

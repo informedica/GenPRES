@@ -1395,13 +1395,13 @@ Scenarios: {scenarios}
     let rulesVerdict logger ord atContext current =
         match atContext, current with
         | Ok atContext, Ok current ->
-            let solutions =
+            let dilutionRules =
                 if ord |> Order.isOneDose then
                     DilutionRuleComparison.Counted
                 else
                     DilutionRuleComparison.Ignored
 
-            PrescriptionRule.sameRules solutions atContext current |> not |> Some
+            PrescriptionRule.sameRules dilutionRules atContext current |> not |> Some
         | Error errs, _
         | _, Error errs ->
             errs |> Events.GenFormErrors |> OrderLogging.logOrderEventError logger

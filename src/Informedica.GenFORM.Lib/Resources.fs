@@ -529,7 +529,7 @@ module Resources =
 
                 // Reported -> ResourceState.Messages:
                 // - a rule with a minimum above its maximum
-                // - a dilution rule whose solutions match no parenteral product
+                // - a dilution rule whose diluents match no parenteral product
                 // - a dilution rule without diluents whose concentration limit allows no strength of its products
                 // - a dilution rule whose dose count has no maximum and no maximum on the preparation
                 // - two dilution rules that apply to one dose rule and one patient
