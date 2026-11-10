@@ -1,9 +1,9 @@
 // Issue #1597, implementation plan docs/implementation-plans/1597-nutrition-components-and-diluent.md.
 //
-// Step 1 is migrated to GenFORM; the order tests below run on the library code, with the sheet
-// edits of the plan made in memory. What is left to migrate is step 2:
-// PrescriptionRule.optionalComponents and selectComponents, the components that can be switched off
-// are the additives after the first component.
+// Steps 1, 2a and 2b are migrated to GenFORM and GenORDER. The tests below run on the library code
+// on the production sheet, with the sheet edits of the plan made in memory, and check the
+// DilutionRules_Test and DoseRules_Test sheets (--test-sheet, --test-sheets). Steps 3 and 4 are
+// prototyped here once their open points are settled.
 
 #I __SOURCE_DIRECTORY__
 
@@ -22,29 +22,6 @@ open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
 Env.loadDotEnv () |> ignore
 Environment.SetEnvironmentVariable("GENPRES_DEBUG", "0")
-
-
-module PrescriptionRule =
-
-    /// The components a prescriber can switch on and off: the additives after the first component.
-    let optionalComponents isAdditive (cls: ComponentLimit[]) =
-        match cls |> Array.toList with
-        | [] -> [||]
-        | _ :: rest -> rest |> List.filter isAdditive |> List.map _.Name |> List.toArray
-
-
-    /// The component limits of an order: the first component, every component that is not an
-    /// additive, and the additives that are selected; all additives when none is selected.
-    let selectComponents isAdditive (selected: string list) (cls: ComponentLimit[]) =
-        match cls |> Array.toList with
-        | [] -> [||]
-        | main :: rest ->
-            rest
-            |> List.filter (fun cl ->
-                not (isAdditive cl) || selected |> List.isEmpty || selected |> List.contains cl.Name
-            )
-            |> List.append [ main ]
-            |> List.toArray
 
 
 open Informedica.GenOrder.Lib
@@ -285,11 +262,10 @@ let cases =
 
 let formulary () = provider AsIs |> Api.get Resources.Keys.formularyProducts
 
-let isAdditive (cl: ComponentLimit) =
-    let additive =
-        formulary () |> Array.filter _.CanBeUsedAsAdditive |> Array.map _.GPKODE |> Set.ofArray
+let additive = lazy (Api.isAdditive (provider AsIs))
 
-    cl.Products |> Array.exists (fun p -> additive |> Set.contains p.GPK)
+/// The isAdditive lookup by GPK on the production Formulary.
+let isAdditive gpk = additive.Value gpk
 
 
 // ---- tests --------------------------------------------------------------------------------

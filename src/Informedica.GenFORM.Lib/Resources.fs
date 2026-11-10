@@ -330,6 +330,8 @@ module Resources =
         let ruleChecks = ResourceKey.create<unit> "ruleChecks"
         // G-Standaard dose-rule capability, served as a function-valued resource.
         let gStandProvider = ResourceKey.create<Check.GStandProvider> "gStandProvider"
+        // Whether the Formulary marks the product with a GPK as IsAdditive, likewise function-valued.
+        let isAdditive = ResourceKey.create<string -> bool> "isAdditive"
 
         // Nederlands Kinder Formularium link lookup, likewise function-valued.
         let nkfLinkProvider = ResourceKey.create<Source.LinkProvider> "nkfLinkProvider"
@@ -563,6 +565,18 @@ module Resources =
                 // in ZIndex.Lib and patient filtering (RuleFinder) is untouched.
                 Keys.gStandProvider.Name, derive (fun r -> Check.gStandProvider (r.Get Keys.routeMappings))
 
+                // the lookup by GPK of the products marked IsAdditive, built once per load
+                Keys.isAdditive.Name,
+                derive (fun r ->
+                    let gpks =
+                        r.Get Keys.formularyProducts
+                        |> Array.filter _.CanBeUsedAsAdditive
+                        |> Array.map _.GPKODE
+                        |> Set.ofArray
+
+                    fun gpk -> gpks |> Set.contains gpk
+                )
+
                 // The NKF link lookup is decoration on a rendered dose rule, and it is the
                 // only resource fetched from a third party rather than a sheet, so it is
                 // optional in exactly the sense totalsData is. Registering it here rather
@@ -718,7 +732,9 @@ module Resources =
                                 LastReloaded = DateTime.MinValue
                                 IsLoaded = false
                             }
-                        Resolved = Map.empty
+                        // the rule lookup reads the additives, so a failed load answers no rules
+                        // and no additives rather than a missing key
+                        Resolved = Map [ Keys.isAdditive.Name, box (fun (_: string) -> false) ]
                     }
 
                 cached <- Some(emptyLoaded, DateTime.UtcNow)

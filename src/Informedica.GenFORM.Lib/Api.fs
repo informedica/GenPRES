@@ -89,6 +89,10 @@ module Api =
         DoseRule.filter routeMappings filter doseRules
 
 
+    /// The lookup whether the Formulary marks the product with a GPK as IsAdditive.
+    let isAdditive (provider: IResourceProvider) = provider.Get Keys.isAdditive
+
+
     let getPrescriptionRules (provider: IResourceProvider) =
         let doseRules = getDoseRules provider
         let dilutionRules = getDilutionRules provider
@@ -96,7 +100,7 @@ module Api =
         let renalRules = getRenalRules provider
 
         withDefaultDepartment provider
-        >> PrescriptionRule.getForPatient doseRules dilutionRules renalRules routeMappings
+        >> PrescriptionRule.getForPatient (isAdditive provider) doseRules dilutionRules renalRules routeMappings
 
 
     let filterPrescriptionRules
@@ -108,6 +112,7 @@ module Api =
         let dilutionRules = getDilutionRules provider
         let routeMappings = getRouteMapping provider
         let renalRules = getRenalRules provider
+        let isAdditive = isAdditive provider
         let filter = { filter with Patient = filter.Patient |> withDefaultDepartment provider }
 
         let chunkSize =
@@ -117,7 +122,7 @@ module Api =
         doseRules
         |> Array.chunkBySize chunkSize
         |> Array.map (fun rules ->
-            async { return PrescriptionRule.filter rules dilutionRules renalRules routeMappings filter }
+            async { return PrescriptionRule.filter isAdditive rules dilutionRules renalRules routeMappings filter }
         )
         |> Async.Parallel
         |> Async.RunSynchronously

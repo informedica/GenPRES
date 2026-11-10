@@ -63,6 +63,8 @@ module Fixtures =
                     unbox<'T>(box feedingRows)
                 elif key.Name = Resources.Keys.standAloneDoseRules.Name then
                     unbox<'T>(box rules)
+                elif key.Name = Resources.Keys.isAdditive.Name then
+                    unbox<'T>(box (fun (_: string) -> false))
                 else
                     raise (System.NotImplementedException())
 

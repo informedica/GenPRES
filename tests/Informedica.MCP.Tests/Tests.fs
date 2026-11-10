@@ -253,6 +253,8 @@ module Tests =
                 member _.Get(key: ResourceKey<'T>) : 'T =
                     if key.Name = Keys.normalValueTables.Name then
                         box (EstimateFixtures.rows |> EstimateFixtures.tablesOf) :?> 'T
+                    elif key.Name = Keys.isAdditive.Name then
+                        box (fun (_: string) -> false) :?> 'T
                     else
                         raise (NotImplementedException key.Name)
 
@@ -282,6 +284,8 @@ module Tests =
                 member _.Get(key: ResourceKey<'T>) : 'T =
                     if key.Name = Keys.normalValueTables.Name then
                         box (EstimateFixtures.rows |> EstimateFixtures.tablesOf) :?> 'T
+                    elif key.Name = Keys.isAdditive.Name then
+                        box (fun (_: string) -> false) :?> 'T
                     else
                         raise (NotImplementedException key.Name)
 
@@ -506,6 +510,8 @@ module Tests =
                 member _.Get(key: ResourceKey<'T>) : 'T =
                     if key.Name = Keys.normalValueTables.Name then
                         box (rows |> EstimateFixtures.tablesOf) :?> 'T
+                    elif key.Name = Keys.isAdditive.Name then
+                        box (fun (_: string) -> false) :?> 'T
                     else
                         raise (NotImplementedException key.Name)
 
@@ -648,6 +654,8 @@ module Tests =
                 member _.Get(key: ResourceKey<'T>) : 'T =
                     if key.Name = Keys.normalValueTables.Name then
                         box (None: Informedica.GenCore.Lib.Patients.NormalValueTables option) :?> 'T
+                    elif key.Name = Keys.isAdditive.Name then
+                        box (fun (_: string) -> false) :?> 'T
                     else
                         raise (NotImplementedException key.Name)
 

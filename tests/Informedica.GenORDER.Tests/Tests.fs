@@ -5837,6 +5837,7 @@ let tests =
             OrderPlanTests.ruleSetDiscoveryTests
             OrderPlanTests.prescribableTests
             OrderPlanTests.useAdjustTests
+            OrderPlanTests.componentOptionTests
             OrderPlanTests.selectsRulesTests
             OrderPlanTests.scenarioAccessTests
             OrderPlanTests.refusalTests

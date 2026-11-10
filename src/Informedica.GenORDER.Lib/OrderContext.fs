@@ -185,8 +185,11 @@ module OrderScenario =
         }
 
 
-    let fromRule fitsOnlyWithoutDivisible no pr ord =
-        let cmps = pr.DoseRule.ComponentLimits |> Array.map _.Name
+    /// The scenario of an order made from a prescription rule. Its Components are the optional
+    /// components of the rule, see PrescriptionRule.optionalComponents.
+    let fromRule isAdditive fitsOnlyWithoutDivisible no pr ord =
+        let cmpNames = pr.DoseRule.ComponentLimits |> Array.map _.Name
+        let optionalCmps = pr.DoseRule.ComponentLimits |> PrescriptionRule.optionalComponents isAdditive
 
         let itms =
             pr.DoseRule.ComponentLimits
@@ -217,7 +220,7 @@ module OrderScenario =
                 |> List.exists ((=) dil)
             )
 
-        let cmp = cmps |> Array.tryExactlyOne
+        let cmp = cmpNames |> Array.tryExactlyOne
 
         let itm = itms |> Array.tryExactlyOne
 
@@ -236,7 +239,7 @@ module OrderScenario =
             cmp
             itm
             dils
-            cmps
+            optionalCmps
             itms
             ord
             useAdjust
@@ -721,13 +724,13 @@ module OrderContext =
                 |> Array.filter Result.isOk
 
 
-        let processEvaluationResults fitsOnlyWithoutDivisible prs =
+        let processEvaluationResults isAdditive fitsOnlyWithoutDivisible prs =
             prs
             |> Array.mapi (fun i r -> i, r)
             |> Array.choose (
                 function
                 | i, Ok(ord, pr, access) ->
-                    { OrderScenario.fromRule fitsOnlyWithoutDivisible i pr ord with Access = access }
+                    { OrderScenario.fromRule isAdditive fitsOnlyWithoutDivisible i pr ord with Access = access }
                     |> Some
                 | _, Error(ord, ctx, errs) ->
                     // TODO: this never gets written!! (evaluateRules already filters to Ok
@@ -1212,50 +1215,6 @@ module OrderContext =
     let setFilterForm frm ctx = { ctx with OrderContext.Filter.Form = Some frm }
 
 
-    let checkDiluentChange (ctx: OrderContext) =
-        ctx.Scenarios
-        |> Array.tryExactlyOne
-        |> Option.map (fun sc ->
-            let ord = sc.Order
-
-            match ctx.Filter.Diluent with
-            | None -> false
-            | Some dil ->
-                // check if diluent is used in order
-                ord.Orderable.Components
-                |> List.map (_.Name >> Name.toString)
-                |> List.exists ((=) dil)
-                |> not
-        )
-        |> Option.defaultValue false
-
-
-    let checkComponentChange (ctx: OrderContext) =
-        ctx.Scenarios
-        |> Array.tryExactlyOne
-        |> Option.map (fun sc ->
-            let ord = sc.Order
-
-            if
-                ctx.Filter.SelectedComponents |> Array.isEmpty
-                || ctx.Filter.Components |> Array.isEmpty
-            then
-                false
-            else if ord.Orderable.Components |> List.length = 0 then
-                false
-            else
-                // check if there is a component that is used
-                // not in selected components
-                ord.Orderable.Components
-                |> List.skip 1
-                |> List.map (_.Name >> Name.toString)
-                |> List.sort
-                |> (=) (ctx.Filter.SelectedComponents |> Array.sort |> Array.toList)
-                |> not
-        )
-        |> Option.defaultValue false
-
-
     let toString stage (ctx: OrderContext) =
         let printArray xs =
             if ctx.Filter.Generic.IsNone || ctx.Filter.Route.IsNone || xs |> Array.length > 10 then
@@ -1328,11 +1287,11 @@ Scenarios: {scenarios}
                                 sc.Diluents
                             else
                                 ctx.Filter.Diluents
-                        // set mechanism once, so when a scenario has only
-                        // selected components, the others are still available
+                        // the options are set once, from the first scenario: a scenario made after a
+                        // selection holds only the selected additives, and the options keep the others
                         Components =
                             if ctx.Filter.Components |> Array.isEmpty then
-                                sc.Components |> Array.skip 1
+                                sc.Components
                             else
                                 ctx.Filter.Components
                     }
@@ -1694,7 +1653,7 @@ Scenarios: {scenarios}
 
                 let scenarios =
                     results
-                    |> processEvaluationResults fitsOnlyWithoutDivisible
+                    |> processEvaluationResults (Api.isAdditive provider) fitsOnlyWithoutDivisible
                     |> filterScenariosByPreparation
 
                 let meds () = prs |> Array.collect (Medication.fromRule logger)
@@ -1993,8 +1952,6 @@ Scenarios: {scenarios}
                 |> log
         | _ -> ()
 
-        log $"Components change: {ctx |> checkComponentChange}"
-        log $"Diluent change: {ctx |> checkDiluentChange}\n"
 
         ctx |> toString $"Order Context" |> log
 

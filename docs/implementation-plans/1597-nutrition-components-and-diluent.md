@@ -108,36 +108,29 @@ DilutionRules rows for a nutrition generic.
 | The `Diluents` cell | The names are separated by `\|`, as the code reads them, and the cell is on every row of the dilution rule, since the rows are grouped by it. Both are sheet rules; the code does not change for them. |
 | Samenstelling B to E | Glucose becomes the diluent and leaves the dose rule components. The maintainer edits the sheet. |
 | A diluent that is also a dose rule component | The pair is refused: the dilution rule is not applied to that dose rule, and loading warns. Both rules load. |
-| Unchecking every additive | In scope. The representation of "none selected" is the maintainer's to decide. |
-| Keeping the chosen quantities after a toggle or a diluent choice | In scope. The approach is the maintainer's to decide. |
+| How the flags reach the selection code | A lookup function built from the Formulary, passed to `PrescriptionRule.filter` and `OrderContext`, as the prototype does. No type changes. |
+| Which Formulary row gives a flag | The product's own row, by GPK. A flag on a G-Standaard row counts only for that G-Standaard product. |
+| A component with several products | A component is an additive when a product of it is marked `IsAdditive`. A component that mixes additive and other products makes no sense; on the production sheet none of the 7576 component limits does, and every component with an additive product has a single product. |
+| Unchecking every additive | In scope. The selection becomes a discriminated union that tells "all components" from a selection, so that an empty selection means none. Its cases and names are not decided yet. |
+| Keeping the chosen quantities after a toggle or a diluent choice | In scope. The order is rebuilt from the rules, then the values the prescriber had chosen are set again on the components still in the order, matched by name, where the new constraints allow them. |
+| The glucose maximum of Samenstelling B to E | The DilutionRules range is accepted as the limit, also where its maximum is higher than today. |
+| NICU mix | As Samenstelling B to E: `gluc 10%` leaves the dose rule components and becomes the diluent, limited by a `diluent` row. The maintainer edits the sheet. |
+| `glycine buffer` | The maintainer marks it `IsDiluent` in the Formulary. |
 
 ## Open points
 
 For the maintainer to decide:
 
-1. **How the flags reach the code that selects components.** `ProductComponent` carries no flags,
-   and `PrescriptionRule.filter` and `OrderContext` do not see the Formulary. The prototype looks
-   the flag up by the GPK of the component's products, through a function passed in.
-2. **Which Formulary row gives a flag.** The flag of the product's own row, by GPK (the
-   prototype), or also of a G-Standaard row whose AltName is the component name. With the flags
-   on the virtual rows only, both give the same flags. Whether `Intralipid 20%`, `SMOF 20%` and
-   `Kacetaat` are additives is a sheet question.
-3. **"None selected".** See the decisions.
-4. **Keeping the chosen quantities.** See the decisions.
-5. **The glucose maximum of Samenstelling B to E.** Without the glucose row in DoseRules, only the
-   DilutionRules range limits the glucose. In 7 of the 18 orders of the prototype the maximum is
-   then higher, up to the range maximum, for example Samenstelling C, 12 kg, day 3: 432-480 mL
-   today and 432-528 mL. The values need a clinical check.
-6. **The NICU mix pairs and `glycine buffer`.** With the refusal, the NICU mix dose rules with
-   `gluc 10%` as a component do not get the dilution rule "neonaten".
+1. **The selection type.** The cases and names of the discriminated union for the component
+   selection, in GenFORM `DoseFilter.Components` and the wire `SelectedComponents`.
+2. **Which values are set again** after a rebuild: the component quantities only, or also the
+   other values the prescriber chose, such as the rate.
 
 ## Prototype
 
 `src/Informedica.GenORDER.Lib/Scripts/NutritionComponents.fsx` runs on the production sheet, with
-the sheet edits of the decisions made in memory. Step 1 is migrated, and the order tests of the
-script run on the library code. Its 9 tests pass. What the script still holds is step 2:
-`optionalComponents` and `selectComponents`. The additives after the first component are optional;
-the first component and every component that is not an additive stay.
+the sheet edits of the decisions made in memory. Steps 1, 2a and 2b are migrated, and the tests of
+the script run on the library code. Its 9 tests pass.
 
 What the tests show:
 
@@ -174,8 +167,8 @@ The refused-pair check only pairs a dose rule and a dilution rule that can meet 
 
 ## Steps
 
-One pull request at a time, each merged before the next. The order and the content of steps 2
-to 4 depend on the open points.
+One pull request at a time, each merged before the next. Steps 3 and 4 also
+wait on the open points.
 
 1. **GenFORM: the diluent of a dilution rule** (`feat(genform)`): `DilutionRule.map` with the
    cell order and the `diluent` row, the `IsDiluent` warning, the refused pair in
@@ -193,13 +186,25 @@ to 4 depend on the open points.
    - Step 1 lands before the production sheet gets `diluent` rows: the current code reads such a
      row as a component named `diluent`, which matches no component, so the diluent would have no
      limit of its own.
-2. **The optional components**: the additives after the first component, in `PrescriptionRule`
-   and `OrderContext`, once open points 1 and 2 are settled.
-3. **"None selected"**, once open point 3 is settled.
-4. **Keeping the chosen quantities**, once open point 4 is settled.
+2. **The optional components**, in two steps, since the GenORDER chain is long:
+   - **2a, GenFORM**: `Api.filterPrescriptionRules` builds the `isAdditive` lookup by GPK from the
+     Formulary and passes it to `PrescriptionRule.filter`. A selection keeps the first component,
+     every component that is not an additive, and the selected additives; no selection keeps all.
+     Migrated with 2b.
+   - **2b, GenORDER**: `OrderScenario.Components` holds the optional components, the additives
+     after the first component, worked out in `OrderScenario.fromRule` with the same lookup. The
+     options are those Components, without skipping the first, and `checkComponentChange`
+     compares only those. The single component of a scenario is still taken from all component
+     names. No wire change.
+   - The script stays, trimmed to the order checks on the production sheet and the test sheets,
+     as the base for steps 3 and 4.
+   - 2a and 2b land in one pull request: with 2a alone, the client still offers a component that
+     is not an additive, which the order then keeps.
+3. **"None selected"**: the selection as a discriminated union, once open point 1 is settled.
+4. **Keeping the chosen quantities**: rebuild, then set the chosen values again, once open
+   point 2 is settled.
 5. **Client: the nutrition slot**: the rows from the main component, the optional components and
    the diluent; the checkboxes and the select through the existing commands; disabled while the
    composition is locked (`IntakePolicy.isCompositionLocked`) or the slot is busy.
-6. **Sheets** (the maintainer): Samenstelling B to E as decided, after open point 5, with the
-   `Diluents` cell separated by `|` on every row; the NICU mix rules and `glycine buffer`; the
-   demo sheet.
+6. **Sheets** (the maintainer): Samenstelling B to E and NICU mix as decided, with the `Diluents`
+   cell separated by `|` on every row; `glycine buffer` marked `IsDiluent`; the demo sheet.

@@ -30,8 +30,12 @@ let plan: OrderPlan =
 /// raises.
 type NoRules() =
     interface Informedica.GenForm.Lib.Resources.IResourceProvider with
-        member _.Get(_: Informedica.GenForm.Lib.Resources.ResourceKey<'T>) : 'T =
-            raise (System.NotImplementedException())
+        // the rule lookup reads the additives; there are none
+        member _.Get(key: Informedica.GenForm.Lib.Resources.ResourceKey<'T>) : 'T =
+            if key.Name = Informedica.GenForm.Lib.Resources.Keys.isAdditive.Name then
+                box (fun (_: string) -> false) :?> 'T
+            else
+                raise (System.NotImplementedException())
 
         member _.GetData() = raise (System.NotImplementedException())
         member _.GetUnitMappings() = raise (System.NotImplementedException())
