@@ -275,7 +275,7 @@ module PrescriptionRule =
                 Patient = pat
                 DoseRule = dr
                 DilutionRules =
-                    let solFilter =
+                    let dilutionFilter =
                         { Filter.dilutionFilter (dr.Generic |> Generic.genericName) with
                             Patient = pat
                             Form = dr.Generic.Form |> PharmaceuticalForm.toString |> Some
@@ -287,7 +287,11 @@ module PrescriptionRule =
                         }
 
                     dilutionRules
-                    |> DilutionRule.filter routeMapping solFilter
+                    // a diluent that is also a component of the dose rule would be in the order twice;
+                    // checked before the filter narrows the diluents to the chosen one, so that choosing
+                    // another diluent of the rule does not let the rule through
+                    |> Array.filter (DilutionRule.componentDiluents dr >> Array.isEmpty)
+                    |> DilutionRule.filter routeMapping dilutionFilter
                     |> Array.map (fun dilRule ->
                         { dilRule with
                             DilutionLimits =

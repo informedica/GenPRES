@@ -88,6 +88,29 @@ module DilutionRule =
         Web.getDataFromSheet dataUrlId "DilutionRules" |> parseDilutionRuleData
 
 
+    /// The Component of a DilutionRules row that limits the diluent of the rule, whichever diluent is
+    /// chosen.
+    let diluentComponent = "diluent"
+
+
+    /// Whether a DilutionRules row is a diluent row: "diluent" in the Component column and no substance.
+    let isDiluentRow (r: DilutionRuleData) =
+        r.Substance |> String.isNullOrWhiteSpace
+        && r.Component |> String.equalsCapInsens diluentComponent
+
+
+    /// Each diluent row is replaced by one row per diluent, named after that diluent; the other rows
+    /// stay.
+    let expandDiluentRows diluents rows =
+        rows
+        |> Array.collect (fun r ->
+            if r |> isDiluentRow then
+                diluents |> Array.map (fun dil -> { r with Component = dil })
+            else
+                [| r |]
+        )
+
+
     let map routeMapping (parenteral: ProductComponent[]) products data : Result<_, Message list> =
         data
         |> Array.groupBy (fun r ->
@@ -120,11 +143,12 @@ module DilutionRule =
                     }
                 Dose = (r.MinDose, r.MaxDose) |> fromTupleInclIncl du
                 DoseType = DoseType.fromString r.DoseType r.DoseText
+                // in the order of the cell, so that the first diluent of the cell is the one an order
+                // takes when none is chosen
                 Diluents =
-                    parenteral
-                    |> Array.filter (fun p ->
-                        r.Diluents |> List.exists (fun s -> p.Generic |> String.equalsCapInsens s)
-                    )
+                    r.Diluents
+                    |> List.toArray
+                    |> Array.choose (fun s -> parenteral |> Array.tryFind (_.Generic >> String.equalsCapInsens s))
                     |> Array.distinctBy _.Generic
                 Div = r.Div
                 Volumes =
@@ -147,6 +171,7 @@ module DilutionRule =
             { dilRule with
                 DilutionLimits =
                     rs
+                    |> expandDiluentRows (dilRule.Diluents |> Array.map _.Generic)
                     |> Array.map (fun l ->
                         let u = l.Unit |> UnitsParse.fromString
                         let au = u |> Option.map (ValueUnit.per Units.Weight.kiloGram)
@@ -306,6 +331,23 @@ module DilutionRule =
         |> Array.toList
 
 
+    /// One warning per dilution rule with a diluent row but no diluent, because its Diluents cell is
+    /// empty or names no parenteral product. The diluent row then limits nothing.
+    let diluentRowsWithoutDiluent parenteral (data: DilutionRuleData[]) =
+        data
+        |> Array.filter isDiluentRow
+        |> Array.choose (fun r ->
+            match [| r |] |> map [||] parenteral [||] with
+            | Ok [| dilRule |] when dilRule.Diluents |> Array.isEmpty -> Some { dilRule with DilutionLimits = [||] }
+            | _ -> None
+        )
+        |> Array.distinct
+        |> Array.map (fun dilRule ->
+            Warning $"%s{dilRule |> label}: a diluent row but no diluent, so the diluent row limits nothing"
+        )
+        |> Array.toList
+
+
     /// Whether a dilution rule applies to a dose rule: the generic and the route, and the form,
     /// indication and dose type when the dilution rule names them, matched as filter matches them
     /// for an order. A dilution rule and a dose rule that name different departments or different
@@ -325,17 +367,20 @@ module DilutionRule =
                    DoseType.eqs dilRule.DoseType dr.DoseType)
 
 
+    /// Whether a dilution rule applies to a dose rule and can meet a patient of that dose rule.
+    let canMeetDoseRule routeMapping (dr: DoseRule) (dilRule: DilutionRule) =
+        dr |> appliesToDoseRule routeMapping dilRule
+        && PatientCategory.canShare dilRule.PatientCategory dr.PatientCategory
+
+
     /// One warning per pair of dilution rules that apply to the same dose rule and can meet the
     /// same patient of that dose rule. Ranges that overlap pair by pair share a value, so comparing
     /// each pair of the three rules is enough. Each rule gives its own scenario, so the user has to choose between them, and
     /// a view that shows a single order shows none. The dose range of a dilution rule does not
     /// take part in the matching, so rules that differ only in dose range also compete.
     let competingRules routeMapping (doseRules: DoseRule[]) (rules: DilutionRule[]) =
-        let reaches (dr: DoseRule) (dilRule: DilutionRule) =
-            dr |> appliesToDoseRule routeMapping dilRule
-            && PatientCategory.canShare dilRule.PatientCategory dr.PatientCategory
-
-        let appliesToBoth a b dr = a |> reaches dr && b |> reaches dr
+        let appliesToBoth a b dr =
+            a |> canMeetDoseRule routeMapping dr && b |> canMeetDoseRule routeMapping dr
 
         let pairs (rules: DilutionRule[]) =
             rules
@@ -357,6 +402,59 @@ module DilutionRule =
         |> Array.toList
         |> List.distinct
         |> List.map Warning
+
+
+    /// The names of the diluents of the dilution rule that are also components of the dose rule. An
+    /// order with such a pair would hold that component twice, so the pair is refused.
+    let componentDiluents (dr: DoseRule) (dilRule: DilutionRule) =
+        dilRule.Diluents
+        |> Array.map _.Generic
+        |> Array.filter (fun dil -> dr.ComponentLimits |> Array.exists (_.Name >> String.equalsCapInsens dil))
+
+
+    /// One warning per dilution rule and dose rule that apply to each other and can meet the same patient,
+    /// while a diluent of the dilution rule is also a component of the dose rule: the dilution rule is not
+    /// applied to that dose rule.
+    let diluentsThatAreComponents routeMapping (doseRules: DoseRule[]) (rules: DilutionRule[]) =
+        [
+            for dilRule in rules do
+                for dr in doseRules do
+                    if dilRule |> canMeetDoseRule routeMapping dr then
+                        match componentDiluents dr dilRule with
+                        | [||] -> ()
+                        | dils ->
+                            let names = dils |> String.concat ", "
+
+                            $"%s{dilRule |> label}: the diluent %s{names} is also a component of a dose rule of "
+                            + $"%s{dr.Generic |> Generic.toString}, so the dilution rule is not applied to that dose rule"
+        ]
+        |> List.distinct
+        |> List.map Warning
+
+
+    /// One warning per name in a Diluents cell whose parenteral Formulary product is not marked
+    /// IsDiluent, listing the generics whose dilution rules name it. A name without a parenteral
+    /// product is reported by missingDiluents.
+    let unmarkedDiluents (formulary: FormularyProduct[]) (data: DilutionRuleData[]) =
+        let unmarked name =
+            formulary
+            |> Array.exists (fun fp ->
+                fp.ProductType = ParenteralProduct
+                && fp.Generic |> String.equalsCapInsens name
+                && not fp.CanBeUsedAsDiluent
+            )
+
+        data
+        |> Array.collect (fun r -> r.Diluents |> List.toArray |> Array.map (fun dil -> dil, r.Generic))
+        |> Array.filter (fst >> unmarked)
+        // the names match the Formulary in any case, so the spellings of one name give one warning
+        |> Array.groupBy (fst >> String.toLower)
+        |> Array.map (fun (_, xs) ->
+            let dil = xs |> Array.head |> fst
+            let generics = xs |> Array.map snd |> Array.distinct |> String.concat ", "
+            Warning $"the diluent %s{dil} is not marked IsDiluent in the Formulary, named by %s{generics}"
+        )
+        |> Array.toList
 
 
     /// The substances whose concentration limit allows no strength of the products. A strength

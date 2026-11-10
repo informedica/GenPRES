@@ -533,12 +533,21 @@ module Resources =
                 // - a dilution rule without diluents whose concentration limit allows no strength of its products
                 // - a dilution rule whose dose count has no maximum and no maximum on the preparation
                 // - two dilution rules that apply to one dose rule and one patient
+                // - a diluent that is also a component of a dose rule the dilution rule applies to
+                // - a diluent whose Formulary product is not marked IsDiluent
+                // - a dilution rule with a diluent row but no diluent
                 // - a product of a dose rule without a Divisible, or products whose Divisible disagree
                 Keys.ruleChecks.Name,
                 deriveWith (fun r ->
                     (),
                     (r.Get Keys.dilutionRuleData
                      |> DilutionRule.missingDiluents (r.Get Keys.parenteralMeds))
+                    @ (r.Get Keys.dilutionRuleData
+                       |> DilutionRule.unmarkedDiluents (r.Get Keys.formularyProducts))
+                    @ (r.Get Keys.dilutionRuleData
+                       |> DilutionRule.diluentRowsWithoutDiluent (r.Get Keys.parenteralMeds))
+                    @ (r.Get Keys.dilutionRules
+                       |> DilutionRule.diluentsThatAreComponents (r.Get Keys.routeMappings) (r.Get Keys.doseRules))
                     @ (r.Get Keys.doseRules |> DoseRule.invertedRanges)
                     @ (r.Get Keys.doseRules |> DoseRule.divisibleWarnings)
                     @ (r.Get Keys.dilutionRules |> DilutionRule.invertedRanges)
