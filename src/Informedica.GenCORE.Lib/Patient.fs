@@ -446,6 +446,10 @@ module AgeValue =
             (rest % 7 |> Conversions.dayFromInt |> Some)
 
 
+    /// A time value as an age value, rounded down to whole days.
+    let fromValueUnit vu = vu |> ValueUnits.ValueUnit.Measures.toSingleIntDay |> fromDays
+
+
     /// The age value at a date of a birth date: the days from the birth date to the date, taken on
     /// the date alone, split by fromDays into years of 365 days, months of 30 days, weeks and days. A
     /// birth date after the date is refused.

@@ -74,7 +74,6 @@ module Adult =
 
     module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
     module CoreAdultMark = Informedica.GenCore.Lib.Patients.AdultMark
-    module Measures = Informedica.GenCore.Lib.ValueUnits.ValueUnit.Measures
 
     type AdultMark = Informedica.GenCore.Lib.Patients.AdultMark
 
@@ -82,7 +81,7 @@ module Adult =
     /// The adult mark of an age in days and the mark of the user, as GenCORE sets it.
     let mark marked age =
         age
-        |> Option.map (Measures.toSingleIntDay >> CoreAgeValue.fromDays)
+        |> Option.map CoreAgeValue.fromValueUnit
         |> fun age -> CoreAdultMark.ofAge age marked
 
 
