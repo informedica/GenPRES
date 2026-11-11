@@ -11052,6 +11052,140 @@ module Tests =
                 ]
 
 
+    module RepeatedTargetTests =
+
+        let dilutionLimit target =
+            { DilutionLimit.limit with
+                DilutionLimitTarget = target
+                Concentration = RuleCheckTests.range RuleCheckTests.mgPerMl 0N 5N
+            }
+
+
+        let dilutionRule generic limits =
+            { RuleCheckTests.dilutionRule generic MinMax.empty with DilutionLimits = limits }
+
+
+        let warningTexts rules =
+            rules |> DilutionRule.repeatedTargets |> List.map RuleCheckTests.warningText
+
+
+        let tests =
+            testList
+                "a dilution rule with more than one dilution limit for the same target"
+                [
+                    test "two limits for the same substance give one warning" {
+                        [|
+                            dilutionRule
+                                "erytromycine"
+                                [|
+                                    dilutionLimit (SubstanceLimitTarget "erytromycine")
+                                    dilutionLimit (SubstanceLimitTarget "erytromycine")
+                                |]
+                        |]
+                        |> warningTexts
+                        |> Expect.equal
+                            "one warning"
+                            [
+                                "dilution rule erytromycine, INTRAVENEUS: 2 dilution limits for the substance erytromycine, "
+                                + "an order takes only the first"
+                            ]
+                    }
+
+                    test "two limits for the same component give one warning" {
+                        [|
+                            dilutionRule
+                                "Samenstelling C"
+                                [|
+                                    dilutionLimit (ComponentLimitTarget "NaCl 3%")
+                                    dilutionLimit (ComponentLimitTarget "NaCl 3%")
+                                |]
+                        |]
+                        |> warningTexts
+                        |> Expect.hasLength "one warning" 1
+                    }
+
+                    test "three limits for the same target give one warning that counts three" {
+                        [|
+                            dilutionRule
+                                "erytromycine"
+                                [|
+                                    for _ in 1..3 do
+                                        dilutionLimit (SubstanceLimitTarget "erytromycine")
+                                |]
+                        |]
+                        |> warningTexts
+                        |> List.exactlyOne
+                        |> Expect.stringContains "three" "3 dilution limits"
+                    }
+
+                    test "names that differ only in case are the same target" {
+                        [|
+                            dilutionRule
+                                "Samenstelling C"
+                                [|
+                                    dilutionLimit (ComponentLimitTarget "NaCl 3%")
+                                    dilutionLimit (ComponentLimitTarget "NACL 3%")
+                                |]
+                        |]
+                        |> warningTexts
+                        |> Expect.hasLength "one warning" 1
+                    }
+
+                    test "a component and a substance with the same name are different targets" {
+                        [|
+                            dilutionRule
+                                "kaliumchloride"
+                                [|
+                                    dilutionLimit (ComponentLimitTarget "kaliumchloride")
+                                    dilutionLimit (SubstanceLimitTarget "kaliumchloride")
+                                |]
+                        |]
+                        |> warningTexts
+                        |> Expect.isEmpty "no warning"
+                    }
+
+                    test "limits for different targets give no warning" {
+                        [|
+                            dilutionRule
+                                "Samenstelling C"
+                                [|
+                                    dilutionLimit (ComponentLimitTarget "NaCl 3%")
+                                    dilutionLimit (ComponentLimitTarget "KCl 7,4%")
+                                    dilutionLimit (SubstanceLimitTarget "natrium")
+                                |]
+                        |]
+                        |> warningTexts
+                        |> Expect.isEmpty "no warning"
+                    }
+
+                    test "one limit each in two dilution rules gives no warning" {
+                        [|
+                            dilutionRule "erytromycine" [| dilutionLimit (SubstanceLimitTarget "erytromycine") |]
+                            { dilutionRule "erytromycine" [| dilutionLimit (SubstanceLimitTarget "erytromycine") |] with
+                                Volume = RuleCheckTests.range Units.Volume.milliLiter 5N 10N
+                            }
+                        |]
+                        |> warningTexts
+                        |> Expect.isEmpty "no warning"
+                    }
+
+                    test "a repeated component and a repeated substance in one rule give two warnings" {
+                        [|
+                            dilutionRule
+                                "Samenstelling C"
+                                [|
+                                    dilutionLimit (ComponentLimitTarget "NaCl 3%")
+                                    dilutionLimit (SubstanceLimitTarget "natrium")
+                                    dilutionLimit (ComponentLimitTarget "NaCl 3%")
+                                    dilutionLimit (SubstanceLimitTarget "natrium")
+                                |]
+                        |]
+                        |> warningTexts
+                        |> Expect.hasLength "two warnings" 2
+                    }
+                ]
+
+
     [<Tests>]
     let tests =
         testList
@@ -11093,4 +11227,5 @@ module Tests =
                 LimitingDilutionRuleTests.tests
                 LoadWithoutLimitsTests.tests
                 ConflictingLimitTests.tests
+                RepeatedTargetTests.tests
             ]
