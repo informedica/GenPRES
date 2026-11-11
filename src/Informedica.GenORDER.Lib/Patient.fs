@@ -72,8 +72,7 @@ module Patient =
         let ageFromValueUnit vu =
             let ys, ms, ws, ds =
                 vu
-                |> Measures.toSingleIntDay
-                |> CoreAgeValue.fromDays
+                |> CoreAgeValue.fromValueUnit
                 |> CoreAgeValue.getDef0
                 |> fun (y, m, w, d) -> int y, int m, int w, int d
 
@@ -158,7 +157,7 @@ module Patient =
                 Option.map2
                     (fun age ga ->
                         CoreAgeWeeksDays.postMenstrualAge
-                            (age |> Measures.toSingleIntDay |> CoreAgeValue.fromDays)
+                            (age |> CoreAgeValue.fromValueUnit)
                             (ga |> CoreAgeWeeksDays.fromValueUnit)
                         |> CoreAgeWeeksDays.toValueUnit
                     )

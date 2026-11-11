@@ -1286,6 +1286,50 @@ module Tests =
                             ]
 
                         testList
+                            "fromValueUnit"
+                            [
+                                let days n =
+                                    n |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Time.day
+
+                                for n in [ 0; 400 ] do
+                                    test $"%i{n} days gives the age value of %i{n} days" {
+                                        days n
+                                        |> AgeValue.fromValueUnit
+                                        |> Expect.equal "as fromDays" (n * 1<day> |> AgeValue.fromDays)
+                                    }
+
+                                test "a time value in weeks is converted to days" {
+                                    2N
+                                    |> ValueUnit.singleWithUnit Units.Time.week
+                                    |> AgeValue.fromValueUnit
+                                    |> Expect.equal "14 days" (14<day> |> AgeValue.fromDays)
+                                }
+
+                                test "part of a day is rounded down" {
+                                    (55N / 2N)
+                                    |> ValueUnit.singleWithUnit Units.Time.day
+                                    |> AgeValue.fromValueUnit
+                                    |> Expect.equal "27 days" (27<day> |> AgeValue.fromDays)
+                                }
+
+                                test "back to the same time value" {
+                                    days 400
+                                    |> AgeValue.fromValueUnit
+                                    |> AgeValue.toValueUnit
+                                    |> Expect.equal "400 days" (days 400)
+                                }
+
+                                test "a value that is not a time raises" {
+                                    fun () ->
+                                        1N
+                                        |> ValueUnit.singleWithUnit Units.Weight.kiloGram
+                                        |> AgeValue.fromValueUnit
+                                        |> ignore
+                                    |> Expect.throwsT<System.ArgumentException> "not a time"
+                                }
+                            ]
+
+                        testList
                             "The post-menstrual age of a patient"
                             [
                                 let gest = Some(AgeWeeksDays.create 26<week> 0<day>)

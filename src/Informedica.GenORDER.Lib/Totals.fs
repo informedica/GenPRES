@@ -12,7 +12,6 @@ module Totals =
     module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
     module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
     module CoreGestationalAgeNeed = Informedica.GenCore.Lib.Patients.GestationalAgeNeed
-    module Measures = Informedica.GenCore.Lib.ValueUnits.ValueUnit.Measures
     module MinMax = Informedica.GenForm.Lib.Utils.MinMax
 
     type CoreNeed = Informedica.GenCore.Lib.Patients.GestationalAgeNeed
@@ -139,11 +138,7 @@ module Totals =
         match gestAge with
         | Some ga -> Some ga
         | None ->
-            match
-                age
-                |> Option.map (Measures.toSingleIntDay >> CoreAgeValue.fromDays)
-                |> CoreGestationalAgeNeed.ofAge
-            with
+            match age |> Option.map CoreAgeValue.fromValueUnit |> CoreGestationalAgeNeed.ofAge with
             | CoreNeed.RequiredGestationalAge -> None
             | CoreNeed.OptionalGestationalAge
             | CoreNeed.NoGestationalAge -> CoreAgeWeeksDays.term |> CoreAgeWeeksDays.toValueUnit |> Some
