@@ -21,6 +21,7 @@
     <Compile Include="OrderValueCommandTests.fs" />
     <Compile Include="DomainCommandTests.fs" />
     <Compile Include="MedicationTextTests.fs" />
+    <Compile Include="PlaceholderProductTests.fs" />
     <Compile Include="MedicationSchemaTests.fs" />
     <Compile Include="DoseQuantityPercTests.fs" />
     <Compile Include="DivisibilityTests.fs" />
