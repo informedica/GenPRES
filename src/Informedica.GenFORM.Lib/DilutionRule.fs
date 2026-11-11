@@ -373,13 +373,42 @@ module DilutionRule =
         && PatientCategory.canShare dilRule.PatientCategory dr.PatientCategory
 
 
+    /// The dose count range of the dilution rule: the number of doses in the preparation, from the
+    /// fraction of the preparation that makes up one dose. A higher fraction is fewer doses, so the
+    /// minimum of the dose count comes from the maximum of the fraction and the maximum from the
+    /// minimum. Without a maximum fraction, and with a minimum fraction of at most 1, the maximum
+    /// fraction is 1, the whole preparation, so the dose count is at least 1. Without a minimum
+    /// fraction the dose count has no maximum. A fraction of 0 counts as no fraction, and without
+    /// either fraction the dose count is empty.
+    let doseCountRange (dilRule: DilutionRule) =
+        let valueReciprocal = ValueUnit.applyToValue (Array.map (fun v -> 1N / v))
+        let limitReciprocal = Limit.apply valueReciprocal valueReciprocal
+
+        match dilRule.DoseFraction.Min |> nonZeroLimit, dilRule.DoseFraction.Max |> nonZeroLimit with
+        | None, None -> MinMax.empty
+        | min, max ->
+            let max =
+                match min, max with
+                // a minimum fraction above 1 with a maximum of 1 would be an empty range
+                | Some lim, None when lim |> Limit.getValue |> Option.exists (fun v -> v > 1N) -> None
+                | _, None -> Some Limit.one
+                | _, Some _ -> max
+
+            { MinMax.empty with
+                Min = max |> Option.map limitReciprocal
+                Max = min |> Option.map limitReciprocal
+            }
+
+
     /// Whether the dose count of the dilution rule is at least 1, so that the dose is at most the
-    /// preparation: a dose fraction, when the rule gives one, of at most 1. Without a dose fraction
-    /// the order builder sets the dose count to 1.
-    let hasDoseCountOfAtLeastOne (dilRule: DilutionRule) =
-        [ dilRule.DoseFraction.Min; dilRule.DoseFraction.Max ]
-        |> List.choose id
-        |> List.forall (Limit.getValueUnit >> ValueUnit.getValue >> Array.forall (fun v -> v <= 1N))
+    /// preparation. Without a dose fraction the order builder sets the dose count to 1.
+    let hasDoseCountOfAtLeastOne dilRule =
+        match dilRule |> doseCountRange with
+        | {
+              Min = None
+              Max = None
+          } -> true
+        | count -> count.Min |> Option.bind Limit.getValue |> Option.exists (fun c -> c >= 1N)
 
 
     /// The first dilution limit of the component, the one the order takes.
@@ -415,6 +444,72 @@ module DilutionRule =
             && dilRule |> hasDoseCountOfAtLeastOne
             && names |> Array.forall (canLimitComponent dilRule)
         )
+
+
+    /// Whether no dose count in the range lets an order meet both the dose range and the range in the
+    /// preparation: the dose minimum above the preparation maximum divided by the dose count minimum,
+    /// or the dose maximum below the preparation minimum divided by the dose count maximum. An empty
+    /// dose count range is a dose count of 1, as the order builder sets it. Ranges in different unit
+    /// groups are not compared.
+    let noDoseCountMeets (count: MinMax) (dose: MinMax) (prep: MinMax) =
+        let countMin, countMax =
+            match count.Min, count.Max with
+            | None, None -> Some 1N, Some 1N
+            | min, max -> min |> Option.bind Limit.getValue, max |> Option.bind Limit.getValue
+
+        let outOfReach f doseLimit prepLimit count =
+            match doseLimit |> Option.map Limit.getValueUnit, prepLimit |> Option.map Limit.getValueUnit, count with
+            | Some d, Some p, Some c when ValueUnit.eqsGroup d p ->
+                f d (p |> ValueUnit.applyToValue (Array.map (fun v -> v / c)))
+            | _ -> false
+
+        outOfReach ValueUnit.gt dose.Min prep.Max countMin
+        || outOfReach ValueUnit.st dose.Max prep.Min countMax
+
+
+    /// The warnings for one dilution rule and one dose rule: per component they both limit, whose
+    /// dose range and range in the preparation no order can meet for any dose count of the dilution
+    /// rule. A quantity is compared with a quantity, a quantity per kg with a quantity per kg; the
+    /// dilution limit is the first of the component.
+    let pairConflicts (dilRule: DilutionRule) (dr: DoseRule) =
+        let count = dilRule |> doseCountRange
+        let rangeText = MinMax.toString "min. " "min. " "max. " "max. "
+
+        dr.ComponentLimits
+        |> Array.toList
+        |> List.choose (fun cl ->
+            match cl.Limit, dilRule |> componentLimit cl.Name with
+            | Some doseLimit, Some dilutionLimit -> Some(cl.Name, doseLimit, dilutionLimit)
+            | _ -> None
+        )
+        |> List.collect (fun (name, doseLimit, dilutionLimit) ->
+            [
+                name, "quantity", doseLimit.Quantity, dilutionLimit.Quantity
+                name, "quantity per kg", doseLimit.QuantityAdjust, dilutionLimit.QuantityAdj
+            ]
+        )
+        |> List.filter (fun (_, _, dose, prep) -> noDoseCountMeets count dose prep)
+        |> List.map (fun (name, kind, dose, prep) ->
+            $"%s{dilRule |> label} and %s{dr |> DoseRule.label}, component %s{name}: "
+            + $"the dose %s{kind} %s{dose |> rangeText} and the %s{kind} in the preparation "
+            + $"%s{prep |> rangeText} meet for no dose count"
+        )
+
+
+    /// One warning per dose rule and dilution rule that apply to each other and can meet the same
+    /// patient, and a component they both limit, whose dose range and range in the preparation no order
+    /// can meet for any dose count of the dilution rule.
+    let conflictingLimits routeMapping (doseRules: DoseRule[]) (rules: DilutionRule[]) =
+        rules
+        |> Array.toList
+        |> List.collect (fun dilRule ->
+            doseRules
+            |> Array.toList
+            |> List.filter (fun dr -> dilRule |> canMeetDoseRule routeMapping dr)
+            |> List.collect (pairConflicts dilRule)
+        )
+        |> List.distinct
+        |> List.map Warning
 
 
     /// One warning per dose rule without limits that a dilution rule applies to, while no dilution

@@ -10774,6 +10774,284 @@ module Tests =
                 ]
 
 
+    /// A dose rule and a dilution rule whose ranges for a component no order can meet.
+    module ConflictingLimitTests =
+
+        let mL = Units.Volume.milliLiter
+        let kg = Units.Weight.kiloGram
+        let mLPerKg = mL |> ValueUnit.per kg
+
+
+        /// A range in the unit, each bound optional and inclusive.
+        let optRange u min max =
+            RuleCheckTests.bounds
+                (min |> Option.map (ValueUnit.singleWithUnit u >> Limit.inclusive))
+                (max |> Option.map (ValueUnit.singleWithUnit u >> Limit.inclusive))
+
+
+        let fraction = RuleCheckTests.fraction
+
+
+        /// Samenstelling C, day 2, with a dose per kg for the component.
+        let doseRule doseMin doseMax =
+            { RuleCheckTests.ivDoseRule "Samenstelling C" (Solution "vloeistof") [||] with
+                Indication = "Standaard Totale Parenterale Voeding"
+                PatientCategory = PatientCategory.empty
+                DoseType = Timed "dag 2"
+                AdjustUnit = Some kg
+                ComponentLimits =
+                    [|
+                        {
+                            Name = "Samenstelling C"
+                            ProductIds = [||]
+                            Limit =
+                                { DoseLimit.limit with
+                                    DoseLimitTarget = ComponentLimitTarget "Samenstelling C"
+                                    DoseUnit = mL
+                                    AdjustUnit = Some kg
+                                    QuantityAdjust = optRange mLPerKg doseMin doseMax
+                                }
+                                |> Some
+                            Products = [||]
+                            SubstanceLimits = [||]
+                        }
+                    |]
+            }
+
+
+        /// The dilution rule of Samenstelling C, day 2, with a range per kg for the component and a
+        /// dose fraction.
+        let dilutionRule prepMin prepMax doseFraction =
+            { RuleCheckTests.dilutionRule "Samenstelling C" MinMax.empty with
+                Indication = Some "Standaard Totale Parenterale Voeding"
+                DoseType = Timed "dag 2"
+                DoseFraction = doseFraction
+                DilutionLimits =
+                    [|
+                        { DilutionLimit.limit with
+                            DilutionLimitTarget = ComponentLimitTarget "Samenstelling C"
+                            QuantityAdj = optRange mLPerKg prepMin prepMax
+                        }
+                    |]
+            }
+
+
+        let exactlyOne = fraction (Some 1N) (Some 1N)
+        let atMostOne = fraction None (Some 1N)
+
+
+        let times n = n |> ValueUnit.singleWithUnit Units.Count.times
+        let incl n = n |> times |> Limit.inclusive |> Some
+        let excl n = n |> times |> Limit.exclusive |> Some
+
+
+        /// The dose count range of a dilution rule with the dose fraction.
+        let countOf doseFraction =
+            { dilutionRule None None doseFraction with DilutionLimits = [||] }
+            |> DilutionRule.doseCountRange
+
+
+        let warnings dr dilRule =
+            [| dilRule |]
+            |> DilutionRule.conflictingLimits RuleCheckTests.ivRouteMapping [| dr |]
+
+
+        let tests =
+            testList
+                "a dose rule and a dilution rule that no order can meet"
+                [
+                    test "the production rule of Samenstelling C, day 2, cuts the range but gives no warning" {
+                        dilutionRule (Some 18N) (Some 22N) exactlyOne
+                        |> warnings (doseRule None (Some 20N))
+                        |> Expect.isEmpty "the ranges overlap"
+                    }
+
+                    test "a dose maximum below the preparation minimum warns with a dose count of 1" {
+                        dilutionRule (Some 18N) (Some 22N) exactlyOne
+                        |> warnings (doseRule None (Some 10N))
+                        |> Expect.hasLength "one warning" 1
+                    }
+
+                    test "a dose minimum above the preparation maximum warns with a dose count of 1" {
+                        dilutionRule (Some 18N) (Some 22N) exactlyOne
+                        |> warnings (doseRule (Some 25N) None)
+                        |> Expect.hasLength "one warning" 1
+                    }
+
+                    test "a partial dose meets a dose maximum below the preparation, so no warning" {
+                        // 10 mL/kg in the preparation and at most 5 per dose: a dose count of 2 meets both
+                        dilutionRule (Some 10N) (Some 10N) atMostOne
+                        |> warnings (doseRule None (Some 5N))
+                        |> Expect.isEmpty "a dose count of 2"
+                    }
+
+                    test "a dose minimum above the preparation maximum warns also with a partial dose" {
+                        dilutionRule (Some 18N) (Some 22N) atMostOne
+                        |> warnings (doseRule (Some 25N) None)
+                        |> Expect.hasLength "the dose is never more than the preparation" 1
+                    }
+
+                    test "a dose count of 1 to 2 warns when half the preparation minimum is above the dose maximum" {
+                        let oneOrTwo = fraction (Some(1N / 2N)) (Some 1N)
+
+                        dilutionRule (Some 18N) (Some 22N) oneOrTwo
+                        |> warnings (doseRule None (Some 5N))
+                        |> Expect.hasLength "18 / 2 is above 5" 1
+
+                        dilutionRule (Some 18N) (Some 22N) oneOrTwo
+                        |> warnings (doseRule None (Some 10N))
+                        |> Expect.isEmpty "18 / 2 is below 10"
+                    }
+
+                    test "without a dose fraction the dose count is 1" {
+                        dilutionRule (Some 18N) (Some 22N) MinMax.empty
+                        |> warnings (doseRule None (Some 10N))
+                        |> Expect.hasLength "one warning" 1
+                    }
+
+                    test "a quantity is not compared with a quantity per kg" {
+                        let dr = doseRule None None
+
+                        let absolute =
+                            { dr with
+                                ComponentLimits =
+                                    dr.ComponentLimits
+                                    |> Array.map (fun cl ->
+                                        { cl with
+                                            Limit =
+                                                cl.Limit
+                                                |> Option.map (fun l ->
+                                                    { l with Quantity = optRange mL None (Some 1N) }
+                                                )
+                                        }
+                                    )
+                            }
+
+                        dilutionRule (Some 18N) (Some 22N) exactlyOne
+                        |> warnings absolute
+                        |> Expect.isEmpty "no comparison"
+                    }
+
+                    test "a dilution rule of another generic is not compared" {
+                        { dilutionRule (Some 18N) (Some 22N) exactlyOne with Generic = "Samenstelling D" }
+                        |> warnings (doseRule None (Some 10N))
+                        |> Expect.isEmpty "does not apply"
+                    }
+
+                    test "the warning names both ranges with min. and max." {
+                        let ws =
+                            dilutionRule (Some 18N) (Some 22N) exactlyOne
+                            |> warnings (doseRule None (Some 10N))
+
+                        match ws with
+                        | [ Warning text ] ->
+                            text
+                            |> Expect.stringContains "the dose range" "the dose quantity per kg max. 10"
+
+                            text
+                            |> Expect.stringContains "the preparation range" "in the preparation 18 - 22"
+
+                            text |> Expect.stringEnds "one clause" "meet for no dose count"
+                        | ws -> failtest $"expected one warning, got %A{ws}"
+                    }
+
+                    testList
+                        "doseCountRange"
+                        [
+                            test "0.5 to 0.5, half the preparation, is a dose count of exactly 2" {
+                                RuleCheckTests.bounds (incl (1N / 2N)) (incl (1N / 2N))
+                                |> countOf
+                                |> Expect.equal "exactly 2" (RuleCheckTests.bounds (incl 2N) (incl 2N))
+                            }
+
+                            test "2 to 2, twice the preparation, is a dose count of exactly 1/2" {
+                                RuleCheckTests.bounds (incl 2N) (incl 2N)
+                                |> countOf
+                                |> Expect.equal "exactly 1/2" (RuleCheckTests.bounds (incl (1N / 2N)) (incl (1N / 2N)))
+                            }
+
+                            test "1 to 1 is a dose count of exactly 1" {
+                                RuleCheckTests.bounds (incl 1N) (incl 1N)
+                                |> countOf
+                                |> Expect.equal "exactly 1" (RuleCheckTests.bounds (incl 1N) (incl 1N))
+                            }
+
+                            test "an empty minimum and a maximum of 1 is a dose count of at least 1 without a maximum" {
+                                RuleCheckTests.bounds None (incl 1N)
+                                |> countOf
+                                |> Expect.equal "at least 1" (RuleCheckTests.bounds (incl 1N) None)
+                            }
+
+                            test "0.25 to 0.5 is a dose count of 2 to 4" {
+                                RuleCheckTests.bounds (incl (1N / 4N)) (incl (1N / 2N))
+                                |> countOf
+                                |> Expect.equal "2 to 4" (RuleCheckTests.bounds (incl 2N) (incl 4N))
+                            }
+
+                            test "an exclusive limit stays exclusive on the other side" {
+                                RuleCheckTests.bounds (excl (1N / 4N)) (incl (1N / 2N))
+                                |> countOf
+                                |> Expect.equal "2 to below 4" (RuleCheckTests.bounds (incl 2N) (excl 4N))
+                            }
+
+                            test "empty columns are an empty dose count" {
+                                MinMax.empty |> countOf |> Expect.equal "empty" MinMax.empty
+                            }
+
+                            test "a minimum of 0.5 and an empty maximum is a dose count of 1 to 2" {
+                                RuleCheckTests.bounds (incl (1N / 2N)) None
+                                |> countOf
+                                |> Expect.equal "1 to 2" (RuleCheckTests.bounds (incl 1N) (incl 2N))
+                            }
+
+                            test "an empty minimum and a maximum of 0.5 is a dose count of at least 2" {
+                                RuleCheckTests.bounds None (incl (1N / 2N))
+                                |> countOf
+                                |> Expect.equal "at least 2" (RuleCheckTests.bounds (incl 2N) None)
+                            }
+
+                            test "a minimum of 0 gives no maximum" {
+                                RuleCheckTests.bounds (incl 0N) (incl 1N)
+                                |> countOf
+                                |> Expect.equal "at least 1" (RuleCheckTests.bounds (incl 1N) None)
+                            }
+
+                            test "a maximum of 0 counts as empty, so the dose count is at least 1" {
+                                RuleCheckTests.bounds (incl (1N / 2N)) (incl 0N)
+                                |> countOf
+                                |> Expect.equal "1 to 2" (RuleCheckTests.bounds (incl 1N) (incl 2N))
+                            }
+
+                            test "both 0 are an empty dose count" {
+                                RuleCheckTests.bounds (incl 0N) (incl 0N)
+                                |> countOf
+                                |> Expect.equal "empty" MinMax.empty
+                            }
+
+                            test "a minimum of 2 and an empty maximum is a dose count of at most 1/2 without a minimum" {
+                                RuleCheckTests.bounds (incl 2N) None
+                                |> countOf
+                                |> Expect.equal "at most 1/2" (RuleCheckTests.bounds None (incl (1N / 2N)))
+                            }
+
+                            test "a minimum of 1 and an empty maximum is a dose count of exactly 1" {
+                                RuleCheckTests.bounds (incl 1N) None
+                                |> countOf
+                                |> Expect.equal "exactly 1" (RuleCheckTests.bounds (incl 1N) (incl 1N))
+                            }
+
+                            // the minimum comes from the default of 1 and the maximum from 1 / 0.5
+                            test "both limits of the dose count have the unit times" {
+                                let count = RuleCheckTests.bounds (incl (1N / 2N)) None |> countOf
+                                let unitOf = Option.map (Limit.getValueUnit >> ValueUnit.getUnit)
+
+                                (count.Min |> unitOf, count.Max |> unitOf)
+                                |> Expect.equal "times" (Some Units.Count.times, Some Units.Count.times)
+                            }
+                        ]
+                ]
+
+
     [<Tests>]
     let tests =
         testList
@@ -10814,4 +11092,5 @@ module Tests =
                 LinkRuleTests.tests
                 LimitingDilutionRuleTests.tests
                 LoadWithoutLimitsTests.tests
+                ConflictingLimitTests.tests
             ]
