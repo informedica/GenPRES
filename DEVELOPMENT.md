@@ -83,6 +83,7 @@ support but excluded from the solution build, so `dotnet build GenPRES.sln` neve
 | `dotnet run ServerTests` | Run all Expecto tests with quiet logging |
 | `dotnet run DebugTests` | Run every test project one at a time with per-test output and no parallelism; stops at the first failing assembly. Set `CI=true` without the G-Standaard files under `data/zindex` |
 | `dotnet run TestHeadless` | Run the suite through plain `dotnet test` |
+| `dotnet run Coverage` | Run the suite with the Code Coverage collector and print line and branch coverage per GenPRES assembly, plus the projects no test loads; writes `coverage/summary.md` and the cobertura report. A failing test ends it without a table. |
 | `dotnet run CheckVersions` | Verify every built DLL's version matches the root `Directory.Build.props` |
 | `dotnet run Localization` | Check `data/localization/localization.tsv` against the `Terms` union (every case has a row, every locale a column, every cell filled), then print its rows to paste over the Localization sheet |
 | `dotnet run Format` | Format all F# source with Fantomas |
@@ -104,6 +105,7 @@ Build ──► Run
 RestoreClient ──► Run
 
 Build ──► TestHeadless
+Build ──► Coverage
 Build ──► ServerTests
 Build ──► CheckVersions
 ```
