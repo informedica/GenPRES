@@ -123,6 +123,8 @@ let tests =
                     test "a text with a null array is read, not thrown" {
                         let text =
                             Scenarios.amoxClavText
+                            // a checkout with CRLF line endings holds \r\n in the text
+                            |> String.replace "\r\n" "\n"
                             |> String.replace "Adjust:\n  Value:\n    - \"14.5\"" "Adjust:\n  Value: null"
 
                         text
