@@ -691,15 +691,15 @@ module DoseRule =
     /// <c>mapToComponentLimits</c>, which already filters with <c>hasNoLimits</c>);</para>
     /// <para>- component limits left with no component limit AND no substance limits;</para>
     /// <para>- dose rules left with no component limits.</para>
-    /// <para>A dose rule without any limit for which <c>keepWithoutLimits</c> holds is kept as it is,
+    /// <para>A dose rule without any limit for which <c>hasLimitingDilutionRule</c> holds is kept as it is,
     /// with its components, since an order makes its components from them: its limits are in a
     /// dilution rule.</para>
     /// </remarks>
-    let removeEmptyLimits keepWithoutLimits (drs: DoseRule[]) =
+    let removeEmptyLimits hasLimitingDilutionRule (drs: DoseRule[]) =
         drs
         |> Array.map (fun dr ->
             // a kept rule stays as it is, in its place, so the rules keep the order of the sheet
-            if dr |> hasNoLimits && dr |> keepWithoutLimits then
+            if dr |> hasNoLimits && dr |> hasLimitingDilutionRule then
                 dr
             else
                 { dr with

@@ -28,9 +28,11 @@ module Types =
     /// </summary>
     type OrderVariable =
         {
-            /// The Constraints to apply to the Variable
+            /// The constraints the order builder writes from the rules and the products. No step changes
+            /// them. Only a patient data update does: the order then takes the defined constraints of
+            /// the order built again from the current rule, and the new adjust value.
             DefinedConstraints: Constraints
-            /// The Calculated constraints
+            /// The constraints calculated from the defined constraints by solving the order.
             CalculatedConstraints: Constraints
             /// Stores the values/range
             Variable: Variable

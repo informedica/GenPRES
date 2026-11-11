@@ -92,24 +92,6 @@ module ValueUnit =
     let oneCount = Units.Count.times |> one
 
 
-    /// <summary>
-    /// Get a standard frequency ValueUnit
-    /// </summary>
-    /// <param name="u">The full unit of the frequency</param>
-    let toStandardFrequency u =
-        match u |> getUnits with
-        | [ _; tu ] ->
-            match tu with
-            | _ when tu |> Units.eqsUnit Units.Time.day -> [| 1N .. 24N |] |> Some
-            | _ when tu |> Units.eqsUnit Units.Time.week -> [| 1N .. 7N |] |> Some
-            | _ when tu |> Units.eqsUnit Units.Time.month -> [| 1N .. 4N |] |> Some
-            | _ when tu |> Units.eqsUnit Units.Time.year -> [| 1N .. 12N |] |> Some
-            | _ -> None
-            |> Option.map (withUnit u)
-
-        | _ -> None
-
-
     module Units =
 
         let noUnit = NoUnit
@@ -1847,9 +1829,6 @@ module OrderVariable =
         /// Check whether a Frequency is non-zero positive
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
-        /// Set the Constraints of a Frequency
-        let setConstraints cs = apply (setConstraints cs)
-
         /// Set the Values of the Variable of a Frequency
         /// to the minimum value
         let setMinValue = apply setMinValue
@@ -1870,25 +1849,6 @@ module OrderVariable =
         /// Set the Values (or use the increment)
         /// to the nth value (if not > max)
         let setPercValue nth = apply (setPercValue nth)
-
-
-        /// Set standard frequency values based on the time unit (e.g., per day/week)
-        let setStandardValues frq =
-            let oldCs = frq |> toOrdVar |> getConstraints
-
-            let newCs =
-                oldCs
-                |> Constraints.getUnit
-                |> Option.bind (fun u ->
-                    u
-                    |> ValueUnit.toStandardFrequency
-                    |> Option.map Variable.ValueRange.ValueSet.create
-                )
-                |> function
-                    | Some vu -> vu |> Some |> Constraints.create None None None
-                    | None -> oldCs
-
-            frq |> setConstraints newCs |> applyConstraints |> setConstraints oldCs
 
 
         /// Check whether a Frequency is solved
@@ -2341,10 +2301,6 @@ module OrderVariable =
 
         /// Set the Variable of a Rate to its defined constraints
         let applyDefinedConstraints = toOrdVar >> applyDefinedConstraints >> Rate
-
-
-        /// Set constraints for a Rate
-        let setConstraints cons = toOrdVar >> setConstraints cons >> Rate
 
 
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive

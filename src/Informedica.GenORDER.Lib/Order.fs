@@ -295,35 +295,9 @@ module Order =
                 && dos.PerTimeAdjust |> PerTimeAdjust.isWithinConstraints useCalc
 
 
-            /// <summary>
-            /// Set the rate constraints for a Dose
-            /// </summary>
-            /// <param name="cons">The constraints</param>
-            /// <param name="dos">The Dose</param>
-            /// <returns>The Dose with the rate constraints set</returns>
-            let setRateConstraints cons dos =
-                { (dos |> inf) with Rate = dos.Rate |> Rate.setConstraints cons }
-
-
             let isRateWithinConstraints useCalc dos =
                 (dos |> inf).Rate |> Rate.isWithinConstraints useCalc
                 && dos.RateAdjust |> RateAdjust.isWithinConstraints useCalc
-
-
-            /// <summary>
-            /// Set standard rate constraints for a Dose
-            /// </summary>
-            /// <param name="dos">The Dose</param>
-            /// <returns>The Dose with the standard rate constraints set</returns>
-            let setStandardRateConstraints dos =
-                let rates =
-                    [| 1N / 10N .. 1N / 10N .. 1_000N |]
-                    |> ValueUnit.withUnit (Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour)
-                    |> Variable.ValueRange.ValueSet.create
-                    |> Some
-                    |> OrderVariable.Constraints.create None None None
-
-                dos |> setRateConstraints rates
 
 
             /// <summary>
