@@ -84,8 +84,16 @@ module PatientText =
         | UnknownGender -> "Onbekend geslacht"
 
 
+    /// A weight in grams as kilograms.
+    let kilograms (g: int<gram>) = float g / 1000.
+
+
     /// A weight in kg, as the patient line shows it.
-    let weightText (g: int<gram>) = $"%s{float g / 1000. |> Math.fixPrecision 3 |> string} kg"
+    let weightText g = $"%s{g |> kilograms |> Math.fixPrecision 3 |> string} kg"
+
+
+    /// A height in cm, as the patient line shows it.
+    let heightText (h: int<cm>) = $"%s{float h |> Math.fixPrecision 3 |> string} cm"
 
 
     /// An access device as the patient panel labels it, with the translated word for a tube.
@@ -96,15 +104,37 @@ module PatientText =
         | EnteralTube -> tube
 
 
+    /// The estimated weight or height as the summary shows it. Without a measured value: the word for an
+    /// estimate, the estimate and, when both are known, the P3 - P97 range. Otherwise the word for an
+    /// estimate followed by the range, or by the estimate when the range is not known.
+    let estimateText estimatedWord toNumber unit measured estimated p3 p97 =
+        let number v = v |> toNumber |> Math.fixPrecision 3 |> string
+
+        let range =
+            match p3, p97 with
+            | Some p3, Some p97 -> Some $"(%s{number p3} - %s{number p97} %s{unit})"
+            | _ -> None
+
+        match measured, estimated with
+        | None, Some est ->
+            [ Some $"%s{estimatedWord} %s{number est} %s{unit}"; range ]
+            |> List.choose id
+            |> String.concat " "
+            |> Some
+        | _ ->
+            range
+            |> Option.orElse (estimated |> Option.map (fun est -> $"(%s{number est} %s{unit})"))
+            |> Option.map (fun s -> $"%s{estimatedWord}: %s{s}")
+
+
     let toString terms lang markDown (pat: Patient) =
         let getTerm = LocalizationText.getTerm terms lang
-
-        let toStr s n =
-            n |> Option.map (Math.fixPrecision 3 >> string >> (fun s' -> $"{s}{s'}"))
 
         let bold s = s |> Option.map (fun s -> if markDown then $"**{s}**" else s)
 
         let italic s = s |> Option.map (fun s -> if markDown then $"*{s}*" else s)
+
+        let estimatedWord = Terms.``Patient Estimated`` |> getTerm |> Option.defaultValue "estimated"
 
         [
             pat |> genderWord |> Some |> bold
@@ -121,39 +151,29 @@ module PatientText =
             pat.Weight.Measured |> Option.map weightText |> bold
 
 
-            match pat.Weight.EstimatedP3, pat.Weight.EstimatedP97 with
-            | Some p3, Some p97 ->
-                let capt = $"{Terms.``Patient Estimated`` |> getTerm}: "
-                let p3 = float p3 / 1000. |> Math.fixPrecision 3
-                let p97 = float p97 / 1000. |> Math.fixPrecision 3
-                $"{capt}({p3} - {p97} kg)" |> Some
-            | _ ->
+            estimateText
+                estimatedWord
+                kilograms
+                "kg"
+                pat.Weight.Measured
                 pat.Weight.Estimated
-                |> Option.map (fun x -> float x / 1000.)
-                |> toStr $"{Terms.``Patient Estimated`` |> getTerm}: "
-                |> Option.map (fun s -> $"({s} kg)")
+                pat.Weight.EstimatedP3
+                pat.Weight.EstimatedP97
 
 
             Some $"{Terms.``Patient Length`` |> getTerm}:" |> italic
 
-            pat.Height.Measured
-            |> Option.map float
-            |> toStr ""
-            |> Option.map (fun s -> $"{s} cm")
-            |> bold
+            pat.Height.Measured |> Option.map heightText |> bold
 
 
-            match pat.Height.EstimatedP3, pat.Height.EstimatedP97 with
-            | Some p3, Some p97 ->
-                let capt = $"{Terms.``Patient Estimated`` |> getTerm}: "
-                let p3 = float p3 |> Math.fixPrecision 3
-                let p97 = float p97 |> Math.fixPrecision 3
-                $"{capt}({p3} - {p97} cm)" |> Some
-            | _ ->
+            estimateText
+                estimatedWord
+                float
+                "cm"
+                pat.Height.Measured
                 pat.Height.Estimated
-                |> Option.map float
-                |> toStr $"{Terms.``Patient Estimated`` |> getTerm}: "
-                |> Option.map (fun s -> $"({s} cm)")
+                pat.Height.EstimatedP3
+                pat.Height.EstimatedP97
 
 
             (Some "BSA:") |> italic
