@@ -1543,6 +1543,8 @@ module Models =
         let seedFilter source ind gen rte frm dt (ctx: OrderContext) =
             let f = ctx.Filter
             let same = gen = f.Generic && rte = f.Route && frm = f.Form
+            // the seed names the picks the filter holds, so the same dose rule
+            let samePicks = same && ind = f.Indication && dt = f.DoseType
 
             let write keep (ctx: OrderContext) =
                 let filter =
@@ -1553,15 +1555,11 @@ module Models =
                         Form = frm
                         DoseType = dt
                         Diluent = if keep then ctx.Filter.Diluent else None
-                        PickedProducts =
-                            if same && ind = f.Indication && dt = f.DoseType then
-                                f.PickedProducts
-                            else
-                                [||]
+                        PickedProducts = if samePicks then f.PickedProducts else [||]
                     }
 
-                // picks that are not kept can name another dose rule, which has other components
-                { ctx with Filter = if keep then filter else filter |> withoutComponents }
+                // another pick can name another dose rule, which has other components, whatever the seed keeps
+                { ctx with Filter = if samePicks then filter else filter |> withoutComponents }
 
             match source with
             | SeedSource.Formulary -> { (ctx |> write (same && ind = f.Indication)) with Scenarios = [||] }

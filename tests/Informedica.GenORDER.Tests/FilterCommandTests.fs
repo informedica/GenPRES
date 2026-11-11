@@ -222,4 +222,21 @@ let doseRuleComponentsTests =
                 |> components
                 |> Expect.equal "kept" (components f)
             }
+
+            // each source keeps its own picks, but another pick is another dose rule
+            let f = first.Filter
+
+            for source, ind, gen, dt in
+                [
+                    SeedSource.Formulary, f.Indication, f.Generic, Some day3
+                    SeedSource.Parenteralia, Some "another", f.Generic, f.DoseType
+                    SeedSource.Url, f.Indication, Some "Intralipid 20%", f.DoseType
+                ] do
+                test $"a %A{source} seed with another pick lets go of them" {
+                    first
+                    |> OrderContext.seedFilter source ind gen f.Route f.Form dt
+                    |> _.Filter
+                    |> components
+                    |> Expect.equal "emptied" none
+                }
         ]

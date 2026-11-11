@@ -1206,6 +1206,8 @@ module OrderContext =
     let seedFilter source ind gen rte frm dt (ctx: OrderContext) =
         let f = ctx.Filter
         let same = gen = f.Generic && rte = f.Route && frm = f.Form
+        // the seed names the picks the filter holds, so the same dose rule
+        let samePicks = same && ind = f.Indication && dt = f.DoseType
 
         let write keep (ctx: OrderContext) =
             let written =
@@ -1216,15 +1218,11 @@ module OrderContext =
                     OrderContext.Filter.Form = frm
                     OrderContext.Filter.DoseType = dt
                     OrderContext.Filter.Diluent = if keep then ctx.Filter.Diluent else None
-                    OrderContext.Filter.PickedProducts =
-                        if same && ind = f.Indication && dt = f.DoseType then
-                            f.PickedProducts
-                        else
-                            [||]
+                    OrderContext.Filter.PickedProducts = if samePicks then f.PickedProducts else [||]
                 }
 
-            // picks that are not kept can name another dose rule, which has other components
-            if keep then
+            // another pick can name another dose rule, which has other components, whatever the seed keeps
+            if samePicks then
                 written
             else
                 { written with Filter = written.Filter |> clearField FilterField.Components }

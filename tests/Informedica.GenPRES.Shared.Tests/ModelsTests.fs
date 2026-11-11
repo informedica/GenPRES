@@ -433,4 +433,28 @@ let doseRuleComponentsTests =
                 |> components
                 |> Expect.equal "emptied" none
             }
+
+            test "a seed of the same medication with another dose type lets go of them" {
+                let f = first.Filter
+
+                first
+                |> OrderContext.seedFilter
+                    SeedSource.Formulary
+                    f.Indication
+                    f.Generic
+                    f.Route
+                    f.Form
+                    (Some(DoseType.Once "dag 3"))
+                |> components
+                |> Expect.equal "emptied" none
+            }
+
+            test "a seed of the same picks keeps them" {
+                let f = first.Filter
+
+                first
+                |> OrderContext.seedFilter SeedSource.Url f.Indication f.Generic f.Route f.Form f.DoseType
+                |> components
+                |> Expect.equal "kept" (components first)
+            }
         ]
