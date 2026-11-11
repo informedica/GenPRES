@@ -268,20 +268,12 @@ module PrescriptionRule =
             |> Array.filter (fun cl -> optional |> Array.contains cl.Name |> not || selected |> List.contains cl.Name)
 
 
-    /// The names of the components of the dose rule that have no limit and no substance limits.
+    /// The names of the components of the dose rule without a limit or a substance limit that holds a
+    /// value.
     let componentNamesWithoutLimits (dr: DoseRule) =
         dr.ComponentLimits
-        |> Array.filter (fun cl -> cl.Limit |> Option.isNone && cl.SubstanceLimits |> Array.isEmpty)
+        |> Array.filter DoseRule.componentHasNoLimits
         |> Array.map _.Name
-
-
-    /// Whether the dose count of the dilution rule is at least 1, so that the dose is at most the
-    /// preparation: a dose fraction, when the rule gives one, of at most 1. Without a dose fraction
-    /// the order builder sets the dose count to 1.
-    let hasDoseCountOfAtLeastOne (dilRule: DilutionRule) =
-        [ dilRule.DoseFraction.Min; dilRule.DoseFraction.Max ]
-        |> List.choose id
-        |> List.forall (Limit.getValueUnit >> ValueUnit.getValue >> Array.forall (fun v -> v <= 1N))
 
 
     /// Whether the dilution rule, adjusted to the patient, limits the component: a dilution limit of
@@ -289,12 +281,8 @@ module PrescriptionRule =
     /// quantity only when the patient has a weight. A minimum alone leaves the component unbounded.
     /// Only the first dilution limit of the component counts, since that is the one the order takes.
     let limitsComponent (dilRule: DilutionRule) name =
-        dilRule.DilutionLimits
-        |> Array.tryFind (fun dl ->
-            match dl.DilutionLimitTarget with
-            | ComponentLimitTarget c -> c |> String.equalsCapInsens name
-            | _ -> false
-        )
+        dilRule
+        |> DilutionRule.componentLimit name
         |> Option.exists (fun dl -> dl.Quantity.Max |> Option.isSome || dl.Quantities |> Option.isSome)
 
 
@@ -309,7 +297,7 @@ module PrescriptionRule =
             let limiting =
                 pr.DilutionRules
                 |> Array.filter (fun dilRule ->
-                    dilRule |> hasDoseCountOfAtLeastOne
+                    dilRule |> DilutionRule.hasDoseCountOfAtLeastOne
                     && names |> Array.forall (limitsComponent dilRule)
                 )
 

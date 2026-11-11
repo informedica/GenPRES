@@ -432,7 +432,12 @@ module Export =
     /// <param name="data">The dose rule data rows to rebuild into dose rules.</param>
     /// <returns>The forward-built dose rules (loader warnings discarded).</returns>
     let forward (provider: Resources.IResourceProvider) data =
-        DoseRuleLoader.fromData (provider.GetRouteMappings()) (provider.GetFormRoutes()) (provider.GetProducts()) data
+        DoseRuleLoader.fromData
+            (provider.GetRouteMappings())
+            (provider.GetFormRoutes())
+            (provider.GetProducts())
+            (provider.GetDilutionRules())
+            data
         |> fst
 
     /// <summary>

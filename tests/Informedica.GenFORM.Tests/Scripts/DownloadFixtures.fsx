@@ -148,7 +148,7 @@ printfn $"products round-trip count = %d{prodsBack.Length} (orig %d{subsetProds.
 // fr = [||] — see note above.
 // ---------------------------------------------------------------------------
 let forward (data: DoseRuleData[]) =
-    DoseRuleLoader.fromData rm [||] subsetProds data |> fst
+    DoseRuleLoader.fromData rm [||] subsetProds [||] data |> fst
 
 let pass1Rules = subsetData |> forward
 let pass1Gen = pass1Rules |> Array.collect DoseRule.toData

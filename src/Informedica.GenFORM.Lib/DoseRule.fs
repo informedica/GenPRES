@@ -669,6 +669,16 @@ module DoseRule =
         |> Array.map (fun (unitGroup, dr) -> { dr with Id = dr |> setDoseRuleHashId unitGroup })
 
 
+    /// Whether the component limit has no limit and no substance limit with a value.
+    let componentHasNoLimits (cl: ComponentLimit) =
+        cl.Limit |> Option.forall DoseLimit.hasNoLimits
+        && cl.SubstanceLimits |> Array.forall DoseLimit.hasNoLimits
+
+
+    /// Whether no component of the dose rule has a limit.
+    let hasNoLimits (dr: DoseRule) = dr.ComponentLimits |> Array.forall componentHasNoLimits
+
+
     /// <summary>
     /// Drop empty (meaningless) limits and dose rules from the forward output.
     /// </summary>
@@ -681,27 +691,34 @@ module DoseRule =
     /// <c>mapToComponentLimits</c>, which already filters with <c>hasNoLimits</c>);</para>
     /// <para>- component limits left with no component limit AND no substance limits;</para>
     /// <para>- dose rules left with no component limits.</para>
+    /// <para>A dose rule without any limit for which <c>keepWithoutLimits</c> holds is kept as it is,
+    /// with its components, since an order makes its components from them: its limits are in a
+    /// dilution rule.</para>
     /// </remarks>
-    let removeEmptyLimits (drs: DoseRule[]) =
+    let removeEmptyLimits keepWithoutLimits (drs: DoseRule[]) =
         drs
         |> Array.map (fun dr ->
-            { dr with
-                ComponentLimits =
-                    dr.ComponentLimits
-                    |> Array.choose (fun cl ->
-                        let substLims = cl.SubstanceLimits |> Array.filter (DoseLimit.hasNoLimits >> not)
-                        let cmpLim = cl.Limit |> Option.filter (DoseLimit.hasNoLimits >> not)
+            // a kept rule stays as it is, in its place, so the rules keep the order of the sheet
+            if dr |> hasNoLimits && dr |> keepWithoutLimits then
+                dr
+            else
+                { dr with
+                    ComponentLimits =
+                        dr.ComponentLimits
+                        |> Array.choose (fun cl ->
+                            let substLims = cl.SubstanceLimits |> Array.filter (DoseLimit.hasNoLimits >> not)
+                            let cmpLim = cl.Limit |> Option.filter (DoseLimit.hasNoLimits >> not)
 
-                        if substLims |> Array.isEmpty && cmpLim |> Option.isNone then
-                            None
-                        else
-                            Some
-                                { cl with
-                                    Limit = cmpLim
-                                    SubstanceLimits = substLims
-                                }
-                    )
-            }
+                            if substLims |> Array.isEmpty && cmpLim |> Option.isNone then
+                                None
+                            else
+                                Some
+                                    { cl with
+                                        Limit = cmpLim
+                                        SubstanceLimits = substLims
+                                    }
+                        )
+                }
         )
         |> Array.filter (_.ComponentLimits >> Array.isEmpty >> not)
 

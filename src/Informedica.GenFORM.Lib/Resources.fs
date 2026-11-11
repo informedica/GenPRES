@@ -486,6 +486,7 @@ module Resources =
                             (r.Get Keys.routeMappings)
                             (r.Get Keys.formRoutes)
                             (r.Get Keys.products)
+                            (r.Get Keys.dilutionRules)
                             (r.Get Keys.doseRuleData)
 
                     let drs, renalMsgs =
