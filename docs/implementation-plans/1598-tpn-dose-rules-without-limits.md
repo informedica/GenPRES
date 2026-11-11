@@ -152,16 +152,20 @@ Decisions of 2026-11-11, halcwb:
    limit on every component.
 4. A dropped dose rule gets a warning only when a dilution rule applies to it. The other dropped
    rules, 262 today, stay without a warning.
-5. The conflict warning is given only when the dose rule range and the dilution rule range of the
-   same component do not overlap, so that no order can meet both. A dose rule limit that only
+5. The conflict warning is given only when no order can meet both the dose rule range and the
+   dilution rule range of the same component. A dose rule limit that only
    narrows the dilution rule range, as in Samenstelling B to E today, gets no warning.
 6. A dilution limit of a component limits that component when it has a quantity, a quantity per kg
    or a list of quantities.
 7. A dilution limit per kg limits nothing for a patient without a weight. For such a patient a dose
    rule with components without a limit is dropped, unless another dilution limit of the same
    dilution rule limits them.
-8. The conflict warning compares a dose rule with a dilution rule only when the dose count of the
-   dilution rule can be 1, since only then the dose is the whole preparation.
+8. The dose is the preparation divided by the dose count, so the conflict warning compares the
+   ranges over the whole dose count range of the dilution rule: no order can meet both when the
+   dose rule minimum is above the dilution rule maximum divided by the dose count minimum, or the
+   dose rule maximum is below the dilution rule minimum divided by the dose count maximum. Without a
+   dose count maximum the second never holds. With `MaxPerc` 1 and no `MinPerc` a preparation of
+   10 mL and a dose maximum of 5 mL give no warning, since a dose count of 2 meets both.
 9. Every step checks that it drops no dose rule and dilution rule combination that works today.
 10. The check of step 1 runs after the dilution rules are adjusted to the patient
     (`PrescriptionRule.fs:378`), on the quantity and the list of quantities: a quantity per kg is
@@ -172,7 +176,11 @@ Decisions of 2026-11-11, halcwb:
     keeps the rules), `DoseRuleLoader.get` and `getFromGetData`, and the script
     `NLP.Lib/Scripts/DoseRuleExtract.fsx`. The tests pass an empty array, which is the behaviour of
     today for their fixtures.
-12. A kept dose rule without limits also reaches the consumers that do not go through
+12. `DoseRuleLoader.fs` compiles after `DilutionRule.fs`, so that `fromData` can call
+    `DilutionRule.canMeetDoseRule`. `DoseRule.fs` compiles before `DilutionRule.fs` and
+    `DilutionRule.undilutableRules` calls `DoseRule.reconstitute`, so `DoseRule.removeEmptyLimits`
+    cannot call it. No file between them uses `DoseRuleLoader`.
+13. A kept dose rule without limits also reaches the consumers that do not go through
     `PrescriptionRule.filter`: the formulary (`Formulary.getDoseRules`), the MCP dose rule tools and
     `OrderContext.refusal`. The formulary and the MCP tools show the rule as it is, a schedule
     without a dose. `OrderContext.refusal` gets a check, so that its reason stays right.
@@ -193,11 +201,13 @@ Decisions of 2026-11-11, halcwb:
 
 ### Loading (GenFORM)
 
+- `DoseRuleLoader.fs` moves after `DilutionRule.fs` in the project file (decision 12).
 - `DoseRuleLoader.fromData` takes the dilution rules, and the resource `doseRules`
   (`Resources.fs:482`) passes `r.Get Keys.dilutionRules`. There is no cycle: `dilutionRules` does
   not depend on the dose rules. The other callers pass them as well (decision 11).
-- `DoseRule.removeEmptyLimits` keeps a dose rule without limits when a dilution rule that
-  `DilutionRule.canMeetDoseRule` matches limits every component of the dose rule. It then keeps the
+- `fromData` decides with `DilutionRule.canMeetDoseRule` which dose rules without limits
+  `DoseRule.removeEmptyLimits` keeps: those for which a dilution rule that matches limits every
+  component of the dose rule. It then keeps the
   components without a limit as well, since an order makes its components from them.
 - A dilution rule limits a component when it has a dilution limit with `ComponentLimitTarget` of
   that component name and a quantity, a quantity per kg or a list of quantities, and its dose count
@@ -233,11 +243,11 @@ Decisions of 2026-11-11, halcwb:
 ### The conflict warning (GenFORM)
 
 - A new check in the resource `ruleChecks` (`Resources.fs:542`): for each dilution rule and dose
-  rule that `canMeetDoseRule` matches, and each component both limit, a warning when the two ranges
-  do not overlap. A quantity per kg is compared with a quantity per kg, a quantity with a quantity,
-  in units of the same group.
-- Only a dilution rule whose dose count can be 1 is compared: `doseFractionToDoseCount` of its
-  `MinPerc` and `MaxPerc` gives no range, or a range that holds 1.
+  rule that `canMeetDoseRule` matches, and each component both limit, a warning when no dose count
+  in the range of the dilution rule lets an order meet both (decision 8). A quantity per kg is
+  compared with a quantity per kg, a quantity with a quantity, in units of the same group.
+- The dose count range is `doseFractionToDoseCount` of `MinPerc` and `MaxPerc`, or exactly 1 when
+  the dilution rule has neither, as `withDoseCount` sets it.
 
 ## Open points
 
@@ -265,8 +275,8 @@ One pull request at a time, each merged before the next.
 3. **The refusal** (`fix(genorder)`): `OrderContext.refusal` leaves out a dose rule with components
    without a limit that no dilution rule of the patient limits. A wrong reason is shown between step
    2 and this step; no order is made either way.
-4. **The conflict warning** (`feat(genform)`): the check in `ruleChecks`, for a dilution rule
-   whose dose count can be 1.
+4. **The conflict warning** (`feat(genform)`): the check in `ruleChecks`, over the dose count range
+   of the dilution rule.
 5. **Plan 504** (`docs`): the DilutionRules sheet and its columns `MinQtyPerKg` and `MaxQtyPerKg`
    in place of the SolutionRules sheet and `MinQtyAdj` and `MaxQtyAdj`, `Medication.addDilutionRule`
    in place of `Medication.addSolution`, and the dose count, which the percentage step sets back to
